@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model HealthCheck {
+  id        Int      @id @default(autoincrement())
+  status    String   @default("ok")
+  createdAt DateTime @default(now())
+}
+
+model Customer {
+  id                    Int      @id @default(autoincrement())
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  date                  String   @db.VarChar(50)
+  customerName          String   @db.VarChar(255)
+  phoneNumber           String   @db.VarChar(100)
+  address               String   @db.VarChar(500)
+  facebook              String   @db.VarChar(255)
+  emailAddress          String   @db.VarChar(255)
+  businessName          String   @db.VarChar(255)
+  taxNumber             String   @db.VarChar(100)
+  businessAddress       String   @db.VarChar(500)
+  businessContactNumber String   @db.VarChar(100)
+  customerStatus        String   @db.VarChar(50)
+}
+
+model Price {
+  id              Int      @id @default(autoincrement())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now()) @updatedAt
+  productCode     String   @db.VarChar(100)
+  lowerLimit      Int
+  upperLimit      Int
+  currentPrice    Int
+  priceAdjustment Int      @default(0)
+  description     String?  @db.VarChar(500)
+  category        String?  @db.VarChar(100)
+  isActive        Boolean  @default(true)
+
+  @@map("prices")
+}

@@ -1,0 +1,204 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Mantine CSS imports */
+@import '@mantine/core/styles.css';
+@import '@mantine/notifications/styles.css';
+
+/* Modern Design System Variables */
+:root {
+  /* Light theme colors */
+  --background: #fafbfc;
+  --foreground: #1a202c;
+  --card-background: #ffffff;
+  --border-color: #e2e8f0;
+  --shadow-light:
+    0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --shadow-medium:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-large:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+
+  /* Brand colors */
+  --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  --accent-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+
+  /* Surface colors */
+  --surface-1: #ffffff;
+  --surface-2: #f7fafc;
+  --surface-3: #edf2f7;
+
+  /* Text colors */
+  --text-primary: #2d3748;
+  --text-secondary: #4a5568;
+  --text-muted: #718096;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0f1419;
+    --foreground: #e2e8f0;
+    --card-background: #1a202c;
+    --border-color: #2d3748;
+    --shadow-light: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+    --shadow-medium: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    --shadow-large: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+
+    --surface-1: #1a202c;
+    --surface-2: #2d3748;
+    --surface-3: #4a5568;
+
+    --text-primary: #f7fafc;
+    --text-secondary: #e2e8f0;
+    --text-muted: #a0aec0;
+  }
+}
+
+/* Modern base styles */
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  font-family:
+    'Inter',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    'Roboto',
+    sans-serif;
+  font-feature-settings:
+    'rlig' 1,
+    'calt' 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  line-height: 1.6;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+/* Modern scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface-2);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* Modern link styles */
+a {
+  color: inherit;
+  text-decoration: none;
+  transition: all 0.2s ease-in-out;
+}
+
+/* Smooth transitions for interactive elements */
+button,
+input,
+select,
+textarea {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Modern focus styles */
+:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+/* Custom utility classes */
+.gradient-text {
+  background: var(--primary-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.glass-effect {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.modern-card {
+  background: var(--card-background);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-light);
+  transition: all 0.3s ease;
+}
+
+.modern-card:hover {
+  box-shadow: var(--shadow-medium);
+  transform: translateY(-2px);
+}
+
+/* Animation keyframes */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.6s ease-out forwards;
+}
+
+/* Responsive design improvements */
+@media (max-width: 768px) {
+  .modern-card {
+    border-radius: 8px;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  html {
+    color-scheme: dark;
+  }
+
+  .glass-effect {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+}
