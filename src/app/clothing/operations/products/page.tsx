@@ -4,9 +4,9 @@ import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import dynamic from 'next/dynamic';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import { GridCellKind, GridColumn, Item } from '@glideapps/glide-data-grid';
-import { Stack, Text, Box, Button, Group, FileInput, Loader, TextInput, Card, SimpleGrid, ThemeIcon, Title } from '@mantine/core';
+import { Stack, Text, Box, Button, Group, FileInput, Loader, TextInput, Card, SimpleGrid, ThemeIcon, Title, Modal, Select, NumberInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconUpload, IconSearch, IconCurrencyDollar, IconFilter, IconTrendingUp, IconTrendingDown, IconPlus, IconUser, IconMail, IconMapPin, IconCheck, IconAdjustments } from '@tabler/icons-react';
+import { IconUpload, IconSearch, IconCurrencyDollar, IconFilter, IconTrendingUp, IconTrendingDown, IconPlus, IconUser, IconMail, IconMapPin, IconCheck, IconAdjustments, IconPackage, IconCalendar, IconCreditCard } from '@tabler/icons-react';
 
 // Import Glide Data Grid CSS
 import '@glideapps/glide-data-grid/dist/index.css';
@@ -109,6 +109,24 @@ export default function Products() {
   const [file, setFile] = useState<File | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [gridHeight, setGridHeight] = useState<number>(600);
+  const [addProductOpen, setAddProductOpen] = useState(false);
+  const [newProductForm, setNewProductForm] = useState(() => ({
+    shipmentCode: '',
+    postingDate: '',
+    orderDate: '',
+    payment: '',
+    product: '',
+    ageRange: '',
+    unit: '',
+    unitPrice: 0,
+    quantity: 0,
+    shippingFee1: 0,
+    exchangeRates: 1,
+    shippingFee2: 0,
+    shippingFee3: 0,
+    packaging: 0,
+    actualPrice: 0,
+  }));
 
   // Define columns with all the headers you specified
   const columns: GridColumn[] = [
@@ -182,8 +200,34 @@ export default function Products() {
     totalMarkup: 'Total Markup',
   }), []);
 
+  // Form update handler with useCallback to prevent re-renders
+  const updateFormField = useCallback((field: string, value: any) => {
+    setNewProductForm(prev => ({ ...prev, [field]: value }));
+  }, []);
+
+  // Reset form handler
+  const resetForm = useCallback(() => {
+    setNewProductForm({
+      shipmentCode: '',
+      postingDate: '',
+      orderDate: '',
+      payment: '',
+      product: '',
+      ageRange: '',
+      unit: '',
+      unitPrice: 0,
+      quantity: 0,
+      shippingFee1: 0,
+      exchangeRates: 1,
+      shippingFee2: 0,
+      shippingFee3: 0,
+      packaging: 0,
+      actualPrice: 0,
+    });
+  }, []);
+
   // Search functionality
-  const handleSearch = (query: string) => {
+  const handleSearch = useCallback((query: string) => {
     setSearchQuery(query);
     
     if (!query.trim()) {
@@ -202,10 +246,9 @@ export default function Products() {
       );
     });
 
+    
     setFilteredProducts(filtered);
-  };
-
-  // Stats calculations
+  }, [products]);  // Stats calculations
   const stats = useMemo(() => {
     const total = filteredProducts.length;
     const totalValue = filteredProducts.reduce((sum, product) => sum + (product['Grand Total'] || 0), 0);
@@ -577,7 +620,7 @@ export default function Products() {
             placeholder="Search products by code, name, shipment code..."
             leftSection={<IconSearch size={16} />}
             value={searchQuery}
-            onChange={(e) => handleSearch(e.target.value)}
+            onChange={(e) => handleSearch(e.currentTarget?.value || '')}
             style={{ flex: 1, minWidth: 300 }}
             size="md"
             radius="md"
@@ -604,11 +647,563 @@ export default function Products() {
             >
               Import CSV
             </Button>
-            <Button leftSection={<IconPlus size={16} />} variant="filled" color="green" size="md" radius="md">
+            <Button 
+              leftSection={<IconPlus size={16} />} 
+              variant="filled" 
+              color="green" 
+              size="md" 
+              radius="md"
+              onClick={() => setAddProductOpen(true)}
+            >
               Add Product
             </Button>
           </Group>
         </Group>
+
+        {/* Add Product Modal - Beautiful & Modern Design */}
+        <Modal 
+          opened={addProductOpen} 
+          onClose={() => setAddProductOpen(false)}
+          closeOnClickOutside={false}
+          closeOnEscape={false}
+          withCloseButton={true}
+          size="xl"
+          radius="lg"
+          shadow="xl"
+          centered
+          padding="xl"
+          styles={{
+            header: {
+              backgroundColor: 'var(--mantine-color-green-0)',
+              borderRadius: '12px 12px 0 0',
+              padding: '24px 32px 16px 32px',
+              borderBottom: '1px solid var(--mantine-color-gray-2)',
+            },
+            title: {
+              fontSize: '24px',
+              fontWeight: 600,
+              color: 'var(--mantine-color-green-8)',
+            },
+            body: {
+              padding: '32px',
+              backgroundColor: 'var(--mantine-color-gray-0)',
+            },
+            close: {
+              color: 'var(--mantine-color-green-6)',
+              '&:hover': {
+                backgroundColor: 'var(--mantine-color-green-1)',
+              },
+            },
+          }}
+          title={
+            <Group gap="sm">
+              <ThemeIcon size="lg" radius="md" variant="light" color="green">
+                <IconPackage size={20} />
+              </ThemeIcon>
+              <div>
+                <Text size="xl" fw={600} c="green.8">Add New Product</Text>
+                <Text size="sm" c="dimmed">Fill in the product information below</Text>
+              </div>
+            </Group>
+          }
+        >
+          <Stack gap="lg">
+            {/* Basic Product Information Section */}
+            <div>
+              <Group mb="md">
+                <ThemeIcon size="sm" radius="md" variant="light" color="green">
+                  <IconPackage size={14} />
+                </ThemeIcon>
+                <Text size="lg" fw={500} c="green.7">Basic Product Information</Text>
+              </Group>
+              
+              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+                <TextInput
+                  label="Shipment Code"
+                  placeholder="e.g. KPC 23930A-00173"
+                  withAsterisk
+                  size="md"
+                  radius="md"
+                  styles={{
+                    label: { fontWeight: 500, marginBottom: 8 },
+                    input: { 
+                      borderWidth: 2,
+                      '&:focus': { borderColor: 'var(--mantine-color-green-5)' }
+                    }
+                  }}
+                  value={newProductForm.shipmentCode}
+                  onChange={(e) => updateFormField('shipmentCode', e.currentTarget?.value || '')}
+                />
+                
+                <TextInput
+                  label="Product Name"
+                  placeholder="e.g. Premium T-Shirt"
+                  withAsterisk
+                  size="md"
+                  radius="md"
+                  styles={{
+                    label: { fontWeight: 500, marginBottom: 8 },
+                    input: { 
+                      borderWidth: 2,
+                      '&:focus': { borderColor: 'var(--mantine-color-green-5)' }
+                    }
+                  }}
+                  value={newProductForm.product}
+                  onChange={(e) => updateFormField('product', e.currentTarget?.value || '')}
+                />
+              </SimpleGrid>
+
+              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" mt="md">
+                <Select
+                  label="Age Range"
+                  placeholder="Select age range"
+                  size="md"
+                  radius="md"
+                  styles={{
+                    label: { fontWeight: 500, marginBottom: 8 },
+                    input: { 
+                      borderWidth: 2,
+                      '&:focus': { borderColor: 'var(--mantine-color-green-5)' }
+                    }
+                  }}
+                  data={[
+                    { label: '👶 Baby (0-2 years)', value: 'Baby' },
+                    { label: '🧒 Kids (3-12 years)', value: 'Kids' },
+                    { label: '👦 Teen (13-17 years)', value: 'Teen' },
+                    { label: '👨 Adult (18-64 years)', value: 'Adult' },
+                    { label: '👴 Senior (65+ years)', value: 'Senior' },
+                    { label: '🌟 All Ages', value: 'All Ages' },
+                  ]}
+                  allowDeselect
+                  clearable
+                  value={newProductForm.ageRange || null}
+                  onChange={(value) => updateFormField('ageRange', value || '')}
+                />
+
+                <Select
+                  label="Unit"
+                  placeholder="Select unit"
+                  size="md"
+                  radius="md"
+                  styles={{
+                    label: { fontWeight: 500, marginBottom: 8 },
+                    input: { 
+                      borderWidth: 2,
+                      '&:focus': { borderColor: 'var(--mantine-color-green-5)' }
+                    }
+                  }}
+                  data={[
+                    { label: '📦 Pieces', value: 'Pieces' },
+                    { label: '🎁 Sets', value: 'Sets' },
+                    { label: '👟 Pairs', value: 'Pairs' },
+                    { label: '📦 Packs', value: 'Packs' },
+                  ]}
+                  allowDeselect
+                  clearable
+                  value={newProductForm.unit || null}
+                  onChange={(value) => updateFormField('unit', value || '')}
+                />
+              </SimpleGrid>
+            </div>
+
+            {/* Date & Payment Information Section */}
+            <div>
+              <Group mb="md">
+                <ThemeIcon size="sm" radius="md" variant="light" color="blue">
+                  <IconCalendar size={14} />
+                </ThemeIcon>
+                <Text size="lg" fw={500} c="blue.7">Date & Payment Information</Text>
+              </Group>
+              
+              <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
+                <TextInput
+                  label="Posting Date"
+                  placeholder="YYYY-MM-DD"
+                  type="date"
+                  size="md"
+                  radius="md"
+                  leftSection={<IconCalendar size={16} />}
+                  styles={{
+                    label: { fontWeight: 500, marginBottom: 8 },
+                    input: { 
+                      borderWidth: 2,
+                      '&:focus': { borderColor: 'var(--mantine-color-blue-5)' }
+                    }
+                  }}
+                  value={newProductForm.postingDate}
+                  onChange={(e) => updateFormField('postingDate', e.currentTarget?.value || '')}
+                />
+                
+                <TextInput
+                  label="Order Date"
+                  placeholder="YYYY-MM-DD"
+                  type="date"
+                  size="md"
+                  radius="md"
+                  leftSection={<IconCalendar size={16} />}
+                  styles={{
+                    label: { fontWeight: 500, marginBottom: 8 },
+                    input: { 
+                      borderWidth: 2,
+                      '&:focus': { borderColor: 'var(--mantine-color-blue-5)' }
+                    }
+                  }}
+                  value={newProductForm.orderDate}
+                  onChange={(e) => updateFormField('orderDate', e.currentTarget?.value || '')}
+                />
+
+                <Select
+                  label="Payment"
+                  placeholder="Select payment status"
+                  size="md"
+                  radius="md"
+                  leftSection={<IconCreditCard size={16} />}
+                  styles={{
+                    label: { fontWeight: 500, marginBottom: 8 },
+                    input: { 
+                      borderWidth: 2,
+                      '&:focus': { borderColor: 'var(--mantine-color-blue-5)' }
+                    }
+                  }}
+                  data={[
+                    { label: '✅ Paid', value: 'Paid' },
+                    { label: '⏳ Unpaid', value: 'Unpaid' },
+                  ]}
+                  allowDeselect
+                  clearable
+                  value={newProductForm.payment || null}
+                  onChange={(value) => updateFormField('payment', value || '')}
+                />
+              </SimpleGrid>
+            </div>
+
+            {/* Pricing & Quantity Section */}
+            <div>
+              <Group mb="md">
+                <ThemeIcon size="sm" radius="md" variant="light" color="orange">
+                  <IconCurrencyDollar size={14} />
+                </ThemeIcon>
+                <Text size="lg" fw={500} c="orange.7">Pricing & Quantity</Text>
+              </Group>
+              
+              <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
+                <NumberInput
+                  label="Unit Price"
+                  placeholder="0.00"
+                  size="md"
+                  radius="md"
+                  leftSection="₱"
+                  decimalScale={2}
+                  fixedDecimalScale
+                  thousandSeparator=","
+                  styles={{
+                    label: { fontWeight: 500, marginBottom: 8 },
+                    input: { 
+                      borderWidth: 2,
+                      '&:focus': { borderColor: 'var(--mantine-color-orange-5)' }
+                    }
+                  }}
+                  value={newProductForm.unitPrice}
+                  onChange={(value) => updateFormField('unitPrice', Number(value) || 0)}
+                />
+                
+                <NumberInput
+                  label="Quantity"
+                  placeholder="0"
+                  size="md"
+                  radius="md"
+                  min={0}
+                  styles={{
+                    label: { fontWeight: 500, marginBottom: 8 },
+                    input: { 
+                      borderWidth: 2,
+                      '&:focus': { borderColor: 'var(--mantine-color-orange-5)' }
+                    }
+                  }}
+                  value={newProductForm.quantity}
+                  onChange={(value) => updateFormField('quantity', Number(value) || 0)}
+                />
+
+                <NumberInput
+                  label="Actual Price"
+                  placeholder="0.00"
+                  size="md"
+                  radius="md"
+                  leftSection="₱"
+                  decimalScale={2}
+                  fixedDecimalScale
+                  thousandSeparator=","
+                  styles={{
+                    label: { fontWeight: 500, marginBottom: 8 },
+                    input: { 
+                      borderWidth: 2,
+                      '&:focus': { borderColor: 'var(--mantine-color-orange-5)' }
+                    }
+                  }}
+                  value={newProductForm.actualPrice}
+                  onChange={(value) => updateFormField('actualPrice', Number(value) || 0)}
+                />
+              </SimpleGrid>
+            </div>
+
+            {/* Shipping & Fees Section */}
+            <div>
+              <Group mb="md">
+                <ThemeIcon size="sm" radius="md" variant="light" color="purple">
+                  <IconTrendingUp size={14} />
+                </ThemeIcon>
+                <Text size="lg" fw={500} c="purple.7">Shipping & Additional Fees</Text>
+              </Group>
+              
+              <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
+                <NumberInput
+                  label="Shipping Fee 1"
+                  placeholder="0.00"
+                  size="md"
+                  radius="md"
+                  leftSection="₱"
+                  decimalScale={2}
+                  fixedDecimalScale
+                  thousandSeparator=","
+                  styles={{
+                    label: { fontWeight: 500, marginBottom: 8 },
+                    input: { 
+                      borderWidth: 2,
+                      '&:focus': { borderColor: 'var(--mantine-color-purple-5)' }
+                    }
+                  }}
+                  value={newProductForm.shippingFee1}
+                  onChange={(value) => updateFormField('shippingFee1', Number(value) || 0)}
+                />
+                
+                <NumberInput
+                  label="Shipping Fee 2"
+                  placeholder="0.00"
+                  size="md"
+                  radius="md"
+                  leftSection="₱"
+                  decimalScale={2}
+                  fixedDecimalScale
+                  thousandSeparator=","
+                  styles={{
+                    label: { fontWeight: 500, marginBottom: 8 },
+                    input: { 
+                      borderWidth: 2,
+                      '&:focus': { borderColor: 'var(--mantine-color-purple-5)' }
+                    }
+                  }}
+                  value={newProductForm.shippingFee2}
+                  onChange={(value) => updateFormField('shippingFee2', Number(value) || 0)}
+                />
+
+                <NumberInput
+                  label="Shipping Fee 3"
+                  placeholder="0.00"
+                  size="md"
+                  radius="md"
+                  leftSection="₱"
+                  decimalScale={2}
+                  fixedDecimalScale
+                  thousandSeparator=","
+                  styles={{
+                    label: { fontWeight: 500, marginBottom: 8 },
+                    input: { 
+                      borderWidth: 2,
+                      '&:focus': { borderColor: 'var(--mantine-color-purple-5)' }
+                    }
+                  }}
+                  value={newProductForm.shippingFee3}
+                  onChange={(value) => updateFormField('shippingFee3', Number(value) || 0)}
+                />
+
+                <NumberInput
+                  label="Exchange Rate"
+                  placeholder="1.00"
+                  size="md"
+                  radius="md"
+                  decimalScale={4}
+                  fixedDecimalScale
+                  step={0.0001}
+                  styles={{
+                    label: { fontWeight: 500, marginBottom: 8 },
+                    input: { 
+                      borderWidth: 2,
+                      '&:focus': { borderColor: 'var(--mantine-color-purple-5)' }
+                    }
+                  }}
+                  value={newProductForm.exchangeRates}
+                  onChange={(value) => updateFormField('exchangeRates', Number(value) || 1)}
+                />
+
+                <NumberInput
+                  label="Packaging Fee"
+                  placeholder="0.00"
+                  size="md"
+                  radius="md"
+                  leftSection="₱"
+                  decimalScale={2}
+                  fixedDecimalScale
+                  thousandSeparator=","
+                  styles={{
+                    label: { fontWeight: 500, marginBottom: 8 },
+                    input: { 
+                      borderWidth: 2,
+                      '&:focus': { borderColor: 'var(--mantine-color-purple-5)' }
+                    }
+                  }}
+                  value={newProductForm.packaging}
+                  onChange={(value) => updateFormField('packaging', Number(value) || 0)}
+                />
+              </SimpleGrid>
+            </div>
+
+            {/* Action Buttons */}
+            <Group justify="flex-end" mt="xl" pt="md" style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}>
+              <Button 
+                variant="subtle" 
+                size="md"
+                radius="md"
+                onClick={() => {
+                  setAddProductOpen(false);
+                  resetForm();
+                }}
+                styles={{
+                  root: {
+                    '&:hover': {
+                      backgroundColor: 'var(--mantine-color-gray-1)',
+                    }
+                  }
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="md"
+                radius="md"
+                gradient={{ from: 'green', to: 'green.6', deg: 45 }}
+                disabled={!newProductForm.shipmentCode.trim() || !newProductForm.product.trim()}
+                leftSection={<IconPlus size={18} />}
+                styles={{
+                  root: {
+                    boxShadow: '0 4px 12px rgba(51, 217, 178, 0.2)',
+                    '&:hover': {
+                      boxShadow: '0 6px 16px rgba(51, 217, 178, 0.3)',
+                      transform: 'translateY(-1px)',
+                    },
+                    transition: 'all 0.2s ease',
+                  }
+                }}
+                onClick={async () => {
+                  try {
+                    const newProduct: Partial<ProductData> = {
+                      'Shipment Code': newProductForm.shipmentCode.trim(),
+                      'CV Number': '', // Set default empty
+                      'No. Of Sacks': 0, // Set default 0
+                      'Total CBM': 0, // Set default 0
+                      'Weight': 0, // Set default 0
+                      'Shipment Status': 'Pending', // Set default status
+                      'Posting Date': newProductForm.postingDate,
+                      'Order Date': newProductForm.orderDate,
+                      'Payment': newProductForm.payment,
+                      'Product': newProductForm.product.trim(),
+                      'Product Code': `PRD-${Date.now()}`, // Auto-generate product code
+                      'Age Range': newProductForm.ageRange,
+                      'Unit': newProductForm.unit,
+                      'Unit Price': newProductForm.unitPrice,
+                      'Quantity': newProductForm.quantity,
+                      'Shipping Fee 1': newProductForm.shippingFee1,
+                      'Exchange Rates': newProductForm.exchangeRates,
+                      'PHP': 0, // Calculate later if needed
+                      'Sub Total (PHP)': newProductForm.unitPrice * newProductForm.quantity,
+                      'Transaction Fee': 0, // Set default 0
+                      'Grand Total': (newProductForm.unitPrice * newProductForm.quantity) + newProductForm.shippingFee1 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging,
+                      'Shipping Fee 2': newProductForm.shippingFee2,
+                      'Shipping Fee 3': newProductForm.shippingFee3,  
+                      'Packaging': newProductForm.packaging,
+                      'Suggested Price': 0, // Set default 0
+                      'Actual Price': newProductForm.actualPrice,
+                      'Base Price': 0, // Set default 0
+                      'COGS': 0, // Set default 0
+                      'Projected Sales': 0, // Set default 0
+                      'Projected Profit': 0, // Set default 0
+                      'Projected Profit (%)': 0, // Set default 0
+                      'Total Markup': 0, // Set default 0
+                    };
+
+                    // Add to local state first
+                    const updatedProducts = [newProduct as ProductData, ...products];
+                    setProducts(updatedProducts);
+                    
+                    // Update filtered products if no search query
+                    if (!searchQuery.trim()) {
+                      setFilteredProducts(updatedProducts);
+                    } else {
+                      // Re-apply search filter
+                      const filtered = updatedProducts.filter(product => {
+                        const searchTerm = searchQuery.toLowerCase();
+                        return (
+                          product['Shipment Code'].toLowerCase().includes(searchTerm) ||
+                          product['CV Number'].toLowerCase().includes(searchTerm) ||
+                          product['Product'].toLowerCase().includes(searchTerm) ||
+                          product['Product Code'].toLowerCase().includes(searchTerm) ||
+                          product['Shipment Status'].toLowerCase().includes(searchTerm)
+                        );
+                      });
+                      setFilteredProducts(filtered);
+                    }
+
+                    // Try to save to database
+                    try {
+                      const response = await fetch('/api/products', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify([newProduct]),
+                      });
+
+                      if (!response.ok) {
+                        throw new Error('Failed to save to database');
+                      }
+                    } catch (dbError) {
+                      console.error('Database save failed:', dbError);
+                      notifications.show({
+                        title: 'Product added locally',
+                        message: 'Product saved locally but failed to sync with database',
+                        color: 'yellow',
+                        autoClose: 4000,
+                      });
+                    }
+
+                    // Reset form and close modal
+                    resetForm();
+                    setAddProductOpen(false);
+
+                    // Success notification
+                    notifications.show({
+                      title: '🎉 Product Added Successfully!',
+                      message: `${newProductForm.product} has been added to your product catalog`,
+                      color: 'green',
+                      icon: <IconCheck size={18} />,
+                      autoClose: 4000,
+                    });
+
+                  } catch (error) {
+                    console.error('Failed to add product:', error);
+                    notifications.show({
+                      title: '❌ Failed to Add Product',
+                      message: 'An error occurred while adding the product. Please try again.',
+                      color: 'red',
+                      autoClose: 4000,
+                    });
+                  }
+                }}
+              >
+                Add Product
+              </Button>
+            </Group>
+          </Stack>
+        </Modal>
 
         {/* Data Grid */}
         <Card withBorder shadow="sm" radius="md" padding={0} style={{
