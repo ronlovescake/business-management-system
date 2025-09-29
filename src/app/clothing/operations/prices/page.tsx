@@ -486,14 +486,7 @@ export default function Prices() {
           </Card>
         </SimpleGrid>
 
-        <Group justify="space-between">
-          <Text size="sm" c="dimmed">
-            {prices.length > 0
-              ? `${filteredPrices.length} of ${prices.length} products${searchQuery ? ' (filtered)' : ''}`
-              : 'Price management system - add products to get started'
-            }
-          </Text>
-
+        <Group justify="flex-end">
           <Group gap="sm">
             <TextInput
               ref={searchInputRef}
@@ -593,6 +586,14 @@ export default function Prices() {
             getCellsForSelection={true}
           />
         </Card>
+
+        {/* Pagination counter - moved to bottom */}
+        <Text size="sm" c="dimmed" ta="center">
+          {prices.length > 0
+            ? `Showing ${filteredPrices.length} of ${prices.length} products${searchQuery ? ' (filtered)' : ''}`
+            : 'Price management system - add products to get started'
+          }
+        </Text>
 
         {/* Add New Price Modal - Enhanced Modern Design */}
         <Modal 

@@ -546,14 +546,7 @@ export default function Customers() {
           </Card>
         </SimpleGrid>
 
-        <Group justify="space-between">
-          <Text size="sm" c="dimmed">
-            {customers.length > 0
-              ? `${filteredCustomers.length} of ${customers.length} customers${searchQuery ? ' (filtered)' : ''}`
-              : 'Customer management system - import CSV file to get started'
-            }
-          </Text>
-
+        <Group justify="flex-end">
           <Group gap="sm">
             <Button
               variant={pasteMode ? 'filled' : 'outline'}
@@ -1091,6 +1084,14 @@ export default function Customers() {
             getCellsForSelection={true}
           />
         </Card>
+
+        {/* Pagination counter - moved to bottom */}
+        <Text size="sm" c="dimmed" ta="center">
+          {customers.length > 0
+            ? `Showing ${filteredCustomers.length} of ${customers.length} customers${searchQuery ? ' (filtered)' : ''}`
+            : 'Customer management system - import CSV file to get started'
+          }
+        </Text>
       </Stack>
     </PageLayout>
   );
