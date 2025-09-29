@@ -220,6 +220,62 @@ export default function Products() {
     };
   }, [filteredProducts]);
 
+  // Load products from database on component mount
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        const response = await fetch('/api/products');
+        if (response.ok) {
+          const productsData = await response.json();
+          
+          // Convert database format back to ProductData format
+          const convertedProducts = productsData.map((product: any, index: number) => ({
+            id: product.id,
+            'Shipment Code': product.shipmentCode || '',
+            'CV Number': product.cvNumber || '',
+            'No. Of Sacks': product.noOfSacks || 0,
+            'Total CBM': product.totalCBM || 0,
+            'Weight': product.weight || 0,
+            'Shipment Status': product.shipmentStatus || '',
+            'Posting Date': product.postingDate || '',
+            'Order Date': product.orderDate || '',
+            'Payment': product.payment || '',
+            'Product': product.product || '',
+            'Product Code': product.productCode || '',
+            'Age Range': product.ageRange || '',
+            'Unit': product.unit || '',
+            'Unit Price': product.unitPrice || 0,
+            'Quantity': product.quantity || 0,
+            'Shipping Fee 1': product.shippingFee1 || 0,
+            'Exchange Rates': product.exchangeRates || 0,
+            'PHP': product.php || 0,
+            'Sub Total (PHP)': product.subTotalPHP || 0,
+            'Transaction Fee': product.transactionFee || 0,
+            'Grand Total': product.grandTotal || 0,
+            'Shipping Fee 2': product.shippingFee2 || 0,
+            'Shipping Fee 3': product.shippingFee3 || 0,
+            'Packaging': product.packaging || 0,
+            'Suggested Price': product.suggestedPrice || 0,
+            'Actual Price': product.actualPrice || 0,
+            'Base Price': product.basePrice || 0,
+            'COGS': product.cogs || 0,
+            'Projected Sales': product.projectedSales || 0,
+            'Projected Profit': product.projectedProfit || 0,
+            'Projected Profit (%)': product.projectedProfitPercent || 0,
+            'Total Markup': product.totalMarkup || 0,
+          }));
+
+          setProducts(convertedProducts);
+          setFilteredProducts(convertedProducts);
+        }
+      } catch (error) {
+        console.error('Failed to load products:', error);
+      }
+    };
+
+    loadProducts();
+  }, []);
+
   // CSV Import handler
   const handleCSVImport = async () => {
     if (!file) return;
@@ -256,7 +312,10 @@ export default function Products() {
         }
         values.push(current.trim());
 
-        if (values.length < 32) continue; // Skip incomplete rows
+        // Ensure we have at least 32 columns by padding with empty strings
+        while (values.length < 32) {
+          values.push('');
+        }
 
         // Parse numeric values and clean them
         const parseNumeric = (value: string): number => {
@@ -318,6 +377,21 @@ export default function Products() {
         return;
       }
 
+      // Save to database via API
+      const saveResponse = await fetch('/api/products', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(importedProducts),
+      });
+
+      if (!saveResponse.ok) {
+        throw new Error('Failed to save to database');
+      }
+
+      const saveResult = await saveResponse.json();
+
       // Update local state
       setProducts(importedProducts);
       setFilteredProducts(importedProducts);
@@ -325,7 +399,7 @@ export default function Products() {
 
       notifications.show({
         title: '🎉 Import Successful!',
-        message: `Successfully imported ${importedProducts.length} product records`,
+        message: `Successfully imported ${saveResult.count} product records to database`,
         color: 'green',
         icon: <IconCheck size={18} />,
         autoClose: 4000,
