@@ -88,7 +88,6 @@ export default function Prices() {
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editingPrice, setEditingPrice] = useState<PriceData | null>(null);
-  const [pasteMode, setPasteMode] = useState(false);
   const [newPriceForm, setNewPriceForm] = useState({
     productCode: '',
     tiers: [
@@ -496,14 +495,6 @@ export default function Prices() {
           </Text>
 
           <Group gap="sm">
-            <Button
-              variant={pasteMode ? 'filled' : 'outline'}
-              color={pasteMode ? 'yellow' : 'gray'}
-              size="sm"
-              onClick={() => setPasteMode((v) => !v)}
-            >
-              {pasteMode ? 'Disable Paste Mode' : 'Enable Paste Mode'}
-            </Button>
             <TextInput
               ref={searchInputRef}
               placeholder="Search products... (Ctrl+F)"
@@ -564,7 +555,6 @@ export default function Prices() {
             headerHeight={80}
             rowMarkers="number"
             onCellClicked={onCellClicked}
-            onPaste={pasteMode ? undefined : undefined} // TODO: Implement paste handling
             isDraggable={false}
             experimental={{
               scrollbarWidthOverride: 16,
