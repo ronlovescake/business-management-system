@@ -1657,7 +1657,6 @@ export default function Prices() {
               </Button>
             </Group>
           </Stack>
-        </Modal>
       </Stack>
     </PageLayout>
   );

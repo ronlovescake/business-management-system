@@ -378,16 +378,30 @@ export default function Products() {
     };
   }, [filteredProducts, columns, idToKey]);
 
-  // Set grid height to 82vh
+  // Set grid height to 83vh
   useEffect(() => {
     const updateGridHeight = () => {
-      const vh82 = window.innerHeight * 0.82;
-      setGridHeight(vh82);
+      const vh83 = window.innerHeight * 0.83;
+      setGridHeight(vh83);
     };
 
     updateGridHeight();
     window.addEventListener('resize', updateGridHeight);
     return () => window.removeEventListener('resize', updateGridHeight);
+  }, []);
+
+  // Handle Ctrl+F to focus search bar
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
+        event.preventDefault(); // Prevent browser's find dialog
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select(); // Select existing text if any
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   // Custom header drawing function
@@ -490,7 +504,7 @@ export default function Products() {
             leftSection={<IconSearch size={16} />}
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
-            style={{ flexGrow: 1, maxWidth: 400 }}
+            style={{ flex: 1, minWidth: 300 }}
             size="md"
             radius="md"
           />
