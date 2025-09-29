@@ -220,6 +220,93 @@ Enhanced modal components with professional styling and UX:
 - **Status Emojis** → Visual status indicators (✅ Active, ⭐ VIP, etc.)
 - **Enhanced Notifications** → Rich success messages with icons and animations
 
+### Automated Product Code Generation
+The system automatically generates Product Codes for all products using a sophisticated formula:
+
+```tsx
+// Product Code generation algorithm
+function generateProductCode(productName: string, postingDate: string): string {
+  const initials = productName
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase())
+    .join('');
+  
+  // Convert MM/DD/YYYY to MMYYYY format
+  const [month, day, year] = postingDate.split('/');
+  const dateCode = month.padStart(2, '0') + year;
+  
+  return initials + dateCode;
+}
+```
+
+**🔧 Product Code Examples:**
+- "Ladies Shirt" + "03/20/2025" → **LS032025**
+- "Men's Jeans" + "12/15/2024" → **MJ122024**
+- "Kids Summer Dress" + "06/10/2025" → **KSD062025**
+
+**⚡ Auto-Generation Features:**
+- **Retroactive Generation** → Automatically creates codes for existing products with empty Product Code fields
+- **Smart Initials Extraction** → Takes first letter of each word in product name
+- **Date Integration** → Combines posting month and year (MMYYYY format)
+- **Preservation Logic** → Maintains existing Product Codes when already present
+- **Universal Application** → Works across database loading, CSV imports, and manual entry
+
+### Automated Financial Calculations
+The Products page features comprehensive automated financial calculations across 11 key columns:
+
+```tsx
+// Core financial calculation formulas
+const calculations = {
+  // Exchange & Base Calculations
+  peso: unitPrice * exchangeRate,
+  shippingInPeso: shippingFees * exchangeRate,
+  totalCostPeso: peso + shippingInPeso,
+  
+  // Markup & Pricing Analysis  
+  markup: actualPrice - totalCostPeso,
+  totalMarkup: (actualPrice / peso) * 100,        // Percentage format
+  markupPercentage: ((actualPrice - peso) / peso) * 100,
+  
+  // Packaging & Final Costs
+  packagingInPeso: packaging * exchangeRate,
+  totalPackagingCost: totalCostPeso + packagingInPeso,
+  totalMarkupWithPackaging: actualPrice - totalPackagingCost,
+  packagingMarkupPercentage: totalPackagingCost > 0 
+    ? ((actualPrice - totalPackagingCost) / totalPackagingCost) * 100 
+    : 0,
+  
+  // Revenue Analysis
+  profitPerUnit: actualPrice - totalPackagingCost
+};
+```
+
+**💰 Financial Columns Automated:**
+1. **Peso** → Unit Price × Exchange Rate
+2. **Shipping in Peso** → Shipping Fees × Exchange Rate  
+3. **Total Cost Peso** → Peso + Shipping in Peso
+4. **Markup** → Actual Price - Total Cost Peso
+5. **Total Markup** → (Actual Price ÷ Peso) × 100 (Percentage)
+6. **Markup Percentage** → ((Actual Price - Peso) ÷ Peso) × 100
+7. **Packaging in Peso** → Packaging × Exchange Rate
+8. **Total Packaging Cost** → Total Cost Peso + Packaging in Peso
+9. **Total Markup with Packaging** → Actual Price - Total Packaging Cost
+10. **Packaging Markup Percentage** → ((Actual Price - Total Packaging Cost) ÷ Total Packaging Cost) × 100
+11. **Profit per Unit** → Actual Price - Total Packaging Cost
+
+**🔄 Calculation Implementation:**
+- **Database Loading** → All existing records recalculated on page load
+- **CSV Import** → Automatic calculations applied during bulk import
+- **Manual Entry** → Real-time calculations in Add Product modal
+- **Safety Checks** → Division by zero protection across all formulas
+- **Percentage Formatting** → Proper percentage display for markup columns
+
+**📊 Business Intelligence Features:**
+- **Cost Analysis** → Complete breakdown from unit cost to final profit
+- **Markup Tracking** → Multiple markup perspectives (with/without packaging)
+- **Currency Conversion** → Automatic PHP conversion using exchange rates
+- **Profit Margins** → Real-time profitability analysis per product
+- **Pricing Optimization** → Data-driven insights for pricing decisions
+
 ---
 
 # 🧭 App Navigation (Business → Workspace Flow)

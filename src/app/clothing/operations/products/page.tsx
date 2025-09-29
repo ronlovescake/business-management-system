@@ -130,7 +130,7 @@ export default function Products() {
 
   // Define columns with all the headers you specified
   const columns: GridColumn[] = [
-    { title: 'Shipment Code', width: 150, id: 'shipmentCode', grow: 1 },
+    { title: 'Shipment Code', width: 150, id: 'shipmentCode', themeOverride: { cellHorizontalPadding: 8 } },
     { title: 'CV Number', width: 120, id: 'cvNumber' },
     { title: 'No. Of Sacks', width: 120, id: 'noOfSacks' },
     { title: 'Total CBM', width: 120, id: 'totalCBM' },
@@ -139,8 +139,8 @@ export default function Products() {
     { title: 'Posting Date', width: 130, id: 'postingDate' },
     { title: 'Order Date', width: 130, id: 'orderDate' },
     { title: 'Payment', width: 120, id: 'payment' },
-    { title: 'Product', width: 200, id: 'product' },
-    { title: 'Product Code', width: 150, id: 'productCode' },
+    { title: 'Product', width: 200, id: 'product', themeOverride: { cellHorizontalPadding: 8 } },
+    { title: 'Product Code', width: 150, id: 'productCode', themeOverride: { cellHorizontalPadding: 8 } },
     { title: 'Age Range', width: 120, id: 'ageRange' },
     { title: 'Unit', width: 100, id: 'unit' },
     { title: 'Unit Price', width: 120, id: 'unitPrice' },
@@ -255,6 +255,65 @@ export default function Products() {
     });
   }, []);
 
+  // Function to calculate optimal column width based on content
+  const calculateColumnWidth = useCallback((columnId: string, data: ProductData[]): number => {
+    const autoResizeColumns = ['shipmentCode', 'product', 'productCode'];
+    if (!autoResizeColumns.includes(columnId)) {
+      const col = columns.find(col => col.id === columnId);
+      return (col as any)?.width || 150;
+    }
+
+    const columnKey = idToKey[columnId];
+    if (!columnKey) return 150;
+
+    // Calculate the maximum content width for this column
+    let maxWidth = 0;
+    let longestText = '';
+    
+    // Check header width
+    const headerText = columns.find(col => col.id === columnId)?.title || '';
+    maxWidth = Math.max(maxWidth, headerText.length * 16 + 60);
+    longestText = headerText;
+
+    // Check content width - scan all data to find the longest text
+    data.forEach(row => {
+      const cellValue = String(row[columnKey] || '');
+      if (cellValue.length > longestText.length) {
+        longestText = cellValue;
+      }
+      // Use even more generous character width calculation - accounting for variable character widths
+      const textWidth = cellValue.length * 16 + 60; // ~16px per character + more padding for safety
+      maxWidth = Math.max(maxWidth, textWidth);
+    });
+
+    // Set minimum and maximum bounds with very generous limits for Product Code
+    const minWidth = columnId === 'productCode' ? 250 : 150; // Even higher minimum for Product Code
+    const maxBound = columnId === 'product' ? 500 : columnId === 'shipmentCode' ? 300 : 500; // Much higher max for Product Code (500px)
+    
+    const calculatedWidth = Math.min(Math.max(maxWidth, minWidth), maxBound);
+    
+    // Debug log for Product Code column
+    if (columnId === 'productCode') {
+      console.log(`Product Code column - Longest text: "${longestText}", Calculated width: ${calculatedWidth}`);
+    }
+    
+    return calculatedWidth;
+  }, [columns, idToKey]);
+
+  // Auto-resize columns based on content
+  const columnsWithAutoSize = useMemo(() => {
+    return columns.map(col => {
+      const autoResizeColumns = ['shipmentCode', 'product', 'productCode'];
+      if (autoResizeColumns.includes(col.id || '')) {
+        return {
+          ...col,
+          width: calculateColumnWidth(col.id || '', filteredProducts)
+        };
+      }
+      return col;
+    });
+  }, [columns, calculateColumnWidth, filteredProducts]);
+
   // Search functionality
   const handleSearch = useCallback((query: string) => {
     setSearchQuery(query);
@@ -330,21 +389,21 @@ export default function Products() {
               'Quantity': product.quantity || 0,
               'Shipping Fee 1': product.shippingFee1 || 0,
               'Exchange Rates': product.exchangeRates || 0,
-              'PHP': product.php || 0,
-              'Sub Total (PHP)': product.subTotalPHP || 0,
-              'Transaction Fee': product.transactionFee || 0,
-              'Grand Total': product.grandTotal || 0,
+              'PHP': (product.unitPrice || 0) * (product.exchangeRates || 0), // PHP = Unit Price × Exchange Rate
+              'Sub Total (PHP)': ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0), // Sub Total (PHP) = (Unit Price × Quantity + Shipping Fee 1) × Exchange Rate
+              'Transaction Fee': ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) * 0.0299, // Transaction Fee = Sub Total (PHP) × 2.99%
+              'Grand Total': ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) + ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) * 0.0299, // Grand Total = Sub Total (PHP) + Transaction Fee
               'Shipping Fee 2': product.shippingFee2 || 0,
               'Shipping Fee 3': product.shippingFee3 || 0,
               'Packaging': product.packaging || 0,
-              'Suggested Price': product.suggestedPrice || 0,
+              'Suggested Price': Math.ceil(((product.quantity || 0) > 0 ? (((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) + ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) * 0.0299 + (product.shippingFee2 || 0) + (product.shippingFee3 || 0) + (product.packaging || 0)) / (product.quantity || 1) : 0) * 1.22), // Suggested Price = ROUNDUP(Base Price * 122%)
               'Actual Price': product.actualPrice || 0,
-              'Base Price': product.basePrice || 0,
-              'COGS': product.cogs || 0,
-              'Projected Sales': product.projectedSales || 0,
-              'Projected Profit': product.projectedProfit || 0,
-              'Projected Profit (%)': product.projectedProfitPercent || 0,
-              'Total Markup': product.totalMarkup || 0,
+              'Base Price': (product.quantity || 0) > 0 ? (((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) + ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) * 0.0299 + (product.shippingFee2 || 0) + (product.shippingFee3 || 0) + (product.packaging || 0)) / (product.quantity || 1) : 0, // Base Price = COGS / Quantity
+              'COGS': ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) + ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) * 0.0299 + (product.shippingFee2 || 0) + (product.shippingFee3 || 0) + (product.packaging || 0), // COGS = Grand Total + Shipping Fee 2 + Shipping Fee 3 + Packaging
+              'Projected Sales': (product.actualPrice || 0) * (product.quantity || 0), // Projected Sales Total = Actual Price × Quantity
+              'Projected Profit': ((product.actualPrice || 0) * (product.quantity || 0)) - (((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) + ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) * 0.0299 + (product.shippingFee2 || 0) + (product.shippingFee3 || 0) + (product.packaging || 0)), // Projected Profit = Projected Sales Total - COGS
+              'Projected Profit (%)': (((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) + ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) * 0.0299 + (product.shippingFee2 || 0) + (product.shippingFee3 || 0) + (product.packaging || 0)) > 0 ? ((((product.actualPrice || 0) * (product.quantity || 0)) - (((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) + ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) * 0.0299 + (product.shippingFee2 || 0) + (product.shippingFee3 || 0) + (product.packaging || 0))) / (((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) + ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) * 0.0299 + (product.shippingFee2 || 0) + (product.shippingFee3 || 0) + (product.packaging || 0))) * 100 : 0, // Projected Profit (%) = (Projected Profit / COGS) * 100
+              'Total Markup': ((product.unitPrice || 0) * (product.exchangeRates || 0)) > 0 ? ((product.actualPrice || 0) / ((product.unitPrice || 0) * (product.exchangeRates || 0))) * 100 : 0, // Total Markup = (Actual Price / PHP) * 100
             };
           });
 
@@ -427,21 +486,21 @@ export default function Products() {
           'Quantity': parseNumeric(values[14]),
           'Shipping Fee 1': parseNumeric(values[15]),
           'Exchange Rates': parseNumeric(values[16]),
-          'PHP': parseNumeric(values[17]),
-          'Sub Total (PHP)': parseNumeric(values[18]),
-          'Transaction Fee': parseNumeric(values[19]),
-          'Grand Total': parseNumeric(values[20]),
+          'PHP': parseNumeric(values[13]) * parseNumeric(values[16]), // PHP = Unit Price × Exchange Rate
+          'Sub Total (PHP)': (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]), // Sub Total (PHP) = (Unit Price × Quantity + Shipping Fee 1) × Exchange Rate
+          'Transaction Fee': (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) * 0.0299, // Transaction Fee = Sub Total (PHP) × 2.99%
+          'Grand Total': (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) + (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) * 0.0299, // Grand Total = Sub Total (PHP) + Transaction Fee
           'Shipping Fee 2': parseNumeric(values[21]),
           'Shipping Fee 3': parseNumeric(values[22]),
           'Packaging': parseNumeric(values[23]),
-          'Suggested Price': parseNumeric(values[24]),
+          'Suggested Price': Math.ceil((parseNumeric(values[14]) > 0 ? ((parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) + (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) * 0.0299 + parseNumeric(values[21]) + parseNumeric(values[22]) + parseNumeric(values[23])) / parseNumeric(values[14]) : 0) * 1.22), // Suggested Price = ROUNDUP(Base Price * 122%)
           'Actual Price': parseNumeric(values[25]),
-          'Base Price': parseNumeric(values[26]),
-          'COGS': parseNumeric(values[27]),
-          'Projected Sales': parseNumeric(values[28]),
-          'Projected Profit': parseNumeric(values[29]),
-          'Projected Profit (%)': parseNumeric(values[30]),
-          'Total Markup': parseNumeric(values[31]),
+          'Base Price': parseNumeric(values[14]) > 0 ? ((parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) + (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) * 0.0299 + parseNumeric(values[21]) + parseNumeric(values[22]) + parseNumeric(values[23])) / parseNumeric(values[14]) : 0, // Base Price = COGS / Quantity
+          'COGS': (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) + (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) * 0.0299 + parseNumeric(values[21]) + parseNumeric(values[22]) + parseNumeric(values[23]), // COGS = Grand Total + Shipping Fee 2 + Shipping Fee 3 + Packaging
+          'Projected Sales': parseNumeric(values[25]) * parseNumeric(values[14]), // Projected Sales Total = Actual Price × Quantity
+          'Projected Profit': (parseNumeric(values[25]) * parseNumeric(values[14])) - ((parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) + (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) * 0.0299 + parseNumeric(values[21]) + parseNumeric(values[22]) + parseNumeric(values[23])), // Projected Profit = Projected Sales Total - COGS
+          'Projected Profit (%)': ((parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) + (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) * 0.0299 + parseNumeric(values[21]) + parseNumeric(values[22]) + parseNumeric(values[23])) > 0 ? (((parseNumeric(values[25]) * parseNumeric(values[14])) - ((parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) + (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) * 0.0299 + parseNumeric(values[21]) + parseNumeric(values[22]) + parseNumeric(values[23]))) / ((parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) + (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) * 0.0299 + parseNumeric(values[21]) + parseNumeric(values[22]) + parseNumeric(values[23]))) * 100 : 0, // Projected Profit (%) = (Projected Profit / COGS) * 100
+          'Total Markup': (parseNumeric(values[13]) * parseNumeric(values[16])) > 0 ? (parseNumeric(values[25]) / (parseNumeric(values[13]) * parseNumeric(values[16]))) * 100 : 0, // Total Markup = (Actual Price / PHP) * 100
         };
 
         // Only add if we have essential data
@@ -1153,21 +1212,21 @@ export default function Products() {
                       'Quantity': newProductForm.quantity,
                       'Shipping Fee 1': newProductForm.shippingFee1,
                       'Exchange Rates': newProductForm.exchangeRates,
-                      'PHP': 0, // Calculate later if needed
-                      'Sub Total (PHP)': newProductForm.unitPrice * newProductForm.quantity,
-                      'Transaction Fee': 0, // Set default 0
-                      'Grand Total': (newProductForm.unitPrice * newProductForm.quantity) + newProductForm.shippingFee1 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging,
+                      'PHP': newProductForm.unitPrice * newProductForm.exchangeRates, // PHP = Unit Price × Exchange Rate
+                      'Sub Total (PHP)': (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates, // Sub Total (PHP) = (Unit Price × Quantity + Shipping Fee 1) × Exchange Rate
+                      'Transaction Fee': (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299, // Transaction Fee = Sub Total (PHP) × 2.99%
+                      'Grand Total': (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299, // Grand Total = Sub Total (PHP) + Transaction Fee
                       'Shipping Fee 2': newProductForm.shippingFee2,
                       'Shipping Fee 3': newProductForm.shippingFee3,  
                       'Packaging': newProductForm.packaging,
-                      'Suggested Price': 0, // Set default 0
+                      'Suggested Price': Math.ceil((newProductForm.quantity > 0 ? ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging) / newProductForm.quantity : 0) * 1.22), // Suggested Price = ROUNDUP(Base Price * 122%)
                       'Actual Price': newProductForm.actualPrice,
-                      'Base Price': 0, // Set default 0
-                      'COGS': 0, // Set default 0
-                      'Projected Sales': 0, // Set default 0
-                      'Projected Profit': 0, // Set default 0
-                      'Projected Profit (%)': 0, // Set default 0
-                      'Total Markup': 0, // Set default 0
+                      'Base Price': newProductForm.quantity > 0 ? ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging) / newProductForm.quantity : 0, // Base Price = COGS / Quantity
+                      'COGS': (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging, // COGS = Grand Total + Shipping Fee 2 + Shipping Fee 3 + Packaging
+                      'Projected Sales': newProductForm.actualPrice * newProductForm.quantity, // Projected Sales Total = Actual Price × Quantity
+                      'Projected Profit': (newProductForm.actualPrice * newProductForm.quantity) - ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging), // Projected Profit = Projected Sales Total - COGS
+                      'Projected Profit (%)': ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging) > 0 ? (((newProductForm.actualPrice * newProductForm.quantity) - ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging)) / ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging)) * 100 : 0, // Projected Profit (%) = (Projected Profit / COGS) * 100
+                      'Total Markup': (newProductForm.unitPrice * newProductForm.exchangeRates) > 0 ? (newProductForm.actualPrice / (newProductForm.unitPrice * newProductForm.exchangeRates)) * 100 : 0, // Total Markup = (Actual Price / PHP) * 100
                     };
 
                     // Add to local state first
@@ -1257,7 +1316,7 @@ export default function Products() {
         }} className="data-grid-container">
           <DataEditor
             getCellContent={getData}
-            columns={columns}
+            columns={columnsWithAutoSize}
             rows={getRowCount()}
             height={gridHeight}
             width={"100%"}
