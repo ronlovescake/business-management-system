@@ -558,6 +558,34 @@ export default function Products() {
     }
   };
 
+  // Define column alignment mappings
+  const getColumnAlignment = (columnId: string): 'left' | 'center' | 'right' => {
+    // Center Align columns
+    const centerAlignColumns = [
+      'shipmentCode', 'cvNumber', 'noOfSacks', 'totalCBM', 'weight', 
+      'shipmentStatus', 'postingDate', 'orderDate', 'payment'
+    ];
+    
+    // Left Align columns
+    const leftAlignColumns = [
+      'product', 'productCode', 'ageRange', 'unit', 'quantity'
+    ];
+    
+    // Right Align columns (financial data)
+    const rightAlignColumns = [
+      'unitPrice', 'shippingFee1', 'exchangeRates', 'php', 'subTotalPHP',
+      'transactionFee', 'grandTotal', 'shippingFee2', 'shippingFee3',
+      'packaging', 'suggestedPrice', 'actualPrice', 'basePrice', 'cogs',
+      'projectedSales', 'projectedProfit', 'projectedProfitPercent', 'totalMarkup'
+    ];
+    
+    if (centerAlignColumns.includes(columnId)) return 'center';
+    if (leftAlignColumns.includes(columnId)) return 'left';
+    if (rightAlignColumns.includes(columnId)) return 'right';
+    
+    return 'left'; // default alignment
+  };
+
   // Get cell data for the grid
   const getData = useCallback((cell: Item): any => {
     const [col, row] = cell;
@@ -570,11 +598,13 @@ export default function Products() {
         data: '',
         displayData: '',
         allowOverlay: false,
+        contentAlign: 'center',
       };
     }
 
     const key = idToKey[column.id as string];
     const value = product[key];
+    const alignment = getColumnAlignment(column.id as string);
 
     // Handle different data types
     if (typeof value === 'number') {
@@ -583,6 +613,7 @@ export default function Products() {
         data: value,
         displayData: value.toLocaleString(),
         allowOverlay: false,
+        contentAlign: alignment,
       };
     }
 
@@ -591,6 +622,7 @@ export default function Products() {
       data: value?.toString() || '',
       displayData: value?.toString() || '',
       allowOverlay: false,
+      contentAlign: alignment,
     };
   }, [filteredProducts, columns, idToKey]);
 
