@@ -205,6 +205,35 @@ export default function Products() {
     setNewProductForm(prev => ({ ...prev, [field]: value }));
   }, []);
 
+  // Generate Product Code based on Product name and Posting Date
+  const generateProductCode = useCallback((productName: string, postingDate: string) => {
+    if (!productName.trim()) return '';
+    
+    // Function to generate initials from product name
+    const generateInitials = (name: string) => {
+      // Split by spaces, slashes, hyphens, and other separators
+      const words = name.split(/[\s\/\-\&\+\(\)]+/).filter(word => word.length > 0);
+      
+      let initials = '';
+      for (const word of words) {
+        // Skip common short words and get first letter of meaningful words
+        if (word.length > 0 && !['and', 'the', 'of', 'in', 'on', 'at', 'to', 'for', 'with'].includes(word.toLowerCase())) {
+          initials += word.charAt(0).toUpperCase();
+        }
+      }
+      
+      // Handle special cases for numbers and common abbreviations
+      if (name.includes('2-PC') || name.includes('2PC')) initials = initials.replace(/PC/g, '') + '2S';
+      if (name.includes('3-PC') || name.includes('3PC')) initials = initials.replace(/PC/g, '') + '3S';
+      if (name.includes('4-PC') || name.includes('4PC')) initials = initials.replace(/PC/g, '') + '4S';
+      
+      return initials || productName.charAt(0).toUpperCase();
+    };
+    
+    const initials = generateInitials(productName);
+    return `${productName} (${initials}-${postingDate})`;
+  }, []);
+
   // Reset form handler
   const resetForm = useCallback(() => {
     setNewProductForm({
@@ -272,41 +301,52 @@ export default function Products() {
           const productsData = await response.json();
           
           // Convert database format back to ProductData format
-          const convertedProducts = productsData.map((product: any, index: number) => ({
-            id: product.id,
-            'Shipment Code': product.shipmentCode || '',
-            'CV Number': product.cvNumber || '',
-            'No. Of Sacks': product.noOfSacks || 0,
-            'Total CBM': product.totalCBM || 0,
-            'Weight': product.weight || 0,
-            'Shipment Status': product.shipmentStatus || '',
-            'Posting Date': product.postingDate || '',
-            'Order Date': product.orderDate || '',
-            'Payment': product.payment || '',
-            'Product': product.product || '',
-            'Product Code': product.productCode || '',
-            'Age Range': product.ageRange || '',
-            'Unit': product.unit || '',
-            'Unit Price': product.unitPrice || 0,
-            'Quantity': product.quantity || 0,
-            'Shipping Fee 1': product.shippingFee1 || 0,
-            'Exchange Rates': product.exchangeRates || 0,
-            'PHP': product.php || 0,
-            'Sub Total (PHP)': product.subTotalPHP || 0,
-            'Transaction Fee': product.transactionFee || 0,
-            'Grand Total': product.grandTotal || 0,
-            'Shipping Fee 2': product.shippingFee2 || 0,
-            'Shipping Fee 3': product.shippingFee3 || 0,
-            'Packaging': product.packaging || 0,
-            'Suggested Price': product.suggestedPrice || 0,
-            'Actual Price': product.actualPrice || 0,
-            'Base Price': product.basePrice || 0,
-            'COGS': product.cogs || 0,
-            'Projected Sales': product.projectedSales || 0,
-            'Projected Profit': product.projectedProfit || 0,
-            'Projected Profit (%)': product.projectedProfitPercent || 0,
-            'Total Markup': product.totalMarkup || 0,
-          }));
+          const convertedProducts = productsData.map((product: any, index: number) => {
+            const productName = product.product || '';
+            const postingDate = product.postingDate || '';
+            const existingProductCode = product.productCode || '';
+            
+            // Generate Product Code if it doesn't exist and we have both product name and posting date
+            const generatedProductCode = (!existingProductCode && productName && postingDate) 
+              ? generateProductCode(productName, postingDate)
+              : existingProductCode;
+
+            return {
+              id: product.id,
+              'Shipment Code': product.shipmentCode || '',
+              'CV Number': product.cvNumber || '',
+              'No. Of Sacks': product.noOfSacks || 0,
+              'Total CBM': product.totalCBM || 0,
+              'Weight': product.weight || 0,
+              'Shipment Status': product.shipmentStatus || '',
+              'Posting Date': postingDate,
+              'Order Date': product.orderDate || '',
+              'Payment': product.payment || '',
+              'Product': productName,
+              'Product Code': generatedProductCode,
+              'Age Range': product.ageRange || '',
+              'Unit': product.unit || '',
+              'Unit Price': product.unitPrice || 0,
+              'Quantity': product.quantity || 0,
+              'Shipping Fee 1': product.shippingFee1 || 0,
+              'Exchange Rates': product.exchangeRates || 0,
+              'PHP': product.php || 0,
+              'Sub Total (PHP)': product.subTotalPHP || 0,
+              'Transaction Fee': product.transactionFee || 0,
+              'Grand Total': product.grandTotal || 0,
+              'Shipping Fee 2': product.shippingFee2 || 0,
+              'Shipping Fee 3': product.shippingFee3 || 0,
+              'Packaging': product.packaging || 0,
+              'Suggested Price': product.suggestedPrice || 0,
+              'Actual Price': product.actualPrice || 0,
+              'Base Price': product.basePrice || 0,
+              'COGS': product.cogs || 0,
+              'Projected Sales': product.projectedSales || 0,
+              'Projected Profit': product.projectedProfit || 0,
+              'Projected Profit (%)': product.projectedProfitPercent || 0,
+              'Total Markup': product.totalMarkup || 0,
+            };
+          });
 
           setProducts(convertedProducts);
           setFilteredProducts(convertedProducts);
@@ -380,7 +420,7 @@ export default function Products() {
           'Order Date': values[7] || '',
           'Payment': values[8] || '',
           'Product': values[9] || '',
-          'Product Code': values[10] || '',
+          'Product Code': values[10] || generateProductCode(values[9] || '', values[6] || ''),
           'Age Range': values[11] || '',
           'Unit': values[12] || '',
           'Unit Price': parseNumeric(values[13]),
@@ -1106,7 +1146,7 @@ export default function Products() {
                       'Order Date': newProductForm.orderDate,
                       'Payment': newProductForm.payment,
                       'Product': newProductForm.product.trim(),
-                      'Product Code': `PRD-${Date.now()}`, // Auto-generate product code
+                      'Product Code': generateProductCode(newProductForm.product.trim(), newProductForm.postingDate),
                       'Age Range': newProductForm.ageRange,
                       'Unit': newProductForm.unit,
                       'Unit Price': newProductForm.unitPrice,
