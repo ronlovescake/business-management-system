@@ -471,7 +471,7 @@ export default function Products() {
             </Group>
           </Card>
 
-          <Card shadow="sm" padding="md" radius="md" style={{ background: 'var(--mantine-color-orange-6)', color: 'white' }}>
+          <Card shadow="sm" padding="md" radius="md" style={{ background: '#fd7e14', color: 'white' }}>
             <Group justify="space-between" align="flex-start">
               <div>
                 <Text c="white" size="xs" style={{ opacity: 0.85 }}>Average Value</Text>
@@ -483,7 +483,7 @@ export default function Products() {
             </Group>
           </Card>
 
-          <Card shadow="sm" padding="md" radius="md" style={{ background: 'var(--mantine-color-purple-6)', color: 'white' }}>
+          <Card shadow="sm" padding="md" radius="md" style={{ background: '#9775fa', color: 'white' }}>
             <Group justify="space-between" align="flex-start">
               <div>
                 <Text c="white" size="xs" style={{ opacity: 0.85 }}>Total Profit</Text>
