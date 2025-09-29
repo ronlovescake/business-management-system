@@ -110,6 +110,7 @@ export default function Products() {
   const [searchQuery, setSearchQuery] = useState('');
   const [gridHeight, setGridHeight] = useState<number>(600);
   const [addProductOpen, setAddProductOpen] = useState(false);
+  const [pasteMode, setPasteMode] = useState(false);
   const [newProductForm, setNewProductForm] = useState(() => ({
     shipmentCode: '',
     postingDate: '',
@@ -597,6 +598,124 @@ export default function Products() {
     return twoDecimalColumns.includes(columnId);
   };
 
+  // Handle paste into grid (multi-cell)
+  const handlePaste = useCallback((target: Item, values: readonly (readonly string[])[]) => {
+    if (!pasteMode) return false;
+    const [startCol, startRow] = target;
+    let applied = 0;
+    let clipped = false;
+    const nextProducts = [...products];
+
+    const makeEmpty = (): ProductData => ({
+      'Shipment Code': '',
+      'CV Number': '',
+      'No. Of Sacks': 0,
+      'Total CBM': 0,
+      'Weight': 0,
+      'Shipment Status': '',
+      'Posting Date': '',
+      'Order Date': '',
+      'Payment': '',
+      'Product': '',
+      'Product Code': '',
+      'Age Range': '',
+      'Unit': '',
+      'Unit Price': 0,
+      'Quantity': 0,
+      'Shipping Fee 1': 0,
+      'Exchange Rates': 0,
+      'PHP': 0,
+      'Sub Total (PHP)': 0,
+      'Transaction Fee': 0,
+      'Grand Total': 0,
+      'Shipping Fee 2': 0,
+      'Shipping Fee 3': 0,
+      'Packaging': 0,
+      'Suggested Price': 0,
+      'Actual Price': 0,
+      'Base Price': 0,
+      'COGS': 0,
+      'Projected Sales': 0,
+      'Projected Profit': 0,
+      'Projected Profit (%)': 0,
+      'Total Markup': 0,
+    });
+
+    for (let r = 0; r < values.length; r++) {
+      const rowIdx = startRow + r;
+      const rowData = values[r] ?? [];
+
+      // Determine the global index to write to (existing filtered row or append)
+      let globalIndex: number;
+      if (rowIdx < filteredProducts.length) {
+        const rowObj = filteredProducts[rowIdx];
+        globalIndex = nextProducts.indexOf(rowObj);
+        if (globalIndex === -1) {
+          nextProducts.push(makeEmpty());
+          globalIndex = nextProducts.length - 1;
+        }
+      } else {
+        nextProducts.push(makeEmpty());
+        globalIndex = nextProducts.length - 1;
+      }
+
+      for (let c = 0; c < rowData.length; c++) {
+        const colIdx = startCol + c;
+        if (colIdx >= columns.length) { clipped = true; break; }
+        const v = (rowData[c] ?? '').toString();
+        const col = columns[colIdx];
+        const key = col ? idToKey[col.id ?? ''] : undefined;
+        if (key) {
+          const updated: ProductData = { ...nextProducts[globalIndex], [key]: v } as ProductData;
+          nextProducts[globalIndex] = updated;
+          applied++;
+        }
+      }
+    }
+
+    if (applied > 0) {
+      // Persist full dataset via bulk sync for simplicity
+      (async () => {
+        try {
+          const res = await fetch('/api/products', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(nextProducts),
+          });
+          if (!res.ok) {
+            let msg = 'Failed to persist pasted rows';
+            try { const j = await res.json(); if (j?.error) msg = j.error; } catch {}
+            notifications.show({ title: 'Paste saved locally only', message: msg, color: 'yellow' });
+          }
+        } catch (e) {
+          console.error('Failed to persist pasted rows', e);
+          notifications.show({ title: 'Paste saved locally only', message: 'Database not reachable', color: 'yellow' });
+        }
+      })();
+
+      setProducts(nextProducts);
+      if (!searchQuery.trim()) {
+        setFilteredProducts(nextProducts);
+      } else {
+        const q = searchQuery.toLowerCase();
+        setFilteredProducts(nextProducts.filter((product) =>
+          Object.values(product).some(val => 
+            val && val.toString().toLowerCase().includes(q)
+          )
+        ));
+      }
+
+      notifications.show({
+        title: 'Pasted into table',
+        message: `Applied ${applied} cell${applied === 1 ? '' : 's'}${clipped ? ' (some data clipped to grid size)' : ''}`,
+        color: 'blue',
+      });
+
+      return true;
+    }
+    return false;
+  }, [pasteMode, products, filteredProducts, columns, searchQuery, idToKey]);
+
   // Get cell data for the grid
   const getData = useCallback((cell: Item): any => {
     const [col, row] = cell;
@@ -774,6 +893,15 @@ export default function Products() {
           />
           
           <Group gap="sm">
+            <Button
+              variant={pasteMode ? 'filled' : 'outline'}
+              color={pasteMode ? 'yellow' : 'gray'}
+              size="md"
+              radius="md"
+              onClick={() => setPasteMode((v) => !v)}
+            >
+              {pasteMode ? 'Disable Paste Mode' : 'Enable Paste Mode'}
+            </Button>
             <FileInput
               placeholder="Select CSV file"
               accept=".csv"
@@ -1375,6 +1503,7 @@ export default function Products() {
             headerHeight={80}
             rowMarkers="number"
             onCellClicked={onCellClicked}
+            onPaste={pasteMode ? handlePaste : undefined}
             isDraggable={false}
             experimental={{
               scrollbarWidthOverride: 16,
