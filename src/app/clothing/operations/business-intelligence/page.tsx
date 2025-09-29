@@ -1,3 +1,5 @@
+'use client';
+
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import { DataGrid } from '../../../../components/ui';
 import { Stack, Text } from '@mantine/core';
