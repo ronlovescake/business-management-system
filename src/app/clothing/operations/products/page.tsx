@@ -586,6 +586,17 @@ export default function Products() {
     return 'left'; // default alignment
   };
 
+  // Define columns that should display with 2 decimal places
+  const getTwoDecimalPlaces = (columnId: string): boolean => {
+    const twoDecimalColumns = [
+      'unitPrice', 'shippingFee1', 'exchangeRates', 'php', 'subTotalPHP',
+      'transactionFee', 'grandTotal', 'shippingFee2', 'shippingFee3',
+      'packaging', 'suggestedPrice', 'actualPrice', 'basePrice', 'cogs',
+      'projectedSales', 'projectedProfit', 'projectedProfitPercent', 'totalMarkup'
+    ];
+    return twoDecimalColumns.includes(columnId);
+  };
+
   // Get cell data for the grid
   const getData = useCallback((cell: Item): any => {
     const [col, row] = cell;
@@ -605,13 +616,18 @@ export default function Products() {
     const key = idToKey[column.id as string];
     const value = product[key];
     const alignment = getColumnAlignment(column.id as string);
+    const useTwoDecimals = getTwoDecimalPlaces(column.id as string);
 
     // Handle different data types
     if (typeof value === 'number') {
+      const displayData = useTwoDecimals 
+        ? value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : value.toLocaleString();
+        
       return {
         kind: GridCellKind.Number,
         data: value,
-        displayData: value.toLocaleString(),
+        displayData: displayData,
         allowOverlay: false,
         contentAlign: alignment,
       };
