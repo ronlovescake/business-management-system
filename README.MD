@@ -257,41 +257,41 @@ The Products page features comprehensive automated financial calculations across
 ```tsx
 // Core financial calculation formulas
 const calculations = {
-  // Exchange & Base Calculations
-  peso: unitPrice * exchangeRate,
-  shippingInPeso: shippingFees * exchangeRate,
-  totalCostPeso: peso + shippingInPeso,
+  // Base Currency Conversion
+  php: unitPrice * exchangeRate,
+  subTotalPHP: (unitPrice * quantity + shippingFee1) * exchangeRate,
   
-  // Markup & Pricing Analysis  
-  markup: actualPrice - totalCostPeso,
-  totalMarkup: (actualPrice / peso) * 100,        // Percentage format
-  markupPercentage: ((actualPrice - peso) / peso) * 100,
+  // Transaction & Processing Fees
+  transactionFee: subTotalPHP * 0.0299,  // 2.99%
+  grandTotal: subTotalPHP + transactionFee,
   
-  // Packaging & Final Costs
-  packagingInPeso: packaging * exchangeRate,
-  totalPackagingCost: totalCostPeso + packagingInPeso,
-  totalMarkupWithPackaging: actualPrice - totalPackagingCost,
-  packagingMarkupPercentage: totalPackagingCost > 0 
-    ? ((actualPrice - totalPackagingCost) / totalPackagingCost) * 100 
-    : 0,
+  // Cost Analysis & Pricing
+  cogs: grandTotal + shippingFee2 + shippingFee3 + packaging,
+  basePrice: cogs / quantity,
+  suggestedPrice: Math.ceil(basePrice * 1.22),  // ROUNDUP(Base Price × 122%)
   
-  // Revenue Analysis
-  profitPerUnit: actualPrice - totalPackagingCost
+  // Revenue & Profitability Analysis
+  projectedSalesTotal: actualPrice * quantity,
+  projectedProfit: projectedSalesTotal - cogs,
+  projectedProfitPercentage: cogs > 0 ? (projectedProfit / cogs) * 100 : 0,
+  
+  // Markup Analysis
+  totalMarkup: php > 0 ? (actualPrice / php) * 100 : 0
 };
 ```
 
 **💰 Financial Columns Automated:**
-1. **Peso** → Unit Price × Exchange Rate
-2. **Shipping in Peso** → Shipping Fees × Exchange Rate  
-3. **Total Cost Peso** → Peso + Shipping in Peso
-4. **Markup** → Actual Price - Total Cost Peso
-5. **Total Markup** → (Actual Price ÷ Peso) × 100 (Percentage)
-6. **Markup Percentage** → ((Actual Price - Peso) ÷ Peso) × 100
-7. **Packaging in Peso** → Packaging × Exchange Rate
-8. **Total Packaging Cost** → Total Cost Peso + Packaging in Peso
-9. **Total Markup with Packaging** → Actual Price - Total Packaging Cost
-10. **Packaging Markup Percentage** → ((Actual Price - Total Packaging Cost) ÷ Total Packaging Cost) × 100
-11. **Profit per Unit** → Actual Price - Total Packaging Cost
+1. **PHP** → Unit Price × Exchange Rate
+2. **Sub Total (PHP)** → (Unit Price × Quantity + Shipping Fee 1) × Exchange Rate
+3. **Transaction Fee** → Sub Total (PHP) × 2.99%
+4. **Grand Total** → Sub Total (PHP) + Transaction Fee
+5. **Suggested Price** → ROUNDUP(Base Price × 122%)
+6. **Base Price** → COGS / Quantity
+7. **COGS** → Grand Total + Shipping Fee 2 + Shipping Fee 3 + Packaging
+8. **Projected Sales Total** → Actual Price × Quantity
+9. **Projected Profit** → Projected Sales Total - COGS
+10. **Projected Profit (%)** → (Projected Profit / COGS) × 100
+11. **Total Markup** → (Actual Price / PHP) × 100
 
 **🔄 Calculation Implementation:**
 - **Database Loading** → All existing records recalculated on page load
