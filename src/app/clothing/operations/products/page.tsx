@@ -83,7 +83,7 @@ interface ProductData {
   'Unit': string;
   'Unit Price': number;
   'Quantity': number;
-  'Shipping Fee 1': number;
+  'Alibaba Shipping Cost': number;
   'Exchange Rates': number;
   'PHP': number;
   'Sub Total (PHP)': number;
@@ -146,7 +146,7 @@ export default function Products() {
     { title: 'Unit', width: 100, id: 'unit' },
     { title: 'Unit Price', width: 120, id: 'unitPrice' },
     { title: 'Quantity', width: 100, id: 'quantity' },
-    { title: 'Shipping Fee 1', width: 130, id: 'shippingFee1' },
+    { title: 'Alibaba Shipping Cost', width: 130, id: 'shippingFee1' },
     { title: 'Exchange Rates', width: 140, id: 'exchangeRates' },
     { title: 'PHP', width: 100, id: 'php' },
     { title: 'Sub Total (PHP)', width: 150, id: 'subTotalPHP' },
@@ -182,7 +182,7 @@ export default function Products() {
     unit: 'Unit',
     unitPrice: 'Unit Price',
     quantity: 'Quantity',
-    shippingFee1: 'Shipping Fee 1',
+    shippingFee1: 'Alibaba Shipping Cost',
     exchangeRates: 'Exchange Rates',
     php: 'PHP',
     subTotalPHP: 'Sub Total (PHP)',
@@ -388,7 +388,7 @@ export default function Products() {
               'Unit': product.unit || '',
               'Unit Price': product.unitPrice || 0,
               'Quantity': product.quantity || 0,
-              'Shipping Fee 1': product.shippingFee1 || 0,
+              'Alibaba Shipping Cost': product.shippingFee1 || 0,
               'Exchange Rates': product.exchangeRates || 0,
               'PHP': (product.unitPrice || 0) * (product.exchangeRates || 0), // PHP = Unit Price × Exchange Rate
               'Sub Total (PHP)': ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0), // Sub Total (PHP) = (Unit Price × Quantity + Shipping Fee 1) × Exchange Rate
@@ -485,7 +485,7 @@ export default function Products() {
           'Unit': values[12] || '',
           'Unit Price': parseNumeric(values[13]),
           'Quantity': parseNumeric(values[14]),
-          'Shipping Fee 1': parseNumeric(values[15]),
+          'Alibaba Shipping Cost': parseNumeric(values[15]),
           'Exchange Rates': parseNumeric(values[16]),
           'PHP': parseNumeric(values[13]) * parseNumeric(values[16]), // PHP = Unit Price × Exchange Rate
           'Sub Total (PHP)': (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]), // Sub Total (PHP) = (Unit Price × Quantity + Shipping Fee 1) × Exchange Rate
@@ -622,7 +622,7 @@ export default function Products() {
       'Unit': '',
       'Unit Price': 0,
       'Quantity': 0,
-      'Shipping Fee 1': 0,
+      'Alibaba Shipping Cost': 0,
       'Exchange Rates': 0,
       'PHP': 0,
       'Sub Total (PHP)': 0,
@@ -1602,7 +1602,7 @@ export default function Products() {
                       'Unit': newProductForm.unit,
                       'Unit Price': newProductForm.unitPrice,
                       'Quantity': newProductForm.quantity,
-                      'Shipping Fee 1': newProductForm.shippingFee1,
+                      'Alibaba Shipping Cost': newProductForm.shippingFee1,
                       'Exchange Rates': newProductForm.exchangeRates,
                       'PHP': newProductForm.unitPrice * newProductForm.exchangeRates, // PHP = Unit Price × Exchange Rate
                       'Sub Total (PHP)': (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates, // Sub Total (PHP) = (Unit Price × Quantity + Shipping Fee 1) × Exchange Rate
