@@ -242,7 +242,7 @@ export function DataTable<T = any>({
       <Stack gap="md" style={{ width: '100%', maxWidth: 'none', margin: '0 auto' }}>
         {/* Stats cards */}
         {statsCards && statsCards.length > 0 && (
-          <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
+          <SimpleGrid cols={statsCards.length} spacing="md">
             {statsCards.map((stat, index) => (
               <Card 
                 key={index}

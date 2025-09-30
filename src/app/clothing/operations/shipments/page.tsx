@@ -10,7 +10,14 @@ import {
   IconPlus, 
   IconCheck,
   IconPackage,
-  IconCurrencyDollar 
+  IconCurrencyDollar,
+  IconBox,
+  IconScale,
+  IconTruck,
+  IconAnchor,
+  IconClipboardCheck,
+  IconBuilding,
+  IconHandStop
 } from '@tabler/icons-react';
 import { ShipmentData } from '../../../../types';
 
@@ -128,8 +135,35 @@ export default function Shipments() {
   const pendingShipments = shipments.filter(s => s['Shipment Status']?.toLowerCase() === 'pending').length;
   const inTransitShipments = shipments.filter(s => s['Shipment Status']?.toLowerCase() === 'in transit').length;
   const deliveredShipments = shipments.filter(s => s['Shipment Status']?.toLowerCase() === 'delivered').length;
-  const totalFees = shipments.reduce((sum, s) => sum + (s['Fee'] || 0), 0);
-  const totalSacks = shipments.reduce((sum, s) => sum + (s['No. Of Sacks'] || 0), 0);
+  const manilaPortShipments = shipments.filter(s => s['Shipment Status']?.toLowerCase() === 'manila port').length;
+  const withPierGatepassShipments = shipments.filter(s => s['Shipment Status']?.toLowerCase() === 'with pier gatepass').length;
+  const phWarehouseShipments = shipments.filter(s => s['Shipment Status']?.toLowerCase() === 'ph warehouse').length;
+  const forPickupShipments = shipments.filter(s => s['Shipment Status']?.toLowerCase() === 'for pickup').length;
+  
+  // Parse fees (remove currency symbol and commas, then convert to number)
+  const totalFees = shipments.reduce((sum, s) => {
+    const feeString = s['Fee'] || '0';
+    const feeNumber = parseFloat(feeString.toString().replace(/[₱,]/g, '')) || 0;
+    return sum + feeNumber;
+  }, 0);
+  
+  // Parse sacks (convert to number)
+  const totalSacks = shipments.reduce((sum, s) => {
+    const sacksNumber = parseFloat(s['No. Of Sacks']?.toString() || '0') || 0;
+    return sum + sacksNumber;
+  }, 0);
+  
+  // Parse total CBM (convert to number)
+  const totalCBM = shipments.reduce((sum, s) => {
+    const cbmNumber = parseFloat(s['Total CBM']?.toString() || '0') || 0;
+    return sum + cbmNumber;
+  }, 0);
+  
+  // Parse total weight (convert to number)
+  const totalWeight = shipments.reduce((sum, s) => {
+    const weightNumber = parseFloat(s['Weight']?.toString() || '0') || 0;
+    return sum + weightNumber;
+  }, 0);
 
   // Define stats cards
   const statsCards: StatCard[] = [
@@ -141,6 +175,13 @@ export default function Shipments() {
       backgroundColor: 'var(--mantine-color-blue-6)',
     },
     {
+      title: 'Total Fees',
+      value: `₱${totalFees.toLocaleString()}`,
+      icon: <IconCurrencyDollar size={18} />,
+      color: 'purple',
+      backgroundColor: '#9775fa',
+    },
+    {
       title: 'Total Sacks',
       value: totalSacks.toLocaleString(),
       icon: <IconPackage size={18} />,
@@ -148,18 +189,60 @@ export default function Shipments() {
       backgroundColor: '#fd7e14',
     },
     {
+      title: 'Total CBM',
+      value: `${totalCBM.toLocaleString()} m³`,
+      icon: <IconBox size={18} />,
+      color: 'teal',
+      backgroundColor: 'var(--mantine-color-teal-6)',
+    },
+    {
+      title: 'Total Weight',
+      value: `${totalWeight.toLocaleString()} kg`,
+      icon: <IconScale size={18} />,
+      color: 'indigo',
+      backgroundColor: 'var(--mantine-color-indigo-6)',
+    },
+    {
+      title: 'In Transit',
+      value: inTransitShipments,
+      icon: <IconTruck size={18} />,
+      color: 'yellow',
+      backgroundColor: 'var(--mantine-color-yellow-6)',
+    },
+    {
+      title: 'Manila Port',
+      value: manilaPortShipments,
+      icon: <IconAnchor size={18} />,
+      color: 'blue',
+      backgroundColor: 'var(--mantine-color-blue-7)',
+    },
+    {
+      title: 'With Pier Gatepass',
+      value: withPierGatepassShipments,
+      icon: <IconClipboardCheck size={18} />,
+      color: 'cyan',
+      backgroundColor: 'var(--mantine-color-cyan-6)',
+    },
+    {
+      title: 'PH Warehouse',
+      value: phWarehouseShipments,
+      icon: <IconBuilding size={18} />,
+      color: 'lime',
+      backgroundColor: 'var(--mantine-color-lime-6)',
+    },
+    {
+      title: 'For Pickup',
+      value: forPickupShipments,
+      icon: <IconHandStop size={18} />,
+      color: 'red',
+      backgroundColor: 'var(--mantine-color-red-6)',
+    },
+    {
       title: 'Delivered',
       value: deliveredShipments,
       icon: <IconCheck size={18} />,
       color: 'green',
       backgroundColor: 'var(--mantine-color-green-6)',
-    },
-    {
-      title: 'Total Fees',
-      value: `₱${totalFees.toLocaleString()}`,
-      icon: <IconCurrencyDollar size={18} />,
-      color: 'purple',
-      backgroundColor: '#9775fa',
     },
   ];
 
