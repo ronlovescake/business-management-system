@@ -209,8 +209,8 @@ export default function Transactions() {
   // Apply status filtering on top of search filtering
   const filteredData = React.useMemo(() => {
     if (selectedStatuses.size === 0) {
-      // No status filters selected, show all search results
-      return searchFilteredData;
+      // No status filters selected -> show nothing
+      return [] as TransactionData[];
     }
 
     // If "All Status" is selected, show all search results
