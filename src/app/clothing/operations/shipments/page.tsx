@@ -362,6 +362,27 @@ export default function Shipments() {
         return result;
       };
       
+      // Helper function to calculate duration between dates
+      const calculateDurationFromStrings = (dateCreatedStr: string, dateDeliveredStr: string): string => {
+        if (!dateCreatedStr || !dateDeliveredStr) return '';
+        
+        try {
+          const dateCreated = new Date(dateCreatedStr);
+          const dateDelivered = new Date(dateDeliveredStr);
+          
+          // Check if dates are valid
+          if (isNaN(dateCreated.getTime()) || isNaN(dateDelivered.getTime())) {
+            return '';
+          }
+          
+          const diffTime = Math.abs(dateDelivered.getTime() - dateCreated.getTime());
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          return diffDays.toString();
+        } catch (error) {
+          return '';
+        }
+      };
+
       const headers = parseCSVLine(lines[0]);
       const importedShipments: ShipmentData[] = [];
       
@@ -376,6 +397,14 @@ export default function Shipments() {
               shipmentData[header] = values[index];
             }
           });
+          
+          // Auto-calculate duration if both dates are present
+          if (shipmentData['Date Created'] && shipmentData['Date Delivered']) {
+            shipmentData['Duration'] = calculateDurationFromStrings(
+              shipmentData['Date Created'], 
+              shipmentData['Date Delivered']
+            );
+          }
           
           importedShipments.push(shipmentData as ShipmentData);
         }
