@@ -643,7 +643,7 @@ export default function Shipments() {
   }
 
   return (
-    <PageLayout title="Shipments" fluid withPadding>
+    <PageLayout fluid withPadding>
       <DataTable
         data={shipments}
         filteredData={filteredData}
