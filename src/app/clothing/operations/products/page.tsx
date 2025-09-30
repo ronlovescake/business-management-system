@@ -1248,7 +1248,7 @@ export default function Products() {
                 />
                 
                 <NumberInput
-                  label="Shipping Fee 2"
+                  label="Forwarder's Fee"
                   placeholder="0.00"
                   size="md"
                   radius="md"
