@@ -90,8 +90,8 @@ interface ProductData {
   'Transaction Fee': number;
   'Grand Total': number;
   'Forwarder\'s Fee': number;
-  'Shipping Fee 3': number;
-  'Packaging': number;
+  'Lalamove': number;
+  'Packaging Cost': number;
   'Suggested Price': number;
   'Actual Price': number;
   'Base Price': number;
@@ -121,11 +121,11 @@ export default function Products() {
     unit: '',
     unitPrice: 0,
     quantity: 0,
-    shippingFee1: 0,
+    alibabaShippingCost: 0,
     exchangeRates: 1,
-    shippingFee2: 0,
-    shippingFee3: 0,
-    packaging: 0,
+    forwardersFee: 0,
+    lalamove: 0,
+    packagingCost: 0,
     actualPrice: 0,
   }));
 
@@ -146,15 +146,15 @@ export default function Products() {
     { title: 'Unit', width: 100, id: 'unit' },
     { title: 'Unit Price', width: 120, id: 'unitPrice' },
     { title: 'Quantity', width: 100, id: 'quantity' },
-    { title: 'Alibaba Shipping Cost', width: 130, id: 'shippingFee1' },
+    { title: 'Alibaba Shipping Cost', width: 130, id: 'alibabaShippingCost' },
     { title: 'Exchange Rates', width: 140, id: 'exchangeRates' },
     { title: 'PHP', width: 100, id: 'php' },
     { title: 'Sub Total (PHP)', width: 150, id: 'subTotalPHP' },
     { title: 'Transaction Fee', width: 140, id: 'transactionFee' },
     { title: 'Grand Total', width: 130, id: 'grandTotal' },
-    { title: 'Forwarder\'s Fee', width: 130, id: 'shippingFee2' },
-    { title: 'Shipping Fee 3', width: 130, id: 'shippingFee3' },
-    { title: 'Packaging', width: 120, id: 'packaging' },
+    { title: 'Forwarder\'s Fee', width: 130, id: 'forwardersFee' },
+    { title: 'Lalamove', width: 130, id: 'lalamove' },
+    { title: 'Packaging Cost', width: 120, id: 'packagingCost' },
     { title: 'Suggested Price', width: 150, id: 'suggestedPrice' },
     { title: 'Actual Price', width: 130, id: 'actualPrice' },
     { title: 'Base Price', width: 120, id: 'basePrice' },
@@ -182,15 +182,15 @@ export default function Products() {
     unit: 'Unit',
     unitPrice: 'Unit Price',
     quantity: 'Quantity',
-    shippingFee1: 'Alibaba Shipping Cost',
+    alibabaShippingCost: 'Alibaba Shipping Cost',
     exchangeRates: 'Exchange Rates',
     php: 'PHP',
     subTotalPHP: 'Sub Total (PHP)',
     transactionFee: 'Transaction Fee',
     grandTotal: 'Grand Total',
-    shippingFee2: 'Forwarder\'s Fee',
-    shippingFee3: 'Shipping Fee 3',
-    packaging: 'Packaging',
+    forwardersFee: 'Forwarder\'s Fee',
+    lalamove: 'Lalamove',
+    packagingCost: 'Packaging Cost',
     suggestedPrice: 'Suggested Price',
     actualPrice: 'Actual Price',
     basePrice: 'Base Price',
@@ -247,11 +247,11 @@ export default function Products() {
       unit: '',
       unitPrice: 0,
       quantity: 0,
-      shippingFee1: 0,
+      alibabaShippingCost: 0,
       exchangeRates: 1,
-      shippingFee2: 0,
-      shippingFee3: 0,
-      packaging: 0,
+      forwardersFee: 0,
+      lalamove: 0,
+      packagingCost: 0,
       actualPrice: 0,
     });
   }, []);
@@ -388,22 +388,22 @@ export default function Products() {
               'Unit': product.unit || '',
               'Unit Price': product.unitPrice || 0,
               'Quantity': product.quantity || 0,
-              'Alibaba Shipping Cost': product.shippingFee1 || 0,
+              'Alibaba Shipping Cost': product.alibabaShippingCost || 0,
               'Exchange Rates': product.exchangeRates || 0,
               'PHP': (product.unitPrice || 0) * (product.exchangeRates || 0), // PHP = Unit Price × Exchange Rate
-              'Sub Total (PHP)': ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0), // Sub Total (PHP) = (Unit Price × Quantity + Shipping Fee 1) × Exchange Rate
-              'Transaction Fee': ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) * 0.0299, // Transaction Fee = Sub Total (PHP) × 2.99%
-              'Grand Total': ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) + ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) * 0.0299, // Grand Total = Sub Total (PHP) + Transaction Fee
-              'Forwarder\'s Fee': product.shippingFee2 || 0,
-              'Shipping Fee 3': product.shippingFee3 || 0,
-              'Packaging': product.packaging || 0,
-              'Suggested Price': Math.ceil(((product.quantity || 0) > 0 ? (((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) + ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) * 0.0299 + (product.shippingFee2 || 0) + (product.shippingFee3 || 0) + (product.packaging || 0)) / (product.quantity || 1) : 0) * 1.22), // Suggested Price = ROUNDUP(Base Price * 122%)
+              'Sub Total (PHP)': ((product.unitPrice || 0) * (product.quantity || 0) + (product.alibabaShippingCost || 0)) * (product.exchangeRates || 0), // Sub Total (PHP) = (Unit Price × Quantity + Alibaba Shipping Cost) × Exchange Rate
+              'Transaction Fee': ((product.unitPrice || 0) * (product.quantity || 0) + (product.alibabaShippingCost || 0)) * (product.exchangeRates || 0) * 0.0299, // Transaction Fee = Sub Total (PHP) × 2.99%
+              'Grand Total': ((product.unitPrice || 0) * (product.quantity || 0) + (product.alibabaShippingCost || 0)) * (product.exchangeRates || 0) + ((product.unitPrice || 0) * (product.quantity || 0) + (product.alibabaShippingCost || 0)) * (product.exchangeRates || 0) * 0.0299, // Grand Total = Sub Total (PHP) + Transaction Fee
+              'Forwarder\'s Fee': product.forwardersFee || 0,
+              'Lalamove': product.lalamove || 0,
+              'Packaging Cost': product.packagingCost || 0,
+              'Suggested Price': Math.ceil(((product.quantity || 0) > 0 ? (((product.unitPrice || 0) * (product.quantity || 0) + (product.alibabaShippingCost || 0)) * (product.exchangeRates || 0) + ((product.unitPrice || 0) * (product.quantity || 0) + (product.alibabaShippingCost || 0)) * (product.exchangeRates || 0) * 0.0299 + (product.forwardersFee || 0) + (product.lalamove || 0) + (product.packagingCost || 0)) / (product.quantity || 1) : 0) * 1.22), // Suggested Price = ROUNDUP(Base Price * 122%)
               'Actual Price': product.actualPrice || 0,
-              'Base Price': (product.quantity || 0) > 0 ? (((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) + ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) * 0.0299 + (product.shippingFee2 || 0) + (product.shippingFee3 || 0) + (product.packaging || 0)) / (product.quantity || 1) : 0, // Base Price = COGS / Quantity
-              'COGS': ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) + ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) * 0.0299 + (product.shippingFee2 || 0) + (product.shippingFee3 || 0) + (product.packaging || 0), // COGS = Grand Total + Shipping Fee 2 + Shipping Fee 3 + Packaging
+              'Base Price': (product.quantity || 0) > 0 ? (((product.unitPrice || 0) * (product.quantity || 0) + (product.alibabaShippingCost || 0)) * (product.exchangeRates || 0) + ((product.unitPrice || 0) * (product.quantity || 0) + (product.alibabaShippingCost || 0)) * (product.exchangeRates || 0) * 0.0299 + (product.forwardersFee || 0) + (product.lalamove || 0) + (product.packagingCost || 0)) / (product.quantity || 1) : 0, // Base Price = COGS / Quantity
+              'COGS': ((product.unitPrice || 0) * (product.quantity || 0) + (product.alibabaShippingCost || 0)) * (product.exchangeRates || 0) + ((product.unitPrice || 0) * (product.quantity || 0) + (product.alibabaShippingCost || 0)) * (product.exchangeRates || 0) * 0.0299 + (product.forwardersFee || 0) + (product.lalamove || 0) + (product.packagingCost || 0), // COGS = Grand Total + Forwarder's Fee + Lalamove + Packaging Cost
               'Projected Sales': (product.actualPrice || 0) * (product.quantity || 0), // Projected Sales Total = Actual Price × Quantity
-              'Projected Profit': ((product.actualPrice || 0) * (product.quantity || 0)) - (((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) + ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) * 0.0299 + (product.shippingFee2 || 0) + (product.shippingFee3 || 0) + (product.packaging || 0)), // Projected Profit = Projected Sales Total - COGS
-              'Projected Profit (%)': (((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) + ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) * 0.0299 + (product.shippingFee2 || 0) + (product.shippingFee3 || 0) + (product.packaging || 0)) > 0 ? ((((product.actualPrice || 0) * (product.quantity || 0)) - (((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) + ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) * 0.0299 + (product.shippingFee2 || 0) + (product.shippingFee3 || 0) + (product.packaging || 0))) / (((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) + ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) * 0.0299 + (product.shippingFee2 || 0) + (product.shippingFee3 || 0) + (product.packaging || 0))) * 100 : 0, // Projected Profit (%) = (Projected Profit / COGS) * 100
+              'Projected Profit': ((product.actualPrice || 0) * (product.quantity || 0)) - (((product.unitPrice || 0) * (product.quantity || 0) + (product.alibabaShippingCost || 0)) * (product.exchangeRates || 0) + ((product.unitPrice || 0) * (product.quantity || 0) + (product.alibabaShippingCost || 0)) * (product.exchangeRates || 0) * 0.0299 + (product.forwardersFee || 0) + (product.lalamove || 0) + (product.packagingCost || 0)), // Projected Profit = Projected Sales Total - COGS
+              'Projected Profit (%)': (((product.unitPrice || 0) * (product.quantity || 0) + (product.alibabaShippingCost || 0)) * (product.exchangeRates || 0) + ((product.unitPrice || 0) * (product.quantity || 0) + (product.alibabaShippingCost || 0)) * (product.exchangeRates || 0) * 0.0299 + (product.forwardersFee || 0) + (product.lalamove || 0) + (product.packagingCost || 0)) > 0 ? ((((product.actualPrice || 0) * (product.quantity || 0)) - (((product.unitPrice || 0) * (product.quantity || 0) + (product.alibabaShippingCost || 0)) * (product.exchangeRates || 0) + ((product.unitPrice || 0) * (product.quantity || 0) + (product.alibabaShippingCost || 0)) * (product.exchangeRates || 0) * 0.0299 + (product.forwardersFee || 0) + (product.lalamove || 0) + (product.packagingCost || 0))) / (((product.unitPrice || 0) * (product.quantity || 0) + (product.alibabaShippingCost || 0)) * (product.exchangeRates || 0) + ((product.unitPrice || 0) * (product.quantity || 0) + (product.alibabaShippingCost || 0)) * (product.exchangeRates || 0) * 0.0299 + (product.forwardersFee || 0) + (product.lalamove || 0) + (product.packagingCost || 0))) * 100 : 0, // Projected Profit (%) = (Projected Profit / COGS) * 100
               'Total Markup': ((product.unitPrice || 0) * (product.exchangeRates || 0)) > 0 ? ((product.actualPrice || 0) / ((product.unitPrice || 0) * (product.exchangeRates || 0))) * 100 : 0, // Total Markup = (Actual Price / PHP) * 100
             };
           });
@@ -492,12 +492,12 @@ export default function Products() {
           'Transaction Fee': (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) * 0.0299, // Transaction Fee = Sub Total (PHP) × 2.99%
           'Grand Total': (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) + (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) * 0.0299, // Grand Total = Sub Total (PHP) + Transaction Fee
           'Forwarder\'s Fee': parseNumeric(values[21]),
-          'Shipping Fee 3': parseNumeric(values[22]),
-          'Packaging': parseNumeric(values[23]),
+          'Lalamove': parseNumeric(values[22]),
+          'Packaging Cost': parseNumeric(values[23]),
           'Suggested Price': Math.ceil((parseNumeric(values[14]) > 0 ? ((parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) + (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) * 0.0299 + parseNumeric(values[21]) + parseNumeric(values[22]) + parseNumeric(values[23])) / parseNumeric(values[14]) : 0) * 1.22), // Suggested Price = ROUNDUP(Base Price * 122%)
           'Actual Price': parseNumeric(values[25]),
           'Base Price': parseNumeric(values[14]) > 0 ? ((parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) + (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) * 0.0299 + parseNumeric(values[21]) + parseNumeric(values[22]) + parseNumeric(values[23])) / parseNumeric(values[14]) : 0, // Base Price = COGS / Quantity
-          'COGS': (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) + (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) * 0.0299 + parseNumeric(values[21]) + parseNumeric(values[22]) + parseNumeric(values[23]), // COGS = Grand Total + Shipping Fee 2 + Shipping Fee 3 + Packaging
+          'COGS': (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) + (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) * 0.0299 + parseNumeric(values[21]) + parseNumeric(values[22]) + parseNumeric(values[23]), // COGS = Grand Total + Forwarder's Fee + Lalamove + Packaging Cost
           'Projected Sales': parseNumeric(values[25]) * parseNumeric(values[14]), // Projected Sales Total = Actual Price × Quantity
           'Projected Profit': (parseNumeric(values[25]) * parseNumeric(values[14])) - ((parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) + (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) * 0.0299 + parseNumeric(values[21]) + parseNumeric(values[22]) + parseNumeric(values[23])), // Projected Profit = Projected Sales Total - COGS
           'Projected Profit (%)': ((parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) + (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) * 0.0299 + parseNumeric(values[21]) + parseNumeric(values[22]) + parseNumeric(values[23])) > 0 ? (((parseNumeric(values[25]) * parseNumeric(values[14])) - ((parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) + (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) * 0.0299 + parseNumeric(values[21]) + parseNumeric(values[22]) + parseNumeric(values[23]))) / ((parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) + (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) * 0.0299 + parseNumeric(values[21]) + parseNumeric(values[22]) + parseNumeric(values[23]))) * 100 : 0, // Projected Profit (%) = (Projected Profit / COGS) * 100
@@ -574,9 +574,9 @@ export default function Products() {
     
     // Right Align columns (financial data)
     const rightAlignColumns = [
-      'unitPrice', 'shippingFee1', 'exchangeRates', 'php', 'subTotalPHP',
-      'transactionFee', 'grandTotal', 'shippingFee2', 'shippingFee3',
-      'packaging', 'suggestedPrice', 'actualPrice', 'basePrice', 'cogs',
+      'unitPrice', 'alibabaShippingCost', 'exchangeRates', 'php', 'subTotalPHP',
+      'transactionFee', 'grandTotal', 'forwardersFee', 'lalamove',
+      'packagingCost', 'suggestedPrice', 'actualPrice', 'basePrice', 'cogs',
       'projectedSales', 'projectedProfit', 'projectedProfitPercent', 'totalMarkup'
     ];
     
@@ -590,9 +590,9 @@ export default function Products() {
   // Define columns that should display with 2 decimal places
   const getTwoDecimalPlaces = (columnId: string): boolean => {
     const twoDecimalColumns = [
-      'unitPrice', 'shippingFee1', 'exchangeRates', 'php', 'subTotalPHP',
-      'transactionFee', 'grandTotal', 'shippingFee2', 'shippingFee3',
-      'packaging', 'suggestedPrice', 'actualPrice', 'basePrice', 'cogs',
+      'unitPrice', 'alibabaShippingCost', 'exchangeRates', 'php', 'subTotalPHP',
+      'transactionFee', 'grandTotal', 'forwardersFee', 'lalamove',
+      'packagingCost', 'suggestedPrice', 'actualPrice', 'basePrice', 'cogs',
       'projectedSales', 'projectedProfit', 'projectedProfitPercent', 'totalMarkup'
     ];
     return twoDecimalColumns.includes(columnId);
@@ -629,8 +629,8 @@ export default function Products() {
       'Transaction Fee': 0,
       'Grand Total': 0,
       'Forwarder\'s Fee': 0,
-      'Shipping Fee 3': 0,
-      'Packaging': 0,
+      'Lalamove': 0,
+      'Packaging Cost': 0,
       'Suggested Price': 0,
       'Actual Price': 0,
       'Base Price': 0,
@@ -1243,8 +1243,8 @@ export default function Products() {
                       '&:focus': { borderColor: 'var(--mantine-color-purple-5)' }
                     }
                   }}
-                  value={newProductForm.shippingFee1}
-                  onChange={(value) => updateFormField('shippingFee1', Number(value) || 0)}
+                  value={newProductForm.alibabaShippingCost}
+                  onChange={(value) => updateFormField('alibabaShippingCost', Number(value) || 0)}
                 />
                 
                 <NumberInput
@@ -1263,12 +1263,12 @@ export default function Products() {
                       '&:focus': { borderColor: 'var(--mantine-color-purple-5)' }
                     }
                   }}
-                  value={newProductForm.shippingFee2}
-                  onChange={(value) => updateFormField('shippingFee2', Number(value) || 0)}
+                  value={newProductForm.forwardersFee}
+                  onChange={(value) => updateFormField('forwardersFee', Number(value) || 0)}
                 />
 
                 <NumberInput
-                  label="Shipping Fee 3"
+                  label="Lalamove"
                   placeholder="0.00"
                   size="md"
                   radius="md"
@@ -1283,12 +1283,12 @@ export default function Products() {
                       '&:focus': { borderColor: 'var(--mantine-color-purple-5)' }
                     }
                   }}
-                  value={newProductForm.shippingFee3}
-                  onChange={(value) => updateFormField('shippingFee3', Number(value) || 0)}
+                  value={newProductForm.lalamove}
+                  onChange={(value) => updateFormField('lalamove', Number(value) || 0)}
                 />
 
                 <NumberInput
-                  label="Packaging Fee"
+                  label="Packaging Cost"
                   placeholder="0.00"
                   size="md"
                   radius="md"
@@ -1303,8 +1303,8 @@ export default function Products() {
                       '&:focus': { borderColor: 'var(--mantine-color-purple-5)' }
                     }
                   }}
-                  value={newProductForm.packaging}
-                  onChange={(value) => updateFormField('packaging', Number(value) || 0)}
+                  value={newProductForm.packagingCost}
+                  onChange={(value) => updateFormField('packagingCost', Number(value) || 0)}
                 />
 
                 <NumberInput
@@ -1358,7 +1358,7 @@ export default function Products() {
                   </Group>
                   <Text size="xl" fw={700} c="indigo.8" ta="center" mb="xs">
                     ₱{(newProductForm.quantity > 0 
-                      ? Math.ceil(((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging) / newProductForm.quantity * 1.22)
+                      ? Math.ceil(((newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates * 0.0299 + newProductForm.forwardersFee + newProductForm.lalamove + newProductForm.packagingCost) / newProductForm.quantity * 1.22)
                       : 0
                     ).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </Text>
@@ -1411,7 +1411,7 @@ export default function Products() {
                     <Text size="sm" fw={500} c="teal.7">Projected Profit</Text>
                   </Group>
                   <Text size="xl" fw={700} c="teal.8" ta="center" mb="xs">
-                    ₱{((newProductForm.actualPrice * newProductForm.quantity) - ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging)).toLocaleString('en-US', { 
+                    ₱{((newProductForm.actualPrice * newProductForm.quantity) - ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates * 0.0299 + newProductForm.forwardersFee + newProductForm.lalamove + newProductForm.packagingCost)).toLocaleString('en-US', { 
                       minimumFractionDigits: 2, 
                       maximumFractionDigits: 2 
                     })}
@@ -1439,7 +1439,7 @@ export default function Products() {
                   </Group>
                   <Text size="xl" fw={700} c="blue.8" ta="center" mb="xs">
                     {(() => {
-                      const cogs = (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging;
+                      const cogs = (newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates * 0.0299 + newProductForm.forwardersFee + newProductForm.lalamove + newProductForm.packagingCost;
                       const projectedProfit = (newProductForm.actualPrice * newProductForm.quantity) - cogs;
                       
                       if (cogs === 0) return '0.00%';
@@ -1477,7 +1477,7 @@ export default function Products() {
                   </Group>
                   <Text size="xl" fw={700} c="blue.8" ta="center" mb="xs">
                     ₱{(newProductForm.quantity > 0 
-                      ? ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging) / newProductForm.quantity
+                      ? ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates * 0.0299 + newProductForm.forwardersFee + newProductForm.lalamove + newProductForm.packagingCost) / newProductForm.quantity
                       : 0
                     ).toLocaleString('en-US', { 
                       minimumFractionDigits: 2, 
@@ -1506,7 +1506,7 @@ export default function Products() {
                     <Text size="sm" fw={500} c="red.7">COGS</Text>
                   </Group>
                   <Text size="xl" fw={700} c="red.8" ta="center" mb="xs">
-                    ₱{((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging).toLocaleString('en-US', { 
+                    ₱{((newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates * 0.0299 + newProductForm.forwardersFee + newProductForm.lalamove + newProductForm.packagingCost).toLocaleString('en-US', { 
                       minimumFractionDigits: 2, 
                       maximumFractionDigits: 2 
                     })}
@@ -1602,22 +1602,22 @@ export default function Products() {
                       'Unit': newProductForm.unit,
                       'Unit Price': newProductForm.unitPrice,
                       'Quantity': newProductForm.quantity,
-                      'Alibaba Shipping Cost': newProductForm.shippingFee1,
+                      'Alibaba Shipping Cost': newProductForm.alibabaShippingCost,
                       'Exchange Rates': newProductForm.exchangeRates,
                       'PHP': newProductForm.unitPrice * newProductForm.exchangeRates, // PHP = Unit Price × Exchange Rate
-                      'Sub Total (PHP)': (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates, // Sub Total (PHP) = (Unit Price × Quantity + Shipping Fee 1) × Exchange Rate
-                      'Transaction Fee': (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299, // Transaction Fee = Sub Total (PHP) × 2.99%
-                      'Grand Total': (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299, // Grand Total = Sub Total (PHP) + Transaction Fee
-                      'Forwarder\'s Fee': newProductForm.shippingFee2,
-                      'Shipping Fee 3': newProductForm.shippingFee3,  
-                      'Packaging': newProductForm.packaging,
-                      'Suggested Price': Math.ceil((newProductForm.quantity > 0 ? ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging) / newProductForm.quantity : 0) * 1.22), // Suggested Price = ROUNDUP(Base Price * 122%)
+                      'Sub Total (PHP)': (newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates, // Sub Total (PHP) = (Unit Price × Quantity + Alibaba Shipping Cost) × Exchange Rate
+                      'Transaction Fee': (newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates * 0.0299, // Transaction Fee = Sub Total (PHP) × 2.99%
+                      'Grand Total': (newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates * 0.0299, // Grand Total = Sub Total (PHP) + Transaction Fee
+                      'Forwarder\'s Fee': newProductForm.forwardersFee,
+                      'Lalamove': newProductForm.lalamove,  
+                      'Packaging Cost': newProductForm.packagingCost,
+                      'Suggested Price': Math.ceil((newProductForm.quantity > 0 ? ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates * 0.0299 + newProductForm.forwardersFee + newProductForm.lalamove + newProductForm.packagingCost) / newProductForm.quantity : 0) * 1.22), // Suggested Price = ROUNDUP(Base Price * 122%)
                       'Actual Price': newProductForm.actualPrice,
-                      'Base Price': newProductForm.quantity > 0 ? ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging) / newProductForm.quantity : 0, // Base Price = COGS / Quantity
-                      'COGS': (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging, // COGS = Grand Total + Shipping Fee 2 + Shipping Fee 3 + Packaging
+                      'Base Price': newProductForm.quantity > 0 ? ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates * 0.0299 + newProductForm.forwardersFee + newProductForm.lalamove + newProductForm.packagingCost) / newProductForm.quantity : 0, // Base Price = COGS / Quantity
+                      'COGS': (newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates * 0.0299 + newProductForm.forwardersFee + newProductForm.lalamove + newProductForm.packagingCost, // COGS = Grand Total + Forwarder's Fee + Lalamove + Packaging Cost
                       'Projected Sales': newProductForm.actualPrice * newProductForm.quantity, // Projected Sales Total = Actual Price × Quantity
-                      'Projected Profit': (newProductForm.actualPrice * newProductForm.quantity) - ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging), // Projected Profit = Projected Sales Total - COGS
-                      'Projected Profit (%)': ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging) > 0 ? (((newProductForm.actualPrice * newProductForm.quantity) - ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging)) / ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging)) * 100 : 0, // Projected Profit (%) = (Projected Profit / COGS) * 100
+                      'Projected Profit': (newProductForm.actualPrice * newProductForm.quantity) - ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates * 0.0299 + newProductForm.forwardersFee + newProductForm.lalamove + newProductForm.packagingCost), // Projected Profit = Projected Sales Total - COGS
+                      'Projected Profit (%)': ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates * 0.0299 + newProductForm.forwardersFee + newProductForm.lalamove + newProductForm.packagingCost) > 0 ? (((newProductForm.actualPrice * newProductForm.quantity) - ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates * 0.0299 + newProductForm.forwardersFee + newProductForm.lalamove + newProductForm.packagingCost)) / ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.alibabaShippingCost) * newProductForm.exchangeRates * 0.0299 + newProductForm.forwardersFee + newProductForm.lalamove + newProductForm.packagingCost)) * 100 : 0, // Projected Profit (%) = (Projected Profit / COGS) * 100
                       'Total Markup': (newProductForm.unitPrice * newProductForm.exchangeRates) > 0 ? (newProductForm.actualPrice / (newProductForm.unitPrice * newProductForm.exchangeRates)) * 100 : 0, // Total Markup = (Actual Price / PHP) * 100
                     };
 
