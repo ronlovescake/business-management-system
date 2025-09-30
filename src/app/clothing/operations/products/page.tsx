@@ -1393,30 +1393,30 @@ export default function Products() {
                   </Text>
                 </Card>
 
-                {/* COGS (Cost of Goods Sold) */}
+                {/* Projected Profit */}
                 <Card 
                   withBorder 
                   radius="md" 
                   padding="md"
                   style={{ 
-                    backgroundColor: 'var(--mantine-color-red-0)',
-                    borderColor: 'var(--mantine-color-red-3)'
+                    backgroundColor: 'var(--mantine-color-teal-0)',
+                    borderColor: 'var(--mantine-color-teal-3)'
                   }}
                 >
                   <Group justify="space-between" align="center" mb="md">
-                    <ThemeIcon size="sm" radius="md" variant="light" color="red">
-                      <IconTrendingDown size={14} />
+                    <ThemeIcon size="sm" radius="md" variant="light" color="teal">
+                      <IconTrendingUp size={14} />
                     </ThemeIcon>
-                    <Text size="sm" fw={500} c="red.7">COGS</Text>
+                    <Text size="sm" fw={500} c="teal.7">Projected Profit</Text>
                   </Group>
-                  <Text size="xl" fw={700} c="red.8" ta="center" mb="xs">
-                    ₱{((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging).toLocaleString('en-US', { 
+                  <Text size="xl" fw={700} c="teal.8" ta="center" mb="xs">
+                    ₱{((newProductForm.actualPrice * newProductForm.quantity) - ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging)).toLocaleString('en-US', { 
                       minimumFractionDigits: 2, 
                       maximumFractionDigits: 2 
                     })}
                   </Text>
                   <Text size="xs" c="dimmed" ta="center">
-                    Total cost to acquire & deliver
+                    Expected profit (Revenue - Costs)
                   </Text>
                 </Card>
 
@@ -1450,30 +1450,30 @@ export default function Products() {
                   </Text>
                 </Card>
 
-                {/* Projected Profit */}
+                {/* COGS (Cost of Goods Sold) */}
                 <Card 
                   withBorder 
                   radius="md" 
                   padding="md"
                   style={{ 
-                    backgroundColor: 'var(--mantine-color-teal-0)',
-                    borderColor: 'var(--mantine-color-teal-3)'
+                    backgroundColor: 'var(--mantine-color-red-0)',
+                    borderColor: 'var(--mantine-color-red-3)'
                   }}
                 >
                   <Group justify="space-between" align="center" mb="md">
-                    <ThemeIcon size="sm" radius="md" variant="light" color="teal">
-                      <IconTrendingUp size={14} />
+                    <ThemeIcon size="sm" radius="md" variant="light" color="red">
+                      <IconTrendingDown size={14} />
                     </ThemeIcon>
-                    <Text size="sm" fw={500} c="teal.7">Projected Profit</Text>
+                    <Text size="sm" fw={500} c="red.7">COGS</Text>
                   </Group>
-                  <Text size="xl" fw={700} c="teal.8" ta="center" mb="xs">
-                    ₱{((newProductForm.actualPrice * newProductForm.quantity) - ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging)).toLocaleString('en-US', { 
+                  <Text size="xl" fw={700} c="red.8" ta="center" mb="xs">
+                    ₱{((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging).toLocaleString('en-US', { 
                       minimumFractionDigits: 2, 
                       maximumFractionDigits: 2 
                     })}
                   </Text>
                   <Text size="xs" c="dimmed" ta="center">
-                    Expected profit (Revenue - Costs)
+                    Total cost to acquire & deliver
                   </Text>
                 </Card>
 
