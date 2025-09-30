@@ -10,13 +10,13 @@ function convertShipmentDBToData(shipment: ShipmentDB): ShipmentData {
     'CV Number': shipment.cvNumber || '',
     'No. Of Sacks': shipment.noOfSacks,
     'Total CBM': shipment.totalCBM,
-    'Weight': shipment.weight,
-    'Fee': shipment.fee,
+    Weight: shipment.weight,
+    Fee: shipment.fee,
     'Shipment Status': shipment.shipmentStatus,
     'Date Created': shipment.dateCreated || '',
     'Date Delivered': shipment.dateDelivered || '',
-    'Duration': shipment.duration || '',
-    'Notes': shipment.notes || '',
+    Duration: shipment.duration || '',
+    Notes: shipment.notes || '',
   };
 }
 
@@ -41,7 +41,7 @@ function convertShipmentDataToDB(data: Partial<ShipmentData>) {
 export async function GET() {
   try {
     const shipments = await prisma.shipment.findMany({
-      orderBy: { createdAt: 'desc' },
+      orderBy: { updatedAt: 'desc' },
     });
 
     const convertedShipments = shipments.map(convertShipmentDBToData);
@@ -65,15 +65,15 @@ export async function POST(request: NextRequest) {
     if (Array.isArray(body)) {
       // Bulk import - delete all existing and create new ones
       await prisma.shipment.deleteMany({});
-      
+
       const shipmentsToCreate = body.map(convertShipmentDataToDB);
       const createdShipments = await prisma.shipment.createMany({
         data: shipmentsToCreate,
       });
 
-      return NextResponse.json({ 
+      return NextResponse.json({
         message: 'Shipments imported successfully',
-        count: createdShipments.count 
+        count: createdShipments.count,
       });
     } else {
       // Single shipment creation
@@ -82,7 +82,9 @@ export async function POST(request: NextRequest) {
         data: shipmentData,
       });
 
-      const convertedShipment = convertShipmentDBToData(createdShipment as ShipmentDB);
+      const convertedShipment = convertShipmentDBToData(
+        createdShipment as ShipmentDB
+      );
 
       return NextResponse.json(convertedShipment, { status: 201 });
     }
