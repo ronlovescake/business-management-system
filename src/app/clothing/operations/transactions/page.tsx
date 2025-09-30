@@ -23,7 +23,7 @@ interface TransactionData {
   id?: number;
   'Order Date': string;
   Customers: string;
-  Items: string;
+  'Product Code': string;
   Quantity: number;
   'Unit Price': number;
   Discount: number;
@@ -153,7 +153,7 @@ export default function Transactions() {
   const columns: GridColumn[] = [
     { title: 'ORDER DATE', width: 200, id: 'orderDate' },
     { title: 'CUSTOMERS', width: 300, id: 'customers' },
-    { title: 'ITEMS', width: 400, id: 'items' },
+    { title: 'PRODUCT CODE', width: 400, id: 'productCode' },
     { title: 'QUANTITY', width: 150, id: 'quantity' },
     { title: 'UNIT PRICE', width: 180, id: 'unitPrice' },
     { title: 'DISCOUNT', width: 150, id: 'discount' },
@@ -170,7 +170,7 @@ export default function Transactions() {
   const idToKey: Record<string, keyof TransactionData> = {
     orderDate: 'Order Date',
     customers: 'Customers',
-    items: 'Items',
+    productCode: 'Product Code',
     quantity: 'Quantity',
     unitPrice: 'Unit Price',
     discount: 'Discount',
@@ -184,49 +184,49 @@ export default function Transactions() {
   };
 
   // Use the data table hook for search functionality
-  const { searchQuery, filteredData, handleSearch, getCellContent } =
-    useDataTable({
-      data: transactions,
-      searchFields: [
-        'Customers',
-        'Items',
-        'Order Status',
-        'Notes',
-        'Shipment Code',
-      ],
+  const {
+    searchQuery,
+    filteredData: searchFilteredData,
+    handleSearch,
+    getCellContent,
+  } = useDataTable({
+    data: transactions,
+    searchFields: [
+      'Customers',
+      'Product Code',
+      'Order Status',
+      'Notes',
+      'Shipment Code',
+    ],
+  });
+
+  // Apply status filtering on top of search filtering
+  const filteredData = React.useMemo(() => {
+    if (selectedStatuses.size === 0) {
+      // No status filters selected, show all search results
+      return searchFilteredData;
+    }
+
+    // If "All Status" is selected, show all search results
+    if (selectedStatuses.has('All Status')) {
+      return searchFilteredData;
+    }
+
+    // Filter by selected statuses (OR logic - show transactions matching ANY selected status)
+    return searchFilteredData.filter((transaction) => {
+      const status = transaction['Order Status'];
+      return status && selectedStatuses.has(status);
     });
+  }, [searchFilteredData, selectedStatuses]);
 
   // Create cell content getter function that properly handles the parameters
   const cellContentGetter = (cell: Item): GridCell => {
     return getCellContent(cell, columns, idToKey) as GridCell;
   };
 
-  // Load transactions data
+  // Initialize with empty data (no database for now)
   useEffect(() => {
-    const loadTransactions = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch('/api/transactions');
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch transactions');
-        }
-
-        const data = await response.json();
-        setTransactions(data);
-      } catch (error) {
-        console.error('Failed to load transactions:', error);
-        notifications.show({
-          title: 'Error',
-          message: 'Failed to load transactions data',
-          color: 'red',
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadTransactions();
+    setLoading(false);
   }, []);
 
   // Calculate statistics dynamically based on filtered data
@@ -412,23 +412,8 @@ export default function Transactions() {
         return;
       }
 
-      // Save to database via API (bulk import)
-      const saveResponse = await fetch('/api/transactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(importedTransactions),
-      });
-
-      if (!saveResponse.ok) {
-        throw new Error('Failed to save transactions to database');
-      }
-
-      // Reload transactions from database
-      const reloadResponse = await fetch('/api/transactions');
-      if (reloadResponse.ok) {
-        const reloadedTransactions = await reloadResponse.json();
-        setTransactions(reloadedTransactions);
-      }
+      // Load imported data directly into component state (no database for now)
+      setTransactions(importedTransactions);
 
       setCsvFile(null);
 
@@ -475,7 +460,7 @@ export default function Transactions() {
         columns={columns}
         searchQuery={searchQuery}
         onSearch={handleSearch}
-        searchPlaceholder="Search transactions by customer, items, status, notes, or shipment code..."
+        searchPlaceholder="Search transactions by customer, product code, status, notes, or shipment code..."
         getCellContent={cellContentGetter}
         statsCards={statsCards}
         enableCSVImport={true}
