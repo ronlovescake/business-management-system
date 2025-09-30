@@ -45,3 +45,49 @@ model Price {
 
   @@map("prices")
 }
+
+model Product {
+  id                   Int      @id @default(autoincrement())
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  
+  // Basic Product Information
+  shipmentCode         String?  @db.VarChar(100)
+  cvNumber             String?  @db.VarChar(100)
+  noOfSacks            Int      @default(0)
+  totalCBM             Float    @default(0)
+  weight               Float    @default(0)
+  shipmentStatus       String?  @db.VarChar(100)
+  postingDate          String?  @db.VarChar(50)
+  orderDate            String?  @db.VarChar(50)
+  payment              String?  @db.VarChar(100)
+  product              String   @db.VarChar(255)
+  productCode          String?  @db.VarChar(100)
+  ageRange             String?  @db.VarChar(100)
+  unit                 String?  @db.VarChar(100)
+  unitPrice            Float    @default(0)
+  quantity             Int      @default(0)
+  
+  // Shipping and Fees (with new descriptive names)
+  alibabaShippingCost  Float    @default(0) @map("alibaba_shipping_cost")
+  shippingFee2         Float    @default(0)
+  shippingFee3         Float    @default(0)
+  exchangeRates        Float    @default(1)
+  php                  Float    @default(0)
+  subTotalPHP          Float    @default(0)
+  transactionFee       Float    @default(0)
+  grandTotal           Float    @default(0)
+  packaging            Float    @default(0)
+  actualPrice          Float    @default(0)
+  
+  // Calculated Fields
+  suggestedPrice       Float    @default(0)
+  basePrice            Float    @default(0)
+  cogs                 Float    @default(0)
+  projectedSales       Float    @default(0)
+  projectedProfit      Float    @default(0)
+  projectedProfitPercent Float  @default(0)
+  totalMarkup          Float    @default(0)
+
+  @@map("products")
+}
