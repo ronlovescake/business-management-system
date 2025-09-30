@@ -29,9 +29,52 @@ export default function Shipments() {
   const [loading, setLoading] = useState(true);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [addModalOpened, setAddModalOpened] = useState(false);
+  const [editModalOpened, setEditModalOpened] = useState(false);
+  const [editingShipment, setEditingShipment] = useState<ShipmentData | null>(null);
 
   // Form for adding new shipments
   const addShipmentForm = useForm({
+    initialValues: {
+      shipmentCode: '',
+      cvNumber: '',
+      noOfSacks: 0,
+      totalCBM: 0,
+      weight: 0,
+      fee: 0,
+      shipmentStatus: '',
+      dateCreated: null as Date | null,
+      dateDelivered: null as Date | null,
+      notes: '',
+    },
+    validate: {
+      shipmentCode: (value) => (!value ? 'Shipment Code is required' : null),
+      shipmentStatus: (value) => (!value ? 'Shipment Status is required' : null),
+      noOfSacks: (value) => {
+        if (value === null || value === undefined) return 'Number of sacks is required';
+        if (value < 0) return 'Number of sacks must be positive';
+        return null;
+      },
+      totalCBM: (value) => {
+        if (value === null || value === undefined) return 'Total CBM is required';
+        if (value < 0) return 'Total CBM must be positive';
+        return null;
+      },
+      weight: (value) => {
+        if (value === null || value === undefined) return 'Weight is required';
+        if (value < 0) return 'Weight must be positive';
+        return null;
+      },
+      fee: (value) => {
+        if (value === null || value === undefined) return 'Fee is required';
+        if (value < 0) return 'Fee must be positive';
+        return null;
+      },
+      dateCreated: (value) => (!value ? 'Date Created is required' : null),
+    },
+  });
+
+  // Form for editing existing shipments
+  const editShipmentForm = useForm({
     initialValues: {
       shipmentCode: '',
       cvNumber: '',
@@ -384,6 +427,27 @@ export default function Shipments() {
     setAddModalOpened(true);
   };
 
+  // Handle edit shipment
+  const handleEditShipment = (shipment: ShipmentData) => {
+    setEditingShipment(shipment);
+    
+    // Pre-populate the edit form with existing data
+    editShipmentForm.setValues({
+      shipmentCode: shipment['Shipment Code'],
+      cvNumber: shipment['CV Number'],
+      noOfSacks: shipment['No. Of Sacks'],
+      totalCBM: shipment['Total CBM'],
+      weight: shipment['Weight'],
+      fee: shipment['Fee'],
+      shipmentStatus: shipment['Shipment Status'],
+      dateCreated: shipment['Date Created'] ? new Date(shipment['Date Created']) : null,
+      dateDelivered: shipment['Date Delivered'] ? new Date(shipment['Date Delivered']) : null,
+      notes: shipment['Notes'],
+    });
+    
+    setEditModalOpened(true);
+  };
+
   // Handle form submission
   const handleSubmitShipment = async (values: typeof addShipmentForm.values) => {
     try {
@@ -432,6 +496,59 @@ export default function Shipments() {
     }
   };
 
+  // Handle edit form submission
+  const handleSubmitEditShipment = async (values: typeof editShipmentForm.values) => {
+    if (!editingShipment) return;
+
+    try {
+      // Update shipment object
+      const updatedShipment: ShipmentData = {
+        ...editingShipment,
+        'Shipment Code': values.shipmentCode,
+        'CV Number': values.cvNumber,
+        'No. Of Sacks': values.noOfSacks,
+        'Total CBM': values.totalCBM,
+        'Weight': values.weight,
+        'Fee': values.fee,
+        'Shipment Status': values.shipmentStatus,
+        'Date Created': values.dateCreated ? values.dateCreated.toLocaleDateString() : '',
+        'Date Delivered': values.dateDelivered ? values.dateDelivered.toLocaleDateString() : '',
+        'Duration': '', // Auto-calculated or empty for now
+        'Notes': values.notes,
+      };
+
+      // TODO: Send to API
+      // const response = await fetch(`/api/shipments/${editingShipment.id}`, {
+      //   method: 'PUT',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify(updatedShipment),
+      // });
+
+      // For now, update local state
+      const updatedShipments = shipments.map(s => 
+        s.id === editingShipment.id ? updatedShipment : s
+      );
+      setShipments(updatedShipments);
+
+      notifications.show({
+        title: '✅ Success',
+        message: 'Shipment updated successfully!',
+        color: 'green',
+      });
+
+      setEditModalOpened(false);
+      setEditingShipment(null);
+      editShipmentForm.reset();
+    } catch (error) {
+      console.error('Error updating shipment:', error);
+      notifications.show({
+        title: '❌ Error',
+        message: 'Failed to update shipment. Please try again.',
+        color: 'red',
+      });
+    }
+  };
+
   if (loading) {
     return (
       <PageLayout title="Shipments">
@@ -469,8 +586,15 @@ export default function Shipments() {
             </Button>
           </Group>
         }
-        // Enable clicking on shipment codes for future edit functionality
-        enableClickableCursor={false}
+        // Enable clicking on shipment codes for edit functionality
+        enableClickableCursor={true}
+        onCellClick={(cell, shipment) => {
+          const [col] = cell;
+          // Check if clicked on Shipment Code column (first column, index 0)
+          if (col === 0) {
+            handleEditShipment(shipment as ShipmentData);
+          }
+        }}
       />
 
       {/* Add Shipment Modal */}
@@ -585,6 +709,130 @@ export default function Shipments() {
                 leftSection={<IconPlus size={16} />}
               >
                 Add Shipment
+              </Button>
+            </Group>
+          </Stack>
+        </form>
+      </Modal>
+
+      {/* Edit Shipment Modal */}
+      <Modal
+        opened={editModalOpened}
+        onClose={() => {
+          setEditModalOpened(false);
+          setEditingShipment(null);
+        }}
+        title="Edit Shipment"
+        size="lg"
+        centered
+      >
+        <form onSubmit={editShipmentForm.onSubmit(handleSubmitEditShipment)}>
+          <Stack gap="md">
+            <Group grow>
+              <TextInput
+                label="Shipment Code"
+                placeholder="Enter shipment code"
+                required
+                {...editShipmentForm.getInputProps('shipmentCode')}
+              />
+              <TextInput
+                label="CV Number"
+                placeholder="Enter CV number"
+                {...editShipmentForm.getInputProps('cvNumber')}
+              />
+            </Group>
+
+            <Group grow>
+              <NumberInput
+                label="No. Of Sacks"
+                placeholder="Enter number of sacks"
+                min={0}
+                required
+                {...editShipmentForm.getInputProps('noOfSacks')}
+              />
+              <NumberInput
+                label="Total CBM"
+                placeholder="Enter total CBM"
+                min={0}
+                decimalScale={2}
+                required
+                {...editShipmentForm.getInputProps('totalCBM')}
+              />
+            </Group>
+
+            <Group grow>
+              <NumberInput
+                label="Weight (kg)"
+                placeholder="Enter weight"
+                min={0}
+                decimalScale={2}
+                required
+                {...editShipmentForm.getInputProps('weight')}
+              />
+              <NumberInput
+                label="Fee (₱)"
+                placeholder="Enter fee"
+                min={0}
+                decimalScale={2}
+                required
+                {...editShipmentForm.getInputProps('fee')}
+              />
+            </Group>
+
+            <Select
+              label="Shipment Status"
+              placeholder="Select status"
+              required
+              data={[
+                'In Transit',
+                'Manila Port',
+                'With Pier Gatepass',
+                'PH Warehouse',
+                'For Pickup',
+                'Delivered'
+              ]}
+              {...editShipmentForm.getInputProps('shipmentStatus')}
+            />
+
+            <Group grow>
+              <DateInput
+                label="Date Created"
+                placeholder="Select date created"
+                leftSection={<IconCalendar size={16} />}
+                required
+                {...editShipmentForm.getInputProps('dateCreated')}
+              />
+              <DateInput
+                label="Date Delivered"
+                placeholder="Select date delivered"
+                leftSection={<IconCalendar size={16} />}
+                {...editShipmentForm.getInputProps('dateDelivered')}
+              />
+            </Group>
+
+            <Textarea
+              label="Notes"
+              placeholder="Enter any additional notes..."
+              rows={3}
+              {...editShipmentForm.getInputProps('notes')}
+            />
+
+            <Group justify="flex-end" mt="md">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEditModalOpened(false);
+                  setEditingShipment(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                color="blue"
+                leftSection={<IconCheck size={16} />}
+              >
+                Update Shipment
               </Button>
             </Group>
           </Stack>
