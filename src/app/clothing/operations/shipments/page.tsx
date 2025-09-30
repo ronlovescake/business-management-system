@@ -451,6 +451,14 @@ export default function Shipments() {
   // Handle form submission
   const handleSubmitShipment = async (values: typeof addShipmentForm.values) => {
     try {
+      // Calculate duration between dates
+      const calculateDuration = (startDate: Date | null, endDate: Date | null): string => {
+        if (!startDate || !endDate) return '';
+        const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays.toString();
+      };
+
       // Create new shipment object
       const newShipment: ShipmentData = {
         id: Date.now(), // Temporary ID
@@ -471,7 +479,7 @@ export default function Shipments() {
           month: 'short', 
           day: 'numeric' 
         }) : '',
-        'Duration': '', // Auto-calculated or empty for now
+        'Duration': calculateDuration(values.dateCreated, values.dateDelivered),
         'Notes': values.notes,
       };
 
@@ -509,6 +517,14 @@ export default function Shipments() {
     if (!editingShipment) return;
 
     try {
+      // Calculate duration between dates
+      const calculateDuration = (startDate: Date | null, endDate: Date | null): string => {
+        if (!startDate || !endDate) return '';
+        const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays.toString();
+      };
+
       // Update shipment object
       const updatedShipment: ShipmentData = {
         ...editingShipment,
@@ -529,7 +545,7 @@ export default function Shipments() {
           month: 'short', 
           day: 'numeric' 
         }) : '',
-        'Duration': '', // Auto-calculated or empty for now
+        'Duration': calculateDuration(values.dateCreated, values.dateDelivered),
         'Notes': values.notes,
       };
 
