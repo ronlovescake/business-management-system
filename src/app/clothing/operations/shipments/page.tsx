@@ -19,20 +19,35 @@ export default function Shipments() {
   const [loading, setLoading] = useState(true);
   const [csvFile, setCsvFile] = useState<File | null>(null);
 
-  // Define columns for the shipments table
+  // Define columns for the shipments table with alignment
   const columns: GridColumn[] = [
-    { title: 'Shipment Code', width: 150, id: 'shipmentCode' },
-    { title: 'CV Number', width: 120, id: 'cvNumber' },
-    { title: 'No. Of Sacks', width: 120, id: 'noOfSacks' },
-    { title: 'Total CBM', width: 100, id: 'totalCBM' },
-    { title: 'Weight', width: 100, id: 'weight' },
-    { title: 'Fee', width: 120, id: 'fee' },
-    { title: 'Shipment Status', width: 140, id: 'shipmentStatus' },
-    { title: 'Date Created', width: 130, id: 'dateCreated' },
-    { title: 'Date Delivered', width: 130, id: 'dateDelivered' },
-    { title: 'Duration', width: 100, id: 'duration' },
-    { title: 'Notes', width: 200, id: 'notes' },
+    { title: 'Shipment Code', width: 200, id: 'shipmentCode' },
+    { title: 'CV Number', width: 200, id: 'cvNumber' },
+    { title: 'No. Of Sacks', width: 200, id: 'noOfSacks' },
+    { title: 'Total CBM', width: 200, id: 'totalCBM' },
+    { title: 'Weight', width: 200, id: 'weight' },
+    { title: 'Fee', width: 200, id: 'fee' },
+    { title: 'Shipment Status', width: 200, id: 'shipmentStatus' },
+    { title: 'Date Created', width: 200, id: 'dateCreated' },
+    { title: 'Date Delivered', width: 200, id: 'dateDelivered' },
+    { title: 'Duration', width: 200, id: 'duration' },
+    { title: 'Notes', width: 200, grow: 1, id: 'notes' },
   ];
+
+  // Column alignment configuration
+  const columnAlignments: Record<string, 'left' | 'center' | 'right'> = {
+    shipmentCode: 'center',
+    cvNumber: 'center',
+    noOfSacks: 'center',
+    totalCBM: 'center',
+    weight: 'center',
+    fee: 'right',
+    shipmentStatus: 'left',
+    dateCreated: 'center',
+    dateDelivered: 'center',
+    duration: 'center',
+    notes: 'left',
+  };
 
   // Map column IDs to data keys
   const idToKey: Record<string, keyof ShipmentData> = {
@@ -93,9 +108,21 @@ export default function Shipments() {
     loadShipments();
   }, []);
 
-  // Create cell content getter
-  const cellContentGetter = (cell: Item) => 
-    getCellContent(cell, columns, idToKey);
+  // Create cell content getter with alignment
+  const cellContentGetter = (cell: Item) => {
+    const [col, row] = cell;
+    const column = columns[col];
+    const alignment = columnAlignments[column.id || ''] || 'left';
+    
+    // Get the basic cell content
+    const baseCellContent = getCellContent(cell, columns, idToKey);
+    
+    // Add alignment to the cell content
+    return {
+      ...baseCellContent,
+      contentAlign: alignment,
+    };
+  };
 
   // Calculate statistics
   const pendingShipments = shipments.filter(s => s['Shipment Status']?.toLowerCase() === 'pending').length;
@@ -141,18 +168,40 @@ export default function Shipments() {
     try {
       const text = await file.text();
       const lines = text.split('\n');
-      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
       
+      // Parse CSV properly handling quoted fields
+      const parseCSVLine = (line: string): string[] => {
+        const result: string[] = [];
+        let current = '';
+        let inQuotes = false;
+        
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            result.push(current.trim());
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        result.push(current.trim());
+        return result;
+      };
+      
+      const headers = parseCSVLine(lines[0]);
       const importedShipments: ShipmentData[] = [];
       
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (line) {
-          const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+          const values = parseCSVLine(line);
           const shipmentData: any = { id: Date.now() + i };
           
           headers.forEach((header, index) => {
-            if (values[index] !== undefined) {
+            if (values[index] !== undefined && values[index] !== '') {
               shipmentData[header] = values[index];
             }
           });
