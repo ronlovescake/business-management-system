@@ -1582,6 +1582,49 @@ export default function Products() {
               </Card>
             </div>
 
+            {/* Total Markup Display */}
+            <div>
+              <Group mb="md">
+                <ThemeIcon size="sm" radius="md" variant="light" color="violet">
+                  <IconTrendingUp size={14} />
+                </ThemeIcon>
+                <Text size="lg" fw={500} c="violet.7">Total Markup</Text>
+              </Group>
+              
+              <Card 
+                withBorder 
+                radius="md" 
+                padding="md"
+                style={{ 
+                  backgroundColor: 'var(--mantine-color-violet-0)',
+                  borderColor: 'var(--mantine-color-violet-3)'
+                }}
+              >
+                <Group justify="space-between" align="center">
+                  <div>
+                    <Text size="sm" c="dimmed" mb={4}>
+                      Price increase from base cost to selling price
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      Formula: (Selling Price - Unit Cost) × Quantity
+                    </Text>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <Text size="sm" c="dimmed" mb={2}>Total Markup</Text>
+                    <Text size="xl" fw={700} c="violet.8">
+                      ₱{(() => {
+                        const totalMarkup = (newProductForm.actualPrice - newProductForm.unitPrice) * newProductForm.quantity;
+                        return totalMarkup.toLocaleString('en-US', { 
+                          minimumFractionDigits: 2, 
+                          maximumFractionDigits: 2 
+                        });
+                      })()}
+                    </Text>
+                  </div>
+                </Group>
+              </Card>
+            </div>
+
             {/* Action Buttons */}
             <Group justify="flex-end" mt="xl" pt="md" style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}>
               <Button 
