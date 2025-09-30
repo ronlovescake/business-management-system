@@ -1288,26 +1288,6 @@ export default function Products() {
                 />
 
                 <NumberInput
-                  label="Actual Price"
-                  placeholder="0.00"
-                  size="md"
-                  radius="md"
-                  leftSection="₱"
-                  decimalScale={2}
-                  fixedDecimalScale
-                  thousandSeparator=","
-                  styles={{
-                    label: { fontWeight: 500, marginBottom: 8 },
-                    input: { 
-                      borderWidth: 2,
-                      '&:focus': { borderColor: 'var(--mantine-color-purple-5)' }
-                    }
-                  }}
-                  value={newProductForm.actualPrice}
-                  onChange={(value) => updateFormField('actualPrice', Number(value) || 0)}
-                />
-
-                <NumberInput
                   label="Packaging Fee"
                   placeholder="0.00"
                   size="md"
@@ -1325,6 +1305,26 @@ export default function Products() {
                   }}
                   value={newProductForm.packaging}
                   onChange={(value) => updateFormField('packaging', Number(value) || 0)}
+                />
+
+                <NumberInput
+                  label="Actual Price"
+                  placeholder="0.00"
+                  size="md"
+                  radius="md"
+                  leftSection="₱"
+                  decimalScale={2}
+                  fixedDecimalScale
+                  thousandSeparator=","
+                  styles={{
+                    label: { fontWeight: 500, marginBottom: 8 },
+                    input: { 
+                      borderWidth: 2,
+                      '&:focus': { borderColor: 'var(--mantine-color-purple-5)' }
+                    }
+                  }}
+                  value={newProductForm.actualPrice}
+                  onChange={(value) => updateFormField('actualPrice', Number(value) || 0)}
                 />
               </SimpleGrid>
             </div>
