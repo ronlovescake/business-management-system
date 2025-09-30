@@ -42,7 +42,6 @@ export default function Shipments() {
       shipmentStatus: '',
       dateCreated: null as Date | null,
       dateDelivered: null as Date | null,
-      duration: '',
       notes: '',
     },
     validate: {
@@ -69,7 +68,6 @@ export default function Shipments() {
         return null;
       },
       dateCreated: (value) => (!value ? 'Date Created is required' : null),
-      duration: (value) => (!value ? 'Duration is required' : null),
     },
   });
 
@@ -401,7 +399,7 @@ export default function Shipments() {
         'Shipment Status': values.shipmentStatus,
         'Date Created': values.dateCreated ? values.dateCreated.toLocaleDateString() : '',
         'Date Delivered': values.dateDelivered ? values.dateDelivered.toLocaleDateString() : '',
-        'Duration': values.duration,
+        'Duration': '', // Auto-calculated or empty for now
         'Notes': values.notes,
       };
 
@@ -536,28 +534,20 @@ export default function Shipments() {
               />
             </Group>
 
-            <Group grow>
-              <Select
-                label="Shipment Status"
-                placeholder="Select status"
-                required
-                data={[
-                  'In Transit',
-                  'Manila Port',
-                  'With Pier Gatepass',
-                  'PH Warehouse',
-                  'For Pickup',
-                  'Delivered'
-                ]}
-                {...addShipmentForm.getInputProps('shipmentStatus')}
-              />
-              <TextInput
-                label="Duration"
-                placeholder="e.g., 5 days"
-                required
-                {...addShipmentForm.getInputProps('duration')}
-              />
-            </Group>
+            <Select
+              label="Shipment Status"
+              placeholder="Select status"
+              required
+              data={[
+                'In Transit',
+                'Manila Port',
+                'With Pier Gatepass',
+                'PH Warehouse',
+                'For Pickup',
+                'Delivered'
+              ]}
+              {...addShipmentForm.getInputProps('shipmentStatus')}
+            />
 
             <Group grow>
               <DateInput
