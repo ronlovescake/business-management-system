@@ -461,8 +461,16 @@ export default function Shipments() {
         'Weight': values.weight,
         'Fee': values.fee,
         'Shipment Status': values.shipmentStatus,
-        'Date Created': values.dateCreated ? values.dateCreated.toLocaleDateString() : '',
-        'Date Delivered': values.dateDelivered ? values.dateDelivered.toLocaleDateString() : '',
+        'Date Created': values.dateCreated ? values.dateCreated.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'short', 
+          day: 'numeric' 
+        }) : '',
+        'Date Delivered': values.dateDelivered ? values.dateDelivered.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'short', 
+          day: 'numeric' 
+        }) : '',
         'Duration': '', // Auto-calculated or empty for now
         'Notes': values.notes,
       };
@@ -511,8 +519,16 @@ export default function Shipments() {
         'Weight': values.weight,
         'Fee': values.fee,
         'Shipment Status': values.shipmentStatus,
-        'Date Created': values.dateCreated ? values.dateCreated.toLocaleDateString() : '',
-        'Date Delivered': values.dateDelivered ? values.dateDelivered.toLocaleDateString() : '',
+        'Date Created': values.dateCreated ? values.dateCreated.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'short', 
+          day: 'numeric' 
+        }) : '',
+        'Date Delivered': values.dateDelivered ? values.dateDelivered.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'short', 
+          day: 'numeric' 
+        }) : '',
         'Duration': '', // Auto-calculated or empty for now
         'Notes': values.notes,
       };
