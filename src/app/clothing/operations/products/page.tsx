@@ -1376,7 +1376,7 @@ export default function Products() {
                       'No. Of Sacks': 0, // Set default 0
                       'Total CBM': 0, // Set default 0
                       'Weight': 0, // Set default 0
-                      'Shipment Status': 'Pending', // Set default status
+                      'Shipment Status': '', // Keep blank for formula later
                       'Posting Date': newProductForm.postingDate,
                       'Order Date': newProductForm.orderDate,
                       'Payment': newProductForm.payment,
