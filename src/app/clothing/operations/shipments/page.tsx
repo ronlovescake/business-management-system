@@ -47,12 +47,29 @@ export default function Shipments() {
     },
     validate: {
       shipmentCode: (value) => (!value ? 'Shipment Code is required' : null),
-      cvNumber: (value) => (!value ? 'CV Number is required' : null),
       shipmentStatus: (value) => (!value ? 'Shipment Status is required' : null),
-      noOfSacks: (value) => (value < 0 ? 'Number of sacks must be positive' : null),
-      totalCBM: (value) => (value < 0 ? 'Total CBM must be positive' : null),
-      weight: (value) => (value < 0 ? 'Weight must be positive' : null),
-      fee: (value) => (value < 0 ? 'Fee must be positive' : null),
+      noOfSacks: (value) => {
+        if (value === null || value === undefined) return 'Number of sacks is required';
+        if (value < 0) return 'Number of sacks must be positive';
+        return null;
+      },
+      totalCBM: (value) => {
+        if (value === null || value === undefined) return 'Total CBM is required';
+        if (value < 0) return 'Total CBM must be positive';
+        return null;
+      },
+      weight: (value) => {
+        if (value === null || value === undefined) return 'Weight is required';
+        if (value < 0) return 'Weight must be positive';
+        return null;
+      },
+      fee: (value) => {
+        if (value === null || value === undefined) return 'Fee is required';
+        if (value < 0) return 'Fee must be positive';
+        return null;
+      },
+      dateCreated: (value) => (!value ? 'Date Created is required' : null),
+      duration: (value) => (!value ? 'Duration is required' : null),
     },
   });
 
@@ -478,7 +495,6 @@ export default function Shipments() {
               <TextInput
                 label="CV Number"
                 placeholder="Enter CV number"
-                required
                 {...addShipmentForm.getInputProps('cvNumber')}
               />
             </Group>
@@ -488,6 +504,7 @@ export default function Shipments() {
                 label="No. Of Sacks"
                 placeholder="Enter number of sacks"
                 min={0}
+                required
                 {...addShipmentForm.getInputProps('noOfSacks')}
               />
               <NumberInput
@@ -495,6 +512,7 @@ export default function Shipments() {
                 placeholder="Enter total CBM"
                 min={0}
                 decimalScale={2}
+                required
                 {...addShipmentForm.getInputProps('totalCBM')}
               />
             </Group>
@@ -505,6 +523,7 @@ export default function Shipments() {
                 placeholder="Enter weight"
                 min={0}
                 decimalScale={2}
+                required
                 {...addShipmentForm.getInputProps('weight')}
               />
               <NumberInput
@@ -512,6 +531,7 @@ export default function Shipments() {
                 placeholder="Enter fee"
                 min={0}
                 decimalScale={2}
+                required
                 {...addShipmentForm.getInputProps('fee')}
               />
             </Group>
@@ -534,6 +554,7 @@ export default function Shipments() {
               <TextInput
                 label="Duration"
                 placeholder="e.g., 5 days"
+                required
                 {...addShipmentForm.getInputProps('duration')}
               />
             </Group>
@@ -543,6 +564,7 @@ export default function Shipments() {
                 label="Date Created"
                 placeholder="Select date created"
                 leftSection={<IconCalendar size={16} />}
+                required
                 {...addShipmentForm.getInputProps('dateCreated')}
               />
               <DateInput
