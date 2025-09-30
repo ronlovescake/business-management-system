@@ -7,6 +7,7 @@ import { GridCellKind, GridColumn, Item } from '@glideapps/glide-data-grid';
 import { Stack, Text, Box, Button, Group, FileInput, Loader, TextInput, Card, SimpleGrid, ThemeIcon, Title, Modal, Select, NumberInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { IconUpload, IconSearch, IconCurrencyDollar, IconFilter, IconTrendingUp, IconTrendingDown, IconPlus, IconUser, IconMail, IconMapPin, IconCheck, IconAdjustments, IconPackage, IconCalendar, IconCreditCard, IconPercentage } from '@tabler/icons-react';
+import { ShipmentData } from '../../../../types';
 
 // Import Glide Data Grid CSS
 import '@glideapps/glide-data-grid/dist/index.css';
@@ -106,6 +107,7 @@ export default function Products() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [products, setProducts] = useState<ProductData[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<ProductData[]>([]);
+  const [shipments, setShipments] = useState<ShipmentData[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [gridHeight, setGridHeight] = useState<number>(600);
@@ -386,9 +388,27 @@ export default function Products() {
   useEffect(() => {
     const loadProducts = async () => {
       try {
-        const response = await fetch('/api/products');
-        if (response.ok) {
-          const productsData = await response.json();
+        // Load both products and shipments data
+        const [productsResponse, shipmentsResponse] = await Promise.all([
+          fetch('/api/products'),
+          fetch('/api/shipments')
+        ]);
+        
+        if (productsResponse.ok && shipmentsResponse.ok) {
+          const productsData = await productsResponse.json();
+          const shipmentsData = await shipmentsResponse.json();
+          
+          // Store shipments data for lookup
+          setShipments(shipmentsData);
+          
+          // Create a lookup map for shipments by shipment code
+          const shipmentsLookup: { [key: string]: ShipmentData } = {};
+          shipmentsData.forEach((shipment: ShipmentData) => {
+            const shipmentCode = shipment['Shipment Code'];
+            if (shipmentCode) {
+              shipmentsLookup[shipmentCode] = shipment;
+            }
+          });
           
           // Convert database format back to ProductData format
           const convertedProducts = productsData.map((product: any, index: number) => {
@@ -401,14 +421,18 @@ export default function Products() {
               ? generateProductCode(productName, postingDate)
               : existingProductCode;
 
+            // Lookup shipment data by shipment code
+            const shipmentCode = product.shipmentCode || '';
+            const matchingShipment = shipmentsLookup[shipmentCode];
+
             return {
               id: product.id,
-              'Shipment Code': product.shipmentCode || '',
-              'CV Number': product.cvNumber || '',
-              'No. Of Sacks': product.noOfSacks || 0,
-              'Total CBM': product.totalCBM || 0,
-              'Weight': product.weight || 0,
-              'Shipment Status': product.shipmentStatus || '',
+              'Shipment Code': shipmentCode,
+              'CV Number': matchingShipment ? matchingShipment['CV Number'] : '',
+              'No. Of Sacks': matchingShipment ? matchingShipment['No. Of Sacks'] : 0,
+              'Total CBM': matchingShipment ? matchingShipment['Total CBM'] : 0,
+              'Weight': matchingShipment ? matchingShipment['Weight'] : 0,
+              'Shipment Status': matchingShipment ? matchingShipment['Shipment Status'] : '',
               'Posting Date': postingDate,
               'Order Date': product.orderDate || '',
               'Payment': product.payment || '',
