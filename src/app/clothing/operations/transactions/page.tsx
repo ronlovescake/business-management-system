@@ -37,9 +37,117 @@ interface TransactionData {
 }
 
 export default function Transactions() {
+  // Define which statuses are controlled by "All Status"
+  const allStatusControlledStatuses = [
+    'In Transit',
+    'Warehouse',
+    'Prepared',
+    'Ready For Dispatch',
+    'Checked Out',
+    'Lalamove',
+    'On-Hold',
+    'Pending Payment',
+  ];
+
+  // Load saved filter state from localStorage
+  const loadSavedFilterState = (): Set<string> => {
+    try {
+      const saved = localStorage.getItem('transactions-filter-state');
+      if (saved) {
+        const parsedArray = JSON.parse(saved) as string[];
+        const savedSet = new Set(parsedArray);
+
+        // If "All Status" is saved, ensure all controlled statuses are also included
+        if (savedSet.has('All Status')) {
+          allStatusControlledStatuses.forEach((status) => savedSet.add(status));
+        }
+
+        return savedSet;
+      }
+    } catch (error) {
+      console.error('Error loading filter state:', error);
+    }
+    // Default state: All Status + all controlled statuses
+    const defaultSet = new Set(['All Status']);
+    allStatusControlledStatuses.forEach((status) => defaultSet.add(status));
+    return defaultSet;
+  };
+
   const [transactions, setTransactions] = useState<TransactionData[]>([]);
   const [loading, setLoading] = useState(true);
   const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(
+    loadSavedFilterState()
+  );
+
+  // Save filter state to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      const statusArray = Array.from(selectedStatuses);
+      localStorage.setItem(
+        'transactions-filter-state',
+        JSON.stringify(statusArray)
+      );
+    } catch (error) {
+      console.error('Error saving filter state:', error);
+    }
+  }, [selectedStatuses]);
+
+  // Define status filter options
+  const statusOptions = [
+    'All Status',
+    'In Transit',
+    'Warehouse',
+    'Prepared',
+    'Ready For Dispatch',
+    'Checked Out',
+    'Lalamove',
+    'On-Hold',
+    'Pending Payment',
+    'Shipped',
+    'Cancelled',
+  ];
+
+  // Handle status filter selection with toggle functionality
+  const handleStatusFilter = (status: string) => {
+    setSelectedStatuses((prev) => {
+      const newSet = new Set(prev);
+
+      if (status === 'All Status') {
+        if (newSet.has('All Status')) {
+          // Toggle off All Status and all controlled statuses
+          newSet.delete('All Status');
+          allStatusControlledStatuses.forEach((s) => newSet.delete(s));
+        } else {
+          // Toggle on All Status and all controlled statuses
+          newSet.add('All Status');
+          allStatusControlledStatuses.forEach((s) => newSet.add(s));
+        }
+      } else {
+        // Handle individual status toggle
+        if (newSet.has(status)) {
+          newSet.delete(status);
+          // If this was one of the controlled statuses, also remove All Status
+          if (allStatusControlledStatuses.includes(status)) {
+            newSet.delete('All Status');
+          }
+        } else {
+          newSet.add(status);
+          // Check if all controlled statuses are now selected, if so add All Status
+          if (
+            allStatusControlledStatuses.every(
+              (s) => newSet.has(s) || s === status
+            )
+          ) {
+            newSet.add('All Status');
+          }
+        }
+      }
+
+      return newSet;
+    });
+    // TODO: Implement actual filtering logic here
+  };
 
   // Define columns for the transactions table
   const columns: GridColumn[] = [
@@ -377,39 +485,17 @@ export default function Transactions() {
         footerLeft={`Showing ${filteredData.length} of ${transactions.length} transactions`}
         searchRightButtons={
           <Group gap="xs" wrap="wrap">
-            <Button variant="outline" color="gray" size="sm">
-              All Status
-            </Button>
-            <Button variant="outline" color="blue" size="sm">
-              In Transit
-            </Button>
-            <Button variant="outline" color="orange" size="sm">
-              Warehouse
-            </Button>
-            <Button variant="outline" color="green" size="sm">
-              Prepared
-            </Button>
-            <Button variant="outline" color="cyan" size="sm">
-              Ready For Dispatch
-            </Button>
-            <Button variant="outline" color="purple" size="sm">
-              Checked Out
-            </Button>
-            <Button variant="outline" color="pink" size="sm">
-              Lalamove
-            </Button>
-            <Button variant="outline" color="yellow" size="sm">
-              On-Hold
-            </Button>
-            <Button variant="outline" color="red" size="sm">
-              Pending Payment
-            </Button>
-            <Button variant="outline" color="teal" size="sm">
-              Shipped
-            </Button>
-            <Button variant="outline" color="dark" size="sm">
-              Cancelled
-            </Button>
+            {statusOptions.map((status) => (
+              <Button
+                key={status}
+                variant={selectedStatuses.has(status) ? 'filled' : 'outline'}
+                color={selectedStatuses.has(status) ? 'blue' : 'gray'}
+                size="sm"
+                onClick={() => handleStatusFilter(status)}
+              >
+                {status}
+              </Button>
+            ))}
           </Group>
         }
         actionButtons={
