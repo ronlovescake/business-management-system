@@ -1494,6 +1494,46 @@ export default function Products() {
               </Card>
             </div>
 
+            {/* Projected Profit Display */}
+            <div>
+              <Group mb="md">
+                <ThemeIcon size="sm" radius="md" variant="light" color="teal">
+                  <IconTrendingUp size={14} />
+                </ThemeIcon>
+                <Text size="lg" fw={500} c="teal.7">Projected Profit</Text>
+              </Group>
+              
+              <Card 
+                withBorder 
+                radius="md" 
+                padding="md"
+                style={{ 
+                  backgroundColor: 'var(--mantine-color-teal-0)',
+                  borderColor: 'var(--mantine-color-teal-3)'
+                }}
+              >
+                <Group justify="space-between" align="center">
+                  <div>
+                    <Text size="sm" c="dimmed" mb={4}>
+                      Expected profit from selling all items (Revenue - Costs)
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      Formula: Projected Sales Total - COGS
+                    </Text>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <Text size="sm" c="dimmed" mb={2}>Projected Profit</Text>
+                    <Text size="xl" fw={700} c="teal.8">
+                      ₱{((newProductForm.actualPrice * newProductForm.quantity) - ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging)).toLocaleString('en-US', { 
+                        minimumFractionDigits: 2, 
+                        maximumFractionDigits: 2 
+                      })}
+                    </Text>
+                  </div>
+                </Group>
+              </Card>
+            </div>
+
             {/* Action Buttons */}
             <Group justify="flex-end" mt="xl" pt="md" style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}>
               <Button 
