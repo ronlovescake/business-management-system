@@ -208,20 +208,20 @@ export default function Transactions() {
 
   // Apply status filtering on top of search filtering
   const filteredData = React.useMemo(() => {
-    if (selectedStatuses.size === 0) {
-      // No status filters selected -> show nothing
+    // Use only individual statuses; ignore the aggregator flag 'All Status'
+    const individual = Array.from(selectedStatuses).filter(
+      (s) => s !== 'All Status'
+    );
+
+    if (individual.length === 0) {
+      // No individual statuses selected -> show nothing
       return [] as TransactionData[];
     }
 
-    // If "All Status" is selected, show all search results
-    if (selectedStatuses.has('All Status')) {
-      return searchFilteredData;
-    }
-
-    // Filter by selected statuses (OR logic - show transactions matching ANY selected status)
+    // Filter by selected individual statuses (OR logic)
     return searchFilteredData.filter((transaction) => {
       const status = transaction['Order Status'];
-      return status && selectedStatuses.has(status);
+      return !!status && individual.includes(status);
     });
   }, [searchFilteredData, selectedStatuses]);
 
