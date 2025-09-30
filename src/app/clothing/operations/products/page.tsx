@@ -1228,7 +1228,7 @@ export default function Products() {
               
               <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 5 }} spacing="md">
                 <NumberInput
-                  label="Shipping Fee 1"
+                  label="Alibaba Shipping Cost"
                   placeholder="0.00"
                   size="md"
                   radius="md"
