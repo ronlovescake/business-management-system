@@ -942,7 +942,7 @@ export default function Products() {
           closeOnClickOutside={false}
           closeOnEscape={false}
           withCloseButton={true}
-          size="xl"
+          size="95%"
           radius="lg"
           shadow="xl"
           centered
@@ -992,7 +992,7 @@ export default function Products() {
                 <Text size="lg" fw={500} c="green.7">Basic Product Information</Text>
               </Group>
               
-              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+              <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
                 <TextInput
                   label="Shipment Code"
                   placeholder="e.g. KPC 23930A-00173"
@@ -1025,9 +1025,7 @@ export default function Products() {
                   value={newProductForm.product}
                   onChange={(e) => updateFormField('product', e.currentTarget?.value || '')}
                 />
-              </SimpleGrid>
 
-              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" mt="md">
                 <Select
                   label="Age Range"
                   placeholder="Select age range"
@@ -1219,7 +1217,7 @@ export default function Products() {
               </SimpleGrid>
             </div>
 
-            {/* Shipping & Fees Section */}
+            {/* Shipping & Additional Fees Section */}
             <div>
               <Group mb="md">
                 <ThemeIcon size="sm" radius="md" variant="light" color="purple">
@@ -1228,7 +1226,7 @@ export default function Products() {
                 <Text size="lg" fw={500} c="purple.7">Shipping & Additional Fees</Text>
               </Group>
               
-              <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
+              <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 5 }} spacing="md">
                 <NumberInput
                   label="Shipping Fee 1"
                   placeholder="0.00"
@@ -1331,298 +1329,219 @@ export default function Products() {
               </SimpleGrid>
             </div>
 
-            {/* Calculated Suggested Price Display */}
+            {/* Financial Calculations Section */}
             <div>
               <Group mb="md">
                 <ThemeIcon size="sm" radius="md" variant="light" color="indigo">
                   <IconCurrencyDollar size={14} />
                 </ThemeIcon>
-                <Text size="lg" fw={500} c="indigo.7">Suggested Price Calculation</Text>
+                <Text size="lg" fw={500} c="indigo.7">Financial Calculations & Business Intelligence</Text>
               </Group>
               
-              <Card 
-                withBorder 
-                radius="md" 
-                padding="md"
-                style={{ 
-                  backgroundColor: 'var(--mantine-color-indigo-0)',
-                  borderColor: 'var(--mantine-color-indigo-3)'
-                }}
-              >
-                <Group justify="space-between" align="center">
-                  <div>
-                    <Text size="sm" c="dimmed" mb={4}>
-                      Calculated based on: Unit Price × Quantity × Exchange Rate + Fees × 122% markup
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                      Formula: ROUNDUP((Unit Price × Quantity + Shipping Fee 1) × Exchange Rate + Transaction Fee (2.99%) + Shipping Fee 2 + Shipping Fee 3 + Packaging) ÷ Quantity × 122%
-                    </Text>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <Text size="sm" c="dimmed" mb={2}>Suggested Price</Text>
-                    <Text size="xl" fw={700} c="indigo.8">
-                      ₱{(newProductForm.quantity > 0 
-                        ? Math.ceil(((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging) / newProductForm.quantity * 1.22)
-                        : 0
-                      ).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </Text>
-                  </div>
-                </Group>
-              </Card>
-            </div>
+              <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
+                {/* Suggested Price Calculation */}
+                <Card 
+                  withBorder 
+                  radius="md" 
+                  padding="md"
+                  style={{ 
+                    backgroundColor: 'var(--mantine-color-indigo-0)',
+                    borderColor: 'var(--mantine-color-indigo-3)'
+                  }}
+                >
+                  <Group justify="space-between" align="center" mb="md">
+                    <ThemeIcon size="sm" radius="md" variant="light" color="indigo">
+                      <IconCurrencyDollar size={14} />
+                    </ThemeIcon>
+                    <Text size="sm" fw={500} c="indigo.7">Suggested Price</Text>
+                  </Group>
+                  <Text size="xl" fw={700} c="indigo.8" ta="center" mb="xs">
+                    ₱{(newProductForm.quantity > 0 
+                      ? Math.ceil(((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging) / newProductForm.quantity * 1.22)
+                      : 0
+                    ).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </Text>
+                  <Text size="xs" c="dimmed" ta="center">
+                    Minimum selling price (122% markup)
+                  </Text>
+                </Card>
 
-            {/* Projected Sales Total Display */}
-            <div>
-              <Group mb="md">
-                <ThemeIcon size="sm" radius="md" variant="light" color="green">
-                  <IconTrendingUp size={14} />
-                </ThemeIcon>
-                <Text size="lg" fw={500} c="green.7">Projected Sales Total</Text>
-              </Group>
-              
-              <Card 
-                withBorder 
-                radius="md" 
-                padding="md"
-                style={{ 
-                  backgroundColor: 'var(--mantine-color-green-0)',
-                  borderColor: 'var(--mantine-color-green-3)'
-                }}
-              >
-                <Group justify="space-between" align="center">
-                  <div>
-                    <Text size="sm" c="dimmed" mb={4}>
-                      Total revenue if all items are sold at actual price
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                      Formula: Actual Price × Quantity
-                    </Text>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <Text size="sm" c="dimmed" mb={2}>Projected Sales Total</Text>
-                    <Text size="xl" fw={700} c="green.8">
-                      ₱{(newProductForm.actualPrice * newProductForm.quantity).toLocaleString('en-US', { 
+                {/* Projected Sales Total */}
+                <Card 
+                  withBorder 
+                  radius="md" 
+                  padding="md"
+                  style={{ 
+                    backgroundColor: 'var(--mantine-color-green-0)',
+                    borderColor: 'var(--mantine-color-green-3)'
+                  }}
+                >
+                  <Group justify="space-between" align="center" mb="md">
+                    <ThemeIcon size="sm" radius="md" variant="light" color="green">
+                      <IconTrendingUp size={14} />
+                    </ThemeIcon>
+                    <Text size="sm" fw={500} c="green.7">Projected Sales Total</Text>
+                  </Group>
+                  <Text size="xl" fw={700} c="green.8" ta="center" mb="xs">
+                    ₱{(newProductForm.actualPrice * newProductForm.quantity).toLocaleString('en-US', { 
+                      minimumFractionDigits: 2, 
+                      maximumFractionDigits: 2 
+                    })}
+                  </Text>
+                  <Text size="xs" c="dimmed" ta="center">
+                    Total revenue (Actual Price × Quantity)
+                  </Text>
+                </Card>
+
+                {/* COGS (Cost of Goods Sold) */}
+                <Card 
+                  withBorder 
+                  radius="md" 
+                  padding="md"
+                  style={{ 
+                    backgroundColor: 'var(--mantine-color-red-0)',
+                    borderColor: 'var(--mantine-color-red-3)'
+                  }}
+                >
+                  <Group justify="space-between" align="center" mb="md">
+                    <ThemeIcon size="sm" radius="md" variant="light" color="red">
+                      <IconTrendingDown size={14} />
+                    </ThemeIcon>
+                    <Text size="sm" fw={500} c="red.7">COGS</Text>
+                  </Group>
+                  <Text size="xl" fw={700} c="red.8" ta="center" mb="xs">
+                    ₱{((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging).toLocaleString('en-US', { 
+                      minimumFractionDigits: 2, 
+                      maximumFractionDigits: 2 
+                    })}
+                  </Text>
+                  <Text size="xs" c="dimmed" ta="center">
+                    Total cost to acquire & deliver
+                  </Text>
+                </Card>
+
+                {/* Base Price */}
+                <Card 
+                  withBorder 
+                  radius="md" 
+                  padding="md"
+                  style={{ 
+                    backgroundColor: 'var(--mantine-color-blue-0)',
+                    borderColor: 'var(--mantine-color-blue-3)'
+                  }}
+                >
+                  <Group justify="space-between" align="center" mb="md">
+                    <ThemeIcon size="sm" radius="md" variant="light" color="blue">
+                      <IconCurrencyDollar size={14} />
+                    </ThemeIcon>
+                    <Text size="sm" fw={500} c="blue.7">Base Price</Text>
+                  </Group>
+                  <Text size="xl" fw={700} c="blue.8" ta="center" mb="xs">
+                    ₱{(newProductForm.quantity > 0 
+                      ? ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging) / newProductForm.quantity
+                      : 0
+                    ).toLocaleString('en-US', { 
+                      minimumFractionDigits: 2, 
+                      maximumFractionDigits: 2 
+                    })}
+                  </Text>
+                  <Text size="xs" c="dimmed" ta="center">
+                    Cost per item (COGS ÷ Quantity)
+                  </Text>
+                </Card>
+
+                {/* Projected Profit */}
+                <Card 
+                  withBorder 
+                  radius="md" 
+                  padding="md"
+                  style={{ 
+                    backgroundColor: 'var(--mantine-color-teal-0)',
+                    borderColor: 'var(--mantine-color-teal-3)'
+                  }}
+                >
+                  <Group justify="space-between" align="center" mb="md">
+                    <ThemeIcon size="sm" radius="md" variant="light" color="teal">
+                      <IconTrendingUp size={14} />
+                    </ThemeIcon>
+                    <Text size="sm" fw={500} c="teal.7">Projected Profit</Text>
+                  </Group>
+                  <Text size="xl" fw={700} c="teal.8" ta="center" mb="xs">
+                    ₱{((newProductForm.actualPrice * newProductForm.quantity) - ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging)).toLocaleString('en-US', { 
+                      minimumFractionDigits: 2, 
+                      maximumFractionDigits: 2 
+                    })}
+                  </Text>
+                  <Text size="xs" c="dimmed" ta="center">
+                    Expected profit (Revenue - Costs)
+                  </Text>
+                </Card>
+
+                {/* Projected Profit (%) */}
+                <Card 
+                  withBorder 
+                  radius="md" 
+                  padding="md"
+                  style={{ 
+                    backgroundColor: 'var(--mantine-color-blue-0)',
+                    borderColor: 'var(--mantine-color-blue-3)'
+                  }}
+                >
+                  <Group justify="space-between" align="center" mb="md">
+                    <ThemeIcon size="sm" radius="md" variant="light" color="blue">
+                      <IconPercentage size={14} />
+                    </ThemeIcon>
+                    <Text size="sm" fw={500} c="blue.7">Profit Margin</Text>
+                  </Group>
+                  <Text size="xl" fw={700} c="blue.8" ta="center" mb="xs">
+                    {(() => {
+                      const cogs = (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging;
+                      const projectedProfit = (newProductForm.actualPrice * newProductForm.quantity) - cogs;
+                      
+                      if (cogs === 0) return '0.00%';
+                      
+                      const profitPercentage = (projectedProfit / cogs) * 100;
+                      return `${profitPercentage.toLocaleString('en-US', { 
                         minimumFractionDigits: 2, 
                         maximumFractionDigits: 2 
-                      })}
-                    </Text>
-                  </div>
-                </Group>
-              </Card>
-            </div>
+                      })}%`;
+                    })()}
+                  </Text>
+                  <Text size="xs" c="dimmed" ta="center">
+                    Profit as % of costs invested
+                  </Text>
+                </Card>
 
-            {/* COGS (Cost of Goods Sold) Display */}
-            <div>
-              <Group mb="md">
-                <ThemeIcon size="sm" radius="md" variant="light" color="red">
-                  <IconTrendingDown size={14} />
-                </ThemeIcon>
-                <Text size="lg" fw={500} c="red.7">COGS (Cost of Goods Sold)</Text>
-              </Group>
-              
-              <Card 
-                withBorder 
-                radius="md" 
-                padding="md"
-                style={{ 
-                  backgroundColor: 'var(--mantine-color-red-0)',
-                  borderColor: 'var(--mantine-color-red-3)'
-                }}
-              >
-                <Group justify="space-between" align="center">
-                  <div>
-                    <Text size="sm" c="dimmed" mb={4}>
-                      Total cost to acquire and deliver the products
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                      Formula: (Unit Price × Quantity + Shipping Fee 1) × Exchange Rate + Transaction Fee (2.99%) + Shipping Fee 2 + Shipping Fee 3 + Packaging
-                    </Text>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <Text size="sm" c="dimmed" mb={2}>COGS</Text>
-                    <Text size="xl" fw={700} c="red.8">
-                      ₱{((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging).toLocaleString('en-US', { 
+                {/* Total Markup */}
+                <Card 
+                  withBorder 
+                  radius="md" 
+                  padding="md"
+                  style={{ 
+                    backgroundColor: 'var(--mantine-color-violet-0)',
+                    borderColor: 'var(--mantine-color-violet-3)'
+                  }}
+                >
+                  <Group justify="space-between" align="center" mb="md">
+                    <ThemeIcon size="sm" radius="md" variant="light" color="violet">
+                      <IconTrendingUp size={14} />
+                    </ThemeIcon>
+                    <Text size="sm" fw={500} c="violet.7">Total Markup</Text>
+                  </Group>
+                  <Text size="xl" fw={700} c="violet.8" ta="center" mb="xs">
+                    ₱{(() => {
+                      const totalMarkup = (newProductForm.actualPrice - newProductForm.unitPrice) * newProductForm.quantity;
+                      return totalMarkup.toLocaleString('en-US', { 
                         minimumFractionDigits: 2, 
                         maximumFractionDigits: 2 
-                      })}
-                    </Text>
-                  </div>
-                </Group>
-              </Card>
-            </div>
-
-            {/* Base Price Display */}
-            <div>
-              <Group mb="md">
-                <ThemeIcon size="sm" radius="md" variant="light" color="blue">
-                  <IconCurrencyDollar size={14} />
-                </ThemeIcon>
-                <Text size="lg" fw={500} c="blue.7">Base Price</Text>
-              </Group>
-              
-              <Card 
-                withBorder 
-                radius="md" 
-                padding="md"
-                style={{ 
-                  backgroundColor: 'var(--mantine-color-blue-0)',
-                  borderColor: 'var(--mantine-color-blue-3)'
-                }}
-              >
-                <Group justify="space-between" align="center">
-                  <div>
-                    <Text size="sm" c="dimmed" mb={4}>
-                      Cost per individual item (COGS divided by quantity)
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                      Formula: COGS ÷ Quantity
-                    </Text>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <Text size="sm" c="dimmed" mb={2}>Base Price (per item)</Text>
-                    <Text size="xl" fw={700} c="blue.8">
-                      ₱{(newProductForm.quantity > 0 
-                        ? ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging) / newProductForm.quantity
-                        : 0
-                      ).toLocaleString('en-US', { 
-                        minimumFractionDigits: 2, 
-                        maximumFractionDigits: 2 
-                      })}
-                    </Text>
-                  </div>
-                </Group>
-              </Card>
-            </div>
-
-            {/* Projected Profit Display */}
-            <div>
-              <Group mb="md">
-                <ThemeIcon size="sm" radius="md" variant="light" color="teal">
-                  <IconTrendingUp size={14} />
-                </ThemeIcon>
-                <Text size="lg" fw={500} c="teal.7">Projected Profit</Text>
-              </Group>
-              
-              <Card 
-                withBorder 
-                radius="md" 
-                padding="md"
-                style={{ 
-                  backgroundColor: 'var(--mantine-color-teal-0)',
-                  borderColor: 'var(--mantine-color-teal-3)'
-                }}
-              >
-                <Group justify="space-between" align="center">
-                  <div>
-                    <Text size="sm" c="dimmed" mb={4}>
-                      Expected profit from selling all items (Revenue - Costs)
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                      Formula: Projected Sales Total - COGS
-                    </Text>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <Text size="sm" c="dimmed" mb={2}>Projected Profit</Text>
-                    <Text size="xl" fw={700} c="teal.8">
-                      ₱{((newProductForm.actualPrice * newProductForm.quantity) - ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging)).toLocaleString('en-US', { 
-                        minimumFractionDigits: 2, 
-                        maximumFractionDigits: 2 
-                      })}
-                    </Text>
-                  </div>
-                </Group>
-              </Card>
-            </div>
-
-            {/* Projected Profit (%) Display */}
-            <div>
-              <Group mb="md">
-                <ThemeIcon size="sm" radius="md" variant="light" color="blue">
-                  <IconPercentage size={14} />
-                </ThemeIcon>
-                <Text size="lg" fw={500} c="blue.7">Projected Profit (%)</Text>
-              </Group>
-              
-              <Card 
-                withBorder 
-                radius="md" 
-                padding="md"
-                style={{ 
-                  backgroundColor: 'var(--mantine-color-blue-0)',
-                  borderColor: 'var(--mantine-color-blue-3)'
-                }}
-              >
-                <Group justify="space-between" align="center">
-                  <div>
-                    <Text size="sm" c="dimmed" mb={4}>
-                      Profit margin as percentage of costs invested
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                      Formula: (Projected Profit ÷ COGS) × 100
-                    </Text>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <Text size="sm" c="dimmed" mb={2}>Profit Margin</Text>
-                    <Text size="xl" fw={700} c="blue.8">
-                      {(() => {
-                        const cogs = (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging;
-                        const projectedProfit = (newProductForm.actualPrice * newProductForm.quantity) - cogs;
-                        
-                        if (cogs === 0) return '0.00%';
-                        
-                        const profitPercentage = (projectedProfit / cogs) * 100;
-                        return `${profitPercentage.toLocaleString('en-US', { 
-                          minimumFractionDigits: 2, 
-                          maximumFractionDigits: 2 
-                        })}%`;
-                      })()}
-                    </Text>
-                  </div>
-                </Group>
-              </Card>
-            </div>
-
-            {/* Total Markup Display */}
-            <div>
-              <Group mb="md">
-                <ThemeIcon size="sm" radius="md" variant="light" color="violet">
-                  <IconTrendingUp size={14} />
-                </ThemeIcon>
-                <Text size="lg" fw={500} c="violet.7">Total Markup</Text>
-              </Group>
-              
-              <Card 
-                withBorder 
-                radius="md" 
-                padding="md"
-                style={{ 
-                  backgroundColor: 'var(--mantine-color-violet-0)',
-                  borderColor: 'var(--mantine-color-violet-3)'
-                }}
-              >
-                <Group justify="space-between" align="center">
-                  <div>
-                    <Text size="sm" c="dimmed" mb={4}>
-                      Price increase from base cost to selling price
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                      Formula: (Selling Price - Unit Cost) × Quantity
-                    </Text>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <Text size="sm" c="dimmed" mb={2}>Total Markup</Text>
-                    <Text size="xl" fw={700} c="violet.8">
-                      ₱{(() => {
-                        const totalMarkup = (newProductForm.actualPrice - newProductForm.unitPrice) * newProductForm.quantity;
-                        return totalMarkup.toLocaleString('en-US', { 
-                          minimumFractionDigits: 2, 
-                          maximumFractionDigits: 2 
-                        });
-                      })()}
-                    </Text>
-                  </div>
-                </Group>
-              </Card>
+                      });
+                    })()}
+                  </Text>
+                  <Text size="xs" c="dimmed" ta="center">
+                    Price increase from cost to selling
+                  </Text>
+                </Card>
+              </SimpleGrid>
             </div>
 
             {/* Action Buttons */}
