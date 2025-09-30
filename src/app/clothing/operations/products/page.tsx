@@ -6,7 +6,7 @@ import { PageLayout } from '../../../../components/layout/PageLayout';
 import { GridCellKind, GridColumn, Item } from '@glideapps/glide-data-grid';
 import { Stack, Text, Box, Button, Group, FileInput, Loader, TextInput, Card, SimpleGrid, ThemeIcon, Title, Modal, Select, NumberInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconUpload, IconSearch, IconCurrencyDollar, IconFilter, IconTrendingUp, IconTrendingDown, IconPlus, IconUser, IconMail, IconMapPin, IconCheck, IconAdjustments, IconPackage, IconCalendar, IconCreditCard } from '@tabler/icons-react';
+import { IconUpload, IconSearch, IconCurrencyDollar, IconFilter, IconTrendingUp, IconTrendingDown, IconPlus, IconUser, IconMail, IconMapPin, IconCheck, IconAdjustments, IconPackage, IconCalendar, IconCreditCard, IconPercentage } from '@tabler/icons-react';
 
 // Import Glide Data Grid CSS
 import '@glideapps/glide-data-grid/dist/index.css';
@@ -1528,6 +1528,54 @@ export default function Products() {
                         minimumFractionDigits: 2, 
                         maximumFractionDigits: 2 
                       })}
+                    </Text>
+                  </div>
+                </Group>
+              </Card>
+            </div>
+
+            {/* Projected Profit (%) Display */}
+            <div>
+              <Group mb="md">
+                <ThemeIcon size="sm" radius="md" variant="light" color="blue">
+                  <IconPercentage size={14} />
+                </ThemeIcon>
+                <Text size="lg" fw={500} c="blue.7">Projected Profit (%)</Text>
+              </Group>
+              
+              <Card 
+                withBorder 
+                radius="md" 
+                padding="md"
+                style={{ 
+                  backgroundColor: 'var(--mantine-color-blue-0)',
+                  borderColor: 'var(--mantine-color-blue-3)'
+                }}
+              >
+                <Group justify="space-between" align="center">
+                  <div>
+                    <Text size="sm" c="dimmed" mb={4}>
+                      Profit margin as percentage of costs invested
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      Formula: (Projected Profit ÷ COGS) × 100
+                    </Text>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <Text size="sm" c="dimmed" mb={2}>Profit Margin</Text>
+                    <Text size="xl" fw={700} c="blue.8">
+                      {(() => {
+                        const cogs = (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging;
+                        const projectedProfit = (newProductForm.actualPrice * newProductForm.quantity) - cogs;
+                        
+                        if (cogs === 0) return '0.00%';
+                        
+                        const profitPercentage = (projectedProfit / cogs) * 100;
+                        return `${profitPercentage.toLocaleString('en-US', { 
+                          minimumFractionDigits: 2, 
+                          maximumFractionDigits: 2 
+                        })}%`;
+                      })()}
                     </Text>
                   </div>
                 </Group>
