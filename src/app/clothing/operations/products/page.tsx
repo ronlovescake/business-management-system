@@ -1338,7 +1338,8 @@ export default function Products() {
                 <Text size="lg" fw={500} c="indigo.7">Financial Calculations & Business Intelligence</Text>
               </Group>
               
-              <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
+              {/* First Row - Key Profit Metrics */}
+              <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md" mb="md">
                 {/* Suggested Price Calculation */}
                 <Card 
                   withBorder 
@@ -1454,7 +1455,10 @@ export default function Products() {
                     Profit as % of costs invested
                   </Text>
                 </Card>
-
+              </SimpleGrid>
+              
+              {/* Second Row - Cost & Markup Metrics */}
+              <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
                 {/* Base Price */}
                 <Card 
                   withBorder 
