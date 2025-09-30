@@ -131,36 +131,36 @@ export default function Shipments() {
     };
   };
 
-  // Calculate statistics
-  const pendingShipments = shipments.filter(s => s['Shipment Status']?.toLowerCase() === 'pending').length;
-  const inTransitShipments = shipments.filter(s => s['Shipment Status']?.toLowerCase() === 'in transit').length;
-  const deliveredShipments = shipments.filter(s => s['Shipment Status']?.toLowerCase() === 'delivered').length;
-  const manilaPortShipments = shipments.filter(s => s['Shipment Status']?.toLowerCase() === 'manila port').length;
-  const withPierGatepassShipments = shipments.filter(s => s['Shipment Status']?.toLowerCase() === 'with pier gatepass').length;
-  const phWarehouseShipments = shipments.filter(s => s['Shipment Status']?.toLowerCase() === 'ph warehouse').length;
-  const forPickupShipments = shipments.filter(s => s['Shipment Status']?.toLowerCase() === 'for pickup').length;
+  // Calculate statistics dynamically based on filtered data
+  const pendingShipments = filteredData.filter(s => s['Shipment Status']?.toLowerCase() === 'pending').length;
+  const inTransitShipments = filteredData.filter(s => s['Shipment Status']?.toLowerCase() === 'in transit').length;
+  const deliveredShipments = filteredData.filter(s => s['Shipment Status']?.toLowerCase() === 'delivered').length;
+  const manilaPortShipments = filteredData.filter(s => s['Shipment Status']?.toLowerCase() === 'manila port').length;
+  const withPierGatepassShipments = filteredData.filter(s => s['Shipment Status']?.toLowerCase() === 'with pier gatepass').length;
+  const phWarehouseShipments = filteredData.filter(s => s['Shipment Status']?.toLowerCase() === 'ph warehouse').length;
+  const forPickupShipments = filteredData.filter(s => s['Shipment Status']?.toLowerCase() === 'for pickup').length;
   
-  // Parse fees (remove currency symbol and commas, then convert to number)
-  const totalFees = shipments.reduce((sum, s) => {
+  // Parse fees (remove currency symbol and commas, then convert to number) - dynamic calculation
+  const totalFees = filteredData.reduce((sum, s) => {
     const feeString = s['Fee'] || '0';
     const feeNumber = parseFloat(feeString.toString().replace(/[₱,]/g, '')) || 0;
     return sum + feeNumber;
   }, 0);
   
-  // Parse sacks (convert to number)
-  const totalSacks = shipments.reduce((sum, s) => {
+  // Parse sacks (convert to number) - dynamic calculation
+  const totalSacks = filteredData.reduce((sum, s) => {
     const sacksNumber = parseFloat(s['No. Of Sacks']?.toString() || '0') || 0;
     return sum + sacksNumber;
   }, 0);
   
-  // Parse total CBM (convert to number)
-  const totalCBM = shipments.reduce((sum, s) => {
+  // Parse total CBM (convert to number) - dynamic calculation
+  const totalCBM = filteredData.reduce((sum, s) => {
     const cbmNumber = parseFloat(s['Total CBM']?.toString() || '0') || 0;
     return sum + cbmNumber;
   }, 0);
   
-  // Parse total weight (convert to number)
-  const totalWeight = shipments.reduce((sum, s) => {
+  // Parse total weight (convert to number) - dynamic calculation
+  const totalWeight = filteredData.reduce((sum, s) => {
     const weightNumber = parseFloat(s['Weight']?.toString() || '0') || 0;
     return sum + weightNumber;
   }, 0);
@@ -169,7 +169,7 @@ export default function Shipments() {
   const statsCards: StatCard[] = [
     {
       title: 'Total Shipments',
-      value: stats.total,
+      value: filteredData.length.toString(),
       icon: <IconPackage size={18} />,
       color: 'blue',
       backgroundColor: 'var(--mantine-color-blue-6)',
