@@ -1411,6 +1411,46 @@ export default function Products() {
               </Card>
             </div>
 
+            {/* COGS (Cost of Goods Sold) Display */}
+            <div>
+              <Group mb="md">
+                <ThemeIcon size="sm" radius="md" variant="light" color="red">
+                  <IconTrendingDown size={14} />
+                </ThemeIcon>
+                <Text size="lg" fw={500} c="red.7">COGS (Cost of Goods Sold)</Text>
+              </Group>
+              
+              <Card 
+                withBorder 
+                radius="md" 
+                padding="md"
+                style={{ 
+                  backgroundColor: 'var(--mantine-color-red-0)',
+                  borderColor: 'var(--mantine-color-red-3)'
+                }}
+              >
+                <Group justify="space-between" align="center">
+                  <div>
+                    <Text size="sm" c="dimmed" mb={4}>
+                      Total cost to acquire and deliver the products
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      Formula: (Unit Price × Quantity + Shipping Fee 1) × Exchange Rate + Transaction Fee (2.99%) + Shipping Fee 2 + Shipping Fee 3 + Packaging
+                    </Text>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <Text size="sm" c="dimmed" mb={2}>COGS</Text>
+                    <Text size="xl" fw={700} c="red.8">
+                      ₱{((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging).toLocaleString('en-US', { 
+                        minimumFractionDigits: 2, 
+                        maximumFractionDigits: 2 
+                      })}
+                    </Text>
+                  </div>
+                </Group>
+              </Card>
+            </div>
+
             {/* Action Buttons */}
             <Group justify="flex-end" mt="xl" pt="md" style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}>
               <Button 
