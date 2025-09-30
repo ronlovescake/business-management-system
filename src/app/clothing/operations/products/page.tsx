@@ -996,7 +996,6 @@ export default function Products() {
                 <TextInput
                   label="Shipment Code"
                   placeholder="e.g. KPC 23930A-00173"
-                  withAsterisk
                   size="md"
                   radius="md"
                   styles={{
@@ -1356,7 +1355,7 @@ export default function Products() {
                 size="md"
                 radius="md"
                 gradient={{ from: 'green', to: 'green.6', deg: 45 }}
-                disabled={!newProductForm.shipmentCode.trim() || !newProductForm.product.trim()}
+                disabled={!newProductForm.product.trim()}
                 leftSection={<IconPlus size={18} />}
                 styles={{
                   root: {
