@@ -31,3 +31,21 @@ export interface ShipmentData {
   'Duration': string;
   'Notes': string;
 }
+
+// Database model interface
+export interface ShipmentDB {
+  id: number;
+  createdAt: Date;
+  updatedAt: Date;
+  shipmentCode: string;
+  cvNumber: string | null;
+  noOfSacks: number;
+  totalCBM: number;
+  weight: number;
+  fee: number;
+  shipmentStatus: string;
+  dateCreated: string | null;
+  dateDelivered: string | null;
+  duration: string | null;
+  notes: string | null;
+}

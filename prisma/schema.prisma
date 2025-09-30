@@ -85,3 +85,22 @@ model Product {
 
   @@map("products")
 }
+
+model Shipment {
+  id            Int      @id @default(autoincrement())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  shipmentCode  String   @db.VarChar(100)
+  cvNumber      String?  @db.VarChar(100)
+  noOfSacks     Int      @default(0)
+  totalCBM      Float    @default(0)
+  weight        Float    @default(0)
+  fee           Float    @default(0)
+  shipmentStatus String  @db.VarChar(100)
+  dateCreated   String?  @db.VarChar(50)
+  dateDelivered String?  @db.VarChar(50)
+  duration      String?  @db.VarChar(20)
+  notes         String?  @db.Text
+
+  @@map("shipments")
+}

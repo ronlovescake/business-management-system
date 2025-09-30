@@ -181,13 +181,14 @@ export default function Shipments() {
     const loadShipments = async () => {
       try {
         setLoading(true);
-        // TODO: Replace with actual API call
-        // const response = await fetch('/api/shipments');
-        // const data = await response.json();
-        // setShipments(data);
+        const response = await fetch('/api/shipments');
         
-        // For now, start with empty array
-        setShipments([]);
+        if (!response.ok) {
+          throw new Error('Failed to fetch shipments');
+        }
+        
+        const data = await response.json();
+        setShipments(data);
       } catch (error) {
         console.error('Failed to load shipments:', error);
         notifications.show({
@@ -420,15 +421,24 @@ export default function Shipments() {
         return;
       }
 
-      // TODO: Save to database via API
-      // const saveResponse = await fetch('/api/shipments', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(importedShipments),
-      // });
+      // Save to database via API (bulk import)
+      const saveResponse = await fetch('/api/shipments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(importedShipments),
+      });
 
-      // Update local state
-      setShipments(importedShipments);
+      if (!saveResponse.ok) {
+        throw new Error('Failed to save shipments to database');
+      }
+
+      // Reload shipments from database
+      const reloadResponse = await fetch('/api/shipments');
+      if (reloadResponse.ok) {
+        const reloadedShipments = await reloadResponse.json();
+        setShipments(reloadedShipments);
+      }
+      
       setCsvFile(null);
 
       notifications.show({
@@ -512,15 +522,21 @@ export default function Shipments() {
         'Notes': values.notes,
       };
 
-      // TODO: Send to API
-      // const response = await fetch('/api/shipments', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(newShipment),
-      // });
+      // Send to API
+      const response = await fetch('/api/shipments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newShipment),
+      });
 
-      // For now, add to local state
-      const updatedShipments = [...shipments, newShipment];
+      if (!response.ok) {
+        throw new Error('Failed to create shipment');
+      }
+
+      const createdShipment = await response.json();
+      
+      // Add to local state
+      const updatedShipments = [...shipments, createdShipment];
       setShipments(updatedShipments);
 
       notifications.show({
@@ -578,16 +594,22 @@ export default function Shipments() {
         'Notes': values.notes,
       };
 
-      // TODO: Send to API
-      // const response = await fetch(`/api/shipments/${editingShipment.id}`, {
-      //   method: 'PUT',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(updatedShipment),
-      // });
+      // Send to API
+      const response = await fetch(`/api/shipments/${editingShipment.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedShipment),
+      });
 
-      // For now, update local state
+      if (!response.ok) {
+        throw new Error('Failed to update shipment');
+      }
+
+      const updatedShipmentFromAPI = await response.json();
+
+      // Update local state
       const updatedShipments = shipments.map(s => 
-        s.id === editingShipment.id ? updatedShipment : s
+        s.id === editingShipment.id ? updatedShipmentFromAPI : s
       );
       setShipments(updatedShipments);
 
