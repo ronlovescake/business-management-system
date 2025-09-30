@@ -1371,6 +1371,46 @@ export default function Products() {
               </Card>
             </div>
 
+            {/* Projected Sales Total Display */}
+            <div>
+              <Group mb="md">
+                <ThemeIcon size="sm" radius="md" variant="light" color="green">
+                  <IconTrendingUp size={14} />
+                </ThemeIcon>
+                <Text size="lg" fw={500} c="green.7">Projected Sales Total</Text>
+              </Group>
+              
+              <Card 
+                withBorder 
+                radius="md" 
+                padding="md"
+                style={{ 
+                  backgroundColor: 'var(--mantine-color-green-0)',
+                  borderColor: 'var(--mantine-color-green-3)'
+                }}
+              >
+                <Group justify="space-between" align="center">
+                  <div>
+                    <Text size="sm" c="dimmed" mb={4}>
+                      Total revenue if all items are sold at actual price
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      Formula: Actual Price × Quantity
+                    </Text>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <Text size="sm" c="dimmed" mb={2}>Projected Sales Total</Text>
+                    <Text size="xl" fw={700} c="green.8">
+                      ₱{(newProductForm.actualPrice * newProductForm.quantity).toLocaleString('en-US', { 
+                        minimumFractionDigits: 2, 
+                        maximumFractionDigits: 2 
+                      })}
+                    </Text>
+                  </div>
+                </Group>
+              </Card>
+            </div>
+
             {/* Action Buttons */}
             <Group justify="flex-end" mt="xl" pt="md" style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}>
               <Button 
