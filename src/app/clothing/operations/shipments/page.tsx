@@ -4,8 +4,10 @@ import React, { useState, useEffect } from 'react';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import { DataTable, StatCard, useDataTable } from '../../../../components/ui';
 import { GridColumn, Item } from '@glideapps/glide-data-grid';
-import { Button, Group } from '@mantine/core';
+import { Button, Group, Modal, TextInput, NumberInput, Select, Textarea, Stack } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
+import { DateInput } from '@mantine/dates';
+import { useForm } from '@mantine/form';
 import { 
   IconPlus, 
   IconCheck,
@@ -17,7 +19,8 @@ import {
   IconAnchor,
   IconClipboardCheck,
   IconBuilding,
-  IconHandStop
+  IconHandStop,
+  IconCalendar
 } from '@tabler/icons-react';
 import { ShipmentData } from '../../../../types';
 
@@ -25,6 +28,33 @@ export default function Shipments() {
   const [shipments, setShipments] = useState<ShipmentData[]>([]);
   const [loading, setLoading] = useState(true);
   const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [addModalOpened, setAddModalOpened] = useState(false);
+
+  // Form for adding new shipments
+  const addShipmentForm = useForm({
+    initialValues: {
+      shipmentCode: '',
+      cvNumber: '',
+      noOfSacks: 0,
+      totalCBM: 0,
+      weight: 0,
+      fee: 0,
+      shipmentStatus: '',
+      dateCreated: null as Date | null,
+      dateDelivered: null as Date | null,
+      duration: '',
+      notes: '',
+    },
+    validate: {
+      shipmentCode: (value) => (!value ? 'Shipment Code is required' : null),
+      cvNumber: (value) => (!value ? 'CV Number is required' : null),
+      shipmentStatus: (value) => (!value ? 'Shipment Status is required' : null),
+      noOfSacks: (value) => (value < 0 ? 'Number of sacks must be positive' : null),
+      totalCBM: (value) => (value < 0 ? 'Total CBM must be positive' : null),
+      weight: (value) => (value < 0 ? 'Weight must be positive' : null),
+      fee: (value) => (value < 0 ? 'Fee must be positive' : null),
+    },
+  });
 
   // Define columns for the shipments table with alignment
   const columns: GridColumn[] = [
@@ -335,12 +365,56 @@ export default function Shipments() {
 
   // Handle add new shipment
   const handleAddShipment = () => {
-    // TODO: Implement add shipment modal
-    notifications.show({
-      title: 'Coming Soon',
-      message: 'Add new shipment functionality will be implemented soon',
-      color: 'blue',
-    });
+    addShipmentForm.reset();
+    setAddModalOpened(true);
+  };
+
+  // Handle form submission
+  const handleSubmitShipment = async (values: typeof addShipmentForm.values) => {
+    try {
+      // Create new shipment object
+      const newShipment: ShipmentData = {
+        id: Date.now(), // Temporary ID
+        'Shipment Code': values.shipmentCode,
+        'CV Number': values.cvNumber,
+        'No. Of Sacks': values.noOfSacks,
+        'Total CBM': values.totalCBM,
+        'Weight': values.weight,
+        'Fee': values.fee,
+        'Shipment Status': values.shipmentStatus,
+        'Date Created': values.dateCreated ? values.dateCreated.toLocaleDateString() : '',
+        'Date Delivered': values.dateDelivered ? values.dateDelivered.toLocaleDateString() : '',
+        'Duration': values.duration,
+        'Notes': values.notes,
+      };
+
+      // TODO: Send to API
+      // const response = await fetch('/api/shipments', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify(newShipment),
+      // });
+
+      // For now, add to local state
+      const updatedShipments = [...shipments, newShipment];
+      setShipments(updatedShipments);
+
+      notifications.show({
+        title: '✅ Success',
+        message: 'Shipment added successfully!',
+        color: 'green',
+      });
+
+      setAddModalOpened(false);
+      addShipmentForm.reset();
+    } catch (error) {
+      console.error('Error adding shipment:', error);
+      notifications.show({
+        title: '❌ Error',
+        message: 'Failed to add shipment. Please try again.',
+        color: 'red',
+      });
+    }
   };
 
   if (loading) {
@@ -383,6 +457,127 @@ export default function Shipments() {
         // Enable clicking on shipment codes for future edit functionality
         enableClickableCursor={false}
       />
+
+      {/* Add Shipment Modal */}
+      <Modal
+        opened={addModalOpened}
+        onClose={() => setAddModalOpened(false)}
+        title="Add New Shipment"
+        size="lg"
+        centered
+      >
+        <form onSubmit={addShipmentForm.onSubmit(handleSubmitShipment)}>
+          <Stack gap="md">
+            <Group grow>
+              <TextInput
+                label="Shipment Code"
+                placeholder="Enter shipment code"
+                required
+                {...addShipmentForm.getInputProps('shipmentCode')}
+              />
+              <TextInput
+                label="CV Number"
+                placeholder="Enter CV number"
+                required
+                {...addShipmentForm.getInputProps('cvNumber')}
+              />
+            </Group>
+
+            <Group grow>
+              <NumberInput
+                label="No. Of Sacks"
+                placeholder="Enter number of sacks"
+                min={0}
+                {...addShipmentForm.getInputProps('noOfSacks')}
+              />
+              <NumberInput
+                label="Total CBM"
+                placeholder="Enter total CBM"
+                min={0}
+                decimalScale={2}
+                {...addShipmentForm.getInputProps('totalCBM')}
+              />
+            </Group>
+
+            <Group grow>
+              <NumberInput
+                label="Weight (kg)"
+                placeholder="Enter weight"
+                min={0}
+                decimalScale={2}
+                {...addShipmentForm.getInputProps('weight')}
+              />
+              <NumberInput
+                label="Fee (₱)"
+                placeholder="Enter fee"
+                min={0}
+                decimalScale={2}
+                {...addShipmentForm.getInputProps('fee')}
+              />
+            </Group>
+
+            <Group grow>
+              <Select
+                label="Shipment Status"
+                placeholder="Select status"
+                required
+                data={[
+                  'In Transit',
+                  'Manila Port',
+                  'With Pier Gatepass',
+                  'PH Warehouse',
+                  'For Pickup',
+                  'Delivered'
+                ]}
+                {...addShipmentForm.getInputProps('shipmentStatus')}
+              />
+              <TextInput
+                label="Duration"
+                placeholder="e.g., 5 days"
+                {...addShipmentForm.getInputProps('duration')}
+              />
+            </Group>
+
+            <Group grow>
+              <DateInput
+                label="Date Created"
+                placeholder="Select date created"
+                leftSection={<IconCalendar size={16} />}
+                {...addShipmentForm.getInputProps('dateCreated')}
+              />
+              <DateInput
+                label="Date Delivered"
+                placeholder="Select date delivered"
+                leftSection={<IconCalendar size={16} />}
+                {...addShipmentForm.getInputProps('dateDelivered')}
+              />
+            </Group>
+
+            <Textarea
+              label="Notes"
+              placeholder="Enter any additional notes..."
+              rows={3}
+              {...addShipmentForm.getInputProps('notes')}
+            />
+
+            <Group justify="flex-end" mt="md">
+              <Button
+                variant="outline"
+                onClick={() => setAddModalOpened(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                color="green"
+                leftSection={<IconPlus size={16} />}
+              >
+                Add Shipment
+              </Button>
+            </Group>
+          </Stack>
+        </form>
+      </Modal>
     </PageLayout>
   );
 }
