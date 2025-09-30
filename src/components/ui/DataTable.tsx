@@ -1,14 +1,44 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+} from 'react';
 import dynamic from 'next/dynamic';
-import { GridCellKind, GridColumn, Item } from '@glideapps/glide-data-grid';
-import { Stack, Text, Button, Group, FileInput, Loader, TextInput, Card, SimpleGrid, ThemeIcon, Title } from '@mantine/core';
+import { GridColumn, Item, GridCell } from '@glideapps/glide-data-grid';
+import {
+  Stack,
+  Text,
+  Button,
+  Group,
+  FileInput,
+  Loader,
+  TextInput,
+  Card,
+  SimpleGrid,
+  ThemeIcon,
+  Title,
+} from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconUpload, IconSearch, IconPlus } from '@tabler/icons-react';
+import { IconUpload, IconSearch } from '@tabler/icons-react';
 
 // Import Glide Data Grid CSS
 import '@glideapps/glide-data-grid/dist/index.css';
+
+// Types for DrawHeader callback
+interface DrawHeaderArgs {
+  ctx: CanvasRenderingContext2D;
+  column: GridColumn;
+  rect: { x: number; y: number; width: number; height: number };
+  theme: {
+    bgHeader: string;
+    textHeader: string;
+    headerFontStyle: string;
+  };
+}
 
 // Custom styles for larger font and center aligned headers
 const customGridStyles = `
@@ -59,9 +89,9 @@ const customGridStyles = `
 // Dynamic import to prevent SSR issues
 const DataEditor = dynamic(
   () => import('@glideapps/glide-data-grid').then((mod) => mod.DataEditor),
-  { 
+  {
     ssr: false,
-    loading: () => <Loader />
+    loading: () => <Loader />,
   }
 );
 
@@ -75,61 +105,65 @@ export interface StatCard {
 }
 
 // Table configuration interface
-export interface DataTableProps<T = any> {
+export interface DataTableProps<T = Record<string, unknown>> {
   // Data
   data: T[];
   filteredData: T[];
   columns: GridColumn[];
-  
+
   // Stats cards (optional)
   statsCards?: StatCard[];
-  
+
   // Search functionality
   searchQuery: string;
   onSearch: (query: string) => void;
   searchPlaceholder?: string;
   enableCtrlF?: boolean;
-  
+
   // CSV Import (optional)
   enableCSVImport?: boolean;
   onCSVImport?: (file: File) => Promise<void>;
   csvFile?: File | null;
   onFileChange?: (file: File | null) => void;
-  
+
   // Action buttons (optional)
   actionButtons?: React.ReactNode;
-  
+
+  // Search right buttons (appear right after search bar)
+  searchRightButtons?: React.ReactNode;
+
   // Table behavior
   onCellClick?: (cell: Item, data: T) => void;
-  getCellContent: (cell: Item) => any;
-  
+  getCellContent: (cell: Item) => GridCell;
+
   // Footer customization
   showFooter?: boolean;
   footerLeft?: string;
   footerRight?: string;
-  
+
   // Grid height (defaults to 83vh)
   gridHeight?: number;
-  
+
   // Custom styling
   enableClickableCursor?: boolean;
   className?: string;
 }
 
-export function DataTable<T = any>({
+export function DataTable<T = Record<string, unknown>>({
   data,
   filteredData,
   columns,
   statsCards,
   searchQuery,
   onSearch,
-  searchPlaceholder = "Search...",
+  searchPlaceholder = 'Search...',
   enableCtrlF = true,
   enableCSVImport = false,
   onCSVImport,
   csvFile,
   onFileChange,
   actionButtons,
+  searchRightButtons,
   onCellClick,
   getCellContent,
   showFooter = true,
@@ -137,7 +171,7 @@ export function DataTable<T = any>({
   footerRight,
   gridHeight,
   enableClickableCursor = false,
-  className = "",
+  className = '',
 }: DataTableProps<T>) {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [currentGridHeight, setCurrentGridHeight] = useState<number>(600);
@@ -171,24 +205,24 @@ export function DataTable<T = any>({
   }, [enableCtrlF]);
 
   // Custom header drawing function
-  const drawHeader = useCallback((args: any) => {
+  const drawHeader = useCallback((args: DrawHeaderArgs) => {
     const { ctx, column, rect, theme } = args;
-    
+
     // Fill header background
     ctx.fillStyle = theme.bgHeader;
     ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
-    
+
     // Set text properties
     ctx.fillStyle = theme.textHeader;
     ctx.font = theme.headerFontStyle;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    
+
     // Draw centered text
     const centerX = rect.x + rect.width / 2;
     const centerY = rect.y + rect.height / 2;
     ctx.fillText(column.title, centerX, centerY);
-    
+
     return true;
   }, []);
 
@@ -196,15 +230,18 @@ export function DataTable<T = any>({
   const getRowCount = useCallback(() => filteredData.length, [filteredData]);
 
   // Handle cell clicks
-  const onCellClicked = useCallback((cell: Item) => {
-    if (onCellClick) {
-      const [col, row] = cell;
-      const rowData = filteredData[row];
-      if (rowData) {
-        onCellClick(cell, rowData);
+  const onCellClicked = useCallback(
+    (cell: Item) => {
+      if (onCellClick) {
+        const [, row] = cell;
+        const rowData = filteredData[row];
+        if (rowData) {
+          onCellClick(cell, rowData);
+        }
       }
-    }
-  }, [filteredData, onCellClick]);
+    },
+    [filteredData, onCellClick]
+  );
 
   // Enhanced grid styles with clickable cursor option
   const enhancedGridStyles = useMemo(() => {
@@ -222,7 +259,7 @@ export function DataTable<T = any>({
   // CSV import handler
   const handleCSVImport = async () => {
     if (!csvFile || !onCSVImport) return;
-    
+
     try {
       await onCSVImport(csvFile);
     } catch (error) {
@@ -239,19 +276,22 @@ export function DataTable<T = any>({
   return (
     <div className={className}>
       <style dangerouslySetInnerHTML={{ __html: enhancedGridStyles }} />
-      <Stack gap="md" style={{ width: '100%', maxWidth: 'none', margin: '0 auto' }}>
+      <Stack
+        gap="md"
+        style={{ width: '100%', maxWidth: 'none', margin: '0 auto' }}
+      >
         {/* Stats cards */}
         {statsCards && statsCards.length > 0 && (
           <SimpleGrid cols={statsCards.length} spacing="md">
             {statsCards.map((stat, index) => (
-              <Card 
+              <Card
                 key={index}
-                shadow="sm" 
-                padding="md" 
-                radius="md" 
-                style={{ 
-                  background: stat.backgroundColor || stat.color, 
-                  color: 'white' 
+                shadow="sm"
+                padding="md"
+                radius="md"
+                style={{
+                  background: stat.backgroundColor || stat.color,
+                  color: 'white',
                 }}
               >
                 <Group justify="space-between" align="flex-start">
@@ -260,10 +300,17 @@ export function DataTable<T = any>({
                       {stat.title}
                     </Text>
                     <Title order={3} c="white">
-                      {typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}
+                      {typeof stat.value === 'number'
+                        ? stat.value.toLocaleString()
+                        : stat.value}
                     </Title>
                   </div>
-                  <ThemeIcon variant="white" color={stat.color} size="lg" radius="md">
+                  <ThemeIcon
+                    variant="white"
+                    color={stat.color}
+                    size="lg"
+                    radius="md"
+                  >
                     {stat.icon}
                   </ThemeIcon>
                 </Group>
@@ -274,17 +321,24 @@ export function DataTable<T = any>({
 
         {/* Search and controls */}
         <Group justify="space-between" align="flex-end" wrap="wrap" gap="md">
-          <TextInput
-            ref={searchInputRef}
-            placeholder={enableCtrlF ? `${searchPlaceholder} (Ctrl+F)` : searchPlaceholder}
-            leftSection={<IconSearch size={16} />}
-            value={searchQuery}
-            onChange={(e) => onSearch(e.target.value)}
-            style={{ flex: 1, minWidth: 300 }}
-            size="md"
-            radius="md"
-          />
-          
+          <Group gap="md" style={{ flex: 1 }}>
+            <TextInput
+              ref={searchInputRef}
+              placeholder={
+                enableCtrlF
+                  ? `${searchPlaceholder} (Ctrl+F)`
+                  : searchPlaceholder
+              }
+              leftSection={<IconSearch size={16} />}
+              value={searchQuery}
+              onChange={(e) => onSearch(e.target.value)}
+              style={{ flex: 1, minWidth: 300 }}
+              size="md"
+              radius="md"
+            />
+            {searchRightButtons}
+          </Group>
+
           <Group gap="sm">
             {enableCSVImport && (
               <>
@@ -315,21 +369,28 @@ export function DataTable<T = any>({
         </Group>
 
         {/* Data Grid */}
-        <Card withBorder shadow="sm" radius="md" padding={0} style={{
-          height: currentGridHeight,
-          width: '100%',
-          maxWidth: '100%',
-          overflow: 'hidden',
-          position: 'relative',
-          background: '#fff',
-          fontSize: '18px'
-        }} className="data-grid-container">
+        <Card
+          withBorder
+          shadow="sm"
+          radius="md"
+          padding={0}
+          style={{
+            height: currentGridHeight,
+            width: '100%',
+            maxWidth: '100%',
+            overflow: 'hidden',
+            position: 'relative',
+            background: '#fff',
+            fontSize: '18px',
+          }}
+          className="data-grid-container"
+        >
           <DataEditor
             getCellContent={getCellContent}
             columns={columns}
             rows={getRowCount()}
             height={currentGridHeight}
-            width={"100%"}
+            width={'100%'}
             overscrollX={0}
             smoothScrollX={true}
             smoothScrollY={true}
@@ -378,9 +439,14 @@ export function DataTable<T = any>({
 
         {/* Footer pagination counter at bottom */}
         {showFooter && (
-          <Group justify="space-between" align="center" style={{ marginTop: 'md' }}>
+          <Group
+            justify="space-between"
+            align="center"
+            style={{ marginTop: 'md' }}
+          >
             <Text size="sm" c="dimmed">
-              {footerLeft || `Showing ${filteredData.length} of ${data.length} items`}
+              {footerLeft ||
+                `Showing ${filteredData.length} of ${data.length} items`}
             </Text>
             {footerRight && (
               <Text size="sm" c="dimmed">
