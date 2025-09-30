@@ -1420,6 +1420,41 @@ export default function Products() {
                   </Text>
                 </Card>
 
+                {/* Profit Margin (Projected Profit %) */}
+                <Card 
+                  withBorder 
+                  radius="md" 
+                  padding="md"
+                  style={{ 
+                    backgroundColor: 'var(--mantine-color-blue-0)',
+                    borderColor: 'var(--mantine-color-blue-3)'
+                  }}
+                >
+                  <Group justify="space-between" align="center" mb="md">
+                    <ThemeIcon size="sm" radius="md" variant="light" color="blue">
+                      <IconPercentage size={14} />
+                    </ThemeIcon>
+                    <Text size="sm" fw={500} c="blue.7">Profit Margin</Text>
+                  </Group>
+                  <Text size="xl" fw={700} c="blue.8" ta="center" mb="xs">
+                    {(() => {
+                      const cogs = (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging;
+                      const projectedProfit = (newProductForm.actualPrice * newProductForm.quantity) - cogs;
+                      
+                      if (cogs === 0) return '0.00%';
+                      
+                      const profitPercentage = (projectedProfit / cogs) * 100;
+                      return `${profitPercentage.toLocaleString('en-US', { 
+                        minimumFractionDigits: 2, 
+                        maximumFractionDigits: 2 
+                      })}%`;
+                    })()}
+                  </Text>
+                  <Text size="xs" c="dimmed" ta="center">
+                    Profit as % of costs invested
+                  </Text>
+                </Card>
+
                 {/* Base Price */}
                 <Card 
                   withBorder 
@@ -1474,41 +1509,6 @@ export default function Products() {
                   </Text>
                   <Text size="xs" c="dimmed" ta="center">
                     Total cost to acquire & deliver
-                  </Text>
-                </Card>
-
-                {/* Projected Profit (%) */}
-                <Card 
-                  withBorder 
-                  radius="md" 
-                  padding="md"
-                  style={{ 
-                    backgroundColor: 'var(--mantine-color-blue-0)',
-                    borderColor: 'var(--mantine-color-blue-3)'
-                  }}
-                >
-                  <Group justify="space-between" align="center" mb="md">
-                    <ThemeIcon size="sm" radius="md" variant="light" color="blue">
-                      <IconPercentage size={14} />
-                    </ThemeIcon>
-                    <Text size="sm" fw={500} c="blue.7">Profit Margin</Text>
-                  </Group>
-                  <Text size="xl" fw={700} c="blue.8" ta="center" mb="xs">
-                    {(() => {
-                      const cogs = (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging;
-                      const projectedProfit = (newProductForm.actualPrice * newProductForm.quantity) - cogs;
-                      
-                      if (cogs === 0) return '0.00%';
-                      
-                      const profitPercentage = (projectedProfit / cogs) * 100;
-                      return `${profitPercentage.toLocaleString('en-US', { 
-                        minimumFractionDigits: 2, 
-                        maximumFractionDigits: 2 
-                      })}%`;
-                    })()}
-                  </Text>
-                  <Text size="xs" c="dimmed" ta="center">
-                    Profit as % of costs invested
                   </Text>
                 </Card>
 
