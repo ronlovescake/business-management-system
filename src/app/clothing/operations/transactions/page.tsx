@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import { DataTable, StatCard, useDataTable } from '../../../../components/ui';
 import { GridColumn, Item, GridCell } from '@glideapps/glide-data-grid';
+import { GridCellKind } from '@glideapps/glide-data-grid';
 import { Button, Group } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
@@ -150,45 +151,50 @@ export default function Transactions() {
   };
 
   // Define columns for the transactions table
-  const columns: GridColumn[] = [
-    { title: 'ORDER DATE', width: 200, id: 'orderDate' },
-    { title: 'CUSTOMERS', width: 300, id: 'customers' },
-    { title: 'PRODUCT CODE', width: 400, id: 'productCode' },
-    { title: 'QUANTITY', width: 150, id: 'quantity' },
-    { title: 'UNIT PRICE', width: 180, id: 'unitPrice' },
-    { title: 'DISCOUNT', width: 150, id: 'discount' },
-    { title: 'ADJUSTMENT', width: 150, id: 'adjustment' },
-    { title: 'LINE TOTAL', width: 180, id: 'lineTotal' },
-    { title: 'ORDER STATUS', width: 200, id: 'orderStatus' },
-    { title: 'NOTES', width: 300, id: 'notes' },
-    { title: 'INVOICE DATE', width: 200, id: 'invoiceDate' },
-    { title: 'PACKED DATE', width: 200, id: 'packedDate' },
-    { title: 'SHIPMENT CODE', width: 200, grow: 1, id: 'shipmentCode' },
-  ];
+  const columns: GridColumn[] = React.useMemo(
+    () => [
+      { title: 'ORDER DATE', width: 200, id: 'orderDate' },
+      { title: 'CUSTOMERS', width: 300, id: 'customers' },
+      { title: 'PRODUCT CODE', width: 400, id: 'productCode' },
+      { title: 'QUANTITY', width: 150, id: 'quantity' },
+      { title: 'UNIT PRICE', width: 180, id: 'unitPrice' },
+      { title: 'DISCOUNT', width: 150, id: 'discount' },
+      { title: 'ADJUSTMENT', width: 150, id: 'adjustment' },
+      { title: 'LINE TOTAL', width: 180, id: 'lineTotal' },
+      { title: 'ORDER STATUS', width: 200, id: 'orderStatus' },
+      { title: 'NOTES', width: 300, id: 'notes' },
+      { title: 'INVOICE DATE', width: 200, id: 'invoiceDate' },
+      { title: 'PACKED DATE', width: 200, id: 'packedDate' },
+      { title: 'SHIPMENT CODE', width: 200, grow: 1, id: 'shipmentCode' },
+    ],
+    []
+  );
 
   // Map column IDs to data keys
-  const idToKey: Record<string, keyof TransactionData> = {
-    orderDate: 'Order Date',
-    customers: 'Customers',
-    productCode: 'Product Code',
-    quantity: 'Quantity',
-    unitPrice: 'Unit Price',
-    discount: 'Discount',
-    adjustment: 'Adjustment',
-    lineTotal: 'Line Total',
-    orderStatus: 'Order Status',
-    notes: 'Notes',
-    invoiceDate: 'Invoice Date',
-    packedDate: 'Packed Date',
-    shipmentCode: 'Shipment Code',
-  };
+  const idToKey: Record<string, keyof TransactionData> = React.useMemo(
+    () => ({
+      orderDate: 'Order Date',
+      customers: 'Customers',
+      productCode: 'Product Code',
+      quantity: 'Quantity',
+      unitPrice: 'Unit Price',
+      discount: 'Discount',
+      adjustment: 'Adjustment',
+      lineTotal: 'Line Total',
+      orderStatus: 'Order Status',
+      notes: 'Notes',
+      invoiceDate: 'Invoice Date',
+      packedDate: 'Packed Date',
+      shipmentCode: 'Shipment Code',
+    }),
+    []
+  );
 
   // Use the data table hook for search functionality
   const {
     searchQuery,
     filteredData: searchFilteredData,
     handleSearch,
-    getCellContent,
   } = useDataTable({
     data: transactions,
     searchFields: [
@@ -219,10 +225,43 @@ export default function Transactions() {
     });
   }, [searchFilteredData, selectedStatuses]);
 
-  // Create cell content getter function that properly handles the parameters
-  const cellContentGetter = (cell: Item): GridCell => {
-    return getCellContent(cell, columns, idToKey) as GridCell;
-  };
+  // Create cell content getter that uses the FINAL filteredData (search + status)
+  const cellContentGetter = React.useCallback(
+    (cell: Item): GridCell => {
+      const [col, row] = cell;
+      const item = filteredData[row] as TransactionData | undefined;
+      const column = columns[col];
+
+      if (!item || !column) {
+        return {
+          kind: GridCellKind.Text,
+          data: '',
+          displayData: '',
+          allowOverlay: false,
+        } as GridCell;
+      }
+
+      const key = idToKey[column.id as string];
+      const value = item[key];
+
+      if (typeof value === 'number') {
+        return {
+          kind: GridCellKind.Number,
+          data: value,
+          displayData: value.toLocaleString(),
+          allowOverlay: false,
+        } as GridCell;
+      }
+
+      return {
+        kind: GridCellKind.Text,
+        data: (value ?? '').toString(),
+        displayData: (value ?? '').toString(),
+        allowOverlay: false,
+      } as GridCell;
+    },
+    [filteredData, columns, idToKey]
+  );
 
   // Initialize with empty data (no database for now)
   useEffect(() => {
@@ -367,6 +406,23 @@ export default function Transactions() {
       };
 
       const headers = parseCSVLine(lines[0]);
+
+      // Map CSV headers (which may be uppercase) to TransactionData keys
+      const headerMap: Record<string, keyof TransactionData> = {
+        'ORDER DATE': 'Order Date',
+        CUSTOMERS: 'Customers',
+        'PRODUCT CODE': 'Product Code',
+        QUANTITY: 'Quantity',
+        'UNIT PRICE': 'Unit Price',
+        DISCOUNT: 'Discount',
+        ADJUSTMENT: 'Adjustment',
+        'LINE TOTAL': 'Line Total',
+        'ORDER STATUS': 'Order Status',
+        NOTES: 'Notes',
+        'INVOICE DATE': 'Invoice Date',
+        'PACKED DATE': 'Packed Date',
+        'SHIPMENT CODE': 'Shipment Code',
+      };
       const importedTransactions: TransactionData[] = [];
 
       for (let i = 1; i < lines.length; i++) {
@@ -377,22 +433,30 @@ export default function Transactions() {
             id: Date.now() + i,
           };
 
-          headers.forEach((header, index) => {
-            if (values[index] !== undefined && values[index] !== '') {
-              // Convert numeric fields
-              if (
-                [
-                  'Quantity',
-                  'Unit Price',
-                  'Discount',
-                  'Adjustment',
-                  'Line Total',
-                ].includes(header)
-              ) {
-                transactionData[header] = parseFloat(values[index]) || 0;
-              } else {
-                transactionData[header] = values[index];
-              }
+          headers.forEach((rawHeader, index) => {
+            const normalized = headerMap[rawHeader.trim().toUpperCase()];
+            if (!normalized) return; // Skip unknown columns
+
+            const rawValue = values[index];
+            if (rawValue === undefined || rawValue === '') return;
+
+            // Convert numeric fields (strip currency symbols/commas/spaces)
+            if (
+              [
+                'Quantity',
+                'Unit Price',
+                'Discount',
+                'Adjustment',
+                'Line Total',
+              ].includes(normalized as string)
+            ) {
+              const sanitized = rawValue
+                .replace(/[^0-9.\-]/g, '') // keep digits, dot, minus
+                .trim();
+              const num = parseFloat(sanitized);
+              transactionData[normalized] = Number.isFinite(num) ? num : 0;
+            } else {
+              transactionData[normalized] = rawValue;
             }
           });
 
