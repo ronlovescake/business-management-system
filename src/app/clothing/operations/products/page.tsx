@@ -89,7 +89,7 @@ interface ProductData {
   'Sub Total (PHP)': number;
   'Transaction Fee': number;
   'Grand Total': number;
-  'Shipping Fee 2': number;
+  'Forwarder\'s Fee': number;
   'Shipping Fee 3': number;
   'Packaging': number;
   'Suggested Price': number;
@@ -152,7 +152,7 @@ export default function Products() {
     { title: 'Sub Total (PHP)', width: 150, id: 'subTotalPHP' },
     { title: 'Transaction Fee', width: 140, id: 'transactionFee' },
     { title: 'Grand Total', width: 130, id: 'grandTotal' },
-    { title: 'Shipping Fee 2', width: 130, id: 'shippingFee2' },
+    { title: 'Forwarder\'s Fee', width: 130, id: 'shippingFee2' },
     { title: 'Shipping Fee 3', width: 130, id: 'shippingFee3' },
     { title: 'Packaging', width: 120, id: 'packaging' },
     { title: 'Suggested Price', width: 150, id: 'suggestedPrice' },
@@ -188,7 +188,7 @@ export default function Products() {
     subTotalPHP: 'Sub Total (PHP)',
     transactionFee: 'Transaction Fee',
     grandTotal: 'Grand Total',
-    shippingFee2: 'Shipping Fee 2',
+    shippingFee2: 'Forwarder\'s Fee',
     shippingFee3: 'Shipping Fee 3',
     packaging: 'Packaging',
     suggestedPrice: 'Suggested Price',
@@ -394,7 +394,7 @@ export default function Products() {
               'Sub Total (PHP)': ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0), // Sub Total (PHP) = (Unit Price × Quantity + Shipping Fee 1) × Exchange Rate
               'Transaction Fee': ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) * 0.0299, // Transaction Fee = Sub Total (PHP) × 2.99%
               'Grand Total': ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) + ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) * 0.0299, // Grand Total = Sub Total (PHP) + Transaction Fee
-              'Shipping Fee 2': product.shippingFee2 || 0,
+              'Forwarder\'s Fee': product.shippingFee2 || 0,
               'Shipping Fee 3': product.shippingFee3 || 0,
               'Packaging': product.packaging || 0,
               'Suggested Price': Math.ceil(((product.quantity || 0) > 0 ? (((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) + ((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee1 || 0)) * (product.exchangeRates || 0) * 0.0299 + (product.shippingFee2 || 0) + (product.shippingFee3 || 0) + (product.packaging || 0)) / (product.quantity || 1) : 0) * 1.22), // Suggested Price = ROUNDUP(Base Price * 122%)
@@ -491,7 +491,7 @@ export default function Products() {
           'Sub Total (PHP)': (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]), // Sub Total (PHP) = (Unit Price × Quantity + Shipping Fee 1) × Exchange Rate
           'Transaction Fee': (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) * 0.0299, // Transaction Fee = Sub Total (PHP) × 2.99%
           'Grand Total': (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) + (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) * 0.0299, // Grand Total = Sub Total (PHP) + Transaction Fee
-          'Shipping Fee 2': parseNumeric(values[21]),
+          'Forwarder\'s Fee': parseNumeric(values[21]),
           'Shipping Fee 3': parseNumeric(values[22]),
           'Packaging': parseNumeric(values[23]),
           'Suggested Price': Math.ceil((parseNumeric(values[14]) > 0 ? ((parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) + (parseNumeric(values[13]) * parseNumeric(values[14]) + parseNumeric(values[15])) * parseNumeric(values[16]) * 0.0299 + parseNumeric(values[21]) + parseNumeric(values[22]) + parseNumeric(values[23])) / parseNumeric(values[14]) : 0) * 1.22), // Suggested Price = ROUNDUP(Base Price * 122%)
@@ -628,7 +628,7 @@ export default function Products() {
       'Sub Total (PHP)': 0,
       'Transaction Fee': 0,
       'Grand Total': 0,
-      'Shipping Fee 2': 0,
+      'Forwarder\'s Fee': 0,
       'Shipping Fee 3': 0,
       'Packaging': 0,
       'Suggested Price': 0,
@@ -1608,7 +1608,7 @@ export default function Products() {
                       'Sub Total (PHP)': (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates, // Sub Total (PHP) = (Unit Price × Quantity + Shipping Fee 1) × Exchange Rate
                       'Transaction Fee': (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299, // Transaction Fee = Sub Total (PHP) × 2.99%
                       'Grand Total': (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299, // Grand Total = Sub Total (PHP) + Transaction Fee
-                      'Shipping Fee 2': newProductForm.shippingFee2,
+                      'Forwarder\'s Fee': newProductForm.shippingFee2,
                       'Shipping Fee 3': newProductForm.shippingFee3,  
                       'Packaging': newProductForm.packaging,
                       'Suggested Price': Math.ceil((newProductForm.quantity > 0 ? ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging) / newProductForm.quantity : 0) * 1.22), // Suggested Price = ROUNDUP(Base Price * 122%)
