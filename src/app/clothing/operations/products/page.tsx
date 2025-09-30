@@ -1451,6 +1451,49 @@ export default function Products() {
               </Card>
             </div>
 
+            {/* Base Price Display */}
+            <div>
+              <Group mb="md">
+                <ThemeIcon size="sm" radius="md" variant="light" color="blue">
+                  <IconCurrencyDollar size={14} />
+                </ThemeIcon>
+                <Text size="lg" fw={500} c="blue.7">Base Price</Text>
+              </Group>
+              
+              <Card 
+                withBorder 
+                radius="md" 
+                padding="md"
+                style={{ 
+                  backgroundColor: 'var(--mantine-color-blue-0)',
+                  borderColor: 'var(--mantine-color-blue-3)'
+                }}
+              >
+                <Group justify="space-between" align="center">
+                  <div>
+                    <Text size="sm" c="dimmed" mb={4}>
+                      Cost per individual item (COGS divided by quantity)
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      Formula: COGS ÷ Quantity
+                    </Text>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <Text size="sm" c="dimmed" mb={2}>Base Price (per item)</Text>
+                    <Text size="xl" fw={700} c="blue.8">
+                      ₱{(newProductForm.quantity > 0 
+                        ? ((newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates + (newProductForm.unitPrice * newProductForm.quantity + newProductForm.shippingFee1) * newProductForm.exchangeRates * 0.0299 + newProductForm.shippingFee2 + newProductForm.shippingFee3 + newProductForm.packaging) / newProductForm.quantity
+                        : 0
+                      ).toLocaleString('en-US', { 
+                        minimumFractionDigits: 2, 
+                        maximumFractionDigits: 2 
+                      })}
+                    </Text>
+                  </div>
+                </Group>
+              </Card>
+            </div>
+
             {/* Action Buttons */}
             <Group justify="flex-end" mt="xl" pt="md" style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}>
               <Button 
