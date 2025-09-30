@@ -1199,14 +1199,13 @@ export default function Products() {
                 />
 
                 <NumberInput
-                  label="Actual Price"
-                  placeholder="0.00"
+                  label="Exchange Rate"
+                  placeholder="1.00"
                   size="md"
                   radius="md"
-                  leftSection="₱"
-                  decimalScale={2}
+                  decimalScale={4}
                   fixedDecimalScale
-                  thousandSeparator=","
+                  step={0.0001}
                   styles={{
                     label: { fontWeight: 500, marginBottom: 8 },
                     input: { 
@@ -1214,8 +1213,8 @@ export default function Products() {
                       '&:focus': { borderColor: 'var(--mantine-color-orange-5)' }
                     }
                   }}
-                  value={newProductForm.actualPrice}
-                  onChange={(value) => updateFormField('actualPrice', Number(value) || 0)}
+                  value={newProductForm.exchangeRates}
+                  onChange={(value) => updateFormField('exchangeRates', Number(value) || 1)}
                 />
               </SimpleGrid>
             </div>
@@ -1291,13 +1290,14 @@ export default function Products() {
                 />
 
                 <NumberInput
-                  label="Exchange Rate"
-                  placeholder="1.00"
+                  label="Actual Price"
+                  placeholder="0.00"
                   size="md"
                   radius="md"
-                  decimalScale={4}
+                  leftSection="₱"
+                  decimalScale={2}
                   fixedDecimalScale
-                  step={0.0001}
+                  thousandSeparator=","
                   styles={{
                     label: { fontWeight: 500, marginBottom: 8 },
                     input: { 
@@ -1305,8 +1305,8 @@ export default function Products() {
                       '&:focus': { borderColor: 'var(--mantine-color-purple-5)' }
                     }
                   }}
-                  value={newProductForm.exchangeRates}
-                  onChange={(value) => updateFormField('exchangeRates', Number(value) || 1)}
+                  value={newProductForm.actualPrice}
+                  onChange={(value) => updateFormField('actualPrice', Number(value) || 0)}
                 />
 
                 <NumberInput
