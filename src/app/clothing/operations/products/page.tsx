@@ -111,6 +111,8 @@ export default function Products() {
   const [gridHeight, setGridHeight] = useState<number>(600);
   const [addProductOpen, setAddProductOpen] = useState(false);
   const [pasteMode, setPasteMode] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<number | null>(null);
   const [newProductForm, setNewProductForm] = useState(() => ({
     shipmentCode: '',
     postingDate: '',
@@ -206,6 +208,32 @@ export default function Products() {
     setNewProductForm(prev => ({ ...prev, [field]: value }));
   }, []);
 
+  // Function to populate form with existing product data for editing
+  const populateFormWithProduct = useCallback((product: ProductData) => {
+    setNewProductForm({
+      shipmentCode: product['Shipment Code'] || '',
+      postingDate: product['Posting Date'] || '',
+      orderDate: product['Order Date'] || '',
+      payment: product['Payment'] || '',
+      product: product['Product'] || '',
+      ageRange: product['Age Range'] || '',
+      unit: product['Unit'] || '',
+      unitPrice: product['Unit Price'] || 0,
+      quantity: product['Quantity'] || 0,
+      alibabaShippingCost: product['Alibaba Shipping Cost'] || 0,
+      exchangeRates: product['Exchange Rates'] || 1,
+      forwardersFee: product['Forwarder\'s Fee'] || 0,
+      lalamove: product['Lalamove'] || 0,
+      packagingCost: product['Packaging Cost'] || 0,
+      actualPrice: product['Actual Price'] || 0,
+    });
+    setIsEditMode(true);
+    setEditingProductId(product.id || null);
+    setAddProductOpen(true);
+  }, []);
+
+
+
   // Generate Product Code based on Product name and Posting Date
   const generateProductCode = useCallback((productName: string, postingDate: string) => {
     if (!productName.trim()) return '';
@@ -254,6 +282,8 @@ export default function Products() {
       packagingCost: 0,
       actualPrice: 0,
     });
+    setIsEditMode(false);
+    setEditingProductId(null);
   }, []);
 
   // Function to calculate optimal column width based on content
@@ -729,6 +759,7 @@ export default function Products() {
         displayData: '',
         allowOverlay: false,
         contentAlign: 'center',
+        cursor: column?.id === 'productCode' ? 'pointer' : undefined,
       };
     }
 
@@ -749,6 +780,7 @@ export default function Products() {
         displayData: displayData,
         allowOverlay: false,
         contentAlign: alignment,
+        cursor: column.id === 'productCode' ? 'pointer' : undefined,
       };
     }
 
@@ -758,6 +790,7 @@ export default function Products() {
       displayData: value?.toString() || '',
       allowOverlay: false,
       contentAlign: alignment,
+      cursor: column.id === 'productCode' ? 'pointer' : undefined,
     };
   }, [filteredProducts, columns, idToKey]);
 
@@ -820,9 +853,15 @@ export default function Products() {
     
     if (!product || !column) return;
 
-    // You can add specific click handling here if needed
+    // If Product Code column is clicked, open edit modal
+    if (column.id === 'productCode') {
+      populateFormWithProduct(product);
+      return;
+    }
+
+    // You can add other specific click handling here if needed
     console.log('Clicked cell:', { product, column: column.title });
-  }, [filteredProducts, columns]);
+  }, [filteredProducts, columns, populateFormWithProduct]);
 
   return (
     <PageLayout fluid withPadding>
@@ -928,7 +967,10 @@ export default function Products() {
               color="green" 
               size="md" 
               radius="md"
-              onClick={() => setAddProductOpen(true)}
+              onClick={() => {
+                resetForm(); // Reset form for new product
+                setAddProductOpen(true);
+              }}
             >
               Add Product
             </Button>
@@ -938,7 +980,10 @@ export default function Products() {
         {/* Add Product Modal - Beautiful & Modern Design */}
         <Modal 
           opened={addProductOpen} 
-          onClose={() => setAddProductOpen(false)}
+          onClose={() => {
+            resetForm();
+            setAddProductOpen(false);
+          }}
           closeOnClickOutside={false}
           closeOnEscape={false}
           withCloseButton={true}
@@ -972,12 +1017,16 @@ export default function Products() {
           }}
           title={
             <Group gap="sm">
-              <ThemeIcon size="lg" radius="md" variant="light" color="green">
+              <ThemeIcon size="lg" radius="md" variant="light" color={isEditMode ? "blue" : "green"}>
                 <IconPackage size={20} />
               </ThemeIcon>
               <div>
-                <Text size="xl" fw={600} c="green.8">Add New Product</Text>
-                <Text size="sm" c="dimmed">Fill in the product information below</Text>
+                <Text size="xl" fw={600} c={isEditMode ? "blue.8" : "green.8"}>
+                  {isEditMode ? 'Edit Product' : 'Add New Product'}
+                </Text>
+                <Text size="sm" c="dimmed">
+                  {isEditMode ? 'Update the product information below' : 'Fill in the product information below'}
+                </Text>
               </div>
             </Group>
           }
@@ -1586,7 +1635,7 @@ export default function Products() {
                 }}
                 onClick={async () => {
                   try {
-                    const newProduct: Partial<ProductData> = {
+                    const productData: Partial<ProductData> = {
                       'Shipment Code': newProductForm.shipmentCode.trim(),
                       'CV Number': '', // Set default empty
                       'No. Of Sacks': 0, // Set default 0
@@ -1597,7 +1646,9 @@ export default function Products() {
                       'Order Date': newProductForm.orderDate,
                       'Payment': newProductForm.payment,
                       'Product': newProductForm.product.trim(),
-                      'Product Code': generateProductCode(newProductForm.product.trim(), newProductForm.postingDate),
+                      'Product Code': isEditMode ? 
+                        products.find(p => p.id === editingProductId)?.['Product Code'] || generateProductCode(newProductForm.product.trim(), newProductForm.postingDate) :
+                        generateProductCode(newProductForm.product.trim(), newProductForm.postingDate),
                       'Age Range': newProductForm.ageRange,
                       'Unit': newProductForm.unit,
                       'Unit Price': newProductForm.unitPrice,
@@ -1621,8 +1672,20 @@ export default function Products() {
                       'Total Markup': (newProductForm.unitPrice * newProductForm.exchangeRates) > 0 ? (newProductForm.actualPrice / (newProductForm.unitPrice * newProductForm.exchangeRates)) * 100 : 0, // Total Markup = (Actual Price / PHP) * 100
                     };
 
-                    // Add to local state first
-                    const updatedProducts = [newProduct as ProductData, ...products];
+                    let updatedProducts;
+                    
+                    if (isEditMode && editingProductId) {
+                      // Edit existing product
+                      updatedProducts = products.map(product => 
+                        product.id === editingProductId 
+                          ? { ...product, ...productData, id: editingProductId } 
+                          : product
+                      );
+                    } else {
+                      // Add new product
+                      updatedProducts = [productData as ProductData, ...products];
+                    }
+                    
                     setProducts(updatedProducts);
                     
                     // Update filtered products if no search query
@@ -1645,12 +1708,16 @@ export default function Products() {
 
                     // Try to save to database
                     try {
-                      const response = await fetch('/api/products', {
-                        method: 'POST',
+                      const url = isEditMode && editingProductId ? `/api/products/${editingProductId}` : '/api/products';
+                      const method = isEditMode ? 'PUT' : 'POST';
+                      const body = isEditMode ? JSON.stringify(productData) : JSON.stringify([productData]);
+                      
+                      const response = await fetch(url, {
+                        method,
                         headers: {
                           'Content-Type': 'application/json',
                         },
-                        body: JSON.stringify([newProduct]),
+                        body,
                       });
 
                       if (!response.ok) {
@@ -1659,8 +1726,8 @@ export default function Products() {
                     } catch (dbError) {
                       console.error('Database save failed:', dbError);
                       notifications.show({
-                        title: 'Product added locally',
-                        message: 'Product saved locally but failed to sync with database',
+                        title: isEditMode ? 'Product updated locally' : 'Product added locally',
+                        message: `Product ${isEditMode ? 'updated' : 'saved'} locally but failed to sync with database`,
                         color: 'yellow',
                         autoClose: 4000,
                       });
@@ -1672,25 +1739,25 @@ export default function Products() {
 
                     // Success notification
                     notifications.show({
-                      title: '🎉 Product Added Successfully!',
-                      message: `${newProductForm.product} has been added to your product catalog`,
+                      title: isEditMode ? '✅ Product Updated Successfully!' : '🎉 Product Added Successfully!',
+                      message: `${newProductForm.product} has been ${isEditMode ? 'updated in' : 'added to'} your product catalog`,
                       color: 'green',
                       icon: <IconCheck size={18} />,
                       autoClose: 4000,
                     });
 
                   } catch (error) {
-                    console.error('Failed to add product:', error);
+                    console.error(`Failed to ${isEditMode ? 'update' : 'add'} product:`, error);
                     notifications.show({
-                      title: '❌ Failed to Add Product',
-                      message: 'An error occurred while adding the product. Please try again.',
+                      title: isEditMode ? '❌ Failed to Update Product' : '❌ Failed to Add Product',
+                      message: `An error occurred while ${isEditMode ? 'updating' : 'adding'} the product. Please try again.`,
                       color: 'red',
                       autoClose: 4000,
                     });
                   }
                 }}
               >
-                Add Product
+                {isEditMode ? 'Update Product' : 'Add Product'}
               </Button>
             </Group>
           </Stack>
