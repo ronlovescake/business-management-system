@@ -404,7 +404,12 @@ export function DataTable<T = Record<string, unknown>>({
             onCellClicked={onCellClicked}
             onCellEdited={onCellEdited}
             onPaste={true}
-            keybindings={{ clear: true, copy: true, paste: true, search: true }}
+            keybindings={{
+              clear: true,
+              copy: true,
+              paste: true,
+              search: false,
+            }}
             isDraggable={false}
             experimental={{
               scrollbarWidthOverride: 16,
