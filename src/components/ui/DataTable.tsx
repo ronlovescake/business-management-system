@@ -135,6 +135,7 @@ export interface DataTableProps<T = Record<string, unknown>> {
   // Table behavior
   onCellClick?: (cell: Item, data: T) => void;
   getCellContent: (cell: Item) => GridCell;
+  onCellEdited?: (cell: Item, newValue: GridCell) => void;
 
   // Footer customization
   showFooter?: boolean;
@@ -166,6 +167,7 @@ export function DataTable<T = Record<string, unknown>>({
   searchRightButtons,
   onCellClick,
   getCellContent,
+  onCellEdited,
   showFooter = true,
   footerLeft,
   footerRight,
@@ -398,6 +400,9 @@ export function DataTable<T = Record<string, unknown>>({
             headerHeight={80}
             rowMarkers="number"
             onCellClicked={onCellClicked}
+            onCellEdited={onCellEdited}
+            onPaste={true}
+            keybindings={{ clear: true, copy: true, paste: true, search: true }}
             isDraggable={false}
             experimental={{
               scrollbarWidthOverride: 16,

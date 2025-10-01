@@ -20,10 +20,10 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <ReactQueryProvider>
-          <AppLayout>
-            {children}
-          </AppLayout>
+          <AppLayout>{children}</AppLayout>
         </ReactQueryProvider>
+        {/* Portal for Glide Data Grid overlay editor */}
+        <div id="portal" />
       </body>
     </html>
   );

@@ -244,6 +244,17 @@ export default function Transactions() {
       const key = idToKey[column.id as string];
       const value = item[key];
 
+      // Make Customers column editable
+      if (column.id === 'customers') {
+        return {
+          kind: GridCellKind.Text,
+          data: (value ?? '').toString(),
+          displayData: (value ?? '').toString(),
+          allowOverlay: true,
+          readonly: false,
+        } as GridCell;
+      }
+
       if (typeof value === 'number') {
         return {
           kind: GridCellKind.Number,
@@ -261,6 +272,39 @@ export default function Transactions() {
       } as GridCell;
     },
     [filteredData, columns, idToKey]
+  );
+
+  // Handle cell edits
+  const handleCellEdited = React.useCallback(
+    (cell: Item, newValue: GridCell) => {
+      const [col, row] = cell;
+      const column = columns[col];
+      const item = filteredData[row];
+
+      if (!column || !item) return;
+
+      // Handle Customers column edit
+      if (column.id === 'customers' && newValue.kind === GridCellKind.Text) {
+        const newCustomerName = newValue.data;
+
+        // Update the transaction in state
+        setTransactions((prev) =>
+          prev.map((transaction) =>
+            transaction.id === item.id
+              ? { ...transaction, Customers: newCustomerName }
+              : transaction
+          )
+        );
+
+        notifications.show({
+          title: '✓ Updated',
+          message: `Customer name updated to "${newCustomerName}"`,
+          color: 'green',
+          autoClose: 2000,
+        });
+      }
+    },
+    [columns, filteredData]
   );
 
   // Initialize with empty data (no database for now)
@@ -526,6 +570,7 @@ export default function Transactions() {
         onSearch={handleSearch}
         searchPlaceholder="Search transactions by customer, product code, status, notes, or shipment code..."
         getCellContent={cellContentGetter}
+        onCellEdited={handleCellEdited}
         statsCards={statsCards}
         enableCSVImport={true}
         csvFile={csvFile}
