@@ -10,6 +10,7 @@ import { Button, Group, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
   IconPlus,
+  IconRefresh,
   IconReceipt,
   IconCurrencyDollar,
   IconPackage,
@@ -337,6 +338,91 @@ export default function Transactions() {
     []
   );
 
+  // Function to sync existing transactions with current shipment status
+  const syncTransactionsWithShipmentStatus = useCallback(
+    (statusMap: Record<string, string>) => {
+      setTransactions((currentTransactions) => {
+        let updatedCount = 0;
+        const updatedTransactions = currentTransactions.map((transaction) => {
+          const productCode = transaction['Product Code'];
+
+          if (!productCode) {
+            return transaction; // No product code, can't sync
+          }
+
+          const currentOrderStatus = transaction['Order Status'] || '';
+          const shouldAutoPopulateStatus =
+            currentOrderStatus === '' ||
+            currentOrderStatus.toLowerCase() === 'in transit' ||
+            currentOrderStatus.toLowerCase() === 'warehouse'; // Allow updating Warehouse status too
+
+          if (!shouldAutoPopulateStatus) {
+            return transaction; // Don't override manually set statuses
+          }
+
+          // Get current shipment status for this product
+          const currentShipmentStatus = statusMap[productCode];
+
+          if (!currentShipmentStatus || currentShipmentStatus === '') {
+            return transaction; // No shipment status found
+          }
+
+          // Calculate what the ORDER STATUS should be
+          const newOrderStatus = getOrderStatusFromShipmentStatus(
+            currentShipmentStatus
+          );
+
+          // Only update if different
+          if (currentOrderStatus !== newOrderStatus) {
+            updatedCount++;
+            console.log(
+              `Syncing transaction: ${productCode} -> ${currentOrderStatus} to ${newOrderStatus} (shipment status: ${currentShipmentStatus})`
+            );
+
+            return {
+              ...transaction,
+              'Order Status': newOrderStatus,
+            };
+          }
+
+          return transaction;
+        });
+
+        if (updatedCount > 0) {
+          console.log(
+            `✅ Synced ${updatedCount} transactions with current shipment status`
+          );
+
+          // Show notification to user
+          notifications.show({
+            title: 'ORDER STATUS Updated',
+            message: `Synced ${updatedCount} transaction(s) with current shipment status`,
+            color: 'blue',
+            position: 'top-right',
+          });
+        }
+
+        return updatedTransactions;
+      });
+    },
+    [getOrderStatusFromShipmentStatus]
+  );
+
+  // Sync transactions with current shipment status whenever mappings or transactions change
+  useEffect(() => {
+    if (
+      Object.keys(productToShipmentStatusMap).length > 0 &&
+      transactions.length > 0
+    ) {
+      console.log('🔄 Syncing transactions with current shipment status...');
+      syncTransactionsWithShipmentStatus(productToShipmentStatusMap);
+    }
+  }, [
+    productToShipmentStatusMap,
+    transactions.length,
+    syncTransactionsWithShipmentStatus,
+  ]);
+
   // Save filter state to localStorage whenever it changes
   useEffect(() => {
     try {
@@ -349,6 +435,77 @@ export default function Transactions() {
       console.error('Error saving filter state:', error);
     }
   }, [selectedStatuses]);
+
+  // Manual sync function for the button
+  const handleManualSync = useCallback(async () => {
+    console.log('🔄 Manual sync triggered - Refreshing shipment data...');
+
+    try {
+      // Fetch fresh shipment data
+      const [productsResponse, shipmentsResponse] = await Promise.all([
+        fetch('/api/products'),
+        fetch('/api/shipments'),
+      ]);
+
+      if (productsResponse.ok && shipmentsResponse.ok) {
+        const productsData = await productsResponse.json();
+        const shipmentsData = await shipmentsResponse.json();
+
+        // Rebuild the status mapping with fresh data
+        const shipmentCodeToStatus: Record<string, string> = {};
+        const statusMapping: Record<string, string> = {};
+
+        shipmentsData.forEach((shipment: Record<string, unknown>) => {
+          const shipmentCode = String(
+            shipment['Shipment Code'] || shipment.shipmentCode || ''
+          );
+          const shipmentStatus = String(
+            shipment['Shipment Status'] || shipment.shipmentStatus || ''
+          );
+
+          if (shipmentCode) {
+            shipmentCodeToStatus[shipmentCode] = shipmentStatus;
+          }
+        });
+
+        productsData.forEach((product: Record<string, unknown>) => {
+          const productCode = String(
+            product.productCode || product['Product Code'] || ''
+          );
+          const shipmentCode = String(
+            product.shipmentCode || product['Shipment Code'] || ''
+          );
+
+          if (productCode && shipmentCode) {
+            const correspondingShipmentStatus =
+              shipmentCodeToStatus[shipmentCode] || '';
+            statusMapping[productCode] = correspondingShipmentStatus;
+          }
+        });
+
+        // Update the mappings and sync transactions
+        setProductToShipmentStatusMap(statusMapping);
+        syncTransactionsWithShipmentStatus(statusMapping);
+
+        notifications.show({
+          title: 'Sync Complete',
+          message: 'ORDER STATUS has been refreshed with latest shipment data',
+          color: 'green',
+          position: 'top-right',
+        });
+      } else {
+        throw new Error('Failed to fetch fresh data');
+      }
+    } catch (error) {
+      console.error('Error during manual sync:', error);
+      notifications.show({
+        title: 'Sync Failed',
+        message: 'Could not refresh ORDER STATUS. Please try again.',
+        color: 'red',
+        position: 'top-right',
+      });
+    }
+  }, [syncTransactionsWithShipmentStatus]);
 
   // Define status filter options
   const statusOptions = [
@@ -1294,9 +1451,19 @@ export default function Transactions() {
           </Group>
         }
         actionButtons={
-          <Button leftSection={<IconPlus size={16} />} color="green">
-            Add Transaction
-          </Button>
+          <Group>
+            <Button
+              leftSection={<IconRefresh size={16} />}
+              color="blue"
+              variant="light"
+              onClick={handleManualSync}
+            >
+              Sync ORDER STATUS
+            </Button>
+            <Button leftSection={<IconPlus size={16} />} color="green">
+              Add Transaction
+            </Button>
+          </Group>
         }
       />
     </PageLayout>
