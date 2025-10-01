@@ -26,11 +26,11 @@ interface TransactionData {
   'Order Date': string;
   Customers: string;
   'Product Code': string;
-  Quantity: number;
-  'Unit Price': number;
-  Discount: number;
-  Adjustment: number;
-  'Line Total': number;
+  Quantity: number | null;
+  'Unit Price': number | null;
+  Discount: number | null;
+  Adjustment: number | null;
+  'Line Total': number | null;
   'Order Status': string;
   Notes: string;
   'Invoice Date': string;
@@ -777,19 +777,36 @@ export default function Transactions() {
           correspondingShipmentStatus
         );
 
-        const autoOrderStatus =
-          correspondingShipmentStatus !== undefined
-            ? getOrderStatusFromShipmentStatus(correspondingShipmentStatus)
-            : transaction['Order Status']; // Keep existing if no mapping found at all
+        // Only auto-populate ORDER STATUS if it's currently blank or "In Transit"
+        const currentOrderStatus = transaction['Order Status'] || '';
+        const shouldAutoPopulateStatus =
+          currentOrderStatus === '' ||
+          currentOrderStatus.toLowerCase() === 'in transit';
 
-        console.log('Debug - Auto Order Status:', autoOrderStatus);
+        let finalOrderStatus = currentOrderStatus; // Keep existing by default
+
+        if (
+          shouldAutoPopulateStatus &&
+          correspondingShipmentStatus !== undefined
+        ) {
+          finalOrderStatus = getOrderStatusFromShipmentStatus(
+            correspondingShipmentStatus
+          );
+        }
+
+        console.log('Debug - Current Order Status:', currentOrderStatus);
+        console.log(
+          'Debug - Should Auto-populate Status:',
+          shouldAutoPopulateStatus
+        );
+        console.log('Debug - Final Order Status:', finalOrderStatus);
 
         // Create a new updated transaction with Product Code, Shipment Code, and Order Status
         const updatedTransaction = {
           ...transaction,
           'Product Code': dropdownValue as string,
           'Shipment Code': correspondingShipmentCode,
-          'Order Status': autoOrderStatus,
+          'Order Status': finalOrderStatus,
         };
 
         // Update the transactions array
@@ -801,10 +818,20 @@ export default function Transactions() {
         let message = 'Product Code updated successfully';
         const autopopulated = [];
         if (correspondingShipmentCode) autopopulated.push('Shipment Code');
-        if (correspondingShipmentStatus) autopopulated.push('Order Status');
+        if (
+          shouldAutoPopulateStatus &&
+          correspondingShipmentStatus !== undefined
+        ) {
+          autopopulated.push('Order Status');
+        }
 
         if (autopopulated.length > 0) {
           message += ` and ${autopopulated.join(' & ')} auto-populated`;
+        }
+
+        // Add note if ORDER STATUS was preserved
+        if (!shouldAutoPopulateStatus && currentOrderStatus) {
+          message += ` (Order Status "${currentOrderStatus}" preserved)`;
         }
 
         notifications.show({
@@ -1054,11 +1081,11 @@ export default function Transactions() {
         'Order Date': '',
         Customers: '',
         'Product Code': '',
-        Quantity: 0,
-        'Unit Price': 0,
-        Discount: 0,
-        Adjustment: 0,
-        'Line Total': 0,
+        Quantity: null,
+        'Unit Price': null,
+        Discount: null,
+        Adjustment: null,
+        'Line Total': null,
         'Order Status': '',
         Notes: '',
         'Invoice Date': '',
