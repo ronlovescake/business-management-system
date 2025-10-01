@@ -45,6 +45,11 @@ export default function Transactions() {
   // State for product codes from prices page
   const [productCodes, setProductCodes] = useState<string[]>([]);
 
+  // State for product-to-shipment mapping from products page
+  const [productToShipmentMap, setProductToShipmentMap] = useState<
+    Record<string, string>
+  >({});
+
   // Define which statuses are controlled by "All Status"
   const allStatusControlledStatuses = [
     'In Transit',
@@ -166,6 +171,49 @@ export default function Transactions() {
     loadProductCodes();
   }, []); // Run once on component mount
 
+  // Load product-to-shipment mapping from products API
+  useEffect(() => {
+    const loadProductToShipmentMapping = async () => {
+      try {
+        const response = await fetch('/api/products');
+        if (response.ok) {
+          const productsData = await response.json();
+
+          // Create mapping from Product Code to Shipment Code
+          const mapping: Record<string, string> = {};
+
+          productsData.forEach(
+            (product: {
+              productCode?: string;
+              'Product Code'?: string;
+              shipmentCode?: string;
+              'Shipment Code'?: string;
+            }) => {
+              const productCode =
+                product.productCode || product['Product Code'];
+              const shipmentCode =
+                product.shipmentCode || product['Shipment Code'];
+
+              if (productCode && shipmentCode) {
+                mapping[productCode] = shipmentCode;
+              }
+            }
+          );
+
+          setProductToShipmentMap(mapping);
+        } else {
+          console.error('Failed to fetch products data');
+          setProductToShipmentMap({});
+        }
+      } catch (error) {
+        console.error('Error loading product-to-shipment mapping:', error);
+        setProductToShipmentMap({});
+      }
+    };
+
+    loadProductToShipmentMapping();
+  }, []); // Run once on component mount
+
   // Save filter state to localStorage whenever it changes
   useEffect(() => {
     try {
@@ -238,19 +286,19 @@ export default function Transactions() {
   // Define columns for the transactions table
   const columns: GridColumn[] = React.useMemo(
     () => [
-      { title: 'ORDER DATE', width: 200, id: 'orderDate' },
-      { title: 'CUSTOMERS', width: 300, id: 'customers' },
-      { title: 'PRODUCT CODE', width: 400, id: 'productCode' },
-      { title: 'QUANTITY', width: 150, id: 'quantity' },
+      { title: 'ORDER DATE', width: 180, id: 'orderDate' },
+      { title: 'CUSTOMERS', width: 500, id: 'customers' },
+      { title: 'PRODUCT CODE', width: 550, id: 'productCode' },
+      { title: 'QUANTITY', width: 180, id: 'quantity' },
       { title: 'UNIT PRICE', width: 180, id: 'unitPrice' },
-      { title: 'DISCOUNT', width: 150, id: 'discount' },
-      { title: 'ADJUSTMENT', width: 150, id: 'adjustment' },
-      { title: 'LINE TOTAL', width: 180, id: 'lineTotal' },
+      { title: 'DISCOUNT', width: 180, id: 'discount' },
+      { title: 'ADJUSTMENT', width: 180, id: 'adjustment' },
+      { title: 'LINE TOTAL', width: 200, id: 'lineTotal' },
       { title: 'ORDER STATUS', width: 200, id: 'orderStatus' },
-      { title: 'NOTES', width: 300, id: 'notes' },
+      { title: 'NOTES', width: 300, grow: 1, id: 'notes' },
       { title: 'INVOICE DATE', width: 200, id: 'invoiceDate' },
       { title: 'PACKED DATE', width: 200, id: 'packedDate' },
-      { title: 'SHIPMENT CODE', width: 200, grow: 1, id: 'shipmentCode' },
+      { title: 'SHIPMENT CODE', width: 200, id: 'shipmentCode' },
     ],
     []
   );
@@ -426,6 +474,25 @@ export default function Transactions() {
         } as GridCell;
       }
 
+      // Auto-populate Shipment Code based on Product Code (read-only)
+      if (column.id === 'shipmentCode') {
+        const currentProductCode = item['Product Code'];
+        let displayValue = (value ?? '').toString();
+
+        // If there's a product code and we have a mapping, auto-populate the shipment code
+        if (currentProductCode && productToShipmentMap[currentProductCode]) {
+          displayValue = productToShipmentMap[currentProductCode];
+        }
+
+        return {
+          kind: GridCellKind.Text,
+          data: displayValue,
+          displayData: displayValue,
+          allowOverlay: false,
+          readonly: true,
+        } as GridCell;
+      }
+
       if (typeof value === 'number') {
         return {
           kind: GridCellKind.Number,
@@ -442,7 +509,14 @@ export default function Transactions() {
         allowOverlay: false,
       } as GridCell;
     },
-    [filteredData, columns, idToKey, customerNames, productCodes]
+    [
+      filteredData,
+      columns,
+      idToKey,
+      customerNames,
+      productCodes,
+      productToShipmentMap,
+    ]
   );
 
   // Handle cell edits
@@ -450,9 +524,22 @@ export default function Transactions() {
     (cell: Item, newValue: GridCell) => {
       const [col, row] = cell;
       const column = columns[col];
-      const transaction = transactions[row];
+      const transaction = filteredData[row]; // Use filteredData instead of transactions
+
+      if (!transaction) return; // Safety check
+
+      // Find the index in the original transactions array
+      const transactionIndex = transactions.findIndex(
+        (t) =>
+          t.id === transaction.id ||
+          (t['Order Date'] === transaction['Order Date'] &&
+            t.Customers === transaction.Customers &&
+            t['Product Code'] === transaction['Product Code'])
+      );
 
       if (column.id === 'customers') {
+        if (transactionIndex === -1) return; // Safety check
+
         // Handle dropdown cell data structure
         const dropdownValue =
           'data' in newValue &&
@@ -469,7 +556,7 @@ export default function Transactions() {
 
         // Update the transactions array
         const newTransactions = [...transactions];
-        newTransactions[row] = updatedTransaction;
+        newTransactions[transactionIndex] = updatedTransaction;
         setTransactions(newTransactions);
 
         notifications.show({
@@ -480,6 +567,8 @@ export default function Transactions() {
       }
 
       if (column.id === 'productCode') {
+        if (transactionIndex === -1) return; // Safety check
+
         // Handle dropdown cell data structure
         const dropdownValue =
           'data' in newValue &&
@@ -488,25 +577,32 @@ export default function Transactions() {
             ? (newValue.data as { value: string }).value
             : '';
 
-        // Create a new updated transaction
+        // Auto-populate shipment code based on the selected product code
+        const correspondingShipmentCode =
+          productToShipmentMap[dropdownValue] || '';
+
+        // Create a new updated transaction with both Product Code and Shipment Code
         const updatedTransaction = {
           ...transaction,
           'Product Code': dropdownValue as string,
+          'Shipment Code': correspondingShipmentCode,
         };
 
         // Update the transactions array
         const newTransactions = [...transactions];
-        newTransactions[row] = updatedTransaction;
+        newTransactions[transactionIndex] = updatedTransaction;
         setTransactions(newTransactions);
 
         notifications.show({
           title: 'Success',
-          message: 'Product Code updated successfully',
+          message: `Product Code updated successfully${correspondingShipmentCode ? ' and Shipment Code auto-populated' : ''}`,
           color: 'green',
         });
       }
 
       if (column.id === 'quantity') {
+        if (transactionIndex === -1) return; // Safety check
+
         // Create a new updated transaction
         const updatedTransaction = {
           ...transaction,
@@ -516,7 +612,7 @@ export default function Transactions() {
 
         // Update the transactions array
         const newTransactions = [...transactions];
-        newTransactions[row] = updatedTransaction;
+        newTransactions[transactionIndex] = updatedTransaction;
         setTransactions(newTransactions);
 
         notifications.show({
@@ -527,6 +623,8 @@ export default function Transactions() {
       }
 
       if (column.id === 'discount') {
+        if (transactionIndex === -1) return; // Safety check
+
         // Create a new updated transaction
         const updatedTransaction = {
           ...transaction,
@@ -536,7 +634,7 @@ export default function Transactions() {
 
         // Update the transactions array
         const newTransactions = [...transactions];
-        newTransactions[row] = updatedTransaction;
+        newTransactions[transactionIndex] = updatedTransaction;
         setTransactions(newTransactions);
 
         notifications.show({
@@ -547,6 +645,8 @@ export default function Transactions() {
       }
 
       if (column.id === 'adjustment') {
+        if (transactionIndex === -1) return; // Safety check
+
         // Create a new updated transaction
         const updatedTransaction = {
           ...transaction,
@@ -556,7 +656,7 @@ export default function Transactions() {
 
         // Update the transactions array
         const newTransactions = [...transactions];
-        newTransactions[row] = updatedTransaction;
+        newTransactions[transactionIndex] = updatedTransaction;
         setTransactions(newTransactions);
 
         notifications.show({
@@ -575,6 +675,8 @@ export default function Transactions() {
             ? (newValue.data as { value: string }).value
             : '';
 
+        if (transactionIndex === -1) return; // Safety check
+
         // Create a new updated transaction
         const updatedTransaction = {
           ...transaction,
@@ -583,7 +685,7 @@ export default function Transactions() {
 
         // Update the transactions array
         const newTransactions = [...transactions];
-        newTransactions[row] = updatedTransaction;
+        newTransactions[transactionIndex] = updatedTransaction;
         setTransactions(newTransactions);
 
         notifications.show({
@@ -594,6 +696,8 @@ export default function Transactions() {
       }
 
       if (column.id === 'notes') {
+        if (transactionIndex === -1) return; // Safety check
+
         // Create a new updated transaction
         const updatedTransaction = {
           ...transaction,
@@ -602,7 +706,7 @@ export default function Transactions() {
 
         // Update the transactions array
         const newTransactions = [...transactions];
-        newTransactions[row] = updatedTransaction;
+        newTransactions[transactionIndex] = updatedTransaction;
         setTransactions(newTransactions);
 
         notifications.show({
@@ -612,7 +716,7 @@ export default function Transactions() {
         });
       }
     },
-    [transactions, columns]
+    [transactions, columns, productToShipmentMap, filteredData]
   );
 
   // Initialize with empty data (no database for now)
