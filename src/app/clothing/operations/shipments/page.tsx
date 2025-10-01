@@ -4,12 +4,21 @@ import React, { useState, useEffect } from 'react';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import { DataTable, StatCard, useDataTable } from '../../../../components/ui';
 import { GridColumn, Item } from '@glideapps/glide-data-grid';
-import { Button, Group, Modal, TextInput, NumberInput, Select, Textarea, Stack } from '@mantine/core';
+import {
+  Button,
+  Group,
+  Modal,
+  TextInput,
+  NumberInput,
+  Select,
+  Textarea,
+  Stack,
+} from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { DateInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
-import { 
-  IconPlus, 
+import {
+  IconPlus,
   IconCheck,
   IconPackage,
   IconCurrencyDollar,
@@ -20,7 +29,7 @@ import {
   IconClipboardCheck,
   IconBuilding,
   IconHandStop,
-  IconCalendar
+  IconCalendar,
 } from '@tabler/icons-react';
 import { ShipmentData } from '../../../../types';
 
@@ -30,7 +39,9 @@ export default function Shipments() {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [addModalOpened, setAddModalOpened] = useState(false);
   const [editModalOpened, setEditModalOpened] = useState(false);
-  const [editingShipment, setEditingShipment] = useState<ShipmentData | null>(null);
+  const [editingShipment, setEditingShipment] = useState<ShipmentData | null>(
+    null
+  );
 
   // Form for adding new shipments
   const addShipmentForm = useForm({
@@ -48,14 +59,17 @@ export default function Shipments() {
     },
     validate: {
       shipmentCode: (value) => (!value ? 'Shipment Code is required' : null),
-      shipmentStatus: (value) => (!value ? 'Shipment Status is required' : null),
+      shipmentStatus: (value) =>
+        !value ? 'Shipment Status is required' : null,
       noOfSacks: (value) => {
-        if (value === null || value === undefined) return 'Number of sacks is required';
+        if (value === null || value === undefined)
+          return 'Number of sacks is required';
         if (value < 0) return 'Number of sacks must be positive';
         return null;
       },
       totalCBM: (value) => {
-        if (value === null || value === undefined) return 'Total CBM is required';
+        if (value === null || value === undefined)
+          return 'Total CBM is required';
         if (value < 0) return 'Total CBM must be positive';
         return null;
       },
@@ -89,14 +103,17 @@ export default function Shipments() {
     },
     validate: {
       shipmentCode: (value) => (!value ? 'Shipment Code is required' : null),
-      shipmentStatus: (value) => (!value ? 'Shipment Status is required' : null),
+      shipmentStatus: (value) =>
+        !value ? 'Shipment Status is required' : null,
       noOfSacks: (value) => {
-        if (value === null || value === undefined) return 'Number of sacks is required';
+        if (value === null || value === undefined)
+          return 'Number of sacks is required';
         if (value < 0) return 'Number of sacks must be positive';
         return null;
       },
       totalCBM: (value) => {
-        if (value === null || value === undefined) return 'Total CBM is required';
+        if (value === null || value === undefined)
+          return 'Total CBM is required';
         if (value < 0) return 'Total CBM must be positive';
         return null;
       },
@@ -160,21 +177,11 @@ export default function Shipments() {
   };
 
   // Use the data table hook for search functionality
-  const {
-    searchQuery,
-    filteredData,
-    handleSearch,
-    getCellContent,
-    stats
-  } = useDataTable({
-    data: shipments,
-    searchFields: [
-      'Shipment Code',
-      'CV Number', 
-      'Shipment Status',
-      'Notes'
-    ],
-  });
+  const { searchQuery, filteredData, handleSearch, getCellContent } =
+    useDataTable({
+      data: shipments,
+      searchFields: ['Shipment Code', 'CV Number', 'Shipment Status', 'Notes'],
+    });
 
   // Load shipments data
   useEffect(() => {
@@ -182,11 +189,11 @@ export default function Shipments() {
       try {
         setLoading(true);
         const response = await fetch('/api/shipments');
-        
+
         if (!response.ok) {
           throw new Error('Failed to fetch shipments');
         }
-        
+
         const data = await response.json();
         setShipments(data);
       } catch (error) {
@@ -206,13 +213,13 @@ export default function Shipments() {
 
   // Create cell content getter with alignment
   const cellContentGetter = (cell: Item) => {
-    const [col, row] = cell;
+    const [col] = cell;
     const column = columns[col];
     const alignment = columnAlignments[column.id || ''] || 'left';
-    
+
     // Get the basic cell content
     const baseCellContent = getCellContent(cell, columns, idToKey);
-    
+
     // Add alignment to the cell content
     return {
       ...baseCellContent,
@@ -221,33 +228,45 @@ export default function Shipments() {
   };
 
   // Calculate statistics dynamically based on filtered data
-  const pendingShipments = filteredData.filter(s => s['Shipment Status']?.toLowerCase() === 'pending').length;
-  const inTransitShipments = filteredData.filter(s => s['Shipment Status']?.toLowerCase() === 'in transit').length;
-  const deliveredShipments = filteredData.filter(s => s['Shipment Status']?.toLowerCase() === 'delivered').length;
-  const manilaPortShipments = filteredData.filter(s => s['Shipment Status']?.toLowerCase() === 'manila port').length;
-  const withPierGatepassShipments = filteredData.filter(s => s['Shipment Status']?.toLowerCase() === 'with pier gatepass').length;
-  const phWarehouseShipments = filteredData.filter(s => s['Shipment Status']?.toLowerCase() === 'ph warehouse').length;
-  const forPickupShipments = filteredData.filter(s => s['Shipment Status']?.toLowerCase() === 'for pickup').length;
-  
+  const inTransitShipments = filteredData.filter(
+    (s) => s['Shipment Status']?.toLowerCase() === 'in transit'
+  ).length;
+  const deliveredShipments = filteredData.filter(
+    (s) => s['Shipment Status']?.toLowerCase() === 'delivered'
+  ).length;
+  const manilaPortShipments = filteredData.filter(
+    (s) => s['Shipment Status']?.toLowerCase() === 'manila port'
+  ).length;
+  const withPierGatepassShipments = filteredData.filter(
+    (s) => s['Shipment Status']?.toLowerCase() === 'with pier gatepass'
+  ).length;
+  const phWarehouseShipments = filteredData.filter(
+    (s) => s['Shipment Status']?.toLowerCase() === 'ph warehouse'
+  ).length;
+  const forPickupShipments = filteredData.filter(
+    (s) => s['Shipment Status']?.toLowerCase() === 'for pickup'
+  ).length;
+
   // Parse fees (remove currency symbol and commas, then convert to number) - dynamic calculation
   const totalFees = filteredData.reduce((sum, s) => {
     const feeString = s['Fee'] || '0';
-    const feeNumber = parseFloat(feeString.toString().replace(/[₱,]/g, '')) || 0;
+    const feeNumber =
+      parseFloat(feeString.toString().replace(/[₱,]/g, '')) || 0;
     return sum + feeNumber;
   }, 0);
-  
+
   // Parse sacks (convert to number) - dynamic calculation
   const totalSacks = filteredData.reduce((sum, s) => {
     const sacksNumber = parseFloat(s['No. Of Sacks']?.toString() || '0') || 0;
     return sum + sacksNumber;
   }, 0);
-  
+
   // Parse total CBM (convert to number) - dynamic calculation
   const totalCBM = filteredData.reduce((sum, s) => {
     const cbmNumber = parseFloat(s['Total CBM']?.toString() || '0') || 0;
     return sum + cbmNumber;
   }, 0);
-  
+
   // Parse total weight (convert to number) - dynamic calculation
   const totalWeight = filteredData.reduce((sum, s) => {
     const weightNumber = parseFloat(s['Weight']?.toString() || '0') || 0;
@@ -340,16 +359,16 @@ export default function Shipments() {
     try {
       const text = await file.text();
       const lines = text.split('\n');
-      
+
       // Parse CSV properly handling quoted fields
       const parseCSVLine = (line: string): string[] => {
         const result: string[] = [];
         let current = '';
         let inQuotes = false;
-        
+
         for (let i = 0; i < line.length; i++) {
           const char = line[i];
-          
+
           if (char === '"') {
             inQuotes = !inQuotes;
           } else if (char === ',' && !inQuotes) {
@@ -362,21 +381,26 @@ export default function Shipments() {
         result.push(current.trim());
         return result;
       };
-      
+
       // Helper function to calculate duration between dates
-      const calculateDurationFromStrings = (dateCreatedStr: string, dateDeliveredStr: string): string => {
+      const calculateDurationFromStrings = (
+        dateCreatedStr: string,
+        dateDeliveredStr: string
+      ): string => {
         if (!dateCreatedStr || !dateDeliveredStr) return '';
-        
+
         try {
           const dateCreated = new Date(dateCreatedStr);
           const dateDelivered = new Date(dateDeliveredStr);
-          
+
           // Check if dates are valid
           if (isNaN(dateCreated.getTime()) || isNaN(dateDelivered.getTime())) {
             return '';
           }
-          
-          const diffTime = Math.abs(dateDelivered.getTime() - dateCreated.getTime());
+
+          const diffTime = Math.abs(
+            dateDelivered.getTime() - dateCreated.getTime()
+          );
           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
           return diffDays.toString();
         } catch (error) {
@@ -386,28 +410,34 @@ export default function Shipments() {
 
       const headers = parseCSVLine(lines[0]);
       const importedShipments: ShipmentData[] = [];
-      
+
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (line) {
           const values = parseCSVLine(line);
-          const shipmentData: any = { id: Date.now() + i };
-          
+          const shipmentData = { id: Date.now() + i } as Record<
+            string,
+            string | number
+          >;
+
           headers.forEach((header, index) => {
             if (values[index] !== undefined && values[index] !== '') {
               shipmentData[header] = values[index];
             }
           });
-          
+
           // Auto-calculate duration if both dates are present
-          if (shipmentData['Date Created'] && shipmentData['Date Delivered']) {
+          const dateCreated = shipmentData['Date Created'] as string;
+          const dateDelivered = shipmentData['Date Delivered'] as string;
+
+          if (dateCreated && dateDelivered) {
             shipmentData['Duration'] = calculateDurationFromStrings(
-              shipmentData['Date Created'], 
-              shipmentData['Date Delivered']
+              dateCreated,
+              dateDelivered
             );
           }
-          
-          importedShipments.push(shipmentData as ShipmentData);
+
+          importedShipments.push(shipmentData as unknown as ShipmentData);
         }
       }
 
@@ -438,7 +468,7 @@ export default function Shipments() {
         const reloadedShipments = await reloadResponse.json();
         setShipments(reloadedShipments);
       }
-      
+
       setCsvFile(null);
 
       notifications.show({
@@ -448,7 +478,6 @@ export default function Shipments() {
         icon: <IconCheck size={18} />,
         autoClose: 4000,
       });
-
     } catch (error) {
       console.error('Import error:', error);
       notifications.show({
@@ -469,7 +498,7 @@ export default function Shipments() {
   // Handle edit shipment
   const handleEditShipment = (shipment: ShipmentData) => {
     setEditingShipment(shipment);
-    
+
     // Pre-populate the edit form with existing data
     editShipmentForm.setValues({
       shipmentCode: shipment['Shipment Code'],
@@ -479,19 +508,28 @@ export default function Shipments() {
       weight: shipment['Weight'],
       fee: shipment['Fee'],
       shipmentStatus: shipment['Shipment Status'],
-      dateCreated: shipment['Date Created'] ? new Date(shipment['Date Created']) : null,
-      dateDelivered: shipment['Date Delivered'] ? new Date(shipment['Date Delivered']) : null,
+      dateCreated: shipment['Date Created']
+        ? new Date(shipment['Date Created'])
+        : null,
+      dateDelivered: shipment['Date Delivered']
+        ? new Date(shipment['Date Delivered'])
+        : null,
       notes: shipment['Notes'],
     });
-    
+
     setEditModalOpened(true);
   };
 
   // Handle form submission
-  const handleSubmitShipment = async (values: typeof addShipmentForm.values) => {
+  const handleSubmitShipment = async (
+    values: typeof addShipmentForm.values
+  ) => {
     try {
       // Calculate duration between dates
-      const calculateDuration = (startDate: Date | null, endDate: Date | null): string => {
+      const calculateDuration = (
+        startDate: Date | null,
+        endDate: Date | null
+      ): string => {
         if (!startDate || !endDate) return '';
         const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -505,21 +543,25 @@ export default function Shipments() {
         'CV Number': values.cvNumber,
         'No. Of Sacks': values.noOfSacks,
         'Total CBM': values.totalCBM,
-        'Weight': values.weight,
-        'Fee': values.fee,
+        Weight: values.weight,
+        Fee: values.fee,
         'Shipment Status': values.shipmentStatus,
-        'Date Created': values.dateCreated ? values.dateCreated.toLocaleDateString('en-US', { 
-          year: 'numeric', 
-          month: 'short', 
-          day: 'numeric' 
-        }) : '',
-        'Date Delivered': values.dateDelivered ? values.dateDelivered.toLocaleDateString('en-US', { 
-          year: 'numeric', 
-          month: 'short', 
-          day: 'numeric' 
-        }) : '',
-        'Duration': calculateDuration(values.dateCreated, values.dateDelivered),
-        'Notes': values.notes,
+        'Date Created': values.dateCreated
+          ? values.dateCreated.toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+            })
+          : '',
+        'Date Delivered': values.dateDelivered
+          ? values.dateDelivered.toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+            })
+          : '',
+        Duration: calculateDuration(values.dateCreated, values.dateDelivered),
+        Notes: values.notes,
       };
 
       // Send to API
@@ -534,7 +576,7 @@ export default function Shipments() {
       }
 
       const createdShipment = await response.json();
-      
+
       // Add to local state
       const updatedShipments = [...shipments, createdShipment];
       setShipments(updatedShipments);
@@ -558,12 +600,17 @@ export default function Shipments() {
   };
 
   // Handle edit form submission
-  const handleSubmitEditShipment = async (values: typeof editShipmentForm.values) => {
+  const handleSubmitEditShipment = async (
+    values: typeof editShipmentForm.values
+  ) => {
     if (!editingShipment) return;
 
     try {
       // Calculate duration between dates
-      const calculateDuration = (startDate: Date | null, endDate: Date | null): string => {
+      const calculateDuration = (
+        startDate: Date | null,
+        endDate: Date | null
+      ): string => {
         if (!startDate || !endDate) return '';
         const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -577,21 +624,25 @@ export default function Shipments() {
         'CV Number': values.cvNumber,
         'No. Of Sacks': values.noOfSacks,
         'Total CBM': values.totalCBM,
-        'Weight': values.weight,
-        'Fee': values.fee,
+        Weight: values.weight,
+        Fee: values.fee,
         'Shipment Status': values.shipmentStatus,
-        'Date Created': values.dateCreated ? values.dateCreated.toLocaleDateString('en-US', { 
-          year: 'numeric', 
-          month: 'short', 
-          day: 'numeric' 
-        }) : '',
-        'Date Delivered': values.dateDelivered ? values.dateDelivered.toLocaleDateString('en-US', { 
-          year: 'numeric', 
-          month: 'short', 
-          day: 'numeric' 
-        }) : '',
-        'Duration': calculateDuration(values.dateCreated, values.dateDelivered),
-        'Notes': values.notes,
+        'Date Created': values.dateCreated
+          ? values.dateCreated.toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+            })
+          : '',
+        'Date Delivered': values.dateDelivered
+          ? values.dateDelivered.toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+            })
+          : '',
+        Duration: calculateDuration(values.dateCreated, values.dateDelivered),
+        Notes: values.notes,
       };
 
       // Send to API
@@ -608,7 +659,7 @@ export default function Shipments() {
       const updatedShipmentFromAPI = await response.json();
 
       // Update local state
-      const updatedShipments = shipments.map(s => 
+      const updatedShipments = shipments.map((s) =>
         s.id === editingShipment.id ? updatedShipmentFromAPI : s
       );
       setShipments(updatedShipments);
@@ -635,7 +686,14 @@ export default function Shipments() {
   if (loading) {
     return (
       <PageLayout title="Shipments">
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            height: '400px',
+          }}
+        >
           Loading shipments...
         </div>
       </PageLayout>
@@ -751,7 +809,8 @@ export default function Shipments() {
                 'With Pier Gatepass',
                 'PH Warehouse',
                 'For Pickup',
-                'Delivered'
+                'Sorting',
+                'Delivered',
               ]}
               {...addShipmentForm.getInputProps('shipmentStatus')}
             />
@@ -872,7 +931,8 @@ export default function Shipments() {
                 'With Pier Gatepass',
                 'PH Warehouse',
                 'For Pickup',
-                'Delivered'
+                'Sorting',
+                'Delivered',
               ]}
               {...editShipmentForm.getInputProps('shipmentStatus')}
             />

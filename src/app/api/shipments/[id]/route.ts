@@ -10,13 +10,13 @@ function convertShipmentDBToData(shipment: ShipmentDB): ShipmentData {
     'CV Number': shipment.cvNumber || '',
     'No. Of Sacks': shipment.noOfSacks,
     'Total CBM': shipment.totalCBM,
-    'Weight': shipment.weight,
-    'Fee': shipment.fee,
+    Weight: shipment.weight,
+    Fee: shipment.fee,
     'Shipment Status': shipment.shipmentStatus,
     'Date Created': shipment.dateCreated || '',
     'Date Delivered': shipment.dateDelivered || '',
-    'Duration': shipment.duration || '',
-    'Notes': shipment.notes || '',
+    Duration: shipment.duration || '',
+    Notes: shipment.notes || '',
   };
 }
 
@@ -44,7 +44,7 @@ export async function GET(
 ) {
   try {
     const id = parseInt(params.id);
-    
+
     if (isNaN(id)) {
       return NextResponse.json(
         { error: 'Invalid shipment ID' },
@@ -81,7 +81,7 @@ export async function PUT(
 ) {
   try {
     const id = parseInt(params.id);
-    
+
     if (isNaN(id)) {
       return NextResponse.json(
         { error: 'Invalid shipment ID' },
@@ -92,12 +92,49 @@ export async function PUT(
     const body = await request.json();
     const shipmentData = convertShipmentDataToDB(body);
 
+    // Get the current shipment to access the shipmentCode
+    const currentShipment = await prisma.shipment.findUnique({
+      where: { id },
+    });
+
+    if (!currentShipment) {
+      return NextResponse.json(
+        { error: 'Shipment not found' },
+        { status: 404 }
+      );
+    }
+
+    // Update the shipment
     const updatedShipment = await prisma.shipment.update({
       where: { id },
       data: shipmentData,
     });
 
-    const convertedShipment = convertShipmentDBToData(updatedShipment as ShipmentDB);
+    // Update all products that belong to this shipment
+    // Match products by shipmentCode and update their shipment-related fields
+    if (currentShipment.shipmentCode) {
+      await prisma.product.updateMany({
+        where: {
+          shipmentCode: currentShipment.shipmentCode,
+        },
+        data: {
+          cvNumber: shipmentData.cvNumber,
+          noOfSacks: shipmentData.noOfSacks,
+          totalCBM: shipmentData.totalCBM,
+          weight: shipmentData.weight,
+          shipmentStatus: shipmentData.shipmentStatus,
+        },
+      });
+
+      console.log(
+        `Updated products with shipment code: ${currentShipment.shipmentCode}`,
+        `Updated fields: cvNumber, noOfSacks, totalCBM, weight, shipmentStatus`
+      );
+    }
+
+    const convertedShipment = convertShipmentDBToData(
+      updatedShipment as ShipmentDB
+    );
     return NextResponse.json(convertedShipment);
   } catch (error) {
     console.error('Error updating shipment:', error);
@@ -115,7 +152,7 @@ export async function DELETE(
 ) {
   try {
     const id = parseInt(params.id);
-    
+
     if (isNaN(id)) {
       return NextResponse.json(
         { error: 'Invalid shipment ID' },
