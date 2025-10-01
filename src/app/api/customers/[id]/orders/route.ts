@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+// import { prisma } from '@/lib/db';
 
 export interface Order {
   id?: number;
@@ -29,7 +29,10 @@ export async function GET(
   try {
     const customerId = parseInt(params.id);
     if (isNaN(customerId)) {
-      return NextResponse.json({ error: 'Invalid customer ID' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid customer ID' },
+        { status: 400 }
+      );
     }
 
     // For now, return mock data since we haven't created the order tables yet
@@ -43,10 +46,22 @@ export async function GET(
         status: 'delivered',
         totalAmount: 2500,
         items: [
-          { id: 1, productName: 'Cotton T-Shirt', quantity: 2, unitPrice: 750, totalPrice: 1500 },
-          { id: 2, productName: 'Denim Jeans', quantity: 1, unitPrice: 1000, totalPrice: 1000 }
+          {
+            id: 1,
+            productName: 'Cotton T-Shirt',
+            quantity: 2,
+            unitPrice: 750,
+            totalPrice: 1500,
+          },
+          {
+            id: 2,
+            productName: 'Denim Jeans',
+            quantity: 1,
+            unitPrice: 1000,
+            totalPrice: 1000,
+          },
         ],
-        notes: 'Customer requested express delivery'
+        notes: 'Customer requested express delivery',
       },
       {
         id: 2,
@@ -56,8 +71,14 @@ export async function GET(
         status: 'processing',
         totalAmount: 1800,
         items: [
-          { id: 3, productName: 'Polo Shirt', quantity: 3, unitPrice: 600, totalPrice: 1800 }
-        ]
+          {
+            id: 3,
+            productName: 'Polo Shirt',
+            quantity: 3,
+            unitPrice: 600,
+            totalPrice: 1800,
+          },
+        ],
       },
       {
         id: 3,
@@ -67,16 +88,25 @@ export async function GET(
         status: 'cancelled',
         totalAmount: 3200,
         items: [
-          { id: 4, productName: 'Dress Shirt', quantity: 4, unitPrice: 800, totalPrice: 3200 }
+          {
+            id: 4,
+            productName: 'Dress Shirt',
+            quantity: 4,
+            unitPrice: 800,
+            totalPrice: 3200,
+          },
         ],
-        notes: 'Customer changed mind'
-      }
+        notes: 'Customer changed mind',
+      },
     ];
 
     return NextResponse.json(mockOrders);
   } catch (err) {
     console.error('GET /api/customers/[id]/orders error', err);
-    return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to fetch orders' },
+      { status: 500 }
+    );
   }
 }
 
@@ -88,11 +118,14 @@ export async function POST(
   try {
     const customerId = parseInt(params.id);
     if (isNaN(customerId)) {
-      return NextResponse.json({ error: 'Invalid customer ID' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid customer ID' },
+        { status: 400 }
+      );
     }
 
     const body = await request.json();
-    
+
     // For now, return mock created order
     // This will be replaced with actual database insertion once the schema is updated
     const newOrder: Order = {
@@ -103,12 +136,15 @@ export async function POST(
       status: body.status || 'pending',
       totalAmount: body.totalAmount || 0,
       items: body.items || [],
-      notes: body.notes
+      notes: body.notes,
     };
 
     return NextResponse.json(newOrder);
   } catch (err) {
     console.error('POST /api/customers/[id]/orders error', err);
-    return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to create order' },
+      { status: 500 }
+    );
   }
 }

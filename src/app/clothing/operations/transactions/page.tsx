@@ -6,7 +6,7 @@ import { DataTable, StatCard, useDataTable } from '../../../../components/ui';
 import { GridColumn, Item, GridCell } from '@glideapps/glide-data-grid';
 import { GridCellKind } from '@glideapps/glide-data-grid';
 import { allCells } from '@glideapps/glide-data-grid-cells';
-import { Button, Group } from '@mantine/core';
+import { Button, Group, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
   IconPlus,
@@ -999,7 +999,20 @@ export default function Transactions() {
         customRenderers={
           allCells as unknown as readonly Record<string, unknown>[]
         }
-        footerLeft={`Showing ${filteredData.length} of ${transactions.length} transactions`}
+        footerLeft={
+          <Group gap="md" align="center">
+            <Button
+              variant="outline"
+              size="sm"
+              leftSection={<IconPlus size={14} />}
+            >
+              + Add 10 Rows
+            </Button>
+            <Text size="sm" c="dimmed">
+              {`Showing ${filteredData.length} of ${transactions.length} transactions`}
+            </Text>
+          </Group>
+        }
         searchRightButtons={
           <Group gap="xs" wrap="wrap">
             {statusOptions.map((status) => (

@@ -140,8 +140,8 @@ export interface DataTableProps<T = Record<string, unknown>> {
 
   // Footer customization
   showFooter?: boolean;
-  footerLeft?: string;
-  footerRight?: string;
+  footerLeft?: React.ReactNode;
+  footerRight?: React.ReactNode;
 
   // Grid height (defaults to 83vh)
   gridHeight?: number;
@@ -458,14 +458,23 @@ export function DataTable<T = Record<string, unknown>>({
             align="center"
             style={{ marginTop: 'md' }}
           >
-            <Text size="sm" c="dimmed">
-              {footerLeft ||
-                `Showing ${filteredData.length} of ${data.length} items`}
-            </Text>
+            <div>
+              {footerLeft || (
+                <Text size="sm" c="dimmed">
+                  {`Showing ${filteredData.length} of ${data.length} items`}
+                </Text>
+              )}
+            </div>
             {footerRight && (
-              <Text size="sm" c="dimmed">
-                {footerRight}
-              </Text>
+              <div>
+                {typeof footerRight === 'string' ? (
+                  <Text size="sm" c="dimmed">
+                    {footerRight}
+                  </Text>
+                ) : (
+                  footerRight
+                )}
+              </div>
             )}
           </Group>
         )}

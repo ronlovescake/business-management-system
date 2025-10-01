@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+// import { prisma } from '@/lib/db';
 
 export interface Transaction {
   id?: number;
@@ -19,7 +19,10 @@ export async function GET(
   try {
     const customerId = parseInt(params.id);
     if (isNaN(customerId)) {
-      return NextResponse.json({ error: 'Invalid customer ID' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid customer ID' },
+        { status: 400 }
+      );
     }
 
     // For now, return mock data since we haven't created the transaction tables yet
@@ -32,7 +35,7 @@ export async function GET(
         type: 'payment',
         amount: 2500,
         description: 'Payment for Order ORD-2024-001',
-        reference: 'PAY-001'
+        reference: 'PAY-001',
       },
       {
         id: 2,
@@ -41,7 +44,7 @@ export async function GET(
         type: 'credit',
         amount: 500,
         description: 'Store credit for delayed delivery',
-        reference: 'CREDIT-001'
+        reference: 'CREDIT-001',
       },
       {
         id: 3,
@@ -50,14 +53,17 @@ export async function GET(
         type: 'refund',
         amount: 3200,
         description: 'Refund for cancelled Order ORD-2024-003',
-        reference: 'REF-001'
-      }
+        reference: 'REF-001',
+      },
     ];
 
     return NextResponse.json(mockTransactions);
   } catch (err) {
     console.error('GET /api/customers/[id]/transactions error', err);
-    return NextResponse.json({ error: 'Failed to fetch transactions' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to fetch transactions' },
+      { status: 500 }
+    );
   }
 }
 
@@ -69,11 +75,14 @@ export async function POST(
   try {
     const customerId = parseInt(params.id);
     if (isNaN(customerId)) {
-      return NextResponse.json({ error: 'Invalid customer ID' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid customer ID' },
+        { status: 400 }
+      );
     }
 
     const body = await request.json();
-    
+
     // For now, return mock created transaction
     // This will be replaced with actual database insertion once the schema is updated
     const newTransaction: Transaction = {
@@ -83,12 +92,15 @@ export async function POST(
       type: body.type || 'payment',
       amount: body.amount || 0,
       description: body.description || '',
-      reference: body.reference
+      reference: body.reference,
     };
 
     return NextResponse.json(newTransaction);
   } catch (err) {
     console.error('POST /api/customers/[id]/transactions error', err);
-    return NextResponse.json({ error: 'Failed to create transaction' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to create transaction' },
+      { status: 500 }
+    );
   }
 }
