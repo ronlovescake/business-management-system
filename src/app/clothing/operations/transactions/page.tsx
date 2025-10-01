@@ -50,6 +50,11 @@ export default function Transactions() {
     Record<string, string>
   >({});
 
+  // State for product-to-shipment-status mapping from products page
+  const [productToShipmentStatusMap, setProductToShipmentStatusMap] = useState<
+    Record<string, string>
+  >({});
+
   // Define which statuses are controlled by "All Status"
   const allStatusControlledStatuses = [
     'In Transit',
@@ -176,48 +181,161 @@ export default function Transactions() {
     loadProductCodes();
   }, []); // Run once on component mount
 
-  // Load product-to-shipment mapping from products API
+  // Load product-to-shipment and product-to-shipment-status mappings from products API
   useEffect(() => {
-    const loadProductToShipmentMapping = async () => {
+    const loadProductMappings = async () => {
       try {
-        const response = await fetch('/api/products');
-        if (response.ok) {
-          const productsData = await response.json();
+        // Fetch both products and shipments data
+        const [productsResponse, shipmentsResponse] = await Promise.all([
+          fetch('/api/products'),
+          fetch('/api/shipments'),
+        ]);
+
+        if (productsResponse.ok && shipmentsResponse.ok) {
+          const productsData = await productsResponse.json();
+          const shipmentsData = await shipmentsResponse.json();
 
           // Create mapping from Product Code to Shipment Code
-          const mapping: Record<string, string> = {};
+          const shipmentMapping: Record<string, string> = {};
+          // Create mapping from Product Code to Shipment Status
+          const statusMapping: Record<string, string> = {};
 
-          productsData.forEach(
-            (product: {
-              productCode?: string;
-              'Product Code'?: string;
-              shipmentCode?: string;
-              'Shipment Code'?: string;
-            }) => {
-              const productCode =
-                product.productCode || product['Product Code'];
-              const shipmentCode =
-                product.shipmentCode || product['Shipment Code'];
+          // Create mapping from Shipment Code to Shipment Status from shipments data
+          const shipmentCodeToStatus: Record<string, string> = {};
 
-              if (productCode && shipmentCode) {
-                mapping[productCode] = shipmentCode;
-              }
+          shipmentsData.forEach((shipment: Record<string, unknown>) => {
+            const shipmentCode = String(
+              shipment['Shipment Code'] || shipment.shipmentCode || ''
+            );
+            const shipmentStatus = String(
+              shipment['Shipment Status'] || shipment.shipmentStatus || ''
+            );
+
+            if (shipmentCode) {
+              shipmentCodeToStatus[shipmentCode] = shipmentStatus;
+              console.log(
+                'Debug - Shipment Mapping:',
+                shipmentCode,
+                '->',
+                shipmentStatus
+              );
             }
+          });
+
+          // Debug: Log the first few products and shipments to see the structure
+          console.log(
+            'Debug - Products Data Sample:',
+            productsData.slice(0, 3)
+          );
+          console.log(
+            'Debug - Shipments Data Sample:',
+            shipmentsData.slice(0, 3)
           );
 
-          setProductToShipmentMap(mapping);
+          productsData.forEach((product: Record<string, unknown>) => {
+            // Log each product to see its structure
+            console.log('Debug - Individual Product:', product);
+
+            const productCode = String(
+              product.productCode || product['Product Code'] || ''
+            );
+            const shipmentCode = String(
+              product.shipmentCode || product['Shipment Code'] || ''
+            );
+
+            if (productCode && shipmentCode) {
+              shipmentMapping[productCode] = shipmentCode;
+
+              // Get the shipment status from the shipments data using the shipment code
+              const correspondingShipmentStatus =
+                shipmentCodeToStatus[shipmentCode] || '';
+              statusMapping[productCode] = correspondingShipmentStatus;
+
+              console.log(
+                'Debug - Mapped Product:',
+                productCode,
+                'to Shipment:',
+                shipmentCode,
+                'with Status:',
+                correspondingShipmentStatus
+              );
+            }
+
+            // Special debug for the specific product we're testing
+            if (productCode && productCode.includes('MBEB-010425')) {
+              console.log('Debug - Found MBEB product:', product);
+              console.log('Debug - Product shipment code:', shipmentCode);
+              console.log(
+                'Debug - Looking up status for shipment code:',
+                shipmentCode
+              );
+              console.log(
+                'Debug - Found shipment status:',
+                shipmentCodeToStatus[shipmentCode]
+              );
+              console.log(
+                'Debug - All available shipment codes:',
+                Object.keys(shipmentCodeToStatus)
+              );
+            }
+          });
+
+          console.log('Debug - Final Status Mapping:', statusMapping);
+
+          setProductToShipmentMap(shipmentMapping);
+          setProductToShipmentStatusMap(statusMapping);
         } else {
-          console.error('Failed to fetch products data');
+          console.error(
+            'Failed to fetch data:',
+            !productsResponse.ok ? 'products API failed' : '',
+            !shipmentsResponse.ok ? 'shipments API failed' : ''
+          );
           setProductToShipmentMap({});
+          setProductToShipmentStatusMap({});
         }
       } catch (error) {
-        console.error('Error loading product-to-shipment mapping:', error);
+        console.error('Error loading product mappings:', error);
         setProductToShipmentMap({});
+        setProductToShipmentStatusMap({});
       }
     };
 
-    loadProductToShipmentMapping();
+    loadProductMappings();
   }, []); // Run once on component mount
+
+  // Helper function to determine Order Status based on Shipment Status
+  const getOrderStatusFromShipmentStatus = useCallback(
+    (shipmentStatus: string): string => {
+      if (!shipmentStatus || shipmentStatus.trim() === '') {
+        return 'In Transit';
+      }
+
+      const normalizedStatus = shipmentStatus.trim();
+
+      // If Shipment Status is: blank, In Transit, Manila Port, With Pier Gatepass, PH Warehouse
+      // Set Order Status to: "In Transit"
+      const inTransitStatuses = [
+        'In Transit',
+        'Manila Port',
+        'With Pier Gatepass',
+        'PH Warehouse',
+      ];
+
+      // If Shipment Status is: For Pickup, Sorting, Delivered
+      // Set Order Status to: "Warehouse"
+      const warehouseStatuses = ['For Pickup', 'Sorting', 'Delivered'];
+
+      if (inTransitStatuses.includes(normalizedStatus)) {
+        return 'In Transit';
+      } else if (warehouseStatuses.includes(normalizedStatus)) {
+        return 'Warehouse';
+      }
+
+      // Default fallback for unknown statuses
+      return 'In Transit';
+    },
+    []
+  );
 
   // Save filter state to localStorage whenever it changes
   useEffect(() => {
@@ -647,11 +765,31 @@ export default function Transactions() {
         const correspondingShipmentCode =
           productToShipmentMap[dropdownValue] || '';
 
-        // Create a new updated transaction with both Product Code and Shipment Code
+        // Auto-populate order status based on the product's shipment status
+        const correspondingShipmentStatus =
+          productToShipmentStatusMap[dropdownValue] || '';
+
+        // Debug logging to see what's happening
+        console.log('Debug - Product Code:', dropdownValue);
+        console.log('Debug - Shipment Status Map:', productToShipmentStatusMap);
+        console.log(
+          'Debug - Found Shipment Status:',
+          correspondingShipmentStatus
+        );
+
+        const autoOrderStatus =
+          correspondingShipmentStatus !== undefined
+            ? getOrderStatusFromShipmentStatus(correspondingShipmentStatus)
+            : transaction['Order Status']; // Keep existing if no mapping found at all
+
+        console.log('Debug - Auto Order Status:', autoOrderStatus);
+
+        // Create a new updated transaction with Product Code, Shipment Code, and Order Status
         const updatedTransaction = {
           ...transaction,
           'Product Code': dropdownValue as string,
           'Shipment Code': correspondingShipmentCode,
+          'Order Status': autoOrderStatus,
         };
 
         // Update the transactions array
@@ -659,9 +797,19 @@ export default function Transactions() {
         newTransactions[transactionIndex] = updatedTransaction;
         setTransactions(newTransactions);
 
+        // Build notification message based on what was auto-populated
+        let message = 'Product Code updated successfully';
+        const autopopulated = [];
+        if (correspondingShipmentCode) autopopulated.push('Shipment Code');
+        if (correspondingShipmentStatus) autopopulated.push('Order Status');
+
+        if (autopopulated.length > 0) {
+          message += ` and ${autopopulated.join(' & ')} auto-populated`;
+        }
+
         notifications.show({
           title: 'Success',
-          message: `Product Code updated successfully${correspondingShipmentCode ? ' and Shipment Code auto-populated' : ''}`,
+          message,
           color: 'green',
         });
       }
@@ -772,7 +920,14 @@ export default function Transactions() {
         });
       }
     },
-    [transactions, columns, productToShipmentMap, filteredData]
+    [
+      transactions,
+      columns,
+      productToShipmentMap,
+      productToShipmentStatusMap,
+      filteredData,
+      getOrderStatusFromShipmentStatus,
+    ]
   );
 
   // Initialize with empty data (no database for now)
