@@ -39,6 +39,9 @@ interface TransactionData {
 }
 
 export default function Transactions() {
+  // State for customer names from customers page
+  const [customerNames, setCustomerNames] = useState<string[]>([]);
+
   // Define which statuses are controlled by "All Status"
   const allStatusControlledStatuses = [
     'In Transit',
@@ -82,6 +85,51 @@ export default function Transactions() {
   const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(
     loadSavedFilterState()
   );
+
+  // Load customer names from imported transactions and simulate customers data
+  useEffect(() => {
+    const loadCustomerNames = () => {
+      try {
+        // Extract unique customer names from imported transactions
+        const transactionCustomers = transactions
+          .map((t) => t.Customers)
+          .filter(Boolean)
+          .filter((name, index, array) => array.indexOf(name) === index);
+
+        // Simulate additional customers from customers page
+        const additionalCustomers = [
+          'John Smith',
+          'Jane Doe',
+          'Mike Johnson',
+          'Sarah Wilson',
+          'David Brown',
+          'Lisa Garcia',
+          'Tom Anderson',
+          'Emma Davis',
+          'Chris Martinez',
+          'Anna Taylor',
+          'Robert Lee',
+          'Michelle Chen',
+          'Kevin Rodriguez',
+          'Amanda White',
+          'James Thompson',
+        ];
+
+        // Combine and deduplicate all customer names
+        const allCustomers = [...transactionCustomers, ...additionalCustomers]
+          .filter(Boolean)
+          .filter((name, index, array) => array.indexOf(name) === index)
+          .sort();
+
+        setCustomerNames(allCustomers);
+      } catch (error) {
+        console.error('Error loading customer names:', error);
+        setCustomerNames([]);
+      }
+    };
+
+    loadCustomerNames();
+  }, [transactions]); // Re-run when transactions change
 
   // Save filter state to localStorage whenever it changes
   useEffect(() => {
@@ -246,14 +294,17 @@ export default function Transactions() {
       const key = idToKey[column.id as string];
       const value = item[key];
 
-      // Make Customers column editable
+      // Make Customers column editable with dropdown
       if (column.id === 'customers') {
         return {
-          kind: GridCellKind.Text,
-          data: (value ?? '').toString(),
-          displayData: (value ?? '').toString(),
+          kind: GridCellKind.Custom,
           allowOverlay: true,
-          readonly: false,
+          copyData: (value ?? '').toString(),
+          data: {
+            kind: 'dropdown-cell',
+            value: (value ?? '').toString(),
+            allowedValues: customerNames,
+          },
         } as GridCell;
       }
 
@@ -353,7 +404,7 @@ export default function Transactions() {
         allowOverlay: false,
       } as GridCell;
     },
-    [filteredData, columns, idToKey]
+    [filteredData, columns, idToKey, customerNames]
   );
 
   // Handle cell edits
@@ -364,10 +415,18 @@ export default function Transactions() {
       const transaction = transactions[row];
 
       if (column.id === 'customers') {
+        // Handle dropdown cell data structure
+        const dropdownValue =
+          'data' in newValue &&
+          newValue.data &&
+          typeof newValue.data === 'object'
+            ? (newValue.data as { value: string }).value
+            : '';
+
         // Create a new updated transaction
         const updatedTransaction = {
           ...transaction,
-          Customers: 'data' in newValue ? (newValue.data as string) : '',
+          Customers: dropdownValue as string,
         };
 
         // Update the transactions array
