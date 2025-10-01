@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import { DataTable, StatCard, useDataTable } from '../../../../components/ui';
 import { GridColumn, Item, GridCell } from '@glideapps/glide-data-grid';
@@ -53,6 +53,7 @@ export default function Transactions() {
   // Load saved filter state from localStorage
   const loadSavedFilterState = (): Set<string> => {
     try {
+      if (typeof window === 'undefined') return new Set(['All Status']);
       const saved = localStorage.getItem('transactions-filter-state');
       if (saved) {
         const parsedArray = JSON.parse(saved) as string[];
@@ -255,6 +256,72 @@ export default function Transactions() {
         } as GridCell;
       }
 
+      // Make Product Code column editable
+      if (column.id === 'productCode') {
+        return {
+          kind: GridCellKind.Text,
+          data: (value ?? '').toString(),
+          displayData: (value ?? '').toString(),
+          allowOverlay: true,
+          readonly: false,
+        } as GridCell;
+      }
+
+      // Make Quantity column editable
+      if (column.id === 'quantity') {
+        return {
+          kind: GridCellKind.Text,
+          data: (value ?? '').toString(),
+          displayData: (value ?? '').toString(),
+          allowOverlay: true,
+          readonly: false,
+        } as GridCell;
+      }
+
+      // Make Discount column editable
+      if (column.id === 'discount') {
+        return {
+          kind: GridCellKind.Text,
+          data: (value ?? '').toString(),
+          displayData: (value ?? '').toString(),
+          allowOverlay: true,
+          readonly: false,
+        } as GridCell;
+      }
+
+      // Make Adjustment column editable
+      if (column.id === 'adjustment') {
+        return {
+          kind: GridCellKind.Text,
+          data: (value ?? '').toString(),
+          displayData: (value ?? '').toString(),
+          allowOverlay: true,
+          readonly: false,
+        } as GridCell;
+      }
+
+      // Make Order Status column editable
+      if (column.id === 'orderStatus') {
+        return {
+          kind: GridCellKind.Text,
+          data: (value ?? '').toString(),
+          displayData: (value ?? '').toString(),
+          allowOverlay: true,
+          readonly: false,
+        } as GridCell;
+      }
+
+      // Make Notes column editable
+      if (column.id === 'notes') {
+        return {
+          kind: GridCellKind.Text,
+          data: (value ?? '').toString(),
+          displayData: (value ?? '').toString(),
+          allowOverlay: true,
+          readonly: false,
+        } as GridCell;
+      }
+
       if (typeof value === 'number') {
         return {
           kind: GridCellKind.Number,
@@ -275,36 +342,149 @@ export default function Transactions() {
   );
 
   // Handle cell edits
-  const handleCellEdited = React.useCallback(
+  const handleCellEdited = useCallback(
     (cell: Item, newValue: GridCell) => {
       const [col, row] = cell;
       const column = columns[col];
-      const item = filteredData[row];
+      const transaction = transactions[row];
 
-      if (!column || !item) return;
+      if (column.id === 'customers') {
+        // Create a new updated transaction
+        const updatedTransaction = {
+          ...transaction,
+          Customers: 'data' in newValue ? (newValue.data as string) : '',
+        };
 
-      // Handle Customers column edit
-      if (column.id === 'customers' && newValue.kind === GridCellKind.Text) {
-        const newCustomerName = newValue.data;
-
-        // Update the transaction in state
-        setTransactions((prev) =>
-          prev.map((transaction) =>
-            transaction.id === item.id
-              ? { ...transaction, Customers: newCustomerName }
-              : transaction
-          )
-        );
+        // Update the transactions array
+        const newTransactions = [...transactions];
+        newTransactions[row] = updatedTransaction;
+        setTransactions(newTransactions);
 
         notifications.show({
-          title: '✓ Updated',
-          message: `Customer name updated to "${newCustomerName}"`,
+          title: 'Success',
+          message: 'Customer updated successfully',
           color: 'green',
-          autoClose: 2000,
+        });
+      }
+
+      if (column.id === 'productCode') {
+        // Create a new updated transaction
+        const updatedTransaction = {
+          ...transaction,
+          'Product Code': 'data' in newValue ? (newValue.data as string) : '',
+        };
+
+        // Update the transactions array
+        const newTransactions = [...transactions];
+        newTransactions[row] = updatedTransaction;
+        setTransactions(newTransactions);
+
+        notifications.show({
+          title: 'Success',
+          message: 'Product Code updated successfully',
+          color: 'green',
+        });
+      }
+
+      if (column.id === 'quantity') {
+        // Create a new updated transaction
+        const updatedTransaction = {
+          ...transaction,
+          Quantity:
+            'data' in newValue ? Number(newValue.data as string) || 0 : 0,
+        };
+
+        // Update the transactions array
+        const newTransactions = [...transactions];
+        newTransactions[row] = updatedTransaction;
+        setTransactions(newTransactions);
+
+        notifications.show({
+          title: 'Success',
+          message: 'Quantity updated successfully',
+          color: 'green',
+        });
+      }
+
+      if (column.id === 'discount') {
+        // Create a new updated transaction
+        const updatedTransaction = {
+          ...transaction,
+          Discount:
+            'data' in newValue ? Number(newValue.data as string) || 0 : 0,
+        };
+
+        // Update the transactions array
+        const newTransactions = [...transactions];
+        newTransactions[row] = updatedTransaction;
+        setTransactions(newTransactions);
+
+        notifications.show({
+          title: 'Success',
+          message: 'Discount updated successfully',
+          color: 'green',
+        });
+      }
+
+      if (column.id === 'adjustment') {
+        // Create a new updated transaction
+        const updatedTransaction = {
+          ...transaction,
+          Adjustment:
+            'data' in newValue ? Number(newValue.data as string) || 0 : 0,
+        };
+
+        // Update the transactions array
+        const newTransactions = [...transactions];
+        newTransactions[row] = updatedTransaction;
+        setTransactions(newTransactions);
+
+        notifications.show({
+          title: 'Success',
+          message: 'Adjustment updated successfully',
+          color: 'green',
+        });
+      }
+
+      if (column.id === 'orderStatus') {
+        // Create a new updated transaction
+        const updatedTransaction = {
+          ...transaction,
+          'Order Status': 'data' in newValue ? (newValue.data as string) : '',
+        };
+
+        // Update the transactions array
+        const newTransactions = [...transactions];
+        newTransactions[row] = updatedTransaction;
+        setTransactions(newTransactions);
+
+        notifications.show({
+          title: 'Success',
+          message: 'Order Status updated successfully',
+          color: 'green',
+        });
+      }
+
+      if (column.id === 'notes') {
+        // Create a new updated transaction
+        const updatedTransaction = {
+          ...transaction,
+          Notes: 'data' in newValue ? (newValue.data as string) : '',
+        };
+
+        // Update the transactions array
+        const newTransactions = [...transactions];
+        newTransactions[row] = updatedTransaction;
+        setTransactions(newTransactions);
+
+        notifications.show({
+          title: 'Success',
+          message: 'Notes updated successfully',
+          color: 'green',
         });
       }
     },
-    [columns, filteredData]
+    [transactions, columns]
   );
 
   // Initialize with empty data (no database for now)
