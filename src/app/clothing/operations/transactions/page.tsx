@@ -5,6 +5,7 @@ import { PageLayout } from '../../../../components/layout/PageLayout';
 import { DataTable, StatCard, useDataTable } from '../../../../components/ui';
 import { GridColumn, Item, GridCell } from '@glideapps/glide-data-grid';
 import { GridCellKind } from '@glideapps/glide-data-grid';
+import { allCells } from '@glideapps/glide-data-grid-cells';
 import { Button, Group } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
@@ -300,14 +301,28 @@ export default function Transactions() {
         } as GridCell;
       }
 
-      // Make Order Status column editable
+      // Make Order Status column editable with dropdown
       if (column.id === 'orderStatus') {
         return {
-          kind: GridCellKind.Text,
-          data: (value ?? '').toString(),
-          displayData: (value ?? '').toString(),
+          kind: GridCellKind.Custom,
           allowOverlay: true,
-          readonly: false,
+          copyData: (value ?? '').toString(),
+          data: {
+            kind: 'dropdown-cell',
+            value: (value ?? '').toString(),
+            allowedValues: [
+              'In Transit',
+              'Warehouse',
+              'Prepared',
+              'Ready For Dispatch',
+              'Checked Out',
+              'Lalamove',
+              'On-Hold',
+              'Pending Payment',
+              'Shipped',
+              'Cancelled',
+            ],
+          },
         } as GridCell;
       }
 
@@ -447,10 +462,18 @@ export default function Transactions() {
       }
 
       if (column.id === 'orderStatus') {
+        // Handle dropdown cell data structure
+        const dropdownValue =
+          'data' in newValue &&
+          newValue.data &&
+          typeof newValue.data === 'object'
+            ? (newValue.data as { value: string }).value
+            : '';
+
         // Create a new updated transaction
         const updatedTransaction = {
           ...transaction,
-          'Order Status': 'data' in newValue ? (newValue.data as string) : '',
+          'Order Status': dropdownValue as string,
         };
 
         // Update the transactions array
@@ -756,6 +779,9 @@ export default function Transactions() {
         csvFile={csvFile}
         onFileChange={setCsvFile}
         onCSVImport={handleCSVImport}
+        customRenderers={
+          allCells as unknown as readonly Record<string, unknown>[]
+        }
         footerLeft={`Showing ${filteredData.length} of ${transactions.length} transactions`}
         searchRightButtons={
           <Group gap="xs" wrap="wrap">

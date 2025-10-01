@@ -136,6 +136,7 @@ export interface DataTableProps<T = Record<string, unknown>> {
   onCellClick?: (cell: Item, data: T) => void;
   getCellContent: (cell: Item) => GridCell;
   onCellEdited?: (cell: Item, newValue: GridCell) => void;
+  customRenderers?: readonly Record<string, unknown>[];
 
   // Footer customization
   showFooter?: boolean;
@@ -168,6 +169,7 @@ export function DataTable<T = Record<string, unknown>>({
   onCellClick,
   getCellContent,
   onCellEdited,
+  customRenderers,
   showFooter = true,
   footerLeft,
   footerRight,
@@ -439,6 +441,8 @@ export function DataTable<T = Record<string, unknown>>({
               cellVerticalPadding: 8,
             }}
             getCellsForSelection={true}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            customRenderers={customRenderers as any}
           />
         </Card>
 
