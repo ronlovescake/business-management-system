@@ -390,6 +390,17 @@ export default function Transactions() {
       const key = idToKey[column.id as string];
       const value = item[key];
 
+      // Make Order Date column editable
+      if (column.id === 'orderDate') {
+        return {
+          kind: GridCellKind.Text,
+          data: (value ?? '').toString(),
+          displayData: (value ?? '').toString(),
+          allowOverlay: true,
+          readonly: false,
+        } as GridCell;
+      }
+
       // Make Customers column editable with dropdown
       if (column.id === 'customers') {
         return {
@@ -541,30 +552,22 @@ export default function Transactions() {
 
       if (!transaction) return; // Safety check
 
-      // Find the index in the original transactions array
+      // Find the index in the original transactions array using the unique ID
       const transactionIndex = transactions.findIndex(
-        (t) =>
-          t.id === transaction.id ||
-          (t['Order Date'] === transaction['Order Date'] &&
-            t.Customers === transaction.Customers &&
-            t['Product Code'] === transaction['Product Code'])
+        (t) => t.id === transaction.id
       );
 
-      if (column.id === 'customers') {
-        if (transactionIndex === -1) return; // Safety check
+      // If no ID match found, this is a serious data consistency issue
+      if (transactionIndex === -1) {
+        console.error('Transaction not found in original array:', transaction);
+        return;
+      }
 
-        // Handle dropdown cell data structure
-        const dropdownValue =
-          'data' in newValue &&
-          newValue.data &&
-          typeof newValue.data === 'object'
-            ? (newValue.data as { value: string }).value
-            : '';
-
+      if (column.id === 'orderDate') {
         // Create a new updated transaction
         const updatedTransaction = {
           ...transaction,
-          Customers: dropdownValue as string,
+          'Order Date': 'data' in newValue ? (newValue.data as string) : '',
         };
 
         // Update the transactions array
@@ -574,14 +577,64 @@ export default function Transactions() {
 
         notifications.show({
           title: 'Success',
-          message: 'Customer updated successfully',
+          message: 'Order Date updated successfully',
+          color: 'green',
+        });
+      }
+
+      if (column.id === 'customers') {
+        // Handle dropdown cell data structure
+        const dropdownValue =
+          'data' in newValue &&
+          newValue.data &&
+          typeof newValue.data === 'object'
+            ? (newValue.data as { value: string }).value
+            : '';
+
+        // Auto-populate Order Date when customer is selected (only if it's empty)
+        const currentOrderDate = transaction['Order Date'];
+        const shouldAutoPopulateDate =
+          !currentOrderDate || currentOrderDate.trim() === '';
+
+        let autoPopulatedOrderDate = currentOrderDate;
+        if (
+          shouldAutoPopulateDate &&
+          dropdownValue &&
+          dropdownValue.trim() !== ''
+        ) {
+          const now = new Date();
+          autoPopulatedOrderDate = now.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          });
+        }
+
+        // Create a new updated transaction
+        const updatedTransaction = {
+          ...transaction,
+          Customers: dropdownValue as string,
+          'Order Date': autoPopulatedOrderDate,
+        };
+
+        // Update the transactions array
+        const newTransactions = [...transactions];
+        newTransactions[transactionIndex] = updatedTransaction;
+        setTransactions(newTransactions);
+
+        notifications.show({
+          title: 'Success',
+          message:
+            shouldAutoPopulateDate &&
+            dropdownValue &&
+            dropdownValue.trim() !== ''
+              ? 'Customer updated and Order Date auto-populated'
+              : 'Customer updated successfully',
           color: 'green',
         });
       }
 
       if (column.id === 'productCode') {
-        if (transactionIndex === -1) return; // Safety check
-
         // Handle dropdown cell data structure
         const dropdownValue =
           'data' in newValue &&
@@ -614,8 +667,6 @@ export default function Transactions() {
       }
 
       if (column.id === 'quantity') {
-        if (transactionIndex === -1) return; // Safety check
-
         // Create a new updated transaction
         const updatedTransaction = {
           ...transaction,
@@ -636,8 +687,6 @@ export default function Transactions() {
       }
 
       if (column.id === 'discount') {
-        if (transactionIndex === -1) return; // Safety check
-
         // Create a new updated transaction
         const updatedTransaction = {
           ...transaction,
@@ -658,8 +707,6 @@ export default function Transactions() {
       }
 
       if (column.id === 'adjustment') {
-        if (transactionIndex === -1) return; // Safety check
-
         // Create a new updated transaction
         const updatedTransaction = {
           ...transaction,
@@ -688,8 +735,6 @@ export default function Transactions() {
             ? (newValue.data as { value: string }).value
             : '';
 
-        if (transactionIndex === -1) return; // Safety check
-
         // Create a new updated transaction
         const updatedTransaction = {
           ...transaction,
@@ -709,8 +754,6 @@ export default function Transactions() {
       }
 
       if (column.id === 'notes') {
-        if (transactionIndex === -1) return; // Safety check
-
         // Create a new updated transaction
         const updatedTransaction = {
           ...transaction,
@@ -852,7 +895,7 @@ export default function Transactions() {
 
     for (let i = 0; i < 10; i++) {
       newEmptyRows.push({
-        id: Date.now() + Math.random() * 1000 + i, // Ensure unique IDs
+        id: Date.now() + Math.random() * 10000 + i * 100, // More unique IDs
         'Order Date': '',
         Customers: '',
         'Product Code': '',
@@ -936,7 +979,7 @@ export default function Transactions() {
         if (line) {
           const values = parseCSVLine(line);
           const transactionData: Record<string, unknown> = {
-            id: Date.now() + i,
+            id: Date.now() + Math.random() * 10000 + i * 100,
           };
 
           headers.forEach((rawHeader, index) => {
