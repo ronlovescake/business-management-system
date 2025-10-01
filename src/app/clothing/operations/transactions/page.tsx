@@ -42,6 +42,9 @@ export default function Transactions() {
   // State for customer names from customers page
   const [customerNames, setCustomerNames] = useState<string[]>([]);
 
+  // State for product codes from prices page
+  const [productCodes, setProductCodes] = useState<string[]>([]);
+
   // Define which statuses are controlled by "All Status"
   const allStatusControlledStatuses = [
     'In Transit',
@@ -130,6 +133,38 @@ export default function Transactions() {
 
     loadCustomerNames();
   }, [transactions]); // Re-run when transactions change
+
+  // Load product codes from prices API
+  useEffect(() => {
+    const loadProductCodes = async () => {
+      try {
+        const response = await fetch('/api/prices');
+        if (response.ok) {
+          const pricesData = await response.json();
+
+          // Extract unique product codes and sort them
+          const codes = pricesData
+            .map((price: { 'Product Code': string }) => price['Product Code'])
+            .filter(Boolean)
+            .filter(
+              (code: string, index: number, array: string[]) =>
+                array.indexOf(code) === index
+            )
+            .sort();
+
+          setProductCodes(codes);
+        } else {
+          console.error('Failed to fetch prices data');
+          setProductCodes([]);
+        }
+      } catch (error) {
+        console.error('Error loading product codes:', error);
+        setProductCodes([]);
+      }
+    };
+
+    loadProductCodes();
+  }, []); // Run once on component mount
 
   // Save filter state to localStorage whenever it changes
   useEffect(() => {
@@ -308,14 +343,17 @@ export default function Transactions() {
         } as GridCell;
       }
 
-      // Make Product Code column editable
+      // Make Product Code column editable with dropdown
       if (column.id === 'productCode') {
         return {
-          kind: GridCellKind.Text,
-          data: (value ?? '').toString(),
-          displayData: (value ?? '').toString(),
+          kind: GridCellKind.Custom,
           allowOverlay: true,
-          readonly: false,
+          copyData: (value ?? '').toString(),
+          data: {
+            kind: 'dropdown-cell',
+            value: (value ?? '').toString(),
+            allowedValues: productCodes,
+          },
         } as GridCell;
       }
 
@@ -404,7 +442,7 @@ export default function Transactions() {
         allowOverlay: false,
       } as GridCell;
     },
-    [filteredData, columns, idToKey, customerNames]
+    [filteredData, columns, idToKey, customerNames, productCodes]
   );
 
   // Handle cell edits
@@ -442,10 +480,18 @@ export default function Transactions() {
       }
 
       if (column.id === 'productCode') {
+        // Handle dropdown cell data structure
+        const dropdownValue =
+          'data' in newValue &&
+          newValue.data &&
+          typeof newValue.data === 'object'
+            ? (newValue.data as { value: string }).value
+            : '';
+
         // Create a new updated transaction
         const updatedTransaction = {
           ...transaction,
-          'Product Code': 'data' in newValue ? (newValue.data as string) : '',
+          'Product Code': dropdownValue as string,
         };
 
         // Update the transactions array
