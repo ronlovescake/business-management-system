@@ -347,14 +347,22 @@ export default function Transactions() {
     );
 
     if (individual.length === 0) {
-      // No individual statuses selected -> show nothing
-      return [] as TransactionData[];
+      // No individual statuses selected -> show only rows without Order Status
+      return searchFilteredData.filter((transaction) => {
+        const status = transaction['Order Status'];
+        return !status || status.trim() === '';
+      });
     }
 
-    // Filter by selected individual statuses (OR logic)
+    // Filter by selected individual statuses (OR logic) AND always include rows without Order Status
     return searchFilteredData.filter((transaction) => {
       const status = transaction['Order Status'];
-      return !!status && individual.includes(status);
+      // Always show rows without Order Status, or rows with selected statuses
+      return (
+        !status ||
+        status.trim() === '' ||
+        (status && individual.includes(status))
+      );
     });
   }, [searchFilteredData, selectedStatuses]);
 
