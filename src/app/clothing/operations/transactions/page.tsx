@@ -94,37 +94,42 @@ export default function Transactions() {
     loadSavedFilterState()
   );
 
-  // Load customer names from imported transactions and simulate customers data
+  // Load customer names from customers API and imported transactions
   useEffect(() => {
-    const loadCustomerNames = () => {
+    const loadCustomerNames = async () => {
       try {
+        let apiCustomers: string[] = [];
+
+        // Try to fetch customer names from the customers API
+        try {
+          const response = await fetch('/api/customers');
+          if (response.ok) {
+            const customersData = await response.json();
+            // Extract customer names from the API data (handle various possible field names)
+            apiCustomers = customersData
+              .map((customer: Record<string, unknown>) => {
+                return (
+                  customer.name ||
+                  customer.Name ||
+                  customer.customerName ||
+                  customer['Customer Name']
+                );
+              })
+              .filter(Boolean)
+              .map(String); // Ensure all values are strings
+          }
+        } catch (apiError) {
+          console.warn('Could not fetch customers from API:', apiError);
+        }
+
         // Extract unique customer names from imported transactions
         const transactionCustomers = transactions
           .map((t) => t.Customers)
           .filter(Boolean)
           .filter((name, index, array) => array.indexOf(name) === index);
 
-        // Simulate additional customers from customers page
-        const additionalCustomers = [
-          'John Smith',
-          'Jane Doe',
-          'Mike Johnson',
-          'Sarah Wilson',
-          'David Brown',
-          'Lisa Garcia',
-          'Tom Anderson',
-          'Emma Davis',
-          'Chris Martinez',
-          'Anna Taylor',
-          'Robert Lee',
-          'Michelle Chen',
-          'Kevin Rodriguez',
-          'Amanda White',
-          'James Thompson',
-        ];
-
-        // Combine and deduplicate all customer names
-        const allCustomers = [...transactionCustomers, ...additionalCustomers]
+        // Combine API customers and transaction customers, then deduplicate and sort
+        const allCustomers = [...apiCustomers, ...transactionCustomers]
           .filter(Boolean)
           .filter((name, index, array) => array.indexOf(name) === index)
           .sort();
@@ -841,6 +846,43 @@ export default function Transactions() {
     },
   ];
 
+  // Handle adding empty rows
+  const handleAdd10Rows = () => {
+    const newEmptyRows: TransactionData[] = [];
+
+    for (let i = 0; i < 10; i++) {
+      newEmptyRows.push({
+        id: Date.now() + Math.random() * 1000 + i, // Ensure unique IDs
+        'Order Date': '',
+        Customers: '',
+        'Product Code': '',
+        Quantity: 0,
+        'Unit Price': 0,
+        Discount: 0,
+        Adjustment: 0,
+        'Line Total': 0,
+        'Order Status': '',
+        Notes: '',
+        'Invoice Date': '',
+        'Packed Date': '',
+        'Shipment Code': '',
+      });
+    }
+
+    // Add the new empty rows to the existing transactions
+    setTransactions((prevTransactions) => [
+      ...prevTransactions,
+      ...newEmptyRows,
+    ]);
+
+    notifications.show({
+      title: 'Success',
+      message: '10 empty rows added successfully',
+      color: 'green',
+      autoClose: 3000,
+    });
+  };
+
   // Handle CSV import
   const handleCSVImport = async (file: File) => {
     try {
@@ -1005,8 +1047,9 @@ export default function Transactions() {
               variant="outline"
               size="sm"
               leftSection={<IconPlus size={14} />}
+              onClick={handleAdd10Rows}
             >
-              + Add 10 Rows
+              Add 10 Rows
             </Button>
             <Text size="sm" c="dimmed">
               {`Showing ${filteredData.length} of ${transactions.length} transactions`}
