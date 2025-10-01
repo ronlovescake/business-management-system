@@ -785,10 +785,7 @@ export default function Transactions() {
 
         let finalOrderStatus = currentOrderStatus; // Keep existing by default
 
-        if (
-          shouldAutoPopulateStatus &&
-          correspondingShipmentStatus !== undefined
-        ) {
+        if (shouldAutoPopulateStatus && correspondingShipmentStatus !== '') {
           finalOrderStatus = getOrderStatusFromShipmentStatus(
             correspondingShipmentStatus
           );
