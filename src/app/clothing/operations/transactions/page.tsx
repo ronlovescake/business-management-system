@@ -46,6 +46,16 @@ export default function Transactions() {
   // State for product codes from prices page
   const [productCodes, setProductCodes] = useState<string[]>([]);
 
+  // State for price tiers - store all price data for lookup
+  const [priceTiers, setPriceTiers] = useState<
+    Array<{
+      'Product Code': string;
+      'Lower Limit': number;
+      'Upper Limit': number;
+      Prices: number;
+    }>
+  >([]);
+
   // State for product-to-shipment mapping from products page
   const [productToShipmentMap, setProductToShipmentMap] = useState<
     Record<string, string>
@@ -158,6 +168,9 @@ export default function Transactions() {
         if (response.ok) {
           const pricesData = await response.json();
 
+          // Store all price tiers for unit price lookup
+          setPriceTiers(pricesData);
+
           // Extract unique product codes and sort them
           const codes = pricesData
             .map((price: { 'Product Code': string }) => price['Product Code'])
@@ -172,10 +185,12 @@ export default function Transactions() {
         } else {
           console.error('Failed to fetch prices data');
           setProductCodes([]);
+          setPriceTiers([]);
         }
       } catch (error) {
         console.error('Error loading product codes:', error);
         setProductCodes([]);
+        setPriceTiers([]);
       }
     };
 
@@ -819,6 +834,43 @@ export default function Transactions() {
   );
 
   // Handle cell edits
+  // Helper function to get unit price based on product code and quantity
+  const getUnitPriceForQuantity = useCallback(
+    (productCode: string, quantity: number): number | null => {
+      if (!productCode || !quantity || quantity <= 0) return null;
+
+      // Find all price tiers for this product code
+      const productTiers = priceTiers.filter(
+        (tier) => tier['Product Code'] === productCode
+      );
+
+      if (productTiers.length === 0) return null;
+
+      // Find the tier that contains this quantity
+      const matchingTier = productTiers.find(
+        (tier) =>
+          quantity >= tier['Lower Limit'] && quantity <= tier['Upper Limit']
+      );
+
+      return matchingTier ? matchingTier.Prices : null;
+    },
+    [priceTiers]
+  );
+
+  // Helper function to calculate Line Total
+  // Formula: (QUANTITY * UNIT PRICE) - DISCOUNT - ADJUSTMENT
+  const calculateLineTotal = useCallback(
+    (
+      quantity: number,
+      unitPrice: number,
+      discount: number,
+      adjustment: number
+    ): number => {
+      return quantity * unitPrice - discount - adjustment;
+    },
+    []
+  );
+
   const handleCellEdited = useCallback(
     (cell: Item, newValue: GridCell) => {
       const [col, row] = cell;
@@ -955,12 +1007,35 @@ export default function Transactions() {
         );
         console.log('Debug - Final Order Status:', finalOrderStatus);
 
-        // Create a new updated transaction with Product Code, Shipment Code, and Order Status
+        // Auto-populate or clear Unit Price based on Product Code and Quantity
+        const currentQuantity = transaction.Quantity || 0;
+        let autoPopulatedUnitPrice = 0;
+        let unitPriceAutoPopulated = false;
+        let unitPriceCleared = false;
+
+        if (!dropdownValue || dropdownValue.trim() === '') {
+          // Product Code is cleared, so clear Unit Price
+          autoPopulatedUnitPrice = 0;
+          unitPriceCleared = true;
+        } else if (dropdownValue && currentQuantity > 0) {
+          // Both Product Code and Quantity exist, lookup price
+          const foundUnitPrice = getUnitPriceForQuantity(
+            dropdownValue,
+            currentQuantity
+          );
+          if (foundUnitPrice !== null) {
+            autoPopulatedUnitPrice = foundUnitPrice;
+            unitPriceAutoPopulated = true;
+          }
+        }
+
+        // Create a new updated transaction with Product Code, Shipment Code, Order Status, and Unit Price
         const updatedTransaction = {
           ...transaction,
           'Product Code': dropdownValue as string,
           'Shipment Code': correspondingShipmentCode,
           'Order Status': finalOrderStatus,
+          'Unit Price': autoPopulatedUnitPrice,
         };
 
         // Update the transactions array
@@ -978,9 +1053,15 @@ export default function Transactions() {
         ) {
           autopopulated.push('Order Status');
         }
+        if (unitPriceAutoPopulated) autopopulated.push('Unit Price');
 
         if (autopopulated.length > 0) {
           message += ` and ${autopopulated.join(' & ')} auto-populated`;
+        }
+
+        // Add note if Unit Price was cleared
+        if (unitPriceCleared) {
+          message += ' (Unit Price cleared)';
         }
 
         // Add note if ORDER STATUS was preserved
@@ -996,11 +1077,93 @@ export default function Transactions() {
       }
 
       if (column.id === 'quantity') {
-        // Create a new updated transaction
+        const newQuantity =
+          'data' in newValue ? Number(newValue.data as string) || 0 : 0;
+
+        // Auto-populate or clear Unit Price based on Quantity and Product Code
+        const currentProductCode = transaction['Product Code'] || '';
+        let autoPopulatedUnitPrice = 0;
+        let unitPriceAutoPopulated = false;
+        let unitPriceCleared = false;
+
+        if (newQuantity <= 0) {
+          // Quantity is cleared or zero, so clear Unit Price
+          autoPopulatedUnitPrice = 0;
+          unitPriceCleared = true;
+        } else if (
+          currentProductCode &&
+          currentProductCode.trim() !== '' &&
+          newQuantity > 0
+        ) {
+          // Both Product Code and Quantity exist, lookup price
+          const foundUnitPrice = getUnitPriceForQuantity(
+            currentProductCode,
+            newQuantity
+          );
+          if (foundUnitPrice !== null) {
+            autoPopulatedUnitPrice = foundUnitPrice;
+            unitPriceAutoPopulated = true;
+          }
+        }
+
+        // Calculate Line Total: (QUANTITY * UNIT PRICE) - DISCOUNT - ADJUSTMENT
+        const discount = transaction.Discount || 0;
+        const adjustment = transaction.Adjustment || 0;
+        const lineTotal = calculateLineTotal(
+          newQuantity,
+          autoPopulatedUnitPrice,
+          discount,
+          adjustment
+        );
+
+        // Create a new updated transaction with Quantity, Unit Price, and Line Total
         const updatedTransaction = {
           ...transaction,
-          Quantity:
-            'data' in newValue ? Number(newValue.data as string) || 0 : 0,
+          Quantity: newQuantity,
+          'Unit Price': autoPopulatedUnitPrice,
+          'Line Total': lineTotal,
+        };
+
+        // Update the transactions array
+        const newTransactions = [...transactions];
+        newTransactions[transactionIndex] = updatedTransaction;
+        setTransactions(newTransactions);
+
+        // Build notification message
+        let message = 'Quantity updated successfully';
+        if (unitPriceAutoPopulated) {
+          message = 'Quantity updated and Unit Price auto-populated';
+        } else if (unitPriceCleared) {
+          message = 'Quantity updated and Unit Price cleared';
+        }
+
+        notifications.show({
+          title: 'Success',
+          message,
+          color: 'green',
+        });
+      }
+
+      if (column.id === 'unitPrice') {
+        const newUnitPrice =
+          'data' in newValue ? Number(newValue.data as string) || 0 : 0;
+
+        // Calculate Line Total: (QUANTITY * UNIT PRICE) - DISCOUNT - ADJUSTMENT
+        const quantity = transaction.Quantity || 0;
+        const discount = transaction.Discount || 0;
+        const adjustment = transaction.Adjustment || 0;
+        const lineTotal = calculateLineTotal(
+          quantity,
+          newUnitPrice,
+          discount,
+          adjustment
+        );
+
+        // Create a new updated transaction with Unit Price and Line Total
+        const updatedTransaction = {
+          ...transaction,
+          'Unit Price': newUnitPrice,
+          'Line Total': lineTotal,
         };
 
         // Update the transactions array
@@ -1010,17 +1173,31 @@ export default function Transactions() {
 
         notifications.show({
           title: 'Success',
-          message: 'Quantity updated successfully',
+          message: 'Unit Price updated successfully',
           color: 'green',
         });
       }
 
       if (column.id === 'discount') {
-        // Create a new updated transaction
+        const newDiscount =
+          'data' in newValue ? Number(newValue.data as string) || 0 : 0;
+
+        // Calculate Line Total: (QUANTITY * UNIT PRICE) - DISCOUNT - ADJUSTMENT
+        const quantity = transaction.Quantity || 0;
+        const unitPrice = transaction['Unit Price'] || 0;
+        const adjustment = transaction.Adjustment || 0;
+        const lineTotal = calculateLineTotal(
+          quantity,
+          unitPrice,
+          newDiscount,
+          adjustment
+        );
+
+        // Create a new updated transaction with Discount and Line Total
         const updatedTransaction = {
           ...transaction,
-          Discount:
-            'data' in newValue ? Number(newValue.data as string) || 0 : 0,
+          Discount: newDiscount,
+          'Line Total': lineTotal,
         };
 
         // Update the transactions array
@@ -1036,11 +1213,25 @@ export default function Transactions() {
       }
 
       if (column.id === 'adjustment') {
-        // Create a new updated transaction
+        const newAdjustment =
+          'data' in newValue ? Number(newValue.data as string) || 0 : 0;
+
+        // Calculate Line Total: (QUANTITY * UNIT PRICE) - DISCOUNT - ADJUSTMENT
+        const quantity = transaction.Quantity || 0;
+        const unitPrice = transaction['Unit Price'] || 0;
+        const discount = transaction.Discount || 0;
+        const lineTotal = calculateLineTotal(
+          quantity,
+          unitPrice,
+          discount,
+          newAdjustment
+        );
+
+        // Create a new updated transaction with Adjustment and Line Total
         const updatedTransaction = {
           ...transaction,
-          Adjustment:
-            'data' in newValue ? Number(newValue.data as string) || 0 : 0,
+          Adjustment: newAdjustment,
+          'Line Total': lineTotal,
         };
 
         // Update the transactions array
@@ -1108,6 +1299,8 @@ export default function Transactions() {
       productToShipmentStatusMap,
       filteredData,
       getOrderStatusFromShipmentStatus,
+      getUnitPriceForQuantity,
+      calculateLineTotal,
     ]
   );
 
