@@ -104,3 +104,24 @@ model Shipment {
 
   @@map("shipments")
 }
+
+model Transaction {
+  id           Int      @id @default(autoincrement())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  orderDate    String   @db.VarChar(50)
+  customers    String   @db.VarChar(255)
+  productCode  String   @db.VarChar(100)
+  quantity     Float    @default(0)
+  unitPrice    Float    @default(0)
+  discount     Float    @default(0)
+  adjustment   Float    @default(0)
+  lineTotal    Float    @default(0)
+  orderStatus  String   @db.VarChar(100)
+  notes        String?  @db.Text
+  invoiceDate  String?  @db.VarChar(50)
+  packedDate   String?  @db.VarChar(50)
+  shipmentCode String?  @db.VarChar(100)
+
+  @@map("transactions")
+}
