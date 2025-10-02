@@ -358,7 +358,8 @@ export default function Shipments() {
   const handleCSVImport = async (file: File) => {
     try {
       const text = await file.text();
-      const lines = text.split('\n');
+      // Handle both Unix (\n) and Windows (\r\n) line endings
+      const lines = text.split(/\r?\n/);
 
       // Parse CSV properly handling quoted fields
       const parseCSVLine = (line: string): string[] => {
@@ -371,6 +372,7 @@ export default function Shipments() {
 
           if (char === '"') {
             inQuotes = !inQuotes;
+            // Don't add the quote character itself
           } else if (char === ',' && !inQuotes) {
             result.push(current.trim());
             current = '';
@@ -480,11 +482,12 @@ export default function Shipments() {
       });
     } catch (error) {
       console.error('Import error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       notifications.show({
         title: '❌ Import Failed',
-        message: 'Failed to parse CSV file. Please check the file format.',
+        message: `Failed to import CSV: ${errorMessage}`,
         color: 'red',
-        autoClose: 4000,
+        autoClose: 6000,
       });
     }
   };

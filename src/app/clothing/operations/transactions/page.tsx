@@ -863,10 +863,9 @@ export default function Transactions() {
     (
       quantity: number,
       unitPrice: number,
-      discount: number,
       adjustment: number
     ): number => {
-      return quantity * unitPrice - discount - adjustment;
+      return quantity * unitPrice - adjustment;
     },
     []
   );
@@ -1008,7 +1007,9 @@ export default function Transactions() {
         console.log('Debug - Final Order Status:', finalOrderStatus);
 
         // Auto-populate or clear Unit Price based on Product Code and Quantity
+        // Formula: Unit Price = (Tier Price - Discount)
         const currentQuantity = transaction.Quantity || 0;
+        const currentDiscount = transaction.Discount || 0;
         let autoPopulatedUnitPrice = 0;
         let unitPriceAutoPopulated = false;
         let unitPriceCleared = false;
@@ -1019,12 +1020,13 @@ export default function Transactions() {
           unitPriceCleared = true;
         } else if (dropdownValue && currentQuantity > 0) {
           // Both Product Code and Quantity exist, lookup price
-          const foundUnitPrice = getUnitPriceForQuantity(
+          const foundTierPrice = getUnitPriceForQuantity(
             dropdownValue,
             currentQuantity
           );
-          if (foundUnitPrice !== null) {
-            autoPopulatedUnitPrice = foundUnitPrice;
+          if (foundTierPrice !== null) {
+            // Apply discount: Unit Price = Tier Price - Discount
+            autoPopulatedUnitPrice = foundTierPrice - currentDiscount;
             unitPriceAutoPopulated = true;
           }
         }
@@ -1081,7 +1083,9 @@ export default function Transactions() {
           'data' in newValue ? Number(newValue.data as string) || 0 : 0;
 
         // Auto-populate or clear Unit Price based on Quantity and Product Code
+        // Formula: Unit Price = (Tier Price - Discount)
         const currentProductCode = transaction['Product Code'] || '';
+        const currentDiscount = transaction.Discount || 0;
         let autoPopulatedUnitPrice = 0;
         let unitPriceAutoPopulated = false;
         let unitPriceCleared = false;
@@ -1096,23 +1100,22 @@ export default function Transactions() {
           newQuantity > 0
         ) {
           // Both Product Code and Quantity exist, lookup price
-          const foundUnitPrice = getUnitPriceForQuantity(
+          const foundTierPrice = getUnitPriceForQuantity(
             currentProductCode,
             newQuantity
           );
-          if (foundUnitPrice !== null) {
-            autoPopulatedUnitPrice = foundUnitPrice;
+          if (foundTierPrice !== null) {
+            // Apply discount: Unit Price = Tier Price - Discount
+            autoPopulatedUnitPrice = foundTierPrice - currentDiscount;
             unitPriceAutoPopulated = true;
           }
         }
 
-        // Calculate Line Total: (QUANTITY * UNIT PRICE) - DISCOUNT - ADJUSTMENT
-        const discount = transaction.Discount || 0;
+        // Calculate Line Total: (QUANTITY * UNIT PRICE) - ADJUSTMENT
         const adjustment = transaction.Adjustment || 0;
         const lineTotal = calculateLineTotal(
           newQuantity,
           autoPopulatedUnitPrice,
-          discount,
           adjustment
         );
 
@@ -1150,12 +1153,10 @@ export default function Transactions() {
 
         // Calculate Line Total: (QUANTITY * UNIT PRICE) - DISCOUNT - ADJUSTMENT
         const quantity = transaction.Quantity || 0;
-        const discount = transaction.Discount || 0;
         const adjustment = transaction.Adjustment || 0;
         const lineTotal = calculateLineTotal(
           quantity,
           newUnitPrice,
-          discount,
           adjustment
         );
 
@@ -1182,20 +1183,42 @@ export default function Transactions() {
         const newDiscount =
           'data' in newValue ? Number(newValue.data as string) || 0 : 0;
 
+        // Recalculate Unit Price with new Discount
+        // Formula: Unit Price = (Tier Price - Discount)
+        const currentProductCode = transaction['Product Code'] || '';
+        const currentQuantity = transaction.Quantity || 0;
+        let recalculatedUnitPrice = transaction['Unit Price'] || 0; // Keep existing if no recalculation
+
+        if (
+          currentProductCode &&
+          currentProductCode.trim() !== '' &&
+          currentQuantity > 0
+        ) {
+          // Re-lookup tier price and apply new discount
+          const foundTierPrice = getUnitPriceForQuantity(
+            currentProductCode,
+            currentQuantity
+          );
+          if (foundTierPrice !== null) {
+            // Apply new discount: Unit Price = Tier Price - New Discount
+            recalculatedUnitPrice = foundTierPrice - newDiscount;
+          }
+        }
+
         // Calculate Line Total: (QUANTITY * UNIT PRICE) - DISCOUNT - ADJUSTMENT
+        // Calculate Line Total: (QUANTITY * UNIT PRICE) - ADJUSTMENT
         const quantity = transaction.Quantity || 0;
-        const unitPrice = transaction['Unit Price'] || 0;
         const adjustment = transaction.Adjustment || 0;
         const lineTotal = calculateLineTotal(
           quantity,
-          unitPrice,
-          newDiscount,
+          recalculatedUnitPrice, // Use recalculated Unit Price
           adjustment
         );
 
-        // Create a new updated transaction with Discount and Line Total
+        // Create a new updated transaction with Unit Price, Discount and Line Total
         const updatedTransaction = {
           ...transaction,
+          'Unit Price': recalculatedUnitPrice, // Update Unit Price with recalculated value
           Discount: newDiscount,
           'Line Total': lineTotal,
         };
@@ -1217,13 +1240,12 @@ export default function Transactions() {
           'data' in newValue ? Number(newValue.data as string) || 0 : 0;
 
         // Calculate Line Total: (QUANTITY * UNIT PRICE) - DISCOUNT - ADJUSTMENT
+        // Calculate Line Total: (QUANTITY * UNIT PRICE) - ADJUSTMENT
         const quantity = transaction.Quantity || 0;
         const unitPrice = transaction['Unit Price'] || 0;
-        const discount = transaction.Discount || 0;
         const lineTotal = calculateLineTotal(
           quantity,
           unitPrice,
-          discount,
           newAdjustment
         );
 

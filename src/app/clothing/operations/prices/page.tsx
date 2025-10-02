@@ -372,11 +372,11 @@ export default function Prices() {
         break;
       case 'lowerLimit': 
         cellData = price['Lower Limit'].toString(); 
-        displayData = `₱${price['Lower Limit'].toLocaleString()}`;
+        displayData = price['Lower Limit'].toLocaleString();
         break;
       case 'upperLimit': 
         cellData = price['Upper Limit'].toString(); 
-        displayData = `₱${price['Upper Limit'].toLocaleString()}`;
+        displayData = price['Upper Limit'].toLocaleString();
         break;
       case 'prices': 
         cellData = price['Prices'].toString(); 

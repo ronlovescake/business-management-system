@@ -22,13 +22,30 @@ function convertShipmentDBToData(shipment: ShipmentDB): ShipmentData {
 
 // Helper function to convert frontend interface to database model
 function convertShipmentDataToDB(data: Partial<ShipmentData>) {
+  // Clean numeric value - remove commas and convert to number
+  const cleanNumber = (value: any): number => {
+    if (!value || value === '') return 0;
+    const str = String(value);
+    const cleaned = str.replace(/,/g, '');
+    return parseFloat(cleaned) || 0;
+  };
+
+  // Clean fee value - remove peso symbol and commas, then parse as number
+  const cleanFee = (feeValue: any): number => {
+    if (!feeValue || feeValue === '') return 0;
+    const feeStr = String(feeValue);
+    // Remove peso symbol, commas, and any other non-numeric characters except decimal point
+    const cleaned = feeStr.replace(/[₱,\s]/g, '');
+    return parseFloat(cleaned) || 0;
+  };
+
   return {
     shipmentCode: data['Shipment Code'] || '',
     cvNumber: data['CV Number'] || null,
-    noOfSacks: data['No. Of Sacks'] || 0,
-    totalCBM: data['Total CBM'] || 0,
-    weight: data['Weight'] || 0,
-    fee: data['Fee'] || 0,
+    noOfSacks: Math.round(cleanNumber(data['No. Of Sacks'])), // Must be Int
+    totalCBM: cleanNumber(data['Total CBM']),
+    weight: cleanNumber(data['Weight']),
+    fee: cleanFee(data['Fee']),
     shipmentStatus: data['Shipment Status'] || '',
     dateCreated: data['Date Created'] || null,
     dateDelivered: data['Date Delivered'] || null,
@@ -41,7 +58,7 @@ function convertShipmentDataToDB(data: Partial<ShipmentData>) {
 export async function GET() {
   try {
     const shipments = await prisma.shipment.findMany({
-      orderBy: { updatedAt: 'desc' },
+      orderBy: { id: 'asc' },
     });
 
     const convertedShipments = shipments.map(convertShipmentDBToData);
@@ -61,12 +78,24 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
+    console.log('Received shipment data, count:', Array.isArray(body) ? body.length : 1);
+
     // Check if it's a single shipment or bulk import
     if (Array.isArray(body)) {
       // Bulk import - delete all existing and create new ones
       await prisma.shipment.deleteMany({});
 
-      const shipmentsToCreate = body.map(convertShipmentDataToDB);
+      const shipmentsToCreate = body.map((item, index) => {
+        try {
+          return convertShipmentDataToDB(item);
+        } catch (err) {
+          console.error(`Error converting shipment at index ${index}:`, err, 'Data:', item);
+          throw err;
+        }
+      });
+      
+      console.log('Converted shipments, count:', shipmentsToCreate.length);
+      
       const createdShipments = await prisma.shipment.createMany({
         data: shipmentsToCreate,
       });
@@ -92,6 +121,24 @@ export async function POST(request: NextRequest) {
     console.error('Error creating shipment(s):', error);
     return NextResponse.json(
       { error: 'Failed to create shipment(s)' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE - Clear all shipments
+export async function DELETE() {
+  try {
+    const result = await prisma.shipment.deleteMany({});
+    
+    return NextResponse.json({
+      message: `Successfully deleted ${result.count} shipment records`,
+      count: result.count
+    });
+  } catch (error) {
+    console.error('Failed to delete shipments:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete shipments' },
       { status: 500 }
     );
   }

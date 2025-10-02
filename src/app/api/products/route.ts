@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 export async function GET() {
   try {
     const products = await prisma.product.findMany({
-      orderBy: { createdAt: 'desc' }
+      orderBy: { id: 'asc' }
     });
     
     return NextResponse.json(products);
@@ -131,6 +131,24 @@ export async function POST(request: NextRequest) {
     console.error('Failed to process products:', error);
     return NextResponse.json(
       { error: 'Failed to process products' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE - Clear all products
+export async function DELETE() {
+  try {
+    const result = await prisma.product.deleteMany({});
+    
+    return NextResponse.json({
+      message: `Successfully deleted ${result.count} product records`,
+      count: result.count
+    });
+  } catch (error) {
+    console.error('Failed to delete products:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete products' },
       { status: 500 }
     );
   }

@@ -60,7 +60,7 @@ function dbNotConfigured(): string | null {
 export async function GET() {
   try {
     const db = prisma as any;
-    const items = await db.customer.findMany({ orderBy: { id: 'desc' } });
+    const items = await db.customer.findMany({ orderBy: { id: 'asc' } });
     return NextResponse.json(items.map(mapToDTO));
   } catch (err) {
     console.error('GET /api/customers error', err);
@@ -117,5 +117,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Database authentication failed. Check DATABASE_URL credentials.' }, { status: 503 });
     }
     return NextResponse.json({ error: 'Failed to create customer' }, { status: 500 });
+  }
+}
+
+// DELETE - Clear all customers
+export async function DELETE() {
+  try {
+    const db = prisma as any;
+    const result = await db.customer.deleteMany({});
+    
+    return NextResponse.json({
+      message: `Successfully deleted ${result.count} customer records`,
+      count: result.count
+    });
+  } catch (error) {
+    console.error('Failed to delete customers:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete customers' },
+      { status: 500 }
+    );
   }
 }

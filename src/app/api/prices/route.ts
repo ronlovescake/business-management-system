@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 export async function GET() {
   try {
     const prices = await (prisma as any).price.findMany({
-      orderBy: { createdAt: 'desc' }
+      orderBy: { id: 'asc' }
     });
 
     // Convert database format to UI format
@@ -56,8 +56,9 @@ export async function POST(request: NextRequest) {
 
     console.log(`Filtered ${validPricesData.length} valid records from ${pricesData.length} total records`);
 
-    // Convert UI format to database format and create records
-    const createPromises = validPricesData.map((priceData: any) => {
+    // Convert UI format to database format and create records sequentially
+    // Use createMany for bulk insert which preserves order
+    const dataToInsert = validPricesData.map((priceData: any) => {
       // Convert whole numbers to cents for database storage
       // Handle cases where Price Adjustment might be empty string or undefined
       const priceAdjustment = priceData['Price Adjustment'];
@@ -65,23 +66,24 @@ export async function POST(request: NextRequest) {
         ? 0 
         : parseFloat(priceAdjustment.toString().replace(/,/g, '')) || 0;
 
-      return (prisma as any).price.create({
-        data: {
-          productCode: priceData['Product Code'].trim(),
-          lowerLimit: Math.round((parseFloat(priceData['Lower Limit'].toString().replace(/,/g, '')) || 0) * 100), // Convert to cents
-          upperLimit: Math.round((parseFloat(priceData['Upper Limit'].toString().replace(/,/g, '')) || 0) * 100),
-          currentPrice: Math.round((parseFloat(priceData['Prices'].toString().replace(/,/g, '')) || 0) * 100),
-          priceAdjustment: Math.round(priceAdjustmentValue * 100),
-          isActive: true,
-        },
-      });
+      return {
+        productCode: priceData['Product Code'].trim(),
+        lowerLimit: Math.round((parseFloat(priceData['Lower Limit'].toString().replace(/,/g, '')) || 0) * 100), // Convert to cents
+        upperLimit: Math.round((parseFloat(priceData['Upper Limit'].toString().replace(/,/g, '')) || 0) * 100),
+        currentPrice: Math.round((parseFloat(priceData['Prices'].toString().replace(/,/g, '')) || 0) * 100),
+        priceAdjustment: Math.round(priceAdjustmentValue * 100),
+        isActive: true,
+      };
     });
 
-    const results = await Promise.all(createPromises);
+    // Use createMany to insert all records in one transaction, preserving order
+    const result = await (prisma as any).price.createMany({
+      data: dataToInsert,
+    });
 
     return NextResponse.json({
-      message: `Successfully imported ${results.length} price records`,
-      count: results.length,
+      message: `Successfully imported ${result.count} price records`,
+      count: result.count,
       filtered: pricesData.length - validPricesData.length
     });
 
