@@ -879,11 +879,15 @@ export default function Transactions() {
         } as GridCell;
       }
 
+      // Handle numeric columns - show blank if value is 0
       if (typeof value === 'number') {
+        // Show blank cell for zero values to make it easier to spot missing data
+        const displayValue = value === 0 ? '' : value.toLocaleString();
+
         return {
           kind: GridCellKind.Number,
           data: value,
-          displayData: value.toLocaleString(),
+          displayData: displayValue,
           allowOverlay: false,
         } as GridCell;
       }
@@ -921,15 +925,15 @@ export default function Transactions() {
 
   /**
    * Helper function to get unit price based on product code and quantity
-   * 
+   *
    * ⚠️ FINALIZED LOGIC - DO NOT MODIFY
-   * 
+   *
    * This function looks up the tier price from the prices table based on:
    * - Product Code: Identifies the product
    * - Quantity: Determines which price tier applies
-   * 
+   *
    * Returns the Prices value from the matching tier, or null if no match found.
-   * 
+   *
    * @param productCode - The product code to lookup
    * @param quantity - The quantity to match against tier ranges
    * @returns The tier price (Prices field) or null
@@ -958,27 +962,23 @@ export default function Transactions() {
 
   /**
    * Helper function to calculate Line Total
-   * 
+   *
    * ⚠️ FINALIZED FORMULA - DO NOT MODIFY
-   * 
+   *
    * Formula: LINE TOTAL = (QUANTITY × UNIT PRICE) - ADJUSTMENT
-   * 
+   *
    * IMPORTANT NOTES:
    * - Discount is NOT included in this formula
    * - Discount affects Unit Price directly (Unit Price = Tier Price - Discount)
    * - Adjustment is an order-level adjustment applied to the line total
-   * 
+   *
    * @param quantity - Number of units
    * @param unitPrice - Price per unit (already includes discount)
    * @param adjustment - Order-level adjustment amount
    * @returns The calculated line total
    */
   const calculateLineTotal = useCallback(
-    (
-      quantity: number,
-      unitPrice: number,
-      adjustment: number
-    ): number => {
+    (quantity: number, unitPrice: number, adjustment: number): number => {
       return quantity * unitPrice - adjustment;
     },
     []
@@ -1826,7 +1826,8 @@ export default function Transactions() {
         console.error('API import failed:', apiError);
         notifications.show({
           title: '❌ Import Failed',
-          message: 'Failed to import transactions to database. Check console for details.',
+          message:
+            'Failed to import transactions to database. Check console for details.',
           color: 'red',
           autoClose: 5000,
         });
