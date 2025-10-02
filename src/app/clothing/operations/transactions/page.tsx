@@ -1,5 +1,41 @@
 'use client';
 
+// ==============================================================================
+// ⚠️⚠️⚠️ CRITICAL WARNING - READ BEFORE MAKING ANY CHANGES ⚠️⚠️⚠️
+// ==============================================================================
+//
+// This file contains FINALIZED business logic that has been carefully designed,
+// tested, and approved by the business owner.
+//
+// ✅ ALLOWED MODIFICATIONS:
+//    - Fix TypeScript/ESLint errors or warnings
+//    - Fix runtime bugs that break functionality
+//    - Improve code structure/organization (refactoring)
+//    - Add new features that don't affect existing logic
+//    - Update UI/styling without changing behavior
+//
+// ❌ FORBIDDEN MODIFICATIONS (without explicit business approval):
+//    - Change computation formulas (Unit Price, Line Total)
+//    - Modify auto-population logic (Product Code, Quantity, Discount handlers)
+//    - Alter business rules or calculation sequences
+//    - Change when/how fields are auto-populated or cleared
+//
+// 📋 FINALIZED FORMULAS - DO NOT CHANGE:
+//    1. Unit Price = Tier Price - Discount
+//    2. Line Total = (Quantity × Unit Price) - Adjustment
+//
+// 📚 DOCUMENTATION:
+//    - Complete logic documentation: TRANSACTIONS_LOGIC_SUMMARY.md
+//    - Look for "⚠️ FINALIZED LOGIC" comments throughout this file
+//
+// 🚨 IF YOU NEED TO CHANGE THE BUSINESS LOGIC:
+//    1. DO NOT proceed without business owner approval
+//    2. Update TRANSACTIONS_LOGIC_SUMMARY.md with changes
+//    3. Test thoroughly with real business scenarios
+//    4. Update all warning comments to reflect new logic
+//
+// ==============================================================================
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import { DataTable, StatCard, useDataTable } from '../../../../components/ui';
@@ -834,7 +870,34 @@ export default function Transactions() {
   );
 
   // Handle cell edits
-  // Helper function to get unit price based on product code and quantity
+  // ============================================================================
+  // ⚠️ WARNING: FINALIZED LOGIC - DO NOT MODIFY WITHOUT APPROVAL ⚠️
+  // ============================================================================
+  // The following helper functions contain FINALIZED business logic that has been
+  // carefully designed and approved. DO NOT change the core logic without explicit
+  // approval from the business owner.
+  //
+  // ✅ ALLOWED: Fix linting issues, type errors, or refactor code structure
+  // ❌ FORBIDDEN: Change formulas, computation logic, or business rules
+  //
+  // Reference: See TRANSACTIONS_LOGIC_SUMMARY.md for complete logic documentation
+  // ============================================================================
+
+  /**
+   * Helper function to get unit price based on product code and quantity
+   * 
+   * ⚠️ FINALIZED LOGIC - DO NOT MODIFY
+   * 
+   * This function looks up the tier price from the prices table based on:
+   * - Product Code: Identifies the product
+   * - Quantity: Determines which price tier applies
+   * 
+   * Returns the Prices value from the matching tier, or null if no match found.
+   * 
+   * @param productCode - The product code to lookup
+   * @param quantity - The quantity to match against tier ranges
+   * @returns The tier price (Prices field) or null
+   */
   const getUnitPriceForQuantity = useCallback(
     (productCode: string, quantity: number): number | null => {
       if (!productCode || !quantity || quantity <= 0) return null;
@@ -857,8 +920,23 @@ export default function Transactions() {
     [priceTiers]
   );
 
-  // Helper function to calculate Line Total
-  // Formula: (QUANTITY * UNIT PRICE) - DISCOUNT - ADJUSTMENT
+  /**
+   * Helper function to calculate Line Total
+   * 
+   * ⚠️ FINALIZED FORMULA - DO NOT MODIFY
+   * 
+   * Formula: LINE TOTAL = (QUANTITY × UNIT PRICE) - ADJUSTMENT
+   * 
+   * IMPORTANT NOTES:
+   * - Discount is NOT included in this formula
+   * - Discount affects Unit Price directly (Unit Price = Tier Price - Discount)
+   * - Adjustment is an order-level adjustment applied to the line total
+   * 
+   * @param quantity - Number of units
+   * @param unitPrice - Price per unit (already includes discount)
+   * @param adjustment - Order-level adjustment amount
+   * @returns The calculated line total
+   */
   const calculateLineTotal = useCallback(
     (
       quantity: number,
@@ -960,6 +1038,17 @@ export default function Transactions() {
         });
       }
 
+      // ============================================================================
+      // PRODUCT CODE HANDLER
+      // ⚠️ FINALIZED AUTO-POPULATION LOGIC - DO NOT MODIFY
+      // ============================================================================
+      // This handler auto-populates:
+      // 1. Shipment Code (from product mapping)
+      // 2. Order Status (conditionally - only if blank or "In Transit")
+      // 3. Unit Price (if Quantity exists, using formula: Tier Price - Discount)
+      //
+      // DO NOT change these auto-population rules without business approval.
+      // ============================================================================
       if (column.id === 'productCode') {
         // Handle dropdown cell data structure
         const dropdownValue =
@@ -1006,8 +1095,20 @@ export default function Transactions() {
         );
         console.log('Debug - Final Order Status:', finalOrderStatus);
 
-        // Auto-populate or clear Unit Price based on Product Code and Quantity
-        // Formula: Unit Price = (Tier Price - Discount)
+        // ========================================================================
+        // ⚠️ FINALIZED UNIT PRICE AUTO-POPULATION LOGIC
+        // ========================================================================
+        // Formula: Unit Price = Tier Price - Discount
+        //
+        // Logic:
+        // - IF Product Code is cleared → Clear Unit Price to 0
+        // - IF Product Code exists AND Quantity > 0:
+        //   1. Lookup Tier Price using getUnitPriceForQuantity()
+        //   2. Subtract Discount from Tier Price
+        //   3. Set as Unit Price
+        //
+        // DO NOT modify this formula without business approval!
+        // ========================================================================
         const currentQuantity = transaction.Quantity || 0;
         const currentDiscount = transaction.Discount || 0;
         let autoPopulatedUnitPrice = 0;
@@ -1025,7 +1126,7 @@ export default function Transactions() {
             currentQuantity
           );
           if (foundTierPrice !== null) {
-            // Apply discount: Unit Price = Tier Price - Discount
+            // ⚠️ FINALIZED FORMULA: Unit Price = Tier Price - Discount
             autoPopulatedUnitPrice = foundTierPrice - currentDiscount;
             unitPriceAutoPopulated = true;
           }
@@ -1078,12 +1179,27 @@ export default function Transactions() {
         });
       }
 
+      // ============================================================================
+      // QUANTITY HANDLER
+      // ⚠️ FINALIZED AUTO-POPULATION & COMPUTATION LOGIC - DO NOT MODIFY
+      // ============================================================================
+      // This handler:
+      // 1. Auto-populates Unit Price (if Product Code exists)
+      //    Formula: Unit Price = Tier Price - Discount
+      // 2. Calculates Line Total
+      //    Formula: Line Total = (Quantity × Unit Price) - Adjustment
+      //
+      // DO NOT change these formulas without business approval!
+      // ============================================================================
       if (column.id === 'quantity') {
         const newQuantity =
           'data' in newValue ? Number(newValue.data as string) || 0 : 0;
 
-        // Auto-populate or clear Unit Price based on Quantity and Product Code
-        // Formula: Unit Price = (Tier Price - Discount)
+        // ========================================================================
+        // ⚠️ FINALIZED UNIT PRICE AUTO-POPULATION LOGIC
+        // ========================================================================
+        // Formula: Unit Price = Tier Price - Discount
+        // ========================================================================
         const currentProductCode = transaction['Product Code'] || '';
         const currentDiscount = transaction.Discount || 0;
         let autoPopulatedUnitPrice = 0;
@@ -1105,13 +1221,18 @@ export default function Transactions() {
             newQuantity
           );
           if (foundTierPrice !== null) {
-            // Apply discount: Unit Price = Tier Price - Discount
+            // ⚠️ FINALIZED FORMULA: Unit Price = Tier Price - Discount
             autoPopulatedUnitPrice = foundTierPrice - currentDiscount;
             unitPriceAutoPopulated = true;
           }
         }
 
-        // Calculate Line Total: (QUANTITY * UNIT PRICE) - ADJUSTMENT
+        // ========================================================================
+        // ⚠️ FINALIZED LINE TOTAL CALCULATION
+        // ========================================================================
+        // Formula: Line Total = (Quantity × Unit Price) - Adjustment
+        // Note: Discount is NOT subtracted here (it's already in Unit Price)
+        // ========================================================================
         const adjustment = transaction.Adjustment || 0;
         const lineTotal = calculateLineTotal(
           newQuantity,
@@ -1147,11 +1268,26 @@ export default function Transactions() {
         });
       }
 
+      // ============================================================================
+      // UNIT PRICE HANDLER
+      // ⚠️ FINALIZED COMPUTATION LOGIC - DO NOT MODIFY
+      // ============================================================================
+      // This handler allows manual override of Unit Price and recalculates Line Total.
+      // Formula: Line Total = (Quantity × Unit Price) - Adjustment
+      //
+      // Note: Manual edits override auto-populated values.
+      // DO NOT change the Line Total formula without business approval!
+      // ============================================================================
       if (column.id === 'unitPrice') {
         const newUnitPrice =
           'data' in newValue ? Number(newValue.data as string) || 0 : 0;
 
-        // Calculate Line Total: (QUANTITY * UNIT PRICE) - DISCOUNT - ADJUSTMENT
+        // ========================================================================
+        // ⚠️ FINALIZED LINE TOTAL CALCULATION
+        // ========================================================================
+        // Formula: Line Total = (Quantity × Unit Price) - Adjustment
+        // Note: Discount is NOT subtracted here (it's already in Unit Price)
+        // ========================================================================
         const quantity = transaction.Quantity || 0;
         const adjustment = transaction.Adjustment || 0;
         const lineTotal = calculateLineTotal(
@@ -1179,12 +1315,32 @@ export default function Transactions() {
         });
       }
 
+      // ============================================================================
+      // DISCOUNT HANDLER
+      // ⚠️ FINALIZED COMPUTATION LOGIC - DO NOT MODIFY
+      // ============================================================================
+      // This handler:
+      // 1. Recalculates Unit Price with new Discount
+      //    Formula: Unit Price = Tier Price - Discount
+      // 2. Recalculates Line Total with new Unit Price
+      //    Formula: Line Total = (Quantity × Unit Price) - Adjustment
+      //
+      // CRITICAL: Discount affects Unit Price, NOT Line Total directly!
+      // DO NOT change these formulas without business approval!
+      // ============================================================================
       if (column.id === 'discount') {
         const newDiscount =
           'data' in newValue ? Number(newValue.data as string) || 0 : 0;
 
-        // Recalculate Unit Price with new Discount
-        // Formula: Unit Price = (Tier Price - Discount)
+        // ========================================================================
+        // ⚠️ FINALIZED UNIT PRICE RECALCULATION LOGIC
+        // ========================================================================
+        // Formula: Unit Price = Tier Price - Discount
+        //
+        // When discount changes, we must:
+        // 1. Re-lookup the Tier Price from prices table
+        // 2. Apply the new discount: Unit Price = Tier Price - New Discount
+        // ========================================================================
         const currentProductCode = transaction['Product Code'] || '';
         const currentQuantity = transaction.Quantity || 0;
         let recalculatedUnitPrice = transaction['Unit Price'] || 0; // Keep existing if no recalculation
@@ -1200,13 +1356,17 @@ export default function Transactions() {
             currentQuantity
           );
           if (foundTierPrice !== null) {
-            // Apply new discount: Unit Price = Tier Price - New Discount
+            // ⚠️ FINALIZED FORMULA: Unit Price = Tier Price - New Discount
             recalculatedUnitPrice = foundTierPrice - newDiscount;
           }
         }
 
-        // Calculate Line Total: (QUANTITY * UNIT PRICE) - DISCOUNT - ADJUSTMENT
-        // Calculate Line Total: (QUANTITY * UNIT PRICE) - ADJUSTMENT
+        // ========================================================================
+        // ⚠️ FINALIZED LINE TOTAL CALCULATION
+        // ========================================================================
+        // Formula: Line Total = (Quantity × Unit Price) - Adjustment
+        // Note: Discount is NOT subtracted here (it's already in Unit Price)
+        // ========================================================================
         const quantity = transaction.Quantity || 0;
         const adjustment = transaction.Adjustment || 0;
         const lineTotal = calculateLineTotal(
@@ -1235,12 +1395,25 @@ export default function Transactions() {
         });
       }
 
+      // ============================================================================
+      // ADJUSTMENT HANDLER
+      // ⚠️ FINALIZED COMPUTATION LOGIC - DO NOT MODIFY
+      // ============================================================================
+      // This handler recalculates Line Total when Adjustment changes.
+      // Formula: Line Total = (Quantity × Unit Price) - Adjustment
+      //
+      // DO NOT change this formula without business approval!
+      // ============================================================================
       if (column.id === 'adjustment') {
         const newAdjustment =
           'data' in newValue ? Number(newValue.data as string) || 0 : 0;
 
-        // Calculate Line Total: (QUANTITY * UNIT PRICE) - DISCOUNT - ADJUSTMENT
-        // Calculate Line Total: (QUANTITY * UNIT PRICE) - ADJUSTMENT
+        // ========================================================================
+        // ⚠️ FINALIZED LINE TOTAL CALCULATION
+        // ========================================================================
+        // Formula: Line Total = (Quantity × Unit Price) - Adjustment
+        // Note: Discount is NOT subtracted here (it's already in Unit Price)
+        // ========================================================================
         const quantity = transaction.Quantity || 0;
         const unitPrice = transaction['Unit Price'] || 0;
         const lineTotal = calculateLineTotal(
