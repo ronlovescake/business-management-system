@@ -1552,26 +1552,23 @@ export default function Transactions() {
     setLoading(false);
   }, []);
 
-  // Calculate statistics dynamically based on filtered data
+  // Calculate statistics dynamically based on filtered data (excluding cancelled orders)
   const totalTransactions = filteredData.length;
-  const totalRevenue = filteredData.reduce(
-    (sum, t) => sum + (t['Line Total'] || 0),
-    0
-  );
-  const totalQuantity = filteredData.reduce(
-    (sum, t) => sum + (t['Quantity'] || 0),
-    0
-  );
-  const totalDiscount = filteredData.reduce(
-    (sum, t) => sum + (t['Discount'] || 0),
-    0
-  );
-  const totalAdjustment = filteredData.reduce(
-    (sum, t) => sum + (t['Adjustment'] || 0),
-    0
-  );
-  const avgOrderValue =
-    totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
+  const totalRevenue = filteredData
+    .filter((t) => t['Order Status']?.toLowerCase() !== 'cancelled')
+    .reduce((sum, t) => sum + (t['Quantity'] || 0) * (t['Unit Price'] || 0), 0);
+  const inTransitTotal = filteredData
+    .filter((t) => t['Order Status']?.toLowerCase() === 'in transit')
+    .reduce((sum, t) => sum + (t['Line Total'] || 0), 0);
+  const warehouseTotal = filteredData
+    .filter((t) => t['Order Status']?.toLowerCase() === 'warehouse')
+    .reduce((sum, t) => sum + (t['Line Total'] || 0), 0);
+  const preparedTotal = filteredData
+    .filter((t) => t['Order Status']?.toLowerCase() === 'prepared')
+    .reduce((sum, t) => sum + (t['Line Total'] || 0), 0);
+  const pendingPaymentTotal = filteredData
+    .filter((t) => t['Order Status']?.toLowerCase() === 'pending payment')
+    .reduce((sum, t) => sum + (t['Line Total'] || 0), 0);
 
   // Status counts
   const pendingOrders = filteredData.filter(
@@ -1604,29 +1601,29 @@ export default function Transactions() {
       backgroundColor: 'var(--mantine-color-green-6)',
     },
     {
-      title: 'Total Quantity',
-      value: totalQuantity.toLocaleString(),
+      title: 'In Transit',
+      value: `₱${inTransitTotal.toLocaleString()}`,
       icon: <IconPackage size={18} />,
       color: 'orange',
       backgroundColor: '#fd7e14',
     },
     {
-      title: 'Avg Order Value',
-      value: `₱${avgOrderValue.toLocaleString()}`,
+      title: 'Warehouse',
+      value: `₱${warehouseTotal.toLocaleString()}`,
       icon: <IconShoppingCart size={18} />,
       color: 'purple',
       backgroundColor: '#9775fa',
     },
     {
-      title: 'Total Discounts',
-      value: `₱${totalDiscount.toLocaleString()}`,
+      title: 'Prepared',
+      value: `₱${preparedTotal.toLocaleString()}`,
       icon: <IconPercentage size={18} />,
       color: 'yellow',
       backgroundColor: 'var(--mantine-color-yellow-6)',
     },
     {
-      title: 'Total Adjustments',
-      value: `₱${totalAdjustment.toLocaleString()}`,
+      title: 'Pending Payment',
+      value: `₱${pendingPaymentTotal.toLocaleString()}`,
       icon: <IconAdjustments size={18} />,
       color: 'indigo',
       backgroundColor: 'var(--mantine-color-indigo-6)',
