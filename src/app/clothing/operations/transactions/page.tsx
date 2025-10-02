@@ -793,10 +793,14 @@ export default function Transactions() {
 
       // Make Quantity column editable
       if (column.id === 'quantity') {
+        const displayValue =
+          typeof value === 'number' && value === 0
+            ? ''
+            : (value ?? '').toString();
         return {
           kind: GridCellKind.Text,
           data: (value ?? '').toString(),
-          displayData: (value ?? '').toString(),
+          displayData: displayValue,
           allowOverlay: true,
           readonly: false,
         } as GridCell;
@@ -804,10 +808,14 @@ export default function Transactions() {
 
       // Make Discount column editable
       if (column.id === 'discount') {
+        const displayValue =
+          typeof value === 'number' && value === 0
+            ? ''
+            : (value ?? '').toString();
         return {
           kind: GridCellKind.Text,
           data: (value ?? '').toString(),
-          displayData: (value ?? '').toString(),
+          displayData: displayValue,
           allowOverlay: true,
           readonly: false,
         } as GridCell;
@@ -815,10 +823,14 @@ export default function Transactions() {
 
       // Make Adjustment column editable
       if (column.id === 'adjustment') {
+        const displayValue =
+          typeof value === 'number' && value === 0
+            ? ''
+            : (value ?? '').toString();
         return {
           kind: GridCellKind.Text,
           data: (value ?? '').toString(),
-          displayData: (value ?? '').toString(),
+          displayData: displayValue,
           allowOverlay: true,
           readonly: false,
         } as GridCell;
@@ -1650,12 +1662,12 @@ export default function Transactions() {
   ];
 
   // Handle adding empty rows
-  const handleAdd10Rows = () => {
+  const handleAdd10Rows = async () => {
     const newEmptyRows: TransactionData[] = [];
 
     for (let i = 0; i < 10; i++) {
       newEmptyRows.push({
-        id: Date.now() + Math.random() * 10000 + i * 100, // More unique IDs
+        id: Date.now() + Math.random() * 10000 + i * 100, // Temporary IDs
         'Order Date': '',
         Customers: '',
         'Product Code': '',
@@ -1668,22 +1680,56 @@ export default function Transactions() {
         Notes: '',
         'Invoice Date': '',
         'Packed Date': '',
-        'Shipment Code': '',
+        'Shipment Code': '-', // Temporary marker for empty row
       });
     }
 
-    // Add the new empty rows to the existing transactions
-    setTransactions((prevTransactions) => [
-      ...prevTransactions,
-      ...newEmptyRows,
-    ]);
+    try {
+      // Save empty rows to database
+      const response = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newEmptyRows),
+      });
 
-    notifications.show({
-      title: 'Success',
-      message: '10 empty rows added successfully',
-      color: 'green',
-      autoClose: 3000,
-    });
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('API error response:', errorData);
+        throw new Error(
+          errorData.details ||
+            errorData.error ||
+            'Failed to save empty rows to database'
+        );
+      }
+
+      // Reload transactions from database to get the saved rows with proper IDs
+      const reloadResponse = await fetch('/api/transactions');
+      if (reloadResponse.ok) {
+        const data = await reloadResponse.json();
+        setTransactions(data);
+      }
+
+      notifications.show({
+        title: 'Success',
+        message: '10 empty rows added successfully',
+        color: 'green',
+        autoClose: 3000,
+      });
+    } catch (error) {
+      console.error('Error adding empty rows:', error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Failed to add empty rows to database';
+      notifications.show({
+        title: 'Error',
+        message: errorMessage,
+        color: 'red',
+        autoClose: 5000,
+      });
+    }
   };
 
   // Handle CSV import
