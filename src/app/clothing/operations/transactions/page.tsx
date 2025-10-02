@@ -146,6 +146,42 @@ export default function Transactions() {
     loadSavedFilterState()
   );
 
+  // ============================================================================
+  // DATABASE INTEGRATION - Load transactions from API
+  // ============================================================================
+  // Load transactions from database on component mount
+  useEffect(() => {
+    const loadTransactions = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/transactions');
+        if (response.ok) {
+          const data = await response.json();
+          setTransactions(data);
+          console.log(`Loaded ${data.length} transactions from database`);
+        } else {
+          console.error('Failed to load transactions:', response.statusText);
+          notifications.show({
+            title: 'Error',
+            message: 'Failed to load transactions from database',
+            color: 'red',
+          });
+        }
+      } catch (error) {
+        console.error('Error loading transactions:', error);
+        notifications.show({
+          title: 'Error',
+          message: 'Failed to load transactions from database',
+          color: 'red',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTransactions();
+  }, []); // Run once on mount
+
   // Load customer names from customers API and imported transactions
   useEffect(() => {
     const loadCustomerNames = async () => {
@@ -1749,8 +1785,53 @@ export default function Transactions() {
         return;
       }
 
-      // Load imported data directly into component state (no database for now)
-      setTransactions(importedTransactions);
+      // ========================================================================
+      // ⚠️ DATABASE INTEGRATION - Import to database via API
+      // ========================================================================
+      // Send imported transactions to API for:
+      // 1. Unit Price auto-calculation (from price tiers)
+      // 2. Line Total auto-calculation
+      // 3. Database persistence
+      // ========================================================================
+      try {
+        const response = await fetch('/api/transactions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(importedTransactions),
+        });
+
+        if (!response.ok) {
+          throw new Error(`API error: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        console.log('Import result:', result);
+
+        // Reload transactions from database to get calculated values
+        const reloadResponse = await fetch('/api/transactions');
+        if (reloadResponse.ok) {
+          const reloadedData = await reloadResponse.json();
+          setTransactions(reloadedData);
+        }
+
+        notifications.show({
+          title: '✅ Import Successful',
+          message: `${result.count} transactions imported with auto-calculated Unit Price and Line Total`,
+          color: 'green',
+          autoClose: 5000,
+        });
+      } catch (apiError) {
+        console.error('API import failed:', apiError);
+        notifications.show({
+          title: '❌ Import Failed',
+          message: 'Failed to import transactions to database. Check console for details.',
+          color: 'red',
+          autoClose: 5000,
+        });
+        return;
+      }
 
       setCsvFile(null);
 
