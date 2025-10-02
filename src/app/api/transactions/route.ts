@@ -39,10 +39,15 @@ function getUnitPriceForQuantity(
 
   if (productTiers.length === 0) return 0;
 
+  // ⚠️ IMPORTANT: Limits are stored in cents (e.g., 100 = 1 unit)
+  // Convert limits from cents to whole numbers for comparison
   // Find the tier that contains this quantity
   const matchingTier = productTiers.find(
-    (tier) =>
-      quantity >= tier.lowerLimit && quantity <= tier.upperLimit
+    (tier) => {
+      const lowerLimit = tier.lowerLimit / 100; // Convert from cents
+      const upperLimit = tier.upperLimit / 100; // Convert from cents
+      return quantity >= lowerLimit && quantity <= upperLimit;
+    }
   );
 
   return matchingTier ? matchingTier.currentPrice : 0;
