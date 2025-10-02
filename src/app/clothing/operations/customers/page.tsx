@@ -1,13 +1,50 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+} from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { PageLayout } from '../../../../components/layout/PageLayout';
-import { GridCellKind, GridColumn, Item } from '@glideapps/glide-data-grid';
-import { Stack, Text, Box, Button, Group, FileInput, Loader, TextInput, Card, SimpleGrid, ThemeIcon, Title, Modal, Select } from '@mantine/core';
+import {
+  GridCellKind,
+  GridColumn,
+  Item,
+  type GridCell,
+} from '@glideapps/glide-data-grid';
+import {
+  Stack,
+  Text,
+  Button,
+  Group,
+  FileInput,
+  Loader,
+  TextInput,
+  Card,
+  SimpleGrid,
+  ThemeIcon,
+  Title,
+  Modal,
+  Select,
+} from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconUpload, IconSearch, IconUsers, IconFilter, IconBuildingStore, IconPhone, IconPlus, IconUser, IconMail, IconMapPin, IconCheck } from '@tabler/icons-react';
+import {
+  IconUpload,
+  IconSearch,
+  IconUsers,
+  IconFilter,
+  IconBuildingStore,
+  IconPhone,
+  IconPlus,
+  IconUser,
+  IconMail,
+  IconMapPin,
+  IconCheck,
+} from '@tabler/icons-react';
 
 // Import Glide Data Grid CSS
 import '@glideapps/glide-data-grid/dist/index.css';
@@ -64,9 +101,9 @@ const customGridStyles = `
 // Dynamic import to prevent SSR issues
 const DataEditor = dynamic(
   () => import('@glideapps/glide-data-grid').then((mod) => mod.DataEditor),
-  { 
+  {
     ssr: false,
-    loading: () => <Loader />
+    loading: () => <Loader />,
   }
 );
 
@@ -89,7 +126,9 @@ export default function Customers() {
   const router = useRouter();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [customers, setCustomers] = useState<CustomerData[]>([]);
-  const [filteredCustomers, setFilteredCustomers] = useState<CustomerData[]>([]);
+  const [filteredCustomers, setFilteredCustomers] = useState<CustomerData[]>(
+    []
+  );
   const [file, setFile] = useState<File | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [gridHeight, setGridHeight] = useState<number>(600);
@@ -164,162 +203,183 @@ export default function Customers() {
       customers.map((c) => (c['Business Name'] || '').trim()).filter(Boolean)
     ).size;
     const contactable = customers.filter(
-      (c) => (c['Email Address'] && c['Email Address'].trim()) || (c['Phone Number'] && c['Phone Number'].trim())
+      (c) =>
+        (c['Email Address'] && c['Email Address'].trim()) ||
+        (c['Phone Number'] && c['Phone Number'].trim())
     ).length;
-    const contactablePct = total > 0 ? Math.round((contactable / total) * 100) : 0;
+    const contactablePct =
+      total > 0 ? Math.round((contactable / total) * 100) : 0;
 
     return { total, filtered, uniqueBusinesses, contactable, contactablePct };
   }, [customers, filteredCustomers]);
 
   // Customer columns optimized for wide layout
-  const columns: GridColumn[] = [
-    { title: 'Date', width: 160, id: 'date' },
-    { title: 'Customer Name', width: 500, id: 'customerName' }, // Increased to 500px for maximum readability
-    { title: 'Phone Number', width: 190, id: 'phoneNumber' },
-    { title: 'Address', width: 340, id: 'address' },
-    { title: 'Facebook', width: 220, id: 'facebook' },
-    { title: 'Email Address', width: 260, id: 'emailAddress' },
-    { title: 'Business Name', width: 500, id: 'businessName' }, // Increased to 500px for maximum readability
-    { title: 'Tax Number', width: 170, id: 'taxNumber' },
-    { title: 'Business Address', width: 340, id: 'businessAddress' },
-    { title: 'Business Contact Number', width: 260, id: 'businessContactNumber' },
-    { title: 'Customer Status', width: 120, id: 'customerStatus', grow: 1 }, // Compact size for status values
-  ];
+  const columns: GridColumn[] = useMemo(
+    () => [
+      { title: 'Date', width: 160, id: 'date' },
+      { title: 'Customer Name', width: 500, id: 'customerName' }, // Increased to 500px for maximum readability
+      { title: 'Phone Number', width: 190, id: 'phoneNumber' },
+      { title: 'Address', width: 340, id: 'address' },
+      { title: 'Facebook', width: 220, id: 'facebook' },
+      { title: 'Email Address', width: 260, id: 'emailAddress' },
+      { title: 'Business Name', width: 500, id: 'businessName' }, // Increased to 500px for maximum readability
+      { title: 'Tax Number', width: 170, id: 'taxNumber' },
+      { title: 'Business Address', width: 340, id: 'businessAddress' },
+      {
+        title: 'Business Contact Number',
+        width: 260,
+        id: 'businessContactNumber',
+      },
+      { title: 'Customer Status', width: 120, id: 'customerStatus', grow: 1 }, // Compact size for status values
+    ],
+    []
+  );
 
   // Map column ids to CustomerData keys
-  const idToKey: Record<string, keyof CustomerData> = useMemo(() => ({
-    date: 'Date',
-    customerName: 'Customer Name',
-    phoneNumber: 'Phone Number',
-    address: 'Address',
-    facebook: 'Facebook',
-    emailAddress: 'Email Address',
-    businessName: 'Business Name',
-    taxNumber: 'Tax Number',
-    businessAddress: 'Business Address',
-    businessContactNumber: 'Business Contact Number',
-    customerStatus: 'Customer Status',
-  }), []);
-
-  // Update a single cell value by filtered row/col
-  const updateCellAt = useCallback((nextCustomers: CustomerData[], filteredRow: number, colIndex: number, rawValue: string) => {
-    const col = columns[colIndex];
-    if (!col) return;
-    const key = idToKey[col.id ?? ''];
-    if (!key) return;
-    const rowObj = filteredCustomers[filteredRow];
-    if (!rowObj) return;
-    const globalIndex = customers.indexOf(rowObj);
-    if (globalIndex === -1) return;
-    const newVal = (rawValue ?? '').toString();
-    const updated: CustomerData = { ...nextCustomers[globalIndex], [key]: newVal } as CustomerData;
-    nextCustomers[globalIndex] = updated;
-  }, [customers, filteredCustomers, columns, idToKey]);
+  const idToKey: Record<string, keyof CustomerData> = useMemo(
+    () => ({
+      date: 'Date',
+      customerName: 'Customer Name',
+      phoneNumber: 'Phone Number',
+      address: 'Address',
+      facebook: 'Facebook',
+      emailAddress: 'Email Address',
+      businessName: 'Business Name',
+      taxNumber: 'Tax Number',
+      businessAddress: 'Business Address',
+      businessContactNumber: 'Business Contact Number',
+      customerStatus: 'Customer Status',
+    }),
+    []
+  );
 
   // Handle paste into grid (multi-cell)
-  const handlePaste = useCallback((target: Item, values: readonly (readonly string[])[]) => {
-    if (!pasteMode) return false;
-    const [startCol, startRow] = target;
-    let applied = 0;
-    let clipped = false;
-    const nextCustomers = [...customers];
+  const handlePaste = useCallback(
+    (target: Item, values: readonly (readonly string[])[]) => {
+      if (!pasteMode) return false;
+      const [startCol, startRow] = target;
+      let applied = 0;
+      let clipped = false;
+      const nextCustomers = [...customers];
 
-    const makeEmpty = (): CustomerData => ({
-      Date: '',
-      'Customer Name': '',
-      'Phone Number': '',
-      Address: '',
-      Facebook: '',
-      'Email Address': '',
-      'Business Name': '',
-      'Tax Number': '',
-      'Business Address': '',
-      'Business Contact Number': '',
-      'Customer Status': '',
-    });
+      const makeEmpty = (): CustomerData => ({
+        Date: '',
+        'Customer Name': '',
+        'Phone Number': '',
+        Address: '',
+        Facebook: '',
+        'Email Address': '',
+        'Business Name': '',
+        'Tax Number': '',
+        'Business Address': '',
+        'Business Contact Number': '',
+        'Customer Status': '',
+      });
 
-    for (let r = 0; r < values.length; r++) {
-      const rowIdx = startRow + r;
-      const rowData = values[r] ?? [];
+      for (let r = 0; r < values.length; r++) {
+        const rowIdx = startRow + r;
+        const rowData = values[r] ?? [];
 
-      // Determine the global index to write to (existing filtered row or append)
-      let globalIndex: number;
-      if (rowIdx < filteredCustomers.length) {
-        const rowObj = filteredCustomers[rowIdx];
-        globalIndex = nextCustomers.indexOf(rowObj);
-        if (globalIndex === -1) {
+        // Determine the global index to write to (existing filtered row or append)
+        let globalIndex: number;
+        if (rowIdx < filteredCustomers.length) {
+          const rowObj = filteredCustomers[rowIdx];
+          globalIndex = nextCustomers.indexOf(rowObj);
+          if (globalIndex === -1) {
+            nextCustomers.push(makeEmpty());
+            globalIndex = nextCustomers.length - 1;
+          }
+        } else {
           nextCustomers.push(makeEmpty());
           globalIndex = nextCustomers.length - 1;
         }
-      } else {
-        nextCustomers.push(makeEmpty());
-        globalIndex = nextCustomers.length - 1;
-      }
 
-      for (let c = 0; c < rowData.length; c++) {
-        const colIdx = startCol + c;
-        if (colIdx >= columns.length) { clipped = true; break; }
-        const v = (rowData[c] ?? '').toString();
-        const col = columns[colIdx];
-        const key = col ? idToKey[col.id ?? ''] : undefined;
-        if (key) {
-          const updated: CustomerData = { ...nextCustomers[globalIndex], [key]: v } as CustomerData;
-          nextCustomers[globalIndex] = updated;
-          applied++;
-        }
-      }
-    }
-
-    if (applied > 0) {
-      // Persist full dataset via bulk sync for simplicity
-      (async () => {
-        try {
-          const res = await fetch('/api/customers', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(nextCustomers),
-          });
-          if (!res.ok) {
-            let msg = 'Failed to persist pasted rows';
-            try { const j = await res.json(); if (j?.error) msg = j.error; } catch {}
-            notifications.show({ title: 'Paste saved locally only', message: msg, color: 'yellow' });
+        for (let c = 0; c < rowData.length; c++) {
+          const colIdx = startCol + c;
+          if (colIdx >= columns.length) {
+            clipped = true;
+            break;
           }
-        } catch (e) {
-          console.error('Failed to persist pasted rows', e);
-          notifications.show({ title: 'Paste saved locally only', message: 'Database not reachable', color: 'yellow' });
+          const v = (rowData[c] ?? '').toString();
+          const col = columns[colIdx];
+          const key = col ? idToKey[col.id ?? ''] : undefined;
+          if (key) {
+            const updated: CustomerData = {
+              ...nextCustomers[globalIndex],
+              [key]: v,
+            } as CustomerData;
+            nextCustomers[globalIndex] = updated;
+            applied++;
+          }
         }
-      })();
-
-      setCustomers(nextCustomers);
-      if (!searchQuery.trim()) {
-        setFilteredCustomers(nextCustomers);
-      } else {
-        const q = searchQuery.toLowerCase();
-        setFilteredCustomers(nextCustomers.filter((customer) =>
-          customer.Date.toLowerCase().includes(q) ||
-          customer['Customer Name'].toLowerCase().includes(q) ||
-          customer['Phone Number'].toLowerCase().includes(q) ||
-          customer.Address.toLowerCase().includes(q) ||
-          customer.Facebook.toLowerCase().includes(q) ||
-          customer['Email Address'].toLowerCase().includes(q) ||
-          customer['Business Name'].toLowerCase().includes(q) ||
-          customer['Tax Number'].toLowerCase().includes(q) ||
-          customer['Business Address'].toLowerCase().includes(q) ||
-          customer['Business Contact Number'].toLowerCase().includes(q) ||
-          customer['Customer Status'].toLowerCase().includes(q)
-        ));
       }
 
-      notifications.show({
-        title: 'Pasted into table',
-        message: `Applied ${applied} cell${applied === 1 ? '' : 's'}${clipped ? ' (some data clipped to grid size)' : ''}`,
-        color: 'blue',
-      });
+      if (applied > 0) {
+        // Persist full dataset via bulk sync for simplicity
+        (async () => {
+          try {
+            const res = await fetch('/api/customers', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(nextCustomers),
+            });
+            if (!res.ok) {
+              let msg = 'Failed to persist pasted rows';
+              try {
+                const j = await res.json();
+                if (j?.error) msg = j.error;
+              } catch {}
+              notifications.show({
+                title: 'Paste saved locally only',
+                message: msg,
+                color: 'yellow',
+              });
+            }
+          } catch (e) {
+            console.error('Failed to persist pasted rows', e);
+            notifications.show({
+              title: 'Paste saved locally only',
+              message: 'Database not reachable',
+              color: 'yellow',
+            });
+          }
+        })();
 
-      return true;
-    }
-    return false;
-  }, [pasteMode, customers, filteredCustomers, columns, searchQuery, idToKey]);
+        setCustomers(nextCustomers);
+        if (!searchQuery.trim()) {
+          setFilteredCustomers(nextCustomers);
+        } else {
+          const q = searchQuery.toLowerCase();
+          setFilteredCustomers(
+            nextCustomers.filter(
+              (customer) =>
+                customer.Date.toLowerCase().includes(q) ||
+                customer['Customer Name'].toLowerCase().includes(q) ||
+                customer['Phone Number'].toLowerCase().includes(q) ||
+                customer.Address.toLowerCase().includes(q) ||
+                customer.Facebook.toLowerCase().includes(q) ||
+                customer['Email Address'].toLowerCase().includes(q) ||
+                customer['Business Name'].toLowerCase().includes(q) ||
+                customer['Tax Number'].toLowerCase().includes(q) ||
+                customer['Business Address'].toLowerCase().includes(q) ||
+                customer['Business Contact Number'].toLowerCase().includes(q) ||
+                customer['Customer Status'].toLowerCase().includes(q)
+            )
+          );
+        }
+
+        notifications.show({
+          title: 'Pasted into table',
+          message: `Applied ${applied} cell${applied === 1 ? '' : 's'}${clipped ? ' (some data clipped to grid size)' : ''}`,
+          color: 'blue',
+        });
+
+        return true;
+      }
+      return false;
+    },
+    [pasteMode, customers, filteredCustomers, columns, searchQuery, idToKey]
+  );
 
   // CSV import functionality
   const handleImportCSV = async () => {
@@ -327,26 +387,48 @@ export default function Customers() {
 
     try {
       const text = await file.text();
-      const lines = text.split('\n').filter(line => line.trim());
-      
+      const lines = text.split('\n').filter((line) => line.trim());
+
       if (lines.length < 2) {
         alert('CSV file must have headers and at least one data row');
         return;
       }
 
-      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+      // Parse CSV properly handling quoted fields with commas
+      const parseCSVLine = (line: string): string[] => {
+        const result: string[] = [];
+        let current = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            result.push(current.trim());
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        result.push(current.trim());
+        return result;
+      };
+
+      parseCSVLine(lines[0]).map((h) => h.replace(/"/g, ''));
       const parsedData: CustomerData[] = [];
-      
+
       for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
-        
+        const values = parseCSVLine(lines[i]).map((v) => v.replace(/"/g, ''));
+
         if (values.length >= 11) {
           const customer: CustomerData = {
-            'Date': values[0] || '',
+            Date: values[0] || '',
             'Customer Name': values[1] || '',
             'Phone Number': values[2] || '',
-            'Address': values[3] || '',
-            'Facebook': values[4] || '',
+            Address: values[3] || '',
+            Facebook: values[4] || '',
             'Email Address': values[5] || '',
             'Business Name': values[6] || '',
             'Tax Number': values[7] || '',
@@ -357,7 +439,7 @@ export default function Customers() {
           parsedData.push(customer);
         }
       }
-      
+
       // Persist to DB (replace all)
       try {
         const res = await fetch('/api/customers', {
@@ -367,16 +449,47 @@ export default function Customers() {
         });
         if (!res.ok) {
           let msg = 'Failed to persist imported CSV';
-          try { const j = await res.json(); if (j?.error) msg = j.error; } catch {}
-          notifications.show({ title: 'Import saved locally only', message: msg, color: 'yellow' });
+          try {
+            const j = await res.json();
+            if (j?.error) msg = j.error;
+          } catch {}
+          notifications.show({
+            title: 'Import saved locally only',
+            message: msg,
+            color: 'yellow',
+          });
+          // Still set the data locally even if DB save failed
+          setCustomers(parsedData);
+          setFilteredCustomers(parsedData);
+        } else {
+          // Successfully saved to DB - reload from DB to get IDs
+          const reloadRes = await fetch('/api/customers');
+          if (reloadRes.ok) {
+            const customersWithIds = await reloadRes.json();
+            setCustomers(customersWithIds);
+            setFilteredCustomers(customersWithIds);
+            notifications.show({
+              title: 'Import Successful',
+              message: `Imported ${customersWithIds.length} customers`,
+              color: 'green',
+            });
+          } else {
+            // Fallback to parsed data if reload fails
+            setCustomers(parsedData);
+            setFilteredCustomers(parsedData);
+          }
         }
       } catch (e) {
         console.error('Failed to persist imported CSV', e);
-        notifications.show({ title: 'Import saved locally only', message: 'Database not reachable', color: 'yellow' });
+        notifications.show({
+          title: 'Import saved locally only',
+          message: 'Database not reachable',
+          color: 'yellow',
+        });
+        setCustomers(parsedData);
+        setFilteredCustomers(parsedData);
       }
 
-      setCustomers(parsedData);
-      setFilteredCustomers(parsedData);
       setFile(null);
       console.log(`Imported ${parsedData.length} customers`);
     } catch (error) {
@@ -388,13 +501,13 @@ export default function Customers() {
   // Search functionality
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    
+
     if (!query.trim()) {
       setFilteredCustomers(customers);
       return;
     }
 
-    const filtered = customers.filter(customer => {
+    const filtered = customers.filter((customer) => {
       const searchTerm = query.toLowerCase();
       return (
         customer.Date.toLowerCase().includes(searchTerm) ||
@@ -406,102 +519,160 @@ export default function Customers() {
         customer['Business Name'].toLowerCase().includes(searchTerm) ||
         customer['Tax Number'].toLowerCase().includes(searchTerm) ||
         customer['Business Address'].toLowerCase().includes(searchTerm) ||
-        customer['Business Contact Number'].toLowerCase().includes(searchTerm) ||
+        customer['Business Contact Number']
+          .toLowerCase()
+          .includes(searchTerm) ||
         customer['Customer Status'].toLowerCase().includes(searchTerm)
       );
     });
-    
+
     setFilteredCustomers(filtered);
   };
 
   // Data rendering
-  const getData = useCallback((cell: Item): any => {
-    const [col, row] = cell;
-    
-    if (row >= filteredCustomers.length) {
-      return {
-        kind: GridCellKind.Text,
-        data: '',
-        displayData: '',
-        allowOverlay: true,
-      };
-    }
+  const getData = useCallback(
+    (cell: Item): GridCell => {
+      const [col, row] = cell;
 
-    const customer = filteredCustomers[row];
-    const column = columns[col];
+      if (row >= filteredCustomers.length) {
+        return {
+          kind: GridCellKind.Text,
+          data: '',
+          displayData: '',
+          allowOverlay: false,
+          readonly: true,
+        } as GridCell;
+      }
 
-    let cellData = '';
-    switch (column.id) {
-      case 'date': cellData = customer.Date; break;
-      case 'customerName': cellData = customer['Customer Name']; break;
-      case 'phoneNumber': cellData = customer['Phone Number']; break;
-      case 'address': cellData = customer.Address; break;
-      case 'facebook': cellData = customer.Facebook; break;
-      case 'emailAddress': cellData = customer['Email Address']; break;
-      case 'businessName': cellData = customer['Business Name']; break;
-      case 'taxNumber': cellData = customer['Tax Number']; break;
-      case 'businessAddress': cellData = customer['Business Address']; break;
-      case 'businessContactNumber': cellData = customer['Business Contact Number']; break;
-      case 'customerStatus': cellData = customer['Customer Status']; break;
-      default: cellData = '';
-    }
+      const customer = filteredCustomers[row];
+      const column = columns[col];
 
-    // Make customer name column appear as a clickable link
-    if (column.id === 'customerName' && cellData && customer.id) {
+      let cellData = '';
+      switch (column.id) {
+        case 'date':
+          cellData = customer.Date;
+          break;
+        case 'customerName':
+          cellData = customer['Customer Name'];
+          break;
+        case 'phoneNumber':
+          cellData = customer['Phone Number'];
+          break;
+        case 'address':
+          cellData = customer.Address;
+          break;
+        case 'facebook':
+          cellData = customer.Facebook;
+          break;
+        case 'emailAddress':
+          cellData = customer['Email Address'];
+          break;
+        case 'businessName':
+          cellData = customer['Business Name'];
+          break;
+        case 'taxNumber':
+          cellData = customer['Tax Number'];
+          break;
+        case 'businessAddress':
+          cellData = customer['Business Address'];
+          break;
+        case 'businessContactNumber':
+          cellData = customer['Business Contact Number'];
+          break;
+        case 'customerStatus':
+          cellData = customer['Customer Status'];
+          break;
+        default:
+          cellData = '';
+      }
+
+      // Make customer name column appear as a clickable link
+      if (column.id === 'customerName' && cellData && customer.id) {
+        return {
+          kind: GridCellKind.Text,
+          data: cellData,
+          displayData: cellData,
+          allowOverlay: false,
+          readonly: true,
+          contentAlign: 'left',
+        } as GridCell;
+      }
+
       return {
         kind: GridCellKind.Text,
         data: cellData,
         displayData: cellData,
-        allowOverlay: true,
-        cursor: 'pointer',
-        contentAlign: 'left',
-        style: 'link', // This might help indicate it's clickable
+        allowOverlay: false,
+        readonly: true,
       };
-    }
+    },
+    [filteredCustomers, columns]
+  );
 
-    return {
-      kind: GridCellKind.Text,
-      data: cellData,
-      displayData: cellData,
-      allowOverlay: true,
+  const getRowCount = useCallback(
+    () => filteredCustomers.length,
+    [filteredCustomers]
+  );
+
+  interface DrawHeaderArgs {
+    ctx: CanvasRenderingContext2D;
+    column: GridColumn;
+    rect: { x: number; y: number; width: number; height: number };
+    theme: {
+      bgHeader: string;
+      textHeader: string;
+      headerFontStyle: string;
     };
-  }, [filteredCustomers, columns]);
-
-  const getRowCount = useCallback(() => filteredCustomers.length, [filteredCustomers]);
+  }
 
   // Custom header renderer for center alignment
-  const drawHeader = useCallback((args: any) => {
+  const drawHeader = useCallback((args: DrawHeaderArgs) => {
     const { ctx, column, rect, theme } = args;
-    
+
     // Fill header background
     ctx.fillStyle = theme.bgHeader;
     ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
-    
+
     // Set text properties
     ctx.fillStyle = theme.textHeader;
     ctx.font = theme.headerFontStyle;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    
+
     // Draw centered text
     const centerX = rect.x + rect.width / 2;
     const centerY = rect.y + rect.height / 2;
     ctx.fillText(column.title, centerX, centerY);
-    
+
     return true;
   }, []);
 
   return (
     <PageLayout fluid withPadding>
       <style dangerouslySetInnerHTML={{ __html: customGridStyles }} />
-      <Stack gap="md" style={{ width: '100%', maxWidth: 'none', margin: '0 auto' }}>
+      <Stack
+        gap="md"
+        style={{ width: '100%', maxWidth: 'none', margin: '0 auto' }}
+      >
         {/* Stats cards */}
         <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
-          <Card shadow="sm" padding="md" radius="md" style={{ background: 'var(--mantine-color-blue-6)', color: 'white' }}>
+          <Card
+            shadow="sm"
+            padding="md"
+            radius="md"
+            style={{
+              background: 'var(--mantine-color-blue-6)',
+              color: 'white',
+            }}
+          >
             <Group justify="space-between" align="flex-start">
               <div>
-                <Text c="white" size="xs" style={{ opacity: 0.85 }}>Total customers</Text>
-                <Title order={3} c="white">{stats.total}</Title>
+                <Text c="white" size="xs" style={{ opacity: 0.85 }}>
+                  Total customers
+                </Text>
+                <Title order={3} c="white">
+                  {stats.total}
+                </Title>
               </div>
               <ThemeIcon variant="white" color="blue" size="lg" radius="md">
                 <IconUsers size={18} />
@@ -509,11 +680,23 @@ export default function Customers() {
             </Group>
           </Card>
 
-          <Card shadow="sm" padding="md" radius="md" style={{ background: 'var(--mantine-color-grape-6)', color: 'white' }}>
+          <Card
+            shadow="sm"
+            padding="md"
+            radius="md"
+            style={{
+              background: 'var(--mantine-color-grape-6)',
+              color: 'white',
+            }}
+          >
             <Group justify="space-between" align="flex-start">
               <div>
-                <Text c="white" size="xs" style={{ opacity: 0.85 }}>In current view</Text>
-                <Title order={3} c="white">{stats.filtered}</Title>
+                <Text c="white" size="xs" style={{ opacity: 0.85 }}>
+                  In current view
+                </Text>
+                <Title order={3} c="white">
+                  {stats.filtered}
+                </Title>
               </div>
               <ThemeIcon variant="white" color="grape" size="lg" radius="md">
                 <IconFilter size={18} />
@@ -521,11 +704,23 @@ export default function Customers() {
             </Group>
           </Card>
 
-          <Card shadow="sm" padding="md" radius="md" style={{ background: 'var(--mantine-color-teal-6)', color: 'white' }}>
+          <Card
+            shadow="sm"
+            padding="md"
+            radius="md"
+            style={{
+              background: 'var(--mantine-color-teal-6)',
+              color: 'white',
+            }}
+          >
             <Group justify="space-between" align="flex-start">
               <div>
-                <Text c="white" size="xs" style={{ opacity: 0.85 }}>Unique businesses</Text>
-                <Title order={3} c="white">{stats.uniqueBusinesses}</Title>
+                <Text c="white" size="xs" style={{ opacity: 0.85 }}>
+                  Unique businesses
+                </Text>
+                <Title order={3} c="white">
+                  {stats.uniqueBusinesses}
+                </Title>
               </div>
               <ThemeIcon variant="white" color="teal" size="lg" radius="md">
                 <IconBuildingStore size={18} />
@@ -533,11 +728,31 @@ export default function Customers() {
             </Group>
           </Card>
 
-          <Card shadow="sm" padding="md" radius="md" style={{ background: 'var(--mantine-color-green-6)', color: 'white' }}>
+          <Card
+            shadow="sm"
+            padding="md"
+            radius="md"
+            style={{
+              background: 'var(--mantine-color-green-6)',
+              color: 'white',
+            }}
+          >
             <Group justify="space-between" align="flex-start">
               <div>
-                <Text c="white" size="xs" style={{ opacity: 0.85 }}>Contactable</Text>
-                <Title order={3} c="white">{stats.contactable} <Text component="span" size="sm" c="white" style={{ opacity: 0.85 }}>({stats.contactablePct}%)</Text></Title>
+                <Text c="white" size="xs" style={{ opacity: 0.85 }}>
+                  Contactable
+                </Text>
+                <Title order={3} c="white">
+                  {stats.contactable}{' '}
+                  <Text
+                    component="span"
+                    size="sm"
+                    c="white"
+                    style={{ opacity: 0.85 }}
+                  >
+                    ({stats.contactablePct}%)
+                  </Text>
+                </Title>
               </div>
               <ThemeIcon variant="white" color="green" size="lg" radius="md">
                 <IconPhone size={18} />
@@ -595,8 +810,8 @@ export default function Customers() {
         </Group>
 
         {/* Add New Customer Modal - Enhanced Modern Design */}
-        <Modal 
-          opened={addOpen} 
+        <Modal
+          opened={addOpen}
           onClose={() => setAddOpen(false)}
           closeOnClickOutside={false}
           closeOnEscape={false}
@@ -635,8 +850,12 @@ export default function Customers() {
                 <IconPlus size={20} />
               </ThemeIcon>
               <div>
-                <Text size="xl" fw={600} c="blue.8">Add New Customer</Text>
-                <Text size="sm" c="dimmed">Fill in the customer information below</Text>
+                <Text size="xl" fw={600} c="blue.8">
+                  Add New Customer
+                </Text>
+                <Text size="sm" c="dimmed">
+                  Fill in the customer information below
+                </Text>
               </div>
             </Group>
           }
@@ -648,9 +867,11 @@ export default function Customers() {
                 <ThemeIcon size="sm" radius="md" variant="light" color="blue">
                   <IconUser size={14} />
                 </ThemeIcon>
-                <Text size="lg" fw={500} c="blue.7">Personal Information</Text>
+                <Text size="lg" fw={500} c="blue.7">
+                  Personal Information
+                </Text>
               </Group>
-              
+
               <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                 <TextInput
                   label="Customer Name"
@@ -660,10 +881,10 @@ export default function Customers() {
                   radius="md"
                   styles={{
                     label: { fontWeight: 500, marginBottom: 8 },
-                    input: { 
+                    input: {
                       borderWidth: 2,
-                      '&:focus': { borderColor: 'var(--mantine-color-blue-5)' }
-                    }
+                      '&:focus': { borderColor: 'var(--mantine-color-blue-5)' },
+                    },
                   }}
                   value={newCustomerForm.customerName}
                   onChange={(e) => {
@@ -671,19 +892,22 @@ export default function Customers() {
                     setNewCustomerForm((p) => {
                       const next = { ...p, customerName: v };
                       const match = customers.find(
-                        (c) => c['Customer Name'].trim().toLowerCase() === v.trim().toLowerCase()
+                        (c) =>
+                          c['Customer Name'].trim().toLowerCase() ===
+                          v.trim().toLowerCase()
                       );
                       if (match) {
                         next.businessName = match['Business Name'] || '';
                         next.taxNumber = match['Tax Number'] || '';
                         next.businessAddress = match['Business Address'] || '';
-                        next.businessContactNumber = match['Business Contact Number'] || '';
+                        next.businessContactNumber =
+                          match['Business Contact Number'] || '';
                       }
                       return next;
                     });
                   }}
                 />
-                
+
                 <TextInput
                   label="Phone Number"
                   placeholder="e.g. 09171234567"
@@ -692,10 +916,10 @@ export default function Customers() {
                   leftSection={<IconPhone size={16} />}
                   styles={{
                     label: { fontWeight: 500, marginBottom: 8 },
-                    input: { 
+                    input: {
                       borderWidth: 2,
-                      '&:focus': { borderColor: 'var(--mantine-color-blue-5)' }
-                    }
+                      '&:focus': { borderColor: 'var(--mantine-color-blue-5)' },
+                    },
                   }}
                   value={newCustomerForm.phoneNumber}
                   onChange={(e) => {
@@ -714,10 +938,10 @@ export default function Customers() {
                   leftSection={<IconMail size={16} />}
                   styles={{
                     label: { fontWeight: 500, marginBottom: 8 },
-                    input: { 
+                    input: {
                       borderWidth: 2,
-                      '&:focus': { borderColor: 'var(--mantine-color-blue-5)' }
-                    }
+                      '&:focus': { borderColor: 'var(--mantine-color-blue-5)' },
+                    },
                   }}
                   value={newCustomerForm.emailAddress}
                   onChange={(e) => {
@@ -733,10 +957,10 @@ export default function Customers() {
                   radius="md"
                   styles={{
                     label: { fontWeight: 500, marginBottom: 8 },
-                    input: { 
+                    input: {
                       borderWidth: 2,
-                      '&:focus': { borderColor: 'var(--mantine-color-blue-5)' }
-                    }
+                      '&:focus': { borderColor: 'var(--mantine-color-blue-5)' },
+                    },
                   }}
                   data={[
                     { label: '✅ Active', value: 'Active' },
@@ -748,7 +972,10 @@ export default function Customers() {
                   clearable
                   value={newCustomerForm.customerStatus || null}
                   onChange={(value) => {
-                    setNewCustomerForm((p) => ({ ...p, customerStatus: value ?? '' }));
+                    setNewCustomerForm((p) => ({
+                      ...p,
+                      customerStatus: value ?? '',
+                    }));
                   }}
                 />
               </SimpleGrid>
@@ -762,10 +989,10 @@ export default function Customers() {
                 leftSection={<IconMapPin size={16} />}
                 styles={{
                   label: { fontWeight: 500, marginBottom: 8 },
-                  input: { 
+                  input: {
                     borderWidth: 2,
-                    '&:focus': { borderColor: 'var(--mantine-color-blue-5)' }
-                  }
+                    '&:focus': { borderColor: 'var(--mantine-color-blue-5)' },
+                  },
                 }}
                 value={newCustomerForm.address}
                 onChange={(e) => {
@@ -782,10 +1009,10 @@ export default function Customers() {
                 mt="md"
                 styles={{
                   label: { fontWeight: 500, marginBottom: 8 },
-                  input: { 
+                  input: {
                     borderWidth: 2,
-                    '&:focus': { borderColor: 'var(--mantine-color-blue-5)' }
-                  }
+                    '&:focus': { borderColor: 'var(--mantine-color-blue-5)' },
+                  },
                 }}
                 value={newCustomerForm.facebook}
                 onChange={(e) => {
@@ -801,10 +1028,14 @@ export default function Customers() {
                 <ThemeIcon size="sm" radius="md" variant="light" color="green">
                   <IconBuildingStore size={14} />
                 </ThemeIcon>
-                <Text size="lg" fw={500} c="green.7">Business Information</Text>
-                <Text size="xs" c="dimmed">(Optional - Auto-filled if customer exists)</Text>
+                <Text size="lg" fw={500} c="green.7">
+                  Business Information
+                </Text>
+                <Text size="xs" c="dimmed">
+                  (Optional - Auto-filled if customer exists)
+                </Text>
               </Group>
-              
+
               <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                 <TextInput
                   label="Business Name"
@@ -813,10 +1044,12 @@ export default function Customers() {
                   radius="md"
                   styles={{
                     label: { fontWeight: 500, marginBottom: 8 },
-                    input: { 
+                    input: {
                       borderWidth: 2,
-                      '&:focus': { borderColor: 'var(--mantine-color-green-5)' }
-                    }
+                      '&:focus': {
+                        borderColor: 'var(--mantine-color-green-5)',
+                      },
+                    },
                   }}
                   value={newCustomerForm.businessName}
                   onChange={(e) => {
@@ -824,7 +1057,7 @@ export default function Customers() {
                     setNewCustomerForm((p) => ({ ...p, businessName: v }));
                   }}
                 />
-                
+
                 <TextInput
                   label="Tax Number"
                   placeholder="e.g. 123-456-789"
@@ -832,10 +1065,12 @@ export default function Customers() {
                   radius="md"
                   styles={{
                     label: { fontWeight: 500, marginBottom: 8 },
-                    input: { 
+                    input: {
                       borderWidth: 2,
-                      '&:focus': { borderColor: 'var(--mantine-color-green-5)' }
-                    }
+                      '&:focus': {
+                        borderColor: 'var(--mantine-color-green-5)',
+                      },
+                    },
                   }}
                   value={newCustomerForm.taxNumber}
                   onChange={(e) => {
@@ -854,10 +1089,12 @@ export default function Customers() {
                   leftSection={<IconMapPin size={16} />}
                   styles={{
                     label: { fontWeight: 500, marginBottom: 8 },
-                    input: { 
+                    input: {
                       borderWidth: 2,
-                      '&:focus': { borderColor: 'var(--mantine-color-green-5)' }
-                    }
+                      '&:focus': {
+                        borderColor: 'var(--mantine-color-green-5)',
+                      },
+                    },
                   }}
                   value={newCustomerForm.businessAddress}
                   onChange={(e) => {
@@ -874,24 +1111,34 @@ export default function Customers() {
                   leftSection={<IconPhone size={16} />}
                   styles={{
                     label: { fontWeight: 500, marginBottom: 8 },
-                    input: { 
+                    input: {
                       borderWidth: 2,
-                      '&:focus': { borderColor: 'var(--mantine-color-green-5)' }
-                    }
+                      '&:focus': {
+                        borderColor: 'var(--mantine-color-green-5)',
+                      },
+                    },
                   }}
                   value={newCustomerForm.businessContactNumber}
                   onChange={(e) => {
                     const v = e.currentTarget.value;
-                    setNewCustomerForm((p) => ({ ...p, businessContactNumber: v }));
+                    setNewCustomerForm((p) => ({
+                      ...p,
+                      businessContactNumber: v,
+                    }));
                   }}
                 />
               </SimpleGrid>
             </div>
 
             {/* Action Buttons */}
-            <Group justify="flex-end" mt="xl" pt="md" style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}>
-              <Button 
-                variant="subtle" 
+            <Group
+              justify="flex-end"
+              mt="xl"
+              pt="md"
+              style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}
+            >
+              <Button
+                variant="subtle"
                 size="md"
                 radius="md"
                 onClick={() => setAddOpen(false)}
@@ -899,8 +1146,8 @@ export default function Customers() {
                   root: {
                     '&:hover': {
                       backgroundColor: 'var(--mantine-color-gray-1)',
-                    }
-                  }
+                    },
+                  },
                 }}
               >
                 Cancel
@@ -919,7 +1166,7 @@ export default function Customers() {
                       transform: 'translateY(-1px)',
                     },
                     transition: 'all 0.2s ease',
-                  }
+                  },
                 }}
                 onClick={() => {
                   const savedName = newCustomerForm.customerName.trim();
@@ -933,7 +1180,8 @@ export default function Customers() {
                     'Business Name': newCustomerForm.businessName.trim(),
                     'Tax Number': newCustomerForm.taxNumber.trim(),
                     'Business Address': newCustomerForm.businessAddress.trim(),
-                    'Business Contact Number': newCustomerForm.businessContactNumber.trim(),
+                    'Business Contact Number':
+                      newCustomerForm.businessContactNumber.trim(),
                     'Customer Status': newCustomerForm.customerStatus.trim(),
                   };
 
@@ -949,12 +1197,23 @@ export default function Customers() {
                       });
                       if (!res.ok) {
                         let msg = 'Failed to persist new customer';
-                        try { const j = await res.json(); if (j?.error) msg = j.error; } catch {}
-                        notifications.show({ title: 'Saved locally only', message: msg, color: 'yellow' });
+                        try {
+                          const j = await res.json();
+                          if (j?.error) msg = j.error;
+                        } catch {}
+                        notifications.show({
+                          title: 'Saved locally only',
+                          message: msg,
+                          color: 'yellow',
+                        });
                       }
                     } catch (e) {
                       console.error('Failed to persist new customer', e);
-                      notifications.show({ title: 'Saved locally only', message: 'Database not reachable', color: 'yellow' });
+                      notifications.show({
+                        title: 'Saved locally only',
+                        message: 'Database not reachable',
+                        color: 'yellow',
+                      });
                     }
                   })();
 
@@ -964,18 +1223,23 @@ export default function Customers() {
                     setFilteredCustomers(nextCustomers);
                   } else {
                     const q = searchQuery.toLowerCase();
-                    const filtered = nextCustomers.filter((customer) =>
-                      customer.Date.toLowerCase().includes(q) ||
-                      customer['Customer Name'].toLowerCase().includes(q) ||
-                      customer['Phone Number'].toLowerCase().includes(q) ||
-                      customer.Address.toLowerCase().includes(q) ||
-                      customer.Facebook.toLowerCase().includes(q) ||
-                      customer['Email Address'].toLowerCase().includes(q) ||
-                      customer['Business Name'].toLowerCase().includes(q) ||
-                      customer['Tax Number'].toLowerCase().includes(q) ||
-                      customer['Business Address'].toLowerCase().includes(q) ||
-                      customer['Business Contact Number'].toLowerCase().includes(q) ||
-                      customer['Customer Status'].toLowerCase().includes(q)
+                    const filtered = nextCustomers.filter(
+                      (customer) =>
+                        customer.Date.toLowerCase().includes(q) ||
+                        customer['Customer Name'].toLowerCase().includes(q) ||
+                        customer['Phone Number'].toLowerCase().includes(q) ||
+                        customer.Address.toLowerCase().includes(q) ||
+                        customer.Facebook.toLowerCase().includes(q) ||
+                        customer['Email Address'].toLowerCase().includes(q) ||
+                        customer['Business Name'].toLowerCase().includes(q) ||
+                        customer['Tax Number'].toLowerCase().includes(q) ||
+                        customer['Business Address']
+                          .toLowerCase()
+                          .includes(q) ||
+                        customer['Business Contact Number']
+                          .toLowerCase()
+                          .includes(q) ||
+                        customer['Customer Status'].toLowerCase().includes(q)
                     );
                     setFilteredCustomers(filtered);
                   }
@@ -1011,22 +1275,28 @@ export default function Customers() {
           </Stack>
         </Modal>
 
-
-        <Card withBorder shadow="sm" radius="md" padding={0} style={{
-          height: gridHeight,
-          width: '100%',
-          maxWidth: '100%',
-          overflow: 'hidden',
-          position: 'relative',
-          background: '#fff',
-          fontSize: '18px'
-        }} className="data-grid-container">
+        <Card
+          withBorder
+          shadow="sm"
+          radius="md"
+          padding={0}
+          style={{
+            height: gridHeight,
+            width: '100%',
+            maxWidth: '100%',
+            overflow: 'hidden',
+            position: 'relative',
+            background: '#fff',
+            fontSize: '18px',
+          }}
+          className="data-grid-container"
+        >
           <DataEditor
             getCellContent={getData}
             columns={columns}
             rows={getRowCount()}
             height={gridHeight}
-            width={"100%"}
+            width={'100%'}
             overscrollX={0}
             smoothScrollX={true}
             smoothScrollY={true}
@@ -1035,12 +1305,15 @@ export default function Customers() {
             rowMarkers="number"
             onPaste={pasteMode ? handlePaste : undefined}
             isDraggable={false}
-            onCellClicked={(cell, event) => {
+            onCellClicked={(cell) => {
               const [col, row] = cell;
               const column = columns[col];
-              
+
               // Only handle clicks on the customer name column
-              if (column?.id === 'customerName' && row < filteredCustomers.length) {
+              if (
+                column?.id === 'customerName' &&
+                row < filteredCustomers.length
+              ) {
                 const customer = filteredCustomers[row];
                 if (customer?.id) {
                   router.push(`/clothing/operations/customers/${customer.id}`);
@@ -1089,8 +1362,7 @@ export default function Customers() {
         <Text size="sm" c="dimmed" ta="center">
           {customers.length > 0
             ? `Showing ${filteredCustomers.length} of ${customers.length} customers${searchQuery ? ' (filtered)' : ''}`
-            : 'Customer management system - import CSV file to get started'
-          }
+            : 'Customer management system - import CSV file to get started'}
         </Text>
       </Stack>
     </PageLayout>
