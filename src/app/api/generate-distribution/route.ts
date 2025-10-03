@@ -59,7 +59,13 @@ export async function POST(request: NextRequest) {
         logoDataUri,
       });
 
-      await page.setContent(html, { waitUntil: 'networkidle0' });
+      await page.setContent(html, {
+        waitUntil: 'domcontentloaded',
+        timeout: 10000,
+      });
+
+      // Give a moment for fonts to load
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
       // Generate PDF for this single transaction (A6 landscape)
       const pdfBuffer = await page.pdf({
