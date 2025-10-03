@@ -996,6 +996,33 @@ export default function Transactions() {
     []
   );
 
+  /**
+   * Save transaction update to database
+   *
+   * @param transaction - The transaction object to save
+   * @returns Promise that resolves when save is complete
+   */
+  const saveTransactionToDatabase = async (transaction: TransactionData) => {
+    try {
+      const response = await fetch('/api/transactions', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(transaction),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save transaction to database');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error saving transaction:', error);
+      throw error;
+    }
+  };
+
   const handleCellEdited = useCallback(
     (cell: Item, newValue: GridCell) => {
       const [col, row] = cell;
@@ -1026,6 +1053,16 @@ export default function Transactions() {
         const newTransactions = [...transactions];
         newTransactions[transactionIndex] = updatedTransaction;
         setTransactions(newTransactions);
+
+        // Save to database
+        saveTransactionToDatabase(updatedTransaction).catch((error) => {
+          notifications.show({
+            title: 'Error',
+            message: 'Failed to save Order Date to database',
+            color: 'red',
+          });
+          console.error('Database save error:', error);
+        });
 
         notifications.show({
           title: 'Success',
@@ -1073,6 +1110,16 @@ export default function Transactions() {
         const newTransactions = [...transactions];
         newTransactions[transactionIndex] = updatedTransaction;
         setTransactions(newTransactions);
+
+        // Save to database
+        saveTransactionToDatabase(updatedTransaction).catch((error) => {
+          notifications.show({
+            title: 'Error',
+            message: 'Failed to save Customer to database',
+            color: 'red',
+          });
+          console.error('Database save error:', error);
+        });
 
         notifications.show({
           title: 'Success',
@@ -1194,6 +1241,16 @@ export default function Transactions() {
         newTransactions[transactionIndex] = updatedTransaction;
         setTransactions(newTransactions);
 
+        // Save to database
+        saveTransactionToDatabase(updatedTransaction).catch((error) => {
+          notifications.show({
+            title: 'Error',
+            message: 'Failed to save Product Code to database',
+            color: 'red',
+          });
+          console.error('Database save error:', error);
+        });
+
         // Build notification message based on what was auto-populated
         let message = 'Product Code updated successfully';
         const autopopulated = [];
@@ -1301,6 +1358,16 @@ export default function Transactions() {
         newTransactions[transactionIndex] = updatedTransaction;
         setTransactions(newTransactions);
 
+        // Save to database
+        saveTransactionToDatabase(updatedTransaction).catch((error) => {
+          notifications.show({
+            title: 'Error',
+            message: 'Failed to save Quantity to database',
+            color: 'red',
+          });
+          console.error('Database save error:', error);
+        });
+
         // Build notification message
         let message = 'Quantity updated successfully';
         if (unitPriceAutoPopulated) {
@@ -1355,6 +1422,16 @@ export default function Transactions() {
         const newTransactions = [...transactions];
         newTransactions[transactionIndex] = updatedTransaction;
         setTransactions(newTransactions);
+
+        // Save to database
+        saveTransactionToDatabase(updatedTransaction).catch((error) => {
+          notifications.show({
+            title: 'Error',
+            message: 'Failed to save Unit Price to database',
+            color: 'red',
+          });
+          console.error('Database save error:', error);
+        });
 
         notifications.show({
           title: 'Success',
@@ -1436,6 +1513,16 @@ export default function Transactions() {
         newTransactions[transactionIndex] = updatedTransaction;
         setTransactions(newTransactions);
 
+        // Save to database
+        saveTransactionToDatabase(updatedTransaction).catch((error) => {
+          notifications.show({
+            title: 'Error',
+            message: 'Failed to save Discount to database',
+            color: 'red',
+          });
+          console.error('Database save error:', error);
+        });
+
         notifications.show({
           title: 'Success',
           message: 'Discount updated successfully',
@@ -1482,6 +1569,16 @@ export default function Transactions() {
         newTransactions[transactionIndex] = updatedTransaction;
         setTransactions(newTransactions);
 
+        // Save to database
+        saveTransactionToDatabase(updatedTransaction).catch((error) => {
+          notifications.show({
+            title: 'Error',
+            message: 'Failed to save Adjustment to database',
+            color: 'red',
+          });
+          console.error('Database save error:', error);
+        });
+
         notifications.show({
           title: 'Success',
           message: 'Adjustment updated successfully',
@@ -1509,6 +1606,16 @@ export default function Transactions() {
         newTransactions[transactionIndex] = updatedTransaction;
         setTransactions(newTransactions);
 
+        // Save to database
+        saveTransactionToDatabase(updatedTransaction).catch((error) => {
+          notifications.show({
+            title: 'Error',
+            message: 'Failed to save Order Status to database',
+            color: 'red',
+          });
+          console.error('Database save error:', error);
+        });
+
         notifications.show({
           title: 'Success',
           message: 'Order Status updated successfully',
@@ -1527,6 +1634,16 @@ export default function Transactions() {
         const newTransactions = [...transactions];
         newTransactions[transactionIndex] = updatedTransaction;
         setTransactions(newTransactions);
+
+        // Save to database
+        saveTransactionToDatabase(updatedTransaction).catch((error) => {
+          notifications.show({
+            title: 'Error',
+            message: 'Failed to save Notes to database',
+            color: 'red',
+          });
+          console.error('Database save error:', error);
+        });
 
         notifications.show({
           title: 'Success',

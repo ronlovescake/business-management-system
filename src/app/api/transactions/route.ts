@@ -316,6 +316,69 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// PATCH - Update a single transaction
+export async function PATCH(request: NextRequest) {
+  try {
+    const updateData = await request.json();
+
+    if (!updateData.id) {
+      return NextResponse.json(
+        { error: 'Transaction ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Convert UI format to database format
+    const dbData: any = {};
+
+    if (updateData['Order Date'] !== undefined)
+      dbData.orderDate = updateData['Order Date'];
+    if (updateData['Customers'] !== undefined)
+      dbData.customers = updateData['Customers'];
+    if (updateData['Product Code'] !== undefined)
+      dbData.productCode = updateData['Product Code'];
+    if (updateData['Quantity'] !== undefined)
+      dbData.quantity = updateData['Quantity'];
+    if (updateData['Unit Price'] !== undefined)
+      dbData.unitPrice = updateData['Unit Price'];
+    if (updateData['Discount'] !== undefined)
+      dbData.discount = updateData['Discount'];
+    if (updateData['Adjustment'] !== undefined)
+      dbData.adjustment = updateData['Adjustment'];
+    if (updateData['Line Total'] !== undefined)
+      dbData.lineTotal = updateData['Line Total'];
+    if (updateData['Order Status'] !== undefined)
+      dbData.orderStatus = updateData['Order Status'];
+    if (updateData['Notes'] !== undefined)
+      dbData.notes = updateData['Notes'] || null;
+    if (updateData['Invoice Date'] !== undefined)
+      dbData.invoiceDate = updateData['Invoice Date'] || null;
+    if (updateData['Packed Date'] !== undefined)
+      dbData.packedDate = updateData['Packed Date'] || null;
+    if (updateData['Shipment Code'] !== undefined)
+      dbData.shipmentCode = updateData['Shipment Code'] || null;
+
+    const updatedTransaction = await (prisma as any).transaction.update({
+      where: { id: updateData.id },
+      data: dbData,
+    });
+
+    return NextResponse.json({
+      message: 'Transaction updated successfully',
+      transaction: updatedTransaction,
+    });
+  } catch (error) {
+    console.error('Failed to update transaction:', error);
+    return NextResponse.json(
+      {
+        error: 'Failed to update transaction',
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
+  }
+}
+
 // DELETE - Delete all transactions
 export async function DELETE() {
   try {
