@@ -597,11 +597,13 @@ export default function Transactions() {
 
   // Invoice generation function
   const handleGenerateInvoice = useCallback(async () => {
-    console.log('📄 Generating invoices for Warehouse transactions...');
+    console.log(
+      '📄 Generating invoices for customers with Warehouse orders...'
+    );
     setIsGeneratingInvoice(true);
 
     try {
-      // Filter for "Warehouse" status transactions only
+      // Step 1: Find customers who have orders with "Warehouse" status
       const warehouseTransactions = transactions.filter(
         (transaction) => transaction['Order Status'] === 'Warehouse'
       );
@@ -617,6 +619,53 @@ export default function Transactions() {
         return;
       }
 
+      // Step 2: Get unique customers who have warehouse orders
+      const customersWithWarehouseOrders = new Set(
+        warehouseTransactions
+          .map((transaction) => transaction.Customers)
+          .filter(Boolean)
+      );
+
+      console.log(
+        '👥 Customers with Warehouse orders:',
+        Array.from(customersWithWarehouseOrders)
+      );
+
+      // Step 3: For each customer with warehouse orders, also include their "Prepared" orders
+      const invoiceTransactions: TransactionData[] = [];
+      let totalWarehouseOrders = 0;
+      let totalPreparedOrders = 0;
+
+      customersWithWarehouseOrders.forEach((customerName) => {
+        // Get all warehouse orders for this customer
+        const customerWarehouseOrders = transactions.filter(
+          (transaction) =>
+            transaction.Customers === customerName &&
+            transaction['Order Status'] === 'Warehouse'
+        );
+
+        // Get all prepared orders for this customer
+        const customerPreparedOrders = transactions.filter(
+          (transaction) =>
+            transaction.Customers === customerName &&
+            transaction['Order Status'] === 'Prepared'
+        );
+
+        // Combine both warehouse and prepared orders for this customer
+        const customerAllOrders = [
+          ...customerWarehouseOrders,
+          ...customerPreparedOrders,
+        ];
+
+        console.log(
+          `📦 Customer "${customerName}": ${customerWarehouseOrders.length} Warehouse + ${customerPreparedOrders.length} Prepared = ${customerAllOrders.length} total orders`
+        );
+
+        invoiceTransactions.push(...customerAllOrders);
+        totalWarehouseOrders += customerWarehouseOrders.length;
+        totalPreparedOrders += customerPreparedOrders.length;
+      });
+
       // Fetch customer details for the invoice
       const customersResponse = await fetch('/api/customers');
       let customersData = [];
@@ -631,12 +680,12 @@ export default function Transactions() {
 
       // Prepare data for invoice generation API
       const invoicePayload = {
-        transactions: warehouseTransactions,
+        transactions: invoiceTransactions,
         customers: customersData,
       };
 
       console.log(
-        `📋 Found ${warehouseTransactions.length} warehouse transactions for invoice generation`
+        `📋 Found ${totalWarehouseOrders} Warehouse + ${totalPreparedOrders} Prepared = ${invoiceTransactions.length} total transactions for ${customersWithWarehouseOrders.size} customers`
       );
 
       // Call the invoice generation API
@@ -673,9 +722,9 @@ export default function Transactions() {
         // Show success notification
         notifications.show({
           title: '✅ Invoices Generated',
-          message: `PDF with invoices for ${warehouseTransactions.length} warehouse transactions has been downloaded.`,
+          message: `PDF with invoices for ${totalWarehouseOrders} Warehouse + ${totalPreparedOrders} Prepared orders (${invoiceTransactions.length} total) from ${customersWithWarehouseOrders.size} customers has been downloaded.`,
           color: 'green',
-          autoClose: 5000,
+          autoClose: 7000,
         });
 
         // Update Invoice Date for the processed transactions
@@ -686,9 +735,14 @@ export default function Transactions() {
         });
 
         // Update transactions with invoice date (only those without existing dates)
+        // Include both Warehouse and Prepared orders that were processed
+        const processedTransactionIds = new Set(
+          invoiceTransactions.map((t) => t.id)
+        );
+
         const updatedTransactions = transactions.map((transaction) => {
           if (
-            transaction['Order Status'] === 'Warehouse' &&
+            processedTransactionIds.has(transaction.id) &&
             !transaction['Invoice Date']
           ) {
             return {
