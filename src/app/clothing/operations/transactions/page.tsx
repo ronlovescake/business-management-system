@@ -157,6 +157,7 @@ export default function Transactions() {
   const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
   const [isGeneratingDistribution, setIsGeneratingDistribution] =
     useState(false);
+  const [isGeneratingPackingList, setIsGeneratingPackingList] = useState(false);
 
   // ============================================================================
   // DATABASE INTEGRATION - Load transactions from API
@@ -1010,6 +1011,114 @@ export default function Transactions() {
       });
     } finally {
       setIsGeneratingDistribution(false);
+    }
+  }, [transactions]);
+
+  const handleGeneratePackingList = useCallback(async () => {
+    console.log('📋 Generating packing lists for Prepared orders...');
+    setIsGeneratingPackingList(true);
+
+    try {
+      // Filter transactions based on validation rules:
+      // 1. Only "Prepared" status
+      // 2. Line total ≤ ₱50.00
+      const preparedTransactions = transactions.filter((transaction) => {
+        const status = transaction['Order Status'];
+        const lineTotal = Number(transaction['Line Total']) || 0;
+
+        return status === 'Prepared' && lineTotal <= 50.0;
+      });
+
+      if (preparedTransactions.length === 0) {
+        notifications.show({
+          title: '⚠️ No Prepared Transactions',
+          message:
+            'No transactions found with "Prepared" status and line total ≤ ₱50.00 for packing list generation.',
+          color: 'yellow',
+          autoClose: 5000,
+        });
+        return;
+      }
+
+      console.log(
+        `📋 Found ${preparedTransactions.length} eligible transactions for packing lists`
+      );
+
+      // Transform the data to match backend interface
+      const transformedTransactions = preparedTransactions.map(
+        (transaction) => ({
+          id: String(transaction.id || ''),
+          orderDate: transaction['Order Date'] || '',
+          customers: transaction.Customers || '',
+          productCode: transaction['Product Code'] || '',
+          quantity: Number(transaction.Quantity) || 0,
+          unitPrice: Number(transaction['Unit Price']) || 0,
+          discount: Number(transaction.Discount) || 0,
+          adjustment: Number(transaction.Adjustment) || 0,
+          lineTotal: Number(transaction['Line Total']) || 0,
+          status: transaction['Order Status'] || '',
+          notes: transaction.Notes || '',
+          invoiceDate: transaction['Invoice Date'] || '',
+          packedDate: transaction['Packed Date'] || '',
+          shipmentCode: transaction['Shipment Code'] || '',
+        })
+      );
+
+      // Call the packing list generation API
+      const response = await fetch('/api/generate-packing-list', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(transformedTransactions),
+      });
+
+      if (response.ok) {
+        // Get the PDF blob
+        const pdfBlob = await response.blob();
+
+        // Create download link
+        const url = window.URL.createObjectURL(pdfBlob);
+        const link = document.createElement('a');
+        link.href = url;
+
+        // Generate filename with timestamp
+        const timestamp = new Date()
+          .toISOString()
+          .slice(0, 19)
+          .replace(/[:-]/g, '');
+        link.download = `packing-lists-${timestamp}.pdf`;
+
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        // Show success notification
+        notifications.show({
+          title: '✅ Packing Lists Generated',
+          message: `PDF with packing lists for ${preparedTransactions.length} eligible transactions has been downloaded`,
+          color: 'green',
+          autoClose: 8000,
+        });
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate packing lists');
+      }
+    } catch (error) {
+      console.error('Error generating packing lists:', error);
+      notifications.show({
+        title: '❌ Packing List Generation Failed',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'An unexpected error occurred',
+        color: 'red',
+        autoClose: 7000,
+      });
+    } finally {
+      setIsGeneratingPackingList(false);
     }
   }, [transactions]);
 
@@ -2519,8 +2628,16 @@ export default function Transactions() {
             >
               {isGeneratingInvoice ? 'Generating...' : 'Generate Invoice'}
             </Button>
-            <Button leftSection={<IconPlus size={16} />} color="blue">
-              Generate Packing List
+            <Button
+              leftSection={<IconPlus size={16} />}
+              color="blue"
+              onClick={handleGeneratePackingList}
+              loading={isGeneratingPackingList}
+              disabled={isGeneratingPackingList}
+            >
+              {isGeneratingPackingList
+                ? 'Generating...'
+                : 'Generate Packing List'}
             </Button>
             <Button
               leftSection={<IconPlus size={16} />}
