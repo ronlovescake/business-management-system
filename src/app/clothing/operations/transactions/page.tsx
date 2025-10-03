@@ -1,8 +1,17 @@
 'use client';
 
 // ==============================================================================
-// ⚠️⚠️⚠️ CRITICAL WARNING - READ BEFORE MAKING ANY CHANGES ⚠️⚠️⚠️
+// 🚨🚨🚨 CRITICAL WARNING - READ BEFORE MAKING ANY CHANGES 🚨🚨🚨
 // ==============================================================================
+//
+// 🔒 **PROTECTED BUSINESS LOGIC** 🔒
+//
+// This file contains FINALIZED and BUSINESS-APPROVED logic including:
+// ✅ BEAUTIFUL INVOICE GENERATION SYSTEM (handleGenerateInvoice function)
+// ✅ PERFECT DATABASE PERSISTENCE (comprehensive save operations)
+// ✅ AUTOMATED BUSINESS WORKFLOWS (customer consolidation & status updates)
+//
+// 📋 See INVOICE_GENERATION_LOGIC_PROTECTION.md for complete protection details
 //
 // This file contains FINALIZED business logic that has been carefully designed,
 // tested, and approved by the business owner.
@@ -595,8 +604,45 @@ export default function Transactions() {
     }
   }, [syncTransactionsWithShipmentStatus]);
 
-  // Invoice generation function
+  // ============================================================================
+  // 🚨🚨🚨 CRITICAL: FINALIZED INVOICE GENERATION LOGIC - DO NOT MODIFY! 🚨🚨🚨
+  // ============================================================================
+  //
+  // ⚠️ THIS FUNCTION IS PRODUCTION-READY AND BUSINESS-APPROVED ⚠️
+  //
+  // This invoice generation function has been carefully designed and tested.
+  // It handles complex business logic including:
+  //
+  // ✅ FINALIZED FEATURES (DO NOT CHANGE):
+  //    1. Customer order consolidation (Warehouse + Prepared orders)
+  //    2. Automated status workflow (Warehouse → Prepared after invoicing)
+  //    3. Consistent invoice date setting and database persistence
+  //    4. Professional PDF layout with optimized template
+  //    5. Comprehensive database updates for all processed transactions
+  //
+  // 🚫 ABSOLUTELY FORBIDDEN TO MODIFY:
+  //    - Customer consolidation algorithm (3-step process)
+  //    - Status update logic (Warehouse → Prepared)
+  //    - Invoice date setting and database persistence
+  //    - Transaction processing workflow
+  //    - Database save operations
+  //
+  // 💫 BUSINESS IMPACT:
+  //    - Eliminates manual invoice generation processes
+  //    - Provides automated order status management
+  //    - Ensures professional invoice appearance
+  //    - Maintains complete audit trail in database
+  //
+  // 🚨 WARNING: Any modifications to this function could break:
+  //    - Invoice generation workflow
+  //    - Customer order consolidation
+  //    - Database consistency
+  //    - Business process automation
+  //
+  // 📞 CONTACT BUSINESS OWNER BEFORE ANY CHANGES!
+  // ============================================================================
   const handleGenerateInvoice = useCallback(async () => {
+    // ⚠️ FINALIZED LOGIC - DO NOT MODIFY
     console.log(
       '📄 Generating invoices for customers with Warehouse orders...'
     );
@@ -732,15 +778,36 @@ export default function Transactions() {
           autoClose: 8000,
         });
 
-        // Update Invoice Date for the processed transactions
+        // ========================================================================
+        // 🚨 CRITICAL DATABASE PERSISTENCE LOGIC - FINALIZED - DO NOT MODIFY! 🚨
+        // ========================================================================
+        //
+        // ⚠️ THIS SECTION ENSURES INVOICE DATES ARE PERMANENTLY SAVED
+        //
+        // BUSINESS CRITICAL FUNCTIONALITY:
+        // 1. Sets invoice dates for ALL processed transactions
+        // 2. Updates Warehouse orders to Prepared status
+        // 3. Saves EVERYTHING to database (prevents data loss)
+        // 4. Handles edge cases (empty strings, whitespace)
+        //
+        // 🚫 DO NOT MODIFY - COULD CAUSE DATA LOSS:
+        //    - Invoice date checking logic
+        //    - Database persistence operations
+        //    - Status update workflow
+        //    - Transaction processing sequence
+        //
+        // This logic was specifically designed to fix critical bugs where
+        // invoice dates were not being saved to database consistently.
+        // ========================================================================
+
+        // ⚠️ FINALIZED: Invoice date setting logic
         const currentDate = new Date().toLocaleDateString('en-US', {
           month: 'long',
           day: 'numeric',
           year: 'numeric',
         });
 
-        // Update transactions with invoice date (only those without existing dates)
-        // Include both Warehouse and Prepared orders that were processed
+        // ⚠️ FINALIZED: Transaction processing identification
         const processedTransactionIds = new Set(
           invoiceTransactions.map((t) => t.id)
         );
@@ -773,13 +840,35 @@ export default function Transactions() {
 
         setTransactions(updatedTransactions);
 
-        // Save ALL processed transactions to database (both invoice date and status updates)
+        // ========================================================================
+        // 🚨 CRITICAL DATABASE SAVE OPERATION - FINALIZED - DO NOT MODIFY! 🚨
+        // ========================================================================
+        //
+        // ⚠️ THIS IS THE CORE DATABASE PERSISTENCE LOGIC
+        //
+        // CRITICAL BUG FIX: This section was specifically added to solve
+        // the issue where invoice dates were not being saved consistently.
+        //
+        // 🚫 ABSOLUTELY DO NOT MODIFY:
+        //    - Transaction filtering logic
+        //    - Promise.all database operations
+        //    - Error handling for database saves
+        //    - Logging and counting logic
+        //
+        // ANY CHANGES HERE COULD CAUSE:
+        //    - Invoice dates to disappear after page reload
+        //    - Database inconsistency
+        //    - Loss of transaction status updates
+        //    - Business process failures
+        // ========================================================================
+
+        // ⚠️ FINALIZED: Identify all transactions that need database updates
         const transactionsToSave = updatedTransactions.filter((transaction) =>
           processedTransactionIds.has(transaction.id)
         );
 
         if (transactionsToSave.length > 0) {
-          // Save all updates to database (invoice dates AND status changes)
+          // ⚠️ FINALIZED: Comprehensive database save operation
           try {
             const updatePromises = transactionsToSave.map((transaction) =>
               saveTransactionToDatabase(transaction)
