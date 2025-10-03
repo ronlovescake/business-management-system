@@ -122,7 +122,7 @@
     .items-table {
       width: calc(100% - 40px);
       border-collapse: collapse;
-      margin: -20px 20px 20px;  /* Add bottom margin for spacing */
+      margin: -20px 20px 0px;  /* Remove bottom margin to eliminate gap */
     }
     .items-table th,
     .items-table td {
@@ -159,7 +159,7 @@
       width: calc(100% - 40px);
       border: 1px solid #cccccc;
       border-collapse: collapse;
-      margin: 10px 20px 10px;    /* Standard margins for footer */
+      margin: 0px 20px 10px;    /* Remove top margin to eliminate gap */
     }
     .summary td {
       vertical-align: top;
@@ -222,10 +222,9 @@
     }
 
 
-    /* Flexible spacer that expands to fill remaining space and push footer to bottom */
+    /* Flexible spacer - remove gap, just use minimal spacing */
     .flexible-spacer {
-      flex: 1;
-      min-height: 10px;  /* Minimal padding between table and footer */
+      height: 0px;  /* No gap between table and footer */
     }
 
     /* No spacer needed - red bar should be at absolute bottom */
