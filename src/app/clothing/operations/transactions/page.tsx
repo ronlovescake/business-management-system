@@ -226,14 +226,12 @@ export default function Transactions() {
         // Extract unique customer names from imported transactions
         const transactionCustomers = transactions
           .map((t) => t.Customers)
-          .filter(Boolean)
-          .filter((name, index, array) => array.indexOf(name) === index);
+          .filter(Boolean);
 
-        // Combine API customers and transaction customers, then deduplicate and sort
-        const allCustomers = [...apiCustomers, ...transactionCustomers]
-          .filter(Boolean)
-          .filter((name, index, array) => array.indexOf(name) === index)
-          .sort();
+        // 🚀 PERFORMANCE: Use Set for O(n) deduplication instead of O(n²)
+        const allCustomers = Array.from(
+          new Set([...apiCustomers, ...transactionCustomers])
+        ).sort();
 
         setCustomerNames(allCustomers);
       } catch (error) {
@@ -256,15 +254,16 @@ export default function Transactions() {
           // Store all price tiers for unit price lookup
           setPriceTiers(pricesData);
 
-          // Extract unique product codes and sort them
-          const codes = pricesData
-            .map((price: { 'Product Code': string }) => price['Product Code'])
-            .filter(Boolean)
-            .filter(
-              (code: string, index: number, array: string[]) =>
-                array.indexOf(code) === index
+          // 🚀 PERFORMANCE: Use Set for O(n) deduplication instead of O(n²)
+          const codes = Array.from(
+            new Set(
+              pricesData
+                .map(
+                  (price: { 'Product Code': string }) => price['Product Code']
+                )
+                .filter(Boolean)
             )
-            .sort();
+          ).sort() as string[];
 
           setProductCodes(codes);
         } else {
@@ -881,21 +880,28 @@ export default function Transactions() {
               );
               await Promise.all(updatePromises);
 
+              // 🚀 PERFORMANCE: Create Map for O(1) lookups instead of O(n) .find()
+              const originalTransactionsMap = new Map(
+                transactions.map((t) => [t.id, t])
+              );
+
               // Count different types of updates for logging
               const invoiceDateUpdates = transactionsToSave.filter(
-                (transaction) =>
-                  !transactions.find((orig) => orig.id === transaction.id)?.[
-                    'Invoice Date'
-                  ] && transaction['Invoice Date']
+                (transaction) => {
+                  const original = originalTransactionsMap.get(transaction.id);
+                  return (
+                    !original?.['Invoice Date'] && transaction['Invoice Date']
+                  );
+                }
               ).length;
 
-              const statusUpdates = transactionsToSave.filter(
-                (transaction) =>
+              const statusUpdates = transactionsToSave.filter((transaction) => {
+                const original = originalTransactionsMap.get(transaction.id);
+                return (
                   transaction['Order Status'] === 'Prepared' &&
-                  transactions.find((orig) => orig.id === transaction.id)?.[
-                    'Order Status'
-                  ] === 'Warehouse'
-              ).length;
+                  original?.['Order Status'] === 'Warehouse'
+                );
+              }).length;
 
               console.log(
                 `✅ Saved to database: ${invoiceDateUpdates} Invoice Date updates + ${statusUpdates} Warehouse→Prepared status updates`
@@ -1232,6 +1238,17 @@ export default function Transactions() {
     }),
     []
   );
+
+  // 🚀 PERFORMANCE: Create a memoized Map for O(1) transaction lookups by ID
+  const transactionIndexMap = React.useMemo(() => {
+    const map = new Map<number, number>();
+    transactions.forEach((transaction, index) => {
+      if (transaction.id !== undefined) {
+        map.set(transaction.id, index);
+      }
+    });
+    return map;
+  }, [transactions]);
 
   // Use the data table hook for search functionality
   const {
@@ -1574,13 +1591,14 @@ export default function Transactions() {
 
       if (!transaction) return; // Safety check
 
-      // Find the index in the original transactions array using the unique ID
-      const transactionIndex = transactions.findIndex(
-        (t) => t.id === transaction.id
-      );
+      // 🚀 PERFORMANCE: Use Map for O(1) lookup instead of O(n) findIndex
+      const transactionIndex =
+        transaction.id !== undefined
+          ? transactionIndexMap.get(transaction.id)
+          : undefined;
 
       // If no ID match found, this is a serious data consistency issue
-      if (transactionIndex === -1) {
+      if (transactionIndex === undefined) {
         console.error('Transaction not found in original array:', transaction);
         return;
       }
@@ -2197,6 +2215,7 @@ export default function Transactions() {
     },
     [
       transactions,
+      transactionIndexMap,
       columns,
       productToShipmentMap,
       productToShipmentStatusMap,
