@@ -25,6 +25,9 @@
       margin: 0 auto;
       background: #fff;
       position: relative;
+      min-height: 1056px;  /* Standard A4 height in pixels (11 inches × 96 DPI) */
+      display: flex;
+      flex-direction: column;
     }
 
     /* Top & Bottom Bars */
@@ -104,11 +107,18 @@
       text-align: right;
     }
 
+    /* Content area that expands to push footer down */
+    .content-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
     /* Items Table with white borders */
     .items-table {
       width: calc(100% - 40px);
       border-collapse: collapse;
-      margin: -20px 20px 5px;  /* Reduce bottom margin for tighter spacing */
+      margin: -20px 20px 20px;  /* Add bottom margin for spacing */
     }
     .items-table th,
     .items-table td {
@@ -134,12 +144,17 @@
       text-align: right;
     }
 
+    /* Footer area that sticks to bottom */
+    .footer-area {
+      margin-top: auto;  /* Push to bottom */
+    }
+
     /* Summary & Notes */
     .summary {
       width: calc(100% - 40px);
       border: 1px solid #cccccc;
       border-collapse: collapse;
-      margin: 5px 20px;          /* Add small top margin, reduce if needed */
+      margin: 10px 20px 10px;    /* Standard margins for footer */
     }
     .summary td {
       vertical-align: top;
@@ -202,9 +217,15 @@
     }
 
 
-    /* Spacer for consistent bottom padding */
+    /* Flexible spacer that expands to fill remaining space */
+    .flexible-spacer {
+      flex: 1;
+      min-height: 20px;  /* Minimum spacing */
+    }
+
+    /* Fixed bottom spacer */
     .spacer {
-      height: 15px;      /* Reduce bottom spacing */
+      height: 10px;
     }
   </style>
 </head>
@@ -214,86 +235,66 @@
     <!-- Top red bar -->
     <div class="bar"></div>
 
-    <!-- Header: Invoice title + date + logo -->
-    <div class="body-header">
-      <div class="header-text">
-        <h1 class="invoice-title">INVOICE</h1>
-        <div class="invoice-date">Invoice Date: {{date}}</div>
+    <!-- Content area that expands to push footer down -->
+    <div class="content-area">
+      <!-- Header: Invoice title + date + logo -->
+      <div class="body-header">
+        <div class="header-text">
+          <h1 class="invoice-title">INVOICE</h1>
+          <div class="invoice-date">Invoice Date: {{date}}</div>
+        </div>
+        <img src="data:image/png;base64,{{logoData}}" alt="Logo" class="logo" />
       </div>
-      <img src="data:image/png;base64,{{logoData}}" alt="Logo" class="logo" />
-    </div>
 
-    <!-- "Prepared for" / "Order from" table -->
-    <table class="info-table">
-      <tr>
-        <td width="60%">
-          <div class="label">Prepared for</div>
-          <div class="value">{{customerName}}</div>
-          <div class="contact">{{phone}}</div>
-          <div class="contact">{{address}}</div>
-        </td>
-        <td width="40%">
-          <div class="label">Order from</div>
-          <div class="value">Czarlie &amp; Ron</div>
-        </td>
-      </tr>
-    </table>
-
-    <!-- Items listing -->
-    <table class="items-table">
-      <thead>
+      <!-- "Prepared for" / "Order from" table -->
+      <table class="info-table">
         <tr>
-          <th>ITEM DESCRIPTION</th>
-          <th>QUANTITY</th>
-          <th>UNIT PRICE</th>
-          <th>ADJUSTMENT</th>
-          <th>LINE TOTAL</th>
+          <td width="60%">
+            <div class="label">Prepared for</div>
+            <div class="value">{{customerName}}</div>
+            <div class="contact">{{phone}}</div>
+            <div class="contact">{{address}}</div>
+          </td>
+          <td width="40%">
+            <div class="label">Order from</div>
+            <div class="value">Czarlie &amp; Ron</div>
+          </td>
         </tr>
-      </thead>
-      <tbody id="invoice-items">
-        {{#each items}}
-        <tr>
-          <td>{{description}}</td>
-          <td style="text-align:center">{{quantity}}</td>
+      </table>
+
+      <!-- Items listing -->
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th>ITEM DESCRIPTION</th>
+            <th>QUANTITY</th>
+            <th>UNIT PRICE</th>
+            <th>ADJUSTMENT</th>
+            <th>LINE TOTAL</th>
+          </tr>
+        </thead>
+        <tbody id="invoice-items">
+          {{#each items}}
+          <tr>
+            <td>{{description}}</td>
+            <td style="text-align:center">{{quantity}}</td>
 <td class="right">{{currency unitPrice}}</td>
 <td class="right">{{currency adjustment}}</td>
 <td class="right">{{currency lineTotal}}</td>
 
-        </tr>
-        {{/each}}
-      </tbody>
-    </table>
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
 
-    <!-- Auto-pad empty rows for better presentation (dynamic based on content) -->
-    <script>
-      (function(){
-        const tbody = document.getElementById('invoice-items');
-        const currentRows = tbody.rows.length;
-        
-        // Dynamic padding: more items = fewer empty rows to save space
-        let targetRows;
-        if (currentRows <= 3) {
-          targetRows = 12;      // Small orders get more padding
-        } else if (currentRows <= 6) {
-          targetRows = 10;      // Medium orders (like consolidated) get moderate padding
-        } else {
-          targetRows = Math.max(currentRows + 2, 8); // Large orders get minimal padding
-        }
-        
-        while (tbody.rows.length < targetRows) {
-          const tr = document.createElement('tr');
-          for (let i = 0; i < 5; i++) {
-            const td = document.createElement('td');
-            td.innerHTML = '&nbsp;';
-            tr.appendChild(td);
-          }
-          tbody.appendChild(tr);
-        }
-      })();
-    </script>
+      <!-- Flexible spacer that expands to push footer to bottom -->
+      <div class="flexible-spacer"></div>
+    </div>
 
-    <!-- Summary & Notes -->
-    <table class="summary">
+    <!-- Footer area that stays at bottom -->
+    <div class="footer-area">
+      <!-- Summary & Notes -->
+      <table class="summary">
       <tr>
         <td width="60%">
           <div class="due">DUE DATE: {{dueDate}}</div>
@@ -325,8 +326,9 @@
     <!-- Bottom spacer -->
     <div class="spacer"></div>
 
-    <!-- Bottom red bar -->
-    <div class="bar"></div>
+      <!-- Bottom red bar -->
+      <div class="bar"></div>
+    </div>
   </div>
 </body>
 </html>
