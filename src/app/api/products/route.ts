@@ -136,6 +136,74 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// PUT - Bulk update all products (used for paste operations)
+export async function PUT(request: NextRequest) {
+  try {
+    const productsData = await request.json();
+    
+    if (!Array.isArray(productsData)) {
+      return NextResponse.json(
+        { error: 'Expected an array of products' },
+        { status: 400 }
+      );
+    }
+
+    // Delete all existing products and insert the new ones
+    // This is a full replacement operation
+    await prisma.product.deleteMany({});
+    
+    const formattedProducts = productsData.map((product: any) => ({
+      shipmentCode: product['Shipment Code'] || null,
+      cvNumber: product['CV Number'] || null,
+      noOfSacks: parseFloat(product['No. Of Sacks']) || 0,
+      totalCBM: parseFloat(product['Total CBM']) || 0,
+      weight: parseFloat(product['Weight']) || 0,
+      shipmentStatus: product['Shipment Status'] || null,
+      postingDate: product['Posting Date'] || null,
+      orderDate: product['Order Date'] || null,
+      payment: product['Payment'] || null,
+      product: product['Product'] || null,
+      productCode: product['Product Code'] || null,
+      ageRange: product['Age Range'] || null,
+      unit: product['Unit'] || null,
+      unitPrice: parseFloat(product['Unit Price']) || 0,
+      quantity: parseFloat(product['Quantity']) || 0,
+      alibabaShippingCost: parseFloat(product['Alibaba Shipping Cost']) || 0,
+      exchangeRates: parseFloat(product['Exchange Rates']) || 0,
+      php: parseFloat(product['PHP']) || 0,
+      subTotalPHP: parseFloat(product['Sub Total (PHP)']) || 0,
+      transactionFee: parseFloat(product['Transaction Fee']) || 0,
+      grandTotal: parseFloat(product['Grand Total']) || 0,
+      forwardersFee: parseFloat(product['Forwarder\'s Fee']) || 0,
+      lalamove: parseFloat(product['Lalamove']) || 0,
+      packagingCost: parseFloat(product['Packaging Cost']) || 0,
+      suggestedPrice: parseFloat(product['Suggested Price']) || 0,
+      actualPrice: parseFloat(product['Actual Price']) || 0,
+      basePrice: parseFloat(product['Base Price']) || 0,
+      cogs: parseFloat(product['COGS']) || 0,
+      projectedSales: parseFloat(product['Projected Sales']) || 0,
+      projectedProfit: parseFloat(product['Projected Profit']) || 0,
+      projectedProfitPercent: parseFloat(product['Projected Profit (%)']) || 0,
+      totalMarkup: parseFloat(product['Total Markup']) || 0,
+    }));
+
+    const result = await prisma.product.createMany({
+      data: formattedProducts
+    });
+
+    return NextResponse.json({
+      message: 'Products updated successfully',
+      count: result.count
+    });
+  } catch (error) {
+    console.error('Failed to update products:', error);
+    return NextResponse.json(
+      { error: 'Failed to update products' },
+      { status: 500 }
+    );
+  }
+}
+
 // DELETE - Clear all products
 export async function DELETE() {
   try {

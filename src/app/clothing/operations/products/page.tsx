@@ -740,6 +740,13 @@ export default function Products() {
             let msg = 'Failed to persist pasted rows';
             try { const j = await res.json(); if (j?.error) msg = j.error; } catch {}
             notifications.show({ title: 'Paste saved locally only', message: msg, color: 'yellow' });
+          } else {
+            // Success! Data persisted to database
+            notifications.show({ 
+              title: 'Pasted and saved to database', 
+              message: `${applied} cell${applied === 1 ? '' : 's'} saved successfully`, 
+              color: 'green' 
+            });
           }
         } catch (e) {
           console.error('Failed to persist pasted rows', e);
