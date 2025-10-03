@@ -145,6 +145,7 @@ export default function Transactions() {
   const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(
     loadSavedFilterState()
   );
+  const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
 
   // ============================================================================
   // DATABASE INTEGRATION - Load transactions from API
@@ -593,6 +594,131 @@ export default function Transactions() {
       });
     }
   }, [syncTransactionsWithShipmentStatus]);
+
+  // Invoice generation function
+  const handleGenerateInvoice = useCallback(async () => {
+    console.log('📄 Generating invoices for Warehouse transactions...');
+    setIsGeneratingInvoice(true);
+
+    try {
+      // Filter for "Warehouse" status transactions only
+      const warehouseTransactions = transactions.filter(
+        (transaction) => transaction['Order Status'] === 'Warehouse'
+      );
+
+      if (warehouseTransactions.length === 0) {
+        notifications.show({
+          title: '⚠️ No Warehouse Transactions',
+          message:
+            'No transactions with "Warehouse" status found for invoice generation.',
+          color: 'yellow',
+          autoClose: 5000,
+        });
+        return;
+      }
+
+      // Fetch customer details for the invoice
+      const customersResponse = await fetch('/api/customers');
+      let customersData = [];
+
+      if (customersResponse.ok) {
+        customersData = await customersResponse.json();
+      } else {
+        console.warn(
+          'Could not fetch customer details, proceeding without full customer info'
+        );
+      }
+
+      // Prepare data for invoice generation API
+      const invoicePayload = {
+        transactions: warehouseTransactions,
+        customers: customersData,
+      };
+
+      console.log(
+        `📋 Found ${warehouseTransactions.length} warehouse transactions for invoice generation`
+      );
+
+      // Call the invoice generation API
+      const response = await fetch('/api/generate-invoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(invoicePayload),
+      });
+
+      if (response.ok) {
+        // Get the PDF blob
+        const pdfBlob = await response.blob();
+
+        // Create download link
+        const url = window.URL.createObjectURL(pdfBlob);
+        const link = document.createElement('a');
+        link.href = url;
+
+        // Generate filename with timestamp
+        const timestamp = new Date()
+          .toISOString()
+          .slice(0, 19)
+          .replace(/[:-]/g, '');
+        link.download = `invoices-${timestamp}.pdf`;
+
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        // Show success notification
+        notifications.show({
+          title: '✅ Invoices Generated',
+          message: `PDF with invoices for ${warehouseTransactions.length} warehouse transactions has been downloaded.`,
+          color: 'green',
+          autoClose: 5000,
+        });
+
+        // Update Invoice Date for the processed transactions
+        const currentDate = new Date().toLocaleDateString('en-US', {
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+        });
+
+        // Update transactions with invoice date (only those without existing dates)
+        const updatedTransactions = transactions.map((transaction) => {
+          if (
+            transaction['Order Status'] === 'Warehouse' &&
+            !transaction['Invoice Date']
+          ) {
+            return {
+              ...transaction,
+              'Invoice Date': currentDate,
+            };
+          }
+          return transaction;
+        });
+
+        setTransactions(updatedTransactions);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate invoices');
+      }
+    } catch (error) {
+      console.error('Error generating invoices:', error);
+      notifications.show({
+        title: '❌ Invoice Generation Failed',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'An unexpected error occurred',
+        color: 'red',
+        autoClose: 7000,
+      });
+    } finally {
+      setIsGeneratingInvoice(false);
+    }
+  }, [transactions]);
 
   // Define status filter options
   const statusOptions = [
@@ -2091,8 +2217,14 @@ export default function Transactions() {
             >
               Sync ORDER STATUS
             </Button>
-            <Button leftSection={<IconPlus size={16} />} color="green">
-              Generate Invoice
+            <Button
+              leftSection={<IconReceipt size={16} />}
+              color="green"
+              onClick={handleGenerateInvoice}
+              loading={isGeneratingInvoice}
+              disabled={isGeneratingInvoice}
+            >
+              {isGeneratingInvoice ? 'Generating...' : 'Generate Invoice'}
             </Button>
             <Button leftSection={<IconPlus size={16} />} color="blue">
               Generate Packing List
