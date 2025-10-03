@@ -807,6 +807,86 @@ export default function Transactions() {
     }
   }, [filteredData]);
 
+  // Generate Packing List handler
+  const handleGeneratePackingList = useCallback(async () => {
+    try {
+      // Get only the visible/filtered transactions
+      const transactionsToGenerate = filteredData.map((t) => ({
+        Customers: t.Customers,
+        'Product Code': t['Product Code'],
+        Quantity: t.Quantity,
+        Notes: t.Notes,
+      }));
+
+      if (transactionsToGenerate.length === 0) {
+        notifications.show({
+          title: 'No Transactions',
+          message: 'No transactions available to generate packing lists',
+          color: 'yellow',
+          position: 'top-right',
+        });
+        return;
+      }
+
+      // Count unique customers
+      const uniqueCustomers = new Set(
+        transactionsToGenerate.map((t) => t.Customers)
+      ).size;
+
+      notifications.show({
+        title: 'Generating Packing Lists',
+        message: `Creating packing list(s) for ${uniqueCustomers} customer(s)...`,
+        color: 'blue',
+        position: 'top-right',
+        loading: true,
+        autoClose: false,
+        id: 'packing-list-loading',
+      });
+
+      const response = await fetch('/api/generate-packing-list', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ transactions: transactionsToGenerate }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate packing list PDF');
+      }
+
+      // Download the PDF
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `packing-list-${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      notifications.update({
+        id: 'packing-list-loading',
+        title: 'Success!',
+        message: `Generated packing list(s) for ${uniqueCustomers} customer(s)`,
+        color: 'green',
+        loading: false,
+        autoClose: 3000,
+      });
+    } catch (error) {
+      console.error('Error generating packing list:', error);
+      notifications.update({
+        id: 'packing-list-loading',
+        title: 'Error',
+        message: 'Failed to generate packing lists. Please try again.',
+        color: 'red',
+        loading: false,
+        autoClose: 5000,
+      });
+    }
+  }, [filteredData]);
+
   // Create cell content getter that uses the FINAL filteredData (search + status)
   const cellContentGetter = React.useCallback(
     (cell: Item): GridCell => {
@@ -2050,7 +2130,11 @@ export default function Transactions() {
             <Button leftSection={<IconPlus size={16} />} color="green">
               Generate Invoice
             </Button>
-            <Button leftSection={<IconPlus size={16} />} color="blue">
+            <Button
+              leftSection={<IconPlus size={16} />}
+              color="blue"
+              onClick={handleGeneratePackingList}
+            >
               Generate Packing List
             </Button>
             <Button
