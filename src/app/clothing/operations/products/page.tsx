@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { PageLayout } from '../../../../components/layout/PageLayout';
-import { GridCellKind, GridColumn, Item } from '@glideapps/glide-data-grid';
+import { GridCellKind, GridColumn, Item, GridSelection } from '@glideapps/glide-data-grid';
 import { Stack, Text, Box, Button, Group, FileInput, Loader, TextInput, Card, SimpleGrid, ThemeIcon, Title, Modal, Select, NumberInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { IconUpload, IconSearch, IconCurrencyDollar, IconFilter, IconTrendingUp, IconTrendingDown, IconPlus, IconUser, IconMail, IconMapPin, IconCheck, IconAdjustments, IconPackage, IconCalendar, IconCreditCard, IconPercentage } from '@tabler/icons-react';
@@ -774,6 +774,96 @@ export default function Products() {
 
       return true;
     }
+    return false;
+  }, [pasteMode, products, filteredProducts, columns, searchQuery, idToKey]);
+
+  // Handle delete operations on cells
+  const handleDelete = useCallback((selection: GridSelection) => {
+    if (!pasteMode) return false; // Only allow delete when paste mode is enabled
+    
+    // GridSelection has a 'range' property with the selection bounds
+    const range = selection.current?.range;
+    if (!range) return false;
+
+    const { x, y, width, height } = range;
+    const nextProducts = [...products];
+    let deletedCount = 0;
+
+    // Iterate through selected cells
+    for (let row = y; row < y + height; row++) {
+      if (row >= filteredProducts.length) break;
+      
+      const rowObj = filteredProducts[row];
+      const globalIndex = nextProducts.indexOf(rowObj);
+      
+      if (globalIndex === -1) continue;
+
+      for (let col = x; col < x + width; col++) {
+        if (col >= columns.length) break;
+        
+        const column = columns[col];
+        
+        // Only allow deletion in Shipment Code column
+        if (column.id === 'shipmentCode') {
+          const key = idToKey[column.id];
+          if (key) {
+            nextProducts[globalIndex] = {
+              ...nextProducts[globalIndex],
+              [key]: ''
+            };
+            deletedCount++;
+          }
+        }
+      }
+    }
+
+    if (deletedCount > 0) {
+      // Persist to database
+      (async () => {
+        try {
+          const res = await fetch('/api/products', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(nextProducts),
+          });
+          if (!res.ok) {
+            notifications.show({ 
+              title: 'Delete saved locally only', 
+              message: 'Failed to persist deletion to database', 
+              color: 'yellow' 
+            });
+          } else {
+            notifications.show({ 
+              title: 'Deleted and saved', 
+              message: `${deletedCount} cell${deletedCount === 1 ? '' : 's'} cleared and saved to database`, 
+              color: 'green' 
+            });
+          }
+        } catch (e) {
+          console.error('Failed to persist deletion', e);
+          notifications.show({ 
+            title: 'Delete saved locally only', 
+            message: 'Database not reachable', 
+            color: 'yellow' 
+          });
+        }
+      })();
+
+      setProducts(nextProducts);
+      if (!searchQuery.trim()) {
+        setFilteredProducts(nextProducts);
+      } else {
+        const q = searchQuery.toLowerCase();
+        setFilteredProducts(nextProducts.filter((product) =>
+          Object.values(product).some(val => 
+            val && val.toString().toLowerCase().includes(q)
+          )
+        ));
+      }
+
+      return true;
+    }
+    
     return false;
   }, [pasteMode, products, filteredProducts, columns, searchQuery, idToKey]);
 
@@ -1818,6 +1908,7 @@ export default function Products() {
             rowMarkers="number"
             onCellClicked={onCellClicked}
             onPaste={pasteMode ? handlePaste : undefined}
+            onDelete={pasteMode ? handleDelete : undefined}
             isDraggable={false}
             experimental={{
               scrollbarWidthOverride: 16,
