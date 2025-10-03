@@ -25,7 +25,7 @@
       margin: 0 auto;
       background: #fff;
       position: relative;
-      min-height: 1056px;  /* Standard A4 height in pixels (11 inches × 96 DPI) */
+      min-height: 1000px;  /* Slightly reduced height to accommodate row padding */
       display: flex;
       flex-direction: column;
     }
@@ -217,10 +217,9 @@
     }
 
 
-    /* Flexible spacer that expands to fill remaining space */
-    .flexible-spacer {
-      flex: 1;
-      min-height: 20px;  /* Minimum spacing */
+    /* Content area maintains table structure with consistent rows */
+    .content-area {
+      /* No additional styles needed - flexbox handles the layout */
     }
 
     /* Fixed bottom spacer */
@@ -287,8 +286,39 @@
         </tbody>
       </table>
 
-      <!-- Flexible spacer that expands to push footer to bottom -->
-      <div class="flexible-spacer"></div>
+      <!-- Auto-pad empty rows for consistent table height -->
+      <script>
+        (function(){
+          const tbody = document.getElementById('invoice-items');
+          const currentRows = tbody.rows.length;
+          
+          // Calculate how many rows should fit in the available space
+          // This creates a consistent table appearance
+          let targetRows;
+          if (currentRows <= 3) {
+            targetRows = 15;      // Small orders get more empty rows for consistency
+          } else if (currentRows <= 6) {
+            targetRows = 12;      // Medium orders (like consolidated) get moderate padding
+          } else if (currentRows <= 9) {
+            targetRows = currentRows + 3;  // Large orders get minimal padding
+          } else {
+            targetRows = currentRows + 1;  // Very large orders get just one extra row
+          }
+          
+          while (tbody.rows.length < targetRows) {
+            const tr = document.createElement('tr');
+            for (let i = 0; i < 5; i++) {
+              const td = document.createElement('td');
+              td.innerHTML = '&nbsp;';
+              tr.appendChild(td);
+            }
+            tbody.appendChild(tr);
+          }
+        })();
+      </script>
+
+      <!-- Small spacer to separate table from footer -->
+      <div style="height: 20px;"></div>
     </div>
 
     <!-- Footer area that stays at bottom -->
