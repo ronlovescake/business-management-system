@@ -225,7 +225,7 @@
     /* Flexible spacer that expands to fill remaining space and push footer to bottom */
     .flexible-spacer {
       flex: 1;
-      min-height: 20px;  /* Small padding between table and footer for breathing room */
+      min-height: 10px;  /* Minimal padding between table and footer */
     }
 
     /* No spacer needed - red bar should be at absolute bottom */
@@ -300,8 +300,8 @@
           
           // Priority: maintain 15 rows if possible without breaking layout
           let targetRows;
-          if (currentRows <= 15) {
-            targetRows = 15;      // Always aim for 15 rows when possible
+          if (currentRows < 15) {
+            targetRows = 15;      // Pad to 15 rows when less than 15
           } else if (currentRows <= 18) {
             targetRows = currentRows + 1;  // Large orders get minimal padding
           } else {
