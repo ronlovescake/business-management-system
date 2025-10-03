@@ -297,12 +297,14 @@
           const tbody = document.getElementById('invoice-items');
           const currentRows = tbody.rows.length;
           
-          // Priority: maintain 15 rows if possible without breaking layout
+          // Priority: maintain exactly 15 rows for optimal layout
           let targetRows;
           if (currentRows < 15) {
             targetRows = 15;      // Pad to 15 rows when less than 15
+          } else if (currentRows === 15) {
+            targetRows = 15;      // Keep exactly 15 rows - no padding needed
           } else if (currentRows <= 18) {
-            targetRows = currentRows + 1;  // Large orders get minimal padding
+            targetRows = currentRows + 1;  // 16-18 items get minimal padding
           } else {
             targetRows = currentRows;      // Very large orders get no padding to fit on page
           }
