@@ -40,8 +40,8 @@
       justify-content: space-between;
       align-items: flex-start;
       padding: 20px;      /* 20px padding to the sides */
-      margin-top: 25px;    /* Space from top bar */
-      margin-bottom: 20px; /* Space before "Prepared for" */
+      margin-top: 20px;    /* Reduce space from top bar */
+      margin-bottom: 15px; /* Reduce space before "Prepared for" */
     }
 
     /* Wrap title + date for independent spacing */
@@ -55,8 +55,8 @@
     .invoice-title {
       font-size: 20pt;
       color: #cc0000;
-      margin-top: 70px;
-      margin-bottom: 50px;
+      margin-top: 50px;      /* Reduce top margin */
+      margin-bottom: 35px;   /* Reduce bottom margin */
     }
 
     /* Invoice Date */
@@ -108,13 +108,13 @@
     .items-table {
       width: calc(100% - 40px);
       border-collapse: collapse;
-      margin: -20px 20px 10px;  /* Pull it up by 20px for better spacing */
+      margin: -20px 20px 5px;  /* Reduce bottom margin for tighter spacing */
     }
     .items-table th,
     .items-table td {
       border: 1px solid #ffffff;
-      padding: 5px;
-      height: 25pt;
+      padding: 4px;              /* Reduce padding slightly */
+      height: 22pt;              /* Reduce row height slightly */
       font-size: 10pt;
     }
     .items-table th {
@@ -139,11 +139,11 @@
       width: calc(100% - 40px);
       border: 1px solid #cccccc;
       border-collapse: collapse;
-      margin: 0 20px;
+      margin: 5px 20px;          /* Add small top margin, reduce if needed */
     }
     .summary td {
       vertical-align: top;
-      padding: 5px;
+      padding: 8px;              /* Slightly increase padding for better readability */
     }
     .summary .due {
       font-size: 15pt;
@@ -204,7 +204,7 @@
 
     /* Spacer for consistent bottom padding */
     .spacer {
-      height: 30px;
+      height: 15px;      /* Reduce bottom spacing */
     }
   </style>
 </head>
@@ -264,12 +264,23 @@
       </tbody>
     </table>
 
-    <!-- Auto-pad empty rows to 15 -->
+    <!-- Auto-pad empty rows for better presentation (dynamic based on content) -->
     <script>
       (function(){
         const tbody = document.getElementById('invoice-items');
-        const target = 15;
-        while (tbody.rows.length < target) {
+        const currentRows = tbody.rows.length;
+        
+        // Dynamic padding: more items = fewer empty rows to save space
+        let targetRows;
+        if (currentRows <= 3) {
+          targetRows = 12;      // Small orders get more padding
+        } else if (currentRows <= 6) {
+          targetRows = 10;      // Medium orders (like consolidated) get moderate padding
+        } else {
+          targetRows = Math.max(currentRows + 2, 8); // Large orders get minimal padding
+        }
+        
+        while (tbody.rows.length < targetRows) {
           const tr = document.createElement('tr');
           for (let i = 0; i < 5; i++) {
             const td = document.createElement('td');
