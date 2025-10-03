@@ -2044,6 +2044,7 @@ export default function Transactions() {
         onCellEdited={handleCellEdited}
         statsCards={statsCards}
         enableCSVImport={true}
+        enableCtrlF={true}
         csvFile={csvFile}
         onFileChange={setCsvFile}
         onCSVImport={handleCSVImport}
