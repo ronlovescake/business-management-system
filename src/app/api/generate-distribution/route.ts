@@ -1,3 +1,40 @@
+// ==============================================================================
+// ⚠️⚠️⚠️ CRITICAL WARNING - READ BEFORE MAKING ANY CHANGES ⚠️⚠️⚠️
+// ==============================================================================
+//
+// This API route generates distribution slips for warehouse operations.
+// The PDF generation logic has been carefully designed and tested.
+//
+// ✅ ALLOWED MODIFICATIONS:
+//    - Fix TypeScript/ESLint errors or warnings
+//    - Fix runtime bugs that break functionality
+//    - Improve code structure/organization (refactoring)
+//    - Performance optimizations
+//    - Update styling/template (in distribution.hbs file)
+//
+// ❌ FORBIDDEN MODIFICATIONS (without explicit business approval):
+//    - Change data extraction logic (Customers, Product Code, Quantity)
+//    - Modify PDF format, size, or orientation (A6 landscape)
+//    - Alter the template rendering process
+//    - Change file saving location or naming convention
+//    - Modify Puppeteer timeout or wait settings (unless fixing bugs)
+//
+// 📋 CURRENT SPECIFICATIONS - DO NOT CHANGE:
+//    - Page Size: A6 Landscape (148mm x 105mm)
+//    - One page per transaction
+//    - Fields: Customer Name, Quantity, Product Code
+//    - Logo embedded as base64 data URI
+//    - Saves to: pdf_output/ directory with timestamp
+//    - Template: templates/distribution.hbs
+//
+// 🚨 IF YOU NEED TO CHANGE THE BUSINESS LOGIC:
+//    1. DO NOT proceed without business owner approval
+//    2. Test thoroughly with real production data
+//    3. Verify PDF output matches business requirements
+//    4. Update this warning comment to reflect new specifications
+//
+// ==============================================================================
+
 import { NextRequest, NextResponse } from 'next/server';
 import puppeteer from 'puppeteer';
 import Handlebars from 'handlebars';
