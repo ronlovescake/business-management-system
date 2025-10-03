@@ -1974,7 +1974,13 @@ export default function Transactions() {
               Sync ORDER STATUS
             </Button>
             <Button leftSection={<IconPlus size={16} />} color="green">
-              Add Transaction
+              Generate Invoice
+            </Button>
+            <Button leftSection={<IconPlus size={16} />} color="blue">
+              Generate Packing List
+            </Button>
+            <Button leftSection={<IconPlus size={16} />} color="violet">
+              Generate Distribution
             </Button>
           </Group>
         }
