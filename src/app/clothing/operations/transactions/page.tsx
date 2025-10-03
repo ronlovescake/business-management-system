@@ -733,6 +733,80 @@ export default function Transactions() {
     });
   }, [searchFilteredData, selectedStatuses]);
 
+  // Generate Distribution handler
+  const handleGenerateDistribution = useCallback(async () => {
+    try {
+      // Get only the visible/filtered transactions
+      const transactionsToGenerate = filteredData.map((t) => ({
+        Customers: t.Customers,
+        'Product Code': t['Product Code'],
+        Quantity: t.Quantity,
+      }));
+
+      if (transactionsToGenerate.length === 0) {
+        notifications.show({
+          title: 'No Transactions',
+          message: 'No transactions available to generate distribution slips',
+          color: 'yellow',
+          position: 'top-right',
+        });
+        return;
+      }
+
+      notifications.show({
+        title: 'Generating Distribution Slips',
+        message: `Creating ${transactionsToGenerate.length} distribution slip(s)...`,
+        color: 'blue',
+        position: 'top-right',
+        loading: true,
+        autoClose: false,
+        id: 'distribution-loading',
+      });
+
+      const response = await fetch('/api/generate-distribution', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ transactions: transactionsToGenerate }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate distribution PDF');
+      }
+
+      // Download the PDF
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `distribution-slips-${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      notifications.update({
+        id: 'distribution-loading',
+        title: 'Success!',
+        message: `Generated ${transactionsToGenerate.length} distribution slip(s)`,
+        color: 'green',
+        loading: false,
+        autoClose: 3000,
+      });
+    } catch (error) {
+      console.error('Error generating distribution:', error);
+      notifications.update({
+        id: 'distribution-loading',
+        title: 'Error',
+        message: 'Failed to generate distribution slips. Please try again.',
+        color: 'red',
+        loading: false,
+        autoClose: 5000,
+      });
+    }
+  }, [filteredData]);
+
   // Create cell content getter that uses the FINAL filteredData (search + status)
   const cellContentGetter = React.useCallback(
     (cell: Item): GridCell => {
@@ -1979,7 +2053,11 @@ export default function Transactions() {
             <Button leftSection={<IconPlus size={16} />} color="blue">
               Generate Packing List
             </Button>
-            <Button leftSection={<IconPlus size={16} />} color="violet">
+            <Button
+              leftSection={<IconPlus size={16} />}
+              color="violet"
+              onClick={handleGenerateDistribution}
+            >
               Generate Distribution
             </Button>
           </Group>
