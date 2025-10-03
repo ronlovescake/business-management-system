@@ -17,15 +17,19 @@
       font-family: 'DM Sans', sans-serif;
       background: #f0f0f0;
       padding: 0px 0;
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     /* Container */
     .invoice-container {
       width: 817px;
-      margin: 0 auto;
       background: #fff;
       position: relative;
-      min-height: 1000px;  /* Slightly reduced height to accommodate row padding */
+      height: 1056px;  /* Fixed A4 height - no min-height */
       display: flex;
       flex-direction: column;
     }
@@ -147,6 +151,7 @@
     /* Footer area that sticks to bottom */
     .footer-area {
       margin-top: auto;  /* Push to bottom */
+      flex-shrink: 0;    /* Prevent shrinking */
     }
 
     /* Summary & Notes */
@@ -220,12 +225,12 @@
     /* Flexible spacer that expands to fill remaining space and push footer to bottom */
     .flexible-spacer {
       flex: 1;
-      min-height: 10px;  /* Minimum spacing between table and footer */
+      min-height: 20px;  /* Small padding between table and footer for breathing room */
     }
 
-    /* Fixed bottom spacer */
+    /* No spacer needed - red bar should be at absolute bottom */
     .spacer {
-      height: 10px;
+      height: 0px;
     }
   </style>
 </head>
@@ -293,17 +298,14 @@
           const tbody = document.getElementById('invoice-items');
           const currentRows = tbody.rows.length;
           
-          // Calculate how many rows should fit in the available space
-          // This creates a consistent table appearance
+          // Priority: maintain 15 rows if possible without breaking layout
           let targetRows;
-          if (currentRows <= 3) {
-            targetRows = 15;      // Small orders get more empty rows for consistency
-          } else if (currentRows <= 6) {
-            targetRows = 12;      // Medium orders (like consolidated) get moderate padding
-          } else if (currentRows <= 9) {
-            targetRows = currentRows + 3;  // Large orders get minimal padding
+          if (currentRows <= 15) {
+            targetRows = 15;      // Always aim for 15 rows when possible
+          } else if (currentRows <= 18) {
+            targetRows = currentRows + 1;  // Large orders get minimal padding
           } else {
-            targetRows = currentRows + 1;  // Very large orders get just one extra row
+            targetRows = currentRows;      // Very large orders get no padding to fit on page
           }
           
           while (tbody.rows.length < targetRows) {
