@@ -155,6 +155,8 @@ export default function Transactions() {
     loadSavedFilterState()
   );
   const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
+  const [isGeneratingDistribution, setIsGeneratingDistribution] =
+    useState(false);
 
   // ============================================================================
   // DATABASE INTEGRATION - Load transactions from API
@@ -922,6 +924,92 @@ export default function Transactions() {
       });
     } finally {
       setIsGeneratingInvoice(false);
+    }
+  }, [transactions]);
+
+  // Distribution generation function
+  const handleGenerateDistribution = useCallback(async () => {
+    console.log('📦 Generating distribution slips for Warehouse orders...');
+    setIsGeneratingDistribution(true);
+
+    try {
+      // Filter only "Warehouse" status transactions from all transactions
+      const warehouseTransactions = transactions.filter(
+        (transaction) => transaction['Order Status'] === 'Warehouse'
+      );
+
+      if (warehouseTransactions.length === 0) {
+        notifications.show({
+          title: '⚠️ No Warehouse Transactions',
+          message:
+            'No visible transactions with "Warehouse" status found for distribution slip generation.',
+          color: 'yellow',
+          autoClose: 5000,
+        });
+        return;
+      }
+
+      console.log(
+        `📋 Found ${warehouseTransactions.length} Warehouse transactions for distribution slips`
+      );
+
+      // Call the distribution generation API
+      const response = await fetch('/api/generate-distribution', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ transactions: warehouseTransactions }),
+      });
+
+      if (response.ok) {
+        // Get the PDF blob
+        const pdfBlob = await response.blob();
+
+        // Create download link
+        const url = window.URL.createObjectURL(pdfBlob);
+        const link = document.createElement('a');
+        link.href = url;
+
+        // Generate filename with timestamp
+        const timestamp = new Date()
+          .toISOString()
+          .slice(0, 19)
+          .replace(/[:-]/g, '');
+        link.download = `distribution-slips-${timestamp}.pdf`;
+
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        // Show success notification
+        notifications.show({
+          title: '✅ Distribution Slips Generated',
+          message: `PDF with ${warehouseTransactions.length} distribution slips has been downloaded (sorted by quantity ascending)`,
+          color: 'green',
+          autoClose: 8000,
+        });
+      } else {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.error || 'Failed to generate distribution slips'
+        );
+      }
+    } catch (error) {
+      console.error('Error generating distribution slips:', error);
+      notifications.show({
+        title: '❌ Distribution Generation Failed',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'An unexpected error occurred',
+        color: 'red',
+        autoClose: 7000,
+      });
+    } finally {
+      setIsGeneratingDistribution(false);
     }
   }, [transactions]);
 
@@ -2434,8 +2522,16 @@ export default function Transactions() {
             <Button leftSection={<IconPlus size={16} />} color="blue">
               Generate Packing List
             </Button>
-            <Button leftSection={<IconPlus size={16} />} color="violet">
-              Generate Distribution
+            <Button
+              leftSection={<IconPlus size={16} />}
+              color="violet"
+              onClick={handleGenerateDistribution}
+              loading={isGeneratingDistribution}
+              disabled={isGeneratingDistribution}
+            >
+              {isGeneratingDistribution
+                ? 'Generating...'
+                : 'Generate Distribution'}
             </Button>
           </Group>
         }
