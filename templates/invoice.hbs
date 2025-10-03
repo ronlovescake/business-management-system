@@ -217,9 +217,10 @@
     }
 
 
-    /* Content area maintains table structure with consistent rows */
-    .content-area {
-      /* No additional styles needed - flexbox handles the layout */
+    /* Flexible spacer that expands to fill remaining space and push footer to bottom */
+    .flexible-spacer {
+      flex: 1;
+      min-height: 10px;  /* Minimum spacing between table and footer */
     }
 
     /* Fixed bottom spacer */
@@ -317,8 +318,8 @@
         })();
       </script>
 
-      <!-- Small spacer to separate table from footer -->
-      <div style="height: 20px;"></div>
+      <!-- Flexible spacer that expands to push footer to bottom -->
+      <div class="flexible-spacer"></div>
     </div>
 
     <!-- Footer area that stays at bottom -->
