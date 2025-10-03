@@ -720,11 +720,16 @@ export default function Transactions() {
         window.URL.revokeObjectURL(url);
 
         // Show success notification
+        const statusUpdateMessage =
+          totalWarehouseOrders > 0
+            ? ` All ${totalWarehouseOrders} Warehouse orders updated to Prepared status.`
+            : '';
+
         notifications.show({
-          title: '✅ Invoices Generated',
-          message: `PDF with invoices for ${totalWarehouseOrders} Warehouse + ${totalPreparedOrders} Prepared orders (${invoiceTransactions.length} total) from ${customersWithWarehouseOrders.size} customers has been downloaded.`,
+          title: '✅ Invoices Generated & Status Updated',
+          message: `PDF with invoices for ${totalWarehouseOrders} Warehouse + ${totalPreparedOrders} Prepared orders (${invoiceTransactions.length} total) from ${customersWithWarehouseOrders.size} customers has been downloaded.${statusUpdateMessage}`,
           color: 'green',
-          autoClose: 7000,
+          autoClose: 8000,
         });
 
         // Update Invoice Date for the processed transactions
@@ -741,19 +746,64 @@ export default function Transactions() {
         );
 
         const updatedTransactions = transactions.map((transaction) => {
+          const updates: Partial<TransactionData> = {};
+          let hasUpdates = false;
+
+          // Set Invoice Date if not already set
           if (
             processedTransactionIds.has(transaction.id) &&
             !transaction['Invoice Date']
           ) {
-            return {
-              ...transaction,
-              'Invoice Date': currentDate,
-            };
+            updates['Invoice Date'] = currentDate;
+            hasUpdates = true;
           }
-          return transaction;
+
+          // Update Warehouse orders to Prepared status after invoicing
+          if (
+            processedTransactionIds.has(transaction.id) &&
+            transaction['Order Status'] === 'Warehouse'
+          ) {
+            updates['Order Status'] = 'Prepared';
+            hasUpdates = true;
+          }
+
+          return hasUpdates ? { ...transaction, ...updates } : transaction;
         });
 
         setTransactions(updatedTransactions);
+
+        // Save the status updates to database for Warehouse orders that were changed to Prepared
+        const warehouseToPrepairedUpdates = updatedTransactions.filter(
+          (transaction) =>
+            processedTransactionIds.has(transaction.id) &&
+            transaction['Order Status'] === 'Prepared' &&
+            transactions.find((orig) => orig.id === transaction.id)?.[
+              'Order Status'
+            ] === 'Warehouse'
+        );
+
+        if (warehouseToPrepairedUpdates.length > 0) {
+          // Save status updates to database
+          try {
+            const updatePromises = warehouseToPrepairedUpdates.map(
+              (transaction) => saveTransactionToDatabase(transaction)
+            );
+            await Promise.all(updatePromises);
+
+            console.log(
+              `✅ Updated ${warehouseToPrepairedUpdates.length} Warehouse orders to Prepared status`
+            );
+          } catch (updateError) {
+            console.error('Error updating order statuses:', updateError);
+            notifications.show({
+              title: '⚠️ Status Update Warning',
+              message:
+                'Invoices generated successfully, but some order status updates failed',
+              color: 'yellow',
+              autoClose: 5000,
+            });
+          }
+        }
       } else {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to generate invoices');
