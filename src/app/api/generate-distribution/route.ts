@@ -91,6 +91,19 @@ export async function POST(request: NextRequest) {
 
     const mergedPdfBytes = await mergedPdf.save();
 
+    // Save the PDF to the pdf_output directory
+    const outputDir = path.join(process.cwd(), 'pdf_output');
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `distribution-slips-${timestamp}.pdf`;
+    const outputPath = path.join(outputDir, filename);
+
+    fs.writeFileSync(outputPath, mergedPdfBytes);
+    console.log(`✅ Distribution PDF saved to: ${outputPath}`);
+
     // Return the PDF
     return new NextResponse(Buffer.from(mergedPdfBytes), {
       status: 200,
