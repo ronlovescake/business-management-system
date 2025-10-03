@@ -749,10 +749,11 @@ export default function Transactions() {
           const updates: Partial<TransactionData> = {};
           let hasUpdates = false;
 
-          // Set Invoice Date if not already set
+          // Set Invoice Date if not already set (check for empty, null, or whitespace)
           if (
             processedTransactionIds.has(transaction.id) &&
-            !transaction['Invoice Date']
+            (!transaction['Invoice Date'] ||
+              transaction['Invoice Date'].trim() === '')
           ) {
             updates['Invoice Date'] = currentDate;
             hasUpdates = true;
@@ -772,33 +773,44 @@ export default function Transactions() {
 
         setTransactions(updatedTransactions);
 
-        // Save the status updates to database for Warehouse orders that were changed to Prepared
-        const warehouseToPrepairedUpdates = updatedTransactions.filter(
-          (transaction) =>
-            processedTransactionIds.has(transaction.id) &&
-            transaction['Order Status'] === 'Prepared' &&
-            transactions.find((orig) => orig.id === transaction.id)?.[
-              'Order Status'
-            ] === 'Warehouse'
+        // Save ALL processed transactions to database (both invoice date and status updates)
+        const transactionsToSave = updatedTransactions.filter((transaction) =>
+          processedTransactionIds.has(transaction.id)
         );
 
-        if (warehouseToPrepairedUpdates.length > 0) {
-          // Save status updates to database
+        if (transactionsToSave.length > 0) {
+          // Save all updates to database (invoice dates AND status changes)
           try {
-            const updatePromises = warehouseToPrepairedUpdates.map(
-              (transaction) => saveTransactionToDatabase(transaction)
+            const updatePromises = transactionsToSave.map((transaction) =>
+              saveTransactionToDatabase(transaction)
             );
             await Promise.all(updatePromises);
 
+            // Count different types of updates for logging
+            const invoiceDateUpdates = transactionsToSave.filter(
+              (transaction) =>
+                !transactions.find((orig) => orig.id === transaction.id)?.[
+                  'Invoice Date'
+                ] && transaction['Invoice Date']
+            ).length;
+
+            const statusUpdates = transactionsToSave.filter(
+              (transaction) =>
+                transaction['Order Status'] === 'Prepared' &&
+                transactions.find((orig) => orig.id === transaction.id)?.[
+                  'Order Status'
+                ] === 'Warehouse'
+            ).length;
+
             console.log(
-              `✅ Updated ${warehouseToPrepairedUpdates.length} Warehouse orders to Prepared status`
+              `✅ Saved to database: ${invoiceDateUpdates} Invoice Date updates + ${statusUpdates} Warehouse→Prepared status updates`
             );
           } catch (updateError) {
-            console.error('Error updating order statuses:', updateError);
+            console.error('Error saving transaction updates:', updateError);
             notifications.show({
-              title: '⚠️ Status Update Warning',
+              title: '⚠️ Database Save Warning',
               message:
-                'Invoices generated successfully, but some order status updates failed',
+                'Invoices generated successfully, but some database updates failed',
               color: 'yellow',
               autoClose: 5000,
             });
