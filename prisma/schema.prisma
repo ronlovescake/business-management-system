@@ -125,3 +125,20 @@ model Transaction {
 
   @@map("transactions")
 }
+
+model SortingDistribution {
+  id                  Int      @id @default(autoincrement())
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  productCode         String   @db.VarChar(100)
+  selectedQuantity    Int?
+  rowNumber           Int
+  quantity            Float    @default(0)
+  percentage          Float    @default(0)
+  groupNumber         String   @default("") @db.VarChar(50)
+  distribution        Float    @default(0)
+  checked             Boolean  @default(false)
+
+  @@unique([productCode, rowNumber])
+  @@map("sorting_distributions")
+}
