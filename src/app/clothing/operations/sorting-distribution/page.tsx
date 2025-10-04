@@ -17,7 +17,6 @@ import {
   Card,
   Grid,
   Text,
-  TextInput,
   Group,
   Select,
   Button,
@@ -251,6 +250,66 @@ export default function SortingDistribution() {
     loadTotalOrderFromTransactions();
   }, [item]);
 
+  // Count unique customers with the selected order quantity
+  useEffect(() => {
+    const countCustomersWithQuantity = async () => {
+      if (item && selectedQuantity !== null) {
+        try {
+          const response = await fetch('/api/transactions');
+
+          if (response.ok) {
+            const transactions = await response.json();
+
+            console.log('All transactions:', transactions.length);
+            console.log('Looking for product:', item);
+            console.log('Looking for quantity:', selectedQuantity);
+            console.log('Sample transaction structure:', transactions[0]);
+
+            // Filter transactions matching both the product code AND the selected quantity
+            const matchingTransactions = transactions.filter(
+              (t: { 'Product Code': string; Quantity: number | null }) =>
+                t['Product Code'] === item && t.Quantity === selectedQuantity
+            );
+
+            console.log('Matching transactions:', matchingTransactions);
+            console.log(
+              'Matching transactions count:',
+              matchingTransactions.length
+            );
+            console.log('First matching transaction:', matchingTransactions[0]);
+
+            // Count unique customers - using Customers field from transactions (note: plural)
+            const uniqueCustomers = new Set(
+              matchingTransactions.map(
+                (t: { Customers: string }) => t.Customers
+              )
+            );
+            const uniqueCustomersCount = uniqueCustomers.size;
+
+            console.log('Unique customers:', Array.from(uniqueCustomers));
+            console.log(
+              `Customers with quantity ${selectedQuantity} for ${item}:`,
+              uniqueCustomersCount
+            );
+
+            setCustomerWithOrderQty(uniqueCustomersCount);
+          } else {
+            console.error('Failed to load transactions');
+            setCustomerWithOrderQty(0);
+          }
+        } catch (error) {
+          console.error('Error loading customers with order quantity:', error);
+          setCustomerWithOrderQty(0);
+        }
+      } else {
+        // Clear customer count when product is deselected or no quantity is selected
+        setCustomerWithOrderQty(0);
+      }
+    };
+
+    countCustomersWithQuantity();
+  }, [item, selectedQuantity]);
+
   // Initialize 100 rows with default values
   const [rows, setRows] = useState<DistributionRow[]>(() => {
     return Array.from({ length: 100 }, () => ({
@@ -261,6 +320,11 @@ export default function SortingDistribution() {
       checked: false,
     }));
   });
+
+  // Calculate total distribution sum
+  const totalDistribution = useMemo(() => {
+    return rows.reduce((sum, row) => sum + (row.distribution || 0), 0);
+  }, [rows]);
 
   // Auto-populate Est. Qty. Received from sum of Quantity column in the table
   useEffect(() => {
@@ -743,6 +807,27 @@ export default function SortingDistribution() {
                 </Group>
 
                 <Group gap="xs" justify="flex-end">
+                  <Text size="sm" fw={500}>
+                    Total Distribution
+                  </Text>
+                  <Text
+                    size="sm"
+                    fw={600}
+                    style={{
+                      minWidth: '100px',
+                      textAlign: 'right',
+                      padding: '8px 12px',
+                      backgroundColor: '#e3f2fd',
+                      borderRadius: '4px',
+                      color: '#1976d2',
+                      border: '1px solid #bbdefb',
+                    }}
+                  >
+                    {totalDistribution}
+                  </Text>
+                </Group>
+
+                <Group gap="xs" justify="flex-end">
                   <Text
                     size="sm"
                     fw={500}
@@ -750,22 +835,19 @@ export default function SortingDistribution() {
                   >
                     Customer With This Order Quantity
                   </Text>
-                  <TextInput
-                    type="number"
-                    value={customerWithOrderQty}
-                    onChange={(e) =>
-                      setCustomerWithOrderQty(Number(e.currentTarget.value))
-                    }
-                    placeholder="0"
-                    style={{ width: '100px' }}
-                    styles={{
-                      input: {
-                        textAlign: 'right',
-                        fontWeight: 600,
-                        borderBottom: '2px solid #228be6',
-                      },
+                  <Text
+                    size="sm"
+                    fw={600}
+                    style={{
+                      minWidth: '100px',
+                      textAlign: 'right',
+                      padding: '8px 12px',
+                      backgroundColor: '#f1f3f5',
+                      borderRadius: '4px',
                     }}
-                  />
+                  >
+                    {customerWithOrderQty}
+                  </Text>
                 </Group>
 
                 {/* Pill Buttons for Unique Quantities */}
@@ -814,6 +896,58 @@ export default function SortingDistribution() {
               </Stack>
             </Grid.Col>
           </Grid>
+
+          {/* Distribution Warning/Status - Centered and Prominent */}
+          {selectedQuantity !== null && (
+            <div
+              style={{
+                marginTop: '16px',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
+              <Text
+                size="md"
+                fw={600}
+                style={{
+                  textAlign: 'center',
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  backgroundColor:
+                    totalDistribution === selectedQuantity
+                      ? '#e8f5e9' // Green background for perfect match
+                      : totalDistribution < selectedQuantity
+                        ? '#fff3e0' // Orange background for under-distribution
+                        : '#ffebee', // Red background for over-distribution
+                  color:
+                    totalDistribution === selectedQuantity
+                      ? '#2e7d32' // Dark green text
+                      : totalDistribution < selectedQuantity
+                        ? '#e65100' // Dark orange text
+                        : '#c62828', // Dark red text
+                  border:
+                    totalDistribution === selectedQuantity
+                      ? '2px solid #4caf50'
+                      : totalDistribution < selectedQuantity
+                        ? '2px solid #ff9800'
+                        : '2px solid #f44336',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                  fontSize: '16px',
+                }}
+              >
+                {totalDistribution === selectedQuantity
+                  ? '✓ Perfect match!'
+                  : totalDistribution < selectedQuantity
+                    ? `⚠ Need ${
+                        selectedQuantity - totalDistribution
+                      } more to reach order quantity of ${selectedQuantity}`
+                    : `⚠ Over-distributed by ${
+                        totalDistribution - selectedQuantity
+                      } (Order quantity: ${selectedQuantity})`}
+              </Text>
+            </div>
+          )}
         </Card>
 
         {/* Data Grid */}
