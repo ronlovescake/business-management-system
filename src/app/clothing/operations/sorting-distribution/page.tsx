@@ -9,6 +9,7 @@ import {
   Item,
   type GridCell,
   type EditableGridCell,
+  type GridSelection,
 } from '@glideapps/glide-data-grid';
 import {
   Stack,
@@ -19,6 +20,7 @@ import {
   TextInput,
   Group,
   Select,
+  Button,
 } from '@mantine/core';
 
 // Import Glide Data Grid CSS
@@ -100,6 +102,15 @@ export default function SortingDistribution() {
   const [availableStock, setAvailableStock] = useState<number>(0);
   const [totalCustomers, setTotalCustomers] = useState<number>(0);
   const [customerWithOrderQty, setCustomerWithOrderQty] = useState<number>(0);
+
+  // Unique quantities for pill buttons
+  const [uniqueQuantities, setUniqueQuantities] = useState<number[]>([]);
+  const [selectedQuantity, setSelectedQuantity] = useState<number | null>(null);
+
+  // Grid selection
+  const [gridSelection, setGridSelection] = useState<
+    GridSelection | undefined
+  >();
 
   // Product options from products table (filtered by "Sorting" shipment status)
   const [productOptions, setProductOptions] = useState<string[]>([]);
@@ -185,29 +196,39 @@ export default function SortingDistribution() {
           if (response.ok) {
             const transactions = await response.json();
 
-            // Filter transactions matching the selected product code and sum quantities
-            const totalOrderQty = transactions
-              .filter(
-                (t: { 'Product Code': string }) => t['Product Code'] === item
-              )
-              .reduce(
-                (sum: number, t: { Quantity: number | null }) =>
-                  sum + (t.Quantity || 0),
-                0
-              );
+            // Filter transactions matching the selected product code
+            const matchingTransactions = transactions.filter(
+              (t: { 'Product Code': string }) => t['Product Code'] === item
+            );
+
+            // Sum quantities for total order
+            const totalOrderQty = matchingTransactions.reduce(
+              (sum: number, t: { Quantity: number | null }) =>
+                sum + (t.Quantity || 0),
+              0
+            );
 
             // Count the number of customers (transactions) with this product
-            const customersCount = transactions.filter(
-              (t: { 'Product Code': string }) => t['Product Code'] === item
-            ).length;
+            const customersCount = matchingTransactions.length;
+
+            // Extract unique quantities for pill buttons
+            const quantities: number[] = matchingTransactions
+              .map((t: { Quantity: number | null }) => t.Quantity || 0)
+              .filter((qty: number) => qty > 0); // Only positive quantities
+            const uniqueQtys: number[] = Array.from(new Set(quantities)).sort(
+              (a: number, b: number) => a - b
+            );
 
             console.log(
               `Total order quantity for ${item} from transactions:`,
               totalOrderQty
             );
             console.log(`Total customers for ${item}:`, customersCount);
+            console.log(`Unique quantities for ${item}:`, uniqueQtys);
+
             setTotalReservation(totalOrderQty);
             setTotalCustomers(customersCount);
+            setUniqueQuantities(uniqueQtys);
           } else {
             console.error('Failed to load transactions');
             setTotalReservation(0);
@@ -222,6 +243,8 @@ export default function SortingDistribution() {
         // Clear total order when product is deselected
         setTotalReservation(0);
         setTotalCustomers(0);
+        setUniqueQuantities([]);
+        setSelectedQuantity(null);
       }
     };
 
@@ -310,25 +333,33 @@ export default function SortingDistribution() {
           const percentage =
             totalQuantity > 0 ? (newRows[i].quantity / totalQuantity) * 100 : 0;
 
+          // Calculate distribution: (Quantity / Est. Qty. Received) * Selected Pill Button
+          const distribution =
+            estQtyReceived > 0 && selectedQuantity !== null
+              ? (newRows[i].quantity / estQtyReceived) * selectedQuantity
+              : 0;
+
           newRows[i] = {
             ...newRows[i],
             groupNumber: `Number ${counter}`,
             percentage: percentage,
+            distribution: Math.round(distribution), // Round to whole number
           };
           counter++;
         } else {
-          // Clear group number and percentage if quantity is 0 or empty
+          // Clear group number, percentage, and distribution if quantity is 0 or empty
           newRows[i] = {
             ...newRows[i],
             groupNumber: '',
             percentage: 0,
+            distribution: 0,
           };
         }
       }
 
       return newRows;
     });
-  }, [quantitiesString]); // Re-run when any quantity changes
+  }, [quantitiesString, estQtyReceived, selectedQuantity]); // Re-run when any quantity changes, est qty received, or selected quantity changes
 
   // 🚀 PERFORMANCE: Memoize columns array to prevent recreation on every render
   const columns: GridColumn[] = useMemo(
@@ -528,6 +559,73 @@ export default function SortingDistribution() {
     []
   );
 
+  // Handle header menu clicks (right-click on header)
+  const handleHeaderMenuClick = useCallback(
+    (col: number) => {
+      const column = columns[col];
+
+      // Only allow clearing the Quantity column for now
+      if (column.id === 'quantity') {
+        const confirmClear = window.confirm(
+          `Are you sure you want to clear all values in the "${column.title}" column?`
+        );
+
+        if (confirmClear) {
+          setRows((prevRows) =>
+            prevRows.map((row) => ({
+              ...row,
+              quantity: 0,
+            }))
+          );
+          console.log(`Cleared all values in ${column.title} column`);
+        }
+      } else {
+        // For other columns, show a message that they can't be cleared
+        alert(
+          `The "${column.title}" column cannot be manually cleared as it contains calculated values.`
+        );
+      }
+
+      return undefined; // Don't show the default menu
+    },
+    [columns]
+  );
+
+  // Handle paste event from grid
+  const handlePasteEvent = useCallback(
+    (target: Item, values: readonly (readonly string[])[]) => {
+      const [col, row] = target;
+
+      // Only allow pasting to Quantity column (index 0)
+      if (col !== 0) {
+        return false;
+      }
+
+      setRows((prevRows) => {
+        const newRows = [...prevRows];
+
+        values.forEach((rowData, rowOffset) => {
+          const targetRow = row + rowOffset;
+          if (targetRow < newRows.length && rowData.length > 0) {
+            const pastedValue = parseFloat(rowData[0]) || 0;
+            newRows[targetRow] = {
+              ...newRows[targetRow],
+              quantity: pastedValue,
+            };
+          }
+        });
+
+        console.log(
+          `Pasted ${values.length} values starting at row ${row + 1}`
+        );
+        return newRows;
+      });
+
+      return true; // Indicate we handled the paste
+    },
+    []
+  );
+
   return (
     <PageLayout fluid withPadding>
       <Stack gap="md">
@@ -669,6 +767,50 @@ export default function SortingDistribution() {
                     }}
                   />
                 </Group>
+
+                {/* Pill Buttons for Unique Quantities */}
+                {uniqueQuantities.length > 0 && (
+                  <Group gap="xs" justify="flex-end" align="center">
+                    <Text
+                      size="sm"
+                      fw={500}
+                      style={{ minWidth: '140px', textAlign: 'right' }}
+                    >
+                      Order Quantities:
+                    </Text>
+                    <Group gap="xs">
+                      {uniqueQuantities.map((qty) => {
+                        const isSelected = selectedQuantity === qty;
+                        return (
+                          <Button
+                            key={qty}
+                            variant={isSelected ? 'filled' : 'outline'}
+                            size="xs"
+                            radius="xl"
+                            color={isSelected ? 'blue' : 'gray'}
+                            style={{
+                              fontWeight: 500,
+                              opacity: isSelected ? 1 : 0.6,
+                              cursor: 'pointer',
+                              width: '50px',
+                              minWidth: '50px',
+                              padding: '0',
+                            }}
+                            onClick={() => {
+                              // Toggle selection: if already selected, deselect; otherwise select
+                              setSelectedQuantity(isSelected ? null : qty);
+                              console.log(
+                                `Selected quantity: ${isSelected ? 'none' : qty}`
+                              );
+                            }}
+                          >
+                            {qty}
+                          </Button>
+                        );
+                      })}
+                    </Group>
+                  </Group>
+                )}
               </Stack>
             </Grid.Col>
           </Grid>
@@ -687,6 +829,18 @@ export default function SortingDistribution() {
               getCellContent={getData}
               onCellEdited={onCellEdited}
               drawHeader={drawHeader}
+              onHeaderMenuClick={handleHeaderMenuClick}
+              gridSelection={gridSelection}
+              onGridSelectionChange={setGridSelection}
+              getCellsForSelection={true}
+              onPaste={handlePasteEvent}
+              keybindings={{
+                copy: true,
+                paste: true,
+                selectAll: true,
+                selectRow: true,
+                selectColumn: true,
+              }}
               smoothScrollX={true}
               smoothScrollY={true}
               rowHeight={35}
