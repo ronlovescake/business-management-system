@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import {
@@ -10,7 +10,16 @@ import {
   type GridCell,
   type EditableGridCell,
 } from '@glideapps/glide-data-grid';
-import { Stack, Loader } from '@mantine/core';
+import {
+  Stack,
+  Loader,
+  Card,
+  Grid,
+  Text,
+  TextInput,
+  Group,
+  Select,
+} from '@mantine/core';
 
 // Import Glide Data Grid CSS
 import '@glideapps/glide-data-grid/dist/index.css';
@@ -73,9 +82,151 @@ interface DistributionRow {
   checked: boolean;
 }
 
+interface Product {
+  productCode: string | null;
+  shipmentStatus: string | null;
+  quantity: number;
+}
+
 export default function SortingDistribution() {
   const [gridHeight, setGridHeight] = useState<number>(600);
   const [isMounted, setIsMounted] = useState(false);
+
+  // Information fields state
+  const [item, setItem] = useState<string>('');
+  const [ordered, setOrdered] = useState<string>('');
+  const [estQtyReceived, setEstQtyReceived] = useState<number>(0);
+  const [totalReservation, setTotalReservation] = useState<number>(0);
+  const [availableStock, setAvailableStock] = useState<number>(0);
+  const [totalCustomers, setTotalCustomers] = useState<number>(0);
+  const [customerWithOrderQty, setCustomerWithOrderQty] = useState<number>(0);
+
+  // Product options from products table (filtered by "Sorting" shipment status)
+  const [productOptions, setProductOptions] = useState<string[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+
+  // Load product codes from products with "Sorting" shipment status
+  useEffect(() => {
+    const loadProductCodes = async () => {
+      try {
+        const response = await fetch('/api/products');
+
+        if (response.ok) {
+          const products = await response.json();
+
+          console.log('Loaded products:', products.length);
+
+          // Store all products for lookup
+          setAllProducts(products);
+
+          // Filter products with "Sorting" shipment status and extract unique product codes
+          // Database uses camelCase field names: shipmentStatus and productCode
+          const sortingProductCodes = products
+            .filter((p: { shipmentStatus: string | null }) => {
+              console.log('Product shipmentStatus:', p.shipmentStatus);
+              return p.shipmentStatus === 'Sorting';
+            })
+            .map((p: { productCode: string | null }) => p.productCode)
+            .filter((code: string | null) => code && code.trim() !== ''); // Remove empty codes
+
+          console.log('Filtered sorting products:', sortingProductCodes);
+
+          // Get unique product codes
+          const uniqueCodes: string[] = Array.from(
+            new Set(sortingProductCodes)
+          );
+
+          console.log('Unique product codes:', uniqueCodes);
+          setProductOptions(uniqueCodes);
+        } else {
+          console.error('Failed to load products, status:', response.status);
+          setProductOptions([]);
+          setAllProducts([]);
+        }
+      } catch (error) {
+        console.error('Error loading product codes:', error);
+        setProductOptions([]);
+        setAllProducts([]);
+      }
+    };
+
+    loadProductCodes();
+  }, []);
+
+  // Auto-populate quantity when product code is selected
+  useEffect(() => {
+    if (item && allProducts.length > 0) {
+      // Find all products matching the selected product code
+      const matchingProducts = allProducts.filter(
+        (p: Product) => p.productCode === item
+      );
+
+      // Calculate total quantity for this product code
+      const totalQuantity = matchingProducts.reduce(
+        (sum: number, p: Product) => sum + (p.quantity || 0),
+        0
+      );
+
+      console.log(`Total quantity for ${item}:`, totalQuantity);
+      setOrdered(totalQuantity.toString());
+    } else if (!item) {
+      // Clear quantity when product is deselected
+      setOrdered('');
+    }
+  }, [item, allProducts]);
+
+  // Auto-populate Total Order from transactions table when product code is selected
+  useEffect(() => {
+    const loadTotalOrderFromTransactions = async () => {
+      if (item) {
+        try {
+          const response = await fetch('/api/transactions');
+
+          if (response.ok) {
+            const transactions = await response.json();
+
+            // Filter transactions matching the selected product code and sum quantities
+            const totalOrderQty = transactions
+              .filter(
+                (t: { 'Product Code': string }) => t['Product Code'] === item
+              )
+              .reduce(
+                (sum: number, t: { Quantity: number | null }) =>
+                  sum + (t.Quantity || 0),
+                0
+              );
+
+            // Count the number of customers (transactions) with this product
+            const customersCount = transactions.filter(
+              (t: { 'Product Code': string }) => t['Product Code'] === item
+            ).length;
+
+            console.log(
+              `Total order quantity for ${item} from transactions:`,
+              totalOrderQty
+            );
+            console.log(`Total customers for ${item}:`, customersCount);
+            setTotalReservation(totalOrderQty);
+            setTotalCustomers(customersCount);
+          } else {
+            console.error('Failed to load transactions');
+            setTotalReservation(0);
+            setTotalCustomers(0);
+          }
+        } catch (error) {
+          console.error('Error loading total order from transactions:', error);
+          setTotalReservation(0);
+          setTotalCustomers(0);
+        }
+      } else {
+        // Clear total order when product is deselected
+        setTotalReservation(0);
+        setTotalCustomers(0);
+      }
+    };
+
+    loadTotalOrderFromTransactions();
+  }, [item]);
 
   // Initialize 100 rows with default values
   const [rows, setRows] = useState<DistributionRow[]>(() => {
@@ -87,6 +238,21 @@ export default function SortingDistribution() {
       checked: false,
     }));
   });
+
+  // Auto-populate Est. Qty. Received from sum of Quantity column in the table
+  useEffect(() => {
+    const totalQuantity = rows.reduce(
+      (sum, row) => sum + (row.quantity || 0),
+      0
+    );
+    setEstQtyReceived(totalQuantity);
+  }, [rows]);
+
+  // Auto-populate Available Stock as Est. Qty. Received - Total Order
+  useEffect(() => {
+    const available = estQtyReceived - totalReservation;
+    setAvailableStock(available);
+  }, [estQtyReceived, totalReservation]);
 
   // Inject styles only on client side to prevent hydration errors
   React.useEffect(() => {
@@ -167,11 +333,11 @@ export default function SortingDistribution() {
   // 🚀 PERFORMANCE: Memoize columns array to prevent recreation on every render
   const columns: GridColumn[] = useMemo(
     () => [
-      { title: 'Quantity', width: 200, id: 'quantity' },
-      { title: 'Percentage', width: 200, id: 'percentage' },
-      { title: 'Group Number', width: 200, id: 'groupNumber' },
-      { title: 'Distribution', width: 200, id: 'distribution' },
-      { title: 'Checkbox', width: 150, id: 'checkbox', grow: 1 },
+      { title: 'Quantity', width: 200, id: 'quantity', grow: 1 },
+      { title: 'Percentage', width: 200, id: 'percentage', grow: 1 },
+      { title: 'Group Number', width: 200, id: 'groupNumber', grow: 1 },
+      { title: 'Distribution', width: 200, id: 'distribution', grow: 1 },
+      { title: 'Checkbox', width: 200, id: 'checkbox', grow: 1 },
     ],
     []
   );
@@ -363,8 +529,152 @@ export default function SortingDistribution() {
   );
 
   return (
-    <PageLayout title="Sorting & Distribution">
+    <PageLayout fluid withPadding>
       <Stack gap="md">
+        {/* Information Section */}
+        <Card shadow="sm" padding="lg" radius="md" withBorder>
+          <Grid gutter="md">
+            {/* Left Column */}
+            <Grid.Col span={6}>
+              <Stack gap="xs">
+                <Group gap="xs">
+                  <Text size="sm" fw={500} style={{ minWidth: '140px' }}>
+                    Product Code
+                  </Text>
+                  <Select
+                    value={item}
+                    onChange={(value) => setItem(value || '')}
+                    data={productOptions}
+                    placeholder="Select a product..."
+                    searchable
+                    clearable
+                    style={{ flex: 1 }}
+                  />
+                </Group>
+
+                <Group gap="xs">
+                  <Text size="sm" fw={500} style={{ minWidth: '140px' }}>
+                    Quantity
+                  </Text>
+                  <Text
+                    size="sm"
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '4px',
+                    }}
+                  >
+                    {ordered || ''}
+                  </Text>
+                </Group>
+
+                <Group gap="xs">
+                  <Text size="sm" fw={500} style={{ minWidth: '140px' }}>
+                    Est. Qty. Received
+                  </Text>
+                  <Text
+                    size="sm"
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '4px',
+                    }}
+                  >
+                    {estQtyReceived || 0}
+                  </Text>
+                </Group>
+
+                <Group gap="xs">
+                  <Text size="sm" fw={500} style={{ minWidth: '140px' }}>
+                    Total Order
+                  </Text>
+                  <Text
+                    size="sm"
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '4px',
+                    }}
+                  >
+                    {totalReservation || 0}
+                  </Text>
+                </Group>
+
+                <Group gap="xs">
+                  <Text size="sm" fw={500} style={{ minWidth: '140px' }}>
+                    Available Stock
+                  </Text>
+                  <Text
+                    size="sm"
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '4px',
+                    }}
+                  >
+                    {availableStock || 0}
+                  </Text>
+                </Group>
+              </Stack>
+            </Grid.Col>
+
+            {/* Right Column */}
+            <Grid.Col span={6}>
+              <Stack gap="xs" align="flex-end">
+                <Group gap="xs" justify="flex-end">
+                  <Text size="sm" fw={500}>
+                    Total Customers
+                  </Text>
+                  <Text
+                    size="sm"
+                    fw={600}
+                    style={{
+                      minWidth: '100px',
+                      textAlign: 'right',
+                      padding: '8px 12px',
+                      backgroundColor: '#f1f3f5',
+                      borderRadius: '4px',
+                    }}
+                  >
+                    {totalCustomers}
+                  </Text>
+                </Group>
+
+                <Group gap="xs" justify="flex-end">
+                  <Text
+                    size="sm"
+                    fw={500}
+                    style={{ minWidth: '240px', textAlign: 'right' }}
+                  >
+                    Customer With This Order Quantity
+                  </Text>
+                  <TextInput
+                    type="number"
+                    value={customerWithOrderQty}
+                    onChange={(e) =>
+                      setCustomerWithOrderQty(Number(e.currentTarget.value))
+                    }
+                    placeholder="0"
+                    style={{ width: '100px' }}
+                    styles={{
+                      input: {
+                        textAlign: 'right',
+                        fontWeight: 600,
+                        borderBottom: '2px solid #228be6',
+                      },
+                    }}
+                  />
+                </Group>
+              </Stack>
+            </Grid.Col>
+          </Grid>
+        </Card>
+
+        {/* Data Grid */}
         {isMounted && (
           <div
             className="data-grid-container"
