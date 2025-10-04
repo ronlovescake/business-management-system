@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import { DataTable, StatCard, useDataTable } from '../../../../components/ui';
 import { GridColumn, Item } from '@glideapps/glide-data-grid';
@@ -32,6 +32,35 @@ import {
   IconCalendar,
 } from '@tabler/icons-react';
 import { ShipmentData } from '../../../../types';
+
+// 🚀 PERFORMANCE: Static objects moved outside component to prevent recreation on every render
+const COLUMN_ALIGNMENTS: Record<string, 'left' | 'center' | 'right'> = {
+  shipmentCode: 'center',
+  cvNumber: 'center',
+  noOfSacks: 'center',
+  totalCBM: 'center',
+  weight: 'center',
+  fee: 'right',
+  shipmentStatus: 'left',
+  dateCreated: 'center',
+  dateDelivered: 'center',
+  duration: 'center',
+  notes: 'left',
+};
+
+const ID_TO_KEY: Record<string, keyof ShipmentData> = {
+  shipmentCode: 'Shipment Code',
+  cvNumber: 'CV Number',
+  noOfSacks: 'No. Of Sacks',
+  totalCBM: 'Total CBM',
+  weight: 'Weight',
+  fee: 'Fee',
+  shipmentStatus: 'Shipment Status',
+  dateCreated: 'Date Created',
+  dateDelivered: 'Date Delivered',
+  duration: 'Duration',
+  notes: 'Notes',
+};
 
 export default function Shipments() {
   const [shipments, setShipments] = useState<ShipmentData[]>([]);
@@ -131,8 +160,8 @@ export default function Shipments() {
     },
   });
 
-  // Define columns for the shipments table with alignment
-  const columns: GridColumn[] = [
+  // 🚀 PERFORMANCE: Memoize columns array to prevent recreation on every render
+  const columns: GridColumn[] = useMemo(() => [
     { title: 'Shipment Code', width: 200, id: 'shipmentCode' },
     { title: 'CV Number', width: 200, id: 'cvNumber' },
     { title: 'No. Of Sacks', width: 200, id: 'noOfSacks' },
@@ -144,37 +173,13 @@ export default function Shipments() {
     { title: 'Date Delivered', width: 200, id: 'dateDelivered' },
     { title: 'Duration', width: 200, id: 'duration' },
     { title: 'Notes', width: 200, grow: 1, id: 'notes' },
-  ];
+  ], []); // Empty deps - columns never change
 
   // Column alignment configuration
-  const columnAlignments: Record<string, 'left' | 'center' | 'right'> = {
-    shipmentCode: 'center',
-    cvNumber: 'center',
-    noOfSacks: 'center',
-    totalCBM: 'center',
-    weight: 'center',
-    fee: 'right',
-    shipmentStatus: 'left',
-    dateCreated: 'center',
-    dateDelivered: 'center',
-    duration: 'center',
-    notes: 'left',
-  };
+  const columnAlignments: Record<string, 'left' | 'center' | 'right'> = COLUMN_ALIGNMENTS;
 
   // Map column IDs to data keys
-  const idToKey: Record<string, keyof ShipmentData> = {
-    shipmentCode: 'Shipment Code',
-    cvNumber: 'CV Number',
-    noOfSacks: 'No. Of Sacks',
-    totalCBM: 'Total CBM',
-    weight: 'Weight',
-    fee: 'Fee',
-    shipmentStatus: 'Shipment Status',
-    dateCreated: 'Date Created',
-    dateDelivered: 'Date Delivered',
-    duration: 'Duration',
-    notes: 'Notes',
-  };
+  const idToKey: Record<string, keyof ShipmentData> = ID_TO_KEY;
 
   // Use the data table hook for search functionality
   const { searchQuery, filteredData, handleSearch, getCellContent } =
@@ -227,51 +232,79 @@ export default function Shipments() {
     };
   };
 
+  // 🚀 PERFORMANCE: Memoize statistics to prevent recalculation on every render
+  const stats = useMemo(() => {
+    // Calculate statistics dynamically based on filtered data
+    const inTransitShipments = filteredData.filter(
+      (s) => s['Shipment Status']?.toLowerCase() === 'in transit'
+    ).length;
+    const deliveredShipments = filteredData.filter(
+      (s) => s['Shipment Status']?.toLowerCase() === 'delivered'
+    ).length;
+    const manilaPortShipments = filteredData.filter(
+      (s) => s['Shipment Status']?.toLowerCase() === 'manila port'
+    ).length;
+    const withPierGatepassShipments = filteredData.filter(
+      (s) => s['Shipment Status']?.toLowerCase() === 'with pier gatepass'
+    ).length;
+    const phWarehouseShipments = filteredData.filter(
+      (s) => s['Shipment Status']?.toLowerCase() === 'ph warehouse'
+    ).length;
+    const forPickupShipments = filteredData.filter(
+      (s) => s['Shipment Status']?.toLowerCase() === 'for pickup'
+    ).length;
+
+    // Parse fees (remove currency symbol and commas, then convert to number) - dynamic calculation
+    const totalFees = filteredData.reduce((sum, s) => {
+      const feeString = s['Fee'] || '0';
+      const feeNumber =
+        parseFloat(feeString.toString().replace(/[₱,]/g, '')) || 0;
+      return sum + feeNumber;
+    }, 0);
+
+    // Parse sacks (convert to number) - dynamic calculation
+    const totalSacks = filteredData.reduce((sum, s) => {
+      const sacksNumber = parseFloat(s['No. Of Sacks']?.toString() || '0') || 0;
+      return sum + sacksNumber;
+    }, 0);
+
+    // Parse total CBM (convert to number) - dynamic calculation
+    const totalCBM = filteredData.reduce((sum, s) => {
+      const cbmNumber = parseFloat(s['Total CBM']?.toString() || '0') || 0;
+      return sum + cbmNumber;
+    }, 0);
+
+    // Parse total weight (convert to number) - dynamic calculation
+    const totalWeight = filteredData.reduce((sum, s) => {
+      const weightNumber = parseFloat(s['Weight']?.toString() || '0') || 0;
+      return sum + weightNumber;
+    }, 0);
+
+    return {
+      inTransitShipments,
+      deliveredShipments,
+      manilaPortShipments,
+      withPierGatepassShipments,
+      phWarehouseShipments,
+      forPickupShipments,
+      totalFees,
+      totalSacks,
+      totalCBM,
+      totalWeight,
+    };
+  }, [filteredData]); // Only recalculate when filtered data changes
+
   // Calculate statistics dynamically based on filtered data
-  const inTransitShipments = filteredData.filter(
-    (s) => s['Shipment Status']?.toLowerCase() === 'in transit'
-  ).length;
-  const deliveredShipments = filteredData.filter(
-    (s) => s['Shipment Status']?.toLowerCase() === 'delivered'
-  ).length;
-  const manilaPortShipments = filteredData.filter(
-    (s) => s['Shipment Status']?.toLowerCase() === 'manila port'
-  ).length;
-  const withPierGatepassShipments = filteredData.filter(
-    (s) => s['Shipment Status']?.toLowerCase() === 'with pier gatepass'
-  ).length;
-  const phWarehouseShipments = filteredData.filter(
-    (s) => s['Shipment Status']?.toLowerCase() === 'ph warehouse'
-  ).length;
-  const forPickupShipments = filteredData.filter(
-    (s) => s['Shipment Status']?.toLowerCase() === 'for pickup'
-  ).length;
-
-  // Parse fees (remove currency symbol and commas, then convert to number) - dynamic calculation
-  const totalFees = filteredData.reduce((sum, s) => {
-    const feeString = s['Fee'] || '0';
-    const feeNumber =
-      parseFloat(feeString.toString().replace(/[₱,]/g, '')) || 0;
-    return sum + feeNumber;
-  }, 0);
-
-  // Parse sacks (convert to number) - dynamic calculation
-  const totalSacks = filteredData.reduce((sum, s) => {
-    const sacksNumber = parseFloat(s['No. Of Sacks']?.toString() || '0') || 0;
-    return sum + sacksNumber;
-  }, 0);
-
-  // Parse total CBM (convert to number) - dynamic calculation
-  const totalCBM = filteredData.reduce((sum, s) => {
-    const cbmNumber = parseFloat(s['Total CBM']?.toString() || '0') || 0;
-    return sum + cbmNumber;
-  }, 0);
-
-  // Parse total weight (convert to number) - dynamic calculation
-  const totalWeight = filteredData.reduce((sum, s) => {
-    const weightNumber = parseFloat(s['Weight']?.toString() || '0') || 0;
-    return sum + weightNumber;
-  }, 0);
+  const inTransitShipments = stats.inTransitShipments;
+  const deliveredShipments = stats.deliveredShipments;
+  const manilaPortShipments = stats.manilaPortShipments;
+  const withPierGatepassShipments = stats.withPierGatepassShipments;
+  const phWarehouseShipments = stats.phWarehouseShipments;
+  const forPickupShipments = stats.forPickupShipments;
+  const totalFees = stats.totalFees;
+  const totalSacks = stats.totalSacks;
+  const totalCBM = stats.totalCBM;
+  const totalWeight = stats.totalWeight;
 
   // Define stats cards
   const statsCards: StatCard[] = [
