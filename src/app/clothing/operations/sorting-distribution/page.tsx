@@ -68,24 +68,46 @@ const DataEditor = dynamic(
 interface DistributionRow {
   quantity: number;
   percentage: number;
-  groupNumber: number;
+  groupNumber: string; // Changed to string to hold "Number X" format
   distribution: number;
   checked: boolean;
 }
 
 export default function SortingDistribution() {
   const [gridHeight, setGridHeight] = useState<number>(600);
+  const [isMounted, setIsMounted] = useState(false);
 
   // Initialize 100 rows with default values
   const [rows, setRows] = useState<DistributionRow[]>(() => {
     return Array.from({ length: 100 }, () => ({
       quantity: 0,
       percentage: 0,
-      groupNumber: 0,
+      groupNumber: '',
       distribution: 0,
       checked: false,
     }));
   });
+
+  // Inject styles only on client side to prevent hydration errors
+  React.useEffect(() => {
+    setIsMounted(true);
+
+    // Inject custom styles
+    const styleId = 'sorting-distribution-custom-styles';
+    if (!document.getElementById(styleId)) {
+      const styleElement = document.createElement('style');
+      styleElement.id = styleId;
+      styleElement.textContent = customGridStyles;
+      document.head.appendChild(styleElement);
+    }
+
+    return () => {
+      const styleElement = document.getElementById(styleId);
+      if (styleElement) {
+        styleElement.remove();
+      }
+    };
+  }, []);
 
   // Keep grid height at ~85vh responsively
   React.useEffect(() => {
@@ -97,6 +119,50 @@ export default function SortingDistribution() {
     window.addEventListener('resize', updateHeight);
     return () => window.removeEventListener('resize', updateHeight);
   }, []);
+
+  // 🚀 Auto-populate Group Number based on non-empty Quantity rows
+  const quantitiesString = useMemo(
+    () => rows.map((r) => r.quantity).join(','),
+    [rows]
+  );
+
+  React.useEffect(() => {
+    setRows((prevRows) => {
+      const newRows = [...prevRows];
+      let counter = 1;
+
+      // Calculate total sum of all quantities
+      const totalQuantity = newRows.reduce(
+        (sum, row) => sum + (row.quantity > 0 ? row.quantity : 0),
+        0
+      );
+
+      // Iterate through all rows and assign group numbers to rows with quantity > 0
+      for (let i = 0; i < newRows.length; i++) {
+        if (newRows[i].quantity > 0) {
+          // Calculate percentage: (quantity / total) * 100
+          const percentage =
+            totalQuantity > 0 ? (newRows[i].quantity / totalQuantity) * 100 : 0;
+
+          newRows[i] = {
+            ...newRows[i],
+            groupNumber: `Number ${counter}`,
+            percentage: percentage,
+          };
+          counter++;
+        } else {
+          // Clear group number and percentage if quantity is 0 or empty
+          newRows[i] = {
+            ...newRows[i],
+            groupNumber: '',
+            percentage: 0,
+          };
+        }
+      }
+
+      return newRows;
+    });
+  }, [quantitiesString]); // Re-run when any quantity changes
 
   // 🚀 PERFORMANCE: Memoize columns array to prevent recreation on every render
   const columns: GridColumn[] = useMemo(
@@ -127,6 +193,15 @@ export default function SortingDistribution() {
 
       const column = columns[col];
 
+      // Determine if row should be greyed out (checkbox is checked)
+      const isGreyedOut = rowData.checked;
+      const greyTheme = isGreyedOut
+        ? {
+            bgCell: '#e9ecef',
+            fgCell: '#868e96',
+          }
+        : undefined;
+
       switch (column.id) {
         case 'quantity':
           return {
@@ -135,6 +210,8 @@ export default function SortingDistribution() {
             displayData: rowData.quantity.toString(),
             allowOverlay: true,
             readonly: false,
+            contentAlign: 'center',
+            themeOverride: greyTheme,
           };
 
         case 'percentage':
@@ -144,15 +221,19 @@ export default function SortingDistribution() {
             displayData: rowData.percentage.toFixed(2) + '%',
             allowOverlay: false,
             readonly: true, // Will add formula later
+            contentAlign: 'center',
+            themeOverride: greyTheme,
           };
 
         case 'groupNumber':
           return {
-            kind: GridCellKind.Number,
+            kind: GridCellKind.Text,
             data: rowData.groupNumber,
-            displayData: rowData.groupNumber.toString(),
+            displayData: rowData.groupNumber,
             allowOverlay: false,
-            readonly: true, // Will add formula later
+            readonly: true, // Auto-populated based on Quantity
+            contentAlign: 'center',
+            themeOverride: greyTheme,
           };
 
         case 'distribution':
@@ -162,6 +243,8 @@ export default function SortingDistribution() {
             displayData: rowData.distribution.toString(),
             allowOverlay: false,
             readonly: true, // Will add formula later
+            contentAlign: 'center',
+            themeOverride: greyTheme,
           };
 
         case 'checkbox':
@@ -170,6 +253,8 @@ export default function SortingDistribution() {
             data: rowData.checked,
             allowOverlay: false,
             readonly: false,
+            contentAlign: 'center',
+            themeOverride: greyTheme,
           };
 
         default:
@@ -221,6 +306,35 @@ export default function SortingDistribution() {
   // Get row count
   const getRowCount = useCallback(() => rows.length, [rows]);
 
+  // Handle spacebar to toggle all checkboxes
+  // This will work when the user presses spacebar anywhere in the grid
+  React.useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.code === 'Space' && event.target instanceof HTMLElement) {
+        // Check if the target is within the data-grid-container
+        const isInGrid = event.target.closest('.data-grid-container');
+        if (isInGrid) {
+          event.preventDefault();
+
+          // Determine if we should check or uncheck all
+          // If any checkbox is unchecked, check all. If all are checked, uncheck all.
+          setRows((prevRows) => {
+            const hasUnchecked = prevRows.some((row) => !row.checked);
+            const newCheckedState = hasUnchecked;
+
+            return prevRows.map((row) => ({
+              ...row,
+              checked: newCheckedState,
+            }));
+          });
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Custom header drawing for center alignment
   const drawHeader = useCallback(
     (args: {
@@ -250,42 +364,44 @@ export default function SortingDistribution() {
 
   return (
     <PageLayout title="Sorting & Distribution">
-      <style>{customGridStyles}</style>
-
       <Stack gap="md">
-        <div
-          className="data-grid-container"
-          style={{ height: `${gridHeight}px` }}
-        >
-          <DataEditor
-            columns={columns}
-            rows={getRowCount()}
-            getCellContent={getData}
-            onCellEdited={onCellEdited}
-            drawHeader={drawHeader}
-            smoothScrollX={true}
-            smoothScrollY={true}
-            rowHeight={35}
-            headerHeight={40}
-            theme={{
-              accentColor: '#228be6',
-              accentLight: '#e7f5ff',
-              textDark: '#000000',
-              textMedium: '#495057',
-              textLight: '#868e96',
-              textBubble: '#000000',
-              bgIconHeader: '#f8f9fa',
-              fgIconHeader: '#495057',
-              bgCell: '#ffffff',
-              bgCellMedium: '#f8f9fa',
-              bgHeader: '#f8f9fa',
-              bgHeaderHasFocus: '#e9ecef',
-              bgHeaderHovered: '#e9ecef',
-              borderColor: '#dee2e6',
-              fontFamily: 'Inter, sans-serif',
-            }}
-          />
-        </div>
+        {isMounted && (
+          <div
+            className="data-grid-container"
+            style={{ height: `${gridHeight}px` }}
+            tabIndex={0}
+          >
+            <DataEditor
+              columns={columns}
+              rows={getRowCount()}
+              getCellContent={getData}
+              onCellEdited={onCellEdited}
+              drawHeader={drawHeader}
+              smoothScrollX={true}
+              smoothScrollY={true}
+              rowHeight={35}
+              headerHeight={40}
+              rowMarkers="number"
+              theme={{
+                accentColor: '#228be6',
+                accentLight: '#e7f5ff',
+                textDark: '#000000',
+                textMedium: '#495057',
+                textLight: '#868e96',
+                textBubble: '#000000',
+                bgIconHeader: '#f8f9fa',
+                fgIconHeader: '#495057',
+                bgCell: '#ffffff',
+                bgCellMedium: '#f8f9fa',
+                bgHeader: '#f8f9fa',
+                bgHeaderHasFocus: '#e9ecef',
+                bgHeaderHovered: '#e9ecef',
+                borderColor: '#dee2e6',
+                fontFamily: 'Inter, sans-serif',
+              }}
+            />
+          </div>
+        )}
       </Stack>
     </PageLayout>
   );

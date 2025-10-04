@@ -43,30 +43,30 @@ interface DrawHeaderArgs {
 // Custom styles for larger font and center aligned headers
 const customGridStyles = `
   .data-grid-container * {
-    font-size: 20px !important;
-    font-family: Inter, sans-serif !important;
+    font-size: 40px !important;
+    font-family: 'Lato', sans-serif !important;
   }
   .data-grid-container canvas {
-    font-size: 20px !important;
+    font-size: 40px !important;
   }
   .data-grid-container .gdg-cell {
-    font-size: 20px !important;
-    font-family: Inter, sans-serif !important;
+    font-size: 40px !important;
+    font-family: 'Lato', sans-serif !important;
   }
   .data-grid-container .gdg-header {
-    font-size: 20px !important;
+    font-size: 40px !important;
     font-weight: 600 !important;
-    font-family: Inter, sans-serif !important;
+    font-family: 'Lato', sans-serif !important;
     text-align: center !important;
   }
   .data-grid-container .gdg-cell-text {
-    font-size: 20px !important;
+    font-size: 40px !important;
   }
   .data-grid-container [role="gridcell"] {
-    font-size: 20px !important;
+    font-size: 40px !important;
   }
   .data-grid-container [role="columnheader"] {
-    font-size: 20px !important;
+    font-size: 40px !important;
     font-weight: 600 !important;
     text-align: center !important;
     justify-content: center !important;
@@ -74,10 +74,10 @@ const customGridStyles = `
     align-items: center !important;
   }
   .data-grid-container div {
-    font-size: 20px !important;
+    font-size: 40px !important;
   }
   .dvn-scroller {
-    font-size: 20px !important;
+    font-size: 40px !important;
   }
   
   /* Default cursor styling */
@@ -218,7 +218,7 @@ export function DataTable<T = Record<string, unknown>>({
 
     // Set text properties
     ctx.fillStyle = theme.textHeader;
-    ctx.font = theme.headerFontStyle;
+    ctx.font = '600 20px Lato, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
@@ -398,8 +398,8 @@ export function DataTable<T = Record<string, unknown>>({
             overscrollX={0}
             smoothScrollX={true}
             smoothScrollY={true}
-            rowHeight={70}
-            headerHeight={80}
+            rowHeight={50}
+            headerHeight={50}
             rowMarkers="number"
             onCellClicked={onCellClicked}
             onCellEdited={onCellEdited}
@@ -416,34 +416,21 @@ export function DataTable<T = Record<string, unknown>>({
             }}
             drawHeader={drawHeader}
             theme={{
-              // Updated font sizes for better readability
               accentColor: '#228be6',
-              accentLight: 'rgba(34, 139, 230, 0.1)',
-              textDark: '#212529',
+              accentLight: '#e7f5ff',
+              textDark: '#000000',
               textMedium: '#495057',
               textLight: '#868e96',
-              textBubble: '#ffffff',
+              textBubble: '#000000',
               bgIconHeader: '#f8f9fa',
               fgIconHeader: '#495057',
-              textHeader: '#343a40',
-              textHeaderSelected: '#228be6',
               bgCell: '#ffffff',
-              bgCellMedium: '#ffffff',
+              bgCellMedium: '#f8f9fa',
               bgHeader: '#f8f9fa',
               bgHeaderHasFocus: '#e9ecef',
               bgHeaderHovered: '#e9ecef',
-              bgBubble: '#228be6',
-              bgBubbleSelected: '#1c7ed6',
-              bgSearchResult: '#fff3cd',
-              borderColor: 'rgba(206, 212, 218, 0.5)',
-              drilldownBorder: 'rgba(34, 139, 230, 0.4)',
-              linkColor: '#228be6',
-              headerFontStyle: 'bold 17px Inter',
-              baseFontStyle: '17px Inter',
-              editorFontSize: '20',
-              fontFamily: 'Inter',
-              cellHorizontalPadding: 12,
-              cellVerticalPadding: 8,
+              borderColor: '#dee2e6',
+              fontFamily: 'Lato, sans-serif',
             }}
             getCellsForSelection={true}
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
