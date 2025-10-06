@@ -1,0 +1,237 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  CustomerService,
+  ProductService,
+  TransactionService,
+  ShipmentService,
+  PriceService,
+} from '../services';
+import {
+  CustomerDTO,
+  ProductDTO,
+  TransactionDTO,
+  ShipmentDTO,
+  PriceDTO,
+} from '../types';
+
+/**
+ * Customer Data Hook
+ */
+export function useCustomerData() {
+  const queryClient = useQueryClient();
+  const queryKey = ['customers'];
+
+  const {
+    data = [],
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey,
+    queryFn: () => CustomerService.getAll(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (newItem: Partial<CustomerDTO>) =>
+      CustomerService.create(newItem),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string | number;
+      data: Partial<CustomerDTO>;
+    }) => CustomerService.update(id, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string | number) => CustomerService.deleteById(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  const bulkUpdateMutation = useMutation({
+    mutationFn: (newData: CustomerDTO[]) => CustomerService.bulkUpdate(newData),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  return {
+    data,
+    isLoading,
+    error,
+    refetch,
+    create: createMutation.mutate,
+    update: updateMutation.mutate,
+    delete: deleteMutation.mutate,
+    bulkUpdate: bulkUpdateMutation.mutate,
+    isCreating: createMutation.isPending,
+    isUpdating: updateMutation.isPending,
+    isDeleting: deleteMutation.isPending,
+    isBulkUpdating: bulkUpdateMutation.isPending,
+  };
+}
+
+/**
+ * Product Data Hook
+ */
+export function useProductData() {
+  const queryClient = useQueryClient();
+  const queryKey = ['products'];
+
+  const {
+    data = [],
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey,
+    queryFn: () => ProductService.getAll(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (newItem: Partial<ProductDTO>) =>
+      ProductService.create(newItem),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  const bulkUpdateMutation = useMutation({
+    mutationFn: (newData: ProductDTO[]) => ProductService.bulkUpdate(newData),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  return {
+    data,
+    isLoading,
+    error,
+    refetch,
+    create: createMutation.mutate,
+    bulkUpdate: bulkUpdateMutation.mutate,
+    isCreating: createMutation.isPending,
+    isBulkUpdating: bulkUpdateMutation.isPending,
+  };
+}
+
+/**
+ * Transaction Data Hook
+ */
+export function useTransactionData() {
+  const queryClient = useQueryClient();
+  const queryKey = ['transactions'];
+
+  const {
+    data = [],
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey,
+    queryFn: () => TransactionService.getAll(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string | number;
+      data: Partial<TransactionDTO>;
+    }) => TransactionService.update(id, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  const bulkUpdateMutation = useMutation({
+    mutationFn: (newData: TransactionDTO[]) =>
+      TransactionService.bulkUpdate(newData),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  return {
+    data,
+    isLoading,
+    error,
+    refetch,
+    update: updateMutation.mutate,
+    bulkUpdate: bulkUpdateMutation.mutate,
+    isUpdating: updateMutation.isPending,
+    isBulkUpdating: bulkUpdateMutation.isPending,
+  };
+}
+
+/**
+ * Shipment Data Hook
+ */
+export function useShipmentData() {
+  const queryClient = useQueryClient();
+  const queryKey = ['shipments'];
+
+  const {
+    data = [],
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey,
+    queryFn: () => ShipmentService.getAll(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const bulkUpdateMutation = useMutation({
+    mutationFn: (newData: ShipmentDTO[]) => ShipmentService.bulkUpdate(newData),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  return {
+    data,
+    isLoading,
+    error,
+    refetch,
+    bulkUpdate: bulkUpdateMutation.mutate,
+    isBulkUpdating: bulkUpdateMutation.isPending,
+  };
+}
+
+/**
+ * Price Data Hook
+ */
+export function usePriceData() {
+  const queryClient = useQueryClient();
+  const queryKey = ['prices'];
+
+  const {
+    data = [],
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey,
+    queryFn: () => PriceService.getAll(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (newItem: Partial<PriceDTO>) => PriceService.create(newItem),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  const bulkUpdateMutation = useMutation({
+    mutationFn: (newData: PriceDTO[]) => PriceService.bulkUpdate(newData),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  return {
+    data,
+    isLoading,
+    error,
+    refetch,
+    create: createMutation.mutate,
+    bulkUpdate: bulkUpdateMutation.mutate,
+    isCreating: createMutation.isPending,
+    isBulkUpdating: bulkUpdateMutation.isPending,
+  };
+}

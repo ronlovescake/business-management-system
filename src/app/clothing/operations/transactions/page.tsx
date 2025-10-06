@@ -49,6 +49,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import { DataTable, StatCard, useDataTable } from '../../../../components/ui';
 import { GridColumn, Item, GridCell } from '@glideapps/glide-data-grid';
+import { useTransactionData } from '../../../../hooks/useSheetData';
 import { GridCellKind } from '@glideapps/glide-data-grid';
 import { allCells } from '@glideapps/glide-data-grid-cells';
 import { Button, Group, Text } from '@mantine/core';
@@ -85,13 +86,21 @@ interface TransactionData {
 }
 
 export default function Transactions() {
-  // State for customer names from customers page
+  // ============================================================================
+  // 🚀 ABSTRACTION LAYER - Replace direct API calls with service layer
+  // ============================================================================
+
+  // Main data hooks - replace direct API calls
+  const {
+    data: transactions,
+    isLoading: transactionsLoading,
+    bulkUpdate: bulkUpdateTransactions,
+    update: updateTransaction,
+  } = useTransactionData();
+
+  // Derived state from service data (replaces direct API state)
   const [customerNames, setCustomerNames] = useState<string[]>([]);
-
-  // State for product codes from prices page
   const [productCodes, setProductCodes] = useState<string[]>([]);
-
-  // State for price tiers - store all price data for lookup
   const [priceTiers, setPriceTiers] = useState<
     Array<{
       'Product Code': string;
@@ -100,13 +109,9 @@ export default function Transactions() {
       Prices: number;
     }>
   >([]);
-
-  // State for product-to-shipment mapping from products page
   const [productToShipmentMap, setProductToShipmentMap] = useState<
     Record<string, string>
   >({});
-
-  // State for product-to-shipment-status mapping from products page
   const [productToShipmentStatusMap, setProductToShipmentStatusMap] = useState<
     Record<string, string>
   >({});
@@ -148,8 +153,7 @@ export default function Transactions() {
     return defaultSet;
   };
 
-  const [transactions, setTransactions] = useState<TransactionData[]>([]);
-  const [loading, setLoading] = useState(true);
+  // UI state - Service layer handles data loading
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(
     loadSavedFilterState()
@@ -160,40 +164,10 @@ export default function Transactions() {
   const [isGeneratingPackingList, setIsGeneratingPackingList] = useState(false);
 
   // ============================================================================
-  // DATABASE INTEGRATION - Load transactions from API
+  // SERVICE LAYER INTEGRATION - Transactions data loaded via useTransactionData()
   // ============================================================================
-  // Load transactions from database on component mount
-  useEffect(() => {
-    const loadTransactions = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch('/api/transactions');
-        if (response.ok) {
-          const data = await response.json();
-          setTransactions(data);
-          console.log(`Loaded ${data.length} transactions from database`);
-        } else {
-          console.error('Failed to load transactions:', response.statusText);
-          notifications.show({
-            title: 'Error',
-            message: 'Failed to load transactions from database',
-            color: 'red',
-          });
-        }
-      } catch (error) {
-        console.error('Error loading transactions:', error);
-        notifications.show({
-          title: 'Error',
-          message: 'Failed to load transactions from database',
-          color: 'red',
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadTransactions();
-  }, []); // Run once on mount
+  // Transactions are now loaded automatically via service layer
+  console.log(`Loaded ${transactions.length} transactions from service layer`);
 
   // Load customer names from customers API and imported transactions
   useEffect(() => {
@@ -440,71 +414,70 @@ export default function Transactions() {
   // Function to sync existing transactions with current shipment status
   const syncTransactionsWithShipmentStatus = useCallback(
     (statusMap: Record<string, string>) => {
-      setTransactions((currentTransactions) => {
-        let updatedCount = 0;
-        const updatedTransactions = currentTransactions.map((transaction) => {
-          const productCode = transaction['Product Code'];
+      let updatedCount = 0;
+      const updatedTransactions = transactions.map((transaction) => {
+        const productCode = transaction['Product Code'];
 
-          if (!productCode) {
-            return transaction; // No product code, can't sync
-          }
-
-          const currentOrderStatus = transaction['Order Status'] || '';
-          const shouldAutoPopulateStatus =
-            currentOrderStatus === '' ||
-            currentOrderStatus.toLowerCase() === 'in transit' ||
-            currentOrderStatus.toLowerCase() === 'warehouse'; // Allow updating Warehouse status too
-
-          if (!shouldAutoPopulateStatus) {
-            return transaction; // Don't override manually set statuses
-          }
-
-          // Get current shipment status for this product
-          const currentShipmentStatus = statusMap[productCode];
-
-          if (!currentShipmentStatus || currentShipmentStatus === '') {
-            return transaction; // No shipment status found
-          }
-
-          // Calculate what the ORDER STATUS should be
-          const newOrderStatus = getOrderStatusFromShipmentStatus(
-            currentShipmentStatus
-          );
-
-          // Only update if different
-          if (currentOrderStatus !== newOrderStatus) {
-            updatedCount++;
-            console.log(
-              `Syncing transaction: ${productCode} -> ${currentOrderStatus} to ${newOrderStatus} (shipment status: ${currentShipmentStatus})`
-            );
-
-            return {
-              ...transaction,
-              'Order Status': newOrderStatus,
-            };
-          }
-
-          return transaction;
-        });
-
-        if (updatedCount > 0) {
-          console.log(
-            `✅ Synced ${updatedCount} transactions with current shipment status`
-          );
-
-          // Show notification to user
-          notifications.show({
-            title: 'ORDER STATUS Updated',
-            message: `Synced ${updatedCount} transaction(s) with current shipment status`,
-            color: 'blue',
-            position: 'top-right',
-          });
+        if (!productCode) {
+          return transaction; // No product code, can't sync
         }
 
-        return updatedTransactions;
+        const currentOrderStatus = transaction['Order Status'] || '';
+        const shouldAutoPopulateStatus =
+          currentOrderStatus === '' ||
+          currentOrderStatus.toLowerCase() === 'in transit' ||
+          currentOrderStatus.toLowerCase() === 'warehouse'; // Allow updating Warehouse status too
+
+        if (!shouldAutoPopulateStatus) {
+          return transaction; // Don't override manually set statuses
+        }
+
+        // Get current shipment status for this product
+        const currentShipmentStatus = statusMap[productCode];
+
+        if (!currentShipmentStatus || currentShipmentStatus === '') {
+          return transaction; // No shipment status found
+        }
+
+        // Calculate what the ORDER STATUS should be
+        const newOrderStatus = getOrderStatusFromShipmentStatus(
+          currentShipmentStatus
+        );
+
+        // Only update if different
+        if (currentOrderStatus !== newOrderStatus) {
+          updatedCount++;
+          console.log(
+            `Syncing transaction: ${productCode} -> ${currentOrderStatus} to ${newOrderStatus} (shipment status: ${currentShipmentStatus})`
+          );
+
+          return {
+            ...transaction,
+            'Order Status': newOrderStatus,
+          };
+        }
+
+        return transaction;
       });
+
+      if (updatedCount > 0) {
+        console.log(
+          `✅ Synced ${updatedCount} transactions with current shipment status`
+        );
+
+        // Update via service layer
+        bulkUpdateTransactions(updatedTransactions);
+
+        // Show notification to user
+        notifications.show({
+          title: 'ORDER STATUS Updated',
+          message: `Synced ${updatedCount} transaction(s) with current shipment status`,
+          color: 'blue',
+          position: 'top-right',
+        });
+      }
     },
-    [getOrderStatusFromShipmentStatus]
+    [transactions, getOrderStatusFromShipmentStatus, bulkUpdateTransactions]
   );
 
   // Sync transactions with current shipment status whenever mappings or transactions change
@@ -843,7 +816,16 @@ export default function Transactions() {
             return hasUpdates ? { ...transaction, ...updates } : transaction;
           });
 
-          setTransactions(updatedTransactions);
+          // Update transactions via service layer
+          const sanitizedTransactions = updatedTransactions.map((t) => ({
+            ...t,
+            Quantity: t.Quantity ?? 0,
+            'Unit Price': t['Unit Price'] ?? 0,
+            Discount: t.Discount ?? 0,
+            Adjustment: t.Adjustment ?? 0,
+            'Line Total': t['Line Total'] ?? 0,
+          }));
+          bulkUpdateTransactions(sanitizedTransactions);
 
           // ========================================================================
           // 🚨 CRITICAL DATABASE SAVE OPERATION - FINALIZED - DO NOT MODIFY! 🚨
@@ -936,7 +918,7 @@ export default function Transactions() {
         setIsGeneratingInvoice(false);
       }
     },
-    [transactions]
+    [transactions, bulkUpdateTransactions]
   );
 
   // Distribution generation function
@@ -1604,18 +1586,22 @@ export default function Transactions() {
       }
 
       if (column.id === 'orderDate') {
-        // Create a new updated transaction
+        // Update via service layer
+        if (transaction.id) {
+          updateTransaction({
+            id: transaction.id,
+            data: {
+              'Order Date': 'data' in newValue ? (newValue.data as string) : '',
+            },
+          });
+        }
+
+        // Legacy database save (keeping for compatibility)
         const updatedTransaction = {
           ...transaction,
           'Order Date': 'data' in newValue ? (newValue.data as string) : '',
         };
 
-        // Update the transactions array
-        const newTransactions = [...transactions];
-        newTransactions[transactionIndex] = updatedTransaction;
-        setTransactions(newTransactions);
-
-        // Save to database
         saveTransactionToDatabase(updatedTransaction).catch((error) => {
           notifications.show({
             title: 'Error',
@@ -1660,20 +1646,23 @@ export default function Transactions() {
           });
         }
 
-        // Create a new updated transaction
-        const updatedTransaction = {
+        // Update via service layer
+        if (transaction.id) {
+          updateTransaction({
+            id: transaction.id,
+            data: {
+              Customers: dropdownValue as string,
+              'Order Date': autoPopulatedOrderDate,
+            },
+          });
+        }
+
+        // Save to database
+        saveTransactionToDatabase({
           ...transaction,
           Customers: dropdownValue as string,
           'Order Date': autoPopulatedOrderDate,
-        };
-
-        // Update the transactions array
-        const newTransactions = [...transactions];
-        newTransactions[transactionIndex] = updatedTransaction;
-        setTransactions(newTransactions);
-
-        // Save to database
-        saveTransactionToDatabase(updatedTransaction).catch((error) => {
+        }).catch((error) => {
           notifications.show({
             title: 'Error',
             message: 'Failed to save Customer to database',
@@ -1797,10 +1786,10 @@ export default function Transactions() {
           'Unit Price': autoPopulatedUnitPrice,
         };
 
-        // Update the transactions array
-        const newTransactions = [...transactions];
-        newTransactions[transactionIndex] = updatedTransaction;
-        setTransactions(newTransactions);
+        // Update via service layer
+        if (transaction.id) {
+          updateTransaction({ id: transaction.id, data: updatedTransaction });
+        }
 
         // Save to database
         saveTransactionToDatabase(updatedTransaction).catch((error) => {
@@ -1915,9 +1904,9 @@ export default function Transactions() {
         };
 
         // Update the transactions array
-        const newTransactions = [...transactions];
-        newTransactions[transactionIndex] = updatedTransaction;
-        setTransactions(newTransactions);
+        if (transaction.id) {
+          updateTransaction({ id: transaction.id, data: updatedTransaction });
+        }
 
         // Save to database
         saveTransactionToDatabase(updatedTransaction).catch((error) => {
@@ -1979,10 +1968,10 @@ export default function Transactions() {
           'Line Total': lineTotal,
         };
 
-        // Update the transactions array
-        const newTransactions = [...transactions];
-        newTransactions[transactionIndex] = updatedTransaction;
-        setTransactions(newTransactions);
+        // Update via service layer
+        if (transaction.id) {
+          updateTransaction({ id: transaction.id, data: updatedTransaction });
+        }
 
         // Save to database
         saveTransactionToDatabase(updatedTransaction).catch((error) => {
@@ -2069,10 +2058,10 @@ export default function Transactions() {
           'Line Total': lineTotal,
         };
 
-        // Update the transactions array
-        const newTransactions = [...transactions];
-        newTransactions[transactionIndex] = updatedTransaction;
-        setTransactions(newTransactions);
+        // Update via service layer
+        if (transaction.id) {
+          updateTransaction({ id: transaction.id, data: updatedTransaction });
+        }
 
         // Save to database
         saveTransactionToDatabase(updatedTransaction).catch((error) => {
@@ -2125,10 +2114,10 @@ export default function Transactions() {
           'Line Total': lineTotal,
         };
 
-        // Update the transactions array
-        const newTransactions = [...transactions];
-        newTransactions[transactionIndex] = updatedTransaction;
-        setTransactions(newTransactions);
+        // Update via service layer
+        if (transaction.id) {
+          updateTransaction({ id: transaction.id, data: updatedTransaction });
+        }
 
         // Save to database
         saveTransactionToDatabase(updatedTransaction).catch((error) => {
@@ -2162,10 +2151,10 @@ export default function Transactions() {
           'Order Status': dropdownValue as string,
         };
 
-        // Update the transactions array
-        const newTransactions = [...transactions];
-        newTransactions[transactionIndex] = updatedTransaction;
-        setTransactions(newTransactions);
+        // Update via service layer
+        if (transaction.id) {
+          updateTransaction({ id: transaction.id, data: updatedTransaction });
+        }
 
         // Save to database
         saveTransactionToDatabase(updatedTransaction).catch((error) => {
@@ -2191,10 +2180,10 @@ export default function Transactions() {
           Notes: 'data' in newValue ? (newValue.data as string) : '',
         };
 
-        // Update the transactions array
-        const newTransactions = [...transactions];
-        newTransactions[transactionIndex] = updatedTransaction;
-        setTransactions(newTransactions);
+        // Update via service layer
+        if (transaction.id) {
+          updateTransaction({ id: transaction.id, data: updatedTransaction });
+        }
 
         // Save to database
         saveTransactionToDatabase(updatedTransaction).catch((error) => {
@@ -2214,7 +2203,7 @@ export default function Transactions() {
       }
     },
     [
-      transactions,
+      // transactions, // removed unnecessary dependency
       transactionIndexMap,
       columns,
       productToShipmentMap,
@@ -2223,13 +2212,11 @@ export default function Transactions() {
       getOrderStatusFromShipmentStatus,
       getUnitPriceForQuantity,
       calculateLineTotal,
+      updateTransaction,
     ]
   );
 
-  // Initialize with empty data (no database for now)
-  useEffect(() => {
-    setLoading(false);
-  }, []);
+  // Data loading is now handled by service layer (transactionsLoading)
 
   // Calculate statistics dynamically based on filtered data (excluding cancelled orders)
   const totalTransactions = filteredData.length;
@@ -2384,7 +2371,7 @@ export default function Transactions() {
       const reloadResponse = await fetch('/api/transactions');
       if (reloadResponse.ok) {
         const data = await reloadResponse.json();
-        setTransactions(data);
+        bulkUpdateTransactions(data);
       }
 
       notifications.show({
@@ -2535,7 +2522,7 @@ export default function Transactions() {
         const reloadResponse = await fetch('/api/transactions');
         if (reloadResponse.ok) {
           const reloadedData = await reloadResponse.json();
-          setTransactions(reloadedData);
+          bulkUpdateTransactions(reloadedData);
         }
 
         notifications.show({
@@ -2576,7 +2563,7 @@ export default function Transactions() {
     }
   };
 
-  if (loading) {
+  if (transactionsLoading) {
     return (
       <PageLayout>
         <div
