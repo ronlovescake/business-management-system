@@ -286,8 +286,8 @@ export function DataTable<T = Record<string, unknown>>({
                 padding="md"
                 radius="md"
                 withBorder
+                bg={stat.backgroundColor || '#ffffff'}
                 style={{
-                  backgroundColor: '#ffffff',
                   borderColor: '#6b7280',
                   borderWidth: '1px',
                 }}

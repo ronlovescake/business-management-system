@@ -45,7 +45,7 @@
 //
 // ==============================================================================
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import { DataTable, StatCard, useDataTable } from '../../../../components/ui';
 import { GridColumn, Item, GridCell } from '@glideapps/glide-data-grid';
@@ -2103,108 +2103,127 @@ export default function Transactions() {
   // Data loading is now handled by service layer (transactionsLoading)
 
   // Calculate statistics dynamically based on filtered data (excluding cancelled orders)
-  const totalTransactions = filteredData.length;
-  const totalRevenue = filteredData
-    .filter((t) => t['Order Status']?.toLowerCase() !== 'cancelled')
-    .reduce((sum, t) => sum + (t['Quantity'] || 0) * (t['Unit Price'] || 0), 0);
-  const inTransitTotal = filteredData
-    .filter((t) => t['Order Status']?.toLowerCase() === 'in transit')
-    .reduce((sum, t) => sum + (t['Line Total'] || 0), 0);
-  const warehouseTotal = filteredData
-    .filter((t) => t['Order Status']?.toLowerCase() === 'warehouse')
-    .reduce((sum, t) => sum + (t['Line Total'] || 0), 0);
-  const preparedTotal = filteredData
-    .filter((t) => t['Order Status']?.toLowerCase() === 'prepared')
-    .reduce((sum, t) => sum + (t['Line Total'] || 0), 0);
-  const pendingPaymentTotal = filteredData
-    .filter((t) => t['Order Status']?.toLowerCase() === 'pending payment')
-    .reduce((sum, t) => sum + (t['Line Total'] || 0), 0);
+  // 🚀 PERFORMANCE: Memoize expensive calculations to prevent re-computation on every render
+  const statistics = useMemo(() => {
+    const totalTransactions = filteredData.length;
+    const totalRevenue = filteredData
+      .filter((t) => t['Order Status']?.toLowerCase() !== 'cancelled')
+      .reduce(
+        (sum, t) => sum + (t['Quantity'] || 0) * (t['Unit Price'] || 0),
+        0
+      );
+    const inTransitTotal = filteredData
+      .filter((t) => t['Order Status']?.toLowerCase() === 'in transit')
+      .reduce((sum, t) => sum + (t['Line Total'] || 0), 0);
+    const warehouseTotal = filteredData
+      .filter((t) => t['Order Status']?.toLowerCase() === 'warehouse')
+      .reduce((sum, t) => sum + (t['Line Total'] || 0), 0);
+    const preparedTotal = filteredData
+      .filter((t) => t['Order Status']?.toLowerCase() === 'prepared')
+      .reduce((sum, t) => sum + (t['Line Total'] || 0), 0);
+    const pendingPaymentTotal = filteredData
+      .filter((t) => t['Order Status']?.toLowerCase() === 'pending payment')
+      .reduce((sum, t) => sum + (t['Line Total'] || 0), 0);
 
-  // Status counts
-  const pendingOrders = filteredData.filter(
-    (t) => t['Order Status']?.toLowerCase() === 'pending'
-  ).length;
-  const processingOrders = filteredData.filter(
-    (t) => t['Order Status']?.toLowerCase() === 'processing'
-  ).length;
-  const shippedOrders = filteredData.filter(
-    (t) => t['Order Status']?.toLowerCase() === 'shipped'
-  ).length;
-  const deliveredOrders = filteredData.filter(
-    (t) => t['Order Status']?.toLowerCase() === 'delivered'
-  ).length;
+    // Status counts
+    const pendingOrders = filteredData.filter(
+      (t) => t['Order Status']?.toLowerCase() === 'pending'
+    ).length;
+    const processingOrders = filteredData.filter(
+      (t) => t['Order Status']?.toLowerCase() === 'processing'
+    ).length;
+    const shippedOrders = filteredData.filter(
+      (t) => t['Order Status']?.toLowerCase() === 'shipped'
+    ).length;
+    const deliveredOrders = filteredData.filter(
+      (t) => t['Order Status']?.toLowerCase() === 'delivered'
+    ).length;
+
+    return {
+      totalTransactions,
+      totalRevenue,
+      inTransitTotal,
+      warehouseTotal,
+      preparedTotal,
+      pendingPaymentTotal,
+      pendingOrders,
+      processingOrders,
+      shippedOrders,
+      deliveredOrders,
+    };
+  }, [filteredData]);
 
   // Define stats cards
   const statsCards: StatCard[] = [
     {
       title: 'Total Transactions',
-      value: totalTransactions.toString(),
+      value: statistics.totalTransactions.toString(),
       icon: <IconReceipt size={18} />,
       color: 'blue',
-      backgroundColor: 'var(--mantine-color-blue-6)',
+      backgroundColor: '#dbeafe',
     },
     {
       title: 'Total Revenue',
-      value: `₱${totalRevenue.toLocaleString()}`,
+      value: `₱${statistics.totalRevenue.toLocaleString()}`,
       icon: <IconCurrencyDollar size={18} />,
       color: 'green',
-      backgroundColor: 'var(--mantine-color-green-6)',
+      backgroundColor: '#d1fae5',
     },
     {
       title: 'In Transit',
-      value: `₱${inTransitTotal.toLocaleString()}`,
+      value: `₱${statistics.inTransitTotal.toLocaleString()}`,
       icon: <IconPackage size={18} />,
       color: 'orange',
-      backgroundColor: '#fd7e14',
+      backgroundColor: '#fed7aa',
     },
     {
       title: 'Warehouse',
-      value: `₱${warehouseTotal.toLocaleString()}`,
+      value: `₱${statistics.warehouseTotal.toLocaleString()}`,
       icon: <IconShoppingCart size={18} />,
       color: 'purple',
-      backgroundColor: '#9775fa',
+      backgroundColor: '#e9d5ff',
     },
     {
       title: 'Prepared',
-      value: `₱${preparedTotal.toLocaleString()}`,
+      value: `₱${statistics.preparedTotal.toLocaleString()}`,
       icon: <IconPercentage size={18} />,
       color: 'yellow',
-      backgroundColor: 'var(--mantine-color-yellow-6)',
+      backgroundColor: '#fef3c7',
     },
     {
       title: 'Pending Payment',
-      value: `₱${pendingPaymentTotal.toLocaleString()}`,
+      value: `₱${statistics.pendingPaymentTotal.toLocaleString()}`,
       icon: <IconAdjustments size={18} />,
       color: 'indigo',
-      backgroundColor: 'var(--mantine-color-indigo-6)',
+      backgroundColor: '#e0e7ff',
     },
     {
       title: 'Pending Orders',
-      value: pendingOrders,
+      value: statistics.pendingOrders,
       icon: <IconClock size={18} />,
       color: 'yellow',
-      backgroundColor: 'var(--mantine-color-yellow-7)',
+      backgroundColor: '#fef3c7',
     },
     {
       title: 'Processing',
-      value: processingOrders,
+      value: statistics.processingOrders,
       icon: <IconClock size={18} />,
       color: 'blue',
-      backgroundColor: 'var(--mantine-color-blue-7)',
+      backgroundColor: '#dbeafe',
     },
     {
       title: 'Shipped',
-      value: shippedOrders,
+      value: statistics.shippedOrders,
       icon: <IconTruck size={18} />,
       color: 'cyan',
-      backgroundColor: 'var(--mantine-color-cyan-6)',
+      backgroundColor: '#cffafe',
     },
     {
       title: 'Delivered',
-      value: deliveredOrders,
+      value: statistics.deliveredOrders,
       icon: <IconCheck size={18} />,
       color: 'green',
-      backgroundColor: 'var(--mantine-color-green-7)',
+      backgroundColor: '#d1fae5',
     },
   ];
 
