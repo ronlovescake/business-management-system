@@ -2620,10 +2620,19 @@ export default function Transactions() {
             {statusOptions.map((status) => (
               <Button
                 key={status}
-                variant={selectedStatuses.has(status) ? 'filled' : 'outline'}
-                color={selectedStatuses.has(status) ? 'blue' : 'gray'}
+                variant="outline"
                 size="sm"
                 onClick={() => handleStatusFilter(status)}
+                style={{
+                  backgroundColor: selectedStatuses.has(status)
+                    ? '#c8e6fd'
+                    : '#ffffff',
+                  borderColor: selectedStatuses.has(status)
+                    ? '#c8e6fd'
+                    : '#6b7280',
+                  borderWidth: '1px',
+                  color: '#374151',
+                }}
               >
                 {status}
               </Button>
@@ -2634,27 +2643,44 @@ export default function Transactions() {
           <Group>
             <Button
               leftSection={<IconRefresh size={16} />}
-              color="blue"
-              variant="light"
+              variant="outline"
               onClick={handleManualSync}
+              style={{
+                backgroundColor: '#c8e6fd',
+                borderColor: '#c8e6fd',
+                borderWidth: '1px',
+                color: '#374151',
+              }}
             >
               Sync ORDER STATUS
             </Button>
             <Button
               leftSection={<IconReceipt size={16} />}
-              color="green"
+              variant="outline"
               onClick={() => handleGenerateInvoice(filteredData)}
               loading={isGeneratingInvoice}
               disabled={isGeneratingInvoice}
+              style={{
+                backgroundColor: '#c8e6fd',
+                borderColor: '#c8e6fd',
+                borderWidth: '1px',
+                color: '#374151',
+              }}
             >
               {isGeneratingInvoice ? 'Generating...' : 'Generate Invoice'}
             </Button>
             <Button
               leftSection={<IconPlus size={16} />}
-              color="blue"
+              variant="outline"
               onClick={() => handleGeneratePackingList(filteredData)}
               loading={isGeneratingPackingList}
               disabled={isGeneratingPackingList}
+              style={{
+                backgroundColor: '#c8e6fd',
+                borderColor: '#c8e6fd',
+                borderWidth: '1px',
+                color: '#374151',
+              }}
             >
               {isGeneratingPackingList
                 ? 'Generating...'
@@ -2662,10 +2688,16 @@ export default function Transactions() {
             </Button>
             <Button
               leftSection={<IconPlus size={16} />}
-              color="violet"
+              variant="outline"
               onClick={() => handleGenerateDistribution(filteredData)}
               loading={isGeneratingDistribution}
               disabled={isGeneratingDistribution}
+              style={{
+                backgroundColor: '#c8e6fd',
+                borderColor: '#c8e6fd',
+                borderWidth: '1px',
+                color: '#374151',
+              }}
             >
               {isGeneratingDistribution
                 ? 'Generating...'

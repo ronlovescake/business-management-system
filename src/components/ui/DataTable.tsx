@@ -277,27 +277,29 @@ export function DataTable<T = Record<string, unknown>>({
             {statsCards.map((stat, index) => (
               <Card
                 key={index}
-                shadow="sm"
+                shadow="xs"
                 padding="md"
                 radius="md"
+                withBorder
                 style={{
-                  background: stat.backgroundColor || stat.color,
-                  color: 'white',
+                  backgroundColor: '#ffffff',
+                  borderColor: '#6b7280',
+                  borderWidth: '1px',
                 }}
               >
                 <Group justify="space-between" align="flex-start">
                   <div>
-                    <Text c="white" size="xs" style={{ opacity: 0.85 }}>
+                    <Text c="gray.5" size="xs" fw={500}>
                       {stat.title}
                     </Text>
-                    <Title order={3} c="white">
+                    <Title order={3} style={{ color: '#374151' }} mt="xs">
                       {typeof stat.value === 'number'
                         ? stat.value.toLocaleString()
                         : stat.value}
                     </Title>
                   </div>
                   <ThemeIcon
-                    variant="white"
+                    variant="light"
                     color={stat.color}
                     size="lg"
                     radius="md"
@@ -323,7 +325,16 @@ export function DataTable<T = Record<string, unknown>>({
               leftSection={<IconSearch size={16} />}
               value={searchQuery}
               onChange={(e) => onSearch(e.target.value)}
-              style={{ flex: 1, minWidth: 300 }}
+              style={{
+                flex: 1,
+                minWidth: 300,
+              }}
+              styles={{
+                input: {
+                  backgroundColor: '#eaeef6',
+                  borderColor: '#eaeef6',
+                },
+              }}
               size="md"
               radius="md"
             />
@@ -417,8 +428,10 @@ export function DataTable<T = Record<string, unknown>>({
               bgHeaderHasFocus: '#e9ecef',
               bgHeaderHovered: '#e9ecef',
               borderColor: '#dee2e6',
+              horizontalBorderColor: '#dee2e6',
               fontFamily: 'Lato, sans-serif',
             }}
+            verticalBorder={false}
             getCellsForSelection={true}
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             customRenderers={customRenderers as any}

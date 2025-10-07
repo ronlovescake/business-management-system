@@ -77,7 +77,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             <AppShell.Header
               style={{
                 borderBottom: '1px solid var(--border-color)',
-                backgroundColor: '#ffffff',
+                backgroundColor: '#f8fafd',
                 backdropFilter: 'blur(8px)',
               }}
             >
@@ -97,7 +97,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               p="lg"
               style={{
                 borderRight: '1px solid var(--border-color)',
-                backgroundColor: '#ffffff',
+                backgroundColor: '#f8fafd',
               }}
             >
               <Sidebar />
@@ -105,7 +105,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
             <AppShell.Main
               style={{
-                backgroundColor: 'var(--background)',
+                backgroundColor: '#ffffff',
                 minHeight: '100vh',
               }}
             >
