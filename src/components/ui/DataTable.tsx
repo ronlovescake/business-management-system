@@ -378,7 +378,7 @@ export function DataTable<T = Record<string, unknown>>({
         {/* Data Grid */}
         <Card
           withBorder={false}
-          shadow="sm"
+          shadow="none"
           radius="md"
           padding={0}
           style={{
@@ -432,7 +432,7 @@ export function DataTable<T = Record<string, unknown>>({
               bgHeader: '#f8f9fa',
               bgHeaderHasFocus: '#e9ecef',
               bgHeaderHovered: '#e9ecef',
-              borderColor: '#dee2e6',
+              borderColor: 'transparent',
               horizontalBorderColor: '#dee2e6',
               fontFamily: 'Roboto, sans-serif',
               baseFontStyle: '17px',
