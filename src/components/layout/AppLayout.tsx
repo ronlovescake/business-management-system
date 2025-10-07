@@ -76,7 +76,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             <AppShell.Header
               style={{
                 borderBottom: '1px solid var(--border-color)',
-                backgroundColor: '#f8fafd',
+                backgroundColor: '#ffffff',
                 backdropFilter: 'blur(8px)',
               }}
             >
@@ -96,7 +96,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               p="lg"
               style={{
                 borderRight: '1px solid var(--border-color)',
-                backgroundColor: '#f8fafd',
+                backgroundColor: '#ffffff',
               }}
             >
               <Sidebar />

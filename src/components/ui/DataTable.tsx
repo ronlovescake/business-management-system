@@ -336,8 +336,10 @@ export function DataTable<T = Record<string, unknown>>({
               }}
               styles={{
                 input: {
-                  backgroundColor: '#eaeef6',
-                  borderColor: '#eaeef6',
+                  backgroundColor: '#ffffff',
+                  borderColor: '#dee2e6',
+                  borderWidth: '1px',
+                  borderStyle: 'solid',
                 },
               }}
               size="md"
@@ -401,7 +403,7 @@ export function DataTable<T = Record<string, unknown>>({
             overscrollX={0}
             smoothScrollX={true}
             smoothScrollY={true}
-            rowHeight={50}
+            rowHeight={60}
             headerHeight={50}
             rowMarkers="none"
             onCellClicked={onCellClicked}
@@ -433,7 +435,7 @@ export function DataTable<T = Record<string, unknown>>({
               bgHeaderHasFocus: '#e9ecef',
               bgHeaderHovered: '#e9ecef',
               borderColor: 'transparent',
-              horizontalBorderColor: '#dee2e6',
+              horizontalBorderColor: '#f1f3f5',
               fontFamily: 'Roboto, sans-serif',
               baseFontStyle: '17px',
               editorFontSize: '17px',

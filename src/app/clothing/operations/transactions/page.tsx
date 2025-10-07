@@ -52,11 +52,10 @@ import { GridColumn, Item, GridCell } from '@glideapps/glide-data-grid';
 import { useTransactionData } from '../../../../hooks/useSheetData';
 import { GridCellKind } from '@glideapps/glide-data-grid';
 import { allCells } from '@glideapps/glide-data-grid-cells';
-import { Button, Group, Text } from '@mantine/core';
+import { Button, Group, Text, Loader } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
   IconPlus,
-  IconRefresh,
   IconReceipt,
   IconCurrencyDollar,
   IconPackage,
@@ -463,77 +462,6 @@ export default function Transactions() {
       console.error('Error saving filter state:', error);
     }
   }, [selectedStatuses]);
-
-  // Manual sync function for the button
-  const handleManualSync = useCallback(async () => {
-    console.log('🔄 Manual sync triggered - Refreshing shipment data...');
-
-    try {
-      // Fetch fresh shipment data
-      const [productsResponse, shipmentsResponse] = await Promise.all([
-        fetch('/api/products'),
-        fetch('/api/shipments'),
-      ]);
-
-      if (productsResponse.ok && shipmentsResponse.ok) {
-        const productsData = await productsResponse.json();
-        const shipmentsData = await shipmentsResponse.json();
-
-        // Rebuild the status mapping with fresh data
-        const shipmentCodeToStatus: Record<string, string> = {};
-        const statusMapping: Record<string, string> = {};
-
-        shipmentsData.forEach((shipment: Record<string, unknown>) => {
-          const shipmentCode = String(
-            shipment['Shipment Code'] || shipment.shipmentCode || ''
-          );
-          const shipmentStatus = String(
-            shipment['Shipment Status'] || shipment.shipmentStatus || ''
-          );
-
-          if (shipmentCode) {
-            shipmentCodeToStatus[shipmentCode] = shipmentStatus;
-          }
-        });
-
-        productsData.forEach((product: Record<string, unknown>) => {
-          const productCode = String(
-            product.productCode || product['Product Code'] || ''
-          );
-          const shipmentCode = String(
-            product.shipmentCode || product['Shipment Code'] || ''
-          );
-
-          if (productCode && shipmentCode) {
-            const correspondingShipmentStatus =
-              shipmentCodeToStatus[shipmentCode] || '';
-            statusMapping[productCode] = correspondingShipmentStatus;
-          }
-        });
-
-        // Update the mappings and sync transactions
-        setProductToShipmentStatusMap(statusMapping);
-        syncTransactionsWithShipmentStatus(statusMapping);
-
-        notifications.show({
-          title: 'Sync Complete',
-          message: 'ORDER STATUS has been refreshed with latest shipment data',
-          color: 'green',
-          position: 'top-right',
-        });
-      } else {
-        throw new Error('Failed to fetch fresh data');
-      }
-    } catch (error) {
-      console.error('Error during manual sync:', error);
-      notifications.show({
-        title: 'Sync Failed',
-        message: 'Could not refresh ORDER STATUS. Please try again.',
-        color: 'red',
-        position: 'top-right',
-      });
-    }
-  }, [syncTransactionsWithShipmentStatus]);
 
   // ============================================================================
   // 🚨🚨🚨 CRITICAL: FINALIZED INVOICE GENERATION LOGIC - DO NOT MODIFY! 🚨🚨🚨
@@ -2598,66 +2526,69 @@ export default function Transactions() {
         actionButtons={
           <Group>
             <Button
-              leftSection={<IconRefresh size={16} />}
-              variant="outline"
-              onClick={handleManualSync}
-              style={{
-                backgroundColor: '#c8e6fd',
-                borderColor: '#c8e6fd',
-                borderWidth: '1px',
-                color: '#374151',
-              }}
-            >
-              Sync ORDER STATUS
-            </Button>
-            <Button
-              leftSection={<IconReceipt size={16} />}
+              leftSection={
+                isGeneratingInvoice ? (
+                  <Loader size={16} color="white" />
+                ) : undefined
+              }
               variant="outline"
               onClick={() => handleGenerateInvoice(filteredData)}
-              loading={isGeneratingInvoice}
               disabled={isGeneratingInvoice}
               style={{
-                backgroundColor: '#c8e6fd',
-                borderColor: '#c8e6fd',
+                backgroundColor: isGeneratingInvoice ? '#ef4444' : '#c8e6fd',
+                borderColor: isGeneratingInvoice ? '#ef4444' : '#c8e6fd',
                 borderWidth: '1px',
-                color: '#374151',
+                color: isGeneratingInvoice ? '#ffffff' : '#374151',
+                width: '175px',
               }}
             >
-              {isGeneratingInvoice ? 'Generating...' : 'Generate Invoice'}
+              {isGeneratingInvoice ? 'GENERATING...' : 'Create Invoice'}
             </Button>
             <Button
-              leftSection={<IconPlus size={16} />}
+              leftSection={
+                isGeneratingPackingList ? (
+                  <Loader size={16} color="white" />
+                ) : undefined
+              }
               variant="outline"
               onClick={() => handleGeneratePackingList(filteredData)}
-              loading={isGeneratingPackingList}
               disabled={isGeneratingPackingList}
               style={{
-                backgroundColor: '#c8e6fd',
-                borderColor: '#c8e6fd',
+                backgroundColor: isGeneratingPackingList
+                  ? '#ef4444'
+                  : '#c8e6fd',
+                borderColor: isGeneratingPackingList ? '#ef4444' : '#c8e6fd',
                 borderWidth: '1px',
-                color: '#374151',
+                color: isGeneratingPackingList ? '#ffffff' : '#374151',
+                width: '175px',
               }}
             >
               {isGeneratingPackingList
-                ? 'Generating...'
-                : 'Generate Packing List'}
+                ? 'GENERATING...'
+                : 'Create Packing List'}
             </Button>
             <Button
-              leftSection={<IconPlus size={16} />}
+              leftSection={
+                isGeneratingDistribution ? (
+                  <Loader size={16} color="white" />
+                ) : undefined
+              }
               variant="outline"
               onClick={() => handleGenerateDistribution(filteredData)}
-              loading={isGeneratingDistribution}
               disabled={isGeneratingDistribution}
               style={{
-                backgroundColor: '#c8e6fd',
-                borderColor: '#c8e6fd',
+                backgroundColor: isGeneratingDistribution
+                  ? '#ef4444'
+                  : '#c8e6fd',
+                borderColor: isGeneratingDistribution ? '#ef4444' : '#c8e6fd',
                 borderWidth: '1px',
-                color: '#374151',
+                color: isGeneratingDistribution ? '#ffffff' : '#374151',
+                width: '175px',
               }}
             >
               {isGeneratingDistribution
-                ? 'Generating...'
-                : 'Generate Distribution'}
+                ? 'GENERATING...'
+                : 'Create Distribution'}
             </Button>
           </Group>
         }
