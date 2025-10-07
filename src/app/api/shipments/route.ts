@@ -23,20 +23,23 @@ function convertShipmentDBToData(shipment: ShipmentDB): ShipmentData {
 // Helper function to convert frontend interface to database model
 function convertShipmentDataToDB(data: Partial<ShipmentData>) {
   // Clean numeric value - remove commas and convert to number
-  const cleanNumber = (value: any): number => {
-    if (!value || value === '') return 0;
+  const cleanNumber = (value: unknown): number => {
+    if (value === undefined || value === null || value === '') return 0;
     const str = String(value);
     const cleaned = str.replace(/,/g, '');
-    return parseFloat(cleaned) || 0;
+    const parsed = Number.parseFloat(cleaned);
+    return Number.isNaN(parsed) ? 0 : parsed;
   };
 
   // Clean fee value - remove peso symbol and commas, then parse as number
-  const cleanFee = (feeValue: any): number => {
-    if (!feeValue || feeValue === '') return 0;
+  const cleanFee = (feeValue: unknown): number => {
+    if (feeValue === undefined || feeValue === null || feeValue === '')
+      return 0;
     const feeStr = String(feeValue);
     // Remove peso symbol, commas, and any other non-numeric characters except decimal point
     const cleaned = feeStr.replace(/[₱,\s]/g, '');
-    return parseFloat(cleaned) || 0;
+    const parsed = Number.parseFloat(cleaned);
+    return Number.isNaN(parsed) ? 0 : parsed;
   };
 
   return {
@@ -78,7 +81,10 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    console.log('Received shipment data, count:', Array.isArray(body) ? body.length : 1);
+    console.log(
+      'Received shipment data, count:',
+      Array.isArray(body) ? body.length : 1
+    );
 
     // Check if it's a single shipment or bulk import
     if (Array.isArray(body)) {
@@ -89,13 +95,18 @@ export async function POST(request: NextRequest) {
         try {
           return convertShipmentDataToDB(item);
         } catch (err) {
-          console.error(`Error converting shipment at index ${index}:`, err, 'Data:', item);
+          console.error(
+            `Error converting shipment at index ${index}:`,
+            err,
+            'Data:',
+            item
+          );
           throw err;
         }
       });
-      
+
       console.log('Converted shipments, count:', shipmentsToCreate.length);
-      
+
       const createdShipments = await prisma.shipment.createMany({
         data: shipmentsToCreate,
       });
@@ -130,10 +141,10 @@ export async function POST(request: NextRequest) {
 export async function DELETE() {
   try {
     const result = await prisma.shipment.deleteMany({});
-    
+
     return NextResponse.json({
       message: `Successfully deleted ${result.count} shipment records`,
-      count: result.count
+      count: result.count,
     });
   } catch (error) {
     console.error('Failed to delete shipments:', error);

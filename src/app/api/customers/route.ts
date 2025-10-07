@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { Customer, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 
 // Shape used by the UI grid
@@ -17,7 +18,7 @@ export type CustomerDTO = {
   'Customer Status': string;
 };
 
-function mapToDTO(c: any): CustomerDTO {
+function mapToDTO(c: Customer): CustomerDTO {
   return {
     id: c.id,
     Date: c.date ?? '',
@@ -34,7 +35,7 @@ function mapToDTO(c: any): CustomerDTO {
   };
 }
 
-function mapFromDTO(d: CustomerDTO) {
+function mapFromDTO(d: CustomerDTO): Prisma.CustomerCreateInput {
   return {
     date: d.Date ?? '',
     customerName: d['Customer Name'] ?? '',
@@ -53,14 +54,14 @@ function mapFromDTO(d: CustomerDTO) {
 function dbNotConfigured(): string | null {
   const url = process.env.DATABASE_URL || '';
   if (!url) return 'DATABASE_URL is not set';
-  if (/postgresql:\/\/username:password@/i.test(url)) return 'DATABASE_URL still has placeholder username/password';
+  if (/postgresql:\/\/username:password@/i.test(url))
+    return 'DATABASE_URL still has placeholder username/password';
   return null;
 }
 
 export async function GET() {
   try {
-    const db = prisma as any;
-    const items = await db.customer.findMany({ orderBy: { id: 'asc' } });
+    const items = await prisma.customer.findMany({ orderBy: { id: 'asc' } });
     return NextResponse.json(items.map(mapToDTO));
   } catch (err) {
     console.error('GET /api/customers error', err);
@@ -74,7 +75,10 @@ export async function PUT(req: NextRequest) {
   try {
     const misconfig = dbNotConfigured();
     if (misconfig) {
-      return NextResponse.json({ error: `Database not configured: ${misconfig}` }, { status: 503 });
+      return NextResponse.json(
+        { error: `Database not configured: ${misconfig}` },
+        { status: 503 }
+      );
     }
     const body = (await req.json()) as CustomerDTO[];
     if (!Array.isArray(body)) {
@@ -82,20 +86,28 @@ export async function PUT(req: NextRequest) {
     }
 
     // Replace all rows for simplicity; could be optimized later
-    const db = prisma as any;
     await prisma.$transaction([
-      db.customer.deleteMany({}),
-      db.customer.createMany({ data: body.map(mapFromDTO) }),
+      prisma.customer.deleteMany({}),
+      prisma.customer.createMany({ data: body.map(mapFromDTO) }),
     ]);
 
     return NextResponse.json({ ok: true, count: body.length });
   } catch (err) {
     console.error('PUT /api/customers error', err);
-    const msg = (err as any)?.message?.toString().toLowerCase() ?? '';
+    const msg = err instanceof Error ? err.message.toLowerCase() : '';
     if (msg.includes('authentication failed')) {
-      return NextResponse.json({ error: 'Database authentication failed. Check DATABASE_URL credentials.' }, { status: 503 });
+      return NextResponse.json(
+        {
+          error:
+            'Database authentication failed. Check DATABASE_URL credentials.',
+        },
+        { status: 503 }
+      );
     }
-    return NextResponse.json({ error: 'Failed to save customers' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to save customers' },
+      { status: 500 }
+    );
   }
 }
 
@@ -104,31 +116,41 @@ export async function POST(req: NextRequest) {
   try {
     const misconfig = dbNotConfigured();
     if (misconfig) {
-      return NextResponse.json({ error: `Database not configured: ${misconfig}` }, { status: 503 });
+      return NextResponse.json(
+        { error: `Database not configured: ${misconfig}` },
+        { status: 503 }
+      );
     }
     const body = (await req.json()) as CustomerDTO;
-    const db = prisma as any;
-    const created = await db.customer.create({ data: mapFromDTO(body) });
+    const created = await prisma.customer.create({ data: mapFromDTO(body) });
     return NextResponse.json(mapToDTO(created));
   } catch (err) {
     console.error('POST /api/customers error', err);
-    const msg = (err as any)?.message?.toString().toLowerCase() ?? '';
+    const msg = err instanceof Error ? err.message.toLowerCase() : '';
     if (msg.includes('authentication failed')) {
-      return NextResponse.json({ error: 'Database authentication failed. Check DATABASE_URL credentials.' }, { status: 503 });
+      return NextResponse.json(
+        {
+          error:
+            'Database authentication failed. Check DATABASE_URL credentials.',
+        },
+        { status: 503 }
+      );
     }
-    return NextResponse.json({ error: 'Failed to create customer' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to create customer' },
+      { status: 500 }
+    );
   }
 }
 
 // DELETE - Clear all customers
 export async function DELETE() {
   try {
-    const db = prisma as any;
-    const result = await db.customer.deleteMany({});
-    
+    const result = await prisma.customer.deleteMany({});
+
     return NextResponse.json({
       message: `Successfully deleted ${result.count} customer records`,
-      count: result.count
+      count: result.count,
     });
   } catch (error) {
     console.error('Failed to delete customers:', error);

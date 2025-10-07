@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import type { Price, Prisma, Transaction } from '@prisma/client';
+import { prisma } from '@/lib/db';
 
 // ==============================================================================
 // ⚠️ FINALIZED BUSINESS LOGIC - DO NOT MODIFY WITHOUT APPROVAL ⚠️
@@ -25,10 +24,70 @@ const prisma = new PrismaClient();
  * @param priceTiers - Array of price tiers from database
  * @returns The tier price or 0 if no match found
  */
+type PriceTier = Pick<
+  Price,
+  'productCode' | 'lowerLimit' | 'upperLimit' | 'currentPrice'
+>;
+type TransactionImportRow = Record<string, unknown>;
+
+const EMPTY_SHIPMENT_MARKER = '-';
+
+function parseNumeric(value: unknown): number {
+  if (value === undefined || value === null || value === '') {
+    return 0;
+  }
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  const str = String(value).replace(/,/g, '').trim();
+  if (str.length === 0) {
+    return 0;
+  }
+
+  const parsed = Number.parseFloat(str);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function parseTrimmed(value: unknown): string {
+  if (value === undefined || value === null) {
+    return '';
+  }
+  return String(value).trim();
+}
+
+function parseOptional(value: unknown): string | null {
+  const trimmed = parseTrimmed(value);
+  return trimmed.length === 0 ? null : trimmed;
+}
+
+function isEmptyRow(row: TransactionImportRow): boolean {
+  const orderDate = parseTrimmed(row['Order Date']);
+  const customers = parseTrimmed(row['Customers']);
+  const productCode = parseTrimmed(row['Product Code']);
+  const shipmentCode = parseTrimmed(row['Shipment Code']);
+
+  return (
+    orderDate.length === 0 &&
+    customers.length === 0 &&
+    productCode.length === 0 &&
+    shipmentCode === EMPTY_SHIPMENT_MARKER
+  );
+}
+
+function isValidRow(row: TransactionImportRow): boolean {
+  const orderDate = parseTrimmed(row['Order Date']);
+  const customers = parseTrimmed(row['Customers']);
+  const productCode = parseTrimmed(row['Product Code']);
+
+  return orderDate.length > 0 && customers.length > 0 && productCode.length > 0;
+}
+
 function getUnitPriceForQuantity(
   productCode: string,
   quantity: number,
-  priceTiers: any[]
+  priceTiers: PriceTier[]
 ): number {
   if (!productCode || !quantity || quantity <= 0) return 0;
 
@@ -73,27 +132,29 @@ function calculateLineTotal(
 // GET - Fetch all transactions
 export async function GET() {
   try {
-    const transactions = await (prisma as any).transaction.findMany({
+    const transactions = await prisma.transaction.findMany({
       orderBy: { id: 'asc' },
     });
 
     // Convert database format to UI format
-    const formattedTransactions = transactions.map((transaction: any) => ({
-      id: transaction.id,
-      'Order Date': transaction.orderDate,
-      Customers: transaction.customers,
-      'Product Code': transaction.productCode,
-      Quantity: transaction.quantity,
-      'Unit Price': transaction.unitPrice,
-      Discount: transaction.discount,
-      Adjustment: transaction.adjustment,
-      'Line Total': transaction.lineTotal,
-      'Order Status': transaction.orderStatus,
-      Notes: transaction.notes || '',
-      'Invoice Date': transaction.invoiceDate || '',
-      'Packed Date': transaction.packedDate || '',
-      'Shipment Code': transaction.shipmentCode || '',
-    }));
+    const formattedTransactions = transactions.map(
+      (transaction: Transaction) => ({
+        id: transaction.id,
+        'Order Date': transaction.orderDate ?? '',
+        Customers: transaction.customers ?? '',
+        'Product Code': transaction.productCode ?? '',
+        Quantity: transaction.quantity ?? 0,
+        'Unit Price': transaction.unitPrice ?? 0,
+        Discount: transaction.discount ?? 0,
+        Adjustment: transaction.adjustment ?? 0,
+        'Line Total': transaction.lineTotal ?? 0,
+        'Order Status': transaction.orderStatus ?? '',
+        Notes: transaction.notes ?? '',
+        'Invoice Date': transaction.invoiceDate ?? '',
+        'Packed Date': transaction.packedDate ?? '',
+        'Shipment Code': transaction.shipmentCode ?? '',
+      })
+    );
 
     return NextResponse.json(formattedTransactions);
   } catch (error) {
@@ -125,7 +186,7 @@ export async function POST(request: NextRequest) {
     // We need the price tiers to calculate Unit Price for imported transactions
     // Formula: Unit Price = Tier Price - Discount
     // ========================================================================
-    const priceTiers = await (prisma as any).price.findMany({
+    const priceTiers = await prisma.price.findMany({
       select: {
         productCode: true,
         lowerLimit: true,
@@ -142,33 +203,13 @@ export async function POST(request: NextRequest) {
     // await (prisma as any).transaction.deleteMany();
 
     // Separate empty rows from rows with data for different processing
-    const emptyRows = transactionsData.filter((txData: any) => {
-      const isEmptyOrderDate =
-        !txData['Order Date'] || txData['Order Date'].trim() === '';
-      const isEmptyCustomer =
-        !txData['Customers'] || txData['Customers'].trim() === '';
-      const isEmptyProductCode =
-        !txData['Product Code'] || txData['Product Code'].trim() === '';
-      // Empty rows have a "-" marker in Shipment Code
-      const hasEmptyMarker = txData['Shipment Code'] === '-';
-      return (
-        isEmptyOrderDate &&
-        isEmptyCustomer &&
-        isEmptyProductCode &&
-        hasEmptyMarker
-      );
-    });
+    const transactionRows = transactionsData as TransactionImportRow[];
 
-    const validTransactionsData = transactionsData.filter((txData: any) => {
-      return (
-        txData['Order Date'] &&
-        txData['Order Date'].trim() !== '' &&
-        txData['Customers'] &&
-        txData['Customers'].trim() !== '' &&
-        txData['Product Code'] &&
-        txData['Product Code'].trim() !== ''
-      );
-    });
+    const emptyRows = transactionRows.filter(isEmptyRow);
+
+    const validTransactionsData = transactionRows.filter(
+      (row) => isValidRow(row) && !isEmptyRow(row)
+    );
 
     console.log(
       `Filtered ${validTransactionsData.length} valid records from ${transactionsData.length} total records`
@@ -183,27 +224,14 @@ export async function POST(request: NextRequest) {
     //
     // This MUST match the frontend logic in transactions page
     // ========================================================================
-    const dataToInsert = validTransactionsData.map((txData: any) => {
-      // Parse numeric values, handling empty strings and undefined
-      const quantity =
-        parseFloat(txData['Quantity']?.toString().replace(/,/g, '') || '0') ||
-        0;
-      const discount =
-        parseFloat(txData['Discount']?.toString().replace(/,/g, '') || '0') ||
-        0;
-      const adjustment =
-        parseFloat(txData['Adjustment']?.toString().replace(/,/g, '') || '0') ||
-        0;
-      const productCode = txData['Product Code'].trim();
+    const dataToInsert = validTransactionsData.map((row) => {
+      const quantity = parseNumeric(row['Quantity']);
+      const discount = parseNumeric(row['Discount']);
+      const adjustment = parseNumeric(row['Adjustment']);
+      const productCode = parseTrimmed(row['Product Code']);
 
-      // ======================================================================
-      // ⚠️ FINALIZED FORMULA #1: Unit Price = Tier Price - Discount
-      // ======================================================================
-      let unitPrice =
-        parseFloat(txData['Unit Price']?.toString().replace(/,/g, '') || '0') ||
-        0;
+      let unitPrice = parseNumeric(row['Unit Price']);
 
-      // If Unit Price is 0 or empty, auto-calculate from price tiers
       if (unitPrice === 0 && quantity > 0 && productCode) {
         const tierPrice = getUnitPriceForQuantity(
           productCode,
@@ -211,7 +239,6 @@ export async function POST(request: NextRequest) {
           priceTiers
         );
         if (tierPrice > 0) {
-          // Convert from cents to whole numbers and apply discount
           const tierPriceInPeso = tierPrice / 100;
           unitPrice = tierPriceInPeso - discount;
           console.log(
@@ -220,14 +247,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // ======================================================================
-      // ⚠️ FINALIZED FORMULA #2: Line Total = (Quantity × Unit Price) - Adjustment
-      // ======================================================================
-      let lineTotal =
-        parseFloat(txData['Line Total']?.toString().replace(/,/g, '') || '0') ||
-        0;
-
-      // If Line Total is 0 or empty, auto-calculate
+      let lineTotal = parseNumeric(row['Line Total']);
       if (lineTotal === 0) {
         lineTotal = calculateLineTotal(quantity, unitPrice, adjustment);
         console.log(
@@ -236,48 +256,41 @@ export async function POST(request: NextRequest) {
       }
 
       return {
-        orderDate: txData['Order Date'].trim(),
-        customers: txData['Customers'].trim(),
-        productCode: productCode,
-        quantity: quantity,
-        unitPrice: unitPrice, // Auto-calculated or from CSV
-        discount: discount,
-        adjustment: adjustment,
-        lineTotal: lineTotal, // Auto-calculated or from CSV
-        orderStatus: txData['Order Status']?.trim() || 'Prepared',
-        notes: txData['Notes']?.trim() || null,
-        invoiceDate: txData['Invoice Date']?.trim() || null,
-        packedDate: txData['Packed Date']?.trim() || null,
-        shipmentCode: txData['Shipment Code']?.trim() || null,
-      };
+        orderDate: parseTrimmed(row['Order Date']),
+        customers: parseTrimmed(row['Customers']),
+        productCode,
+        quantity,
+        unitPrice,
+        discount,
+        adjustment,
+        lineTotal,
+        orderStatus: parseTrimmed(row['Order Status']) || 'Prepared',
+        notes: parseOptional(row['Notes']),
+        invoiceDate: parseOptional(row['Invoice Date']),
+        packedDate: parseOptional(row['Packed Date']),
+        shipmentCode: parseOptional(row['Shipment Code']),
+      } satisfies Prisma.TransactionCreateManyInput;
     });
 
     // Process empty rows - store them with empty strings and "-" marker in Shipment Code
-    const emptyRowsData = emptyRows.map((txData: any) => {
-      const orderDate = txData['Order Date']?.trim();
-      const customers = txData['Customers']?.trim();
-      const productCode = txData['Product Code']?.trim();
-      const orderStatus = txData['Order Status']?.trim();
-      const notes = txData['Notes']?.trim();
-      const invoiceDate = txData['Invoice Date']?.trim();
-      const packedDate = txData['Packed Date']?.trim();
-
-      return {
-        orderDate: orderDate || '',
-        customers: customers || '',
-        productCode: productCode || '',
-        quantity: 0,
-        unitPrice: 0,
-        discount: 0,
-        adjustment: 0,
-        lineTotal: 0,
-        orderStatus: orderStatus || '',
-        notes: notes || null,
-        invoiceDate: invoiceDate || null,
-        packedDate: packedDate || null,
-        shipmentCode: '-', // Marker for empty row
-      };
-    });
+    const emptyRowsData = emptyRows.map(
+      (row) =>
+        ({
+          orderDate: parseTrimmed(row['Order Date']),
+          customers: parseTrimmed(row['Customers']),
+          productCode: parseTrimmed(row['Product Code']),
+          quantity: 0,
+          unitPrice: 0,
+          discount: 0,
+          adjustment: 0,
+          lineTotal: 0,
+          orderStatus: parseTrimmed(row['Order Status']),
+          notes: parseOptional(row['Notes']),
+          invoiceDate: parseOptional(row['Invoice Date']),
+          packedDate: parseOptional(row['Packed Date']),
+          shipmentCode: EMPTY_SHIPMENT_MARKER,
+        }) satisfies Prisma.TransactionCreateManyInput
+    );
 
     // Combine rows with data and empty rows
     const allDataToInsert = [...dataToInsert, ...emptyRowsData];
@@ -287,7 +300,7 @@ export async function POST(request: NextRequest) {
     );
 
     // Use createMany to insert all records in one transaction
-    const result = await (prisma as any).transaction.createMany({
+    const result = await prisma.transaction.createMany({
       data: allDataToInsert,
     });
 
@@ -319,47 +332,60 @@ export async function POST(request: NextRequest) {
 // PATCH - Update a single transaction
 export async function PATCH(request: NextRequest) {
   try {
-    const updateData = await request.json();
+    const updatePayload = await request.json();
 
-    if (!updateData.id) {
+    if (
+      typeof updatePayload !== 'object' ||
+      updatePayload === null ||
+      (updatePayload as Record<string, unknown>).id === undefined
+    ) {
       return NextResponse.json(
         { error: 'Transaction ID is required' },
         { status: 400 }
       );
     }
 
+    const updateData = updatePayload as TransactionImportRow & { id: unknown };
+    const id = Number(updateData.id);
+    if (!Number.isFinite(id)) {
+      return NextResponse.json(
+        { error: 'Transaction ID must be a number' },
+        { status: 400 }
+      );
+    }
+
     // Convert UI format to database format
-    const dbData: any = {};
+    const dbData: Prisma.TransactionUpdateInput = {};
 
-    if (updateData['Order Date'] !== undefined)
-      dbData.orderDate = updateData['Order Date'];
-    if (updateData['Customers'] !== undefined)
-      dbData.customers = updateData['Customers'];
-    if (updateData['Product Code'] !== undefined)
-      dbData.productCode = updateData['Product Code'];
-    if (updateData['Quantity'] !== undefined)
-      dbData.quantity = updateData['Quantity'];
-    if (updateData['Unit Price'] !== undefined)
-      dbData.unitPrice = updateData['Unit Price'];
-    if (updateData['Discount'] !== undefined)
-      dbData.discount = updateData['Discount'];
-    if (updateData['Adjustment'] !== undefined)
-      dbData.adjustment = updateData['Adjustment'];
-    if (updateData['Line Total'] !== undefined)
-      dbData.lineTotal = updateData['Line Total'];
-    if (updateData['Order Status'] !== undefined)
-      dbData.orderStatus = updateData['Order Status'];
-    if (updateData['Notes'] !== undefined)
-      dbData.notes = updateData['Notes'] || null;
-    if (updateData['Invoice Date'] !== undefined)
-      dbData.invoiceDate = updateData['Invoice Date'] || null;
-    if (updateData['Packed Date'] !== undefined)
-      dbData.packedDate = updateData['Packed Date'] || null;
-    if (updateData['Shipment Code'] !== undefined)
-      dbData.shipmentCode = updateData['Shipment Code'] || null;
+    if ('Order Date' in updateData)
+      dbData.orderDate = parseTrimmed(updateData['Order Date']);
+    if ('Customers' in updateData)
+      dbData.customers = parseTrimmed(updateData['Customers']);
+    if ('Product Code' in updateData)
+      dbData.productCode = parseTrimmed(updateData['Product Code']);
+    if ('Quantity' in updateData)
+      dbData.quantity = parseNumeric(updateData['Quantity']);
+    if ('Unit Price' in updateData)
+      dbData.unitPrice = parseNumeric(updateData['Unit Price']);
+    if ('Discount' in updateData)
+      dbData.discount = parseNumeric(updateData['Discount']);
+    if ('Adjustment' in updateData)
+      dbData.adjustment = parseNumeric(updateData['Adjustment']);
+    if ('Line Total' in updateData)
+      dbData.lineTotal = parseNumeric(updateData['Line Total']);
+    if ('Order Status' in updateData)
+      dbData.orderStatus = parseTrimmed(updateData['Order Status']);
+    if ('Notes' in updateData)
+      dbData.notes = parseOptional(updateData['Notes']);
+    if ('Invoice Date' in updateData)
+      dbData.invoiceDate = parseOptional(updateData['Invoice Date']);
+    if ('Packed Date' in updateData)
+      dbData.packedDate = parseOptional(updateData['Packed Date']);
+    if ('Shipment Code' in updateData)
+      dbData.shipmentCode = parseOptional(updateData['Shipment Code']);
 
-    const updatedTransaction = await (prisma as any).transaction.update({
-      where: { id: updateData.id },
+    const updatedTransaction = await prisma.transaction.update({
+      where: { id },
       data: dbData,
     });
 
@@ -382,7 +408,7 @@ export async function PATCH(request: NextRequest) {
 // DELETE - Delete all transactions
 export async function DELETE() {
   try {
-    const result = await (prisma as any).transaction.deleteMany();
+    const result = await prisma.transaction.deleteMany();
 
     return NextResponse.json({
       message: `Successfully deleted ${result.count} transaction records`,

@@ -4,7 +4,8 @@ import { prisma } from '@/lib/db';
 function dbMisconfig(): string | null {
   const url = process.env.DATABASE_URL || '';
   if (!url) return 'DATABASE_URL is not set';
-  if (/postgresql:\/\/username:password@/i.test(url)) return 'DATABASE_URL still has placeholder username/password';
+  if (/postgresql:\/\/username:password@/i.test(url))
+    return 'DATABASE_URL still has placeholder username/password';
   return null;
 }
 
@@ -43,13 +44,13 @@ export async function GET() {
       services: { api: 'operational', database: 'operational' },
     });
   } catch (err) {
-    const msg = (err as any)?.message || 'Unknown error';
+    const msg = err instanceof Error ? err.message : 'Unknown error';
     const lower = msg.toLowerCase();
     const reason = lower.includes('authentication failed')
       ? 'authentication failed'
       : lower.includes('connect') || lower.includes('timeout')
-      ? 'connection error'
-      : 'query error';
+        ? 'connection error'
+        : 'query error';
     return NextResponse.json(
       {
         status: 'unhealthy',

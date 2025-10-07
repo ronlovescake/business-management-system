@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { Customer, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 
 // Shape used by the UI grid (reusing from customers route)
@@ -17,7 +18,7 @@ export type CustomerDTO = {
   'Customer Status': string;
 };
 
-function mapToDTO(c: any): CustomerDTO {
+function mapToDTO(c: Customer): CustomerDTO {
   return {
     id: c.id,
     Date: c.date ?? '',
@@ -34,7 +35,7 @@ function mapToDTO(c: any): CustomerDTO {
   };
 }
 
-function mapFromDTO(d: CustomerDTO) {
+function mapFromDTO(d: CustomerDTO): Prisma.CustomerUpdateInput {
   return {
     date: d.Date ?? '',
     customerName: d['Customer Name'] ?? '',
@@ -58,22 +59,30 @@ export async function GET(
   try {
     const customerId = parseInt(params.id);
     if (isNaN(customerId)) {
-      return NextResponse.json({ error: 'Invalid customer ID' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid customer ID' },
+        { status: 400 }
+      );
     }
 
-    const db = prisma as any;
-    const customer = await db.customer.findUnique({
-      where: { id: customerId }
+    const customer = await prisma.customer.findUnique({
+      where: { id: customerId },
     });
 
     if (!customer) {
-      return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Customer not found' },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json(mapToDTO(customer));
   } catch (err) {
     console.error('GET /api/customers/[id] error', err);
-    return NextResponse.json({ error: 'Failed to fetch customer' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to fetch customer' },
+      { status: 500 }
+    );
   }
 }
 
@@ -85,21 +94,26 @@ export async function PUT(
   try {
     const customerId = parseInt(params.id);
     if (isNaN(customerId)) {
-      return NextResponse.json({ error: 'Invalid customer ID' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid customer ID' },
+        { status: 400 }
+      );
     }
 
     const body = (await request.json()) as CustomerDTO;
-    const db = prisma as any;
-    
-    const updated = await db.customer.update({
+
+    const updated = await prisma.customer.update({
       where: { id: customerId },
-      data: mapFromDTO(body)
+      data: mapFromDTO(body),
     });
 
     return NextResponse.json(mapToDTO(updated));
   } catch (err) {
     console.error('PUT /api/customers/[id] error', err);
-    return NextResponse.json({ error: 'Failed to update customer' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to update customer' },
+      { status: 500 }
+    );
   }
 }
 
@@ -111,17 +125,22 @@ export async function DELETE(
   try {
     const customerId = parseInt(params.id);
     if (isNaN(customerId)) {
-      return NextResponse.json({ error: 'Invalid customer ID' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid customer ID' },
+        { status: 400 }
+      );
     }
 
-    const db = prisma as any;
-    await db.customer.delete({
-      where: { id: customerId }
+    await prisma.customer.delete({
+      where: { id: customerId },
     });
 
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('DELETE /api/customers/[id] error', err);
-    return NextResponse.json({ error: 'Failed to delete customer' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to delete customer' },
+      { status: 500 }
+    );
   }
 }

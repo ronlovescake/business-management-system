@@ -7,7 +7,6 @@ import React, {
   useState,
   useRef,
 } from 'react';
-import dynamic from 'next/dynamic';
 import { GridColumn, Item, GridCell } from '@glideapps/glide-data-grid';
 import {
   Stack,
@@ -15,7 +14,6 @@ import {
   Button,
   Group,
   FileInput,
-  Loader,
   TextInput,
   Card,
   SimpleGrid,
@@ -24,9 +22,7 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { IconUpload, IconSearch } from '@tabler/icons-react';
-
-// Import Glide Data Grid CSS
-import '@glideapps/glide-data-grid/dist/index.css';
+import { GridView } from '../grid';
 
 // Types for DrawHeader callback
 interface DrawHeaderArgs {
@@ -85,15 +81,6 @@ const customGridStyles = `
     cursor: default;
   }
 `;
-
-// Dynamic import to prevent SSR issues
-const DataEditor = dynamic(
-  () => import('@glideapps/glide-data-grid').then((mod) => mod.DataEditor),
-  {
-    ssr: false,
-    loading: () => <Loader />,
-  }
-);
 
 // Stats card interface
 export interface StatCard {
@@ -389,7 +376,7 @@ export function DataTable<T = Record<string, unknown>>({
           }}
           className="data-grid-container"
         >
-          <DataEditor
+          <GridView
             getCellContent={getCellContent}
             columns={columns}
             rows={getRowCount()}

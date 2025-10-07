@@ -7,7 +7,7 @@ import React, {
   useState,
   useRef,
 } from 'react';
-import dynamic from 'next/dynamic';
+import { GridView } from '../../../../components/grid';
 import { useRouter } from 'next/navigation';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import {
@@ -22,7 +22,6 @@ import {
   Button,
   Group,
   FileInput,
-  Loader,
   TextInput,
   Card,
   SimpleGrid,
@@ -45,9 +44,6 @@ import {
   IconMapPin,
   IconCheck,
 } from '@tabler/icons-react';
-
-// Import Glide Data Grid CSS
-import '@glideapps/glide-data-grid/dist/index.css';
 
 // Custom styles for larger font and center aligned headers
 const customGridStyles = `
@@ -97,15 +93,6 @@ const customGridStyles = `
     cursor: pointer;
   }
 `;
-
-// Dynamic import to prevent SSR issues
-const DataEditor = dynamic(
-  () => import('@glideapps/glide-data-grid').then((mod) => mod.DataEditor),
-  {
-    ssr: false,
-    loading: () => <Loader />,
-  }
-);
 
 interface CustomerData {
   id?: number;
@@ -196,13 +183,14 @@ export default function Customers() {
   }, []);
 
   // 🚀 PERFORMANCE: Debounce filtered customers for smoother typing during search
-  const [debouncedFilteredCustomers, setDebouncedFilteredCustomers] = useState(filteredCustomers);
+  const [debouncedFilteredCustomers, setDebouncedFilteredCustomers] =
+    useState(filteredCustomers);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedFilteredCustomers(filteredCustomers);
     }, 300); // 300ms delay for smooth typing experience
-    
+
     return () => clearTimeout(timer);
   }, [filteredCustomers]);
 
@@ -210,7 +198,7 @@ export default function Customers() {
   // Note: Ready for implementation when search logic is updated
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const customersWithSearchIndex = useMemo(() => {
-    return customers.map(customer => ({
+    return customers.map((customer) => ({
       ...customer,
       _searchIndex: [
         customer['Customer Name'],
@@ -218,8 +206,11 @@ export default function Customers() {
         customer.Address,
         customer.Facebook,
         customer['Email Address'],
-        customer['Business Name']
-      ].filter(Boolean).join('|').toLowerCase()
+        customer['Business Name'],
+      ]
+        .filter(Boolean)
+        .join('|')
+        .toLowerCase(),
     }));
   }, [customers]);
 
@@ -1319,7 +1310,7 @@ export default function Customers() {
           }}
           className="data-grid-container"
         >
-          <DataEditor
+          <GridView
             getCellContent={getData}
             columns={columns}
             rows={getRowCount()}
@@ -1333,7 +1324,7 @@ export default function Customers() {
             rowMarkers="number"
             onPaste={pasteMode ? handlePaste : undefined}
             isDraggable={false}
-            onCellClicked={(cell) => {
+            onCellClicked={(cell: Item) => {
               const [col, row] = cell;
               const column = columns[col];
 

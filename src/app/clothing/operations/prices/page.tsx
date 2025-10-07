@@ -1,15 +1,41 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
-import dynamic from 'next/dynamic';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+} from 'react';
+import { GridView } from '../../../../components/grid';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import { GridCellKind, GridColumn, Item } from '@glideapps/glide-data-grid';
-import { Stack, Text, Box, Button, Group, FileInput, Loader, TextInput, Card, SimpleGrid, ThemeIcon, Title, Modal, Select, NumberInput } from '@mantine/core';
+import type { GridCell, Rectangle, Theme } from '@glideapps/glide-data-grid';
+import {
+  Stack,
+  Text,
+  Button,
+  Group,
+  FileInput,
+  TextInput,
+  Card,
+  SimpleGrid,
+  ThemeIcon,
+  Title,
+  Modal,
+  NumberInput,
+} from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { IconUpload, IconSearch, IconCurrencyDollar, IconFilter, IconTrendingUp, IconTrendingDown, IconPlus, IconUser, IconMail, IconMapPin, IconCheck, IconAdjustments } from '@tabler/icons-react';
-
-// Import Glide Data Grid CSS
-import '@glideapps/glide-data-grid/dist/index.css';
+import {
+  IconUpload,
+  IconSearch,
+  IconCurrencyDollar,
+  IconTrendingUp,
+  IconTrendingDown,
+  IconPlus,
+  IconCheck,
+  IconAdjustments,
+} from '@tabler/icons-react';
 
 // Custom styles for larger font and center aligned headers
 const customGridStyles = `
@@ -61,21 +87,20 @@ const customGridStyles = `
 `;
 
 // Dynamic import to prevent SSR issues
-const DataEditor = dynamic(
-  () => import('@glideapps/glide-data-grid').then((mod) => mod.DataEditor),
-  { 
-    ssr: false,
-    loading: () => <Loader />
-  }
-);
-
 interface PriceData {
   id?: number;
   'Product Code': string;
   'Lower Limit': number;
   'Upper Limit': number;
-  'Prices': number;
+  Prices: number;
   'Price Adjustment': number;
+}
+
+interface HeaderDrawArgs {
+  ctx: CanvasRenderingContext2D;
+  column: GridColumn;
+  rect: Rectangle;
+  theme: Theme;
 }
 
 export default function Prices() {
@@ -155,13 +180,14 @@ export default function Prices() {
   }, []);
 
   // 🚀 PERFORMANCE: Debounce filtered prices for smoother typing during search
-  const [debouncedFilteredPrices, setDebouncedFilteredPrices] = useState(filteredPrices);
+  const [debouncedFilteredPrices, setDebouncedFilteredPrices] =
+    useState(filteredPrices);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedFilteredPrices(filteredPrices);
     }, 300); // 300ms delay for smooth typing experience
-    
+
     return () => clearTimeout(timer);
   }, [filteredPrices]);
 
@@ -169,15 +195,18 @@ export default function Prices() {
   // Note: Ready for implementation when search logic is updated
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const pricesWithSearchIndex = useMemo(() => {
-    return prices.map(price => ({
+    return prices.map((price) => ({
       ...price,
       _searchIndex: [
         price['Product Code'],
         price['Lower Limit'].toString(),
         price['Upper Limit'].toString(),
         price['Prices'].toString(),
-        price['Price Adjustment'].toString()
-      ].filter(Boolean).join('|').toLowerCase()
+        price['Price Adjustment'].toString(),
+      ]
+        .filter(Boolean)
+        .join('|')
+        .toLowerCase(),
     }));
   }, [prices]);
 
@@ -185,42 +214,54 @@ export default function Prices() {
   const stats = useMemo(() => {
     const total = prices.length;
     const filtered = debouncedFilteredPrices.length; // Use debounced version
-    const avgPrice = prices.length > 0 ? Math.round(prices.reduce((sum, p) => sum + p.Prices, 0) / prices.length) : 0;
-    const totalAdjustments = prices.filter(p => p['Price Adjustment'] !== 0).length;
-    const priceIncreases = prices.filter(p => p['Price Adjustment'] > 0).length;
-    const priceDecreases = prices.filter(p => p['Price Adjustment'] < 0).length;
+    const avgPrice =
+      prices.length > 0
+        ? Math.round(
+            prices.reduce((sum, p) => sum + p.Prices, 0) / prices.length
+          )
+        : 0;
+    const totalAdjustments = prices.filter(
+      (p) => p['Price Adjustment'] !== 0
+    ).length;
+    const priceIncreases = prices.filter(
+      (p) => p['Price Adjustment'] > 0
+    ).length;
+    const priceDecreases = prices.filter(
+      (p) => p['Price Adjustment'] < 0
+    ).length;
 
-    return { total, filtered, avgPrice, totalAdjustments, priceIncreases, priceDecreases };
+    return {
+      total,
+      filtered,
+      avgPrice,
+      totalAdjustments,
+      priceIncreases,
+      priceDecreases,
+    };
   }, [prices, debouncedFilteredPrices]); // Updated dependency
 
   // 🚀 PERFORMANCE: Memoize columns array to prevent recreation on every render
-  const columns: GridColumn[] = useMemo(() => [
-    { title: 'Product Code', width: 200, id: 'productCode', grow: 1 },
-    { title: 'Lower Limit', width: 280, id: 'lowerLimit' },
-    { title: 'Upper Limit', width: 280, id: 'upperLimit' },
-    { title: 'Prices', width: 280, id: 'prices' },
-    { title: 'Price Adjustment', width: 280, id: 'priceAdjustment' },
-  ], []); // Empty deps - columns never change
-
-  // Map column ids to PriceData keys
-  const idToKey: Record<string, keyof PriceData> = useMemo(() => ({
-    productCode: 'Product Code',
-    lowerLimit: 'Lower Limit',
-    upperLimit: 'Upper Limit',
-    prices: 'Prices',
-    priceAdjustment: 'Price Adjustment',
-  }), []);
+  const columns: GridColumn[] = useMemo(
+    () => [
+      { title: 'Product Code', width: 200, id: 'productCode', grow: 1 },
+      { title: 'Lower Limit', width: 280, id: 'lowerLimit' },
+      { title: 'Upper Limit', width: 280, id: 'upperLimit' },
+      { title: 'Prices', width: 280, id: 'prices' },
+      { title: 'Price Adjustment', width: 280, id: 'priceAdjustment' },
+    ],
+    []
+  ); // Empty deps - columns never change
 
   // Search functionality
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    
+
     if (!query.trim()) {
       setFilteredPrices(prices);
       return;
     }
 
-    const filtered = prices.filter(price => {
+    const filtered = prices.filter((price) => {
       const searchTerm = query.toLowerCase();
       return (
         price['Product Code'].toLowerCase().includes(searchTerm) ||
@@ -230,7 +271,7 @@ export default function Prices() {
         price['Price Adjustment'].toString().includes(searchTerm)
       );
     });
-    
+
     setFilteredPrices(filtered);
   };
 
@@ -241,18 +282,16 @@ export default function Prices() {
     try {
       const text = await file.text();
       const lines = text.split('\n');
-      const header = lines[0].split(',');
-      
       const importedPrices: PriceData[] = [];
       let id = 1;
 
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line || line === ',,,,') continue; // Skip empty lines
-        
+
         const values = line.split(',');
         if (values.length < 5) continue; // Skip incomplete rows
-        
+
         const productCode = values[0]?.trim();
         const lowerLimit = parseFloat(values[1]?.trim()) || 0;
         const upperLimit = parseFloat(values[2]?.trim()) || 0;
@@ -270,8 +309,8 @@ export default function Prices() {
           'Product Code': productCode,
           'Lower Limit': Math.round(lowerLimit),
           'Upper Limit': Math.round(upperLimit),
-          'Prices': Math.round(parseFloat(cleanPrices)),
-          'Price Adjustment': Math.round(parseFloat(cleanAdjustment))
+          Prices: Math.round(parseFloat(cleanPrices)),
+          'Price Adjustment': Math.round(parseFloat(cleanAdjustment)),
         };
 
         importedPrices.push(priceData);
@@ -314,7 +353,6 @@ export default function Prices() {
         icon: <IconCheck size={18} />,
         autoClose: 4000,
       });
-
     } catch (error) {
       console.error('CSV import error:', error);
       notifications.show({
@@ -327,148 +365,174 @@ export default function Prices() {
   };
 
   // Handle cell click (for product code editing)
-  const onCellClicked = useCallback((cell: Item) => {
-    const [col, row] = cell;
-    
-    if (row >= filteredPrices.length) return;
-    
-    const column = columns[col];
-    
-    // Only handle clicks on the product code column
-    if (column.id === 'productCode') {
-      const price = filteredPrices[row];
-      setEditingPrice(price);
-      
-      // Find all tiers for this product code
-      const productCode = price['Product Code'];
-      const allTiersForProduct = prices.filter(p => p['Product Code'] === productCode);
-      
-      // Sort by lower limit to get proper tier order
-      allTiersForProduct.sort((a, b) => a['Lower Limit'] - b['Lower Limit']);
-      
-      // Pre-populate the form with existing data (up to 4 tiers)
-      const tiers = [
-        { lowerLimit: 0, upperLimit: 0, price: 0 },
-        { lowerLimit: 0, upperLimit: 0, price: 0 },
-        { lowerLimit: 0, upperLimit: 0, price: 0 },
-        { lowerLimit: 0, upperLimit: 0, price: 0 },
-      ];
-      
-      // Fill in the existing tiers
-      allTiersForProduct.slice(0, 4).forEach((tier, index) => {
-        tiers[index] = {
-          lowerLimit: tier['Lower Limit'],
-          upperLimit: tier['Upper Limit'],
-          price: tier['Prices']
-        };
-      });
-      
-      setNewPriceForm({
-        productCode: productCode,
-        tiers: tiers,
-        priceAdjustment: price['Price Adjustment'], // Use the first tier's adjustment
-      });
-      
-      setEditOpen(true);
-    }
-  }, [filteredPrices, columns, prices]);
+  const onCellClicked = useCallback(
+    (cell: Item) => {
+      const [col, row] = cell;
+
+      if (row >= filteredPrices.length) return;
+
+      const column = columns[col];
+
+      // Only handle clicks on the product code column
+      if (column.id === 'productCode') {
+        const price = filteredPrices[row];
+        setEditingPrice(price);
+
+        // Find all tiers for this product code
+        const productCode = price['Product Code'];
+        const allTiersForProduct = prices.filter(
+          (p) => p['Product Code'] === productCode
+        );
+
+        // Sort by lower limit to get proper tier order
+        allTiersForProduct.sort((a, b) => a['Lower Limit'] - b['Lower Limit']);
+
+        // Pre-populate the form with existing data (up to 4 tiers)
+        const tiers = [
+          { lowerLimit: 0, upperLimit: 0, price: 0 },
+          { lowerLimit: 0, upperLimit: 0, price: 0 },
+          { lowerLimit: 0, upperLimit: 0, price: 0 },
+          { lowerLimit: 0, upperLimit: 0, price: 0 },
+        ];
+
+        // Fill in the existing tiers
+        allTiersForProduct.slice(0, 4).forEach((tier, index) => {
+          tiers[index] = {
+            lowerLimit: tier['Lower Limit'],
+            upperLimit: tier['Upper Limit'],
+            price: tier['Prices'],
+          };
+        });
+
+        setNewPriceForm({
+          productCode: productCode,
+          tiers: tiers,
+          priceAdjustment: price['Price Adjustment'], // Use the first tier's adjustment
+        });
+
+        setEditOpen(true);
+      }
+    },
+    [filteredPrices, columns, prices]
+  );
 
   // Data rendering
-  const getData = useCallback((cell: Item): any => {
-    const [col, row] = cell;
-    
-    if (row >= filteredPrices.length) {
+  const getData = useCallback(
+    (cell: Item): GridCell => {
+      const [col, row] = cell;
+
+      if (row >= filteredPrices.length) {
+        return {
+          kind: GridCellKind.Text,
+          data: '',
+          displayData: '',
+          allowOverlay: true,
+        };
+      }
+
+      const price = filteredPrices[row];
+      const column = columns[col];
+
+      let cellData = '';
+      let displayData = '';
+
+      switch (column.id) {
+        case 'productCode':
+          cellData = price['Product Code'];
+          displayData = cellData;
+          break;
+        case 'lowerLimit':
+          cellData = price['Lower Limit'].toString();
+          displayData = price['Lower Limit'].toLocaleString();
+          break;
+        case 'upperLimit':
+          cellData = price['Upper Limit'].toString();
+          displayData = price['Upper Limit'].toLocaleString();
+          break;
+        case 'prices':
+          cellData = price['Prices'].toString();
+          displayData = `₱${price['Prices'].toLocaleString()}`;
+          break;
+        case 'priceAdjustment':
+          cellData = price['Price Adjustment'].toString();
+          const adjustment = price['Price Adjustment'];
+          if (adjustment > 0) {
+            displayData = `+₱${adjustment.toLocaleString()}`;
+          } else if (adjustment < 0) {
+            displayData = `-₱${Math.abs(adjustment).toLocaleString()}`;
+          } else {
+            displayData = '₱0';
+          }
+          break;
+        default:
+          cellData = '';
+          displayData = '';
+      }
+
       return {
         kind: GridCellKind.Text,
-        data: '',
-        displayData: '',
+        data: cellData,
+        displayData: displayData,
         allowOverlay: true,
+        cursor: column.id === 'productCode' ? 'pointer' : 'default',
       };
-    }
+    },
+    [filteredPrices, columns]
+  );
 
-    const price = filteredPrices[row];
-    const column = columns[col];
-
-    let cellData = '';
-    let displayData = '';
-    
-    switch (column.id) {
-      case 'productCode': 
-        cellData = price['Product Code']; 
-        displayData = cellData;
-        break;
-      case 'lowerLimit': 
-        cellData = price['Lower Limit'].toString(); 
-        displayData = price['Lower Limit'].toLocaleString();
-        break;
-      case 'upperLimit': 
-        cellData = price['Upper Limit'].toString(); 
-        displayData = price['Upper Limit'].toLocaleString();
-        break;
-      case 'prices': 
-        cellData = price['Prices'].toString(); 
-        displayData = `₱${price['Prices'].toLocaleString()}`;
-        break;
-      case 'priceAdjustment': 
-        cellData = price['Price Adjustment'].toString(); 
-        const adjustment = price['Price Adjustment'];
-        if (adjustment > 0) {
-          displayData = `+₱${adjustment.toLocaleString()}`;
-        } else if (adjustment < 0) {
-          displayData = `-₱${Math.abs(adjustment).toLocaleString()}`;
-        } else {
-          displayData = '₱0';
-        }
-        break;
-      default: 
-        cellData = '';
-        displayData = '';
-    }
-
-    return {
-      kind: GridCellKind.Text,
-      data: cellData,
-      displayData: displayData,
-      allowOverlay: true,
-      cursor: column.id === 'productCode' ? 'pointer' : 'default',
-    };
-  }, [filteredPrices, columns]);
-
-  const getRowCount = useCallback(() => filteredPrices.length, [filteredPrices]);
+  const getRowCount = useCallback(
+    () => filteredPrices.length,
+    [filteredPrices]
+  );
 
   // Custom header renderer for center alignment
-  const drawHeader = useCallback((args: any) => {
+  const drawHeader = useCallback((args: HeaderDrawArgs) => {
     const { ctx, column, rect, theme } = args;
-    
+
     // Fill header background
     ctx.fillStyle = theme.bgHeader;
     ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
-    
+
     // Set text properties
     ctx.fillStyle = theme.textHeader;
     ctx.font = theme.headerFontStyle;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    
+
     // Draw centered text
     const centerX = rect.x + rect.width / 2;
     const centerY = rect.y + rect.height / 2;
     ctx.fillText(column.title, centerX, centerY);
-    
+
     return true;
   }, []);
 
   return (
     <PageLayout fluid withPadding>
       <style dangerouslySetInnerHTML={{ __html: customGridStyles }} />
-      <Stack gap="md" style={{ width: '100%', maxWidth: 'none', margin: '0 auto' }}>
+      <Stack
+        gap="md"
+        style={{ width: '100%', maxWidth: 'none', margin: '0 auto' }}
+      >
         {/* Stats cards */}
         <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
-          <Card shadow="sm" padding="md" radius="md" style={{ background: 'var(--mantine-color-blue-6)', color: 'white' }}>
+          <Card
+            shadow="sm"
+            padding="md"
+            radius="md"
+            style={{
+              background: 'var(--mantine-color-blue-6)',
+              color: 'white',
+            }}
+          >
             <Group justify="space-between" align="flex-start">
               <div>
-                <Text c="white" size="xs" style={{ opacity: 0.85 }}>Total Products</Text>
-                <Title order={3} c="white">{stats.total}</Title>
+                <Text c="white" size="xs" style={{ opacity: 0.85 }}>
+                  Total Products
+                </Text>
+                <Title order={3} c="white">
+                  {stats.total}
+                </Title>
               </div>
               <ThemeIcon variant="white" color="blue" size="lg" radius="md">
                 <IconCurrencyDollar size={18} />
@@ -476,11 +540,23 @@ export default function Prices() {
             </Group>
           </Card>
 
-          <Card shadow="sm" padding="md" radius="md" style={{ background: 'var(--mantine-color-green-6)', color: 'white' }}>
+          <Card
+            shadow="sm"
+            padding="md"
+            radius="md"
+            style={{
+              background: 'var(--mantine-color-green-6)',
+              color: 'white',
+            }}
+          >
             <Group justify="space-between" align="flex-start">
               <div>
-                <Text c="white" size="xs" style={{ opacity: 0.85 }}>Average Price</Text>
-                <Title order={3} c="white">₱{stats.avgPrice.toLocaleString()}</Title>
+                <Text c="white" size="xs" style={{ opacity: 0.85 }}>
+                  Average Price
+                </Text>
+                <Title order={3} c="white">
+                  ₱{stats.avgPrice.toLocaleString()}
+                </Title>
               </div>
               <ThemeIcon variant="white" color="green" size="lg" radius="md">
                 <IconTrendingUp size={18} />
@@ -488,11 +564,23 @@ export default function Prices() {
             </Group>
           </Card>
 
-          <Card shadow="sm" padding="md" radius="md" style={{ background: 'var(--mantine-color-orange-6)', color: 'white' }}>
+          <Card
+            shadow="sm"
+            padding="md"
+            radius="md"
+            style={{
+              background: 'var(--mantine-color-orange-6)',
+              color: 'white',
+            }}
+          >
             <Group justify="space-between" align="flex-start">
               <div>
-                <Text c="white" size="xs" style={{ opacity: 0.85 }}>Price Increases</Text>
-                <Title order={3} c="white">{stats.priceIncreases}</Title>
+                <Text c="white" size="xs" style={{ opacity: 0.85 }}>
+                  Price Increases
+                </Text>
+                <Title order={3} c="white">
+                  {stats.priceIncreases}
+                </Title>
               </div>
               <ThemeIcon variant="white" color="orange" size="lg" radius="md">
                 <IconTrendingUp size={18} />
@@ -500,11 +588,20 @@ export default function Prices() {
             </Group>
           </Card>
 
-          <Card shadow="sm" padding="md" radius="md" style={{ background: 'var(--mantine-color-red-6)', color: 'white' }}>
+          <Card
+            shadow="sm"
+            padding="md"
+            radius="md"
+            style={{ background: 'var(--mantine-color-red-6)', color: 'white' }}
+          >
             <Group justify="space-between" align="flex-start">
               <div>
-                <Text c="white" size="xs" style={{ opacity: 0.85 }}>Price Decreases</Text>
-                <Title order={3} c="white">{stats.priceDecreases}</Title>
+                <Text c="white" size="xs" style={{ opacity: 0.85 }}>
+                  Price Decreases
+                </Text>
+                <Title order={3} c="white">
+                  {stats.priceDecreases}
+                </Title>
               </div>
               <ThemeIcon variant="white" color="red" size="lg" radius="md">
                 <IconTrendingDown size={18} />
@@ -553,21 +650,28 @@ export default function Prices() {
           </Group>
         </Group>
 
-        <Card withBorder shadow="sm" radius="md" padding={0} style={{
-          height: gridHeight,
-          width: '100%',
-          maxWidth: '100%',
-          overflow: 'hidden',
-          position: 'relative',
-          background: '#fff',
-          fontSize: '18px'
-        }} className="data-grid-container">
-          <DataEditor
+        <Card
+          withBorder
+          shadow="sm"
+          radius="md"
+          padding={0}
+          style={{
+            height: gridHeight,
+            width: '100%',
+            maxWidth: '100%',
+            overflow: 'hidden',
+            position: 'relative',
+            background: '#fff',
+            fontSize: '18px',
+          }}
+          className="data-grid-container"
+        >
+          <GridView
             getCellContent={getData}
             columns={columns}
             rows={getRowCount()}
             height={gridHeight}
-            width={"100%"}
+            width={'100%'}
             overscrollX={0}
             smoothScrollX={true}
             smoothScrollY={true}
@@ -618,13 +722,12 @@ export default function Prices() {
         <Text size="sm" c="dimmed" ta="center">
           {prices.length > 0
             ? `Showing ${filteredPrices.length} of ${prices.length} products${searchQuery ? ' (filtered)' : ''}`
-            : 'Price management system - add products to get started'
-          }
+            : 'Price management system - add products to get started'}
         </Text>
 
         {/* Add New Price Modal - Enhanced Modern Design */}
-        <Modal 
-          opened={addOpen} 
+        <Modal
+          opened={addOpen}
           onClose={() => setAddOpen(false)}
           closeOnClickOutside={false}
           closeOnEscape={false}
@@ -663,8 +766,12 @@ export default function Prices() {
                 <IconPlus size={20} />
               </ThemeIcon>
               <div>
-                <Text size="xl" fw={600} c="green.8">Add New Price</Text>
-                <Text size="sm" c="dimmed">Set pricing information for a product</Text>
+                <Text size="xl" fw={600} c="green.8">
+                  Add New Price
+                </Text>
+                <Text size="sm" c="dimmed">
+                  Set pricing information for a product
+                </Text>
               </div>
             </Group>
           }
@@ -675,9 +782,11 @@ export default function Prices() {
                 <ThemeIcon size="sm" radius="md" variant="light" color="green">
                   <IconCurrencyDollar size={14} />
                 </ThemeIcon>
-                <Text size="lg" fw={500} c="green.7">Product Pricing Information</Text>
+                <Text size="lg" fw={500} c="green.7">
+                  Product Pricing Information
+                </Text>
               </Group>
-              
+
               <TextInput
                 label="Product Code"
                 placeholder="e.g. TSH-001"
@@ -686,71 +795,112 @@ export default function Prices() {
                 radius="md"
                 styles={{
                   label: { fontWeight: 500, marginBottom: 8 },
-                  input: { 
+                  input: {
                     borderWidth: 2,
-                    '&:focus': { borderColor: 'var(--mantine-color-green-5)' }
-                  }
+                    '&:focus': { borderColor: 'var(--mantine-color-green-5)' },
+                  },
                 }}
                 value={newPriceForm.productCode}
-                onChange={(e) => setNewPriceForm(prev => ({ ...prev, productCode: e.target.value }))}
+                onChange={(e) =>
+                  setNewPriceForm((prev) => ({
+                    ...prev,
+                    productCode: e.target.value,
+                  }))
+                }
               />
 
               {/* Pricing Tiers */}
               <div style={{ marginTop: 24 }}>
-                <Text size="lg" fw={500} c="green.7" mb="md">Pricing Tiers</Text>
-                
+                <Text size="lg" fw={500} c="green.7" mb="md">
+                  Pricing Tiers
+                </Text>
+
                 {newPriceForm.tiers.map((tier, index) => {
                   // Check if this tier should be enabled
-                  const isProductCodeFilled = newPriceForm.productCode.trim().length > 0;
-                  const isPreviousTierComplete = index === 0 ? true : (
-                    newPriceForm.tiers[index - 1].lowerLimit > 0 && 
-                    newPriceForm.tiers[index - 1].upperLimit > 0 && 
-                    newPriceForm.tiers[index - 1].price > 0
-                  );
-                  const isTierEnabled = isProductCodeFilled && isPreviousTierComplete;
-                  
+                  const isProductCodeFilled =
+                    newPriceForm.productCode.trim().length > 0;
+                  const isPreviousTierComplete =
+                    index === 0
+                      ? true
+                      : newPriceForm.tiers[index - 1].lowerLimit > 0 &&
+                        newPriceForm.tiers[index - 1].upperLimit > 0 &&
+                        newPriceForm.tiers[index - 1].price > 0;
+                  const isTierEnabled =
+                    isProductCodeFilled && isPreviousTierComplete;
+                  const previousTier =
+                    index > 0 ? newPriceForm.tiers[index - 1] : null;
+                  const previousLowerLimit = previousTier?.lowerLimit ?? 0;
+                  const tierHasLowerLimitError =
+                    index > 0 &&
+                    tier.lowerLimit > 0 &&
+                    tier.lowerLimit <= previousLowerLimit;
+
                   return (
                     <div key={index} style={{ marginBottom: 16 }}>
-                      <Text size="sm" fw={500} mb="xs" c={isTierEnabled ? "dimmed" : "gray.5"}>
-                        Tier {index + 1} {!isTierEnabled && (index === 0 ? "(Fill Product Code first)" : "(Complete previous tier first)")}
+                      <Text
+                        size="sm"
+                        fw={500}
+                        mb="xs"
+                        c={isTierEnabled ? 'dimmed' : 'gray.5'}
+                      >
+                        Tier {index + 1}{' '}
+                        {!isTierEnabled &&
+                          (index === 0
+                            ? '(Fill Product Code first)'
+                            : '(Complete previous tier first)')}
                       </Text>
                       <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
                         <NumberInput
                           label="Lower Limit"
-                          placeholder={index === 0 ? "1" : `> ${newPriceForm.tiers[index - 1]?.lowerLimit || 0}`}
+                          placeholder={
+                            index === 0 ? '1' : `> ${previousLowerLimit}`
+                          }
                           size="md"
                           radius="md"
-                          min={index === 0 ? 0 : (newPriceForm.tiers[index - 1]?.lowerLimit || 0) + 1}
+                          min={index === 0 ? 0 : previousLowerLimit + 1}
                           hideControls
                           disabled={!isTierEnabled}
-                          error={index > 0 && tier.lowerLimit > 0 && tier.lowerLimit <= (newPriceForm.tiers[index - 1]?.lowerLimit || 0) ? 
-                            `Must be greater than ${newPriceForm.tiers[index - 1]?.lowerLimit || 0}` : null}
+                          error={
+                            tierHasLowerLimitError
+                              ? `Must be greater than ${previousLowerLimit}`
+                              : null
+                          }
                           styles={{
                             label: { fontWeight: 500, marginBottom: 8 },
-                            input: { 
+                            input: {
                               borderWidth: 2,
-                              '&:focus': { borderColor: 'var(--mantine-color-green-5)' },
-                              backgroundColor: !isTierEnabled ? 'var(--mantine-color-gray-1)' : undefined,
-                              color: !isTierEnabled ? 'var(--mantine-color-gray-5)' : undefined
-                            }
+                              '&:focus': {
+                                borderColor: 'var(--mantine-color-green-5)',
+                              },
+                              backgroundColor: !isTierEnabled
+                                ? 'var(--mantine-color-gray-1)'
+                                : undefined,
+                              color: !isTierEnabled
+                                ? 'var(--mantine-color-gray-5)'
+                                : undefined,
+                            },
                           }}
                           value={tier.lowerLimit}
                           onChange={(value) => {
                             if (isTierEnabled) {
                               const newTiers = [...newPriceForm.tiers];
                               const numValue = Number(value) || 0;
-                              
+
                               // Validation: Ensure this tier's lower limit is greater than previous tier's lower limit
                               if (index > 0) {
-                                const previousLowerLimit = newTiers[index - 1]?.lowerLimit || 0;
-                                if (numValue > 0 && numValue <= previousLowerLimit) {
+                                const previousLowerLimitValue =
+                                  newTiers[index - 1]?.lowerLimit ?? 0;
+                                if (
+                                  numValue > 0 &&
+                                  numValue <= previousLowerLimitValue
+                                ) {
                                   // Don't update if the value is not greater than previous tier
                                   return;
                                 }
                               }
-                              
+
                               newTiers[index].lowerLimit = numValue;
-                              
+
                               // Auto-fill logic based on tier
                               if (index === 0 && numValue > 0) {
                                 // Tier 1: Auto-fill Upper Limit to 10,000
@@ -771,8 +921,11 @@ export default function Prices() {
                                 // Also update Tier 3's Upper Limit to be 1 less than Tier 4's Lower Limit
                                 newTiers[2].upperLimit = numValue - 1;
                               }
-                              
-                              setNewPriceForm(prev => ({ ...prev, tiers: newTiers }));
+
+                              setNewPriceForm((prev) => ({
+                                ...prev,
+                                tiers: newTiers,
+                              }));
                             }
                           }}
                         />
@@ -787,19 +940,28 @@ export default function Prices() {
                           disabled={!isTierEnabled}
                           styles={{
                             label: { fontWeight: 500, marginBottom: 8 },
-                            input: { 
+                            input: {
                               borderWidth: 2,
-                              '&:focus': { borderColor: 'var(--mantine-color-green-5)' },
-                              backgroundColor: !isTierEnabled ? 'var(--mantine-color-gray-1)' : undefined,
-                              color: !isTierEnabled ? 'var(--mantine-color-gray-5)' : undefined
-                            }
+                              '&:focus': {
+                                borderColor: 'var(--mantine-color-green-5)',
+                              },
+                              backgroundColor: !isTierEnabled
+                                ? 'var(--mantine-color-gray-1)'
+                                : undefined,
+                              color: !isTierEnabled
+                                ? 'var(--mantine-color-gray-5)'
+                                : undefined,
+                            },
                           }}
                           value={tier.upperLimit}
                           onChange={(value) => {
                             if (isTierEnabled) {
                               const newTiers = [...newPriceForm.tiers];
                               newTiers[index].upperLimit = Number(value) || 0;
-                              setNewPriceForm(prev => ({ ...prev, tiers: newTiers }));
+                              setNewPriceForm((prev) => ({
+                                ...prev,
+                                tiers: newTiers,
+                              }));
                             }
                           }}
                         />
@@ -815,19 +977,28 @@ export default function Prices() {
                           disabled={!isTierEnabled}
                           styles={{
                             label: { fontWeight: 500, marginBottom: 8 },
-                            input: { 
+                            input: {
                               borderWidth: 2,
-                              '&:focus': { borderColor: 'var(--mantine-color-green-5)' },
-                              backgroundColor: !isTierEnabled ? 'var(--mantine-color-gray-1)' : undefined,
-                              color: !isTierEnabled ? 'var(--mantine-color-gray-5)' : undefined
-                            }
+                              '&:focus': {
+                                borderColor: 'var(--mantine-color-green-5)',
+                              },
+                              backgroundColor: !isTierEnabled
+                                ? 'var(--mantine-color-gray-1)'
+                                : undefined,
+                              color: !isTierEnabled
+                                ? 'var(--mantine-color-gray-5)'
+                                : undefined,
+                            },
                           }}
                           value={tier.price}
                           onChange={(value) => {
                             if (isTierEnabled) {
                               const newTiers = [...newPriceForm.tiers];
                               newTiers[index].price = Number(value) || 0;
-                              setNewPriceForm(prev => ({ ...prev, tiers: newTiers }));
+                              setNewPriceForm((prev) => ({
+                                ...prev,
+                                tiers: newTiers,
+                              }));
                             }
                           }}
                         />
@@ -848,20 +1019,30 @@ export default function Prices() {
                 hideControls
                 styles={{
                   label: { fontWeight: 500, marginBottom: 8 },
-                  input: { 
+                  input: {
                     borderWidth: 2,
-                    '&:focus': { borderColor: 'var(--mantine-color-green-5)' }
-                  }
+                    '&:focus': { borderColor: 'var(--mantine-color-green-5)' },
+                  },
                 }}
                 value={newPriceForm.priceAdjustment}
-                onChange={(value) => setNewPriceForm(prev => ({ ...prev, priceAdjustment: Number(value) || 0 }))}
+                onChange={(value) =>
+                  setNewPriceForm((prev) => ({
+                    ...prev,
+                    priceAdjustment: Number(value) || 0,
+                  }))
+                }
               />
             </div>
 
             {/* Action Buttons */}
-            <Group justify="flex-end" mt="xl" pt="md" style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}>
-              <Button 
-                variant="subtle" 
+            <Group
+              justify="flex-end"
+              mt="xl"
+              pt="md"
+              style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}
+            >
+              <Button
+                variant="subtle"
                 size="md"
                 radius="md"
                 onClick={() => {
@@ -883,8 +1064,8 @@ export default function Prices() {
                   root: {
                     '&:hover': {
                       backgroundColor: 'var(--mantine-color-gray-1)',
-                    }
-                  }
+                    },
+                  },
                 }}
               >
                 Cancel
@@ -893,7 +1074,15 @@ export default function Prices() {
                 size="md"
                 radius="md"
                 gradient={{ from: 'green', to: 'green.6', deg: 45 }}
-                disabled={!newPriceForm.productCode.trim() || !newPriceForm.tiers.some(tier => tier.lowerLimit > 0 || tier.upperLimit > 0 || tier.price > 0)}
+                disabled={
+                  !newPriceForm.productCode.trim() ||
+                  !newPriceForm.tiers.some(
+                    (tier) =>
+                      tier.lowerLimit > 0 ||
+                      tier.upperLimit > 0 ||
+                      tier.price > 0
+                  )
+                }
                 leftSection={<IconPlus size={18} />}
                 styles={{
                   root: {
@@ -903,7 +1092,7 @@ export default function Prices() {
                       transform: 'translateY(-1px)',
                     },
                     transition: 'all 0.2s ease',
-                  }
+                  },
                 }}
                 onClick={async () => {
                   try {
@@ -914,7 +1103,7 @@ export default function Prices() {
                       'Product Code': newPriceForm.productCode.trim(),
                       'Lower Limit': firstTier.lowerLimit,
                       'Upper Limit': firstTier.upperLimit,
-                      'Prices': firstTier.price,
+                      Prices: firstTier.price,
                       'Price Adjustment': newPriceForm.priceAdjustment,
                     };
 
@@ -936,17 +1125,18 @@ export default function Prices() {
                     if (reloadResponse.ok) {
                       const updatedPrices = await reloadResponse.json();
                       setPrices(updatedPrices);
-                      
+
                       if (!searchQuery.trim()) {
                         setFilteredPrices(updatedPrices);
                       } else {
                         const q = searchQuery.toLowerCase();
-                        const filtered = updatedPrices.filter((price: PriceData) =>
-                          price['Product Code'].toLowerCase().includes(q) ||
-                          price['Lower Limit'].toString().includes(q) ||
-                          price['Upper Limit'].toString().includes(q) ||
-                          price['Prices'].toString().includes(q) ||
-                          price['Price Adjustment'].toString().includes(q)
+                        const filtered = updatedPrices.filter(
+                          (price: PriceData) =>
+                            price['Product Code'].toLowerCase().includes(q) ||
+                            price['Lower Limit'].toString().includes(q) ||
+                            price['Upper Limit'].toString().includes(q) ||
+                            price['Prices'].toString().includes(q) ||
+                            price['Price Adjustment'].toString().includes(q)
                         );
                         setFilteredPrices(filtered);
                       }
@@ -973,12 +1163,12 @@ export default function Prices() {
                       icon: <IconCheck size={18} />,
                       autoClose: 4000,
                     });
-
                   } catch (error) {
                     console.error('Failed to add price:', error);
                     notifications.show({
                       title: '❌ Failed to Add Price',
-                      message: 'Could not save the price to database. Please try again.',
+                      message:
+                        'Could not save the price to database. Please try again.',
                       color: 'red',
                       autoClose: 4000,
                     });
@@ -992,8 +1182,8 @@ export default function Prices() {
         </Modal>
 
         {/* Edit Price Modal - Enhanced Modern Design */}
-        <Modal 
-          opened={editOpen} 
+        <Modal
+          opened={editOpen}
           onClose={() => setEditOpen(false)}
           closeOnClickOutside={false}
           closeOnEscape={false}
@@ -1032,8 +1222,13 @@ export default function Prices() {
                 <IconAdjustments size={20} />
               </ThemeIcon>
               <div>
-                <Text size="xl" fw={600} c="blue.8">Edit Price</Text>
-                <Text size="sm" c="dimmed">Update pricing information for {editingPrice?.['Product Code']}</Text>
+                <Text size="xl" fw={600} c="blue.8">
+                  Edit Price
+                </Text>
+                <Text size="sm" c="dimmed">
+                  Update pricing information for{' '}
+                  {editingPrice?.['Product Code']}
+                </Text>
               </div>
             </Group>
           }
@@ -1044,9 +1239,11 @@ export default function Prices() {
                 <ThemeIcon size="sm" radius="md" variant="light" color="blue">
                   <IconCurrencyDollar size={14} />
                 </ThemeIcon>
-                <Text size="lg" fw={500} c="blue.7">Product Pricing Information</Text>
+                <Text size="lg" fw={500} c="blue.7">
+                  Product Pricing Information
+                </Text>
               </Group>
-              
+
               <TextInput
                 label="Product Code"
                 placeholder="e.g. TSH-001"
@@ -1055,71 +1252,112 @@ export default function Prices() {
                 radius="md"
                 styles={{
                   label: { fontWeight: 500, marginBottom: 8 },
-                  input: { 
+                  input: {
                     borderWidth: 2,
-                    '&:focus': { borderColor: 'var(--mantine-color-blue-5)' }
-                  }
+                    '&:focus': { borderColor: 'var(--mantine-color-blue-5)' },
+                  },
                 }}
                 value={newPriceForm.productCode}
-                onChange={(e) => setNewPriceForm(prev => ({ ...prev, productCode: e.target.value }))}
+                onChange={(e) =>
+                  setNewPriceForm((prev) => ({
+                    ...prev,
+                    productCode: e.target.value,
+                  }))
+                }
               />
 
               {/* Pricing Tiers */}
               <div style={{ marginTop: 24 }}>
-                <Text size="lg" fw={500} c="blue.7" mb="md">Pricing Tiers</Text>
-                
+                <Text size="lg" fw={500} c="blue.7" mb="md">
+                  Pricing Tiers
+                </Text>
+
                 {newPriceForm.tiers.map((tier, index) => {
                   // Check if this tier should be enabled
-                  const isProductCodeFilled = newPriceForm.productCode.trim().length > 0;
-                  const isPreviousTierComplete = index === 0 ? true : (
-                    newPriceForm.tiers[index - 1].lowerLimit > 0 && 
-                    newPriceForm.tiers[index - 1].upperLimit > 0 && 
-                    newPriceForm.tiers[index - 1].price > 0
-                  );
-                  const isTierEnabled = isProductCodeFilled && isPreviousTierComplete;
-                  
+                  const isProductCodeFilled =
+                    newPriceForm.productCode.trim().length > 0;
+                  const isPreviousTierComplete =
+                    index === 0
+                      ? true
+                      : newPriceForm.tiers[index - 1].lowerLimit > 0 &&
+                        newPriceForm.tiers[index - 1].upperLimit > 0 &&
+                        newPriceForm.tiers[index - 1].price > 0;
+                  const isTierEnabled =
+                    isProductCodeFilled && isPreviousTierComplete;
+                  const previousTier =
+                    index > 0 ? newPriceForm.tiers[index - 1] : null;
+                  const previousLowerLimit = previousTier?.lowerLimit ?? 0;
+                  const tierHasLowerLimitError =
+                    index > 0 &&
+                    tier.lowerLimit > 0 &&
+                    tier.lowerLimit <= previousLowerLimit;
+
                   return (
                     <div key={index} style={{ marginBottom: 16 }}>
-                      <Text size="sm" fw={500} mb="xs" c={isTierEnabled ? "dimmed" : "gray.5"}>
-                        Tier {index + 1} {!isTierEnabled && (index === 0 ? "(Fill Product Code first)" : "(Complete previous tier first)")}
+                      <Text
+                        size="sm"
+                        fw={500}
+                        mb="xs"
+                        c={isTierEnabled ? 'dimmed' : 'gray.5'}
+                      >
+                        Tier {index + 1}{' '}
+                        {!isTierEnabled &&
+                          (index === 0
+                            ? '(Fill Product Code first)'
+                            : '(Complete previous tier first)')}
                       </Text>
                       <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
                         <NumberInput
                           label="Lower Limit"
-                          placeholder={index === 0 ? "1" : `> ${newPriceForm.tiers[index - 1]?.lowerLimit || 0}`}
+                          placeholder={
+                            index === 0 ? '1' : `> ${previousLowerLimit}`
+                          }
                           size="md"
                           radius="md"
-                          min={index === 0 ? 0 : (newPriceForm.tiers[index - 1]?.lowerLimit || 0) + 1}
+                          min={index === 0 ? 0 : previousLowerLimit + 1}
                           hideControls
                           disabled={!isTierEnabled}
-                          error={index > 0 && tier.lowerLimit > 0 && tier.lowerLimit <= (newPriceForm.tiers[index - 1]?.lowerLimit || 0) ? 
-                            `Must be greater than ${newPriceForm.tiers[index - 1]?.lowerLimit || 0}` : null}
+                          error={
+                            tierHasLowerLimitError
+                              ? `Must be greater than ${previousLowerLimit}`
+                              : null
+                          }
                           styles={{
                             label: { fontWeight: 500, marginBottom: 8 },
-                            input: { 
+                            input: {
                               borderWidth: 2,
-                              '&:focus': { borderColor: 'var(--mantine-color-blue-5)' },
-                              backgroundColor: !isTierEnabled ? 'var(--mantine-color-gray-1)' : undefined,
-                              color: !isTierEnabled ? 'var(--mantine-color-gray-5)' : undefined
-                            }
+                              '&:focus': {
+                                borderColor: 'var(--mantine-color-blue-5)',
+                              },
+                              backgroundColor: !isTierEnabled
+                                ? 'var(--mantine-color-gray-1)'
+                                : undefined,
+                              color: !isTierEnabled
+                                ? 'var(--mantine-color-gray-5)'
+                                : undefined,
+                            },
                           }}
                           value={tier.lowerLimit}
                           onChange={(value) => {
                             if (isTierEnabled) {
                               const newTiers = [...newPriceForm.tiers];
                               const numValue = Number(value) || 0;
-                              
+
                               // Validation: Ensure this tier's lower limit is greater than previous tier's lower limit
                               if (index > 0) {
-                                const previousLowerLimit = newTiers[index - 1]?.lowerLimit || 0;
-                                if (numValue > 0 && numValue <= previousLowerLimit) {
+                                const previousLowerLimitValue =
+                                  newTiers[index - 1]?.lowerLimit ?? 0;
+                                if (
+                                  numValue > 0 &&
+                                  numValue <= previousLowerLimitValue
+                                ) {
                                   // Don't update if the value is not greater than previous tier
                                   return;
                                 }
                               }
-                              
+
                               newTiers[index].lowerLimit = numValue;
-                              
+
                               // Auto-fill logic based on tier
                               if (index === 0 && numValue > 0) {
                                 // Tier 1: Auto-fill Upper Limit to 10,000
@@ -1140,8 +1378,11 @@ export default function Prices() {
                                 // Also update Tier 3's Upper Limit to be 1 less than Tier 4's Lower Limit
                                 newTiers[2].upperLimit = numValue - 1;
                               }
-                              
-                              setNewPriceForm(prev => ({ ...prev, tiers: newTiers }));
+
+                              setNewPriceForm((prev) => ({
+                                ...prev,
+                                tiers: newTiers,
+                              }));
                             }
                           }}
                         />
@@ -1156,19 +1397,28 @@ export default function Prices() {
                           disabled={!isTierEnabled}
                           styles={{
                             label: { fontWeight: 500, marginBottom: 8 },
-                            input: { 
+                            input: {
                               borderWidth: 2,
-                              '&:focus': { borderColor: 'var(--mantine-color-blue-5)' },
-                              backgroundColor: !isTierEnabled ? 'var(--mantine-color-gray-1)' : undefined,
-                              color: !isTierEnabled ? 'var(--mantine-color-gray-5)' : undefined
-                            }
+                              '&:focus': {
+                                borderColor: 'var(--mantine-color-blue-5)',
+                              },
+                              backgroundColor: !isTierEnabled
+                                ? 'var(--mantine-color-gray-1)'
+                                : undefined,
+                              color: !isTierEnabled
+                                ? 'var(--mantine-color-gray-5)'
+                                : undefined,
+                            },
                           }}
                           value={tier.upperLimit}
                           onChange={(value) => {
                             if (isTierEnabled) {
                               const newTiers = [...newPriceForm.tiers];
                               newTiers[index].upperLimit = Number(value) || 0;
-                              setNewPriceForm(prev => ({ ...prev, tiers: newTiers }));
+                              setNewPriceForm((prev) => ({
+                                ...prev,
+                                tiers: newTiers,
+                              }));
                             }
                           }}
                         />
@@ -1184,19 +1434,28 @@ export default function Prices() {
                           disabled={!isTierEnabled}
                           styles={{
                             label: { fontWeight: 500, marginBottom: 8 },
-                            input: { 
+                            input: {
                               borderWidth: 2,
-                              '&:focus': { borderColor: 'var(--mantine-color-blue-5)' },
-                              backgroundColor: !isTierEnabled ? 'var(--mantine-color-gray-1)' : undefined,
-                              color: !isTierEnabled ? 'var(--mantine-color-gray-5)' : undefined
-                            }
+                              '&:focus': {
+                                borderColor: 'var(--mantine-color-blue-5)',
+                              },
+                              backgroundColor: !isTierEnabled
+                                ? 'var(--mantine-color-gray-1)'
+                                : undefined,
+                              color: !isTierEnabled
+                                ? 'var(--mantine-color-gray-5)'
+                                : undefined,
+                            },
                           }}
                           value={tier.price}
                           onChange={(value) => {
                             if (isTierEnabled) {
                               const newTiers = [...newPriceForm.tiers];
                               newTiers[index].price = Number(value) || 0;
-                              setNewPriceForm(prev => ({ ...prev, tiers: newTiers }));
+                              setNewPriceForm((prev) => ({
+                                ...prev,
+                                tiers: newTiers,
+                              }));
                             }
                           }}
                         />
@@ -1217,20 +1476,30 @@ export default function Prices() {
                 hideControls
                 styles={{
                   label: { fontWeight: 500, marginBottom: 8 },
-                  input: { 
+                  input: {
                     borderWidth: 2,
-                    '&:focus': { borderColor: 'var(--mantine-color-blue-5)' }
-                  }
+                    '&:focus': { borderColor: 'var(--mantine-color-blue-5)' },
+                  },
                 }}
                 value={newPriceForm.priceAdjustment}
-                onChange={(value) => setNewPriceForm(prev => ({ ...prev, priceAdjustment: Number(value) || 0 }))}
+                onChange={(value) =>
+                  setNewPriceForm((prev) => ({
+                    ...prev,
+                    priceAdjustment: Number(value) || 0,
+                  }))
+                }
               />
             </div>
 
             {/* Action Buttons */}
-            <Group justify="flex-end" mt="xl" pt="md" style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}>
-              <Button 
-                variant="subtle" 
+            <Group
+              justify="flex-end"
+              mt="xl"
+              pt="md"
+              style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}
+            >
+              <Button
+                variant="subtle"
                 size="md"
                 radius="md"
                 onClick={() => {
@@ -1253,8 +1522,8 @@ export default function Prices() {
                   root: {
                     '&:hover': {
                       backgroundColor: 'var(--mantine-color-gray-1)',
-                    }
-                  }
+                    },
+                  },
                 }}
               >
                 Cancel
@@ -1263,7 +1532,15 @@ export default function Prices() {
                 size="md"
                 radius="md"
                 gradient={{ from: 'blue', to: 'blue.6', deg: 45 }}
-                disabled={!newPriceForm.productCode.trim() || !newPriceForm.tiers.some(tier => tier.lowerLimit > 0 || tier.upperLimit > 0 || tier.price > 0)}
+                disabled={
+                  !newPriceForm.productCode.trim() ||
+                  !newPriceForm.tiers.some(
+                    (tier) =>
+                      tier.lowerLimit > 0 ||
+                      tier.upperLimit > 0 ||
+                      tier.price > 0
+                  )
+                }
                 leftSection={<IconAdjustments size={18} />}
                 styles={{
                   root: {
@@ -1273,7 +1550,7 @@ export default function Prices() {
                       transform: 'translateY(-1px)',
                     },
                     transition: 'all 0.2s ease',
-                  }
+                  },
                 }}
                 onClick={async () => {
                   try {
@@ -1288,18 +1565,21 @@ export default function Prices() {
                       'Product Code': newPriceForm.productCode.trim(),
                       'Lower Limit': firstTier.lowerLimit,
                       'Upper Limit': firstTier.upperLimit,
-                      'Prices': firstTier.price,
+                      Prices: firstTier.price,
                       'Price Adjustment': newPriceForm.priceAdjustment,
                     };
 
                     // Update in database
-                    const response = await fetch(`/api/prices/${editingPrice.id}`, {
-                      method: 'PUT',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify(updatedPrice),
-                    });
+                    const response = await fetch(
+                      `/api/prices/${editingPrice.id}`,
+                      {
+                        method: 'PUT',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(updatedPrice),
+                      }
+                    );
 
                     if (!response.ok) {
                       throw new Error('Failed to update price');
@@ -1310,17 +1590,18 @@ export default function Prices() {
                     if (reloadResponse.ok) {
                       const updatedPrices = await reloadResponse.json();
                       setPrices(updatedPrices);
-                      
+
                       if (!searchQuery.trim()) {
                         setFilteredPrices(updatedPrices);
                       } else {
                         const q = searchQuery.toLowerCase();
-                        const filtered = updatedPrices.filter((price: PriceData) =>
-                          price['Product Code'].toLowerCase().includes(q) ||
-                          price['Lower Limit'].toString().includes(q) ||
-                          price['Upper Limit'].toString().includes(q) ||
-                          price['Prices'].toString().includes(q) ||
-                          price['Price Adjustment'].toString().includes(q)
+                        const filtered = updatedPrices.filter(
+                          (price: PriceData) =>
+                            price['Product Code'].toLowerCase().includes(q) ||
+                            price['Lower Limit'].toString().includes(q) ||
+                            price['Upper Limit'].toString().includes(q) ||
+                            price['Prices'].toString().includes(q) ||
+                            price['Price Adjustment'].toString().includes(q)
                         );
                         setFilteredPrices(filtered);
                       }
@@ -1348,12 +1629,12 @@ export default function Prices() {
                       icon: <IconCheck size={18} />,
                       autoClose: 4000,
                     });
-
                   } catch (error) {
                     console.error('Failed to update price:', error);
                     notifications.show({
                       title: '❌ Failed to Update Price',
-                      message: 'Could not save the changes to database. Please try again.',
+                      message:
+                        'Could not save the changes to database. Please try again.',
                       color: 'red',
                       autoClose: 4000,
                     });

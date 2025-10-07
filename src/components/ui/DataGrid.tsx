@@ -1,22 +1,20 @@
 'use client';
 
 import React from 'react';
-import dynamic from 'next/dynamic';
-import { GridCellKind, GridColumn, Item } from '@glideapps/glide-data-grid';
+import {
+  GridCell,
+  GridCellKind,
+  GridColumn,
+  Item,
+} from '@glideapps/glide-data-grid';
 import { Box } from '@mantine/core';
-
-// Dynamic import to prevent SSR issues with Glide Data Grid
-const DataEditor = dynamic(
-  () => import('@glideapps/glide-data-grid').then((mod) => mod.DataEditor),
-  { ssr: false }
-);
+import { GridView } from '../grid';
 
 interface DataGridProps {
-  title?: string;
   height?: number;
 }
 
-export function DataGrid({ title = 'Data Grid', height = 400 }: DataGridProps) {
+export function DataGrid({ height = 400 }: DataGridProps) {
   // Empty columns - will be populated when real data is added
   const columns: GridColumn[] = [
     {
@@ -42,9 +40,9 @@ export function DataGrid({ title = 'Data Grid', height = 400 }: DataGridProps) {
   ];
 
   // Empty data - following the no mock data principle
-  const getData = React.useCallback((cell: Item): any => {
-    const [col, row] = cell;
-    
+  const getData = React.useCallback((cell: Item): GridCell => {
+    void cell;
+
     // Return empty cells - real data will be populated later
     return {
       kind: GridCellKind.Text,
@@ -61,7 +59,7 @@ export function DataGrid({ title = 'Data Grid', height = 400 }: DataGridProps) {
 
   return (
     <Box>
-      <DataEditor
+      <GridView
         getCellContent={getData}
         columns={columns}
         rows={getRowCount()}

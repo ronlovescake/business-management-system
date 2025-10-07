@@ -1,7 +1,13 @@
 'use client';
 
-import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import dynamic from 'next/dynamic';
+import React, {
+  useState,
+  useMemo,
+  useCallback,
+  useEffect,
+  useRef,
+} from 'react';
+import { GridView } from '../../../../components/grid';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import {
   GridCellKind,
@@ -11,20 +17,9 @@ import {
   type EditableGridCell,
   type GridSelection,
 } from '@glideapps/glide-data-grid';
-import {
-  Stack,
-  Loader,
-  Card,
-  Grid,
-  Text,
-  Group,
-  Select,
-  Button,
-} from '@mantine/core';
+import { Stack, Card, Grid, Text, Group, Select, Button } from '@mantine/core';
 
 // Import Glide Data Grid CSS
-import '@glideapps/glide-data-grid/dist/index.css';
-
 // Custom styles for larger font and center aligned headers
 const customGridStyles = `
   .data-grid-container * {
@@ -65,15 +60,6 @@ const customGridStyles = `
     font-size: 20px !important;
   }
 `;
-
-// Dynamic import to prevent SSR issues
-const DataEditor = dynamic(
-  () => import('@glideapps/glide-data-grid').then((mod) => mod.DataEditor),
-  {
-    ssr: false,
-    loading: () => <Loader />,
-  }
-);
 
 interface DistributionRow {
   quantity: number;
@@ -336,7 +322,7 @@ export default function SortingDistribution() {
       try {
         const url = `/api/sorting-distribution?productCode=${encodeURIComponent(item)}`;
         console.log('🔄 LOAD - Fetching from:', url);
-        
+
         const response = await fetch(url);
         console.log('🔄 LOAD - Response status:', response.status);
 
@@ -377,16 +363,23 @@ export default function SortingDistribution() {
                     checked: false,
                   };
             });
-            
-            console.log('🔄 LOAD - Restoring', restoredRows.filter(r => r.quantity > 0).length, 'non-empty rows');
+
+            console.log(
+              '🔄 LOAD - Restoring',
+              restoredRows.filter((r) => r.quantity > 0).length,
+              'non-empty rows'
+            );
             setRows(restoredRows);
 
             // Restore selected quantity button
             if (savedSelectedQty !== null && savedSelectedQty !== undefined) {
-              console.log('🔄 LOAD - Restoring selected quantity:', savedSelectedQty);
+              console.log(
+                '🔄 LOAD - Restoring selected quantity:',
+                savedSelectedQty
+              );
               setSelectedQuantity(savedSelectedQty);
             }
-            
+
             console.log('✅ LOAD - Data restoration completed');
           } else {
             console.log('🔄 LOAD - No saved data found, using defaults');
@@ -411,7 +404,10 @@ export default function SortingDistribution() {
 
     console.log('💾 SAVE - Change detected, scheduling save for:', item);
     console.log('💾 SAVE - Selected quantity:', selectedQuantity);
-    console.log('💾 SAVE - Non-empty rows:', rows.filter(r => r.quantity > 0 || r.groupNumber || r.checked).length);
+    console.log(
+      '💾 SAVE - Non-empty rows:',
+      rows.filter((r) => r.quantity > 0 || r.groupNumber || r.checked).length
+    );
 
     // Clear existing timeout
     if (saveTimeoutRef.current) {
@@ -426,19 +422,27 @@ export default function SortingDistribution() {
         console.log('💾 SAVE - Product:', item);
         console.log('💾 SAVE - Selected quantity:', selectedQuantity);
         console.log('💾 SAVE - Total rows:', rows.length);
-        
-        const nonEmptyRows = rows.filter(r => 
-          r.quantity > 0 || r.percentage > 0 || r.groupNumber || r.distribution > 0 || r.checked
+
+        const nonEmptyRows = rows.filter(
+          (r) =>
+            r.quantity > 0 ||
+            r.percentage > 0 ||
+            r.groupNumber ||
+            r.distribution > 0 ||
+            r.checked
         );
         console.log('💾 SAVE - Non-empty rows to save:', nonEmptyRows.length);
-        console.log('💾 SAVE - Sample non-empty rows:', nonEmptyRows.slice(0, 3));
+        console.log(
+          '💾 SAVE - Sample non-empty rows:',
+          nonEmptyRows.slice(0, 3)
+        );
 
         const payload = {
           productCode: item,
           selectedQuantity,
           rows,
         };
-        
+
         console.log('💾 SAVE - Sending payload to API...');
         const response = await fetch('/api/sorting-distribution', {
           method: 'POST',
@@ -447,13 +451,17 @@ export default function SortingDistribution() {
         });
 
         console.log('💾 SAVE - Response status:', response.status);
-        
+
         if (response.ok) {
           const result = await response.json();
           console.log('✅ SAVE - Data saved successfully:', result);
         } else {
           const errorText = await response.text();
-          console.error('❌ SAVE - Failed to save data:', response.status, errorText);
+          console.error(
+            '❌ SAVE - Failed to save data:',
+            response.status,
+            errorText
+          );
         }
       } catch (error) {
         console.error('❌ SAVE - Error saving data:', error);
@@ -604,7 +612,8 @@ export default function SortingDistribution() {
           return {
             kind: GridCellKind.Number,
             data: rowData.quantity,
-            displayData: rowData.quantity === 0 ? '' : rowData.quantity.toString(),
+            displayData:
+              rowData.quantity === 0 ? '' : rowData.quantity.toString(),
             allowOverlay: true,
             readonly: false,
             contentAlign: 'center',
@@ -615,7 +624,10 @@ export default function SortingDistribution() {
           return {
             kind: GridCellKind.Number,
             data: rowData.percentage,
-            displayData: rowData.percentage === 0 ? '' : rowData.percentage.toFixed(2) + '%',
+            displayData:
+              rowData.percentage === 0
+                ? ''
+                : rowData.percentage.toFixed(2) + '%',
             allowOverlay: false,
             readonly: true, // Will add formula later
             contentAlign: 'center',
@@ -637,7 +649,8 @@ export default function SortingDistribution() {
           return {
             kind: GridCellKind.Number,
             data: rowData.distribution,
-            displayData: rowData.distribution === 0 ? '' : rowData.distribution.toString(),
+            displayData:
+              rowData.distribution === 0 ? '' : rowData.distribution.toString(),
             allowOverlay: false,
             readonly: true, // Will add formula later
             contentAlign: 'center',
@@ -964,11 +977,7 @@ export default function SortingDistribution() {
                 </Group>
 
                 <Group gap="xs">
-                  <Text
-                    size="sm"
-                    fw={500}
-                    style={{ minWidth: '240px' }}
-                  >
+                  <Text size="sm" fw={500} style={{ minWidth: '240px' }}>
                     Customer With This Order Quantity
                   </Text>
                   <Text
@@ -989,11 +998,7 @@ export default function SortingDistribution() {
                 {/* Pill Buttons for Unique Quantities */}
                 {uniqueQuantities.length > 0 && (
                   <Group gap="xs" align="center">
-                    <Text
-                      size="sm"
-                      fw={500}
-                      style={{ minWidth: '240px' }}
-                    >
+                    <Text size="sm" fw={500} style={{ minWidth: '240px' }}>
                       Order Quantities:
                     </Text>
                     <Group gap="xs">
@@ -1101,7 +1106,7 @@ export default function SortingDistribution() {
             }}
             tabIndex={0}
           >
-            <DataEditor
+            <GridView
               columns={columns}
               rows={getRowCount()}
               getCellContent={getData}

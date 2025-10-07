@@ -1,7 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import type { Price, Prisma } from '@prisma/client';
+import { prisma } from '@/lib/db';
 
-const prisma = new PrismaClient();
+type PriceUpdatePayload = {
+  'Product Code': string;
+  'Lower Limit': number;
+  'Upper Limit': number;
+  Prices: number;
+  'Price Adjustment': number;
+};
+
+function parseNumericField(value: number | string | undefined): number {
+  if (value === undefined || value === null) {
+    return 0;
+  }
+
+  if (typeof value === 'number') {
+    return value;
+  }
+
+  const cleaned = value.toString().replace(/,/g, '').trim();
+  if (cleaned.length === 0) {
+    return 0;
+  }
+
+  const parsed = Number.parseFloat(cleaned);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function mapToUpdateInput(
+  priceData: PriceUpdatePayload
+): Prisma.PriceUpdateInput {
+  return {
+    productCode: priceData['Product Code'],
+    lowerLimit: Math.round(parseNumericField(priceData['Lower Limit']) * 100),
+    upperLimit: Math.round(parseNumericField(priceData['Upper Limit']) * 100),
+    currentPrice: Math.round(parseNumericField(priceData['Prices']) * 100),
+    priceAdjustment: Math.round(
+      parseNumericField(priceData['Price Adjustment']) * 100
+    ),
+    updatedAt: new Date(),
+  };
+}
+
+function mapToDTO(price: Price) {
+  return {
+    id: price.id,
+    'Product Code': price.productCode,
+    'Lower Limit': Math.round(price.lowerLimit / 100),
+    'Upper Limit': Math.round(price.upperLimit / 100),
+    Prices: Math.round(price.currentPrice / 100),
+    'Price Adjustment': Math.round(price.priceAdjustment / 100),
+  };
+}
 
 // PUT - Update a single price by ID
 export async function PUT(
@@ -9,44 +60,26 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const priceData = await request.json();
+    const priceData = (await request.json()) as PriceUpdatePayload;
     const priceId = parseInt(params.id);
 
     if (isNaN(priceId)) {
-      return NextResponse.json(
-        { error: 'Invalid price ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid price ID' }, { status: 400 });
     }
 
     // Convert UI format to database format
-    const updatedPrice = await (prisma as any).price.update({
+    const updatedPrice = await prisma.price.update({
       where: { id: priceId },
-      data: {
-        productCode: priceData['Product Code'],
-        lowerLimit: Math.round((priceData['Lower Limit'] || 0) * 100), // Convert to cents
-        upperLimit: Math.round((priceData['Upper Limit'] || 0) * 100),
-        currentPrice: Math.round((priceData['Prices'] || 0) * 100),
-        priceAdjustment: Math.round((priceData['Price Adjustment'] || 0) * 100),
-        updatedAt: new Date(),
-      },
+      data: mapToUpdateInput(priceData),
     });
 
     // Convert back to UI format
-    const formattedPrice = {
-      id: updatedPrice.id,
-      'Product Code': updatedPrice.productCode,
-      'Lower Limit': Math.round(updatedPrice.lowerLimit / 100),
-      'Upper Limit': Math.round(updatedPrice.upperLimit / 100),
-      'Prices': Math.round(updatedPrice.currentPrice / 100),
-      'Price Adjustment': Math.round(updatedPrice.priceAdjustment / 100),
-    };
+    const formattedPrice = mapToDTO(updatedPrice);
 
     return NextResponse.json({
       message: 'Price updated successfully',
-      price: formattedPrice
+      price: formattedPrice,
     });
-
   } catch (error) {
     console.error('Failed to update price:', error);
     return NextResponse.json(
@@ -65,20 +98,16 @@ export async function DELETE(
     const priceId = parseInt(params.id);
 
     if (isNaN(priceId)) {
-      return NextResponse.json(
-        { error: 'Invalid price ID' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid price ID' }, { status: 400 });
     }
 
-    await (prisma as any).price.delete({
+    await prisma.price.delete({
       where: { id: priceId },
     });
 
     return NextResponse.json({
-      message: 'Price deleted successfully'
+      message: 'Price deleted successfully',
     });
-
   } catch (error) {
     console.error('Failed to delete price:', error);
     return NextResponse.json(

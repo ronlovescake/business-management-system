@@ -1,24 +1,75 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import type { Price, Prisma } from '@prisma/client';
+import { prisma } from '@/lib/db';
 
-const prisma = new PrismaClient();
+type PriceDTO = {
+  id?: number;
+  'Product Code': string;
+  'Lower Limit': number;
+  'Upper Limit': number;
+  Prices: number;
+  'Price Adjustment': number;
+};
+
+type PriceImportRow = {
+  id?: number;
+  'Product Code': string;
+  'Lower Limit': number | string;
+  'Upper Limit': number | string;
+  Prices: number | string;
+  'Price Adjustment'?: number | string;
+};
+
+function mapToDTO(price: Price): PriceDTO {
+  return {
+    id: price.id,
+    'Product Code': price.productCode,
+    'Lower Limit': Math.round(price.lowerLimit / 100),
+    'Upper Limit': Math.round(price.upperLimit / 100),
+    Prices: Math.round(price.currentPrice / 100),
+    'Price Adjustment': Math.round(price.priceAdjustment / 100),
+  };
+}
+
+function parseNumericField(value: number | string | undefined): number {
+  if (value === undefined || value === null) {
+    return 0;
+  }
+
+  if (typeof value === 'number') {
+    return value;
+  }
+
+  const cleaned = value.toString().replace(/,/g, '').trim();
+  if (cleaned.length === 0) {
+    return 0;
+  }
+
+  const parsed = Number.parseFloat(cleaned);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function mapFromDTO(dto: PriceImportRow): Prisma.PriceCreateManyInput {
+  const adjustment = parseNumericField(dto['Price Adjustment']);
+  return {
+    productCode: dto['Product Code'].trim(),
+    lowerLimit: Math.round(parseNumericField(dto['Lower Limit']) * 100),
+    upperLimit: Math.round(parseNumericField(dto['Upper Limit']) * 100),
+    currentPrice: Math.round(parseNumericField(dto['Prices']) * 100),
+    priceAdjustment: Math.round(adjustment * 100),
+    isActive: true,
+  };
+}
 
 // GET - Fetch all prices
 export async function GET() {
   try {
-    const prices = await (prisma as any).price.findMany({
-      orderBy: { id: 'asc' }
+    const prices = await prisma.price.findMany({
+      orderBy: { id: 'asc' },
     });
 
     // Convert database format to UI format
-    const formattedPrices = prices.map((price: any) => ({
-      id: price.id,
-      'Product Code': price.productCode,
-      'Lower Limit': Math.round(price.lowerLimit / 100), // Convert from cents to whole numbers
-      'Upper Limit': Math.round(price.upperLimit / 100),
-      'Prices': Math.round(price.currentPrice / 100),
-      'Price Adjustment': Math.round(price.priceAdjustment / 100),
-    }));
+    const formattedPrices = prices.map(mapToDTO);
 
     return NextResponse.json(formattedPrices);
   } catch (error) {
@@ -33,60 +84,53 @@ export async function GET() {
 // POST - Create multiple prices (for CSV import)
 export async function POST(request: NextRequest) {
   try {
-    const pricesData = await request.json();
+    const rawData = await request.json();
 
-    if (!Array.isArray(pricesData) || pricesData.length === 0) {
+    if (!Array.isArray(rawData) || rawData.length === 0) {
       return NextResponse.json(
         { error: 'Invalid data format. Expected array of price objects.' },
         { status: 400 }
       );
     }
 
-    // Clear existing prices first (optional - remove this if you want to append)
-    await (prisma as any).price.deleteMany();
+    const pricesData = rawData as PriceImportRow[];
+
+    await prisma.price.deleteMany();
 
     // Filter out empty rows and invalid data
-    const validPricesData = pricesData.filter((priceData: any) => {
-      return priceData['Product Code'] && 
-             priceData['Product Code'].trim() !== '' &&
-             priceData['Lower Limit'] !== undefined &&
-             priceData['Upper Limit'] !== undefined &&
-             priceData['Prices'] !== undefined;
+    const validPricesData = pricesData.filter((priceData) => {
+      const code = priceData['Product Code'];
+      const lower = priceData['Lower Limit'];
+      const upper = priceData['Upper Limit'];
+      const price = priceData['Prices'];
+
+      return (
+        typeof code === 'string' &&
+        code.trim() !== '' &&
+        lower !== undefined &&
+        upper !== undefined &&
+        price !== undefined
+      );
     });
 
-    console.log(`Filtered ${validPricesData.length} valid records from ${pricesData.length} total records`);
+    console.log(
+      `Filtered ${validPricesData.length} valid records from ${pricesData.length} total records`
+    );
 
     // Convert UI format to database format and create records sequentially
     // Use createMany for bulk insert which preserves order
-    const dataToInsert = validPricesData.map((priceData: any) => {
-      // Convert whole numbers to cents for database storage
-      // Handle cases where Price Adjustment might be empty string or undefined
-      const priceAdjustment = priceData['Price Adjustment'];
-      const priceAdjustmentValue = (priceAdjustment === '' || priceAdjustment === undefined) 
-        ? 0 
-        : parseFloat(priceAdjustment.toString().replace(/,/g, '')) || 0;
-
-      return {
-        productCode: priceData['Product Code'].trim(),
-        lowerLimit: Math.round((parseFloat(priceData['Lower Limit'].toString().replace(/,/g, '')) || 0) * 100), // Convert to cents
-        upperLimit: Math.round((parseFloat(priceData['Upper Limit'].toString().replace(/,/g, '')) || 0) * 100),
-        currentPrice: Math.round((parseFloat(priceData['Prices'].toString().replace(/,/g, '')) || 0) * 100),
-        priceAdjustment: Math.round(priceAdjustmentValue * 100),
-        isActive: true,
-      };
-    });
+    const dataToInsert = validPricesData.map(mapFromDTO);
 
     // Use createMany to insert all records in one transaction, preserving order
-    const result = await (prisma as any).price.createMany({
+    const result = await prisma.price.createMany({
       data: dataToInsert,
     });
 
     return NextResponse.json({
       message: `Successfully imported ${result.count} price records`,
       count: result.count,
-      filtered: pricesData.length - validPricesData.length
+      filtered: pricesData.length - validPricesData.length,
     });
-
   } catch (error) {
     console.error('Failed to import prices:', error);
     return NextResponse.json(
@@ -99,11 +143,11 @@ export async function POST(request: NextRequest) {
 // DELETE - Delete all prices
 export async function DELETE() {
   try {
-    const result = await (prisma as any).price.deleteMany();
-    
+    const result = await prisma.price.deleteMany();
+
     return NextResponse.json({
       message: `Successfully deleted ${result.count} price records`,
-      count: result.count
+      count: result.count,
     });
   } catch (error) {
     console.error('Failed to delete prices:', error);

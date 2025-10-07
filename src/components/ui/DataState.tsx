@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Text, Stack, Loader, Alert, Center } from '@mantine/core';
+import { Text, Stack, Loader, Alert, Center } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 
 interface DataStateProps {
@@ -10,12 +10,12 @@ interface DataStateProps {
   children?: React.ReactNode;
 }
 
-export function DataState({ 
-  loading, 
-  error, 
-  empty, 
+export function DataState({
+  loading,
+  error,
+  empty,
   emptyMessage = 'No data available',
-  children 
+  children,
 }: DataStateProps) {
   if (loading) {
     return (

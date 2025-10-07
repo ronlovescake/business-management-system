@@ -1,31 +1,46 @@
 'use client';
 
-import { NavLink, Stack, Text, Group, ThemeIcon, Badge, Divider } from '@mantine/core';
-import { 
-  IconDashboard, 
-  IconChartBar, 
-  IconReceipt, 
-  IconPackage, 
-  IconCalendar, 
-  IconTruck, 
-  IconUsers, 
-  IconCurrencyDollar, 
+import {
+  NavLink,
+  Stack,
+  Text,
+  Group,
+  ThemeIcon,
+  Badge,
+  Divider,
+} from '@mantine/core';
+import {
+  IconDashboard,
+  IconChartBar,
+  IconReceipt,
+  IconPackage,
+  IconCalendar,
+  IconTruck,
+  IconUsers,
+  IconCurrencyDollar,
   IconSettings,
   IconBell,
   IconShirt,
   IconClipboardList,
   IconBoxSeam,
-  IconShoppingCart,
-  IconGift
+  IconGift,
 } from '@tabler/icons-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { useBusinessStore } from '../../lib/store';
 
+type NavigationItem = {
+  label: string;
+  href: string;
+  icon: typeof IconDashboard;
+  color: string;
+};
+
 export function Sidebar() {
   const pathname = usePathname();
-  const { selectedBusiness, selectedWorkspace, initializeFromPath } = useBusinessStore();
+  const { selectedBusiness, selectedWorkspace, initializeFromPath } =
+    useBusinessStore();
 
   // Initialize from current path on component mount
   useEffect(() => {
@@ -49,54 +64,199 @@ export function Sidebar() {
     );
   }
 
-  const getNavigationItems = () => {
+  const getNavigationItems = (): NavigationItem[] => {
     const basePath = `/${selectedBusiness}/${selectedWorkspace}`;
-    
+
     if (selectedBusiness === 'clothing' && selectedWorkspace === 'operations') {
       return [
-        { label: 'Dashboard', href: `${basePath}/dashboard`, icon: IconDashboard, color: 'blue' },
-        { label: 'Business Intelligence', href: `${basePath}/business-intelligence`, icon: IconChartBar, color: 'violet' },
-        { label: 'Transactions', href: `${basePath}/transactions`, icon: IconReceipt, color: 'green' },
-        { label: 'Products', href: `${basePath}/products`, icon: IconShirt, color: 'pink' },
-        { label: 'Due Dates', href: `${basePath}/due-dates`, icon: IconCalendar, color: 'orange' },
-        { label: 'Inventory', href: `${basePath}/inventory`, icon: IconBoxSeam, color: 'teal' },
-        { label: 'Prices', href: `${basePath}/prices`, icon: IconCurrencyDollar, color: 'yellow' },
-        { label: 'Sorting/Distribution', href: `${basePath}/sorting-distribution`, icon: IconClipboardList, color: 'indigo' },
-        { label: 'Customers', href: `${basePath}/customers`, icon: IconUsers, color: 'cyan' },
-        { label: 'Shipments', href: `${basePath}/shipments`, icon: IconTruck, color: 'blue' },
-        { label: 'Shipments Dashboard', href: `${basePath}/shipments-dashboard`, icon: IconDashboard, color: 'blue' },
-        { label: 'Pickup Form', href: `${basePath}/pickup-form`, icon: IconPackage, color: 'brown' },
-        { label: 'Post Template', href: `${basePath}/post-template`, icon: IconGift, color: 'grape' },
-        { label: 'Notifications', href: `${basePath}/notifications`, icon: IconBell, color: 'red' },
-        { label: 'Settings', href: `${basePath}/settings`, icon: IconSettings, color: 'gray' },
+        {
+          label: 'Dashboard',
+          href: `${basePath}/dashboard`,
+          icon: IconDashboard,
+          color: 'blue',
+        },
+        {
+          label: 'Business Intelligence',
+          href: `${basePath}/business-intelligence`,
+          icon: IconChartBar,
+          color: 'violet',
+        },
+        {
+          label: 'Transactions',
+          href: `${basePath}/transactions`,
+          icon: IconReceipt,
+          color: 'green',
+        },
+        {
+          label: 'Products',
+          href: `${basePath}/products`,
+          icon: IconShirt,
+          color: 'pink',
+        },
+        {
+          label: 'Due Dates',
+          href: `${basePath}/due-dates`,
+          icon: IconCalendar,
+          color: 'orange',
+        },
+        {
+          label: 'Inventory',
+          href: `${basePath}/inventory`,
+          icon: IconBoxSeam,
+          color: 'teal',
+        },
+        {
+          label: 'Prices',
+          href: `${basePath}/prices`,
+          icon: IconCurrencyDollar,
+          color: 'yellow',
+        },
+        {
+          label: 'Sorting/Distribution',
+          href: `${basePath}/sorting-distribution`,
+          icon: IconClipboardList,
+          color: 'indigo',
+        },
+        {
+          label: 'Customers',
+          href: `${basePath}/customers`,
+          icon: IconUsers,
+          color: 'cyan',
+        },
+        {
+          label: 'Shipments',
+          href: `${basePath}/shipments`,
+          icon: IconTruck,
+          color: 'blue',
+        },
+        {
+          label: 'Shipments Dashboard',
+          href: `${basePath}/shipments-dashboard`,
+          icon: IconDashboard,
+          color: 'blue',
+        },
+        {
+          label: 'Pickup Form',
+          href: `${basePath}/pickup-form`,
+          icon: IconPackage,
+          color: 'brown',
+        },
+        {
+          label: 'Post Template',
+          href: `${basePath}/post-template`,
+          icon: IconGift,
+          color: 'grape',
+        },
+        {
+          label: 'Notifications',
+          href: `${basePath}/notifications`,
+          icon: IconBell,
+          color: 'red',
+        },
+        {
+          label: 'Settings',
+          href: `${basePath}/settings`,
+          icon: IconSettings,
+          color: 'gray',
+        },
       ];
     }
-    
+
     if (selectedWorkspace === 'employees') {
       const employeeItems = [
-        { label: 'Dashboard', href: `${basePath}/dashboard`, icon: IconDashboard, color: 'blue' },
-        { label: 'Attendance', href: `${basePath}/attendance`, icon: IconClipboardList, color: 'green' },
-        { label: 'Expenses', href: `${basePath}/expenses`, icon: IconReceipt, color: 'red' },
-        { label: 'Payroll', href: `${basePath}/payroll`, icon: IconCurrencyDollar, color: 'yellow' },
-        { label: 'Calendar', href: `${basePath}/calendar`, icon: IconCalendar, color: 'orange' },
-        { label: 'Schedules', href: `${basePath}/schedules`, icon: IconClipboardList, color: 'violet' },
-        { label: 'Leave Tracker', href: `${basePath}/leave-tracker`, icon: IconCalendar, color: 'teal' },
-        { label: 'Cash Advance', href: `${basePath}/cash-advance`, icon: IconCurrencyDollar, color: 'pink' },
-        { label: 'Employee Loans', href: `${basePath}/employee-loans`, icon: IconCurrencyDollar, color: 'indigo' },
-        { label: '13th Month Pay', href: `${basePath}/thirteenth-month-pay`, icon: IconGift, color: 'cyan' },
-        { label: 'Team', href: `${basePath}/team`, icon: IconUsers, color: 'blue' },
-        { label: 'Notifications', href: `${basePath}/notifications`, icon: IconBell, color: 'red' },
-        { label: 'Settings', href: `${basePath}/settings`, icon: IconSettings, color: 'gray' },
+        {
+          label: 'Dashboard',
+          href: `${basePath}/dashboard`,
+          icon: IconDashboard,
+          color: 'blue',
+        },
+        {
+          label: 'Attendance',
+          href: `${basePath}/attendance`,
+          icon: IconClipboardList,
+          color: 'green',
+        },
+        {
+          label: 'Expenses',
+          href: `${basePath}/expenses`,
+          icon: IconReceipt,
+          color: 'red',
+        },
+        {
+          label: 'Payroll',
+          href: `${basePath}/payroll`,
+          icon: IconCurrencyDollar,
+          color: 'yellow',
+        },
+        {
+          label: 'Calendar',
+          href: `${basePath}/calendar`,
+          icon: IconCalendar,
+          color: 'orange',
+        },
+        {
+          label: 'Schedules',
+          href: `${basePath}/schedules`,
+          icon: IconClipboardList,
+          color: 'violet',
+        },
+        {
+          label: 'Leave Tracker',
+          href: `${basePath}/leave-tracker`,
+          icon: IconCalendar,
+          color: 'teal',
+        },
+        {
+          label: 'Cash Advance',
+          href: `${basePath}/cash-advance`,
+          icon: IconCurrencyDollar,
+          color: 'pink',
+        },
+        {
+          label: 'Employee Loans',
+          href: `${basePath}/employee-loans`,
+          icon: IconCurrencyDollar,
+          color: 'indigo',
+        },
+        {
+          label: '13th Month Pay',
+          href: `${basePath}/thirteenth-month-pay`,
+          icon: IconGift,
+          color: 'cyan',
+        },
+        {
+          label: 'Team',
+          href: `${basePath}/team`,
+          icon: IconUsers,
+          color: 'blue',
+        },
+        {
+          label: 'Notifications',
+          href: `${basePath}/notifications`,
+          icon: IconBell,
+          color: 'red',
+        },
+        {
+          label: 'Settings',
+          href: `${basePath}/settings`,
+          icon: IconSettings,
+          color: 'gray',
+        },
       ];
-      
+
       // Add Trips for trucking employees
       if (selectedBusiness === 'trucking') {
-        employeeItems.splice(1, 0, { label: 'Trips', href: `${basePath}/trips`, icon: IconTruck, color: 'blue' });
+        employeeItems.splice(1, 0, {
+          label: 'Trips',
+          href: `${basePath}/trips`,
+          icon: IconTruck,
+          color: 'blue',
+        });
       }
-      
+
       return employeeItems;
     }
-    
+
     return [];
   };
 
@@ -106,29 +266,40 @@ export function Sidebar() {
     <Stack gap="sm">
       {/* Header */}
       <Group gap="sm" mb="md">
-        <ThemeIcon 
-          size="lg" 
-          radius="md" 
-          variant="gradient" 
-          gradient={{ from: selectedBusiness === 'clothing' ? 'pink' : 'blue', to: selectedBusiness === 'clothing' ? 'orange' : 'cyan' }}
+        <ThemeIcon
+          size="lg"
+          radius="md"
+          variant="gradient"
+          gradient={{
+            from: selectedBusiness === 'clothing' ? 'pink' : 'blue',
+            to: selectedBusiness === 'clothing' ? 'orange' : 'cyan',
+          }}
         >
-          {selectedBusiness === 'clothing' ? <IconShirt size={20} /> : <IconTruck size={20} />}
+          {selectedBusiness === 'clothing' ? (
+            <IconShirt size={20} />
+          ) : (
+            <IconTruck size={20} />
+          )}
         </ThemeIcon>
         <Stack gap={2}>
           <Text size="sm" fw={600} c="dark">
             {selectedBusiness === 'clothing' ? 'Clothing' : 'Trucking'}
           </Text>
-          <Badge size="xs" variant="light" color={selectedWorkspace === 'operations' ? 'blue' : 'green'}>
+          <Badge
+            size="xs"
+            variant="light"
+            color={selectedWorkspace === 'operations' ? 'blue' : 'green'}
+          >
             {selectedWorkspace === 'operations' ? 'Operations' : 'Employees'}
           </Badge>
         </Stack>
       </Group>
 
       <Divider />
-      
+
       {/* Navigation Items */}
       <Stack gap="xs">
-        {navigationItems.map((item: any) => {
+        {navigationItems.map((item) => {
           const isActive = pathname === item.href;
           return (
             <NavLink
@@ -137,10 +308,10 @@ export function Sidebar() {
               href={item.href}
               label={item.label}
               leftSection={
-                <ThemeIcon 
-                  size="sm" 
-                  radius="sm" 
-                  variant={isActive ? 'filled' : 'light'} 
+                <ThemeIcon
+                  size="sm"
+                  radius="sm"
+                  variant={isActive ? 'filled' : 'light'}
                   color={item.color}
                 >
                   <item.icon size={16} />
