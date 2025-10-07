@@ -37,11 +37,10 @@ const theme = createTheme({
   colors: {
     blue: primaryColor,
   },
-  fontFamily:
-    'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif',
+  fontFamily: 'Roboto, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
   headings: {
     fontFamily:
-      'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif',
+      'Roboto, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
     fontWeight: '600',
   },
   radius: {

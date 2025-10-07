@@ -39,30 +39,30 @@ interface DrawHeaderArgs {
 // Custom styles for larger font and center aligned headers
 const customGridStyles = `
   .data-grid-container * {
-    font-size: 40px !important;
-    font-family: 'Lato', sans-serif !important;
+    font-size: 42px !important;
+    font-family: 'Roboto', sans-serif !important;
   }
   .data-grid-container canvas {
-    font-size: 40px !important;
+    font-size: 42px !important;
   }
   .data-grid-container .gdg-cell {
-    font-size: 40px !important;
-    font-family: 'Lato', sans-serif !important;
+    font-size: 42px !important;
+    font-family: 'Roboto', sans-serif !important;
   }
   .data-grid-container .gdg-header {
-    font-size: 40px !important;
+    font-size: 42px !important;
     font-weight: 600 !important;
-    font-family: 'Lato', sans-serif !important;
+    font-family: 'Roboto', sans-serif !important;
     text-align: center !important;
   }
   .data-grid-container .gdg-cell-text {
-    font-size: 40px !important;
+    font-size: 42px !important;
   }
   .data-grid-container [role="gridcell"] {
-    font-size: 40px !important;
+    font-size: 42px !important;
   }
   .data-grid-container [role="columnheader"] {
-    font-size: 40px !important;
+    font-size: 42px !important;
     font-weight: 600 !important;
     text-align: center !important;
     justify-content: center !important;
@@ -70,10 +70,10 @@ const customGridStyles = `
     align-items: center !important;
   }
   .data-grid-container div {
-    font-size: 40px !important;
+    font-size: 42px !important;
   }
   .dvn-scroller {
-    font-size: 40px !important;
+    font-size: 42px !important;
   }
   
   /* Default cursor styling */
@@ -205,7 +205,7 @@ export function DataTable<T = Record<string, unknown>>({
 
     // Set text properties
     ctx.fillStyle = theme.textHeader;
-    ctx.font = '600 20px Lato, sans-serif';
+    ctx.font = '400 17px Roboto, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
@@ -383,7 +383,7 @@ export function DataTable<T = Record<string, unknown>>({
             overflow: 'hidden',
             position: 'relative',
             background: '#fff',
-            fontSize: '18px',
+            fontSize: '20px',
           }}
           className="data-grid-container"
         >
@@ -429,7 +429,7 @@ export function DataTable<T = Record<string, unknown>>({
               bgHeaderHovered: '#e9ecef',
               borderColor: '#dee2e6',
               horizontalBorderColor: '#dee2e6',
-              fontFamily: 'Lato, sans-serif',
+              fontFamily: 'Roboto, sans-serif',
             }}
             verticalBorder={false}
             getCellsForSelection={true}
