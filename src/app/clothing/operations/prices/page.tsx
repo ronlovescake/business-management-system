@@ -36,6 +36,7 @@ import {
   IconCheck,
   IconAdjustments,
 } from '@tabler/icons-react';
+import { throttle } from '../../../../lib/performance';
 
 // Custom styles for larger font and center aligned headers
 const customGridStyles = `
@@ -125,15 +126,20 @@ export default function Prices() {
   });
 
   // Keep grid height at ~85vh responsively
+  // 🚀 PERFORMANCE: Throttle resize events to prevent excessive re-renders
   useEffect(() => {
     const updateHeight = () => {
       const h = Math.floor(window.innerHeight * 0.85);
       // Keep a sensible minimum height
       setGridHeight(Math.max(300, h));
     };
+
+    // Throttle resize handler to run at most once every 150ms
+    const throttledResize = throttle(updateHeight, 150);
+
     updateHeight();
-    window.addEventListener('resize', updateHeight);
-    return () => window.removeEventListener('resize', updateHeight);
+    window.addEventListener('resize', throttledResize);
+    return () => window.removeEventListener('resize', throttledResize);
   }, []);
 
   // Handle Ctrl+F to focus search input instead of browser find

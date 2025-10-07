@@ -48,6 +48,7 @@ import {
 } from '@tabler/icons-react';
 import { ShipmentData } from '../../../../types';
 import { calculateProductFinancials } from '../../../../lib/productCalculations';
+import { throttle } from '../../../../lib/performance';
 
 // Custom styles for larger font and center aligned headers
 const customGridStyles = `
@@ -1343,15 +1344,19 @@ export default function Products() {
   );
 
   // Set grid height to 83vh
+  // 🚀 PERFORMANCE: Throttle resize events to prevent excessive re-renders
   useEffect(() => {
     const updateGridHeight = () => {
       const vh83 = window.innerHeight * 0.83;
       setGridHeight(vh83);
     };
 
+    // Throttle resize handler to run at most once every 150ms
+    const throttledResize = throttle(updateGridHeight, 150);
+
     updateGridHeight();
-    window.addEventListener('resize', updateGridHeight);
-    return () => window.removeEventListener('resize', updateGridHeight);
+    window.addEventListener('resize', throttledResize);
+    return () => window.removeEventListener('resize', throttledResize);
   }, []);
 
   // Handle Ctrl+F to focus search bar

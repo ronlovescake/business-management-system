@@ -23,6 +23,7 @@ import {
 import { notifications } from '@mantine/notifications';
 import { IconUpload, IconSearch } from '@tabler/icons-react';
 import { GridView } from '../grid';
+import { throttle } from '../../lib/performance';
 
 // Types for DrawHeader callback
 interface DrawHeaderArgs {
@@ -173,15 +174,19 @@ export function DataTable<T = Record<string, unknown>>({
   const [currentGridHeight, setCurrentGridHeight] = useState<number>(600);
 
   // Set grid height to 83vh by default
+  // 🚀 PERFORMANCE: Throttle resize events to prevent excessive re-renders
   useEffect(() => {
     const updateGridHeight = () => {
       const targetHeight = gridHeight || window.innerHeight * 0.83;
       setCurrentGridHeight(targetHeight);
     };
 
+    // Throttle resize handler to run at most once every 150ms
+    const throttledResize = throttle(updateGridHeight, 150);
+
     updateGridHeight();
-    window.addEventListener('resize', updateGridHeight);
-    return () => window.removeEventListener('resize', updateGridHeight);
+    window.addEventListener('resize', throttledResize);
+    return () => window.removeEventListener('resize', throttledResize);
   }, [gridHeight]);
 
   // Handle Ctrl+F to focus search bar
