@@ -39,41 +39,46 @@ interface DrawHeaderArgs {
 // Custom styles for larger font and center aligned headers
 const customGridStyles = `
   .data-grid-container * {
-    font-size: 42px !important;
+    font-size: 13px !important;
     font-family: 'Roboto', sans-serif !important;
+    font-weight: 400 !important;
   }
   .data-grid-container canvas {
-    font-size: 42px !important;
+    font-size: 13px !important;
   }
   .data-grid-container .gdg-cell {
-    font-size: 42px !important;
+    font-size: 13px !important;
     font-family: 'Roboto', sans-serif !important;
+    font-weight: 400 !important;
   }
   .data-grid-container .gdg-header {
-    font-size: 42px !important;
-    font-weight: 600 !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
     font-family: 'Roboto', sans-serif !important;
     text-align: center !important;
   }
   .data-grid-container .gdg-cell-text {
-    font-size: 42px !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
   }
   .data-grid-container [role="gridcell"] {
-    font-size: 42px !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
   }
   .data-grid-container [role="columnheader"] {
-    font-size: 42px !important;
-    font-weight: 600 !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
     text-align: center !important;
     justify-content: center !important;
     display: flex !important;
     align-items: center !important;
   }
   .data-grid-container div {
-    font-size: 42px !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
   }
   .dvn-scroller {
-    font-size: 42px !important;
+    font-size: 13px !important;
   }
   
   /* Default cursor styling */
@@ -372,7 +377,7 @@ export function DataTable<T = Record<string, unknown>>({
 
         {/* Data Grid */}
         <Card
-          withBorder
+          withBorder={false}
           shadow="sm"
           radius="md"
           padding={0}
@@ -398,7 +403,7 @@ export function DataTable<T = Record<string, unknown>>({
             smoothScrollY={true}
             rowHeight={50}
             headerHeight={50}
-            rowMarkers="number"
+            rowMarkers="none"
             onCellClicked={onCellClicked}
             onCellEdited={onCellEdited}
             onPaste={true}
@@ -416,7 +421,7 @@ export function DataTable<T = Record<string, unknown>>({
             theme={{
               accentColor: '#228be6',
               accentLight: '#e7f5ff',
-              textDark: '#000000',
+              textDark: '#495057',
               textMedium: '#495057',
               textLight: '#868e96',
               textBubble: '#000000',
@@ -430,6 +435,9 @@ export function DataTable<T = Record<string, unknown>>({
               borderColor: '#dee2e6',
               horizontalBorderColor: '#dee2e6',
               fontFamily: 'Roboto, sans-serif',
+              baseFontStyle: '17px',
+              editorFontSize: '17px',
+              headerFontStyle: '400 17px Roboto, sans-serif',
             }}
             verticalBorder={false}
             getCellsForSelection={true}
