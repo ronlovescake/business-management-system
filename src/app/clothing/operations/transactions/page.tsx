@@ -287,29 +287,10 @@ export default function Transactions() {
 
             if (shipmentCode) {
               shipmentCodeToStatus[shipmentCode] = shipmentStatus;
-              console.log(
-                'Debug - Shipment Mapping:',
-                shipmentCode,
-                '->',
-                shipmentStatus
-              );
             }
           });
 
-          // Debug: Log the first few products and shipments to see the structure
-          console.log(
-            'Debug - Products Data Sample:',
-            productsData.slice(0, 3)
-          );
-          console.log(
-            'Debug - Shipments Data Sample:',
-            shipmentsData.slice(0, 3)
-          );
-
           productsData.forEach((product: Record<string, unknown>) => {
-            // Log each product to see its structure
-            console.log('Debug - Individual Product:', product);
-
             const productCode = String(
               product.productCode || product['Product Code'] || ''
             );
@@ -324,37 +305,12 @@ export default function Transactions() {
               const correspondingShipmentStatus =
                 shipmentCodeToStatus[shipmentCode] || '';
               statusMapping[productCode] = correspondingShipmentStatus;
-
-              console.log(
-                'Debug - Mapped Product:',
-                productCode,
-                'to Shipment:',
-                shipmentCode,
-                'with Status:',
-                correspondingShipmentStatus
-              );
-            }
-
-            // Special debug for the specific product we're testing
-            if (productCode && productCode.includes('MBEB-010425')) {
-              console.log('Debug - Found MBEB product:', product);
-              console.log('Debug - Product shipment code:', shipmentCode);
-              console.log(
-                'Debug - Looking up status for shipment code:',
-                shipmentCode
-              );
-              console.log(
-                'Debug - Found shipment status:',
-                shipmentCodeToStatus[shipmentCode]
-              );
-              console.log(
-                'Debug - All available shipment codes:',
-                Object.keys(shipmentCodeToStatus)
-              );
             }
           });
 
-          console.log('Debug - Final Status Mapping:', statusMapping);
+          console.log(
+            `✅ Loaded product-to-shipment mappings: ${Object.keys(statusMapping).length} products mapped`
+          );
 
           setProductToShipmentMap(shipmentMapping);
           setProductToShipmentStatusMap(statusMapping);

@@ -329,6 +329,83 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// PUT - Bulk update multiple transactions
+export async function PUT(request: NextRequest) {
+  try {
+    const updatePayload = await request.json();
+
+    if (!Array.isArray(updatePayload) || updatePayload.length === 0) {
+      return NextResponse.json(
+        { error: 'Expected array of transactions to update' },
+        { status: 400 }
+      );
+    }
+
+    const updateData = updatePayload as (TransactionImportRow & {
+      id: unknown;
+    })[];
+
+    // Update each transaction in a transaction
+    const updatePromises = updateData.map(async (transaction) => {
+      const id = Number(transaction.id);
+      if (!Number.isFinite(id)) {
+        throw new Error(`Invalid transaction ID: ${transaction.id}`);
+      }
+
+      // Convert UI format to database format
+      const dbData: Prisma.TransactionUpdateInput = {};
+
+      if ('Order Date' in transaction)
+        dbData.orderDate = parseTrimmed(transaction['Order Date']);
+      if ('Customers' in transaction)
+        dbData.customers = parseTrimmed(transaction['Customers']);
+      if ('Product Code' in transaction)
+        dbData.productCode = parseTrimmed(transaction['Product Code']);
+      if ('Quantity' in transaction)
+        dbData.quantity = parseNumeric(transaction['Quantity']);
+      if ('Unit Price' in transaction)
+        dbData.unitPrice = parseNumeric(transaction['Unit Price']);
+      if ('Discount' in transaction)
+        dbData.discount = parseNumeric(transaction['Discount']);
+      if ('Adjustment' in transaction)
+        dbData.adjustment = parseNumeric(transaction['Adjustment']);
+      if ('Line Total' in transaction)
+        dbData.lineTotal = parseNumeric(transaction['Line Total']);
+      if ('Order Status' in transaction)
+        dbData.orderStatus = parseTrimmed(transaction['Order Status']);
+      if ('Notes' in transaction)
+        dbData.notes = parseOptional(transaction['Notes']);
+      if ('Invoice Date' in transaction)
+        dbData.invoiceDate = parseOptional(transaction['Invoice Date']);
+      if ('Packed Date' in transaction)
+        dbData.packedDate = parseOptional(transaction['Packed Date']);
+      if ('Shipment Code' in transaction)
+        dbData.shipmentCode = parseOptional(transaction['Shipment Code']);
+
+      return prisma.transaction.update({
+        where: { id },
+        data: dbData,
+      });
+    });
+
+    const results = await Promise.all(updatePromises);
+
+    return NextResponse.json({
+      message: `Successfully updated ${results.length} transactions`,
+      count: results.length,
+    });
+  } catch (error) {
+    console.error('Failed to bulk update transactions:', error);
+    return NextResponse.json(
+      {
+        error: 'Failed to bulk update transactions',
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
+  }
+}
+
 // PATCH - Update a single transaction
 export async function PATCH(request: NextRequest) {
   try {
