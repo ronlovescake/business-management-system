@@ -125,6 +125,9 @@ export default function Prices() {
     priceAdjustment: 0,
   });
 
+  // Track double-click for Product Code column
+  const lastClickRef = useRef<{ cell: Item; time: number } | null>(null);
+
   // Keep grid height at ~85vh responsively
   // 🚀 PERFORMANCE: Throttle resize events to prevent excessive re-renders
   useEffect(() => {
@@ -381,42 +384,60 @@ export default function Prices() {
 
       // Only handle clicks on the product code column
       if (column.id === 'productCode') {
-        const price = filteredPrices[row];
-        setEditingPrice(price);
+        const now = Date.now();
+        const lastClick = lastClickRef.current;
 
-        // Find all tiers for this product code
-        const productCode = price['Product Code'];
-        const allTiersForProduct = prices.filter(
-          (p) => p['Product Code'] === productCode
-        );
+        // Check if this is a double-click (within 500ms on the same cell)
+        if (
+          lastClick &&
+          lastClick.cell[0] === col &&
+          lastClick.cell[1] === row &&
+          now - lastClick.time < 500
+        ) {
+          // Double-click detected - open edit modal
+          const price = filteredPrices[row];
+          setEditingPrice(price);
 
-        // Sort by lower limit to get proper tier order
-        allTiersForProduct.sort((a, b) => a['Lower Limit'] - b['Lower Limit']);
+          // Find all tiers for this product code
+          const productCode = price['Product Code'];
+          const allTiersForProduct = prices.filter(
+            (p) => p['Product Code'] === productCode
+          );
 
-        // Pre-populate the form with existing data (up to 4 tiers)
-        const tiers = [
-          { lowerLimit: 0, upperLimit: 0, price: 0 },
-          { lowerLimit: 0, upperLimit: 0, price: 0 },
-          { lowerLimit: 0, upperLimit: 0, price: 0 },
-          { lowerLimit: 0, upperLimit: 0, price: 0 },
-        ];
+          // Sort by lower limit to get proper tier order
+          allTiersForProduct.sort(
+            (a, b) => a['Lower Limit'] - b['Lower Limit']
+          );
 
-        // Fill in the existing tiers
-        allTiersForProduct.slice(0, 4).forEach((tier, index) => {
-          tiers[index] = {
-            lowerLimit: tier['Lower Limit'],
-            upperLimit: tier['Upper Limit'],
-            price: tier['Prices'],
-          };
-        });
+          // Pre-populate the form with existing data (up to 4 tiers)
+          const tiers = [
+            { lowerLimit: 0, upperLimit: 0, price: 0 },
+            { lowerLimit: 0, upperLimit: 0, price: 0 },
+            { lowerLimit: 0, upperLimit: 0, price: 0 },
+            { lowerLimit: 0, upperLimit: 0, price: 0 },
+          ];
 
-        setNewPriceForm({
-          productCode: productCode,
-          tiers: tiers,
-          priceAdjustment: price['Price Adjustment'], // Use the first tier's adjustment
-        });
+          // Fill in the existing tiers
+          allTiersForProduct.slice(0, 4).forEach((tier, index) => {
+            tiers[index] = {
+              lowerLimit: tier['Lower Limit'],
+              upperLimit: tier['Upper Limit'],
+              price: tier['Prices'],
+            };
+          });
 
-        setEditOpen(true);
+          setNewPriceForm({
+            productCode: productCode,
+            tiers: tiers,
+            priceAdjustment: price['Price Adjustment'], // Use the first tier's adjustment
+          });
+
+          setEditOpen(true);
+          lastClickRef.current = null; // Reset after handling
+        } else {
+          // First click - store it
+          lastClickRef.current = { cell, time: now };
+        }
       }
     },
     [filteredPrices, columns, prices]
