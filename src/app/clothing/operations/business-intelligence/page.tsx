@@ -26,6 +26,21 @@ import {
   type Icon,
 } from '@tabler/icons-react';
 import { useState, useEffect, useMemo } from 'react';
+import {
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  Area,
+  AreaChart,
+} from 'recharts';
 
 // ============================================================================
 // TYPES
@@ -121,6 +136,21 @@ const filterOptions = [
   { value: 'last3months', label: 'Last 3 Months' },
   { value: 'last6months', label: 'Last 6 Months' },
   { value: 'all', label: 'All Time' },
+];
+
+// ============================================================================
+// CHART COLORS
+// ============================================================================
+
+const COLORS = [
+  '#228be6',
+  '#40c057',
+  '#fd7e14',
+  '#be4bdb',
+  '#fab005',
+  '#15aabf',
+  '#e64980',
+  '#7950f2',
 ];
 
 // ============================================================================
@@ -334,81 +364,280 @@ export default function BusinessIntelligence() {
   }
 
   return (
-    <PageLayout title="Business Intelligence">
-      <Stack gap="xl">
-        {/* Filter Dropdown */}
-        <Group justify="space-between" align="center">
-          <Text size="sm" c="dimmed">
-            Real-time business metrics and analytics
-          </Text>
+    <PageLayout title="Business Intelligence" size="100%" fluid>
+      <Stack gap="lg">
+        {/* Header with Filter */}
+        <Group justify="space-between" align="center" wrap="nowrap">
+          <div>
+            <Title order={1} size="h2" mb={4}>
+              Business Intelligence Dashboard
+            </Title>
+            <Text size="sm" c="dimmed">
+              Real-time business metrics and analytics
+            </Text>
+          </div>
           <Select
             data={filterOptions}
             value={dateFilter}
             onChange={(value) => setDateFilter(value || 'mtd')}
-            w={200}
+            w={220}
+            size="md"
             placeholder="Select time period"
             label="Time Period"
+            styles={{
+              label: { fontWeight: 600 },
+            }}
           />
         </Group>
 
-        {/* TRANSACTIONS SECTION */}
-        <Paper shadow="sm" p="md" withBorder>
-          <Stack gap="md">
-            <Group>
-              <IconShoppingCart size={24} />
-              <Title order={3}>Transactions</Title>
+        {/* Key Metrics Row */}
+        <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 6 }} spacing="md">
+          <StatCard
+            title="Year to Date"
+            value={formatCurrency(metrics.ytdTotal)}
+            icon={IconTrendingUp}
+            color="blue"
+          />
+          <StatCard
+            title="Month to Date"
+            value={formatCurrency(metrics.mtdTotal)}
+            icon={IconCurrencyDollar}
+            color="green"
+          />
+          <StatCard
+            title="Transactions"
+            value={metrics.transactionCount.toString()}
+            icon={IconShoppingCart}
+            color="violet"
+          />
+          <StatCard
+            title="Total COGS"
+            value={formatCurrency(metrics.totalCOGS)}
+            icon={IconPackage}
+            color="orange"
+          />
+          <StatCard
+            title="Total CBM"
+            value={formatNumber(metrics.totalCBM)}
+            icon={IconCube}
+            color="indigo"
+          />
+          <StatCard
+            title="Total Sacks"
+            value={metrics.totalSacks.toString()}
+            icon={IconTruck}
+            color="pink"
+          />
+        </SimpleGrid>
+
+        {/* Charts Row 1 - Sales & Products */}
+        <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
+          {/* Top Products Bar Chart */}
+          <Paper shadow="sm" p="lg" withBorder>
+            <Title order={3} mb="md">
+              Top 10 Products by Sales Value
+            </Title>
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart
+                data={metrics.topProducts}
+                margin={{ top: 5, right: 30, left: 20, bottom: 60 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="productCode"
+                  angle={-45}
+                  textAnchor="end"
+                  height={100}
+                  style={{ fontSize: '12px' }}
+                />
+                <YAxis
+                  tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}k`}
+                />
+                <Tooltip
+                  formatter={(value: number) => [
+                    formatCurrency(value),
+                    'Sales',
+                  ]}
+                  labelStyle={{ color: '#000' }}
+                />
+                <Legend />
+                <Bar
+                  dataKey="totalValue"
+                  fill="#228be6"
+                  name="Total Sales"
+                  radius={[8, 8, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </Paper>
+
+          {/* Top Products Quantity Line Chart */}
+          <Paper shadow="sm" p="lg" withBorder>
+            <Title order={3} mb="md">
+              Product Quantity Sold
+            </Title>
+            <ResponsiveContainer width="100%" height={400}>
+              <AreaChart
+                data={metrics.topProducts}
+                margin={{ top: 5, right: 30, left: 20, bottom: 60 }}
+              >
+                <defs>
+                  <linearGradient id="colorQty" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="productCode"
+                  angle={-45}
+                  textAnchor="end"
+                  height={100}
+                  style={{ fontSize: '12px' }}
+                />
+                <YAxis />
+                <Tooltip
+                  formatter={(value: number) => [
+                    formatNumber(value),
+                    'Quantity',
+                  ]}
+                />
+                <Legend />
+                <Area
+                  type="monotone"
+                  dataKey="quantity"
+                  stroke="#8884d8"
+                  fillOpacity={1}
+                  fill="url(#colorQty)"
+                  name="Quantity Sold"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </Paper>
+        </SimpleGrid>
+
+        {/* Charts Row 2 - Customers & Revenue Distribution */}
+        <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
+          {/* Top Customers Bar Chart */}
+          <Paper shadow="sm" p="lg" withBorder>
+            <Title order={3} mb="md">
+              Top 10 Customers by Revenue
+            </Title>
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart
+                data={metrics.topCustomers}
+                margin={{ top: 5, right: 30, left: 20, bottom: 80 }}
+                layout="vertical"
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  type="number"
+                  tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}k`}
+                />
+                <YAxis
+                  dataKey="customerName"
+                  type="category"
+                  width={150}
+                  style={{ fontSize: '11px' }}
+                />
+                <Tooltip
+                  formatter={(value: number) => [
+                    formatCurrency(value),
+                    'Revenue',
+                  ]}
+                />
+                <Legend />
+                <Bar
+                  dataKey="totalAmount"
+                  fill="#40c057"
+                  name="Total Revenue"
+                  radius={[0, 8, 8, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </Paper>
+
+          {/* Customer Order Distribution */}
+          <Paper shadow="sm" p="lg" withBorder>
+            <Title order={3} mb="md">
+              Customer Order Distribution (Top 5)
+            </Title>
+            <ResponsiveContainer width="100%" height={400}>
+              <PieChart>
+                <Pie
+                  data={metrics.topCustomers.slice(0, 5).map((c) => ({
+                    name: c.customerName,
+                    value: c.totalAmount,
+                  }))}
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={130}
+                  fill="#8884d8"
+                  dataKey="value"
+                  nameKey="name"
+                  label
+                >
+                  {metrics.topCustomers.slice(0, 5).map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={COLORS[index % COLORS.length]}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(value: number) => [
+                    formatCurrency(value),
+                    'Revenue',
+                  ]}
+                />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </Paper>
+        </SimpleGrid>
+
+        {/* Detailed Tables Section */}
+        <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
+          {/* Products Table */}
+          <Paper shadow="sm" p="lg" withBorder>
+            <Group mb="md">
+              <IconPackage size={24} color="#fd7e14" />
+              <Title order={3}>Products Overview</Title>
             </Group>
 
-            <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
-              <StatCard
-                title="Year to Date"
-                value={formatCurrency(metrics.ytdTotal)}
-                icon={IconTrendingUp}
-                color="blue"
-              />
-              <StatCard
-                title="Month to Date"
-                value={formatCurrency(metrics.mtdTotal)}
-                icon={IconCurrencyDollar}
-                color="green"
-              />
-              <StatCard
-                title="Total Transactions"
-                value={metrics.transactionCount.toString()}
-                icon={IconShoppingCart}
-                color="violet"
-              />
-            </SimpleGrid>
-
-            {/* Top Products by Monetary Value */}
             {metrics.topProducts.length > 0 && (
-              <div>
-                <Title order={5} mb="sm">
-                  Top 10 Products by Sales Value
-                </Title>
-                <Table striped highlightOnHover>
+              <div style={{ overflowX: 'auto' }}>
+                <Table striped highlightOnHover withTableBorder>
                   <Table.Thead>
                     <Table.Tr>
-                      <Table.Th>Rank</Table.Th>
+                      <Table.Th>#</Table.Th>
                       <Table.Th>Product Code</Table.Th>
-                      <Table.Th style={{ textAlign: 'right' }}>
-                        Total Sales
-                      </Table.Th>
-                      <Table.Th style={{ textAlign: 'right' }}>
-                        Quantity Sold
-                      </Table.Th>
+                      <Table.Th style={{ textAlign: 'right' }}>Sales</Table.Th>
+                      <Table.Th style={{ textAlign: 'right' }}>Qty</Table.Th>
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
                     {metrics.topProducts.map((product, index) => (
                       <Table.Tr key={product.productCode}>
-                        <Table.Td>{index + 1}</Table.Td>
-                        <Table.Td>{product.productCode}</Table.Td>
-                        <Table.Td style={{ textAlign: 'right' }}>
-                          {formatCurrency(product.totalValue)}
+                        <Table.Td>
+                          <Text fw={600} c="blue">
+                            {index + 1}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm" fw={500}>
+                            {product.productCode}
+                          </Text>
                         </Table.Td>
                         <Table.Td style={{ textAlign: 'right' }}>
-                          {formatNumber(product.quantity)}
+                          <Text size="sm" c="green" fw={600}>
+                            {formatCurrency(product.totalValue)}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td style={{ textAlign: 'right' }}>
+                          <Text size="sm">
+                            {formatNumber(product.quantity)}
+                          </Text>
                         </Table.Td>
                       </Table.Tr>
                     ))}
@@ -416,70 +645,61 @@ export default function BusinessIntelligence() {
                 </Table>
               </div>
             )}
-          </Stack>
-        </Paper>
 
-        {/* PRODUCTS SECTION */}
-        <Paper shadow="sm" p="md" withBorder>
-          <Stack gap="md">
-            <Group>
-              <IconPackage size={24} />
-              <Title order={3}>Products</Title>
-            </Group>
-
-            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-              <StatCard
-                title="Total COGS"
-                value={formatCurrency(metrics.totalCOGS)}
-                icon={IconCurrencyDollar}
-                color="orange"
-              />
+            <Group mt="md" justify="space-between">
               <StatCard
                 title="Total Products"
                 value={products.length.toString()}
                 icon={IconPackage}
                 color="cyan"
               />
-            </SimpleGrid>
-          </Stack>
-        </Paper>
+              <StatCard
+                title="Total COGS"
+                value={formatCurrency(metrics.totalCOGS)}
+                icon={IconCurrencyDollar}
+                color="orange"
+              />
+            </Group>
+          </Paper>
 
-        {/* CUSTOMERS SECTION */}
-        <Paper shadow="sm" p="md" withBorder>
-          <Stack gap="md">
-            <Group>
-              <IconUsers size={24} />
-              <Title order={3}>Customers</Title>
+          {/* Customers Table */}
+          <Paper shadow="sm" p="lg" withBorder>
+            <Group mb="md">
+              <IconUsers size={24} color="#228be6" />
+              <Title order={3}>Customers Overview</Title>
             </Group>
 
             {metrics.topCustomers.length > 0 && (
-              <div>
-                <Title order={5} mb="sm">
-                  Top 10 Customers by Order Amount
-                </Title>
-                <Table striped highlightOnHover>
+              <div style={{ overflowX: 'auto' }}>
+                <Table striped highlightOnHover withTableBorder>
                   <Table.Thead>
                     <Table.Tr>
-                      <Table.Th>Rank</Table.Th>
+                      <Table.Th>#</Table.Th>
                       <Table.Th>Customer Name</Table.Th>
-                      <Table.Th style={{ textAlign: 'right' }}>
-                        Total Orders
-                      </Table.Th>
-                      <Table.Th style={{ textAlign: 'right' }}>
-                        Total Amount
-                      </Table.Th>
+                      <Table.Th style={{ textAlign: 'right' }}>Orders</Table.Th>
+                      <Table.Th style={{ textAlign: 'right' }}>Total</Table.Th>
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
                     {metrics.topCustomers.map((customer, index) => (
                       <Table.Tr key={customer.customerName}>
-                        <Table.Td>{index + 1}</Table.Td>
-                        <Table.Td>{customer.customerName}</Table.Td>
-                        <Table.Td style={{ textAlign: 'right' }}>
-                          {customer.orderCount}
+                        <Table.Td>
+                          <Text fw={600} c="blue">
+                            {index + 1}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm" fw={500}>
+                            {customer.customerName}
+                          </Text>
                         </Table.Td>
                         <Table.Td style={{ textAlign: 'right' }}>
-                          {formatCurrency(customer.totalAmount)}
+                          <Text size="sm">{customer.orderCount}</Text>
+                        </Table.Td>
+                        <Table.Td style={{ textAlign: 'right' }}>
+                          <Text size="sm" c="green" fw={600}>
+                            {formatCurrency(customer.totalAmount)}
+                          </Text>
                         </Table.Td>
                       </Table.Tr>
                     ))}
@@ -487,38 +707,36 @@ export default function BusinessIntelligence() {
                 </Table>
               </div>
             )}
-          </Stack>
-        </Paper>
+          </Paper>
+        </SimpleGrid>
 
-        {/* SHIPMENTS SECTION */}
-        <Paper shadow="sm" p="md" withBorder>
-          <Stack gap="md">
-            <Group>
-              <IconTruck size={24} />
-              <Title order={3}>Shipments</Title>
-            </Group>
+        {/* Shipments Section */}
+        <Paper shadow="sm" p="lg" withBorder>
+          <Group mb="md">
+            <IconTruck size={24} color="#be4bdb" />
+            <Title order={3}>Shipments Overview</Title>
+          </Group>
 
-            <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
-              <StatCard
-                title="Total CBM"
-                value={formatNumber(metrics.totalCBM)}
-                icon={IconCube}
-                color="indigo"
-              />
-              <StatCard
-                title="Total Sacks"
-                value={metrics.totalSacks.toString()}
-                icon={IconPackage}
-                color="pink"
-              />
-              <StatCard
-                title="Total Shipments"
-                value={shipments.length.toString()}
-                icon={IconTruck}
-                color="teal"
-              />
-            </SimpleGrid>
-          </Stack>
+          <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
+            <StatCard
+              title="Total CBM"
+              value={formatNumber(metrics.totalCBM)}
+              icon={IconCube}
+              color="indigo"
+            />
+            <StatCard
+              title="Total Sacks"
+              value={metrics.totalSacks.toString()}
+              icon={IconPackage}
+              color="pink"
+            />
+            <StatCard
+              title="Total Shipments"
+              value={shipments.length.toString()}
+              icon={IconTruck}
+              color="teal"
+            />
+          </SimpleGrid>
         </Paper>
       </Stack>
     </PageLayout>
