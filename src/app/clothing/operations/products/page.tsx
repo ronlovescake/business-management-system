@@ -1418,6 +1418,9 @@ export default function Products() {
   );
 
   // Handle cell clicks
+  // Track double-click for Product Code column
+  const lastClickRef = useRef<{ cell: Item; time: number } | null>(null);
+
   const onCellClicked = useCallback(
     (cell: Item) => {
       const [col, row] = cell;
@@ -1426,9 +1429,25 @@ export default function Products() {
 
       if (!product || !column) return;
 
-      // If Product Code column is clicked, open edit modal
+      // If Product Code column is clicked, check for double-click
       if (column.id === 'productCode') {
-        populateFormWithProduct(product);
+        const now = Date.now();
+        const lastClick = lastClickRef.current;
+
+        // Check if this is a double-click (within 500ms on the same cell)
+        if (
+          lastClick &&
+          lastClick.cell[0] === col &&
+          lastClick.cell[1] === row &&
+          now - lastClick.time < 500
+        ) {
+          // Double-click detected - open edit modal
+          populateFormWithProduct(product);
+          lastClickRef.current = null; // Reset after handling
+        } else {
+          // First click - store it
+          lastClickRef.current = { cell, time: now };
+        }
         return;
       }
 
