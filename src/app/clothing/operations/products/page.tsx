@@ -2718,6 +2718,7 @@ export default function Products() {
               fontFamily: 'Inter',
               cellHorizontalPadding: 12,
               cellVerticalPadding: 8,
+              verticalBorder: false,
             }}
             getCellsForSelection={true}
           />
