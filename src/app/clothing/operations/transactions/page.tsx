@@ -47,15 +47,14 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { PageLayout } from '../../../../components/layout/PageLayout';
-import { DataTable, StatCard, useDataTable } from '../../../../components/ui';
+import { StatCard, useDataTable } from '../../../../components/ui';
+import { TransactionsLayout } from '../../../../components/features/transactions';
 import { GridColumn, Item, GridCell } from '@glideapps/glide-data-grid';
 import { useTransactionData } from '../../../../hooks/useSheetData';
 import { GridCellKind } from '@glideapps/glide-data-grid';
 import { allCells } from '@glideapps/glide-data-grid-cells';
-import { Button, Group, Text, Loader, Pill } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
-  IconPlus,
   IconReceipt,
   IconCurrencyDollar,
   IconPackage,
@@ -2489,7 +2488,7 @@ export default function Transactions() {
 
   return (
     <PageLayout fluid withPadding>
-      <DataTable
+      <TransactionsLayout
         data={transactions}
         filteredData={filteredData}
         columns={columns}
@@ -2507,123 +2506,16 @@ export default function Transactions() {
         customRenderers={
           allCells as unknown as readonly Record<string, unknown>[]
         }
-        footerLeft={
-          <Group gap="md" align="center">
-            <Button
-              variant="outline"
-              size="sm"
-              leftSection={<IconPlus size={14} />}
-              onClick={handleAdd10Rows}
-            >
-              Add 10 Rows
-            </Button>
-            <Text size="sm" c="dimmed">
-              {`Showing ${filteredData.length} of ${transactions.length} transactions`}
-            </Text>
-          </Group>
-        }
-        searchRightButtons={
-          <Group gap="xs" wrap="wrap">
-            {statusOptions.map((status) => (
-              <Pill
-                key={status}
-                size="md"
-                withRemoveButton={false}
-                onClick={() => handleStatusFilter(status)}
-                style={{
-                  backgroundColor: selectedStatuses.has(status)
-                    ? '#228be6'
-                    : '#e9ecef',
-                  color: selectedStatuses.has(status) ? '#ffffff' : '#495057',
-                  cursor: 'pointer',
-                  fontWeight: selectedStatuses.has(status) ? 600 : 400,
-                  transition: 'all 0.2s ease',
-                }}
-                onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
-                  if (!selectedStatuses.has(status)) {
-                    e.currentTarget.style.backgroundColor = '#dee2e6';
-                  }
-                }}
-                onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => {
-                  if (!selectedStatuses.has(status)) {
-                    e.currentTarget.style.backgroundColor = '#e9ecef';
-                  }
-                }}
-              >
-                {status}
-              </Pill>
-            ))}
-          </Group>
-        }
-        actionButtons={
-          <Group>
-            <Button
-              leftSection={
-                isGeneratingInvoice ? (
-                  <Loader size={16} color="white" />
-                ) : undefined
-              }
-              variant="outline"
-              onClick={() => handleGenerateInvoice(filteredData)}
-              disabled={isGeneratingInvoice}
-              style={{
-                backgroundColor: isGeneratingInvoice ? '#ef4444' : '#c8e6fd',
-                borderColor: isGeneratingInvoice ? '#ef4444' : '#c8e6fd',
-                borderWidth: '1px',
-                color: isGeneratingInvoice ? '#ffffff' : '#374151',
-                width: '175px',
-              }}
-            >
-              {isGeneratingInvoice ? 'GENERATING...' : 'Create Invoice'}
-            </Button>
-            <Button
-              leftSection={
-                isGeneratingPackingList ? (
-                  <Loader size={16} color="white" />
-                ) : undefined
-              }
-              variant="outline"
-              onClick={() => handleGeneratePackingList(filteredData)}
-              disabled={isGeneratingPackingList}
-              style={{
-                backgroundColor: isGeneratingPackingList
-                  ? '#ef4444'
-                  : '#c8e6fd',
-                borderColor: isGeneratingPackingList ? '#ef4444' : '#c8e6fd',
-                borderWidth: '1px',
-                color: isGeneratingPackingList ? '#ffffff' : '#374151',
-                width: '175px',
-              }}
-            >
-              {isGeneratingPackingList
-                ? 'GENERATING...'
-                : 'Create Packing List'}
-            </Button>
-            <Button
-              leftSection={
-                isGeneratingDistribution ? (
-                  <Loader size={16} color="white" />
-                ) : undefined
-              }
-              variant="outline"
-              onClick={() => handleGenerateDistribution(filteredData)}
-              disabled={isGeneratingDistribution}
-              style={{
-                backgroundColor: isGeneratingDistribution
-                  ? '#ef4444'
-                  : '#c8e6fd',
-                borderColor: isGeneratingDistribution ? '#ef4444' : '#c8e6fd',
-                borderWidth: '1px',
-                color: isGeneratingDistribution ? '#ffffff' : '#374151',
-                width: '175px',
-              }}
-            >
-              {isGeneratingDistribution
-                ? 'GENERATING...'
-                : 'Create Distribution'}
-            </Button>
-          </Group>
-        }
+        onAddRows={handleAdd10Rows}
+        statusOptions={statusOptions}
+        selectedStatuses={selectedStatuses}
+        onStatusFilter={handleStatusFilter}
+        onGenerateInvoice={handleGenerateInvoice}
+        onGeneratePackingList={handleGeneratePackingList}
+        onGenerateDistribution={handleGenerateDistribution}
+        isGeneratingInvoice={isGeneratingInvoice}
+        isGeneratingPackingList={isGeneratingPackingList}
+        isGeneratingDistribution={isGeneratingDistribution}
       />
     </PageLayout>
   );
