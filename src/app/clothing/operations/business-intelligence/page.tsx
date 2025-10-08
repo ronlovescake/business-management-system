@@ -67,12 +67,16 @@ interface ProductData {
   COGS: number;
   'Total CBM': number;
   'No. Of Sacks': number;
+  'Posting Date'?: string;
+  'Order Date'?: string;
 }
 
 interface ShipmentData {
   'Shipment Code': string;
   'Total CBM': number;
   'No. Of Sacks': number;
+  'Posting Date'?: string;
+  'Order Date'?: string;
 }
 
 interface TopCustomer {
@@ -410,22 +414,43 @@ export default function BusinessIntelligence() {
       }
     });
 
-    // Process shipments by month (assuming we need a date field in shipments)
-    // For now, we'll distribute shipments evenly across months
-    const monthKeys = Array.from(monthlyDataMap.keys()).sort();
-    shipments.forEach((s) => {
-      // Distribute across available months
-      if (monthKeys.length > 0) {
-        monthKeys.forEach((key) => {
-          const monthData = monthlyDataMap.get(key)!;
-          monthData.shipmentCount += 1 / monthKeys.length;
-          monthData.cbm += (s['Total CBM'] || 0) / monthKeys.length;
-          monthData.sacks += (s['No. Of Sacks'] || 0) / monthKeys.length;
+    // Process products/shipments by month using Posting Date or Order Date
+    products.forEach((p) => {
+      const dateStr = p['Posting Date'] || p['Order Date'];
+      if (!dateStr) return;
+
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return; // Invalid date
+
+      // Check if date is within filtered range
+      if (!dateFilterFn(date)) return;
+
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+      if (!monthlyDataMap.has(monthKey)) {
+        monthlyDataMap.set(monthKey, {
+          revenue: 0,
+          transactions: 0,
+          customerRevenue: new Map(),
+          productRevenue: new Map(),
+          shipmentCount: 0,
+          cbm: 0,
+          sacks: 0,
         });
+      }
+
+      const monthData = monthlyDataMap.get(monthKey)!;
+
+      // Count unique shipments per month
+      if (p['Total CBM'] || p['No. Of Sacks']) {
+        monthData.shipmentCount += 1;
+        monthData.cbm += p['Total CBM'] || 0;
+        monthData.sacks += p['No. Of Sacks'] || 0;
       }
     });
 
     // Convert to array and format for charts
+    const monthKeys = Array.from(monthlyDataMap.keys()).sort();
     const monthlyTrends: MonthlyData[] = monthKeys.map((monthKey) => {
       const data = monthlyDataMap.get(monthKey)!;
 
