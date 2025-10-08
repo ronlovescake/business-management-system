@@ -744,7 +744,6 @@ export default function Prices() {
               cellHorizontalPadding: 12,
               cellVerticalPadding: 8,
             }}
-            getCellsForSelection={false}
           />
         </Card>
 
