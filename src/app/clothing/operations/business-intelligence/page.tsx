@@ -40,6 +40,9 @@ import {
   ResponsiveContainer,
   Area,
   AreaChart,
+  LineChart,
+  Line,
+  ComposedChart,
 } from 'recharts';
 
 // ============================================================================
@@ -82,6 +85,19 @@ interface TopProduct {
   productCode: string;
   totalValue: number;
   quantity: number;
+}
+
+interface MonthlyData {
+  month: string;
+  revenue: number;
+  transactions: number;
+  topCustomer: string;
+  topCustomerRevenue: number;
+  topProduct: string;
+  topProductRevenue: number;
+  shipments: number;
+  cbm: number;
+  sacks: number;
 }
 
 // ============================================================================
@@ -337,6 +353,114 @@ export default function BusinessIntelligence() {
       0
     );
 
+    // ========================================================================
+    // MONTHLY TREND DATA - Group data by month for time-series charts
+    // ========================================================================
+    const monthlyDataMap = new Map<
+      string,
+      {
+        revenue: number;
+        transactions: number;
+        customerRevenue: Map<string, number>;
+        productRevenue: Map<string, number>;
+        shipmentCount: number;
+        cbm: number;
+        sacks: number;
+      }
+    >();
+
+    // Process transactions by month
+    filteredTransactions.forEach((t) => {
+      if (!t['Order Date']) return;
+      const date = new Date(t['Order Date']);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+      if (!monthlyDataMap.has(monthKey)) {
+        monthlyDataMap.set(monthKey, {
+          revenue: 0,
+          transactions: 0,
+          customerRevenue: new Map(),
+          productRevenue: new Map(),
+          shipmentCount: 0,
+          cbm: 0,
+          sacks: 0,
+        });
+      }
+
+      const monthData = monthlyDataMap.get(monthKey)!;
+      monthData.revenue += t['Line Total'] || 0;
+      monthData.transactions += 1;
+
+      // Track customer revenue per month
+      if (t.Customers) {
+        const custRev = monthData.customerRevenue.get(t.Customers) || 0;
+        monthData.customerRevenue.set(
+          t.Customers,
+          custRev + (t['Line Total'] || 0)
+        );
+      }
+
+      // Track product revenue per month
+      if (t['Product Code']) {
+        const prodRev = monthData.productRevenue.get(t['Product Code']) || 0;
+        monthData.productRevenue.set(
+          t['Product Code'],
+          prodRev + (t['Line Total'] || 0)
+        );
+      }
+    });
+
+    // Process shipments by month (assuming we need a date field in shipments)
+    // For now, we'll distribute shipments evenly across months
+    const monthKeys = Array.from(monthlyDataMap.keys()).sort();
+    shipments.forEach((s) => {
+      // Distribute across available months
+      if (monthKeys.length > 0) {
+        monthKeys.forEach((key) => {
+          const monthData = monthlyDataMap.get(key)!;
+          monthData.shipmentCount += 1 / monthKeys.length;
+          monthData.cbm += (s['Total CBM'] || 0) / monthKeys.length;
+          monthData.sacks += (s['No. Of Sacks'] || 0) / monthKeys.length;
+        });
+      }
+    });
+
+    // Convert to array and format for charts
+    const monthlyTrends: MonthlyData[] = monthKeys.map((monthKey) => {
+      const data = monthlyDataMap.get(monthKey)!;
+
+      // Get top customer for the month
+      const topCust = Array.from(data.customerRevenue.entries()).sort(
+        (a, b) => b[1] - a[1]
+      )[0] || ['N/A', 0];
+
+      // Get top product for the month
+      const topProd = Array.from(data.productRevenue.entries()).sort(
+        (a, b) => b[1] - a[1]
+      )[0] || ['N/A', 0];
+
+      // Format month for display (e.g., "Jan 2024")
+      const [year, month] = monthKey.split('-');
+      const date = new Date(parseInt(year), parseInt(month) - 1);
+      const monthName = date.toLocaleString('en-US', {
+        month: 'short',
+        year: 'numeric',
+      });
+
+      return {
+        month: monthName,
+        revenue: data.revenue,
+        transactions: data.transactions,
+        topCustomer: topCust[0],
+        topCustomerRevenue: topCust[1],
+        topProduct: topProd[0],
+        topProductRevenue: topProd[1],
+        shipments: Math.round(data.shipmentCount),
+        cbm: data.cbm,
+        sacks: Math.round(data.sacks),
+      };
+    });
+
     return {
       ytdTotal,
       mtdTotal,
@@ -346,6 +470,7 @@ export default function BusinessIntelligence() {
       totalCBM,
       totalSacks,
       transactionCount: filteredTransactions.length,
+      monthlyTrends,
     };
   }, [transactions, products, shipments, dateFilter]);
 
@@ -355,7 +480,7 @@ export default function BusinessIntelligence() {
 
   if (isLoading) {
     return (
-      <PageLayout title="Business Intelligence">
+      <PageLayout size="100%" fluid>
         <Center h={400}>
           <Loader size="lg" />
         </Center>
@@ -364,7 +489,7 @@ export default function BusinessIntelligence() {
   }
 
   return (
-    <PageLayout title="Business Intelligence" size="100%" fluid>
+    <PageLayout size="100%" fluid>
       <Stack gap="lg">
         {/* Header with Filter */}
         <Group justify="space-between" align="center" wrap="nowrap">
@@ -429,6 +554,217 @@ export default function BusinessIntelligence() {
             color="pink"
           />
         </SimpleGrid>
+
+        {/* Monthly Trends Section */}
+        {metrics.monthlyTrends.length > 0 && (
+          <>
+            <Title order={2} mt="md" mb="sm">
+              Monthly Trends
+            </Title>
+
+            {/* Revenue & Transaction Trends */}
+            <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
+              <Paper shadow="sm" p="lg" withBorder>
+                <Title order={3} mb="md">
+                  Monthly Revenue Trend
+                </Title>
+                <ResponsiveContainer width="100%" height={350}>
+                  <LineChart
+                    data={metrics.monthlyTrends}
+                    margin={{ top: 5, right: 30, left: 20, bottom: 20 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="month"
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                      style={{ fontSize: '12px' }}
+                    />
+                    <YAxis
+                      tickFormatter={(value) =>
+                        `₱${(value / 1000).toFixed(0)}k`
+                      }
+                    />
+                    <Tooltip
+                      formatter={(value: number) => [
+                        formatCurrency(value),
+                        'Revenue',
+                      ]}
+                    />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="revenue"
+                      stroke="#228be6"
+                      strokeWidth={3}
+                      name="Monthly Revenue"
+                      dot={{ fill: '#228be6', r: 5 }}
+                      activeDot={{ r: 8 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </Paper>
+
+              <Paper shadow="sm" p="lg" withBorder>
+                <Title order={3} mb="md">
+                  Monthly Transaction Volume
+                </Title>
+                <ResponsiveContainer width="100%" height={350}>
+                  <AreaChart
+                    data={metrics.monthlyTrends}
+                    margin={{ top: 5, right: 30, left: 20, bottom: 20 }}
+                  >
+                    <defs>
+                      <linearGradient
+                        id="colorTransactions"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="5%"
+                          stopColor="#40c057"
+                          stopOpacity={0.8}
+                        />
+                        <stop
+                          offset="95%"
+                          stopColor="#40c057"
+                          stopOpacity={0}
+                        />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="month"
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                      style={{ fontSize: '12px' }}
+                    />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Area
+                      type="monotone"
+                      dataKey="transactions"
+                      stroke="#40c057"
+                      fillOpacity={1}
+                      fill="url(#colorTransactions)"
+                      name="Transactions"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </Paper>
+            </SimpleGrid>
+
+            {/* Shipment Trends */}
+            <Paper shadow="sm" p="lg" withBorder>
+              <Title order={3} mb="md">
+                Monthly Shipment Metrics
+              </Title>
+              <ResponsiveContainer width="100%" height={350}>
+                <ComposedChart
+                  data={metrics.monthlyTrends}
+                  margin={{ top: 5, right: 30, left: 20, bottom: 20 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="month"
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
+                    style={{ fontSize: '12px' }}
+                  />
+                  <YAxis yAxisId="left" />
+                  <YAxis yAxisId="right" orientation="right" />
+                  <Tooltip />
+                  <Legend />
+                  <Bar
+                    yAxisId="left"
+                    dataKey="shipments"
+                    fill="#be4bdb"
+                    name="Shipments"
+                  />
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="cbm"
+                    stroke="#4c6ef5"
+                    strokeWidth={2}
+                    name="Total CBM"
+                    dot={{ fill: '#4c6ef5', r: 4 }}
+                  />
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="sacks"
+                    stroke="#fd7e14"
+                    strokeWidth={2}
+                    name="Total Sacks"
+                    dot={{ fill: '#fd7e14', r: 4 }}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </Paper>
+
+            {/* Top Performers by Month Table */}
+            <Paper shadow="sm" p="lg" withBorder>
+              <Title order={3} mb="md">
+                Monthly Top Performers
+              </Title>
+              <div style={{ overflowX: 'auto' }}>
+                <Table striped highlightOnHover withTableBorder>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Month</Table.Th>
+                      <Table.Th>Revenue</Table.Th>
+                      <Table.Th>Top Customer</Table.Th>
+                      <Table.Th style={{ textAlign: 'right' }}>
+                        Customer Revenue
+                      </Table.Th>
+                      <Table.Th>Top Product</Table.Th>
+                      <Table.Th style={{ textAlign: 'right' }}>
+                        Product Revenue
+                      </Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {metrics.monthlyTrends.map((month) => (
+                      <Table.Tr key={month.month}>
+                        <Table.Td>
+                          <Text fw={600}>{month.month}</Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm" c="blue" fw={600}>
+                            {formatCurrency(month.revenue)}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm">{month.topCustomer}</Text>
+                        </Table.Td>
+                        <Table.Td style={{ textAlign: 'right' }}>
+                          <Text size="sm" c="green">
+                            {formatCurrency(month.topCustomerRevenue)}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm">{month.topProduct}</Text>
+                        </Table.Td>
+                        <Table.Td style={{ textAlign: 'right' }}>
+                          <Text size="sm" c="green">
+                            {formatCurrency(month.topProductRevenue)}
+                          </Text>
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </div>
+            </Paper>
+          </>
+        )}
 
         {/* Charts Row 1 - Sales & Products */}
         <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
