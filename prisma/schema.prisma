@@ -28,6 +28,10 @@ model Customer {
   businessAddress       String   @db.VarChar(500)
   businessContactNumber String   @db.VarChar(100)
   customerStatus        String   @db.VarChar(50)
+
+  @@index([customerName])
+  @@index([phoneNumber])
+  @@index([customerStatus])
 }
 
 model Price {
@@ -43,6 +47,9 @@ model Price {
   category        String?  @db.VarChar(100)
   isActive        Boolean  @default(true)
 
+  @@index([productCode])
+  @@index([productCode, lowerLimit, upperLimit])
+  @@index([isActive])
   @@map("prices")
 }
 
@@ -83,6 +90,9 @@ model Product {
   projectedProfitPercent Float    @default(0)
   totalMarkup            Float    @default(0)
 
+  @@index([productCode])
+  @@index([shipmentCode])
+  @@index([shipmentStatus])
   @@map("products")
 }
 
@@ -102,6 +112,8 @@ model Shipment {
   duration      String?  @db.VarChar(20)
   notes         String?  @db.Text
 
+  @@index([shipmentCode])
+  @@index([shipmentStatus])
   @@map("shipments")
 }
 
@@ -123,6 +135,11 @@ model Transaction {
   packedDate   String?  @db.VarChar(50)
   shipmentCode String?  @db.VarChar(100)
 
+  @@index([orderDate])
+  @@index([customers])
+  @@index([productCode])
+  @@index([orderStatus])
+  @@index([shipmentCode])
   @@map("transactions")
 }
 
@@ -140,5 +157,7 @@ model SortingDistribution {
   checked             Boolean  @default(false)
 
   @@unique([productCode, rowNumber])
+  @@index([productCode])
+  @@index([groupNumber])
   @@map("sorting_distributions")
 }
