@@ -135,6 +135,9 @@ export default function Customers() {
     customerStatus: '',
   });
 
+  // Track double-click for Customer Name column
+  const lastClickRef = useRef<{ cell: Item; time: number } | null>(null);
+
   // Keep grid height at ~85vh responsively
   // 🚀 PERFORMANCE: Throttle resize events to prevent excessive re-renders
   useEffect(() => {
@@ -1339,9 +1342,27 @@ export default function Customers() {
                 column?.id === 'customerName' &&
                 row < filteredCustomers.length
               ) {
-                const customer = filteredCustomers[row];
-                if (customer?.id) {
-                  router.push(`/clothing/operations/customers/${customer.id}`);
+                const now = Date.now();
+                const lastClick = lastClickRef.current;
+
+                // Check if this is a double-click (within 500ms on the same cell)
+                if (
+                  lastClick &&
+                  lastClick.cell[0] === col &&
+                  lastClick.cell[1] === row &&
+                  now - lastClick.time < 500
+                ) {
+                  // Double-click detected - navigate to customer detail page
+                  const customer = filteredCustomers[row];
+                  if (customer?.id) {
+                    router.push(
+                      `/clothing/operations/customers/${customer.id}`
+                    );
+                  }
+                  lastClickRef.current = null; // Reset after handling
+                } else {
+                  // First click - store it
+                  lastClickRef.current = { cell, time: now };
                 }
               }
             }}
