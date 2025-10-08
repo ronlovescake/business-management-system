@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import { DataTable, StatCard, useDataTable } from '../../../../components/ui';
 import { GridColumn, Item } from '@glideapps/glide-data-grid';
@@ -71,6 +71,9 @@ export default function Shipments() {
   const [editingShipment, setEditingShipment] = useState<ShipmentData | null>(
     null
   );
+
+  // Track double-click for Shipment Code column
+  const lastClickRef = useRef<{ cell: Item; time: number } | null>(null);
 
   // Form for adding new shipments
   const addShipmentForm = useForm({
@@ -161,22 +164,26 @@ export default function Shipments() {
   });
 
   // 🚀 PERFORMANCE: Memoize columns array to prevent recreation on every render
-  const columns: GridColumn[] = useMemo(() => [
-    { title: 'Shipment Code', width: 200, id: 'shipmentCode' },
-    { title: 'CV Number', width: 200, id: 'cvNumber' },
-    { title: 'No. Of Sacks', width: 200, id: 'noOfSacks' },
-    { title: 'Total CBM', width: 200, id: 'totalCBM' },
-    { title: 'Weight', width: 200, id: 'weight' },
-    { title: 'Fee', width: 200, id: 'fee' },
-    { title: 'Shipment Status', width: 200, id: 'shipmentStatus' },
-    { title: 'Date Created', width: 200, id: 'dateCreated' },
-    { title: 'Date Delivered', width: 200, id: 'dateDelivered' },
-    { title: 'Duration', width: 200, id: 'duration' },
-    { title: 'Notes', width: 200, grow: 1, id: 'notes' },
-  ], []); // Empty deps - columns never change
+  const columns: GridColumn[] = useMemo(
+    () => [
+      { title: 'Shipment Code', width: 200, id: 'shipmentCode' },
+      { title: 'CV Number', width: 200, id: 'cvNumber' },
+      { title: 'No. Of Sacks', width: 200, id: 'noOfSacks' },
+      { title: 'Total CBM', width: 200, id: 'totalCBM' },
+      { title: 'Weight', width: 200, id: 'weight' },
+      { title: 'Fee', width: 200, id: 'fee' },
+      { title: 'Shipment Status', width: 200, id: 'shipmentStatus' },
+      { title: 'Date Created', width: 200, id: 'dateCreated' },
+      { title: 'Date Delivered', width: 200, id: 'dateDelivered' },
+      { title: 'Duration', width: 200, id: 'duration' },
+      { title: 'Notes', width: 200, grow: 1, id: 'notes' },
+    ],
+    []
+  ); // Empty deps - columns never change
 
   // Column alignment configuration
-  const columnAlignments: Record<string, 'left' | 'center' | 'right'> = COLUMN_ALIGNMENTS;
+  const columnAlignments: Record<string, 'left' | 'center' | 'right'> =
+    COLUMN_ALIGNMENTS;
 
   // Map column IDs to data keys
   const idToKey: Record<string, keyof ShipmentData> = ID_TO_KEY;
@@ -515,7 +522,8 @@ export default function Shipments() {
       });
     } catch (error) {
       console.error('Import error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
       notifications.show({
         title: '❌ Import Failed',
         message: `Failed to import CSV: ${errorMessage}`,
@@ -769,7 +777,23 @@ export default function Shipments() {
           const [col] = cell;
           // Check if clicked on Shipment Code column (first column, index 0)
           if (col === 0) {
-            handleEditShipment(shipment as ShipmentData);
+            const now = Date.now();
+            const lastClick = lastClickRef.current;
+
+            // Check if this is a double-click (within 500ms on the same cell)
+            if (
+              lastClick &&
+              lastClick.cell[0] === cell[0] &&
+              lastClick.cell[1] === cell[1] &&
+              now - lastClick.time < 500
+            ) {
+              // Double-click detected - open edit modal
+              handleEditShipment(shipment as ShipmentData);
+              lastClickRef.current = null; // Reset after handling
+            } else {
+              // First click - store it
+              lastClickRef.current = { cell, time: now };
+            }
           }
         }}
       />
