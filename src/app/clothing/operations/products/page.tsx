@@ -210,7 +210,7 @@ export default function Products() {
     () => [
       {
         title: 'Shipment Code',
-        width: 150,
+        width: 120,
         id: 'shipmentCode',
         themeOverride: { cellHorizontalPadding: 8 },
       },
@@ -224,13 +224,13 @@ export default function Products() {
       { title: 'Payment', width: 120, id: 'payment' },
       {
         title: 'Product',
-        width: 200,
+        width: 300,
         id: 'product',
         themeOverride: { cellHorizontalPadding: 8 },
       },
       {
         title: 'Product Code',
-        width: 150,
+        width: 350,
         id: 'productCode',
         themeOverride: { cellHorizontalPadding: 8 },
       },
@@ -238,7 +238,7 @@ export default function Products() {
       { title: 'Unit', width: 100, id: 'unit' },
       { title: 'Unit Price', width: 120, id: 'unitPrice' },
       { title: 'Quantity', width: 100, id: 'quantity' },
-      { title: 'Alibaba Shipping Cost', width: 130, id: 'alibabaShippingCost' },
+      { title: 'Alibaba Shipping Cost', width: 150, id: 'alibabaShippingCost' },
       { title: 'Exchange Rates', width: 140, id: 'exchangeRates' },
       { title: 'PHP', width: 100, id: 'php' },
       { title: 'Sub Total (PHP)', width: 150, id: 'subTotalPHP' },
@@ -413,7 +413,7 @@ export default function Products() {
   // Function to calculate optimal column width based on content (OPTIMIZED: Now with caching)
   const calculateColumnWidth = useCallback(
     (columnId: string, data: ProductData[]): number => {
-      const autoResizeColumns = ['shipmentCode', 'product', 'productCode'];
+      const autoResizeColumns: string[] = []; // All columns now use fixed widths
       if (!autoResizeColumns.includes(columnId)) {
         const col = columns.find((col) => col.id === columnId);
         if (col) {
@@ -487,8 +487,9 @@ export default function Products() {
   );
 
   // Auto-resize columns based on content (OPTIMIZED: Now uses products.length instead of filteredProducts to reduce recalculations)
+  // Note: Removed auto-resize for shipmentCode, product, and productCode - they now use fixed widths
   const columnsWithAutoSize = useMemo(() => {
-    const autoResizeColumns = ['shipmentCode', 'product', 'productCode'];
+    const autoResizeColumns: string[] = []; // All columns now use fixed widths
     const sourceData =
       filteredProducts.length > 0 ? filteredProducts : products;
 
