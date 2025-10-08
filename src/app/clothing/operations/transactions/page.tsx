@@ -52,7 +52,7 @@ import { GridColumn, Item, GridCell } from '@glideapps/glide-data-grid';
 import { useTransactionData } from '../../../../hooks/useSheetData';
 import { GridCellKind } from '@glideapps/glide-data-grid';
 import { allCells } from '@glideapps/glide-data-grid-cells';
-import { Button, Group, Text, Loader } from '@mantine/core';
+import { Button, Group, Text, Loader, Pill } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
   IconPlus,
@@ -2525,24 +2525,33 @@ export default function Transactions() {
         searchRightButtons={
           <Group gap="xs" wrap="wrap">
             {statusOptions.map((status) => (
-              <Button
+              <Pill
                 key={status}
-                variant="outline"
-                size="sm"
+                size="md"
+                withRemoveButton={false}
                 onClick={() => handleStatusFilter(status)}
                 style={{
                   backgroundColor: selectedStatuses.has(status)
-                    ? '#c8e6fd'
-                    : '#ffffff',
-                  borderColor: selectedStatuses.has(status)
-                    ? '#c8e6fd'
-                    : '#6b7280',
-                  borderWidth: '1px',
-                  color: '#374151',
+                    ? '#228be6'
+                    : '#e9ecef',
+                  color: selectedStatuses.has(status) ? '#ffffff' : '#495057',
+                  cursor: 'pointer',
+                  fontWeight: selectedStatuses.has(status) ? 600 : 400,
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
+                  if (!selectedStatuses.has(status)) {
+                    e.currentTarget.style.backgroundColor = '#dee2e6';
+                  }
+                }}
+                onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => {
+                  if (!selectedStatuses.has(status)) {
+                    e.currentTarget.style.backgroundColor = '#e9ecef';
+                  }
                 }}
               >
                 {status}
-              </Button>
+              </Pill>
             ))}
           </Group>
         }
