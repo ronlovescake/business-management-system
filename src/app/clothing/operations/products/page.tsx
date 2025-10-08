@@ -210,7 +210,7 @@ export default function Products() {
     () => [
       {
         title: 'Shipment Code',
-        width: 120,
+        width: 180,
         id: 'shipmentCode',
         themeOverride: { cellHorizontalPadding: 8 },
       },
@@ -224,13 +224,13 @@ export default function Products() {
       { title: 'Payment', width: 120, id: 'payment' },
       {
         title: 'Product',
-        width: 300,
+        width: 350,
         id: 'product',
         themeOverride: { cellHorizontalPadding: 8 },
       },
       {
         title: 'Product Code',
-        width: 350,
+        width: 400,
         id: 'productCode',
         themeOverride: { cellHorizontalPadding: 8 },
       },
@@ -238,7 +238,7 @@ export default function Products() {
       { title: 'Unit', width: 100, id: 'unit' },
       { title: 'Unit Price', width: 120, id: 'unitPrice' },
       { title: 'Quantity', width: 100, id: 'quantity' },
-      { title: 'Alibaba Shipping Cost', width: 150, id: 'alibabaShippingCost' },
+      { title: 'Alibaba Shipping Cost', width: 180, id: 'alibabaShippingCost' },
       { title: 'Exchange Rates', width: 140, id: 'exchangeRates' },
       { title: 'PHP', width: 100, id: 'php' },
       { title: 'Sub Total (PHP)', width: 150, id: 'subTotalPHP' },
