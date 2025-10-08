@@ -230,7 +230,7 @@ export default function Products() {
       },
       {
         title: 'Product Code',
-        width: 400,
+        width: 450,
         id: 'productCode',
         themeOverride: { cellHorizontalPadding: 8 },
       },
