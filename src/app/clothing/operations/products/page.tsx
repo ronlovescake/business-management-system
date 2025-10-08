@@ -578,8 +578,8 @@ export default function Products() {
     const loadProducts = async () => {
       try {
         const [productsResponse, shipmentsResponse] = await Promise.all([
-          fetch('/api/products'),
-          fetch('/api/shipments'),
+          fetch('/api/products', { next: { revalidate: 30 } }),
+          fetch('/api/shipments', { next: { revalidate: 30 } }),
         ]);
 
         if (productsResponse.ok && shipmentsResponse.ok) {

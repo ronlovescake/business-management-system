@@ -176,7 +176,9 @@ export default function Transactions() {
 
         // Try to fetch customer names from the customers API
         try {
-          const response = await fetch('/api/customers');
+          const response = await fetch('/api/customers', {
+            next: { revalidate: 30 },
+          });
           if (response.ok) {
             const customersData = await response.json();
             // Extract customer names from the API data (handle various possible field names)
@@ -220,7 +222,9 @@ export default function Transactions() {
   useEffect(() => {
     const loadProductCodes = async () => {
       try {
-        const response = await fetch('/api/prices');
+        const response = await fetch('/api/prices', {
+          next: { revalidate: 30 },
+        });
         if (response.ok) {
           const pricesData = await response.json();
 
@@ -260,8 +264,8 @@ export default function Transactions() {
       try {
         // Fetch both products and shipments data
         const [productsResponse, shipmentsResponse] = await Promise.all([
-          fetch('/api/products'),
-          fetch('/api/shipments'),
+          fetch('/api/products', { next: { revalidate: 30 } }),
+          fetch('/api/shipments', { next: { revalidate: 30 } }),
         ]);
 
         if (productsResponse.ok && shipmentsResponse.ok) {

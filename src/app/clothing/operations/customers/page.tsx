@@ -179,7 +179,9 @@ export default function Customers() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch('/api/customers', { cache: 'no-store' });
+        const res = await fetch('/api/customers', {
+          next: { revalidate: 30 }, // Cache for 30 seconds
+        });
         if (!res.ok) throw new Error('Failed to load customers');
         const data: CustomerData[] = await res.json();
         setCustomers(data);
@@ -474,6 +476,7 @@ export default function Customers() {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(parsedData),
+          cache: 'no-store', // Bypass cache for mutations
         });
         if (!res.ok) {
           let msg = 'Failed to persist imported CSV';
@@ -490,22 +493,15 @@ export default function Customers() {
           setCustomers(parsedData);
           setFilteredCustomers(parsedData);
         } else {
-          // Successfully saved to DB - reload from DB to get IDs
-          const reloadRes = await fetch('/api/customers');
-          if (reloadRes.ok) {
-            const customersWithIds = await reloadRes.json();
-            setCustomers(customersWithIds);
-            setFilteredCustomers(customersWithIds);
-            notifications.show({
-              title: 'Import Successful',
-              message: `Imported ${customersWithIds.length} customers`,
-              color: 'green',
-            });
-          } else {
-            // Fallback to parsed data if reload fails
-            setCustomers(parsedData);
-            setFilteredCustomers(parsedData);
-          }
+          // 🚀 PERFORMANCE: Use the data we just sent instead of reloading
+          // Note: If you need server-generated IDs, keep the reload but add caching
+          setCustomers(parsedData);
+          setFilteredCustomers(parsedData);
+          notifications.show({
+            title: 'Import Successful',
+            message: `Imported ${parsedData.length} customers`,
+            color: 'green',
+          });
         }
       } catch (e) {
         console.error('Failed to persist imported CSV', e);

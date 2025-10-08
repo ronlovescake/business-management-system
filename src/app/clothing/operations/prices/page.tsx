@@ -169,7 +169,9 @@ export default function Prices() {
   useEffect(() => {
     const load = async () => {
       try {
-        const response = await fetch('/api/prices');
+        const response = await fetch('/api/prices', {
+          next: { revalidate: 30 },
+        });
         if (response.ok) {
           const pricesFromDB = await response.json();
           setPrices(pricesFromDB);
@@ -1141,32 +1143,30 @@ export default function Prices() {
                         'Content-Type': 'application/json',
                       },
                       body: JSON.stringify([newPrice]), // Send as array
+                      cache: 'no-store', // Bypass cache for mutations
                     });
 
                     if (!response.ok) {
                       throw new Error('Failed to save price');
                     }
 
-                    // Reload data from database
-                    const reloadResponse = await fetch('/api/prices');
-                    if (reloadResponse.ok) {
-                      const updatedPrices = await reloadResponse.json();
-                      setPrices(updatedPrices);
+                    // 🚀 PERFORMANCE: Optimistic update instead of full reload
+                    const updatedPrices = [...prices, newPrice];
+                    setPrices(updatedPrices);
 
-                      if (!searchQuery.trim()) {
-                        setFilteredPrices(updatedPrices);
-                      } else {
-                        const q = searchQuery.toLowerCase();
-                        const filtered = updatedPrices.filter(
-                          (price: PriceData) =>
-                            price['Product Code'].toLowerCase().includes(q) ||
-                            price['Lower Limit'].toString().includes(q) ||
-                            price['Upper Limit'].toString().includes(q) ||
-                            price['Prices'].toString().includes(q) ||
-                            price['Price Adjustment'].toString().includes(q)
-                        );
-                        setFilteredPrices(filtered);
-                      }
+                    if (!searchQuery.trim()) {
+                      setFilteredPrices(updatedPrices);
+                    } else {
+                      const q = searchQuery.toLowerCase();
+                      const filtered = updatedPrices.filter(
+                        (price: PriceData) =>
+                          price['Product Code'].toLowerCase().includes(q) ||
+                          price['Lower Limit'].toString().includes(q) ||
+                          price['Upper Limit'].toString().includes(q) ||
+                          price['Prices'].toString().includes(q) ||
+                          price['Price Adjustment'].toString().includes(q)
+                      );
+                      setFilteredPrices(filtered);
                     }
 
                     // Reset and close
@@ -1605,6 +1605,7 @@ export default function Prices() {
                           'Content-Type': 'application/json',
                         },
                         body: JSON.stringify(updatedPrice),
+                        cache: 'no-store', // Bypass cache for mutations
                       }
                     );
 
@@ -1612,26 +1613,25 @@ export default function Prices() {
                       throw new Error('Failed to update price');
                     }
 
-                    // Reload data from database
-                    const reloadResponse = await fetch('/api/prices');
-                    if (reloadResponse.ok) {
-                      const updatedPrices = await reloadResponse.json();
-                      setPrices(updatedPrices);
+                    // 🚀 PERFORMANCE: Optimistic update instead of full reload
+                    const updatedPrices = prices.map((p) =>
+                      p.id === editingPrice.id ? updatedPrice : p
+                    );
+                    setPrices(updatedPrices);
 
-                      if (!searchQuery.trim()) {
-                        setFilteredPrices(updatedPrices);
-                      } else {
-                        const q = searchQuery.toLowerCase();
-                        const filtered = updatedPrices.filter(
-                          (price: PriceData) =>
-                            price['Product Code'].toLowerCase().includes(q) ||
-                            price['Lower Limit'].toString().includes(q) ||
-                            price['Upper Limit'].toString().includes(q) ||
-                            price['Prices'].toString().includes(q) ||
-                            price['Price Adjustment'].toString().includes(q)
-                        );
-                        setFilteredPrices(filtered);
-                      }
+                    if (!searchQuery.trim()) {
+                      setFilteredPrices(updatedPrices);
+                    } else {
+                      const q = searchQuery.toLowerCase();
+                      const filtered = updatedPrices.filter(
+                        (price: PriceData) =>
+                          price['Product Code'].toLowerCase().includes(q) ||
+                          price['Lower Limit'].toString().includes(q) ||
+                          price['Upper Limit'].toString().includes(q) ||
+                          price['Prices'].toString().includes(q) ||
+                          price['Price Adjustment'].toString().includes(q)
+                      );
+                      setFilteredPrices(filtered);
                     }
 
                     // Reset and close

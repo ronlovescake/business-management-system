@@ -200,7 +200,9 @@ export default function Shipments() {
     const loadShipments = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/shipments');
+        const response = await fetch('/api/shipments', {
+          next: { revalidate: 30 },
+        });
 
         if (!response.ok) {
           throw new Error('Failed to fetch shipments');
@@ -498,18 +500,15 @@ export default function Shipments() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(importedShipments),
+        cache: 'no-store', // Bypass cache for mutations
       });
 
       if (!saveResponse.ok) {
         throw new Error('Failed to save shipments to database');
       }
 
-      // Reload shipments from database
-      const reloadResponse = await fetch('/api/shipments');
-      if (reloadResponse.ok) {
-        const reloadedShipments = await reloadResponse.json();
-        setShipments(reloadedShipments);
-      }
+      // 🚀 PERFORMANCE: Optimistic update instead of full reload
+      setShipments((prev) => [...prev, ...importedShipments]);
 
       setCsvFile(null);
 
