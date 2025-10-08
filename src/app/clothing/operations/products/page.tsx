@@ -2709,7 +2709,8 @@ export default function Products() {
               bgBubble: '#228be6',
               bgBubbleSelected: '#1c7ed6',
               bgSearchResult: '#fff3cd',
-              borderColor: 'rgba(206, 212, 218, 0.5)',
+              borderColor: 'transparent',
+              horizontalBorderColor: 'rgba(206, 212, 218, 0.5)',
               drilldownBorder: 'rgba(34, 139, 230, 0.4)',
               linkColor: '#228be6',
               headerFontStyle: 'bold 17px Inter',
@@ -2718,7 +2719,6 @@ export default function Products() {
               fontFamily: 'Inter',
               cellHorizontalPadding: 12,
               cellVerticalPadding: 8,
-              verticalBorder: false,
             }}
             getCellsForSelection={true}
           />
