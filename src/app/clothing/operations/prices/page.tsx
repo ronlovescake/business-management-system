@@ -502,7 +502,8 @@ export default function Prices() {
         kind: GridCellKind.Text,
         data: cellData,
         displayData: displayData,
-        allowOverlay: true,
+        allowOverlay: false, // Make read-only
+        readonly: true, // Explicitly mark as readonly
         cursor: column.id === 'productCode' ? 'pointer' : 'default',
       };
     },
@@ -743,7 +744,7 @@ export default function Prices() {
               cellHorizontalPadding: 12,
               cellVerticalPadding: 8,
             }}
-            getCellsForSelection={true}
+            getCellsForSelection={false}
           />
         </Card>
 
