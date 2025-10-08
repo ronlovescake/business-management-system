@@ -25,6 +25,7 @@
   "dependencies": {
     "@glideapps/glide-data-grid": "^6.0.3",
     "@glideapps/glide-data-grid-cells": "^6.0.3",
+    "@handsontable/react": "^16.1.1",
     "@hookform/resolvers": "^3.3.0",
     "@mantine/core": "^7.0.0",
     "@mantine/dates": "^7.17.8",
@@ -38,6 +39,7 @@
     "dayjs": "^1.11.18",
     "dotenv": "^17.2.2",
     "handlebars": "^4.7.8",
+    "handsontable": "^16.1.1",
     "next": "^14.0.0",
     "pdf-lib": "^1.17.1",
     "puppeteer": "^24.23.0",

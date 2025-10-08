@@ -1,7 +1,7 @@
 import React from 'react';
 import { Group, Button, Text, Loader, Pill } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
-import { DataTable } from '@/components/ui/DataTable';
+import { HandsontableGrid } from '@/components/ui/HandsontableGrid';
 import type { StatCard } from '@/components/ui';
 import type { GridColumn, Item, GridCell } from '@glideapps/glide-data-grid';
 
@@ -65,7 +65,9 @@ export interface TransactionsLayoutProps<T = Record<string, unknown>> {
   enableCtrlF?: boolean;
 }
 
-export function TransactionsLayout<T = Record<string, unknown>>({
+export function TransactionsLayout<
+  T extends Item = Record<string, unknown> & Item,
+>({
   data,
   filteredData,
   columns,
@@ -78,7 +80,6 @@ export function TransactionsLayout<T = Record<string, unknown>>({
   onStatusFilter,
   getCellContent,
   onCellEdited,
-  customRenderers,
   enableCSVImport = false,
   csvFile,
   onFileChange,
@@ -213,22 +214,21 @@ export function TransactionsLayout<T = Record<string, unknown>>({
   );
 
   return (
-    <DataTable
-      data={data}
-      filteredData={filteredData}
+    <HandsontableGrid
+      data={data as readonly Item[]}
+      filteredData={filteredData as readonly Item[]}
       columns={columns}
       searchQuery={searchQuery}
       onSearch={onSearch}
       searchPlaceholder={searchPlaceholder}
       getCellContent={getCellContent}
       onCellEdited={onCellEdited}
-      statsCards={statsCards}
+      statsCards={statsCards as StatCard[]}
       enableCSVImport={enableCSVImport}
       enableCtrlF={enableCtrlF}
-      csvFile={csvFile}
-      onFileChange={onFileChange}
+      csvFile={csvFile || null}
+      onFileChange={onFileChange || (() => {})}
       onCSVImport={onCSVImport}
-      customRenderers={customRenderers}
       footerLeft={footerLeft}
       searchRightButtons={searchRightButtons}
       actionButtons={actionButtons}
