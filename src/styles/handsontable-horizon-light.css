@@ -224,3 +224,9 @@
   --ht-menu-item-hover-color: rgba(55, 188, 108, 0.08);
   --ht-menu-item-active-color: rgba(55, 188, 108, 0.12);
 }
+
+/* Custom styles for vertical alignment */
+.ht-theme-horizon .handsontable td,
+.ht-theme-horizon .handsontable th {
+  vertical-align: middle;
+}
