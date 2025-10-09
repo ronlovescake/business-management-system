@@ -142,13 +142,70 @@ export function useTransactionData() {
       id: string | number;
       data: Partial<TransactionDTO>;
     }) => TransactionService.update(id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onMutate: async ({ id, data }) => {
+      // Cancel any outgoing refetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey });
+
+      // Snapshot the previous value
+      const previousTransactions =
+        queryClient.getQueryData<TransactionDTO[]>(queryKey);
+
+      // Optimistically update to the new value
+      queryClient.setQueryData<TransactionDTO[]>(queryKey, (old = []) => {
+        return old.map((transaction) =>
+          transaction.id === id ? { ...transaction, ...data } : transaction
+        );
+      });
+
+      // Return context with the previous value
+      return { previousTransactions };
+    },
+    onError: (_err, _variables, context) => {
+      // If the mutation fails, rollback to the previous value
+      if (context?.previousTransactions) {
+        queryClient.setQueryData(queryKey, context.previousTransactions);
+      }
+    },
+    onSettled: () => {
+      // Always refetch after error or success to ensure we have the latest data
+      queryClient.invalidateQueries({ queryKey });
+    },
   });
 
   const bulkUpdateMutation = useMutation({
     mutationFn: (newData: TransactionDTO[]) =>
       TransactionService.bulkUpdate(newData),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onMutate: async (newData) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey });
+
+      // Snapshot the previous value
+      const previousTransactions =
+        queryClient.getQueryData<TransactionDTO[]>(queryKey);
+
+      // Create a map for quick lookups
+      const updateMap = new Map(newData.map((t) => [t.id, t]));
+
+      // Optimistically update transactions
+      queryClient.setQueryData<TransactionDTO[]>(queryKey, (old = []) => {
+        return old.map((transaction) => {
+          const update = updateMap.get(transaction.id);
+          return update ? { ...transaction, ...update } : transaction;
+        });
+      });
+
+      return { previousTransactions };
+    },
+    onError: (_err, _variables, context) => {
+      // Rollback on error
+      if (context?.previousTransactions) {
+        queryClient.setQueryData(queryKey, context.previousTransactions);
+      }
+    },
+    onSettled: () => {
+      // Refetch to ensure consistency
+      queryClient.invalidateQueries({ queryKey });
+    },
   });
 
   return {
