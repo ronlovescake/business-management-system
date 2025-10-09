@@ -142,6 +142,229 @@ export function HandsontableGrid<T extends Item>({
     return () => document.removeEventListener('keydown', handleKeyDown, true);
   }, [enableCtrlF]);
 
+  // Google Sheets-style Ctrl+Arrow navigation
+  useEffect(() => {
+    if (!hotRef.current) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only handle Ctrl+Arrow keys (or Cmd+Arrow on Mac)
+      if (!(event.ctrlKey || event.metaKey)) return;
+      if (
+        !['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)
+      )
+        return;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const hotInstance = (hotRef.current as any)?.hotInstance;
+      if (!hotInstance) return;
+
+      // Get current selection
+      const selected = hotInstance.getSelected();
+      if (!selected || selected.length === 0) return;
+
+      const [startRow, startCol] = selected[0];
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      let targetRow = startRow;
+      let targetCol = startCol;
+
+      // Helper function to check if a cell is empty
+      const isCellEmpty = (row: number, col: number): boolean => {
+        const value = hotInstance.getDataAtCell(row, col);
+        return value === null || value === undefined || value === '';
+      };
+
+      if (event.key === 'ArrowDown') {
+        // Move down to next non-empty cell or last non-empty cell
+        const maxRow = hotInstance.countRows() - 1;
+        const currentEmpty = isCellEmpty(startRow, startCol);
+
+        if (currentEmpty) {
+          // If current cell is empty, jump to next non-empty cell
+          for (let row = startRow + 1; row <= maxRow; row++) {
+            if (!isCellEmpty(row, startCol)) {
+              targetRow = row;
+              break;
+            }
+          }
+          // If no non-empty cell found, jump to last row
+          if (targetRow === startRow) {
+            targetRow = maxRow;
+          }
+        } else {
+          // If current cell is non-empty, find the last consecutive non-empty cell
+          let lastNonEmpty = startRow;
+          for (let row = startRow + 1; row <= maxRow; row++) {
+            if (!isCellEmpty(row, startCol)) {
+              lastNonEmpty = row;
+            } else {
+              break;
+            }
+          }
+
+          if (lastNonEmpty > startRow) {
+            // Found consecutive non-empty cells, jump to the last one
+            targetRow = lastNonEmpty;
+          } else {
+            // Next cell is empty, jump to next non-empty cell or end
+            for (let row = startRow + 1; row <= maxRow; row++) {
+              if (!isCellEmpty(row, startCol)) {
+                targetRow = row;
+                break;
+              }
+            }
+            // If no non-empty cell found, jump to last row
+            if (targetRow === startRow) {
+              targetRow = maxRow;
+            }
+          }
+        }
+      } else if (event.key === 'ArrowUp') {
+        // Move up to previous non-empty cell or first non-empty cell
+        const currentEmpty = isCellEmpty(startRow, startCol);
+
+        if (currentEmpty) {
+          // If current cell is empty, jump to previous non-empty cell
+          for (let row = startRow - 1; row >= 0; row--) {
+            if (!isCellEmpty(row, startCol)) {
+              targetRow = row;
+              break;
+            }
+          }
+          // If no non-empty cell found, jump to first row
+          if (targetRow === startRow) {
+            targetRow = 0;
+          }
+        } else {
+          // If current cell is non-empty, find the first consecutive non-empty cell
+          let firstNonEmpty = startRow;
+          for (let row = startRow - 1; row >= 0; row--) {
+            if (!isCellEmpty(row, startCol)) {
+              firstNonEmpty = row;
+            } else {
+              break;
+            }
+          }
+
+          if (firstNonEmpty < startRow) {
+            // Found consecutive non-empty cells, jump to the first one
+            targetRow = firstNonEmpty;
+          } else {
+            // Previous cell is empty, jump to previous non-empty cell or beginning
+            for (let row = startRow - 1; row >= 0; row--) {
+              if (!isCellEmpty(row, startCol)) {
+                targetRow = row;
+                break;
+              }
+            }
+            // If no non-empty cell found, jump to first row
+            if (targetRow === startRow) {
+              targetRow = 0;
+            }
+          }
+        }
+      } else if (event.key === 'ArrowRight') {
+        // Move right to next non-empty cell or last non-empty cell
+        const maxCol = hotInstance.countCols() - 1;
+        const currentEmpty = isCellEmpty(startRow, startCol);
+
+        if (currentEmpty) {
+          // If current cell is empty, jump to next non-empty cell
+          for (let col = startCol + 1; col <= maxCol; col++) {
+            if (!isCellEmpty(startRow, col)) {
+              targetCol = col;
+              break;
+            }
+          }
+          // If no non-empty cell found, jump to last column
+          if (targetCol === startCol) {
+            targetCol = maxCol;
+          }
+        } else {
+          // If current cell is non-empty, find the last consecutive non-empty cell
+          let lastNonEmpty = startCol;
+          for (let col = startCol + 1; col <= maxCol; col++) {
+            if (!isCellEmpty(startRow, col)) {
+              lastNonEmpty = col;
+            } else {
+              break;
+            }
+          }
+
+          if (lastNonEmpty > startCol) {
+            // Found consecutive non-empty cells, jump to the last one
+            targetCol = lastNonEmpty;
+          } else {
+            // Next cell is empty, jump to next non-empty cell or end
+            for (let col = startCol + 1; col <= maxCol; col++) {
+              if (!isCellEmpty(startRow, col)) {
+                targetCol = col;
+                break;
+              }
+            }
+            // If no non-empty cell found, jump to last column
+            if (targetCol === startCol) {
+              targetCol = maxCol;
+            }
+          }
+        }
+      } else if (event.key === 'ArrowLeft') {
+        // Move left to previous non-empty cell or first non-empty cell
+        const currentEmpty = isCellEmpty(startRow, startCol);
+
+        if (currentEmpty) {
+          // If current cell is empty, jump to previous non-empty cell
+          for (let col = startCol - 1; col >= 0; col--) {
+            if (!isCellEmpty(startRow, col)) {
+              targetCol = col;
+              break;
+            }
+          }
+          // If no non-empty cell found, jump to first column
+          if (targetCol === startCol) {
+            targetCol = 0;
+          }
+        } else {
+          // If current cell is non-empty, find the first consecutive non-empty cell
+          let firstNonEmpty = startCol;
+          for (let col = startCol - 1; col >= 0; col--) {
+            if (!isCellEmpty(startRow, col)) {
+              firstNonEmpty = col;
+            } else {
+              break;
+            }
+          }
+
+          if (firstNonEmpty < startCol) {
+            // Found consecutive non-empty cells, jump to the first one
+            targetCol = firstNonEmpty;
+          } else {
+            // Previous cell is empty, jump to previous non-empty cell or beginning
+            for (let col = startCol - 1; col >= 0; col--) {
+              if (!isCellEmpty(startRow, col)) {
+                targetCol = col;
+                break;
+              }
+            }
+            // If no non-empty cell found, jump to first column
+            if (targetCol === startCol) {
+              targetCol = 0;
+            }
+          }
+        }
+      }
+
+      // Select the target cell
+      hotInstance.selectCell(targetRow, targetCol);
+    };
+
+    // Use capture phase to intercept before Handsontable's default behavior
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
+  }, []);
+
   // Convert columns to Handsontable format
   const hotColumns = useMemo(() => {
     return columns.map((col, colIndex) => {
