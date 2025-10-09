@@ -156,12 +156,28 @@ export function HandsontableGrid<T extends Item>({
         firstCell.data !== null &&
         'allowedValues' in firstCell.data;
 
-      // Determine alignment based on column ID
+      // Determine alignment and type based on column ID
       let className = 'htLeft'; // Default to left
+      let columnType: 'text' | 'numeric' | 'autocomplete' = 'text';
+      let numericFormat: { pattern: string } | undefined;
+
       if ('id' in col) {
         const columnId = col.id as string;
-        // CENTER alignment
+
+        // Currency columns with numeric formatting
         if (
+          ['unitPrice', 'discount', 'adjustment', 'lineTotal'].includes(
+            columnId
+          )
+        ) {
+          className = 'htRight';
+          columnType = 'numeric';
+          numericFormat = {
+            pattern: '0,0.00', // Thousand separator with 2 decimals
+          };
+        }
+        // CENTER alignment
+        else if (
           [
             'orderDate',
             'quantity',
@@ -172,14 +188,6 @@ export function HandsontableGrid<T extends Item>({
           ].includes(columnId)
         ) {
           className = 'htCenter';
-        }
-        // RIGHT alignment
-        else if (
-          ['unitPrice', 'discount', 'adjustment', 'lineTotal'].includes(
-            columnId
-          )
-        ) {
-          className = 'htRight';
         }
         // LEFT alignment (default)
         // customers, productCode, notes
@@ -201,13 +209,28 @@ export function HandsontableGrid<T extends Item>({
         };
       }
 
-      return {
+      // Return column config with numeric formatting if applicable
+      const columnConfig: {
+        data: number;
+        type: string;
+        title: string;
+        width: number;
+        className: string;
+        numericFormat?: { pattern: string };
+      } = {
         data: colIndex,
-        type: 'text',
+        type: columnType,
         title: col.title,
         width: 'width' in col && col.width ? col.width : 120,
         className: className, // Apply alignment class
       };
+
+      // Add numeric format for currency columns
+      if (numericFormat) {
+        columnConfig.numericFormat = numericFormat;
+      }
+
+      return columnConfig;
     });
   }, [columns, filteredData, getCellContent]);
 
