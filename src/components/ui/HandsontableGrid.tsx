@@ -330,8 +330,8 @@ export function HandsontableGrid<T extends Item>({
           viewportColumnRenderingOffset={5} // Render 5 extra columns left/right
           // Styling
           stretchH="all"
-          autoWrapRow={true}
-          autoWrapCol={true}
+          autoWrapRow={false}
+          autoWrapCol={false}
           // Features
           manualColumnResize={true}
           manualRowResize={true}
@@ -341,22 +341,46 @@ export function HandsontableGrid<T extends Item>({
           // Performance: Disable features that slow down large grids
           autoRowSize={false} // Disable auto row height calculation
           autoColumnSize={false} // Disable auto column width calculation
+          rowHeights={35} // Set fixed row height (default is ~23px)
           afterChange={(changes, source) => {
             if (!changes || !onCellEdited) return;
 
-            // Detect paste operations - source can be 'CopyPaste.paste', 'Autofill.fill', etc.
+            // Debug: Log all change sources to understand what's happening
+            console.log('📝 afterChange triggered:', {
+              source,
+              changesCount: changes.length,
+            });
+
+            // Detect batch operations:
+            // - Paste operations: source contains 'paste' or 'Paste'
+            // - Autofill operations: source contains 'Autofill'
+            // - Batch delete/edit: multiple changes (more than 5) with 'edit' source
             const isPaste =
               source?.includes('paste') ||
               source?.includes('Paste') ||
               source?.includes('Autofill');
 
-            if (isPaste) {
+            const isBatchEdit = changes.length > 5 && source === 'edit';
+            const isBatchOperation = isPaste || isBatchEdit;
+
+            console.log('🔍 Batch detection:', {
+              source,
+              changesCount: changes.length,
+              isPaste,
+              isBatchEdit,
+              isBatchOperation,
+            });
+
+            if (isBatchOperation) {
+              console.log('🚀 BATCH OPERATION DETECTED - Starting batch mode');
+
               // Set batch mode flag to suppress notifications
               isBatchModeRef.current = true;
               batchCountRef.current = 0;
 
               // Signal batch mode START immediately
               window.dispatchEvent(new CustomEvent('handsontable-batch-start'));
+              console.log('📢 Dispatched handsontable-batch-start event');
 
               // For paste operations, batch all changes and process after a short delay
               // This prevents the flickering caused by multiple rapid re-renders
