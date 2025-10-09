@@ -151,6 +151,35 @@ export function HandsontableGrid<T extends Item>({
         firstCell.data !== null &&
         'allowedValues' in firstCell.data;
 
+      // Determine alignment based on column ID
+      let className = 'htLeft'; // Default to left
+      if ('id' in col) {
+        const columnId = col.id as string;
+        // CENTER alignment
+        if (
+          [
+            'orderDate',
+            'quantity',
+            'orderStatus',
+            'invoiceDate',
+            'packedDate',
+            'shipmentCode',
+          ].includes(columnId)
+        ) {
+          className = 'htCenter';
+        }
+        // RIGHT alignment
+        else if (
+          ['unitPrice', 'discount', 'adjustment', 'lineTotal'].includes(
+            columnId
+          )
+        ) {
+          className = 'htRight';
+        }
+        // LEFT alignment (default)
+        // customers, productCode, notes
+      }
+
       if (hasDropdown && firstCell && 'data' in firstCell) {
         const cellData = firstCell.data as { allowedValues?: string[] };
         const allowedValues = cellData.allowedValues || [];
@@ -163,6 +192,7 @@ export function HandsontableGrid<T extends Item>({
           allowInvalid: false, // Reject invalid entries
           title: col.title,
           width: 'width' in col && col.width ? col.width : 120,
+          className: className, // Apply alignment class
         };
       }
 
@@ -171,6 +201,7 @@ export function HandsontableGrid<T extends Item>({
         type: 'text',
         title: col.title,
         width: 'width' in col && col.width ? col.width : 120,
+        className: className, // Apply alignment class
       };
     });
   }, [columns, filteredData, getCellContent]);
