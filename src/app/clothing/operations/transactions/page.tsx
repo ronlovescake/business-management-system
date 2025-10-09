@@ -1223,25 +1223,46 @@ export default function Transactions() {
       (s) => s !== 'All Status'
     );
 
+    let filtered;
     if (individual.length === 0) {
       // No individual statuses selected -> show only rows without Order Status
-      return searchFilteredData.filter((transaction) => {
+      filtered = searchFilteredData.filter((transaction) => {
         const status = transaction['Order Status'];
         return !status || status.trim() === '';
       });
+    } else {
+      // Filter by selected individual statuses (OR logic) AND always include rows without Order Status
+      filtered = searchFilteredData.filter((transaction) => {
+        const status = transaction['Order Status'];
+        // Always show rows without Order Status, or rows with selected statuses
+        return (
+          !status ||
+          status.trim() === '' ||
+          (status && individual.includes(status))
+        );
+      });
     }
 
-    // Filter by selected individual statuses (OR logic) AND always include rows without Order Status
-    return searchFilteredData.filter((transaction) => {
-      const status = transaction['Order Status'];
-      // Always show rows without Order Status, or rows with selected statuses
-      return (
-        !status ||
-        status.trim() === '' ||
-        (status && individual.includes(status))
-      );
-    });
-  }, [searchFilteredData, selectedStatuses]);
+    // If there's an active search, append empty rows for adding new entries
+    // This allows users to add new orders for the filtered customer
+    if (searchQuery && searchQuery.trim() !== '') {
+      // Get all empty/blank rows from the original transactions
+      const emptyRows = transactions.filter((transaction) => {
+        // A row is considered empty if it has no customer and no product code
+        const hasCustomer =
+          transaction.Customers && transaction.Customers.trim() !== '';
+        const hasProductCode =
+          transaction['Product Code'] &&
+          transaction['Product Code'].trim() !== '';
+        return !hasCustomer && !hasProductCode;
+      });
+
+      // Append empty rows to the filtered results
+      return [...filtered, ...emptyRows];
+    }
+
+    return filtered;
+  }, [searchFilteredData, selectedStatuses, searchQuery, transactions]);
 
   // Create cell content getter that uses the FINAL filteredData (search + status)
   const cellContentGetter = React.useCallback(
