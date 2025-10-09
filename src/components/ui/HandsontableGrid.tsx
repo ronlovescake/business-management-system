@@ -118,6 +118,7 @@ export function HandsontableGrid<T extends Item>({
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
         event.preventDefault();
+        event.stopPropagation(); // Stop event from reaching other handlers
 
         // Close any active cell editor in Handsontable
         if (hotRef.current) {
@@ -128,13 +129,17 @@ export function HandsontableGrid<T extends Item>({
           }
         }
 
-        searchInputRef.current?.focus();
-        searchInputRef.current?.select();
+        // Small delay to ensure cell editor is closed before focusing search
+        setTimeout(() => {
+          searchInputRef.current?.focus();
+          searchInputRef.current?.select();
+        }, 10);
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    // Use capture phase to intercept before Handsontable
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
   }, [enableCtrlF]);
 
   // Convert columns to Handsontable format
