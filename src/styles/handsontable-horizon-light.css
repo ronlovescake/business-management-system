@@ -19,9 +19,9 @@
   --ht-wrapper-border-radius: 12px;
   --ht-wrapper-border-color: #e7e7e9;
   --ht-row-header-odd-background-color: rgba(255, 255, 255, 0);
-  --ht-row-header-even-background-color: rgba(35, 35, 38, 0.04);
+  --ht-row-header-even-background-color: rgba(255, 255, 255, 0);
   --ht-row-cell-odd-background-color: rgba(255, 255, 255, 0);
-  --ht-row-cell-even-background-color: rgba(35, 35, 38, 0.04);
+  --ht-row-cell-even-background-color: rgba(255, 255, 255, 0);
   --ht-cell-horizontal-padding: 12px;
   --ht-cell-vertical-padding: 8px;
   --ht-cell-editor-border-width: 2px;
