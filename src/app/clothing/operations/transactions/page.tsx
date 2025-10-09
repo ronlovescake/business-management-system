@@ -45,7 +45,13 @@
 //
 // ==============================================================================
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from 'react';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import { StatCard, useDataTable } from '../../../../components/ui';
 import { TransactionsLayout } from '../../../../components/features/transactions';
@@ -96,14 +102,14 @@ export default function Transactions() {
     update: updateTransaction,
   } = useTransactionData();
 
-  // Batch mode tracking for paste operations
-  const [isBatchMode, setIsBatchMode] = useState(false);
+  // Batch mode tracking for paste operations - use ref for synchronous updates
+  const isBatchModeRef = useRef(false);
 
   // Listen for batch start and complete events from HandsontableGrid
   useEffect(() => {
     const handleBatchStart = () => {
       console.log('🚀 Batch mode STARTED - suppressing notifications');
-      setIsBatchMode(true);
+      isBatchModeRef.current = true;
     };
 
     const handleBatchComplete = (event: Event) => {
@@ -111,7 +117,7 @@ export default function Transactions() {
       console.log(
         `✅ Batch mode COMPLETE - processed ${customEvent.detail.count} cells`
       );
-      setIsBatchMode(false);
+      isBatchModeRef.current = false;
 
       // Show SINGLE summary notification for all batch changes
       notifications.show({
@@ -1502,11 +1508,6 @@ export default function Transactions() {
         '_isBatchMode' in newValue &&
         (newValue as unknown as { _isBatchMode?: boolean })._isBatchMode;
 
-      // Set batch mode flag if this is a batch edit
-      if (isBatchEdit && !isBatchMode) {
-        setIsBatchMode(true);
-      }
-
       // Helper function to conditionally show notifications (suppressed during batch mode)
       const showNotification = (options: {
         title: string;
@@ -1514,8 +1515,13 @@ export default function Transactions() {
         color: string;
       }) => {
         // Suppress notifications if we're in batch mode OR this specific cell is part of a batch
-        if (!isBatchEdit && !isBatchMode) {
+        if (!isBatchEdit && !isBatchModeRef.current) {
           notifications.show(options);
+        } else {
+          console.log(
+            '🔇 Notification suppressed (batch mode):',
+            options.message
+          );
         }
       };
 
@@ -2159,8 +2165,7 @@ export default function Transactions() {
       getUnitPriceForQuantity,
       calculateLineTotal,
       updateTransaction,
-      isBatchMode,
-      setIsBatchMode,
+      // isBatchModeRef is intentionally NOT in deps - it's a ref, not state
     ]
   );
 
