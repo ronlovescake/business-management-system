@@ -230,3 +230,16 @@
 .ht-theme-horizon .handsontable th {
   vertical-align: middle;
 }
+
+/* Hide dropdown arrows for cleaner UI */
+.ht-theme-horizon .handsontable .htAutocompleteArrow {
+  display: none !important;
+}
+
+.ht-theme-horizon .handsontable td.htAutocomplete::after {
+  display: none !important;
+}
+
+.ht-theme-horizon .handsontable .autocompleteArrow {
+  display: none !important;
+}
