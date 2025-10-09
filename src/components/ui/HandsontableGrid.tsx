@@ -118,6 +118,16 @@ export function HandsontableGrid<T extends Item>({
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
         event.preventDefault();
+
+        // Close any active cell editor in Handsontable
+        if (hotRef.current) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const hotInstance = (hotRef.current as any).hotInstance;
+          if (hotInstance) {
+            hotInstance.deselectCell(); // Exit edit mode and deselect cell
+          }
+        }
+
         searchInputRef.current?.focus();
         searchInputRef.current?.select();
       }
@@ -149,8 +159,8 @@ export function HandsontableGrid<T extends Item>({
           data: colIndex,
           type: 'autocomplete',
           source: allowedValues,
-          strict: false,
-          allowInvalid: true,
+          strict: true, // Only allow values from dropdown list
+          allowInvalid: false, // Reject invalid entries
           title: col.title,
           width: 'width' in col && col.width ? col.width : 120,
         };

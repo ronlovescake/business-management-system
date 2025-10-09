@@ -2193,25 +2193,9 @@ export default function Transactions() {
             ? (newValue.data as { value: string }).value
             : '';
 
-        // Create a new updated transaction
-        const updatedTransaction = {
-          ...transaction,
+        // Update via service layer (batched or immediate) - only send changed field
+        updateTransactionData({
           'Order Status': dropdownValue as string,
-        };
-
-        // Update via service layer
-        if (transaction.id) {
-          updateTransactionData(updatedTransaction);
-        }
-
-        // Save to database
-        saveTransactionToDatabase(updatedTransaction).catch((error) => {
-          showNotification({
-            title: 'Error',
-            message: 'Failed to save Order Status to database',
-            color: 'red',
-          });
-          console.error('Database save error:', error);
         });
 
         showNotification({
@@ -2222,25 +2206,9 @@ export default function Transactions() {
       }
 
       if (column.id === 'notes') {
-        // Create a new updated transaction
-        const updatedTransaction = {
-          ...transaction,
+        // Update via service layer (batched or immediate) - only send changed field
+        updateTransactionData({
           Notes: 'data' in newValue ? (newValue.data as string) : '',
-        };
-
-        // Update via service layer
-        if (transaction.id) {
-          updateTransactionData(updatedTransaction);
-        }
-
-        // Save to database
-        saveTransactionToDatabase(updatedTransaction).catch((error) => {
-          showNotification({
-            title: 'Error',
-            message: 'Failed to save Notes to database',
-            color: 'red',
-          });
-          console.error('Database save error:', error);
         });
 
         showNotification({
