@@ -230,3 +230,12 @@
 .ht-theme-horizon .handsontable th {
   vertical-align: middle;
 }
+
+/* Prevent horizontal scrollbar by containing table within viewport */
+.ht-theme-horizon .handsontable {
+  max-width: 100%;
+}
+
+.ht-theme-horizon {
+  overflow-x: hidden !important;
+}

@@ -312,7 +312,7 @@ export function HandsontableGrid<T extends Item>({
       </Group>
 
       {/* Handsontable Grid */}
-      <div style={{ width: '100%' }}>
+      <div style={{ width: '100%', overflow: 'hidden' }}>
         <HotTable
           ref={hotRef}
           themeName="ht-theme-horizon"
