@@ -104,12 +104,18 @@ export default function Transactions() {
 
   // Batch mode tracking for paste operations - use ref for synchronous updates
   const isBatchModeRef = useRef(false);
+  const batchUpdatesRef = useRef<Map<number, Partial<TransactionData>>>(
+    new Map()
+  );
 
   // Listen for batch start and complete events from HandsontableGrid
   useEffect(() => {
     const handleBatchStart = () => {
-      console.log('🚀 Batch mode STARTED - suppressing notifications');
+      console.log(
+        '🚀 Batch mode STARTED - suppressing notifications and batching API calls'
+      );
       isBatchModeRef.current = true;
+      batchUpdatesRef.current.clear(); // Clear any previous batch
     };
 
     const handleBatchComplete = (event: Event) => {
@@ -117,12 +123,44 @@ export default function Transactions() {
       console.log(
         `✅ Batch mode COMPLETE - processed ${customEvent.detail.count} cells`
       );
+
+      // Flush all batched updates to API using bulk update
+      const batchedUpdates: TransactionData[] = [];
+
+      batchUpdatesRef.current.forEach((data, id) => {
+        // Convert TransactionData (nullable) to TransactionDTO (non-nullable) format
+        const fullTransaction = transactions.find((t) => t.id === id);
+        if (fullTransaction) {
+          batchedUpdates.push({
+            ...fullTransaction,
+            ...data,
+            // Ensure non-null values for required fields
+            Quantity: data.Quantity ?? fullTransaction.Quantity ?? 0,
+            'Unit Price':
+              data['Unit Price'] ?? fullTransaction['Unit Price'] ?? 0,
+            Discount: data.Discount ?? fullTransaction.Discount ?? 0,
+            Adjustment: data.Adjustment ?? fullTransaction.Adjustment ?? 0,
+            'Line Total':
+              data['Line Total'] ?? fullTransaction['Line Total'] ?? 0,
+          });
+        }
+      });
+
+      if (batchedUpdates.length > 0) {
+        console.log(
+          `📤 Flushing ${batchedUpdates.length} batched updates to API`
+        );
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        bulkUpdateTransactions(batchedUpdates as any); // Type cast to handle DTO conversion
+      }
+
       isBatchModeRef.current = false;
+      batchUpdatesRef.current.clear();
 
       // Show SINGLE summary notification for all batch changes
       notifications.show({
         title: 'Success',
-        message: `Successfully pasted and processed ${customEvent.detail.count} cells`,
+        message: `Successfully updated ${batchedUpdates.length} transactions`,
         color: 'green',
       });
     };
@@ -137,7 +175,7 @@ export default function Transactions() {
         handleBatchComplete
       );
     };
-  }, []);
+  }, [transactions, bulkUpdateTransactions]);
 
   // Derived state from service data (replaces direct API state)
   const [customerNames, setCustomerNames] = useState<string[]>([]);
@@ -1224,12 +1262,38 @@ export default function Transactions() {
       const key = idToKey[column.id as string];
       const value = item[key];
 
+      // Helper function to sanitize values (treat "null" string as empty)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sanitizeValue = (val: any): string => {
+        if (val === null || val === undefined || val === 'null' || val === '') {
+          return '';
+        }
+        return String(val);
+      };
+
+      // Helper function for numeric columns: also treat 0 as blank
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sanitizeNumericValue = (val: any): string => {
+        if (
+          val === null ||
+          val === undefined ||
+          val === 'null' ||
+          val === '' ||
+          val === 0 ||
+          val === '0'
+        ) {
+          return '';
+        }
+        return String(val);
+      };
+
       // Make Order Date column editable
       if (column.id === 'orderDate') {
+        const sanitized = sanitizeValue(value);
         return {
           kind: GridCellKind.Text,
-          data: (value ?? '').toString(),
-          displayData: (value ?? '').toString(),
+          data: sanitized,
+          displayData: sanitized,
           allowOverlay: true,
           readonly: false,
         } as GridCell;
@@ -1240,10 +1304,10 @@ export default function Transactions() {
         return {
           kind: GridCellKind.Custom,
           allowOverlay: true,
-          copyData: (value ?? '').toString(),
+          copyData: sanitizeValue(value),
           data: {
             kind: 'dropdown-cell',
-            value: (value ?? '').toString(),
+            value: sanitizeValue(value),
             allowedValues: customerNames,
           },
         } as GridCell;
@@ -1254,10 +1318,10 @@ export default function Transactions() {
         return {
           kind: GridCellKind.Custom,
           allowOverlay: true,
-          copyData: (value ?? '').toString(),
+          copyData: sanitizeValue(value),
           data: {
             kind: 'dropdown-cell',
-            value: (value ?? '').toString(),
+            value: sanitizeValue(value),
             allowedValues: productCodes,
           },
         } as GridCell;
@@ -1265,14 +1329,11 @@ export default function Transactions() {
 
       // Make Quantity column editable
       if (column.id === 'quantity') {
-        const displayValue =
-          typeof value === 'number' && value === 0
-            ? ''
-            : (value ?? '').toString();
+        const sanitized = sanitizeNumericValue(value);
         return {
           kind: GridCellKind.Text,
-          data: (value ?? '').toString(),
-          displayData: displayValue,
+          data: sanitized,
+          displayData: sanitized,
           allowOverlay: true,
           readonly: false,
         } as GridCell;
@@ -1280,14 +1341,11 @@ export default function Transactions() {
 
       // Make Discount column editable
       if (column.id === 'discount') {
-        const displayValue =
-          typeof value === 'number' && value === 0
-            ? ''
-            : (value ?? '').toString();
+        const sanitized = sanitizeNumericValue(value);
         return {
           kind: GridCellKind.Text,
-          data: (value ?? '').toString(),
-          displayData: displayValue,
+          data: sanitized,
+          displayData: sanitized,
           allowOverlay: true,
           readonly: false,
         } as GridCell;
@@ -1295,14 +1353,11 @@ export default function Transactions() {
 
       // Make Adjustment column editable
       if (column.id === 'adjustment') {
-        const displayValue =
-          typeof value === 'number' && value === 0
-            ? ''
-            : (value ?? '').toString();
+        const sanitized = sanitizeNumericValue(value);
         return {
           kind: GridCellKind.Text,
-          data: (value ?? '').toString(),
-          displayData: displayValue,
+          data: sanitized,
+          displayData: sanitized,
           allowOverlay: true,
           readonly: false,
         } as GridCell;
@@ -1313,10 +1368,10 @@ export default function Transactions() {
         return {
           kind: GridCellKind.Custom,
           allowOverlay: true,
-          copyData: (value ?? '').toString(),
+          copyData: sanitizeValue(value),
           data: {
             kind: 'dropdown-cell',
-            value: (value ?? '').toString(),
+            value: sanitizeValue(value),
             allowedValues: [
               'In Transit',
               'Warehouse',
@@ -1335,10 +1390,11 @@ export default function Transactions() {
 
       // Make Notes column editable
       if (column.id === 'notes') {
+        const sanitized = sanitizeValue(value);
         return {
           kind: GridCellKind.Text,
-          data: (value ?? '').toString(),
-          displayData: (value ?? '').toString(),
+          data: sanitized,
+          displayData: sanitized,
           allowOverlay: true,
           readonly: false,
         } as GridCell;
@@ -1347,7 +1403,7 @@ export default function Transactions() {
       // Auto-populate Shipment Code based on Product Code (read-only)
       if (column.id === 'shipmentCode') {
         const currentProductCode = item['Product Code'];
-        let displayValue = (value ?? '').toString();
+        let displayValue = sanitizeValue(value);
 
         // If there's a product code and we have a mapping, auto-populate the shipment code
         if (currentProductCode && productToShipmentMap[currentProductCode]) {
@@ -1367,10 +1423,11 @@ export default function Transactions() {
       if (typeof value === 'number') {
         // Show blank cell for zero values to make it easier to spot missing data
         const displayValue = value === 0 ? '' : value.toLocaleString();
+        const dataValue = value === 0 ? '' : String(value);
 
         return {
-          kind: GridCellKind.Number,
-          data: value,
+          kind: GridCellKind.Text,
+          data: dataValue,
           displayData: displayValue,
           allowOverlay: false,
         } as GridCell;
@@ -1378,8 +1435,8 @@ export default function Transactions() {
 
       return {
         kind: GridCellKind.Text,
-        data: (value ?? '').toString(),
-        displayData: (value ?? '').toString(),
+        data: sanitizeValue(value),
+        displayData: sanitizeValue(value),
         allowOverlay: false,
       } as GridCell;
     },
@@ -1508,6 +1565,30 @@ export default function Transactions() {
         '_isBatchMode' in newValue &&
         (newValue as unknown as { _isBatchMode?: boolean })._isBatchMode;
 
+      // Helper function to batch or immediately execute updates
+      const updateTransactionData = (data: Partial<TransactionData>) => {
+        if (!transaction.id) return;
+
+        if (isBatchEdit || isBatchModeRef.current) {
+          // BATCH MODE: Accumulate changes instead of making immediate API calls
+          console.log(
+            `📦 Batching update for transaction ${transaction.id}:`,
+            data
+          );
+
+          const existing = batchUpdatesRef.current.get(transaction.id) || {};
+          batchUpdatesRef.current.set(transaction.id, { ...existing, ...data });
+        } else {
+          // NORMAL MODE: Make immediate API call
+          console.log(
+            `🔄 Immediate update for transaction ${transaction.id}:`,
+            data
+          );
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          updateTransaction({ id: transaction.id, data: data as any });
+        }
+      };
+
       // Helper function to conditionally show notifications (suppressed during batch mode)
       const showNotification = (options: {
         title: string;
@@ -1538,30 +1619,27 @@ export default function Transactions() {
       }
 
       if (column.id === 'orderDate') {
-        // Update via service layer
-        if (transaction.id) {
-          updateTransaction({
-            id: transaction.id,
-            data: {
-              'Order Date': 'data' in newValue ? (newValue.data as string) : '',
-            },
+        // Update via service layer (batched or immediate)
+        updateTransactionData({
+          'Order Date': 'data' in newValue ? (newValue.data as string) : '',
+        });
+
+        // Legacy database save (keeping for compatibility) - skip during batch mode
+        if (!isBatchEdit && !isBatchModeRef.current) {
+          const updatedTransaction = {
+            ...transaction,
+            'Order Date': 'data' in newValue ? (newValue.data as string) : '',
+          };
+
+          saveTransactionToDatabase(updatedTransaction).catch((error) => {
+            showNotification({
+              title: 'Error',
+              message: 'Failed to save Order Date to database',
+              color: 'red',
+            });
+            console.error('Database save error:', error);
           });
         }
-
-        // Legacy database save (keeping for compatibility)
-        const updatedTransaction = {
-          ...transaction,
-          'Order Date': 'data' in newValue ? (newValue.data as string) : '',
-        };
-
-        saveTransactionToDatabase(updatedTransaction).catch((error) => {
-          showNotification({
-            title: 'Error',
-            message: 'Failed to save Order Date to database',
-            color: 'red',
-          });
-          console.error('Database save error:', error);
-        });
 
         showNotification({
           title: 'Success',
@@ -1598,30 +1676,27 @@ export default function Transactions() {
           });
         }
 
-        // Update via service layer
-        if (transaction.id) {
-          updateTransaction({
-            id: transaction.id,
-            data: {
-              Customers: dropdownValue as string,
-              'Order Date': autoPopulatedOrderDate,
-            },
-          });
-        }
-
-        // Save to database
-        saveTransactionToDatabase({
-          ...transaction,
+        // Update via service layer (batched or immediate)
+        updateTransactionData({
           Customers: dropdownValue as string,
           'Order Date': autoPopulatedOrderDate,
-        }).catch((error) => {
-          showNotification({
-            title: 'Error',
-            message: 'Failed to save Customer to database',
-            color: 'red',
-          });
-          console.error('Database save error:', error);
         });
+
+        // Save to database - skip during batch mode
+        if (!isBatchEdit && !isBatchModeRef.current) {
+          saveTransactionToDatabase({
+            ...transaction,
+            Customers: dropdownValue as string,
+            'Order Date': autoPopulatedOrderDate,
+          }).catch((error) => {
+            showNotification({
+              title: 'Error',
+              message: 'Failed to save Customer to database',
+              color: 'red',
+            });
+            console.error('Database save error:', error);
+          });
+        }
 
         showNotification({
           title: 'Success',
@@ -1740,7 +1815,7 @@ export default function Transactions() {
 
         // Update via service layer
         if (transaction.id) {
-          updateTransaction({ id: transaction.id, data: updatedTransaction });
+          updateTransactionData(updatedTransaction);
         }
 
         // Save to database
@@ -1857,7 +1932,7 @@ export default function Transactions() {
 
         // Update the transactions array
         if (transaction.id) {
-          updateTransaction({ id: transaction.id, data: updatedTransaction });
+          updateTransactionData(updatedTransaction);
         }
 
         // Save to database
@@ -1922,7 +1997,7 @@ export default function Transactions() {
 
         // Update via service layer
         if (transaction.id) {
-          updateTransaction({ id: transaction.id, data: updatedTransaction });
+          updateTransactionData(updatedTransaction);
         }
 
         // Save to database
@@ -2012,7 +2087,7 @@ export default function Transactions() {
 
         // Update via service layer
         if (transaction.id) {
-          updateTransaction({ id: transaction.id, data: updatedTransaction });
+          updateTransactionData(updatedTransaction);
         }
 
         // Save to database
@@ -2068,7 +2143,7 @@ export default function Transactions() {
 
         // Update via service layer
         if (transaction.id) {
-          updateTransaction({ id: transaction.id, data: updatedTransaction });
+          updateTransactionData(updatedTransaction);
         }
 
         // Save to database
@@ -2105,7 +2180,7 @@ export default function Transactions() {
 
         // Update via service layer
         if (transaction.id) {
-          updateTransaction({ id: transaction.id, data: updatedTransaction });
+          updateTransactionData(updatedTransaction);
         }
 
         // Save to database
@@ -2134,7 +2209,7 @@ export default function Transactions() {
 
         // Update via service layer
         if (transaction.id) {
-          updateTransaction({ id: transaction.id, data: updatedTransaction });
+          updateTransactionData(updatedTransaction);
         }
 
         // Save to database
@@ -2555,8 +2630,8 @@ export default function Transactions() {
   return (
     <PageLayout fluid withPadding>
       <TransactionsLayout
-        data={transactions}
-        filteredData={filteredData}
+        data={transactions as unknown as Item[]}
+        filteredData={filteredData as unknown as Item[]}
         columns={columns}
         searchQuery={searchQuery}
         onSearch={handleSearch}
@@ -2576,9 +2651,19 @@ export default function Transactions() {
         statusOptions={statusOptions}
         selectedStatuses={selectedStatuses}
         onStatusFilter={handleStatusFilter}
-        onGenerateInvoice={handleGenerateInvoice}
-        onGeneratePackingList={handleGeneratePackingList}
-        onGenerateDistribution={handleGenerateDistribution}
+        onGenerateInvoice={
+          handleGenerateInvoice as unknown as (data: Item[]) => Promise<void>
+        }
+        onGeneratePackingList={
+          handleGeneratePackingList as unknown as (
+            data: Item[]
+          ) => Promise<void>
+        }
+        onGenerateDistribution={
+          handleGenerateDistribution as unknown as (
+            data: Item[]
+          ) => Promise<void>
+        }
         isGeneratingInvoice={isGeneratingInvoice}
         isGeneratingPackingList={isGeneratingPackingList}
         isGeneratingDistribution={isGeneratingDistribution}

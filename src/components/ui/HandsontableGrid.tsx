@@ -341,7 +341,7 @@ export function HandsontableGrid<T extends Item>({
           // Performance: Disable features that slow down large grids
           autoRowSize={false} // Disable auto row height calculation
           autoColumnSize={false} // Disable auto column width calculation
-          rowHeights={45} // Set fixed row height (default is ~23px)
+          rowHeights={50} // Set fixed row height (default is ~23px)
           afterChange={(changes, source) => {
             if (!changes || !onCellEdited) return;
 
