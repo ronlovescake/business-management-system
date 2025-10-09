@@ -3,7 +3,9 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { HotTable } from '@handsontable/react';
 import { registerAllModules } from 'handsontable/registry';
-import 'handsontable/dist/handsontable.full.min.css';
+import 'handsontable/styles/handsontable.min.css';
+import 'handsontable/styles/ht-theme-horizon.min.css';
+import '@/styles/handsontable-horizon-light.css';
 import {
   GridColumn,
   Item,
@@ -81,6 +83,20 @@ export function HandsontableGrid<T extends Item>({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const hotRef = useRef(null);
   const [currentGridHeight, setCurrentGridHeight] = useState<number>(600);
+  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isBatchModeRef = useRef(false);
+  const batchCountRef = useRef(0);
+
+  // Debug: Check if theme is applied
+  useEffect(() => {
+    const wrapper = document.querySelector('.ht-theme-horizon');
+    if (wrapper) {
+      console.log('✅ Horizon theme wrapper found');
+    } else {
+      console.log('❌ Horizon theme wrapper NOT found');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Set grid height to 83vh by default
   useEffect(() => {
@@ -296,22 +312,10 @@ export function HandsontableGrid<T extends Item>({
       </Group>
 
       {/* Handsontable Grid */}
-      <Card
-        withBorder
-        shadow="sm"
-        radius="md"
-        padding="md"
-        style={{
-          minHeight: currentGridHeight,
-          width: '100%',
-          maxWidth: '100%',
-          overflow: 'hidden',
-          position: 'relative',
-          background: '#fff',
-        }}
-      >
+      <div style={{ width: '100%' }}>
         <HotTable
           ref={hotRef}
+          themeName="ht-theme-horizon"
           data={hotData}
           columns={hotColumns}
           colHeaders={columns.map((col) => col.title)}
@@ -319,27 +323,105 @@ export function HandsontableGrid<T extends Item>({
           width="100%"
           height={currentGridHeight - 40}
           licenseKey="non-commercial-and-evaluation"
+          // Performance optimizations for large datasets (4795 rows)
+          renderAllRows={false} // Virtual rendering - only render visible rows
+          renderAllColumns={false} // Virtual rendering - only render visible columns
+          viewportRowRenderingOffset={30} // Render 30 extra rows above/below viewport
+          viewportColumnRenderingOffset={5} // Render 5 extra columns left/right
+          // Styling
           stretchH="all"
           autoWrapRow={true}
           autoWrapCol={true}
+          // Features
           manualColumnResize={true}
           manualRowResize={true}
           contextMenu={true}
           filters={true}
           dropdownMenu={true}
-          afterChange={(changes) => {
+          // Performance: Disable features that slow down large grids
+          autoRowSize={false} // Disable auto row height calculation
+          autoColumnSize={false} // Disable auto column width calculation
+          afterChange={(changes, source) => {
             if (!changes || !onCellEdited) return;
 
-            changes.forEach(([row, col, oldValue, newValue]) => {
-              if (oldValue !== newValue && typeof col === 'number') {
-                onCellEdited([col, row], {
-                  kind: GridCellKind.Text,
-                  data: String(newValue),
-                  displayData: String(newValue),
-                  allowOverlay: true,
-                });
+            // Detect paste operations - source can be 'CopyPaste.paste', 'Autofill.fill', etc.
+            const isPaste =
+              source?.includes('paste') ||
+              source?.includes('Paste') ||
+              source?.includes('Autofill');
+
+            if (isPaste) {
+              // Set batch mode flag to suppress notifications
+              isBatchModeRef.current = true;
+              batchCountRef.current = 0;
+
+              // Signal batch mode START immediately
+              window.dispatchEvent(new CustomEvent('handsontable-batch-start'));
+
+              // For paste operations, batch all changes and process after a short delay
+              // This prevents the flickering caused by multiple rapid re-renders
+              if (updateTimeoutRef.current) {
+                clearTimeout(updateTimeoutRef.current);
               }
-            });
+
+              updateTimeoutRef.current = setTimeout(() => {
+                changes.forEach(([row, col, oldValue, newValue]) => {
+                  if (oldValue !== newValue && typeof col === 'number') {
+                    const isDropdownColumn =
+                      hotColumns[col]?.type === 'autocomplete';
+
+                    const cellData = {
+                      kind: GridCellKind.Text,
+                      data:
+                        isDropdownColumn && newValue
+                          ? { value: String(newValue) }
+                          : String(newValue),
+                      displayData: String(newValue),
+                      allowOverlay: true,
+                    } as GridCell & { _isBatchMode?: boolean };
+
+                    // Mark as batch mode
+                    (
+                      cellData as unknown as { _isBatchMode: boolean }
+                    )._isBatchMode = true;
+
+                    onCellEdited([col, row], cellData as GridCell);
+                    batchCountRef.current++;
+                  }
+                });
+
+                // After all batch changes are done, dispatch a custom event with count
+                setTimeout(() => {
+                  isBatchModeRef.current = false;
+                  window.dispatchEvent(
+                    new CustomEvent('handsontable-batch-complete', {
+                      detail: { count: batchCountRef.current },
+                    })
+                  );
+                  batchCountRef.current = 0;
+                }, 100);
+              }, 100); // 100ms delay to batch paste operations
+            } else {
+              // For regular edits (typing), process immediately
+              changes.forEach(([row, col, oldValue, newValue]) => {
+                if (oldValue !== newValue && typeof col === 'number') {
+                  const isDropdownColumn =
+                    hotColumns[col]?.type === 'autocomplete';
+
+                  const cellData = {
+                    kind: GridCellKind.Text,
+                    data:
+                      isDropdownColumn && newValue
+                        ? { value: String(newValue) }
+                        : String(newValue),
+                    displayData: String(newValue),
+                    allowOverlay: true,
+                  };
+
+                  onCellEdited([col, row], cellData as GridCell);
+                }
+              });
+            }
           }}
           afterSelectionEnd={(row, col) => {
             if (onCellClick && row >= 0 && col >= 0) {
@@ -350,7 +432,7 @@ export function HandsontableGrid<T extends Item>({
             }
           }}
         />
-      </Card>
+      </div>
 
       {/* Footer pagination counter at bottom */}
       {showFooter && (

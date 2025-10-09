@@ -96,6 +96,43 @@ export default function Transactions() {
     update: updateTransaction,
   } = useTransactionData();
 
+  // Batch mode tracking for paste operations
+  const [isBatchMode, setIsBatchMode] = useState(false);
+
+  // Listen for batch start and complete events from HandsontableGrid
+  useEffect(() => {
+    const handleBatchStart = () => {
+      console.log('🚀 Batch mode STARTED - suppressing notifications');
+      setIsBatchMode(true);
+    };
+
+    const handleBatchComplete = (event: Event) => {
+      const customEvent = event as CustomEvent<{ count: number }>;
+      console.log(
+        `✅ Batch mode COMPLETE - processed ${customEvent.detail.count} cells`
+      );
+      setIsBatchMode(false);
+
+      // Show SINGLE summary notification for all batch changes
+      notifications.show({
+        title: 'Success',
+        message: `Successfully pasted and processed ${customEvent.detail.count} cells`,
+        color: 'green',
+      });
+    };
+
+    window.addEventListener('handsontable-batch-start', handleBatchStart);
+    window.addEventListener('handsontable-batch-complete', handleBatchComplete);
+
+    return () => {
+      window.removeEventListener('handsontable-batch-start', handleBatchStart);
+      window.removeEventListener(
+        'handsontable-batch-complete',
+        handleBatchComplete
+      );
+    };
+  }, []);
+
   // Derived state from service data (replaces direct API state)
   const [customerNames, setCustomerNames] = useState<string[]>([]);
   const [productCodes, setProductCodes] = useState<string[]>([]);
@@ -1460,6 +1497,28 @@ export default function Transactions() {
 
       if (!transaction) return; // Safety check
 
+      // Check if this is part of a batch paste operation
+      const isBatchEdit =
+        '_isBatchMode' in newValue &&
+        (newValue as unknown as { _isBatchMode?: boolean })._isBatchMode;
+
+      // Set batch mode flag if this is a batch edit
+      if (isBatchEdit && !isBatchMode) {
+        setIsBatchMode(true);
+      }
+
+      // Helper function to conditionally show notifications (suppressed during batch mode)
+      const showNotification = (options: {
+        title: string;
+        message: string;
+        color: string;
+      }) => {
+        // Suppress notifications if we're in batch mode OR this specific cell is part of a batch
+        if (!isBatchEdit && !isBatchMode) {
+          notifications.show(options);
+        }
+      };
+
       // 🚀 PERFORMANCE: Use Map for O(1) lookup instead of O(n) findIndex
       const transactionIndex =
         transaction.id !== undefined
@@ -1490,7 +1549,7 @@ export default function Transactions() {
         };
 
         saveTransactionToDatabase(updatedTransaction).catch((error) => {
-          notifications.show({
+          showNotification({
             title: 'Error',
             message: 'Failed to save Order Date to database',
             color: 'red',
@@ -1498,7 +1557,7 @@ export default function Transactions() {
           console.error('Database save error:', error);
         });
 
-        notifications.show({
+        showNotification({
           title: 'Success',
           message: 'Order Date updated successfully',
           color: 'green',
@@ -1550,7 +1609,7 @@ export default function Transactions() {
           Customers: dropdownValue as string,
           'Order Date': autoPopulatedOrderDate,
         }).catch((error) => {
-          notifications.show({
+          showNotification({
             title: 'Error',
             message: 'Failed to save Customer to database',
             color: 'red',
@@ -1558,7 +1617,7 @@ export default function Transactions() {
           console.error('Database save error:', error);
         });
 
-        notifications.show({
+        showNotification({
           title: 'Success',
           message:
             shouldAutoPopulateDate &&
@@ -1680,7 +1739,7 @@ export default function Transactions() {
 
         // Save to database
         saveTransactionToDatabase(updatedTransaction).catch((error) => {
-          notifications.show({
+          showNotification({
             title: 'Error',
             message: 'Failed to save Product Code to database',
             color: 'red',
@@ -1714,7 +1773,7 @@ export default function Transactions() {
           message += ` (Order Status "${currentOrderStatus}" preserved)`;
         }
 
-        notifications.show({
+        showNotification({
           title: 'Success',
           message,
           color: 'green',
@@ -1797,7 +1856,7 @@ export default function Transactions() {
 
         // Save to database
         saveTransactionToDatabase(updatedTransaction).catch((error) => {
-          notifications.show({
+          showNotification({
             title: 'Error',
             message: 'Failed to save Quantity to database',
             color: 'red',
@@ -1813,7 +1872,7 @@ export default function Transactions() {
           message = 'Quantity updated and Unit Price cleared';
         }
 
-        notifications.show({
+        showNotification({
           title: 'Success',
           message,
           color: 'green',
@@ -1862,7 +1921,7 @@ export default function Transactions() {
 
         // Save to database
         saveTransactionToDatabase(updatedTransaction).catch((error) => {
-          notifications.show({
+          showNotification({
             title: 'Error',
             message: 'Failed to save Unit Price to database',
             color: 'red',
@@ -1870,7 +1929,7 @@ export default function Transactions() {
           console.error('Database save error:', error);
         });
 
-        notifications.show({
+        showNotification({
           title: 'Success',
           message: 'Unit Price updated successfully',
           color: 'green',
@@ -1952,7 +2011,7 @@ export default function Transactions() {
 
         // Save to database
         saveTransactionToDatabase(updatedTransaction).catch((error) => {
-          notifications.show({
+          showNotification({
             title: 'Error',
             message: 'Failed to save Discount to database',
             color: 'red',
@@ -1960,7 +2019,7 @@ export default function Transactions() {
           console.error('Database save error:', error);
         });
 
-        notifications.show({
+        showNotification({
           title: 'Success',
           message: 'Discount updated successfully',
           color: 'green',
@@ -2008,7 +2067,7 @@ export default function Transactions() {
 
         // Save to database
         saveTransactionToDatabase(updatedTransaction).catch((error) => {
-          notifications.show({
+          showNotification({
             title: 'Error',
             message: 'Failed to save Adjustment to database',
             color: 'red',
@@ -2016,7 +2075,7 @@ export default function Transactions() {
           console.error('Database save error:', error);
         });
 
-        notifications.show({
+        showNotification({
           title: 'Success',
           message: 'Adjustment updated successfully',
           color: 'green',
@@ -2045,7 +2104,7 @@ export default function Transactions() {
 
         // Save to database
         saveTransactionToDatabase(updatedTransaction).catch((error) => {
-          notifications.show({
+          showNotification({
             title: 'Error',
             message: 'Failed to save Order Status to database',
             color: 'red',
@@ -2053,7 +2112,7 @@ export default function Transactions() {
           console.error('Database save error:', error);
         });
 
-        notifications.show({
+        showNotification({
           title: 'Success',
           message: 'Order Status updated successfully',
           color: 'green',
@@ -2074,7 +2133,7 @@ export default function Transactions() {
 
         // Save to database
         saveTransactionToDatabase(updatedTransaction).catch((error) => {
-          notifications.show({
+          showNotification({
             title: 'Error',
             message: 'Failed to save Notes to database',
             color: 'red',
@@ -2082,7 +2141,7 @@ export default function Transactions() {
           console.error('Database save error:', error);
         });
 
-        notifications.show({
+        showNotification({
           title: 'Success',
           message: 'Notes updated successfully',
           color: 'green',
@@ -2100,6 +2159,8 @@ export default function Transactions() {
       getUnitPriceForQuantity,
       calculateLineTotal,
       updateTransaction,
+      isBatchMode,
+      setIsBatchMode,
     ]
   );
 
