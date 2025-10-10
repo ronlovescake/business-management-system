@@ -299,6 +299,16 @@ export default function Transactions() {
     TransactionData[] | null
   >(null);
 
+  // Customer warning modal state
+  const [showCustomerWarningModal, setShowCustomerWarningModal] =
+    useState(false);
+  const [customerWarningData, setCustomerWarningData] = useState<{
+    customerName: string;
+    warnings: string[];
+    onProceed: () => void;
+    onCancel: () => void;
+  } | null>(null);
+
   // ============================================================================
   // SERVICE LAYER INTEGRATION - Transactions data loaded via useTransactionData()
   // ============================================================================
@@ -472,6 +482,108 @@ export default function Transactions() {
 
     loadProductMappings();
   }, []); // Run once on component mount
+
+  // ============================================================================
+  // CUSTOMER VALIDATION LOGIC - Check for banned customers and high cancellation rates
+  // ============================================================================
+  const validateCustomer = useCallback(
+    async (
+      customerName: string
+    ): Promise<{
+      isValid: boolean;
+      warnings: string[];
+      customerData?: Record<string, unknown>;
+    }> => {
+      try {
+        if (!customerName || customerName.trim() === '') {
+          return { isValid: true, warnings: [] };
+        }
+
+        // Fetch all customers to find the selected customer
+        const response = await fetch('/api/customers');
+        if (!response.ok) {
+          console.warn('Could not fetch customer data for validation');
+          return { isValid: true, warnings: [] };
+        }
+
+        const customersData = await response.json();
+        const customer = customersData.find(
+          (c: Record<string, unknown>) =>
+            (c['Customer Name'] || c.customerName || c.name) ===
+            customerName.trim()
+        );
+
+        if (!customer) {
+          // Customer not found in database, allow but warn
+          return {
+            isValid: true,
+            warnings: [`Customer "${customerName}" not found in database`],
+          };
+        }
+
+        const warnings: string[] = [];
+        let isValid = true;
+        const customerStatus =
+          customer['Customer Status'] || customer.customerStatus || '';
+
+        // Check if customer is banned
+        if (customerStatus.toLowerCase().includes('banned')) {
+          warnings.push(
+            `🚫 BANNED CUSTOMER: "${customerName}" is marked as BANNED`
+          );
+          isValid = false; // This is a critical warning
+        }
+
+        // Calculate cancellation rate from transactions
+        try {
+          const customerId = customer.id;
+          if (customerId) {
+            const transactionsResponse = await fetch(
+              `/api/customers/${customerId}/transactions`
+            );
+            if (transactionsResponse.ok) {
+              const customerTransactions = await transactionsResponse.json();
+
+              if (customerTransactions.length > 0) {
+                const cancelledTransactions = customerTransactions.filter(
+                  (t: Record<string, unknown>) =>
+                    String(t.orderStatus || '')
+                      .toLowerCase()
+                      .includes('cancel')
+                ).length;
+
+                const cancellationRate = Math.round(
+                  (cancelledTransactions / customerTransactions.length) * 100
+                );
+
+                if (cancellationRate >= 50) {
+                  // 50% or higher cancellation rate
+                  warnings.push(
+                    `⚠️ HIGH CANCELLATION RATE: "${customerName}" has a ${cancellationRate}% cancellation rate (${cancelledTransactions}/${customerTransactions.length} orders cancelled)`
+                  );
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.warn(
+            'Could not calculate cancellation rate for customer:',
+            error
+          );
+        }
+
+        return {
+          isValid,
+          warnings,
+          customerData: customer,
+        };
+      } catch (error) {
+        console.error('Error validating customer:', error);
+        return { isValid: true, warnings: [] };
+      }
+    },
+    []
+  );
 
   // Helper function to determine Order Status based on Shipment Status
   const getOrderStatusFromShipmentStatus = useCallback(
@@ -2080,6 +2192,61 @@ export default function Transactions() {
             ? (newValue.data as { value: string }).value
             : '';
 
+        // ============================================================================
+        // CUSTOMER VALIDATION - Check for banned customers and high cancellation rates
+        // ============================================================================
+        if (dropdownValue && dropdownValue.trim() !== '') {
+          // Perform validation asynchronously without blocking the UI
+          validateCustomer(dropdownValue)
+            .then((validation) => {
+              if (validation.warnings.length > 0) {
+                // Show modern warning modal for banned customers or high cancellation rates
+                setCustomerWarningData({
+                  customerName: dropdownValue,
+                  warnings: validation.warnings,
+                  onProceed: () => {
+                    // User chose to proceed, show acknowledgment
+                    setShowCustomerWarningModal(false);
+                    notifications.show({
+                      title: '⚠️ Warning Acknowledged',
+                      message: `Proceeding with customer "${dropdownValue}" despite warnings`,
+                      color: 'yellow',
+                      autoClose: 6000,
+                    });
+                  },
+                  onCancel: () => {
+                    // User cancelled - revert the customer selection
+                    setShowCustomerWarningModal(false);
+                    updateTransactionData({
+                      Customers: '', // Clear the customer
+                    });
+
+                    if (!isBatchEdit && !isBatchModeRef.current) {
+                      saveTransactionToDatabase({
+                        ...transaction,
+                        Customers: '',
+                      }).catch((error) => {
+                        console.error('Database save error:', error);
+                      });
+                    }
+
+                    notifications.show({
+                      title: '🚫 Customer Selection Cancelled',
+                      message: `Customer "${dropdownValue}" was not selected due to warnings`,
+                      color: 'orange',
+                      autoClose: 5000,
+                    });
+                  },
+                });
+                setShowCustomerWarningModal(true);
+              }
+            })
+            .catch((error) => {
+              console.error('Customer validation error:', error);
+              // If validation fails, continue anyway but log the error
+            });
+        }
+
         // Auto-populate Order Date when customer is selected (only if date is empty)
         const currentOrderDate = transaction['Order Date'];
         let autoPopulatedOrderDate = currentOrderDate; // Keep existing date by default
@@ -2707,6 +2874,7 @@ export default function Transactions() {
       getUnitPriceForQuantity,
       calculateLineTotal,
       updateTransaction,
+      validateCustomer,
       // isBatchModeRef is intentionally NOT in deps - it's a ref, not state
     ]
   );
@@ -3462,6 +3630,115 @@ export default function Transactions() {
               loading={isGeneratingDistribution}
             >
               Generate Distribution Slips
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* Customer Warning Modal */}
+      <Modal
+        opened={showCustomerWarningModal}
+        onClose={() => {
+          setShowCustomerWarningModal(false);
+          setCustomerWarningData(null);
+        }}
+        title={
+          <Group gap="sm">
+            <IconAlertTriangle size={24} color="#fa5252" />
+            <Text size="lg" fw={600} c="red">
+              Customer Warning
+            </Text>
+          </Group>
+        }
+        centered
+        size="md"
+        radius="md"
+        withCloseButton={false}
+        overlayProps={{ blur: 3 }}
+      >
+        <Stack gap="lg">
+          <Alert
+            icon={<IconAlertTriangle size={16} />}
+            title="Important Notice"
+            color="red"
+            variant="light"
+          >
+            <Text size="sm">
+              This customer has been flagged with critical issues. Please review
+              the details below before proceeding.
+            </Text>
+          </Alert>
+
+          <div>
+            <Text size="md" fw={500} mb="md">
+              Customer:{' '}
+              <Text component="span" fw={700} c="dark">
+                {customerWarningData?.customerName}
+              </Text>
+            </Text>
+
+            <Stack gap="sm">
+              {customerWarningData?.warnings.map((warning, index) => {
+                const isBanned = warning.includes('BANNED CUSTOMER');
+                const isCancellation = warning.includes(
+                  'HIGH CANCELLATION RATE'
+                );
+
+                return (
+                  <Group key={index} gap="sm" align="flex-start">
+                    {isBanned ? (
+                      <IconX
+                        size={18}
+                        color="#fa5252"
+                        style={{ marginTop: 2 }}
+                      />
+                    ) : isCancellation ? (
+                      <IconAlertTriangle
+                        size={18}
+                        color="#fd7e14"
+                        style={{ marginTop: 2 }}
+                      />
+                    ) : (
+                      <IconAlertTriangle
+                        size={18}
+                        color="#228be6"
+                        style={{ marginTop: 2 }}
+                      />
+                    )}
+                    <Text
+                      size="sm"
+                      style={{ flex: 1 }}
+                      c={isBanned ? 'red' : isCancellation ? 'orange' : 'dark'}
+                    >
+                      {warning.replace(/^🚫|^⚠️/, '').trim()}
+                    </Text>
+                  </Group>
+                );
+              })}
+            </Stack>
+          </div>
+
+          <Divider />
+
+          <Text size="sm" c="dimmed" ta="center">
+            Would you like to proceed with this customer despite the warnings?
+          </Text>
+
+          <Group justify="center" gap="md" mt="md">
+            <Button
+              variant="outline"
+              leftSection={<IconX size={16} />}
+              onClick={customerWarningData?.onCancel}
+              color="gray"
+            >
+              Cancel Selection
+            </Button>
+            <Button
+              leftSection={<IconCheck size={16} />}
+              onClick={customerWarningData?.onProceed}
+              color="red"
+            >
+              Proceed Anyway
             </Button>
           </Group>
         </Stack>
