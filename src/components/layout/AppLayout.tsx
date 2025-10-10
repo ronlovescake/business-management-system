@@ -71,13 +71,19 @@ export function AppLayout({ children }: AppLayoutProps) {
             padding="md"
             style={{
               '--mantine-color-body': 'var(--background)',
+              background:
+                'linear-gradient(135deg, #ffeaa7 0%, #fab1a0 25%, #fd79a8 50%, #fdcb6e 75%, #e17055 100%)',
+              minHeight: '100vh',
             }}
           >
             <AppShell.Header
               style={{
-                borderBottom: '1px solid var(--border-color)',
-                backgroundColor: '#ffffff',
-                backdropFilter: 'blur(8px)',
+                border: 'none',
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
+                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)',
               }}
             >
               <div
@@ -95,9 +101,12 @@ export function AppLayout({ children }: AppLayoutProps) {
             <AppShell.Navbar
               p="lg"
               style={{
-                backgroundColor: '#f8f9fa',
-                border: 'none',
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
                 borderRight: 'none',
+                boxShadow: '4px 0 16px rgba(0, 0, 0, 0.1)',
               }}
             >
               <Sidebar />
@@ -105,7 +114,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
             <AppShell.Main
               style={{
-                backgroundColor: '#f8f9fa',
+                backgroundColor: 'transparent',
                 minHeight: '100vh',
               }}
             >

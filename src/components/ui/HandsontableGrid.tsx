@@ -565,30 +565,60 @@ export function HandsontableGrid<T extends Item>({
           {statsCards.map((stat, index) => (
             <Card
               key={index}
-              shadow="xs"
               padding="md"
-              radius="md"
-              withBorder
-              bg={stat.backgroundColor || '#ffffff'}
+              radius="xl"
+              withBorder={false}
               style={{
                 cursor: 'default',
-                transition: 'transform 0.1s ease',
+                background: stat.backgroundColor || 'rgba(255, 255, 255, 0.1)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+                },
               }}
             >
               <Group justify="space-between" wrap="nowrap">
                 <div>
-                  <Text size="xs" c="dimmed" fw={500} tt="uppercase">
+                  <Text
+                    size="xs"
+                    c="dark"
+                    fw={600}
+                    tt="uppercase"
+                    style={{
+                      opacity: 0.8,
+                      textShadow: '0 1px 2px rgba(255, 255, 255, 0.3)',
+                    }}
+                  >
                     {stat.title}
                   </Text>
-                  <Title order={3} mt={4}>
+                  <Title
+                    order={3}
+                    mt={4}
+                    c="dark"
+                    style={{
+                      textShadow: '0 1px 2px rgba(255, 255, 255, 0.3)',
+                      fontWeight: 700,
+                    }}
+                  >
                     {stat.value}
                   </Title>
                 </div>
                 <ThemeIcon
-                  variant="light"
-                  color={stat.color}
+                  variant="filled"
+                  color="white"
                   size="lg"
                   radius="md"
+                  style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                    color: 'white',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                  }}
                 >
                   {stat.icon}
                 </ThemeIcon>
@@ -616,9 +646,18 @@ export function HandsontableGrid<T extends Item>({
             styles={{
               input: {
                 backgroundColor: '#ffffff',
-                borderColor: '#dee2e6',
+                borderColor: 'rgba(255, 255, 255, 0.5)',
                 borderWidth: '1px',
                 borderStyle: 'solid',
+                color: '#333333',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                '&::placeholder': {
+                  color: '#999999',
+                },
+                '&:focus': {
+                  borderColor: '#667eea',
+                  boxShadow: '0 4px 16px rgba(102, 126, 234, 0.2)',
+                },
               },
             }}
             size="md"
@@ -658,10 +697,12 @@ export function HandsontableGrid<T extends Item>({
         style={{
           width: '100%',
           overflow: 'hidden',
-          backgroundColor: '#ffffff',
-          borderRadius: '12px',
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-          border: '1px solid #e7e7e9',
+          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderRadius: '20px',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
         }}
       >
         <HotTable
