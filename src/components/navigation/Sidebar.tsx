@@ -309,18 +309,27 @@ export function Sidebar() {
               label={item.label}
               leftSection={
                 <ThemeIcon
-                  size="sm"
+                  size="md"
                   radius="sm"
                   variant={isActive ? 'filled' : 'light'}
-                  color={item.color}
+                  color="gray"
                 >
-                  <item.icon size={16} />
+                  <item.icon size={24} />
                 </ThemeIcon>
               }
               active={isActive}
               style={{
                 borderRadius: '8px',
                 fontWeight: isActive ? 600 : 500,
+                backgroundColor: isActive
+                  ? 'rgba(255, 255, 255, 0.9)'
+                  : 'transparent',
+                backdropFilter: isActive ? 'blur(10px)' : 'none',
+                WebkitBackdropFilter: isActive ? 'blur(10px)' : 'none',
+                border: isActive
+                  ? '1px solid rgba(255, 255, 255, 0.3)'
+                  : 'none',
+                boxShadow: isActive ? '0 4px 12px rgba(0, 0, 0, 0.1)' : 'none',
               }}
             />
           );
