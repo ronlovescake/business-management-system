@@ -3278,7 +3278,24 @@ export default function Transactions() {
         }
         size="lg"
         centered
-        overlayProps={{ blur: 3 }}
+        overlayProps={{ blur: 10 }}
+        styles={{
+          content: {
+            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            borderRadius: '20px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+          },
+          header: {
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            borderBottom: '1px solid rgba(0, 0, 0, 0.1)',
+          },
+          body: {
+            backgroundColor: 'transparent',
+          },
+        }}
       >
         <Stack gap="lg">
           <Alert
@@ -3408,7 +3425,24 @@ export default function Transactions() {
         }
         size="lg"
         centered
-        overlayProps={{ blur: 3 }}
+        overlayProps={{ blur: 10 }}
+        styles={{
+          content: {
+            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            borderRadius: '20px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+          },
+          header: {
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            borderBottom: '1px solid rgba(0, 0, 0, 0.1)',
+          },
+          body: {
+            backgroundColor: 'transparent',
+          },
+        }}
       >
         <Stack gap="lg">
           <Alert
@@ -3520,7 +3554,24 @@ export default function Transactions() {
         }
         size="lg"
         centered
-        overlayProps={{ blur: 3 }}
+        overlayProps={{ blur: 10 }}
+        styles={{
+          content: {
+            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            borderRadius: '20px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+          },
+          header: {
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            borderBottom: '1px solid rgba(0, 0, 0, 0.1)',
+          },
+          body: {
+            backgroundColor: 'transparent',
+          },
+        }}
       >
         <Stack gap="lg">
           <Alert
@@ -3654,7 +3705,24 @@ export default function Transactions() {
         size="md"
         radius="md"
         withCloseButton={false}
-        overlayProps={{ blur: 3 }}
+        overlayProps={{ blur: 10 }}
+        styles={{
+          content: {
+            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            borderRadius: '20px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+          },
+          header: {
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            borderBottom: '1px solid rgba(0, 0, 0, 0.1)',
+          },
+          body: {
+            backgroundColor: 'transparent',
+          },
+        }}
       >
         <Stack gap="lg">
           <Alert
