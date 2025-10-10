@@ -148,10 +148,10 @@ export function HandsontableGrid<T extends Item>({
     };
   }, []);
 
-  // Set grid height to 83vh by default
+  // Set grid height to 84vh by default
   useEffect(() => {
     const updateGridHeight = () => {
-      const targetHeight = gridHeight || window.innerHeight * 0.83;
+      const targetHeight = gridHeight || window.innerHeight * 0.84;
       setCurrentGridHeight(targetHeight);
     };
 

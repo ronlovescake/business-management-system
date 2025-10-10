@@ -24,7 +24,6 @@ export function PageLayout({
       p={withPadding ? 'md' : 0}
       style={{
         backgroundColor: backgroundColor || undefined,
-        minHeight: '100vh',
       }}
     >
       {title && <h1>{title}</h1>}
