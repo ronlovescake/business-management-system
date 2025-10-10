@@ -1678,17 +1678,16 @@ export default function Transactions() {
             ? (newValue.data as { value: string }).value
             : '';
 
-        // Auto-populate Order Date when customer is selected (only if it's empty)
+        // Auto-populate Order Date when customer is selected (only if date is empty)
         const currentOrderDate = transaction['Order Date'];
-        const shouldAutoPopulateDate =
-          !currentOrderDate || currentOrderDate.trim() === '';
+        let autoPopulatedOrderDate = currentOrderDate; // Keep existing date by default
 
-        let autoPopulatedOrderDate = currentOrderDate;
         if (
-          shouldAutoPopulateDate &&
           dropdownValue &&
-          dropdownValue.trim() !== ''
+          dropdownValue.trim() !== '' &&
+          (!currentOrderDate || currentOrderDate.trim() === '')
         ) {
+          // Customer is selected AND date is empty, set today's date
           const now = new Date();
           autoPopulatedOrderDate = now.toLocaleDateString('en-US', {
             month: 'short',
@@ -1722,11 +1721,14 @@ export default function Transactions() {
         showNotification({
           title: 'Success',
           message:
-            shouldAutoPopulateDate &&
             dropdownValue &&
-            dropdownValue.trim() !== ''
+            dropdownValue.trim() !== '' &&
+            (!transaction['Order Date'] ||
+              transaction['Order Date'].trim() === '')
               ? 'Customer updated and Order Date auto-populated'
-              : 'Customer updated successfully',
+              : dropdownValue && dropdownValue.trim() !== ''
+                ? 'Customer updated successfully'
+                : 'Customer cleared',
           color: 'green',
         });
       }
