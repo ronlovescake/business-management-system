@@ -61,6 +61,15 @@ import { GridCellKind } from '@glideapps/glide-data-grid';
 import { allCells } from '@glideapps/glide-data-grid-cells';
 import { notifications } from '@mantine/notifications';
 import {
+  Modal,
+  Button,
+  Text,
+  Group,
+  Stack,
+  Alert,
+  Divider,
+} from '@mantine/core';
+import {
   IconReceipt,
   IconCurrencyDollar,
   IconPackage,
@@ -70,6 +79,10 @@ import {
   IconPercentage,
   IconCheck,
   IconClock,
+  IconAlertTriangle,
+  IconUsers,
+  IconClipboardList,
+  IconX,
 } from '@tabler/icons-react';
 
 interface TransactionData {
@@ -241,6 +254,51 @@ export default function Transactions() {
   const [isGeneratingDistribution, setIsGeneratingDistribution] =
     useState(false);
   const [isGeneratingPackingList, setIsGeneratingPackingList] = useState(false);
+
+  // Modern confirmation dialog state
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [confirmationData, setConfirmationData] = useState<{
+    customers: number;
+    warehouseOrders: number;
+    preparedOrders: number;
+    totalTransactions: number;
+  }>({
+    customers: 0,
+    warehouseOrders: 0,
+    preparedOrders: 0,
+    totalTransactions: 0,
+  });
+  const [pendingInvoiceData, setPendingInvoiceData] = useState<
+    TransactionData[] | null
+  >(null);
+
+  // Packing list confirmation dialog state
+  const [showPackingListModal, setShowPackingListModal] = useState(false);
+  const [packingListData, setPackingListData] = useState<{
+    eligibleTransactions: number;
+    customers: number;
+    totalValue: number;
+  }>({ eligibleTransactions: 0, customers: 0, totalValue: 0 });
+  const [pendingPackingListData, setPendingPackingListData] = useState<
+    TransactionData[] | null
+  >(null);
+
+  // Distribution confirmation dialog state
+  const [showDistributionModal, setShowDistributionModal] = useState(false);
+  const [distributionData, setDistributionData] = useState<{
+    warehouseTransactions: number;
+    customers: number;
+    totalValue: number;
+    totalQuantity: number;
+  }>({
+    warehouseTransactions: 0,
+    customers: 0,
+    totalValue: 0,
+    totalQuantity: 0,
+  });
+  const [pendingDistributionData, setPendingDistributionData] = useState<
+    TransactionData[] | null
+  >(null);
 
   // ============================================================================
   // SERVICE LAYER INTEGRATION - Transactions data loaded via useTransactionData()
@@ -590,9 +648,8 @@ export default function Transactions() {
     async (visibleTransactions: TransactionData[]) => {
       // ⚠️ FINALIZED LOGIC - DO NOT MODIFY
       console.log(
-        '📄 Generating invoices for customers with Warehouse orders...'
+        '📄 Preparing invoice generation for customers with Warehouse orders...'
       );
-      setIsGeneratingInvoice(true);
 
       try {
         // Step 1: Find customers who have orders with "Warehouse" status FROM VISIBLE/FILTERED DATA
@@ -611,24 +668,18 @@ export default function Transactions() {
           return;
         }
 
-        // Step 2: Get unique customers who have warehouse orders IN VISIBLE DATA
-        const customersWithWarehouseOrders = new Set(
+        // Step 2: Get unique customers who have warehouse orders IN VISIBLE DATA for confirmation
+        const previewCustomersWithWarehouseOrders = new Set(
           warehouseTransactions
             .map((transaction) => transaction.Customers)
             .filter(Boolean)
         );
 
-        console.log(
-          '👥 Customers with Warehouse orders (from visible data):',
-          Array.from(customersWithWarehouseOrders)
-        );
+        // Step 3: Count orders for confirmation dialog
+        let previewTotalWarehouseOrders = 0;
+        let previewTotalPreparedOrders = 0;
 
-        // Step 3: For each customer with warehouse orders, get their orders FROM VISIBLE DATA ONLY
-        const invoiceTransactions: TransactionData[] = [];
-        let totalWarehouseOrders = 0;
-        let totalPreparedOrders = 0;
-
-        customersWithWarehouseOrders.forEach((customerName) => {
+        previewCustomersWithWarehouseOrders.forEach((customerName) => {
           // Get all warehouse orders for this customer FROM VISIBLE DATA
           const customerWarehouseOrders = visibleTransactions.filter(
             (transaction) =>
@@ -643,257 +694,358 @@ export default function Transactions() {
               transaction['Order Status'] === 'Prepared'
           );
 
-          // Combine both warehouse and prepared orders for this customer
-          const customerAllOrders = [
-            ...customerWarehouseOrders,
-            ...customerPreparedOrders,
-          ];
-
-          console.log(
-            `📦 Customer "${customerName}": ${customerWarehouseOrders.length} Warehouse + ${customerPreparedOrders.length} Prepared = ${customerAllOrders.length} total orders (from visible data)`
-          );
-
-          invoiceTransactions.push(...customerAllOrders);
-          totalWarehouseOrders += customerWarehouseOrders.length;
-          totalPreparedOrders += customerPreparedOrders.length;
+          previewTotalWarehouseOrders += customerWarehouseOrders.length;
+          previewTotalPreparedOrders += customerPreparedOrders.length;
         });
 
-        // Fetch customer details for the invoice
-        const customersResponse = await fetch('/api/customers');
-        let customersData = [];
-
-        if (customersResponse.ok) {
-          customersData = await customersResponse.json();
-        } else {
-          console.warn(
-            'Could not fetch customer details, proceeding without full customer info'
-          );
-        }
-
-        // Prepare data for invoice generation API
-        const invoicePayload = {
-          transactions: invoiceTransactions,
-          customers: customersData,
-        };
-
-        console.log(
-          `📋 Found ${totalWarehouseOrders} Warehouse + ${totalPreparedOrders} Prepared = ${invoiceTransactions.length} total transactions for ${customersWithWarehouseOrders.size} customers`
-        );
-
-        // Call the invoice generation API
-        const response = await fetch('/api/generate-invoice', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(invoicePayload),
+        // Show modern confirmation dialog with detailed information
+        setConfirmationData({
+          customers: previewCustomersWithWarehouseOrders.size,
+          warehouseOrders: previewTotalWarehouseOrders,
+          preparedOrders: previewTotalPreparedOrders,
+          totalTransactions:
+            previewTotalWarehouseOrders + previewTotalPreparedOrders,
         });
-
-        if (response.ok) {
-          // Get the PDF blob
-          const pdfBlob = await response.blob();
-
-          // Create download link
-          const url = window.URL.createObjectURL(pdfBlob);
-          const link = document.createElement('a');
-          link.href = url;
-
-          // Generate filename with timestamp
-          const timestamp = new Date()
-            .toISOString()
-            .slice(0, 19)
-            .replace(/[:-]/g, '');
-          link.download = `invoices-${timestamp}.pdf`;
-
-          // Trigger download
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(url);
-
-          // Show success notification
-          const statusUpdateMessage =
-            totalWarehouseOrders > 0
-              ? ` All ${totalWarehouseOrders} Warehouse orders updated to Prepared status.`
-              : '';
-
-          notifications.show({
-            title: '✅ Invoices Generated & Status Updated',
-            message: `PDF with invoices for ${totalWarehouseOrders} Warehouse + ${totalPreparedOrders} Prepared orders (${invoiceTransactions.length} total) from ${customersWithWarehouseOrders.size} customers has been downloaded.${statusUpdateMessage}`,
-            color: 'green',
-            autoClose: 8000,
-          });
-
-          // ========================================================================
-          // 🚨 CRITICAL DATABASE PERSISTENCE LOGIC - FINALIZED - DO NOT MODIFY! 🚨
-          // ========================================================================
-          //
-          // ⚠️ THIS SECTION ENSURES INVOICE DATES ARE PERMANENTLY SAVED
-          //
-          // BUSINESS CRITICAL FUNCTIONALITY:
-          // 1. Sets invoice dates for ALL processed transactions
-          // 2. Updates Warehouse orders to Prepared status
-          // 3. Saves EVERYTHING to database (prevents data loss)
-          // 4. Handles edge cases (empty strings, whitespace)
-          //
-          // 🚫 DO NOT MODIFY - COULD CAUSE DATA LOSS:
-          //    - Invoice date checking logic
-          //    - Database persistence operations
-          //    - Status update workflow
-          //    - Transaction processing sequence
-          //
-          // This logic was specifically designed to fix critical bugs where
-          // invoice dates were not being saved to database consistently.
-          // ========================================================================
-
-          // ⚠️ FINALIZED: Invoice date setting logic
-          const currentDate = new Date().toLocaleDateString('en-US', {
-            month: 'long',
-            day: 'numeric',
-            year: 'numeric',
-          });
-
-          // ⚠️ FINALIZED: Transaction processing identification
-          const processedTransactionIds = new Set(
-            invoiceTransactions.map((t) => t.id)
-          );
-
-          const updatedTransactions = transactions.map((transaction) => {
-            const updates: Partial<TransactionData> = {};
-            let hasUpdates = false;
-
-            // Set Invoice Date if not already set (check for empty, null, or whitespace)
-            if (
-              processedTransactionIds.has(transaction.id) &&
-              (!transaction['Invoice Date'] ||
-                transaction['Invoice Date'].trim() === '')
-            ) {
-              updates['Invoice Date'] = currentDate;
-              hasUpdates = true;
-            }
-
-            // Update Warehouse orders to Prepared status after invoicing
-            if (
-              processedTransactionIds.has(transaction.id) &&
-              transaction['Order Status'] === 'Warehouse'
-            ) {
-              updates['Order Status'] = 'Prepared';
-              hasUpdates = true;
-            }
-
-            return hasUpdates ? { ...transaction, ...updates } : transaction;
-          });
-
-          // Update transactions via service layer
-          const sanitizedTransactions = updatedTransactions.map((t) => ({
-            ...t,
-            Quantity: t.Quantity ?? 0,
-            'Unit Price': t['Unit Price'] ?? 0,
-            Discount: t.Discount ?? 0,
-            Adjustment: t.Adjustment ?? 0,
-            'Line Total': t['Line Total'] ?? 0,
-          }));
-          bulkUpdateTransactions(sanitizedTransactions);
-
-          // ========================================================================
-          // 🚨 CRITICAL DATABASE SAVE OPERATION - FINALIZED - DO NOT MODIFY! 🚨
-          // ========================================================================
-          //
-          // ⚠️ THIS IS THE CORE DATABASE PERSISTENCE LOGIC
-          //
-          // CRITICAL BUG FIX: This section was specifically added to solve
-          // the issue where invoice dates were not being saved consistently.
-          //
-          // 🚫 ABSOLUTELY DO NOT MODIFY:
-          //    - Transaction filtering logic
-          //    - Promise.all database operations
-          //    - Error handling for database saves
-          //    - Logging and counting logic
-          //
-          // ANY CHANGES HERE COULD CAUSE:
-          //    - Invoice dates to disappear after page reload
-          //    - Database inconsistency
-          //    - Loss of transaction status updates
-          //    - Business process failures
-          // ========================================================================
-
-          // ⚠️ FINALIZED: Identify all transactions that need database updates
-          const transactionsToSave = updatedTransactions.filter((transaction) =>
-            processedTransactionIds.has(transaction.id)
-          );
-
-          if (transactionsToSave.length > 0) {
-            // ⚠️ FINALIZED: Comprehensive database save operation
-            try {
-              const updatePromises = transactionsToSave.map((transaction) =>
-                saveTransactionToDatabase(transaction)
-              );
-              await Promise.all(updatePromises);
-
-              // 🚀 PERFORMANCE: Create Map for O(1) lookups instead of O(n) .find()
-              const originalTransactionsMap = new Map(
-                transactions.map((t) => [t.id, t])
-              );
-
-              // Count different types of updates for logging
-              const invoiceDateUpdates = transactionsToSave.filter(
-                (transaction) => {
-                  const original = originalTransactionsMap.get(transaction.id);
-                  return (
-                    !original?.['Invoice Date'] && transaction['Invoice Date']
-                  );
-                }
-              ).length;
-
-              const statusUpdates = transactionsToSave.filter((transaction) => {
-                const original = originalTransactionsMap.get(transaction.id);
-                return (
-                  transaction['Order Status'] === 'Prepared' &&
-                  original?.['Order Status'] === 'Warehouse'
-                );
-              }).length;
-
-              console.log(
-                `✅ Saved to database: ${invoiceDateUpdates} Invoice Date updates + ${statusUpdates} Warehouse→Prepared status updates`
-              );
-            } catch (updateError) {
-              console.error('Error saving transaction updates:', updateError);
-              notifications.show({
-                title: '⚠️ Database Save Warning',
-                message:
-                  'Invoices generated successfully, but some database updates failed',
-                color: 'yellow',
-                autoClose: 5000,
-              });
-            }
-          }
-        } else {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to generate invoices');
-        }
+        setPendingInvoiceData(visibleTransactions);
+        setShowConfirmationModal(true);
       } catch (error) {
-        console.error('Error generating invoices:', error);
+        console.error('Error preparing invoice generation:', error);
         notifications.show({
-          title: '❌ Invoice Generation Failed',
+          title: '❌ Invoice Preparation Failed',
           message:
             error instanceof Error
               ? error.message
-              : 'An unexpected error occurred',
+              : 'An unexpected error occurred while preparing invoice generation',
           color: 'red',
           autoClose: 7000,
         });
-      } finally {
-        setIsGeneratingInvoice(false);
       }
     },
-    [transactions, bulkUpdateTransactions]
+    []
   );
+
+  // Handle confirmation modal actions
+  const handleConfirmInvoiceGeneration = useCallback(async () => {
+    setShowConfirmationModal(false);
+
+    if (!pendingInvoiceData) {
+      notifications.show({
+        title: '❌ Error',
+        message: 'No invoice data available for processing',
+        color: 'red',
+        autoClose: 5000,
+      });
+      return;
+    }
+
+    // User confirmed - proceed with invoice generation
+    console.log('📄 User confirmed - proceeding with invoice generation...');
+    setIsGeneratingInvoice(true);
+
+    try {
+      const visibleTransactions = pendingInvoiceData;
+
+      // Step 1: Find customers who have orders with "Warehouse" status FROM VISIBLE/FILTERED DATA
+      const warehouseTransactions = visibleTransactions.filter(
+        (transaction) => transaction['Order Status'] === 'Warehouse'
+      );
+
+      // Step 2: Get unique customers who have warehouse orders IN VISIBLE DATA
+      const customersWithWarehouseOrders = new Set(
+        warehouseTransactions
+          .map((transaction) => transaction.Customers)
+          .filter(Boolean)
+      );
+      console.log(
+        '👥 Customers with Warehouse orders (from visible data):',
+        Array.from(customersWithWarehouseOrders)
+      );
+
+      // Step 3: For each customer with warehouse orders, get their orders FROM VISIBLE DATA ONLY
+      const invoiceTransactions: TransactionData[] = [];
+      let totalWarehouseOrders = 0;
+      let totalPreparedOrders = 0;
+
+      customersWithWarehouseOrders.forEach((customerName) => {
+        // Get all warehouse orders for this customer FROM VISIBLE DATA
+        const customerWarehouseOrders = visibleTransactions.filter(
+          (transaction) =>
+            transaction.Customers === customerName &&
+            transaction['Order Status'] === 'Warehouse'
+        );
+
+        // Get all prepared orders for this customer FROM VISIBLE DATA
+        const customerPreparedOrders = visibleTransactions.filter(
+          (transaction) =>
+            transaction.Customers === customerName &&
+            transaction['Order Status'] === 'Prepared'
+        );
+
+        // Combine both warehouse and prepared orders for this customer
+        const customerAllOrders = [
+          ...customerWarehouseOrders,
+          ...customerPreparedOrders,
+        ];
+
+        console.log(
+          `📦 Customer "${customerName}": ${customerWarehouseOrders.length} Warehouse + ${customerPreparedOrders.length} Prepared = ${customerAllOrders.length} total orders (from visible data)`
+        );
+
+        invoiceTransactions.push(...customerAllOrders);
+        totalWarehouseOrders += customerWarehouseOrders.length;
+        totalPreparedOrders += customerPreparedOrders.length;
+      });
+
+      // Fetch customer details for the invoice
+      const customersResponse = await fetch('/api/customers');
+      let customersData = [];
+
+      if (customersResponse.ok) {
+        customersData = await customersResponse.json();
+      } else {
+        console.warn(
+          'Could not fetch customer details, proceeding without full customer info'
+        );
+      }
+
+      // Prepare data for invoice generation API
+      const invoicePayload = {
+        transactions: invoiceTransactions,
+        customers: customersData,
+      };
+
+      console.log(
+        `📋 Found ${totalWarehouseOrders} Warehouse + ${totalPreparedOrders} Prepared = ${invoiceTransactions.length} total transactions for ${customersWithWarehouseOrders.size} customers`
+      );
+
+      // Call the invoice generation API
+      const response = await fetch('/api/generate-invoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(invoicePayload),
+      });
+
+      if (response.ok) {
+        // Get the PDF blob
+        const pdfBlob = await response.blob();
+
+        // Create download link
+        const url = window.URL.createObjectURL(pdfBlob);
+        const link = document.createElement('a');
+        link.href = url;
+
+        // Generate filename with timestamp
+        const timestamp = new Date()
+          .toISOString()
+          .slice(0, 19)
+          .replace(/[:-]/g, '');
+        link.download = `invoices-${timestamp}.pdf`;
+
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        // Show success notification
+        const statusUpdateMessage =
+          totalWarehouseOrders > 0
+            ? ` All ${totalWarehouseOrders} Warehouse orders updated to Prepared status.`
+            : '';
+
+        notifications.show({
+          title: '✅ Invoices Generated & Status Updated',
+          message: `PDF with invoices for ${totalWarehouseOrders} Warehouse + ${totalPreparedOrders} Prepared orders (${invoiceTransactions.length} total) from ${customersWithWarehouseOrders.size} customers has been downloaded.${statusUpdateMessage}`,
+          color: 'green',
+          autoClose: 8000,
+        });
+
+        // ========================================================================
+        // 🚨 CRITICAL DATABASE PERSISTENCE LOGIC - FINALIZED - DO NOT MODIFY! 🚨
+        // ========================================================================
+        //
+        // ⚠️ THIS SECTION ENSURES INVOICE DATES ARE PERMANENTLY SAVED
+        //
+        // BUSINESS CRITICAL FUNCTIONALITY:
+        // 1. Sets invoice dates for ALL processed transactions
+        // 2. Updates Warehouse orders to Prepared status
+        // 3. Saves EVERYTHING to database (prevents data loss)
+        // 4. Handles edge cases (empty strings, whitespace)
+        //
+        // 🚫 DO NOT MODIFY - COULD CAUSE DATA LOSS:
+        //    - Invoice date checking logic
+        //    - Database persistence operations
+        //    - Status update workflow
+        //    - Transaction processing sequence
+        //
+        // This logic was specifically designed to fix critical bugs where
+        // invoice dates were not being saved to database consistently.
+        // ========================================================================
+
+        // ⚠️ FINALIZED: Invoice date setting logic
+        const currentDate = new Date().toLocaleDateString('en-US', {
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+        });
+
+        // ⚠️ FINALIZED: Transaction processing identification
+        const processedTransactionIds = new Set(
+          invoiceTransactions.map((t) => t.id)
+        );
+
+        const updatedTransactions = transactions.map((transaction) => {
+          const updates: Partial<TransactionData> = {};
+          let hasUpdates = false;
+
+          // Set Invoice Date if not already set (check for empty, null, or whitespace)
+          if (
+            processedTransactionIds.has(transaction.id) &&
+            (!transaction['Invoice Date'] ||
+              transaction['Invoice Date'].trim() === '')
+          ) {
+            updates['Invoice Date'] = currentDate;
+            hasUpdates = true;
+          }
+
+          // Update Warehouse orders to Prepared status after invoicing
+          if (
+            processedTransactionIds.has(transaction.id) &&
+            transaction['Order Status'] === 'Warehouse'
+          ) {
+            updates['Order Status'] = 'Prepared';
+            hasUpdates = true;
+          }
+
+          return hasUpdates ? { ...transaction, ...updates } : transaction;
+        });
+
+        // Update transactions via service layer
+        const sanitizedTransactions = updatedTransactions.map((t) => ({
+          ...t,
+          Quantity: t.Quantity ?? 0,
+          'Unit Price': t['Unit Price'] ?? 0,
+          Discount: t.Discount ?? 0,
+          Adjustment: t.Adjustment ?? 0,
+          'Line Total': t['Line Total'] ?? 0,
+        }));
+        bulkUpdateTransactions(sanitizedTransactions);
+
+        // ========================================================================
+        // 🚨 CRITICAL DATABASE SAVE OPERATION - FINALIZED - DO NOT MODIFY! 🚨
+        // ========================================================================
+        //
+        // ⚠️ THIS IS THE CORE DATABASE PERSISTENCE LOGIC
+        //
+        // CRITICAL BUG FIX: This section was specifically added to solve
+        // the issue where invoice dates were not being saved consistently.
+        //
+        // 🚫 ABSOLUTELY DO NOT MODIFY:
+        //    - Transaction filtering logic
+        //    - Promise.all database operations
+        //    - Error handling for database saves
+        //    - Logging and counting logic
+        //
+        // ANY CHANGES HERE COULD CAUSE:
+        //    - Invoice dates to disappear after page reload
+        //    - Database inconsistency
+        //    - Loss of transaction status updates
+        //    - Business process failures
+        // ========================================================================
+
+        // ⚠️ FINALIZED: Identify all transactions that need database updates
+        const transactionsToSave = updatedTransactions.filter((transaction) =>
+          processedTransactionIds.has(transaction.id)
+        );
+
+        if (transactionsToSave.length > 0) {
+          // ⚠️ FINALIZED: Comprehensive database save operation
+          try {
+            const updatePromises = transactionsToSave.map((transaction) =>
+              saveTransactionToDatabase(transaction)
+            );
+            await Promise.all(updatePromises);
+
+            // 🚀 PERFORMANCE: Create Map for O(1) lookups instead of O(n) .find()
+            const originalTransactionsMap = new Map(
+              transactions.map((t) => [t.id, t])
+            );
+
+            // Count different types of updates for logging
+            const invoiceDateUpdates = transactionsToSave.filter(
+              (transaction) => {
+                const original = originalTransactionsMap.get(transaction.id);
+                return (
+                  !original?.['Invoice Date'] && transaction['Invoice Date']
+                );
+              }
+            ).length;
+
+            const statusUpdates = transactionsToSave.filter((transaction) => {
+              const original = originalTransactionsMap.get(transaction.id);
+              return (
+                transaction['Order Status'] === 'Prepared' &&
+                original?.['Order Status'] === 'Warehouse'
+              );
+            }).length;
+
+            console.log(
+              `✅ Saved to database: ${invoiceDateUpdates} Invoice Date updates + ${statusUpdates} Warehouse→Prepared status updates`
+            );
+          } catch (updateError) {
+            console.error('Error saving transaction updates:', updateError);
+            notifications.show({
+              title: '⚠️ Database Save Warning',
+              message:
+                'Invoices generated successfully, but some database updates failed',
+              color: 'yellow',
+              autoClose: 5000,
+            });
+          }
+        }
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate invoices');
+      }
+    } catch (error) {
+      console.error('Error generating invoices:', error);
+      notifications.show({
+        title: '❌ Invoice Generation Failed',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'An unexpected error occurred',
+        color: 'red',
+        autoClose: 7000,
+      });
+    } finally {
+      setIsGeneratingInvoice(false);
+      setPendingInvoiceData(null); // Clear pending data
+    }
+  }, [transactions, bulkUpdateTransactions, pendingInvoiceData]);
+
+  // Handle cancellation of invoice generation
+  const handleCancelInvoiceGeneration = useCallback(() => {
+    setShowConfirmationModal(false);
+    setPendingInvoiceData(null);
+
+    notifications.show({
+      title: '✅ Invoice Generation Cancelled',
+      message:
+        'Invoice generation was cancelled by user. No changes were made.',
+      color: 'blue',
+      autoClose: 4000,
+    });
+  }, []);
 
   // Distribution generation function
   const handleGenerateDistribution = useCallback(
     async (visibleTransactions: TransactionData[]) => {
-      console.log('📦 Generating distribution slips for Warehouse orders...');
-      setIsGeneratingDistribution(true);
+      console.log(
+        '📦 Preparing distribution slip generation for Warehouse orders...'
+      );
 
       try {
         // Filter only "Warehouse" status transactions from visible/filtered data
@@ -912,76 +1064,160 @@ export default function Transactions() {
           return;
         }
 
-        console.log(
-          `📋 Found ${warehouseTransactions.length} Warehouse transactions (from visible data) for distribution slips`
+        // Calculate statistics for confirmation dialog
+        const uniqueCustomers = new Set(
+          warehouseTransactions
+            .map((transaction) => transaction.Customers)
+            .filter(Boolean)
         );
 
-        // Call the distribution generation API
-        const response = await fetch('/api/generate-distribution', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ transactions: warehouseTransactions }),
+        const totalValue = warehouseTransactions.reduce(
+          (sum, transaction) => sum + (Number(transaction['Line Total']) || 0),
+          0
+        );
+
+        const totalQuantity = warehouseTransactions.reduce(
+          (sum, transaction) => sum + (Number(transaction.Quantity) || 0),
+          0
+        );
+
+        // Show modern confirmation dialog with detailed information
+        setDistributionData({
+          warehouseTransactions: warehouseTransactions.length,
+          customers: uniqueCustomers.size,
+          totalValue: totalValue,
+          totalQuantity: totalQuantity,
         });
-
-        if (response.ok) {
-          // Get the PDF blob
-          const pdfBlob = await response.blob();
-
-          // Create download link
-          const url = window.URL.createObjectURL(pdfBlob);
-          const link = document.createElement('a');
-          link.href = url;
-
-          // Generate filename with timestamp
-          const timestamp = new Date()
-            .toISOString()
-            .slice(0, 19)
-            .replace(/[:-]/g, '');
-          link.download = `distribution-slips-${timestamp}.pdf`;
-
-          // Trigger download
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(url);
-
-          // Show success notification
-          notifications.show({
-            title: '✅ Distribution Slips Generated',
-            message: `PDF with ${warehouseTransactions.length} distribution slips has been downloaded (sorted by quantity ascending)`,
-            color: 'green',
-            autoClose: 8000,
-          });
-        } else {
-          const errorData = await response.json();
-          throw new Error(
-            errorData.error || 'Failed to generate distribution slips'
-          );
-        }
+        setPendingDistributionData(visibleTransactions);
+        setShowDistributionModal(true);
       } catch (error) {
-        console.error('Error generating distribution slips:', error);
+        console.error('Error preparing distribution generation:', error);
         notifications.show({
-          title: '❌ Distribution Generation Failed',
+          title: '❌ Distribution Preparation Failed',
           message:
             error instanceof Error
               ? error.message
-              : 'An unexpected error occurred',
+              : 'An unexpected error occurred while preparing distribution generation',
           color: 'red',
           autoClose: 7000,
         });
-      } finally {
-        setIsGeneratingDistribution(false);
       }
     },
     []
   );
 
+  // Handle distribution confirmation modal actions
+  const handleConfirmDistributionGeneration = useCallback(async () => {
+    setShowDistributionModal(false);
+
+    if (!pendingDistributionData) {
+      notifications.show({
+        title: '❌ Error',
+        message: 'No distribution data available for processing',
+        color: 'red',
+        autoClose: 5000,
+      });
+      return;
+    }
+
+    // User confirmed - proceed with distribution generation
+    console.log(
+      '📦 User confirmed - proceeding with distribution generation...'
+    );
+    setIsGeneratingDistribution(true);
+
+    try {
+      const visibleTransactions = pendingDistributionData;
+
+      // Filter only "Warehouse" status transactions from visible/filtered data
+      const warehouseTransactions = visibleTransactions.filter(
+        (transaction) => transaction['Order Status'] === 'Warehouse'
+      );
+
+      console.log(
+        `📋 Found ${warehouseTransactions.length} Warehouse transactions (from visible data) for distribution slips`
+      );
+
+      // Call the distribution generation API
+      const response = await fetch('/api/generate-distribution', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ transactions: warehouseTransactions }),
+      });
+
+      if (response.ok) {
+        // Get the PDF blob
+        const pdfBlob = await response.blob();
+
+        // Create download link
+        const url = window.URL.createObjectURL(pdfBlob);
+        const link = document.createElement('a');
+        link.href = url;
+
+        // Generate filename with timestamp
+        const timestamp = new Date()
+          .toISOString()
+          .slice(0, 19)
+          .replace(/[:-]/g, '');
+        link.download = `distribution-slips-${timestamp}.pdf`;
+
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        // Show success notification
+        notifications.show({
+          title: '✅ Distribution Slips Generated',
+          message: `PDF with ${warehouseTransactions.length} distribution slips has been downloaded (sorted by quantity ascending)`,
+          color: 'green',
+          autoClose: 8000,
+        });
+      } else {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.error || 'Failed to generate distribution slips'
+        );
+      }
+    } catch (error) {
+      console.error('Error generating distribution slips:', error);
+      notifications.show({
+        title: '❌ Distribution Generation Failed',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'An unexpected error occurred',
+        color: 'red',
+        autoClose: 7000,
+      });
+    } finally {
+      setIsGeneratingDistribution(false);
+      setPendingDistributionData(null); // Clear pending data
+    }
+  }, [pendingDistributionData]);
+
+  // Handle cancellation of distribution generation
+  const handleCancelDistributionGeneration = useCallback(() => {
+    setShowDistributionModal(false);
+    setPendingDistributionData(null);
+
+    notifications.show({
+      title: '✅ Distribution Generation Cancelled',
+      message:
+        'Distribution generation was cancelled by user. No changes were made.',
+      color: 'blue',
+      autoClose: 4000,
+    });
+  }, []);
+
   const handleGeneratePackingList = useCallback(
     async (visibleTransactions: TransactionData[]) => {
-      console.log('📋 Generating packing lists for Prepared orders...');
-      setIsGeneratingPackingList(true);
+      console.log(
+        '📋 Preparing packing list generation for Prepared orders...'
+      );
 
       try {
         // Filter transactions from visible/filtered data based on validation rules:
@@ -1007,91 +1243,258 @@ export default function Transactions() {
           return;
         }
 
-        console.log(
-          `📋 Found ${preparedTransactions.length} eligible transactions (from visible data) for packing lists`
+        // Calculate statistics for confirmation dialog
+        const uniqueCustomers = new Set(
+          preparedTransactions
+            .map((transaction) => transaction.Customers)
+            .filter(Boolean)
         );
 
-        // Transform the data to match backend interface
-        const transformedTransactions = preparedTransactions.map(
-          (transaction) => ({
-            id: String(transaction.id || ''),
-            orderDate: transaction['Order Date'] || '',
-            customers: transaction.Customers || '',
-            productCode: transaction['Product Code'] || '',
-            quantity: Number(transaction.Quantity) || 0,
-            unitPrice: Number(transaction['Unit Price']) || 0,
-            discount: Number(transaction.Discount) || 0,
-            adjustment: Number(transaction.Adjustment) || 0,
-            lineTotal: Number(transaction['Line Total']) || 0,
-            status: transaction['Order Status'] || '',
-            notes: transaction.Notes || '',
-            invoiceDate: transaction['Invoice Date'] || '',
-            packedDate: transaction['Packed Date'] || '',
-            shipmentCode: transaction['Shipment Code'] || '',
-          })
+        const totalValue = preparedTransactions.reduce(
+          (sum, transaction) => sum + (Number(transaction['Line Total']) || 0),
+          0
         );
 
-        // Call the packing list generation API
-        const response = await fetch('/api/generate-packing-list', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(transformedTransactions),
+        // Show modern confirmation dialog with detailed information
+        setPackingListData({
+          eligibleTransactions: preparedTransactions.length,
+          customers: uniqueCustomers.size,
+          totalValue: totalValue,
         });
-
-        if (response.ok) {
-          // Get the PDF blob
-          const pdfBlob = await response.blob();
-
-          // Create download link
-          const url = window.URL.createObjectURL(pdfBlob);
-          const link = document.createElement('a');
-          link.href = url;
-
-          // Generate filename with timestamp
-          const timestamp = new Date()
-            .toISOString()
-            .slice(0, 19)
-            .replace(/[:-]/g, '');
-          link.download = `packing-lists-${timestamp}.pdf`;
-
-          // Trigger download
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(url);
-
-          // Show success notification
-          notifications.show({
-            title: '✅ Packing Lists Generated',
-            message: `PDF with packing lists for ${preparedTransactions.length} eligible transactions has been downloaded`,
-            color: 'green',
-            autoClose: 8000,
-          });
-        } else {
-          const errorData = await response.json();
-          throw new Error(
-            errorData.error || 'Failed to generate packing lists'
-          );
-        }
+        setPendingPackingListData(visibleTransactions);
+        setShowPackingListModal(true);
       } catch (error) {
-        console.error('Error generating packing lists:', error);
+        console.error('Error preparing packing list generation:', error);
         notifications.show({
-          title: '❌ Packing List Generation Failed',
+          title: '❌ Packing List Preparation Failed',
           message:
             error instanceof Error
               ? error.message
-              : 'An unexpected error occurred',
+              : 'An unexpected error occurred while preparing packing list generation',
           color: 'red',
           autoClose: 7000,
         });
-      } finally {
-        setIsGeneratingPackingList(false);
       }
     },
     []
   );
+
+  // Handle packing list confirmation modal actions
+  const handleConfirmPackingListGeneration = useCallback(async () => {
+    setShowPackingListModal(false);
+
+    if (!pendingPackingListData) {
+      notifications.show({
+        title: '❌ Error',
+        message: 'No packing list data available for processing',
+        color: 'red',
+        autoClose: 5000,
+      });
+      return;
+    }
+
+    // User confirmed - proceed with packing list generation
+    console.log(
+      '📋 User confirmed - proceeding with packing list generation...'
+    );
+    setIsGeneratingPackingList(true);
+
+    try {
+      const visibleTransactions = pendingPackingListData;
+
+      // Filter transactions from visible/filtered data based on validation rules:
+      // 1. Only "Prepared" status
+      // 2. Line total ≤ ₱50.00
+      const preparedTransactions = visibleTransactions.filter((transaction) => {
+        const status = transaction['Order Status'];
+        const lineTotal = Number(transaction['Line Total']) || 0;
+
+        return status === 'Prepared' && lineTotal <= 50.0;
+      });
+
+      console.log(
+        `📋 Found ${preparedTransactions.length} eligible transactions (from visible data) for packing lists`
+      );
+
+      // Transform the data to match backend interface
+      const transformedTransactions = preparedTransactions.map(
+        (transaction) => ({
+          id: String(transaction.id || ''),
+          orderDate: transaction['Order Date'] || '',
+          customers: transaction.Customers || '',
+          productCode: transaction['Product Code'] || '',
+          quantity: Number(transaction.Quantity) || 0,
+          unitPrice: Number(transaction['Unit Price']) || 0,
+          discount: Number(transaction.Discount) || 0,
+          adjustment: Number(transaction.Adjustment) || 0,
+          lineTotal: Number(transaction['Line Total']) || 0,
+          status: transaction['Order Status'] || '',
+          notes: transaction.Notes || '',
+          invoiceDate: transaction['Invoice Date'] || '',
+          packedDate: transaction['Packed Date'] || '',
+          shipmentCode: transaction['Shipment Code'] || '',
+        })
+      );
+
+      // Call the packing list generation API
+      const response = await fetch('/api/generate-packing-list', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(transformedTransactions),
+      });
+
+      if (response.ok) {
+        // Get the PDF blob
+        const pdfBlob = await response.blob();
+
+        // Create download link
+        const url = window.URL.createObjectURL(pdfBlob);
+        const link = document.createElement('a');
+        link.href = url;
+
+        // Generate filename with timestamp
+        const timestamp = new Date()
+          .toISOString()
+          .slice(0, 19)
+          .replace(/[:-]/g, '');
+        link.download = `packing-lists-${timestamp}.pdf`;
+
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        // Show success notification
+        notifications.show({
+          title: '✅ Packing Lists Generated',
+          message: `PDF with packing lists for ${preparedTransactions.length} eligible transactions has been downloaded`,
+          color: 'green',
+          autoClose: 8000,
+        });
+
+        // ========================================================================
+        // PACKED DATE SETTING LOGIC - Set current date for generated packing lists
+        // ========================================================================
+        // Set the current date for all processed transactions that had packing lists generated
+        // This ensures we track when packing lists were created for business audit purposes
+        // ========================================================================
+
+        // Set current date in the same format as invoice generation
+        const currentDate = new Date().toLocaleDateString('en-US', {
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+        });
+
+        // Identify transactions that were processed for packing lists
+        const processedTransactionIds = new Set(
+          preparedTransactions.map((t) => t.id)
+        );
+
+        const updatedTransactions = transactions.map((transaction) => {
+          const updates: Partial<TransactionData> = {};
+          let hasUpdates = false;
+
+          // Set Packed Date if not already set (check for empty, null, or whitespace)
+          if (
+            processedTransactionIds.has(transaction.id) &&
+            (!transaction['Packed Date'] ||
+              transaction['Packed Date'].trim() === '')
+          ) {
+            updates['Packed Date'] = currentDate;
+            hasUpdates = true;
+          }
+
+          return hasUpdates ? { ...transaction, ...updates } : transaction;
+        });
+
+        // Update transactions via service layer
+        const sanitizedTransactions = updatedTransactions.map((t) => ({
+          ...t,
+          Quantity: t.Quantity ?? 0,
+          'Unit Price': t['Unit Price'] ?? 0,
+          Discount: t.Discount ?? 0,
+          Adjustment: t.Adjustment ?? 0,
+          'Line Total': t['Line Total'] ?? 0,
+        }));
+        bulkUpdateTransactions(sanitizedTransactions);
+
+        // Save to database for persistence
+        const transactionsToSave = updatedTransactions.filter((transaction) =>
+          processedTransactionIds.has(transaction.id)
+        );
+
+        if (transactionsToSave.length > 0) {
+          try {
+            const updatePromises = transactionsToSave.map((transaction) =>
+              saveTransactionToDatabase(transaction)
+            );
+            await Promise.all(updatePromises);
+
+            const packedDateUpdates = transactionsToSave.filter(
+              (transaction) => {
+                const original = transactions.find(
+                  (t) => t.id === transaction.id
+                );
+                return (
+                  (!original?.['Packed Date'] ||
+                    original['Packed Date'].trim() === '') &&
+                  transaction['Packed Date']
+                );
+              }
+            ).length;
+
+            console.log(
+              `✅ Saved to database: ${packedDateUpdates} Packed Date updates`
+            );
+          } catch (updateError) {
+            console.error('Error saving packed date updates:', updateError);
+            notifications.show({
+              title: '⚠️ Database Save Warning',
+              message:
+                'Packing lists generated successfully, but some database updates failed',
+              color: 'yellow',
+              autoClose: 5000,
+            });
+          }
+        }
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate packing lists');
+      }
+    } catch (error) {
+      console.error('Error generating packing lists:', error);
+      notifications.show({
+        title: '❌ Packing List Generation Failed',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'An unexpected error occurred',
+        color: 'red',
+        autoClose: 7000,
+      });
+    } finally {
+      setIsGeneratingPackingList(false);
+      setPendingPackingListData(null); // Clear pending data
+    }
+  }, [pendingPackingListData, transactions, bulkUpdateTransactions]);
+
+  // Handle cancellation of packing list generation
+  const handleCancelPackingListGeneration = useCallback(() => {
+    setShowPackingListModal(false);
+    setPendingPackingListData(null);
+
+    notifications.show({
+      title: '✅ Packing List Generation Cancelled',
+      message:
+        'Packing list generation was cancelled by user. No changes were made.',
+      color: 'blue',
+      autoClose: 4000,
+    });
+  }, []);
 
   // Define status filter options
   const statusOptions = [
@@ -1791,6 +2194,66 @@ export default function Transactions() {
         console.log('Debug - Final Order Status:', finalOrderStatus);
 
         // ========================================================================
+        // ORDER STATUS CLEARING LOGIC WHEN PRODUCT CODE IS CLEARED
+        // ========================================================================
+        // If Product Code is cleared, handle Order Status based on current status:
+        // - If "In Transit" or "Warehouse": Clear Order Status automatically
+        // - If other status: Show confirmation dialog before clearing Product Code
+        // ========================================================================
+        if (!dropdownValue || dropdownValue.trim() === '') {
+          // Product Code is being cleared
+          if (
+            currentOrderStatus.toLowerCase() === 'in transit' ||
+            currentOrderStatus.toLowerCase() === 'warehouse'
+          ) {
+            // Clear Order Status for "In Transit" or "Warehouse"
+            finalOrderStatus = '';
+            console.log(
+              `Order Status "${currentOrderStatus}" cleared because Product Code was cleared`
+            );
+          } else if (currentOrderStatus && currentOrderStatus.trim() !== '') {
+            // For important statuses, show confirmation dialog
+            const shouldClear = window.confirm(
+              `⚠️ CONFIRMATION REQUIRED\n\n` +
+                `You are about to clear the Product Code for a transaction with Order Status: "${currentOrderStatus}"\n\n` +
+                `This is an important status that may indicate:\n` +
+                `• Order is in advanced processing stage\n` +
+                `• Customer has been notified\n` +
+                `• Business processes may be affected\n\n` +
+                `Do you want to continue clearing the Product Code?\n\n` +
+                `• Click OK to clear Product Code and preserve Order Status\n` +
+                `• Click Cancel to keep both Product Code and Order Status unchanged`
+            );
+
+            if (!shouldClear) {
+              // User cancelled - prevent the Product Code from being cleared
+
+              // Show info notification
+              notifications.show({
+                title: '✅ Action Cancelled',
+                message: `Product Code clearing cancelled. Order Status "${currentOrderStatus}" and Product Code preserved.`,
+                color: 'blue',
+                autoClose: 4000,
+              });
+
+              // Early return to prevent any updates
+              return;
+            } else {
+              // User confirmed - allow clearing Product Code but preserve Order Status
+              notifications.show({
+                title: '⚠️ Product Code Cleared',
+                message: `Product Code cleared as requested. Order Status "${currentOrderStatus}" preserved for review.`,
+                color: 'orange',
+                autoClose: 6000,
+              });
+              console.log(
+                `User confirmed: Product Code cleared but preserved Order Status "${currentOrderStatus}"`
+              );
+            }
+          }
+        }
+
+        // ========================================================================
         // ⚠️ FINALIZED UNIT PRICE AUTO-POPULATION LOGIC
         // ========================================================================
         // Formula: Unit Price = Tier Price - Discount
@@ -1872,8 +2335,22 @@ export default function Transactions() {
           message += ' (Unit Price cleared)';
         }
 
+        // Add note if Order Status was cleared when Product Code was cleared
+        if (
+          (!dropdownValue || dropdownValue.trim() === '') &&
+          (currentOrderStatus.toLowerCase() === 'in transit' ||
+            currentOrderStatus.toLowerCase() === 'warehouse') &&
+          finalOrderStatus === ''
+        ) {
+          message += ` (Order Status "${currentOrderStatus}" cleared)`;
+        }
+
         // Add note if ORDER STATUS was preserved
-        if (!shouldAutoPopulateStatus && currentOrderStatus) {
+        if (
+          !shouldAutoPopulateStatus &&
+          currentOrderStatus &&
+          finalOrderStatus === currentOrderStatus
+        ) {
           message += ` (Order Status "${currentOrderStatus}" preserved)`;
         }
 
@@ -2261,9 +2738,9 @@ export default function Transactions() {
       .reduce((sum, t) => sum + (t['Line Total'] || 0), 0);
 
     // Status counts
-    const pendingOrders = filteredData.filter(
-      (t) => t['Order Status']?.toLowerCase() === 'pending'
-    ).length;
+    const uniqueCustomers = new Set(
+      filteredData.map((t) => t.Customers).filter(Boolean) // Remove empty/null customer names
+    ).size;
     const processingOrders = filteredData.filter(
       (t) => t['Order Status']?.toLowerCase() === 'processing'
     ).length;
@@ -2281,7 +2758,7 @@ export default function Transactions() {
       warehouseTotal,
       preparedTotal,
       pendingPaymentTotal,
-      pendingOrders,
+      uniqueCustomers,
       processingOrders,
       shippedOrders,
       deliveredOrders,
@@ -2333,11 +2810,11 @@ export default function Transactions() {
       backgroundColor: '#e0e7ff',
     },
     {
-      title: 'Pending Orders',
-      value: statistics.pendingOrders,
-      icon: <IconClock size={18} />,
-      color: 'yellow',
-      backgroundColor: '#fef3c7',
+      title: 'CUSTOMERS',
+      value: statistics.uniqueCustomers,
+      icon: <IconUsers size={18} />,
+      color: 'blue',
+      backgroundColor: '#dbeafe',
     },
     {
       title: 'Processing',
@@ -2620,6 +3097,377 @@ export default function Transactions() {
 
   return (
     <PageLayout fluid withPadding>
+      {/* Modern Invoice Generation Confirmation Modal */}
+      <Modal
+        opened={showConfirmationModal}
+        onClose={handleCancelInvoiceGeneration}
+        title={
+          <Group gap="sm">
+            <IconReceipt size={24} color="#228be6" />
+            <Text size="lg" fw={600}>
+              Invoice Generation Confirmation
+            </Text>
+          </Group>
+        }
+        size="lg"
+        centered
+        overlayProps={{ blur: 3 }}
+      >
+        <Stack gap="lg">
+          <Alert
+            icon={<IconAlertTriangle size={16} />}
+            title="Important Changes Will Occur"
+            color="orange"
+            variant="light"
+          >
+            <Text size="sm">
+              This action will modify your data and cannot be undone. Please
+              review the details below.
+            </Text>
+          </Alert>
+
+          <div>
+            <Text size="md" fw={500} mb="md">
+              You are about to generate invoices for:
+            </Text>
+
+            <Stack gap="xs">
+              <Group gap="sm">
+                <IconUsers size={18} color="#228be6" />
+                <Text size="sm">
+                  <Text component="span" fw={600}>
+                    {confirmationData.customers}
+                  </Text>{' '}
+                  customers
+                </Text>
+              </Group>
+
+              <Group gap="sm">
+                <IconPackage size={18} color="#fd7e14" />
+                <Text size="sm">
+                  <Text component="span" fw={600}>
+                    {confirmationData.warehouseOrders}
+                  </Text>{' '}
+                  Warehouse orders
+                </Text>
+              </Group>
+
+              <Group gap="sm">
+                <IconCheck size={18} color="#51cf66" />
+                <Text size="sm">
+                  <Text component="span" fw={600}>
+                    {confirmationData.preparedOrders}
+                  </Text>{' '}
+                  Prepared orders
+                </Text>
+              </Group>
+
+              <Group gap="sm">
+                <IconClipboardList size={18} color="#7950f2" />
+                <Text size="sm">
+                  <Text component="span" fw={600}>
+                    {confirmationData.totalTransactions}
+                  </Text>{' '}
+                  total transactions
+                </Text>
+              </Group>
+            </Stack>
+          </div>
+
+          <Divider />
+
+          <div>
+            <Text size="md" fw={500} mb="md">
+              Important Changes That Will Occur:
+            </Text>
+
+            <Stack gap="xs">
+              <Text size="sm">
+                • All{' '}
+                <Text component="span" fw={600}>
+                  {confirmationData.warehouseOrders}
+                </Text>{' '}
+                Warehouse orders will be updated to &ldquo;Prepared&rdquo;
+                status
+              </Text>
+              <Text size="sm">
+                • Invoice dates will be set for all processed transactions
+              </Text>
+              <Text size="sm">
+                • A PDF invoice will be generated and downloaded
+              </Text>
+              <Text size="sm">• All changes will be saved to the database</Text>
+            </Stack>
+          </div>
+
+          <Divider />
+
+          <Text size="sm" c="dimmed" ta="center">
+            Do you want to proceed with invoice generation?
+          </Text>
+
+          <Group justify="center" gap="md" mt="md">
+            <Button
+              variant="outline"
+              leftSection={<IconX size={16} />}
+              onClick={handleCancelInvoiceGeneration}
+              color="gray"
+            >
+              Cancel
+            </Button>
+            <Button
+              leftSection={<IconCheck size={16} />}
+              onClick={handleConfirmInvoiceGeneration}
+              color="blue"
+              loading={isGeneratingInvoice}
+            >
+              Generate Invoices
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* Modern Packing List Generation Confirmation Modal */}
+      <Modal
+        opened={showPackingListModal}
+        onClose={handleCancelPackingListGeneration}
+        title={
+          <Group gap="sm">
+            <IconClipboardList size={24} color="#7950f2" />
+            <Text size="lg" fw={600}>
+              Packing List Generation Confirmation
+            </Text>
+          </Group>
+        }
+        size="lg"
+        centered
+        overlayProps={{ blur: 3 }}
+      >
+        <Stack gap="lg">
+          <Alert
+            icon={<IconAlertTriangle size={16} />}
+            title="Packing List Generation"
+            color="violet"
+            variant="light"
+          >
+            <Text size="sm">
+              This will generate packing lists for all eligible
+              &ldquo;Prepared&rdquo; orders with line total ≤ ₱50.00.
+            </Text>
+          </Alert>
+
+          <div>
+            <Text size="md" fw={500} mb="md">
+              You are about to generate packing lists for:
+            </Text>
+
+            <Stack gap="xs">
+              <Group gap="sm">
+                <IconClipboardList size={18} color="#7950f2" />
+                <Text size="sm">
+                  <Text component="span" fw={600}>
+                    {packingListData.eligibleTransactions}
+                  </Text>{' '}
+                  eligible transactions
+                </Text>
+              </Group>
+
+              <Group gap="sm">
+                <IconUsers size={18} color="#228be6" />
+                <Text size="sm">
+                  <Text component="span" fw={600}>
+                    {packingListData.customers}
+                  </Text>{' '}
+                  customers
+                </Text>
+              </Group>
+
+              <Group gap="sm">
+                <IconCurrencyDollar size={18} color="#51cf66" />
+                <Text size="sm">
+                  Total value:{' '}
+                  <Text component="span" fw={600}>
+                    ₱{packingListData.totalValue.toLocaleString()}
+                  </Text>
+                </Text>
+              </Group>
+            </Stack>
+          </div>
+
+          <Divider />
+
+          <div>
+            <Text size="md" fw={500} mb="md">
+              Eligibility Criteria:
+            </Text>
+
+            <Stack gap="xs">
+              <Text size="sm">
+                • Only transactions with &ldquo;Prepared&rdquo; status
+              </Text>
+              <Text size="sm">• Line total must be ≤ ₱50.00</Text>
+              <Text size="sm">
+                • PDF packing lists will be generated and downloaded
+              </Text>
+            </Stack>
+          </div>
+
+          <Divider />
+
+          <Text size="sm" c="dimmed" ta="center">
+            Do you want to proceed with packing list generation?
+          </Text>
+
+          <Group justify="center" gap="md" mt="md">
+            <Button
+              variant="outline"
+              leftSection={<IconX size={16} />}
+              onClick={handleCancelPackingListGeneration}
+              color="gray"
+            >
+              Cancel
+            </Button>
+            <Button
+              leftSection={<IconClipboardList size={16} />}
+              onClick={handleConfirmPackingListGeneration}
+              color="violet"
+              loading={isGeneratingPackingList}
+            >
+              Generate Packing Lists
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* Modern Distribution Generation Confirmation Modal */}
+      <Modal
+        opened={showDistributionModal}
+        onClose={handleCancelDistributionGeneration}
+        title={
+          <Group gap="sm">
+            <IconTruck size={24} color="#fd7e14" />
+            <Text size="lg" fw={600}>
+              Distribution Slip Generation Confirmation
+            </Text>
+          </Group>
+        }
+        size="lg"
+        centered
+        overlayProps={{ blur: 3 }}
+      >
+        <Stack gap="lg">
+          <Alert
+            icon={<IconAlertTriangle size={16} />}
+            title="Distribution Slip Generation"
+            color="orange"
+            variant="light"
+          >
+            <Text size="sm">
+              This will generate distribution slips for all
+              &ldquo;Warehouse&rdquo; status orders, sorted by quantity
+              ascending.
+            </Text>
+          </Alert>
+
+          <div>
+            <Text size="md" fw={500} mb="md">
+              You are about to generate distribution slips for:
+            </Text>
+
+            <Stack gap="xs">
+              <Group gap="sm">
+                <IconPackage size={18} color="#fd7e14" />
+                <Text size="sm">
+                  <Text component="span" fw={600}>
+                    {distributionData.warehouseTransactions}
+                  </Text>{' '}
+                  Warehouse transactions
+                </Text>
+              </Group>
+
+              <Group gap="sm">
+                <IconUsers size={18} color="#228be6" />
+                <Text size="sm">
+                  <Text component="span" fw={600}>
+                    {distributionData.customers}
+                  </Text>{' '}
+                  customers
+                </Text>
+              </Group>
+
+              <Group gap="sm">
+                <IconShoppingCart size={18} color="#7950f2" />
+                <Text size="sm">
+                  Total quantity:{' '}
+                  <Text component="span" fw={600}>
+                    {distributionData.totalQuantity.toLocaleString()}
+                  </Text>{' '}
+                  items
+                </Text>
+              </Group>
+
+              <Group gap="sm">
+                <IconCurrencyDollar size={18} color="#51cf66" />
+                <Text size="sm">
+                  Total value:{' '}
+                  <Text component="span" fw={600}>
+                    ₱{distributionData.totalValue.toLocaleString()}
+                  </Text>
+                </Text>
+              </Group>
+            </Stack>
+          </div>
+
+          <Divider />
+
+          <div>
+            <Text size="md" fw={500} mb="md">
+              Distribution Features:
+            </Text>
+
+            <Stack gap="xs">
+              <Text size="sm">
+                • Only transactions with &ldquo;Warehouse&rdquo; status
+              </Text>
+              <Text size="sm">
+                • Distribution slips sorted by quantity (ascending)
+              </Text>
+              <Text size="sm">
+                • PDF distribution slips will be generated and downloaded
+              </Text>
+              <Text size="sm">
+                • Optimized for warehouse picking operations
+              </Text>
+            </Stack>
+          </div>
+
+          <Divider />
+
+          <Text size="sm" c="dimmed" ta="center">
+            Do you want to proceed with distribution slip generation?
+          </Text>
+
+          <Group justify="center" gap="md" mt="md">
+            <Button
+              variant="outline"
+              leftSection={<IconX size={16} />}
+              onClick={handleCancelDistributionGeneration}
+              color="gray"
+            >
+              Cancel
+            </Button>
+            <Button
+              leftSection={<IconTruck size={16} />}
+              onClick={handleConfirmDistributionGeneration}
+              color="orange"
+              loading={isGeneratingDistribution}
+            >
+              Generate Distribution Slips
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
       <TransactionsLayout
         data={transactions as unknown as Item[]}
         filteredData={filteredData as unknown as Item[]}
