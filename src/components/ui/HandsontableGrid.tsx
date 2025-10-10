@@ -686,9 +686,9 @@ export function HandsontableGrid<T extends Item>({
           // Features
           manualColumnResize={true}
           manualRowResize={true}
-          contextMenu={true}
+          contextMenu={[]}
           filters={true}
-          dropdownMenu={true}
+          dropdownMenu={false}
           // Performance: Disable features that slow down large grids
           autoRowSize={false} // Disable auto row height calculation
           autoColumnSize={false} // Disable auto column width calculation
