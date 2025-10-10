@@ -243,3 +243,17 @@
 .ht-theme-horizon .handsontable .autocompleteArrow {
   display: none !important;
 }
+
+/* Set header row height to 50px to match data rows */
+.ht-theme-horizon .handsontable thead th,
+.ht-theme-horizon .handsontable .ht_clone_top thead th,
+.ht-theme-horizon .handsontable .ht_clone_top_left_corner thead th,
+.ht-theme-horizon .handsontable .ht_clone_left thead th {
+  height: 50px !important;
+  line-height: 50px !important;
+  vertical-align: middle !important;
+  display: table-cell !important;
+  text-align: center !important;
+  padding: 0 12px !important;
+  box-sizing: border-box !important;
+}

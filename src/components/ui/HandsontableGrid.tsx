@@ -98,6 +98,56 @@ export function HandsontableGrid<T extends Item>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Apply header height styles dynamically
+  useEffect(() => {
+    const styleId = 'handsontable-header-height-styles';
+
+    // Remove existing style if present
+    const existingStyle = document.getElementById(styleId);
+    if (existingStyle) {
+      existingStyle.remove();
+    }
+
+    // Create and inject new style
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      .ht-theme-horizon .handsontable thead th,
+      .ht-theme-horizon .handsontable .ht_clone_top thead th,
+      .ht-theme-horizon .handsontable .ht_clone_top_left_corner thead th,
+      .ht-theme-horizon .handsontable .ht_clone_left thead th {
+        height: 50px !important;
+        min-height: 50px !important;
+        max-height: 50px !important;
+        line-height: 50px !important;
+        vertical-align: middle !important;
+        display: table-cell !important;
+        text-align: center !important;
+        padding: 0 12px !important;
+        box-sizing: border-box !important;
+      }
+      
+      .ht-theme-horizon .handsontable thead th .colHeader,
+      .ht-theme-horizon .handsontable .ht_clone_top thead th .colHeader,
+      .ht-theme-horizon .handsontable .ht_clone_top_left_corner thead th .colHeader {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        height: 100% !important;
+        line-height: 1 !important;
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Cleanup function
+    return () => {
+      const styleToRemove = document.getElementById(styleId);
+      if (styleToRemove) {
+        styleToRemove.remove();
+      }
+    };
+  }, []);
+
   // Set grid height to 83vh by default
   useEffect(() => {
     const updateGridHeight = () => {
@@ -634,6 +684,7 @@ export function HandsontableGrid<T extends Item>({
           autoRowSize={false} // Disable auto row height calculation
           autoColumnSize={false} // Disable auto column width calculation
           rowHeights={50} // Set fixed row height (default is ~23px)
+          columnHeaderHeight={50} // Set header height to match row height
           afterChange={(changes, source) => {
             if (!changes || !onCellEdited) return;
 
