@@ -78,7 +78,6 @@ import {
   IconAdjustments,
   IconPercentage,
   IconCheck,
-  IconClock,
   IconAlertTriangle,
   IconUsers,
   IconClipboardList,
@@ -2741,8 +2740,8 @@ export default function Transactions() {
     const uniqueCustomers = new Set(
       filteredData.map((t) => t.Customers).filter(Boolean) // Remove empty/null customer names
     ).size;
-    const processingOrders = filteredData.filter(
-      (t) => t['Order Status']?.toLowerCase() === 'processing'
+    const lalamoveOrders = filteredData.filter(
+      (t) => t['Order Status']?.toLowerCase() === 'lalamove'
     ).length;
     const shippedOrders = filteredData.filter(
       (t) => t['Order Status']?.toLowerCase() === 'shipped'
@@ -2759,7 +2758,7 @@ export default function Transactions() {
       preparedTotal,
       pendingPaymentTotal,
       uniqueCustomers,
-      processingOrders,
+      lalamoveOrders,
       shippedOrders,
       deliveredOrders,
     };
@@ -2767,6 +2766,13 @@ export default function Transactions() {
 
   // Define stats cards
   const statsCards: StatCard[] = [
+    {
+      title: 'CUSTOMERS',
+      value: statistics.uniqueCustomers,
+      icon: <IconUsers size={18} />,
+      color: 'blue',
+      backgroundColor: '#dbeafe',
+    },
     {
       title: 'Total Transactions',
       value: statistics.totalTransactions.toString(),
@@ -2810,18 +2816,11 @@ export default function Transactions() {
       backgroundColor: '#e0e7ff',
     },
     {
-      title: 'CUSTOMERS',
-      value: statistics.uniqueCustomers,
-      icon: <IconUsers size={18} />,
-      color: 'blue',
-      backgroundColor: '#dbeafe',
-    },
-    {
-      title: 'Processing',
-      value: statistics.processingOrders,
-      icon: <IconClock size={18} />,
-      color: 'blue',
-      backgroundColor: '#dbeafe',
+      title: 'LALAMOVE',
+      value: statistics.lalamoveOrders,
+      icon: <IconTruck size={18} />,
+      color: 'orange',
+      backgroundColor: '#fed7aa',
     },
     {
       title: 'Shipped',

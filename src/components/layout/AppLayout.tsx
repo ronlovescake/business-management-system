@@ -95,8 +95,9 @@ export function AppLayout({ children }: AppLayoutProps) {
             <AppShell.Navbar
               p="lg"
               style={{
-                borderRight: '1px solid var(--border-color)',
-                backgroundColor: '#ffffff',
+                backgroundColor: '#f8f9fa',
+                border: 'none',
+                borderRight: 'none',
               }}
             >
               <Sidebar />
@@ -104,7 +105,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
             <AppShell.Main
               style={{
-                backgroundColor: '#ffffff',
+                backgroundColor: '#f8f9fa',
                 minHeight: '100vh',
               }}
             >
