@@ -71,8 +71,11 @@ export function AppLayout({ children }: AppLayoutProps) {
             padding="md"
             style={{
               '--mantine-color-body': 'var(--background)',
-              background:
-                'linear-gradient(135deg, #ffeaa7 0%, #fab1a0 25%, #fd79a8 50%, #fdcb6e 75%, #e17055 100%)',
+              background: 'url(/backgrounds/orange-waves.jpg)',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat',
+              backgroundAttachment: 'fixed',
               minHeight: '100vh',
             }}
           >

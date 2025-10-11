@@ -1,0 +1,208 @@
+/**
+ * Module Registry - Dynamic Module Management System
+ * 
+ * This registry allows you to:
+ * - Register modules dynamically
+ * - Generate routes automatically
+ * - Build navigation from modules
+ * - // Singleton instance
+export const moduleRegistry = new ModuleRegistry();
+/disable features via config
+ */
+
+import { ComponentType } from 'react';
+
+export type IconComponent = ComponentType<{ size?: number; stroke?: number }>;
+
+export interface ModuleRoute {
+  path: string;
+  component: () => Promise<{ default: ComponentType }>;
+  protected?: boolean;
+}
+
+export interface ModuleNavigation {
+  label: string;
+  icon: IconComponent;
+  path: string;
+  order: number;
+  workspace?: ('operations' | 'employees')[];
+  business?: ('clothing' | 'trucking')[];
+}
+
+export interface ModuleConfig {
+  id: string;
+  name: string;
+  version: string;
+  enabled: boolean;
+  dependencies?: string[];
+  routes?: ModuleRoute[];
+  navigation?: ModuleNavigation[];
+  permissions?: string[];
+  metadata?: {
+    description?: string;
+    author?: string;
+    tags?: string[];
+  };
+}
+
+class ModuleRegistry {
+  private modules = new Map<string, ModuleConfig>();
+  private initialized = false;
+
+  /**
+   * Register a new module
+   */
+  register(module: ModuleConfig): void {
+    // Validate dependencies
+    if (module.dependencies) {
+      this.validateDependencies(module.dependencies);
+    }
+
+    this.modules.set(module.id, module);
+    console.log(`✅ Module registered: ${module.name} (v${module.version})`);
+  }
+
+  /**
+   * Unregister a module
+   */
+  unregister(moduleId: string): void {
+    const moduleConfig = this.modules.get(moduleId);
+    if (moduleConfig) {
+      this.modules.delete(moduleId);
+      console.log(`❌ Module unregistered: ${moduleConfig.name}`);
+    }
+  }
+
+  /**
+   * Get a specific module
+   */
+  get(moduleId: string): ModuleConfig | undefined {
+    return this.modules.get(moduleId);
+  }
+
+  /**
+   * Get all registered modules
+   */
+  getAll(): ModuleConfig[] {
+    return Array.from(this.modules.values());
+  }
+
+  /**
+   * Get only enabled modules
+   */
+  getEnabled(): ModuleConfig[] {
+    return this.getAll().filter((m) => m.enabled);
+  }
+
+  /**
+   * Get modules for specific business and workspace
+   */
+  getForContext(
+    business: 'clothing' | 'trucking',
+    workspace: 'operations' | 'employees'
+  ): ModuleConfig[] {
+    return this.getEnabled().filter((module) => {
+      const navItems = module.navigation || [];
+      return navItems.some(
+        (nav) =>
+          (!nav.business || nav.business.includes(business)) &&
+          (!nav.workspace || nav.workspace.includes(workspace))
+      );
+    });
+  }
+
+  /**
+   * Generate navigation items for sidebar
+   */
+  getNavigation(
+    business: 'clothing' | 'trucking',
+    workspace: 'operations' | 'employees'
+  ): ModuleNavigation[] {
+    const modules = this.getForContext(business, workspace);
+
+    const navItems = modules
+      .flatMap((m) => m.navigation || [])
+      .filter(
+        (nav) =>
+          (!nav.business || nav.business.includes(business)) &&
+          (!nav.workspace || nav.workspace.includes(workspace))
+      )
+      .sort((a, b) => a.order - b.order);
+
+    return navItems;
+  }
+
+  /**
+   * Generate routes for Next.js
+   */
+  getRoutes(): ModuleRoute[] {
+    return this.getEnabled().flatMap((m) => m.routes || []);
+  }
+
+  /**
+   * Check if module is enabled
+   */
+  isEnabled(moduleId: string): boolean {
+    const moduleConfig = this.modules.get(moduleId);
+    return moduleConfig?.enabled ?? false;
+  }
+
+  /**
+   * Enable/disable a module
+   */
+  setEnabled(moduleId: string, enabled: boolean): void {
+    const moduleConfig = this.modules.get(moduleId);
+    if (moduleConfig) {
+      moduleConfig.enabled = enabled;
+      console.log(
+        `${enabled ? '✅' : '❌'} Module ${enabled ? 'enabled' : 'disabled'}: ${moduleConfig.name}`
+      );
+    }
+  }
+
+  /**
+   * Validate module dependencies
+   */
+  private validateDependencies(deps: string[]): void {
+    for (const dep of deps) {
+      if (!this.modules.has(dep)) {
+        console.warn(`⚠️  Missing dependency: ${dep}`);
+      }
+    }
+  }
+
+  /**
+   * Initialize all modules
+   */
+  initialize(): void {
+    if (this.initialized) {
+      console.warn('⚠️  Module registry already initialized');
+      return;
+    }
+
+    console.log('🚀 Initializing module registry...');
+    this.initialized = true;
+    console.log(`✅ ${this.modules.size} modules registered`);
+  }
+
+  /**
+   * Get module statistics
+   */
+  getStats() {
+    const all = this.getAll();
+    const enabled = this.getEnabled();
+
+    return {
+      total: all.length,
+      enabled: enabled.length,
+      disabled: all.length - enabled.length,
+      withRoutes: enabled.filter((m) => m.routes && m.routes.length > 0).length,
+      withNavigation: enabled.filter(
+        (m) => m.navigation && m.navigation.length > 0
+      ).length,
+    };
+  }
+}
+
+// Singleton instance
+export const moduleRegistry = new ModuleRegistry();

@@ -313,8 +313,11 @@ export function Sidebar() {
                   radius="sm"
                   variant={isActive ? 'filled' : 'light'}
                   color="gray"
+                  style={{
+                    color: 'white',
+                  }}
                 >
-                  <item.icon size={24} />
+                  <item.icon size={24} style={{ color: 'white' }} />
                 </ThemeIcon>
               }
               active={isActive}
