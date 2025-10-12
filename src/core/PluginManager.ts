@@ -420,23 +420,47 @@ class PluginManager {
     }
 
     try {
-      console.log(`📥 Downloading module from ${modulePackage.downloadUrl}`);
+      console.log(
+        `📥 Downloading module: ${modulePackage.id} v${modulePackage.version}`
+      );
+      console.log(`📍 From: ${modulePackage.downloadUrl}`);
 
-      const response = await fetch(modulePackage.downloadUrl);
+      // Call the download API
+      const response = await fetch('/api/modules/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          moduleId: modulePackage.id,
+          downloadUrl: modulePackage.downloadUrl,
+          version: modulePackage.version,
+          checksum: modulePackage.checksum,
+          size: modulePackage.size,
+        }),
+      });
 
       if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage =
+          (errorData as { error?: string }).error ||
+          `HTTP ${response.status}: ${response.statusText}`;
+        throw new DownloadError(errorMessage);
+      }
+
+      const result = await response.json();
+
+      if (!result.success) {
         throw new DownloadError(
-          `Failed to download module: ${response.statusText}`
+          result.error || 'Download failed with unknown error'
         );
       }
 
-      // In a real implementation, you would:
-      // 1. Download the bundle
-      // 2. Verify checksum/signature
-      // 3. Extract to installation directory
-      // 4. Load module code dynamically
+      // Update module package with installation path
+      modulePackage.installPath = result.installPath;
 
       console.log(`✅ Module downloaded successfully`);
+      console.log(`📦 Size: ${result.size} bytes`);
+      console.log(`⏱️  Duration: ${result.duration}ms`);
+      console.log(`📂 Installed to: ${result.installPath}`);
     } catch (error) {
       if (error instanceof PluginError) throw error;
       throw new DownloadError(`Download failed: ${(error as Error).message}`);

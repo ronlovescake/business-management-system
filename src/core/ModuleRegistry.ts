@@ -77,6 +77,7 @@ export interface ModulePackage extends ModuleConfig {
   license?: string;
   author?: ModuleAuthor;
   keywords?: string[];
+  checksum?: string; // SHA-256 checksum for download verification
   peerDependencies?: Record<string, string>;
   bundledDependencies?: string[];
 }
