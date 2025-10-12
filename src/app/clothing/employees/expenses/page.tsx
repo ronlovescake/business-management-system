@@ -676,134 +676,261 @@ export default function Expenses() {
         onClose={() => setIsModalOpen(false)}
         title={editingExpense ? 'Edit Expense' : 'Add New Expense'}
         size="lg"
+        padding="xl"
+        radius="md"
+        styles={{
+          title: {
+            fontSize: '1.25rem',
+            fontWeight: 600,
+          },
+          body: {
+            paddingTop: '1rem',
+          },
+        }}
       >
-        <Stack gap="md">
-          <Group grow align="flex-start">
-            <TextInput
-              label="Date"
-              placeholder="MM/DD/YYYY"
-              type="date"
-              value={formDate}
-              onChange={(e) => setFormDate(e.target.value)}
+        <Stack gap="lg">
+          <Stack gap="md">
+            <Group grow align="flex-start">
+              <TextInput
+                label="Date"
+                placeholder="MM/DD/YYYY"
+                type="date"
+                value={formDate}
+                onChange={(e) => setFormDate(e.target.value)}
+                required
+                radius="md"
+                size="md"
+                styles={{
+                  label: {
+                    fontWeight: 500,
+                    fontSize: '0.875rem',
+                    marginBottom: '0.5rem',
+                  },
+                  input: {
+                    borderColor: '#d0d7de',
+                    '&:focus': {
+                      borderColor: '#2188ff',
+                    },
+                  },
+                }}
+              />
+              <Select
+                label="Category"
+                placeholder="Select category"
+                data={categories}
+                value={formCategory}
+                onChange={(value) => setFormCategory(value || '')}
+                required
+                searchable
+                radius="md"
+                size="md"
+                styles={{
+                  label: {
+                    fontWeight: 500,
+                    fontSize: '0.875rem',
+                    marginBottom: '0.5rem',
+                  },
+                  input: {
+                    borderColor: '#d0d7de',
+                    '&:focus': {
+                      borderColor: '#2188ff',
+                    },
+                  },
+                }}
+              />
+            </Group>
+
+            <Group grow align="flex-start">
+              <NumberInput
+                label="Amount"
+                placeholder="0"
+                prefix="₱ "
+                decimalScale={2}
+                value={formAmount}
+                onChange={(value) =>
+                  setFormAmount(typeof value === 'number' ? value : '')
+                }
+                required
+                min={0}
+                radius="md"
+                size="md"
+                styles={{
+                  label: {
+                    fontWeight: 500,
+                    fontSize: '0.875rem',
+                    marginBottom: '0.5rem',
+                  },
+                  input: {
+                    borderColor: '#d0d7de',
+                    '&:focus': {
+                      borderColor: '#2188ff',
+                    },
+                  },
+                }}
+              />
+              <TextInput
+                label="Trip ID (Optional)"
+                placeholder="e.g., TRP-001"
+                value={formTripId}
+                onChange={(e) => setFormTripId(e.target.value)}
+                radius="md"
+                size="md"
+                styles={{
+                  label: {
+                    fontWeight: 500,
+                    fontSize: '0.875rem',
+                    marginBottom: '0.5rem',
+                  },
+                  input: {
+                    borderColor: '#d0d7de',
+                    '&:focus': {
+                      borderColor: '#2188ff',
+                    },
+                  },
+                }}
+              />
+            </Group>
+
+            <Textarea
+              label="Description"
+              placeholder="Describe the expense..."
+              value={formDescription}
+              onChange={(e) => setFormDescription(e.target.value)}
               required
+              minRows={3}
+              radius="md"
+              size="md"
               styles={{
-                label: { fontWeight: 600 },
+                label: {
+                  fontWeight: 500,
+                  fontSize: '0.875rem',
+                  marginBottom: '0.5rem',
+                },
+                input: {
+                  borderColor: '#d0d7de',
+                  '&:focus': {
+                    borderColor: '#2188ff',
+                  },
+                },
               }}
             />
-            <Select
-              label="Category"
-              placeholder="Select category"
-              data={categories}
-              value={formCategory}
-              onChange={(value) => setFormCategory(value || '')}
-              required
-              searchable
+
+            <Textarea
+              label="Notes (Optional)"
+              placeholder="Additional notes about this expense..."
+              value={formNotes}
+              onChange={(e) => setFormNotes(e.target.value)}
+              minRows={2}
+              radius="md"
+              size="md"
               styles={{
-                label: { fontWeight: 600 },
+                label: {
+                  fontWeight: 500,
+                  fontSize: '0.875rem',
+                  marginBottom: '0.5rem',
+                },
+                input: {
+                  borderColor: '#d0d7de',
+                  '&:focus': {
+                    borderColor: '#2188ff',
+                  },
+                },
               }}
             />
-          </Group>
 
-          <Group grow align="flex-start">
-            <NumberInput
-              label="Amount"
-              placeholder="0"
-              prefix="₱ "
-              decimalScale={2}
-              value={formAmount}
-              onChange={(value) =>
-                setFormAmount(typeof value === 'number' ? value : '')
-              }
-              required
-              min={0}
-              styles={{
-                label: { fontWeight: 600 },
-              }}
-            />
-            <TextInput
-              label="Trip ID (Optional)"
-              placeholder="Enter trip ID"
-              value={formTripId}
-              onChange={(e) => setFormTripId(e.target.value)}
-              styles={{
-                label: { fontWeight: 600 },
-              }}
-            />
-          </Group>
-
-          <Textarea
-            label="Description"
-            placeholder="Enter description"
-            value={formDescription}
-            onChange={(e) => setFormDescription(e.target.value)}
-            required
-            minRows={3}
-            styles={{
-              label: { fontWeight: 600 },
-            }}
-          />
-
-          <Textarea
-            label="Notes (Optional)"
-            placeholder="Enter notes"
-            value={formNotes}
-            onChange={(e) => setFormNotes(e.target.value)}
-            minRows={3}
-            styles={{
-              label: { fontWeight: 600 },
-            }}
-          />
-
-          <Box>
-            <Text size="sm" fw={600} mb="xs">
-              Receipt Upload
-            </Text>
-            <Paper
-              withBorder
-              p="xl"
-              style={{
-                borderStyle: 'dashed',
-                borderWidth: 2,
-                borderColor: '#dee2e6',
-                textAlign: 'center',
-                cursor: 'pointer',
-                backgroundColor: '#f8f9fa',
-              }}
-            >
+            <Box>
+              <Text size="sm" fw={500} mb="sm" c="dark.9">
+                Receipt Upload
+              </Text>
               <FileButton
                 onChange={setFormReceipt}
                 accept="image/png,image/jpeg,image/jpg"
               >
                 {(props) => (
-                  <Box {...props}>
-                    <IconUpload
-                      size={40}
-                      stroke={1.5}
-                      color="#868e96"
-                      style={{ margin: '0 auto' }}
-                    />
-                    <Text size="sm" c="dimmed" mt="xs">
-                      Click to upload receipt
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                      PNG, JPG files only (Max 5MB)
-                    </Text>
-                    {formReceipt && (
-                      <Badge color="blue" variant="light" mt="sm">
-                        {formReceipt.name}
-                      </Badge>
-                    )}
-                  </Box>
+                  <Paper
+                    {...props}
+                    withBorder
+                    p="xl"
+                    radius="md"
+                    style={{
+                      borderStyle: 'dashed',
+                      borderWidth: 2,
+                      borderColor: '#d0d7de',
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      backgroundColor: '#f6f8fa',
+                      transition: 'all 0.2s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = '#2188ff';
+                      e.currentTarget.style.backgroundColor = '#f0f6ff';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = '#d0d7de';
+                      e.currentTarget.style.backgroundColor = '#f6f8fa';
+                    }}
+                  >
+                    <Stack align="center" gap="xs">
+                      <IconUpload
+                        size={48}
+                        stroke={1.5}
+                        color="#6c757d"
+                        style={{ marginBottom: '0.5rem' }}
+                      />
+                      <Text size="sm" fw={500} c="dark.7">
+                        Click to upload receipt
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        PNG, JPG files only (Max 5MB)
+                      </Text>
+                      {formReceipt && (
+                        <Badge
+                          color="blue"
+                          variant="light"
+                          size="lg"
+                          mt="sm"
+                          leftSection={<IconReceipt size={14} />}
+                        >
+                          {formReceipt.name}
+                        </Badge>
+                      )}
+                    </Stack>
+                  </Paper>
                 )}
               </FileButton>
-            </Paper>
-          </Box>
+            </Box>
+          </Stack>
 
-          <Group justify="flex-end" mt="md">
-            <Button variant="subtle" onClick={() => setIsModalOpen(false)}>
+          <Group justify="flex-end" gap="sm" mt="md">
+            <Button
+              variant="subtle"
+              onClick={() => setIsModalOpen(false)}
+              size="md"
+              radius="md"
+              c="dark.5"
+              styles={{
+                root: {
+                  '&:hover': {
+                    backgroundColor: '#f6f8fa',
+                  },
+                },
+              }}
+            >
               Cancel
             </Button>
-            <Button onClick={handleSaveExpense}>
+            <Button
+              onClick={handleSaveExpense}
+              size="md"
+              radius="md"
+              styles={{
+                root: {
+                  backgroundColor: '#2188ff',
+                  '&:hover': {
+                    backgroundColor: '#0969da',
+                  },
+                },
+              }}
+            >
               {editingExpense ? 'Update' : 'Add'}
             </Button>
           </Group>
