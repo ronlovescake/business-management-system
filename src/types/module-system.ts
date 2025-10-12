@@ -234,11 +234,17 @@ export type ModulePermissionType =
   | 'filesystem.read'
   | 'filesystem.write'
   | 'filesystem.delete'
+  | 'files.read'
+  | 'files.write'
+  | 'files.delete'
   | 'network.fetch'
   | 'network.websocket'
+  | 'network.internal'
+  | 'network.external'
   | 'storage.local'
   | 'storage.session'
   | 'storage.cookie'
+  | 'ui.render'
   | 'ui.navigation'
   | 'ui.notification'
   | 'ui.modal'
@@ -353,6 +359,116 @@ export interface ModuleSandboxContext {
    * Resource usage tracking
    */
   resources: ModuleResourceUsage;
+}
+
+/**
+ * Module permission request
+ */
+export interface ModulePermissionRequest {
+  /**
+   * Permission being requested
+   */
+  permission: ModulePermissionType;
+
+  /**
+   * Reason for request
+   */
+  reason?: string;
+
+  /**
+   * Whether user has approved
+   */
+  userApproval?: boolean;
+}
+
+/**
+ * Module permission grant result
+ */
+export interface ModulePermissionGrant {
+  /**
+   * Whether permission was granted
+   */
+  granted: boolean;
+
+  /**
+   * Permission type
+   */
+  permission: ModulePermissionType;
+
+  /**
+   * Module ID
+   */
+  moduleId: string;
+
+  /**
+   * When granted
+   */
+  grantedAt?: number;
+
+  /**
+   * Reason for denial
+   */
+  reason?: string;
+}
+
+/**
+ * Module sandbox configuration
+ */
+export interface ModuleSandboxConfig {
+  /**
+   * Module ID
+   */
+  moduleId: string;
+
+  /**
+   * Whether module is isolated
+   */
+  isolated: boolean;
+
+  /**
+   * Granted permissions
+   */
+  permissions: ModulePermissionType[];
+
+  /**
+   * Resource limits
+   */
+  limits: {
+    maxMemoryMB?: number;
+    maxCPUPercent?: number;
+    maxStorageMB?: number;
+    maxNetworkRequests?: number;
+  };
+}
+
+/**
+ * Resource usage tracking
+ */
+export interface ResourceUsage {
+  /**
+   * Memory usage in MB
+   */
+  memoryMB: number;
+
+  /**
+   * CPU usage percentage
+   */
+  cpuPercent: number;
+
+  /**
+   * Storage usage in MB
+   */
+  storageMB: number;
+
+  /**
+   * Number of network requests
+   */
+  networkRequests: number;
+
+  /**
+   * Last updated timestamp
+   */
+  lastUpdated: number;
 }
 
 /**
