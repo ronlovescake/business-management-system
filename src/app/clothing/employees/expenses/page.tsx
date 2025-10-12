@@ -146,6 +146,25 @@ export default function Expenses() {
     return colorMap[category] || 'gray';
   };
 
+  // Format date to "Friday, September 12, 2025"
+  const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
+  // Format currency to Philippine Peso
+  const formatCurrency = (amount: number): string => {
+    return new Intl.NumberFormat('en-PH', {
+      style: 'currency',
+      currency: 'PHP',
+    }).format(amount);
+  };
+
   // Categories
   const categories = useMemo(
     () => [
@@ -330,7 +349,7 @@ export default function Expenses() {
   const statsCards: StatCard[] = [
     {
       title: 'Total Expenses',
-      value: `$${totalExpenses.toFixed(2)}`,
+      value: formatCurrency(totalExpenses),
       icon: <IconReceipt size={32} stroke={1.5} />,
       color: 'blue',
     },
@@ -342,13 +361,13 @@ export default function Expenses() {
     },
     {
       title: 'Approved Total',
-      value: `$${approvedExpenses.toFixed(2)}`,
+      value: formatCurrency(approvedExpenses),
       icon: <IconCheck size={32} stroke={1.5} />,
       color: 'green',
     },
     {
       title: 'This Month',
-      value: `$${thisMonthExpenses.toFixed(2)}`,
+      value: formatCurrency(thisMonthExpenses),
       icon: <IconDownload size={32} stroke={1.5} />,
       color: 'teal',
     },
@@ -494,11 +513,11 @@ export default function Expenses() {
                     ) : (
                       filteredExpenses.map((expense) => (
                         <Table.Tr key={expense.id}>
+                          <Table.Td>{formatDate(expense.date)}</Table.Td>
                           <Table.Td>
-                            {new Date(expense.date).toLocaleDateString()}
-                          </Table.Td>
-                          <Table.Td>
-                            <Text fw={600}>${expense.amount.toFixed(2)}</Text>
+                            <Text fw={600}>
+                              {formatCurrency(expense.amount)}
+                            </Text>
                           </Table.Td>
                           <Table.Td>
                             <div>
@@ -602,10 +621,10 @@ export default function Expenses() {
                     expenses
                   </Text>
                   <Text size="sm" fw={600}>
-                    Filtered Total: $
-                    {filteredExpenses
-                      .reduce((sum, exp) => sum + exp.amount, 0)
-                      .toFixed(2)}
+                    Filtered Total:{' '}
+                    {formatCurrency(
+                      filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0)
+                    )}
                   </Text>
                 </Group>
               </Card>
@@ -640,7 +659,7 @@ export default function Expenses() {
                           {category.percentage.toFixed(1)}%
                         </Text>
                         <Text size="lg" fw={700}>
-                          ${category.total.toFixed(2)}
+                          {formatCurrency(category.total)}
                         </Text>
                       </Group>
                     </Group>
@@ -660,7 +679,7 @@ export default function Expenses() {
                       TOTAL
                     </Text>
                     <Text size="xl" fw={700}>
-                      ${totalExpenses.toFixed(2)}
+                      {formatCurrency(totalExpenses)}
                     </Text>
                   </Group>
                 </Paper>
