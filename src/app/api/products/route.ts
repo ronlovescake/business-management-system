@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { Prisma } from '@prisma/client';
+import type { Prisma, Product } from '@prisma/client';
 import { prisma } from '@/lib/db';
+
+// Disable caching for this route
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 type ProductImportRow = Record<string, unknown>;
 
@@ -66,13 +70,54 @@ function mapImportRow(record: ProductImportRow): Prisma.ProductCreateManyInput {
   };
 }
 
+function mapDatabaseToFrontend(dbProduct: Product) {
+  return {
+    id: dbProduct.id,
+    'Shipment Code': dbProduct.shipmentCode,
+    'CV Number': dbProduct.cvNumber,
+    'No. Of Sacks': dbProduct.noOfSacks,
+    'Total CBM': dbProduct.totalCBM,
+    Weight: dbProduct.weight,
+    'Shipment Status': dbProduct.shipmentStatus,
+    'Posting Date': dbProduct.postingDate,
+    'Order Date': dbProduct.orderDate,
+    Payment: dbProduct.payment,
+    Product: dbProduct.product,
+    'Product Code': dbProduct.productCode,
+    'Age Range': dbProduct.ageRange,
+    Unit: dbProduct.unit,
+    'Unit Price': dbProduct.unitPrice,
+    Quantity: dbProduct.quantity,
+    'Alibaba Shipping Cost': dbProduct.alibabaShippingCost,
+    'Exchange Rates': dbProduct.exchangeRates,
+    PHP: dbProduct.php,
+    'Sub Total (PHP)': dbProduct.subTotalPHP,
+    'Transaction Fee': dbProduct.transactionFee,
+    'Grand Total': dbProduct.grandTotal,
+    "Forwarder's Fee": dbProduct.forwardersFee,
+    Lalamove: dbProduct.lalamove,
+    'Packaging Cost': dbProduct.packagingCost,
+    'Suggested Price': dbProduct.suggestedPrice,
+    'Actual Price': dbProduct.actualPrice,
+    'Base Price': dbProduct.basePrice,
+    COGS: dbProduct.cogs,
+    'Projected Sales': dbProduct.projectedSales,
+    'Projected Profit': dbProduct.projectedProfit,
+    'Projected Profit (%)': dbProduct.projectedProfitPercent,
+    'Total Markup': dbProduct.totalMarkup,
+  };
+}
+
 export async function GET() {
   try {
     const products = await prisma.product.findMany({
       orderBy: { id: 'asc' },
     });
 
-    return NextResponse.json(products);
+    // Transform database field names to frontend display names
+    const transformedProducts = products.map(mapDatabaseToFrontend);
+
+    return NextResponse.json(transformedProducts);
   } catch (error) {
     console.error('Failed to fetch products:', error);
     return NextResponse.json(

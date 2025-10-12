@@ -1,0 +1,539 @@
+'use client';
+
+/**
+ * useTransactionsData Hook
+ *
+ * Main data hook for Transactions module.
+ * Handles data fetching, filtering, and statistics calculation.
+ */
+
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useTransactionData } from '@/hooks/useSheetData';
+import { useDataTable } from '@/components/ui';
+import { TransactionService } from '../services/TransactionService';
+import { ALL_STATUS_CONTROLLED_STATUSES } from '../types/transaction.types';
+import type {
+  TransactionData,
+  PriceTier,
+  TransactionStatistics,
+} from '../types/transaction.types';
+
+/**
+ * Hook return type
+ */
+interface UseTransactionsDataReturn {
+  // Core data
+  transactions: TransactionData[];
+  isLoading: boolean;
+
+  // Filtered data
+  filteredData: TransactionData[];
+  searchQuery: string;
+  handleSearch: (query: string) => void;
+
+  // Status filtering
+  selectedStatuses: Set<string>;
+  handleStatusFilter: (status: string) => void;
+
+  // Statistics
+  statistics: TransactionStatistics;
+
+  // Lookup data
+  customerNames: string[];
+  productCodes: string[];
+  priceTiers: PriceTier[];
+  productToShipmentMap: Record<string, string>;
+  productToShipmentStatusMap: Record<string, string>;
+
+  // Transaction operations from abstraction layer (using service wrappers)
+  bulkUpdate: (data: TransactionData[]) => void;
+  update: (data: { id: number; data: Partial<TransactionData> }) => void;
+}
+
+/**
+ * Load saved filter state from localStorage
+ */
+const loadSavedFilterState = (): Set<string> => {
+  try {
+    if (typeof window === 'undefined') return new Set(['All Status']);
+    const saved = localStorage.getItem('transactions-filter-state');
+    if (saved) {
+      const parsedArray = JSON.parse(saved) as string[];
+      const savedSet = new Set(parsedArray);
+
+      // If "All Status" is saved, ensure all controlled statuses are also included
+      if (savedSet.has('All Status')) {
+        ALL_STATUS_CONTROLLED_STATUSES.forEach((status) =>
+          savedSet.add(status)
+        );
+      }
+
+      return savedSet;
+    }
+  } catch (error) {
+    console.error('Error loading filter state:', error);
+  }
+
+  // Default state: All Status + all controlled statuses
+  const defaultSet = new Set(['All Status']);
+  ALL_STATUS_CONTROLLED_STATUSES.forEach((status) => defaultSet.add(status));
+  return defaultSet;
+};
+
+/**
+ * Main hook
+ */
+export function useTransactionsData(): UseTransactionsDataReturn {
+  // ============================================================================
+  // DATA FETCHING - Using abstraction layer
+  // ============================================================================
+
+  const {
+    data: transactions,
+    isLoading: transactionsLoading,
+    bulkUpdate: bulkUpdateTransactions,
+    update: updateTransaction,
+  } = useTransactionData();
+
+  // console.log(`Loaded ${transactions.length} transactions from service layer`);
+
+  // ============================================================================
+  // LOOKUP DATA - Customer names, product codes, price tiers, mappings
+  // ============================================================================
+
+  const [customerNames, setCustomerNames] = useState<string[]>([]);
+  const [productCodes, setProductCodes] = useState<string[]>([]);
+  const [priceTiers, setPriceTiers] = useState<PriceTier[]>([]);
+  const [productToShipmentMap, setProductToShipmentMap] = useState<
+    Record<string, string>
+  >({});
+  const [productToShipmentStatusMap, setProductToShipmentStatusMap] = useState<
+    Record<string, string>
+  >({});
+
+  // Load customer names from customers API and imported transactions
+  useEffect(() => {
+    const loadCustomerNames = async () => {
+      try {
+        let apiCustomers: string[] = [];
+
+        // Try to fetch customer names from the customers API
+        try {
+          const response = await fetch('/api/customers', {
+            next: { revalidate: 30 } as never,
+          });
+          if (response.ok) {
+            const customersData = (await response.json()) as Record<
+              string,
+              unknown
+            >[];
+            // Extract customer names from the API data
+            apiCustomers = customersData
+              .map((customer) => {
+                return (
+                  customer.name ||
+                  customer.Name ||
+                  customer.customerName ||
+                  customer['Customer Name']
+                );
+              })
+              .filter(Boolean)
+              .map(String);
+          }
+        } catch (apiError) {
+          console.warn('Could not fetch customers from API:', apiError);
+        }
+
+        // Extract unique customer names from imported transactions
+        const transactionCustomers = transactions
+          .map((t) => t.Customers)
+          .filter(Boolean);
+
+        // 🚀 PERFORMANCE: Use Set for O(n) deduplication
+        const allCustomers = Array.from(
+          new Set([...apiCustomers, ...transactionCustomers])
+        ).sort();
+
+        setCustomerNames(allCustomers);
+      } catch (error) {
+        console.error('Error loading customer names:', error);
+        setCustomerNames([]);
+      }
+    };
+
+    loadCustomerNames();
+  }, [transactions]);
+
+  // Load product codes from prices API
+  useEffect(() => {
+    const loadProductCodes = async () => {
+      try {
+        const response = await fetch('/api/prices', {
+          next: { revalidate: 30 } as never,
+        });
+        if (response.ok) {
+          const pricesData = (await response.json()) as PriceTier[];
+
+          // Store all price tiers for unit price lookup
+          setPriceTiers(pricesData);
+
+          // 🚀 PERFORMANCE: Use Set for O(n) deduplication
+          const codes = Array.from(
+            new Set(
+              pricesData.map((price) => price['Product Code']).filter(Boolean)
+            )
+          ).sort();
+
+          setProductCodes(codes);
+        } else {
+          console.error('Failed to fetch prices data');
+          setProductCodes([]);
+          setPriceTiers([]);
+        }
+      } catch (error) {
+        console.error('Error loading product codes:', error);
+        setProductCodes([]);
+        setPriceTiers([]);
+      }
+    };
+
+    loadProductCodes();
+  }, []);
+
+  // Load product-to-shipment and product-to-shipment-status mappings
+  useEffect(() => {
+    const loadProductMappings = async () => {
+      try {
+        const [productsResponse, shipmentsResponse] = await Promise.all([
+          fetch('/api/products', { next: { revalidate: 30 } as never }),
+          fetch('/api/shipments', { next: { revalidate: 30 } as never }),
+        ]);
+
+        if (productsResponse.ok && shipmentsResponse.ok) {
+          const productsData = (await productsResponse.json()) as Record<
+            string,
+            unknown
+          >[];
+          const shipmentsData = (await shipmentsResponse.json()) as Record<
+            string,
+            unknown
+          >[];
+
+          // Create mapping from Shipment Code to Shipment Status
+          const shipmentCodeToStatus: Record<string, string> = {};
+
+          shipmentsData.forEach((shipment) => {
+            const shipmentCode = String(
+              shipment['Shipment Code'] || shipment.shipmentCode || ''
+            );
+            const shipmentStatus = String(
+              shipment['Shipment Status'] || shipment.shipmentStatus || ''
+            );
+
+            if (shipmentCode) {
+              shipmentCodeToStatus[shipmentCode] = shipmentStatus;
+            }
+          });
+
+          // Create mappings from Product Code to Shipment Code and Status
+          const shipmentMapping: Record<string, string> = {};
+          const statusMapping: Record<string, string> = {};
+
+          productsData.forEach((product) => {
+            const productCode = String(
+              product.productCode || product['Product Code'] || ''
+            );
+            const shipmentCode = String(
+              product.shipmentCode || product['Shipment Code'] || ''
+            );
+
+            if (productCode && shipmentCode) {
+              shipmentMapping[productCode] = shipmentCode;
+
+              const correspondingShipmentStatus =
+                shipmentCodeToStatus[shipmentCode] || '';
+              statusMapping[productCode] = correspondingShipmentStatus;
+            }
+          });
+
+          console.log(
+            `✅ Loaded product-to-shipment mappings: ${Object.keys(statusMapping).length} products mapped`
+          );
+
+          setProductToShipmentMap(shipmentMapping);
+          setProductToShipmentStatusMap(statusMapping);
+        } else {
+          console.error(
+            'Failed to fetch data:',
+            !productsResponse.ok ? 'products API failed' : '',
+            !shipmentsResponse.ok ? 'shipments API failed' : ''
+          );
+          setProductToShipmentMap({});
+          setProductToShipmentStatusMap({});
+        }
+      } catch (error) {
+        console.error('Error loading product mappings:', error);
+        setProductToShipmentMap({});
+        setProductToShipmentStatusMap({});
+      }
+    };
+
+    loadProductMappings();
+  }, []);
+
+  // ============================================================================
+  // STATUS FILTERING
+  // ============================================================================
+
+  const [selectedStatuses, setSelectedStatuses] = useState<Set<string>>(
+    loadSavedFilterState()
+  );
+
+  // Save filter state to localStorage
+  useEffect(() => {
+    try {
+      const statusArray = Array.from(selectedStatuses);
+      localStorage.setItem(
+        'transactions-filter-state',
+        JSON.stringify(statusArray)
+      );
+    } catch (error) {
+      console.error('Error saving filter state:', error);
+    }
+  }, [selectedStatuses]);
+
+  // Handle status filter selection with toggle functionality
+  const handleStatusFilter = useCallback((status: string) => {
+    setSelectedStatuses((prev) => {
+      const newSet = new Set(prev);
+
+      if (status === 'All Status') {
+        if (newSet.has('All Status')) {
+          // Toggle off All Status and all controlled statuses
+          newSet.delete('All Status');
+          ALL_STATUS_CONTROLLED_STATUSES.forEach((s) => newSet.delete(s));
+        } else {
+          // Toggle on All Status and all controlled statuses
+          newSet.add('All Status');
+          ALL_STATUS_CONTROLLED_STATUSES.forEach((s) => newSet.add(s));
+        }
+      } else {
+        // Handle individual status toggle
+        if (newSet.has(status)) {
+          newSet.delete(status);
+          // If this was one of the controlled statuses, also remove All Status
+          if (ALL_STATUS_CONTROLLED_STATUSES.includes(status as never)) {
+            newSet.delete('All Status');
+          }
+        } else {
+          newSet.add(status);
+          // Check if all controlled statuses are now selected
+          if (
+            ALL_STATUS_CONTROLLED_STATUSES.every(
+              (s) => newSet.has(s) || s === status
+            )
+          ) {
+            newSet.add('All Status');
+          }
+        }
+      }
+
+      return newSet;
+    });
+  }, []);
+
+  // ============================================================================
+  // SEARCH FILTERING
+  // ============================================================================
+
+  const {
+    searchQuery,
+    filteredData: searchFilteredData,
+    handleSearch,
+  } = useDataTable({
+    data: transactions,
+    searchFields: [
+      'Customers',
+      'Product Code',
+      'Order Status',
+      'Notes',
+      'Shipment Code',
+    ],
+  });
+
+  // ============================================================================
+  // COMBINED FILTERING - Search + Status
+  // ============================================================================
+
+  const filteredData = useMemo(() => {
+    // Use only individual statuses; ignore the aggregator flag 'All Status'
+    const individual = Array.from(selectedStatuses).filter(
+      (s) => s !== 'All Status'
+    );
+
+    let filtered;
+    if (individual.length === 0) {
+      // No individual statuses selected -> show only rows without Order Status
+      filtered = searchFilteredData.filter((transaction) => {
+        const status = transaction['Order Status'];
+        return !status || status.trim() === '';
+      });
+    } else {
+      // Filter by selected statuses OR rows without status
+      filtered = searchFilteredData.filter((transaction) => {
+        const status = transaction['Order Status'];
+        return (
+          !status ||
+          status.trim() === '' ||
+          (status && individual.includes(status))
+        );
+      });
+    }
+
+    // If there's an active search, append empty rows
+    if (searchQuery && searchQuery.trim() !== '') {
+      const emptyRows = transactions.filter((transaction) => {
+        const hasCustomer =
+          transaction.Customers && transaction.Customers.trim() !== '';
+        const hasProductCode =
+          transaction['Product Code'] &&
+          transaction['Product Code'].trim() !== '';
+        return !hasCustomer && !hasProductCode;
+      });
+
+      return [...filtered, ...emptyRows];
+    }
+
+    return filtered;
+  }, [searchFilteredData, selectedStatuses, searchQuery, transactions]);
+
+  // ============================================================================
+  // STATISTICS CALCULATION
+  // ============================================================================
+
+  const statistics = useMemo(() => {
+    return TransactionService.calculateStatistics(filteredData);
+  }, [filteredData]);
+
+  // ============================================================================
+  // TRANSACTION SYNC - Update order status based on shipment status
+  // ============================================================================
+
+  const syncTransactionsWithShipmentStatus = useCallback(
+    (statusMap: Record<string, string>) => {
+      const [updatedTransactions, updatedCount] =
+        TransactionService.syncTransactionsWithShipmentStatus(
+          transactions,
+          statusMap
+        );
+
+      if (updatedCount > 0) {
+        console.log(
+          `✅ Synced ${updatedCount} transactions with current shipment status`
+        );
+
+        // Sanitize transactions for API (convert nullable to non-null)
+        const sanitized =
+          TransactionService.sanitizeTransactions(updatedTransactions);
+
+        // Update via service layer
+        bulkUpdateTransactions(sanitized as never);
+
+        // Show notification (will be handled by caller)
+        return updatedCount;
+      }
+
+      return 0;
+    },
+    [transactions, bulkUpdateTransactions]
+  );
+
+  // Sync on mount and when mappings change (only once when mappings are loaded)
+  useEffect(() => {
+    if (
+      Object.keys(productToShipmentStatusMap).length > 0 &&
+      transactions.length > 0
+    ) {
+      console.log('🔄 Syncing transactions with current shipment status...');
+      syncTransactionsWithShipmentStatus(productToShipmentStatusMap);
+    }
+    // Only run when product mappings change, NOT when transactions change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productToShipmentStatusMap]);
+
+  // ============================================================================
+  // WRAPPER FUNCTIONS - Convert between TransactionData and DTO
+  // ============================================================================
+
+  const bulkUpdate = useCallback(
+    (data: TransactionData[]) => {
+      const sanitized = TransactionService.sanitizeTransactions(data);
+      bulkUpdateTransactions(sanitized as never);
+    },
+    [bulkUpdateTransactions]
+  );
+
+  const update = useCallback(
+    (params: { id: number; data: Partial<TransactionData> }) => {
+      // Convert partial TransactionData to DTO format
+      const sanitizedData: Record<string, string | number> = {};
+      Object.entries(params.data).forEach(([key, value]) => {
+        // Handle null, undefined, or the string 'null'
+        if (value === null || value === undefined || value === 'null') {
+          // Numeric fields default to 0
+          if (
+            [
+              'Quantity',
+              'Unit Price',
+              'Discount',
+              'Adjustment',
+              'Line Total',
+            ].includes(key)
+          ) {
+            sanitizedData[key] = 0;
+          } else {
+            sanitizedData[key] = '';
+          }
+        } else {
+          sanitizedData[key] = value;
+        }
+      });
+
+      updateTransaction({ id: params.id, data: sanitizedData as never });
+    },
+    [updateTransaction]
+  );
+
+  // ============================================================================
+  // RETURN
+  // ============================================================================
+
+  return {
+    // Core data
+    transactions,
+    isLoading: transactionsLoading,
+
+    // Filtered data
+    filteredData,
+    searchQuery,
+    handleSearch,
+
+    // Status filtering
+    selectedStatuses,
+    handleStatusFilter,
+
+    // Statistics
+    statistics,
+
+    // Lookup data
+    customerNames,
+    productCodes,
+    priceTiers,
+    productToShipmentMap,
+    productToShipmentStatusMap,
+
+    // Operations
+    bulkUpdate,
+    update,
+  };
+}

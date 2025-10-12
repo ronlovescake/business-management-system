@@ -10,32 +10,26 @@ import {
   Divider,
 } from '@mantine/core';
 import {
-  IconDashboard,
-  IconChartBar,
-  IconReceipt,
-  IconPackage,
-  IconCalendar,
-  IconTruck,
-  IconUsers,
-  IconCurrencyDollar,
-  IconSettings,
-  IconBell,
   IconShirt,
-  IconClipboardList,
+  IconTruck,
+  IconChartBar,
   IconBoxSeam,
+  IconDashboard,
+  IconPackage,
   IconGift,
+  IconBell,
+  IconSettings,
+  IconClipboardList,
+  IconReceipt,
+  IconCurrencyDollar,
+  IconCalendar,
+  IconUsers,
 } from '@tabler/icons-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { useBusinessStore } from '../../lib/store';
-
-type NavigationItem = {
-  label: string;
-  href: string;
-  icon: typeof IconDashboard;
-  color: string;
-};
+import { moduleRegistry } from '@/modules';
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -54,7 +48,7 @@ export function Sidebar() {
       <Stack gap="md">
         <Group>
           <ThemeIcon size="sm" radius="sm" variant="light">
-            <IconDashboard size={16} />
+            <IconShirt size={16} />
           </ThemeIcon>
           <Text size="sm" c="dimmed">
             Loading navigation...
@@ -64,183 +58,150 @@ export function Sidebar() {
     );
   }
 
-  const getNavigationItems = (): NavigationItem[] => {
+  // Type guards to ensure proper types for ModuleRegistry
+  const business = selectedBusiness as 'clothing' | 'trucking';
+  const workspace = selectedWorkspace as 'operations' | 'employees';
+
+  const getNavigationItems = () => {
     const basePath = `/${selectedBusiness}/${selectedWorkspace}`;
 
+    // Get registered modules for the current business context
+    const moduleNavItems = moduleRegistry.getNavigation(business, workspace);
+
+    // Additional navigation items that don't have modules yet
+    const additionalItems: Array<{
+      label: string;
+      path: string;
+      icon: React.ComponentType;
+      order: number;
+    }> = [];
+
     if (selectedBusiness === 'clothing' && selectedWorkspace === 'operations') {
-      return [
-        {
-          label: 'Dashboard',
-          href: `${basePath}/dashboard`,
-          icon: IconDashboard,
-          color: 'blue',
-        },
+      additionalItems.push(
         {
           label: 'Business Intelligence',
-          href: `${basePath}/business-intelligence`,
+          path: `${basePath}/business-intelligence`,
           icon: IconChartBar,
-          color: 'violet',
-        },
-        {
-          label: 'Transactions',
-          href: `${basePath}/transactions`,
-          icon: IconReceipt,
-          color: 'green',
-        },
-        {
-          label: 'Products',
-          href: `${basePath}/products`,
-          icon: IconShirt,
-          color: 'pink',
-        },
-        {
-          label: 'Due Dates',
-          href: `${basePath}/due-dates`,
-          icon: IconCalendar,
-          color: 'orange',
+          order: 1.5, // Between Dashboard (0) and other modules
         },
         {
           label: 'Inventory',
-          href: `${basePath}/inventory`,
+          path: `${basePath}/inventory`,
           icon: IconBoxSeam,
-          color: 'teal',
-        },
-        {
-          label: 'Prices',
-          href: `${basePath}/prices`,
-          icon: IconCurrencyDollar,
-          color: 'yellow',
-        },
-        {
-          label: 'Sorting/Distribution',
-          href: `${basePath}/sorting-distribution`,
-          icon: IconClipboardList,
-          color: 'indigo',
-        },
-        {
-          label: 'Customers',
-          href: `${basePath}/customers`,
-          icon: IconUsers,
-          color: 'cyan',
-        },
-        {
-          label: 'Shipments',
-          href: `${basePath}/shipments`,
-          icon: IconTruck,
-          color: 'blue',
+          order: 8.5, // After the main modules
         },
         {
           label: 'Shipments Dashboard',
-          href: `${basePath}/shipments-dashboard`,
+          path: `${basePath}/shipments-dashboard`,
           icon: IconDashboard,
-          color: 'blue',
+          order: 6.5, // After Shipments module
         },
         {
           label: 'Pickup Form',
-          href: `${basePath}/pickup-form`,
+          path: `${basePath}/pickup-form`,
           icon: IconPackage,
-          color: 'brown',
+          order: 9,
         },
         {
           label: 'Post Template',
-          href: `${basePath}/post-template`,
+          path: `${basePath}/post-template`,
           icon: IconGift,
-          color: 'grape',
+          order: 10,
         },
         {
           label: 'Notifications',
-          href: `${basePath}/notifications`,
+          path: `${basePath}/notifications`,
           icon: IconBell,
-          color: 'red',
+          order: 11,
         },
         {
           label: 'Settings',
-          href: `${basePath}/settings`,
+          path: `${basePath}/settings`,
           icon: IconSettings,
-          color: 'gray',
-        },
-      ];
+          order: 12,
+        }
+      );
     }
 
     if (selectedWorkspace === 'employees') {
       const employeeItems = [
         {
           label: 'Dashboard',
-          href: `${basePath}/dashboard`,
+          path: `${basePath}/dashboard`,
           icon: IconDashboard,
-          color: 'blue',
+          order: 0,
         },
         {
           label: 'Attendance',
-          href: `${basePath}/attendance`,
+          path: `${basePath}/attendance`,
           icon: IconClipboardList,
-          color: 'green',
+          order: 1,
         },
         {
           label: 'Expenses',
-          href: `${basePath}/expenses`,
+          path: `${basePath}/expenses`,
           icon: IconReceipt,
-          color: 'red',
+          order: 2,
         },
         {
           label: 'Payroll',
-          href: `${basePath}/payroll`,
+          path: `${basePath}/payroll`,
           icon: IconCurrencyDollar,
-          color: 'yellow',
+          order: 3,
         },
         {
           label: 'Calendar',
-          href: `${basePath}/calendar`,
+          path: `${basePath}/calendar`,
           icon: IconCalendar,
-          color: 'orange',
+          order: 4,
         },
         {
           label: 'Schedules',
-          href: `${basePath}/schedules`,
+          path: `${basePath}/schedules`,
           icon: IconClipboardList,
-          color: 'violet',
+          order: 5,
         },
         {
           label: 'Leave Tracker',
-          href: `${basePath}/leave-tracker`,
+          path: `${basePath}/leave-tracker`,
           icon: IconCalendar,
-          color: 'teal',
+          order: 6,
         },
         {
           label: 'Cash Advance',
-          href: `${basePath}/cash-advance`,
+          path: `${basePath}/cash-advance`,
           icon: IconCurrencyDollar,
-          color: 'pink',
+          order: 7,
         },
         {
           label: 'Employee Loans',
-          href: `${basePath}/employee-loans`,
+          path: `${basePath}/employee-loans`,
           icon: IconCurrencyDollar,
-          color: 'indigo',
+          order: 8,
         },
         {
           label: '13th Month Pay',
-          href: `${basePath}/thirteenth-month-pay`,
+          path: `${basePath}/thirteenth-month-pay`,
           icon: IconGift,
-          color: 'cyan',
+          order: 9,
         },
         {
           label: 'Team',
-          href: `${basePath}/team`,
+          path: `${basePath}/team`,
           icon: IconUsers,
-          color: 'blue',
+          order: 10,
         },
         {
           label: 'Notifications',
-          href: `${basePath}/notifications`,
+          path: `${basePath}/notifications`,
           icon: IconBell,
-          color: 'red',
+          order: 11,
         },
         {
           label: 'Settings',
-          href: `${basePath}/settings`,
+          path: `${basePath}/settings`,
           icon: IconSettings,
-          color: 'gray',
+          order: 12,
         },
       ];
 
@@ -248,16 +209,39 @@ export function Sidebar() {
       if (selectedBusiness === 'trucking') {
         employeeItems.splice(1, 0, {
           label: 'Trips',
-          href: `${basePath}/trips`,
+          path: `${basePath}/trips`,
           icon: IconTruck,
-          color: 'blue',
+          order: 1.5,
         });
       }
 
-      return employeeItems;
+      additionalItems.push(...employeeItems);
     }
 
-    return [];
+    // Combine module navigation with additional items
+    const allItems = [
+      ...moduleNavItems.map((item) => ({
+        label: item.label,
+        path: item.path,
+        icon: item.icon,
+        order: item.order,
+      })),
+      ...additionalItems,
+    ];
+
+    // Sort by order and remove duplicates (prefer module items)
+    const seenPaths = new Set<string>();
+    const uniqueItems = allItems
+      .sort((a, b) => a.order - b.order)
+      .filter((item) => {
+        if (seenPaths.has(item.path)) {
+          return false;
+        }
+        seenPaths.add(item.path);
+        return true;
+      });
+
+    return uniqueItems;
   };
 
   const navigationItems = getNavigationItems();
@@ -300,12 +284,14 @@ export function Sidebar() {
       {/* Navigation Items */}
       <Stack gap="xs">
         {navigationItems.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = pathname === item.path;
+          const IconComponent = item.icon;
+
           return (
             <NavLink
-              key={item.href}
+              key={item.path}
               component={Link}
-              href={item.href}
+              href={item.path}
               label={item.label}
               leftSection={
                 <ThemeIcon
@@ -313,11 +299,8 @@ export function Sidebar() {
                   radius="sm"
                   variant={isActive ? 'filled' : 'light'}
                   color="gray"
-                  style={{
-                    color: 'white',
-                  }}
                 >
-                  <item.icon size={24} style={{ color: 'white' }} />
+                  <IconComponent size={24} />
                 </ThemeIcon>
               }
               active={isActive}

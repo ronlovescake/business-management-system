@@ -1,0 +1,92 @@
+/**
+ * Central Module Registry
+ *
+ * This file registers all modules in the system.
+ * Import and register your modules here.
+ */
+
+import { moduleRegistry } from '@/core/ModuleRegistry';
+
+// ============================================================================
+// CLOTHING BUSINESS MODULES
+// ============================================================================
+
+// Operations
+import { dashboardModule } from './clothing/operations/dashboard';
+import { customersModule } from './clothing/operations/customers';
+import { transactionsModule } from './clothing/operations/transactions';
+// import { pickupFormModule } from './clothing/operations/pickup-form';
+import { dueDatesModule } from './clothing/operations/due-dates';
+import { shipmentsModule } from './clothing/operations/shipments';
+import { productsModule } from './clothing/operations/products';
+import { pricesModule } from './clothing/operations/prices';
+import { sortingDistributionModule } from './clothing/operations/sorting-distribution';
+
+// Employees
+// import { attendanceModule } from './clothing/employees/attendance';
+// import { payrollModule } from './clothing/employees/payroll';
+
+// Inventory
+// import { productsModule } from './clothing/inventory/products';
+// import { stockModule } from './clothing/inventory/stock';
+
+// ============================================================================
+// TRUCKING BUSINESS MODULES
+// ============================================================================
+
+// Operations
+// import { deliveriesModule } from './trucking/operations/deliveries';
+// import { routesModule } from './trucking/operations/routes';
+
+// Employees
+// import { expensesModule } from './trucking/employees/expenses';
+// import { timesheetsModule } from './trucking/employees/timesheets';
+
+// Fleet
+// import { vehiclesModule } from './trucking/fleet/vehicles';
+// import { maintenanceModule } from './trucking/fleet/maintenance';
+
+// ============================================================================
+// REGISTER MODULES
+// ============================================================================
+
+// Uncomment as you create modules:
+
+// Clothing
+moduleRegistry.register(dashboardModule); // ✅ REGISTERED!
+moduleRegistry.register(customersModule); // ✅ REGISTERED!
+moduleRegistry.register(transactionsModule); // ✅ REGISTERED!
+// moduleRegistry.register(pickupFormModule);
+moduleRegistry.register(dueDatesModule); // ✅ REGISTERED!
+moduleRegistry.register(shipmentsModule); // ✅ REGISTERED!
+moduleRegistry.register(productsModule); // ✅ REGISTERED!
+moduleRegistry.register(pricesModule); // ✅ REGISTERED!
+moduleRegistry.register(sortingDistributionModule); // ✅ REGISTERED!
+// moduleRegistry.register(attendanceModule);
+// moduleRegistry.register(payrollModule);
+// moduleRegistry.register(productsModule);
+// moduleRegistry.register(stockModule);
+
+// Trucking
+// moduleRegistry.register(deliveriesModule);
+// moduleRegistry.register(routesModule);
+// moduleRegistry.register(expensesModule);
+// moduleRegistry.register(timesheetsModule);
+// moduleRegistry.register(vehiclesModule);
+// moduleRegistry.register(maintenanceModule);
+
+// ============================================================================
+// EXPORT REGISTRY
+// ============================================================================
+
+export { moduleRegistry };
+
+// Optional: Export module stats for debugging
+export function getModuleStats() {
+  return moduleRegistry.getStats();
+}
+
+// Optional: Get all enabled modules
+export function getEnabledModules() {
+  return moduleRegistry.getEnabled();
+}
