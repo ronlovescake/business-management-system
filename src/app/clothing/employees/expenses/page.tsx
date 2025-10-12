@@ -657,318 +657,107 @@ export default function Expenses() {
           ))}
         </MantineGrid>
 
-        {/* Expense Records Header */}
-        <Title order={3}>Expense Records</Title>
+        {/* Expense Records Header, Tabs, and Controls Container */}
+        <Card withBorder padding="md">
+          <Stack gap="md">
+            {/* Expense Records Header */}
+            <Title order={3}>Expense Records</Title>
 
-        {/* Tab Navigation */}
-        <Tabs value={activeTab} onChange={setActiveTab}>
-          <Tabs.List>
-            <Tabs.Tab value="list" leftSection={<IconList size={16} />}>
-              Expense List
-            </Tabs.Tab>
-            <Tabs.Tab
-              value="analytics"
-              leftSection={<IconChartPie size={16} />}
-            >
-              Analytics by Category
-            </Tabs.Tab>
-          </Tabs.List>
-
-          {/* Expense List Tab */}
-          <Tabs.Panel value="list" pt="md">
-            <Stack gap="md">
-              {/* Search, Filters and Action Buttons */}
-              <Group>
-                <TextInput
-                  placeholder="Search expenses..."
-                  leftSection={<IconSearch size={16} />}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{ flex: 1 }}
-                />
-                <Select
-                  placeholder="Filter by category"
-                  data={['All', ...categories]}
-                  value={filterCategory}
-                  onChange={(value) =>
-                    setFilterCategory(value === 'All' ? null : value)
-                  }
-                  clearable
-                  style={{ width: 200 }}
-                />
-                <Select
-                  placeholder="Filter by status"
-                  data={['All', 'pending', 'approved', 'rejected']}
-                  value={filterStatus}
-                  onChange={(value) =>
-                    setFilterStatus(value === 'All' ? null : value)
-                  }
-                  clearable
-                  style={{ width: 200 }}
-                />
-                <FileButton onChange={handleImportCSV} accept=".csv,text/csv">
-                  {(props) => (
-                    <Button
-                      {...props}
-                      leftSection={<IconUpload size={16} />}
-                      variant="light"
-                      color="blue"
-                      loading={isImporting}
-                    >
-                      Import CSV
-                    </Button>
-                  )}
-                </FileButton>
-                <Button
-                  leftSection={<IconDownload size={16} />}
-                  variant="light"
-                  color="teal"
+            {/* Tab Navigation */}
+            <Tabs value={activeTab} onChange={setActiveTab}>
+              <Tabs.List>
+                <Tabs.Tab value="list" leftSection={<IconList size={16} />}>
+                  Expense List
+                </Tabs.Tab>
+                <Tabs.Tab
+                  value="analytics"
+                  leftSection={<IconChartPie size={16} />}
                 >
-                  Export
-                </Button>
-                <Button
-                  leftSection={<IconPlus size={16} />}
-                  onClick={handleAddExpense}
-                >
-                  Add Expense
-                </Button>
-              </Group>
+                  Analytics by Category
+                </Tabs.Tab>
+              </Tabs.List>
 
-              {/* Expenses Table */}
-              <Card
-                withBorder
-                padding={0}
-                style={{ overflow: 'hidden', height: '72vh' }}
-              >
-                <Box style={{ height: '100%', overflowY: 'auto' }}>
-                  <Table highlightOnHover withTableBorder>
-                    <Table.Thead style={{ backgroundColor: '#f1f3f5' }}>
-                      <Table.Tr>
-                        <Table.Th
-                          style={{
-                            padding: '16px 12px',
-                            color: '#495057',
-                            backgroundColor: '#f1f3f5',
-                            textAlign: 'center',
-                          }}
-                        >
-                          DATE
-                        </Table.Th>
-                        <Table.Th
-                          style={{
-                            padding: '16px 12px',
-                            color: '#495057',
-                            backgroundColor: '#f1f3f5',
-                            textAlign: 'center',
-                          }}
-                        >
-                          AMOUNT
-                        </Table.Th>
-                        <Table.Th
-                          style={{
-                            padding: '16px 12px',
-                            color: '#495057',
-                            backgroundColor: '#f1f3f5',
-                            textAlign: 'center',
-                          }}
-                        >
-                          DESCRIPTION
-                        </Table.Th>
-                        <Table.Th
-                          style={{
-                            padding: '16px 12px',
-                            color: '#495057',
-                            backgroundColor: '#f1f3f5',
-                            textAlign: 'center',
-                          }}
-                        >
-                          CATEGORY
-                        </Table.Th>
-                        <Table.Th
-                          style={{
-                            padding: '16px 12px',
-                            color: '#495057',
-                            backgroundColor: '#f1f3f5',
-                            textAlign: 'center',
-                          }}
-                        >
-                          NOTES
-                        </Table.Th>
-                        <Table.Th
-                          style={{
-                            padding: '16px 12px',
-                            color: '#495057',
-                            backgroundColor: '#f1f3f5',
-                            textAlign: 'center',
-                          }}
-                        >
-                          RECEIPT
-                        </Table.Th>
-                        <Table.Th
-                          style={{
-                            width: 150,
-                            textAlign: 'center',
-                            padding: '16px 12px',
-                            color: '#495057',
-                            backgroundColor: '#f1f3f5',
-                          }}
-                        >
-                          ACTION
-                        </Table.Th>
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {filteredExpenses.length === 0 ? (
-                        <Table.Tr>
-                          <Table.Td colSpan={7} style={{ textAlign: 'center' }}>
-                            <Text c="dimmed" py="xl">
-                              No expenses found
-                            </Text>
-                          </Table.Td>
-                        </Table.Tr>
-                      ) : (
-                        filteredExpenses.map((expense) => (
-                          <Table.Tr key={expense.id}>
-                            <Table.Td style={{ color: '#868e96' }}>
-                              {formatDate(expense.date)}
-                            </Table.Td>
-                            <Table.Td>
-                              <Text fw={600} c="#868e96">
-                                {formatCurrency(expense.amount)}
-                              </Text>
-                            </Table.Td>
-                            <Table.Td>
-                              <div>
-                                <Text size="sm" fw={500} c="#868e96">
-                                  {expense.description}
-                                </Text>
-                                {expense.employeeName && (
-                                  <Text size="xs" c="dimmed">
-                                    {expense.employeeName}
-                                  </Text>
-                                )}
-                              </div>
-                            </Table.Td>
-                            <Table.Td>
-                              <Badge
-                                color={getCategoryColor(expense.category)}
-                                variant="light"
-                              >
-                                {expense.category}
-                              </Badge>
-                            </Table.Td>
-                            <Table.Td>
-                              <Text size="sm" lineClamp={2} c="#868e96">
-                                {expense.notes || '-'}
-                              </Text>
-                            </Table.Td>
-                            <Table.Td>
-                              {expense.receipt ? (
-                                <Group gap="xs">
-                                  <IconReceipt size={16} color="#868e96" />
-                                  <Text size="xs" c="#868e96">
-                                    {expense.receipt}
-                                  </Text>
-                                </Group>
-                              ) : (
-                                <Text size="xs" c="dimmed">
-                                  No receipt
-                                </Text>
-                              )}
-                            </Table.Td>
-                            <Table.Td>
-                              <Group gap="xs" justify="center">
-                                {expense.status === 'pending' && (
-                                  <>
-                                    <Tooltip label="Approve">
-                                      <ActionIcon
-                                        color="green"
-                                        variant="light"
-                                        size="sm"
-                                        onClick={() =>
-                                          handleApprove(expense.id)
-                                        }
-                                      >
-                                        <IconCheck size={16} />
-                                      </ActionIcon>
-                                    </Tooltip>
-                                    <Tooltip label="Reject">
-                                      <ActionIcon
-                                        color="red"
-                                        variant="light"
-                                        size="sm"
-                                        onClick={() => handleReject(expense.id)}
-                                      >
-                                        <IconX size={16} />
-                                      </ActionIcon>
-                                    </Tooltip>
-                                  </>
-                                )}
-                                <Tooltip label="Edit">
-                                  <ActionIcon
-                                    color="blue"
-                                    variant="light"
-                                    size="sm"
-                                    onClick={() => handleEditExpense(expense)}
-                                  >
-                                    <IconEdit size={16} />
-                                  </ActionIcon>
-                                </Tooltip>
-                                <Tooltip label="Delete">
-                                  <ActionIcon
-                                    color="red"
-                                    variant="light"
-                                    size="sm"
-                                    onClick={() =>
-                                      handleDeleteExpense(expense.id)
-                                    }
-                                  >
-                                    <IconTrash size={16} />
-                                  </ActionIcon>
-                                </Tooltip>
-                              </Group>
-                            </Table.Td>
-                          </Table.Tr>
-                        ))
-                      )}
-                    </Table.Tbody>
-                  </Table>
-                </Box>
-              </Card>
-
-              {/* Summary */}
-              <Card withBorder padding="md">
-                <Group justify="space-between">
-                  <Text size="sm" c="dimmed">
-                    Showing {filteredExpenses.length} of {expenses.length}{' '}
-                    expenses
-                  </Text>
-                  <Text size="sm" fw={600}>
-                    Filtered Total:{' '}
-                    {formatCurrency(
-                      filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0)
+              {/* Expense List Tab */}
+              <Tabs.Panel value="list" pt="md">
+                {/* Search, Filters and Action Buttons */}
+                <Group>
+                  <TextInput
+                    placeholder="Search expenses..."
+                    leftSection={<IconSearch size={16} />}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <Select
+                    placeholder="Filter by category"
+                    data={['All', ...categories]}
+                    value={filterCategory}
+                    onChange={(value) =>
+                      setFilterCategory(value === 'All' ? null : value)
+                    }
+                    clearable
+                    style={{ width: 200 }}
+                  />
+                  <Select
+                    placeholder="Filter by status"
+                    data={['All', 'pending', 'approved', 'rejected']}
+                    value={filterStatus}
+                    onChange={(value) =>
+                      setFilterStatus(value === 'All' ? null : value)
+                    }
+                    clearable
+                    style={{ width: 200 }}
+                  />
+                  <FileButton onChange={handleImportCSV} accept=".csv,text/csv">
+                    {(props) => (
+                      <Button
+                        {...props}
+                        leftSection={<IconUpload size={16} />}
+                        variant="light"
+                        color="blue"
+                        loading={isImporting}
+                      >
+                        Import CSV
+                      </Button>
                     )}
-                  </Text>
+                  </FileButton>
+                  <Button
+                    leftSection={<IconDownload size={16} />}
+                    variant="light"
+                    color="teal"
+                  >
+                    Export
+                  </Button>
+                  <Button
+                    leftSection={<IconPlus size={16} />}
+                    onClick={handleAddExpense}
+                  >
+                    Add Expense
+                  </Button>
                 </Group>
-              </Card>
-            </Stack>
-          </Tabs.Panel>
+              </Tabs.Panel>
 
-          {/* Analytics Tab */}
-          <Tabs.Panel value="analytics" pt="md">
+              {/* Analytics Tab - Empty panel, actual content shown below */}
+              <Tabs.Panel value="analytics" pt="md">
+                <div>
+                  {/* Analytics table will be rendered outside the card */}
+                </div>
+              </Tabs.Panel>
+            </Tabs>
+          </Stack>
+        </Card>
+
+        {/* Tables Outside Container */}
+        {activeTab === 'list' ? (
+          <Stack gap="md">
+            {/* Expenses Table */}
             <Card
               withBorder
               padding={0}
               style={{ overflow: 'hidden', height: '72vh' }}
             >
-              <Box
-                style={{ height: '100%', overflowX: 'auto', overflowY: 'auto' }}
-              >
-                <Table
-                  highlightOnHover
-                  withTableBorder
-                  style={{ minWidth: '1400px' }}
-                >
+              <Box style={{ height: '100%', overflowY: 'auto' }}>
+                <Table highlightOnHover withTableBorder>
                   <Table.Thead style={{ backgroundColor: '#f1f3f5' }}>
                     <Table.Tr>
                       <Table.Th
@@ -979,338 +768,556 @@ export default function Expenses() {
                           textAlign: 'center',
                         }}
                       >
-                        CATEGORIES
+                        DATE
                       </Table.Th>
                       <Table.Th
                         style={{
-                          textAlign: 'center',
                           padding: '16px 12px',
                           color: '#495057',
-                          width: '750px',
                           backgroundColor: '#f1f3f5',
+                          textAlign: 'center',
                         }}
                       >
-                        PERCENTAGE
+                        AMOUNT
                       </Table.Th>
                       <Table.Th
                         style={{
-                          textAlign: 'center',
                           padding: '16px 12px',
                           color: '#495057',
-                          width: '150px',
                           backgroundColor: '#f1f3f5',
+                          textAlign: 'center',
                         }}
                       >
-                        TOTAL EXPENSES
+                        DESCRIPTION
                       </Table.Th>
                       <Table.Th
                         style={{
-                          textAlign: 'center',
                           padding: '16px 12px',
                           color: '#495057',
-                          width: '150px',
                           backgroundColor: '#f1f3f5',
+                          textAlign: 'center',
                         }}
                       >
-                        JANUARY
+                        CATEGORY
                       </Table.Th>
                       <Table.Th
                         style={{
-                          textAlign: 'center',
                           padding: '16px 12px',
                           color: '#495057',
-                          width: '150px',
                           backgroundColor: '#f1f3f5',
+                          textAlign: 'center',
                         }}
                       >
-                        FEBRUARY
+                        NOTES
                       </Table.Th>
                       <Table.Th
                         style={{
-                          textAlign: 'center',
                           padding: '16px 12px',
                           color: '#495057',
-                          width: '150px',
                           backgroundColor: '#f1f3f5',
+                          textAlign: 'center',
                         }}
                       >
-                        MARCH
+                        RECEIPT
                       </Table.Th>
                       <Table.Th
                         style={{
+                          width: 150,
                           textAlign: 'center',
                           padding: '16px 12px',
                           color: '#495057',
-                          width: '150px',
                           backgroundColor: '#f1f3f5',
                         }}
                       >
-                        APRIL
-                      </Table.Th>
-                      <Table.Th
-                        style={{
-                          textAlign: 'center',
-                          padding: '16px 12px',
-                          color: '#495057',
-                          width: '150px',
-                          backgroundColor: '#f1f3f5',
-                        }}
-                      >
-                        MAY
-                      </Table.Th>
-                      <Table.Th
-                        style={{
-                          textAlign: 'center',
-                          padding: '16px 12px',
-                          color: '#495057',
-                          width: '150px',
-                          backgroundColor: '#f1f3f5',
-                        }}
-                      >
-                        JUNE
-                      </Table.Th>
-                      <Table.Th
-                        style={{
-                          textAlign: 'center',
-                          padding: '16px 12px',
-                          color: '#495057',
-                          width: '150px',
-                          backgroundColor: '#f1f3f5',
-                        }}
-                      >
-                        JULY
-                      </Table.Th>
-                      <Table.Th
-                        style={{
-                          textAlign: 'center',
-                          padding: '16px 12px',
-                          color: '#495057',
-                          width: '150px',
-                          backgroundColor: '#f1f3f5',
-                        }}
-                      >
-                        AUGUST
-                      </Table.Th>
-                      <Table.Th
-                        style={{
-                          textAlign: 'center',
-                          padding: '16px 12px',
-                          color: '#495057',
-                          width: '150px',
-                          backgroundColor: '#f1f3f5',
-                        }}
-                      >
-                        SEPTEMBER
-                      </Table.Th>
-                      <Table.Th
-                        style={{
-                          textAlign: 'center',
-                          padding: '16px 12px',
-                          color: '#495057',
-                          width: '150px',
-                          backgroundColor: '#f1f3f5',
-                        }}
-                      >
-                        OCTOBER
-                      </Table.Th>
-                      <Table.Th
-                        style={{
-                          textAlign: 'center',
-                          padding: '16px 12px',
-                          color: '#495057',
-                          width: '150px',
-                          backgroundColor: '#f1f3f5',
-                        }}
-                      >
-                        NOVEMBER
-                      </Table.Th>
-                      <Table.Th
-                        style={{
-                          textAlign: 'center',
-                          padding: '16px 12px',
-                          color: '#495057',
-                          width: '150px',
-                          backgroundColor: '#f1f3f5',
-                        }}
-                      >
-                        DECEMBER
+                        ACTION
                       </Table.Th>
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
-                    {monthlyBreakdown.map((row) => (
-                      <Table.Tr key={row.category}>
-                        <Table.Td>
-                          <Badge
-                            color={getCategoryColor(row.category)}
-                            variant="light"
-                            size="lg"
-                          >
-                            {row.category}
-                          </Badge>
-                        </Table.Td>
-                        <Table.Td style={{ textAlign: 'center' }}>
-                          <Group justify="center" gap="xs">
-                            <Progress
-                              value={row.percentage}
-                              size="sm"
-                              radius="xl"
-                              color={getCategoryColor(row.category)}
-                              style={{ flex: 1, minWidth: 80, maxWidth: 500 }}
-                            />
-                            <Text size="sm" fw={500} c="#868e96">
-                              {row.percentage.toFixed(1)}%
-                            </Text>
-                          </Group>
-                        </Table.Td>
-                        <Table.Td style={{ textAlign: 'right' }}>
-                          <Text fw={700} c="#868e96">
-                            {formatCurrency(row.total)}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td style={{ textAlign: 'right' }}>
-                          <Text size="sm" c="#868e96">
-                            {row.January > 0
-                              ? formatCurrency(row.January)
-                              : '₱0.00'}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td style={{ textAlign: 'right' }}>
-                          <Text size="sm" c="#868e96">
-                            {row.February > 0
-                              ? formatCurrency(row.February)
-                              : '₱0.00'}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td style={{ textAlign: 'right' }}>
-                          <Text size="sm" c="#868e96">
-                            {row.March > 0
-                              ? formatCurrency(row.March)
-                              : '₱0.00'}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td style={{ textAlign: 'right' }}>
-                          <Text size="sm" c="#868e96">
-                            {row.April > 0
-                              ? formatCurrency(row.April)
-                              : '₱0.00'}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td style={{ textAlign: 'right' }}>
-                          <Text size="sm" c="#868e96">
-                            {row.May > 0 ? formatCurrency(row.May) : '₱0.00'}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td style={{ textAlign: 'right' }}>
-                          <Text size="sm" c="#868e96">
-                            {row.June > 0 ? formatCurrency(row.June) : '₱0.00'}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td style={{ textAlign: 'right' }}>
-                          <Text size="sm" c="#868e96">
-                            {row.July > 0 ? formatCurrency(row.July) : '₱0.00'}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td style={{ textAlign: 'right' }}>
-                          <Text size="sm" c="#868e96">
-                            {row.August > 0
-                              ? formatCurrency(row.August)
-                              : '₱0.00'}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td style={{ textAlign: 'right' }}>
-                          <Text size="sm" c="#868e96">
-                            {row.September > 0
-                              ? formatCurrency(row.September)
-                              : '₱0.00'}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td style={{ textAlign: 'right' }}>
-                          <Text size="sm" c="#868e96">
-                            {row.October > 0
-                              ? formatCurrency(row.October)
-                              : '₱0.00'}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td style={{ textAlign: 'right' }}>
-                          <Text size="sm" c="#868e96">
-                            {row.November > 0
-                              ? formatCurrency(row.November)
-                              : '₱0.00'}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td style={{ textAlign: 'right' }}>
-                          <Text size="sm" c="#868e96">
-                            {row.December > 0
-                              ? formatCurrency(row.December)
-                              : '₱0.00'}
+                    {filteredExpenses.length === 0 ? (
+                      <Table.Tr>
+                        <Table.Td colSpan={7} style={{ textAlign: 'center' }}>
+                          <Text c="dimmed" py="xl">
+                            No expenses found
                           </Text>
                         </Table.Td>
                       </Table.Tr>
-                    ))}
-
-                    {/* Total Row */}
-                    <Table.Tr
-                      style={{ backgroundColor: '#f8f9fa', fontWeight: 700 }}
-                    >
-                      <Table.Td>
-                        <Text fw={700} size="lg" c="#868e96">
-                          TOTAL
-                        </Text>
-                      </Table.Td>
-                      <Table.Td style={{ textAlign: 'center', width: '180px' }}>
-                        <Text fw={700} c="#868e96">
-                          100%
-                        </Text>
-                      </Table.Td>
-                      <Table.Td style={{ textAlign: 'right', width: '120px' }}>
-                        <Text fw={700} size="lg" c="#868e96">
-                          {formatCurrency(totalExpenses)}
-                        </Text>
-                      </Table.Td>
-                      {(
-                        [
-                          'January',
-                          'February',
-                          'March',
-                          'April',
-                          'May',
-                          'June',
-                          'July',
-                          'August',
-                          'September',
-                          'October',
-                          'November',
-                          'December',
-                        ] as const
-                      ).map((month) => {
-                        const monthTotal = monthlyBreakdown.reduce(
-                          (sum, row) =>
-                            sum +
-                            ((row[month as keyof MonthlyBreakdown] as number) ||
-                              0),
-                          0
-                        );
-                        return (
-                          <Table.Td
-                            key={month}
-                            style={{ textAlign: 'right', width: '110px' }}
-                          >
-                            <Text fw={700} c="#868e96">
-                              {monthTotal > 0
-                                ? formatCurrency(monthTotal)
-                                : '₱0.00'}
+                    ) : (
+                      filteredExpenses.map((expense) => (
+                        <Table.Tr key={expense.id}>
+                          <Table.Td style={{ color: '#868e96' }}>
+                            {formatDate(expense.date)}
+                          </Table.Td>
+                          <Table.Td>
+                            <Text fw={600} c="#868e96">
+                              {formatCurrency(expense.amount)}
                             </Text>
                           </Table.Td>
-                        );
-                      })}
-                    </Table.Tr>
+                          <Table.Td>
+                            <div>
+                              <Text size="sm" fw={500} c="#868e96">
+                                {expense.description}
+                              </Text>
+                              {expense.employeeName && (
+                                <Text size="xs" c="dimmed">
+                                  {expense.employeeName}
+                                </Text>
+                              )}
+                            </div>
+                          </Table.Td>
+                          <Table.Td>
+                            <Badge
+                              color={getCategoryColor(expense.category)}
+                              variant="light"
+                            >
+                              {expense.category}
+                            </Badge>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm" lineClamp={2} c="#868e96">
+                              {expense.notes || '-'}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            {expense.receipt ? (
+                              <Group gap="xs">
+                                <IconReceipt size={16} color="#868e96" />
+                                <Text size="xs" c="#868e96">
+                                  {expense.receipt}
+                                </Text>
+                              </Group>
+                            ) : (
+                              <Text size="xs" c="dimmed">
+                                No receipt
+                              </Text>
+                            )}
+                          </Table.Td>
+                          <Table.Td>
+                            <Group gap="xs" justify="center">
+                              {expense.status === 'pending' && (
+                                <>
+                                  <Tooltip label="Approve">
+                                    <ActionIcon
+                                      color="green"
+                                      variant="light"
+                                      size="sm"
+                                      onClick={() => handleApprove(expense.id)}
+                                    >
+                                      <IconCheck size={16} />
+                                    </ActionIcon>
+                                  </Tooltip>
+                                  <Tooltip label="Reject">
+                                    <ActionIcon
+                                      color="red"
+                                      variant="light"
+                                      size="sm"
+                                      onClick={() => handleReject(expense.id)}
+                                    >
+                                      <IconX size={16} />
+                                    </ActionIcon>
+                                  </Tooltip>
+                                </>
+                              )}
+                              <Tooltip label="Edit">
+                                <ActionIcon
+                                  color="blue"
+                                  variant="light"
+                                  size="sm"
+                                  onClick={() => handleEditExpense(expense)}
+                                >
+                                  <IconEdit size={16} />
+                                </ActionIcon>
+                              </Tooltip>
+                              <Tooltip label="Delete">
+                                <ActionIcon
+                                  color="red"
+                                  variant="light"
+                                  size="sm"
+                                  onClick={() =>
+                                    handleDeleteExpense(expense.id)
+                                  }
+                                >
+                                  <IconTrash size={16} />
+                                </ActionIcon>
+                              </Tooltip>
+                            </Group>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))
+                    )}
                   </Table.Tbody>
                 </Table>
               </Box>
             </Card>
-          </Tabs.Panel>
-        </Tabs>
+
+            {/* Summary */}
+            <Card withBorder padding="md">
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">
+                  Showing {filteredExpenses.length} of {expenses.length}{' '}
+                  expenses
+                </Text>
+                <Text size="sm" fw={600}>
+                  Filtered Total:{' '}
+                  {formatCurrency(
+                    filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0)
+                  )}
+                </Text>
+              </Group>
+            </Card>
+          </Stack>
+        ) : (
+          /* Analytics Table */
+          <Card
+            withBorder
+            padding={0}
+            style={{ overflow: 'hidden', height: '72vh' }}
+          >
+            <Box
+              style={{ height: '100%', overflowX: 'auto', overflowY: 'auto' }}
+            >
+              <Table
+                highlightOnHover
+                withTableBorder
+                style={{ minWidth: '1400px' }}
+              >
+                <Table.Thead style={{ backgroundColor: '#f1f3f5' }}>
+                  <Table.Tr>
+                    <Table.Th
+                      style={{
+                        padding: '16px 12px',
+                        color: '#495057',
+                        backgroundColor: '#f1f3f5',
+                        textAlign: 'center',
+                      }}
+                    >
+                      CATEGORIES
+                    </Table.Th>
+                    <Table.Th
+                      style={{
+                        textAlign: 'center',
+                        padding: '16px 12px',
+                        color: '#495057',
+                        width: '750px',
+                        backgroundColor: '#f1f3f5',
+                      }}
+                    >
+                      PERCENTAGE
+                    </Table.Th>
+                    <Table.Th
+                      style={{
+                        textAlign: 'center',
+                        padding: '16px 12px',
+                        color: '#495057',
+                        width: '150px',
+                        backgroundColor: '#f1f3f5',
+                      }}
+                    >
+                      TOTAL EXPENSES
+                    </Table.Th>
+                    <Table.Th
+                      style={{
+                        textAlign: 'center',
+                        padding: '16px 12px',
+                        color: '#495057',
+                        width: '150px',
+                        backgroundColor: '#f1f3f5',
+                      }}
+                    >
+                      JANUARY
+                    </Table.Th>
+                    <Table.Th
+                      style={{
+                        textAlign: 'center',
+                        padding: '16px 12px',
+                        color: '#495057',
+                        width: '150px',
+                        backgroundColor: '#f1f3f5',
+                      }}
+                    >
+                      FEBRUARY
+                    </Table.Th>
+                    <Table.Th
+                      style={{
+                        textAlign: 'center',
+                        padding: '16px 12px',
+                        color: '#495057',
+                        width: '150px',
+                        backgroundColor: '#f1f3f5',
+                      }}
+                    >
+                      MARCH
+                    </Table.Th>
+                    <Table.Th
+                      style={{
+                        textAlign: 'center',
+                        padding: '16px 12px',
+                        color: '#495057',
+                        width: '150px',
+                        backgroundColor: '#f1f3f5',
+                      }}
+                    >
+                      APRIL
+                    </Table.Th>
+                    <Table.Th
+                      style={{
+                        textAlign: 'center',
+                        padding: '16px 12px',
+                        color: '#495057',
+                        width: '150px',
+                        backgroundColor: '#f1f3f5',
+                      }}
+                    >
+                      MAY
+                    </Table.Th>
+                    <Table.Th
+                      style={{
+                        textAlign: 'center',
+                        padding: '16px 12px',
+                        color: '#495057',
+                        width: '150px',
+                        backgroundColor: '#f1f3f5',
+                      }}
+                    >
+                      JUNE
+                    </Table.Th>
+                    <Table.Th
+                      style={{
+                        textAlign: 'center',
+                        padding: '16px 12px',
+                        color: '#495057',
+                        width: '150px',
+                        backgroundColor: '#f1f3f5',
+                      }}
+                    >
+                      JULY
+                    </Table.Th>
+                    <Table.Th
+                      style={{
+                        textAlign: 'center',
+                        padding: '16px 12px',
+                        color: '#495057',
+                        width: '150px',
+                        backgroundColor: '#f1f3f5',
+                      }}
+                    >
+                      AUGUST
+                    </Table.Th>
+                    <Table.Th
+                      style={{
+                        textAlign: 'center',
+                        padding: '16px 12px',
+                        color: '#495057',
+                        width: '150px',
+                        backgroundColor: '#f1f3f5',
+                      }}
+                    >
+                      SEPTEMBER
+                    </Table.Th>
+                    <Table.Th
+                      style={{
+                        textAlign: 'center',
+                        padding: '16px 12px',
+                        color: '#495057',
+                        width: '150px',
+                        backgroundColor: '#f1f3f5',
+                      }}
+                    >
+                      OCTOBER
+                    </Table.Th>
+                    <Table.Th
+                      style={{
+                        textAlign: 'center',
+                        padding: '16px 12px',
+                        color: '#495057',
+                        width: '150px',
+                        backgroundColor: '#f1f3f5',
+                      }}
+                    >
+                      NOVEMBER
+                    </Table.Th>
+                    <Table.Th
+                      style={{
+                        textAlign: 'center',
+                        padding: '16px 12px',
+                        color: '#495057',
+                        width: '150px',
+                        backgroundColor: '#f1f3f5',
+                      }}
+                    >
+                      DECEMBER
+                    </Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {monthlyBreakdown.map((row) => (
+                    <Table.Tr key={row.category}>
+                      <Table.Td>
+                        <Badge
+                          color={getCategoryColor(row.category)}
+                          variant="light"
+                          size="lg"
+                        >
+                          {row.category}
+                        </Badge>
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'center' }}>
+                        <Group justify="center" gap="xs">
+                          <Progress
+                            value={row.percentage}
+                            size="sm"
+                            radius="xl"
+                            color={getCategoryColor(row.category)}
+                            style={{ flex: 1, minWidth: 80, maxWidth: 500 }}
+                          />
+                          <Text size="sm" fw={500} c="#868e96">
+                            {row.percentage.toFixed(1)}%
+                          </Text>
+                        </Group>
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'right' }}>
+                        <Text fw={700} c="#868e96">
+                          {formatCurrency(row.total)}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'right' }}>
+                        <Text size="sm" c="#868e96">
+                          {row.January > 0
+                            ? formatCurrency(row.January)
+                            : '₱0.00'}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'right' }}>
+                        <Text size="sm" c="#868e96">
+                          {row.February > 0
+                            ? formatCurrency(row.February)
+                            : '₱0.00'}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'right' }}>
+                        <Text size="sm" c="#868e96">
+                          {row.March > 0 ? formatCurrency(row.March) : '₱0.00'}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'right' }}>
+                        <Text size="sm" c="#868e96">
+                          {row.April > 0 ? formatCurrency(row.April) : '₱0.00'}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'right' }}>
+                        <Text size="sm" c="#868e96">
+                          {row.May > 0 ? formatCurrency(row.May) : '₱0.00'}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'right' }}>
+                        <Text size="sm" c="#868e96">
+                          {row.June > 0 ? formatCurrency(row.June) : '₱0.00'}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'right' }}>
+                        <Text size="sm" c="#868e96">
+                          {row.July > 0 ? formatCurrency(row.July) : '₱0.00'}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'right' }}>
+                        <Text size="sm" c="#868e96">
+                          {row.August > 0
+                            ? formatCurrency(row.August)
+                            : '₱0.00'}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'right' }}>
+                        <Text size="sm" c="#868e96">
+                          {row.September > 0
+                            ? formatCurrency(row.September)
+                            : '₱0.00'}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'right' }}>
+                        <Text size="sm" c="#868e96">
+                          {row.October > 0
+                            ? formatCurrency(row.October)
+                            : '₱0.00'}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'right' }}>
+                        <Text size="sm" c="#868e96">
+                          {row.November > 0
+                            ? formatCurrency(row.November)
+                            : '₱0.00'}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'right' }}>
+                        <Text size="sm" c="#868e96">
+                          {row.December > 0
+                            ? formatCurrency(row.December)
+                            : '₱0.00'}
+                        </Text>
+                      </Table.Td>
+                    </Table.Tr>
+                  ))}
+
+                  {/* Total Row */}
+                  <Table.Tr
+                    style={{ backgroundColor: '#f8f9fa', fontWeight: 700 }}
+                  >
+                    <Table.Td>
+                      <Text fw={700} size="lg" c="#868e96">
+                        TOTAL
+                      </Text>
+                    </Table.Td>
+                    <Table.Td style={{ textAlign: 'center', width: '180px' }}>
+                      <Text fw={700} c="#868e96">
+                        100%
+                      </Text>
+                    </Table.Td>
+                    <Table.Td style={{ textAlign: 'right', width: '120px' }}>
+                      <Text fw={700} size="lg" c="#868e96">
+                        {formatCurrency(totalExpenses)}
+                      </Text>
+                    </Table.Td>
+                    {(
+                      [
+                        'January',
+                        'February',
+                        'March',
+                        'April',
+                        'May',
+                        'June',
+                        'July',
+                        'August',
+                        'September',
+                        'October',
+                        'November',
+                        'December',
+                      ] as const
+                    ).map((month) => {
+                      const monthTotal = monthlyBreakdown.reduce(
+                        (sum, row) =>
+                          sum +
+                          ((row[month as keyof MonthlyBreakdown] as number) ||
+                            0),
+                        0
+                      );
+                      return (
+                        <Table.Td
+                          key={month}
+                          style={{ textAlign: 'right', width: '110px' }}
+                        >
+                          <Text fw={700} c="#868e96">
+                            {monthTotal > 0
+                              ? formatCurrency(monthTotal)
+                              : '₱0.00'}
+                          </Text>
+                        </Table.Td>
+                      );
+                    })}
+                  </Table.Tr>
+                </Table.Tbody>
+              </Table>
+            </Box>
+          </Card>
+        )}
       </Stack>
 
       {/* Add/Edit Modal */}
