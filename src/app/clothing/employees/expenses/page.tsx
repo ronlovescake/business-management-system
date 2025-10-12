@@ -36,6 +36,9 @@ import {
   IconX,
   IconList,
   IconChartPie,
+  IconZoomIn,
+  IconZoomOut,
+  IconZoomReset,
 } from '@tabler/icons-react';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import { StatCard } from '../../../../components/ui';
@@ -146,6 +149,15 @@ export default function Expenses() {
 
   // CSV Import state
   const [isImporting, setIsImporting] = useState(false);
+
+  // Receipt viewer state
+  const [viewingReceipt, setViewingReceipt] = useState<string | null>(null);
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+  const [receiptZoom, setReceiptZoom] = useState(100);
+  const [receiptFileName, setReceiptFileName] = useState<string>('');
+
+  // Store receipt files as data URLs (for viewing uploaded receipts)
+  const [receiptFiles, setReceiptFiles] = useState<Record<string, string>>({});
 
   // ============================================================================
   // COMPUTED VALUES
@@ -369,6 +381,30 @@ export default function Expenses() {
       return;
     }
 
+    // If there's a receipt file, convert it to data URL for storage
+    if (formReceipt) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const receiptDataUrl = reader.result as string;
+        const receiptFileName = formReceipt.name;
+
+        // Store the receipt data URL
+        setReceiptFiles((prev) => ({
+          ...prev,
+          [receiptFileName]: receiptDataUrl,
+        }));
+
+        // Save expense after receipt is processed
+        saveExpenseData(receiptFileName);
+      };
+      reader.readAsDataURL(formReceipt);
+    } else {
+      // No receipt file, save immediately
+      saveExpenseData(editingExpense?.receipt ? editingExpense.receipt : null);
+    }
+  };
+
+  const saveExpenseData = (receiptFileName: string | null) => {
     if (editingExpense) {
       // Update existing expense
       setExpenses((prev) =>
@@ -381,7 +417,7 @@ export default function Expenses() {
                 description: formDescription,
                 category: formCategory,
                 notes: formNotes,
-                receipt: formReceipt ? formReceipt.name : exp.receipt,
+                receipt: receiptFileName,
               }
             : exp
         )
@@ -395,7 +431,7 @@ export default function Expenses() {
         description: formDescription,
         category: formCategory,
         notes: formNotes,
-        receipt: formReceipt ? formReceipt.name : null,
+        receipt: receiptFileName,
         status: 'pending',
         employeeName: 'Current User',
       };
@@ -415,6 +451,18 @@ export default function Expenses() {
     setExpenses((prev) =>
       prev.map((exp) => (exp.id === id ? { ...exp, status: 'rejected' } : exp))
     );
+  };
+
+  const handleViewReceipt = (receiptName: string) => {
+    const receiptData = receiptFiles[receiptName];
+    if (receiptData) {
+      setViewingReceipt(receiptData);
+      setReceiptFileName(receiptName);
+      setReceiptZoom(100);
+      setReceiptModalOpen(true);
+    } else {
+      alert('Receipt file not found. This may be a pre-existing receipt.');
+    }
   };
 
   const handleImportCSV = (file: File | null) => {
@@ -959,9 +1007,19 @@ export default function Expenses() {
                           </Table.Td>
                           <Table.Td>
                             {expense.receipt ? (
-                              <Group gap="xs">
+                              <Group
+                                gap="xs"
+                                style={{ cursor: 'pointer' }}
+                                onClick={() =>
+                                  handleViewReceipt(expense.receipt!)
+                                }
+                              >
                                 <IconReceipt size={16} color="#495057" />
-                                <Text size="xs" c="#495057">
+                                <Text
+                                  size="xs"
+                                  c="#495057"
+                                  style={{ textDecoration: 'underline' }}
+                                >
                                   {expense.receipt}
                                 </Text>
                               </Group>
@@ -1665,6 +1723,103 @@ export default function Expenses() {
             </Button>
           </Group>
         </Stack>
+      </Modal>
+
+      {/* Receipt Viewer Modal */}
+      <Modal
+        opened={receiptModalOpen}
+        onClose={() => {
+          setReceiptModalOpen(false);
+          setReceiptZoom(100);
+        }}
+        title={
+          <Group justify="space-between" style={{ width: '100%' }}>
+            <Text fw={600}>View Receipt</Text>
+            <Group gap="xs">
+              <Tooltip label="Zoom Out">
+                <ActionIcon
+                  variant="light"
+                  onClick={() =>
+                    setReceiptZoom((prev) => Math.max(25, prev - 25))
+                  }
+                  disabled={receiptZoom <= 25}
+                >
+                  <IconZoomOut size={18} />
+                </ActionIcon>
+              </Tooltip>
+              <Text
+                size="sm"
+                fw={500}
+                style={{ minWidth: 50, textAlign: 'center' }}
+              >
+                {receiptZoom}%
+              </Text>
+              <Tooltip label="Zoom In">
+                <ActionIcon
+                  variant="light"
+                  onClick={() =>
+                    setReceiptZoom((prev) => Math.min(300, prev + 25))
+                  }
+                  disabled={receiptZoom >= 300}
+                >
+                  <IconZoomIn size={18} />
+                </ActionIcon>
+              </Tooltip>
+              <Tooltip label="Reset Zoom">
+                <ActionIcon variant="light" onClick={() => setReceiptZoom(100)}>
+                  <IconZoomReset size={18} />
+                </ActionIcon>
+              </Tooltip>
+              <Tooltip label="Download Receipt">
+                <ActionIcon
+                  variant="filled"
+                  color="blue"
+                  onClick={() => {
+                    if (viewingReceipt) {
+                      const link = document.createElement('a');
+                      link.href = viewingReceipt;
+                      link.download = receiptFileName || 'receipt';
+                      link.click();
+                    }
+                  }}
+                >
+                  <IconDownload size={18} />
+                </ActionIcon>
+              </Tooltip>
+            </Group>
+          </Group>
+        }
+        size="90%"
+        centered
+        styles={{
+          body: {
+            maxHeight: '85vh',
+            overflow: 'auto',
+          },
+        }}
+      >
+        {viewingReceipt && (
+          <Box
+            style={{
+              textAlign: 'center',
+              padding: '20px',
+              overflow: 'auto',
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={viewingReceipt}
+              alt="Receipt"
+              style={{
+                width: `${receiptZoom}%`,
+                maxWidth: 'none',
+                height: 'auto',
+                objectFit: 'contain',
+                transition: 'width 0.2s ease',
+              }}
+            />
+          </Box>
+        )}
       </Modal>
     </PageLayout>
   );
