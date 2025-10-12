@@ -20,6 +20,8 @@ export const productsModule: ModuleConfig = {
         stroke?: number;
       }>,
       order: 4, // After Dashboard (0), Customers (2), Prices (3)
+      business: ['clothing'],
+      workspace: ['operations'],
     },
   ],
 };
