@@ -119,6 +119,7 @@ export default function Expenses() {
   const [formAmount, setFormAmount] = useState<number | ''>('');
   const [formDescription, setFormDescription] = useState('');
   const [formCategory, setFormCategory] = useState('');
+  const [formTripId, setFormTripId] = useState('');
   const [formNotes, setFormNotes] = useState('');
   const [formReceipt, setFormReceipt] = useState<File | null>(null);
 
@@ -126,9 +127,41 @@ export default function Expenses() {
   // COMPUTED VALUES
   // ============================================================================
 
+  // Helper function for category colors
+  const getCategoryColor = (category: string): string => {
+    const colorMap: Record<string, string> = {
+      'Driver Pay': 'blue',
+      Fuel: 'orange',
+      'Helper Pay': 'cyan',
+      'Load/Unload Fees': 'grape',
+      'Maintenance & Repairs': 'red',
+      Meal: 'green',
+      'Parking Fees': 'yellow',
+      'Toll Fees': 'teal',
+      Transportation: 'indigo',
+      'Truck Washing / Cleaning': 'pink',
+      'Permits & Registration': 'violet',
+      'Vehicle Purchase': 'lime',
+    };
+    return colorMap[category] || 'gray';
+  };
+
   // Categories
   const categories = useMemo(
-    () => ['Supplies', 'Meals', 'Travel', 'Software', 'Equipment', 'Other'],
+    () => [
+      'Driver Pay',
+      'Fuel',
+      'Helper Pay',
+      'Load/Unload Fees',
+      'Maintenance & Repairs',
+      'Meal',
+      'Parking Fees',
+      'Toll Fees',
+      'Transportation',
+      'Truck Washing / Cleaning',
+      'Permits & Registration',
+      'Vehicle Purchase',
+    ],
     []
   );
 
@@ -213,6 +246,7 @@ export default function Expenses() {
     setFormAmount('');
     setFormDescription('');
     setFormCategory('');
+    setFormTripId('');
     setFormNotes('');
     setFormReceipt(null);
     setIsModalOpen(true);
@@ -480,15 +514,7 @@ export default function Expenses() {
                           </Table.Td>
                           <Table.Td>
                             <Badge
-                              color={
-                                expense.category === 'Supplies'
-                                  ? 'blue'
-                                  : expense.category === 'Meals'
-                                    ? 'green'
-                                    : expense.category === 'Travel'
-                                      ? 'orange'
-                                      : 'gray'
-                              }
+                              color={getCategoryColor(expense.category)}
                               variant="light"
                             >
                               {expense.category}
@@ -598,19 +624,7 @@ export default function Expenses() {
                     <Group justify="space-between" mb="xs">
                       <Group>
                         <Badge
-                          color={
-                            category.category === 'Supplies'
-                              ? 'blue'
-                              : category.category === 'Meals'
-                                ? 'green'
-                                : category.category === 'Travel'
-                                  ? 'orange'
-                                  : category.category === 'Software'
-                                    ? 'purple'
-                                    : category.category === 'Equipment'
-                                      ? 'red'
-                                      : 'gray'
-                          }
+                          color={getCategoryColor(category.category)}
                           variant="light"
                           size="lg"
                         >
@@ -634,19 +648,7 @@ export default function Expenses() {
                       value={category.percentage}
                       size="lg"
                       radius="xl"
-                      color={
-                        category.category === 'Supplies'
-                          ? 'blue'
-                          : category.category === 'Meals'
-                            ? 'green'
-                            : category.category === 'Travel'
-                              ? 'orange'
-                              : category.category === 'Software'
-                                ? 'purple'
-                                : category.category === 'Equipment'
-                                  ? 'red'
-                                  : 'gray'
-                      }
+                      color={getCategoryColor(category.category)}
                     />
                   </Box>
                 ))}
@@ -676,68 +678,133 @@ export default function Expenses() {
         size="lg"
       >
         <Stack gap="md">
-          <TextInput
-            label="Date"
-            placeholder="YYYY-MM-DD"
-            type="date"
-            value={formDate}
-            onChange={(e) => setFormDate(e.target.value)}
-            required
-          />
-          <NumberInput
-            label="Amount"
-            placeholder="0.00"
-            prefix="$"
-            decimalScale={2}
-            value={formAmount}
-            onChange={(value) =>
-              setFormAmount(typeof value === 'number' ? value : '')
-            }
-            required
-            min={0}
-          />
-          <TextInput
+          <Group grow align="flex-start">
+            <TextInput
+              label="Date"
+              placeholder="MM/DD/YYYY"
+              type="date"
+              value={formDate}
+              onChange={(e) => setFormDate(e.target.value)}
+              required
+              styles={{
+                label: { fontWeight: 600 },
+              }}
+            />
+            <Select
+              label="Category"
+              placeholder="Select category"
+              data={categories}
+              value={formCategory}
+              onChange={(value) => setFormCategory(value || '')}
+              required
+              searchable
+              styles={{
+                label: { fontWeight: 600 },
+              }}
+            />
+          </Group>
+
+          <Group grow align="flex-start">
+            <NumberInput
+              label="Amount"
+              placeholder="0"
+              prefix="₱ "
+              decimalScale={2}
+              value={formAmount}
+              onChange={(value) =>
+                setFormAmount(typeof value === 'number' ? value : '')
+              }
+              required
+              min={0}
+              styles={{
+                label: { fontWeight: 600 },
+              }}
+            />
+            <TextInput
+              label="Trip ID (Optional)"
+              placeholder="Enter trip ID"
+              value={formTripId}
+              onChange={(e) => setFormTripId(e.target.value)}
+              styles={{
+                label: { fontWeight: 600 },
+              }}
+            />
+          </Group>
+
+          <Textarea
             label="Description"
-            placeholder="Enter expense description"
+            placeholder="Enter description"
             value={formDescription}
             onChange={(e) => setFormDescription(e.target.value)}
             required
+            minRows={3}
+            styles={{
+              label: { fontWeight: 600 },
+            }}
           />
-          <Select
-            label="Category"
-            placeholder="Select category"
-            data={categories}
-            value={formCategory}
-            onChange={(value) => setFormCategory(value || '')}
-            required
-          />
+
           <Textarea
-            label="Notes"
-            placeholder="Additional notes (optional)"
+            label="Notes (Optional)"
+            placeholder="Enter notes"
             value={formNotes}
             onChange={(e) => setFormNotes(e.target.value)}
             minRows={3}
+            styles={{
+              label: { fontWeight: 600 },
+            }}
           />
-          <FileButton
-            onChange={setFormReceipt}
-            accept="image/*,application/pdf"
-          >
-            {(props) => (
-              <Button
-                {...props}
-                leftSection={<IconUpload size={16} />}
-                variant="light"
+
+          <Box>
+            <Text size="sm" fw={600} mb="xs">
+              Receipt Upload
+            </Text>
+            <Paper
+              withBorder
+              p="xl"
+              style={{
+                borderStyle: 'dashed',
+                borderWidth: 2,
+                borderColor: '#dee2e6',
+                textAlign: 'center',
+                cursor: 'pointer',
+                backgroundColor: '#f8f9fa',
+              }}
+            >
+              <FileButton
+                onChange={setFormReceipt}
+                accept="image/png,image/jpeg,image/jpg"
               >
-                {formReceipt ? formReceipt.name : 'Upload Receipt'}
-              </Button>
-            )}
-          </FileButton>
+                {(props) => (
+                  <Box {...props}>
+                    <IconUpload
+                      size={40}
+                      stroke={1.5}
+                      color="#868e96"
+                      style={{ margin: '0 auto' }}
+                    />
+                    <Text size="sm" c="dimmed" mt="xs">
+                      Click to upload receipt
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      PNG, JPG files only (Max 5MB)
+                    </Text>
+                    {formReceipt && (
+                      <Badge color="blue" variant="light" mt="sm">
+                        {formReceipt.name}
+                      </Badge>
+                    )}
+                  </Box>
+                )}
+              </FileButton>
+            </Paper>
+          </Box>
+
           <Group justify="flex-end" mt="md">
-            <Button variant="light" onClick={() => setIsModalOpen(false)}>
+            <Button variant="subtle" onClick={() => setIsModalOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleSaveExpense}>
-              {editingExpense ? 'Update' : 'Add'} Expense
+              {editingExpense ? 'Update' : 'Add'}
             </Button>
           </Group>
         </Stack>
