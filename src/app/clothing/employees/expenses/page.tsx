@@ -20,6 +20,9 @@ import {
   Title,
   FileButton,
   Tooltip,
+  Tabs,
+  Progress,
+  Box,
 } from '@mantine/core';
 import {
   IconPlus,
@@ -31,6 +34,8 @@ import {
   IconReceipt,
   IconCheck,
   IconX,
+  IconList,
+  IconChartPie,
 } from '@tabler/icons-react';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import { StatCard } from '../../../../components/ui';
@@ -107,6 +112,7 @@ export default function Expenses() {
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [activeTab, setActiveTab] = useState<string | null>('list');
 
   // Form state
   const [formDate, setFormDate] = useState('');
@@ -178,6 +184,24 @@ export default function Expenses() {
       })
       .reduce((sum, exp) => sum + exp.amount, 0);
   }, [expenses]);
+
+  // Category analytics
+  const categoryAnalytics = useMemo(() => {
+    const analytics = categories.map((category) => {
+      const categoryExpenses = expenses.filter(
+        (exp) => exp.category === category
+      );
+      const total = categoryExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+      const percentage = totalExpenses > 0 ? (total / totalExpenses) * 100 : 0;
+      return {
+        category,
+        total,
+        percentage,
+        count: categoryExpenses.length,
+      };
+    });
+    return analytics.sort((a, b) => b.total - a.total);
+  }, [expenses, categories, totalExpenses]);
 
   // ============================================================================
   // EVENT HANDLERS
@@ -324,216 +348,324 @@ export default function Expenses() {
           ))}
         </MantineGrid>
 
-        {/* Filters and Actions */}
-        <Card withBorder padding="md">
-          <Stack gap="md">
-            <Group justify="space-between">
-              <Title order={3}>Expense Records</Title>
-              <Group>
-                <Button
-                  leftSection={<IconUpload size={16} />}
-                  variant="light"
-                  color="blue"
-                >
-                  Import CSV
-                </Button>
-                <Button
-                  leftSection={<IconDownload size={16} />}
-                  variant="light"
-                  color="teal"
-                >
-                  Export
-                </Button>
-                <Button
-                  leftSection={<IconPlus size={16} />}
-                  onClick={handleAddExpense}
-                >
-                  Add Expense
-                </Button>
-              </Group>
-            </Group>
+        {/* Tab Navigation */}
+        <Tabs value={activeTab} onChange={setActiveTab}>
+          <Tabs.List>
+            <Tabs.Tab value="list" leftSection={<IconList size={16} />}>
+              Expense List
+            </Tabs.Tab>
+            <Tabs.Tab
+              value="analytics"
+              leftSection={<IconChartPie size={16} />}
+            >
+              Analytics by Category
+            </Tabs.Tab>
+          </Tabs.List>
 
-            {/* Search and Filters */}
-            <Group>
-              <TextInput
-                placeholder="Search expenses..."
-                leftSection={<IconSearch size={16} />}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{ flex: 1 }}
-              />
-              <Select
-                placeholder="Filter by category"
-                data={['All', ...categories]}
-                value={filterCategory}
-                onChange={(value) =>
-                  setFilterCategory(value === 'All' ? null : value)
-                }
-                clearable
-                style={{ width: 200 }}
-              />
-              <Select
-                placeholder="Filter by status"
-                data={['All', 'pending', 'approved', 'rejected']}
-                value={filterStatus}
-                onChange={(value) =>
-                  setFilterStatus(value === 'All' ? null : value)
-                }
-                clearable
-                style={{ width: 200 }}
-              />
-            </Group>
-          </Stack>
-        </Card>
-
-        {/* Expenses Table */}
-        <Card withBorder padding={0} style={{ overflow: 'hidden' }}>
-          <Table striped highlightOnHover withTableBorder withColumnBorders>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>DATE</Table.Th>
-                <Table.Th>AMOUNT</Table.Th>
-                <Table.Th>DESCRIPTION</Table.Th>
-                <Table.Th>CATEGORY</Table.Th>
-                <Table.Th>NOTES</Table.Th>
-                <Table.Th>RECEIPT</Table.Th>
-                <Table.Th style={{ width: 150, textAlign: 'center' }}>
-                  ACTION
-                </Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {filteredExpenses.length === 0 ? (
-                <Table.Tr>
-                  <Table.Td colSpan={7} style={{ textAlign: 'center' }}>
-                    <Text c="dimmed" py="xl">
-                      No expenses found
-                    </Text>
-                  </Table.Td>
-                </Table.Tr>
-              ) : (
-                filteredExpenses.map((expense) => (
-                  <Table.Tr key={expense.id}>
-                    <Table.Td>
-                      {new Date(expense.date).toLocaleDateString()}
-                    </Table.Td>
-                    <Table.Td>
-                      <Text fw={600}>${expense.amount.toFixed(2)}</Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <div>
-                        <Text size="sm" fw={500}>
-                          {expense.description}
-                        </Text>
-                        {expense.employeeName && (
-                          <Text size="xs" c="dimmed">
-                            {expense.employeeName}
-                          </Text>
-                        )}
-                      </div>
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge
-                        color={
-                          expense.category === 'Supplies'
-                            ? 'blue'
-                            : expense.category === 'Meals'
-                              ? 'green'
-                              : expense.category === 'Travel'
-                                ? 'orange'
-                                : 'gray'
-                        }
+          {/* Expense List Tab */}
+          <Tabs.Panel value="list" pt="md">
+            <Stack gap="md">
+              {/* Filters and Actions */}
+              <Card withBorder padding="md">
+                <Stack gap="md">
+                  <Group justify="space-between">
+                    <Title order={3}>Expense Records</Title>
+                    <Group>
+                      <Button
+                        leftSection={<IconUpload size={16} />}
                         variant="light"
+                        color="blue"
                       >
-                        {expense.category}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="sm" lineClamp={2}>
-                        {expense.notes || '-'}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      {expense.receipt ? (
-                        <Group gap="xs">
-                          <IconReceipt size={16} />
-                          <Text size="xs">{expense.receipt}</Text>
-                        </Group>
-                      ) : (
-                        <Text size="xs" c="dimmed">
-                          No receipt
-                        </Text>
-                      )}
-                    </Table.Td>
-                    <Table.Td>
-                      <Group gap="xs" justify="center">
-                        {expense.status === 'pending' && (
-                          <>
-                            <Tooltip label="Approve">
-                              <ActionIcon
-                                color="green"
-                                variant="light"
-                                size="sm"
-                                onClick={() => handleApprove(expense.id)}
-                              >
-                                <IconCheck size={16} />
-                              </ActionIcon>
-                            </Tooltip>
-                            <Tooltip label="Reject">
-                              <ActionIcon
-                                color="red"
-                                variant="light"
-                                size="sm"
-                                onClick={() => handleReject(expense.id)}
-                              >
-                                <IconX size={16} />
-                              </ActionIcon>
-                            </Tooltip>
-                          </>
-                        )}
-                        <Tooltip label="Edit">
-                          <ActionIcon
-                            color="blue"
-                            variant="light"
-                            size="sm"
-                            onClick={() => handleEditExpense(expense)}
-                          >
-                            <IconEdit size={16} />
-                          </ActionIcon>
-                        </Tooltip>
-                        <Tooltip label="Delete">
-                          <ActionIcon
-                            color="red"
-                            variant="light"
-                            size="sm"
-                            onClick={() => handleDeleteExpense(expense.id)}
-                          >
-                            <IconTrash size={16} />
-                          </ActionIcon>
-                        </Tooltip>
-                      </Group>
-                    </Table.Td>
-                  </Table.Tr>
-                ))
-              )}
-            </Table.Tbody>
-          </Table>
-        </Card>
+                        Import CSV
+                      </Button>
+                      <Button
+                        leftSection={<IconDownload size={16} />}
+                        variant="light"
+                        color="teal"
+                      >
+                        Export
+                      </Button>
+                      <Button
+                        leftSection={<IconPlus size={16} />}
+                        onClick={handleAddExpense}
+                      >
+                        Add Expense
+                      </Button>
+                    </Group>
+                  </Group>
 
-        {/* Summary */}
-        <Card withBorder padding="md">
-          <Group justify="space-between">
-            <Text size="sm" c="dimmed">
-              Showing {filteredExpenses.length} of {expenses.length} expenses
-            </Text>
-            <Text size="sm" fw={600}>
-              Filtered Total: $
-              {filteredExpenses
-                .reduce((sum, exp) => sum + exp.amount, 0)
-                .toFixed(2)}
-            </Text>
-          </Group>
-        </Card>
+                  {/* Search and Filters */}
+                  <Group>
+                    <TextInput
+                      placeholder="Search expenses..."
+                      leftSection={<IconSearch size={16} />}
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                    <Select
+                      placeholder="Filter by category"
+                      data={['All', ...categories]}
+                      value={filterCategory}
+                      onChange={(value) =>
+                        setFilterCategory(value === 'All' ? null : value)
+                      }
+                      clearable
+                      style={{ width: 200 }}
+                    />
+                    <Select
+                      placeholder="Filter by status"
+                      data={['All', 'pending', 'approved', 'rejected']}
+                      value={filterStatus}
+                      onChange={(value) =>
+                        setFilterStatus(value === 'All' ? null : value)
+                      }
+                      clearable
+                      style={{ width: 200 }}
+                    />
+                  </Group>
+                </Stack>
+              </Card>
+
+              {/* Expenses Table */}
+              <Card withBorder padding={0} style={{ overflow: 'hidden' }}>
+                <Table
+                  striped
+                  highlightOnHover
+                  withTableBorder
+                  withColumnBorders
+                >
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>DATE</Table.Th>
+                      <Table.Th>AMOUNT</Table.Th>
+                      <Table.Th>DESCRIPTION</Table.Th>
+                      <Table.Th>CATEGORY</Table.Th>
+                      <Table.Th>NOTES</Table.Th>
+                      <Table.Th>RECEIPT</Table.Th>
+                      <Table.Th style={{ width: 150, textAlign: 'center' }}>
+                        ACTION
+                      </Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {filteredExpenses.length === 0 ? (
+                      <Table.Tr>
+                        <Table.Td colSpan={7} style={{ textAlign: 'center' }}>
+                          <Text c="dimmed" py="xl">
+                            No expenses found
+                          </Text>
+                        </Table.Td>
+                      </Table.Tr>
+                    ) : (
+                      filteredExpenses.map((expense) => (
+                        <Table.Tr key={expense.id}>
+                          <Table.Td>
+                            {new Date(expense.date).toLocaleDateString()}
+                          </Table.Td>
+                          <Table.Td>
+                            <Text fw={600}>${expense.amount.toFixed(2)}</Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <div>
+                              <Text size="sm" fw={500}>
+                                {expense.description}
+                              </Text>
+                              {expense.employeeName && (
+                                <Text size="xs" c="dimmed">
+                                  {expense.employeeName}
+                                </Text>
+                              )}
+                            </div>
+                          </Table.Td>
+                          <Table.Td>
+                            <Badge
+                              color={
+                                expense.category === 'Supplies'
+                                  ? 'blue'
+                                  : expense.category === 'Meals'
+                                    ? 'green'
+                                    : expense.category === 'Travel'
+                                      ? 'orange'
+                                      : 'gray'
+                              }
+                              variant="light"
+                            >
+                              {expense.category}
+                            </Badge>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm" lineClamp={2}>
+                              {expense.notes || '-'}
+                            </Text>
+                          </Table.Td>
+                          <Table.Td>
+                            {expense.receipt ? (
+                              <Group gap="xs">
+                                <IconReceipt size={16} />
+                                <Text size="xs">{expense.receipt}</Text>
+                              </Group>
+                            ) : (
+                              <Text size="xs" c="dimmed">
+                                No receipt
+                              </Text>
+                            )}
+                          </Table.Td>
+                          <Table.Td>
+                            <Group gap="xs" justify="center">
+                              {expense.status === 'pending' && (
+                                <>
+                                  <Tooltip label="Approve">
+                                    <ActionIcon
+                                      color="green"
+                                      variant="light"
+                                      size="sm"
+                                      onClick={() => handleApprove(expense.id)}
+                                    >
+                                      <IconCheck size={16} />
+                                    </ActionIcon>
+                                  </Tooltip>
+                                  <Tooltip label="Reject">
+                                    <ActionIcon
+                                      color="red"
+                                      variant="light"
+                                      size="sm"
+                                      onClick={() => handleReject(expense.id)}
+                                    >
+                                      <IconX size={16} />
+                                    </ActionIcon>
+                                  </Tooltip>
+                                </>
+                              )}
+                              <Tooltip label="Edit">
+                                <ActionIcon
+                                  color="blue"
+                                  variant="light"
+                                  size="sm"
+                                  onClick={() => handleEditExpense(expense)}
+                                >
+                                  <IconEdit size={16} />
+                                </ActionIcon>
+                              </Tooltip>
+                              <Tooltip label="Delete">
+                                <ActionIcon
+                                  color="red"
+                                  variant="light"
+                                  size="sm"
+                                  onClick={() =>
+                                    handleDeleteExpense(expense.id)
+                                  }
+                                >
+                                  <IconTrash size={16} />
+                                </ActionIcon>
+                              </Tooltip>
+                            </Group>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))
+                    )}
+                  </Table.Tbody>
+                </Table>
+              </Card>
+
+              {/* Summary */}
+              <Card withBorder padding="md">
+                <Group justify="space-between">
+                  <Text size="sm" c="dimmed">
+                    Showing {filteredExpenses.length} of {expenses.length}{' '}
+                    expenses
+                  </Text>
+                  <Text size="sm" fw={600}>
+                    Filtered Total: $
+                    {filteredExpenses
+                      .reduce((sum, exp) => sum + exp.amount, 0)
+                      .toFixed(2)}
+                  </Text>
+                </Group>
+              </Card>
+            </Stack>
+          </Tabs.Panel>
+
+          {/* Analytics Tab */}
+          <Tabs.Panel value="analytics" pt="md">
+            <Card withBorder padding="md">
+              <Title order={3} mb="lg">
+                Expenses by Category - Monthly Breakdown
+              </Title>
+              <Stack gap="lg">
+                {categoryAnalytics.map((category) => (
+                  <Box key={category.category}>
+                    <Group justify="space-between" mb="xs">
+                      <Group>
+                        <Badge
+                          color={
+                            category.category === 'Supplies'
+                              ? 'blue'
+                              : category.category === 'Meals'
+                                ? 'green'
+                                : category.category === 'Travel'
+                                  ? 'orange'
+                                  : category.category === 'Software'
+                                    ? 'purple'
+                                    : category.category === 'Equipment'
+                                      ? 'red'
+                                      : 'gray'
+                          }
+                          variant="light"
+                          size="lg"
+                        >
+                          {category.category}
+                        </Badge>
+                        <Text size="sm" c="dimmed">
+                          {category.count}{' '}
+                          {category.count === 1 ? 'expense' : 'expenses'}
+                        </Text>
+                      </Group>
+                      <Group gap="xl">
+                        <Text size="sm" fw={500}>
+                          {category.percentage.toFixed(1)}%
+                        </Text>
+                        <Text size="lg" fw={700}>
+                          ${category.total.toFixed(2)}
+                        </Text>
+                      </Group>
+                    </Group>
+                    <Progress
+                      value={category.percentage}
+                      size="lg"
+                      radius="xl"
+                      color={
+                        category.category === 'Supplies'
+                          ? 'blue'
+                          : category.category === 'Meals'
+                            ? 'green'
+                            : category.category === 'Travel'
+                              ? 'orange'
+                              : category.category === 'Software'
+                                ? 'purple'
+                                : category.category === 'Equipment'
+                                  ? 'red'
+                                  : 'gray'
+                      }
+                    />
+                  </Box>
+                ))}
+
+                {/* Total Summary */}
+                <Paper withBorder p="md" mt="md" bg="gray.0">
+                  <Group justify="space-between">
+                    <Text size="lg" fw={700}>
+                      TOTAL
+                    </Text>
+                    <Text size="xl" fw={700}>
+                      ${totalExpenses.toFixed(2)}
+                    </Text>
+                  </Group>
+                </Paper>
+              </Stack>
+            </Card>
+          </Tabs.Panel>
+        </Tabs>
       </Stack>
 
       {/* Add/Edit Modal */}
