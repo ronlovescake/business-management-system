@@ -144,6 +144,9 @@ export default function Expenses() {
   const [formNotes, setFormNotes] = useState('');
   const [formReceipt, setFormReceipt] = useState<File | null>(null);
 
+  // CSV Import state
+  const [isImporting, setIsImporting] = useState(false);
+
   // ============================================================================
   // COMPUTED VALUES
   // ============================================================================
@@ -404,6 +407,139 @@ export default function Expenses() {
     );
   };
 
+  const handleImportCSV = (file: File | null) => {
+    if (!file) return;
+
+    setIsImporting(true);
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        const lines = text.split('\n').filter((line) => line.trim());
+
+        if (lines.length < 2) {
+          alert('CSV file is empty or invalid');
+          setIsImporting(false);
+          return;
+        }
+
+        // Parse header
+        const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
+
+        // Validate required columns
+        const requiredColumns = ['date', 'amount', 'description', 'category'];
+        const missingColumns = requiredColumns.filter(
+          (col) => !headers.includes(col)
+        );
+
+        if (missingColumns.length > 0) {
+          alert(
+            `Missing required columns: ${missingColumns.join(', ')}\n\n` +
+              'Required columns: date, amount, description, category\n' +
+              'Optional columns: notes, receipt, status, employeeName'
+          );
+          setIsImporting(false);
+          return;
+        }
+
+        // Parse data rows
+        const importedExpenses: Expense[] = [];
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (let i = 1; i < lines.length; i++) {
+          try {
+            const values = lines[i].split(',').map((v) => v.trim());
+            const row: Record<string, string> = {};
+
+            headers.forEach((header, index) => {
+              row[header] = values[index] || '';
+            });
+
+            // Validate required fields
+            if (!row.date || !row.amount || !row.description || !row.category) {
+              errorCount++;
+              continue;
+            }
+
+            // Validate category
+            if (!categories.includes(row.category)) {
+              errorCount++;
+              console.warn(
+                `Invalid category "${row.category}" on row ${i + 1}`
+              );
+              continue;
+            }
+
+            // Parse amount
+            const amount = parseFloat(row.amount);
+            if (isNaN(amount)) {
+              errorCount++;
+              console.warn(`Invalid amount "${row.amount}" on row ${i + 1}`);
+              continue;
+            }
+
+            // Validate status
+            const status = row.status?.toLowerCase() as
+              | 'pending'
+              | 'approved'
+              | 'rejected';
+            const validStatus = ['pending', 'approved', 'rejected'].includes(
+              status
+            )
+              ? status
+              : 'pending';
+
+            const newExpense: Expense = {
+              id: `import_${Date.now()}_${i}`,
+              date: row.date,
+              amount,
+              description: row.description,
+              category: row.category,
+              notes: row.notes || '',
+              receipt: row.receipt || null,
+              status: validStatus,
+              employeeName: row.employeename || 'Imported',
+            };
+
+            importedExpenses.push(newExpense);
+            successCount++;
+          } catch (error) {
+            errorCount++;
+            console.error(`Error parsing row ${i + 1}:`, error);
+          }
+        }
+
+        // Add imported expenses to state
+        if (importedExpenses.length > 0) {
+          setExpenses((prev) => [...prev, ...importedExpenses]);
+        }
+
+        // Show results
+        const message =
+          `Import completed!\n\n` +
+          `✅ Successfully imported: ${successCount} expenses\n` +
+          (errorCount > 0 ? `⚠️ Failed to import: ${errorCount} rows\n` : '') +
+          `\nTotal expenses: ${expenses.length + successCount}`;
+
+        alert(message);
+      } catch (error) {
+        console.error('CSV import error:', error);
+        alert('Failed to import CSV file. Please check the file format.');
+      } finally {
+        setIsImporting(false);
+      }
+    };
+
+    reader.onerror = () => {
+      alert('Failed to read CSV file');
+      setIsImporting(false);
+    };
+
+    reader.readAsText(file);
+  };
+
   // ============================================================================
   // STATS CARDS
   // ============================================================================
@@ -486,13 +622,22 @@ export default function Expenses() {
                   <Group justify="space-between">
                     <Title order={3}>Expense Records</Title>
                     <Group>
-                      <Button
-                        leftSection={<IconUpload size={16} />}
-                        variant="light"
-                        color="blue"
+                      <FileButton
+                        onChange={handleImportCSV}
+                        accept=".csv,text/csv"
                       >
-                        Import CSV
-                      </Button>
+                        {(props) => (
+                          <Button
+                            {...props}
+                            leftSection={<IconUpload size={16} />}
+                            variant="light"
+                            color="blue"
+                            loading={isImporting}
+                          >
+                            Import CSV
+                          </Button>
+                        )}
+                      </FileButton>
                       <Button
                         leftSection={<IconDownload size={16} />}
                         variant="light"
@@ -508,6 +653,31 @@ export default function Expenses() {
                       </Button>
                     </Group>
                   </Group>
+
+                  {/* CSV Import Help Text */}
+                  <Paper withBorder p="sm" bg="blue.0">
+                    <Group justify="space-between" align="center">
+                      <Group gap="xs">
+                        <Text size="sm" c="blue.7" fw={500}>
+                          💡 CSV Format:
+                        </Text>
+                        <Text size="sm" c="dimmed">
+                          Required columns: date, amount, description, category
+                          | Optional: notes, receipt, status, employeeName
+                        </Text>
+                      </Group>
+                      <Button
+                        size="xs"
+                        variant="light"
+                        component="a"
+                        href="/templates/expenses-template.csv"
+                        download="expenses-template.csv"
+                        leftSection={<IconDownload size={14} />}
+                      >
+                        Download Template
+                      </Button>
+                    </Group>
+                  </Paper>
 
                   {/* Search and Filters */}
                   <Group>
