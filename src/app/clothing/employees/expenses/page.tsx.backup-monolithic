@@ -1,47 +1,9 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import {
-  Stack,
-  Table,
-  ActionIcon,
-  Group,
-  Button,
-  TextInput,
-  Select,
-  Textarea,
-  Modal,
-  NumberInput,
-  Badge,
-  Card,
-  Text,
-  Grid as MantineGrid,
-  Paper,
-  Title,
-  FileButton,
-  Tooltip,
-  Tabs,
-  Progress,
-  Box,
-} from '@mantine/core';
-import {
-  IconPlus,
-  IconEdit,
-  IconTrash,
-  IconSearch,
-  IconDownload,
-  IconUpload,
-  IconReceipt,
-  IconCheck,
-  IconX,
-  IconList,
-  IconChartPie,
-  IconZoomIn,
-  IconZoomOut,
-  IconZoomReset,
-} from '@tabler/icons-react';
 import { PageLayout } from '../../../../components/layout/PageLayout';
-import { StatCard } from '../../../../components/ui';
+import { ExpensesLayout, Expense } from '../../../../components/features/expenses/ExpensesLayout';
+import { notifications } from '@mantine/notifications';
 
 /**
  * Expense Interface
@@ -762,94 +724,32 @@ export default function Expenses() {
   return (
     <PageLayout fluid withPadding>
       <Stack gap="lg">
-        {/* Stats Cards - Glassmorphism Style */}
+        {/* Stats Cards */}
         <MantineGrid>
           {statsCards.map((stat, index) => (
             <MantineGrid.Col key={index} span={{ base: 12, sm: 6, md: 3 }}>
-              <Paper
-                p="lg"
-                radius="xl"
-                style={{
-                  background: 'rgba(255, 255, 255, 0.25)',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(255, 255, 255, 0.18)',
-                  boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
-                  transition: 'all 0.3s ease',
-                  cursor: 'pointer',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-5px)';
-                  e.currentTarget.style.boxShadow =
-                    '0 12px 40px 0 rgba(31, 38, 135, 0.5)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0px)';
-                  e.currentTarget.style.boxShadow =
-                    '0 8px 32px 0 rgba(31, 38, 135, 0.37)';
-                }}
-              >
+              <Paper withBorder p="md" radius="md">
                 <Group justify="space-between">
                   <div>
-                    <Text
-                      size="xs"
-                      tt="uppercase"
-                      fw={700}
-                      style={{
-                        color: 'rgba(255, 255, 255, 0.8)',
-                        letterSpacing: '0.5px',
-                      }}
-                    >
+                    <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
                       {stat.title}
                     </Text>
-                    <Text
-                      size="xl"
-                      fw={700}
-                      mt={4}
-                      style={{
-                        color: 'rgba(255, 255, 255, 0.95)',
-                        textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                      }}
-                    >
+                    <Text size="xl" fw={700} mt={4}>
                       {stat.value}
                     </Text>
                   </div>
-                  <div
-                    style={{
-                      opacity: 0.8,
-                      filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1))',
-                    }}
-                  >
-                    {stat.icon}
-                  </div>
+                  {stat.icon}
                 </Group>
               </Paper>
             </MantineGrid.Col>
           ))}
         </MantineGrid>
 
-        {/* Expense Records Header, Tabs, and Controls Container - Glassmorphism */}
-        <Card
-          padding="lg"
-          radius="xl"
-          style={{
-            background: 'rgba(255, 255, 255, 0.15)',
-            backdropFilter: 'blur(15px)',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-            boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.2)',
-            transition: 'all 0.3s ease',
-          }}
-        >
+        {/* Expense Records Header, Tabs, and Controls Container */}
+        <Card withBorder padding="md">
           <Stack gap="md">
             {/* Expense Records Header */}
-            <Title
-              order={3}
-              style={{
-                color: 'rgba(255, 255, 255, 0.95)',
-                textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-              }}
-            >
-              Expense Records
-            </Title>
+            <Title order={3}>Expense Records</Title>
 
             {/* Tab Navigation */}
             <Tabs value={activeTab} onChange={setActiveTab}>
