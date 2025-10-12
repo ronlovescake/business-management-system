@@ -881,7 +881,7 @@ export default function Expenses() {
             <Card
               withBorder
               padding={0}
-              style={{ overflow: 'hidden', height: '72vh' }}
+              style={{ overflow: 'hidden', height: '71vh' }}
             >
               <Box style={{ height: '100%', overflowY: 'auto' }}>
                 <Table highlightOnHover withTableBorder>
@@ -1108,7 +1108,7 @@ export default function Expenses() {
           <Card
             withBorder
             padding={0}
-            style={{ overflow: 'hidden', height: '72vh' }}
+            style={{ overflow: 'hidden', height: '71vh' }}
           >
             <Box
               style={{ height: '100%', overflowX: 'auto', overflowY: 'auto' }}
