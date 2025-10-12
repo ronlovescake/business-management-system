@@ -1,13 +1,12 @@
 /**
  * Module Registry - Dynamic Module Management System
- * 
+ *
  * This registry allows you to:
  * - Register modules dynamically
  * - Generate routes automatically
  * - Build navigation from modules
- * - // Singleton instance
-export const moduleRegistry = new ModuleRegistry();
-/disable features via config
+ * - Enable/disable features via config
+ * - Install/uninstall modules (plugin system)
  */
 
 import { ComponentType } from 'react';
@@ -43,6 +42,80 @@ export interface ModuleConfig {
     author?: string;
     tags?: string[];
   };
+}
+
+// ============================================================================
+// PLUGIN SYSTEM TYPES
+// ============================================================================
+
+/**
+ * Module source type
+ */
+export type ModuleSource = 'local' | 'npm' | 'git' | 'marketplace';
+
+/**
+ * Module author information
+ */
+export interface ModuleAuthor {
+  name: string;
+  email: string;
+  url?: string;
+}
+
+/**
+ * Extended module configuration for plugin system
+ */
+export interface ModulePackage extends ModuleConfig {
+  source?: ModuleSource;
+  downloadUrl?: string;
+  installPath?: string;
+  size?: number;
+  downloads?: number;
+  rating?: number;
+  screenshots?: string[];
+  repository?: string;
+  license?: string;
+  author?: ModuleAuthor;
+  keywords?: string[];
+  peerDependencies?: Record<string, string>;
+  bundledDependencies?: string[];
+}
+
+/**
+ * Options for module installation
+ */
+export interface ModuleInstallOptions {
+  force?: boolean;
+  skipDependencies?: boolean;
+  version?: string;
+}
+
+/**
+ * Module marketplace manifest
+ */
+export interface ModuleManifest {
+  modules: ModulePackage[];
+  lastUpdated: string;
+  version: string;
+}
+
+/**
+ * Module update information
+ */
+export interface ModuleUpdateInfo {
+  module: ModuleConfig;
+  currentVersion: string;
+  latestVersion: string;
+  changelog?: string;
+}
+
+/**
+ * Module validation result
+ */
+export interface ModuleValidationResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
 }
 
 class ModuleRegistry {

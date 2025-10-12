@@ -3,6 +3,8 @@ import { ProductService } from './ProductService';
 import { TransactionService } from './TransactionService';
 import { ShipmentService } from './ShipmentService';
 import { PriceService } from './PriceService';
+import { FormatterService } from './FormatterService';
+import { ValidationService } from './ValidationService';
 import { DataSourceType } from '../types';
 
 /**
@@ -42,6 +44,12 @@ export class ServiceFactory {
   static getPriceService() {
     return PriceService;
   }
+  static getFormatterService() {
+    return FormatterService;
+  }
+  static getValidationService() {
+    return ValidationService;
+  }
 }
 
 // Export all services for direct access
@@ -51,6 +59,8 @@ export {
   TransactionService,
   ShipmentService,
   PriceService,
+  FormatterService,
+  ValidationService,
 };
 
 // Export service factory as default

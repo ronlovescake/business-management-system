@@ -4,6 +4,9 @@ import './globals.css';
 import { AppLayout } from '../components/layout/AppLayout';
 import { ReactQueryProvider } from '../lib/query-client';
 
+// Initialize module registry
+import '@/modules';
+
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {

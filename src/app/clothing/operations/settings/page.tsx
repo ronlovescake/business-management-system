@@ -1,11 +1,11 @@
-import { PageLayout } from '../../../../components/layout/PageLayout';
+/**
+ * Settings Page Route
+ *
+ * Renders the Settings module page for module marketplace and configuration
+ */
 
-export default function OperationsSettings() {
-  return (
-    <PageLayout title="Settings">
-      <div>
-        {/* Empty shell - content will be added later */}
-      </div>
-    </PageLayout>
-  );
+import { SettingsPage } from '@/modules/clothing/operations/settings';
+
+export default function Settings() {
+  return <SettingsPage />;
 }

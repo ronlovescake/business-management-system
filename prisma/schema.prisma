@@ -161,3 +161,55 @@ model SortingDistribution {
   @@index([groupNumber])
   @@map("sorting_distributions")
 }
+
+// ============================================================================
+// MODULE MARKETPLACE & PLUGIN SYSTEM MODELS
+// ============================================================================
+
+model InstalledModule {
+  id          String   @id @default(cuid())
+  moduleId    String   @unique
+  name        String   @db.VarChar(255)
+  version     String   @db.VarChar(50)
+  enabled     Boolean  @default(true)
+  source      String   @db.VarChar(50) // 'local' | 'marketplace' | 'npm' | 'git'
+  installPath String?  @db.VarChar(500)
+  config      Json // Store full ModulePackage config
+  installedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  installedBy String?  @db.VarChar(100) // User ID who installed it
+
+  @@index([moduleId])
+  @@index([enabled])
+  @@index([source])
+  @@map("installed_modules")
+}
+
+model ModuleMarketplace {
+  id           String    @id @default(cuid())
+  moduleId     String    @unique
+  name         String    @db.VarChar(255)
+  description  String?   @db.Text
+  version      String    @db.VarChar(50)
+  author       String    @db.VarChar(255)
+  authorEmail  String?   @db.VarChar(255)
+  downloadUrl  String    @db.VarChar(1000)
+  repository   String?   @db.VarChar(500)
+  license      String?   @db.VarChar(100)
+  size         Int? // in bytes
+  downloads    Int       @default(0)
+  rating       Float?
+  screenshots  String[] // Array of image URLs
+  keywords     String[]
+  config       Json // Full ModulePackage config
+  published    Boolean   @default(false)
+  publishedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([moduleId])
+  @@index([published])
+  @@index([author])
+  @@index([downloads])
+  @@map("module_marketplace")
+}

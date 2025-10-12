@@ -176,7 +176,7 @@ import { useEffect } from 'react';
 export function useEventBus<K extends keyof EventBusEvents>(
   event: K,
   handler: EventHandler<EventBusEvents[K]>,
-  deps: any[] = []
+  deps: React.DependencyList = []
 ) {
   useEffect(() => {
     const unsubscribe = eventBus.on(event, handler);

@@ -31,7 +31,9 @@ function sanitiseColumns(columns: GridColumn[]) {
 }
 
 export const GridView = forwardRef<unknown, GridViewProps>((props, ref) => {
-  const { columns, rowHeight, headerHeight } = props;
+  const columns = props.columns as GridColumn[];
+  const rowHeight = props.rowHeight as number | undefined;
+  const headerHeight = props.headerHeight as number | undefined;
   const adapter = useGridAdapter();
   const { register } = useGridLayoutRegistry();
   const pathname = usePathname();
@@ -39,9 +41,12 @@ export const GridView = forwardRef<unknown, GridViewProps>((props, ref) => {
   useEffect(() => {
     if (!pathname) return;
 
-    const snapshotColumns = adapter.normaliseColumns
-      ? adapter.normaliseColumns(columns)
-      : columns;
+    let snapshotColumns: GridColumn[];
+    if (adapter.normaliseColumns) {
+      snapshotColumns = adapter.normaliseColumns(columns) as GridColumn[];
+    } else {
+      snapshotColumns = columns;
+    }
 
     register(pathname, {
       adapter: adapter.name,
@@ -56,7 +61,12 @@ export const GridView = forwardRef<unknown, GridViewProps>((props, ref) => {
 
   const AdapterComponent = adapter.Component;
 
-  return <AdapterComponent ref={ref as React.Ref<unknown>} {...props} />;
+  return (
+    <AdapterComponent
+      ref={ref as React.Ref<unknown>}
+      {...(props as GridViewProps)}
+    />
+  );
 });
 
 GridView.displayName = 'GridView';

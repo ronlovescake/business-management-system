@@ -2,12 +2,9 @@
 const nextConfig = {
   reactStrictMode: true,
   experimental: {
-    optimizePackageImports: ['@mantine/core', '@mantine/hooks']
+    optimizePackageImports: ['@mantine/core', '@mantine/hooks'],
   },
-  webpack: (config) => {
-    config.optimization.providedExports = false;
-    return config;
-  }
+  transpilePackages: ['@tabler/icons-react'],
 };
 
 const withBundleAnalyzer = require('@next/bundle-analyzer')({

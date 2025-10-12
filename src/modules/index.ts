@@ -21,6 +21,7 @@ import { shipmentsModule } from './clothing/operations/shipments';
 import { productsModule } from './clothing/operations/products';
 import { pricesModule } from './clothing/operations/prices';
 import { sortingDistributionModule } from './clothing/operations/sorting-distribution';
+import { settingsModule } from './clothing/operations/settings';
 
 // Employees
 // import { attendanceModule } from './clothing/employees/attendance';
@@ -62,6 +63,7 @@ moduleRegistry.register(shipmentsModule); // ✅ REGISTERED!
 moduleRegistry.register(productsModule); // ✅ REGISTERED!
 moduleRegistry.register(pricesModule); // ✅ REGISTERED!
 moduleRegistry.register(sortingDistributionModule); // ✅ REGISTERED!
+moduleRegistry.register(settingsModule); // ✅ REGISTERED!
 // moduleRegistry.register(attendanceModule);
 // moduleRegistry.register(payrollModule);
 // moduleRegistry.register(productsModule);
