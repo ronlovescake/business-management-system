@@ -678,6 +678,7 @@ export default function Expenses() {
         size="lg"
         padding="xl"
         radius="md"
+        centered
         styles={{
           title: {
             fontSize: '1.25rem',
