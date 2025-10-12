@@ -210,7 +210,7 @@ export default function Expenses() {
 
   // Filtered expenses
   const filteredExpenses = useMemo(() => {
-    return expenses.filter((expense) => {
+    const filtered = expenses.filter((expense) => {
       const matchesSearch =
         searchQuery === '' ||
         expense.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -223,6 +223,13 @@ export default function Expenses() {
       const matchesStatus = !filterStatus || expense.status === filterStatus;
 
       return matchesSearch && matchesCategory && matchesStatus;
+    });
+
+    // Sort by date in descending order (newest first)
+    return filtered.sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return dateB - dateA;
     });
   }, [expenses, searchQuery, filterCategory, filterStatus]);
 
@@ -598,6 +605,77 @@ export default function Expenses() {
     reader.readAsText(file);
   };
 
+  /**
+   * Export filtered expenses to CSV
+   */
+  const handleExportCSV = () => {
+    if (filteredExpenses.length === 0) {
+      alert('No expenses to export');
+      return;
+    }
+
+    // Define CSV headers
+    const headers = [
+      'Date',
+      'Amount',
+      'Description',
+      'Category',
+      'Notes',
+      'Receipt',
+      'Status',
+      'Employee Name',
+    ];
+
+    // Helper function to escape CSV values
+    const escapeCSV = (value: string | number | null | undefined): string => {
+      if (value === null || value === undefined) return '';
+      const stringValue = String(value);
+      // Escape double quotes and wrap in quotes if contains comma, quote, or newline
+      if (
+        stringValue.includes(',') ||
+        stringValue.includes('"') ||
+        stringValue.includes('\n')
+      ) {
+        return `"${stringValue.replace(/"/g, '""')}"`;
+      }
+      return stringValue;
+    };
+
+    // Convert expenses to CSV rows
+    const rows = filteredExpenses.map((expense) => [
+      escapeCSV(expense.date),
+      escapeCSV(expense.amount.toFixed(2)),
+      escapeCSV(expense.description),
+      escapeCSV(expense.category),
+      escapeCSV(expense.notes),
+      escapeCSV(expense.receipt || ''),
+      escapeCSV(expense.status),
+      escapeCSV(expense.employeeName || ''),
+    ]);
+
+    // Combine headers and rows
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((row) => row.join(',')),
+    ].join('\n');
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    // Generate filename with current date
+    const date = new Date().toISOString().split('T')[0];
+    const filename = `expenses_${date}.csv`;
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // ============================================================================
   // STATS CARDS
   // ============================================================================
@@ -725,6 +803,7 @@ export default function Expenses() {
                     leftSection={<IconDownload size={16} />}
                     variant="light"
                     color="teal"
+                    onClick={handleExportCSV}
                   >
                     Export
                   </Button>
@@ -845,17 +924,17 @@ export default function Expenses() {
                     ) : (
                       filteredExpenses.map((expense) => (
                         <Table.Tr key={expense.id}>
-                          <Table.Td style={{ color: '#868e96' }}>
+                          <Table.Td style={{ color: '#495057' }}>
                             {formatDate(expense.date)}
                           </Table.Td>
                           <Table.Td>
-                            <Text fw={600} c="#868e96">
+                            <Text fw={600} c="#495057">
                               {formatCurrency(expense.amount)}
                             </Text>
                           </Table.Td>
                           <Table.Td>
                             <div>
-                              <Text size="sm" fw={500} c="#868e96">
+                              <Text size="sm" fw={500} c="#495057">
                                 {expense.description}
                               </Text>
                               {expense.employeeName && (
@@ -874,15 +953,15 @@ export default function Expenses() {
                             </Badge>
                           </Table.Td>
                           <Table.Td>
-                            <Text size="sm" lineClamp={2} c="#868e96">
+                            <Text size="sm" lineClamp={2} c="#495057">
                               {expense.notes || '-'}
                             </Text>
                           </Table.Td>
                           <Table.Td>
                             {expense.receipt ? (
                               <Group gap="xs">
-                                <IconReceipt size={16} color="#868e96" />
-                                <Text size="xs" c="#868e96">
+                                <IconReceipt size={16} color="#495057" />
+                                <Text size="xs" c="#495057">
                                   {expense.receipt}
                                 </Text>
                               </Group>
@@ -1170,85 +1249,85 @@ export default function Expenses() {
                             color={getCategoryColor(row.category)}
                             style={{ flex: 1, minWidth: 80, maxWidth: 500 }}
                           />
-                          <Text size="sm" fw={500} c="#868e96">
+                          <Text size="sm" fw={500} c="#495057">
                             {row.percentage.toFixed(1)}%
                           </Text>
                         </Group>
                       </Table.Td>
                       <Table.Td style={{ textAlign: 'right' }}>
-                        <Text fw={700} c="#868e96">
+                        <Text fw={700} c="#495057">
                           {formatCurrency(row.total)}
                         </Text>
                       </Table.Td>
                       <Table.Td style={{ textAlign: 'right' }}>
-                        <Text size="sm" c="#868e96">
+                        <Text size="sm" c="#495057">
                           {row.January > 0
                             ? formatCurrency(row.January)
                             : '₱0.00'}
                         </Text>
                       </Table.Td>
                       <Table.Td style={{ textAlign: 'right' }}>
-                        <Text size="sm" c="#868e96">
+                        <Text size="sm" c="#495057">
                           {row.February > 0
                             ? formatCurrency(row.February)
                             : '₱0.00'}
                         </Text>
                       </Table.Td>
                       <Table.Td style={{ textAlign: 'right' }}>
-                        <Text size="sm" c="#868e96">
+                        <Text size="sm" c="#495057">
                           {row.March > 0 ? formatCurrency(row.March) : '₱0.00'}
                         </Text>
                       </Table.Td>
                       <Table.Td style={{ textAlign: 'right' }}>
-                        <Text size="sm" c="#868e96">
+                        <Text size="sm" c="#495057">
                           {row.April > 0 ? formatCurrency(row.April) : '₱0.00'}
                         </Text>
                       </Table.Td>
                       <Table.Td style={{ textAlign: 'right' }}>
-                        <Text size="sm" c="#868e96">
+                        <Text size="sm" c="#495057">
                           {row.May > 0 ? formatCurrency(row.May) : '₱0.00'}
                         </Text>
                       </Table.Td>
                       <Table.Td style={{ textAlign: 'right' }}>
-                        <Text size="sm" c="#868e96">
+                        <Text size="sm" c="#495057">
                           {row.June > 0 ? formatCurrency(row.June) : '₱0.00'}
                         </Text>
                       </Table.Td>
                       <Table.Td style={{ textAlign: 'right' }}>
-                        <Text size="sm" c="#868e96">
+                        <Text size="sm" c="#495057">
                           {row.July > 0 ? formatCurrency(row.July) : '₱0.00'}
                         </Text>
                       </Table.Td>
                       <Table.Td style={{ textAlign: 'right' }}>
-                        <Text size="sm" c="#868e96">
+                        <Text size="sm" c="#495057">
                           {row.August > 0
                             ? formatCurrency(row.August)
                             : '₱0.00'}
                         </Text>
                       </Table.Td>
                       <Table.Td style={{ textAlign: 'right' }}>
-                        <Text size="sm" c="#868e96">
+                        <Text size="sm" c="#495057">
                           {row.September > 0
                             ? formatCurrency(row.September)
                             : '₱0.00'}
                         </Text>
                       </Table.Td>
                       <Table.Td style={{ textAlign: 'right' }}>
-                        <Text size="sm" c="#868e96">
+                        <Text size="sm" c="#495057">
                           {row.October > 0
                             ? formatCurrency(row.October)
                             : '₱0.00'}
                         </Text>
                       </Table.Td>
                       <Table.Td style={{ textAlign: 'right' }}>
-                        <Text size="sm" c="#868e96">
+                        <Text size="sm" c="#495057">
                           {row.November > 0
                             ? formatCurrency(row.November)
                             : '₱0.00'}
                         </Text>
                       </Table.Td>
                       <Table.Td style={{ textAlign: 'right' }}>
-                        <Text size="sm" c="#868e96">
+                        <Text size="sm" c="#495057">
                           {row.December > 0
                             ? formatCurrency(row.December)
                             : '₱0.00'}
@@ -1262,17 +1341,17 @@ export default function Expenses() {
                     style={{ backgroundColor: '#f8f9fa', fontWeight: 700 }}
                   >
                     <Table.Td>
-                      <Text fw={700} size="lg" c="#868e96">
+                      <Text fw={700} size="lg" c="#495057">
                         TOTAL
                       </Text>
                     </Table.Td>
                     <Table.Td style={{ textAlign: 'center', width: '180px' }}>
-                      <Text fw={700} c="#868e96">
+                      <Text fw={700} c="#495057">
                         100%
                       </Text>
                     </Table.Td>
                     <Table.Td style={{ textAlign: 'right', width: '120px' }}>
-                      <Text fw={700} size="lg" c="#868e96">
+                      <Text fw={700} size="lg" c="#495057">
                         {formatCurrency(totalExpenses)}
                       </Text>
                     </Table.Td>
@@ -1304,7 +1383,7 @@ export default function Expenses() {
                           key={month}
                           style={{ textAlign: 'right', width: '110px' }}
                         >
-                          <Text fw={700} c="#868e96">
+                          <Text fw={700} c="#495057">
                             {monthTotal > 0
                               ? formatCurrency(monthTotal)
                               : '₱0.00'}
