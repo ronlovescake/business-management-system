@@ -25,6 +25,7 @@ interface VersionSnapshot<T> {
     affectedFields?: string[];
     customLabel?: string;
   };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 }
 
 interface VersionDiff<T> {
@@ -32,6 +33,7 @@ interface VersionDiff<T> {
   removed: T[];
   modified: Array<{
     old: T;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     new: T;
     changes: Record<string, { old: any; new: any }>;
   }>;
@@ -46,6 +48,7 @@ interface VersionHistoryDB extends DBSchema {
       'by-type': string;
     };
   };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 }
 
 const DB_NAME = 'version-history-db';
@@ -125,6 +128,7 @@ export function useVersionHistory<T extends Record<string, any>>(
       const removed: T[] = [];
       const modified: VersionDiff<T>['modified'] = [];
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       // Find added and modified
       newData.forEach((newItem) => {
         const oldItem = oldMap.get(newItem.id);
@@ -173,7 +177,7 @@ export function useVersionHistory<T extends Record<string, any>>(
         changeCount: pending.count,
         description: pending.description,
         userName: 'You', // TODO: Get from auth context
-        changedRows: [...new Set(pending.changedRows)], // Remove duplicates
+        changedRows: Array.from(new Set(pending.changedRows)), // Remove duplicates
       };
 
       await db.add(STORE_NAME, snapshot);
