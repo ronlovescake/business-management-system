@@ -139,22 +139,26 @@ export function LoanFormDialog({
           p="lg"
           radius="md"
           style={{
-            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            background:
+              'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%)',
             backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(139, 92, 246, 0.3)',
+            boxShadow: '0 4px 15px rgba(99, 102, 241, 0.1)',
           }}
         >
           <Group mb="md" gap="xs">
             <ThemeIcon
-              size="lg"
+              size={40}
               radius="md"
-              variant="light"
-              color="#85bd3a"
-              style={{ backgroundColor: 'rgba(133, 189, 58, 0.15)' }}
+              variant="gradient"
+              gradient={{ from: '#6366f1', to: '#8b5cf6', deg: 135 }}
+              style={{
+                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+              }}
             >
-              <IconUser size={20} />
+              <IconUser size={22} stroke={2.5} />
             </ThemeIcon>
-            <Text fw={600} size="sm" c="dimmed">
+            <Text fw={700} size="md" c="#8b5cf6">
               Applicant Information
             </Text>
           </Group>
@@ -165,14 +169,23 @@ export function LoanFormDialog({
                 label="Employee Name"
                 placeholder="Enter employee name"
                 required
-                leftSection={<IconUser size={16} opacity={0.5} />}
+                leftSection={<IconUser size={18} opacity={0.7} />}
                 styles={{
+                  label: {
+                    fontWeight: 600,
+                    color: '#e0e7ff',
+                  },
                   input: {
-                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                    border: '1.5px solid rgba(139, 92, 246, 0.3)',
+                    fontWeight: 500,
                     '&:focus': {
-                      borderColor: '#85bd3a',
-                      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                      borderColor: '#8b5cf6',
+                      backgroundColor: 'rgba(255, 255, 255, 0.18)',
+                      boxShadow: '0 0 0 3px rgba(139, 92, 246, 0.15)',
+                    },
+                    '&::placeholder': {
+                      color: 'rgba(255, 255, 255, 0.4)',
                     },
                   },
                 }}
@@ -185,7 +198,7 @@ export function LoanFormDialog({
                 label="Loan Type"
                 placeholder="Select loan type"
                 required
-                leftSection={<IconCategory size={16} opacity={0.5} />}
+                leftSection={<IconCategory size={18} opacity={0.7} />}
                 data={[
                   { value: 'personal', label: 'Personal Loan' },
                   { value: 'emergency', label: 'Emergency Loan' },
@@ -194,12 +207,18 @@ export function LoanFormDialog({
                   { value: 'vehicle', label: 'Vehicle Loan' },
                 ]}
                 styles={{
+                  label: {
+                    fontWeight: 600,
+                    color: '#e0e7ff',
+                  },
                   input: {
-                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                    border: '1.5px solid rgba(139, 92, 246, 0.3)',
+                    fontWeight: 500,
                     '&:focus': {
-                      borderColor: '#85bd3a',
-                      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                      borderColor: '#8b5cf6',
+                      backgroundColor: 'rgba(255, 255, 255, 0.18)',
+                      boxShadow: '0 0 0 3px rgba(139, 92, 246, 0.15)',
                     },
                   },
                 }}
@@ -214,22 +233,26 @@ export function LoanFormDialog({
           p="lg"
           radius="md"
           style={{
-            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            background:
+              'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.15) 100%)',
             backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
+            boxShadow: '0 4px 15px rgba(16, 185, 129, 0.1)',
           }}
         >
           <Group mb="md" gap="xs">
             <ThemeIcon
-              size="lg"
+              size={40}
               radius="md"
-              variant="light"
-              color="#85bd3a"
-              style={{ backgroundColor: 'rgba(133, 189, 58, 0.15)' }}
+              variant="gradient"
+              gradient={{ from: '#10b981', to: '#059669', deg: 135 }}
+              style={{
+                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+              }}
             >
-              <IconCash size={20} />
+              <IconCash size={22} stroke={2.5} />
             </ThemeIcon>
-            <Text fw={600} size="sm" c="dimmed">
+            <Text fw={700} size="md" c="#10b981">
               Financial Details
             </Text>
           </Group>
@@ -245,16 +268,25 @@ export function LoanFormDialog({
                 decimalScale={2}
                 thousandSeparator=","
                 hideControls
-                leftSection={<IconCash size={16} opacity={0.5} />}
+                leftSection={<IconCash size={18} opacity={0.7} />}
                 styles={{
-                  input: {
-                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                  label: {
                     fontWeight: 600,
-                    fontSize: '15px',
+                    color: '#d1fae5',
+                  },
+                  input: {
+                    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                    border: '1.5px solid rgba(16, 185, 129, 0.3)',
+                    fontWeight: 700,
+                    fontSize: '16px',
+                    color: '#10b981',
                     '&:focus': {
-                      borderColor: '#85bd3a',
-                      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                      borderColor: '#10b981',
+                      backgroundColor: 'rgba(255, 255, 255, 0.18)',
+                      boxShadow: '0 0 0 3px rgba(16, 185, 129, 0.15)',
+                    },
+                    '&::placeholder': {
+                      color: 'rgba(16, 185, 129, 0.4)',
                     },
                   },
                 }}
@@ -276,16 +308,25 @@ export function LoanFormDialog({
                 decimalScale={2}
                 suffix="%"
                 hideControls
-                leftSection={<IconPercentage size={16} opacity={0.5} />}
+                leftSection={<IconPercentage size={18} opacity={0.7} />}
                 styles={{
-                  input: {
-                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                  label: {
                     fontWeight: 600,
-                    fontSize: '15px',
+                    color: '#d1fae5',
+                  },
+                  input: {
+                    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                    border: '1.5px solid rgba(16, 185, 129, 0.3)',
+                    fontWeight: 700,
+                    fontSize: '16px',
+                    color: '#10b981',
                     '&:focus': {
-                      borderColor: '#85bd3a',
-                      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                      borderColor: '#10b981',
+                      backgroundColor: 'rgba(255, 255, 255, 0.18)',
+                      boxShadow: '0 0 0 3px rgba(16, 185, 129, 0.15)',
+                    },
+                    '&::placeholder': {
+                      color: 'rgba(16, 185, 129, 0.4)',
                     },
                   },
                 }}
@@ -305,16 +346,25 @@ export function LoanFormDialog({
                 min={1}
                 max={360}
                 hideControls
-                leftSection={<IconCalendar size={16} opacity={0.5} />}
+                leftSection={<IconCalendar size={18} opacity={0.7} />}
                 styles={{
-                  input: {
-                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                  label: {
                     fontWeight: 600,
-                    fontSize: '15px',
+                    color: '#d1fae5',
+                  },
+                  input: {
+                    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                    border: '1.5px solid rgba(16, 185, 129, 0.3)',
+                    fontWeight: 700,
+                    fontSize: '16px',
+                    color: '#10b981',
                     '&:focus': {
-                      borderColor: '#85bd3a',
-                      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                      borderColor: '#10b981',
+                      backgroundColor: 'rgba(255, 255, 255, 0.18)',
+                      boxShadow: '0 0 0 3px rgba(16, 185, 129, 0.15)',
+                    },
+                    '&::placeholder': {
+                      color: 'rgba(16, 185, 129, 0.4)',
                     },
                   },
                 }}
@@ -333,22 +383,26 @@ export function LoanFormDialog({
           p="lg"
           radius="md"
           style={{
-            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            background:
+              'linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.15) 100%)',
             backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            boxShadow: '0 4px 15px rgba(239, 68, 68, 0.1)',
           }}
         >
           <Group mb="md" gap="xs">
             <ThemeIcon
-              size="lg"
+              size={40}
               radius="md"
-              variant="light"
-              color="#85bd3a"
-              style={{ backgroundColor: 'rgba(133, 189, 58, 0.15)' }}
+              variant="gradient"
+              gradient={{ from: '#ef4444', to: '#dc2626', deg: 135 }}
+              style={{
+                boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
+              }}
             >
-              <IconFileText size={20} />
+              <IconFileText size={22} stroke={2.5} />
             </ThemeIcon>
-            <Text fw={600} size="sm" c="dimmed">
+            <Text fw={700} size="md" c="#ef4444">
               Additional Details
             </Text>
           </Group>
@@ -358,14 +412,20 @@ export function LoanFormDialog({
               label="Application Date"
               type="date"
               required
-              leftSection={<IconCalendar size={16} opacity={0.5} />}
+              leftSection={<IconCalendar size={18} opacity={0.7} />}
               styles={{
+                label: {
+                  fontWeight: 600,
+                  color: '#fecaca',
+                },
                 input: {
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                  border: '1.5px solid rgba(239, 68, 68, 0.3)',
+                  fontWeight: 500,
                   '&:focus': {
-                    borderColor: '#85bd3a',
-                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+                    boxShadow: '0 0 0 3px rgba(239, 68, 68, 0.15)',
                   },
                 },
               }}
@@ -376,14 +436,23 @@ export function LoanFormDialog({
               label="Purpose"
               placeholder="Enter loan purpose"
               required
-              leftSection={<IconFileText size={16} opacity={0.5} />}
+              leftSection={<IconFileText size={18} opacity={0.7} />}
               styles={{
+                label: {
+                  fontWeight: 600,
+                  color: '#fecaca',
+                },
                 input: {
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                  border: '1.5px solid rgba(239, 68, 68, 0.3)',
+                  fontWeight: 500,
                   '&:focus': {
-                    borderColor: '#85bd3a',
-                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+                    boxShadow: '0 0 0 3px rgba(239, 68, 68, 0.15)',
+                  },
+                  '&::placeholder': {
+                    color: 'rgba(255, 255, 255, 0.4)',
                   },
                 },
               }}
@@ -394,14 +463,23 @@ export function LoanFormDialog({
               label="Notes"
               placeholder="Additional notes (optional)"
               minRows={3}
-              leftSection={<IconNote size={16} opacity={0.5} />}
+              leftSection={<IconNote size={18} opacity={0.7} />}
               styles={{
+                label: {
+                  fontWeight: 600,
+                  color: '#fecaca',
+                },
                 input: {
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                  border: '1.5px solid rgba(239, 68, 68, 0.3)',
+                  fontWeight: 500,
                   '&:focus': {
-                    borderColor: '#85bd3a',
-                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+                    boxShadow: '0 0 0 3px rgba(239, 68, 68, 0.15)',
+                  },
+                  '&::placeholder': {
+                    color: 'rgba(255, 255, 255, 0.4)',
                   },
                 },
               }}
