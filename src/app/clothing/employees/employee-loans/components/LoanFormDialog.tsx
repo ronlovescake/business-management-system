@@ -1,8 +1,28 @@
 import { useEffect } from 'react';
-import { TextInput, NumberInput, Textarea, Select } from '@mantine/core';
+import {
+  TextInput,
+  NumberInput,
+  Textarea,
+  Select,
+  Grid,
+  Stack,
+  Paper,
+  Text,
+  Group,
+  ThemeIcon,
+} from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { ComposedDialog } from '@/components/shared/Dialog';
 import { EmployeeLoan, EmployeeLoanFormData } from '../types';
+import {
+  IconUser,
+  IconCash,
+  IconPercentage,
+  IconCalendar,
+  IconFileText,
+  IconNote,
+  IconCategory,
+} from '@tabler/icons-react';
 
 interface LoanFormDialogProps {
   opened: boolean;
@@ -86,7 +106,7 @@ export function LoanFormDialog({
     <ComposedDialog
       opened={opened}
       onClose={onClose}
-      size="lg"
+      size="xl"
       header={{
         title: editingLoan ? 'Edit Loan Application' : 'New Loan Application',
         subtitle: editingLoan
@@ -95,111 +115,301 @@ export function LoanFormDialog({
         iconColor: '#85bd3a',
       }}
       body={{
-        padding: 'md',
-        maxHeight: '65vh',
+        padding: 'xl',
+        maxHeight: '75vh',
       }}
       footer={{
         layout: 'flex-end',
         secondaryButton: {
           label: 'Cancel',
           onClick: onClose,
-          variant: 'default',
+          variant: 'subtle',
         },
         primaryButton: {
-          label: editingLoan ? 'Update' : 'Submit',
+          label: editingLoan ? 'Update Loan' : 'Submit Application',
           onClick: handleSave,
           disabled: !form.isValid(),
           color: '#85bd3a',
         },
       }}
     >
-      <TextInput
-        label="Employee Name"
-        placeholder="Enter employee name"
-        required
-        {...form.getInputProps('employee')}
-      />
+      <Stack gap="xl">
+        {/* Employee & Loan Type Section */}
+        <Paper
+          p="lg"
+          radius="md"
+          style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+          }}
+        >
+          <Group mb="md" gap="xs">
+            <ThemeIcon
+              size="lg"
+              radius="md"
+              variant="light"
+              color="#85bd3a"
+              style={{ backgroundColor: 'rgba(133, 189, 58, 0.15)' }}
+            >
+              <IconUser size={20} />
+            </ThemeIcon>
+            <Text fw={600} size="sm" c="dimmed">
+              Applicant Information
+            </Text>
+          </Group>
 
-      <Select
-        label="Loan Type"
-        placeholder="Select loan type"
-        required
-        data={[
-          { value: 'personal', label: 'Personal Loan' },
-          { value: 'emergency', label: 'Emergency Loan' },
-          { value: 'educational', label: 'Educational Loan' },
-          { value: 'housing', label: 'Housing Loan' },
-          { value: 'vehicle', label: 'Vehicle Loan' },
-        ]}
-        {...form.getInputProps('loanType')}
-      />
+          <Grid gutter="md">
+            <Grid.Col span={6}>
+              <TextInput
+                label="Employee Name"
+                placeholder="Enter employee name"
+                required
+                leftSection={<IconUser size={16} opacity={0.5} />}
+                styles={{
+                  input: {
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    '&:focus': {
+                      borderColor: '#85bd3a',
+                      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                    },
+                  },
+                }}
+                {...form.getInputProps('employee')}
+              />
+            </Grid.Col>
 
-      <NumberInput
-        label="Loan Amount"
-        placeholder="Enter loan amount"
-        required
-        min={0}
-        prefix="$"
-        decimalScale={2}
-        thousandSeparator=","
-        hideControls
-        value={form.values.amount}
-        onChange={(value) =>
-          form.setFieldValue('amount', value?.toString() || '')
-        }
-        error={form.errors.amount}
-      />
+            <Grid.Col span={6}>
+              <Select
+                label="Loan Type"
+                placeholder="Select loan type"
+                required
+                leftSection={<IconCategory size={16} opacity={0.5} />}
+                data={[
+                  { value: 'personal', label: 'Personal Loan' },
+                  { value: 'emergency', label: 'Emergency Loan' },
+                  { value: 'educational', label: 'Educational Loan' },
+                  { value: 'housing', label: 'Housing Loan' },
+                  { value: 'vehicle', label: 'Vehicle Loan' },
+                ]}
+                styles={{
+                  input: {
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    '&:focus': {
+                      borderColor: '#85bd3a',
+                      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                    },
+                  },
+                }}
+                {...form.getInputProps('loanType')}
+              />
+            </Grid.Col>
+          </Grid>
+        </Paper>
 
-      <NumberInput
-        label="Interest Rate (%)"
-        placeholder="Enter annual interest rate"
-        required
-        min={0}
-        max={100}
-        decimalScale={2}
-        suffix="%"
-        hideControls
-        value={form.values.interestRate}
-        onChange={(value) =>
-          form.setFieldValue('interestRate', value?.toString() || '')
-        }
-        error={form.errors.interestRate}
-      />
+        {/* Financial Details Section */}
+        <Paper
+          p="lg"
+          radius="md"
+          style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+          }}
+        >
+          <Group mb="md" gap="xs">
+            <ThemeIcon
+              size="lg"
+              radius="md"
+              variant="light"
+              color="#85bd3a"
+              style={{ backgroundColor: 'rgba(133, 189, 58, 0.15)' }}
+            >
+              <IconCash size={20} />
+            </ThemeIcon>
+            <Text fw={600} size="sm" c="dimmed">
+              Financial Details
+            </Text>
+          </Group>
 
-      <NumberInput
-        label="Term (Months)"
-        placeholder="Enter loan term in months"
-        required
-        min={1}
-        max={360}
-        hideControls
-        value={form.values.termMonths}
-        onChange={(value) =>
-          form.setFieldValue('termMonths', value?.toString() || '')
-        }
-        error={form.errors.termMonths}
-      />
+          <Grid gutter="md">
+            <Grid.Col span={4}>
+              <NumberInput
+                label="Loan Amount"
+                placeholder="0.00"
+                required
+                min={0}
+                prefix="$"
+                decimalScale={2}
+                thousandSeparator=","
+                hideControls
+                leftSection={<IconCash size={16} opacity={0.5} />}
+                styles={{
+                  input: {
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    fontWeight: 600,
+                    fontSize: '15px',
+                    '&:focus': {
+                      borderColor: '#85bd3a',
+                      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                    },
+                  },
+                }}
+                value={form.values.amount}
+                onChange={(value) =>
+                  form.setFieldValue('amount', value?.toString() || '')
+                }
+                error={form.errors.amount}
+              />
+            </Grid.Col>
 
-      <TextInput
-        label="Application Date"
-        type="date"
-        required
-        {...form.getInputProps('applicationDate')}
-      />
+            <Grid.Col span={4}>
+              <NumberInput
+                label="Interest Rate"
+                placeholder="0.00"
+                required
+                min={0}
+                max={100}
+                decimalScale={2}
+                suffix="%"
+                hideControls
+                leftSection={<IconPercentage size={16} opacity={0.5} />}
+                styles={{
+                  input: {
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    fontWeight: 600,
+                    fontSize: '15px',
+                    '&:focus': {
+                      borderColor: '#85bd3a',
+                      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                    },
+                  },
+                }}
+                value={form.values.interestRate}
+                onChange={(value) =>
+                  form.setFieldValue('interestRate', value?.toString() || '')
+                }
+                error={form.errors.interestRate}
+              />
+            </Grid.Col>
 
-      <TextInput
-        label="Purpose"
-        placeholder="Enter loan purpose"
-        required
-        {...form.getInputProps('purpose')}
-      />
+            <Grid.Col span={4}>
+              <NumberInput
+                label="Term (Months)"
+                placeholder="12"
+                required
+                min={1}
+                max={360}
+                hideControls
+                leftSection={<IconCalendar size={16} opacity={0.5} />}
+                styles={{
+                  input: {
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    fontWeight: 600,
+                    fontSize: '15px',
+                    '&:focus': {
+                      borderColor: '#85bd3a',
+                      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                    },
+                  },
+                }}
+                value={form.values.termMonths}
+                onChange={(value) =>
+                  form.setFieldValue('termMonths', value?.toString() || '')
+                }
+                error={form.errors.termMonths}
+              />
+            </Grid.Col>
+          </Grid>
+        </Paper>
 
-      <Textarea
-        label="Notes"
-        placeholder="Additional notes (optional)"
-        minRows={3}
-        {...form.getInputProps('notes')}
-      />
+        {/* Additional Details Section */}
+        <Paper
+          p="lg"
+          radius="md"
+          style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+          }}
+        >
+          <Group mb="md" gap="xs">
+            <ThemeIcon
+              size="lg"
+              radius="md"
+              variant="light"
+              color="#85bd3a"
+              style={{ backgroundColor: 'rgba(133, 189, 58, 0.15)' }}
+            >
+              <IconFileText size={20} />
+            </ThemeIcon>
+            <Text fw={600} size="sm" c="dimmed">
+              Additional Details
+            </Text>
+          </Group>
+
+          <Stack gap="md">
+            <TextInput
+              label="Application Date"
+              type="date"
+              required
+              leftSection={<IconCalendar size={16} opacity={0.5} />}
+              styles={{
+                input: {
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  '&:focus': {
+                    borderColor: '#85bd3a',
+                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                  },
+                },
+              }}
+              {...form.getInputProps('applicationDate')}
+            />
+
+            <TextInput
+              label="Purpose"
+              placeholder="Enter loan purpose"
+              required
+              leftSection={<IconFileText size={16} opacity={0.5} />}
+              styles={{
+                input: {
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  '&:focus': {
+                    borderColor: '#85bd3a',
+                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                  },
+                },
+              }}
+              {...form.getInputProps('purpose')}
+            />
+
+            <Textarea
+              label="Notes"
+              placeholder="Additional notes (optional)"
+              minRows={3}
+              leftSection={<IconNote size={16} opacity={0.5} />}
+              styles={{
+                input: {
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  '&:focus': {
+                    borderColor: '#85bd3a',
+                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                  },
+                },
+              }}
+              {...form.getInputProps('notes')}
+            />
+          </Stack>
+        </Paper>
+      </Stack>
     </ComposedDialog>
   );
 }
