@@ -72,11 +72,18 @@ interface ProductData {
 }
 
 interface ShipmentData {
+  id: number;
   'Shipment Code': string;
-  'Total CBM': number;
+  'CV Number': string;
   'No. Of Sacks': number;
-  'Posting Date'?: string;
-  'Order Date'?: string;
+  'Total CBM': number;
+  Weight: number;
+  Fee: number | string;
+  'Shipment Status': string;
+  'Date Created': string;
+  'Date Delivered': string;
+  Duration: string;
+  Notes: string;
 }
 
 interface TopCustomer {
@@ -225,7 +232,7 @@ function formatNumber(value: number): string {
 // ============================================================================
 
 export default function BusinessIntelligence() {
-  const [dateFilter, setDateFilter] = useState<string>('mtd');
+  const [dateFilter, setDateFilter] = useState<string>('ytd');
   const [transactions, setTransactions] = useState<TransactionData[]>([]);
   const [products, setProducts] = useState<ProductData[]>([]);
   const [shipments, setShipments] = useState<ShipmentData[]>([]);
@@ -414,9 +421,9 @@ export default function BusinessIntelligence() {
       }
     });
 
-    // Process products/shipments by month using Posting Date or Order Date
-    products.forEach((p) => {
-      const dateStr = p['Posting Date'] || p['Order Date'];
+    // Process shipments by month using Date Created
+    shipments.forEach((s) => {
+      const dateStr = s['Date Created'];
       if (!dateStr) return;
 
       const date = new Date(dateStr);
@@ -441,18 +448,44 @@ export default function BusinessIntelligence() {
 
       const monthData = monthlyDataMap.get(monthKey)!;
 
-      // Count unique shipments per month
-      if (p['Total CBM'] || p['No. Of Sacks']) {
-        monthData.shipmentCount += 1;
-        monthData.cbm += p['Total CBM'] || 0;
-        monthData.sacks += p['No. Of Sacks'] || 0;
-      }
+      // Count shipments and aggregate metrics per month
+      monthData.shipmentCount += 1;
+      monthData.cbm += s['Total CBM'] || 0;
+      monthData.sacks += s['No. Of Sacks'] || 0;
     });
 
-    // Convert to array and format for charts
-    const monthKeys = Array.from(monthlyDataMap.keys()).sort();
-    const monthlyTrends: MonthlyData[] = monthKeys.map((monthKey) => {
-      const data = monthlyDataMap.get(monthKey)!;
+    // Generate all 12 months for the current year (January to December)
+    const currentYear = new Date().getFullYear();
+    const allMonths = Array.from({ length: 12 }, (_, i) => {
+      const month = i + 1;
+      return `${currentYear}-${String(month).padStart(2, '0')}`;
+    });
+
+    // Convert to array and format for charts - ensure all 12 months are included
+    const monthlyTrends: MonthlyData[] = allMonths.map((monthKey) => {
+      const data = monthlyDataMap.get(monthKey);
+
+      if (!data) {
+        // No data for this month - show empty values
+        const [year, month] = monthKey.split('-');
+        const date = new Date(parseInt(year), parseInt(month) - 1);
+        const monthName = date.toLocaleString('en-US', {
+          month: 'short',
+        });
+
+        return {
+          month: monthName,
+          revenue: 0,
+          transactions: 0,
+          topCustomer: 'N/A',
+          topCustomerRevenue: 0,
+          topProduct: 'N/A',
+          topProductRevenue: 0,
+          shipments: 0,
+          cbm: 0,
+          sacks: 0,
+        };
+      }
 
       // Get top customer for the month
       const topCust = Array.from(data.customerRevenue.entries()).sort(
@@ -464,12 +497,11 @@ export default function BusinessIntelligence() {
         (a, b) => b[1] - a[1]
       )[0] || ['N/A', 0];
 
-      // Format month for display (e.g., "Jan 2024")
+      // Format month for display (e.g., "Jan")
       const [year, month] = monthKey.split('-');
       const date = new Date(parseInt(year), parseInt(month) - 1);
       const monthName = date.toLocaleString('en-US', {
         month: 'short',
-        year: 'numeric',
       });
 
       return {
@@ -707,10 +739,19 @@ export default function BusinessIntelligence() {
                   <Tooltip />
                   <Legend />
                   <Bar
+                    yAxisId="right"
+                    dataKey="sacks"
+                    fill="#fd7e14"
+                    name="Total Sacks"
+                  />
+                  <Line
                     yAxisId="left"
+                    type="monotone"
                     dataKey="shipments"
-                    fill="#be4bdb"
+                    stroke="#be4bdb"
+                    strokeWidth={2}
                     name="Shipments"
+                    dot={{ fill: '#be4bdb', r: 4 }}
                   />
                   <Line
                     yAxisId="right"
@@ -720,15 +761,6 @@ export default function BusinessIntelligence() {
                     strokeWidth={2}
                     name="Total CBM"
                     dot={{ fill: '#4c6ef5', r: 4 }}
-                  />
-                  <Line
-                    yAxisId="right"
-                    type="monotone"
-                    dataKey="sacks"
-                    stroke="#fd7e14"
-                    strokeWidth={2}
-                    name="Total Sacks"
-                    dot={{ fill: '#fd7e14', r: 4 }}
                   />
                 </ComposedChart>
               </ResponsiveContainer>
