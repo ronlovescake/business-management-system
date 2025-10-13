@@ -1,19 +1,30 @@
 'use client';
 
 import React from 'react';
-import { Stack } from '@mantine/core';
+import { Stack, Text, Badge, Group, Table } from '@mantine/core';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import {
   IconCash,
   IconClock,
   IconCheck,
   IconCurrencyDollar,
+  IconEdit,
+  IconTrash,
+  IconX,
 } from '@tabler/icons-react';
 import { useCashAdvance } from './hooks/useCashAdvance';
-import { StatsCards } from './components/StatsCards';
-import { RequestControls } from './components/RequestControls';
-import { RequestListTable } from './components/RequestListTable';
+import {
+  StatsCardGroup,
+  PageControls,
+  DataTable,
+} from '@/components/shared/PageTemplates';
+import type {
+  StatCard,
+  TableColumn,
+  TableAction,
+} from '@/components/shared/PageTemplates';
 import { RequestFormDialog } from './components/RequestFormDialog';
+import type { CashAdvance as CashAdvanceType } from './types';
 
 export default function CashAdvance() {
   const {
@@ -53,34 +64,127 @@ export default function CashAdvance() {
   } = useCashAdvance();
 
   // Stats Configuration
-  const stats = [
+  const stats: StatCard[] = [
     {
-      icon: <IconCash size={24} />,
       title: 'Total Requests',
       value: totalRequests.toString(),
-      description: 'All cash advance requests',
-      color: '#85bd3a',
+      icon: <IconCash size={32} stroke={1.5} />,
     },
     {
-      icon: <IconClock size={24} />,
       title: 'Pending',
       value: pendingRequests.toString(),
-      description: 'Awaiting approval',
-      color: '#ffa726',
+      icon: <IconClock size={32} stroke={1.5} />,
     },
     {
-      icon: <IconCheck size={24} />,
       title: 'Approved',
       value: approvedRequests.toString(),
-      description: 'Approved requests',
-      color: '#66bb6a',
+      icon: <IconCheck size={32} stroke={1.5} />,
     },
     {
-      icon: <IconCurrencyDollar size={24} />,
       title: 'Total Amount',
       value: formatCurrency(totalAmount),
-      description: 'Approved & paid out',
-      color: '#42a5f5',
+      icon: <IconCurrencyDollar size={32} stroke={1.5} />,
+    },
+  ];
+
+  // Table Columns Configuration
+  const columns: TableColumn<CashAdvanceType>[] = [
+    {
+      key: 'employee',
+      label: 'EMPLOYEE',
+      render: (item) => (
+        <div>
+          <Text fw={500}>{item.employee}</Text>
+          {item.notes && (
+            <Text size="xs" c="dimmed">
+              {item.notes}
+            </Text>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'amount',
+      label: 'AMOUNT',
+      render: (item) => <Text fw={600}>{formatCurrency(item.amount)}</Text>,
+    },
+    {
+      key: 'purpose',
+      label: 'PURPOSE',
+      render: (item) => item.purpose,
+    },
+    {
+      key: 'terms',
+      label: 'TERMS',
+      render: (item) => <Text size="sm">{item.terms}</Text>,
+    },
+    {
+      key: 'requestDate',
+      label: 'REQUEST DATE',
+      render: (item) => formatDate(item.requestDate),
+    },
+    {
+      key: 'status',
+      label: 'STATUS',
+      render: (item) => (
+        <Group gap={4} justify="center">
+          <Badge color={getStatusColor(item.status)} variant="light">
+            {item.status.toUpperCase()}
+          </Badge>
+          {item.status === 'approved' && item.approvedBy && (
+            <Text size="xs" c="dimmed">
+              by {item.approvedBy}
+            </Text>
+          )}
+          {item.status === 'rejected' && item.rejectedBy && (
+            <Text size="xs" c="dimmed">
+              by {item.rejectedBy}
+            </Text>
+          )}
+          {item.rejectionReason && (
+            <Text size="xs" c="red">
+              {item.rejectionReason}
+            </Text>
+          )}
+        </Group>
+      ),
+    },
+  ];
+
+  // Table Actions Configuration
+  const actions: TableAction<CashAdvanceType>[] = [
+    {
+      icon: <IconCheck size={16} />,
+      label: 'Approve',
+      color: 'green',
+      onClick: (item) => handleApprove(item.id),
+      show: (item) => item.status === 'pending',
+    },
+    {
+      icon: <IconX size={16} />,
+      label: 'Reject',
+      color: 'red',
+      onClick: (item) => handleReject(item.id),
+      show: (item) => item.status === 'pending',
+    },
+    {
+      icon: <IconCurrencyDollar size={16} />,
+      label: 'Mark as Paid',
+      color: 'blue',
+      onClick: (item) => handleMarkAsPaid(item.id),
+      show: (item) => item.status === 'approved',
+    },
+    {
+      icon: <IconEdit size={16} />,
+      label: 'Edit',
+      color: 'blue',
+      onClick: (item) => handleEditRequest(item),
+    },
+    {
+      icon: <IconTrash size={16} />,
+      label: 'Delete',
+      color: 'red',
+      onClick: (item) => handleDeleteRequest(item.id),
     },
   ];
 
@@ -88,30 +192,49 @@ export default function CashAdvance() {
     <PageLayout fluid withPadding>
       <Stack gap="lg">
         {/* Stats Cards */}
-        <StatsCards stats={stats} />
+        <StatsCardGroup stats={stats} />
 
         {/* Controls */}
-        <RequestControls
+        <PageControls
+          title="Cash Advance Records"
+          searchPlaceholder="Search by employee, purpose, or terms..."
           searchQuery={searchQuery}
-          statusFilter={statusFilter}
           onSearchChange={setSearchQuery}
-          onStatusFilterChange={(value) => setStatusFilter(value || 'all')}
+          filters={[
+            {
+              placeholder: 'Filter by status',
+              data: ['All', 'pending', 'approved', 'rejected', 'paid'],
+              value: statusFilter,
+              onChange: (value: string | null) =>
+                setStatusFilter(value === 'All' || !value ? 'all' : value),
+            },
+          ]}
           onImportCSV={handleImportCSV}
           onExportCSV={handleExportCSV}
-          onAddRequest={handleAddRequest}
+          onAdd={handleAddRequest}
+          addButtonLabel="Add Request"
         />
 
         {/* Request List Table */}
-        <RequestListTable
-          requests={cashAdvances}
-          formatDate={formatDate}
-          formatCurrency={formatCurrency}
-          getStatusColor={getStatusColor}
-          onEdit={handleEditRequest}
-          onDelete={handleDeleteRequest}
-          onApprove={handleApprove}
-          onReject={handleReject}
-          onMarkAsPaid={handleMarkAsPaid}
+        <DataTable
+          data={cashAdvances}
+          columns={columns}
+          actions={actions}
+          emptyMessage="No cash advance requests found"
+          showFooter
+          footerContent={
+            <>
+              <Table.Th>Total ({cashAdvances.length} requests)</Table.Th>
+              <Table.Th>
+                <Text fw={700}>
+                  {formatCurrency(
+                    cashAdvances.reduce((sum, r) => sum + r.amount, 0)
+                  )}
+                </Text>
+              </Table.Th>
+              <Table.Th colSpan={5}></Table.Th>
+            </>
+          }
         />
       </Stack>
 
