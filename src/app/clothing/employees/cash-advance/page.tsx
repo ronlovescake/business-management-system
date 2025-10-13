@@ -1,5 +1,7 @@
 'use client';
 
+import React from 'react';
+import { Stack } from '@mantine/core';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import {
   IconCash,
@@ -83,33 +85,35 @@ export default function CashAdvance() {
   ];
 
   return (
-    <PageLayout title="Cash Advance">
-      {/* Stats Cards */}
-      <StatsCards stats={stats} />
+    <PageLayout fluid withPadding>
+      <Stack gap="lg">
+        {/* Stats Cards */}
+        <StatsCards stats={stats} />
 
-      {/* Controls */}
-      <RequestControls
-        searchQuery={searchQuery}
-        statusFilter={statusFilter}
-        onSearchChange={setSearchQuery}
-        onStatusFilterChange={(value) => setStatusFilter(value || 'all')}
-        onImportCSV={handleImportCSV}
-        onExportCSV={handleExportCSV}
-        onAddRequest={handleAddRequest}
-      />
+        {/* Controls */}
+        <RequestControls
+          searchQuery={searchQuery}
+          statusFilter={statusFilter}
+          onSearchChange={setSearchQuery}
+          onStatusFilterChange={(value) => setStatusFilter(value || 'all')}
+          onImportCSV={handleImportCSV}
+          onExportCSV={handleExportCSV}
+          onAddRequest={handleAddRequest}
+        />
 
-      {/* Request List Table */}
-      <RequestListTable
-        requests={cashAdvances}
-        formatDate={formatDate}
-        formatCurrency={formatCurrency}
-        getStatusColor={getStatusColor}
-        onEdit={handleEditRequest}
-        onDelete={handleDeleteRequest}
-        onApprove={handleApprove}
-        onReject={handleReject}
-        onMarkAsPaid={handleMarkAsPaid}
-      />
+        {/* Request List Table */}
+        <RequestListTable
+          requests={cashAdvances}
+          formatDate={formatDate}
+          formatCurrency={formatCurrency}
+          getStatusColor={getStatusColor}
+          onEdit={handleEditRequest}
+          onDelete={handleDeleteRequest}
+          onApprove={handleApprove}
+          onReject={handleReject}
+          onMarkAsPaid={handleMarkAsPaid}
+        />
+      </Stack>
 
       {/* Form Dialog */}
       <RequestFormDialog
