@@ -12,7 +12,7 @@
  * - Distribution generation
  */
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { notifications } from '@mantine/notifications';
 import type { Item } from '@glideapps/glide-data-grid';
 import { TransactionService } from '../services/TransactionService';
@@ -89,6 +89,68 @@ export function useTransactionOperations(
     });
     transactionIndexMap.current = map;
   }, [transactions])();
+
+  // Flush batched edits triggered by paste/autofill events.
+  useEffect(() => {
+    const handleBatchStart = () => {
+      logger.debug('🚀 Batch mode STARTED - preparing batched save');
+      isBatchModeRef.current = true;
+      batchUpdatesRef.current.clear();
+    };
+
+    const handleBatchComplete = (event: Event) => {
+      const customEvent = event as CustomEvent<{ count?: number }>;
+      const batchedUpdates: TransactionData[] = [];
+
+      batchUpdatesRef.current.forEach((data, id) => {
+        const baseline = transactions.find(
+          (transaction) => transaction.id === id
+        );
+        if (!baseline) {
+          logger.warn(
+            `Batch update skipped for missing transaction ID ${String(id)}`
+          );
+          return;
+        }
+
+        batchedUpdates.push({
+          ...baseline,
+          ...data,
+          Quantity: data.Quantity ?? baseline.Quantity ?? 0,
+          'Unit Price': data['Unit Price'] ?? baseline['Unit Price'] ?? 0,
+          Discount: data.Discount ?? baseline.Discount ?? 0,
+          Adjustment: data.Adjustment ?? baseline.Adjustment ?? 0,
+          'Line Total': data['Line Total'] ?? baseline['Line Total'] ?? 0,
+        });
+      });
+
+      if (batchedUpdates.length > 0) {
+        logger.debug(
+          `📤 Flushing ${batchedUpdates.length} batched updates (cells edited: ${customEvent.detail?.count ?? 0})`
+        );
+        bulkUpdate(batchedUpdates);
+        notifications.show({
+          title: 'Success',
+          message: `Saved ${batchedUpdates.length} transactions from paste`,
+          color: 'green',
+        });
+      }
+
+      isBatchModeRef.current = false;
+      batchUpdatesRef.current.clear();
+    };
+
+    window.addEventListener('handsontable-batch-start', handleBatchStart);
+    window.addEventListener('handsontable-batch-complete', handleBatchComplete);
+
+    return () => {
+      window.removeEventListener('handsontable-batch-start', handleBatchStart);
+      window.removeEventListener(
+        'handsontable-batch-complete',
+        handleBatchComplete
+      );
+    };
+  }, [transactions, bulkUpdate]);
 
   // ============================================================================
   // HELPER: Save transaction to database
