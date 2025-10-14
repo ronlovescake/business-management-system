@@ -68,7 +68,7 @@ export async function GET() {
 
     return NextResponse.json(convertedShipments);
   } catch (error) {
-    console.error('Error fetching shipments:', error);
+    logger.error('Error fetching shipments:', error);
     return NextResponse.json(
       { error: 'Failed to fetch shipments' },
       { status: 500 }
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    console.log(
+    logger.debug(
       'Received shipment data, count:',
       Array.isArray(body) ? body.length : 1
     );
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
         try {
           return convertShipmentDataToDB(item);
         } catch (err) {
-          console.error(
+          logger.error(
             `Error converting shipment at index ${index}:`,
             err,
             'Data:',
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
         }
       });
 
-      console.log('Converted shipments, count:', shipmentsToCreate.length);
+      logger.debug('Converted shipments, count:', shipmentsToCreate.length);
 
       const createdShipments = await prisma.shipment.createMany({
         data: shipmentsToCreate,
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(convertedShipment, { status: 201 });
     }
   } catch (error) {
-    console.error('Error creating shipment(s):', error);
+    logger.error('Error creating shipment(s):', error);
     return NextResponse.json(
       { error: 'Failed to create shipment(s)' },
       { status: 500 }
@@ -147,7 +147,7 @@ export async function DELETE() {
       count: result.count,
     });
   } catch (error) {
-    console.error('Failed to delete shipments:', error);
+    logger.error('Failed to delete shipments:', error);
     return NextResponse.json(
       { error: 'Failed to delete shipments' },
       { status: 500 }

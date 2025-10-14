@@ -98,7 +98,7 @@ export function ModuleContainer({
     try {
       setState((prev) => ({ ...prev, loading: true, error: null }));
 
-      console.log(`📦 Loading module: ${moduleId}`);
+      logger.debug(`📦 Loading module: ${moduleId}`);
       const startTime = Date.now();
 
       // Initialize sandbox if enabled
@@ -125,13 +125,13 @@ export function ModuleContainer({
         loadTime,
       });
 
-      console.log(`✅ Module loaded: ${moduleId} (${loadTime}ms)`);
+      logger.debug(`✅ Module loaded: ${moduleId} (${loadTime}ms)`);
 
       // Call onLoad callback
       onLoad?.(result);
     } catch (error) {
       const err = error as Error;
-      console.error(`❌ Module load failed: ${moduleId}`, err);
+      logger.error(`❌ Module load failed: ${moduleId}`, err);
 
       setState({
         loading: false,
@@ -153,7 +153,7 @@ export function ModuleContainer({
 
     const handleAfterReload = (reloadedModuleId: string) => {
       if (reloadedModuleId === moduleId) {
-        console.log(`🔄 Reloading module container: ${moduleId}`);
+        logger.debug(`🔄 Reloading module container: ${moduleId}`);
         loadModule();
       }
     };
@@ -300,7 +300,7 @@ class ModuleErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    console.error(
+    logger.error(
       `Module render error (${this.props.moduleId}):`,
       error,
       errorInfo

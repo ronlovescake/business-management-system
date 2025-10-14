@@ -71,7 +71,7 @@ class ModuleLoader {
       if (options.cache !== false) {
         const cached = this.getFromCache<T>(moduleId);
         if (cached) {
-          console.log(`📦 Loading module from cache: ${moduleId}`);
+          logger.debug(`📦 Loading module from cache: ${moduleId}`);
           await this.emitEvent('afterLoad', moduleId, cached);
           return cached;
         }
@@ -80,7 +80,7 @@ class ModuleLoader {
       // Check if already loading
       const existingPromise = this.loadingPromises.get(moduleId);
       if (existingPromise) {
-        console.log(`⏳ Module already loading: ${moduleId}`);
+        logger.debug(`⏳ Module already loading: ${moduleId}`);
         return existingPromise as Promise<ModuleLoadResult<T>>;
       }
 
@@ -203,7 +203,7 @@ class ModuleLoader {
 
           return result;
         } catch (error) {
-          console.error(`Failed to import module ${moduleId}:`, error);
+          logger.error(`Failed to import module ${moduleId}:`, error);
           throw error;
         }
       };
@@ -243,7 +243,7 @@ class ModuleLoader {
           await this.loadModule(depId, { cache: true });
         }
       } catch (error) {
-        console.warn(`Failed to preload dependency ${depId}:`, error);
+        logger.warn(`Failed to preload dependency ${depId}:`, error);
         // Don't throw - dependencies might not be critical
       }
     });
@@ -268,9 +268,9 @@ class ModuleLoader {
       // Emit afterUninstall event
       await this.emitEvent('afterUninstall', moduleId);
 
-      console.log(`✅ Module unloaded: ${moduleId}`);
+      logger.debug(`✅ Module unloaded: ${moduleId}`);
     } catch (error) {
-      console.error(`Failed to unload module ${moduleId}:`, error);
+      logger.error(`Failed to unload module ${moduleId}:`, error);
       throw new ModuleLoadError(
         `Unload failed: ${(error as Error).message}`,
         moduleId,
@@ -329,7 +329,7 @@ class ModuleLoader {
     };
 
     this.cache.set(moduleId, entry);
-    console.log(`💾 Module cached: ${moduleId}`);
+    logger.debug(`💾 Module cached: ${moduleId}`);
   }
 
   /**
@@ -355,7 +355,7 @@ class ModuleLoader {
 
     if (oldestId) {
       this.removeFromCache(oldestId);
-      console.log(`🗑️  Evicted module from cache: ${oldestId}`);
+      logger.debug(`🗑️  Evicted module from cache: ${oldestId}`);
     }
   }
 
@@ -364,7 +364,7 @@ class ModuleLoader {
    */
   clearCache(): void {
     this.cache.clear();
-    console.log('🗑️  Module cache cleared');
+    logger.debug('🗑️  Module cache cleared');
   }
 
   /**
@@ -437,7 +437,7 @@ class ModuleLoader {
 
     const promises = Array.from(handlers).map((handler) =>
       Promise.resolve(handler(moduleId, data)).catch((error) => {
-        console.error(`Event handler error for ${event}:`, error);
+        logger.error(`Event handler error for ${event}:`, error);
       })
     );
 
@@ -467,9 +467,9 @@ class ModuleLoader {
         document.head.appendChild(link);
       }
 
-      console.log(`🔮 Preloading module: ${moduleId}`);
+      logger.debug(`🔮 Preloading module: ${moduleId}`);
     } catch (error) {
-      console.warn(`Failed to preload module ${moduleId}:`, error);
+      logger.warn(`Failed to preload module ${moduleId}:`, error);
     }
   }
 
@@ -497,7 +497,7 @@ class ModuleLoader {
     if (options.expirationMs !== undefined) {
       this.cacheExpirationMs = options.expirationMs;
     }
-    console.log(`⚙️  Cache configured:`, {
+    logger.debug(`⚙️  Cache configured:`, {
       maxSize: this.maxCacheSize,
       expirationMs: this.cacheExpirationMs,
     });

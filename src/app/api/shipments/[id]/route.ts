@@ -66,7 +66,7 @@ export async function GET(
     const convertedShipment = convertShipmentDBToData(shipment as ShipmentDB);
     return NextResponse.json(convertedShipment);
   } catch (error) {
-    console.error('Error fetching shipment:', error);
+    logger.error('Error fetching shipment:', error);
     return NextResponse.json(
       { error: 'Failed to fetch shipment' },
       { status: 500 }
@@ -126,7 +126,7 @@ export async function PUT(
         },
       });
 
-      console.log(
+      logger.debug(
         `Updated products with shipment code: ${currentShipment.shipmentCode}`,
         `Updated fields: cvNumber, noOfSacks, totalCBM, weight, shipmentStatus`
       );
@@ -137,7 +137,7 @@ export async function PUT(
     );
     return NextResponse.json(convertedShipment);
   } catch (error) {
-    console.error('Error updating shipment:', error);
+    logger.error('Error updating shipment:', error);
     return NextResponse.json(
       { error: 'Failed to update shipment' },
       { status: 500 }
@@ -166,7 +166,7 @@ export async function DELETE(
 
     return NextResponse.json({ message: 'Shipment deleted successfully' });
   } catch (error) {
-    console.error('Error deleting shipment:', error);
+    logger.error('Error deleting shipment:', error);
     return NextResponse.json(
       { error: 'Failed to delete shipment' },
       { status: 500 }

@@ -30,19 +30,21 @@ import {
 } from '@tabler/icons-react';
 import { GridView } from '@/components/grid/GridView';
 import {
-  GridColumn,
-  Item,
-  GridCell,
+  type GridColumn,
+  type Item,
+  type GridCell,
   GridCellKind,
-  GridSelection,
+  type GridSelection,
 } from '@glideapps/glide-data-grid';
 import { PageLayout } from '@/components/layout/PageLayout';
+import { TableSkeleton } from '@/components/ui/TableSkeleton';
+import { logger } from '@/lib/logger';
 import { useProductsData } from '../hooks/useProductsData';
 import { useProductForm } from '../hooks/useProductForm';
 import { ProductStatsCards } from './ProductStatsCards';
 import { AddProductModal } from './AddProductModal';
 import { ProductService } from '../services/ProductService';
-import {
+import type {
   ProductData,
   ProductColumnKey,
   GridCellWithCursor,
@@ -75,7 +77,9 @@ function throttle<T extends (...args: unknown[]) => void>(
       func.apply(this, args);
       lastRan = now;
     } else {
-      if (timeout) clearTimeout(timeout);
+      if (timeout) {
+        clearTimeout(timeout);
+      }
       timeout = setTimeout(
         () => {
           if (now - lastRan >= wait) {
@@ -254,7 +258,7 @@ export function ProductsPage() {
         autoClose: 4000,
       });
     } catch (error) {
-      console.error('Import error:', error);
+      logger.error('Import error:', error);
       notifications.show({
         title: '❌ Import Failed',
         message: 'Failed to parse CSV file. Please check the file format.',
@@ -668,7 +672,7 @@ export function ProductsPage() {
   if (isLoading) {
     return (
       <PageLayout fluid withPadding>
-        <Text>Loading products...</Text>
+        <TableSkeleton rows={12} columns={10} />
       </PageLayout>
     );
   }

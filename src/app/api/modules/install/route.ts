@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       message: `Module ${moduleId} installed successfully`,
     });
   } catch (error) {
-    console.error('Error installing module:', error);
+    logger.error('Error installing module:', error);
 
     // Return appropriate error status
     const status =

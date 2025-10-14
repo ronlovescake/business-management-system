@@ -1,10 +1,59 @@
 {
-  "extends": ["next/core-web-vitals", "next/typescript"],
+  "extends": [
+    "next/core-web-vitals",
+    "next/typescript",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:react-hooks/recommended",
+    "plugin:jsx-a11y/recommended"
+  ],
   "rules": {
-    "@typescript-eslint/no-unused-vars": "error",
+    // Existing rules
+    "@typescript-eslint/no-unused-vars": [
+      "error",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
+      }
+    ],
     "@typescript-eslint/no-explicit-any": "warn",
     "prefer-const": "error",
-    "@typescript-eslint/no-var-requires": "off"
+    "@typescript-eslint/no-var-requires": "off",
+
+    // React Best Practices
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn",
+    "react/no-array-index-key": "warn",
+    "react/jsx-no-bind": "off",
+
+    // TypeScript Strictness
+    "@typescript-eslint/explicit-function-return-type": "off",
+    "@typescript-eslint/no-non-null-assertion": "warn",
+    "@typescript-eslint/consistent-type-imports": [
+      "warn",
+      {
+        "prefer": "type-imports"
+      }
+    ],
+
+    // Code Quality
+    "no-console": [
+      "warn",
+      {
+        "allow": ["warn", "error"]
+      }
+    ],
+    "no-debugger": "error",
+    "eqeqeq": ["error", "always"],
+    "curly": ["error", "all"],
+    "no-unused-expressions": "error",
+
+    // Accessibility
+    "jsx-a11y/alt-text": "error",
+    "jsx-a11y/aria-props": "error",
+    "jsx-a11y/aria-role": "error",
+    "jsx-a11y/label-has-associated-control": "warn",
+    "jsx-a11y/click-events-have-key-events": "warn",
+    "jsx-a11y/no-static-element-interactions": "warn"
   },
   "ignorePatterns": ["node_modules/", ".next/", "out/", "build/"]
 }

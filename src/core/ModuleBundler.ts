@@ -300,7 +300,7 @@ class ModuleBundler {
       const actualChecksum = await this.calculateChecksum(code);
       return actualChecksum === expectedChecksum;
     } catch (error) {
-      console.error('Checksum verification error:', error);
+      logger.error('Checksum verification error:', error);
       return false;
     }
   }
@@ -425,7 +425,7 @@ class ModuleBundler {
         );
       }
 
-      console.log(
+      logger.debug(
         `✅ Module bundle prepared: ${modulePackage.id} (${size} bytes)`
       );
 

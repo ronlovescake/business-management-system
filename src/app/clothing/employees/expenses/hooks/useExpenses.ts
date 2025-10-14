@@ -562,7 +562,7 @@ export function useExpenses() {
           } catch (error) {
             errorCount++;
             errors.push(`Row ${i + 1}: ${error}`);
-            console.error(`Error parsing row ${i + 1}:`, error);
+            logger.error(`Error parsing row ${i + 1}:`, error);
           }
         }
 
@@ -582,7 +582,7 @@ export function useExpenses() {
 
         alert(message);
       } catch (error) {
-        console.error('CSV import error:', error);
+        logger.error('CSV import error:', error);
         alert('Failed to import CSV file. Please check the file format.');
       } finally {
         setIsImporting(false);

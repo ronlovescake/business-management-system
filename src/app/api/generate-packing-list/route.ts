@@ -48,11 +48,11 @@ export async function POST(request: NextRequest) {
   try {
     const transactions: Transaction[] = await request.json();
 
-    console.log('📋 PACKING LIST GENERATION STARTED');
-    console.log(`📊 Total transactions received: ${transactions.length}`);
+    logger.debug('📋 PACKING LIST GENERATION STARTED');
+    logger.debug(`📊 Total transactions received: ${transactions.length}`);
 
     // Debug: Log first few transactions to see their structure
-    console.log('🔍 Sample transaction data:', transactions.slice(0, 2));
+    logger.debug('🔍 Sample transaction data:', transactions.slice(0, 2));
 
     // Filter transactions based on validation rules
     const filteredTransactions = transactions.filter((transaction) => {
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       return true;
     });
 
-    console.log(
+    logger.debug(
       `✅ Filtered transactions: ${filteredTransactions.length} (Prepared status & ≤₱50.00)`
     );
 
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
       customerGroups.get(customer)!.push(transaction);
     });
 
-    console.log(`👥 Grouped into ${customerGroups.size} customers`);
+    logger.debug(`👥 Grouped into ${customerGroups.size} customers`);
 
     // Generate packed date (current date in required format)
     const currentDate = new Date();
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
       day: 'numeric',
     });
 
-    console.log(`📅 Packed Date: ${packedDate}`);
+    logger.debug(`📅 Packed Date: ${packedDate}`);
 
     // Create packing list data for each customer
     const customerPackingLists: CustomerPackingList[] = [];
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
         note: notes || '',
       });
 
-      console.log(`📦 ${customer}: ${rows.length} items`);
+      logger.debug(`📦 ${customer}: ${rows.length} items`);
     });
 
     // Load and compile template
@@ -189,9 +189,9 @@ export async function POST(request: NextRequest) {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = `packing-lists-${timestamp}.pdf`;
 
-    console.log('✅ PACKING LIST GENERATION COMPLETED');
-    console.log(`📄 Generated ${pages.length} packing slips`);
-    console.log(`💾 Filename: ${filename}`);
+    logger.debug('✅ PACKING LIST GENERATION COMPLETED');
+    logger.debug(`📄 Generated ${pages.length} packing slips`);
+    logger.debug(`💾 Filename: ${filename}`);
 
     return new NextResponse(finalPdf, {
       status: 200,
@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('❌ Error generating packing list:', error);
+    logger.error('❌ Error generating packing list:', error);
     return NextResponse.json(
       { error: 'Failed to generate packing list' },
       { status: 500 }

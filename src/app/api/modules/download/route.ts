@@ -163,7 +163,7 @@ async function verifyChecksum(
 
     return actualChecksum === expectedChecksum;
   } catch (error) {
-    console.error('Checksum verification error:', error);
+    logger.error('Checksum verification error:', error);
     return false;
   }
 }
@@ -199,7 +199,7 @@ async function saveModuleFile(
   const buffer = Buffer.from(data);
   await writeFile(filePath, buffer);
 
-  console.log(`✅ Module saved to: ${filePath}`);
+  logger.debug(`✅ Module saved to: ${filePath}`);
 
   return modulePath;
 }
@@ -225,7 +225,7 @@ async function createModuleManifest(
   };
 
   await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
-  console.log(`✅ Manifest created: ${manifestPath}`);
+  logger.debug(`✅ Manifest created: ${manifestPath}`);
 }
 
 // ============================================================================
@@ -257,7 +257,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const { moduleId, downloadUrl, version, checksum, size } = body;
 
-    console.log(`📥 Starting download for module: ${moduleId} v${version}`);
+    logger.debug(`📥 Starting download for module: ${moduleId} v${version}`);
 
     // Validate download URL
     if (!isValidDownloadUrl(downloadUrl)) {
@@ -272,10 +272,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // Download the file
-    console.log(`⬇️  Downloading from: ${downloadUrl}`);
+    logger.debug(`⬇️  Downloading from: ${downloadUrl}`);
     const fileData = await downloadFile(downloadUrl);
 
-    console.log(`✅ Downloaded: ${fileData.byteLength} bytes`);
+    logger.debug(`✅ Downloaded: ${fileData.byteLength} bytes`);
 
     // Verify size if provided
     if (size && fileData.byteLength !== size) {
@@ -290,7 +290,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Verify checksum if provided
     if (checksum) {
-      console.log(`🔍 Verifying checksum...`);
+      logger.debug(`🔍 Verifying checksum...`);
       const isValid = await verifyChecksum(fileData, checksum);
 
       if (!isValid) {
@@ -304,11 +304,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         );
       }
 
-      console.log(`✅ Checksum verified`);
+      logger.debug(`✅ Checksum verified`);
     }
 
     // Save the module
-    console.log(`💾 Saving module to disk...`);
+    logger.debug(`💾 Saving module to disk...`);
     const installPath = await saveModuleFile(moduleId, version, fileData);
 
     // Create manifest
@@ -321,7 +321,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const duration = Date.now() - startTime;
 
-    console.log(`✅ Module installed successfully in ${duration}ms`);
+    logger.debug(`✅ Module installed successfully in ${duration}ms`);
 
     const response: DownloadResponse = {
       success: true,
@@ -335,7 +335,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   } catch (error) {
     const duration = Date.now() - startTime;
 
-    console.error('❌ Download failed:', error);
+    logger.error('❌ Download failed:', error);
 
     const errorMessage =
       error instanceof Error ? error.message : 'Unknown error';

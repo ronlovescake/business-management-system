@@ -177,7 +177,7 @@ function MyComponent() {
   const [wizardOpen, setWizardOpen] = useState(false);
 
   const handleComplete = (data) => {
-    console.log('Wizard completed with data:', data);
+    logger.debug('Wizard completed with data:', data);
     // Save data...
   };
 

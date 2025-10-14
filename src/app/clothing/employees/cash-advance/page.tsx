@@ -235,6 +235,17 @@ export default function CashAdvance() {
               <Table.Th colSpan={5}></Table.Th>
             </>
           }
+          showSummary
+          summaryLeft={
+            <Text size="sm" c="dimmed">
+              Showing {cashAdvances.length} of {totalRequests} requests
+            </Text>
+          }
+          summaryRight={
+            <Text size="sm" fw={600}>
+              Total Amount: {formatCurrency(totalAmount)}
+            </Text>
+          }
         />
       </Stack>
 

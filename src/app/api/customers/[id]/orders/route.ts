@@ -102,7 +102,7 @@ export async function GET(
 
     return NextResponse.json(mockOrders);
   } catch (err) {
-    console.error('GET /api/customers/[id]/orders error', err);
+    logger.error('GET /api/customers/[id]/orders error', err);
     return NextResponse.json(
       { error: 'Failed to fetch orders' },
       { status: 500 }
@@ -141,7 +141,7 @@ export async function POST(
 
     return NextResponse.json(newOrder);
   } catch (err) {
-    console.error('POST /api/customers/[id]/orders error', err);
+    logger.error('POST /api/customers/[id]/orders error', err);
     return NextResponse.json(
       { error: 'Failed to create order' },
       { status: 500 }

@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
       message: `Module ${moduleId} uninstalled successfully`,
     });
   } catch (error) {
-    console.error('Error uninstalling module:', error);
+    logger.error('Error uninstalling module:', error);
 
     // Return appropriate error status
     const status =

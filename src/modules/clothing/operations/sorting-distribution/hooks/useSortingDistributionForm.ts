@@ -50,7 +50,7 @@ export function useSortingDistributionForm({
             productCode,
             allProducts
           );
-        console.log(`Total quantity for ${productCode}:`, totalQuantity);
+        logger.debug(`Total quantity for ${productCode}:`, totalQuantity);
         setOrdered(totalQuantity.toString());
       } else {
         setOrdered('');

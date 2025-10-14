@@ -32,7 +32,7 @@ export async function GET() {
 
     return NextResponse.json(modules);
   } catch (error) {
-    console.error('Error fetching installed modules:', error);
+    logger.error('Error fetching installed modules:', error);
 
     // Return empty array if table doesn't exist yet
     if ((error as { code?: string }).code === 'P2021') {
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
       module: savedModule,
     });
   } catch (error) {
-    console.error('Error saving module configuration:', error);
+    logger.error('Error saving module configuration:', error);
     return NextResponse.json(
       {
         error: 'Failed to save module configuration',

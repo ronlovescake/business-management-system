@@ -8,10 +8,13 @@
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useQueries } from '@tanstack/react-query';
 import { useTransactionData } from '@/hooks/useSheetData';
 import { useDataTable } from '@/components/ui';
 import { TransactionService } from '../services/TransactionService';
 import { ALL_STATUS_CONTROLLED_STATUSES } from '../types/transaction.types';
+import { queryKeys } from '@/lib/queryKeys';
+import { logger } from '@/lib/logger';
 import type {
   TransactionData,
   PriceTier,
@@ -55,7 +58,9 @@ interface UseTransactionsDataReturn {
  */
 const loadSavedFilterState = (): Set<string> => {
   try {
-    if (typeof window === 'undefined') return new Set(['All Status']);
+    if (typeof window === 'undefined') {
+      return new Set(['All Status']);
+    }
     const saved = localStorage.getItem('transactions-filter-state');
     if (saved) {
       const parsedArray = JSON.parse(saved) as string[];
@@ -71,7 +76,7 @@ const loadSavedFilterState = (): Set<string> => {
       return savedSet;
     }
   } catch (error) {
-    console.error('Error loading filter state:', error);
+    logger.error('Error loading filter state:', error);
   }
 
   // Default state: All Status + all controlled statuses
@@ -95,40 +100,33 @@ export function useTransactionsData(): UseTransactionsDataReturn {
     update: updateTransaction,
   } = useTransactionData();
 
-  // console.log(`Loaded ${transactions.length} transactions from service layer`);
+  // logger.debug(`Loaded ${transactions.length} transactions from service layer`);
 
   // ============================================================================
   // LOOKUP DATA - Customer names, product codes, price tiers, mappings
   // ============================================================================
 
-  const [customerNames, setCustomerNames] = useState<string[]>([]);
-  const [productCodes, setProductCodes] = useState<string[]>([]);
-  const [priceTiers, setPriceTiers] = useState<PriceTier[]>([]);
-  const [productToShipmentMap, setProductToShipmentMap] = useState<
-    Record<string, string>
-  >({});
-  const [productToShipmentStatusMap, setProductToShipmentStatusMap] = useState<
-    Record<string, string>
-  >({});
-
-  // Load customer names from customers API and imported transactions
-  useEffect(() => {
-    const loadCustomerNames = async () => {
-      try {
-        let apiCustomers: string[] = [];
-
-        // Try to fetch customer names from the customers API
-        try {
-          const response = await fetch('/api/customers', {
-            next: { revalidate: 30 } as never,
-          });
-          if (response.ok) {
+  // Fetch all lookup data in parallel with useQueries
+  const lookupQueries = useQueries({
+    queries: [
+      // Query 1: Customer names from customers API
+      {
+        queryKey: queryKeys.customers.lists(),
+        queryFn: async () => {
+          try {
+            const response = await fetch('/api/customers', {
+              next: { revalidate: 30 } as never,
+            });
+            if (!response.ok) {
+              logger.warn('Could not fetch customers from API');
+              return [];
+            }
             const customersData = (await response.json()) as Record<
               string,
               unknown
             >[];
             // Extract customer names from the API data
-            apiCustomers = customersData
+            return customersData
               .map((customer) => {
                 return (
                   customer.name ||
@@ -139,147 +137,162 @@ export function useTransactionsData(): UseTransactionsDataReturn {
               })
               .filter(Boolean)
               .map(String);
+          } catch (error) {
+            logger.error('Error fetching customers:', error);
+            return [];
           }
-        } catch (apiError) {
-          console.warn('Could not fetch customers from API:', apiError);
-        }
-
-        // Extract unique customer names from imported transactions
-        const transactionCustomers = transactions
-          .map((t) => t.Customers)
-          .filter(Boolean);
-
-        // 🚀 PERFORMANCE: Use Set for O(n) deduplication
-        const allCustomers = Array.from(
-          new Set([...apiCustomers, ...transactionCustomers])
-        ).sort();
-
-        setCustomerNames(allCustomers);
-      } catch (error) {
-        console.error('Error loading customer names:', error);
-        setCustomerNames([]);
-      }
-    };
-
-    loadCustomerNames();
-  }, [transactions]);
-
-  // Load product codes from prices API
-  useEffect(() => {
-    const loadProductCodes = async () => {
-      try {
-        const response = await fetch('/api/prices', {
-          next: { revalidate: 30 } as never,
-        });
-        if (response.ok) {
-          const pricesData = (await response.json()) as PriceTier[];
-
-          // Store all price tiers for unit price lookup
-          setPriceTiers(pricesData);
-
-          // 🚀 PERFORMANCE: Use Set for O(n) deduplication
-          const codes = Array.from(
-            new Set(
-              pricesData.map((price) => price['Product Code']).filter(Boolean)
-            )
-          ).sort();
-
-          setProductCodes(codes);
-        } else {
-          console.error('Failed to fetch prices data');
-          setProductCodes([]);
-          setPriceTiers([]);
-        }
-      } catch (error) {
-        console.error('Error loading product codes:', error);
-        setProductCodes([]);
-        setPriceTiers([]);
-      }
-    };
-
-    loadProductCodes();
-  }, []);
-
-  // Load product-to-shipment and product-to-shipment-status mappings
-  useEffect(() => {
-    const loadProductMappings = async () => {
-      try {
-        const [productsResponse, shipmentsResponse] = await Promise.all([
-          fetch('/api/products', { next: { revalidate: 30 } as never }),
-          fetch('/api/shipments', { next: { revalidate: 30 } as never }),
-        ]);
-
-        if (productsResponse.ok && shipmentsResponse.ok) {
-          const productsData = (await productsResponse.json()) as Record<
-            string,
-            unknown
-          >[];
-          const shipmentsData = (await shipmentsResponse.json()) as Record<
-            string,
-            unknown
-          >[];
-
-          // Create mapping from Shipment Code to Shipment Status
-          const shipmentCodeToStatus: Record<string, string> = {};
-
-          shipmentsData.forEach((shipment) => {
-            const shipmentCode = String(
-              shipment['Shipment Code'] || shipment.shipmentCode || ''
-            );
-            const shipmentStatus = String(
-              shipment['Shipment Status'] || shipment.shipmentStatus || ''
-            );
-
-            if (shipmentCode) {
-              shipmentCodeToStatus[shipmentCode] = shipmentStatus;
+        },
+        staleTime: 30 * 1000,
+      },
+      // Query 2: Price tiers from prices API
+      {
+        queryKey: queryKeys.prices.lists(),
+        queryFn: async () => {
+          try {
+            const response = await fetch('/api/prices', {
+              next: { revalidate: 30 } as never,
+            });
+            if (!response.ok) {
+              logger.error('Failed to fetch prices data');
+              return [];
             }
-          });
-
-          // Create mappings from Product Code to Shipment Code and Status
-          const shipmentMapping: Record<string, string> = {};
-          const statusMapping: Record<string, string> = {};
-
-          productsData.forEach((product) => {
-            const productCode = String(
-              product.productCode || product['Product Code'] || ''
-            );
-            const shipmentCode = String(
-              product.shipmentCode || product['Shipment Code'] || ''
-            );
-
-            if (productCode && shipmentCode) {
-              shipmentMapping[productCode] = shipmentCode;
-
-              const correspondingShipmentStatus =
-                shipmentCodeToStatus[shipmentCode] || '';
-              statusMapping[productCode] = correspondingShipmentStatus;
+            return (await response.json()) as PriceTier[];
+          } catch (error) {
+            logger.error('Error loading product codes:', error);
+            return [];
+          }
+        },
+        staleTime: 30 * 1000,
+      },
+      // Query 3: Products data for shipment mappings
+      {
+        queryKey: queryKeys.products.lists(),
+        queryFn: async () => {
+          try {
+            const response = await fetch('/api/products', {
+              next: { revalidate: 30 } as never,
+            });
+            if (!response.ok) {
+              logger.error('Failed to fetch products data');
+              return [];
             }
-          });
+            return (await response.json()) as Record<string, unknown>[];
+          } catch (error) {
+            logger.error('Error loading products:', error);
+            return [];
+          }
+        },
+        staleTime: 30 * 1000,
+      },
+      // Query 4: Shipments data for shipment status mappings
+      {
+        queryKey: queryKeys.shipments.lists(),
+        queryFn: async () => {
+          try {
+            const response = await fetch('/api/shipments', {
+              next: { revalidate: 30 } as never,
+            });
+            if (!response.ok) {
+              logger.error('Failed to fetch shipments data');
+              return [];
+            }
+            return (await response.json()) as Record<string, unknown>[];
+          } catch (error) {
+            logger.error('Error loading shipments:', error);
+            return [];
+          }
+        },
+        staleTime: 30 * 1000,
+      },
+    ],
+  });
 
-          console.log(
-            `✅ Loaded product-to-shipment mappings: ${Object.keys(statusMapping).length} products mapped`
-          );
+  // Extract query results
+  // Compute customer names from API + transactions
+  const customerNames = useMemo(() => {
+    const apiCustomers = lookupQueries[0].data || [];
 
-          setProductToShipmentMap(shipmentMapping);
-          setProductToShipmentStatusMap(statusMapping);
-        } else {
-          console.error(
-            'Failed to fetch data:',
-            !productsResponse.ok ? 'products API failed' : '',
-            !shipmentsResponse.ok ? 'shipments API failed' : ''
-          );
-          setProductToShipmentMap({});
-          setProductToShipmentStatusMap({});
-        }
-      } catch (error) {
-        console.error('Error loading product mappings:', error);
-        setProductToShipmentMap({});
-        setProductToShipmentStatusMap({});
-      }
+    // Extract unique customer names from imported transactions
+    const transactionCustomers = transactions
+      .map((t) => t.Customers)
+      .filter(Boolean);
+
+    // 🚀 PERFORMANCE: Use Set for O(n) deduplication
+    const allCustomers = Array.from(
+      new Set([...apiCustomers, ...transactionCustomers])
+    ).sort();
+
+    return allCustomers;
+  }, [lookupQueries, transactions]);
+
+  // Compute product codes and price tiers from prices API
+  const { productCodes, priceTiers } = useMemo(() => {
+    const priceTiersData = lookupQueries[1].data || [];
+
+    // 🚀 PERFORMANCE: Use Set for O(n) deduplication
+    const codes = Array.from(
+      new Set(priceTiersData.map((price) => price['Product Code']).filter(Boolean))
+    ).sort();
+
+    return {
+      productCodes: codes,
+      priceTiers: priceTiersData,
     };
+  }, [lookupQueries]);
 
-    loadProductMappings();
-  }, []);
+  // Compute product-to-shipment and product-to-shipment-status mappings
+  const { productToShipmentMap, productToShipmentStatusMap } = useMemo(() => {
+    const productsData = lookupQueries[2].data || [];
+    const shipmentsData = lookupQueries[3].data || [];
+
+    // Create mapping from Shipment Code to Shipment Status
+    const shipmentCodeToStatus: Record<string, string> = {};
+
+    shipmentsData.forEach((shipment) => {
+      const shipmentCode = String(
+        shipment['Shipment Code'] || shipment.shipmentCode || ''
+      );
+      const shipmentStatus = String(
+        shipment['Shipment Status'] || shipment.shipmentStatus || ''
+      );
+
+      if (shipmentCode) {
+        shipmentCodeToStatus[shipmentCode] = shipmentStatus;
+      }
+    });
+
+    // Create mappings from Product Code to Shipment Code and Status
+    const shipmentMapping: Record<string, string> = {};
+    const statusMapping: Record<string, string> = {};
+
+    productsData.forEach((product) => {
+      const productCode = String(
+        product.productCode || product['Product Code'] || ''
+      );
+      const shipmentCode = String(
+        product.shipmentCode || product['Shipment Code'] || ''
+      );
+
+      if (productCode && shipmentCode) {
+        shipmentMapping[productCode] = shipmentCode;
+
+        const correspondingShipmentStatus =
+          shipmentCodeToStatus[shipmentCode] || '';
+        statusMapping[productCode] = correspondingShipmentStatus;
+      }
+    });
+
+    if (Object.keys(statusMapping).length > 0) {
+      logger.log(
+        `✅ Loaded product-to-shipment mappings: ${Object.keys(statusMapping).length} products mapped`
+      );
+    }
+
+    return {
+      productToShipmentMap: shipmentMapping,
+      productToShipmentStatusMap: statusMapping,
+    };
+  }, [lookupQueries]);
 
   // ============================================================================
   // STATUS FILTERING
@@ -298,7 +311,7 @@ export function useTransactionsData(): UseTransactionsDataReturn {
         JSON.stringify(statusArray)
       );
     } catch (error) {
-      console.error('Error saving filter state:', error);
+      logger.error('Error saving filter state:', error);
     }
   }, [selectedStatuses]);
 
@@ -428,7 +441,7 @@ export function useTransactionsData(): UseTransactionsDataReturn {
         );
 
       if (updatedCount > 0) {
-        console.log(
+        logger.log(
           `✅ Synced ${updatedCount} transactions with current shipment status`
         );
 
@@ -454,7 +467,7 @@ export function useTransactionsData(): UseTransactionsDataReturn {
       Object.keys(productToShipmentStatusMap).length > 0 &&
       transactions.length > 0
     ) {
-      console.log('🔄 Syncing transactions with current shipment status...');
+      logger.log('🔄 Syncing transactions with current shipment status...');
       syncTransactionsWithShipmentStatus(productToShipmentStatusMap);
     }
     // Only run when product mappings change, NOT when transactions change

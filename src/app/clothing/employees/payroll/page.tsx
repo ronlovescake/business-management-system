@@ -310,6 +310,17 @@ export default function Payroll() {
               <Table.Th colSpan={2}></Table.Th>
             </>
           }
+          showSummary
+          summaryLeft={
+            <Text size="sm" c="dimmed">
+              Showing {payrolls.length} of {totalPayrolls} records
+            </Text>
+          }
+          summaryRight={
+            <Text size="sm" fw={600}>
+              Total Net Pay: {formatCurrency(totalNetPay)}
+            </Text>
+          }
         />
       </Stack>
 

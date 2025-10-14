@@ -257,7 +257,7 @@ export function useThirteenthMonthPay() {
 
   // Import CSV
   const importFromCSV = (file: File) => {
-    console.log('Importing CSV:', file.name);
+    logger.debug('Importing CSV:', file.name);
     // CSV import logic would go here
   };
 

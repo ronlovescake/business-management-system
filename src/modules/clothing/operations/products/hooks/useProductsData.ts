@@ -5,57 +5,42 @@
  * Manages product data state, loading, search, and statistics
  */
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { ProductData, ProductStatistics } from '../types/product.types';
-import { ProductService } from '../services/ProductService';
+import { useState, useMemo, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useDebouncedValue } from '@mantine/hooks';
+import { queryKeys } from '@/lib/queryKeys';
+import { logger } from '@/lib/logger';
+import type { ProductData, ProductStatistics } from '../types/product.types';
+import { ProductService } from '../services/ProductService';
 
 export function useProductsData() {
+  const queryClient = useQueryClient();
+
   // State
-  const [products, setProducts] = useState<ProductData[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<ProductData[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
 
   // Debounce search query (300ms)
   const [debouncedSearch] = useDebouncedValue(searchQuery, 300);
 
   /**
-   * Load products with shipment integration
+   * Load products with shipment integration using React Query
    */
-  const loadProducts = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const loadedProducts = await ProductService.loadProducts();
-      setProducts(loadedProducts);
-      setFilteredProducts(loadedProducts);
-    } catch (error) {
-      console.error('Failed to load products:', error);
-      setProducts([]);
-      setFilteredProducts([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  /**
-   * Initial load
-   */
-  useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
-
-  /**
-   * Apply search filter (debounced)
-   */
-  useEffect(() => {
-    if (!debouncedSearch.trim()) {
-      setFilteredProducts(products);
-    } else {
-      const filtered = ProductService.searchProducts(products, debouncedSearch);
-      setFilteredProducts(filtered);
-    }
-  }, [debouncedSearch, products]);
+  const {
+    data: products = [],
+    isLoading,
+    refetch: refreshProducts,
+  } = useQuery({
+    queryKey: queryKeys.products.lists(),
+    queryFn: async () => {
+      try {
+        return await ProductService.loadProducts();
+      } catch (error) {
+        logger.error('Failed to load products:', error);
+        return [];
+      }
+    },
+    staleTime: 30 * 1000,
+  });
 
   /**
    * Handle search input change
@@ -65,6 +50,16 @@ export function useProductsData() {
   }, []);
 
   /**
+   * Apply search filter (debounced)
+   */
+  const filteredProducts = useMemo(() => {
+    if (!debouncedSearch.trim()) {
+      return products;
+    }
+    return ProductService.searchProducts(products, debouncedSearch);
+  }, [debouncedSearch, products]);
+
+  /**
    * Calculate statistics (memoized)
    */
   const statistics = useMemo<ProductStatistics>(() => {
@@ -72,129 +67,163 @@ export function useProductsData() {
   }, [filteredProducts]);
 
   /**
-   * Add new product
+   * Add new product mutation
+   */
+  const addProductMutation = useMutation({
+    mutationFn: async (product: ProductData) => {
+      return await ProductService.addProduct(product);
+    },
+    onMutate: async (newProduct) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.products.lists() });
+
+      // Snapshot previous value
+      const previousProducts = queryClient.getQueryData<ProductData[]>(
+        queryKeys.products.lists()
+      );
+
+      // Optimistically update
+      if (previousProducts) {
+        queryClient.setQueryData<ProductData[]>(
+          queryKeys.products.lists(),
+          [newProduct, ...previousProducts]
+        );
+      }
+
+      return { previousProducts };
+    },
+    onError: (_error, _variables, context) => {
+      // Rollback on error
+      if (context?.previousProducts) {
+        queryClient.setQueryData(
+          queryKeys.products.lists(),
+          context.previousProducts
+        );
+      }
+      logger.error('Failed to add product:', _error);
+    },
+    onSettled: () => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries({ queryKey: queryKeys.products.lists() });
+    },
+  });
+
+  /**
+   * Update existing product mutation
+   */
+  const updateProductMutation = useMutation({
+    mutationFn: async ({
+      productId,
+      productData,
+    }: {
+      productId: number;
+      productData: Partial<ProductData>;
+    }) => {
+      return await ProductService.updateProduct(productId, productData);
+    },
+    onMutate: async ({ productId, productData }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.products.lists() });
+
+      // Snapshot previous value
+      const previousProducts = queryClient.getQueryData<ProductData[]>(
+        queryKeys.products.lists()
+      );
+
+      // Optimistically update
+      if (previousProducts) {
+        queryClient.setQueryData<ProductData[]>(
+          queryKeys.products.lists(),
+          previousProducts.map((p) =>
+            p.id === productId ? { ...p, ...productData, id: productId } : p
+          )
+        );
+      }
+
+      return { previousProducts };
+    },
+    onError: (_error, _variables, context) => {
+      // Rollback on error
+      if (context?.previousProducts) {
+        queryClient.setQueryData(
+          queryKeys.products.lists(),
+          context.previousProducts
+        );
+      }
+      logger.error('Failed to update product:', _error);
+    },
+    onSettled: () => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries({ queryKey: queryKeys.products.lists() });
+    },
+  });
+
+  /**
+   * Bulk update products mutation
+   */
+  const bulkUpdateProductsMutation = useMutation({
+    mutationFn: async (updatedProducts: ProductData[]) => {
+      return await ProductService.bulkUpdateProducts(updatedProducts);
+    },
+    onMutate: async (updatedProducts) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.products.lists() });
+
+      // Snapshot previous value
+      const previousProducts = queryClient.getQueryData<ProductData[]>(
+        queryKeys.products.lists()
+      );
+
+      // Optimistically update
+      queryClient.setQueryData<ProductData[]>(
+        queryKeys.products.lists(),
+        updatedProducts
+      );
+
+      return { previousProducts };
+    },
+    onError: (_error, _variables, context) => {
+      // Rollback on error
+      if (context?.previousProducts) {
+        queryClient.setQueryData(
+          queryKeys.products.lists(),
+          context.previousProducts
+        );
+      }
+      logger.error('Failed to bulk update products:', _error);
+    },
+    onSettled: () => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries({ queryKey: queryKeys.products.lists() });
+    },
+  });
+
+  /**
+   * Wrapper functions to maintain API compatibility
    */
   const addProduct = useCallback(
     async (product: ProductData) => {
-      // Optimistic update
-      const updatedProducts = [product, ...products];
-      setProducts(updatedProducts);
-
-      // Apply search filter if needed
-      if (!searchQuery.trim()) {
-        setFilteredProducts(updatedProducts);
-      } else {
-        const filtered = ProductService.searchProducts(
-          updatedProducts,
-          searchQuery
-        );
-        setFilteredProducts(filtered);
-      }
-
-      // Persist to database
-      const result = await ProductService.addProduct(product);
-
-      // Rollback on failure
-      if (!result.success) {
-        setProducts(products);
-        if (!searchQuery.trim()) {
-          setFilteredProducts(products);
-        } else {
-          const filtered = ProductService.searchProducts(products, searchQuery);
-          setFilteredProducts(filtered);
-        }
-      }
-
-      return result;
+      return await addProductMutation.mutateAsync(product);
     },
-    [products, searchQuery]
+    [addProductMutation]
   );
 
-  /**
-   * Update existing product
-   */
   const updateProduct = useCallback(
     async (productId: number, productData: Partial<ProductData>) => {
-      // Optimistic update
-      const updatedProducts = products.map((p) =>
-        p.id === productId ? { ...p, ...productData, id: productId } : p
-      );
-      setProducts(updatedProducts);
-
-      // Apply search filter if needed
-      if (!searchQuery.trim()) {
-        setFilteredProducts(updatedProducts);
-      } else {
-        const filtered = ProductService.searchProducts(
-          updatedProducts,
-          searchQuery
-        );
-        setFilteredProducts(filtered);
-      }
-
-      // Persist to database
-      const result = await ProductService.updateProduct(productId, productData);
-
-      // Rollback on failure
-      if (!result.success) {
-        setProducts(products);
-        if (!searchQuery.trim()) {
-          setFilteredProducts(products);
-        } else {
-          const filtered = ProductService.searchProducts(products, searchQuery);
-          setFilteredProducts(filtered);
-        }
-      }
-
-      return result;
+      return await updateProductMutation.mutateAsync({
+        productId,
+        productData,
+      });
     },
-    [products, searchQuery]
+    [updateProductMutation]
   );
 
-  /**
-   * Bulk update products (for paste operations)
-   */
   const bulkUpdateProducts = useCallback(
     async (updatedProducts: ProductData[]) => {
-      // Optimistic update
-      setProducts(updatedProducts);
-
-      // Apply search filter if needed
-      if (!searchQuery.trim()) {
-        setFilteredProducts(updatedProducts);
-      } else {
-        const filtered = ProductService.searchProducts(
-          updatedProducts,
-          searchQuery
-        );
-        setFilteredProducts(filtered);
-      }
-
-      // Persist to database
-      const result = await ProductService.bulkUpdateProducts(updatedProducts);
-
-      // Rollback on failure
-      if (!result.success) {
-        setProducts(products);
-        if (!searchQuery.trim()) {
-          setFilteredProducts(products);
-        } else {
-          const filtered = ProductService.searchProducts(products, searchQuery);
-          setFilteredProducts(filtered);
-        }
-      }
-
-      return result;
+      return await bulkUpdateProductsMutation.mutateAsync(updatedProducts);
     },
-    [products, searchQuery]
+    [bulkUpdateProductsMutation]
   );
-
-  /**
-   * Refresh products
-   */
-  const refreshProducts = useCallback(() => {
-    loadProducts();
-  }, [loadProducts]);
 
   return {
     // Data
@@ -210,7 +239,5 @@ export function useProductsData() {
     updateProduct,
     bulkUpdateProducts,
     refreshProducts,
-    setProducts,
-    setFilteredProducts,
   };
 }

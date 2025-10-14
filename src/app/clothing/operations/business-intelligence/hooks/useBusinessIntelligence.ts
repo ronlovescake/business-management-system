@@ -1,4 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useQueries } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/queryKeys';
+import { logger } from '@/lib/logger';
 import type {
   TransactionData,
   ProductData,
@@ -80,48 +83,74 @@ export function formatNumber(value: number): string {
 
 export function useBusinessIntelligence() {
   const [dateFilter, setDateFilter] = useState<DateFilterType>('ytd');
-  const [transactions, setTransactions] = useState<TransactionData[]>([]);
-  const [products, setProducts] = useState<ProductData[]>([]);
-  const [shipments, setShipments] = useState<ShipmentData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
   // ============================================================================
-  // DATA FETCHING
+  // DATA FETCHING WITH REACT QUERY
   // ============================================================================
 
-  useEffect(() => {
-    async function fetchData() {
-      setIsLoading(true);
-      try {
-        const [transactionsRes, productsRes, shipmentsRes] = await Promise.all([
-          fetch('/api/transactions', {
-            next: { revalidate: 30 } as RequestInit['next'],
-          }),
-          fetch('/api/products', {
-            next: { revalidate: 30 } as RequestInit['next'],
-          }),
-          fetch('/api/shipments', {
-            next: { revalidate: 30 } as RequestInit['next'],
-          }),
-        ]);
+  const [transactionsQuery, productsQuery, shipmentsQuery] = useQueries({
+    queries: [
+      {
+        queryKey: queryKeys.transactions.all,
+        queryFn: async (): Promise<TransactionData[]> => {
+          const response = await fetch('/api/transactions');
+          if (!response.ok) {
+            throw new Error('Failed to fetch transactions');
+          }
+          return response.json();
+        },
+        staleTime: 30 * 1000, // 30 seconds
+      },
+      {
+        queryKey: queryKeys.products.all,
+        queryFn: async (): Promise<ProductData[]> => {
+          const response = await fetch('/api/products');
+          if (!response.ok) {
+            throw new Error('Failed to fetch products');
+          }
+          return response.json();
+        },
+        staleTime: 30 * 1000,
+      },
+      {
+        queryKey: queryKeys.shipments.all,
+        queryFn: async (): Promise<ShipmentData[]> => {
+          const response = await fetch('/api/shipments');
+          if (!response.ok) {
+            throw new Error('Failed to fetch shipments');
+          }
+          return response.json();
+        },
+        staleTime: 30 * 1000,
+      },
+    ],
+  });
 
-        const transactionsData =
-          (await transactionsRes.json()) as TransactionData[];
-        const productsData = (await productsRes.json()) as ProductData[];
-        const shipmentsData = (await shipmentsRes.json()) as ShipmentData[];
+  // Extract data and loading states
+  const transactions = useMemo(
+    () => transactionsQuery.data || [],
+    [transactionsQuery.data]
+  );
+  const products = useMemo(() => productsQuery.data || [], [productsQuery.data]);
+  const shipments = useMemo(
+    () => shipmentsQuery.data || [],
+    [shipmentsQuery.data]
+  );
+  const isLoading =
+    transactionsQuery.isLoading ||
+    productsQuery.isLoading ||
+    shipmentsQuery.isLoading;
 
-        setTransactions(transactionsData);
-        setProducts(productsData);
-        setShipments(shipmentsData);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    void fetchData();
-  }, []);
+  // Log errors if any
+  if (transactionsQuery.error) {
+    logger.error('Error fetching transactions:', transactionsQuery.error);
+  }
+  if (productsQuery.error) {
+    logger.error('Error fetching products:', productsQuery.error);
+  }
+  if (shipmentsQuery.error) {
+    logger.error('Error fetching shipments:', shipmentsQuery.error);
+  }
 
   // ============================================================================
   // COMPUTED METRICS
@@ -132,7 +161,9 @@ export function useBusinessIntelligence() {
 
     // Filter transactions by date
     const filteredTransactions = transactions.filter((t) => {
-      if (!t['Order Date']) return false;
+      if (!t['Order Date']) {
+        return false;
+      }
       const orderDate = new Date(t['Order Date']);
       return dateFilterFn(orderDate);
     });
@@ -144,7 +175,9 @@ export function useBusinessIntelligence() {
     );
 
     const mtdTotal = filteredTransactions.reduce((sum, t) => {
-      if (!t['Order Date']) return sum;
+      if (!t['Order Date']) {
+        return sum;
+      }
       const orderDate = new Date(t['Order Date']);
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -158,7 +191,9 @@ export function useBusinessIntelligence() {
     const productSales = new Map<string, TopProduct>();
     filteredTransactions.forEach((t) => {
       const code = t['Product Code'];
-      if (!code) return;
+      if (!code) {
+        return;
+      }
 
       const existing = productSales.get(code);
       const lineTotal = t['Line Total'] || 0;
@@ -187,7 +222,9 @@ export function useBusinessIntelligence() {
     const customerSales = new Map<string, TopCustomer>();
     filteredTransactions.forEach((t) => {
       const customer = t.Customers;
-      if (!customer) return;
+      if (!customer) {
+        return;
+      }
 
       const existing = customerSales.get(customer);
       const lineTotal = t['Line Total'] || 0;
@@ -236,7 +273,9 @@ export function useBusinessIntelligence() {
 
     // Process transactions by month
     filteredTransactions.forEach((t) => {
-      if (!t['Order Date']) return;
+      if (!t['Order Date']) {
+        return;
+      }
       const date = new Date(t['Order Date']);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
@@ -252,7 +291,10 @@ export function useBusinessIntelligence() {
         });
       }
 
-      const monthData = monthlyDataMap.get(monthKey)!;
+      const monthData = monthlyDataMap.get(monthKey);
+      if (!monthData) {
+        return;
+      }
       monthData.revenue += t['Line Total'] || 0;
       monthData.transactions += 1;
 
@@ -278,13 +320,19 @@ export function useBusinessIntelligence() {
     // Process shipments by month using Date Created
     shipments.forEach((s) => {
       const dateStr = s['Date Created'];
-      if (!dateStr) return;
+      if (!dateStr) {
+        return;
+      }
 
       const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return; // Invalid date
+      if (isNaN(date.getTime())) {
+        return; // Invalid date
+      }
 
       // Check if date is within filtered range
-      if (!dateFilterFn(date)) return;
+      if (!dateFilterFn(date)) {
+        return;
+      }
 
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
@@ -300,7 +348,10 @@ export function useBusinessIntelligence() {
         });
       }
 
-      const monthData = monthlyDataMap.get(monthKey)!;
+      const monthData = monthlyDataMap.get(monthKey);
+      if (!monthData) {
+        return;
+      }
 
       // Count shipments and aggregate metrics per month
       monthData.shipmentCount += 1;

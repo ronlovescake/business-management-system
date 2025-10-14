@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { CustomerData, CustomerStats } from '../types/customer.types';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/queryKeys';
+import { logger } from '@/lib/logger';
+import type { CustomerData, CustomerStats } from '../types/customer.types';
 import { CustomerService } from '../services/CustomerService';
 
 /**
@@ -9,13 +12,36 @@ import { CustomerService } from '../services/CustomerService';
  * Handles data fetching, search, filtering, and statistics
  */
 export function useCustomersData() {
-  const [customers, setCustomers] = useState<CustomerData[]>([]);
-  const [filteredCustomers, setFilteredCustomers] = useState<CustomerData[]>(
-    []
-  );
+  const queryClient = useQueryClient();
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  /**
+   * Load customers using React Query
+   */
+  const {
+    data: customers = [],
+    isLoading,
+    error: queryError,
+  } = useQuery({
+    queryKey: queryKeys.customers.lists(),
+    queryFn: async () => {
+      try {
+        return await CustomerService.loadCustomers();
+      } catch (error) {
+        logger.error('Failed to load customers:', error);
+        throw error;
+      }
+    },
+    staleTime: 30 * 1000,
+  });
+
+  const error = queryError ? 'Failed to load customers' : null;
+
+  // Filtered customers based on search
+  const filteredCustomers = useMemo(() => {
+    return CustomerService.searchCustomers(customers, searchQuery);
+  }, [customers, searchQuery]);
 
   // Debounced filtered customers for smoother typing
   const [debouncedFilteredCustomers, setDebouncedFilteredCustomers] =
@@ -27,7 +53,9 @@ export function useCustomersData() {
       setDebouncedFilteredCustomers(filteredCustomers);
     }, 300);
 
-    return () => clearTimeout(timer);
+    return () => {
+      return clearTimeout(timer);
+    };
   }, [filteredCustomers]);
 
   // Pre-compute search index for faster search
@@ -43,102 +71,108 @@ export function useCustomersData() {
     );
   }, [customers, debouncedFilteredCustomers]);
 
-  // Load customers on mount
-  useEffect(() => {
-    let isMounted = true;
-
-    const load = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const data = await CustomerService.loadCustomers();
-        if (isMounted) {
-          setCustomers(data);
-          setFilteredCustomers(data);
-        }
-      } catch (e) {
-        if (isMounted) {
-          setError('Failed to load customers');
-          console.error('Failed to load customers', e);
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    load();
-
-    return () => {
-      isMounted = false;
-    };
+  // Handle search
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
   }, []);
 
-  // Handle search
-  const handleSearch = useCallback(
-    (query: string) => {
-      setSearchQuery(query);
-      const filtered = CustomerService.searchCustomers(customers, query);
-      setFilteredCustomers(filtered);
+  /**
+   * Add customer mutation
+   */
+  const addCustomerMutation = useMutation({
+    mutationFn: async (newCustomer: CustomerData) => {
+      return await CustomerService.addCustomer(newCustomer);
     },
-    [customers]
-  );
+    onMutate: async (newCustomer) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.customers.lists() });
 
-  // Add new customer
+      // Snapshot previous value
+      const previousCustomers = queryClient.getQueryData<CustomerData[]>(
+        queryKeys.customers.lists()
+      );
+
+      // Optimistically update
+      if (previousCustomers) {
+        queryClient.setQueryData<CustomerData[]>(
+          queryKeys.customers.lists(),
+          [newCustomer, ...previousCustomers]
+        );
+      }
+
+      return { previousCustomers };
+    },
+    onError: (_error, _variables, context) => {
+      // Rollback on error
+      if (context?.previousCustomers) {
+        queryClient.setQueryData(
+          queryKeys.customers.lists(),
+          context.previousCustomers
+        );
+      }
+      logger.error('Failed to add customer:', _error);
+    },
+    onSettled: () => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries({ queryKey: queryKeys.customers.lists() });
+    },
+  });
+
+  /**
+   * Bulk update customers mutation
+   */
+  const bulkUpdateCustomersMutation = useMutation({
+    mutationFn: async (newCustomers: CustomerData[]) => {
+      return await CustomerService.bulkUpdateCustomers(newCustomers);
+    },
+    onMutate: async (newCustomers) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.customers.lists() });
+
+      // Snapshot previous value
+      const previousCustomers = queryClient.getQueryData<CustomerData[]>(
+        queryKeys.customers.lists()
+      );
+
+      // Optimistically update
+      queryClient.setQueryData<CustomerData[]>(
+        queryKeys.customers.lists(),
+        newCustomers
+      );
+
+      return { previousCustomers };
+    },
+    onError: (_error, _variables, context) => {
+      // Rollback on error
+      if (context?.previousCustomers) {
+        queryClient.setQueryData(
+          queryKeys.customers.lists(),
+          context.previousCustomers
+        );
+      }
+      logger.error('Failed to bulk update customers:', _error);
+    },
+    onSettled: () => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries({ queryKey: queryKeys.customers.lists() });
+    },
+  });
+
+  // Wrapper functions to maintain API compatibility
   const addCustomer = useCallback(
     async (newCustomer: CustomerData): Promise<void> => {
-      const nextCustomers = [newCustomer, ...customers];
-      setCustomers(nextCustomers);
-
-      // Update filtered customers if search is active
-      if (searchQuery.trim()) {
-        const filtered = CustomerService.searchCustomers(
-          nextCustomers,
-          searchQuery
-        );
-        setFilteredCustomers(filtered);
-      } else {
-        setFilteredCustomers(nextCustomers);
-      }
-
-      // Persist to backend
-      try {
-        await CustomerService.addCustomer(newCustomer);
-      } catch (error) {
-        throw error;
-      }
+      await addCustomerMutation.mutateAsync(newCustomer);
     },
-    [customers, searchQuery]
+    [addCustomerMutation]
   );
 
-  // Bulk update customers (for CSV import or paste mode)
   const bulkUpdateCustomers = useCallback(
     async (newCustomers: CustomerData[]): Promise<void> => {
-      setCustomers(newCustomers);
-
-      // Update filtered customers if search is active
-      if (searchQuery.trim()) {
-        const filtered = CustomerService.searchCustomers(
-          newCustomers,
-          searchQuery
-        );
-        setFilteredCustomers(filtered);
-      } else {
-        setFilteredCustomers(newCustomers);
-      }
-
-      // Persist to backend
-      try {
-        await CustomerService.bulkUpdateCustomers(newCustomers);
-      } catch (error) {
-        throw error;
-      }
+      await bulkUpdateCustomersMutation.mutateAsync(newCustomers);
     },
-    [searchQuery]
+    [bulkUpdateCustomersMutation]
   );
 
-  // Replace all customers (for CSV import)
   const replaceAllCustomers = useCallback(
     async (newCustomers: CustomerData[]): Promise<void> => {
       await bulkUpdateCustomers(newCustomers);
@@ -159,7 +193,5 @@ export function useCustomersData() {
     addCustomer,
     bulkUpdateCustomers,
     replaceAllCustomers,
-    setCustomers,
-    setFilteredCustomers,
   };
 }

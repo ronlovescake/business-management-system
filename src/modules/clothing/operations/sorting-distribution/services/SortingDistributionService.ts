@@ -18,6 +18,7 @@ import {
   DEFAULT_DISTRIBUTION_ROW,
   SORTING_SHIPMENT_STATUS,
 } from '../types/sortingDistribution.types';
+import { logger } from '@/lib/logger';
 
 /**
  * Sorting Distribution Service
@@ -193,12 +194,12 @@ export class SortingDistributionService {
       const response = await fetch('/api/products');
 
       if (!response.ok) {
-        console.error('Failed to load products, status:', response.status);
+        logger.error('Failed to load products, status:', response.status);
         return { productOptions: [], allProducts: [] };
       }
 
       const products: Product[] = await response.json();
-      console.log('Loaded products:', products.length);
+      logger.debug('Loaded products:', products.length);
 
       // Filter products with "Sorting" shipment status
       const sortingProducts = products.filter(
@@ -211,14 +212,14 @@ export class SortingDistributionService {
         .filter((code): code is string => code !== null && code.trim() !== '');
 
       const uniqueCodes = Array.from(new Set(productCodes));
-      console.log('Unique sorting product codes:', uniqueCodes.length);
+      logger.debug('Unique sorting product codes:', uniqueCodes.length);
 
       return {
         productOptions: uniqueCodes,
         allProducts: products,
       };
     } catch (error) {
-      console.error('Error loading products:', error);
+      logger.error('Error loading products:', error);
       return { productOptions: [], allProducts: [] };
     }
   }
@@ -244,14 +245,14 @@ export class SortingDistributionService {
       const response = await fetch('/api/transactions');
 
       if (!response.ok) {
-        console.error('Failed to load transactions');
+        logger.error('Failed to load transactions');
         return [];
       }
 
       const transactions: Transaction[] = await response.json();
       return transactions;
     } catch (error) {
-      console.error('Error loading transactions:', error);
+      logger.error('Error loading transactions:', error);
       return [];
     }
   }
@@ -324,7 +325,7 @@ export class SortingDistributionService {
     selectedQuantity: number | null;
   }> {
     if (!productCode || productCode.trim() === '') {
-      console.log('No product code provided, skipping load');
+      logger.debug('No product code provided, skipping load');
       return {
         rows: this.createDefaultRows(),
         selectedQuantity: null,
@@ -333,13 +334,13 @@ export class SortingDistributionService {
 
     try {
       const url = `/api/sorting-distribution?productCode=${encodeURIComponent(productCode)}`;
-      console.log('Loading distribution data from:', url);
+      logger.debug('Loading distribution data from:', url);
 
       const response = await fetch(url);
-      console.log('Response status:', response.status);
+      logger.debug('Response status:', response.status);
 
       if (!response.ok) {
-        console.log('No saved data found or error, using defaults');
+        logger.debug('No saved data found or error, using defaults');
         return {
           rows: this.createDefaultRows(),
           selectedQuantity: null,
@@ -349,8 +350,8 @@ export class SortingDistributionService {
       const result: SortingDistributionLoadResponse = await response.json();
       const { data, selectedQuantity } = result;
 
-      console.log('Loaded data:', data.length, 'rows');
-      console.log('Saved selected quantity:', selectedQuantity);
+      logger.debug('Loaded data:', data.length, 'rows');
+      logger.debug('Saved selected quantity:', selectedQuantity);
 
       if (data.length === 0) {
         return {
@@ -373,7 +374,7 @@ export class SortingDistributionService {
           : { ...DEFAULT_DISTRIBUTION_ROW };
       });
 
-      console.log(
+      logger.debug(
         'Restored',
         restoredRows.filter((r) => r.quantity > 0).length,
         'non-empty rows'
@@ -384,7 +385,7 @@ export class SortingDistributionService {
         selectedQuantity: selectedQuantity ?? null,
       };
     } catch (error) {
-      console.error('Error loading distribution data:', error);
+      logger.error('Error loading distribution data:', error);
       return {
         rows: this.createDefaultRows(),
         selectedQuantity: null,
@@ -401,8 +402,8 @@ export class SortingDistributionService {
     rows: DistributionRow[]
   ): Promise<SortingDistributionSaveResponse> {
     try {
-      console.log('Saving distribution data for:', productCode);
-      console.log('Selected quantity:', selectedQuantity);
+      logger.debug('Saving distribution data for:', productCode);
+      logger.debug('Selected quantity:', selectedQuantity);
 
       const nonEmptyRows = rows.filter(
         (r) =>
@@ -412,7 +413,7 @@ export class SortingDistributionService {
           r.distribution > 0 ||
           r.checked
       );
-      console.log('Non-empty rows to save:', nonEmptyRows.length);
+      logger.debug('Non-empty rows to save:', nonEmptyRows.length);
 
       const payload: SortingDistributionSaveRequest = {
         productCode,
@@ -426,11 +427,11 @@ export class SortingDistributionService {
         body: JSON.stringify(payload),
       });
 
-      console.log('Save response status:', response.status);
+      logger.debug('Save response status:', response.status);
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Failed to save data:', response.status, errorText);
+        logger.error('Failed to save data:', response.status, errorText);
         return {
           success: false,
           savedCount: 0,
@@ -439,11 +440,11 @@ export class SortingDistributionService {
       }
 
       const result: SortingDistributionSaveResponse = await response.json();
-      console.log('Data saved successfully:', result);
+      logger.debug('Data saved successfully:', result);
 
       return result;
     } catch (error) {
-      console.error('Error saving distribution data:', error);
+      logger.error('Error saving distribution data:', error);
       return {
         success: false,
         savedCount: 0,
@@ -501,7 +502,7 @@ export class SortingDistributionService {
       }
     });
 
-    console.log(
+    logger.debug(
       `Pasted ${pastedValues.length} values starting at row ${startRow + 1}`
     );
 

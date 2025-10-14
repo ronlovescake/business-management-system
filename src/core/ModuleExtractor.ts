@@ -89,8 +89,8 @@ class ModuleExtractor {
     const startTime = Date.now();
 
     try {
-      console.log(`📦 Extracting module: ${moduleId}`);
-      console.log(`📂 Archive: ${archivePath}`);
+      logger.debug(`📦 Extracting module: ${moduleId}`);
+      logger.debug(`📂 Archive: ${archivePath}`);
 
       // Validate archive exists
       await this.validateArchiveExists(archivePath);
@@ -123,11 +123,11 @@ class ModuleExtractor {
 
       const duration = Date.now() - startTime;
 
-      console.log(`✅ Extraction complete`);
-      console.log(`📂 Extracted to: ${extractPath}`);
-      console.log(`📦 Files: ${files.length}`);
-      console.log(`💾 Size: ${size} bytes`);
-      console.log(`⏱️  Duration: ${duration}ms`);
+      logger.debug(`✅ Extraction complete`);
+      logger.debug(`📂 Extracted to: ${extractPath}`);
+      logger.debug(`📦 Files: ${files.length}`);
+      logger.debug(`💾 Size: ${size} bytes`);
+      logger.debug(`⏱️  Duration: ${duration}ms`);
 
       return {
         success: true,
@@ -316,8 +316,8 @@ class ModuleExtractor {
       );
       files.push('module.config.ts');
 
-      console.warn('⚠️  ZIP extraction is using placeholder implementation');
-      console.warn(
+      logger.warn('⚠️  ZIP extraction is using placeholder implementation');
+      logger.warn(
         '⚠️  In production, install and use a proper ZIP library (adm-zip, jszip, etc.)'
       );
 
@@ -429,9 +429,9 @@ class ModuleExtractor {
 
     try {
       await fs.rm(extractPath, { recursive: true, force: true });
-      console.log(`🗑️  Cleaned up extraction: ${extractPath}`);
+      logger.debug(`🗑️  Cleaned up extraction: ${extractPath}`);
     } catch (error) {
-      console.error(`Failed to cleanup: ${(error as Error).message}`);
+      logger.error(`Failed to cleanup: ${(error as Error).message}`);
       // Don't throw - cleanup is best effort
     }
   }

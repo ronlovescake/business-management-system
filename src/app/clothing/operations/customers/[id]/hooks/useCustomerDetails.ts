@@ -1,7 +1,10 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
+import { queryKeys } from '@/lib/queryKeys';
+import { logger } from '@/lib/logger';
 import type { CustomerData, Order, Transaction, CustomerStats } from '../types';
 
 // ============================================================================
@@ -30,90 +33,127 @@ interface UseCustomerDetailsReturn {
 export function useCustomerDetails(
   customerId: string
 ): UseCustomerDetailsReturn {
-  const [customer, setCustomer] = useState<CustomerData | null>(null);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editForm, setEditForm] = useState<Partial<CustomerData>>({});
 
   // ============================================================================
-  // DATA FETCHING
+  // DATA FETCHING WITH REACT QUERY
   // ============================================================================
 
-  const loadCustomerData = async () => {
-    try {
-      setLoading(true);
-
-      // Load customer details
-      const customerRes = await fetch(`/api/customers/${customerId}`, {
-        next: { revalidate: 30 } as RequestInit['next'],
-      });
-      if (!customerRes.ok) {
+  // Fetch customer details
+  const {
+    data: customer,
+    isLoading: customerLoading,
+    refetch: refetchCustomer,
+  } = useQuery({
+    queryKey: queryKeys.customers.detail(customerId),
+    queryFn: async (): Promise<CustomerData> => {
+      const response = await fetch(`/api/customers/${customerId}`);
+      if (!response.ok) {
         throw new Error('Customer not found');
       }
-      const customerData = (await customerRes.json()) as CustomerData;
-      setCustomer(customerData);
-      setEditForm(customerData);
+      return response.json();
+    },
+    enabled: !!customerId,
+    staleTime: 30 * 1000,
+  });
 
-      // Load orders
-      const ordersRes = await fetch(`/api/customers/${customerId}/orders`, {
-        next: { revalidate: 30 } as RequestInit['next'],
-      });
-      if (ordersRes.ok) {
-        const ordersData = (await ordersRes.json()) as Order[];
-        setOrders(ordersData);
+  // Fetch orders
+  const { data: orders = [], isLoading: ordersLoading } = useQuery({
+    queryKey: [...queryKeys.customers.detail(customerId), 'orders'],
+    queryFn: async (): Promise<Order[]> => {
+      const response = await fetch(`/api/customers/${customerId}/orders`);
+      if (!response.ok) {
+        return [];
       }
+      return response.json();
+    },
+    enabled: !!customerId,
+    staleTime: 30 * 1000,
+  });
 
-      // Load transactions
-      const transactionsRes = await fetch(
-        `/api/customers/${customerId}/transactions`,
-        {
-          next: { revalidate: 30 } as RequestInit['next'],
-        }
-      );
-      if (transactionsRes.ok) {
-        const transactionsData =
-          (await transactionsRes.json()) as Transaction[];
-        setTransactions(transactionsData);
+  // Fetch transactions
+  const { data: transactions = [], isLoading: transactionsLoading } = useQuery({
+    queryKey: [...queryKeys.customers.detail(customerId), 'transactions'],
+    queryFn: async (): Promise<Transaction[]> => {
+      const response = await fetch(`/api/customers/${customerId}/transactions`);
+      if (!response.ok) {
+        return [];
       }
-    } catch (error) {
-      console.error('Error loading customer data:', error);
-      notifications.show({
-        title: 'Error',
-        message: 'Failed to load customer details',
-        color: 'red',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+      return response.json();
+    },
+    enabled: !!customerId,
+    staleTime: 30 * 1000,
+  });
 
-  useEffect(() => {
-    if (customerId) {
-      void loadCustomerData();
+  const loading = customerLoading || ordersLoading || transactionsLoading;
+
+  // Update editForm when customer data loads
+  useMemo(() => {
+    if (customer && !editModalOpen) {
+      setEditForm(customer);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customerId]);
+  }, [customer, editModalOpen]);
 
   // ============================================================================
-  // UPDATE CUSTOMER
+  // UPDATE CUSTOMER MUTATION
   // ============================================================================
 
-  const handleUpdateCustomer = async () => {
-    try {
-      const res = await fetch(`/api/customers/${customerId}`, {
+  const updateCustomerMutation = useMutation({
+    mutationFn: async (
+      updatedData: Partial<CustomerData>
+    ): Promise<CustomerData> => {
+      const response = await fetch(`/api/customers/${customerId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editForm),
+        body: JSON.stringify(updatedData),
       });
 
-      if (!res.ok) {
+      if (!response.ok) {
         throw new Error('Failed to update customer');
       }
 
-      const updatedCustomer = (await res.json()) as CustomerData;
-      setCustomer(updatedCustomer);
+      return response.json();
+    },
+    onMutate: async (updatedData) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.customers.detail(customerId),
+      });
+
+      // Snapshot previous value
+      const previousCustomer = queryClient.getQueryData<CustomerData>(
+        queryKeys.customers.detail(customerId)
+      );
+
+      // Optimistically update to the new value
+      if (previousCustomer) {
+        queryClient.setQueryData<CustomerData>(
+          queryKeys.customers.detail(customerId),
+          { ...previousCustomer, ...updatedData }
+        );
+      }
+
+      return { previousCustomer };
+    },
+    onError: (error, _variables, context) => {
+      // Rollback on error
+      if (context?.previousCustomer) {
+        queryClient.setQueryData(
+          queryKeys.customers.detail(customerId),
+          context.previousCustomer
+        );
+      }
+
+      logger.error('Error updating customer:', error);
+      notifications.show({
+        title: 'Error',
+        message: 'Failed to update customer',
+        color: 'red',
+      });
+    },
+    onSuccess: (updatedCustomer) => {
       setEditModalOpen(false);
 
       notifications.show({
@@ -122,14 +162,32 @@ export function useCustomerDetails(
         color: 'green',
         autoClose: 4000,
       });
-    } catch (error) {
-      console.error('Error updating customer:', error);
-      notifications.show({
-        title: 'Error',
-        message: 'Failed to update customer',
-        color: 'red',
+    },
+    onSettled: () => {
+      // Invalidate and refetch
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.customers.detail(customerId),
       });
-    }
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.customers.all,
+      });
+    },
+  });
+
+  const handleUpdateCustomer = async (): Promise<void> => {
+    await updateCustomerMutation.mutateAsync(editForm);
+  };
+
+  const refetchData = async (): Promise<void> => {
+    await Promise.all([
+      refetchCustomer(),
+      queryClient.invalidateQueries({
+        queryKey: [...queryKeys.customers.detail(customerId), 'orders'],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: [...queryKeys.customers.detail(customerId), 'transactions'],
+      }),
+    ]);
   };
 
   // ============================================================================
@@ -209,7 +267,7 @@ export function useCustomerDetails(
   }, [transactions, orders]);
 
   return {
-    customer,
+    customer: customer || null,
     orders,
     transactions,
     stats,
@@ -219,6 +277,6 @@ export function useCustomerDetails(
     setEditModalOpen,
     setEditForm,
     handleUpdateCustomer,
-    refetchData: loadCustomerData,
+    refetchData,
   };
 }

@@ -3,15 +3,29 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 
-export function ReactQueryProvider({ children }: { children: React.ReactNode }) {
+interface ReactQueryProviderProps {
+  children: ReactNode;
+}
+
+export function ReactQueryProvider({ children }: ReactQueryProviderProps) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 60 * 1000, // 1 minute
+            // Data is considered fresh for 1 minute
+            staleTime: 60 * 1000,
+            // Don't refetch on window focus (can be enabled per-query if needed)
             refetchOnWindowFocus: false,
+            // Retry failed requests 3 times with exponential backoff
+            retry: 3,
+            retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+          },
+          mutations: {
+            // Retry mutations once on network errors
+            retry: 1,
           },
         },
       })

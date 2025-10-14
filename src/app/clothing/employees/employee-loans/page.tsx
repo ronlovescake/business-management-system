@@ -306,6 +306,17 @@ export default function EmployeeLoans() {
               <Table.Th colSpan={5}></Table.Th>
             </>
           }
+          showSummary
+          summaryLeft={
+            <Text size="sm" c="dimmed">
+              Showing {loans.length} of {totalLoans} loans
+            </Text>
+          }
+          summaryRight={
+            <Text size="sm" fw={600}>
+              Total Outstanding: {formatCurrency(totalOutstanding)}
+            </Text>
+          }
         />
       </Stack>
 

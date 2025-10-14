@@ -110,7 +110,7 @@ class ModulePerformance {
         break;
     }
 
-    console.log(`📦 Registered lazy module: ${moduleId} (${options.strategy})`);
+    logger.debug(`📦 Registered lazy module: ${moduleId} (${options.strategy})`);
   }
 
   /**
@@ -138,11 +138,11 @@ class ModulePerformance {
         timestamp: Date.now(),
       });
 
-      console.log(
+      logger.debug(
         `✅ Module loaded immediately: ${moduleId} (${loadTime.toFixed(2)}ms)`
       );
     } catch (error) {
-      console.error(`❌ Failed to load module ${moduleId}:`, error);
+      logger.error(`❌ Failed to load module ${moduleId}:`, error);
     }
   }
 
@@ -189,7 +189,7 @@ class ModulePerformance {
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            console.log(`👁️ Module entering viewport: ${moduleId}`);
+            logger.debug(`👁️ Module entering viewport: ${moduleId}`);
             this.loadImmediate(moduleId);
             observer.disconnect();
             this.intersectionObservers.delete(moduleId);
@@ -227,7 +227,7 @@ class ModulePerformance {
       element.addEventListener(event, loadOnInteraction, { once: true });
     });
 
-    console.log(`🖱️ Interaction loader setup for: ${moduleId}`);
+    logger.debug(`🖱️ Interaction loader setup for: ${moduleId}`);
   }
 
   /**
@@ -239,15 +239,15 @@ class ModulePerformance {
     }
 
     try {
-      console.log(`📥 Preloading module: ${moduleId}`);
+      logger.debug(`📥 Preloading module: ${moduleId}`);
 
       await moduleLoader.preloadModule(moduleId);
 
       this.preloadedModules.add(moduleId);
 
-      console.log(`✅ Module preloaded: ${moduleId}`);
+      logger.debug(`✅ Module preloaded: ${moduleId}`);
     } catch (error) {
-      console.error(`❌ Failed to preload module ${moduleId}:`, error);
+      logger.error(`❌ Failed to preload module ${moduleId}:`, error);
     }
   }
 
@@ -263,7 +263,7 @@ class ModulePerformance {
    * Warm up cache by preloading critical modules
    */
   async warmCache(priority: 'high' | 'medium' | 'low' = 'high'): Promise<void> {
-    console.log(`🔥 Warming cache (priority: ${priority})...`);
+    logger.debug(`🔥 Warming cache (priority: ${priority})...`);
 
     // Get modules marked for preloading
     const modulesToPreload: string[] = [];
@@ -286,7 +286,7 @@ class ModulePerformance {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
 
-    console.log(
+    logger.debug(
       `✅ Cache warmed: ${modulesToPreload.length} modules preloaded`
     );
   }
@@ -302,7 +302,7 @@ class ModulePerformance {
       this.preloadModule(moduleId);
     }
 
-    console.log(`💾 Cache strategy set for: ${moduleId} (${strategy.type})`);
+    logger.debug(`💾 Cache strategy set for: ${moduleId} (${strategy.type})`);
   }
 
   /**
@@ -317,7 +317,7 @@ class ModulePerformance {
    */
   registerChunk(chunk: ModuleChunk): void {
     this.chunks.set(chunk.moduleId, chunk);
-    console.log(
+    logger.debug(
       `📦 Chunk registered: ${chunk.chunkName} (${chunk.size} bytes)`
     );
   }
@@ -376,7 +376,7 @@ class ModulePerformance {
 
     document.head.appendChild(link);
 
-    console.log(`🔗 Resource hint added: ${hint.type} ${hint.href}`);
+    logger.debug(`🔗 Resource hint added: ${hint.type} ${hint.href}`);
   }
 
   /**
@@ -479,7 +479,7 @@ class ModulePerformance {
    * Optimize module loading based on usage patterns
    */
   optimizeLoadingStrategy(): void {
-    console.log('🔧 Analyzing usage patterns for optimization...');
+    logger.debug('🔧 Analyzing usage patterns for optimization...');
 
     const modulesArray = Array.from(this.lazyLoadQueue.entries());
 
@@ -502,14 +502,14 @@ class ModulePerformance {
 
         this.setCacheStrategy(moduleId, newStrategy);
 
-        console.log(
+        logger.debug(
           `⚡ Optimized ${moduleId}: marked for preload (frequently used)`
         );
       }
 
       // If cache hit rate is low, adjust cache strategy
       if (cacheHitRate < 0.5 && metrics.length > 5) {
-        console.log(
+        logger.debug(
           `⚠️ Low cache hit rate for ${moduleId}: ${(cacheHitRate * 100).toFixed(1)}%`
         );
       }
@@ -540,7 +540,7 @@ class ModulePerformance {
     });
     this.idleCallbacks.clear();
 
-    console.log('🗑️ Module performance optimizer cleaned up');
+    logger.debug('🗑️ Module performance optimizer cleaned up');
   }
 
   /**
@@ -553,7 +553,7 @@ class ModulePerformance {
     this.cacheStrategies.clear();
     this.chunks.clear();
 
-    console.log('🗑️ Performance data cleared');
+    logger.debug('🗑️ Performance data cleared');
   }
 
   /**

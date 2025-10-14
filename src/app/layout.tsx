@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { AppLayout } from '../components/layout/AppLayout';
 import { ReactQueryProvider } from '../lib/query-client';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 // Initialize module registry
 import '@/modules';
@@ -22,9 +23,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <ReactQueryProvider>
-          <AppLayout>{children}</AppLayout>
-        </ReactQueryProvider>
+        <ErrorBoundary>
+          <ReactQueryProvider>
+            <AppLayout>{children}</AppLayout>
+          </ReactQueryProvider>
+        </ErrorBoundary>
         {/* Portal for Glide Data Grid overlay editor */}
         <div id="portal" />
       </body>

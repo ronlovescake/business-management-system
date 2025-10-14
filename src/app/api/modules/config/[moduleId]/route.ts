@@ -34,7 +34,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json(installedModule.config);
   } catch (error) {
-    console.error('Error fetching module configuration:', error);
+    logger.error('Error fetching module configuration:', error);
     return NextResponse.json(
       {
         error: 'Failed to fetch module configuration',
@@ -74,7 +74,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       message: `Module ${moduleId} removed successfully`,
     });
   } catch (error) {
-    console.error('Error removing module configuration:', error);
+    logger.error('Error removing module configuration:', error);
     return NextResponse.json(
       {
         error: 'Failed to remove module configuration',

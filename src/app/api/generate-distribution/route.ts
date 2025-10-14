@@ -19,12 +19,14 @@
 //
 // ==============================================================================
 
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import puppeteer from 'puppeteer';
 import Handlebars from 'handlebars';
 import fs from 'fs';
 import path from 'path';
 import { PDFDocument } from 'pdf-lib';
+import { logger } from '@/lib/logger';
 
 interface Transaction {
   id?: number;
@@ -98,7 +100,7 @@ export async function POST(request: NextRequest) {
       const logoBuffer = fs.readFileSync(logoPath);
       logoDataUri = `data:image/png;base64,${logoBuffer.toString('base64')}`;
     } catch (logoError) {
-      console.warn('Logo file not found, using placeholder');
+      logger.warn('Logo file not found, using placeholder');
     }
 
     // Launch puppeteer
@@ -175,7 +177,7 @@ export async function POST(request: NextRequest) {
     );
     fs.writeFileSync(outputPath, mergedPdfBuffer);
 
-    console.log(
+    logger.debug(
       `✅ Generated ${sortedTransactions.length} distribution slips (sorted by quantity ascending)`
     );
 
@@ -188,7 +190,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error generating distribution slips:', error);
+    logger.error('Error generating distribution slips:', error);
     return NextResponse.json(
       { error: 'Failed to generate distribution slips' },
       { status: 500 }

@@ -44,7 +44,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       data: report,
     });
   } catch (error) {
-    console.error('[Performance API] Error:', error);
+    logger.error('[Performance API] Error:', error);
 
     return NextResponse.json(
       {
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         );
     }
   } catch (error) {
-    console.error('[Performance API] Error:', error);
+    logger.error('[Performance API] Error:', error);
 
     return NextResponse.json(
       {

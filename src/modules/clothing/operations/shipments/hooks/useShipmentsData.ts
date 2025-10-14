@@ -11,9 +11,12 @@
  * - Memoized statistics calculation
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { useDataTable } from '@/hooks/useDataTable';
+import { queryKeys } from '@/lib/queryKeys';
+import { logger } from '@/lib/logger';
 import { ShipmentService } from '../services/ShipmentService';
 import type {
   ShipmentData,
@@ -26,13 +29,39 @@ import { SEARCH_FIELDS } from '../types/shipment.types';
  * Hook for managing shipments data and operations
  */
 export function useShipmentsData() {
+  const queryClient = useQueryClient();
+
   // ==========================================================================
   // STATE
   // ==========================================================================
 
-  const [shipments, setShipments] = useState<ShipmentData[]>([]);
-  const [loading, setLoading] = useState(true);
   const [csvFile, setCsvFile] = useState<File | null>(null);
+
+  // ==========================================================================
+  // LOAD DATA using React Query
+  // ==========================================================================
+
+  const {
+    data: shipments = [],
+    isLoading: loading,
+    refetch: loadShipments,
+  } = useQuery({
+    queryKey: queryKeys.shipments.lists(),
+    queryFn: async () => {
+      try {
+        return await ShipmentService.loadShipments();
+      } catch (error) {
+        logger.error('Failed to load shipments:', error);
+        notifications.show({
+          title: 'Error',
+          message: 'Failed to load shipments data',
+          color: 'red',
+        });
+        return [];
+      }
+    },
+    staleTime: 30 * 1000,
+  });
 
   // ==========================================================================
   // DATA TABLE INTEGRATION
@@ -43,31 +72,6 @@ export function useShipmentsData() {
       data: shipments,
       searchFields: SEARCH_FIELDS,
     });
-
-  // ==========================================================================
-  // LOAD DATA
-  // ==========================================================================
-
-  useEffect(() => {
-    loadShipments();
-  }, []);
-
-  const loadShipments = async () => {
-    try {
-      setLoading(true);
-      const data = await ShipmentService.loadShipments();
-      setShipments(data);
-    } catch (error) {
-      console.error('Failed to load shipments:', error);
-      notifications.show({
-        title: 'Error',
-        message: 'Failed to load shipments data',
-        color: 'red',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // ==========================================================================
   // MEMOIZED STATISTICS
@@ -82,87 +86,211 @@ export function useShipmentsData() {
   // ==========================================================================
 
   /**
-   * Add new shipment with optimistic update
+   * Add shipment mutation
    */
-  const addShipment = async (formData: ShipmentFormData): Promise<boolean> => {
-    try {
-      const createdShipment = await ShipmentService.addShipment(formData);
+  const addShipmentMutation = useMutation({
+    mutationFn: async (formData: ShipmentFormData) => {
+      return await ShipmentService.addShipment(formData);
+    },
+    onMutate: async (formData) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.shipments.lists() });
 
-      // Optimistic update
-      setShipments((prev) => [...prev, createdShipment]);
+      // Snapshot previous value
+      const previousShipments = queryClient.getQueryData<ShipmentData[]>(
+        queryKeys.shipments.lists()
+      );
 
-      return true;
-    } catch (error) {
-      console.error('Error adding shipment:', error);
+      // Create temporary shipment for optimistic update  
+      // Note: We use a placeholder since we don't know the real ID yet
+      // The real data will be fetched after successful mutation
+      const tempShipment = {
+        id: Date.now(), // Temporary ID
+        'Shipment Code': formData.shipmentCode,
+        'CV Number': formData.cvNumber,
+        'No. Of Sacks': formData.noOfSacks,
+        'Total CBM': formData.totalCBM,
+        Weight: formData.weight,
+        Fee: formData.fee,
+        'Shipment Status': formData.shipmentStatus,
+        'Date Created': formData.dateCreated?.toISOString() || '',
+        'Date Delivered': formData.dateDelivered?.toISOString() || '',
+        Duration: '', // Will be calculated after refetch
+        Notes: formData.notes,
+      } as ShipmentData;
+
+      // Optimistically update
+      if (previousShipments) {
+        queryClient.setQueryData<ShipmentData[]>(queryKeys.shipments.lists(), [
+          ...previousShipments,
+          tempShipment,
+        ]);
+      }
+
+      return { previousShipments };
+    },
+    onError: (_error, _variables, context) => {
+      // Rollback on error
+      if (context?.previousShipments) {
+        queryClient.setQueryData(
+          queryKeys.shipments.lists(),
+          context.previousShipments
+        );
+      }
+      logger.error('Error adding shipment:', _error);
       notifications.show({
         title: '❌ Error',
         message: 'Failed to add shipment. Please try again.',
         color: 'red',
       });
-      return false;
-    }
-  };
+    },
+    onSettled: () => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries({ queryKey: queryKeys.shipments.lists() });
+    },
+  });
 
   /**
-   * Update existing shipment with optimistic update
+   * Update shipment mutation
    */
-  const updateShipment = async (
-    id: number,
-    formData: ShipmentFormData,
-    existingShipment: ShipmentData
-  ): Promise<boolean> => {
-    try {
-      const updatedShipment = await ShipmentService.updateShipment(
+  const updateShipmentMutation = useMutation({
+    mutationFn: async ({
+      id,
+      formData,
+      existingShipment,
+    }: {
+      id: number;
+      formData: ShipmentFormData;
+      existingShipment: ShipmentData;
+    }) => {
+      return await ShipmentService.updateShipment(
         id,
         formData,
         existingShipment
       );
+    },
+    onMutate: async ({ id, formData }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.shipments.lists() });
 
-      // Optimistic update
-      setShipments((prev) =>
-        prev.map((s) => (s.id === id ? updatedShipment : s))
+      // Snapshot previous value
+      const previousShipments = queryClient.getQueryData<ShipmentData[]>(
+        queryKeys.shipments.lists()
       );
 
-      return true;
-    } catch (error) {
-      console.error('Error updating shipment:', error);
+      // Optimistically update
+      if (previousShipments) {
+        queryClient.setQueryData<ShipmentData[]>(
+          queryKeys.shipments.lists(),
+          previousShipments.map((s) =>
+            s.id === id ? { ...s, ...formData } : s
+          )
+        );
+      }
+
+      return { previousShipments };
+    },
+    onError: (_error, _variables, context) => {
+      // Rollback on error
+      if (context?.previousShipments) {
+        queryClient.setQueryData(
+          queryKeys.shipments.lists(),
+          context.previousShipments
+        );
+      }
+      logger.error('Error updating shipment:', _error);
       notifications.show({
         title: '❌ Error',
         message: 'Failed to update shipment. Please try again.',
         color: 'red',
       });
-      return false;
-    }
-  };
+    },
+    onSettled: () => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries({ queryKey: queryKeys.shipments.lists() });
+    },
+  });
 
   /**
-   * Import shipments from CSV file
+   * CSV import mutation
    */
-  const handleCSVImport = async (file: File): Promise<boolean> => {
-    try {
-      // Parse CSV file
+  const csvImportMutation = useMutation({
+    mutationFn: async (file: File) => {
       const importedShipments = await ShipmentService.parseCSVFile(file);
-
-      // Bulk import to API
       await ShipmentService.bulkImportShipments(importedShipments);
+      return importedShipments;
+    },
+    onMutate: async () => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.shipments.lists() });
 
-      // Optimistic update
-      setShipments((prev) => [...prev, ...importedShipments]);
+      // Snapshot previous value
+      const previousShipments = queryClient.getQueryData<ShipmentData[]>(
+        queryKeys.shipments.lists()
+      );
 
+      return { previousShipments };
+    },
+    onSuccess: () => {
       // Clear file
       setCsvFile(null);
-
-      return true;
-    } catch (error) {
-      console.error('Import error:', error);
+    },
+    onError: (_error, _variables, context) => {
+      // Rollback on error
+      if (context?.previousShipments) {
+        queryClient.setQueryData(
+          queryKeys.shipments.lists(),
+          context.previousShipments
+        );
+      }
       const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error occurred';
+        _error instanceof Error ? _error.message : 'Unknown error occurred';
+      logger.error('CSV import error:', _error);
       notifications.show({
         title: '❌ Import Failed',
         message: `Failed to import CSV: ${errorMessage}`,
         color: 'red',
         autoClose: 6000,
       });
+    },
+    onSettled: () => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries({ queryKey: queryKeys.shipments.lists() });
+    },
+  });
+
+  // Wrapper functions to maintain API compatibility
+  const addShipment = async (formData: ShipmentFormData): Promise<boolean> => {
+    try {
+      await addShipmentMutation.mutateAsync(formData);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const updateShipment = async (
+    id: number,
+    formData: ShipmentFormData,
+    existingShipment: ShipmentData
+  ): Promise<boolean> => {
+    try {
+      await updateShipmentMutation.mutateAsync({
+        id,
+        formData,
+        existingShipment,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleCSVImport = async (file: File): Promise<boolean> => {
+    try {
+      await csvImportMutation.mutateAsync(file);
+      return true;
+    } catch {
       return false;
     }
   };

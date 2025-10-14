@@ -284,7 +284,7 @@ export function SortingDistributionPage() {
 
         if (confirmClear) {
           dataHook.clearAllQuantities();
-          console.log(`Cleared all values in ${column.title} column`);
+          logger.debug(`Cleared all values in ${column.title} column`);
         }
       } else {
         alert(

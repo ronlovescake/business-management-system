@@ -10,6 +10,7 @@
 'use client';
 
 import { PageLayout } from '@/components/layout/PageLayout';
+import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import {
   Table,
   Badge,
@@ -97,7 +98,9 @@ export function DueDatesPage() {
 
   // Get all orders for selected customer
   const customerOrders = useMemo(() => {
-    if (!selectedCustomer || !transactions) return [];
+    if (!selectedCustomer || !transactions) {
+      return [];
+    }
     return DueDateService.getCustomerOrders(transactions, selectedCustomer);
   }, [selectedCustomer, transactions]);
 
@@ -132,46 +135,8 @@ export function DueDatesPage() {
   // Show loading state (IDENTICAL to original!)
   if (isLoading) {
     return (
-      <PageLayout title="Due Dates" fluid withPadding={false}>
-        <Paper
-          shadow="sm"
-          p="lg"
-          radius="md"
-          withBorder
-          style={{ margin: '1rem' }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              height: '50vh',
-            }}
-          >
-            <div style={{ textAlign: 'center' }}>
-              <div
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  border: '4px solid #f3f3f3',
-                  borderTop: '4px solid #3498db',
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite',
-                  margin: '0 auto 1rem',
-                }}
-              />
-              <Text size="sm" c="dimmed">
-                Loading due dates...
-              </Text>
-            </div>
-          </div>
-          <style>{`
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-          `}</style>
-        </Paper>
+      <PageLayout title="Due Dates" fluid withPadding>
+        <TableSkeleton rows={10} columns={6} />
       </PageLayout>
     );
   }
@@ -283,8 +248,8 @@ export function DueDatesPage() {
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {customerOrders.map((order, index) => (
-              <Table.Tr key={index}>
+            {customerOrders.map((order) => (
+              <Table.Tr key={`${order['Product Code']}-${order['Order Date']}-${order['Invoice Date']}`}>
                 <Table.Td>
                   <Text size="sm">
                     {DueDateService.formatDate(order['Order Date'] || '')}

@@ -81,7 +81,7 @@ export async function PUT(
       price: formattedPrice,
     });
   } catch (error) {
-    console.error('Failed to update price:', error);
+    logger.error('Failed to update price:', error);
     return NextResponse.json(
       { error: 'Failed to update price' },
       { status: 500 }
@@ -109,7 +109,7 @@ export async function DELETE(
       message: 'Price deleted successfully',
     });
   } catch (error) {
-    console.error('Failed to delete price:', error);
+    logger.error('Failed to delete price:', error);
     return NextResponse.json(
       { error: 'Failed to delete price' },
       { status: 500 }

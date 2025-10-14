@@ -90,7 +90,7 @@ function loadInitialLayouts(): Record<string, GridLayoutSnapshot[]> {
     const parsed = JSON.parse(stored) as Record<string, GridLayoutSnapshot[]>;
     return parsed ?? {};
   } catch (error) {
-    console.warn('Failed to parse stored grid layouts', error);
+    logger.warn('Failed to parse stored grid layouts', error);
     return {};
   }
 }

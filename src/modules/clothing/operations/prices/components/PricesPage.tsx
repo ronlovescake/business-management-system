@@ -19,13 +19,15 @@ import {
 import { notifications } from '@mantine/notifications';
 import {
   DataEditor as GridView,
-  GridColumn,
-  Item,
-  GridCell,
+  type GridColumn,
+  type Item,
+  type GridCell,
   GridCellKind,
 } from '@glideapps/glide-data-grid';
 import { useThrottledCallback } from '@mantine/hooks';
 import { PageLayout } from '@/components/layout/PageLayout';
+import { TableSkeleton } from '@/components/ui/TableSkeleton';
+import { logger } from '@/lib/logger';
 import { usePricesData } from '../hooks/usePricesData';
 import { usePriceForm } from '../hooks/usePriceForm';
 import { PriceService } from '../services/PriceService';
@@ -114,7 +116,9 @@ export function PricesPage() {
 
   // CSV Import functionality
   const handleCSVImport = async () => {
-    if (!file) return;
+    if (!file) {
+      return;
+    }
 
     try {
       const text = await file.text();
@@ -142,7 +146,7 @@ export function PricesPage() {
         autoClose: 4000,
       });
     } catch (error) {
-      console.error('CSV import error:', error);
+      logger.error('CSV import error:', error);
       notifications.show({
         title: '❌ Import Failed',
         message: 'Failed to parse CSV file. Please check the file format.',
@@ -157,7 +161,9 @@ export function PricesPage() {
     (cell: Item) => {
       const [col, row] = cell;
 
-      if (row >= filteredPrices.length) return;
+      if (row >= filteredPrices.length) {
+        return;
+      }
 
       const column = columns[col];
 
@@ -175,7 +181,7 @@ export function PricesPage() {
         ) {
           // Double-click detected - navigate or edit
           const price = filteredPrices[row];
-          console.log('Double-click on price:', price['Product Code']);
+          logger.debug('Double-click on price:', price['Product Code']);
           // TODO: Implement edit modal
           lastClickRef.current = null; // Reset after handling
         } else {
@@ -298,7 +304,7 @@ export function PricesPage() {
   if (isLoading) {
     return (
       <PageLayout fluid withPadding>
-        <Text>Loading prices...</Text>
+        <TableSkeleton rows={10} columns={5} />
       </PageLayout>
     );
   }

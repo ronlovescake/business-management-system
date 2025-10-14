@@ -26,14 +26,16 @@ import {
 } from '@tabler/icons-react';
 import {
   GridCellKind,
-  GridColumn,
-  Item,
   type GridCell,
+  type GridColumn,
+  type Item,
 } from '@glideapps/glide-data-grid';
 import { GridView } from '@/components/grid';
 import { PageLayout } from '@/components/layout/PageLayout';
+import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { throttle } from '@/lib/performance';
-import { CustomerData } from '../types/customer.types';
+import { logger } from '@/lib/logger';
+import type { CustomerData } from '../types/customer.types';
 import { CustomerService } from '../services/CustomerService';
 import { useCustomersData } from '../hooks/useCustomersData';
 import { useCustomerForm } from '../hooks/useCustomerForm';
@@ -109,8 +111,6 @@ export function CustomersPage() {
     addCustomer,
     bulkUpdateCustomers,
     replaceAllCustomers,
-    setCustomers,
-    setFilteredCustomers,
   } = useCustomersData();
 
   const {
@@ -201,7 +201,9 @@ export function CustomersPage() {
   // Handle paste into grid (multi-cell)
   const handlePaste = useCallback(
     (target: Item, values: readonly (readonly string[])[]) => {
-      if (!pasteMode) return false;
+      if (!pasteMode) {
+        return false;
+      }
       const [startCol, startRow] = target;
       let applied = 0;
       let clipped = false;
@@ -250,7 +252,7 @@ export function CustomersPage() {
           try {
             await bulkUpdateCustomers(nextCustomers);
           } catch (e) {
-            console.error('Failed to persist pasted rows', e);
+            logger.error('Failed to persist pasted rows', e);
             notifications.show({
               title: 'Paste saved locally only',
               message: 'Database not reachable',
@@ -258,17 +260,6 @@ export function CustomersPage() {
             });
           }
         })();
-
-        setCustomers(nextCustomers);
-        if (!searchQuery.trim()) {
-          setFilteredCustomers(nextCustomers);
-        } else {
-          const filtered = CustomerService.searchCustomers(
-            nextCustomers,
-            searchQuery
-          );
-          setFilteredCustomers(filtered);
-        }
 
         notifications.show({
           title: 'Pasted into table',
@@ -287,17 +278,16 @@ export function CustomersPage() {
       customers,
       filteredCustomers,
       columns,
-      searchQuery,
       idToKey,
       bulkUpdateCustomers,
-      setCustomers,
-      setFilteredCustomers,
     ]
   );
 
   // CSV import functionality
   const handleImportCSV = async () => {
-    if (!file) return;
+    if (!file) {
+      return;
+    }
 
     try {
       const result = await CustomerService.importFromCSV(file);
@@ -320,20 +310,18 @@ export function CustomersPage() {
           color: 'green',
         });
       } catch (e) {
-        console.error('Failed to persist imported CSV', e);
+        logger.error('Failed to persist imported CSV', e);
         notifications.show({
           title: 'Import saved locally only',
           message: 'Database not reachable',
           color: 'yellow',
         });
-        setCustomers(result.data);
-        setFilteredCustomers(result.data);
       }
 
       setFile(null);
-      console.log(`Imported ${result.rowsImported} customers`);
+      logger.debug(`Imported ${result.rowsImported} customers`);
     } catch (error) {
-      console.error('Error importing CSV:', error);
+      logger.error('Error importing CSV:', error);
       notifications.show({
         title: 'Import Failed',
         message: 'Error importing CSV file. Please check the file format.',
@@ -368,7 +356,7 @@ export function CustomersPage() {
         autoClose: 4000,
       });
     } catch (error) {
-      console.error('Failed to add customer', error);
+      logger.error('Failed to add customer', error);
       notifications.show({
         title: 'Saved locally only',
         message: 'Database not reachable',
@@ -496,7 +484,7 @@ export function CustomersPage() {
   if (isLoading) {
     return (
       <PageLayout fluid withPadding>
-        <Text>Loading customers...</Text>
+        <TableSkeleton rows={15} columns={11} />
       </PageLayout>
     );
   }

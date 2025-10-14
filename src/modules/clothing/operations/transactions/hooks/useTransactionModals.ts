@@ -13,6 +13,7 @@
 import { useState, useCallback } from 'react';
 import { notifications } from '@mantine/notifications';
 import { TransactionService } from '../services/TransactionService';
+import { logger } from '@/lib/logger';
 import type {
   TransactionData,
   InvoiceConfirmationData,
@@ -152,7 +153,7 @@ export function useTransactionModals(
 
         return await response.json();
       } catch (error) {
-        console.error('Error saving transaction:', error);
+        logger.error('Error saving transaction:', error);
         throw error;
       }
     },
@@ -165,7 +166,7 @@ export function useTransactionModals(
 
   const prepareInvoiceGeneration = useCallback(
     async (visibleTransactions: TransactionData[]) => {
-      console.log(
+      logger.debug(
         '📄 Preparing invoice generation for customers with Warehouse orders...'
       );
 
@@ -215,7 +216,7 @@ export function useTransactionModals(
         setPendingInvoiceData(visibleTransactions);
         setShowInvoiceModal(true);
       } catch (error) {
-        console.error('Error preparing invoice generation:', error);
+        logger.error('Error preparing invoice generation:', error);
         notifications.show({
           title: '❌ Invoice Preparation Failed',
           message:
@@ -243,7 +244,7 @@ export function useTransactionModals(
       return;
     }
 
-    console.log('📄 User confirmed - proceeding with invoice generation...');
+    logger.debug('📄 User confirmed - proceeding with invoice generation...');
     setIsGeneratingInvoice(true);
 
     try {
@@ -373,7 +374,7 @@ export function useTransactionModals(
         throw new Error(errorData.error || 'Failed to generate invoices');
       }
     } catch (error) {
-      console.error('Error generating invoices:', error);
+      logger.error('Error generating invoices:', error);
       notifications.show({
         title: '❌ Invoice Generation Failed',
         message:
@@ -531,7 +532,7 @@ export function useTransactionModals(
         throw new Error(errorData.error || 'Failed to generate packing lists');
       }
     } catch (error) {
-      console.error('Error generating packing lists:', error);
+      logger.error('Error generating packing lists:', error);
       notifications.show({
         title: '❌ Packing List Generation Failed',
         message:
@@ -666,7 +667,7 @@ export function useTransactionModals(
         );
       }
     } catch (error) {
-      console.error('Error generating distribution slips:', error);
+      logger.error('Error generating distribution slips:', error);
       notifications.show({
         title: '❌ Distribution Generation Failed',
         message:

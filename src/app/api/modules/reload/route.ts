@@ -82,7 +82,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const { moduleId, options = {} } = body;
 
-    console.log(`🔄 Reload request received for module: ${moduleId}`);
+    logger.debug(`🔄 Reload request received for module: ${moduleId}`);
 
     // Trigger HMR reload
     const result = await moduleHMR.reloadModule(moduleId, options);
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
   } catch (error) {
-    console.error('Module reload API error:', error);
+    logger.error('Module reload API error:', error);
 
     return NextResponse.json(
       {
@@ -142,7 +142,7 @@ export async function GET(): Promise<NextResponse> {
       { status: 200 }
     );
   } catch (error) {
-    console.error('HMR statistics error:', error);
+    logger.error('HMR statistics error:', error);
 
     return NextResponse.json(
       {

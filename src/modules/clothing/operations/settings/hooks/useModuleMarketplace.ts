@@ -56,7 +56,7 @@ export function useModuleMarketplace(): UseModuleMarketplaceReturn {
       setModules(data.modules || []);
     } catch (err) {
       setError((err as Error).message);
-      console.error('Error fetching marketplace:', err);
+      logger.error('Error fetching marketplace:', err);
     } finally {
       setLoading(false);
     }

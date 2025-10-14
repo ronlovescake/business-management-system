@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(manifest);
   } catch (error) {
-    console.error('Error fetching marketplace modules:', error);
+    logger.error('Error fetching marketplace modules:', error);
     return NextResponse.json(
       {
         error: 'Failed to fetch marketplace modules',

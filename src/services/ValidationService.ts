@@ -31,7 +31,7 @@ export class ValidationService {
       // Fetch all customers to find the selected customer
       const response = await fetch('/api/customers');
       if (!response.ok) {
-        console.warn('Could not fetch customer data for validation');
+        logger.warn('Could not fetch customer data for validation');
         return { isValid: true, warnings: [], errors: [] };
       }
 
@@ -97,7 +97,7 @@ export class ValidationService {
           }
         }
       } catch (error) {
-        console.warn(
+        logger.warn(
           'Could not calculate cancellation rate for customer:',
           error
         );
@@ -110,7 +110,7 @@ export class ValidationService {
         customerData: customer,
       };
     } catch (error) {
-      console.error('Error validating customer:', error);
+      logger.error('Error validating customer:', error);
       return { isValid: true, warnings: [], errors: [] };
     }
   }

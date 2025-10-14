@@ -67,22 +67,22 @@ class PluginManager {
    */
   async initialize(): Promise<void> {
     if (this.initialized) {
-      console.warn('⚠️  Plugin manager already initialized');
+      logger.warn('⚠️  Plugin manager already initialized');
       return;
     }
 
     try {
-      console.log('🚀 Initializing plugin manager...');
+      logger.debug('🚀 Initializing plugin manager...');
 
       // Load installed modules from database
       await this.loadInstalledModules();
 
       this.initialized = true;
-      console.log(
+      logger.debug(
         `✅ Plugin manager initialized with ${this.installedModules.size} modules`
       );
     } catch (error) {
-      console.error('❌ Failed to initialize plugin manager:', error);
+      logger.error('❌ Failed to initialize plugin manager:', error);
       throw new PluginError(
         'Failed to initialize plugin manager',
         'INIT_ERROR'
@@ -106,7 +106,7 @@ class PluginManager {
       const manifest: ModuleManifest = await response.json();
       this.marketplace = manifest.modules;
 
-      console.log(
+      logger.debug(
         `✅ Loaded ${this.marketplace.length} modules from marketplace`
       );
       return this.marketplace;
@@ -155,7 +155,7 @@ class PluginManager {
     options: ModuleInstallOptions = {}
   ): Promise<void> {
     try {
-      console.log(`📦 Installing module: ${moduleId}`);
+      logger.debug(`📦 Installing module: ${moduleId}`);
 
       // Find module in marketplace
       const moduleToInstall = this.marketplace.find((m) => m.id === moduleId);
@@ -201,9 +201,9 @@ class PluginManager {
       // 6. Add to installed modules
       this.installedModules.set(moduleId, moduleToInstall);
 
-      console.log(`✅ Module installed successfully: ${moduleToInstall.name}`);
+      logger.debug(`✅ Module installed successfully: ${moduleToInstall.name}`);
     } catch (error) {
-      console.error(`❌ Failed to install module ${moduleId}:`, error);
+      logger.error(`❌ Failed to install module ${moduleId}:`, error);
       throw error;
     }
   }
@@ -213,7 +213,7 @@ class PluginManager {
    */
   async uninstallModule(moduleId: string): Promise<void> {
     try {
-      console.log(`🗑️  Uninstalling module: ${moduleId}`);
+      logger.debug(`🗑️  Uninstalling module: ${moduleId}`);
 
       // Check if module exists
       if (!this.installedModules.has(moduleId)) {
@@ -240,9 +240,9 @@ class PluginManager {
       // Remove from installed modules
       this.installedModules.delete(moduleId);
 
-      console.log(`✅ Module uninstalled: ${moduleId}`);
+      logger.debug(`✅ Module uninstalled: ${moduleId}`);
     } catch (error) {
-      console.error(`❌ Failed to uninstall module ${moduleId}:`, error);
+      logger.error(`❌ Failed to uninstall module ${moduleId}:`, error);
       throw error;
     }
   }
@@ -252,7 +252,7 @@ class PluginManager {
    */
   async updateModule(moduleId: string): Promise<void> {
     try {
-      console.log(`🔄 Updating module: ${moduleId}`);
+      logger.debug(`🔄 Updating module: ${moduleId}`);
 
       const currentModule = this.installedModules.get(moduleId);
       const latestModule = this.marketplace.find((m) => m.id === moduleId);
@@ -272,13 +272,13 @@ class PluginManager {
       }
 
       if (latestModule.version === currentModule.version) {
-        console.log(
+        logger.debug(
           `✅ Module ${moduleId} is already up to date (v${currentModule.version})`
         );
         return;
       }
 
-      console.log(
+      logger.debug(
         `Updating ${moduleId} from v${currentModule.version} to v${latestModule.version}`
       );
 
@@ -286,9 +286,9 @@ class PluginManager {
       await this.uninstallModule(moduleId);
       await this.installModule(moduleId);
 
-      console.log(`✅ Module updated successfully: ${moduleId}`);
+      logger.debug(`✅ Module updated successfully: ${moduleId}`);
     } catch (error) {
-      console.error(`❌ Failed to update module ${moduleId}:`, error);
+      logger.error(`❌ Failed to update module ${moduleId}:`, error);
       throw error;
     }
   }
@@ -330,15 +330,15 @@ class PluginManager {
       return;
     }
 
-    console.log(`📦 Checking dependencies for ${modulePackage.id}...`);
+    logger.debug(`📦 Checking dependencies for ${modulePackage.id}...`);
 
     for (const depId of modulePackage.dependencies) {
       // Check if dependency is already installed
       if (!moduleRegistry.get(depId) && !this.installedModules.has(depId)) {
-        console.log(`📥 Installing dependency: ${depId}`);
+        logger.debug(`📥 Installing dependency: ${depId}`);
         await this.installModule(depId, { skipDependencies: false });
       } else {
-        console.log(`✅ Dependency already installed: ${depId}`);
+        logger.debug(`✅ Dependency already installed: ${depId}`);
       }
     }
   }
@@ -420,10 +420,10 @@ class PluginManager {
     }
 
     try {
-      console.log(
+      logger.debug(
         `📥 Downloading module: ${modulePackage.id} v${modulePackage.version}`
       );
-      console.log(`📍 From: ${modulePackage.downloadUrl}`);
+      logger.debug(`📍 From: ${modulePackage.downloadUrl}`);
 
       // Call the download API
       const response = await fetch('/api/modules/download', {
@@ -457,10 +457,10 @@ class PluginManager {
       // Update module package with installation path
       modulePackage.installPath = result.installPath;
 
-      console.log(`✅ Module downloaded successfully`);
-      console.log(`📦 Size: ${result.size} bytes`);
-      console.log(`⏱️  Duration: ${result.duration}ms`);
-      console.log(`📂 Installed to: ${result.installPath}`);
+      logger.debug(`✅ Module downloaded successfully`);
+      logger.debug(`📦 Size: ${result.size} bytes`);
+      logger.debug(`⏱️  Duration: ${result.duration}ms`);
+      logger.debug(`📂 Installed to: ${result.installPath}`);
     } catch (error) {
       if (error instanceof PluginError) throw error;
       throw new DownloadError(`Download failed: ${(error as Error).message}`);
@@ -482,9 +482,9 @@ class PluginManager {
         throw new Error(`Failed to save module config: ${response.statusText}`);
       }
 
-      console.log(`💾 Module configuration saved: ${modulePackage.id}`);
+      logger.debug(`💾 Module configuration saved: ${modulePackage.id}`);
     } catch (error) {
-      console.error('Failed to save module config:', error);
+      logger.error('Failed to save module config:', error);
       throw new PluginError(
         `Failed to save module config: ${(error as Error).message}`,
         'SAVE_ERROR'
@@ -507,9 +507,9 @@ class PluginManager {
         );
       }
 
-      console.log(`🗑️  Module configuration removed: ${moduleId}`);
+      logger.debug(`🗑️  Module configuration removed: ${moduleId}`);
     } catch (error) {
-      console.error('Failed to remove module config:', error);
+      logger.error('Failed to remove module config:', error);
       throw new PluginError(
         `Failed to remove module config: ${(error as Error).message}`,
         'DELETE_ERROR'
@@ -527,7 +527,7 @@ class PluginManager {
       if (!response.ok) {
         // If no modules exist yet, that's okay
         if (response.status === 404) {
-          console.log('ℹ️  No installed modules found');
+          logger.debug('ℹ️  No installed modules found');
           return;
         }
         throw new Error(`Failed to load modules: ${response.statusText}`);
@@ -544,9 +544,9 @@ class PluginManager {
         }
       });
 
-      console.log(`✅ Loaded ${modules.length} installed modules`);
+      logger.debug(`✅ Loaded ${modules.length} installed modules`);
     } catch (error) {
-      console.error('Failed to load installed modules:', error);
+      logger.error('Failed to load installed modules:', error);
       // Don't throw - allow system to start with empty module list
     }
   }

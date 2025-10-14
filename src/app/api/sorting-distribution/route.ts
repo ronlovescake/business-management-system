@@ -9,10 +9,10 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const productCode = searchParams.get('productCode');
 
-    console.log('🔍 GET /api/sorting-distribution - Product Code:', productCode);
+    logger.debug('🔍 GET /api/sorting-distribution - Product Code:', productCode);
 
     if (!productCode) {
-      console.log('❌ GET - No product code provided');
+      logger.debug('❌ GET - No product code provided');
       return NextResponse.json(
         { error: 'Product code is required' },
         { status: 400 }
@@ -42,16 +42,16 @@ export async function GET(request: Request) {
 
     const sortingData = data as SortingDistributionRow[];
 
-    console.log('📊 GET - Found rows:', sortingData.length);
-    console.log('📊 GET - Selected quantity:', sortingData[0]?.selected_quantity);
-    console.log('📊 GET - Sample data:', sortingData.slice(0, 3));
+    logger.debug('📊 GET - Found rows:', sortingData.length);
+    logger.debug('📊 GET - Selected quantity:', sortingData[0]?.selected_quantity);
+    logger.debug('📊 GET - Sample data:', sortingData.slice(0, 3));
 
     return NextResponse.json({
       data: sortingData,
       selectedQuantity: sortingData[0]?.selected_quantity || null,
     });
   } catch (error) {
-    console.error('❌ GET - Error fetching sorting distribution:', error);
+    logger.error('❌ GET - Error fetching sorting distribution:', error);
     return NextResponse.json(
       { error: 'Failed to fetch sorting distribution data' },
       { status: 500 }
@@ -65,13 +65,13 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { productCode, selectedQuantity, rows } = body;
 
-    console.log('💾 POST /api/sorting-distribution - Starting save...');
-    console.log('💾 POST - Product Code:', productCode);
-    console.log('💾 POST - Selected Quantity:', selectedQuantity);
-    console.log('💾 POST - Total rows received:', rows?.length || 0);
+    logger.debug('💾 POST /api/sorting-distribution - Starting save...');
+    logger.debug('💾 POST - Product Code:', productCode);
+    logger.debug('💾 POST - Selected Quantity:', selectedQuantity);
+    logger.debug('💾 POST - Total rows received:', rows?.length || 0);
 
     if (!productCode) {
-      console.log('❌ POST - No product code provided');
+      logger.debug('❌ POST - No product code provided');
       return NextResponse.json(
         { error: 'Product code is required' },
         { status: 400 }
@@ -79,12 +79,12 @@ export async function POST(request: Request) {
     }
 
     // First, delete all existing rows for this product
-    console.log('🗑️ POST - Deleting existing rows...');
+    logger.debug('🗑️ POST - Deleting existing rows...');
     const deleteResult = await prisma.$executeRaw`
       DELETE FROM sorting_distributions 
       WHERE product_code = ${productCode}
     `;
-    console.log('🗑️ POST - Delete result:', deleteResult);
+    logger.debug('🗑️ POST - Delete result:', deleteResult);
 
     // Prepare rows data
     interface RowData {
@@ -115,12 +115,12 @@ export async function POST(request: Request) {
           row.checked
       );
 
-    console.log(`💾 POST - Filtered ${rowsToInsert.length} non-empty rows from ${rows?.length || 0} total rows`);
-    console.log('💾 POST - Sample filtered rows:', rowsToInsert.slice(0, 3));
+    logger.debug(`💾 POST - Filtered ${rowsToInsert.length} non-empty rows from ${rows?.length || 0} total rows`);
+    logger.debug('💾 POST - Sample filtered rows:', rowsToInsert.slice(0, 3));
 
     // Insert new data
     if (rowsToInsert.length > 0) {
-      console.log('📝 POST - Inserting rows...');
+      logger.debug('📝 POST - Inserting rows...');
       for (let i = 0; i < rowsToInsert.length; i++) {
         const row = rowsToInsert[i];
         try {
@@ -130,26 +130,26 @@ export async function POST(request: Request) {
             VALUES (${row.productCode}, ${row.selectedQuantity}, ${row.rowNumber}, ${row.quantity}, ${row.percentage}, ${row.groupNumber}, ${row.distribution}, ${row.checked}, NOW(), NOW())
           `;
           if (i < 3) {
-            console.log(`📝 POST - Inserted row ${i + 1}:`, row);
+            logger.debug(`📝 POST - Inserted row ${i + 1}:`, row);
           }
         } catch (insertError) {
-          console.error(`❌ POST - Error inserting row ${i + 1}:`, insertError);
+          logger.error(`❌ POST - Error inserting row ${i + 1}:`, insertError);
           throw insertError;
         }
       }
-      console.log('✅ POST - All rows inserted successfully');
+      logger.debug('✅ POST - All rows inserted successfully');
     } else {
-      console.log('📝 POST - No rows to insert (all empty)');
+      logger.debug('📝 POST - No rows to insert (all empty)');
     }
 
-    console.log('✅ POST - Save operation completed successfully');
+    logger.debug('✅ POST - Save operation completed successfully');
     return NextResponse.json({
       success: true,
       message: 'Sorting distribution saved successfully',
       rowsSaved: rowsToInsert.length,
     });
   } catch (error) {
-    console.error('❌ POST - Error saving sorting distribution:', error);
+    logger.error('❌ POST - Error saving sorting distribution:', error);
     return NextResponse.json(
       { error: 'Failed to save sorting distribution data' },
       { status: 500 }
@@ -180,7 +180,7 @@ export async function DELETE(request: Request) {
       message: 'Sorting distribution deleted successfully',
     });
   } catch (error) {
-    console.error('Error deleting sorting distribution:', error);
+    logger.error('Error deleting sorting distribution:', error);
     return NextResponse.json(
       { error: 'Failed to delete sorting distribution data' },
       { status: 500 }

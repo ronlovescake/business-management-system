@@ -27,6 +27,7 @@ import {
 import { notifications } from '@mantine/notifications';
 import { IconUpload, IconSearch } from '@tabler/icons-react';
 import type { StatCard } from './DataTable';
+import { logger } from '@/lib/logger';
 
 // Register Handsontable modules
 registerAllModules();
@@ -91,9 +92,9 @@ export function HandsontableGrid<T extends Item>({
   useEffect(() => {
     const wrapper = document.querySelector('.ht-theme-horizon');
     if (wrapper) {
-      console.log('✅ Horizon theme wrapper found');
+      logger.debug('✅ Horizon theme wrapper found');
     } else {
-      console.log('❌ Horizon theme wrapper NOT found');
+      logger.debug('❌ Horizon theme wrapper NOT found');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -543,7 +544,7 @@ export function HandsontableGrid<T extends Item>({
     try {
       await onCSVImport(csvFile);
     } catch (error) {
-      console.error('CSV import error:', error);
+      logger.error('CSV import error:', error);
       notifications.show({
         title: '❌ Import Failed',
         message: 'Failed to parse CSV file. Please check the file format.',
@@ -739,7 +740,7 @@ export function HandsontableGrid<T extends Item>({
             if (!changes || !onCellEdited) return;
 
             // Debug: Log all change sources to understand what's happening
-            console.log('📝 afterChange triggered:', {
+            logger.debug('📝 afterChange triggered:', {
               source,
               changesCount: changes.length,
             });
@@ -756,7 +757,7 @@ export function HandsontableGrid<T extends Item>({
             const isBatchEdit = changes.length > 5 && source === 'edit';
             const isBatchOperation = isPaste || isBatchEdit;
 
-            console.log('🔍 Batch detection:', {
+            logger.debug('🔍 Batch detection:', {
               source,
               changesCount: changes.length,
               isPaste,
@@ -765,7 +766,7 @@ export function HandsontableGrid<T extends Item>({
             });
 
             if (isBatchOperation) {
-              console.log('🚀 BATCH OPERATION DETECTED - Starting batch mode');
+              logger.debug('🚀 BATCH OPERATION DETECTED - Starting batch mode');
 
               // Set batch mode flag to suppress notifications
               isBatchModeRef.current = true;
@@ -773,7 +774,7 @@ export function HandsontableGrid<T extends Item>({
 
               // Signal batch mode START immediately
               window.dispatchEvent(new CustomEvent('handsontable-batch-start'));
-              console.log('📢 Dispatched handsontable-batch-start event');
+              logger.debug('📢 Dispatched handsontable-batch-start event');
 
               // For paste operations, batch all changes and process after a short delay
               // This prevents the flickering caused by multiple rapid re-renders

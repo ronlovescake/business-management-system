@@ -1,6 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import type { Price, Prisma, Transaction } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import {
+  bulkTransactionSchema,
+  partialTransactionDataSchema,
+  formatValidationErrors,
+} from '@/lib/validations/transaction.validation';
+import { logger } from '@/lib/logger';
 
 // ==============================================================================
 // ⚠️ FINALIZED BUSINESS LOGIC - DO NOT MODIFY WITHOUT APPROVAL ⚠️
@@ -89,14 +96,18 @@ function getUnitPriceForQuantity(
   quantity: number,
   priceTiers: PriceTier[]
 ): number {
-  if (!productCode || !quantity || quantity <= 0) return 0;
+  if (!productCode || !quantity || quantity <= 0) {
+    return 0;
+  }
 
   // Find all price tiers for this product code
   const productTiers = priceTiers.filter(
     (tier) => tier.productCode === productCode
   );
 
-  if (productTiers.length === 0) return 0;
+  if (productTiers.length === 0) {
+    return 0;
+  }
 
   // ⚠️ IMPORTANT: Limits are stored in cents (e.g., 100 = 1 unit)
   // Convert limits from cents to whole numbers for comparison
@@ -158,7 +169,7 @@ export async function GET() {
 
     return NextResponse.json(formattedTransactions);
   } catch (error) {
-    console.error('Failed to fetch transactions:', error);
+    logger.error('Failed to fetch transactions:', error);
     return NextResponse.json(
       { error: 'Failed to fetch transactions' },
       { status: 500 }
@@ -195,7 +206,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    console.log(
+    logger.debug(
       `Loaded ${priceTiers.length} price tiers for Unit Price calculation`
     );
 
@@ -211,7 +222,7 @@ export async function POST(request: NextRequest) {
       (row) => isValidRow(row) && !isEmptyRow(row)
     );
 
-    console.log(
+    logger.debug(
       `Filtered ${validTransactionsData.length} valid records from ${transactionsData.length} total records`
     );
 
@@ -241,7 +252,7 @@ export async function POST(request: NextRequest) {
         if (tierPrice > 0) {
           const tierPriceInPeso = tierPrice / 100;
           unitPrice = tierPriceInPeso - discount;
-          console.log(
+          logger.debug(
             `Auto-calculated Unit Price for ${productCode} (Qty: ${quantity}): ${tierPriceInPeso} - ${discount} = ${unitPrice}`
           );
         }
@@ -250,7 +261,7 @@ export async function POST(request: NextRequest) {
       let lineTotal = parseNumeric(row['Line Total']);
       if (lineTotal === 0) {
         lineTotal = calculateLineTotal(quantity, unitPrice, adjustment);
-        console.log(
+        logger.debug(
           `Auto-calculated Line Total: (${quantity} × ${unitPrice}) - ${adjustment} = ${lineTotal}`
         );
       }
@@ -295,7 +306,7 @@ export async function POST(request: NextRequest) {
     // Combine rows with data and empty rows
     const allDataToInsert = [...dataToInsert, ...emptyRowsData];
 
-    console.log(
+    logger.debug(
       `Inserting ${allDataToInsert.length} rows total (${dataToInsert.length} with data, ${emptyRowsData.length} empty)`
     );
 
@@ -311,12 +322,12 @@ export async function POST(request: NextRequest) {
       empty: emptyRowsData.length,
     });
   } catch (error) {
-    console.error('Failed to import transactions:', error);
+    logger.error('Failed to import transactions:', error);
 
     // Log the full error details for debugging
     if (error instanceof Error) {
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
+      logger.error('Error message:', error.message);
+      logger.error('Error stack:', error.stack);
     }
 
     return NextResponse.json(
@@ -355,32 +366,45 @@ export async function PUT(request: NextRequest) {
       // Convert UI format to database format
       const dbData: Prisma.TransactionUpdateInput = {};
 
-      if ('Order Date' in transaction)
+      if ('Order Date' in transaction) {
         dbData.orderDate = parseTrimmed(transaction['Order Date']);
-      if ('Customers' in transaction)
+      }
+      if ('Customers' in transaction) {
         dbData.customers = parseTrimmed(transaction['Customers']);
-      if ('Product Code' in transaction)
+      }
+      if ('Product Code' in transaction) {
         dbData.productCode = parseTrimmed(transaction['Product Code']);
-      if ('Quantity' in transaction)
+      }
+      if ('Quantity' in transaction) {
         dbData.quantity = parseNumeric(transaction['Quantity']);
-      if ('Unit Price' in transaction)
+      }
+      if ('Unit Price' in transaction) {
         dbData.unitPrice = parseNumeric(transaction['Unit Price']);
-      if ('Discount' in transaction)
+      }
+      if ('Discount' in transaction) {
         dbData.discount = parseNumeric(transaction['Discount']);
-      if ('Adjustment' in transaction)
+      }
+      if ('Adjustment' in transaction) {
         dbData.adjustment = parseNumeric(transaction['Adjustment']);
-      if ('Line Total' in transaction)
+      }
+      if ('Line Total' in transaction) {
         dbData.lineTotal = parseNumeric(transaction['Line Total']);
-      if ('Order Status' in transaction)
+      }
+      if ('Order Status' in transaction) {
         dbData.orderStatus = parseTrimmed(transaction['Order Status']);
-      if ('Notes' in transaction)
+      }
+      if ('Notes' in transaction) {
         dbData.notes = parseOptional(transaction['Notes']);
-      if ('Invoice Date' in transaction)
+      }
+      if ('Invoice Date' in transaction) {
         dbData.invoiceDate = parseOptional(transaction['Invoice Date']);
-      if ('Packed Date' in transaction)
+      }
+      if ('Packed Date' in transaction) {
         dbData.packedDate = parseOptional(transaction['Packed Date']);
-      if ('Shipment Code' in transaction)
+      }
+      if ('Shipment Code' in transaction) {
         dbData.shipmentCode = parseOptional(transaction['Shipment Code']);
+      }
 
       return prisma.transaction.update({
         where: { id },
@@ -395,7 +419,7 @@ export async function PUT(request: NextRequest) {
       count: results.length,
     });
   } catch (error) {
-    console.error('Failed to bulk update transactions:', error);
+    logger.error('Failed to bulk update transactions:', error);
     return NextResponse.json(
       {
         error: 'Failed to bulk update transactions',
@@ -434,32 +458,45 @@ export async function PATCH(request: NextRequest) {
     // Convert UI format to database format
     const dbData: Prisma.TransactionUpdateInput = {};
 
-    if ('Order Date' in updateData)
+    if ('Order Date' in updateData) {
       dbData.orderDate = parseTrimmed(updateData['Order Date']);
-    if ('Customers' in updateData)
+    }
+    if ('Customers' in updateData) {
       dbData.customers = parseTrimmed(updateData['Customers']);
-    if ('Product Code' in updateData)
+    }
+    if ('Product Code' in updateData) {
       dbData.productCode = parseTrimmed(updateData['Product Code']);
-    if ('Quantity' in updateData)
+    }
+    if ('Quantity' in updateData) {
       dbData.quantity = parseNumeric(updateData['Quantity']);
-    if ('Unit Price' in updateData)
+    }
+    if ('Unit Price' in updateData) {
       dbData.unitPrice = parseNumeric(updateData['Unit Price']);
-    if ('Discount' in updateData)
+    }
+    if ('Discount' in updateData) {
       dbData.discount = parseNumeric(updateData['Discount']);
-    if ('Adjustment' in updateData)
+    }
+    if ('Adjustment' in updateData) {
       dbData.adjustment = parseNumeric(updateData['Adjustment']);
-    if ('Line Total' in updateData)
+    }
+    if ('Line Total' in updateData) {
       dbData.lineTotal = parseNumeric(updateData['Line Total']);
-    if ('Order Status' in updateData)
+    }
+    if ('Order Status' in updateData) {
       dbData.orderStatus = parseTrimmed(updateData['Order Status']);
-    if ('Notes' in updateData)
+    }
+    if ('Notes' in updateData) {
       dbData.notes = parseOptional(updateData['Notes']);
-    if ('Invoice Date' in updateData)
+    }
+    if ('Invoice Date' in updateData) {
       dbData.invoiceDate = parseOptional(updateData['Invoice Date']);
-    if ('Packed Date' in updateData)
+    }
+    if ('Packed Date' in updateData) {
       dbData.packedDate = parseOptional(updateData['Packed Date']);
-    if ('Shipment Code' in updateData)
+    }
+    if ('Shipment Code' in updateData) {
       dbData.shipmentCode = parseOptional(updateData['Shipment Code']);
+    }
 
     const updatedTransaction = await prisma.transaction.update({
       where: { id },
@@ -471,7 +508,7 @@ export async function PATCH(request: NextRequest) {
       transaction: updatedTransaction,
     });
   } catch (error) {
-    console.error('Failed to update transaction:', error);
+    logger.error('Failed to update transaction:', error);
     return NextResponse.json(
       {
         error: 'Failed to update transaction',
@@ -492,7 +529,7 @@ export async function DELETE() {
       count: result.count,
     });
   } catch (error) {
-    console.error('Failed to delete transactions:', error);
+    logger.error('Failed to delete transactions:', error);
     return NextResponse.json(
       { error: 'Failed to delete transactions' },
       { status: 500 }

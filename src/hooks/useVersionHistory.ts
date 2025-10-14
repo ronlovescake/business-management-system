@@ -92,7 +92,7 @@ export function useVersionHistory<T extends Record<string, any>>(
       dbRef.current = db;
       return db;
     } catch (error) {
-      console.error('Failed to initialize IndexedDB:', error);
+      logger.error('Failed to initialize IndexedDB:', error);
       return null;
     }
   }, []);
@@ -113,7 +113,7 @@ export function useVersionHistory<T extends Record<string, any>>(
       setVersions(filteredVersions as VersionSnapshot<T>[]);
       setIsLoading(false);
     } catch (error) {
-      console.error('Failed to load versions:', error);
+      logger.error('Failed to load versions:', error);
       setIsLoading(false);
     }
   }, [dataKey, initDB]);
@@ -198,14 +198,14 @@ export function useVersionHistory<T extends Record<string, any>>(
       // Reload versions
       await loadVersions();
 
-      console.log(`✅ Version saved: ${snapshot.id}`, snapshot);
+      logger.debug(`✅ Version saved: ${snapshot.id}`, snapshot);
 
       // Clear pending
       pendingChangesRef.current = null;
 
       return snapshot;
     } catch (error) {
-      console.error('Failed to save version:', error);
+      logger.error('Failed to save version:', error);
       return null;
     }
   }, [dataKey, currentData, initDB, loadVersions]);
@@ -301,10 +301,10 @@ export function useVersionHistory<T extends Record<string, any>>(
         await db.add(STORE_NAME, snapshot);
         await loadVersions();
 
-        console.log(`✅ Version saved with label: ${label}`, snapshot);
+        logger.debug(`✅ Version saved with label: ${label}`, snapshot);
         return snapshot;
       } catch (error) {
-        console.error('Failed to save version with label:', error);
+        logger.error('Failed to save version with label:', error);
         return null;
       }
     },
@@ -325,7 +325,7 @@ export function useVersionHistory<T extends Record<string, any>>(
 
         const version = await db.get(STORE_NAME, versionId);
         if (!version) {
-          console.error('Version not found:', versionId);
+          logger.error('Version not found:', versionId);
           return null;
         }
 
@@ -335,10 +335,10 @@ export function useVersionHistory<T extends Record<string, any>>(
           'restore'
         );
 
-        console.log(`🔄 Restoring version: ${versionId}`, version);
+        logger.debug(`🔄 Restoring version: ${versionId}`, version);
         return version.data as T[];
       } catch (error) {
-        console.error('Failed to restore version:', error);
+        logger.error('Failed to restore version:', error);
         return null;
       }
     },
@@ -354,7 +354,7 @@ export function useVersionHistory<T extends Record<string, any>>(
 
         const version = await db.get(STORE_NAME, versionId);
         if (!version) {
-          console.error('Version not found:', versionId);
+          logger.error('Version not found:', versionId);
           return null;
         }
 
@@ -378,12 +378,12 @@ export function useVersionHistory<T extends Record<string, any>>(
           rowIds
         );
 
-        console.log(
+        logger.debug(
           `🔄 Selectively restored ${rowIds.length} rows from: ${versionId}`
         );
         return mergedData;
       } catch (error) {
-        console.error('Failed to restore selected rows:', error);
+        logger.error('Failed to restore selected rows:', error);
         return null;
       }
     },
@@ -399,13 +399,13 @@ export function useVersionHistory<T extends Record<string, any>>(
 
         const version = await db.get(STORE_NAME, versionId);
         if (!version) {
-          console.error('Version not found:', versionId);
+          logger.error('Version not found:', versionId);
           return null;
         }
 
         return calculateDiff(version.data as T[], currentData);
       } catch (error) {
-        console.error('Failed to calculate diff:', error);
+        logger.error('Failed to calculate diff:', error);
         return null;
       }
     },
@@ -502,7 +502,7 @@ export function useVersionHistory<T extends Record<string, any>>(
         await loadVersions();
         return true;
       } catch (error) {
-        console.error('Failed to delete version:', error);
+        logger.error('Failed to delete version:', error);
         return false;
       }
     },
@@ -512,12 +512,12 @@ export function useVersionHistory<T extends Record<string, any>>(
   // Sync to server
   const syncToServer = useCallback(async () => {
     try {
-      console.log('🔄 Syncing version history to server...');
+      logger.debug('🔄 Syncing version history to server...');
 
       const versionsToSync = versions.filter((v) => v.id.startsWith(dataKey));
 
       if (versionsToSync.length === 0) {
-        console.log('ℹ️ No versions to sync');
+        logger.debug('ℹ️ No versions to sync');
         return;
       }
 
@@ -533,21 +533,21 @@ export function useVersionHistory<T extends Record<string, any>>(
 
       if (response.ok) {
         lastSyncRef.current = Date.now();
-        console.log(
+        logger.debug(
           `✅ Successfully synced ${versionsToSync.length} versions to server`
         );
       } else {
-        console.error('Failed to sync to server:', await response.text());
+        logger.error('Failed to sync to server:', await response.text());
       }
     } catch (error) {
-      console.error('Error syncing to server:', error);
+      logger.error('Error syncing to server:', error);
     }
   }, [dataKey, versions]);
 
   // Load versions from server
   const loadFromServer = useCallback(async () => {
     try {
-      console.log('📥 Loading version history from server...');
+      logger.debug('📥 Loading version history from server...');
 
       const response = await fetch(
         `/api/version-history?dataKey=${encodeURIComponent(dataKey)}`
@@ -563,15 +563,15 @@ export function useVersionHistory<T extends Record<string, any>>(
           try {
             await db.put(STORE_NAME, version);
           } catch (error) {
-            console.warn('Version already exists:', version.id);
+            logger.warn('Version already exists:', version.id);
           }
         }
 
         await loadVersions();
-        console.log(`✅ Loaded ${serverVersions.length} versions from server`);
+        logger.debug(`✅ Loaded ${serverVersions.length} versions from server`);
       }
     } catch (error) {
-      console.error('Error loading from server:', error);
+      logger.error('Error loading from server:', error);
     }
   }, [dataKey, initDB, loadVersions]);
 

@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
 
     // TODO: Save to database
     // For now, just log and acknowledge
-    console.log(
+    logger.debug(
       `📤 Syncing ${versions.length} versions for: ${dataKey} at ${new Date(timestamp).toLocaleString()}`
     );
 
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       timestamp: Date.now(),
     });
   } catch (error) {
-    console.error('Failed to sync version history:', error);
+    logger.error('Failed to sync version history:', error);
     return NextResponse.json(
       { error: 'Failed to sync version history' },
       { status: 500 }

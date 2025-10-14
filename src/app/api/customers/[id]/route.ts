@@ -1,6 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import type { Customer, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import {
+  partialCustomerDataSchema,
+  formatValidationErrors,
+} from '@/lib/validations/customer.validation';
+import { logger } from '@/lib/logger';
 
 // Shape used by the UI grid (reusing from customers route)
 export type CustomerDTO = {
@@ -57,8 +63,8 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const customerId = parseInt(params.id);
-    if (isNaN(customerId)) {
+    const customerId = Number.parseInt(params.id);
+    if (Number.isNaN(customerId)) {
       return NextResponse.json(
         { error: 'Invalid customer ID' },
         { status: 400 }
@@ -78,7 +84,7 @@ export async function GET(
 
     return NextResponse.json(mapToDTO(customer));
   } catch (err) {
-    console.error('GET /api/customers/[id] error', err);
+    logger.error('GET /api/customers/[id] error', err);
     return NextResponse.json(
       { error: 'Failed to fetch customer' },
       { status: 500 }
@@ -92,24 +98,37 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const customerId = parseInt(params.id);
-    if (isNaN(customerId)) {
+    const customerId = Number.parseInt(params.id);
+    if (Number.isNaN(customerId)) {
       return NextResponse.json(
         { error: 'Invalid customer ID' },
         { status: 400 }
       );
     }
 
-    const body = (await request.json()) as CustomerDTO;
+    const body = await request.json();
+
+    // Validate with Zod (partial schema for updates)
+    const validation = partialCustomerDataSchema.safeParse(body);
+    if (!validation.success) {
+      logger.warn(`Customer ${customerId} update validation failed:`, validation.error);
+      return NextResponse.json(
+        {
+          error: 'Validation failed',
+          details: formatValidationErrors(validation.error),
+        },
+        { status: 400 }
+      );
+    }
 
     const updated = await prisma.customer.update({
       where: { id: customerId },
-      data: mapFromDTO(body),
+      data: mapFromDTO(validation.data as CustomerDTO),
     });
 
     return NextResponse.json(mapToDTO(updated));
   } catch (err) {
-    console.error('PUT /api/customers/[id] error', err);
+    logger.error('PUT /api/customers/[id] error', err);
     return NextResponse.json(
       { error: 'Failed to update customer' },
       { status: 500 }
@@ -123,8 +142,8 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const customerId = parseInt(params.id);
-    if (isNaN(customerId)) {
+    const customerId = Number.parseInt(params.id);
+    if (Number.isNaN(customerId)) {
       return NextResponse.json(
         { error: 'Invalid customer ID' },
         { status: 400 }
@@ -137,7 +156,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error('DELETE /api/customers/[id] error', err);
+    logger.error('DELETE /api/customers/[id] error', err);
     return NextResponse.json(
       { error: 'Failed to delete customer' },
       { status: 500 }

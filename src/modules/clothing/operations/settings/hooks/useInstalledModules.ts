@@ -49,7 +49,7 @@ export function useInstalledModules(): UseInstalledModulesReturn {
       setModules(data);
     } catch (err) {
       setError((err as Error).message);
-      console.error('Error fetching installed modules:', err);
+      logger.error('Error fetching installed modules:', err);
     } finally {
       setLoading(false);
     }

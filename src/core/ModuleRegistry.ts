@@ -9,7 +9,8 @@
  * - Install/uninstall modules (plugin system)
  */
 
-import { ComponentType } from 'react';
+import type { ComponentType } from 'react';
+import { logger } from '@/lib/logger';
 
 export type IconComponent = ComponentType<{ size?: number; stroke?: number }>;
 
@@ -133,7 +134,7 @@ class ModuleRegistry {
     }
 
     this.modules.set(module.id, module);
-    console.log(`✅ Module registered: ${module.name} (v${module.version})`);
+    logger.debug(`✅ Module registered: ${module.name} (v${module.version})`);
   }
 
   /**
@@ -143,7 +144,7 @@ class ModuleRegistry {
     const moduleConfig = this.modules.get(moduleId);
     if (moduleConfig) {
       this.modules.delete(moduleId);
-      console.log(`❌ Module unregistered: ${moduleConfig.name}`);
+      logger.debug(`❌ Module unregistered: ${moduleConfig.name}`);
     }
   }
 
@@ -228,7 +229,7 @@ class ModuleRegistry {
     const moduleConfig = this.modules.get(moduleId);
     if (moduleConfig) {
       moduleConfig.enabled = enabled;
-      console.log(
+      logger.debug(
         `${enabled ? '✅' : '❌'} Module ${enabled ? 'enabled' : 'disabled'}: ${moduleConfig.name}`
       );
     }
@@ -240,7 +241,7 @@ class ModuleRegistry {
   private validateDependencies(deps: string[]): void {
     for (const dep of deps) {
       if (!this.modules.has(dep)) {
-        console.warn(`⚠️  Missing dependency: ${dep}`);
+        logger.warn(`⚠️  Missing dependency: ${dep}`);
       }
     }
   }
@@ -250,13 +251,13 @@ class ModuleRegistry {
    */
   initialize(): void {
     if (this.initialized) {
-      console.warn('⚠️  Module registry already initialized');
+      logger.warn('⚠️  Module registry already initialized');
       return;
     }
 
-    console.log('🚀 Initializing module registry...');
+    logger.debug('🚀 Initializing module registry...');
     this.initialized = true;
-    console.log(`✅ ${this.modules.size} modules registered`);
+    logger.debug(`✅ ${this.modules.size} modules registered`);
   }
 
   /**

@@ -60,7 +60,7 @@ export function AddPriceModal({
         autoClose: 4000,
       });
     } catch (error) {
-      console.error('Failed to add price:', error);
+      logger.error('Failed to add price:', error);
       notifications.show({
         title: '❌ Failed to Add Price',
         message: 'Could not save the price to database. Please try again.',

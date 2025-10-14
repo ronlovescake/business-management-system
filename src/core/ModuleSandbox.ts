@@ -75,7 +75,7 @@ class ModuleSandbox {
     config?: Partial<ModuleSandboxConfig>
   ): Promise<void> {
     try {
-      console.log(`🛡️  Initializing sandbox for: ${moduleId}`);
+      logger.debug(`🛡️  Initializing sandbox for: ${moduleId}`);
 
       // Create sandbox config
       const sandboxConfig: ModuleSandboxConfig = {
@@ -104,7 +104,7 @@ class ModuleSandbox {
         lastUpdated: Date.now(),
       });
 
-      console.log(
+      logger.debug(
         `✅ Sandbox initialized with ${permissionSet.size} permissions`
       );
     } catch (error) {
@@ -136,7 +136,7 @@ class ModuleSandbox {
     request: ModulePermissionRequest
   ): Promise<ModulePermissionGrant> {
     try {
-      console.log(
+      logger.debug(
         `🔐 Permission request: ${request.permission} for ${moduleId}`
       );
 
@@ -154,7 +154,7 @@ class ModuleSandbox {
       const isDangerous = this.isDangerousPermission(request.permission);
 
       if (isDangerous && !request.userApproval) {
-        console.warn(
+        logger.warn(
           `⚠️  Dangerous permission requires user approval: ${request.permission}`
         );
 
@@ -171,7 +171,7 @@ class ModuleSandbox {
       modulePermissions.add(request.permission);
       this.permissions.set(moduleId, modulePermissions);
 
-      console.log(`✅ Permission granted: ${request.permission}`);
+      logger.debug(`✅ Permission granted: ${request.permission}`);
 
       return {
         granted: true,
@@ -195,7 +195,7 @@ class ModuleSandbox {
 
     if (modulePermissions) {
       modulePermissions.delete(permission);
-      console.log(`🔒 Permission revoked: ${permission} from ${moduleId}`);
+      logger.debug(`🔒 Permission revoked: ${permission} from ${moduleId}`);
     }
   }
 
@@ -239,7 +239,7 @@ class ModuleSandbox {
     const current = this.resourceUsage.get(moduleId);
 
     if (!current) {
-      console.warn(`⚠️  No resource tracking for module: ${moduleId}`);
+      logger.warn(`⚠️  No resource tracking for module: ${moduleId}`);
       return;
     }
 
@@ -271,7 +271,7 @@ class ModuleSandbox {
 
     // Check memory
     if (limits.maxMemoryMB && usage.memoryMB > limits.maxMemoryMB) {
-      console.error(
+      logger.error(
         `❌ Memory limit exceeded for ${moduleId}: ${usage.memoryMB}MB > ${limits.maxMemoryMB}MB`
       );
       throw new ResourceLimitError('memory', limits.maxMemoryMB);
@@ -279,14 +279,14 @@ class ModuleSandbox {
 
     // Check CPU
     if (limits.maxCPUPercent && usage.cpuPercent > limits.maxCPUPercent) {
-      console.warn(
+      logger.warn(
         `⚠️  CPU usage high for ${moduleId}: ${usage.cpuPercent}% > ${limits.maxCPUPercent}%`
       );
     }
 
     // Check storage
     if (limits.maxStorageMB && usage.storageMB > limits.maxStorageMB) {
-      console.error(
+      logger.error(
         `❌ Storage limit exceeded for ${moduleId}: ${usage.storageMB}MB > ${limits.maxStorageMB}MB`
       );
       throw new ResourceLimitError('storage', limits.maxStorageMB);
@@ -297,7 +297,7 @@ class ModuleSandbox {
       limits.maxNetworkRequests &&
       usage.networkRequests > limits.maxNetworkRequests
     ) {
-      console.error(
+      logger.error(
         `❌ Network request limit exceeded for ${moduleId}: ${usage.networkRequests} > ${limits.maxNetworkRequests}`
       );
       throw new ResourceLimitError('network', limits.maxNetworkRequests);
@@ -365,7 +365,7 @@ class ModuleSandbox {
     this.resourceUsage.delete(moduleId);
     this.sandboxConfigs.delete(moduleId);
 
-    console.log(`🗑️  Sandbox destroyed for: ${moduleId}`);
+    logger.debug(`🗑️  Sandbox destroyed for: ${moduleId}`);
   }
 
   /**
@@ -420,7 +420,7 @@ class ModuleSandbox {
     this.resourceUsage.clear();
     this.sandboxConfigs.clear();
 
-    console.log('🗑️  All sandboxes cleaned up');
+    logger.debug('🗑️  All sandboxes cleaned up');
   }
 }
 

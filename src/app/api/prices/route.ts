@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import type { Price, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 type PriceDTO = {
   id?: number;
@@ -73,7 +75,7 @@ export async function GET() {
 
     return NextResponse.json(formattedPrices);
   } catch (error) {
-    console.error('Failed to fetch prices:', error);
+    logger.error('Failed to fetch prices:', error);
     return NextResponse.json(
       { error: 'Failed to fetch prices' },
       { status: 500 }
@@ -113,7 +115,7 @@ export async function POST(request: NextRequest) {
       );
     });
 
-    console.log(
+    logger.debug(
       `Filtered ${validPricesData.length} valid records from ${pricesData.length} total records`
     );
 
@@ -132,7 +134,7 @@ export async function POST(request: NextRequest) {
       filtered: pricesData.length - validPricesData.length,
     });
   } catch (error) {
-    console.error('Failed to import prices:', error);
+    logger.error('Failed to import prices:', error);
     return NextResponse.json(
       { error: 'Failed to import price data to database' },
       { status: 500 }
@@ -150,7 +152,7 @@ export async function DELETE() {
       count: result.count,
     });
   } catch (error) {
-    console.error('Failed to delete prices:', error);
+    logger.error('Failed to delete prices:', error);
     return NextResponse.json(
       { error: 'Failed to delete prices' },
       { status: 500 }

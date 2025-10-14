@@ -25,12 +25,14 @@
 //
 // ==============================================================================
 
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import puppeteer from 'puppeteer';
 import Handlebars from 'handlebars';
 import fs from 'fs';
 import path from 'path';
 import { PDFDocument } from 'pdf-lib';
+import { logger } from '@/lib/logger';
 
 interface Transaction {
   id?: number;
@@ -125,7 +127,10 @@ export async function POST(request: NextRequest) {
       if (!groupedByCustomer.has(customer)) {
         groupedByCustomer.set(customer, []);
       }
-      groupedByCustomer.get(customer)!.push(transaction);
+      const group = groupedByCustomer.get(customer);
+      if (group) {
+        group.push(transaction);
+      }
     });
 
     // Read the invoice template
@@ -268,7 +273,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error generating invoice:', error);
+    logger.error('Error generating invoice:', error);
     return NextResponse.json(
       { error: 'Failed to generate invoice' },
       { status: 500 }

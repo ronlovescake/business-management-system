@@ -22,9 +22,10 @@
 
 import React from 'react';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { StatCard } from '@/components/ui';
+import { TableSkeleton } from '@/components/ui/TableSkeleton';
+import type { StatCard } from '@/components/ui';
 import { TransactionsLayout } from '@/components/features/transactions';
-import { GridColumn, Item, GridCell } from '@glideapps/glide-data-grid';
+import type { GridColumn, Item, GridCell } from '@glideapps/glide-data-grid';
 import { GridCellKind } from '@glideapps/glide-data-grid';
 import { allCells } from '@glideapps/glide-data-grid-cells';
 import {
@@ -199,9 +200,15 @@ export function TransactionsPage() {
       const key = idToKey[column.id as string];
       const value = item[key];
 
-      // Helper to sanitize values
-      const sanitize = TransactionService.sanitizeValue;
-      const sanitizeNumeric = TransactionService.sanitizeNumericValue;
+      // Helper to sanitize values - ensures all values are strings, never undefined
+      const sanitize = (val: unknown): string => {
+        const result = TransactionService.sanitizeValue(val);
+        return result ?? ''; // Extra safety: ensure never undefined
+      };
+      const sanitizeNumeric = (val: unknown): string => {
+        const result = TransactionService.sanitizeNumericValue(val);
+        return result ?? ''; // Extra safety: ensure never undefined
+      };
 
       // Order Date - editable
       if (column.id === 'orderDate') {
@@ -331,21 +338,21 @@ export function TransactionsPage() {
 
       // Numeric columns - show blank if 0
       if (typeof value === 'number') {
-        const displayValue = value === 0 ? '' : value.toLocaleString();
-        const dataValue = value === 0 ? '' : String(value);
+        const displayValue = value === 0 ? '' : (value.toLocaleString() ?? '');
+        const dataValue = value === 0 ? '' : (String(value) ?? '');
 
         return {
           kind: GridCellKind.Text,
-          data: dataValue,
-          displayData: displayValue,
+          data: dataValue || '', // Ensure never undefined
+          displayData: displayValue || '', // Ensure never undefined
           allowOverlay: false,
         } as GridCell;
       }
 
       return {
         kind: GridCellKind.Text,
-        data: sanitize(value),
-        displayData: sanitize(value),
+        data: sanitize(value) || '', // Ensure never undefined
+        displayData: sanitize(value) || '', // Ensure never undefined
         allowOverlay: false,
       } as GridCell;
     },
@@ -443,17 +450,8 @@ export function TransactionsPage() {
   // ============================================================================
   if (isLoading) {
     return (
-      <PageLayout>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            height: '400px',
-          }}
-        >
-          Loading transactions...
-        </div>
+      <PageLayout fluid withPadding>
+        <TableSkeleton rows={15} columns={14} />
       </PageLayout>
     );
   }

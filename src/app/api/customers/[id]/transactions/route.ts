@@ -53,7 +53,7 @@ export async function GET(
 
     return NextResponse.json(transactions);
   } catch (err) {
-    console.error('GET /api/customers/[id]/transactions error', err);
+    logger.error('GET /api/customers/[id]/transactions error', err);
     return NextResponse.json(
       { error: 'Failed to fetch transactions' },
       { status: 500 }

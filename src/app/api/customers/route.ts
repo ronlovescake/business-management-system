@@ -1,6 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import type { Customer, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import {
+  customerDataSchema,
+  bulkCustomerSchema,
+  formatValidationErrors,
+} from '@/lib/validations/customer.validation';
+import { logger } from '@/lib/logger';
 
 // Shape used by the UI grid
 export type CustomerDTO = {
@@ -53,9 +60,12 @@ function mapFromDTO(d: CustomerDTO): Prisma.CustomerCreateInput {
 
 function dbNotConfigured(): string | null {
   const url = process.env.DATABASE_URL || '';
-  if (!url) return 'DATABASE_URL is not set';
-  if (/postgresql:\/\/username:password@/i.test(url))
+  if (!url) {
+    return 'DATABASE_URL is not set';
+  }
+  if (/postgresql:\/\/username:password@/i.test(url)) {
     return 'DATABASE_URL still has placeholder username/password';
+  }
   return null;
 }
 
@@ -64,7 +74,7 @@ export async function GET() {
     const items = await prisma.customer.findMany({ orderBy: { id: 'asc' } });
     return NextResponse.json(items.map(mapToDTO));
   } catch (err) {
-    console.error('GET /api/customers error', err);
+    logger.error('GET /api/customers error', err);
     // Be lenient during initial setup: return empty list so UI can still render
     return NextResponse.json([]);
   }
@@ -80,20 +90,33 @@ export async function PUT(req: NextRequest) {
         { status: 503 }
       );
     }
-    const body = (await req.json()) as CustomerDTO[];
+    const body = await req.json();
     if (!Array.isArray(body)) {
-      return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid payload: Expected an array' }, { status: 400 });
+    }
+
+    // Validate with Zod
+    const validation = bulkCustomerSchema.safeParse(body);
+    if (!validation.success) {
+      logger.warn('Bulk customer validation failed:', validation.error);
+      return NextResponse.json(
+        {
+          error: 'Validation failed',
+          details: formatValidationErrors(validation.error),
+        },
+        { status: 400 }
+      );
     }
 
     // Replace all rows for simplicity; could be optimized later
     await prisma.$transaction([
       prisma.customer.deleteMany({}),
-      prisma.customer.createMany({ data: body.map(mapFromDTO) }),
+      prisma.customer.createMany({ data: validation.data.map(mapFromDTO) as Prisma.CustomerCreateManyInput[] }),
     ]);
 
-    return NextResponse.json({ ok: true, count: body.length });
+    return NextResponse.json({ ok: true, count: validation.data.length });
   } catch (err) {
-    console.error('PUT /api/customers error', err);
+    logger.error('PUT /api/customers error', err);
     const msg = err instanceof Error ? err.message.toLowerCase() : '';
     if (msg.includes('authentication failed')) {
       return NextResponse.json(
@@ -121,11 +144,26 @@ export async function POST(req: NextRequest) {
         { status: 503 }
       );
     }
-    const body = (await req.json()) as CustomerDTO;
-    const created = await prisma.customer.create({ data: mapFromDTO(body) });
+    
+    const body = await req.json();
+    
+    // Validate with Zod
+    const validation = customerDataSchema.safeParse(body);
+    if (!validation.success) {
+      logger.warn('Customer validation failed:', validation.error);
+      return NextResponse.json(
+        {
+          error: 'Validation failed',
+          details: formatValidationErrors(validation.error),
+        },
+        { status: 400 }
+      );
+    }
+    
+    const created = await prisma.customer.create({ data: mapFromDTO(validation.data as CustomerDTO) });
     return NextResponse.json(mapToDTO(created));
   } catch (err) {
-    console.error('POST /api/customers error', err);
+    logger.error('POST /api/customers error', err);
     const msg = err instanceof Error ? err.message.toLowerCase() : '';
     if (msg.includes('authentication failed')) {
       return NextResponse.json(
@@ -153,7 +191,7 @@ export async function DELETE() {
       count: result.count,
     });
   } catch (error) {
-    console.error('Failed to delete customers:', error);
+    logger.error('Failed to delete customers:', error);
     return NextResponse.json(
       { error: 'Failed to delete customers' },
       { status: 500 }

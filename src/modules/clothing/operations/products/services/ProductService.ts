@@ -577,7 +577,7 @@ export class ProductService {
       });
       if (!shipmentsResponse.ok) {
         // Continue without shipment data if API fails
-        console.warn(
+        logger.warn(
           'Failed to fetch shipments, continuing without shipment data'
         );
         return products;
@@ -606,7 +606,7 @@ export class ProductService {
         return product;
       });
     } catch (error) {
-      console.error('Failed to load products:', error);
+      logger.error('Failed to load products:', error);
       return [];
     }
   }
@@ -629,7 +629,7 @@ export class ProductService {
       const shipments: ShipmentData[] = await response.json();
       return shipments.find((s) => s['Shipment Code'] === shipmentCode) || null;
     } catch (error) {
-      console.error('Failed to lookup shipment:', error);
+      logger.error('Failed to lookup shipment:', error);
       return null;
     }
   }

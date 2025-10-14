@@ -228,7 +228,7 @@ export class TransactionService {
         customerData: result.customerData,
       };
     } catch (error) {
-      console.error('Error validating customer:', error);
+      logger.error('Error validating customer:', error);
       return { isValid: true, warnings: [] };
     }
   }
@@ -385,7 +385,7 @@ export class TransactionService {
 
       if (currentOrderStatus !== newOrderStatus) {
         updatedCount++;
-        console.log(
+        logger.debug(
           `Syncing transaction: ${productCode} -> ${currentOrderStatus} to ${newOrderStatus} (shipment status: ${currentShipmentStatus})`
         );
 

@@ -264,7 +264,7 @@ export function DataTable<T = Record<string, unknown>>({
     try {
       await onCSVImport(csvFile);
     } catch (error) {
-      console.error('CSV import error:', error);
+      logger.error('CSV import error:', error);
       notifications.show({
         title: '❌ Import Failed',
         message: 'Failed to parse CSV file. Please check the file format.',

@@ -1,4 +1,4 @@
-import {
+import type {
   PriceData,
   PriceFormData,
   PriceStats,
@@ -6,6 +6,7 @@ import {
   ValidationResult,
   CSVImportResult,
 } from '../types/price.types';
+import { logger } from '@/lib/logger';
 
 /**
  * Service for managing price data and operations
@@ -212,10 +213,14 @@ class PriceService {
 
       for (let i = 0; i < dataLines.length; i++) {
         const line = dataLines[i].trim();
-        if (!line || line === ',,,,') continue; // Skip empty lines
+        if (!line || line === ',,,,') {
+          continue; // Skip empty lines
+        }
 
         const values = line.split(',');
-        if (values.length < 5) continue; // Skip incomplete rows
+        if (values.length < 5) {
+          continue; // Skip incomplete rows
+        }
 
         const productCode = values[0]?.trim();
         const lowerLimit = parseFloat(values[1]?.trim()) || 0;
@@ -223,7 +228,9 @@ class PriceService {
         const prices = parseFloat(values[3]?.trim()) || 0;
         const priceAdjustment = parseFloat(values[4]?.trim()) || 0;
 
-        if (!productCode) continue; // Skip rows without product code
+        if (!productCode) {
+          continue; // Skip rows without product code
+        }
 
         // Convert prices to proper format (remove commas and quotes)
         const cleanPrices = prices.toString().replace(/[,"]/g, '');
@@ -254,7 +261,7 @@ class PriceService {
         rowsImported: importedPrices.length,
       };
     } catch (error) {
-      console.error('CSV import error:', error);
+      logger.error('CSV import error:', error);
       return {
         success: false,
         error:
@@ -341,7 +348,7 @@ class PriceService {
       const data = await response.json();
       return Array.isArray(data) ? data : [];
     } catch (error) {
-      console.error('Error loading prices:', error);
+      logger.error('Error loading prices:', error);
       return [];
     }
   }
@@ -366,7 +373,7 @@ class PriceService {
 
       return true;
     } catch (error) {
-      console.error('Error adding price:', error);
+      logger.error('Error adding price:', error);
       return false;
     }
   }
@@ -391,7 +398,7 @@ class PriceService {
 
       return true;
     } catch (error) {
-      console.error('Error updating prices:', error);
+      logger.error('Error updating prices:', error);
       return false;
     }
   }
@@ -417,7 +424,7 @@ class PriceService {
       const result = await response.json();
       return result.count || prices.length;
     } catch (error) {
-      console.error('Error replacing prices:', error);
+      logger.error('Error replacing prices:', error);
       throw error;
     }
   }

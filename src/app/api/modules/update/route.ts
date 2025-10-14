@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
       message: `Module ${moduleId} updated successfully`,
     });
   } catch (error) {
-    console.error('Error updating module:', error);
+    logger.error('Error updating module:', error);
 
     // Return appropriate error status
     const status =

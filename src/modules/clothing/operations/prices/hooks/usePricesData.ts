@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useDebouncedValue } from '@mantine/hooks';
-import {
+import { queryKeys } from '@/lib/queryKeys';
+import { logger } from '@/lib/logger';
+import type {
   PriceData,
   PriceStats,
   PriceWithSearchIndex,
@@ -13,134 +16,209 @@ import { PriceService } from '../services/PriceService';
  * Custom hook for managing prices data, search, and statistics
  */
 export function usePricesData() {
+  const queryClient = useQueryClient();
+
   // State
-  const [prices, setPrices] = useState<PriceData[]>([]);
-  const [filteredPrices, setFilteredPrices] = useState<PriceData[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  /**
+   * Load prices using React Query
+   */
+  const {
+    data: prices = [],
+    isLoading,
+    error: queryError,
+    refetch: reloadPrices,
+  } = useQuery({
+    queryKey: queryKeys.prices.lists(),
+    queryFn: async () => {
+      try {
+        return await PriceService.loadPrices();
+      } catch (error) {
+        logger.error('Error loading prices:', error);
+        throw error;
+      }
+    },
+    staleTime: 30 * 1000,
+  });
+
+  const error = queryError
+    ? queryError instanceof Error
+      ? queryError.message
+      : 'Failed to load prices'
+    : null;
+
+  // Filtered prices based on search
+  const filteredPrices = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return prices;
+    }
+    return PriceService.searchPrices(prices, searchQuery);
+  }, [prices, searchQuery]);
 
   // Debounced search for performance (300ms delay)
   const [debouncedFilteredPrices] = useDebouncedValue(filteredPrices, 300);
 
-  // Load prices on mount
-  useEffect(() => {
-    loadPrices();
-  }, []);
-
-  /**
-   * Load prices from API
-   */
-  const loadPrices = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const data = await PriceService.loadPrices();
-      setPrices(data);
-      setFilteredPrices(data);
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to load prices';
-      setError(message);
-      console.error('Error loading prices:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   /**
    * Handle search query change
    */
-  const handleSearch = useCallback(
-    (query: string) => {
-      setSearchQuery(query);
-
-      if (!query.trim()) {
-        setFilteredPrices(prices);
-        return;
-      }
-
-      const filtered = PriceService.searchPrices(prices, query);
-      setFilteredPrices(filtered);
-    },
-    [prices]
-  );
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+  }, []);
 
   /**
-   * Add a new price (optimistic update)
+   * Add price mutation
    */
-  const addPrice = useCallback(
-    async (price: PriceData) => {
-      try {
-        // Save to database
-        const success = await PriceService.addPrice(price);
-        if (!success) {
-          throw new Error('Failed to save price');
-        }
-
-        // Optimistic update
-        const updatedPrices = [...prices, price];
-        setPrices(updatedPrices);
-
-        // Update filtered prices based on current search
-        if (!searchQuery.trim()) {
-          setFilteredPrices(updatedPrices);
-        } else {
-          const filtered = PriceService.searchPrices(
-            updatedPrices,
-            searchQuery
-          );
-          setFilteredPrices(filtered);
-        }
-
-        return true;
-      } catch (err) {
-        console.error('Error adding price:', err);
-        return false;
+  const addPriceMutation = useMutation({
+    mutationFn: async (price: PriceData) => {
+      const success = await PriceService.addPrice(price);
+      if (!success) {
+        throw new Error('Failed to save price');
       }
+      return success;
     },
-    [prices, searchQuery]
-  );
+    onMutate: async (newPrice) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.prices.lists() });
+
+      // Snapshot previous value
+      const previousPrices = queryClient.getQueryData<PriceData[]>(
+        queryKeys.prices.lists()
+      );
+
+      // Optimistically update
+      if (previousPrices) {
+        queryClient.setQueryData<PriceData[]>(queryKeys.prices.lists(), [
+          ...previousPrices,
+          newPrice,
+        ]);
+      }
+
+      return { previousPrices };
+    },
+    onError: (_error, _variables, context) => {
+      // Rollback on error
+      if (context?.previousPrices) {
+        queryClient.setQueryData(queryKeys.prices.lists(), context.previousPrices);
+      }
+      logger.error('Error adding price:', _error);
+    },
+    onSettled: () => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries({ queryKey: queryKeys.prices.lists() });
+    },
+  });
 
   /**
-   * Bulk update prices
+   * Bulk update prices mutation
    */
-  const bulkUpdatePrices = useCallback(async (updatedPrices: PriceData[]) => {
-    try {
+  const bulkUpdatePricesMutation = useMutation({
+    mutationFn: async (updatedPrices: PriceData[]) => {
       const success = await PriceService.bulkUpdatePrices(updatedPrices);
       if (!success) {
         throw new Error('Failed to update prices');
       }
+      return success;
+    },
+    onMutate: async (updatedPrices) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.prices.lists() });
 
-      // Update local state
-      setPrices(updatedPrices);
-      setFilteredPrices(updatedPrices);
-      return true;
-    } catch (err) {
-      console.error('Error updating prices:', err);
-      return false;
-    }
-  }, []);
+      // Snapshot previous value
+      const previousPrices = queryClient.getQueryData<PriceData[]>(
+        queryKeys.prices.lists()
+      );
+
+      // Optimistically update
+      queryClient.setQueryData<PriceData[]>(
+        queryKeys.prices.lists(),
+        updatedPrices
+      );
+
+      return { previousPrices };
+    },
+    onError: (_error, _variables, context) => {
+      // Rollback on error
+      if (context?.previousPrices) {
+        queryClient.setQueryData(queryKeys.prices.lists(), context.previousPrices);
+      }
+      logger.error('Error updating prices:', _error);
+    },
+    onSettled: () => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries({ queryKey: queryKeys.prices.lists() });
+    },
+  });
 
   /**
-   * Replace all prices (used after CSV import)
+   * Replace all prices mutation
    */
+  const replaceAllPricesMutation = useMutation({
+    mutationFn: async (newPrices: PriceData[]) => {
+      return await PriceService.replaceAllPrices(newPrices);
+    },
+    onMutate: async (newPrices) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.prices.lists() });
+
+      // Snapshot previous value
+      const previousPrices = queryClient.getQueryData<PriceData[]>(
+        queryKeys.prices.lists()
+      );
+
+      // Optimistically update
+      queryClient.setQueryData<PriceData[]>(queryKeys.prices.lists(), newPrices);
+
+      return { previousPrices };
+    },
+    onError: (_error, _variables, context) => {
+      // Rollback on error
+      if (context?.previousPrices) {
+        queryClient.setQueryData(queryKeys.prices.lists(), context.previousPrices);
+      }
+      logger.error('Error replacing prices:', _error);
+    },
+    onSettled: () => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries({ queryKey: queryKeys.prices.lists() });
+    },
+  });
+
+  // Wrapper functions to maintain API compatibility
+  const addPrice = useCallback(
+    async (price: PriceData) => {
+      try {
+        await addPriceMutation.mutateAsync(price);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [addPriceMutation]
+  );
+
+  const bulkUpdatePrices = useCallback(
+    async (updatedPrices: PriceData[]) => {
+      try {
+        await bulkUpdatePricesMutation.mutateAsync(updatedPrices);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [bulkUpdatePricesMutation]
+  );
+
   const replaceAllPrices = useCallback(
     async (newPrices: PriceData[]): Promise<number> => {
       try {
-        const count = await PriceService.replaceAllPrices(newPrices);
-
-        // Update local state
-        setPrices(newPrices);
-        setFilteredPrices(newPrices);
-
-        return count;
+        return await replaceAllPricesMutation.mutateAsync(newPrices);
       } catch (err) {
-        console.error('Error replacing prices:', err);
+        logger.error('Error replacing prices:', err);
         throw err;
       }
     },
-    []
+    [replaceAllPricesMutation]
   );
 
   /**
@@ -182,6 +260,6 @@ export function usePricesData() {
     addPrice,
     bulkUpdatePrices,
     replaceAllPrices,
-    reloadPrices: loadPrices,
+    reloadPrices,
   };
 }

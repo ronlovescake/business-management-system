@@ -34,6 +34,9 @@ interface DataTableProps<T = Record<string, unknown>> {
   showFooter?: boolean;
   footerContent?: ReactNode;
   height?: string;
+  showSummary?: boolean;
+  summaryLeft?: ReactNode;
+  summaryRight?: ReactNode;
 }
 
 /**
@@ -70,6 +73,9 @@ export function DataTable<T extends { id: string | number }>({
   showFooter = false,
   footerContent,
   height = '71vh',
+  showSummary = false,
+  summaryLeft,
+  summaryRight,
 }: DataTableProps<T>) {
   return (
     <Stack gap="md">
@@ -174,6 +180,20 @@ export function DataTable<T extends { id: string | number }>({
           </Table>
         </Box>
       </Card>
+
+      {/* Summary Bar - Like Expenses Page */}
+      {showSummary && (
+        <Card withBorder padding="md">
+          <Group justify="space-between">
+            {summaryLeft || (
+              <Text size="sm" c="dimmed">
+                Showing {data.length} records
+              </Text>
+            )}
+            {summaryRight}
+          </Group>
+        </Card>
+      )}
     </Stack>
   );
 }

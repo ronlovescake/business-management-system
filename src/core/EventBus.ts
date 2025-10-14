@@ -8,7 +8,7 @@
  *
  * // Subscribe to events
  * const unsubscribe = eventBus.on('customer:selected', (data) => {
- *   console.log('Customer selected:', data);
+ *   logger.debug('Customer selected:', data);
  * });
  *
  * // Emit events
@@ -109,13 +109,13 @@ class EventBus {
     const handlers = this.events.get(event);
 
     if (handlers && handlers.size > 0) {
-      console.log(`📡 Event emitted: ${String(event)}`, data);
+      logger.debug(`📡 Event emitted: ${String(event)}`, data);
 
       handlers.forEach((handler) => {
         try {
           handler(data);
         } catch (error) {
-          console.error(`Error in event handler for ${String(event)}:`, error);
+          logger.error(`Error in event handler for ${String(event)}:`, error);
         }
       });
     }

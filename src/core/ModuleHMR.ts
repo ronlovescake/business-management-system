@@ -78,7 +78,7 @@ class ModuleHMR {
     const startTime = Date.now();
 
     try {
-      console.log(`🔄 HMR: Reloading module: ${moduleId}`);
+      logger.debug(`🔄 HMR: Reloading module: ${moduleId}`);
 
       // Emit beforeReload event
       this.emitEvent('beforeReload', moduleId);
@@ -117,8 +117,8 @@ class ModuleHMR {
 
       const duration = Date.now() - startTime;
 
-      console.log(`✅ HMR: Module reloaded successfully`);
-      console.log(`⏱️  Duration: ${duration}ms`);
+      logger.debug(`✅ HMR: Module reloaded successfully`);
+      logger.debug(`⏱️  Duration: ${duration}ms`);
 
       // Emit afterReload event
       this.emitEvent('afterReload', moduleId, { duration });
@@ -133,7 +133,7 @@ class ModuleHMR {
       const duration = Date.now() - startTime;
       const errorMessage = (error as Error).message;
 
-      console.error(`❌ HMR: Reload failed for ${moduleId}:`, errorMessage);
+      logger.error(`❌ HMR: Reload failed for ${moduleId}:`, errorMessage);
 
       // Emit error event
       this.emitEvent('error', moduleId, error);
@@ -194,10 +194,10 @@ class ModuleHMR {
         typeof window !== 'undefined' &&
         (window as { __NEXT_DATA__?: { buildId: string } }).__NEXT_DATA__
       ) {
-        console.log('🔄 Clearing Next.js cache for:', moduleId);
+        logger.debug('🔄 Clearing Next.js cache for:', moduleId);
       }
 
-      console.log(`🗑️  Cache invalidated for: ${moduleId}`);
+      logger.debug(`🗑️  Cache invalidated for: ${moduleId}`);
     } catch (error) {
       throw new HMRError(
         `Cache invalidation failed: ${(error as Error).message}`,
@@ -223,10 +223,10 @@ class ModuleHMR {
         // Add actual state preservation logic here
       });
 
-      console.log(`💾 State preserved for: ${moduleId}`);
+      logger.debug(`💾 State preserved for: ${moduleId}`);
     } catch (error) {
       // State preservation is best effort - don't fail the reload
-      console.warn(`⚠️  Failed to preserve state for ${moduleId}:`, error);
+      logger.warn(`⚠️  Failed to preserve state for ${moduleId}:`, error);
     }
   }
 
@@ -243,11 +243,11 @@ class ModuleHMR {
         // 2. Deserialize saved state
         // 3. Apply to new component instance
 
-        console.log(`♻️  State restored for: ${moduleId}`);
+        logger.debug(`♻️  State restored for: ${moduleId}`);
       }
     } catch (error) {
       // State restoration is best effort - don't fail the reload
-      console.warn(`⚠️  Failed to restore state for ${moduleId}:`, error);
+      logger.warn(`⚠️  Failed to restore state for ${moduleId}:`, error);
     } finally {
       // Clean up saved state
       this.moduleStates.delete(moduleId);
@@ -266,7 +266,7 @@ class ModuleHMR {
         return;
       }
 
-      console.log(`🔄 Reloading ${dependents.length} dependent modules...`);
+      logger.debug(`🔄 Reloading ${dependents.length} dependent modules...`);
 
       // Reload each dependent
       for (const depId of dependents) {
@@ -278,7 +278,7 @@ class ModuleHMR {
       }
     } catch (error) {
       // Dependent reload failures don't fail the main reload
-      console.warn(
+      logger.warn(
         `⚠️  Failed to reload dependents of ${moduleId}:`,
         (error as Error).message
       );
@@ -314,7 +314,7 @@ class ModuleHMR {
     // Queue new reload
     const timeout = setTimeout(() => {
       this.reloadModule(moduleId, options).catch((error) => {
-        console.error(`HMR queue reload failed for ${moduleId}:`, error);
+        logger.error(`HMR queue reload failed for ${moduleId}:`, error);
       });
 
       this.reloadQueue.delete(moduleId);
@@ -382,7 +382,7 @@ class ModuleHMR {
         try {
           handler(moduleId, data);
         } catch (error) {
-          console.error(`Error in HMR ${event} handler:`, error);
+          logger.error(`Error in HMR ${event} handler:`, error);
         }
       }
     }
@@ -431,7 +431,7 @@ class ModuleHMR {
     this.clearAllQueues();
     this.moduleStates.clear();
     this.eventHandlers.clear();
-    console.log('🗑️  HMR system cleaned up');
+    logger.debug('🗑️  HMR system cleaned up');
   }
 }
 

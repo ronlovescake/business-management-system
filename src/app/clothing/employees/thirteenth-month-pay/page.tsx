@@ -238,6 +238,17 @@ export default function ThirteenthMonthPayPage() {
         columns={columns}
         actions={actions}
         emptyMessage="No 13th month pay records found"
+        showSummary
+        summaryLeft={
+          <span style={{ fontSize: '14px', color: '#868e96' }}>
+            Showing {records.length} of {statsData.total} records
+          </span>
+        }
+        summaryRight={
+          <span style={{ fontSize: '14px', fontWeight: 600 }}>
+            Total Amount: {formatCurrency(statsData.totalAmount)}
+          </span>
+        }
       />
 
       <ThirteenthMonthPayFormDialog

@@ -16,6 +16,7 @@ import { useCallback, useRef } from 'react';
 import { notifications } from '@mantine/notifications';
 import type { Item } from '@glideapps/glide-data-grid';
 import { TransactionService } from '../services/TransactionService';
+import { logger } from '@/lib/logger';
 import type { TransactionData, PriceTier } from '../types/transaction.types';
 
 interface UseTransactionOperationsProps {
@@ -110,7 +111,7 @@ export function useTransactionOperations(
 
         return await response.json();
       } catch (error) {
-        console.error('Error saving transaction:', error);
+        logger.error('Error saving transaction:', error);
         throw error;
       }
     },
@@ -160,7 +161,7 @@ export function useTransactionOperations(
 
         if (isBatchEdit || isBatchModeRef.current) {
           // BATCH MODE
-          console.log(
+          logger.debug(
             `📦 Batching update for transaction ${transaction.id}:`,
             data
           );
@@ -168,7 +169,7 @@ export function useTransactionOperations(
           batchUpdatesRef.current.set(transaction.id, { ...existing, ...data });
         } else {
           // IMMEDIATE MODE
-          console.log(
+          logger.debug(
             `🔄 Immediate update for transaction ${transaction.id}:`,
             data
           );
@@ -185,7 +186,7 @@ export function useTransactionOperations(
         if (!isBatchEdit && !isBatchModeRef.current) {
           notifications.show(options);
         } else {
-          console.log(
+          logger.debug(
             '🔇 Notification suppressed (batch mode):',
             options.message
           );
@@ -275,7 +276,7 @@ export function useTransactionOperations(
                       saveTransactionToDatabase({
                         ...transaction,
                         Customers: '',
-                      }).catch(console.error);
+                      }).catch(logger.error);
                     }
                     notifications.show({
                       title: '🚫 Customer Selection Cancelled',
@@ -287,7 +288,7 @@ export function useTransactionOperations(
                 });
               }
             })
-            .catch(console.error);
+            .catch(logger.error);
         }
 
         // Auto-populate Order Date if empty
@@ -726,7 +727,7 @@ export function useTransactionOperations(
           details?: string;
           error?: string;
         };
-        console.error('API error response:', errorData);
+        logger.error('API error response:', errorData);
         throw new Error(
           errorData.details ||
             errorData.error ||
@@ -748,7 +749,7 @@ export function useTransactionOperations(
         autoClose: 3000,
       });
     } catch (error) {
-      console.error('Error adding empty rows:', error);
+      logger.error('Error adding empty rows:', error);
       const errorMessage =
         error instanceof Error
           ? error.message
@@ -813,7 +814,7 @@ export function useTransactionOperations(
           autoClose: 5000,
         });
       } catch (error) {
-        console.error('Import error:', error);
+        logger.error('Import error:', error);
         notifications.show({
           title: '❌ Import Failed',
           message: 'Failed to parse CSV file. Please check the file format.',

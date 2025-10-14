@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import type { Prisma, Product } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic';
@@ -14,7 +16,7 @@ function getStringField(record: ProductImportRow, key: string): string | null {
     const trimmed = value.trim();
     return trimmed.length === 0 ? null : trimmed;
   }
-  return value == null ? null : String(value);
+  return value === null || value === undefined ? null : String(value);
 }
 
 function getNumberField(record: ProductImportRow, key: string): number {
@@ -119,7 +121,7 @@ export async function GET() {
 
     return NextResponse.json(transformedProducts);
   } catch (error) {
-    console.error('Failed to fetch products:', error);
+    logger.error('Failed to fetch products:', error);
     return NextResponse.json(
       { error: 'Failed to fetch products' },
       { status: 500 }
@@ -170,7 +172,7 @@ export async function POST(request: NextRequest) {
       );
     }
   } catch (error) {
-    console.error('Failed to process products:', error);
+    logger.error('Failed to process products:', error);
     return NextResponse.json(
       { error: 'Failed to process products' },
       { status: 500 }
@@ -205,7 +207,7 @@ export async function PUT(request: NextRequest) {
       count: result.count,
     });
   } catch (error) {
-    console.error('Failed to update products:', error);
+    logger.error('Failed to update products:', error);
     return NextResponse.json(
       { error: 'Failed to update products' },
       { status: 500 }
@@ -223,7 +225,7 @@ export async function DELETE() {
       count: result.count,
     });
   } catch (error) {
-    console.error('Failed to delete products:', error);
+    logger.error('Failed to delete products:', error);
     return NextResponse.json(
       { error: 'Failed to delete products' },
       { status: 500 }

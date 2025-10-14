@@ -110,7 +110,7 @@ export class ShipmentService {
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       return diffDays.toString();
     } catch (error) {
-      console.error('Error calculating duration:', error);
+      logger.error('Error calculating duration:', error);
       return '';
     }
   }
@@ -141,7 +141,7 @@ export class ShipmentService {
 
       return this.calculateDuration(dateCreated, dateDelivered);
     } catch (error) {
-      console.error('Error parsing dates:', error);
+      logger.error('Error parsing dates:', error);
       return '';
     }
   }

@@ -16,6 +16,7 @@ import {
   SortingDistributionStatistics,
   AUTO_SAVE_DELAY,
 } from '../types/sortingDistribution.types';
+import { logger } from '@/lib/logger';
 
 export interface UseSortingDistributionDataReturn {
   // Data
@@ -125,7 +126,7 @@ export function useSortingDistributionData({
   const loadDistributionData = useCallback(
     async (code: string) => {
       if (!code) {
-        console.log('No product code, using default rows');
+        logger.debug('No product code, using default rows');
         setRows(SortingDistributionService.createDefaultRows());
         onSelectedQuantityChange(null);
         return;
@@ -185,11 +186,11 @@ export function useSortingDistributionData({
    */
   useEffect(() => {
     if (!productCode) {
-      console.log('No product code, skipping auto-save');
+      logger.debug('No product code, skipping auto-save');
       return;
     }
 
-    console.log('Change detected, scheduling auto-save');
+    logger.debug('Change detected, scheduling auto-save');
 
     // Clear existing timeout
     if (saveTimeoutRef.current) {

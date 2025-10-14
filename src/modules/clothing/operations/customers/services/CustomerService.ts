@@ -1,4 +1,4 @@
-import {
+import type {
   CustomerData,
   CustomerFormData,
   CustomerStats,
@@ -7,6 +7,7 @@ import {
   CustomerWithSearchIndex,
   CustomerStatusOption,
 } from '../types/customer.types';
+import { logger } from '@/lib/logger';
 
 /**
  * Customer Service
@@ -303,10 +304,12 @@ class CustomerService {
       const res = await fetch('/api/customers', {
         next: { revalidate: 30 },
       });
-      if (!res.ok) throw new Error('Failed to load customers');
+      if (!res.ok) {
+        throw new Error('Failed to load customers');
+      }
       return await res.json();
     } catch (error) {
-      console.error('Failed to load customers', error);
+      logger.error('Failed to load customers', error);
       throw error;
     }
   }
@@ -326,7 +329,7 @@ class CustomerService {
         throw new Error(json?.error || 'Failed to add customer');
       }
     } catch (error) {
-      console.error('Failed to add customer', error);
+      logger.error('Failed to add customer', error);
       throw error;
     }
   }
@@ -347,7 +350,7 @@ class CustomerService {
         throw new Error(json?.error || 'Failed to update customers');
       }
     } catch (error) {
-      console.error('Failed to update customers', error);
+      logger.error('Failed to update customers', error);
       throw error;
     }
   }
