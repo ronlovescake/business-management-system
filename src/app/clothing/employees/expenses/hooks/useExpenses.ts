@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
 import { logger } from '@/lib/logger';
+import { useExpenseData } from '@/hooks/useSheetData';
+import { notifications } from '@mantine/notifications';
 
 /**
  * Expense Interface
@@ -53,44 +55,37 @@ export interface MonthlyBreakdown {
  */
 export function useExpenses() {
   // ============================================================================
-  // STATE MANAGEMENT
+  // DATABASE CONNECTION
   // ============================================================================
 
-  const [expenses, setExpenses] = useState<Expense[]>([
-    {
-      id: '1',
-      date: '2024-10-01',
-      amount: 250.0,
-      description: 'Office Supplies',
-      category: 'Supplies',
-      notes: 'Pens, paper, folders',
-      receipt: 'receipt_001.pdf',
-      status: 'approved',
-      employeeName: 'John Doe',
-    },
-    {
-      id: '2',
-      date: '2024-10-05',
-      amount: 450.0,
-      description: 'Client Lunch',
-      category: 'Meals',
-      notes: 'Meeting with ABC Corp',
-      receipt: null,
-      status: 'pending',
-      employeeName: 'Jane Smith',
-    },
-    {
-      id: '3',
-      date: '2024-10-08',
-      amount: 1200.0,
-      description: 'Software License',
-      category: 'Software',
-      notes: 'Annual subscription',
-      receipt: 'receipt_003.pdf',
-      status: 'approved',
-      employeeName: 'Bob Johnson',
-    },
-  ]);
+  const {
+    data: expensesFromDB,
+    isLoading: isLoadingExpenses,
+    create: createExpense,
+    update: updateExpense,
+    delete: deleteExpense,
+    bulkUpdate: _bulkUpdateExpenses,
+    bulkCreate: bulkCreateExpenses,
+  } = useExpenseData();
+
+  // Convert from database format to UI format
+  const expenses = useMemo(() => {
+    return expensesFromDB.map((exp) => ({
+      id: String(exp.id),
+      date: exp.date,
+      amount: exp.amount,
+      description: exp.description,
+      category: exp.category,
+      notes: exp.notes ?? '',
+      receipt: exp.receipt,
+      status: exp.status as 'pending' | 'approved' | 'rejected',
+      employeeName: exp.employeeName ?? undefined,
+    }));
+  }, [expensesFromDB]);
+
+  // ============================================================================
+  // STATE MANAGEMENT
+  // ============================================================================
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
@@ -331,7 +326,12 @@ export function useExpenses() {
 
   const handleDeleteExpense = (id: string) => {
     if (confirm('Are you sure you want to delete this expense?')) {
-      setExpenses((prev) => prev.filter((exp) => exp.id !== id));
+      deleteExpense(Number(id));
+      notifications.show({
+        title: 'Success',
+        message: 'Expense deleted successfully',
+        color: 'green',
+      });
     }
   };
 
@@ -362,24 +362,26 @@ export function useExpenses() {
 
   const saveExpenseData = (receiptFileName: string | null) => {
     if (editingExpense) {
-      setExpenses((prev) =>
-        prev.map((exp) =>
-          exp.id === editingExpense.id
-            ? {
-                ...exp,
-                date: formDate,
-                amount: Number(formAmount),
-                description: formDescription,
-                category: formCategory,
-                notes: formNotes,
-                receipt: receiptFileName,
-              }
-            : exp
-        )
-      );
+      updateExpense({
+        id: Number(editingExpense.id),
+        data: {
+          date: formDate,
+          amount: Number(formAmount),
+          description: formDescription,
+          category: formCategory,
+          notes: formNotes,
+          receipt: receiptFileName,
+          status: editingExpense.status,
+          employeeName: editingExpense.employeeName || null,
+        },
+      });
+      notifications.show({
+        title: 'Success',
+        message: 'Expense updated successfully',
+        color: 'green',
+      });
     } else {
-      const newExpense: Expense = {
-        id: Date.now().toString(),
+      createExpense({
         date: formDate,
         amount: Number(formAmount),
         description: formDescription,
@@ -388,27 +390,39 @@ export function useExpenses() {
         receipt: receiptFileName,
         status: 'pending',
         employeeName: 'Current User',
-      };
-      setExpenses((prev) => [...prev, newExpense]);
+      });
+      notifications.show({
+        title: 'Success',
+        message: 'Expense created successfully',
+        color: 'green',
+      });
     }
 
     setIsModalOpen(false);
   };
 
   const handleApprove = (id: string) => {
-    setExpenses((prev) =>
-      prev.map((exp) =>
-        exp.id === id ? { ...exp, status: 'approved' as const } : exp
-      )
-    );
+    updateExpense({
+      id: Number(id),
+      data: { status: 'approved' },
+    });
+    notifications.show({
+      title: 'Success',
+      message: 'Expense approved',
+      color: 'green',
+    });
   };
 
   const handleReject = (id: string) => {
-    setExpenses((prev) =>
-      prev.map((exp) =>
-        exp.id === id ? { ...exp, status: 'rejected' as const } : exp
-      )
-    );
+    updateExpense({
+      id: Number(id),
+      data: { status: 'rejected' },
+    });
+    notifications.show({
+      title: 'Success',
+      message: 'Expense rejected',
+      color: 'red',
+    });
   };
 
   const handleViewReceipt = (receiptName: string) => {
@@ -570,7 +584,25 @@ export function useExpenses() {
         }
 
         if (importedExpenses.length > 0) {
-          setExpenses((prev) => [...prev, ...importedExpenses]);
+          // Import new expenses by creating them in bulk
+          bulkCreateExpenses(
+            importedExpenses.map((exp) => ({
+              date: exp.date,
+              amount: exp.amount,
+              description: exp.description,
+              category: exp.category,
+              notes: exp.notes || null,
+              receipt: exp.receipt,
+              status: exp.status,
+              employeeName: exp.employeeName || null,
+            }))
+          );
+
+          notifications.show({
+            title: 'Success',
+            message: `${importedExpenses.length} expenses imported successfully`,
+            color: 'green',
+          });
         }
 
         let message =
@@ -683,6 +715,7 @@ export function useExpenses() {
     activeTab,
     setActiveTab,
     isImporting,
+    isLoading: isLoadingExpenses,
 
     // Form state
     formDate,

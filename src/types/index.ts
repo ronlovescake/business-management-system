@@ -101,6 +101,18 @@ export interface PriceDTO {
   'Price Adjustment': number;
 }
 
+export interface ExpenseDTO {
+  id: number;
+  date: string;
+  amount: number;
+  description: string;
+  category: string;
+  notes: string | null;
+  receipt: string | null;
+  status: string;
+  employeeName: string | null;
+}
+
 // Legacy support
 export interface ShipmentData extends ShipmentDTO {}
 

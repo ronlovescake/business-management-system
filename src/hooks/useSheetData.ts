@@ -5,6 +5,7 @@ import {
   TransactionService,
   ShipmentService,
   PriceService,
+  ExpenseService,
 } from '../services';
 import type {
   CustomerDTO,
@@ -12,6 +13,7 @@ import type {
   TransactionDTO,
   ShipmentDTO,
   PriceDTO,
+  ExpenseDTO,
 } from '../types';
 
 /**
@@ -290,5 +292,74 @@ export function usePriceData() {
     bulkUpdate: bulkUpdateMutation.mutate,
     isCreating: createMutation.isPending,
     isBulkUpdating: bulkUpdateMutation.isPending,
+  };
+}
+
+/**
+ * Expense Data Hook
+ */
+export function useExpenseData() {
+  const queryClient = useQueryClient();
+  const queryKey = ['expenses'];
+
+  const {
+    data = [],
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey,
+    queryFn: () => ExpenseService.getAll(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (newItem: Partial<ExpenseDTO>) =>
+      ExpenseService.create(newItem),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string | number;
+      data: Partial<ExpenseDTO>;
+    }) => ExpenseService.update(id, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string | number) => ExpenseService.deleteById(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  const bulkUpdateMutation = useMutation({
+    mutationFn: (newData: ExpenseDTO[]) => ExpenseService.bulkUpdate(newData),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  const bulkCreateMutation = useMutation({
+    mutationFn: (newData: Partial<ExpenseDTO>[]) =>
+      ExpenseService.bulkCreate(newData),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  return {
+    data,
+    isLoading,
+    error,
+    refetch,
+    create: createMutation.mutate,
+    update: updateMutation.mutate,
+    delete: deleteMutation.mutate,
+    bulkUpdate: bulkUpdateMutation.mutate,
+    bulkCreate: bulkCreateMutation.mutate,
+    isCreating: createMutation.isPending,
+    isUpdating: updateMutation.isPending,
+    isDeleting: deleteMutation.isPending,
+    isBulkUpdating: bulkUpdateMutation.isPending,
+    isBulkCreating: bulkCreateMutation.isPending,
   };
 }

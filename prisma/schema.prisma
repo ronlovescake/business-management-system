@@ -213,3 +213,27 @@ model ModuleMarketplace {
   @@index([downloads])
   @@map("module_marketplace")
 }
+
+// ============================================================================
+// EXPENSES MODULE
+// ============================================================================
+
+model Expense {
+  id           Int      @id @default(autoincrement())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  date         String   @db.VarChar(50)
+  amount       Float
+  description  String   @db.VarChar(500)
+  category     String   @db.VarChar(100)
+  notes        String?  @db.Text
+  receipt      String?  @db.VarChar(500)
+  status       String   @db.VarChar(20) // 'pending' | 'approved' | 'rejected'
+  employeeName String?  @db.VarChar(255)
+
+  @@index([date])
+  @@index([category])
+  @@index([status])
+  @@index([employeeName])
+  @@map("expenses")
+}
