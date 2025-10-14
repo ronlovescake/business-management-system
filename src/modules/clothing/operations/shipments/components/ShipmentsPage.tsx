@@ -164,7 +164,14 @@ export function ShipmentsPage() {
   // GRID CONFIGURATION
   // ==========================================================================
 
-  const columns = useMemo(() => GRID_COLUMNS, []);
+  const columns = useMemo(
+    () =>
+      GRID_COLUMNS.map((column) => ({
+        ...column,
+        id: column.id ?? '',
+      })),
+    []
+  );
 
   // Create cell content getter with alignment
   const cellContentGetter = (cell: Item) => {
@@ -191,7 +198,9 @@ export function ShipmentsPage() {
   };
 
   const handleSubmitEdit = async (values: typeof editShipmentForm.values) => {
-    if (!editingShipment) return;
+    if (!editingShipment) {
+      return;
+    }
     await updateShipment(editingShipment.id, values, editingShipment);
   };
 

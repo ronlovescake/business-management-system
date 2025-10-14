@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { EmployeeLoan, EmployeeLoanFormData } from '../types';
+import type { EmployeeLoan, EmployeeLoanFormData } from '../types';
 
 export function useEmployeeLoans() {
   // Sample data
@@ -159,7 +159,9 @@ export function useEmployeeLoans() {
     annualRate: number,
     months: number
   ) => {
-    if (annualRate === 0) return principal / months;
+    if (annualRate === 0) {
+      return principal / months;
+    }
     const monthlyRate = annualRate / 100 / 12;
     return (
       (principal * monthlyRate * Math.pow(1 + monthlyRate, months)) /
@@ -300,7 +302,9 @@ export function useEmployeeLoans() {
   };
 
   const handleImportCSV = (file: File | null) => {
-    if (!file) return;
+    if (!file) {
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (e) => {

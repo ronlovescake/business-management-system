@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { CashAdvance, CashAdvanceFormData } from '../types';
+import type { CashAdvance, CashAdvanceFormData } from '../types';
 
 export function useCashAdvance() {
   // State Management
@@ -203,7 +203,9 @@ export function useCashAdvance() {
   };
 
   const handleImportCSV = (file: File | null) => {
-    if (!file) return;
+    if (!file) {
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (e) => {

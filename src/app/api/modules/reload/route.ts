@@ -6,9 +6,11 @@
  * Triggers hot module replacement for a specific module
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { moduleHMR } from '@/core/ModuleHMR';
 import type { HMROptions } from '@/core/ModuleHMR';
+import { logger } from '@/lib/logger';
 
 // ============================================================================
 // REQUEST/RESPONSE TYPES

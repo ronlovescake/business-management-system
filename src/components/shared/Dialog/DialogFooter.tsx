@@ -6,7 +6,7 @@
  */
 
 import { Group, Button, Divider } from '@mantine/core';
-import { DialogFooterProps } from './Dialog.types';
+import type { DialogFooterProps } from './Dialog.types';
 
 export function DialogFooter({
   primaryButton,
@@ -52,10 +52,11 @@ export function DialogFooter({
   }
 
   // Add additional buttons
-  additionalButtons.forEach((btn, index) => {
+  additionalButtons.forEach((btn) => {
+    const key = `additional-${btn.label ?? btn.variant ?? 'button'}`;
     buttons.push(
       <Button
-        key={`additional-${index}`}
+        key={key}
         variant={btn.variant || 'light'}
         color={btn.color}
         onClick={btn.onClick}

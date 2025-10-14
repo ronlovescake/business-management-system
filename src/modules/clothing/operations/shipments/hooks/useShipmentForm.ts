@@ -60,27 +60,39 @@ export function useShipmentForm() {
       shipmentStatus: (value) =>
         !value ? FORM_VALIDATION_RULES.shipmentStatus.message : null,
       noOfSacks: (value) => {
-        if (value === null || value === undefined)
+        if (value === null || value === undefined) {
           return FORM_VALIDATION_RULES.noOfSacks.messageRequired;
-        if (value < 0) return FORM_VALIDATION_RULES.noOfSacks.messageMin;
+        }
+        if (value < 0) {
+          return FORM_VALIDATION_RULES.noOfSacks.messageMin;
+        }
         return null;
       },
       totalCBM: (value) => {
-        if (value === null || value === undefined)
+        if (value === null || value === undefined) {
           return FORM_VALIDATION_RULES.totalCBM.messageRequired;
-        if (value < 0) return FORM_VALIDATION_RULES.totalCBM.messageMin;
+        }
+        if (value < 0) {
+          return FORM_VALIDATION_RULES.totalCBM.messageMin;
+        }
         return null;
       },
       weight: (value) => {
-        if (value === null || value === undefined)
+        if (value === null || value === undefined) {
           return FORM_VALIDATION_RULES.weight.messageRequired;
-        if (value < 0) return FORM_VALIDATION_RULES.weight.messageMin;
+        }
+        if (value < 0) {
+          return FORM_VALIDATION_RULES.weight.messageMin;
+        }
         return null;
       },
       fee: (value) => {
-        if (value === null || value === undefined)
+        if (value === null || value === undefined) {
           return FORM_VALIDATION_RULES.fee.messageRequired;
-        if (value < 0) return FORM_VALIDATION_RULES.fee.messageMin;
+        }
+        if (value < 0) {
+          return FORM_VALIDATION_RULES.fee.messageMin;
+        }
         return null;
       },
       dateCreated: (value) =>
@@ -108,27 +120,39 @@ export function useShipmentForm() {
       shipmentStatus: (value) =>
         !value ? FORM_VALIDATION_RULES.shipmentStatus.message : null,
       noOfSacks: (value) => {
-        if (value === null || value === undefined)
+        if (value === null || value === undefined) {
           return FORM_VALIDATION_RULES.noOfSacks.messageRequired;
-        if (value < 0) return FORM_VALIDATION_RULES.noOfSacks.messageMin;
+        }
+        if (value < 0) {
+          return FORM_VALIDATION_RULES.noOfSacks.messageMin;
+        }
         return null;
       },
       totalCBM: (value) => {
-        if (value === null || value === undefined)
+        if (value === null || value === undefined) {
           return FORM_VALIDATION_RULES.totalCBM.messageRequired;
-        if (value < 0) return FORM_VALIDATION_RULES.totalCBM.messageMin;
+        }
+        if (value < 0) {
+          return FORM_VALIDATION_RULES.totalCBM.messageMin;
+        }
         return null;
       },
       weight: (value) => {
-        if (value === null || value === undefined)
+        if (value === null || value === undefined) {
           return FORM_VALIDATION_RULES.weight.messageRequired;
-        if (value < 0) return FORM_VALIDATION_RULES.weight.messageMin;
+        }
+        if (value < 0) {
+          return FORM_VALIDATION_RULES.weight.messageMin;
+        }
         return null;
       },
       fee: (value) => {
-        if (value === null || value === undefined)
+        if (value === null || value === undefined) {
           return FORM_VALIDATION_RULES.fee.messageRequired;
-        if (value < 0) return FORM_VALIDATION_RULES.fee.messageMin;
+        }
+        if (value < 0) {
+          return FORM_VALIDATION_RULES.fee.messageMin;
+        }
         return null;
       },
       dateCreated: (value) =>

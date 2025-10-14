@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   Stack,
   Card,
@@ -17,7 +16,7 @@ import {
   IconEdit,
   IconTrash,
 } from '@tabler/icons-react';
-import { Expense } from '../hooks/useExpenses';
+import type { Expense } from '../hooks/useExpenses';
 
 interface ExpenseListTableProps {
   expenses: Expense[];
@@ -186,7 +185,11 @@ export function ExpenseListTable({
                         <Group
                           gap="xs"
                           style={{ cursor: 'pointer' }}
-                          onClick={() => onViewReceipt(expense.receipt!)}
+                          onClick={() => {
+                            if (expense.receipt) {
+                              onViewReceipt(expense.receipt);
+                            }
+                          }}
                         >
                           <IconReceipt size={16} color="#495057" />
                           <Text

@@ -1,5 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { logger } from '@/lib/logger';
 
 const prisma = new PrismaClient();
 
@@ -17,7 +19,7 @@ export async function PUT(
     }
 
     const productData = await request.json();
-    
+
     // Update the product in the database
     const updatedProduct = await prisma.product.update({
       where: { id },
@@ -37,13 +39,14 @@ export async function PUT(
         unit: productData['Unit'] || null,
         unitPrice: parseFloat(productData['Unit Price']) || 0,
         quantity: parseFloat(productData['Quantity']) || 0,
-        alibabaShippingCost: parseFloat(productData['Alibaba Shipping Cost']) || 0,
+        alibabaShippingCost:
+          parseFloat(productData['Alibaba Shipping Cost']) || 0,
         exchangeRates: parseFloat(productData['Exchange Rates']) || 0,
         php: parseFloat(productData['PHP']) || 0,
         subTotalPHP: parseFloat(productData['Sub Total (PHP)']) || 0,
         transactionFee: parseFloat(productData['Transaction Fee']) || 0,
         grandTotal: parseFloat(productData['Grand Total']) || 0,
-        forwardersFee: parseFloat(productData['Forwarder\'s Fee']) || 0,
+        forwardersFee: parseFloat(productData["Forwarder's Fee"]) || 0,
         lalamove: parseFloat(productData['Lalamove']) || 0,
         packagingCost: parseFloat(productData['Packaging Cost']) || 0,
         suggestedPrice: parseFloat(productData['Suggested Price']) || 0,
@@ -52,14 +55,15 @@ export async function PUT(
         cogs: parseFloat(productData['COGS']) || 0,
         projectedSales: parseFloat(productData['Projected Sales']) || 0,
         projectedProfit: parseFloat(productData['Projected Profit']) || 0,
-        projectedProfitPercent: parseFloat(productData['Projected Profit (%)']) || 0,
+        projectedProfitPercent:
+          parseFloat(productData['Projected Profit (%)']) || 0,
         totalMarkup: parseFloat(productData['Total Markup']) || 0,
-      }
+      },
     });
 
     return NextResponse.json({
       message: 'Product updated successfully',
-      product: updatedProduct
+      product: updatedProduct,
     });
   } catch (error) {
     logger.error('Failed to update product:', error);
@@ -84,14 +88,11 @@ export async function GET(
     }
 
     const product = await prisma.product.findUnique({
-      where: { id }
+      where: { id },
     });
 
     if (!product) {
-      return NextResponse.json(
-        { error: 'Product not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
 
     return NextResponse.json(product);
@@ -118,11 +119,11 @@ export async function DELETE(
     }
 
     await prisma.product.delete({
-      where: { id }
+      where: { id },
     });
 
     return NextResponse.json({
-      message: 'Product deleted successfully'
+      message: 'Product deleted successfully',
     });
   } catch (error) {
     logger.error('Failed to delete product:', error);

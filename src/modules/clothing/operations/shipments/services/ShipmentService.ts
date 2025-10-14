@@ -21,6 +21,7 @@ import {
   API_REVALIDATION_SECONDS,
   FORM_VALIDATION_RULES,
 } from '../types/shipment.types';
+import { logger } from '@/lib/logger';
 
 /**
  * ShipmentService - Static methods for shipment business logic
@@ -103,7 +104,9 @@ export class ShipmentService {
     startDate: Date | null,
     endDate: Date | null
   ): string {
-    if (!startDate || !endDate) return '';
+    if (!startDate || !endDate) {
+      return '';
+    }
 
     try {
       const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
@@ -128,7 +131,9 @@ export class ShipmentService {
     dateCreatedStr: string,
     dateDeliveredStr: string
   ): string {
-    if (!dateCreatedStr || !dateDeliveredStr) return '';
+    if (!dateCreatedStr || !dateDeliveredStr) {
+      return '';
+    }
 
     try {
       const dateCreated = new Date(dateCreatedStr);
@@ -171,7 +176,9 @@ export class ShipmentService {
    * @returns Parsed fee as number
    */
   static parseFee(fee: string | number): number {
-    if (typeof fee === 'number') return fee;
+    if (typeof fee === 'number') {
+      return fee;
+    }
 
     const cleanedFee = fee.toString().replace(/[₱,]/g, '');
     return parseFloat(cleanedFee) || 0;

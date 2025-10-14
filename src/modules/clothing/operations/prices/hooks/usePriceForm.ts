@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { PriceFormData, PriceData } from '../types/price.types';
+import type { PriceFormData, PriceData } from '../types/price.types';
 import { PriceService } from '../services/PriceService';
 
 /**

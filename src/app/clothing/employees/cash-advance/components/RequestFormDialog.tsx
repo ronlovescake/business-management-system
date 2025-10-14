@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { TextInput, NumberInput, Textarea } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { ComposedDialog } from '@/components/shared/Dialog';
-import { CashAdvance, CashAdvanceFormData } from '../types';
+import type { CashAdvance, CashAdvanceFormData } from '../types';
 
 interface RequestFormDialogProps {
   opened: boolean;
@@ -29,9 +29,13 @@ export function RequestFormDialog({
     validate: {
       employee: (value) => (!value ? 'Employee name is required' : null),
       amount: (value) => {
-        if (!value) return 'Amount is required';
+        if (!value) {
+          return 'Amount is required';
+        }
         const num = parseFloat(value);
-        if (isNaN(num) || num <= 0) return 'Amount must be greater than 0';
+        if (isNaN(num) || num <= 0) {
+          return 'Amount must be greater than 0';
+        }
         return null;
       },
       purpose: (value) => (!value ? 'Purpose is required' : null),

@@ -16,6 +16,7 @@ import { moduleHMR } from '@/core/ModuleHMR';
 import { moduleSandbox } from '@/core/ModuleSandbox';
 import type { ComponentType } from 'react';
 import type { ModuleLoadResult } from '@/types/module-system';
+import { logger } from '@/lib/logger';
 
 // ============================================================================
 // COMPONENT TYPES
@@ -149,7 +150,9 @@ export function ModuleContainer({
    * Setup HMR if enabled
    */
   useEffect(() => {
-    if (!enableHMR) return;
+    if (!enableHMR) {
+      return;
+    }
 
     const handleAfterReload = (reloadedModuleId: string) => {
       if (reloadedModuleId === moduleId) {

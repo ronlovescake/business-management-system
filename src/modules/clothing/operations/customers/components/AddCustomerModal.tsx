@@ -20,7 +20,7 @@ import {
   IconMapPin,
   IconBuildingStore,
 } from '@tabler/icons-react';
-import { CustomerFormData } from '../types/customer.types';
+import type { CustomerFormData } from '../types/customer.types';
 import { CustomerService } from '../services/CustomerService';
 
 interface AddCustomerModalProps {

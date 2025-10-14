@@ -99,28 +99,36 @@ export function useModulePerformance(
 
   // Register lazy loading strategy
   useEffect(() => {
-    if (lazyLoad) {
-      modulePerformance.registerLazyModule(moduleId, lazyLoad);
+    if (!lazyLoad) {
+      return;
     }
+
+    modulePerformance.registerLazyModule(moduleId, lazyLoad);
   }, [moduleId, lazyLoad]);
 
   // Set cache strategy
   useEffect(() => {
-    if (cacheStrategy) {
-      modulePerformance.setCacheStrategy(moduleId, cacheStrategy);
+    if (!cacheStrategy) {
+      return;
     }
+
+    modulePerformance.setCacheStrategy(moduleId, cacheStrategy);
   }, [moduleId, cacheStrategy]);
 
   // Prefetch if enabled
   useEffect(() => {
-    if (prefetch) {
-      modulePerformance.prefetchModule(moduleId);
+    if (!prefetch) {
+      return;
     }
+
+    modulePerformance.prefetchModule(moduleId);
   }, [moduleId, prefetch]);
 
   // Preload function
   const preload = useCallback(async () => {
-    if (preloadedRef.current) return;
+    if (preloadedRef.current) {
+      return;
+    }
 
     await modulePerformance.preloadModule(moduleId);
     preloadedRef.current = true;
@@ -230,7 +238,9 @@ export function useLazyModule(
   // Ref callback to setup observers
   const setElementRef = useCallback(
     (element: Element | null) => {
-      if (!element) return;
+      if (!element) {
+        return;
+      }
 
       elementRef.current = element;
 
@@ -353,7 +363,9 @@ export function useWarmCache(priority: 'high' | 'medium' | 'low' = 'medium'): {
   const isWarmingRef = useRef(false);
 
   const warm = useCallback(async () => {
-    if (isWarmingRef.current) return;
+    if (isWarmingRef.current) {
+      return;
+    }
 
     isWarmingRef.current = true;
     await modulePerformance.warmCache(priority);

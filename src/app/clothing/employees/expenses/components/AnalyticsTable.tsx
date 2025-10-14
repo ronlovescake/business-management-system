@@ -1,6 +1,5 @@
-import React from 'react';
 import { Card, Box, Table, Text, Badge, Group, Progress } from '@mantine/core';
-import { MonthlyBreakdown } from '../hooks/useExpenses';
+import type { MonthlyBreakdown } from '../hooks/useExpenses';
 
 interface AnalyticsTableProps {
   monthlyBreakdown: MonthlyBreakdown[];

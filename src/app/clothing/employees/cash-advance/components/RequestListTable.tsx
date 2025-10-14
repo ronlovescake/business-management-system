@@ -15,7 +15,7 @@ import {
   IconX,
   IconCurrencyDollar,
 } from '@tabler/icons-react';
-import { CashAdvance } from '../types';
+import type { CashAdvance } from '../types';
 
 interface RequestListTableProps {
   requests: CashAdvance[];

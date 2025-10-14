@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { CustomerFormData, CustomerData } from '../types/customer.types';
+import type { CustomerFormData, CustomerData } from '../types/customer.types';
 import { CustomerService } from '../services/CustomerService';
 
 /**

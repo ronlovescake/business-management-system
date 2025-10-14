@@ -5,10 +5,12 @@
  * POST /api/modules/config - Save a module configuration
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import type { ModulePackage } from '@/core/ModuleRegistry';
 import type { Prisma } from '@prisma/client';
+import { logger } from '@/lib/logger';
 
 /**
  * GET - Fetch all installed modules

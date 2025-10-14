@@ -29,9 +29,11 @@ import {
   IconPlus,
   IconCheck,
 } from '@tabler/icons-react';
-import {
+import type {
   ProductFormData,
   ProductCalculationResults,
+} from '../types/product.types';
+import {
   AGE_RANGE_OPTIONS,
   UNIT_OPTIONS,
   PAYMENT_STATUS_OPTIONS,

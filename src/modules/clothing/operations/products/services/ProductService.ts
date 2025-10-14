@@ -9,7 +9,7 @@
  * - Search functionality
  */
 
-import {
+import type {
   ProductData,
   ProductFormData,
   ProductStatistics,
@@ -18,6 +18,9 @@ import {
   ShipmentData,
   ProductCalculationInputs,
   ProductCalculationResults,
+  ColumnAlignment,
+} from '../types/product.types';
+import {
   TRANSACTION_FEE_RATE,
   SUGGESTED_PRICE_MARKUP,
   SKIP_WORDS,
@@ -26,10 +29,10 @@ import {
   CENTER_ALIGN_COLUMNS,
   LEFT_ALIGN_COLUMNS,
   RIGHT_ALIGN_COLUMNS,
-  ColumnAlignment,
 } from '../types/product.types';
 
 import { calculateProductFinancials } from '@/lib/productCalculations';
+import { logger } from '@/lib/logger';
 
 /**
  * Product Service Class
@@ -259,8 +262,12 @@ export class ProductService {
    * Safe string conversion
    */
   private static toSafeString(value: unknown): string {
-    if (value === null || value === undefined) return '';
-    if (typeof value === 'string') return value.trim();
+    if (value === null || value === undefined) {
+      return '';
+    }
+    if (typeof value === 'string') {
+      return value.trim();
+    }
     return String(value);
   }
 
@@ -268,7 +275,9 @@ export class ProductService {
    * Safe number conversion
    */
   private static toSafeNumber(value: unknown): number {
-    if (value === null || value === undefined || value === '') return 0;
+    if (value === null || value === undefined || value === '') {
+      return 0;
+    }
     const num =
       typeof value === 'string'
         ? parseFloat(value.replace(/,/g, ''))
@@ -729,12 +738,15 @@ export class ProductService {
    * Get column alignment
    */
   static getColumnAlignment(columnId: string): ColumnAlignment {
-    if ((CENTER_ALIGN_COLUMNS as readonly string[]).includes(columnId))
+    if ((CENTER_ALIGN_COLUMNS as readonly string[]).includes(columnId)) {
       return 'center';
-    if ((LEFT_ALIGN_COLUMNS as readonly string[]).includes(columnId))
+    }
+    if ((LEFT_ALIGN_COLUMNS as readonly string[]).includes(columnId)) {
       return 'left';
-    if ((RIGHT_ALIGN_COLUMNS as readonly string[]).includes(columnId))
+    }
+    if ((RIGHT_ALIGN_COLUMNS as readonly string[]).includes(columnId)) {
       return 'right';
+    }
     return 'left'; // default
   }
 

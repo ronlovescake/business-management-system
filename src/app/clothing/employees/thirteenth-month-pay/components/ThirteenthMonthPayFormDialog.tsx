@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { NumberInput, Select, Textarea } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { ComposedDialog } from '@/components/shared/Dialog';
-import { ThirteenthMonthPay, ThirteenthMonthPayFormData } from '../types';
+import type { ThirteenthMonthPay, ThirteenthMonthPayFormData } from '../types';
 
 interface ThirteenthMonthPayFormDialogProps {
   opened: boolean;
@@ -30,7 +30,9 @@ export function ThirteenthMonthPayFormDialog({
     validate: {
       employee: (value) => (!value ? 'Employee name is required' : null),
       year: (value) => {
-        if (!value) return 'Year is required';
+        if (!value) {
+          return 'Year is required';
+        }
         const year = parseInt(value);
         if (isNaN(year) || year < 2000 || year > 2100) {
           return 'Invalid year';
@@ -38,20 +40,29 @@ export function ThirteenthMonthPayFormDialog({
         return null;
       },
       basicSalary: (value) => {
-        if (!value) return 'Basic salary is required';
+        if (!value) {
+          return 'Basic salary is required';
+        }
         const num = parseFloat(value);
-        if (isNaN(num) || num <= 0)
+        if (isNaN(num) || num <= 0) {
           return 'Basic salary must be greater than 0';
+        }
         return null;
       },
       totalEarnings: (value) => {
-        if (!value) return 'Total earnings is required';
+        if (!value) {
+          return 'Total earnings is required';
+        }
         const num = parseFloat(value);
-        if (isNaN(num) || num < 0) return 'Total earnings must be 0 or greater';
+        if (isNaN(num) || num < 0) {
+          return 'Total earnings must be 0 or greater';
+        }
         return null;
       },
       eligibilityMonths: (value) => {
-        if (!value) return 'Eligibility months is required';
+        if (!value) {
+          return 'Eligibility months is required';
+        }
         const num = parseInt(value);
         if (isNaN(num) || num < 1 || num > 12) {
           return 'Eligibility must be between 1 and 12 months';
@@ -59,9 +70,13 @@ export function ThirteenthMonthPayFormDialog({
         return null;
       },
       deductions: (value) => {
-        if (!value) return 'Deductions is required';
+        if (!value) {
+          return 'Deductions is required';
+        }
         const num = parseFloat(value);
-        if (isNaN(num) || num < 0) return 'Deductions must be 0 or greater';
+        if (isNaN(num) || num < 0) {
+          return 'Deductions must be 0 or greater';
+        }
         return null;
       },
     },

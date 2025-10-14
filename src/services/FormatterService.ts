@@ -46,7 +46,9 @@ export class FormatterService {
    * @param date - Date string, Date object, or ISO string
    */
   static formatDate(date: string | Date | null | undefined): string {
-    if (!date) return '';
+    if (!date) {
+      return '';
+    }
 
     try {
       const dateObj = typeof date === 'string' ? new Date(date) : date;
@@ -70,7 +72,9 @@ export class FormatterService {
    * @param date - Date string, Date object, or ISO string
    */
   static formatDateShort(date: string | Date | null | undefined): string {
-    if (!date) return '';
+    if (!date) {
+      return '';
+    }
 
     try {
       const dateObj = typeof date === 'string' ? new Date(date) : date;
@@ -94,7 +98,9 @@ export class FormatterService {
    * @param date - Date string or Date object
    */
   static formatDateISO(date: string | Date | null | undefined): string {
-    if (!date) return '';
+    if (!date) {
+      return '';
+    }
 
     try {
       const dateObj = typeof date === 'string' ? new Date(date) : date;
@@ -114,7 +120,9 @@ export class FormatterService {
    * @param time - Time string or Date object
    */
   static formatTime(time: string | Date | null | undefined): string {
-    if (!time) return '';
+    if (!time) {
+      return '';
+    }
 
     try {
       const dateObj = typeof time === 'string' ? new Date(time) : time;
@@ -137,7 +145,9 @@ export class FormatterService {
    * Format datetime as "Mon Day, Year HH:MM AM/PM"
    */
   static formatDateTime(datetime: string | Date | null | undefined): string {
-    if (!datetime) return '';
+    if (!datetime) {
+      return '';
+    }
 
     try {
       const dateObj =
@@ -161,7 +171,9 @@ export class FormatterService {
    * @example formatPhone("09171234567") → "(0917) 123-4567"
    */
   static formatPhone(phone: string | null | undefined): string {
-    if (!phone) return '';
+    if (!phone) {
+      return '';
+    }
 
     // Remove all non-digits
     const cleaned = phone.replace(/\D/g, '');
@@ -201,7 +213,9 @@ export class FormatterService {
    * @example formatFileSize(1536) → "1.50 KB"
    */
   static formatFileSize(bytes: number | null | undefined): string {
-    if (!bytes || bytes === 0) return '0 Bytes';
+    if (!bytes || bytes === 0) {
+      return '0 Bytes';
+    }
 
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
@@ -215,8 +229,12 @@ export class FormatterService {
    * @example truncate("Long text here", 10) → "Long text..."
    */
   static truncate(text: string | null | undefined, length: number): string {
-    if (!text) return '';
-    if (text.length <= length) return text;
+    if (!text) {
+      return '';
+    }
+    if (text.length <= length) {
+      return text;
+    }
     return text.substring(0, length) + '...';
   }
 
@@ -225,7 +243,9 @@ export class FormatterService {
    * @example titleCase("hello world") → "Hello World"
    */
   static titleCase(text: string | null | undefined): string {
-    if (!text) return '';
+    if (!text) {
+      return '';
+    }
 
     return text
       .toLowerCase()
@@ -239,7 +259,9 @@ export class FormatterService {
    * @example formatOrderStatus("in transit") → "In Transit"
    */
   static formatOrderStatus(status: string | null | undefined): string {
-    if (!status) return '';
+    if (!status) {
+      return '';
+    }
 
     // Specific cases
     const statusMap: Record<string, string> = {

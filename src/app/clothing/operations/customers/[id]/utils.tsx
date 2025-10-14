@@ -62,13 +62,21 @@ export function formatDate(dateString: string): string {
 export function getRateColor(rate: number, isFailure = false): string {
   if (isFailure) {
     // For failure/cancellation rates (lower is better)
-    if (rate <= 10) return 'green';
-    if (rate <= 20) return 'yellow';
+    if (rate <= 10) {
+      return 'green';
+    }
+    if (rate <= 20) {
+      return 'yellow';
+    }
     return 'red';
   } else {
     // For success/completion rates (higher is better)
-    if (rate >= 80) return 'green';
-    if (rate >= 60) return 'yellow';
+    if (rate >= 80) {
+      return 'green';
+    }
+    if (rate >= 60) {
+      return 'yellow';
+    }
     return 'red';
   }
 }

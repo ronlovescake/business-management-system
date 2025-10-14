@@ -1,3 +1,5 @@
+import { logger } from '@/lib/logger';
+
 /**
  * Validation Service - Centralized Validation Logic
  *

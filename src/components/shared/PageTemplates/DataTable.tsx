@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import {
   Stack,
   Card,
@@ -146,14 +146,19 @@ export function DataTable<T extends { id: string | number }>({
                         style={{ padding: '12px', textAlign: 'center' }}
                       >
                         <Group gap="xs" justify="center">
-                          {actions.map((action, index) => {
+                          {actions.map((action) => {
                             const shouldShow = action.show
                               ? action.show(item)
                               : true;
-                            if (!shouldShow) return null;
+                            if (!shouldShow) {
+                              return null;
+                            }
 
                             return (
-                              <Tooltip key={index} label={action.label}>
+                              <Tooltip
+                                key={`action-${action.label}`}
+                                label={action.label}
+                              >
                                 <ActionIcon
                                   variant="subtle"
                                   color={action.color || 'gray'}

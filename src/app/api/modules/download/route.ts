@@ -5,10 +5,12 @@
  * verifying checksums, and extracting to installation directory.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
+import { logger } from '@/lib/logger';
 
 // ============================================================================
 // TYPES

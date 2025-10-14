@@ -39,7 +39,9 @@ export const GridView = forwardRef<unknown, GridViewProps>((props, ref) => {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!pathname) return;
+    if (!pathname) {
+      return;
+    }
 
     let snapshotColumns: GridColumn[];
     if (adapter.normaliseColumns) {

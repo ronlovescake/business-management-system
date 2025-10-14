@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
-import { GridCellKind, Item } from '@glideapps/glide-data-grid';
+import { GridCellKind } from '@glideapps/glide-data-grid';
+import type { GridCell, Item } from '@glideapps/glide-data-grid';
 
 export interface UseDataTableProps<T> {
   data: T[];
@@ -9,7 +10,11 @@ export interface UseDataTableProps<T> {
   initialSearchQuery?: string;
 }
 
-export function useDataTable<T>({ data, searchFields, initialSearchQuery = '' }: UseDataTableProps<T>) {
+export function useDataTable<T>({
+  data,
+  searchFields,
+  initialSearchQuery = '',
+}: UseDataTableProps<T>) {
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
 
   // Search functionality
@@ -27,47 +32,56 @@ export function useDataTable<T>({ data, searchFields, initialSearchQuery = '' }:
     return data.filter((item) => {
       return searchFields.some((field) => {
         const value = item[field];
-        if (value === null || value === undefined) return false;
+        if (value === null || value === undefined) {
+          return false;
+        }
         return value.toString().toLowerCase().includes(searchTerm);
       });
     });
   }, [data, searchFields, searchQuery]);
 
   // Default cell content getter
-  const getCellContent = useCallback((cell: Item, columns: any[], idToKey: Record<string, keyof T>): any => {
-    const [col, row] = cell;
-    const item = filteredData[row];
-    const column = columns[col];
-    
-    if (!item || !column) {
+  const getCellContent = useCallback(
+    (
+      cell: Item,
+      columns: Array<{ id: string }>,
+      idToKey: Record<string, keyof T>
+    ): GridCell => {
+      const [col, row] = cell;
+      const item = filteredData[row];
+      const column = columns[col];
+
+      if (!item || !column) {
+        return {
+          kind: GridCellKind.Text,
+          data: '',
+          displayData: '',
+          allowOverlay: false,
+        };
+      }
+
+      const key = idToKey[column.id as string];
+      const value = item[key];
+
+      // Handle different data types
+      if (typeof value === 'number') {
+        return {
+          kind: GridCellKind.Number,
+          data: value,
+          displayData: value.toLocaleString(),
+          allowOverlay: false,
+        };
+      }
+
       return {
         kind: GridCellKind.Text,
-        data: '',
-        displayData: '',
+        data: value?.toString() || '',
+        displayData: value?.toString() || '',
         allowOverlay: false,
       };
-    }
-
-    const key = idToKey[column.id as string];
-    const value = item[key];
-
-    // Handle different data types
-    if (typeof value === 'number') {
-      return {
-        kind: GridCellKind.Number,
-        data: value,
-        displayData: value.toLocaleString(),
-        allowOverlay: false,
-      };
-    }
-
-    return {
-      kind: GridCellKind.Text,
-      data: value?.toString() || '',
-      displayData: value?.toString() || '',
-      allowOverlay: false,
-    };
-  }, [filteredData]);
+    },
+    [filteredData]
+  );
 
   // Basic stats calculation
   const stats = useMemo(() => {

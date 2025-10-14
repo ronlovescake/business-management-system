@@ -16,6 +16,7 @@ import type {
   ModuleSandboxConfig,
   ResourceUsage,
 } from '@/types/module-system';
+import { logger } from '@/lib/logger';
 
 // ============================================================================
 // SANDBOX ERRORS

@@ -1,12 +1,8 @@
 'use client';
 
-import React from 'react';
-import {
-  GridCell,
-  GridCellKind,
-  GridColumn,
-  Item,
-} from '@glideapps/glide-data-grid';
+import { useCallback } from 'react';
+import { GridCellKind } from '@glideapps/glide-data-grid';
+import type { GridCell, GridColumn, Item } from '@glideapps/glide-data-grid';
 import { Box } from '@mantine/core';
 import { GridView } from '../grid';
 
@@ -40,7 +36,7 @@ export function DataGrid({ height = 400 }: DataGridProps) {
   ];
 
   // Empty data - following the no mock data principle
-  const getData = React.useCallback((cell: Item): GridCell => {
+  const getData = useCallback((cell: Item): GridCell => {
     void cell;
 
     // Return empty cells - real data will be populated later
@@ -52,7 +48,7 @@ export function DataGrid({ height = 400 }: DataGridProps) {
     };
   }, []);
 
-  const getRowCount = React.useCallback(() => {
+  const getRowCount = useCallback(() => {
     // Return 0 rows - real row count will be determined by actual data
     return 0;
   }, []);

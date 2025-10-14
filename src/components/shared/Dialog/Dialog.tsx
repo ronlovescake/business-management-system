@@ -56,7 +56,7 @@
  */
 
 import { Modal, Stack, Loader, Center } from '@mantine/core';
-import { DialogProps, ComposedDialogProps } from './Dialog.types';
+import type { DialogProps, ComposedDialogProps } from './Dialog.types';
 import { DialogHeader } from './DialogHeader';
 import { DialogBody } from './DialogBody';
 import { DialogFooter } from './DialogFooter';

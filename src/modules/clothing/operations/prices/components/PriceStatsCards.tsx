@@ -4,7 +4,7 @@ import {
   IconTrendingUp,
   IconTrendingDown,
 } from '@tabler/icons-react';
-import { PriceStats } from '../types/price.types';
+import type { PriceStats } from '../types/price.types';
 
 interface PriceStatsCardsProps {
   stats: PriceStats;

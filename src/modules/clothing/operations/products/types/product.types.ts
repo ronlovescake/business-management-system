@@ -3,7 +3,7 @@
  * All TypeScript interfaces and types for the Products module
  */
 
-import { GridCell } from '@glideapps/glide-data-grid';
+import type { GridCell } from '@glideapps/glide-data-grid';
 
 /**
  * Core Product Data Structure (32 fields)

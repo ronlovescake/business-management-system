@@ -6,7 +6,7 @@
  */
 
 import { Group, Text, Stack, CloseButton } from '@mantine/core';
-import { DialogHeaderProps } from './Dialog.types';
+import type { DialogHeaderProps } from './Dialog.types';
 
 export function DialogHeader({
   title,

@@ -3,9 +3,12 @@ import { prisma } from '@/lib/db';
 
 function dbMisconfig(): string | null {
   const url = process.env.DATABASE_URL || '';
-  if (!url) return 'DATABASE_URL is not set';
-  if (/postgresql:\/\/username:password@/i.test(url))
+  if (!url) {
+    return 'DATABASE_URL is not set';
+  }
+  if (/postgresql:\/\/username:password@/i.test(url)) {
     return 'DATABASE_URL still has placeholder username/password';
+  }
   return null;
 }
 

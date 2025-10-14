@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import {
   Card,
   Stack,
@@ -110,9 +110,9 @@ export function PageControls({
           style={{ flex: 1 }}
         />
       )}
-      {filters.map((filter, index) => (
+      {filters.map((filter) => (
         <Select
-          key={index}
+          key={`filter-${filter.placeholder}-${filter.value ?? 'all'}`}
           placeholder={filter.placeholder}
           data={filter.data}
           value={filter.value}

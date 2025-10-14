@@ -105,8 +105,7 @@ export function ProductsPage() {
     addProduct,
     updateProduct,
     bulkUpdateProducts,
-    setProducts,
-    setFilteredProducts,
+    refreshProducts,
   } = useProductsData();
 
   const productForm = useProductForm();
@@ -216,7 +215,9 @@ export function ProductsPage() {
    * Handle CSV import
    */
   const handleCSVImport = useCallback(async () => {
-    if (!file) return;
+    if (!file) {
+      return;
+    }
 
     try {
       const text = await file.text();
@@ -246,8 +247,8 @@ export function ProductsPage() {
       const saveResult = await saveResponse.json();
 
       // Update local state
-      setProducts(result.products);
-      setFilteredProducts(result.products);
+      await refreshProducts();
+      handleSearch('');
       setFile(null);
 
       notifications.show({
@@ -266,14 +267,16 @@ export function ProductsPage() {
         autoClose: 4000,
       });
     }
-  }, [file, setProducts, setFilteredProducts]);
+  }, [file, refreshProducts, handleSearch]);
 
   /**
    * Handle paste (multi-cell)
    */
   const handlePaste = useCallback(
     (target: Item, values: readonly (readonly string[])[]) => {
-      if (!pasteMode) return false;
+      if (!pasteMode) {
+        return false;
+      }
       const [startCol, startRow] = target;
       let applied = 0;
       let clipped = false;
@@ -377,25 +380,35 @@ export function ProductsPage() {
    */
   const handleDelete = useCallback(
     (selection: GridSelection) => {
-      if (!pasteMode) return false;
+      if (!pasteMode) {
+        return false;
+      }
 
       const range = selection.current?.range;
-      if (!range) return false;
+      if (!range) {
+        return false;
+      }
 
       const { x, y, width, height } = range;
       const nextProducts = [...products];
       let deletedCount = 0;
 
       for (let row = y; row < y + height; row++) {
-        if (row >= filteredProducts.length) break;
+        if (row >= filteredProducts.length) {
+          break;
+        }
 
         const rowObj = filteredProducts[row];
         const globalIndex = nextProducts.indexOf(rowObj);
 
-        if (globalIndex === -1) continue;
+        if (globalIndex === -1) {
+          continue;
+        }
 
         for (let col = x; col < x + width; col++) {
-          if (col >= columns.length) break;
+          if (col >= columns.length) {
+            break;
+          }
 
           const column = columns[col];
 
@@ -440,7 +453,9 @@ export function ProductsPage() {
       // Check cache first
       const cacheKey = `${col}-${row}`;
       const cached = cellContentCache.current.get(cacheKey);
-      if (cached) return cached;
+      if (cached) {
+        return cached;
+      }
 
       const product = filteredProducts[row];
       const column = columns[col];
@@ -519,7 +534,9 @@ export function ProductsPage() {
       const product = filteredProducts[row];
       const column = columns[col];
 
-      if (!product || !column) return;
+      if (!product || !column) {
+        return;
+      }
 
       if (column.id === 'productCode') {
         const now = Date.now();

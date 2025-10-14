@@ -1,4 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { logger } from '@/lib/logger';
 
 // POST: Sync version history to server
 export async function POST(request: NextRequest) {

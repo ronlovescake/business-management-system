@@ -17,6 +17,7 @@ import type {
   ModuleUpdateInfo,
   ModuleValidationResult,
 } from './ModuleRegistry';
+import { logger } from '@/lib/logger';
 
 // ============================================================================
 // PLUGIN MANAGER ERRORS
@@ -111,7 +112,9 @@ class PluginManager {
       );
       return this.marketplace;
     } catch (error) {
-      if (error instanceof PluginError) throw error;
+      if (error instanceof PluginError) {
+        throw error;
+      }
       throw new DownloadError(
         `Failed to fetch marketplace: ${(error as Error).message}`
       );
@@ -368,9 +371,15 @@ class PluginManager {
     const warnings: string[] = [];
 
     // Required fields
-    if (!modulePackage.id) errors.push('Module ID is required');
-    if (!modulePackage.name) errors.push('Module name is required');
-    if (!modulePackage.version) errors.push('Module version is required');
+    if (!modulePackage.id) {
+      errors.push('Module ID is required');
+    }
+    if (!modulePackage.name) {
+      errors.push('Module name is required');
+    }
+    if (!modulePackage.version) {
+      errors.push('Module version is required');
+    }
 
     // Version format validation
     const versionRegex = /^\d+\.\d+\.\d+$/;
@@ -462,7 +471,9 @@ class PluginManager {
       logger.debug(`⏱️  Duration: ${result.duration}ms`);
       logger.debug(`📂 Installed to: ${result.installPath}`);
     } catch (error) {
-      if (error instanceof PluginError) throw error;
+      if (error instanceof PluginError) {
+        throw error;
+      }
       throw new DownloadError(`Download failed: ${(error as Error).message}`);
     }
   }

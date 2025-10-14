@@ -76,18 +76,17 @@ export function debounce<T extends (...args: any[]) => any>(
  * @returns Memoized function
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function memoize<
-  T extends (key: string | number, ...args: any[]) => any,
->(fn: T, maxCacheSize = 100): T {
-  const cache = new Map<string | number, ReturnType<T>>();
+export function memoize<K extends string | number, Args extends unknown[], R>(
+  fn: (key: K, ...args: Args) => R,
+  maxCacheSize = 100
+): (key: K, ...args: Args) => R {
+  const cache = new Map<K, R>();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return function memoized(
-    key: string | number,
-    ...args: any[]
-  ): ReturnType<T> {
-    if (cache.has(key)) {
-      return cache.get(key)!;
+  return function memoized(key: K, ...args: Args): R {
+    const cachedResult = cache.get(key);
+    if (cachedResult !== undefined) {
+      return cachedResult;
     }
 
     const result = fn(key, ...args);
@@ -95,14 +94,14 @@ export function memoize<
 
     // Limit cache size to prevent memory leaks
     if (cache.size > maxCacheSize) {
-      const firstKey = cache.keys().next().value as string | number;
+      const firstKey = cache.keys().next().value;
       if (firstKey !== undefined) {
         cache.delete(firstKey);
       }
     }
 
     return result;
-  } as T;
+  };
 }
 
 /**

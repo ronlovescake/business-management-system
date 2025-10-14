@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { TextInput, NumberInput, Grid } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { ComposedDialog } from '@/components/shared/Dialog';
-import { Payroll, PayrollFormData } from '../types';
+import type { Payroll, PayrollFormData } from '../types';
 
 interface PayrollFormDialogProps {
   opened: boolean;
@@ -43,10 +43,13 @@ export function PayrollFormDialog({
       employee: (value) => (!value ? 'Employee name is required' : null),
       payPeriod: (value) => (!value ? 'Pay period is required' : null),
       basicSalary: (value) => {
-        if (!value) return 'Basic salary is required';
+        if (!value) {
+          return 'Basic salary is required';
+        }
         const num = parseFloat(value);
-        if (isNaN(num) || num <= 0)
+        if (isNaN(num) || num <= 0) {
           return 'Basic salary must be greater than 0';
+        }
         return null;
       },
       bankGcash: (value) => (!value ? 'Bank/GCash info is required' : null),

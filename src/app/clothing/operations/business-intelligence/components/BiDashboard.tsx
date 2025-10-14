@@ -483,9 +483,9 @@ export function BiDashboard() {
                 nameKey="name"
                 label
               >
-                {metrics.topCustomers.slice(0, 5).map((_, index) => (
+                {metrics.topCustomers.slice(0, 5).map((customer, index) => (
                   <Cell
-                    key={`cell-${index}`}
+                    key={`cell-${customer.customerName}`}
                     fill={CHART_COLORS[index % CHART_COLORS.length]}
                   />
                 ))}

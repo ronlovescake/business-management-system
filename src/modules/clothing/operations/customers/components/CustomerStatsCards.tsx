@@ -8,7 +8,7 @@ import {
   IconBuildingStore,
   IconPhone,
 } from '@tabler/icons-react';
-import { CustomerStats } from '../types/customer.types';
+import type { CustomerStats } from '../types/customer.types';
 
 interface CustomerStatsCardsProps {
   stats: CustomerStats;

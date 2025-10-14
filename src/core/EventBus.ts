@@ -56,11 +56,12 @@ class EventBus {
     event: K,
     handler: EventHandler<EventBusEvents[K]>
   ): () => void {
-    if (!this.events.has(event)) {
-      this.events.set(event, new Set());
+    const existingHandlers = this.events.get(event);
+    if (existingHandlers) {
+      existingHandlers.add(handler as EventHandler);
+    } else {
+      this.events.set(event, new Set([handler as EventHandler]));
     }
-
-    this.events.get(event)!.add(handler as EventHandler);
 
     // Return unsubscribe function
     return () => this.off(event, handler);
@@ -172,6 +173,7 @@ export const eventBus = new EventBus();
 
 // React hook for using event bus in components
 import { useEffect } from 'react';
+import { logger } from '@/lib/logger';
 
 export function useEventBus<K extends keyof EventBusEvents>(
   event: K,

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Employee, EmployeeFormData } from '../types';
+import type { Employee, EmployeeFormData } from '../types';
 
 export function useTeam() {
   // State Management
@@ -200,7 +200,9 @@ export function useTeam() {
   };
 
   const handleImportCSV = (file: File | null) => {
-    if (!file) return;
+    if (!file) {
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (e) => {

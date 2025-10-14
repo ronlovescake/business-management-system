@@ -11,7 +11,8 @@ import {
 } from '@mantine/core';
 import { IconPlus, IconCurrencyDollar, IconCheck } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
-import { PriceFormData } from '../types/price.types';
+import type { PriceFormData } from '../types/price.types';
+import { logger } from '@/lib/logger';
 
 interface AddPriceModalProps {
   opened: boolean;
@@ -41,6 +42,8 @@ export function AddPriceModal({
   onSubmit,
   onReset,
 }: AddPriceModalProps) {
+  const tierKeys = ['tier-1', 'tier-2', 'tier-3', 'tier-4'] as const;
+
   const handleClose = () => {
     onReset();
     onClose();
@@ -161,7 +164,12 @@ export function AddPriceModal({
               Pricing Tiers
             </Text>
 
-            {form.tiers.map((tier, index) => {
+            {tierKeys.map((tierKey, index) => {
+              const tier = form.tiers[index] ?? {
+                lowerLimit: 0,
+                upperLimit: 0,
+                price: 0,
+              };
               // Check if this tier should be enabled
               const isProductCodeFilled = form.productCode.trim().length > 0;
               const isPreviousTierComplete =
@@ -180,7 +188,7 @@ export function AddPriceModal({
                 tier.lowerLimit <= previousLowerLimit;
 
               return (
-                <div key={index} style={{ marginBottom: 16 }}>
+                <div key={tierKey} style={{ marginBottom: 16 }}>
                   <Text
                     size="sm"
                     fw={500}

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Payroll, PayrollFormData } from '../types';
+import type { Payroll, PayrollFormData } from '../types';
 
 export function usePayroll() {
   // State Management
@@ -266,7 +266,9 @@ export function usePayroll() {
   };
 
   const handleImportCSV = (file: File | null) => {
-    if (!file) return;
+    if (!file) {
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (e) => {

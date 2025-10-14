@@ -8,6 +8,7 @@ import React, {
   useMemo,
   useState,
 } from 'react';
+import { logger } from '@/lib/logger';
 
 export interface StoredGridColumn {
   id?: string | number;
@@ -46,8 +47,12 @@ const GridLayoutContext = createContext<GridLayoutStoreValue | undefined>(
 );
 
 function areSnapshotsEqual(a: GridLayoutSnapshot, b: GridLayoutSnapshot) {
-  if (a.adapter !== b.adapter) return false;
-  if (a.columns.length !== b.columns.length) return false;
+  if (a.adapter !== b.adapter) {
+    return false;
+  }
+  if (a.columns.length !== b.columns.length) {
+    return false;
+  }
 
   for (let i = 0; i < a.columns.length; i += 1) {
     const colA = a.columns[i];

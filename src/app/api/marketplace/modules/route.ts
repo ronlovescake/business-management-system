@@ -9,9 +9,11 @@
  * - sort: 'downloads' | 'rating' | 'name' | 'date' - Sort order
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import type { ModuleManifest, ModulePackage } from '@/core/ModuleRegistry';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   try {

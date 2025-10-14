@@ -36,7 +36,9 @@ export class DueDateService {
    * Groups by customer and sums line totals
    */
   static processDueDateItems(transactions: Transaction[]): DueDateItem[] {
-    if (!transactions || transactions.length === 0) return [];
+    if (!transactions || transactions.length === 0) {
+      return [];
+    }
 
     // Filter transactions that have an invoice date
     const transactionsWithInvoice = transactions.filter(
@@ -47,7 +49,9 @@ export class DueDateService {
         t['Order Status'] === 'Prepared'
     );
 
-    if (transactionsWithInvoice.length === 0) return [];
+    if (transactionsWithInvoice.length === 0) {
+      return [];
+    }
 
     // Group by customer and sum line totals
     const customerMap = new Map<
@@ -62,10 +66,15 @@ export class DueDateService {
 
     transactionsWithInvoice.forEach((txn) => {
       const customer = txn.Customers;
-      if (!customer) return;
+      if (!customer) {
+        return;
+      }
 
       if (customerMap.has(customer)) {
-        const existing = customerMap.get(customer)!;
+        const existing = customerMap.get(customer);
+        if (!existing) {
+          return;
+        }
         existing.lineTotal += txn['Line Total'];
         existing.count += 1;
         // Keep the earliest invoice date
@@ -114,11 +123,18 @@ export class DueDateService {
         item.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.productCode.toLowerCase().includes(searchQuery.toLowerCase());
 
-      if (statusFilter === 'all') return matchesSearch;
-      if (statusFilter === 'overdue') return matchesSearch && item.dueIn < 0;
-      if (statusFilter === 'due-soon')
+      if (statusFilter === 'all') {
+        return matchesSearch;
+      }
+      if (statusFilter === 'overdue') {
+        return matchesSearch && item.dueIn < 0;
+      }
+      if (statusFilter === 'due-soon') {
         return matchesSearch && item.dueIn >= 0 && item.dueIn <= 7;
-      if (statusFilter === 'on-track') return matchesSearch && item.dueIn > 7;
+      }
+      if (statusFilter === 'on-track') {
+        return matchesSearch && item.dueIn > 7;
+      }
 
       return matchesSearch;
     });
@@ -131,7 +147,9 @@ export class DueDateService {
     transactions: Transaction[],
     customerName: string
   ): Transaction[] {
-    if (!transactions || !customerName) return [];
+    if (!transactions || !customerName) {
+      return [];
+    }
 
     return transactions.filter(
       (t) =>

@@ -1,5 +1,5 @@
-import type { Expense, ExpenseStatus, ImportCSVSummary } from '../types';
-import { isValidCategory } from '../utils';
+import type { Expense, ExpenseStatus, ImportCSVSummary } from '../types/index';
+import { isValidCategory } from '../utils/index';
 
 export interface ParseResult {
   expenses: Expense[];
@@ -35,7 +35,9 @@ export function parseCSVLine(line: string): string[] {
 
 export function normalizeDate(input: string): string | null {
   const parsed = new Date(input);
-  if (isNaN(parsed.getTime())) return null;
+  if (isNaN(parsed.getTime())) {
+    return null;
+  }
   const y = parsed.getFullYear();
   const m = String(parsed.getMonth() + 1).padStart(2, '0');
   const d = String(parsed.getDate()).padStart(2, '0');
@@ -159,7 +161,9 @@ export function parseCSV(text: string): ParseResult {
 }
 
 export function escapeCSV(value: string | number | null | undefined): string {
-  if (value === null || value === undefined) return '';
+  if (value === null || value === undefined) {
+    return '';
+  }
   const str = String(value);
   if (/[",\n]/.test(str)) {
     return '"' + str.replace(/"/g, '""') + '"';

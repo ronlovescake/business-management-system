@@ -1,4 +1,3 @@
-import React from 'react';
 import { Paper, Group, Text, Grid } from '@mantine/core';
 import {
   IconReceipt,
@@ -60,8 +59,8 @@ export function StatsCards({
 
   return (
     <Grid>
-      {stats.map((stat, index) => (
-        <Grid.Col key={index} span={{ base: 12, sm: 6, md: 3 }}>
+      {stats.map((stat) => (
+        <Grid.Col key={stat.title} span={{ base: 12, sm: 6, md: 3 }}>
           <Paper
             p="lg"
             radius="xl"

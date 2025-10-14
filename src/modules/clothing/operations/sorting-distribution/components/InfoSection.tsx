@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Card, Grid, Stack, Group, Text, Select } from '@mantine/core';
-import { SortingDistributionStatistics } from '../types/sortingDistribution.types';
+import type { SortingDistributionStatistics } from '../types/sortingDistribution.types';
 
 export interface InfoSectionProps {
   // Form fields

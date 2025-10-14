@@ -533,7 +533,9 @@ export function CustomerWarningModal({
   onClose,
   data,
 }: CustomerWarningModalProps) {
-  if (!data) return null;
+  if (!data) {
+    return null;
+  }
 
   return (
     <Modal
@@ -592,12 +594,12 @@ export function CustomerWarningModal({
           </Text>
 
           <Stack gap="sm">
-            {data.warnings.map((warning, index) => {
+            {data.warnings.map((warning) => {
               const isBanned = warning.includes('BANNED CUSTOMER');
               const isCancellation = warning.includes('HIGH CANCELLATION RATE');
 
               return (
-                <Group key={index} gap="sm" align="flex-start">
+                <Group key={warning} gap="sm" align="flex-start">
                   {isBanned ? (
                     <IconX size={18} color="#fa5252" style={{ marginTop: 2 }} />
                   ) : isCancellation ? (

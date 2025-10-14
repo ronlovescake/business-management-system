@@ -1,11 +1,7 @@
 'use client';
 
-import {
-  AppShell,
-  MantineProvider,
-  createTheme,
-  MantineColorsTuple,
-} from '@mantine/core';
+import { AppShell, MantineProvider, createTheme } from '@mantine/core';
+import type { MantineColorsTuple } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
 import Sidebar from '../navigation/Sidebar';
 import BreadcrumbNavigation from '../navigation/BreadcrumbNavigation';

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { ThirteenthMonthPay, ThirteenthMonthPayFormData } from '../types';
+import type { ThirteenthMonthPay, ThirteenthMonthPayFormData } from '../types';
+import { logger } from '@/lib/logger';
 
 // Mock data
 const mockData: ThirteenthMonthPay[] = [
@@ -128,7 +129,9 @@ export function useThirteenthMonthPay() {
 
   // Format date
   const formatDate = (dateString?: string): string => {
-    if (!dateString) return 'N/A';
+    if (!dateString) {
+      return 'N/A';
+    }
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',

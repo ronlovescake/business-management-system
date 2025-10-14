@@ -8,7 +8,8 @@
 
 import { useState, useCallback } from 'react';
 import { SortingDistributionService } from '../services/SortingDistributionService';
-import { Product } from '../types/sortingDistribution.types';
+import type { Product } from '../types/sortingDistribution.types';
+import { logger } from '@/lib/logger';
 
 export interface UseSortingDistributionFormReturn {
   // Form fields

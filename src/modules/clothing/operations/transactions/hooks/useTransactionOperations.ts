@@ -146,7 +146,9 @@ export function useTransactionOperations(
       const columnId = columnIds[col];
       const transaction = filteredData[row];
 
-      if (!transaction || !transaction.id) return;
+      if (!transaction || !transaction.id) {
+        return;
+      }
 
       // Check if this is part of a batch operation
       const isBatchEdit =
@@ -157,7 +159,9 @@ export function useTransactionOperations(
 
       // Helper: Update transaction (batched or immediate)
       const updateTransactionData = (data: Partial<TransactionData>) => {
-        if (!transaction.id) return;
+        if (!transaction.id) {
+          return;
+        }
 
         if (isBatchEdit || isBatchModeRef.current) {
           // BATCH MODE
@@ -195,7 +199,9 @@ export function useTransactionOperations(
 
       // Helper: Get current transaction with any pending batch updates
       const getCurrentTransaction = (): TransactionData => {
-        if (!transaction.id) return transaction;
+        if (!transaction.id) {
+          return transaction;
+        }
 
         const batchedUpdates = batchUpdatesRef.current.get(transaction.id);
         if (batchedUpdates) {
@@ -207,7 +213,9 @@ export function useTransactionOperations(
 
       // Extract cell value
       const getCellValue = (val: unknown): string => {
-        if (!val || typeof val !== 'object') return '';
+        if (!val || typeof val !== 'object') {
+          return '';
+        }
         if ('data' in val) {
           const data = (val as { data: unknown }).data;
           if (typeof data === 'object' && data !== null && 'value' in data) {
@@ -441,17 +449,23 @@ export function useTransactionOperations(
 
         // Build notification message
         let message = 'Product Code updated successfully';
-        const autopopulated = [];
-        if (correspondingShipmentCode) autopopulated.push('Shipment Code');
+        const autopopulated: string[] = [];
+        if (correspondingShipmentCode) {
+          autopopulated.push('Shipment Code');
+        }
         if (shouldAutoPopulateStatus && correspondingShipmentStatus) {
           autopopulated.push('Order Status');
         }
-        if (unitPriceAutoPopulated) autopopulated.push('Unit Price');
+        if (unitPriceAutoPopulated) {
+          autopopulated.push('Unit Price');
+        }
 
         if (autopopulated.length > 0) {
           message += ` and ${autopopulated.join(' & ')} auto-populated`;
         }
-        if (unitPriceCleared) message += ' (Unit Price cleared)';
+        if (unitPriceCleared) {
+          message += ' (Unit Price cleared)';
+        }
 
         showNotification({ title: 'Success', message, color: 'green' });
       }

@@ -5,7 +5,7 @@
  * These types maintain strict TypeScript compliance and cover all transaction operations.
  */
 
-import { GridColumn, Item } from '@glideapps/glide-data-grid';
+import type { GridColumn, Item } from '@glideapps/glide-data-grid';
 
 // ============================================================================
 // CORE TRANSACTION TYPES

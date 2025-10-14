@@ -11,7 +11,7 @@ import {
   IconTrendingUp,
   IconAdjustments,
 } from '@tabler/icons-react';
-import { ProductStatistics } from '../types/product.types';
+import type { ProductStatistics } from '../types/product.types';
 
 interface ProductStatsCardsProps {
   statistics: ProductStatistics;

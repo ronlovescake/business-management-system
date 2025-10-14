@@ -6,12 +6,8 @@ import { registerAllModules } from 'handsontable/registry';
 import 'handsontable/styles/handsontable.min.css';
 import 'handsontable/styles/ht-theme-horizon.min.css';
 import '@/styles/handsontable-horizon-light.css';
-import {
-  GridColumn,
-  Item,
-  GridCell,
-  GridCellKind,
-} from '@glideapps/glide-data-grid';
+import type { GridColumn, Item, GridCell } from '@glideapps/glide-data-grid';
+import { GridCellKind } from '@glideapps/glide-data-grid';
 import {
   Stack,
   Text,
@@ -164,7 +160,9 @@ export function HandsontableGrid<T extends Item>({
 
   // Handle Ctrl+F to focus search bar
   useEffect(() => {
-    if (!enableCtrlF) return;
+    if (!enableCtrlF) {
+      return;
+    }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
@@ -195,23 +193,32 @@ export function HandsontableGrid<T extends Item>({
 
   // Google Sheets-style Ctrl+Arrow navigation
   useEffect(() => {
-    if (!hotRef.current) return;
+    if (!hotRef.current) {
+      return;
+    }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       // Only handle Ctrl+Arrow keys (or Cmd+Arrow on Mac)
-      if (!(event.ctrlKey || event.metaKey)) return;
+      if (!(event.ctrlKey || event.metaKey)) {
+        return;
+      }
       if (
         !['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)
-      )
+      ) {
         return;
+      }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const hotInstance = (hotRef.current as any)?.hotInstance;
-      if (!hotInstance) return;
+      if (!hotInstance) {
+        return;
+      }
 
       // Get current selection
       const selected = hotInstance.getSelected();
-      if (!selected || selected.length === 0) return;
+      if (!selected || selected.length === 0) {
+        return;
+      }
 
       const [startRow, startCol] = selected[0];
 
@@ -539,7 +546,9 @@ export function HandsontableGrid<T extends Item>({
 
   // CSV import handler
   const handleCSVImport = async () => {
-    if (!csvFile || !onCSVImport) return;
+    if (!csvFile || !onCSVImport) {
+      return;
+    }
 
     try {
       await onCSVImport(csvFile);
@@ -563,69 +572,76 @@ export function HandsontableGrid<T extends Item>({
       {/* Stats cards */}
       {statsCards && statsCards.length > 0 && (
         <SimpleGrid cols={statsCards.length} spacing="md">
-          {statsCards.map((stat, index) => (
-            <Card
-              key={index}
-              padding="md"
-              radius="xl"
-              withBorder={false}
-              style={{
-                cursor: 'default',
-                background: stat.backgroundColor || 'rgba(255, 255, 255, 0.1)',
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-                transition: 'all 0.3s ease',
-                '&:hover': {
-                  transform: 'translateY(-2px)',
-                  boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
-                },
-              }}
-            >
-              <Group justify="space-between" wrap="nowrap">
-                <div>
-                  <Text
-                    size="xs"
-                    c="dark"
-                    fw={600}
-                    tt="uppercase"
+          {statsCards.map((stat, index) => {
+            const cardKey = stat.title
+              ? `stat-${stat.title}-${index}`
+              : `stat-${index}`;
+
+            return (
+              <Card
+                key={cardKey}
+                padding="md"
+                radius="xl"
+                withBorder={false}
+                style={{
+                  cursor: 'default',
+                  background:
+                    stat.backgroundColor || 'rgba(255, 255, 255, 0.1)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
+                  },
+                }}
+              >
+                <Group justify="space-between" wrap="nowrap">
+                  <div>
+                    <Text
+                      size="xs"
+                      c="dark"
+                      fw={600}
+                      tt="uppercase"
+                      style={{
+                        opacity: 0.8,
+                        textShadow: '0 1px 2px rgba(255, 255, 255, 0.3)',
+                      }}
+                    >
+                      {stat.title}
+                    </Text>
+                    <Title
+                      order={3}
+                      mt={4}
+                      c="dark"
+                      style={{
+                        textShadow: '0 1px 2px rgba(255, 255, 255, 0.3)',
+                        fontWeight: 700,
+                      }}
+                    >
+                      {stat.value}
+                    </Title>
+                  </div>
+                  <ThemeIcon
+                    variant="filled"
+                    color="white"
+                    size="lg"
+                    radius="md"
                     style={{
-                      opacity: 0.8,
-                      textShadow: '0 1px 2px rgba(255, 255, 255, 0.3)',
+                      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                      color: 'white',
+                      backdropFilter: 'blur(10px)',
+                      border: '1px solid rgba(255, 255, 255, 0.3)',
                     }}
                   >
-                    {stat.title}
-                  </Text>
-                  <Title
-                    order={3}
-                    mt={4}
-                    c="dark"
-                    style={{
-                      textShadow: '0 1px 2px rgba(255, 255, 255, 0.3)',
-                      fontWeight: 700,
-                    }}
-                  >
-                    {stat.value}
-                  </Title>
-                </div>
-                <ThemeIcon
-                  variant="filled"
-                  color="white"
-                  size="lg"
-                  radius="md"
-                  style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                    color: 'white',
-                    backdropFilter: 'blur(10px)',
-                    border: '1px solid rgba(255, 255, 255, 0.3)',
-                  }}
-                >
-                  {stat.icon}
-                </ThemeIcon>
-              </Group>
-            </Card>
-          ))}
+                    {stat.icon}
+                  </ThemeIcon>
+                </Group>
+              </Card>
+            );
+          })}
         </SimpleGrid>
       )}
 
@@ -737,7 +753,9 @@ export function HandsontableGrid<T extends Item>({
           rowHeights={60} // Set fixed row height (default is ~23px)
           columnHeaderHeight={60} // Set header height to match row height
           afterChange={(changes, source) => {
-            if (!changes || !onCellEdited) return;
+            if (!changes || !onCellEdited) {
+              return;
+            }
 
             // Debug: Log all change sources to understand what's happening
             logger.debug('📝 afterChange triggered:', {

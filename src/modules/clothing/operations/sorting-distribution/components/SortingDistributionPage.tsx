@@ -11,13 +11,13 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Stack } from '@mantine/core';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { GridView } from '@/components/grid/GridView';
-import {
-  GridCellKind,
+import { GridCellKind } from '@glideapps/glide-data-grid';
+import type {
   GridColumn,
   Item,
-  type GridCell,
-  type EditableGridCell,
-  type GridSelection,
+  GridCell,
+  EditableGridCell,
+  GridSelection,
 } from '@glideapps/glide-data-grid';
 import { InfoSection } from './InfoSection';
 import { QuantityPillButtons } from './QuantityPillButtons';
@@ -27,6 +27,7 @@ import {
   GRID_COLUMNS,
   CUSTOM_GRID_STYLES,
 } from '../types/sortingDistribution.types';
+import { logger } from '@/lib/logger';
 
 /**
  * Sorting Distribution Page Component

@@ -13,7 +13,7 @@ import {
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { ComposedDialog } from '@/components/shared/Dialog';
-import { EmployeeLoan, EmployeeLoanFormData } from '../types';
+import type { EmployeeLoan, EmployeeLoanFormData } from '../types';
 import {
   IconUser,
   IconCash,
@@ -51,21 +51,33 @@ export function LoanFormDialog({
       employee: (value) => (!value ? 'Employee name is required' : null),
       loanType: (value) => (!value ? 'Loan type is required' : null),
       amount: (value) => {
-        if (!value) return 'Amount is required';
+        if (!value) {
+          return 'Amount is required';
+        }
         const num = parseFloat(value);
-        if (isNaN(num) || num <= 0) return 'Amount must be greater than 0';
+        if (isNaN(num) || num <= 0) {
+          return 'Amount must be greater than 0';
+        }
         return null;
       },
       interestRate: (value) => {
-        if (!value) return 'Interest rate is required';
+        if (!value) {
+          return 'Interest rate is required';
+        }
         const num = parseFloat(value);
-        if (isNaN(num) || num < 0) return 'Interest rate must be 0 or greater';
+        if (isNaN(num) || num < 0) {
+          return 'Interest rate must be 0 or greater';
+        }
         return null;
       },
       termMonths: (value) => {
-        if (!value) return 'Term is required';
+        if (!value) {
+          return 'Term is required';
+        }
         const num = parseInt(value);
-        if (isNaN(num) || num <= 0) return 'Term must be greater than 0';
+        if (isNaN(num) || num <= 0) {
+          return 'Term must be greater than 0';
+        }
         return null;
       },
       applicationDate: (value) =>

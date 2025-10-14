@@ -11,6 +11,7 @@
 
 import { moduleLoader } from './ModuleLoader';
 import { moduleRegistry } from './ModuleRegistry';
+import { logger } from '@/lib/logger';
 
 // ============================================================================
 // PERFORMANCE TYPES
@@ -110,7 +111,9 @@ class ModulePerformance {
         break;
     }
 
-    logger.debug(`📦 Registered lazy module: ${moduleId} (${options.strategy})`);
+    logger.debug(
+      `📦 Registered lazy module: ${moduleId} (${options.strategy})`
+    );
   }
 
   /**
@@ -330,7 +333,9 @@ class ModulePerformance {
     const visited = new Set<string>();
 
     const visit = (moduleId: string) => {
-      if (visited.has(moduleId)) return;
+      if (visited.has(moduleId)) {
+        return;
+      }
 
       visited.add(moduleId);
 
@@ -365,14 +370,20 @@ class ModulePerformance {
    * Add resource hint to document head
    */
   addResourceHint(hint: ResourceHint): void {
-    if (typeof document === 'undefined') return;
+    if (typeof document === 'undefined') {
+      return;
+    }
 
     const link = document.createElement('link');
     link.rel = hint.type;
     link.href = hint.href;
 
-    if (hint.as) link.setAttribute('as', hint.as);
-    if (hint.crossOrigin) link.setAttribute('crossorigin', hint.crossOrigin);
+    if (hint.as) {
+      link.setAttribute('as', hint.as);
+    }
+    if (hint.crossOrigin) {
+      link.setAttribute('crossorigin', hint.crossOrigin);
+    }
 
     document.head.appendChild(link);
 
@@ -385,7 +396,9 @@ class ModulePerformance {
   prefetchModule(moduleId: string): void {
     const config = moduleRegistry.get(moduleId);
 
-    if (!config || !config.routes) return;
+    if (!config || !config.routes) {
+      return;
+    }
 
     // Prefetch route components
     config.routes.forEach((route) => {
@@ -422,7 +435,9 @@ class ModulePerformance {
   getAverageLoadTime(moduleId: string): number {
     const metrics = this.getMetrics(moduleId);
 
-    if (metrics.length === 0) return 0;
+    if (metrics.length === 0) {
+      return 0;
+    }
 
     const total = metrics.reduce((sum, m) => sum + m.loadTime, 0);
     return total / metrics.length;
@@ -434,7 +449,9 @@ class ModulePerformance {
   getCacheHitRate(moduleId: string): number {
     const metrics = this.getMetrics(moduleId);
 
-    if (metrics.length === 0) return 0;
+    if (metrics.length === 0) {
+      return 0;
+    }
 
     const hits = metrics.filter((m) => m.cacheHit).length;
     return hits / metrics.length;
@@ -486,7 +503,9 @@ class ModulePerformance {
     for (const [moduleId] of modulesArray) {
       const metrics = this.getMetrics(moduleId);
 
-      if (metrics.length < 3) continue; // Need more data
+      if (metrics.length < 3) {
+        continue; // Need more data
+      }
 
       const avgLoadTime = this.getAverageLoadTime(moduleId);
       const cacheHitRate = this.getCacheHitRate(moduleId);

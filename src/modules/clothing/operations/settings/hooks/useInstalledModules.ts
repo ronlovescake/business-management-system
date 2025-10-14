@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { ModulePackage, InstalledModuleFilter } from '../types';
+import { logger } from '@/lib/logger';
 
 interface UseInstalledModulesReturn {
   modules: ModulePackage[];

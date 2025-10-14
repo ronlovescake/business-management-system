@@ -5,7 +5,7 @@
  * Handles data validation, calculations, API calls, and data transformations.
  */
 
-import {
+import type {
   DistributionRow,
   Product,
   Transaction,
@@ -14,6 +14,8 @@ import {
   SortingDistributionSaveRequest,
   SortingDistributionSaveResponse,
   ValidationResult,
+} from '../types/sortingDistribution.types';
+import {
   GRID_ROW_COUNT,
   DEFAULT_DISTRIBUTION_ROW,
   SORTING_SHIPMENT_STATUS,
@@ -68,7 +70,9 @@ export class SortingDistributionService {
    * Formula: (quantity / totalQuantity) * 100
    */
   static calculatePercentage(quantity: number, totalQuantity: number): number {
-    if (totalQuantity <= 0) return 0;
+    if (totalQuantity <= 0) {
+      return 0;
+    }
     return (quantity / totalQuantity) * 100;
   }
 
@@ -81,7 +85,9 @@ export class SortingDistributionService {
     estQtyReceived: number,
     selectedQuantity: number | null
   ): number {
-    if (estQtyReceived <= 0 || selectedQuantity === null) return 0;
+    if (estQtyReceived <= 0 || selectedQuantity === null) {
+      return 0;
+    }
     return Math.round((quantity / estQtyReceived) * selectedQuantity);
   }
 

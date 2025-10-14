@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { prisma } from '../../../../lib/db';
-import { ShipmentData, ShipmentDB } from '../../../../types';
+import type { ShipmentData, ShipmentDB } from '../../../../types';
+import { logger } from '@/lib/logger';
 
 // Helper function to convert database model to frontend interface
 function convertShipmentDBToData(shipment: ShipmentDB): ShipmentData {

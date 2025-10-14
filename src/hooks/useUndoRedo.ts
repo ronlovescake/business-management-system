@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { GridCell, GridSelection, Item } from '@glideapps/glide-data-grid';
+import type { GridCell, GridSelection, Item } from '@glideapps/glide-data-grid';
 
 interface EditAction {
   cell: Item;
@@ -58,7 +58,9 @@ export function useUndoRedo(
 
   // Undo function
   const undo = useCallback(() => {
-    if (undoStack.length === 0) return;
+    if (undoStack.length === 0) {
+      return;
+    }
 
     const action = undoStack[undoStack.length - 1];
     const newUndoStack = undoStack.slice(0, -1);
@@ -73,14 +75,14 @@ export function useUndoRedo(
     setUndoStack(newUndoStack);
 
     // Force grid to redraw the cell
-    if (gridRef.current?.damage) {
-      gridRef.current.damage([{ cell: action.cell }]);
-    }
+    gridRef.current?.damage?.([{ cell: action.cell }]);
   }, [undoStack, setCellValue, gridRef]);
 
   // Redo function
   const redo = useCallback(() => {
-    if (redoStack.length === 0) return;
+    if (redoStack.length === 0) {
+      return;
+    }
 
     const action = redoStack[redoStack.length - 1];
     const newRedoStack = redoStack.slice(0, -1);
@@ -95,9 +97,7 @@ export function useUndoRedo(
     setRedoStack(newRedoStack);
 
     // Force grid to redraw the cell
-    if (gridRef.current?.damage) {
-      gridRef.current.damage([{ cell: action.cell }]);
-    }
+    gridRef.current?.damage?.([{ cell: action.cell }]);
   }, [redoStack, setCellValue, gridRef]);
 
   // Handle grid selection changes

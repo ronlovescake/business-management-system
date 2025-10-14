@@ -13,7 +13,7 @@ import type {
   StatCard,
 } from '@/components/shared/PageTemplates';
 import { useThirteenthMonthPay } from './hooks/useThirteenthMonthPay';
-import { ThirteenthMonthPay, ThirteenthMonthPayFormData } from './types';
+import type { ThirteenthMonthPay, ThirteenthMonthPayFormData } from './types';
 import { ThirteenthMonthPayFormDialog } from './components/ThirteenthMonthPayFormDialog';
 import {
   IconCheck,

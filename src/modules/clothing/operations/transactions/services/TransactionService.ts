@@ -29,6 +29,7 @@ import type {
   TransactionStatistics,
   PackingListTransaction,
 } from '../types/transaction.types';
+import { logger } from '@/lib/logger';
 
 export class TransactionService {
   // ============================================================================
@@ -91,14 +92,18 @@ export class TransactionService {
     quantity: number,
     priceTiers: PriceTier[]
   ): number | null {
-    if (!productCode || !quantity || quantity <= 0) return null;
+    if (!productCode || !quantity || quantity <= 0) {
+      return null;
+    }
 
     // Find all price tiers for this product code
     const productTiers = priceTiers.filter(
       (tier) => tier['Product Code'] === productCode
     );
 
-    if (productTiers.length === 0) return null;
+    if (productTiers.length === 0) {
+      return null;
+    }
 
     // Find the tier that contains this quantity
     const matchingTier = productTiers.find(
@@ -130,7 +135,9 @@ export class TransactionService {
       quantity,
       priceTiers
     );
-    if (tierPrice === null) return 0;
+    if (tierPrice === null) {
+      return 0;
+    }
 
     // ⚠️ FINALIZED FORMULA
     return tierPrice - discount;
@@ -464,10 +471,14 @@ export class TransactionService {
 
         headers.forEach((rawHeader, index) => {
           const normalized = headerMap[rawHeader.trim().toUpperCase()];
-          if (!normalized) return;
+          if (!normalized) {
+            return;
+          }
 
           const rawValue = values[index];
-          if (rawValue === undefined || rawValue === '') return;
+          if (rawValue === undefined || rawValue === '') {
+            return;
+          }
 
           // Convert numeric fields
           if (

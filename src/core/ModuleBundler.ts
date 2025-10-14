@@ -16,6 +16,7 @@ import type {
   ModuleBundleFormat,
   BundleValidationResult,
 } from '@/types/module-system';
+import { logger } from '@/lib/logger';
 
 // ============================================================================
 // MODULE BUNDLER ERRORS

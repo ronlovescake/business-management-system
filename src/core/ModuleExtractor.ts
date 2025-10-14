@@ -13,6 +13,7 @@ import path from 'path';
 import { createReadStream, createWriteStream } from 'fs';
 import { pipeline } from 'stream/promises';
 import { createGunzip } from 'zlib';
+import { logger } from '@/lib/logger';
 
 // ============================================================================
 // EXTRACTION TYPES
@@ -181,7 +182,9 @@ class ModuleExtractor {
         );
       }
     } catch (error) {
-      if (error instanceof ExtractionError) throw error;
+      if (error instanceof ExtractionError) {
+        throw error;
+      }
 
       throw new ExtractionError(
         `Archive not found: ${archivePath}`,
@@ -228,7 +231,9 @@ class ModuleExtractor {
 
       return extractPath;
     } catch (error) {
-      if (error instanceof ExtractionError) throw error;
+      if (error instanceof ExtractionError) {
+        throw error;
+      }
 
       throw new ExtractionError(
         `Failed to prepare extraction directory: ${(error as Error).message}`,

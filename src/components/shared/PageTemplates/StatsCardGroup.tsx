@@ -1,10 +1,10 @@
-import React from 'react';
+import type { ReactNode } from 'react';
 import { Paper, Group, Text, Grid } from '@mantine/core';
 
 export interface StatCard {
   title: string;
   value: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   color?: string;
 }
 
@@ -30,8 +30,8 @@ interface StatsCardGroupProps {
 export function StatsCardGroup({ stats }: StatsCardGroupProps) {
   return (
     <Grid>
-      {stats.map((stat, index) => (
-        <Grid.Col key={index} span={{ base: 12, sm: 6, md: 3 }}>
+      {stats.map((stat) => (
+        <Grid.Col key={stat.title} span={{ base: 12, sm: 6, md: 3 }}>
           <Paper
             p="lg"
             radius="xl"

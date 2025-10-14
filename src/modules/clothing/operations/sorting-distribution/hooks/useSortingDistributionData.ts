@@ -9,13 +9,13 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { SortingDistributionService } from '../services/SortingDistributionService';
-import {
+import type {
   DistributionRow,
   Product,
   Transaction,
   SortingDistributionStatistics,
-  AUTO_SAVE_DELAY,
 } from '../types/sortingDistribution.types';
+import { AUTO_SAVE_DELAY } from '../types/sortingDistribution.types';
 import { logger } from '@/lib/logger';
 
 export interface UseSortingDistributionDataReturn {

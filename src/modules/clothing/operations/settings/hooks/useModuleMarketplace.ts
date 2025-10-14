@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { ModulePackage, MarketplaceFilter, SortOption } from '../types';
+import { logger } from '@/lib/logger';
 
 interface UseModuleMarketplaceReturn {
   modules: ModulePackage[];
@@ -40,9 +41,15 @@ export function useModuleMarketplace(): UseModuleMarketplaceReturn {
       setError(null);
 
       const params = new URLSearchParams();
-      if (filter.searchQuery) params.set('search', filter.searchQuery);
-      if (filter.category) params.set('category', filter.category);
-      if (filter.sortBy) params.set('sort', filter.sortBy);
+      if (filter.searchQuery) {
+        params.set('search', filter.searchQuery);
+      }
+      if (filter.category) {
+        params.set('category', filter.category);
+      }
+      if (filter.sortBy) {
+        params.set('sort', filter.sortBy);
+      }
 
       const response = await fetch(
         `/api/marketplace/modules?${params.toString()}`
@@ -96,7 +103,7 @@ export function useModuleMarketplace(): UseModuleMarketplaceReturn {
     // Apply category filter
     if (filter.category) {
       filtered = filtered.filter((module) =>
-        module.keywords?.includes(filter.category!)
+        module.keywords?.includes(filter.category ?? '')
       );
     }
 

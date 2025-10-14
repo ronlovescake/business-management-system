@@ -6,7 +6,7 @@
  */
 
 import { useState, useMemo, useCallback } from 'react';
-import { ProductFormData, ProductData } from '../types/product.types';
+import type { ProductFormData, ProductData } from '../types/product.types';
 import { ProductService } from '../services/ProductService';
 import { calculateProductFinancials } from '@/lib/productCalculations';
 

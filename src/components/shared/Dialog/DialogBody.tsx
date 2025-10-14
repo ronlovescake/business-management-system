@@ -6,7 +6,7 @@
  */
 
 import { Box } from '@mantine/core';
-import { DialogBodyProps } from './Dialog.types';
+import type { DialogBodyProps } from './Dialog.types';
 
 export function DialogBody({
   children,

@@ -11,6 +11,7 @@
 
 import { moduleLoader } from './ModuleLoader';
 import { moduleRegistry } from './ModuleRegistry';
+import { logger } from '@/lib/logger';
 
 // ============================================================================
 // HMR TYPES

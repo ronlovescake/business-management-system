@@ -5,8 +5,8 @@
  * across the entire codebase.
  */
 
-import { ReactNode } from 'react';
-import { MantineSize } from '@mantine/core';
+import type { ReactNode } from 'react';
+import type { MantineSize } from '@mantine/core';
 
 /**
  * Dialog Size Options

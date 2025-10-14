@@ -16,7 +16,9 @@ export function useDueDateData() {
 
   // Process transactions into due date items
   const dueDateItems = useMemo<DueDateItem[]>(() => {
-    if (!transactions) return [];
+    if (!transactions) {
+      return [];
+    }
     return DueDateService.processDueDateItems(transactions);
   }, [transactions]);
 

@@ -9,7 +9,9 @@
  * Handles commas, quotes, and newlines
  */
 export function escapeCSV(value: string | number | null | undefined): string {
-  if (value === null || value === undefined) return '';
+  if (value === null || value === undefined) {
+    return '';
+  }
   const stringValue = String(value);
   // Escape double quotes and wrap in quotes if contains comma, quote, or newline
   if (

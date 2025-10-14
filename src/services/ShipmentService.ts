@@ -1,5 +1,5 @@
 import { BaseService } from './BaseService';
-import { ShipmentDTO } from '../types';
+import type { ShipmentDTO } from '../types';
 
 /**
  * Shipment Service

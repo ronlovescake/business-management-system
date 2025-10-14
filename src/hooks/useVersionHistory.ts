@@ -1,9 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
+import { logger } from '@/lib/logger';
 
-interface VersionSnapshot<T> {
+type IdentifiableRecord = Record<string, unknown> & { id: string | number };
+type VersionChanges = Record<string, { old: unknown; new: unknown }>;
+
+interface VersionSnapshot<T extends IdentifiableRecord> {
   id: string;
   timestamp: number;
   data: T[];
@@ -19,37 +23,36 @@ interface VersionSnapshot<T> {
   changeCount: number;
   description: string;
   userName?: string;
-  changedRows?: number[]; // IDs of affected rows
+  changedRows?: Array<T['id']>;
   metadata?: {
     operation?: string;
     affectedFields?: string[];
     customLabel?: string;
   };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 }
 
-interface VersionDiff<T> {
+interface VersionDiff<T extends IdentifiableRecord> {
   added: T[];
   removed: T[];
   modified: Array<{
     old: T;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     new: T;
-    changes: Record<string, { old: any; new: any }>;
+    changes: VersionChanges;
   }>;
 }
 
 interface VersionHistoryDB extends DBSchema {
   versions: {
     key: string;
-    value: VersionSnapshot<any>;
+    value: VersionSnapshot<IdentifiableRecord>;
     indexes: {
       'by-timestamp': number;
       'by-type': string;
     };
   };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 }
+
+type StoredSnapshot = VersionSnapshot<IdentifiableRecord>;
 
 const DB_NAME = 'version-history-db';
 const STORE_NAME = 'versions';
@@ -57,7 +60,7 @@ const MAX_LOCAL_VERSIONS = 100; // Keep last 100 versions locally
 const SYNC_INTERVAL = 60 * 60 * 1000; // 1 hour in milliseconds
 const GROUPING_WINDOW = 30 * 1000; // 30 seconds for grouping rapid changes
 
-export function useVersionHistory<T extends Record<string, any>>(
+export function useVersionHistory<T extends IdentifiableRecord>(
   dataKey: string,
   currentData: T[]
 ) {
@@ -73,7 +76,7 @@ export function useVersionHistory<T extends Record<string, any>>(
     type: VersionSnapshot<T>['changeType'];
     count: number;
     description: string;
-    changedRows: number[];
+    changedRows: Array<T['id']>;
   } | null>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -101,16 +104,25 @@ export function useVersionHistory<T extends Record<string, any>>(
   const loadVersions = useCallback(async () => {
     try {
       const db = dbRef.current || (await initDB());
-      if (!db) return;
+      if (!db) {
+        return;
+      }
 
-      const allVersions = await db.getAllFromIndex(STORE_NAME, 'by-timestamp');
+      const allVersions = (await db.getAllFromIndex(
+        STORE_NAME,
+        'by-timestamp'
+      )) as StoredSnapshot[];
 
       // Filter versions for this specific data key and sort by timestamp (newest first)
-      const filteredVersions = allVersions
-        .filter((v) => v.id.startsWith(dataKey))
-        .sort((a, b) => b.timestamp - a.timestamp);
+      const filteredVersions: VersionSnapshot<T>[] = allVersions
+        .filter((version) => version.id.startsWith(dataKey))
+        .sort((first, second) => second.timestamp - first.timestamp)
+        .map((version) => ({
+          ...version,
+          data: version.data as T[],
+        }));
 
-      setVersions(filteredVersions as VersionSnapshot<T>[]);
+      setVersions(filteredVersions);
       setIsLoading(false);
     } catch (error) {
       logger.error('Failed to load versions:', error);
@@ -128,7 +140,6 @@ export function useVersionHistory<T extends Record<string, any>>(
       const removed: T[] = [];
       const modified: VersionDiff<T>['modified'] = [];
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       // Find added and modified
       newData.forEach((newItem) => {
         const oldItem = oldMap.get(newItem.id);
@@ -136,7 +147,7 @@ export function useVersionHistory<T extends Record<string, any>>(
           added.push(newItem);
         } else {
           // Check if modified
-          const changes: Record<string, { old: any; new: any }> = {};
+          const changes: VersionChanges = {};
           Object.keys(newItem).forEach((key) => {
             if (JSON.stringify(oldItem[key]) !== JSON.stringify(newItem[key])) {
               changes[key] = { old: oldItem[key], new: newItem[key] };
@@ -162,11 +173,15 @@ export function useVersionHistory<T extends Record<string, any>>(
 
   // Flush pending changes to create actual version
   const flushPendingChanges = useCallback(async () => {
-    if (!pendingChangesRef.current) return null;
+    if (!pendingChangesRef.current) {
+      return null;
+    }
 
     try {
       const db = dbRef.current || (await initDB());
-      if (!db) return null;
+      if (!db) {
+        return null;
+      }
 
       const pending = pendingChangesRef.current;
       const snapshot: VersionSnapshot<T> = {
@@ -183,16 +198,19 @@ export function useVersionHistory<T extends Record<string, any>>(
       await db.add(STORE_NAME, snapshot);
 
       // Cleanup old versions (keep only MAX_LOCAL_VERSIONS)
-      const allVersions = await db.getAllFromIndex(STORE_NAME, 'by-timestamp');
+      const allVersions = (await db.getAllFromIndex(
+        STORE_NAME,
+        'by-timestamp'
+      )) as StoredSnapshot[];
       const dataVersions = allVersions
-        .filter((v) => v.id.startsWith(dataKey))
-        .sort((a, b) => b.timestamp - a.timestamp);
+        .filter((version) => version.id.startsWith(dataKey))
+        .sort((first, second) => second.timestamp - first.timestamp);
 
       if (dataVersions.length > MAX_LOCAL_VERSIONS) {
         const versionsToDelete = dataVersions.slice(MAX_LOCAL_VERSIONS);
-        for (const version of versionsToDelete) {
-          await db.delete(STORE_NAME, version.id);
-        }
+        await Promise.all(
+          versionsToDelete.map((version) => db.delete(STORE_NAME, version.id))
+        );
       }
 
       // Reload versions
@@ -216,7 +234,7 @@ export function useVersionHistory<T extends Record<string, any>>(
       changeType: VersionSnapshot<T>['changeType'],
       changeCount: number,
       description?: string,
-      changedRows?: number[]
+      changedRows?: Array<T['id']>
     ) => {
       const now = Date.now();
 
@@ -275,7 +293,7 @@ export function useVersionHistory<T extends Record<string, any>>(
     async (
       label: string,
       changeType: VersionSnapshot<T>['changeType'] = 'bulk',
-      changedRows?: number[]
+      changedRows?: Array<T['id']>
     ) => {
       // Flush any pending changes first
       if (pendingChangesRef.current) {
@@ -284,7 +302,9 @@ export function useVersionHistory<T extends Record<string, any>>(
 
       try {
         const db = dbRef.current || (await initDB());
-        if (!db) return null;
+        if (!db) {
+          return null;
+        }
 
         const snapshot: VersionSnapshot<T> = {
           id: `${dataKey}-${Date.now()}`,
@@ -321,7 +341,9 @@ export function useVersionHistory<T extends Record<string, any>>(
         }
 
         const db = dbRef.current || (await initDB());
-        if (!db) return null;
+        if (!db) {
+          return null;
+        }
 
         const version = await db.get(STORE_NAME, versionId);
         if (!version) {
@@ -347,10 +369,12 @@ export function useVersionHistory<T extends Record<string, any>>(
 
   // Selective restore: Cherry-pick specific rows
   const restoreSelectedRows = useCallback(
-    async (versionId: string, rowIds: number[]): Promise<T[] | null> => {
+    async (versionId: string, rowIds: Array<T['id']>): Promise<T[] | null> => {
       try {
         const db = dbRef.current || (await initDB());
-        if (!db) return null;
+        if (!db) {
+          return null;
+        }
 
         const version = await db.get(STORE_NAME, versionId);
         if (!version) {
@@ -359,9 +383,8 @@ export function useVersionHistory<T extends Record<string, any>>(
         }
 
         const versionData = version.data as T[];
-        const rowsToRestore = versionData.filter((row) =>
-          rowIds.includes(row.id)
-        );
+        const idSet = new Set<T['id']>(rowIds);
+        const rowsToRestore = versionData.filter((row) => idSet.has(row.id));
 
         // Merge with current data
         const currentMap = new Map(currentData.map((item) => [item.id, item]));
@@ -395,7 +418,9 @@ export function useVersionHistory<T extends Record<string, any>>(
     async (versionId: string): Promise<VersionDiff<T> | null> => {
       try {
         const db = dbRef.current || (await initDB());
-        if (!db) return null;
+        if (!db) {
+          return null;
+        }
 
         const version = await db.get(STORE_NAME, versionId);
         if (!version) {
@@ -423,15 +448,13 @@ export function useVersionHistory<T extends Record<string, any>>(
       let filtered = [...versions];
 
       if (filters.startDate) {
-        filtered = filtered.filter(
-          (v) => v.timestamp >= filters.startDate!.getTime()
-        );
+        const startTime = filters.startDate.getTime();
+        filtered = filtered.filter((version) => version.timestamp >= startTime);
       }
 
       if (filters.endDate) {
-        filtered = filtered.filter(
-          (v) => v.timestamp <= filters.endDate!.getTime()
-        );
+        const endTime = filters.endDate.getTime();
+        filtered = filtered.filter((version) => version.timestamp <= endTime);
       }
 
       if (filters.changeType) {
@@ -496,7 +519,9 @@ export function useVersionHistory<T extends Record<string, any>>(
     async (versionId: string) => {
       try {
         const db = dbRef.current || (await initDB());
-        if (!db) return false;
+        if (!db) {
+          return false;
+        }
 
         await db.delete(STORE_NAME, versionId);
         await loadVersions();
@@ -557,7 +582,9 @@ export function useVersionHistory<T extends Record<string, any>>(
         const serverVersions = await response.json();
 
         const db = dbRef.current || (await initDB());
-        if (!db) return;
+        if (!db) {
+          return;
+        }
 
         for (const version of serverVersions) {
           try {

@@ -5,7 +5,7 @@
  * for the Shipments module.
  */
 
-import { GridColumn } from '@glideapps/glide-data-grid';
+import type { GridColumn } from '@glideapps/glide-data-grid';
 
 // ============================================================================
 // INTERFACES

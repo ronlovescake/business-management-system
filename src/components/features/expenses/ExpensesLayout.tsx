@@ -411,7 +411,11 @@ export function ExpensesLayout({
                             <Group
                               gap="xs"
                               style={{ cursor: 'pointer' }}
-                              onClick={() => onViewReceipt(expense.receipt!)}
+                              onClick={() => {
+                                if (expense.receipt) {
+                                  onViewReceipt(expense.receipt);
+                                }
+                              }}
                             >
                               <IconReceipt size={16} color="#495057" />
                               <Text

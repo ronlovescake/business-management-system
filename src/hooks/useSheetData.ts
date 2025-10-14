@@ -6,7 +6,7 @@ import {
   ShipmentService,
   PriceService,
 } from '../services';
-import {
+import type {
   CustomerDTO,
   ProductDTO,
   TransactionDTO,

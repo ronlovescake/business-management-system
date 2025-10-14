@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { TextInput, NumberInput, Grid, Select } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { ComposedDialog } from '@/components/shared/Dialog';
-import { Employee, EmployeeFormData } from '../types';
+import type { Employee, EmployeeFormData } from '../types';
 
 interface EmployeeFormDialogProps {
   opened: boolean;
@@ -40,10 +40,13 @@ export function EmployeeFormDialog({
       jobTitle: (value) => (!value ? 'Job title is required' : null),
       hireDate: (value) => (!value ? 'Hire date is required' : null),
       basicSalary: (value) => {
-        if (!value) return 'Basic salary is required';
+        if (!value) {
+          return 'Basic salary is required';
+        }
         const num = parseFloat(value);
-        if (isNaN(num) || num <= 0)
+        if (isNaN(num) || num <= 0) {
           return 'Basic salary must be greater than 0';
+        }
         return null;
       },
       contact: (value) => (!value ? 'Contact number is required' : null),

@@ -1,30 +1,30 @@
 'use client';
 
 import React from 'react';
-import { 
-  Container, 
-  Text, 
-  Title, 
-  Stack, 
-  Card, 
-  Badge, 
-  Group, 
+import {
+  Container,
+  Text,
+  Title,
+  Stack,
+  Card,
+  Badge,
+  Group,
   Button,
   Paper,
   ThemeIcon,
   SimpleGrid,
   Center,
-  Box
+  Box,
 } from '@mantine/core';
-import { 
-  IconBuilding, 
-  IconUsers, 
-  IconSettings, 
+import {
+  IconBuilding,
+  IconUsers,
+  IconSettings,
   IconChartBar,
   IconTruck,
   IconShirt,
   IconArrowRight,
-  IconDashboard
+  IconDashboard,
 } from '@tabler/icons-react';
 import { useBusinessStore } from '../lib/store';
 
@@ -33,23 +33,70 @@ export default function HomePage() {
 
   const businessFeatures = {
     clothing: [
-      { icon: IconChartBar, title: 'Business Intelligence', description: 'Advanced analytics and reporting' },
-      { icon: IconSettings, title: 'Inventory Management', description: 'Track products and stock levels' },
-      { icon: IconUsers, title: 'Customer Management', description: 'Manage customer relationships' },
-      { icon: IconTruck, title: 'Shipment Tracking', description: 'Monitor deliveries and logistics' }
+      {
+        icon: IconChartBar,
+        title: 'Business Intelligence',
+        description: 'Advanced analytics and reporting',
+      },
+      {
+        icon: IconSettings,
+        title: 'Inventory Management',
+        description: 'Track products and stock levels',
+      },
+      {
+        icon: IconUsers,
+        title: 'Customer Management',
+        description: 'Manage customer relationships',
+      },
+      {
+        icon: IconTruck,
+        title: 'Shipment Tracking',
+        description: 'Monitor deliveries and logistics',
+      },
     ],
     trucking: [
-      { icon: IconTruck, title: 'Fleet Management', description: 'Monitor vehicles and routes' },
-      { icon: IconUsers, title: 'Driver Management', description: 'Track driver schedules and performance' },
-      { icon: IconChartBar, title: 'Trip Analytics', description: 'Analyze trip data and efficiency' },
-      { icon: IconSettings, title: 'Operations', description: 'Streamline daily operations' }
-    ]
+      {
+        icon: IconTruck,
+        title: 'Fleet Management',
+        description: 'Monitor vehicles and routes',
+      },
+      {
+        icon: IconUsers,
+        title: 'Driver Management',
+        description: 'Track driver schedules and performance',
+      },
+      {
+        icon: IconChartBar,
+        title: 'Trip Analytics',
+        description: 'Analyze trip data and efficiency',
+      },
+      {
+        icon: IconSettings,
+        title: 'Operations',
+        description: 'Streamline daily operations',
+      },
+    ],
   } as const;
 
+  type BusinessFeature =
+    (typeof businessFeatures)[keyof typeof businessFeatures][number];
+
   const workspaceStats = {
-    operations: { color: 'blue' as const, icon: IconSettings, description: 'Operational Management' },
-    employees: { color: 'green' as const, icon: IconUsers, description: 'Human Resources' }
+    operations: {
+      color: 'blue' as const,
+      icon: IconSettings,
+      description: 'Operational Management',
+    },
+    employees: {
+      color: 'green' as const,
+      icon: IconUsers,
+      description: 'Human Resources',
+    },
   } as const;
+
+  const selectedFeatures = (businessFeatures[
+    selectedBusiness as keyof typeof businessFeatures
+  ] ?? []) as readonly BusinessFeature[];
 
   return (
     <Container size="xl" p="xl">
@@ -57,27 +104,32 @@ export default function HomePage() {
       <Box mb="xl">
         <Center>
           <Stack gap="lg" align="center" maw={800}>
-            <Badge size="lg" variant="gradient" gradient={{ from: 'blue', to: 'cyan' }}>
+            <Badge
+              size="lg"
+              variant="gradient"
+              gradient={{ from: 'blue', to: 'cyan' }}
+            >
               Modern Business Management
             </Badge>
-            
-            <Title 
-              order={1} 
-              ta="center" 
+
+            <Title
+              order={1}
+              ta="center"
               size="3.5rem"
               fw={900}
               className="gradient-text"
             >
               Czarlie & Ron
             </Title>
-            
+
             <Title order={2} ta="center" size="1.8rem" fw={400} c="dimmed">
               Streamlined Business Operations
             </Title>
-            
+
             <Text size="lg" ta="center" c="dimmed" maw={600}>
-              Comprehensive management solution for clothing and trucking operations. 
-              Manage employees, track inventory, monitor shipments, and analyze business performance.
+              Comprehensive management solution for clothing and trucking
+              operations. Manage employees, track inventory, monitor shipments,
+              and analyze business performance.
             </Text>
           </Stack>
         </Center>
@@ -90,9 +142,12 @@ export default function HomePage() {
             <ThemeIcon size="xl" radius="xl" variant="light" color="blue">
               <IconBuilding size={24} />
             </ThemeIcon>
-            <Title order={3} ta="center">Get Started</Title>
+            <Title order={3} ta="center">
+              Get Started
+            </Title>
             <Text size="md" ta="center" c="dimmed" maw={500}>
-              Select a business from the navigation menu above to access your management dashboard and explore all available features.
+              Select a business from the navigation menu above to access your
+              management dashboard and explore all available features.
             </Text>
           </Stack>
         </Paper>
@@ -104,9 +159,12 @@ export default function HomePage() {
             <ThemeIcon size="xl" radius="xl" variant="light" color="orange">
               <IconDashboard size={24} />
             </ThemeIcon>
-            <Title order={3} ta="center">Choose Your Workspace</Title>
+            <Title order={3} ta="center">
+              Choose Your Workspace
+            </Title>
             <Text size="md" ta="center" c="dimmed" maw={500}>
-              Select a workspace to continue to your business management dashboard.
+              Select a workspace to continue to your business management
+              dashboard.
             </Text>
           </Stack>
         </Paper>
@@ -119,31 +177,51 @@ export default function HomePage() {
           <Card shadow="md" padding="xl" radius="lg" withBorder>
             <Group justify="space-between" mb="md">
               <Group>
-                <ThemeIcon 
-                  size="xl" 
-                  radius="md" 
-                  variant="gradient" 
-                  gradient={{ from: selectedBusiness === 'clothing' ? 'pink' : 'blue', to: selectedBusiness === 'clothing' ? 'orange' : 'cyan' }}
+                <ThemeIcon
+                  size="xl"
+                  radius="md"
+                  variant="gradient"
+                  gradient={{
+                    from: selectedBusiness === 'clothing' ? 'pink' : 'blue',
+                    to: selectedBusiness === 'clothing' ? 'orange' : 'cyan',
+                  }}
                 >
-                  {selectedBusiness === 'clothing' ? <IconShirt size={24} /> : <IconTruck size={24} />}
+                  {selectedBusiness === 'clothing' ? (
+                    <IconShirt size={24} />
+                  ) : (
+                    <IconTruck size={24} />
+                  )}
                 </ThemeIcon>
                 <Stack gap={4}>
                   <Title order={3}>
-                    {selectedBusiness === 'clothing' ? 'Czarlie & Ron Clothing' : 'Czarlie & Ron Trucking'}
+                    {selectedBusiness === 'clothing'
+                      ? 'Czarlie & Ron Clothing'
+                      : 'Czarlie & Ron Trucking'}
                   </Title>
                   <Group gap="xs">
-                    <Badge 
-                      color={workspaceStats[selectedWorkspace as keyof typeof workspaceStats]?.color} 
+                    <Badge
+                      color={
+                        workspaceStats[
+                          selectedWorkspace as keyof typeof workspaceStats
+                        ]?.color
+                      }
                       variant="light"
-                      leftSection={React.createElement(workspaceStats[selectedWorkspace as keyof typeof workspaceStats]?.icon || IconSettings, { size: 12 })}
+                      leftSection={React.createElement(
+                        workspaceStats[
+                          selectedWorkspace as keyof typeof workspaceStats
+                        ]?.icon || IconSettings,
+                        { size: 12 }
+                      )}
                     >
-                      {selectedWorkspace === 'operations' ? 'Operations Workspace' : 'Employees Workspace'}
+                      {selectedWorkspace === 'operations'
+                        ? 'Operations Workspace'
+                        : 'Employees Workspace'}
                     </Badge>
                   </Group>
                 </Stack>
               </Group>
-              <Button 
-                variant="light" 
+              <Button
+                variant="light"
                 rightSection={<IconArrowRight size={16} />}
                 size="sm"
               >
@@ -151,23 +229,46 @@ export default function HomePage() {
               </Button>
             </Group>
             <Text c="dimmed">
-              {workspaceStats[selectedWorkspace as keyof typeof workspaceStats]?.description} - Use the sidebar navigation to access different sections and manage your business operations.
+              {
+                workspaceStats[selectedWorkspace as keyof typeof workspaceStats]
+                  ?.description
+              }{' '}
+              - Use the sidebar navigation to access different sections and
+              manage your business operations.
             </Text>
           </Card>
 
           {/* Feature Cards */}
           <Stack gap="md">
-            <Title order={4} c="dimmed">Available Features</Title>
+            <Title order={4} c="dimmed">
+              Available Features
+            </Title>
             <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="lg">
-              {businessFeatures[selectedBusiness as keyof typeof businessFeatures]?.map((feature: any, index: number) => (
-                <Card key={index} shadow="sm" padding="lg" radius="md" withBorder className="modern-card">
+              {selectedFeatures.map((feature) => (
+                <Card
+                  key={feature.title}
+                  shadow="sm"
+                  padding="lg"
+                  radius="md"
+                  withBorder
+                  className="modern-card"
+                >
                   <Stack gap="md">
-                    <ThemeIcon size="lg" radius="md" variant="light" color="blue">
+                    <ThemeIcon
+                      size="lg"
+                      radius="md"
+                      variant="light"
+                      color="blue"
+                    >
                       <feature.icon size={20} />
                     </ThemeIcon>
                     <Stack gap="xs">
-                      <Text fw={600} size="sm">{feature.title}</Text>
-                      <Text size="xs" c="dimmed">{feature.description}</Text>
+                      <Text fw={600} size="sm">
+                        {feature.title}
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        {feature.description}
+                      </Text>
                     </Stack>
                   </Stack>
                 </Card>
@@ -180,12 +281,25 @@ export default function HomePage() {
       {/* Business Overview Cards (when no business selected) */}
       {!selectedBusiness && (
         <Stack gap="md">
-          <Title order={4} c="dimmed" ta="center">Our Business Solutions</Title>
+          <Title order={4} c="dimmed" ta="center">
+            Our Business Solutions
+          </Title>
           <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl">
-            <Card shadow="lg" padding="xl" radius="lg" withBorder className="modern-card">
+            <Card
+              shadow="lg"
+              padding="xl"
+              radius="lg"
+              withBorder
+              className="modern-card"
+            >
               <Stack gap="lg">
                 <Group>
-                  <ThemeIcon size="xl" radius="md" variant="gradient" gradient={{ from: 'pink', to: 'orange' }}>
+                  <ThemeIcon
+                    size="xl"
+                    radius="md"
+                    variant="gradient"
+                    gradient={{ from: 'pink', to: 'orange' }}
+                  >
                     <IconShirt size={28} />
                   </ThemeIcon>
                   <Stack gap={4}>
@@ -194,12 +308,13 @@ export default function HomePage() {
                   </Stack>
                 </Group>
                 <Text size="sm" c="dimmed">
-                  Complete solution for fashion retail operations including inventory management, 
-                  customer relations, shipment tracking, and business intelligence.
+                  Complete solution for fashion retail operations including
+                  inventory management, customer relations, shipment tracking,
+                  and business intelligence.
                 </Text>
                 <SimpleGrid cols={2} spacing="sm">
-                  {businessFeatures.clothing.map((feature, idx) => (
-                    <Group key={idx} gap="xs">
+                  {businessFeatures.clothing.map((feature) => (
+                    <Group key={feature.title} gap="xs">
                       <feature.icon size={14} color="gray" />
                       <Text size="xs">{feature.title}</Text>
                     </Group>
@@ -208,10 +323,21 @@ export default function HomePage() {
               </Stack>
             </Card>
 
-            <Card shadow="lg" padding="xl" radius="lg" withBorder className="modern-card">
+            <Card
+              shadow="lg"
+              padding="xl"
+              radius="lg"
+              withBorder
+              className="modern-card"
+            >
               <Stack gap="lg">
                 <Group>
-                  <ThemeIcon size="xl" radius="md" variant="gradient" gradient={{ from: 'blue', to: 'cyan' }}>
+                  <ThemeIcon
+                    size="xl"
+                    radius="md"
+                    variant="gradient"
+                    gradient={{ from: 'blue', to: 'cyan' }}
+                  >
                     <IconTruck size={28} />
                   </ThemeIcon>
                   <Stack gap={4}>
@@ -220,12 +346,13 @@ export default function HomePage() {
                   </Stack>
                 </Group>
                 <Text size="sm" c="dimmed">
-                  Comprehensive trucking operations management with fleet tracking, 
-                  driver management, trip analytics, and operational efficiency tools.
+                  Comprehensive trucking operations management with fleet
+                  tracking, driver management, trip analytics, and operational
+                  efficiency tools.
                 </Text>
                 <SimpleGrid cols={2} spacing="sm">
-                  {businessFeatures.trucking.map((feature, idx) => (
-                    <Group key={idx} gap="xs">
+                  {businessFeatures.trucking.map((feature) => (
+                    <Group key={feature.title} gap="xs">
                       <feature.icon size={14} color="gray" />
                       <Text size="xs">{feature.title}</Text>
                     </Group>

@@ -4,8 +4,10 @@
  * POST /api/modules/install - Install a module from marketplace
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { pluginManager } from '@/core/PluginManager';
+import { logger } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {

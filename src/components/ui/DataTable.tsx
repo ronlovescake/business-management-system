@@ -1,13 +1,8 @@
 'use client';
 
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  useRef,
-} from 'react';
-import { GridColumn, Item, GridCell } from '@glideapps/glide-data-grid';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import type { ReactNode } from 'react';
+import type { GridColumn, Item, GridCell } from '@glideapps/glide-data-grid';
 import {
   Stack,
   Text,
@@ -24,6 +19,7 @@ import { notifications } from '@mantine/notifications';
 import { IconUpload, IconSearch } from '@tabler/icons-react';
 import { GridView } from '../grid';
 import { throttle } from '../../lib/performance';
+import { logger } from '@/lib/logger';
 
 // Types for DrawHeader callback
 interface DrawHeaderArgs {
@@ -92,7 +88,7 @@ const customGridStyles = `
 export interface StatCard {
   title: string;
   value: string | number;
-  icon: React.ReactNode;
+  icon: ReactNode;
   color: string;
   backgroundColor?: string;
 }
@@ -120,10 +116,10 @@ export interface DataTableProps<T = Record<string, unknown>> {
   onFileChange?: (file: File | null) => void;
 
   // Action buttons (optional)
-  actionButtons?: React.ReactNode;
+  actionButtons?: ReactNode;
 
   // Search right buttons (appear right after search bar)
-  searchRightButtons?: React.ReactNode;
+  searchRightButtons?: ReactNode;
 
   // Table behavior
   onCellClick?: (cell: Item, data: T) => void;
@@ -133,8 +129,8 @@ export interface DataTableProps<T = Record<string, unknown>> {
 
   // Footer customization
   showFooter?: boolean;
-  footerLeft?: React.ReactNode;
-  footerRight?: React.ReactNode;
+  footerLeft?: ReactNode;
+  footerRight?: ReactNode;
 
   // Grid height (defaults to 83vh)
   gridHeight?: number;
@@ -191,7 +187,9 @@ export function DataTable<T = Record<string, unknown>>({
 
   // Handle Ctrl+F to focus search bar
   useEffect(() => {
-    if (!enableCtrlF) return;
+    if (!enableCtrlF) {
+      return;
+    }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
@@ -259,7 +257,9 @@ export function DataTable<T = Record<string, unknown>>({
 
   // CSV import handler
   const handleCSVImport = async () => {
-    if (!csvFile || !onCSVImport) return;
+    if (!csvFile || !onCSVImport) {
+      return;
+    }
 
     try {
       await onCSVImport(csvFile);
@@ -284,9 +284,9 @@ export function DataTable<T = Record<string, unknown>>({
         {/* Stats cards */}
         {statsCards && statsCards.length > 0 && (
           <SimpleGrid cols={statsCards.length} spacing="md">
-            {statsCards.map((stat, index) => (
+            {statsCards.map((stat) => (
               <Card
-                key={index}
+                key={stat.title}
                 shadow="xs"
                 padding="md"
                 radius="md"

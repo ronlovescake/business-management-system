@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { logger } from '@/lib/logger';
 
 const prisma = new PrismaClient();
 
@@ -9,7 +10,10 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const productCode = searchParams.get('productCode');
 
-    logger.debug('🔍 GET /api/sorting-distribution - Product Code:', productCode);
+    logger.debug(
+      '🔍 GET /api/sorting-distribution - Product Code:',
+      productCode
+    );
 
     if (!productCode) {
       logger.debug('❌ GET - No product code provided');
@@ -43,7 +47,10 @@ export async function GET(request: Request) {
     const sortingData = data as SortingDistributionRow[];
 
     logger.debug('📊 GET - Found rows:', sortingData.length);
-    logger.debug('📊 GET - Selected quantity:', sortingData[0]?.selected_quantity);
+    logger.debug(
+      '📊 GET - Selected quantity:',
+      sortingData[0]?.selected_quantity
+    );
     logger.debug('📊 GET - Sample data:', sortingData.slice(0, 3));
 
     return NextResponse.json({
@@ -115,7 +122,9 @@ export async function POST(request: Request) {
           row.checked
       );
 
-    logger.debug(`💾 POST - Filtered ${rowsToInsert.length} non-empty rows from ${rows?.length || 0} total rows`);
+    logger.debug(
+      `💾 POST - Filtered ${rowsToInsert.length} non-empty rows from ${rows?.length || 0} total rows`
+    );
     logger.debug('💾 POST - Sample filtered rows:', rowsToInsert.slice(0, 3));
 
     // Insert new data

@@ -1,5 +1,5 @@
 import { BaseService } from './BaseService';
-import { PriceDTO } from '../types';
+import type { PriceDTO } from '../types';
 
 /**
  * Price Service

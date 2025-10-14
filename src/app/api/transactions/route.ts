@@ -2,11 +2,6 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import type { Price, Prisma, Transaction } from '@prisma/client';
 import { prisma } from '@/lib/db';
-import {
-  bulkTransactionSchema,
-  partialTransactionDataSchema,
-  formatValidationErrors,
-} from '@/lib/validations/transaction.validation';
 import { logger } from '@/lib/logger';
 
 // ==============================================================================

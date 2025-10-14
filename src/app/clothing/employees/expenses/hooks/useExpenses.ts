@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { logger } from '@/lib/logger';
 
 /**
  * Expense Interface
@@ -423,7 +424,9 @@ export function useExpenses() {
   };
 
   const handleImportCSV = (file: File | null) => {
-    if (!file) return;
+    if (!file) {
+      return;
+    }
 
     setIsImporting(true);
     const reader = new FileReader();
@@ -615,7 +618,9 @@ export function useExpenses() {
     ];
 
     const escapeCSV = (value: string | number | null | undefined): string => {
-      if (value === null || value === undefined) return '';
+      if (value === null || value === undefined) {
+        return '';
+      }
       const stringValue = String(value);
       if (
         stringValue.includes(',') ||

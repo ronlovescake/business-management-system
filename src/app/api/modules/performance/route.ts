@@ -6,8 +6,10 @@
  * - POST /api/modules/performance - Trigger optimization
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { modulePerformance } from '@/core/ModulePerformance';
+import { logger } from '@/lib/logger';
 
 /**
  * GET /api/modules/performance

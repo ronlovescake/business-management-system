@@ -5,7 +5,7 @@ import { ShipmentService } from './ShipmentService';
 import { PriceService } from './PriceService';
 import { FormatterService } from './FormatterService';
 import { ValidationService } from './ValidationService';
-import { DataSourceType } from '../types';
+import type { DataSourceType } from '../types';
 
 /**
  * Service Factory

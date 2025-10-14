@@ -9,8 +9,9 @@
  * - Error handling and recovery
  */
 
-import dynamic, { DynamicOptions, Loader } from 'next/dynamic';
-import { ComponentType } from 'react';
+import dynamic from 'next/dynamic';
+import type { DynamicOptions, Loader } from 'next/dynamic';
+import type { ComponentType } from 'react';
 import { moduleRegistry } from './ModuleRegistry';
 import type {
   ModuleLoadOptions,
@@ -19,6 +20,7 @@ import type {
   ModuleLifecycleEvent,
   ModuleLifecycleHandler,
 } from '@/types/module-system';
+import { logger } from '@/lib/logger';
 
 // ============================================================================
 // MODULE LOADER ERRORS
@@ -406,10 +408,13 @@ class ModuleLoader {
    * Register event handler
    */
   on(event: ModuleLifecycleEvent, handler: ModuleLifecycleHandler): void {
-    if (!this.eventHandlers.has(event)) {
-      this.eventHandlers.set(event, new Set());
+    const existingHandlers = this.eventHandlers.get(event);
+    if (existingHandlers) {
+      existingHandlers.add(handler);
+      return;
     }
-    this.eventHandlers.get(event)!.add(handler);
+
+    this.eventHandlers.set(event, new Set([handler]));
   }
 
   /**

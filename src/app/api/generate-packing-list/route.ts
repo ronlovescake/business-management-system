@@ -1,9 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import puppeteer from 'puppeteer';
 import handlebars from 'handlebars';
 import fs from 'fs';
 import path from 'path';
 import { PDFDocument } from 'pdf-lib';
+import { logger } from '@/lib/logger';
 
 interface Transaction {
   id: string;
@@ -90,10 +92,12 @@ export async function POST(request: NextRequest) {
 
     filteredTransactions.forEach((transaction) => {
       const customer = transaction.customers;
-      if (!customerGroups.has(customer)) {
-        customerGroups.set(customer, []);
+      const existingTransactions = customerGroups.get(customer);
+      if (existingTransactions) {
+        existingTransactions.push(transaction);
+        return;
       }
-      customerGroups.get(customer)!.push(transaction);
+      customerGroups.set(customer, [transaction]);
     });
 
     logger.debug(`👥 Grouped into ${customerGroups.size} customers`);

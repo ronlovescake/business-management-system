@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import { prisma } from '../../../lib/db';
-import { ShipmentData, ShipmentDB } from '../../../types';
+import type { ShipmentData, ShipmentDB } from '../../../types';
+import { logger } from '@/lib/logger';
 
 // Helper function to convert database model to frontend interface
 function convertShipmentDBToData(shipment: ShipmentDB): ShipmentData {
@@ -24,7 +26,9 @@ function convertShipmentDBToData(shipment: ShipmentDB): ShipmentData {
 function convertShipmentDataToDB(data: Partial<ShipmentData>) {
   // Clean numeric value - remove commas and convert to number
   const cleanNumber = (value: unknown): number => {
-    if (value === undefined || value === null || value === '') return 0;
+    if (value === undefined || value === null || value === '') {
+      return 0;
+    }
     const str = String(value);
     const cleaned = str.replace(/,/g, '');
     const parsed = Number.parseFloat(cleaned);
@@ -33,8 +37,9 @@ function convertShipmentDataToDB(data: Partial<ShipmentData>) {
 
   // Clean fee value - remove peso symbol and commas, then parse as number
   const cleanFee = (feeValue: unknown): number => {
-    if (feeValue === undefined || feeValue === null || feeValue === '')
+    if (feeValue === undefined || feeValue === null || feeValue === '') {
       return 0;
+    }
     const feeStr = String(feeValue);
     // Remove peso symbol, commas, and any other non-numeric characters except decimal point
     const cleaned = feeStr.replace(/[₱,\s]/g, '');

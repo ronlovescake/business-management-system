@@ -98,9 +98,9 @@ export function DashboardPage() {
 
         {/* Stats Cards */}
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="lg">
-          {statistics.map((stat, index) => (
+          {statistics.map((stat) => (
             <Card
-              key={index}
+              key={stat.title}
               shadow="sm"
               padding="lg"
               radius="md"
@@ -300,9 +300,9 @@ export function DashboardPage() {
           <Stack gap="md">
             <Title order={3}>Recent Activity</Title>
             <Stack gap="sm">
-              {recentActivities.map((activity, index) => (
+              {recentActivities.map((activity) => (
                 <Group
-                  key={index}
+                  key={`${activity.time}-${activity.action}`}
                   justify="space-between"
                   p="sm"
                   style={{
