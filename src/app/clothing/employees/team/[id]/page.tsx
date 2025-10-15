@@ -14,11 +14,13 @@ import {
   Divider,
   Avatar,
   ActionIcon,
-  Table,
+  Grid,
+  Box,
 } from '@mantine/core';
 import { IconArrowLeft, IconEdit, IconAlertCircle } from '@tabler/icons-react';
 import { PageLayout } from '../../../../../components/layout/PageLayout';
 import { useEmployeeDetail } from '@/app/clothing/employees/team/hooks/useEmployeeDetail';
+import { EmployeeFormDialog } from '../components/EmployeeFormDialog';
 
 export default function EmployeeDetailPage() {
   const params = useParams();
@@ -28,10 +30,13 @@ export default function EmployeeDetailPage() {
   const {
     employee,
     isLoading,
+    isFormOpen,
+    setIsFormOpen,
     formatDate,
     formatCurrency,
     getStatusColor,
     handleEdit,
+    handleSaveEmployee,
   } = useEmployeeDetail(employeeId);
 
   if (isLoading) {
@@ -337,41 +342,57 @@ export default function EmployeeDetailPage() {
                 <Title order={4}>{category}</Title>
               </Paper>
               <Divider />
-              <Table striped highlightOnHover>
-                <Table.Tbody>
+              <Box p="lg">
+                <Grid gutter="md">
                   {categoryDetails.map((detail) => (
-                    <Table.Tr key={`${category}-${detail.label}`}>
-                      <Table.Td
-                        width="40%"
-                        style={{ fontWeight: 600, padding: '16px' }}
-                      >
-                        {detail.label}
-                      </Table.Td>
-                      <Table.Td style={{ padding: '16px' }}>
+                    <Grid.Col
+                      span={{ base: 12, sm: 6, md: 4 }}
+                      key={`${category}-${detail.label}`}
+                    >
+                      <Box>
+                        <Text
+                          size="xs"
+                          fw={600}
+                          c="dimmed"
+                          tt="uppercase"
+                          mb={4}
+                        >
+                          {detail.label}
+                        </Text>
                         {detail.label.toLowerCase().includes('salary') ||
                         detail.label.toLowerCase().includes('allowance') ? (
                           <Text
                             fw={600}
+                            size="sm"
                             c={detail.value !== 'N/A' ? 'green' : 'dimmed'}
                           >
                             {detail.value}
                           </Text>
                         ) : (
                           <Text
+                            size="sm"
                             c={detail.value === 'N/A' ? 'dimmed' : undefined}
                           >
                             {detail.value}
                           </Text>
                         )}
-                      </Table.Td>
-                    </Table.Tr>
+                      </Box>
+                    </Grid.Col>
                   ))}
-                </Table.Tbody>
-              </Table>
+                </Grid>
+              </Box>
             </Card>
           );
         })}
       </Stack>
+
+      {/* Form Dialog */}
+      <EmployeeFormDialog
+        opened={isFormOpen}
+        editingEmployee={employee}
+        onClose={() => setIsFormOpen(false)}
+        onSave={handleSaveEmployee}
+      />
     </PageLayout>
   );
 }

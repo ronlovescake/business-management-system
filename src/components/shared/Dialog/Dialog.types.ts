@@ -11,7 +11,7 @@ import type { MantineSize } from '@mantine/core';
 /**
  * Dialog Size Options
  */
-export type DialogSize = MantineSize | 'xl' | 'full';
+export type DialogSize = MantineSize | 'xl' | 'full' | number | string;
 
 /**
  * Dialog Button Variant

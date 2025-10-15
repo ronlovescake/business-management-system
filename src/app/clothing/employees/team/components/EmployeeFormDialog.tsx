@@ -1,5 +1,12 @@
 import { useEffect } from 'react';
-import { TextInput, NumberInput, Grid, Select } from '@mantine/core';
+import {
+  TextInput,
+  NumberInput,
+  Grid,
+  Select,
+  Divider,
+  Text,
+} from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { ComposedDialog } from '@/components/shared/Dialog';
 import type { Employee, EmployeeFormData } from '../types';
@@ -9,7 +16,6 @@ interface EmployeeFormDialogProps {
   editingEmployee: Employee | null;
   onClose: () => void;
   onSave: (data: EmployeeFormData) => void;
-  departments: string[];
 }
 
 export function EmployeeFormDialog({
@@ -17,27 +23,54 @@ export function EmployeeFormDialog({
   editingEmployee,
   onClose,
   onSave,
-  departments,
 }: EmployeeFormDialogProps) {
   const form = useForm<EmployeeFormData>({
     initialValues: {
       employeeId: '',
+      firstName: '',
+      lastName: '',
+      middleName: '',
       name: '',
-      department: '',
-      jobTitle: '',
-      status: 'active',
-      hireDate: new Date().toISOString().split('T')[0],
-      basicSalary: '',
+      phone: '',
       contact: '',
       email: '',
+      department: '',
+      position: '',
+      jobTitle: '',
+      currentSalary: '',
+      basicSalary: '',
+      hireDate: new Date().toISOString().split('T')[0],
+      status: 'active',
+      employmentStatus: 'probationary',
+      employeeType: 'full-time',
+      office: '',
+      hiringSource: '',
+      sssNumber: '',
+      philHealthNumber: '',
+      hdmfNumber: '',
+      tinNumber: '',
+      gender: '',
+      education: '',
+      dateOfBirth: '',
+      maritalStatus: '',
+      numberOfKids: '',
+      drivingLicense: '',
       address: '',
+      emergencyContactPerson: '',
+      emergencyContactNumber: '',
       emergencyContact: '',
+      bankAccount: '',
+      gcashAccount: '',
+      allowance: '',
+      paymentSchedule: 'semi-monthly',
     },
     validate: {
       employeeId: (value) => (!value ? 'Employee ID is required' : null),
-      name: (value) => (!value ? 'Name is required' : null),
+      firstName: (value) => (!value ? 'First name is required' : null),
+      lastName: (value) => (!value ? 'Last name is required' : null),
+      phone: (value) => (!value ? 'Contact number is required' : null),
       department: (value) => (!value ? 'Department is required' : null),
-      jobTitle: (value) => (!value ? 'Job title is required' : null),
+      position: (value) => (!value ? 'Position is required' : null),
       hireDate: (value) => (!value ? 'Hire date is required' : null),
       basicSalary: (value) => {
         if (!value) {
@@ -49,7 +82,6 @@ export function EmployeeFormDialog({
         }
         return null;
       },
-      contact: (value) => (!value ? 'Contact number is required' : null),
     },
   });
 
@@ -57,16 +89,42 @@ export function EmployeeFormDialog({
     if (editingEmployee) {
       form.setValues({
         employeeId: editingEmployee.employeeId,
+        firstName: editingEmployee.firstName,
+        lastName: editingEmployee.lastName,
+        middleName: editingEmployee.middleName || '',
         name: editingEmployee.name,
-        department: editingEmployee.department,
-        jobTitle: editingEmployee.jobTitle,
-        status: editingEmployee.status,
-        hireDate: editingEmployee.hireDate,
-        basicSalary: editingEmployee.basicSalary.toString(),
+        phone: editingEmployee.phone,
         contact: editingEmployee.contact,
         email: editingEmployee.email || '',
+        department: editingEmployee.department,
+        position: editingEmployee.position,
+        jobTitle: editingEmployee.jobTitle,
+        currentSalary: editingEmployee.currentSalary.toString(),
+        basicSalary: editingEmployee.basicSalary.toString(),
+        hireDate: editingEmployee.hireDate,
+        status: editingEmployee.status,
+        employmentStatus: editingEmployee.employmentStatus || 'probationary',
+        employeeType: editingEmployee.employeeType || 'full-time',
+        office: editingEmployee.office || '',
+        hiringSource: editingEmployee.hiringSource || '',
+        sssNumber: editingEmployee.sssNumber || '',
+        philHealthNumber: editingEmployee.philHealthNumber || '',
+        hdmfNumber: editingEmployee.hdmfNumber || '',
+        tinNumber: editingEmployee.tinNumber || '',
+        gender: editingEmployee.gender || '',
+        education: editingEmployee.education || '',
+        dateOfBirth: editingEmployee.dateOfBirth || '',
+        maritalStatus: editingEmployee.maritalStatus || '',
+        numberOfKids: editingEmployee.numberOfKids?.toString() || '',
+        drivingLicense: editingEmployee.drivingLicense || '',
         address: editingEmployee.address || '',
+        emergencyContactPerson: editingEmployee.emergencyContactPerson || '',
+        emergencyContactNumber: editingEmployee.emergencyContactNumber || '',
         emergencyContact: editingEmployee.emergencyContact || '',
+        bankAccount: editingEmployee.bankAccount || '',
+        gcashAccount: editingEmployee.gcashAccount || '',
+        allowance: editingEmployee.allowance?.toString() || '',
+        paymentSchedule: editingEmployee.paymentSchedule || 'semi-monthly',
       });
     } else {
       form.reset();
@@ -75,7 +133,16 @@ export function EmployeeFormDialog({
   }, [editingEmployee, opened]);
 
   const handleSubmit = (values: EmployeeFormData) => {
-    onSave(values);
+    // Generate full name from parts
+    const fullName =
+      `${values.firstName} ${values.middleName ? values.middleName + ' ' : ''}${values.lastName}`.trim();
+    const dataToSave = {
+      ...values,
+      name: fullName,
+      contact: values.phone, // Copy phone to contact for backward compatibility
+      jobTitle: values.position, // Copy position to jobTitle for backward compatibility
+    };
+    onSave(dataToSave);
     form.reset();
   };
 
@@ -83,14 +150,20 @@ export function EmployeeFormDialog({
     form.onSubmit(handleSubmit)();
   };
 
-  // Filter out 'all' from departments for the select dropdown
-  const departmentOptions = departments.filter((d) => d !== 'all');
+  // Define fixed department options
+  const departmentOptions = [
+    'Operations',
+    'HR',
+    'Finance',
+    'IT',
+    'Cleaning & Maintenance',
+  ];
 
   return (
     <ComposedDialog
       opened={opened}
       onClose={onClose}
-      size="xl"
+      size={1400}
       header={{
         title: editingEmployee ? 'Edit Employee' : 'Add Employee',
         subtitle: editingEmployee
@@ -99,8 +172,8 @@ export function EmployeeFormDialog({
         iconColor: '#6366f1',
       }}
       body={{
-        padding: 'md',
-        maxHeight: '75vh',
+        padding: 'lg',
+        maxHeight: '85vh',
       }}
       footer={{
         layout: 'flex-end',
@@ -118,23 +191,19 @@ export function EmployeeFormDialog({
       }}
     >
       <Grid gutter="md">
-        {/* Basic Information */}
+        {/* Basic Information Section */}
         <Grid.Col span={12}>
-          <div
-            style={{
-              fontSize: '14px',
-              fontWeight: 600,
-              marginBottom: '8px',
-              color: '#495057',
-              borderBottom: '2px solid #e9ecef',
-              paddingBottom: '8px',
-            }}
-          >
-            👤 Basic Information
-          </div>
+          <Divider
+            label={
+              <Text size="sm" fw={600}>
+                👤 Basic Information
+              </Text>
+            }
+            labelPosition="left"
+          />
         </Grid.Col>
 
-        <Grid.Col span={6}>
+        <Grid.Col span={4}>
           <TextInput
             label="Employee ID"
             placeholder="e.g., EMP-001"
@@ -143,36 +212,7 @@ export function EmployeeFormDialog({
           />
         </Grid.Col>
 
-        <Grid.Col span={6}>
-          <TextInput
-            label="Full Name"
-            placeholder="Enter employee name"
-            required
-            {...form.getInputProps('name')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={6}>
-          <Select
-            label="Department"
-            placeholder="Select department"
-            required
-            data={departmentOptions}
-            searchable
-            {...form.getInputProps('department')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={6}>
-          <TextInput
-            label="Job Title"
-            placeholder="e.g., Sales Manager"
-            required
-            {...form.getInputProps('jobTitle')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={6}>
+        <Grid.Col span={4}>
           <Select
             label="Status"
             placeholder="Select status"
@@ -186,7 +226,113 @@ export function EmployeeFormDialog({
           />
         </Grid.Col>
 
-        <Grid.Col span={6}>
+        <Grid.Col span={4}>
+          <Select
+            label="Gender"
+            placeholder="Select gender"
+            data={[
+              { value: 'male', label: 'Male' },
+              { value: 'female', label: 'Female' },
+            ]}
+            {...form.getInputProps('gender')}
+          />
+        </Grid.Col>
+
+        <Grid.Col span={4}>
+          <TextInput
+            label="First Name"
+            placeholder="First name"
+            required
+            {...form.getInputProps('firstName')}
+          />
+        </Grid.Col>
+
+        <Grid.Col span={4}>
+          <TextInput
+            label="Middle Name"
+            placeholder="Middle name (optional)"
+            {...form.getInputProps('middleName')}
+          />
+        </Grid.Col>
+
+        <Grid.Col span={4}>
+          <TextInput
+            label="Last Name"
+            placeholder="Last name"
+            required
+            {...form.getInputProps('lastName')}
+          />
+        </Grid.Col>
+
+        <Grid.Col span={4}>
+          <TextInput
+            label="Date of Birth"
+            type="date"
+            {...form.getInputProps('dateOfBirth')}
+          />
+        </Grid.Col>
+
+        <Grid.Col span={4}>
+          <Select
+            label="Marital Status"
+            placeholder="Select marital status"
+            data={[
+              { value: 'single', label: 'Single' },
+              { value: 'married', label: 'Married' },
+              { value: 'separated', label: 'Separated' },
+              { value: 'widowed', label: 'Widowed' },
+            ]}
+            {...form.getInputProps('maritalStatus')}
+          />
+        </Grid.Col>
+
+        <Grid.Col span={4}>
+          <NumberInput
+            label="Number of Kids"
+            placeholder="0"
+            min={0}
+            hideControls
+            value={form.values.numberOfKids}
+            onChange={(value) =>
+              form.setFieldValue('numberOfKids', value?.toString() || '')
+            }
+          />
+        </Grid.Col>
+
+        {/* Employment Section */}
+        <Grid.Col span={12}>
+          <Divider
+            label={
+              <Text size="sm" fw={600}>
+                💼 Employment
+              </Text>
+            }
+            labelPosition="left"
+            mt="md"
+          />
+        </Grid.Col>
+
+        <Grid.Col span={4}>
+          <Select
+            label="Department"
+            placeholder="Select department"
+            required
+            data={departmentOptions}
+            searchable
+            {...form.getInputProps('department')}
+          />
+        </Grid.Col>
+
+        <Grid.Col span={4}>
+          <TextInput
+            label="Position"
+            placeholder="e.g., Sales Manager"
+            required
+            {...form.getInputProps('position')}
+          />
+        </Grid.Col>
+
+        <Grid.Col span={4}>
           <TextInput
             label="Hire Date"
             type="date"
@@ -195,24 +341,180 @@ export function EmployeeFormDialog({
           />
         </Grid.Col>
 
-        {/* Compensation */}
-        <Grid.Col span={12}>
-          <div
-            style={{
-              fontSize: '14px',
-              fontWeight: 600,
-              marginBottom: '8px',
-              color: '#495057',
-              borderBottom: '2px solid #e9ecef',
-              paddingBottom: '8px',
-              marginTop: '16px',
-            }}
-          >
-            💰 Compensation
-          </div>
+        <Grid.Col span={4}>
+          <Select
+            label="Employment Status"
+            placeholder="Select employment status"
+            data={[
+              { value: 'probationary', label: 'Probationary' },
+              { value: 'regular', label: 'Regular' },
+              { value: 'contractual', label: 'Contractual' },
+              { value: 'project-based', label: 'Project-Based' },
+            ]}
+            {...form.getInputProps('employmentStatus')}
+          />
         </Grid.Col>
 
+        <Grid.Col span={4}>
+          <Select
+            label="Employee Type"
+            placeholder="Select employee type"
+            data={[
+              { value: 'full-time', label: 'Full-Time' },
+              { value: 'part-time', label: 'Part-Time' },
+              { value: 'contractor', label: 'Contractor' },
+              { value: 'intern', label: 'Intern' },
+            ]}
+            {...form.getInputProps('employeeType')}
+          />
+        </Grid.Col>
+
+        <Grid.Col span={4}>
+          <TextInput
+            label="Office Location"
+            placeholder="e.g., Main Office"
+            {...form.getInputProps('office')}
+          />
+        </Grid.Col>
+
+        <Grid.Col span={4}>
+          <TextInput
+            label="Hiring Source"
+            placeholder="e.g., Referral, Job Board"
+            {...form.getInputProps('hiringSource')}
+          />
+        </Grid.Col>
+
+        <Grid.Col span={4}>
+          <TextInput
+            label="Education"
+            placeholder="e.g., Bachelor's Degree"
+            {...form.getInputProps('education')}
+          />
+        </Grid.Col>
+
+        <Grid.Col span={4}>
+          <TextInput
+            label="Driving License Number"
+            placeholder="License number (if applicable)"
+            {...form.getInputProps('drivingLicense')}
+          />
+        </Grid.Col>
+
+        {/* Contact Section */}
         <Grid.Col span={12}>
+          <Divider
+            label={
+              <Text size="sm" fw={600}>
+                📞 Contact
+              </Text>
+            }
+            labelPosition="left"
+            mt="md"
+          />
+        </Grid.Col>
+
+        <Grid.Col span={4}>
+          <TextInput
+            label="Phone Number"
+            placeholder="e.g., 09171234567"
+            required
+            {...form.getInputProps('phone')}
+          />
+        </Grid.Col>
+
+        <Grid.Col span={4}>
+          <TextInput
+            label="Email Address"
+            placeholder="e.g., john.doe@company.com"
+            type="email"
+            {...form.getInputProps('email')}
+          />
+        </Grid.Col>
+
+        <Grid.Col span={4}>
+          <TextInput
+            label="Emergency Contact Person"
+            placeholder="Contact person name"
+            {...form.getInputProps('emergencyContactPerson')}
+          />
+        </Grid.Col>
+
+        <Grid.Col span={8}>
+          <TextInput
+            label="Address"
+            placeholder="Complete address"
+            {...form.getInputProps('address')}
+          />
+        </Grid.Col>
+
+        <Grid.Col span={4}>
+          <TextInput
+            label="Emergency Contact Number"
+            placeholder="e.g., 09181234567"
+            {...form.getInputProps('emergencyContactNumber')}
+          />
+        </Grid.Col>
+
+        {/* Government IDs Section */}
+        <Grid.Col span={12}>
+          <Divider
+            label={
+              <Text size="sm" fw={600}>
+                🏛️ Government IDs
+              </Text>
+            }
+            labelPosition="left"
+            mt="md"
+          />
+        </Grid.Col>
+
+        <Grid.Col span={3}>
+          <TextInput
+            label="SSS Number"
+            placeholder="e.g., 12-3456789-0"
+            {...form.getInputProps('sssNumber')}
+          />
+        </Grid.Col>
+
+        <Grid.Col span={3}>
+          <TextInput
+            label="PhilHealth Number"
+            placeholder="e.g., 12-345678901-2"
+            {...form.getInputProps('philHealthNumber')}
+          />
+        </Grid.Col>
+
+        <Grid.Col span={3}>
+          <TextInput
+            label="HDMF Number (Pag-IBIG)"
+            placeholder="e.g., 1234-5678-9012"
+            {...form.getInputProps('hdmfNumber')}
+          />
+        </Grid.Col>
+
+        <Grid.Col span={3}>
+          <TextInput
+            label="TIN Number"
+            placeholder="e.g., 123-456-789-000"
+            {...form.getInputProps('tinNumber')}
+          />
+        </Grid.Col>
+
+        {/* Financial Section */}
+        <Grid.Col span={12}>
+          <Divider
+            label={
+              <Text size="sm" fw={600}>
+                💰 Financial
+              </Text>
+            }
+            labelPosition="left"
+            mt="md"
+          />
+        </Grid.Col>
+
+        <Grid.Col span={3}>
           <NumberInput
             label="Basic Salary"
             placeholder="Enter basic salary"
@@ -230,54 +532,65 @@ export function EmployeeFormDialog({
           />
         </Grid.Col>
 
-        {/* Contact Information */}
-        <Grid.Col span={12}>
-          <div
-            style={{
-              fontSize: '14px',
-              fontWeight: 600,
-              marginBottom: '8px',
-              color: '#495057',
-              borderBottom: '2px solid #e9ecef',
-              paddingBottom: '8px',
-              marginTop: '16px',
-            }}
-          >
-            📞 Contact Information
-          </div>
+        <Grid.Col span={3}>
+          <NumberInput
+            label="Current Salary"
+            placeholder="Current salary"
+            min={0}
+            prefix="₱"
+            decimalScale={2}
+            thousandSeparator=","
+            hideControls
+            value={form.values.currentSalary}
+            onChange={(value) =>
+              form.setFieldValue('currentSalary', value?.toString() || '')
+            }
+          />
         </Grid.Col>
 
-        <Grid.Col span={6}>
-          <TextInput
-            label="Contact Number"
-            placeholder="e.g., 09171234567"
-            required
-            {...form.getInputProps('contact')}
+        <Grid.Col span={3}>
+          <NumberInput
+            label="Allowance"
+            placeholder="Monthly allowance"
+            min={0}
+            prefix="₱"
+            decimalScale={2}
+            thousandSeparator=","
+            hideControls
+            value={form.values.allowance}
+            onChange={(value) =>
+              form.setFieldValue('allowance', value?.toString() || '')
+            }
+          />
+        </Grid.Col>
+
+        <Grid.Col span={3}>
+          <Select
+            label="Payment Schedule"
+            placeholder="Select payment schedule"
+            data={[
+              { value: 'weekly', label: 'Weekly' },
+              { value: 'bi-weekly', label: 'Bi-Weekly' },
+              { value: 'semi-monthly', label: 'Semi-Monthly' },
+              { value: 'monthly', label: 'Monthly' },
+            ]}
+            {...form.getInputProps('paymentSchedule')}
           />
         </Grid.Col>
 
         <Grid.Col span={6}>
           <TextInput
-            label="Email Address"
-            placeholder="e.g., john.doe@company.com"
-            type="email"
-            {...form.getInputProps('email')}
+            label="Bank Account"
+            placeholder="Bank account details"
+            {...form.getInputProps('bankAccount')}
           />
         </Grid.Col>
 
         <Grid.Col span={6}>
           <TextInput
-            label="Address"
-            placeholder="Enter address (optional)"
-            {...form.getInputProps('address')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={6}>
-          <TextInput
-            label="Emergency Contact"
-            placeholder="e.g., 09181234567 (optional)"
-            {...form.getInputProps('emergencyContact')}
+            label="GCash Account"
+            placeholder="GCash mobile number"
+            {...form.getInputProps('gcashAccount')}
           />
         </Grid.Col>
       </Grid>

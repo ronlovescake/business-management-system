@@ -267,7 +267,6 @@ export default function Team() {
         editingEmployee={editingEmployee}
         onClose={() => setIsFormOpen(false)}
         onSave={handleSaveEmployee}
-        departments={departments}
       />
     </PageLayout>
   );

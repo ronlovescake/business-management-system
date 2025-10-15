@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import type { Employee } from '../types';
+import type { Employee, EmployeeFormData } from '../types';
 
 /**
  * Custom hook for employee detail page
  */
 export function useEmployeeDetail(employeeId: string) {
-  const router = useRouter();
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFormOpen, setIsFormOpen] = useState(false);
 
   useEffect(() => {
     // Fetch employee data from API
@@ -77,16 +76,53 @@ export function useEmployeeDetail(employeeId: string) {
   };
 
   const handleEdit = () => {
-    // Navigate back to team page with edit mode
-    router.push(`/clothing/employees/team?edit=${employeeId}`);
+    // Open the edit modal
+    setIsFormOpen(true);
+  };
+
+  const handleSaveEmployee = async (formData: EmployeeFormData) => {
+    if (!employee) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/employees/${employee.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update employee');
+      }
+
+      const updatedEmployee = await response.json();
+
+      // Update local state with transformed employee
+      setEmployee({
+        ...updatedEmployee,
+        id: updatedEmployee.id.toString(),
+      });
+
+      // Close the form
+      setIsFormOpen(false);
+    } catch (error) {
+      console.error('Error updating employee:', error);
+      alert('Failed to update employee. Please try again.');
+    }
   };
 
   return {
     employee,
     isLoading,
+    isFormOpen,
+    setIsFormOpen,
     formatDate,
     formatCurrency,
     getStatusColor,
     handleEdit,
+    handleSaveEmployee,
   };
 }
