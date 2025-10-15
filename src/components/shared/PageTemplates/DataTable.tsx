@@ -37,6 +37,7 @@ interface DataTableProps<T = Record<string, unknown>> {
   showSummary?: boolean;
   summaryLeft?: ReactNode;
   summaryRight?: ReactNode;
+  onRowDoubleClick?: (item: T) => void;
 }
 
 /**
@@ -76,6 +77,7 @@ export function DataTable<T extends { id: string | number }>({
   showSummary = false,
   summaryLeft,
   summaryRight,
+  onRowDoubleClick,
 }: DataTableProps<T>) {
   return (
     <Stack gap="md">
@@ -124,7 +126,13 @@ export function DataTable<T extends { id: string | number }>({
                 </Table.Tr>
               ) : (
                 data.map((item) => (
-                  <Table.Tr key={item.id}>
+                  <Table.Tr
+                    key={item.id}
+                    onDoubleClick={() =>
+                      onRowDoubleClick && onRowDoubleClick(item)
+                    }
+                    style={onRowDoubleClick ? { cursor: 'pointer' } : undefined}
+                  >
                     {columns.map((column) => (
                       <Table.Td
                         key={column.key}

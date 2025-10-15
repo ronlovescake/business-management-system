@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { Stack, Text, Badge, Tabs, Paper } from '@mantine/core';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import {
@@ -28,6 +29,7 @@ import { EmployeeFormDialog } from './components/EmployeeFormDialog';
 import type { Employee as EmployeeType } from './types';
 
 export default function Team() {
+  const router = useRouter();
   const {
     // State
     employees,
@@ -151,6 +153,11 @@ export default function Team() {
     },
   ];
 
+  // Handle double-click on employee row
+  const handleRowDoubleClick = (employee: EmployeeType) => {
+    router.push(`/clothing/employees/team/${employee.id}`);
+  };
+
   // Table Actions Configuration
   const actions: TableAction<EmployeeType>[] = [
     {
@@ -222,6 +229,7 @@ export default function Team() {
               columns={columns}
               actions={actions}
               emptyMessage="No employees found"
+              onRowDoubleClick={handleRowDoubleClick}
             />
           </Tabs.Panel>
 
