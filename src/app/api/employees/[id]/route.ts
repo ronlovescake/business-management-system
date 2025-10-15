@@ -46,7 +46,17 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    console.log(
+      '🔵 [API] PUT /api/employees/[id] - Request received for ID:',
+      params.id
+    );
+
     const body = await request.json();
+    // eslint-disable-next-line no-console
+    console.log(
+      '📥 [API] Received update data:',
+      JSON.stringify(body, null, 2)
+    );
 
     // Check if employee exists
     const existing = await prisma.employee.findUnique({
@@ -64,6 +74,7 @@ export async function PUT(
     }
 
     // Prepare employee data with proper type conversions
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const employeeData: any = {
       employeeId: body.employeeId,
       firstName: body.firstName || body.name?.split(' ')[0] || '',
@@ -116,15 +127,27 @@ export async function PUT(
       updatedAt: new Date(),
     };
 
+    // eslint-disable-next-line no-console
+    console.log(
+      '💾 [API] Attempting to update employee with data:',
+      JSON.stringify(employeeData, null, 2)
+    );
+
     // Update employee
     const employee = await prisma.employee.update({
       where: { id: parseInt(params.id) },
       data: employeeData,
     });
 
+    // eslint-disable-next-line no-console
+    console.log('✅ [API] Employee updated successfully:', employee.id);
     return NextResponse.json(employee);
   } catch (error) {
-    console.error('Error updating employee:', error);
+    console.error('❌ [API] Error updating employee:', error);
+    console.error('❌ [API] Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return NextResponse.json(
       { error: 'Failed to update employee' },
       { status: 500 }

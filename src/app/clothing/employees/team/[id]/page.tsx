@@ -39,6 +39,20 @@ export default function EmployeeDetailPage() {
     handleSaveEmployee,
   } = useEmployeeDetail(employeeId);
 
+  // Helper function to capitalize first letter of each word
+  const capitalizeWords = (str: string | undefined | null): string => {
+    if (!str) {
+      return 'N/A';
+    }
+    return str
+      .split('-')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join('-')
+      .split(' ')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   if (isLoading) {
     return (
       <PageLayout>
@@ -105,7 +119,7 @@ export default function EmployeeDetailPage() {
     },
     {
       label: 'Gender',
-      value: employee.gender || 'N/A',
+      value: capitalizeWords(employee.gender),
       category: 'Personal Information',
     },
     {
@@ -115,7 +129,7 @@ export default function EmployeeDetailPage() {
     },
     {
       label: 'Marital Status',
-      value: employee.maritalStatus || 'N/A',
+      value: capitalizeWords(employee.maritalStatus),
       category: 'Personal Information',
     },
     {
@@ -183,25 +197,29 @@ export default function EmployeeDetailPage() {
       value: formatDate(employee.hireDate),
       category: 'Employment Details',
     },
-    { label: 'Status', value: employee.status, category: 'Employment Details' },
+    {
+      label: 'Status',
+      value: capitalizeWords(employee.status),
+      category: 'Employment Details',
+    },
     {
       label: 'Employment Status',
-      value: employee.employmentStatus || 'N/A',
+      value: capitalizeWords(employee.employmentStatus),
       category: 'Employment Details',
     },
     {
       label: 'Employee Type',
-      value: employee.employeeType || 'N/A',
+      value: capitalizeWords(employee.employeeType),
       category: 'Employment Details',
     },
     {
       label: 'Office',
-      value: employee.office || 'N/A',
+      value: capitalizeWords(employee.office),
       category: 'Employment Details',
     },
     {
       label: 'Hiring Source',
-      value: employee.hiringSource || 'N/A',
+      value: capitalizeWords(employee.hiringSource),
       category: 'Employment Details',
     },
 
@@ -245,12 +263,17 @@ export default function EmployeeDetailPage() {
     },
     {
       label: 'Payment Schedule',
-      value: employee.paymentSchedule || 'N/A',
+      value: capitalizeWords(employee.paymentSchedule),
       category: 'Compensation',
     },
     {
-      label: 'Bank / GCash Account',
-      value: employee.bankAccount || employee.gcashAccount || 'N/A',
+      label: 'Bank Account',
+      value: employee.bankAccount || 'N/A',
+      category: 'Compensation',
+    },
+    {
+      label: 'GCash Account',
+      value: employee.gcashAccount || 'N/A',
       category: 'Compensation',
     },
   ];

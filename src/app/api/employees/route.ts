@@ -61,9 +61,14 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    console.log('🔵 [API] POST /api/employees - Request received');
+
     const body = await request.json();
     // eslint-disable-next-line no-console
-    console.log('📥 Received employee data:', JSON.stringify(body, null, 2));
+    console.log(
+      '📥 [API] Received employee data:',
+      JSON.stringify(body, null, 2)
+    );
 
     // Prepare data with proper type conversions
     const employeeData = {
@@ -109,25 +114,39 @@ export async function POST(request: NextRequest) {
 
     // eslint-disable-next-line no-console
     console.log(
-      '💾 Attempting to create employee with data:',
+      '💾 [API] Attempting to create employee with data:',
       JSON.stringify(employeeData, null, 2)
     );
 
+    console.log('🔵 [API] Calling prisma.employee.create...');
     const employee = await prisma.employee.create({
       data: employeeData,
     });
 
     // eslint-disable-next-line no-console
-    console.log('✅ Employee created successfully:', employee.id);
+    console.log('✅ [API] Employee created successfully:', employee.id);
     return NextResponse.json(employee, { status: 201 });
   } catch (error) {
-    console.error('❌ Error creating employee:', error);
-    console.error('Error details:', {
+    console.error('❌ [API] Error creating employee:', error);
+    console.error('❌ [API] Error details:', {
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined,
     });
+
+    // If it's a Prisma error, log more details
+    if (error && typeof error === 'object' && 'code' in error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      console.error('❌ [API] Prisma error code:', (error as any).code);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      console.error('❌ [API] Prisma error meta:', (error as any).meta);
+    }
+
     return NextResponse.json(
-      { error: 'Failed to create employee' },
+      {
+        error: 'Failed to create employee',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
       { status: 500 }
     );
   }

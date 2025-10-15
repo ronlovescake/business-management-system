@@ -86,19 +86,95 @@ export function useEmployeeDetail(employeeId: string) {
     }
 
     try {
+      console.log('🔵 [useEmployeeDetail] handleSaveEmployee called');
+      console.log('🔵 [useEmployeeDetail] formData:', formData);
+
+      const payload = {
+        employeeId: formData.employeeId,
+        // Name fields - use the actual form data
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        middleName: formData.middleName || null,
+        name:
+          formData.name ||
+          `${formData.firstName} ${formData.middleName || ''} ${formData.lastName}`
+            .replace(/\s+/g, ' ')
+            .trim(),
+        // Contact
+        phone: formData.phone,
+        contact: formData.contact || formData.phone,
+        email: formData.email || null,
+        // Employment
+        department: formData.department,
+        position: formData.position,
+        jobTitle: formData.jobTitle || formData.position,
+        status: formData.status,
+        employmentStatus: formData.employmentStatus || null,
+        employeeType: formData.employeeType || null,
+        office: formData.office || null,
+        hiringSource: formData.hiringSource || null,
+        hireDate: formData.hireDate,
+        // Salary
+        basicSalary: parseFloat(formData.basicSalary) || 0,
+        currentSalary: formData.currentSalary
+          ? parseFloat(formData.currentSalary)
+          : parseFloat(formData.basicSalary) || 0,
+        allowance: formData.allowance ? parseFloat(formData.allowance) : null,
+        paymentSchedule: formData.paymentSchedule || null,
+        // Government IDs
+        sssNumber: formData.sssNumber || null,
+        philHealthNumber: formData.philHealthNumber || null,
+        hdmfNumber: formData.hdmfNumber || null,
+        tinNumber: formData.tinNumber || null,
+        // Personal Info
+        gender: formData.gender || null,
+        education: formData.education || null,
+        dateOfBirth: formData.dateOfBirth || null,
+        maritalStatus: formData.maritalStatus || null,
+        numberOfKids: formData.numberOfKids
+          ? parseInt(formData.numberOfKids)
+          : null,
+        drivingLicense: formData.drivingLicense || null,
+        // Address & Emergency
+        address: formData.address || null,
+        emergencyContactPerson: formData.emergencyContactPerson || null,
+        emergencyContactNumber: formData.emergencyContactNumber || null,
+        emergencyContact:
+          formData.emergencyContact || formData.emergencyContactNumber || null,
+        // Financial
+        bankAccount: formData.bankAccount || null,
+        gcashAccount: formData.gcashAccount || null,
+      };
+
+      console.log(
+        '🟡 [useEmployeeDetail] Updating employee - payload:',
+        payload
+      );
+
       const response = await fetch(`/api/employees/${employee.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
+      console.log(
+        '🟢 [useEmployeeDetail] Update response status:',
+        response.status
+      );
+
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('🔴 [useEmployeeDetail] Update failed:', errorText);
         throw new Error('Failed to update employee');
       }
 
       const updatedEmployee = await response.json();
+      console.log(
+        '✅ [useEmployeeDetail] Employee updated successfully:',
+        updatedEmployee
+      );
 
       // Update local state with transformed employee
       setEmployee({
@@ -109,7 +185,11 @@ export function useEmployeeDetail(employeeId: string) {
       // Close the form
       setIsFormOpen(false);
     } catch (error) {
-      console.error('Error updating employee:', error);
+      console.error('🔴 [useEmployeeDetail] Error updating employee:', error);
+      console.error('🔴 [useEmployeeDetail] Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       alert('Failed to update employee. Please try again.');
     }
   };
