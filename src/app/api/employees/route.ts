@@ -62,6 +62,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    // eslint-disable-next-line no-console
+    console.log('📥 Received employee data:', JSON.stringify(body, null, 2));
 
     // Prepare data with proper type conversions
     const employeeData = {
@@ -105,13 +107,25 @@ export async function POST(request: NextRequest) {
       paymentSchedule: body.paymentSchedule || null,
     };
 
+    // eslint-disable-next-line no-console
+    console.log(
+      '💾 Attempting to create employee with data:',
+      JSON.stringify(employeeData, null, 2)
+    );
+
     const employee = await prisma.employee.create({
       data: employeeData,
     });
 
+    // eslint-disable-next-line no-console
+    console.log('✅ Employee created successfully:', employee.id);
     return NextResponse.json(employee, { status: 201 });
   } catch (error) {
-    console.error('Error creating employee:', error);
+    console.error('❌ Error creating employee:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return NextResponse.json(
       { error: 'Failed to create employee' },
       { status: 500 }
