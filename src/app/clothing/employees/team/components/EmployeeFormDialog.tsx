@@ -206,7 +206,6 @@ export function EmployeeFormDialog({
         <Grid.Col span={4}>
           <TextInput
             label="Employee ID"
-            placeholder="e.g., EMP-001"
             required
             {...form.getInputProps('employeeId')}
           />
@@ -215,7 +214,6 @@ export function EmployeeFormDialog({
         <Grid.Col span={4}>
           <Select
             label="Status"
-            placeholder="Select status"
             required
             data={[
               { value: 'active', label: 'Active' },
@@ -229,7 +227,6 @@ export function EmployeeFormDialog({
         <Grid.Col span={4}>
           <Select
             label="Gender"
-            placeholder="Select gender"
             data={[
               { value: 'male', label: 'Male' },
               { value: 'female', label: 'Female' },
@@ -241,7 +238,6 @@ export function EmployeeFormDialog({
         <Grid.Col span={4}>
           <TextInput
             label="First Name"
-            placeholder="First name"
             required
             {...form.getInputProps('firstName')}
           />
@@ -250,7 +246,6 @@ export function EmployeeFormDialog({
         <Grid.Col span={4}>
           <TextInput
             label="Middle Name"
-            placeholder="Middle name (optional)"
             {...form.getInputProps('middleName')}
           />
         </Grid.Col>
@@ -258,7 +253,6 @@ export function EmployeeFormDialog({
         <Grid.Col span={4}>
           <TextInput
             label="Last Name"
-            placeholder="Last name"
             required
             {...form.getInputProps('lastName')}
           />
@@ -275,7 +269,6 @@ export function EmployeeFormDialog({
         <Grid.Col span={4}>
           <Select
             label="Marital Status"
-            placeholder="Select marital status"
             data={[
               { value: 'single', label: 'Single' },
               { value: 'married', label: 'Married' },
@@ -289,7 +282,6 @@ export function EmployeeFormDialog({
         <Grid.Col span={4}>
           <NumberInput
             label="Number of Kids"
-            placeholder="0"
             min={0}
             hideControls
             value={form.values.numberOfKids}
@@ -315,7 +307,6 @@ export function EmployeeFormDialog({
         <Grid.Col span={4}>
           <Select
             label="Department"
-            placeholder="Select department"
             required
             data={departmentOptions}
             searchable
@@ -326,7 +317,6 @@ export function EmployeeFormDialog({
         <Grid.Col span={4}>
           <TextInput
             label="Position"
-            placeholder="e.g., Sales Manager"
             required
             {...form.getInputProps('position')}
           />
@@ -344,7 +334,6 @@ export function EmployeeFormDialog({
         <Grid.Col span={4}>
           <Select
             label="Employment Status"
-            placeholder="Select employment status"
             data={[
               { value: 'probationary', label: 'Probationary' },
               { value: 'regular', label: 'Regular' },
@@ -358,7 +347,6 @@ export function EmployeeFormDialog({
         <Grid.Col span={4}>
           <Select
             label="Employee Type"
-            placeholder="Select employee type"
             data={[
               { value: 'full-time', label: 'Full-Time' },
               { value: 'part-time', label: 'Part-Time' },
@@ -372,7 +360,6 @@ export function EmployeeFormDialog({
         <Grid.Col span={4}>
           <TextInput
             label="Office Location"
-            placeholder="e.g., Main Office"
             {...form.getInputProps('office')}
           />
         </Grid.Col>
@@ -380,23 +367,17 @@ export function EmployeeFormDialog({
         <Grid.Col span={4}>
           <TextInput
             label="Hiring Source"
-            placeholder="e.g., Referral, Job Board"
             {...form.getInputProps('hiringSource')}
           />
         </Grid.Col>
 
         <Grid.Col span={4}>
-          <TextInput
-            label="Education"
-            placeholder="e.g., Bachelor's Degree"
-            {...form.getInputProps('education')}
-          />
+          <TextInput label="Education" {...form.getInputProps('education')} />
         </Grid.Col>
 
         <Grid.Col span={4}>
           <TextInput
             label="Driving License Number"
-            placeholder="License number (if applicable)"
             {...form.getInputProps('drivingLicense')}
           />
         </Grid.Col>
@@ -417,7 +398,6 @@ export function EmployeeFormDialog({
         <Grid.Col span={6}>
           <TextInput
             label="Phone Number"
-            placeholder="e.g., 09171234567"
             required
             {...form.getInputProps('phone')}
           />
@@ -426,18 +406,13 @@ export function EmployeeFormDialog({
         <Grid.Col span={6}>
           <TextInput
             label="Email Address"
-            placeholder="e.g., john.doe@company.com"
             type="email"
             {...form.getInputProps('email')}
           />
         </Grid.Col>
 
         <Grid.Col span={12}>
-          <TextInput
-            label="Address"
-            placeholder="Complete address"
-            {...form.getInputProps('address')}
-          />
+          <TextInput label="Address" {...form.getInputProps('address')} />
         </Grid.Col>
 
         {/* In case of emergency Section */}
@@ -456,7 +431,6 @@ export function EmployeeFormDialog({
         <Grid.Col span={6}>
           <TextInput
             label="Emergency Contact Person"
-            placeholder="Contact person name"
             {...form.getInputProps('emergencyContactPerson')}
           />
         </Grid.Col>
@@ -464,7 +438,6 @@ export function EmployeeFormDialog({
         <Grid.Col span={6}>
           <TextInput
             label="Emergency Contact Number"
-            placeholder="e.g., 09181234567"
             {...form.getInputProps('emergencyContactNumber')}
           />
         </Grid.Col>
@@ -483,17 +456,12 @@ export function EmployeeFormDialog({
         </Grid.Col>
 
         <Grid.Col span={3}>
-          <TextInput
-            label="SSS Number"
-            placeholder="e.g., 12-3456789-0"
-            {...form.getInputProps('sssNumber')}
-          />
+          <TextInput label="SSS Number" {...form.getInputProps('sssNumber')} />
         </Grid.Col>
 
         <Grid.Col span={3}>
           <TextInput
             label="PhilHealth Number"
-            placeholder="e.g., 12-345678901-2"
             {...form.getInputProps('philHealthNumber')}
           />
         </Grid.Col>
@@ -501,17 +469,12 @@ export function EmployeeFormDialog({
         <Grid.Col span={3}>
           <TextInput
             label="HDMF Number (Pag-IBIG)"
-            placeholder="e.g., 1234-5678-9012"
             {...form.getInputProps('hdmfNumber')}
           />
         </Grid.Col>
 
         <Grid.Col span={3}>
-          <TextInput
-            label="TIN Number"
-            placeholder="e.g., 123-456-789-000"
-            {...form.getInputProps('tinNumber')}
-          />
+          <TextInput label="TIN Number" {...form.getInputProps('tinNumber')} />
         </Grid.Col>
 
         {/* Financial Section */}
@@ -530,7 +493,6 @@ export function EmployeeFormDialog({
         <Grid.Col span={3}>
           <NumberInput
             label="Basic Salary"
-            placeholder="Enter basic salary"
             required
             min={0}
             prefix="₱"
@@ -548,7 +510,6 @@ export function EmployeeFormDialog({
         <Grid.Col span={3}>
           <NumberInput
             label="Current Salary"
-            placeholder="Current salary"
             min={0}
             prefix="₱"
             decimalScale={2}
@@ -564,7 +525,6 @@ export function EmployeeFormDialog({
         <Grid.Col span={3}>
           <NumberInput
             label="Allowance"
-            placeholder="Monthly allowance"
             min={0}
             prefix="₱"
             decimalScale={2}
@@ -580,7 +540,6 @@ export function EmployeeFormDialog({
         <Grid.Col span={3}>
           <Select
             label="Payment Schedule"
-            placeholder="Select payment schedule"
             data={[
               { value: 'weekly', label: 'Weekly' },
               { value: 'bi-weekly', label: 'Bi-Weekly' },
@@ -594,7 +553,6 @@ export function EmployeeFormDialog({
         <Grid.Col span={6}>
           <TextInput
             label="Bank Account"
-            placeholder="Bank account details"
             {...form.getInputProps('bankAccount')}
           />
         </Grid.Col>
@@ -602,7 +560,6 @@ export function EmployeeFormDialog({
         <Grid.Col span={6}>
           <TextInput
             label="GCash Account"
-            placeholder="GCash mobile number"
             {...form.getInputProps('gcashAccount')}
           />
         </Grid.Col>
