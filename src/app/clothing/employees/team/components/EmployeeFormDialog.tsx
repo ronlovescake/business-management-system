@@ -7,6 +7,7 @@ import {
   Divider,
   Text,
 } from '@mantine/core';
+import { DateInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
 import { ComposedDialog } from '@/components/shared/Dialog';
 import type { Employee, EmployeeFormData } from '../types';
@@ -259,10 +260,18 @@ export function EmployeeFormDialog({
         </Grid.Col>
 
         <Grid.Col span={4}>
-          <TextInput
+          <DateInput
             label="Date of Birth"
-            type="date"
-            {...form.getInputProps('dateOfBirth')}
+            valueFormat="MM-DD-YYYY"
+            value={
+              form.values.dateOfBirth ? new Date(form.values.dateOfBirth) : null
+            }
+            onChange={(value) =>
+              form.setFieldValue(
+                'dateOfBirth',
+                value ? value.toISOString().split('T')[0] : ''
+              )
+            }
           />
         </Grid.Col>
 
@@ -323,11 +332,17 @@ export function EmployeeFormDialog({
         </Grid.Col>
 
         <Grid.Col span={4}>
-          <TextInput
+          <DateInput
             label="Hire Date"
-            type="date"
+            valueFormat="MM-DD-YYYY"
             required
-            {...form.getInputProps('hireDate')}
+            value={form.values.hireDate ? new Date(form.values.hireDate) : null}
+            onChange={(value) =>
+              form.setFieldValue(
+                'hireDate',
+                value ? value.toISOString().split('T')[0] : ''
+              )
+            }
           />
         </Grid.Col>
 
