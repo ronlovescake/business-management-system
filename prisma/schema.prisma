@@ -28,6 +28,7 @@ model Customer {
   businessAddress       String   @db.VarChar(500)
   businessContactNumber String   @db.VarChar(100)
   customerStatus        String   @db.VarChar(50)
+  deletedAt             DateTime?
 
   @@index([customerName])
   @@index([phoneNumber])
@@ -46,6 +47,7 @@ model Price {
   description     String?  @db.VarChar(500)
   category        String?  @db.VarChar(100)
   isActive        Boolean  @default(true)
+  deletedAt       DateTime?
 
   @@index([productCode])
   @@index([productCode, lowerLimit, upperLimit])
@@ -89,6 +91,7 @@ model Product {
   projectedProfit        Float    @default(0)
   projectedProfitPercent Float    @default(0)
   totalMarkup            Float    @default(0)
+  deletedAt              DateTime?
 
   @@index([productCode])
   @@index([shipmentCode])
@@ -111,6 +114,7 @@ model Shipment {
   dateDelivered String?  @db.VarChar(50)
   duration      String?  @db.VarChar(20)
   notes         String?  @db.Text
+  deletedAt     DateTime?
 
   @@index([shipmentCode])
   @@index([shipmentStatus])
@@ -134,6 +138,7 @@ model Transaction {
   invoiceDate  String?  @db.VarChar(50)
   packedDate   String?  @db.VarChar(50)
   shipmentCode String?  @db.VarChar(100)
+  deletedAt    DateTime?
 
   @@index([orderDate])
   @@index([customers])
@@ -155,6 +160,7 @@ model SortingDistribution {
   groupNumber         String   @default("") @db.VarChar(50)
   distribution        Float    @default(0)
   checked             Boolean  @default(false)
+  deletedAt           DateTime?
 
   @@unique([productCode, rowNumber])
   @@index([productCode])
@@ -212,6 +218,20 @@ model ModuleMarketplace {
   @@index([author])
   @@index([downloads])
   @@map("module_marketplace")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  model     String   @db.VarChar(100)
+  action    String   @db.VarChar(50)
+  targetId  String?  @db.VarChar(100)
+  before    Json?
+  after     Json?
+  timestamp DateTime @default(now())
+
+  @@index([model])
+  @@index([timestamp])
+  @@map("audit_logs")
 }
 
 // ============================================================================

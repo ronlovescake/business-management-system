@@ -10,27 +10,13 @@ import {
   Group,
   Badge,
   Button,
-  Grid,
   Card,
   Divider,
   Avatar,
   ActionIcon,
-  Tabs,
+  Table,
 } from '@mantine/core';
-import {
-  IconArrowLeft,
-  IconEdit,
-  IconMail,
-  IconPhone,
-  IconMapPin,
-  IconCalendar,
-  IconCurrencyPeso,
-  IconBuilding,
-  IconUser,
-  IconHistory,
-  IconFileText,
-  IconAlertCircle,
-} from '@tabler/icons-react';
+import { IconArrowLeft, IconEdit, IconAlertCircle } from '@tabler/icons-react';
 import { PageLayout } from '../../../../../components/layout/PageLayout';
 import { useEmployeeDetail } from '@/app/clothing/employees/team/hooks/useEmployeeDetail';
 
@@ -82,6 +68,185 @@ export default function EmployeeDetailPage() {
     );
   }
 
+  // Organize all employee fields into categories
+  const employeeDetails: Array<{
+    label: string;
+    value: string | number | undefined;
+    category: string;
+  }> = [
+    // Personal Information
+    {
+      label: 'First Name',
+      value: employee.firstName,
+      category: 'Personal Information',
+    },
+    {
+      label: 'Last Name',
+      value: employee.lastName,
+      category: 'Personal Information',
+    },
+    {
+      label: 'Middle Name',
+      value: employee.middleName || 'N/A',
+      category: 'Personal Information',
+    },
+    {
+      label: 'Gender',
+      value: employee.gender || 'N/A',
+      category: 'Personal Information',
+    },
+    {
+      label: 'Date of Birth',
+      value: employee.dateOfBirth ? formatDate(employee.dateOfBirth) : 'N/A',
+      category: 'Personal Information',
+    },
+    {
+      label: 'Marital Status',
+      value: employee.maritalStatus || 'N/A',
+      category: 'Personal Information',
+    },
+    {
+      label: 'Number of Kids',
+      value: employee.numberOfKids?.toString() || 'N/A',
+      category: 'Personal Information',
+    },
+    {
+      label: 'Education',
+      value: employee.education || 'N/A',
+      category: 'Personal Information',
+    },
+    {
+      label: 'Driving License',
+      value: employee.drivingLicense || 'N/A',
+      category: 'Personal Information',
+    },
+
+    // Contact Information
+    {
+      label: 'Email',
+      value: employee.email || 'N/A',
+      category: 'Contact Information',
+    },
+    {
+      label: 'Phone',
+      value: employee.phone || employee.contact,
+      category: 'Contact Information',
+    },
+    {
+      label: 'Address',
+      value: employee.address || 'N/A',
+      category: 'Contact Information',
+    },
+    {
+      label: 'Emergency Contact Person',
+      value: employee.emergencyContactPerson || 'N/A',
+      category: 'Contact Information',
+    },
+    {
+      label: 'Emergency Contact Number',
+      value:
+        employee.emergencyContactNumber || employee.emergencyContact || 'N/A',
+      category: 'Contact Information',
+    },
+
+    // Employment Details
+    {
+      label: 'Employee ID',
+      value: employee.employeeId,
+      category: 'Employment Details',
+    },
+    {
+      label: 'Department',
+      value: employee.department,
+      category: 'Employment Details',
+    },
+    {
+      label: 'Position',
+      value: employee.position || employee.jobTitle,
+      category: 'Employment Details',
+    },
+    {
+      label: 'Hire Date',
+      value: formatDate(employee.hireDate),
+      category: 'Employment Details',
+    },
+    { label: 'Status', value: employee.status, category: 'Employment Details' },
+    {
+      label: 'Employment Status',
+      value: employee.employmentStatus || 'N/A',
+      category: 'Employment Details',
+    },
+    {
+      label: 'Employee Type',
+      value: employee.employeeType || 'N/A',
+      category: 'Employment Details',
+    },
+    {
+      label: 'Office',
+      value: employee.office || 'N/A',
+      category: 'Employment Details',
+    },
+    {
+      label: 'Hiring Source',
+      value: employee.hiringSource || 'N/A',
+      category: 'Employment Details',
+    },
+
+    // Government IDs
+    {
+      label: 'SSS Number',
+      value: employee.sssNumber || 'N/A',
+      category: 'Government IDs',
+    },
+    {
+      label: 'PhilHealth Number',
+      value: employee.philHealthNumber || 'N/A',
+      category: 'Government IDs',
+    },
+    {
+      label: 'HDMF / Pag-IBIG Number',
+      value: employee.hdmfNumber || 'N/A',
+      category: 'Government IDs',
+    },
+    {
+      label: 'TIN / Tax Details',
+      value: employee.tinNumber || 'N/A',
+      category: 'Government IDs',
+    },
+
+    // Compensation
+    {
+      label: 'Current Salary',
+      value: formatCurrency(employee.currentSalary || employee.basicSalary),
+      category: 'Compensation',
+    },
+    {
+      label: 'Basic Salary',
+      value: formatCurrency(employee.basicSalary),
+      category: 'Compensation',
+    },
+    {
+      label: 'Allowance',
+      value: employee.allowance ? formatCurrency(employee.allowance) : 'N/A',
+      category: 'Compensation',
+    },
+    {
+      label: 'Payment Schedule',
+      value: employee.paymentSchedule || 'N/A',
+      category: 'Compensation',
+    },
+    {
+      label: 'Bank / GCash Account',
+      value: employee.bankAccount || employee.gcashAccount || 'N/A',
+      category: 'Compensation',
+    },
+  ];
+
+  // Group details by category
+  const categories = Array.from(
+    new Set(employeeDetails.map((d) => d.category))
+  );
+
   return (
     <PageLayout fluid withPadding>
       <Stack gap="lg">
@@ -98,7 +263,7 @@ export default function EmployeeDetailPage() {
             <div>
               <Title order={2}>Employee Details</Title>
               <Text size="sm" c="dimmed">
-                View and manage employee information
+                Complete employee information
               </Text>
             </div>
           </Group>
@@ -107,27 +272,35 @@ export default function EmployeeDetailPage() {
           </Button>
         </Group>
 
-        {/* Employee Profile Card */}
+        {/* Employee Profile Summary Card */}
         <Paper withBorder p="xl">
-          <Group align="flex-start">
+          <Group align="center" gap="lg">
             <Avatar
-              size={120}
+              size={100}
               radius="md"
               color="blue"
-              style={{ fontSize: '3rem' }}
+              style={{ fontSize: '2.5rem' }}
             >
-              {employee.name
-                .split(' ')
-                .map((n: string) => n[0])
-                .join('')
-                .toUpperCase()}
+              {employee.firstName?.[0]?.toUpperCase() ||
+                employee.name?.split(' ')[0]?.[0]?.toUpperCase() ||
+                ''}
+              {employee.lastName?.[0]?.toUpperCase() ||
+                employee.name?.split(' ')[1]?.[0]?.toUpperCase() ||
+                ''}
             </Avatar>
-            <Stack gap="xs" style={{ flex: 1 }}>
-              <Group justify="space-between">
+            <div style={{ flex: 1 }}>
+              <Group justify="space-between" align="flex-start">
                 <div>
-                  <Title order={2}>{employee.name}</Title>
+                  <Title order={2}>
+                    {employee.firstName && employee.lastName
+                      ? `${employee.firstName} ${employee.middleName ? employee.middleName + ' ' : ''}${employee.lastName}`
+                      : employee.name}
+                  </Title>
                   <Text size="lg" c="dimmed" mt={4}>
-                    {employee.jobTitle}
+                    {employee.position || employee.jobTitle}
+                  </Text>
+                  <Text size="sm" c="dimmed">
+                    {employee.department} • {employee.employeeId}
                   </Text>
                 </div>
                 <Badge
@@ -140,152 +313,56 @@ export default function EmployeeDetailPage() {
                     : employee.status.toUpperCase()}
                 </Badge>
               </Group>
-
-              <Grid mt="md">
-                <Grid.Col span={6}>
-                  <Group gap="xs">
-                    <IconUser size={18} color="gray" />
-                    <div>
-                      <Text size="xs" c="dimmed">
-                        Employee ID
-                      </Text>
-                      <Text fw={500}>{employee.employeeId}</Text>
-                    </div>
-                  </Group>
-                </Grid.Col>
-                <Grid.Col span={6}>
-                  <Group gap="xs">
-                    <IconBuilding size={18} color="gray" />
-                    <div>
-                      <Text size="xs" c="dimmed">
-                        Department
-                      </Text>
-                      <Text fw={500}>{employee.department}</Text>
-                    </div>
-                  </Group>
-                </Grid.Col>
-                <Grid.Col span={6}>
-                  <Group gap="xs">
-                    <IconCalendar size={18} color="gray" />
-                    <div>
-                      <Text size="xs" c="dimmed">
-                        Hire Date
-                      </Text>
-                      <Text fw={500}>{formatDate(employee.hireDate)}</Text>
-                    </div>
-                  </Group>
-                </Grid.Col>
-                <Grid.Col span={6}>
-                  <Group gap="xs">
-                    <IconCurrencyPeso size={18} color="gray" />
-                    <div>
-                      <Text size="xs" c="dimmed">
-                        Basic Salary
-                      </Text>
-                      <Text fw={600} c="green">
-                        {formatCurrency(employee.basicSalary)}
-                      </Text>
-                    </div>
-                  </Group>
-                </Grid.Col>
-              </Grid>
-            </Stack>
+            </div>
           </Group>
         </Paper>
 
-        {/* Tabs for Different Sections */}
-        <Tabs defaultValue="contact">
-          <Tabs.List>
-            <Tabs.Tab value="contact" leftSection={<IconPhone size={16} />}>
-              Contact Information
-            </Tabs.Tab>
-            <Tabs.Tab value="history" leftSection={<IconHistory size={16} />}>
-              Employment History
-            </Tabs.Tab>
-            <Tabs.Tab
-              value="documents"
-              leftSection={<IconFileText size={16} />}
-            >
-              Documents
-            </Tabs.Tab>
-          </Tabs.List>
+        {/* Detailed Information Tables by Category */}
+        {categories.map((category) => {
+          const categoryDetails = employeeDetails.filter(
+            (d) => d.category === category
+          );
 
-          <Tabs.Panel value="contact" pt="lg">
-            <Grid>
-              <Grid.Col span={{ base: 12, md: 6 }}>
-                <Card withBorder p="lg">
-                  <Stack gap="md">
-                    <Group gap="sm">
-                      <IconMail size={20} />
-                      <div style={{ flex: 1 }}>
-                        <Text size="xs" c="dimmed">
-                          Email Address
-                        </Text>
-                        <Text fw={500}>{employee.email || 'Not provided'}</Text>
-                      </div>
-                    </Group>
-                    <Divider />
-                    <Group gap="sm">
-                      <IconPhone size={20} />
-                      <div style={{ flex: 1 }}>
-                        <Text size="xs" c="dimmed">
-                          Contact Number
-                        </Text>
-                        <Text fw={500}>{employee.contact}</Text>
-                      </div>
-                    </Group>
-                    <Divider />
-                    <Group gap="sm">
-                      <IconMapPin size={20} />
-                      <div style={{ flex: 1 }}>
-                        <Text size="xs" c="dimmed">
-                          Address
-                        </Text>
-                        <Text fw={500}>
-                          {employee.address || 'Not provided'}
-                        </Text>
-                      </div>
-                    </Group>
-                  </Stack>
-                </Card>
-              </Grid.Col>
-
-              <Grid.Col span={{ base: 12, md: 6 }}>
-                <Card withBorder p="lg">
-                  <Stack gap="md">
-                    <Group gap="sm">
-                      <IconAlertCircle size={20} />
-                      <div style={{ flex: 1 }}>
-                        <Text size="xs" c="dimmed">
-                          Emergency Contact
-                        </Text>
-                        <Text fw={500}>
-                          {employee.emergencyContact || 'Not provided'}
-                        </Text>
-                      </div>
-                    </Group>
-                  </Stack>
-                </Card>
-              </Grid.Col>
-            </Grid>
-          </Tabs.Panel>
-
-          <Tabs.Panel value="history" pt="lg">
-            <Card withBorder p="lg">
-              <Text c="dimmed" ta="center">
-                Employment history coming soon
-              </Text>
+          return (
+            <Card key={category} withBorder padding={0}>
+              <Paper p="md" bg="gray.0">
+                <Title order={4}>{category}</Title>
+              </Paper>
+              <Divider />
+              <Table striped highlightOnHover>
+                <Table.Tbody>
+                  {categoryDetails.map((detail) => (
+                    <Table.Tr key={`${category}-${detail.label}`}>
+                      <Table.Td
+                        width="40%"
+                        style={{ fontWeight: 600, padding: '16px' }}
+                      >
+                        {detail.label}
+                      </Table.Td>
+                      <Table.Td style={{ padding: '16px' }}>
+                        {detail.label.toLowerCase().includes('salary') ||
+                        detail.label.toLowerCase().includes('allowance') ? (
+                          <Text
+                            fw={600}
+                            c={detail.value !== 'N/A' ? 'green' : 'dimmed'}
+                          >
+                            {detail.value}
+                          </Text>
+                        ) : (
+                          <Text
+                            c={detail.value === 'N/A' ? 'dimmed' : undefined}
+                          >
+                            {detail.value}
+                          </Text>
+                        )}
+                      </Table.Td>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
             </Card>
-          </Tabs.Panel>
-
-          <Tabs.Panel value="documents" pt="lg">
-            <Card withBorder p="lg">
-              <Text c="dimmed" ta="center">
-                Documents section coming soon
-              </Text>
-            </Card>
-          </Tabs.Panel>
-        </Tabs>
+          );
+        })}
       </Stack>
     </PageLayout>
   );

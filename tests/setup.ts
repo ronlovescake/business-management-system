@@ -1,17 +1,43 @@
-// Global test setup
-import { afterEach, vi } from 'vitest';
+import '@testing-library/jest-dom/vitest';
+import { afterAll, afterEach, beforeAll, vi } from 'vitest';
+import { cleanup } from '@testing-library/react';
+import { server } from './mocks/server';
 
-// Cleanup after each test case
-afterEach(() => {
-  vi.clearAllMocks();
-});
+vi.mock('@mantine/notifications', () => ({
+  notifications: {
+    show: vi.fn(),
+  },
+}));
 
-// Mock fetch globally if it doesn't exist
 if (!global.fetch) {
   global.fetch = vi.fn() as unknown as typeof fetch;
 }
 
-// eslint-disable-next-line no-console
-console.log('🧪 Test environment initialized');
+if (!window.matchMedia) {
+  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }));
+}
 
+window.confirm = vi.fn(() => true);
 
+beforeAll(() => {
+  server.listen({ onUnhandledRequest: 'warn' });
+});
+
+afterEach(() => {
+  cleanup();
+  server.resetHandlers();
+  vi.clearAllMocks();
+});
+
+afterAll(() => {
+  server.close();
+});

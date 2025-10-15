@@ -244,16 +244,30 @@
   display: none !important;
 }
 
-/* Set header row height to 50px to match data rows */
+/* Set header row height to 55px to match data rows */
 .ht-theme-horizon .handsontable thead th,
 .ht-theme-horizon .handsontable .ht_clone_top thead th,
 .ht-theme-horizon .handsontable .ht_clone_top_left_corner thead th,
 .ht-theme-horizon .handsontable .ht_clone_left thead th {
-  height: 50px !important;
-  line-height: 50px !important;
+  height: 55px !important;
+  line-height: 55px !important;
   vertical-align: middle !important;
   display: table-cell !important;
   text-align: center !important;
   padding: 0 12px !important;
   box-sizing: border-box !important;
+}
+
+/* Transactions grid header styling */
+.transactions-grid .ht-theme-horizon .handsontable thead th,
+.transactions-grid .ht-theme-horizon .handsontable .ht_clone_top thead th,
+.transactions-grid
+  .ht-theme-horizon
+  .handsontable
+  .ht_clone_top_left_corner
+  thead
+  th,
+.transactions-grid .ht-theme-horizon .handsontable .ht_clone_left thead th {
+  background-color: #f3f4f6 !important;
+  color: #1f2933 !important;
 }

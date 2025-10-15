@@ -113,10 +113,10 @@ export function HandsontableGrid<T extends Item>({
       .ht-theme-horizon .handsontable .ht_clone_top thead th,
       .ht-theme-horizon .handsontable .ht_clone_top_left_corner thead th,
       .ht-theme-horizon .handsontable .ht_clone_left thead th {
-        height: 60px !important;
-        min-height: 60px !important;
-        max-height: 60px !important;
-        line-height: 60px !important;
+  height: 55px !important;
+  min-height: 55px !important;
+  max-height: 55px !important;
+  line-height: 55px !important;
         vertical-align: middle !important;
         display: table-cell !important;
         text-align: center !important;
@@ -750,8 +750,8 @@ export function HandsontableGrid<T extends Item>({
           // Performance: Disable features that slow down large grids
           autoRowSize={false} // Disable auto row height calculation
           autoColumnSize={false} // Disable auto column width calculation
-          rowHeights={60} // Set fixed row height (default is ~23px)
-          columnHeaderHeight={60} // Set header height to match row height
+          rowHeights={55} // Set fixed row height (default is ~23px)
+          columnHeaderHeight={55} // Set header height to match row height
           afterChange={(changes, source) => {
             if (!changes || !onCellEdited) {
               return;

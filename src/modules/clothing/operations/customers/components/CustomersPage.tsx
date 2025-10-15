@@ -516,7 +516,6 @@ export function CustomersPage() {
               value={searchQuery}
               onChange={(event) => handleSearch(event.currentTarget.value)}
               size="sm"
-              disabled={customers.length === 0}
               style={{ minWidth: 260 }}
             />
             <FileInput

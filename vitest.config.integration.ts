@@ -1,0 +1,26 @@
+import { defineConfig } from 'vitest/config';
+import path from 'path';
+import { config as loadEnv } from 'dotenv';
+
+const envFile = process.env.INTEGRATION_ENV_FILE || '.env.test';
+loadEnv({ path: path.resolve(process.cwd(), envFile) });
+
+export default defineConfig({
+  test: {
+    include: ['tests/integration/**/*.test.ts'],
+    environment: 'node',
+    setupFiles: ['./tests/integration/setup.ts'],
+    hookTimeout: 30000,
+    testTimeout: 30000,
+    globals: true,
+    reporters: process.env.CI ? ['default', 'junit'] : ['default'],
+    outputFile: process.env.CI
+      ? { junit: 'reports/integration-junit.xml' }
+      : undefined,
+  },
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
+});

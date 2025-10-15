@@ -215,6 +215,7 @@ export function TransactionsLayout<
 
   return (
     <HandsontableGrid
+      className="transactions-grid"
       data={data as readonly Item[]}
       filteredData={filteredData as readonly Item[]}
       columns={columns}
