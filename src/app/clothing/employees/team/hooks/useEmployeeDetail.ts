@@ -11,21 +11,30 @@ export function useEmployeeDetail(employeeId: string) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate fetching employee data
-    // In a real app, this would fetch from an API or database
+    // Fetch employee data from API
     const fetchEmployee = async () => {
       try {
         setIsLoading(true);
 
-        // For now, get from localStorage (mock data)
-        const storedData = localStorage.getItem('employees');
-        if (storedData) {
-          const employees: Employee[] = JSON.parse(storedData);
-          const foundEmployee = employees.find((emp) => emp.id === employeeId);
-          setEmployee(foundEmployee || null);
-        } else {
-          setEmployee(null);
+        const response = await fetch(`/api/employees/${employeeId}`);
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            setEmployee(null);
+            return;
+          }
+          throw new Error('Failed to fetch employee');
         }
+
+        const data = await response.json();
+
+        // Transform database response to match Employee type
+        const transformedEmployee: Employee = {
+          ...data,
+          id: data.id.toString(), // Convert number to string for UI
+        };
+
+        setEmployee(transformedEmployee);
       } catch (error) {
         console.error('Error fetching employee:', error);
         setEmployee(null);
