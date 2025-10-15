@@ -76,6 +76,14 @@ export default function EmployeeDetailPage() {
   }> = [
     // Personal Information
     {
+      label: 'Employee Name',
+      value:
+        employee.firstName && employee.lastName
+          ? `${employee.firstName} ${employee.middleName ? employee.middleName + ' ' : ''}${employee.lastName}`
+          : employee.name,
+      category: 'Personal Information',
+    },
+    {
       label: 'First Name',
       value: employee.firstName,
       category: 'Personal Information',

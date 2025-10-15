@@ -257,3 +257,74 @@ model Expense {
   @@index([employeeName])
   @@map("expenses")
 }
+
+// ============================================================================
+// EMPLOYEES MODULE
+// ============================================================================
+
+model Employee {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  // Employee Identification
+  employeeId String  @unique @db.VarChar(50)
+  
+  // Name Fields
+  firstName  String  @db.VarChar(100)
+  lastName   String  @db.VarChar(100)
+  middleName String? @db.VarChar(100)
+  name       String  @db.VarChar(255) // Full name for backward compatibility
+
+  // Contact Information
+  email                    String? @db.VarChar(255)
+  phone                    String? @db.VarChar(50)
+  contact                  String  @db.VarChar(50) // Primary contact
+  address                  String? @db.Text
+  emergencyContactPerson   String? @db.VarChar(255)
+  emergencyContactNumber   String? @db.VarChar(50)
+  emergencyContact         String? @db.VarChar(50) // Legacy field
+
+  // Employment Details
+  department       String   @db.VarChar(100)
+  position         String   @db.VarChar(100)
+  jobTitle         String   @db.VarChar(100) // Legacy field
+  status           String   @db.VarChar(20) // 'active' | 'inactive' | 'on-leave'
+  employmentStatus String?  @db.VarChar(50) // 'probationary' | 'regular' | 'contractual' | 'project-based'
+  employeeType     String?  @db.VarChar(50) // 'full-time' | 'part-time' | 'contractor' | 'intern'
+  office           String?  @db.VarChar(255)
+  hiringSource     String?  @db.VarChar(100)
+  hireDate         String   @db.VarChar(50)
+
+  // Compensation
+  basicSalary     Float
+  currentSalary   Float?
+  allowance       Float?
+  paymentSchedule String? @db.VarChar(50) // 'weekly' | 'bi-weekly' | 'monthly' | 'semi-monthly'
+
+  // Financial Accounts
+  bankAccount  String? @db.VarChar(255)
+  gcashAccount String? @db.VarChar(50)
+
+  // Government IDs
+  sssNumber        String? @db.VarChar(50)
+  philHealthNumber String? @db.VarChar(50)
+  hdmfNumber       String? @db.VarChar(50)
+  tinNumber        String? @db.VarChar(50)
+
+  // Personal Information
+  gender         String? @db.VarChar(20) // 'male' | 'female' | 'other' | 'prefer-not-to-say'
+  dateOfBirth    String? @db.VarChar(50)
+  maritalStatus  String? @db.VarChar(20) // 'single' | 'married' | 'divorced' | 'widowed'
+  numberOfKids   Int?
+  education      String? @db.VarChar(255)
+  drivingLicense String? @db.VarChar(100)
+
+  @@index([employeeId])
+  @@index([department])
+  @@index([status])
+  @@index([firstName, lastName])
+  @@index([deletedAt])
+  @@map("employees")
+}

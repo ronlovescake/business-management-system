@@ -101,7 +101,7 @@ export default function Team() {
     },
     {
       key: 'name',
-      label: 'NAME',
+      label: 'EMPLOYEE NAME',
       render: (item) => (
         <div>
           <Text fw={600}>{item.name}</Text>
