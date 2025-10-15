@@ -263,6 +263,7 @@ export function EmployeeFormDialog({
           <DateInput
             label="Date of Birth"
             valueFormat="MM-DD-YYYY"
+            firstDayOfWeek={0}
             value={
               form.values.dateOfBirth ? new Date(form.values.dateOfBirth) : null
             }
@@ -335,6 +336,7 @@ export function EmployeeFormDialog({
           <DateInput
             label="Hire Date"
             valueFormat="MM-DD-YYYY"
+            firstDayOfWeek={0}
             required
             value={form.values.hireDate ? new Date(form.values.hireDate) : null}
             onChange={(value) =>
