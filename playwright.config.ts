@@ -17,7 +17,6 @@ export default defineConfig({
         ['list'],
         ['html', { outputFolder: 'playwright-report', open: 'never' }],
       ],
-  globalSetup: './tests/e2e/setup/global-setup.ts',
   use: {
     actionTimeout: 0,
     baseURL: 'http://localhost:3000',
