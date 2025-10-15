@@ -21,7 +21,7 @@ export default defineConfig({
     actionTimeout: 0,
     baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
-    storageState,
+    ...(process.env.CI ? {} : { storageState }),
   },
   webServer: {
     command: 'npm run dev',
