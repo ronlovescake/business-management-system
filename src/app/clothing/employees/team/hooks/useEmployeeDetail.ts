@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { useState, useEffect } from 'react';
 import type { Employee, EmployeeFormData } from '../types';
 
@@ -8,6 +9,7 @@ export function useEmployeeDetail(employeeId: string) {
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isPhotoUploading, setIsPhotoUploading] = useState(false);
 
   useEffect(() => {
     // Fetch employee data from API
@@ -144,6 +146,10 @@ export function useEmployeeDetail(employeeId: string) {
         // Financial
         bankAccount: formData.bankAccount || null,
         gcashAccount: formData.gcashAccount || null,
+        profilePhoto:
+          formData.profilePhoto && formData.profilePhoto.trim().length > 0
+            ? formData.profilePhoto
+            : employee.profilePhoto || null,
       };
 
       console.log(
@@ -194,6 +200,90 @@ export function useEmployeeDetail(employeeId: string) {
     }
   };
 
+  const handleProfilePhotoUpload = async (base64Photo: string) => {
+    if (!employee) {
+      return;
+    }
+
+    try {
+      setIsPhotoUploading(true);
+
+      const payload = {
+        employeeId: employee.employeeId,
+        firstName: employee.firstName,
+        lastName: employee.lastName,
+        middleName: employee.middleName || null,
+        name: employee.name,
+        phone: employee.phone,
+        contact: employee.contact,
+        email: employee.email || null,
+        department: employee.department,
+        position: employee.position,
+        jobTitle: employee.jobTitle,
+        status: employee.status,
+        employmentStatus: employee.employmentStatus || null,
+        employeeType: employee.employeeType || null,
+        office: employee.office || null,
+        hiringSource: employee.hiringSource || null,
+        hireDate: employee.hireDate,
+        basicSalary: employee.basicSalary,
+        currentSalary:
+          employee.currentSalary !== undefined &&
+          employee.currentSalary !== null
+            ? employee.currentSalary
+            : employee.basicSalary,
+        allowance: employee.allowance ?? null,
+        paymentSchedule: employee.paymentSchedule || null,
+        sssNumber: employee.sssNumber || null,
+        philHealthNumber: employee.philHealthNumber || null,
+        hdmfNumber: employee.hdmfNumber || null,
+        tinNumber: employee.tinNumber || null,
+        gender: employee.gender || null,
+        education: employee.education || null,
+        dateOfBirth: employee.dateOfBirth || null,
+        maritalStatus: employee.maritalStatus || null,
+        numberOfKids: employee.numberOfKids ?? null,
+        drivingLicense: employee.drivingLicense || null,
+        address: employee.address || null,
+        emergencyContactPerson: employee.emergencyContactPerson || null,
+        emergencyContactNumber: employee.emergencyContactNumber || null,
+        emergencyContact: employee.emergencyContact || null,
+        bankAccount: employee.bankAccount || null,
+        gcashAccount: employee.gcashAccount || null,
+        profilePhoto: base64Photo,
+      };
+
+      const response = await fetch(`/api/employees/${employee.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(
+          '🔴 [useEmployeeDetail] Profile photo update failed:',
+          errorText
+        );
+        throw new Error('Failed to update profile photo');
+      }
+
+      const updatedEmployee = await response.json();
+
+      setEmployee({
+        ...updatedEmployee,
+        id: updatedEmployee.id.toString(),
+      });
+    } catch (error) {
+      console.error('🔴 [useEmployeeDetail] Error uploading photo:', error);
+      alert('Failed to upload profile photo. Please try again.');
+    } finally {
+      setIsPhotoUploading(false);
+    }
+  };
+
   return {
     employee,
     isLoading,
@@ -204,5 +294,7 @@ export function useEmployeeDetail(employeeId: string) {
     getStatusColor,
     handleEdit,
     handleSaveEmployee,
+    handleProfilePhotoUpload,
+    isPhotoUploading,
   };
 }

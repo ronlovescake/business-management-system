@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
@@ -110,6 +111,10 @@ export async function POST(request: NextRequest) {
       gcashAccount: body.gcashAccount || null,
       allowance: body.allowance ? parseFloat(body.allowance) : null,
       paymentSchedule: body.paymentSchedule || null,
+      profilePhoto:
+        body.profilePhoto && typeof body.profilePhoto === 'string'
+          ? body.profilePhoto
+          : null,
     };
 
     // eslint-disable-next-line no-console

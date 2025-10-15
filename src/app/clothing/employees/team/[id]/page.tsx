@@ -16,8 +16,19 @@ import {
   ActionIcon,
   Grid,
   Box,
+  FileButton,
+  Tooltip,
+  Overlay,
+  Loader,
+  UnstyledButton,
+  Center,
 } from '@mantine/core';
-import { IconArrowLeft, IconEdit, IconAlertCircle } from '@tabler/icons-react';
+import {
+  IconArrowLeft,
+  IconEdit,
+  IconAlertCircle,
+  IconCamera,
+} from '@tabler/icons-react';
 import { PageLayout } from '../../../../../components/layout/PageLayout';
 import { useEmployeeDetail } from '@/app/clothing/employees/team/hooks/useEmployeeDetail';
 import { EmployeeFormDialog } from '../components/EmployeeFormDialog';
@@ -37,7 +48,50 @@ export default function EmployeeDetailPage() {
     getStatusColor,
     handleEdit,
     handleSaveEmployee,
+    handleProfilePhotoUpload,
+    isPhotoUploading,
   } = useEmployeeDetail(employeeId);
+
+  const [isAvatarHovered, setIsAvatarHovered] = React.useState(false);
+
+  const MAX_PROFILE_PHOTO_SIZE = 2 * 1024 * 1024; // 2MB
+
+  const convertFileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result;
+        if (typeof result === 'string') {
+          resolve(result);
+        } else {
+          reject(new Error('Unable to read file'));
+        }
+      };
+      reader.onerror = (event) => {
+        reject(event instanceof Error ? event : new Error('File read error'));
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleAvatarFileChange = async (file: File | null) => {
+    if (!file) {
+      return;
+    }
+
+    if (file.size > MAX_PROFILE_PHOTO_SIZE) {
+      alert('Please select an image that is 2MB or smaller.');
+      return;
+    }
+
+    try {
+      const base64 = await convertFileToBase64(file);
+      await handleProfilePhotoUpload(base64);
+    } catch (error) {
+      console.error('Failed to upload profile photo:', error);
+      alert('Failed to upload profile photo. Please try again.');
+    }
+  };
 
   // Helper function to capitalize first letter of each word
   const capitalizeWords = (str: string | undefined | null): string => {
@@ -311,19 +365,63 @@ export default function EmployeeDetailPage() {
         {/* Employee Profile Summary Card */}
         <Paper withBorder p="xl">
           <Group align="center" gap="lg">
-            <Avatar
-              size={100}
-              radius="md"
-              color="blue"
-              style={{ fontSize: '2.5rem' }}
+            <Box
+              pos="relative"
+              onMouseEnter={() => setIsAvatarHovered(true)}
+              onMouseLeave={() => setIsAvatarHovered(false)}
+              style={{ borderRadius: 'var(--mantine-radius-md)' }}
             >
-              {employee.firstName?.[0]?.toUpperCase() ||
-                employee.name?.split(' ')[0]?.[0]?.toUpperCase() ||
-                ''}
-              {employee.lastName?.[0]?.toUpperCase() ||
-                employee.name?.split(' ')[1]?.[0]?.toUpperCase() ||
-                ''}
-            </Avatar>
+              <FileButton
+                onChange={handleAvatarFileChange}
+                accept="image/png,image/jpeg,image/webp"
+              >
+                {(props) => (
+                  <Tooltip label="Upload profile photo" position="right">
+                    <UnstyledButton
+                      {...props}
+                      style={{ display: 'block', borderRadius: 'inherit' }}
+                    >
+                      <Avatar
+                        size={100}
+                        radius="md"
+                        color="blue"
+                        style={{ fontSize: '2.5rem' }}
+                        src={employee.profilePhoto || undefined}
+                      >
+                        {employee.firstName?.[0]?.toUpperCase() ||
+                          employee.name?.split(' ')[0]?.[0]?.toUpperCase() ||
+                          ''}
+                        {employee.lastName?.[0]?.toUpperCase() ||
+                          employee.name?.split(' ')[1]?.[0]?.toUpperCase() ||
+                          ''}
+                      </Avatar>
+                    </UnstyledButton>
+                  </Tooltip>
+                )}
+              </FileButton>
+
+              {(isAvatarHovered || isPhotoUploading) && (
+                <Overlay
+                  opacity={0.45}
+                  color="#000"
+                  radius="md"
+                  style={{ pointerEvents: 'none' }}
+                >
+                  <Center style={{ height: '100%' }}>
+                    {isPhotoUploading ? (
+                      <Loader size="sm" color="white" />
+                    ) : (
+                      <Group gap={6} align="center">
+                        <IconCamera size={18} color="#fff" />
+                        <Text size="xs" c="white">
+                          Change photo
+                        </Text>
+                      </Group>
+                    )}
+                  </Center>
+                </Overlay>
+              )}
+            </Box>
             <div style={{ flex: 1 }}>
               <Group justify="space-between" align="flex-start">
                 <div>

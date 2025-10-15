@@ -1,33 +1,34 @@
+/* eslint-disable no-console */
 import { useState, useMemo, useEffect } from 'react';
 import type { Employee, EmployeeFormData } from '../types';
 
 /**
  * Generate a unique employee ID
- * Format: EMP-YYYYMMDD-XXXX (e.g., EMP-20251016-0001)
+ * Format: EMP-XXXX (e.g., EMP-0001)
  */
-const generateEmployeeId = async (): Promise<string> => {
-  const today = new Date();
-  const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-
+const generateEmployeeId = async (retryOffset = 0): Promise<string> => {
   // Fetch existing employees to find the next available number
   const response = await fetch('/api/employees');
   const employees = await response.json();
 
-  // Find all employee IDs with today's date
-  const todayPrefix = `EMP-${dateStr}-`;
-  const todayEmployees = employees
-    .filter((emp: Employee) => emp.employeeId?.startsWith(todayPrefix))
+  const prefix = 'EMP-';
+  const existingNumbers = employees
     .map((emp: Employee) => {
-      const match = emp.employeeId?.match(/EMP-\d{8}-(\d{4})$/);
-      return match ? parseInt(match[1], 10) : 0;
-    });
+      const match = emp.employeeId?.match(/^EMP-(\d{4,})$/);
+      return match ? parseInt(match[1], 10) : null;
+    })
+    .filter((value: number | null): value is number => value !== null);
 
-  // Get the next number
-  const maxNumber = todayEmployees.length > 0 ? Math.max(...todayEmployees) : 0;
-  const nextNumber = (maxNumber + 1).toString().padStart(4, '0');
+  const maxNumber =
+    existingNumbers.length > 0 ? Math.max(...existingNumbers) : 0;
+  const nextNumber = (maxNumber + 1 + retryOffset).toString().padStart(4, '0');
 
-  return `${todayPrefix}${nextNumber}`;
+  return `${prefix}${nextNumber}`;
 };
+
+const isDuplicateEmployeeIdError = (errorText: string) =>
+  errorText.includes('Unique constraint failed') &&
+  errorText.includes('employeeId');
 
 export function useTeam() {
   // State Management
@@ -231,6 +232,10 @@ export function useTeam() {
           // Financial
           bankAccount: formData.bankAccount || null,
           gcashAccount: formData.gcashAccount || null,
+          profilePhoto:
+            formData.profilePhoto && formData.profilePhoto.trim().length > 0
+              ? formData.profilePhoto
+              : editingEmployee.profilePhoto || null,
         };
 
         console.log('🟡 [useTeam] Updating employee - payload:', payload);
@@ -267,9 +272,13 @@ export function useTeam() {
         );
       } else {
         // Add new employee
-        // Generate a unique employee ID if not provided or if empty
-        const employeeId = formData.employeeId?.trim()
-          ? formData.employeeId
+        // Generate a unique employee ID if not provided, empty, or invalid format
+        const isValidFormat =
+          formData.employeeId?.trim() &&
+          /^EMP-\d{4}$/.test(formData.employeeId.trim());
+
+        const employeeId = isValidFormat
+          ? formData.employeeId.trim()
           : await generateEmployeeId();
 
         console.log('🟢 [useTeam] Generated/Using employee ID:', employeeId);
@@ -331,6 +340,10 @@ export function useTeam() {
           // Financial
           bankAccount: formData.bankAccount || null,
           gcashAccount: formData.gcashAccount || null,
+          profilePhoto:
+            formData.profilePhoto && formData.profilePhoto.trim().length > 0
+              ? formData.profilePhoto
+              : null,
         };
 
         console.log('🟢 [useTeam] Creating new employee - payload:', payload);
@@ -355,50 +368,61 @@ export function useTeam() {
           );
           console.error('🔴 [useTeam] Create failed - error:', errorText);
 
-          // Check if it's a duplicate employee ID error
-          if (
-            errorText.includes('Unique constraint failed') &&
-            errorText.includes('employeeId')
-          ) {
+          if (isDuplicateEmployeeIdError(errorText)) {
             console.log(
-              '🔄 [useTeam] Duplicate employeeId detected, generating new ID...'
-            );
-            // Generate a new ID and retry
-            const newEmployeeId = await generateEmployeeId();
-            console.log(
-              '🔄 [useTeam] Retrying with new employee ID:',
-              newEmployeeId
+              '🔄 [useTeam] Duplicate employeeId detected, attempting retries...'
             );
 
-            const retryPayload = { ...payload, employeeId: newEmployeeId };
-            const retryResponse = await fetch('/api/employees', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(retryPayload),
-            });
+            const maxRetries = 5;
+            for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
+              const newEmployeeId = await generateEmployeeId(attempt);
+              console.log(
+                `🔄 [useTeam] Retry attempt ${attempt} with employee ID: ${newEmployeeId}`
+              );
 
-            if (!retryResponse.ok) {
-              throw new Error('Failed to create employee after retry');
+              const retryPayload = { ...payload, employeeId: newEmployeeId };
+              const retryResponse = await fetch('/api/employees', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(retryPayload),
+              });
+
+              if (retryResponse.ok) {
+                const newEmployee = await retryResponse.json();
+                console.log(
+                  '✅ [useTeam] Employee created successfully on retry:',
+                  newEmployee
+                );
+
+                setEmployees((prev) => [
+                  { ...newEmployee, id: newEmployee.id.toString() },
+                  ...prev,
+                ]);
+
+                setIsFormOpen(false);
+                setEditingEmployee(null);
+                console.log('✅ [useTeam] Form closed and state reset');
+                return;
+              }
+
+              const retryErrorText = await retryResponse.text();
+              console.error(
+                `🔴 [useTeam] Retry attempt ${attempt} failed - status:`,
+                retryResponse.status
+              );
+              console.error(
+                `🔴 [useTeam] Retry attempt ${attempt} failed - error:`,
+                retryErrorText
+              );
+
+              if (!isDuplicateEmployeeIdError(retryErrorText)) {
+                throw new Error('Failed to create employee');
+              }
             }
 
-            const newEmployee = await retryResponse.json();
-            console.log(
-              '✅ [useTeam] Employee created successfully on retry:',
-              newEmployee
-            );
-
-            // Add to local state
-            setEmployees((prev) => [
-              { ...newEmployee, id: newEmployee.id.toString() },
-              ...prev,
-            ]);
-
-            setIsFormOpen(false);
-            setEditingEmployee(null);
-            console.log('✅ [useTeam] Form closed and state reset');
-            return; // Exit early on successful retry
+            throw new Error('Failed to create employee after retries');
           }
 
           throw new Error('Failed to create employee');

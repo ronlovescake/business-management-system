@@ -55,6 +55,7 @@ export interface Employee {
   gcashAccount?: string;
   allowance?: number;
   paymentSchedule?: 'weekly' | 'bi-weekly' | 'monthly' | 'semi-monthly';
+  profilePhoto?: string;
 }
 
 export interface EmployeeFormData {
@@ -95,4 +96,5 @@ export interface EmployeeFormData {
   paymentSchedule?: string;
   contact: string;
   emergencyContact?: string;
+  profilePhoto?: string;
 }

@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
@@ -73,6 +74,16 @@ export async function PUT(
       );
     }
 
+    const currentProfilePhoto =
+      (existing as { profilePhoto?: string | null }).profilePhoto ?? null;
+
+    const resolvedProfilePhoto =
+      typeof body.profilePhoto === 'string'
+        ? body.profilePhoto.trim().length > 0
+          ? body.profilePhoto
+          : null
+        : currentProfilePhoto;
+
     // Prepare employee data with proper type conversions
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const employeeData: any = {
@@ -123,6 +134,7 @@ export async function PUT(
       bankAccount: body.bankAccount || null,
       gcashAccount: body.gcashAccount || null,
       paymentSchedule: body.paymentSchedule || null,
+      profilePhoto: resolvedProfilePhoto,
 
       updatedAt: new Date(),
     };

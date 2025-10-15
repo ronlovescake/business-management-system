@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { Stack, Text, Badge, Tabs, Paper } from '@mantine/core';
+import { Stack, Text, Badge, Tabs, Paper, Group, Avatar } from '@mantine/core';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import {
   IconUsers,
@@ -68,6 +68,14 @@ export default function Team() {
     handleExportCSV,
   } = useTeam();
 
+  const getInitials = (employee: EmployeeType) => {
+    const firstInitial =
+      employee.firstName?.[0] || employee.name?.split(' ')[0]?.[0] || '';
+    const lastInitial =
+      employee.lastName?.[0] || employee.name?.split(' ')[1]?.[0] || '';
+    return `${firstInitial}${lastInitial}`.toUpperCase();
+  };
+
   // Stats Configuration
   const stats: StatCard[] = [
     {
@@ -103,14 +111,19 @@ export default function Team() {
       key: 'name',
       label: 'EMPLOYEE NAME',
       render: (item) => (
-        <div>
-          <Text fw={600}>{item.name}</Text>
-          {item.email && (
-            <Text size="xs" c="dimmed">
-              {item.email}
-            </Text>
-          )}
-        </div>
+        <Group gap="sm">
+          <Avatar size={36} color="blue" src={item.profilePhoto || undefined}>
+            {getInitials(item)}
+          </Avatar>
+          <div>
+            <Text fw={600}>{item.name}</Text>
+            {item.email && (
+              <Text size="xs" c="dimmed">
+                {item.email}
+              </Text>
+            )}
+          </div>
+        </Group>
       ),
     },
     {

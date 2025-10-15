@@ -63,10 +63,10 @@ export function EmployeeFormDialog({
       bankAccount: '',
       gcashAccount: '',
       allowance: '',
-      paymentSchedule: 'semi-monthly',
+      paymentSchedule: 'bi-monthly',
+      profilePhoto: '',
     },
     validate: {
-      employeeId: (value) => (!value ? 'Employee ID is required' : null),
       firstName: (value) => (!value ? 'First name is required' : null),
       lastName: (value) => (!value ? 'Last name is required' : null),
       phone: (value) => (!value ? 'Contact number is required' : null),
@@ -100,14 +100,17 @@ export function EmployeeFormDialog({
         department: editingEmployee.department,
         position: editingEmployee.position,
         jobTitle: editingEmployee.jobTitle,
-        currentSalary: editingEmployee.currentSalary.toString(),
+        currentSalary:
+          editingEmployee.currentSalary !== undefined &&
+          editingEmployee.currentSalary !== null
+            ? editingEmployee.currentSalary.toString()
+            : editingEmployee.basicSalary.toString(),
         basicSalary: editingEmployee.basicSalary.toString(),
         hireDate: editingEmployee.hireDate,
         status: editingEmployee.status,
         employmentStatus: editingEmployee.employmentStatus || 'probationary',
         employeeType: editingEmployee.employeeType || 'full-time',
         office: editingEmployee.office || '',
-        hiringSource: editingEmployee.hiringSource || '',
         sssNumber: editingEmployee.sssNumber || '',
         philHealthNumber: editingEmployee.philHealthNumber || '',
         hdmfNumber: editingEmployee.hdmfNumber || '',
@@ -125,7 +128,8 @@ export function EmployeeFormDialog({
         bankAccount: editingEmployee.bankAccount || '',
         gcashAccount: editingEmployee.gcashAccount || '',
         allowance: editingEmployee.allowance?.toString() || '',
-        paymentSchedule: editingEmployee.paymentSchedule || 'semi-monthly',
+        paymentSchedule: editingEmployee.paymentSchedule || 'bi-monthly',
+        profilePhoto: editingEmployee.profilePhoto || '',
       });
     } else {
       form.reset();
@@ -206,9 +210,24 @@ export function EmployeeFormDialog({
 
         <Grid.Col span={4}>
           <TextInput
-            label="Employee ID"
+            label="First Name"
             required
-            {...form.getInputProps('employeeId')}
+            {...form.getInputProps('firstName')}
+          />
+        </Grid.Col>
+
+        <Grid.Col span={4}>
+          <TextInput
+            label="Middle Name"
+            {...form.getInputProps('middleName')}
+          />
+        </Grid.Col>
+
+        <Grid.Col span={4}>
+          <TextInput
+            label="Last Name"
+            required
+            {...form.getInputProps('lastName')}
           />
         </Grid.Col>
 
@@ -233,29 +252,6 @@ export function EmployeeFormDialog({
               { value: 'female', label: 'Female' },
             ]}
             {...form.getInputProps('gender')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={4}>
-          <TextInput
-            label="First Name"
-            required
-            {...form.getInputProps('firstName')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={4}>
-          <TextInput
-            label="Middle Name"
-            {...form.getInputProps('middleName')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={4}>
-          <TextInput
-            label="Last Name"
-            required
-            {...form.getInputProps('lastName')}
           />
         </Grid.Col>
 
@@ -526,21 +522,6 @@ export function EmployeeFormDialog({
 
         <Grid.Col span={3}>
           <NumberInput
-            label="Current Salary"
-            min={0}
-            prefix="₱"
-            decimalScale={2}
-            thousandSeparator=","
-            hideControls
-            value={form.values.currentSalary}
-            onChange={(value) =>
-              form.setFieldValue('currentSalary', value?.toString() || '')
-            }
-          />
-        </Grid.Col>
-
-        <Grid.Col span={3}>
-          <NumberInput
             label="Allowance"
             min={0}
             prefix="₱"
@@ -555,12 +536,27 @@ export function EmployeeFormDialog({
         </Grid.Col>
 
         <Grid.Col span={3}>
+          <NumberInput
+            label="Current Salary"
+            min={0}
+            prefix="₱"
+            decimalScale={2}
+            thousandSeparator=","
+            hideControls
+            value={form.values.currentSalary}
+            onChange={(value) =>
+              form.setFieldValue('currentSalary', value?.toString() || '')
+            }
+          />
+        </Grid.Col>
+
+        <Grid.Col span={3}>
           <Select
             label="Payment Schedule"
             data={[
               { value: 'weekly', label: 'Weekly' },
               { value: 'bi-weekly', label: 'Bi-Weekly' },
-              { value: 'semi-monthly', label: 'Semi-Monthly' },
+              { value: 'bi-monthly', label: 'Bi-Monthly' },
               { value: 'monthly', label: 'Monthly' },
             ]}
             {...form.getInputProps('paymentSchedule')}
