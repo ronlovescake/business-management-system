@@ -414,7 +414,7 @@ export function EmployeeFormDialog({
           />
         </Grid.Col>
 
-        <Grid.Col span={4}>
+        <Grid.Col span={6}>
           <TextInput
             label="Phone Number"
             placeholder="e.g., 09171234567"
@@ -423,7 +423,7 @@ export function EmployeeFormDialog({
           />
         </Grid.Col>
 
-        <Grid.Col span={4}>
+        <Grid.Col span={6}>
           <TextInput
             label="Email Address"
             placeholder="e.g., john.doe@company.com"
@@ -432,15 +432,7 @@ export function EmployeeFormDialog({
           />
         </Grid.Col>
 
-        <Grid.Col span={4}>
-          <TextInput
-            label="Emergency Contact Person"
-            placeholder="Contact person name"
-            {...form.getInputProps('emergencyContactPerson')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={8}>
+        <Grid.Col span={12}>
           <TextInput
             label="Address"
             placeholder="Complete address"
@@ -448,7 +440,28 @@ export function EmployeeFormDialog({
           />
         </Grid.Col>
 
-        <Grid.Col span={4}>
+        {/* In case of emergency Section */}
+        <Grid.Col span={12}>
+          <Divider
+            label={
+              <Text size="sm" fw={600}>
+                🚨 In case of emergency
+              </Text>
+            }
+            labelPosition="left"
+            mt="md"
+          />
+        </Grid.Col>
+
+        <Grid.Col span={6}>
+          <TextInput
+            label="Emergency Contact Person"
+            placeholder="Contact person name"
+            {...form.getInputProps('emergencyContactPerson')}
+          />
+        </Grid.Col>
+
+        <Grid.Col span={6}>
           <TextInput
             label="Emergency Contact Number"
             placeholder="e.g., 09181234567"
