@@ -10,7 +10,13 @@
     "lint:fix": "next lint --fix",
     "format": "prettier --write .",
     "test": "vitest",
+    "test:unit": "vitest run",
+    "test:integration": "vitest run --config vitest.config.integration.ts",
+    "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "test:e2e:chromium": "playwright test --project=chromium",
+    "test:e2e:operations": "playwright test tests/e2e/operations-pages.spec.ts tests/e2e/transactions.spec.ts tests/e2e/invoice-generation.spec.ts tests/e2e/customers.spec.ts",
+    "test:e2e:employees": "playwright test tests/e2e/employees-pages.spec.ts",
     "test:ui": "vitest --ui",
     "analyze": "cross-env ANALYZE=true next build",
     "prepare": "husky install",
@@ -20,7 +26,9 @@
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset",
     "db:seed": "prisma db seed",
-    "db:test": "node scripts/test-db.js"
+    "db:test": "node scripts/test-db.js",
+    "db:reset:test": "node scripts/reset-test-db.js --seed",
+    "db:snapshot": "node scripts/db-snapshot.js"
   },
   "dependencies": {
     "@glideapps/glide-data-grid": "^6.0.3",
@@ -57,6 +65,10 @@
     "@commitlint/config-conventional": "^17.7.0",
     "@next/bundle-analyzer": "^14.0.0",
     "@playwright/test": "^1.40.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^20.0.0",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
@@ -70,7 +82,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "husky": "^8.0.0",
-    "jsdom": "^27.0.0",
+    "jsdom": "^22.1.0",
     "lint-staged": "^14.0.0",
     "msw": "^2.0.0",
     "playwright": "^1.40.0",
@@ -80,5 +92,8 @@
     "tailwindcss": "^3.3.0",
     "typescript": "^5.0.0",
     "vitest": "^1.0.0"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   }
 }
