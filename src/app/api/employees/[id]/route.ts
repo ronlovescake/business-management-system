@@ -63,13 +63,63 @@ export async function PUT(
       );
     }
 
+    // Prepare employee data with proper type conversions
+    const employeeData: any = {
+      employeeId: body.employeeId,
+      firstName: body.firstName || body.name?.split(' ')[0] || '',
+      lastName: body.lastName || body.name?.split(' ').slice(1).join(' ') || '',
+      middleName: body.middleName || null,
+      name: body.name,
+      department: body.department,
+      position: body.position || body.jobTitle,
+      jobTitle: body.jobTitle || body.position,
+      status: body.status,
+      hireDate: body.hireDate,
+      phone: body.phone || body.contact,
+      contact: body.contact || body.phone,
+      email: body.email || null,
+      address: body.address || null,
+      emergencyContact:
+        body.emergencyContact || body.emergencyContactNumber || null,
+      emergencyContactPerson: body.emergencyContactPerson || null,
+      emergencyContactNumber:
+        body.emergencyContactNumber || body.emergencyContact || null,
+
+      // Convert string to number for salary fields
+      basicSalary: body.basicSalary ? parseFloat(body.basicSalary) : 0,
+      currentSalary: body.currentSalary
+        ? parseFloat(body.currentSalary)
+        : body.basicSalary
+          ? parseFloat(body.basicSalary)
+          : 0,
+      allowance: body.allowance ? parseFloat(body.allowance) : null,
+
+      // Optional fields
+      employmentStatus: body.employmentStatus || null,
+      employeeType: body.employeeType || null,
+      office: body.office || null,
+      hiringSource: body.hiringSource || null,
+      sssNumber: body.sssNumber || null,
+      philHealthNumber: body.philHealthNumber || null,
+      hdmfNumber: body.hdmfNumber || null,
+      tinNumber: body.tinNumber || null,
+      gender: body.gender || null,
+      education: body.education || null,
+      dateOfBirth: body.dateOfBirth || null,
+      maritalStatus: body.maritalStatus || null,
+      numberOfKids: body.numberOfKids ? parseInt(body.numberOfKids) : null,
+      drivingLicense: body.drivingLicense || null,
+      bankAccount: body.bankAccount || null,
+      gcashAccount: body.gcashAccount || null,
+      paymentSchedule: body.paymentSchedule || null,
+
+      updatedAt: new Date(),
+    };
+
     // Update employee
     const employee = await prisma.employee.update({
       where: { id: parseInt(params.id) },
-      data: {
-        ...body,
-        updatedAt: new Date(),
-      },
+      data: employeeData,
     });
 
     return NextResponse.json(employee);
