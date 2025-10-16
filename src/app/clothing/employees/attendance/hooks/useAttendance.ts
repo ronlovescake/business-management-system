@@ -2,7 +2,30 @@ import { useMemo, useState } from 'react';
 import type { AttendanceRecord, AttendanceStatus } from '../types';
 
 const formatTime = (time: string) => {
-  const [hours, minutes] = time.split(':').map(Number);
+  // Handle empty or invalid time strings
+  if (!time || time.trim() === '') {
+    return '—';
+  }
+
+  const parts = time.split(':');
+  if (parts.length < 2) {
+    return '—';
+  }
+
+  const [hours, minutes] = parts.map(Number);
+
+  // Validate hours and minutes
+  if (
+    isNaN(hours) ||
+    isNaN(minutes) ||
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59
+  ) {
+    return '—';
+  }
+
   const date = new Date();
   date.setHours(hours, minutes, 0, 0);
   return new Intl.DateTimeFormat('en-US', {
@@ -25,6 +48,12 @@ export function useAttendance() {
       date: '2025-10-15',
       timeIn: '08:00',
       timeOut: '17:00',
+      break1Start: '10:00',
+      break1End: '10:15',
+      lunchStart: '12:00',
+      lunchEnd: '13:00',
+      break2Start: '15:00',
+      break2End: '15:15',
       totalHours: 8.5,
       status: 'present',
       details: 'Warehouse oversight and team briefing',
@@ -38,6 +67,12 @@ export function useAttendance() {
       date: '2025-10-15',
       timeIn: '08:30',
       timeOut: '17:15',
+      break1Start: '10:30',
+      break1End: '10:45',
+      lunchStart: '12:30',
+      lunchEnd: '13:30',
+      break2Start: '15:30',
+      break2End: '15:45',
       totalHours: 7.75,
       status: 'late',
       details: 'Handled inbound shipment processing',
@@ -66,6 +101,12 @@ export function useAttendance() {
       date: '2025-10-15',
       timeIn: '08:05',
       timeOut: '17:10',
+      break1Start: '10:05',
+      break1End: '10:20',
+      lunchStart: '12:05',
+      lunchEnd: '13:05',
+      break2Start: '15:05',
+      break2End: '15:20',
       totalHours: 8.1,
       status: 'present',
       details: 'Packed outbound orders and updated stock levels',
@@ -79,6 +120,10 @@ export function useAttendance() {
       date: '2025-10-15',
       timeIn: '09:00',
       timeOut: '16:00',
+      break1Start: '10:30',
+      break1End: '10:45',
+      lunchStart: '12:00',
+      lunchEnd: '13:00',
       totalHours: 6,
       status: 'on-leave',
       details: 'Approved half-day leave',
@@ -248,13 +293,7 @@ export function useAttendance() {
           h.toLowerCase().replace(/\s+/g, '')
         );
 
-        const requiredColumns = [
-          'employeeid',
-          'employeename',
-          'date',
-          'timein',
-          'timeout',
-        ];
+        const requiredColumns = ['employeeid', 'employeename', 'date'];
         const missingColumns = requiredColumns.filter(
           (col) => !headers.includes(col)
         );
@@ -262,8 +301,10 @@ export function useAttendance() {
         if (missingColumns.length > 0) {
           alert(
             `Missing required columns: ${missingColumns.join(', ')}\n\n` +
-              'Required columns: employeeId, employeeName, date, timeIn, timeOut\n' +
-              'Optional columns: department, position, status, details, notes'
+              'Required columns: employeeId, employeeName, date\n' +
+              'Optional columns: timeIn, timeOut, department, position, status, ' +
+              'break1Start, break1End, lunchStart, lunchEnd, break2Start, break2End, ' +
+              'totalHours, details, notes'
           );
           return;
         }
@@ -285,23 +326,24 @@ export function useAttendance() {
               continue;
             }
 
-            if (
-              !row.employeeid ||
-              !row.employeename ||
-              !row.date ||
-              !row.timein ||
-              !row.timeout
-            ) {
+            // Validate required fields (timeIn/timeOut optional for on-leave)
+            if (!row.employeeid || !row.employeename || !row.date) {
               errors.push(`Row ${i + 1}: Missing required field(s)`);
               continue;
             }
 
-            // Calculate total hours
-            const [inHours, inMinutes] = row.timein.split(':').map(Number);
-            const [outHours, outMinutes] = row.timeout.split(':').map(Number);
-            const totalMinutes =
-              outHours * 60 + outMinutes - (inHours * 60 + inMinutes);
-            const totalHours = totalMinutes > 0 ? totalMinutes / 60 : 0;
+            // Calculate total hours (only if timeIn and timeOut exist)
+            let totalHours = 0;
+            if (row.timein && row.timeout) {
+              const [inHours, inMinutes] = row.timein.split(':').map(Number);
+              const [outHours, outMinutes] = row.timeout.split(':').map(Number);
+              const totalMinutes =
+                outHours * 60 + outMinutes - (inHours * 60 + inMinutes);
+              totalHours = totalMinutes > 0 ? totalMinutes / 60 : 0;
+            } else if (row.totalhours) {
+              // Use provided totalHours if timeIn/timeOut missing
+              totalHours = parseFloat(row.totalhours) || 0;
+            }
 
             const status =
               (row.status?.toLowerCase() as AttendanceStatus) || 'present';
@@ -315,14 +357,20 @@ export function useAttendance() {
               : 'present';
 
             const newRecord: AttendanceRecord = {
-              id: generateId(),
+              id: row.id || generateId(),
               employeeId: row.employeeid,
               employeeName: row.employeename,
               department: row.department || 'N/A',
               position: row.position || 'N/A',
               date: row.date,
-              timeIn: row.timein,
-              timeOut: row.timeout,
+              timeIn: row.timein || '',
+              timeOut: row.timeout || '',
+              break1Start: row.break1start || undefined,
+              break1End: row.break1end || undefined,
+              lunchStart: row.lunchstart || undefined,
+              lunchEnd: row.lunchend || undefined,
+              break2Start: row.break2start || undefined,
+              break2End: row.break2end || undefined,
               totalHours,
               status: validStatus,
               details: row.details || '',

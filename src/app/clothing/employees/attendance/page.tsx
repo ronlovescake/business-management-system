@@ -121,6 +121,39 @@ export default function Attendance() {
       ),
     },
     {
+      key: 'break1',
+      label: 'BREAK 1 (15min)',
+      render: (item) => (
+        <Text size="sm" c="dimmed">
+          {item.break1Start && item.break1End
+            ? `${formatTime(item.break1Start)} - ${formatTime(item.break1End)}`
+            : '—'}
+        </Text>
+      ),
+    },
+    {
+      key: 'lunch',
+      label: 'LUNCH (1hr)',
+      render: (item) => (
+        <Text size="sm" c="dimmed">
+          {item.lunchStart && item.lunchEnd
+            ? `${formatTime(item.lunchStart)} - ${formatTime(item.lunchEnd)}`
+            : '—'}
+        </Text>
+      ),
+    },
+    {
+      key: 'break2',
+      label: 'BREAK 2 (15min)',
+      render: (item) => (
+        <Text size="sm" c="dimmed">
+          {item.break2Start && item.break2End
+            ? `${formatTime(item.break2Start)} - ${formatTime(item.break2End)}`
+            : '—'}
+        </Text>
+      ),
+    },
+    {
       key: 'totalHours',
       label: 'HOURS',
       render: (item) => <Text fw={600}>{formatHours(item.totalHours)}</Text>,
