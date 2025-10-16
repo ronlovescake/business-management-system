@@ -103,26 +103,30 @@ function MonthCalendar({
   return (
     <Box
       style={{
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
-        borderRadius: '12px',
-        padding: '12px',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
+        backgroundColor: 'white',
+        borderRadius: '8px',
+        padding: '8px',
+        border: '1px solid #e9ecef',
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
       {/* Month Name */}
       <Text
-        fw={600}
+        fw={700}
         size="sm"
-        mb="xs"
+        mb={4}
         ta="center"
-        c="white"
-        style={{ textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)' }}
+        c="dark"
+        style={{ color: '#495057', fontSize: '13px' }}
       >
         {monthNames[month]}
       </Text>
 
       {/* Day Headers */}
-      <SimpleGrid cols={7} spacing={2} mb={4}>
+      <SimpleGrid cols={7} spacing={1} mb={2}>
         {dayNames.map((day) => (
           <Text
             key={day}
@@ -130,7 +134,7 @@ function MonthCalendar({
             ta="center"
             c="dimmed"
             fw={600}
-            style={{ fontSize: '10px' }}
+            style={{ fontSize: '9px', color: '#868e96' }}
           >
             {day}
           </Text>
@@ -138,7 +142,7 @@ function MonthCalendar({
       </SimpleGrid>
 
       {/* Calendar Grid */}
-      <SimpleGrid cols={7} spacing={2}>
+      <SimpleGrid cols={7} spacing={1} style={{ flex: 1 }}>
         {calendarDays.map((date) => {
           if (!date) {
             return <Box key={`empty-${month}-${Math.random()}`} />;
@@ -164,43 +168,46 @@ function MonthCalendar({
                 borderRadius: '6px',
                 cursor: isCurrent ? 'pointer' : 'default',
                 backgroundColor: isSelectedDay
-                  ? 'rgba(34, 139, 230, 0.3)'
+                  ? 'rgba(34, 139, 230, 0.2)'
                   : isTodayDay
-                    ? 'rgba(34, 139, 230, 0.15)'
+                    ? 'rgba(34, 139, 230, 0.08)'
                     : hasLeave && isCurrent
-                      ? 'rgba(255, 255, 255, 0.05)'
+                      ? 'rgba(240, 244, 248, 1)'
                       : 'transparent',
                 border: isTodayDay
-                  ? '1px solid rgba(34, 139, 230, 0.5)'
+                  ? '2px solid #228be6'
                   : '1px solid transparent',
                 transition: 'all 0.2s',
                 position: 'relative',
-                opacity: isCurrent ? 1 : 0.3,
+                opacity: isCurrent ? 1 : 0.4,
               }}
               onMouseEnter={(e) => {
                 if (isCurrent) {
                   e.currentTarget.style.backgroundColor = isSelectedDay
-                    ? 'rgba(34, 139, 230, 0.4)'
-                    : 'rgba(255, 255, 255, 0.1)';
+                    ? 'rgba(34, 139, 230, 0.3)'
+                    : 'rgba(240, 244, 248, 1)';
                 }
               }}
               onMouseLeave={(e) => {
                 if (isCurrent) {
                   e.currentTarget.style.backgroundColor = isSelectedDay
-                    ? 'rgba(34, 139, 230, 0.3)'
+                    ? 'rgba(34, 139, 230, 0.2)'
                     : isTodayDay
-                      ? 'rgba(34, 139, 230, 0.15)'
+                      ? 'rgba(34, 139, 230, 0.08)'
                       : hasLeave
-                        ? 'rgba(255, 255, 255, 0.05)'
+                        ? 'rgba(240, 244, 248, 1)'
                         : 'transparent';
                 }
               }}
             >
               <Text
                 size="xs"
-                c={isCurrent ? 'white' : 'dimmed'}
-                fw={isSelectedDay || isTodayDay ? 600 : 400}
-                style={{ fontSize: '11px' }}
+                c={isCurrent ? 'dark' : 'dimmed'}
+                fw={isTodayDay || isSelectedDay ? 700 : 500}
+                style={{
+                  fontSize: '11px',
+                  color: isCurrent ? '#212529' : '#adb5bd',
+                }}
               >
                 {date.getDate()}
               </Text>
@@ -208,19 +215,19 @@ function MonthCalendar({
               {/* Leave Indicators */}
               {hasLeave && isCurrent && (
                 <Group
-                  gap={2}
-                  mt={2}
+                  gap={1}
+                  mt={1}
                   style={{
                     position: 'absolute',
-                    bottom: 2,
+                    bottom: 1,
                   }}
                 >
                   {requests.slice(0, 3).map((request) => (
                     <Box
                       key={request.id}
                       style={{
-                        width: 4,
-                        height: 4,
+                        width: 3,
+                        height: 3,
                         borderRadius: '50%',
                         backgroundColor: `var(--mantine-color-${getLeaveTypeColor(request.leaveType)}-6)`,
                       }}
@@ -265,23 +272,24 @@ export function CalendarView({
 
   return (
     <Card
-      padding="lg"
-      radius="xl"
+      padding="md"
+      radius="lg"
       style={{
-        background: 'rgba(255, 255, 255, 0.15)',
-        backdropFilter: 'blur(15px)',
-        border: '1px solid rgba(255, 255, 255, 0.15)',
-        boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.2)',
+        background: '#f8f9fa',
+        border: '1px solid #e9ecef',
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+        minHeight: '75vh',
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
-      <Stack gap="lg">
+      <Stack gap="md" style={{ flex: 1 }}>
         {/* Header with Year Navigation */}
         <Group justify="space-between" align="center">
           <Title
             order={3}
             style={{
-              color: 'rgba(255, 255, 255, 0.95)',
-              textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+              color: '#212529',
             }}
           >
             Leave Calendar - {currentYear}
@@ -307,19 +315,34 @@ export function CalendarView({
         </Group>
 
         {/* Year View - 12 Month Grid */}
-        <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }}>
-          {months.map((month) => (
-            <MonthCalendar
-              key={month}
-              month={month}
-              year={currentYear}
-              selectedDate={selectedDate}
-              onSelectDate={setSelectedDate}
-              getLeaveRequestsForDate={getLeaveRequestsForDate}
-              getLeaveTypeColor={getLeaveTypeColor}
-            />
-          ))}
-        </SimpleGrid>
+        <Box
+          style={{
+            maxWidth: '1400px',
+            margin: '0 auto',
+            width: '100%',
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <SimpleGrid
+            cols={{ base: 1, sm: 2, md: 3, lg: 4 }}
+            spacing="xs"
+            style={{ flex: 1 }}
+          >
+            {months.map((month) => (
+              <MonthCalendar
+                key={month}
+                month={month}
+                year={currentYear}
+                selectedDate={selectedDate}
+                onSelectDate={setSelectedDate}
+                getLeaveRequestsForDate={getLeaveRequestsForDate}
+                getLeaveTypeColor={getLeaveTypeColor}
+              />
+            ))}
+          </SimpleGrid>
+        </Box>
 
         {/* Selected Date Details */}
         {selectedDate && selectedDateRequests.length > 0 && (
@@ -327,22 +350,23 @@ export function CalendarView({
             padding="md"
             radius="md"
             style={{
-              background: 'rgba(255, 255, 255, 0.1)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
+              background: 'white',
+              border: '1px solid #e9ecef',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
             }}
           >
             <Stack gap="sm">
-              <Title order={5} c="white">
+              <Title order={5} c="dark" style={{ color: '#212529' }}>
                 Leave Requests on{' '}
                 {formatDate(selectedDate.toISOString().split('T')[0])}
               </Title>
               {selectedDateRequests.map((request) => (
                 <Group key={request.id} justify="space-between">
                   <div>
-                    <Text fw={600} c="white">
+                    <Text fw={600} c="dark" style={{ color: '#212529' }}>
                       {request.employeeName}
                     </Text>
-                    <Text size="sm" c="dimmed">
+                    <Text size="sm" c="dimmed" style={{ color: '#868e96' }}>
                       {request.reason}
                     </Text>
                   </div>
@@ -353,7 +377,7 @@ export function CalendarView({
                     >
                       {request.leaveType}
                     </Badge>
-                    <Text size="sm" c="dimmed">
+                    <Text size="sm" c="dimmed" style={{ color: '#868e96' }}>
                       {request.numberOfDays}{' '}
                       {request.numberOfDays === 1 ? 'day' : 'days'}
                     </Text>
@@ -369,12 +393,13 @@ export function CalendarView({
           padding="sm"
           radius="md"
           style={{
-            background: 'rgba(255, 255, 255, 0.1)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            background: 'white',
+            border: '1px solid #e9ecef',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
           }}
         >
           <Group gap="md">
-            <Text size="sm" fw={600} c="white">
+            <Text size="sm" fw={600} c="dark" style={{ color: '#212529' }}>
               Legend:
             </Text>
             {['Sick Leave', 'Vacation Leave', 'Emergency Leave', 'Other'].map(
@@ -388,7 +413,7 @@ export function CalendarView({
                       backgroundColor: `var(--mantine-color-${getLeaveTypeColor(type as LeaveType)}-6)`,
                     }}
                   />
-                  <Text size="xs" c="dimmed">
+                  <Text size="xs" c="dimmed" style={{ color: '#868e96' }}>
                     {type}
                   </Text>
                 </Group>
@@ -399,10 +424,10 @@ export function CalendarView({
 
         {/* Summary */}
         <Group justify="space-between">
-          <Text size="sm" c="dimmed">
+          <Text size="sm" c="dimmed" style={{ color: '#868e96' }}>
             Click on any date to see leave details
           </Text>
-          <Text size="sm" fw={600} c="white">
+          <Text size="sm" fw={600} c="dark" style={{ color: '#212529' }}>
             Total Requests: {leaveRequests.length}
           </Text>
         </Group>
