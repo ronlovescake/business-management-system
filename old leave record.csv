@@ -1,0 +1,7 @@
+employee_id,employee,department,position,leave_type,start_date,end_date,days_requested,reason,status,is_paid,cost_center,allocation_year,approved_by,created_at,updated_at
+EMP-0003,Arnel Ephraim Subia Aliangan,Operations,Warehouse POC,sil,2025-03-31,2025-04-07,7,Vacation leave,approved,t,company,2025,1,2025-09-04 23:24:25.349977,2025-09-04 23:46:59.515499
+EMP-0003,Arnel Ephraim Subia Aliangan,Operations,Warehouse POC,lwop,2025-05-12,2025-05-31,18,Extended leave without pay,approved,f,unpaid,2025,1,2025-09-04 23:21:59.593207,2025-09-07 02:44:00.963879
+EMP-0005,Joan Lacaulan Tapic,Operations,Warehouse Staff,lwop,2025-05-12,2025-05-31,18,Extended leave without pay,approved,f,unpaid,2025,1,2025-09-04 23:21:52.541731,2025-09-07 02:38:12.177173
+EMP-0004,Rain Joel Subia Orong,Operations,Warehouse Staff,lwop,2025-08-18,2025-08-20,3,Leave without pay,approved,f,unpaid,2025,1,2025-09-04 23:22:06.991882,2025-09-07 02:40:45.707985
+EMP-0004,Rain Joel Subia Orong,Operations,Warehouse Staff,sil,2025-08-13,2025-08-16,4,Vacation leave,approved,t,company,2025,,2025-09-07 02:47:18.671032,2025-09-07 02:49:07.938701
+EMP-0004,Rain Joel Subia Orong,Operations,Warehouse Staff,sil,2025-04-28,2025-04-30,3,Paid vacation leave,approved,t,company,2025,1,2025-09-07 03:16:45.731321,2025-09-07 03:16:53.203242

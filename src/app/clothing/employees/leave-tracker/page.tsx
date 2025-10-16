@@ -70,7 +70,7 @@ export default function LeaveTracker() {
 
     // Utility functions
     formatDate,
-    formatDateRange,
+    formatDateRange: _formatDateRange,
     getStatusColor,
     getLeaveTypeColor,
     calculateDays,
@@ -120,7 +120,6 @@ export default function LeaveTracker() {
             leaveRequests={leaveRequests}
             filteredRequests={filteredRequests}
             formatDate={formatDate}
-            formatDateRange={formatDateRange}
             getStatusColor={getStatusColor}
             getLeaveTypeColor={getLeaveTypeColor}
             onApprove={handleApprove}

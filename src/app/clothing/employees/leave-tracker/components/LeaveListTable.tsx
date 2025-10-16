@@ -12,7 +12,6 @@ interface LeaveListTableProps {
   leaveRequests: LeaveRequest[];
   filteredRequests: LeaveRequest[];
   formatDate: (date: string) => string;
-  formatDateRange: (startDate: string, endDate: string) => string;
   getStatusColor: (status: LeaveStatus) => string;
   getLeaveTypeColor: (leaveType: LeaveType) => string;
   onApprove: (id: string) => void;
@@ -25,7 +24,6 @@ export function LeaveListTable({
   leaveRequests,
   filteredRequests,
   formatDate,
-  formatDateRange,
   getStatusColor,
   getLeaveTypeColor,
   onApprove,
@@ -68,20 +66,27 @@ export function LeaveListTable({
       ),
     },
     {
-      key: 'dateRange',
-      label: 'DATE RANGE',
+      key: 'startDate',
+      label: 'START DATE',
+      render: (item) => <Text size="sm">{formatDate(item.startDate)}</Text>,
+    },
+    {
+      key: 'endDate',
+      label: 'END DATE',
+      render: (item) => <Text size="sm">{formatDate(item.endDate)}</Text>,
+    },
+    {
+      key: 'duration',
+      label: 'DURATION',
       render: (item) => (
-        <div>
-          <Text size="sm">{formatDateRange(item.startDate, item.endDate)}</Text>
-          <Text size="xs" c="dimmed">
-            {item.numberOfDays} {item.numberOfDays === 1 ? 'day' : 'days'}
-          </Text>
-        </div>
+        <Text size="sm" fw={500}>
+          {item.numberOfDays} {item.numberOfDays === 1 ? 'day' : 'days'}
+        </Text>
       ),
     },
     {
       key: 'appliedDate',
-      label: 'APPLIED',
+      label: 'APPLIED DATE',
       render: (item) => <Text size="sm">{formatDate(item.appliedDate)}</Text>,
     },
     {
