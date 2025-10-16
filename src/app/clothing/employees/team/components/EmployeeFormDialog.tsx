@@ -111,6 +111,7 @@ export function EmployeeFormDialog({
         employmentStatus: editingEmployee.employmentStatus || 'probationary',
         employeeType: editingEmployee.employeeType || 'full-time',
         office: editingEmployee.office || '',
+        hiringSource: editingEmployee.hiringSource || '',
         sssNumber: editingEmployee.sssNumber || '',
         philHealthNumber: editingEmployee.philHealthNumber || '',
         hdmfNumber: editingEmployee.hdmfNumber || '',
