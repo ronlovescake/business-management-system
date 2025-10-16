@@ -39,11 +39,14 @@ export default function Attendance() {
     setSearchQuery,
     setStatusFilter,
     formatDate,
-    formatTimeRange,
+    formatTime,
     formatHours,
     getStatusColor,
     handleDeleteRecord,
     handleMarkStatus,
+    handleAddRecord,
+    handleImportCSV,
+    handleExportCSV,
   } = useAttendance();
 
   const getInitials = (record: AttendanceRecord) => {
@@ -100,10 +103,21 @@ export default function Attendance() {
       render: (item) => <Text size="sm">{formatDate(item.date)}</Text>,
     },
     {
-      key: 'time',
-      label: 'TIME',
+      key: 'timeIn',
+      label: 'TIME IN',
       render: (item) => (
-        <Text size="sm">{formatTimeRange(item.timeIn, item.timeOut)}</Text>
+        <Text size="sm">
+          {item.timeIn === '00:00' ? '—' : formatTime(item.timeIn)}
+        </Text>
+      ),
+    },
+    {
+      key: 'timeOut',
+      label: 'TIME OUT',
+      render: (item) => (
+        <Text size="sm">
+          {item.timeOut === '00:00' ? '—' : formatTime(item.timeOut)}
+        </Text>
       ),
     },
     {
@@ -184,6 +198,10 @@ export default function Attendance() {
                 ),
             },
           ]}
+          onImportCSV={handleImportCSV}
+          onExportCSV={handleExportCSV}
+          onAdd={handleAddRecord}
+          addButtonLabel="Record Attendance"
         />
 
         <DataTable

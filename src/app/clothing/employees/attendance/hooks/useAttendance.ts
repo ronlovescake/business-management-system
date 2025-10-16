@@ -11,6 +11,9 @@ const formatTime = (time: string) => {
   }).format(date);
 };
 
+const generateId = () =>
+  `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
 export function useAttendance() {
   const [records, setRecords] = useState<AttendanceRecord[]>([
     {
@@ -197,6 +200,232 @@ export function useAttendance() {
     );
   };
 
+  const handleAddRecord = () => {
+    // This will be used to open a dialog to add a new record
+    // For now, we'll just show an alert
+    alert('Add attendance record dialog will be implemented soon');
+  };
+
+  const handleImportCSV = (file: File | null) => {
+    if (!file) {
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        const lines = text.split('\n').filter((line) => line.trim());
+
+        if (lines.length < 2) {
+          alert('CSV file is empty or invalid');
+          return;
+        }
+
+        const parseCSVLine = (line: string): string[] => {
+          const result: string[] = [];
+          let current = '';
+          let inQuotes = false;
+
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+              result.push(current.trim());
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          result.push(current.trim());
+          return result;
+        };
+
+        const headers = parseCSVLine(lines[0]).map((h) =>
+          h.toLowerCase().replace(/\s+/g, '')
+        );
+
+        const requiredColumns = [
+          'employeeid',
+          'employeename',
+          'date',
+          'timein',
+          'timeout',
+        ];
+        const missingColumns = requiredColumns.filter(
+          (col) => !headers.includes(col)
+        );
+
+        if (missingColumns.length > 0) {
+          alert(
+            `Missing required columns: ${missingColumns.join(', ')}\n\n` +
+              'Required columns: employeeId, employeeName, date, timeIn, timeOut\n' +
+              'Optional columns: department, position, status, details, notes'
+          );
+          return;
+        }
+
+        const importedRecords: AttendanceRecord[] = [];
+        let successCount = 0;
+        const errors: string[] = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          try {
+            const values = parseCSVLine(lines[i]);
+            const row: Record<string, string> = {};
+
+            headers.forEach((header, index) => {
+              row[header] = values[index] || '';
+            });
+
+            if (!row.employeeid && !row.employeename && !row.date) {
+              continue;
+            }
+
+            if (
+              !row.employeeid ||
+              !row.employeename ||
+              !row.date ||
+              !row.timein ||
+              !row.timeout
+            ) {
+              errors.push(`Row ${i + 1}: Missing required field(s)`);
+              continue;
+            }
+
+            // Calculate total hours
+            const [inHours, inMinutes] = row.timein.split(':').map(Number);
+            const [outHours, outMinutes] = row.timeout.split(':').map(Number);
+            const totalMinutes =
+              outHours * 60 + outMinutes - (inHours * 60 + inMinutes);
+            const totalHours = totalMinutes > 0 ? totalMinutes / 60 : 0;
+
+            const status =
+              (row.status?.toLowerCase() as AttendanceStatus) || 'present';
+            const validStatus: AttendanceStatus = [
+              'present',
+              'late',
+              'absent',
+              'on-leave',
+            ].includes(status)
+              ? status
+              : 'present';
+
+            const newRecord: AttendanceRecord = {
+              id: generateId(),
+              employeeId: row.employeeid,
+              employeeName: row.employeename,
+              department: row.department || 'N/A',
+              position: row.position || 'N/A',
+              date: row.date,
+              timeIn: row.timein,
+              timeOut: row.timeout,
+              totalHours,
+              status: validStatus,
+              details: row.details || '',
+              notes: row.notes || undefined,
+            };
+
+            importedRecords.push(newRecord);
+            successCount++;
+          } catch (error) {
+            errors.push(`Row ${i + 1}: ${error}`);
+          }
+        }
+
+        if (importedRecords.length > 0) {
+          setRecords((prev) => [...prev, ...importedRecords]);
+          alert(`Successfully imported ${successCount} attendance records`);
+        }
+
+        if (errors.length > 0 && errors.length <= 10) {
+          console.error('Import errors:', errors);
+        }
+      } catch (error) {
+        console.error('CSV import error:', error);
+        alert('Failed to import CSV file. Please check the file format.');
+      }
+    };
+
+    reader.onerror = () => {
+      alert('Failed to read CSV file');
+    };
+
+    reader.readAsText(file);
+  };
+
+  const handleExportCSV = () => {
+    if (filteredRecords.length === 0) {
+      alert('No attendance records to export');
+      return;
+    }
+
+    const headers = [
+      'Employee ID',
+      'Employee Name',
+      'Department',
+      'Position',
+      'Date',
+      'Time In',
+      'Time Out',
+      'Total Hours',
+      'Status',
+      'Details',
+      'Notes',
+    ];
+
+    const escapeCSV = (value: string | number | null | undefined): string => {
+      if (value === null || value === undefined) {
+        return '';
+      }
+      const stringValue = String(value);
+      if (
+        stringValue.includes(',') ||
+        stringValue.includes('"') ||
+        stringValue.includes('\n')
+      ) {
+        return `"${stringValue.replace(/"/g, '""')}"`;
+      }
+      return stringValue;
+    };
+
+    const rows = filteredRecords.map((record) => [
+      escapeCSV(record.employeeId),
+      escapeCSV(record.employeeName),
+      escapeCSV(record.department),
+      escapeCSV(record.position),
+      escapeCSV(record.date),
+      escapeCSV(record.timeIn),
+      escapeCSV(record.timeOut),
+      escapeCSV(record.totalHours.toFixed(2)),
+      escapeCSV(record.status),
+      escapeCSV(record.details),
+      escapeCSV(record.notes || ''),
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((row) => row.join(',')),
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute('href', url);
+    link.setAttribute(
+      'download',
+      `attendance_records_${new Date().toISOString().split('T')[0]}.csv`
+    );
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return {
     // State
     records,
@@ -219,6 +448,7 @@ export function useAttendance() {
 
     // Utility functions
     formatDate,
+    formatTime,
     formatTimeRange,
     formatHours,
     getStatusColor,
@@ -226,5 +456,8 @@ export function useAttendance() {
     // Event handlers
     handleDeleteRecord,
     handleMarkStatus,
+    handleAddRecord,
+    handleImportCSV,
+    handleExportCSV,
   };
 }
