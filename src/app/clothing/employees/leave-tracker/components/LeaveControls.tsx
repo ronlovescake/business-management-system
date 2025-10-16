@@ -4,7 +4,7 @@ import type {
   TabConfig,
   FilterConfig,
 } from '@/components/shared/PageTemplates';
-import { IconList, IconChartPie } from '@tabler/icons-react';
+import { IconList, IconChartPie, IconCalendar } from '@tabler/icons-react';
 import type { LeaveType } from '../types';
 
 interface LeaveControlsProps {
@@ -48,6 +48,11 @@ export function LeaveControls({
       value: 'analytics',
       label: 'Analytics by Type',
       icon: <IconChartPie size={16} />,
+    },
+    {
+      value: 'calendar',
+      label: 'Calendar View',
+      icon: <IconCalendar size={16} />,
     },
   ];
 

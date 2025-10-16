@@ -7,6 +7,7 @@ import { StatsCards } from './components/StatsCards';
 import { LeaveControls } from './components/LeaveControls';
 import { LeaveListTable } from './components/LeaveListTable';
 import { AnalyticsTable } from './components/AnalyticsTable';
+import { CalendarView } from './components/CalendarView';
 import { LeaveFormDialog } from './components/LeaveFormDialog';
 import { useLeaveTracker } from './hooks/useLeaveTracker';
 
@@ -127,10 +128,16 @@ export default function LeaveTracker() {
             onEdit={handleEditRequest}
             onDelete={handleDeleteRequest}
           />
-        ) : (
+        ) : activeTab === 'analytics' ? (
           <AnalyticsTable
             monthlyBreakdown={monthlyBreakdown}
             totalDaysRequested={totalDaysRequested}
+            getLeaveTypeColor={getLeaveTypeColor}
+          />
+        ) : (
+          <CalendarView
+            leaveRequests={leaveRequests}
+            formatDate={formatDate}
             getLeaveTypeColor={getLeaveTypeColor}
           />
         )}
