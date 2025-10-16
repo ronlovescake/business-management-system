@@ -18,61 +18,7 @@ export function useLeaveTracker() {
   // STATE MANAGEMENT
   // ============================================================================
 
-  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([
-    {
-      id: '1',
-      employeeId: 'EMP-0001',
-      employeeName: 'Ronald Allan Balng',
-      leaveType: 'Sick Leave',
-      startDate: '2025-10-20',
-      endDate: '2025-10-22',
-      numberOfDays: 3,
-      reason: 'Medical checkup and recovery',
-      status: 'approved',
-      appliedDate: '2025-10-15',
-      approvedBy: 'HR Manager',
-      notes: 'Medical certificate submitted',
-    },
-    {
-      id: '2',
-      employeeId: 'EMP-0002',
-      employeeName: 'Czarina Cortez Balng',
-      leaveType: 'Vacation Leave',
-      startDate: '2025-11-01',
-      endDate: '2025-11-05',
-      numberOfDays: 5,
-      reason: 'Family vacation',
-      status: 'pending',
-      appliedDate: '2025-10-10',
-    },
-    {
-      id: '3',
-      employeeId: 'EMP-0003',
-      employeeName: 'Arnel Ephraim Subia Aliangan',
-      leaveType: 'Emergency Leave',
-      startDate: '2025-10-18',
-      endDate: '2025-10-18',
-      numberOfDays: 1,
-      reason: 'Family emergency',
-      status: 'approved',
-      appliedDate: '2025-10-18',
-      approvedBy: 'Operations Manager',
-      notes: 'Emergency leave granted',
-    },
-    {
-      id: '4',
-      employeeId: 'EMP-0004',
-      employeeName: 'Joan Lacualan Tapic',
-      leaveType: 'Sick Leave',
-      startDate: '2025-10-25',
-      endDate: '2025-10-26',
-      numberOfDays: 2,
-      reason: 'Flu symptoms',
-      status: 'rejected',
-      appliedDate: '2025-10-14',
-      notes: 'Insufficient sick leave balance',
-    },
-  ]);
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterLeaveType, setFilterLeaveType] = useState<string | null>(null);
