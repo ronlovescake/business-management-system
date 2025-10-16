@@ -137,6 +137,20 @@ export default function Team() {
       render: (item) => <Text size="sm">{item.jobTitle}</Text>,
     },
     {
+      key: 'employeeType',
+      label: 'EMPLOYEE TYPE',
+      render: (item) => (
+        <Text size="sm">
+          {item.employeeType
+            ? item.employeeType
+                .split('-')
+                .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                .join('-')
+            : 'N/A'}
+        </Text>
+      ),
+    },
+    {
       key: 'status',
       label: 'STATUS',
       render: (item) => (
@@ -156,6 +170,15 @@ export default function Team() {
       render: (item) => (
         <Text fw={600} c="green">
           {formatCurrency(item.basicSalary)}
+        </Text>
+      ),
+    },
+    {
+      key: 'allowance',
+      label: 'ALLOWANCE',
+      render: (item) => (
+        <Text fw={600} c={item.allowance ? 'green' : 'dimmed'}>
+          {item.allowance ? formatCurrency(item.allowance) : 'N/A'}
         </Text>
       ),
     },
