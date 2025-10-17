@@ -19,12 +19,7 @@ import {
   IconPlus,
 } from '@tabler/icons-react';
 import { CalendarBulkActions } from './CalendarBulkActions';
-import type {
-  EmployeeSummary,
-  RecurringRule,
-  WeeklyTemplate,
-  ShiftType,
-} from '../types';
+import type { EmployeeSummary, RecurringRule, ShiftType } from '../types';
 
 interface ScheduleControlsProps {
   activeTab: string | null;
@@ -39,19 +34,7 @@ interface ScheduleControlsProps {
   onExportCSV: () => void;
   onAddSchedule?: () => void;
   isImporting: boolean;
-  templates: WeeklyTemplate[];
   recurringRules: RecurringRule[];
-  onSaveTemplate: (
-    template: Omit<WeeklyTemplate, 'id'> & { id?: string }
-  ) => string;
-  onDeleteTemplate: (id: string) => void;
-  onApplyTemplate: (
-    templateId: string,
-    targetDate: string
-  ) => {
-    added: number;
-    skipped: number;
-  };
   onSaveRecurringRule: (
     rule: Omit<RecurringRule, 'id'> & { id?: string }
   ) => string;
@@ -80,11 +63,7 @@ export function ScheduleControls({
   onExportCSV,
   onAddSchedule: _onAddSchedule,
   isImporting,
-  templates,
   recurringRules,
-  onSaveTemplate,
-  onDeleteTemplate,
-  onApplyTemplate,
   onSaveRecurringRule,
   onDeleteRecurringRule,
   employees,
@@ -164,11 +143,7 @@ export function ScheduleControls({
               </Group>
               <Group gap="sm">
                 <CalendarBulkActions
-                  templates={templates}
                   recurringRules={recurringRules}
-                  onSaveTemplate={onSaveTemplate}
-                  onDeleteTemplate={onDeleteTemplate}
-                  onApplyTemplate={onApplyTemplate}
                   onSaveRule={onSaveRecurringRule}
                   onDeleteRule={onDeleteRecurringRule}
                   employees={employees}

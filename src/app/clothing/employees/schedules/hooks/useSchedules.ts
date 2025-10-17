@@ -3,7 +3,6 @@ import type {
   Schedule,
   ScheduleStatus,
   ShiftType,
-  WeeklyTemplate,
   RecurringRule,
   EmployeeSummary,
 } from '../types';
@@ -72,7 +71,6 @@ export function useSchedules() {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
-  const [weeklyTemplates, setWeeklyTemplates] = useState<WeeklyTemplate[]>([]);
   const [recurringRules, setRecurringRules] = useState<RecurringRule[]>([]);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -421,118 +419,6 @@ export function useSchedules() {
   // ==========================================================================
   // BULK SCHEDULING HELPERS
   // ==========================================================================
-
-  const upsertWeeklyTemplate = (
-    template: Omit<WeeklyTemplate, 'id'> & { id?: string }
-  ) => {
-    if (template.id) {
-      const templateId = template.id;
-      setWeeklyTemplates((prev) =>
-        prev.map((existing) =>
-          existing.id === templateId
-            ? {
-                ...existing,
-                ...template,
-                id: templateId,
-                assignments: [...template.assignments],
-              }
-            : existing
-        )
-      );
-      return templateId;
-    }
-
-    const newTemplate: WeeklyTemplate = {
-      ...template,
-      id: generateId(),
-      assignments: [...template.assignments],
-    };
-    setWeeklyTemplates((prev) => [...prev, newTemplate]);
-    return newTemplate.id;
-  };
-
-  const deleteWeeklyTemplate = (templateId: string) => {
-    setWeeklyTemplates((prev) =>
-      prev.filter((template) => template.id !== templateId)
-    );
-  };
-
-  const applyWeeklyTemplateToWeek = (
-    templateId: string,
-    targetDate: string
-  ): { added: number; skipped: number } => {
-    const template = weeklyTemplates.find((tpl) => tpl.id === templateId);
-    if (!template) {
-      return { added: 0, skipped: 0 };
-    }
-
-    const referenceDate = parseDateInput(targetDate);
-    const weekStart = new Date(referenceDate);
-    weekStart.setDate(referenceDate.getDate() - referenceDate.getDay());
-
-    const existingKeys = new Set(
-      schedules.map((schedule) => `${schedule.employeeId}-${schedule.date}`)
-    );
-
-    const newSchedules: Schedule[] = [];
-
-    let skipped = 0;
-
-    template.assignments.forEach((assignment) => {
-      if (!template.allowSundayAssignments && assignment.dayOfWeek === 0) {
-        return;
-      }
-
-      if (!assignment.employeeId || !assignment.employeeName) {
-        return;
-      }
-
-      const assignmentDate = new Date(weekStart);
-      assignmentDate.setDate(weekStart.getDate() + assignment.dayOfWeek);
-      const dateString = toDateKey(assignmentDate);
-
-      const stayIn =
-        assignment.isStayIn || stayInEmployees.has(assignment.employeeId);
-      const shiftType = stayIn
-        ? ('full-day' as ShiftType)
-        : assignment.shiftType;
-      const defaults = SHIFT_CONFIG[shiftType];
-      const startTime = assignment.startTime || defaults.start;
-      const endTime = assignment.endTime || defaults.end;
-      const key = `${assignment.employeeId}-${dateString}`;
-
-      if (existingKeys.has(key)) {
-        skipped += 1;
-        return;
-      }
-
-      existingKeys.add(key);
-      newSchedules.push({
-        id: generateId(),
-        employeeId: assignment.employeeId,
-        employeeName: assignment.employeeName,
-        date: dateString,
-        shiftType,
-        startTime,
-        endTime,
-        position: assignment.role,
-        department: assignment.department,
-        status: 'scheduled',
-        notes: assignment.notes,
-        source: 'template',
-        templateId: template.id,
-      });
-    });
-
-    if (newSchedules.length > 0) {
-      setSchedules((prev) => [...prev, ...newSchedules]);
-    }
-
-    return {
-      added: newSchedules.length,
-      skipped,
-    };
-  };
 
   const generateSchedulesForRule = (
     rule: RecurringRule,
@@ -943,11 +829,7 @@ export function useSchedules() {
     handleExportCSV,
 
     // Bulk scheduling
-    weeklyTemplates,
     recurringRules,
-    upsertWeeklyTemplate,
-    deleteWeeklyTemplate,
-    applyWeeklyTemplateToWeek,
     upsertRecurringRule,
     removeRecurringRule,
 

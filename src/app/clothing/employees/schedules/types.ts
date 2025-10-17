@@ -19,28 +19,6 @@ export interface Schedule {
   isOverride?: boolean;
 }
 
-export interface TemplateAssignment {
-  id: string;
-  dayOfWeek: number; // 0 = Sunday
-  shiftType: ShiftType;
-  role: string;
-  department: string;
-  employeeId?: string;
-  employeeName?: string;
-  startTime?: string;
-  endTime?: string;
-  notes?: string;
-  isStayIn?: boolean;
-}
-
-export interface WeeklyTemplate {
-  id: string;
-  name: string;
-  description?: string;
-  assignments: TemplateAssignment[];
-  allowSundayAssignments?: boolean;
-}
-
 export interface RecurringRule {
   id: string;
   employeeId: string;

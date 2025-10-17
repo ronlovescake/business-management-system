@@ -62,11 +62,7 @@ export default function SchedulesPage() {
     handleExportCSV,
 
     // Bulk scheduling
-    weeklyTemplates,
     recurringRules,
-    upsertWeeklyTemplate,
-    deleteWeeklyTemplate,
-    applyWeeklyTemplateToWeek,
     upsertRecurringRule,
     removeRecurringRule,
 
@@ -78,11 +74,7 @@ export default function SchedulesPage() {
   } = useSchedules();
 
   const bulkActionProps = {
-    templates: weeklyTemplates,
     recurringRules,
-    onSaveTemplate: upsertWeeklyTemplate,
-    onDeleteTemplate: deleteWeeklyTemplate,
-    onApplyTemplate: applyWeeklyTemplateToWeek,
     onSaveRule: upsertRecurringRule,
     onDeleteRule: removeRecurringRule,
     employees,
@@ -92,11 +84,7 @@ export default function SchedulesPage() {
   } as const;
 
   const scheduleControlsBulkProps = {
-    templates: bulkActionProps.templates,
     recurringRules: bulkActionProps.recurringRules,
-    onSaveTemplate: bulkActionProps.onSaveTemplate,
-    onDeleteTemplate: bulkActionProps.onDeleteTemplate,
-    onApplyTemplate: bulkActionProps.onApplyTemplate,
     onSaveRecurringRule: bulkActionProps.onSaveRule,
     onDeleteRecurringRule: bulkActionProps.onDeleteRule,
     employees: bulkActionProps.employees,
