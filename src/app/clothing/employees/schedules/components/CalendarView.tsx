@@ -196,7 +196,7 @@ export function CalendarView({
         withBorder
         padding="md"
         radius="md"
-        style={{ height: '75vh', display: 'flex', flexDirection: 'column' }}
+        style={{ height: '71vh', display: 'flex', flexDirection: 'column' }}
       >
         <Stack gap="xs" style={{ flex: 1 }}>
           {/* Day Headers */}
@@ -208,15 +208,24 @@ export function CalendarView({
               marginBottom: '8px',
             }}
           >
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+            {[
+              'SUNDAY',
+              'MONDAY',
+              'TUESDAY',
+              'WEDNESDAY',
+              'THURSDAY',
+              'FRIDAY',
+              'SATURDAY',
+            ].map((day) => (
               <div
                 key={day}
                 style={{
                   textAlign: 'center',
-                  fontWeight: 600,
-                  fontSize: '14px',
-                  color: day === 'Sun' ? '#fa5252' : '#495057',
-                  padding: '8px',
+                  fontWeight: 700,
+                  fontSize: '16px',
+                  letterSpacing: '0.04em',
+                  color: day === 'SUNDAY' ? '#fa5252' : '#1f2933',
+                  padding: '14px 8px',
                 }}
               >
                 {day}
