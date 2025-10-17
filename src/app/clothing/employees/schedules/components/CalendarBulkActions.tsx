@@ -14,7 +14,7 @@ import {
   TextInput,
   Textarea,
 } from '@mantine/core';
-import { IconRepeat, IconTrash } from '@tabler/icons-react';
+import { IconTrash } from '@tabler/icons-react';
 import type { EmployeeSummary, RecurringRule, ShiftType } from '../types';
 
 interface CalendarBulkActionsProps {
@@ -158,15 +158,7 @@ export function CalendarBulkActions({
   };
 
   return (
-    <Group gap="sm">
-      <Button
-        leftSection={<IconRepeat size={16} />}
-        variant="light"
-        onClick={() => setRuleModalOpen(true)}
-      >
-        Recurring Rules
-      </Button>
-
+    <>
       <Modal
         opened={ruleModalOpen}
         onClose={() => setRuleModalOpen(false)}
@@ -390,6 +382,6 @@ export function CalendarBulkActions({
           </Stack>
         </Stack>
       </Modal>
-    </Group>
+    </>
   );
 }
