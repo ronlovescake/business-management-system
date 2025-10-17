@@ -8,6 +8,7 @@ import { StatsCards } from './components/StatsCards';
 import { ScheduleControls } from './components/ScheduleControls';
 import { ScheduleListTable } from './components/ScheduleListTable';
 import { ScheduleFormDialog } from './components/ScheduleFormDialog';
+import { CalendarView } from './components/CalendarView';
 
 /**
  * Schedules Page Component
@@ -128,7 +129,13 @@ export default function SchedulesPage() {
             onMarkCancelled={handleMarkCancelled}
           />
         ) : (
-          <div>Calendar view coming soon...</div>
+          <CalendarView
+            schedules={schedules}
+            getShiftTypeColor={getShiftTypeColor}
+            getStatusColor={getStatusColor}
+            onAddSchedule={handleAddSchedule}
+            onEditSchedule={handleEditSchedule}
+          />
         )}
       </Stack>
 
