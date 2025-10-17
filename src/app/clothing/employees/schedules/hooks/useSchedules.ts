@@ -43,6 +43,18 @@ const DAY_LABELS = [
   'Saturday',
 ];
 
+const parseDateInput = (value: string) => {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, (month || 1) - 1, day || 1);
+};
+
+const toDateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 /**
  * Custom Hook: useSchedules
  *
@@ -454,8 +466,7 @@ export function useSchedules() {
       return { added: 0, skipped: 0 };
     }
 
-    const referenceDate = new Date(targetDate);
-    referenceDate.setHours(0, 0, 0, 0);
+    const referenceDate = parseDateInput(targetDate);
     const weekStart = new Date(referenceDate);
     weekStart.setDate(referenceDate.getDate() - referenceDate.getDay());
 
@@ -478,7 +489,7 @@ export function useSchedules() {
 
       const assignmentDate = new Date(weekStart);
       assignmentDate.setDate(weekStart.getDate() + assignment.dayOfWeek);
-      const dateString = assignmentDate.toISOString().split('T')[0];
+      const dateString = toDateKey(assignmentDate);
 
       const stayIn =
         assignment.isStayIn || stayInEmployees.has(assignment.employeeId);
@@ -527,12 +538,10 @@ export function useSchedules() {
     rule: RecurringRule,
     overrides: Record<string, boolean>
   ): Schedule[] => {
-    const start = new Date(rule.startDate);
-    start.setHours(0, 0, 0, 0);
+    const start = parseDateInput(rule.startDate);
     const end = rule.endDate
-      ? new Date(rule.endDate)
+      ? parseDateInput(rule.endDate)
       : new Date(start.getFullYear(), start.getMonth() + 3, start.getDate());
-    end.setHours(0, 0, 0, 0);
 
     const schedulesForRule: Schedule[] = [];
     const cursor = new Date(start);
@@ -546,7 +555,7 @@ export function useSchedules() {
       }
 
       if (rule.daysOfWeek.includes(dayOfWeek)) {
-        const dateStr = cursor.toISOString().split('T')[0];
+        const dateStr = toDateKey(cursor);
         if (!overrides[dateStr]) {
           const stayIn = rule.isStayIn || stayInEmployees.has(rule.employeeId);
           const shiftType = stayIn ? ('full-day' as ShiftType) : rule.shiftType;
