@@ -72,11 +72,19 @@ function dbNotConfigured(): string | null {
 export async function GET() {
   try {
     const items = await prisma.customer.findMany({ orderBy: { id: 'asc' } });
+    logger.info(`Successfully fetched ${items.length} customers from database`);
     return NextResponse.json(items.map(mapToDTO));
   } catch (err) {
     logger.error('GET /api/customers error', err);
-    // Be lenient during initial setup: return empty list so UI can still render
-    return NextResponse.json([]);
+    // Return error with status code instead of empty array to help debugging
+    return NextResponse.json(
+      {
+        error: 'Failed to fetch customers',
+        details: err instanceof Error ? err.message : 'Unknown error',
+        note: 'Check server logs for more details',
+      },
+      { status: 500 }
+    );
   }
 }
 
@@ -92,7 +100,10 @@ export async function PUT(req: NextRequest) {
     }
     const body = await req.json();
     if (!Array.isArray(body)) {
-      return NextResponse.json({ error: 'Invalid payload: Expected an array' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid payload: Expected an array' },
+        { status: 400 }
+      );
     }
 
     // Validate with Zod
@@ -111,7 +122,11 @@ export async function PUT(req: NextRequest) {
     // Replace all rows for simplicity; could be optimized later
     await prisma.$transaction([
       prisma.customer.deleteMany({}),
-      prisma.customer.createMany({ data: validation.data.map(mapFromDTO) as Prisma.CustomerCreateManyInput[] }),
+      prisma.customer.createMany({
+        data: validation.data.map(
+          mapFromDTO
+        ) as Prisma.CustomerCreateManyInput[],
+      }),
     ]);
 
     return NextResponse.json({ ok: true, count: validation.data.length });
@@ -144,9 +159,9 @@ export async function POST(req: NextRequest) {
         { status: 503 }
       );
     }
-    
+
     const body = await req.json();
-    
+
     // Validate with Zod
     const validation = customerDataSchema.safeParse(body);
     if (!validation.success) {
@@ -159,8 +174,10 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    
-    const created = await prisma.customer.create({ data: mapFromDTO(validation.data as CustomerDTO) });
+
+    const created = await prisma.customer.create({
+      data: mapFromDTO(validation.data as CustomerDTO),
+    });
     return NextResponse.json(mapToDTO(created));
   } catch (err) {
     logger.error('POST /api/customers error', err);
