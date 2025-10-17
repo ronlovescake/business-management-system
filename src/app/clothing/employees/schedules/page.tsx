@@ -7,7 +7,6 @@ import { useSchedules } from './hooks/useSchedules';
 import { StatsCards } from './components/StatsCards';
 import { ScheduleControls } from './components/ScheduleControls';
 import { ScheduleListTable } from './components/ScheduleListTable';
-import { ScheduleFormDialog } from './components/ScheduleFormDialog';
 import { CalendarView } from './components/CalendarView';
 import { CalendarBulkActions } from './components/CalendarBulkActions';
 
@@ -37,32 +36,9 @@ export default function SchedulesPage() {
     setFilterShiftType,
     filterStatus,
     setFilterStatus,
-    isModalOpen,
-    setIsModalOpen,
-    editingSchedule,
     activeTab,
     setActiveTab,
     isImporting,
-
-    // Form state
-    formEmployeeName,
-    setFormEmployeeName,
-    formEmployeeId,
-    setFormEmployeeId,
-    formDate,
-    setFormDate,
-    formShiftType,
-    setFormShiftType,
-    formStartTime,
-    setFormStartTime,
-    formEndTime,
-    setFormEndTime,
-    formPosition,
-    setFormPosition,
-    formDepartment,
-    setFormDepartment,
-    formNotes,
-    setFormNotes,
 
     // Computed values
     totalSchedules,
@@ -78,10 +54,8 @@ export default function SchedulesPage() {
     calculateDuration,
 
     // Event handlers
-    handleAddSchedule,
     handleEditSchedule,
     handleDeleteSchedule,
-    handleSaveSchedule,
     handleMarkCompleted,
     handleMarkCancelled,
     handleImportCSV,
@@ -154,7 +128,6 @@ export default function SchedulesPage() {
           onStatusFilterChange={setFilterStatus}
           onImportCSV={handleImportCSV}
           onExportCSV={handleExportCSV}
-          onAddSchedule={handleAddSchedule}
           isImporting={isImporting}
           {...scheduleControlsBulkProps}
         />
@@ -178,41 +151,11 @@ export default function SchedulesPage() {
             schedules={schedules}
             getShiftTypeColor={getShiftTypeColor}
             getStatusColor={getStatusColor}
-            onAddSchedule={handleAddSchedule}
             onEditSchedule={handleEditSchedule}
             bulkActions={<CalendarBulkActions {...bulkActionProps} />}
           />
         )}
       </Stack>
-
-      {/* Add/Edit Schedule Dialog */}
-      <ScheduleFormDialog
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        isEditing={!!editingSchedule}
-        formEmployeeName={formEmployeeName}
-        setFormEmployeeName={setFormEmployeeName}
-        formEmployeeId={formEmployeeId}
-        setFormEmployeeId={setFormEmployeeId}
-        formDate={formDate}
-        setFormDate={setFormDate}
-        formShiftType={formShiftType}
-        setFormShiftType={setFormShiftType}
-        formStartTime={formStartTime}
-        setFormStartTime={setFormStartTime}
-        formEndTime={formEndTime}
-        setFormEndTime={setFormEndTime}
-        formPosition={formPosition}
-        setFormPosition={setFormPosition}
-        formDepartment={formDepartment}
-        setFormDepartment={setFormDepartment}
-        formNotes={formNotes}
-        setFormNotes={setFormNotes}
-        onSave={handleSaveSchedule}
-        employees={employees}
-        isLoadingEmployees={isLoadingEmployees}
-        shiftConfig={shiftConfig}
-      />
     </PageLayout>
   );
 }
