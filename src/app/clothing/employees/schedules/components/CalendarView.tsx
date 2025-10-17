@@ -175,7 +175,7 @@ export function CalendarView({
       </Card>
 
       {/* Calendar Grid */}
-      <Card withBorder padding="md" radius="md">
+      <Card withBorder padding="md" radius="md" style={{ minHeight: '75vh' }}>
         <Stack gap="xs">
           {/* Day Headers */}
           <div
