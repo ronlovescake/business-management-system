@@ -7,7 +7,17 @@ import {
   Button,
   Group,
 } from '@mantine/core';
+import { useState, useEffect } from 'react';
 import type { ShiftType } from '../types';
+
+interface Employee {
+  id: string;
+  employeeId: string;
+  name: string;
+  position: string;
+  department: string;
+  status: string;
+}
 
 interface ScheduleFormDialogProps {
   isOpen: boolean;
@@ -43,7 +53,7 @@ export function ScheduleFormDialog({
   isOpen,
   onClose,
   isEditing,
-  formEmployeeName,
+  formEmployeeName: _formEmployeeName,
   setFormEmployeeName,
   formEmployeeId,
   setFormEmployeeId,
@@ -63,6 +73,95 @@ export function ScheduleFormDialog({
   setFormNotes,
   onSave,
 }: ScheduleFormDialogProps) {
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
+
+  // Fetch employees from the team/employees API
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        setIsLoadingEmployees(true);
+        const response = await fetch('/api/employees?status=active');
+        if (!response.ok) {
+          throw new Error('Failed to fetch employees');
+        }
+        const data = await response.json();
+
+        // Transform to match our Employee interface
+        const transformedData = data.map(
+          (emp: {
+            id: number;
+            employeeId: string;
+            name: string;
+            position: string;
+            department: string;
+            status: string;
+          }) => ({
+            id: emp.id.toString(),
+            employeeId: emp.employeeId,
+            name: emp.name,
+            position: emp.position,
+            department: emp.department,
+            status: emp.status,
+          })
+        );
+
+        setEmployees(transformedData);
+      } catch (error) {
+        console.error('Error fetching employees:', error);
+        setEmployees([]);
+      } finally {
+        setIsLoadingEmployees(false);
+      }
+    };
+
+    if (isOpen) {
+      fetchEmployees();
+    }
+  }, [isOpen]);
+
+  // Handle employee selection
+  const handleEmployeeSelect = (value: string | null) => {
+    if (!value) {
+      return;
+    }
+
+    const selectedEmployee = employees.find((emp) => emp.employeeId === value);
+    if (selectedEmployee) {
+      setFormEmployeeName(selectedEmployee.name);
+      setFormEmployeeId(selectedEmployee.employeeId);
+      setFormPosition(selectedEmployee.position);
+      setFormDepartment(selectedEmployee.department);
+    }
+  };
+
+  // Auto-set times based on shift type
+  const handleShiftTypeChange = (value: string | null) => {
+    setFormShiftType(value as ShiftType | '');
+
+    // Auto-populate start and end times based on shift type
+    switch (value) {
+      case 'morning':
+        setFormStartTime('08:00');
+        setFormEndTime('17:00');
+        break;
+      case 'afternoon':
+        setFormStartTime('15:00');
+        setFormEndTime('00:00');
+        break;
+      case 'night':
+        setFormStartTime('00:00');
+        setFormEndTime('09:00');
+        break;
+      case 'full-day':
+        setFormStartTime('04:00');
+        setFormEndTime('17:00');
+        break;
+      default:
+        break;
+    }
+  };
+
   return (
     <Modal
       opened={isOpen}
@@ -71,22 +170,62 @@ export function ScheduleFormDialog({
       size="lg"
     >
       <Stack>
+        <Select
+          label="Employee Name"
+          placeholder="Select employee"
+          data={employees.map((emp) => ({
+            value: emp.employeeId,
+            label: `${emp.name} (${emp.employeeId})`,
+          }))}
+          value={formEmployeeId}
+          onChange={handleEmployeeSelect}
+          searchable
+          required
+          disabled={isLoadingEmployees || isEditing}
+          description={
+            isEditing ? 'Cannot change employee when editing' : undefined
+          }
+        />
+
         <Group grow>
           <TextInput
-            label="Employee Name"
-            placeholder="John Doe"
-            value={formEmployeeName}
-            onChange={(e) => setFormEmployeeName(e.target.value)}
-            required
+            label="Employee ID"
+            value={formEmployeeId}
+            readOnly
+            disabled
+            styles={{
+              input: {
+                backgroundColor: '#f8f9fa',
+                cursor: 'not-allowed',
+              },
+            }}
           />
           <TextInput
-            label="Employee ID"
-            placeholder="EMP-0001"
-            value={formEmployeeId}
-            onChange={(e) => setFormEmployeeId(e.target.value)}
-            required
+            label="Position"
+            value={formPosition}
+            readOnly
+            disabled
+            styles={{
+              input: {
+                backgroundColor: '#f8f9fa',
+                cursor: 'not-allowed',
+              },
+            }}
           />
         </Group>
+
+        <TextInput
+          label="Department"
+          value={formDepartment}
+          readOnly
+          disabled
+          styles={{
+            input: {
+              backgroundColor: '#f8f9fa',
+              cursor: 'not-allowed',
+            },
+          }}
+        />
 
         <TextInput
           label="Date"
@@ -100,13 +239,13 @@ export function ScheduleFormDialog({
           label="Shift Type"
           placeholder="Select shift type"
           data={[
-            { value: 'morning', label: 'Morning' },
-            { value: 'afternoon', label: 'Afternoon' },
-            { value: 'night', label: 'Night' },
-            { value: 'full-day', label: 'Full Day' },
+            { value: 'morning', label: 'Morning (8:00 AM - 5:00 PM)' },
+            { value: 'afternoon', label: 'Afternoon (3:00 PM - 12:00 AM)' },
+            { value: 'night', label: 'Night (12:00 AM - 9:00 AM)' },
+            { value: 'full-day', label: 'Full Day (4:00 AM - 5:00 PM)' },
           ]}
           value={formShiftType}
-          onChange={(value) => setFormShiftType(value as ShiftType)}
+          onChange={handleShiftTypeChange}
           required
         />
 
@@ -123,23 +262,6 @@ export function ScheduleFormDialog({
             type="time"
             value={formEndTime}
             onChange={(e) => setFormEndTime(e.target.value)}
-            required
-          />
-        </Group>
-
-        <Group grow>
-          <TextInput
-            label="Position"
-            placeholder="Sewing Operator"
-            value={formPosition}
-            onChange={(e) => setFormPosition(e.target.value)}
-            required
-          />
-          <TextInput
-            label="Department"
-            placeholder="Production"
-            value={formDepartment}
-            onChange={(e) => setFormDepartment(e.target.value)}
             required
           />
         </Group>
