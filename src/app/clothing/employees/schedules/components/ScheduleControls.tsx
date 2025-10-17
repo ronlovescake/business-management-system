@@ -18,6 +18,13 @@ import {
   IconDownload,
   IconPlus,
 } from '@tabler/icons-react';
+import { CalendarBulkActions } from './CalendarBulkActions';
+import type {
+  EmployeeSummary,
+  RecurringRule,
+  WeeklyTemplate,
+  ShiftType,
+} from '../types';
 
 interface ScheduleControlsProps {
   activeTab: string | null;
@@ -32,6 +39,27 @@ interface ScheduleControlsProps {
   onExportCSV: () => void;
   onAddSchedule: () => void;
   isImporting: boolean;
+  templates: WeeklyTemplate[];
+  recurringRules: RecurringRule[];
+  onSaveTemplate: (
+    template: Omit<WeeklyTemplate, 'id'> & { id?: string }
+  ) => string;
+  onDeleteTemplate: (id: string) => void;
+  onApplyTemplate: (
+    templateId: string,
+    targetDate: string
+  ) => {
+    added: number;
+    skipped: number;
+  };
+  onSaveRecurringRule: (
+    rule: Omit<RecurringRule, 'id'> & { id?: string }
+  ) => string;
+  onDeleteRecurringRule: (id: string) => void;
+  employees: EmployeeSummary[];
+  isLoadingEmployees: boolean;
+  shiftConfig: Record<ShiftType, { start: string; end: string; label: string }>;
+  dayLabels: string[];
 }
 
 /**
@@ -52,6 +80,17 @@ export function ScheduleControls({
   onExportCSV,
   onAddSchedule,
   isImporting,
+  templates,
+  recurringRules,
+  onSaveTemplate,
+  onDeleteTemplate,
+  onApplyTemplate,
+  onSaveRecurringRule,
+  onDeleteRecurringRule,
+  employees,
+  isLoadingEmployees,
+  shiftConfig,
+  dayLabels,
 }: ScheduleControlsProps) {
   return (
     <Card
@@ -87,66 +126,83 @@ export function ScheduleControls({
           </Tabs.List>
 
           <Tabs.Panel value="list" pt="md">
-            <Group>
-              <TextInput
-                placeholder="Search schedules..."
-                leftSection={<IconSearch size={16} />}
-                value={searchQuery}
-                onChange={(e) => onSearchChange(e.target.value)}
-                style={{ flex: 1 }}
-              />
-              <Select
-                placeholder="Filter by shift type"
-                data={['All', 'morning', 'afternoon', 'night', 'full-day']}
-                value={filterShiftType}
-                onChange={(value) =>
-                  onShiftTypeFilterChange(value === 'All' ? null : value)
-                }
-                clearable
-                style={{ width: 200 }}
-              />
-              <Select
-                placeholder="Filter by status"
-                data={['All', 'scheduled', 'completed', 'cancelled']}
-                value={filterStatus}
-                onChange={(value) =>
-                  onStatusFilterChange(value === 'All' ? null : value)
-                }
-                clearable
-                style={{ width: 200 }}
-              />
-              <FileButton onChange={onImportCSV} accept=".csv,text/csv">
-                {(props) => (
-                  <Button
-                    {...props}
-                    leftSection={<IconUpload size={16} />}
-                    variant="light"
-                    color="blue"
-                    loading={isImporting}
-                  >
-                    Import CSV
-                  </Button>
-                )}
-              </FileButton>
-              <Button
-                leftSection={<IconDownload size={16} />}
-                variant="light"
-                color="teal"
-                onClick={onExportCSV}
-              >
-                Export
-              </Button>
-              <Button
-                leftSection={<IconPlus size={16} />}
-                onClick={onAddSchedule}
-              >
-                Add Schedule
-              </Button>
+            <Group wrap="wrap" justify="space-between" gap="sm">
+              <Group gap="sm" style={{ flex: 1 }}>
+                <TextInput
+                  placeholder="Search schedules..."
+                  leftSection={<IconSearch size={16} />}
+                  value={searchQuery}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  style={{ flex: 1, minWidth: '220px' }}
+                />
+                <Select
+                  placeholder="Filter by shift type"
+                  data={['All', 'morning', 'afternoon', 'night', 'full-day']}
+                  value={filterShiftType}
+                  onChange={(value) =>
+                    onShiftTypeFilterChange(value === 'All' ? null : value)
+                  }
+                  clearable
+                  style={{ width: 200, minWidth: '180px' }}
+                />
+                <Select
+                  placeholder="Filter by status"
+                  data={['All', 'scheduled', 'completed', 'cancelled']}
+                  value={filterStatus}
+                  onChange={(value) =>
+                    onStatusFilterChange(value === 'All' ? null : value)
+                  }
+                  clearable
+                  style={{ width: 200, minWidth: '180px' }}
+                />
+              </Group>
+              <Group gap="sm">
+                <CalendarBulkActions
+                  templates={templates}
+                  recurringRules={recurringRules}
+                  onSaveTemplate={onSaveTemplate}
+                  onDeleteTemplate={onDeleteTemplate}
+                  onApplyTemplate={onApplyTemplate}
+                  onSaveRule={onSaveRecurringRule}
+                  onDeleteRule={onDeleteRecurringRule}
+                  employees={employees}
+                  isLoadingEmployees={isLoadingEmployees}
+                  shiftConfig={shiftConfig}
+                  dayLabels={dayLabels}
+                />
+                <FileButton onChange={onImportCSV} accept=".csv,text/csv">
+                  {(props) => (
+                    <Button
+                      {...props}
+                      leftSection={<IconUpload size={16} />}
+                      variant="light"
+                      color="blue"
+                      loading={isImporting}
+                    >
+                      Import CSV
+                    </Button>
+                  )}
+                </FileButton>
+                <Button
+                  leftSection={<IconDownload size={16} />}
+                  variant="light"
+                  color="teal"
+                  onClick={onExportCSV}
+                >
+                  Export
+                </Button>
+                <Button
+                  leftSection={<IconPlus size={16} />}
+                  onClick={onAddSchedule}
+                >
+                  Add Schedule
+                </Button>
+              </Group>
             </Group>
           </Tabs.Panel>
 
           <Tabs.Panel value="calendar" pt="md">
-            <div />
+            {null}
           </Tabs.Panel>
         </Tabs>
       </Stack>

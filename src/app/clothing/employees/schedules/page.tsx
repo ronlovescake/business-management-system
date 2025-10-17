@@ -9,6 +9,7 @@ import { ScheduleControls } from './components/ScheduleControls';
 import { ScheduleListTable } from './components/ScheduleListTable';
 import { ScheduleFormDialog } from './components/ScheduleFormDialog';
 import { CalendarView } from './components/CalendarView';
+import { CalendarBulkActions } from './components/CalendarBulkActions';
 
 /**
  * Schedules Page Component
@@ -85,7 +86,50 @@ export default function SchedulesPage() {
     handleMarkCancelled,
     handleImportCSV,
     handleExportCSV,
+
+    // Bulk scheduling
+    weeklyTemplates,
+    recurringRules,
+    upsertWeeklyTemplate,
+    deleteWeeklyTemplate,
+    applyWeeklyTemplateToWeek,
+    upsertRecurringRule,
+    removeRecurringRule,
+
+    // Shared data
+    employees,
+    isLoadingEmployees,
+    shiftConfig,
+    dayLabels,
   } = useSchedules();
+
+  const bulkActionProps = {
+    templates: weeklyTemplates,
+    recurringRules,
+    onSaveTemplate: upsertWeeklyTemplate,
+    onDeleteTemplate: deleteWeeklyTemplate,
+    onApplyTemplate: applyWeeklyTemplateToWeek,
+    onSaveRule: upsertRecurringRule,
+    onDeleteRule: removeRecurringRule,
+    employees,
+    isLoadingEmployees,
+    shiftConfig,
+    dayLabels,
+  } as const;
+
+  const scheduleControlsBulkProps = {
+    templates: bulkActionProps.templates,
+    recurringRules: bulkActionProps.recurringRules,
+    onSaveTemplate: bulkActionProps.onSaveTemplate,
+    onDeleteTemplate: bulkActionProps.onDeleteTemplate,
+    onApplyTemplate: bulkActionProps.onApplyTemplate,
+    onSaveRecurringRule: bulkActionProps.onSaveRule,
+    onDeleteRecurringRule: bulkActionProps.onDeleteRule,
+    employees: bulkActionProps.employees,
+    isLoadingEmployees: bulkActionProps.isLoadingEmployees,
+    shiftConfig: bulkActionProps.shiftConfig,
+    dayLabels: bulkActionProps.dayLabels,
+  } as const;
 
   return (
     <PageLayout fluid withPadding>
@@ -112,6 +156,7 @@ export default function SchedulesPage() {
           onExportCSV={handleExportCSV}
           onAddSchedule={handleAddSchedule}
           isImporting={isImporting}
+          {...scheduleControlsBulkProps}
         />
 
         {/* Tables */}
@@ -135,6 +180,7 @@ export default function SchedulesPage() {
             getStatusColor={getStatusColor}
             onAddSchedule={handleAddSchedule}
             onEditSchedule={handleEditSchedule}
+            bulkActions={<CalendarBulkActions {...bulkActionProps} />}
           />
         )}
       </Stack>
@@ -163,6 +209,9 @@ export default function SchedulesPage() {
         formNotes={formNotes}
         setFormNotes={setFormNotes}
         onSave={handleSaveSchedule}
+        employees={employees}
+        isLoadingEmployees={isLoadingEmployees}
+        shiftConfig={shiftConfig}
       />
     </PageLayout>
   );

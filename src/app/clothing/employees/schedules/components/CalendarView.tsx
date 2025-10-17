@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import type { ReactNode } from 'react';
 import {
   Card,
   Group,
@@ -22,6 +23,7 @@ interface CalendarViewProps {
   getStatusColor: (status: ScheduleStatus) => string;
   onAddSchedule: () => void;
   onEditSchedule: (schedule: Schedule) => void;
+  bulkActions?: ReactNode;
 }
 
 export function CalendarView({
@@ -30,6 +32,7 @@ export function CalendarView({
   getStatusColor: _getStatusColor,
   onAddSchedule,
   onEditSchedule,
+  bulkActions,
 }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
 
@@ -175,7 +178,8 @@ export function CalendarView({
               <IconChevronRight size={20} />
             </ActionIcon>
           </Group>
-          <Group>
+          <Group gap="sm">
+            {bulkActions}
             {!isCurrentMonth && (
               <Button variant="light" onClick={goToToday}>
                 Today

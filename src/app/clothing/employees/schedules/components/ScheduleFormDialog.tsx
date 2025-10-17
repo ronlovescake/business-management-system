@@ -7,17 +7,7 @@ import {
   Button,
   Group,
 } from '@mantine/core';
-import { useState, useEffect } from 'react';
-import type { ShiftType } from '../types';
-
-interface Employee {
-  id: string;
-  employeeId: string;
-  name: string;
-  position: string;
-  department: string;
-  status: string;
-}
+import type { EmployeeSummary, ShiftType } from '../types';
 
 interface ScheduleFormDialogProps {
   isOpen: boolean;
@@ -42,6 +32,9 @@ interface ScheduleFormDialogProps {
   formNotes: string;
   setFormNotes: (value: string) => void;
   onSave: () => void;
+  employees: EmployeeSummary[];
+  isLoadingEmployees: boolean;
+  shiftConfig: Record<ShiftType, { start: string; end: string; label: string }>;
 }
 
 /**
@@ -72,53 +65,24 @@ export function ScheduleFormDialog({
   formNotes,
   setFormNotes,
   onSave,
+  employees,
+  isLoadingEmployees,
+  shiftConfig,
 }: ScheduleFormDialogProps) {
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
-
-  // Fetch employees from the team/employees API
-  useEffect(() => {
-    const fetchEmployees = async () => {
-      try {
-        setIsLoadingEmployees(true);
-        const response = await fetch('/api/employees?status=active');
-        if (!response.ok) {
-          throw new Error('Failed to fetch employees');
-        }
-        const data = await response.json();
-
-        // Transform to match our Employee interface
-        const transformedData = data.map(
-          (emp: {
-            id: number;
-            employeeId: string;
-            name: string;
-            position: string;
-            department: string;
-            status: string;
-          }) => ({
-            id: emp.id.toString(),
-            employeeId: emp.employeeId,
-            name: emp.name,
-            position: emp.position,
-            department: emp.department,
-            status: emp.status,
-          })
-        );
-
-        setEmployees(transformedData);
-      } catch (error) {
-        console.error('Error fetching employees:', error);
-        setEmployees([]);
-      } finally {
-        setIsLoadingEmployees(false);
-      }
-    };
-
-    if (isOpen) {
-      fetchEmployees();
+  const applyShiftDefaults = (shiftType: ShiftType | '') => {
+    if (!shiftType) {
+      return;
     }
-  }, [isOpen]);
+
+    const defaults = shiftConfig[shiftType];
+    if (!defaults) {
+      return;
+    }
+
+    setFormShiftType(shiftType);
+    setFormStartTime(defaults.start);
+    setFormEndTime(defaults.end);
+  };
 
   // Handle employee selection
   const handleEmployeeSelect = (value: string | null) => {
@@ -132,34 +96,16 @@ export function ScheduleFormDialog({
       setFormEmployeeId(selectedEmployee.employeeId);
       setFormPosition(selectedEmployee.position);
       setFormDepartment(selectedEmployee.department);
+
+      if (selectedEmployee.employeeType === 'stay-in') {
+        applyShiftDefaults('full-day');
+      }
     }
   };
 
   // Auto-set times based on shift type
   const handleShiftTypeChange = (value: string | null) => {
-    setFormShiftType(value as ShiftType | '');
-
-    // Auto-populate start and end times based on shift type
-    switch (value) {
-      case 'morning':
-        setFormStartTime('08:00');
-        setFormEndTime('17:00');
-        break;
-      case 'afternoon':
-        setFormStartTime('15:00');
-        setFormEndTime('00:00');
-        break;
-      case 'night':
-        setFormStartTime('00:00');
-        setFormEndTime('09:00');
-        break;
-      case 'full-day':
-        setFormStartTime('04:00');
-        setFormEndTime('17:00');
-        break;
-      default:
-        break;
-    }
+    applyShiftDefaults((value as ShiftType | '') || '');
   };
 
   return (
@@ -238,12 +184,10 @@ export function ScheduleFormDialog({
         <Select
           label="Shift Type"
           placeholder="Select shift type"
-          data={[
-            { value: 'morning', label: 'Morning (8:00 AM - 5:00 PM)' },
-            { value: 'afternoon', label: 'Afternoon (3:00 PM - 12:00 AM)' },
-            { value: 'night', label: 'Night (12:00 AM - 9:00 AM)' },
-            { value: 'full-day', label: 'Full Day (4:00 AM - 5:00 PM)' },
-          ]}
+          data={Object.entries(shiftConfig).map(([value, config]) => ({
+            value,
+            label: config.label,
+          }))}
           value={formShiftType}
           onChange={handleShiftTypeChange}
           required

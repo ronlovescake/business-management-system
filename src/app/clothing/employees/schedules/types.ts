@@ -13,4 +13,53 @@ export interface Schedule {
   department: string;
   status: ScheduleStatus;
   notes?: string;
+  source?: 'manual' | 'template' | 'recurrence';
+  templateId?: string;
+  recurrenceId?: string;
+  isOverride?: boolean;
+}
+
+export interface TemplateAssignment {
+  id: string;
+  dayOfWeek: number; // 0 = Sunday
+  shiftType: ShiftType;
+  role: string;
+  department: string;
+  employeeId?: string;
+  employeeName?: string;
+  startTime?: string;
+  endTime?: string;
+  notes?: string;
+  isStayIn?: boolean;
+}
+
+export interface WeeklyTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  assignments: TemplateAssignment[];
+  allowSundayAssignments?: boolean;
+}
+
+export interface RecurringRule {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  position: string;
+  department: string;
+  shiftType: ShiftType;
+  daysOfWeek: number[]; // 0 = Sunday
+  startDate: string;
+  endDate?: string;
+  notes?: string;
+  isStayIn?: boolean;
+}
+
+export interface EmployeeSummary {
+  id: string;
+  employeeId: string;
+  name: string;
+  position: string;
+  department: string;
+  employeeType?: string;
 }
