@@ -162,7 +162,7 @@ export function CalendarBulkActions({
       <Modal
         opened={ruleModalOpen}
         onClose={() => setRuleModalOpen(false)}
-        title="Recurring Rules"
+        title="Add Schedule"
         size="xl"
       >
         <Stack gap="md">
