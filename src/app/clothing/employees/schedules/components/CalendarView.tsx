@@ -250,7 +250,7 @@ export function CalendarView({
 
               const day = cell.value;
               const daySchedules = getSchedulesForDate(day);
-              const isRestDay = isSunday(day);
+              const isSundayDate = isSunday(day);
               const isTodayDate = isToday(day);
 
               return (
@@ -262,21 +262,15 @@ export function CalendarView({
                     height: '100%',
                     display: 'flex',
                     flexDirection: 'column',
-                    backgroundColor: isRestDay
-                      ? '#fff5f5'
-                      : isTodayDate
-                        ? '#e7f5ff'
-                        : 'white',
+                    backgroundColor: isTodayDate ? '#e7f5ff' : 'white',
                     borderColor: isTodayDate ? '#228be6' : undefined,
                     borderWidth: isTodayDate ? '2px' : '1px',
                     cursor: 'pointer',
                     transition: 'all 0.2s',
                   }}
                   onMouseEnter={(e) => {
-                    if (!isRestDay) {
-                      e.currentTarget.style.boxShadow =
-                        '0 4px 12px rgba(0,0,0,0.1)';
-                    }
+                    e.currentTarget.style.boxShadow =
+                      '0 4px 12px rgba(0,0,0,0.1)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.boxShadow = '';
@@ -288,15 +282,10 @@ export function CalendarView({
                       <Text
                         size="sm"
                         fw={isTodayDate ? 700 : 600}
-                        c={isRestDay ? 'red' : isTodayDate ? 'blue' : 'dark'}
+                        c={isTodayDate ? 'blue' : isSundayDate ? 'red' : 'dark'}
                       >
                         {day}
                       </Text>
-                      {isRestDay && (
-                        <Badge size="xs" color="red" variant="light">
-                          Rest
-                        </Badge>
-                      )}
                     </Group>
 
                     {/* Schedules for this day */}
