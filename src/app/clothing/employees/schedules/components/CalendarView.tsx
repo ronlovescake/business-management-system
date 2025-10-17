@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, cloneElement, isValidElement } from 'react';
 import type { ReactNode } from 'react';
 import {
   Card,
@@ -21,7 +21,7 @@ interface CalendarViewProps {
   schedules: Schedule[];
   getShiftTypeColor: (shiftType: ShiftType) => string;
   getStatusColor: (status: ScheduleStatus) => string;
-  onAddSchedule: () => void;
+  onAddSchedule?: () => void;
   onEditSchedule: (schedule: Schedule) => void;
   bulkActions?: ReactNode;
 }
@@ -30,11 +30,33 @@ export function CalendarView({
   schedules,
   getShiftTypeColor,
   getStatusColor: _getStatusColor,
-  onAddSchedule,
+  onAddSchedule: _onAddSchedule,
   onEditSchedule,
   bulkActions,
 }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [openRecurringRulesModal, setOpenRecurringRulesModal] = useState(false);
+
+  const handleAddScheduleClick = () => {
+    setOpenRecurringRulesModal(true);
+  };
+
+  // Clone bulkActions and pass the modal control props
+  const enhancedBulkActions = useMemo(() => {
+    if (!bulkActions) {
+      return null;
+    }
+    if (isValidElement(bulkActions)) {
+      return cloneElement(
+        bulkActions as React.ReactElement<Record<string, unknown>>,
+        {
+          openRecurringRulesModal,
+          onRecurringRulesModalChange: setOpenRecurringRulesModal,
+        }
+      );
+    }
+    return bulkActions;
+  }, [bulkActions, openRecurringRulesModal]);
 
   // Get the first day of the current month
   const firstDayOfMonth = useMemo(() => {
@@ -179,7 +201,7 @@ export function CalendarView({
             </ActionIcon>
           </Group>
           <Group gap="sm">
-            {bulkActions}
+            {enhancedBulkActions}
             {!isCurrentMonth && (
               <Button variant="light" onClick={goToToday}>
                 Today
@@ -187,7 +209,7 @@ export function CalendarView({
             )}
             <Button
               leftSection={<IconPlus size={16} />}
-              onClick={onAddSchedule}
+              onClick={handleAddScheduleClick}
             >
               Add Schedule
             </Button>

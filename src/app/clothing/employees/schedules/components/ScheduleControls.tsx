@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Card,
   Stack,
@@ -37,7 +37,7 @@ interface ScheduleControlsProps {
   onStatusFilterChange: (status: string | null) => void;
   onImportCSV: (file: File | null) => void;
   onExportCSV: () => void;
-  onAddSchedule: () => void;
+  onAddSchedule?: () => void;
   isImporting: boolean;
   templates: WeeklyTemplate[];
   recurringRules: RecurringRule[];
@@ -78,7 +78,7 @@ export function ScheduleControls({
   onStatusFilterChange,
   onImportCSV,
   onExportCSV,
-  onAddSchedule,
+  onAddSchedule: _onAddSchedule,
   isImporting,
   templates,
   recurringRules,
@@ -92,6 +92,12 @@ export function ScheduleControls({
   shiftConfig,
   dayLabels,
 }: ScheduleControlsProps) {
+  const [openRecurringRulesModal, setOpenRecurringRulesModal] = useState(false);
+
+  const handleAddScheduleClick = () => {
+    setOpenRecurringRulesModal(true);
+  };
+
   return (
     <Card
       padding="lg"
@@ -169,6 +175,8 @@ export function ScheduleControls({
                   isLoadingEmployees={isLoadingEmployees}
                   shiftConfig={shiftConfig}
                   dayLabels={dayLabels}
+                  openRecurringRulesModal={openRecurringRulesModal}
+                  onRecurringRulesModalChange={setOpenRecurringRulesModal}
                 />
                 <FileButton onChange={onImportCSV} accept=".csv,text/csv">
                   {(props) => (
@@ -193,7 +201,7 @@ export function ScheduleControls({
                 </Button>
                 <Button
                   leftSection={<IconPlus size={16} />}
-                  onClick={onAddSchedule}
+                  onClick={handleAddScheduleClick}
                 >
                   Add Schedule
                 </Button>

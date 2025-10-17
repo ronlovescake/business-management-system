@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActionIcon,
   Badge,
@@ -52,6 +52,8 @@ interface CalendarBulkActionsProps {
   isLoadingEmployees: boolean;
   shiftConfig: Record<ShiftType, { start: string; end: string; label: string }>;
   dayLabels: string[];
+  openRecurringRulesModal?: boolean;
+  onRecurringRulesModalChange?: (isOpen: boolean) => void;
 }
 
 interface TemplateDraft extends Omit<WeeklyTemplate, 'id'> {
@@ -78,9 +80,11 @@ export function CalendarBulkActions({
   isLoadingEmployees,
   shiftConfig,
   dayLabels,
+  openRecurringRulesModal = false,
+  onRecurringRulesModalChange,
 }: CalendarBulkActionsProps) {
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
-  const [ruleModalOpen, setRuleModalOpen] = useState(false);
+  const [ruleModalOpen, setRuleModalOpen] = useState(openRecurringRulesModal);
   const [templateTab, setTemplateTab] = useState<string | null>('apply');
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
     null
@@ -104,6 +108,18 @@ export function CalendarBulkActions({
     notes: '',
     isStayIn: false,
   });
+
+  // Sync with external control of recurring rules modal
+  useEffect(() => {
+    if (openRecurringRulesModal) {
+      setRuleModalOpen(true);
+    }
+  }, [openRecurringRulesModal]);
+
+  // Notify parent when recurring rules modal changes
+  useEffect(() => {
+    onRecurringRulesModalChange?.(ruleModalOpen);
+  }, [ruleModalOpen, onRecurringRulesModalChange]);
 
   const dayOptions = useMemo(
     () =>
