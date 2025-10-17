@@ -54,21 +54,38 @@ export function CalendarView({
   }, [lastDayOfMonth]);
 
   // Generate calendar days
+  type CalendarCell =
+    | { type: 'empty'; id: string }
+    | { type: 'day'; value: number };
+
   const calendarDays = useMemo(() => {
-    const days = [];
+    const cells: CalendarCell[] = [];
+    const monthKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}`;
 
     // Add empty cells for days before the month starts
     for (let i = 0; i < startingDayOfWeek; i++) {
-      days.push(null);
+      cells.push({ type: 'empty', id: `${monthKey}-leading-${i}` });
     }
 
     // Add all days of the month
     for (let day = 1; day <= daysInMonth; day++) {
-      days.push(day);
+      cells.push({ type: 'day', value: day });
     }
 
-    return days;
-  }, [startingDayOfWeek, daysInMonth]);
+    // Ensure the grid is filled with trailing empty cells for consistent rows
+    const totalCells = Math.ceil(cells.length / 7) * 7;
+    const trailingCells = totalCells - cells.length;
+
+    for (let i = 0; i < trailingCells; i++) {
+      cells.push({ type: 'empty', id: `${monthKey}-trailing-${i}` });
+    }
+
+    return cells;
+  }, [currentDate, daysInMonth, startingDayOfWeek]);
+
+  const weeksInMonth = useMemo(() => {
+    return Math.ceil(calendarDays.length / 7);
+  }, [calendarDays]);
 
   // Get schedules for a specific date
   const getSchedulesForDate = (day: number) => {
@@ -175,8 +192,13 @@ export function CalendarView({
       </Card>
 
       {/* Calendar Grid */}
-      <Card withBorder padding="md" radius="md" style={{ minHeight: '75vh' }}>
-        <Stack gap="xs">
+      <Card
+        withBorder
+        padding="md"
+        radius="md"
+        style={{ height: '75vh', display: 'flex', flexDirection: 'column' }}
+      >
+        <Stack gap="xs" style={{ flex: 1 }}>
           {/* Day Headers */}
           <div
             style={{
@@ -205,16 +227,19 @@ export function CalendarView({
           {/* Calendar Days */}
           <div
             style={{
+              flex: 1,
               display: 'grid',
               gridTemplateColumns: 'repeat(7, 1fr)',
+              gridTemplateRows: `repeat(${weeksInMonth}, 1fr)`,
               gap: '8px',
             }}
           >
-            {calendarDays.map((day) => {
-              if (day === null) {
-                return <div key={`empty-${Math.random()}`} />;
+            {calendarDays.map((cell) => {
+              if (cell.type === 'empty') {
+                return <div key={cell.id} style={{ height: '100%' }} />;
               }
 
+              const day = cell.value;
               const daySchedules = getSchedulesForDate(day);
               const isRestDay = isSunday(day);
               const isTodayDate = isToday(day);
@@ -225,7 +250,9 @@ export function CalendarView({
                   padding="xs"
                   withBorder
                   style={{
-                    minHeight: '120px',
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
                     backgroundColor: isRestDay
                       ? '#fff5f5'
                       : isTodayDate
