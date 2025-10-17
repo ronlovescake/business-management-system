@@ -7,7 +7,7 @@ import {
   Divider,
   Group,
   Modal,
-  MultiSelect,
+  Pill,
   Select,
   Stack,
   Switch,
@@ -98,7 +98,7 @@ export function CalendarBulkActions({
     position: '',
     department: '',
     shiftType: 'morning',
-    daysOfWeek: [1, 2, 3, 4, 5],
+    daysOfWeek: [1, 2, 3, 4, 5, 6],
     startDate: '',
     endDate: undefined,
     notes: '',
@@ -334,7 +334,7 @@ export function CalendarBulkActions({
       position: '',
       department: '',
       shiftType: 'morning',
-      daysOfWeek: [1, 2, 3, 4, 5],
+      daysOfWeek: [1, 2, 3, 4, 5, 6],
       startDate: '',
       endDate: undefined,
       notes: '',
@@ -360,7 +360,7 @@ export function CalendarBulkActions({
         position: '',
         department: '',
         shiftType: 'morning',
-        daysOfWeek: [1, 2, 3, 4, 5],
+        daysOfWeek: [1, 2, 3, 4, 5, 6],
         startDate: '',
         endDate: undefined,
         notes: '',
@@ -736,20 +736,50 @@ export function CalendarBulkActions({
                 />
               </Group>
 
-              <MultiSelect
-                label="Working days"
-                data={dayOptions}
-                value={ruleDraft.daysOfWeek.map(String)}
-                onChange={(values) =>
-                  setRuleDraft((prev) => ({
-                    ...prev,
-                    daysOfWeek: values.map((value) =>
-                      Number(value)
-                    ) as number[],
-                  }))
-                }
-                description="Sundays are excluded unless you select them explicitly."
-              />
+              <Stack gap="xs">
+                <Text size="sm" fw={500}>
+                  Working days
+                </Text>
+                <Pill.Group>
+                  {dayOptions.map((day) => {
+                    const isSelected = ruleDraft.daysOfWeek.includes(
+                      Number(day.value)
+                    );
+                    return (
+                      <Pill
+                        key={day.value}
+                        withRemoveButton={false}
+                        style={{
+                          cursor: 'pointer',
+                          backgroundColor: isSelected
+                            ? 'var(--mantine-color-blue-filled)'
+                            : 'var(--mantine-color-gray-1)',
+                          color: isSelected
+                            ? 'var(--mantine-color-white)'
+                            : 'var(--mantine-color-gray-7)',
+                          border: isSelected
+                            ? '1px solid var(--mantine-color-blue-filled)'
+                            : '1px solid var(--mantine-color-gray-3)',
+                        }}
+                        onClick={() => {
+                          const dayNum = Number(day.value);
+                          setRuleDraft((prev) => ({
+                            ...prev,
+                            daysOfWeek: prev.daysOfWeek.includes(dayNum)
+                              ? prev.daysOfWeek.filter((d) => d !== dayNum)
+                              : [...prev.daysOfWeek, dayNum].sort(),
+                          }));
+                        }}
+                      >
+                        {day.label}
+                      </Pill>
+                    );
+                  })}
+                </Pill.Group>
+                <Text size="xs" c="dimmed">
+                  Sundays are excluded unless you select them explicitly.
+                </Text>
+              </Stack>
 
               <Group grow>
                 <TextInput
@@ -802,7 +832,7 @@ export function CalendarBulkActions({
                       position: '',
                       department: '',
                       shiftType: 'morning',
-                      daysOfWeek: [1, 2, 3, 4, 5],
+                      daysOfWeek: [1, 2, 3, 4, 5, 6],
                       startDate: '',
                       endDate: undefined,
                       notes: '',
