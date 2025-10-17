@@ -24,6 +24,7 @@ class CustomerService {
       { label: '⏸️ Inactive', value: 'Inactive' },
       { label: '🎯 Prospect', value: 'Prospect' },
       { label: '⭐ VIP', value: 'VIP' },
+      { label: '🚫 Banned', value: 'Banned' },
     ];
   }
 

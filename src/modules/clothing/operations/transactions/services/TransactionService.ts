@@ -228,10 +228,11 @@ export class TransactionService {
     try {
       // Use shared ValidationService for customer validation
       const result = await ValidationService.validateCustomer(customerName);
+      const alerts = [...(result.errors || []), ...result.warnings];
 
       return {
         isValid: result.isValid,
-        warnings: result.warnings,
+        warnings: alerts,
         customerData: result.customerData,
       };
     } catch (error) {

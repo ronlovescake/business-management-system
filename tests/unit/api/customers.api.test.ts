@@ -10,6 +10,9 @@ const { mockPrisma } = vi.hoisted(() => {
         create: vi.fn(),
         createMany: vi.fn(),
         deleteMany: vi.fn(),
+        upsert: vi.fn(),
+        findFirst: vi.fn(),
+        update: vi.fn(),
       },
       $transaction: vi.fn(),
     },
@@ -34,7 +37,8 @@ describe('Customers API Routes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Ensure DATABASE_URL is set for tests
-    process.env.DATABASE_URL = 'postgresql://testuser:testpass@localhost:5432/testdb';
+    process.env.DATABASE_URL =
+      'postgresql://testuser:testpass@localhost:5432/testdb';
   });
 
   describe('GET /api/customers', () => {
@@ -69,7 +73,7 @@ describe('Customers API Routes', () => {
       expect(data[0]['Customer Name']).toBe('John Doe');
     });
 
-    it('should return empty array on database error', async () => {
+    it('should return error response on database failure', async () => {
       mockPrisma.customer.findMany.mockRejectedValue(
         new Error('Database connection failed')
       );
@@ -77,9 +81,9 @@ describe('Customers API Routes', () => {
       const response = await GET();
       const data = await response.json();
 
-      expect(response.status).toBe(200);
-      expect(Array.isArray(data)).toBe(true);
-      expect(data.length).toBe(0);
+      expect(response.status).toBe(500);
+      expect(data.error).toBe('Failed to fetch customers');
+      expect(data.details).toBe('Database connection failed');
     });
   });
 
@@ -152,7 +156,7 @@ describe('Customers API Routes', () => {
   });
 
   describe('PUT /api/customers', () => {
-    it('should replace all customers successfully', async () => {
+    it('should upsert customers successfully and report counts', async () => {
       const bulkCustomers = [
         {
           Date: '2024-01-01',
@@ -169,7 +173,21 @@ describe('Customers API Routes', () => {
         },
       ];
 
-      mockPrisma.$transaction.mockResolvedValue([{}, { count: 1 }]);
+      const upsert = vi.fn();
+      const findFirst = vi.fn().mockResolvedValue(null);
+      const update = vi.fn();
+      const create = vi.fn().mockResolvedValue({ id: 1 });
+
+      mockPrisma.$transaction.mockImplementation(async (callback) => {
+        return callback({
+          customer: {
+            upsert,
+            findFirst,
+            update,
+            create,
+          },
+        });
+      });
 
       const request = new NextRequest('http://localhost:3000/api/customers', {
         method: 'PUT',
@@ -181,7 +199,56 @@ describe('Customers API Routes', () => {
 
       expect(response.status).toBe(200);
       expect(data.ok).toBe(true);
-      expect(data.count).toBe(1);
+      expect(data.created).toBe(1);
+      expect(data.updated).toBe(0);
+      expect(data.skipped).toBe(0);
+      expect(Array.isArray(data.errors)).toBe(true);
+      expect(data.errors.length).toBe(0);
+      expect(findFirst).toHaveBeenCalledTimes(1);
+      expect(create).toHaveBeenCalledTimes(1);
+      expect(upsert).not.toHaveBeenCalled();
+    });
+
+    it('should return 400 when all rows are invalid', async () => {
+      const bulkCustomers = [
+        {
+          Date: '',
+          'Customer Name': '',
+          'Phone Number': '',
+          Address: '',
+          Facebook: 'not-a-url',
+          'Email Address': 'invalid-email',
+          'Business Name': '',
+          'Tax Number': '',
+          'Business Address': '',
+          'Business Contact Number': '',
+          'Customer Status': '',
+        },
+      ];
+
+      mockPrisma.$transaction.mockImplementation(async (callback) => {
+        return callback({
+          customer: {
+            upsert: vi.fn(),
+            findFirst: vi.fn(),
+            update: vi.fn(),
+            create: vi.fn(),
+          },
+        });
+      });
+
+      const request = new NextRequest('http://localhost:3000/api/customers', {
+        method: 'PUT',
+        body: JSON.stringify(bulkCustomers),
+      });
+
+      const response = await PUT(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toBe('Validation failed');
+      expect(Array.isArray(data.details)).toBe(true);
+      expect(data.details.length).toBe(1);
     });
   });
 

@@ -61,7 +61,12 @@ export interface ValidationResult {
 /**
  * Customer status options
  */
-export type CustomerStatus = 'Active' | 'Inactive' | 'Prospect' | 'VIP';
+export type CustomerStatus =
+  | 'Active'
+  | 'Inactive'
+  | 'Prospect'
+  | 'VIP'
+  | 'Banned';
 
 /**
  * Customer status option for dropdown

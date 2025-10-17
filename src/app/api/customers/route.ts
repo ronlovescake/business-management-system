@@ -4,10 +4,157 @@ import type { Customer, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import {
   customerDataSchema,
-  bulkCustomerSchema,
   formatValidationErrors,
 } from '@/lib/validations/customer.validation';
 import { logger } from '@/lib/logger';
+
+const STATUS_LOOKUP: Record<string, CustomerDTO['Customer Status']> = {
+  active: 'Active',
+  inactive: 'Inactive',
+  prospect: 'Prospect',
+  vip: 'VIP',
+  banned: 'Banned',
+  '🚫 banned': 'Banned',
+};
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const HOSTNAME_REGEX = /^[a-z0-9.-]+\.[a-z]{2,}$/i;
+
+function normalizeUrl(value: unknown): string {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  let trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  if (!/^https?:\/\//i.test(trimmed)) {
+    if (HOSTNAME_REGEX.test(trimmed)) {
+      trimmed = `https://${trimmed}`;
+    } else {
+      logger.warn('Invalid URL supplied for customer, dropping value', {
+        url: trimmed,
+      });
+      return '';
+    }
+  }
+
+  try {
+    // eslint-disable-next-line no-new
+    new URL(trimmed);
+    return trimmed;
+  } catch (error) {
+    logger.warn('Failed to parse URL for customer, dropping value', {
+      url: trimmed,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return '';
+  }
+}
+
+function normalizeEmail(value: unknown): string {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  if (EMAIL_REGEX.test(trimmed)) {
+    return trimmed;
+  }
+
+  logger.warn('Invalid email supplied for customer, dropping value', {
+    email: trimmed,
+  });
+  return '';
+}
+
+function normalizeStatus(value: unknown): CustomerDTO['Customer Status'] {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return 'Active';
+    }
+
+    const mapped = STATUS_LOOKUP[trimmed.toLowerCase()];
+    if (mapped) {
+      return mapped;
+    }
+
+    logger.warn('Unknown customer status supplied, defaulting to Active', {
+      status: value,
+    });
+    return 'Active';
+  }
+
+  return 'Active';
+}
+
+function normalizeDate(value: unknown): string {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+
+    const parsed = new Date(trimmed);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString().slice(0, 10);
+    }
+  }
+
+  return new Date().toISOString().slice(0, 10);
+}
+
+function sanitizeCustomerRecord(entry: unknown): Record<string, unknown> {
+  if (typeof entry !== 'object' || entry === null) {
+    return {};
+  }
+
+  const record = { ...(entry as Record<string, unknown>) };
+
+  record.Date = normalizeDate(record.Date);
+  record['Customer Status'] = normalizeStatus(record['Customer Status']);
+
+  if (typeof record['Customer Name'] === 'string') {
+    record['Customer Name'] = record['Customer Name'].trim();
+  }
+
+  if (typeof record['Phone Number'] === 'string') {
+    record['Phone Number'] = record['Phone Number'].trim();
+  }
+
+  if (typeof record.Address === 'string') {
+    record.Address = record.Address.trim();
+  }
+
+  if (typeof record['Business Name'] === 'string') {
+    record['Business Name'] = record['Business Name'].trim();
+  }
+
+  if (typeof record['Business Address'] === 'string') {
+    record['Business Address'] = record['Business Address'].trim();
+  }
+
+  if (typeof record['Business Contact Number'] === 'string') {
+    record['Business Contact Number'] =
+      record['Business Contact Number'].trim();
+  }
+
+  record['Email Address'] = normalizeEmail(record['Email Address']);
+  record.Facebook = normalizeUrl(record.Facebook);
+
+  return record;
+}
 
 // Shape used by the UI grid
 export type CustomerDTO = {
@@ -106,30 +253,85 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    // Validate with Zod
-    const validation = bulkCustomerSchema.safeParse(body);
-    if (!validation.success) {
-      logger.warn('Bulk customer validation failed:', validation.error);
+    const normalizedPayload = body.map((entry) =>
+      sanitizeCustomerRecord(entry)
+    );
+
+    const validCustomers: CustomerDTO[] = [];
+    const invalidCustomers: Array<{
+      index: number;
+      issues: Record<string, string>;
+    }> = [];
+
+    normalizedPayload.forEach((record, index) => {
+      const result = customerDataSchema.safeParse(record);
+      if (result.success) {
+        validCustomers.push(result.data as CustomerDTO);
+      } else {
+        invalidCustomers.push({
+          index,
+          issues: formatValidationErrors(result.error),
+        });
+      }
+    });
+
+    if (validCustomers.length === 0) {
+      logger.warn('Bulk customer validation rejected all rows', {
+        total: normalizedPayload.length,
+      });
       return NextResponse.json(
         {
           error: 'Validation failed',
-          details: formatValidationErrors(validation.error),
+          details: invalidCustomers,
         },
         { status: 400 }
       );
     }
 
-    // Replace all rows for simplicity; could be optimized later
-    await prisma.$transaction([
-      prisma.customer.deleteMany({}),
-      prisma.customer.createMany({
-        data: validation.data.map(
-          mapFromDTO
-        ) as Prisma.CustomerCreateManyInput[],
-      }),
-    ]);
+    const { created, updated } = await prisma.$transaction(async (tx) => {
+      let createdCount = 0;
+      let updatedCount = 0;
 
-    return NextResponse.json({ ok: true, count: validation.data.length });
+      for (const customer of validCustomers) {
+        const createData = mapFromDTO(customer);
+        const updateData: Prisma.CustomerUpdateInput = { ...createData };
+
+        if (customer.id) {
+          await tx.customer.upsert({
+            where: { id: customer.id },
+            create: createData,
+            update: updateData,
+          });
+          updatedCount++;
+          continue;
+        }
+
+        const existing = await tx.customer.findFirst({
+          where: { customerName: createData.customerName },
+        });
+
+        if (existing) {
+          await tx.customer.update({
+            where: { id: existing.id },
+            data: updateData,
+          });
+          updatedCount++;
+        } else {
+          await tx.customer.create({ data: createData });
+          createdCount++;
+        }
+      }
+
+      return { created: createdCount, updated: updatedCount };
+    });
+
+    return NextResponse.json({
+      ok: true,
+      created,
+      updated,
+      skipped: invalidCustomers.length,
+      errors: invalidCustomers,
+    });
   } catch (err) {
     logger.error('PUT /api/customers error', err);
     const msg = err instanceof Error ? err.message.toLowerCase() : '';

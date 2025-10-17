@@ -52,7 +52,9 @@ describe('Customer Validation', () => {
       const result = validateCustomerForm(invalidCustomer);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.errors[0].message).toContain('at least 2 characters');
+        expect(result.error.errors[0].message).toContain(
+          'at least 2 characters'
+        );
       }
     });
 
@@ -73,7 +75,9 @@ describe('Customer Validation', () => {
       const result = validateCustomerForm(invalidCustomer);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.errors[0].message).toContain('must not exceed 100 characters');
+        expect(result.error.errors[0].message).toContain(
+          'must not exceed 100 characters'
+        );
       }
     });
 
@@ -123,7 +127,9 @@ describe('Customer Validation', () => {
       const result = validateCustomerForm(customer);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.errors[0].message).toContain('Invalid phone number format');
+        expect(result.error.errors[0].message).toContain(
+          'Invalid phone number format'
+        );
       }
     });
 
@@ -188,7 +194,7 @@ describe('Customer Validation', () => {
     });
 
     it('should accept valid customer statuses', () => {
-      const statuses = ['Active', 'Inactive', 'Prospect', 'VIP'];
+      const statuses = ['Active', 'Inactive', 'Prospect', 'VIP', 'Banned'];
 
       statuses.forEach((status) => {
         const customer = {
@@ -244,7 +250,9 @@ describe('Customer Validation', () => {
       const result = validateCustomerForm(customer);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.errors[0].message).toContain('Invalid tax number format');
+        expect(result.error.errors[0].message).toContain(
+          'Invalid tax number format'
+        );
       }
     });
 
@@ -399,7 +407,9 @@ describe('Customer Validation', () => {
       const result = validateBulkCustomers([]);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.errors[0].message).toContain('At least one customer is required');
+        expect(result.error.errors[0].message).toContain(
+          'At least one customer is required'
+        );
       }
     });
   });
@@ -498,7 +508,9 @@ describe('Customer Validation', () => {
       const result = validateCustomerWithBusinessRules(customer);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.errors[0].message).toContain('Disposable email addresses are not allowed');
+        expect(result.error.errors[0].message).toContain(
+          'Disposable email addresses are not allowed'
+        );
       }
     });
 
@@ -519,7 +531,9 @@ describe('Customer Validation', () => {
       const result = validateCustomerWithBusinessRules(customer);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.errors[0].message).toContain('At least one contact method');
+        expect(result.error.errors[0].message).toContain(
+          'At least one contact method'
+        );
       }
     });
 

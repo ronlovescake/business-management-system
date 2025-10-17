@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * Customer Validation Schema
- * 
+ *
  * Comprehensive validation for customer data with proper error messages
  */
 
@@ -10,7 +10,8 @@ import { z } from 'zod';
  * Phone number validation regex (supports various formats)
  * Examples: (123) 456-7890, 123-456-7890, 123.456.7890, +1234567890
  */
-const phoneRegex = /^[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{1,4}[-\s\.]?[0-9]{1,9}$/;
+const phoneRegex =
+  /^[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{1,4}[-\s\.]?[0-9]{1,9}$/;
 
 /**
  * Email validation (built-in Zod email validation)
@@ -41,7 +42,8 @@ const phoneNumberSchema = z
   .string()
   .trim()
   .refine((val) => val === '' || phoneRegex.test(val), {
-    message: 'Invalid phone number format. Use formats like: (123) 456-7890, 123-456-7890, or +1234567890',
+    message:
+      'Invalid phone number format. Use formats like: (123) 456-7890, 123-456-7890, or +1234567890',
   });
 
 /**
@@ -67,17 +69,22 @@ const taxNumberSchema = z
   .string()
   .trim()
   .refine((val) => val === '' || /^[A-Z0-9-]{5,20}$/.test(val), {
-    message: 'Invalid tax number format. Should be 5-20 alphanumeric characters and dashes',
+    message:
+      'Invalid tax number format. Should be 5-20 alphanumeric characters and dashes',
   });
 
 /**
  * Customer Status validation
  */
-const customerStatusSchema = z.enum(['Active', 'Inactive', 'Prospect', 'VIP'], {
-  errorMap: () => ({
-    message: 'Customer status must be one of: Active, Inactive, Prospect, or VIP',
-  }),
-});
+const customerStatusSchema = z.enum(
+  ['Active', 'Inactive', 'Prospect', 'VIP', 'Banned'],
+  {
+    errorMap: () => ({
+      message:
+        'Customer status must be one of: Active, Inactive, Prospect, VIP, or Banned',
+    }),
+  }
+);
 
 /**
  * Customer Form Data Schema
@@ -102,7 +109,10 @@ export const customerFormSchema = z.object({
  */
 export const customerDataSchema = z.object({
   id: z.number().int().positive().optional(),
-  Date: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
+  Date: z
+    .string()
+    .datetime()
+    .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
   'Customer Name': customerNameSchema,
   'Phone Number': phoneNumberSchema,
   Address: addressSchema,
@@ -137,7 +147,9 @@ export const customerQuerySchema = z.object({
   limit: z.string().regex(/^\d+$/).transform(Number).optional(),
   search: z.string().max(200).optional(),
   status: customerStatusSchema.optional(),
-  sortBy: z.enum(['Date', 'Customer Name', 'Business Name', 'Customer Status']).optional(),
+  sortBy: z
+    .enum(['Date', 'Customer Name', 'Business Name', 'Customer Status'])
+    .optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
 });
 
@@ -146,7 +158,9 @@ export const customerQuerySchema = z.object({
  */
 export type CustomerFormInput = z.infer<typeof customerFormSchema>;
 export type CustomerDataInput = z.infer<typeof customerDataSchema>;
-export type PartialCustomerDataInput = z.infer<typeof partialCustomerDataSchema>;
+export type PartialCustomerDataInput = z.infer<
+  typeof partialCustomerDataSchema
+>;
 export type BulkCustomerInput = z.infer<typeof bulkCustomerSchema>;
 export type CustomerQueryInput = z.infer<typeof customerQuerySchema>;
 
@@ -192,7 +206,9 @@ export function validateCustomerQuery(data: unknown) {
 /**
  * Format Zod validation errors for user-friendly display
  */
-export function formatValidationErrors(errors: z.ZodError): Record<string, string> {
+export function formatValidationErrors(
+  errors: z.ZodError
+): Record<string, string> {
   const formattedErrors: Record<string, string> = {};
 
   errors.errors.forEach((error) => {
@@ -251,7 +267,8 @@ export function validateCustomerWithBusinessRules(data: unknown) {
     customErrors.push({
       code: 'custom',
       path: ['phoneNumber'],
-      message: 'At least one contact method (phone, email, or social media) is required',
+      message:
+        'At least one contact method (phone, email, or social media) is required',
     });
   }
 

@@ -113,6 +113,7 @@ export function TransactionsPage() {
     // Customer warning modal
     showCustomerWarningModal,
     customerWarningData,
+    setCustomerWarningData,
     setShowCustomerWarningModal,
   } = useTransactionModals({ transactions, bulkUpdate });
 
@@ -128,9 +129,21 @@ export function TransactionsPage() {
       productToShipmentStatusMap,
       bulkUpdate,
       update,
-      onCustomerWarning: () => {
+      onCustomerWarning: (data) => {
+        setCustomerWarningData({
+          ...data,
+          onProceed: () => {
+            data.onProceed();
+            setShowCustomerWarningModal(false);
+            setCustomerWarningData(null);
+          },
+          onCancel: () => {
+            data.onCancel();
+            setShowCustomerWarningModal(false);
+            setCustomerWarningData(null);
+          },
+        });
         setShowCustomerWarningModal(true);
-        // Customer warning data is handled via state in the operations hook
       },
     });
 
@@ -491,7 +504,10 @@ export function TransactionsPage() {
       {/* Customer Warning Modal */}
       <CustomerWarningModal
         opened={showCustomerWarningModal}
-        onClose={() => setShowCustomerWarningModal(false)}
+        onClose={() => {
+          setShowCustomerWarningModal(false);
+          setCustomerWarningData(null);
+        }}
         data={customerWarningData}
       />
 

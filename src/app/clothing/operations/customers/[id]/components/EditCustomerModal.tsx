@@ -19,6 +19,7 @@ import {
   IconCheck,
 } from '@tabler/icons-react';
 import type { CustomerData } from '../types';
+import { CustomerService } from '@/modules/clothing/operations/customers/services/CustomerService';
 
 // ============================================================================
 // EDIT CUSTOMER MODAL
@@ -41,6 +42,8 @@ export function EditCustomerModal({
   onSave,
   setEditForm,
 }: EditCustomerModalProps) {
+  const statusOptions = CustomerService.getStatusOptions();
+
   return (
     <Modal
       opened={opened}
@@ -193,12 +196,10 @@ export function EditCustomerModal({
                   },
                 },
               }}
-              data={[
-                { label: '✅ Active', value: 'Active' },
-                { label: '⏸️ Inactive', value: 'Inactive' },
-                { label: '🎯 Prospect', value: 'Prospect' },
-                { label: '⭐ VIP', value: 'VIP' },
-              ]}
+              data={statusOptions.map((option) => ({
+                label: option.label,
+                value: option.value,
+              }))}
               allowDeselect
               clearable
               value={editForm['Customer Status'] || ''}
