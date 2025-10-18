@@ -82,10 +82,14 @@ export default function LeaveTracker() {
     handleEditRequest,
     handleDeleteRequest,
     handleSaveRequest,
+    handleClearForm,
     handleApprove,
     handleReject,
     handleImportCSV,
     handleExportCSV,
+
+    // Form helpers
+    isClearDisabled,
   } = useLeaveTracker();
 
   return (
@@ -167,6 +171,8 @@ export default function LeaveTracker() {
         formNotes={formNotes}
         setFormNotes={setFormNotes}
         onSave={handleSaveRequest}
+        onClear={handleClearForm}
+        isClearDisabled={isClearDisabled}
         calculateDays={calculateDays}
       />
     </PageLayout>

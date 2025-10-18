@@ -44,6 +44,16 @@ export function useLeaveTracker() {
   const [employeeOptions, setEmployeeOptions] = useState<EmployeeOption[]>([]);
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
 
+  const resetFormFields = () => {
+    setFormEmployeeName('');
+    setFormEmployeeId('');
+    setFormLeaveType('');
+    setFormStartDate('');
+    setFormEndDate('');
+    setFormReason('');
+    setFormNotes('');
+  };
+
   // ============================================================================
   // DATA FETCHING
   // ============================================================================
@@ -324,13 +334,7 @@ export function useLeaveTracker() {
 
   const handleAddRequest = () => {
     setEditingRequest(null);
-    setFormEmployeeName('');
-    setFormEmployeeId('');
-    setFormLeaveType('');
-    setFormStartDate('');
-    setFormEndDate('');
-    setFormReason('');
-    setFormNotes('');
+    resetFormFields();
     setIsModalOpen(true);
   };
 
@@ -456,6 +460,7 @@ export function useLeaveTracker() {
             const data = await fetchResponse.json();
             setLeaveRequests(data);
           }
+          resetFormFields();
         } else {
           const error = await response.json();
           alert(
@@ -472,6 +477,32 @@ export function useLeaveTracker() {
     }
   };
 
+  const isClearDisabled = useMemo(() => {
+    return (
+      !formEmployeeName &&
+      !formEmployeeId &&
+      !formLeaveType &&
+      !formStartDate &&
+      !formEndDate &&
+      !formReason &&
+      !formNotes
+    );
+  }, [
+    formEmployeeName,
+    formEmployeeId,
+    formLeaveType,
+    formStartDate,
+    formEndDate,
+    formReason,
+    formNotes,
+  ]);
+
+  const handleClearForm = () => {
+    if (isClearDisabled) {
+      return;
+    }
+    resetFormFields();
+  };
   const handleApprove = async (id: string) => {
     try {
       const response = await fetch('/api/leave-requests', {
@@ -837,9 +868,13 @@ export function useLeaveTracker() {
     handleEditRequest,
     handleDeleteRequest,
     handleSaveRequest,
+    handleClearForm,
     handleApprove,
     handleReject,
     handleImportCSV,
     handleExportCSV,
+
+    // Form helpers
+    isClearDisabled,
   };
 }
