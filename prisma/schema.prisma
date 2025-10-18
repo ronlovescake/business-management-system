@@ -329,3 +329,38 @@ model Employee {
   @@index([deletedAt])
   @@map("employees")
 }
+
+// ============================================================================
+// LEAVE TRACKER MODULE
+// ============================================================================
+
+model LeaveRequest {
+  id           Int      @id @default(autoincrement())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Employee Information
+  employeeId   String   @db.VarChar(50)
+  employeeName String   @db.VarChar(255)
+
+  // Leave Details
+  leaveType    String   @db.VarChar(50) // 'Sick Leave' | 'Vacation Leave' | 'Emergency Leave' | 'Maternity Leave' | 'Paternity Leave' | 'Bereavement Leave' | 'Other'
+  startDate    String   @db.VarChar(50)
+  endDate      String   @db.VarChar(50)
+  numberOfDays Int
+  reason       String   @db.Text
+
+  // Status & Approval
+  status       String   @db.VarChar(20) // 'pending' | 'approved' | 'rejected'
+  appliedDate  String   @db.VarChar(50)
+  approvedBy   String?  @db.VarChar(255)
+  notes        String?  @db.Text
+
+  @@index([employeeId])
+  @@index([employeeName])
+  @@index([leaveType])
+  @@index([status])
+  @@index([startDate])
+  @@index([appliedDate])
+  @@map("leave_requests")
+}

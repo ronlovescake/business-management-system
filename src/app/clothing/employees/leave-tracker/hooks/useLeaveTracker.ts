@@ -1,8 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { LeaveRequest, LeaveStatus, LeaveType } from '../types';
-
-const generateId = () =>
-  `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 /**
  * Custom Hook: useLeaveTracker
@@ -19,6 +16,7 @@ export function useLeaveTracker() {
   // ============================================================================
 
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterLeaveType, setFilterLeaveType] = useState<string | null>(null);
@@ -38,6 +36,32 @@ export function useLeaveTracker() {
   const [formEndDate, setFormEndDate] = useState('');
   const [formReason, setFormReason] = useState('');
   const [formNotes, setFormNotes] = useState('');
+
+  // ============================================================================
+  // DATA FETCHING
+  // ============================================================================
+
+  // Fetch leave requests from database on mount
+  useEffect(() => {
+    const fetchLeaveRequests = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch('/api/leave-requests');
+        if (response.ok) {
+          const data = await response.json();
+          setLeaveRequests(data);
+        } else {
+          console.error('Failed to fetch leave requests:', response.statusText);
+        }
+      } catch (error) {
+        console.error('Error fetching leave requests:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchLeaveRequests();
+  }, []);
 
   // ============================================================================
   // COMPUTED VALUES
@@ -260,13 +284,29 @@ export function useLeaveTracker() {
     setIsModalOpen(true);
   };
 
-  const handleDeleteRequest = (id: string) => {
+  const handleDeleteRequest = async (id: string) => {
     if (confirm('Are you sure you want to delete this leave request?')) {
-      setLeaveRequests((prev) => prev.filter((req) => req.id !== id));
+      try {
+        const response = await fetch(`/api/leave-requests/${id}`, {
+          method: 'DELETE',
+        });
+
+        if (response.ok) {
+          setLeaveRequests((prev) => prev.filter((req) => req.id !== id));
+        } else {
+          const error = await response.json();
+          alert(
+            `Failed to delete leave request: ${error.error || 'Unknown error'}`
+          );
+        }
+      } catch (error) {
+        console.error('Error deleting leave request:', error);
+        alert('Failed to delete leave request. Please try again.');
+      }
     }
   };
 
-  const handleSaveRequest = () => {
+  const handleSaveRequest = async () => {
     if (
       !formEmployeeName ||
       !formEmployeeId ||
@@ -281,67 +321,158 @@ export function useLeaveTracker() {
 
     const numberOfDays = calculateDays(formStartDate, formEndDate);
 
-    if (editingRequest) {
-      // Update existing request
-      setLeaveRequests((prev) =>
-        prev.map((req) =>
-          req.id === editingRequest.id
-            ? {
-                ...req,
-                employeeName: formEmployeeName,
-                employeeId: formEmployeeId,
-                leaveType: formLeaveType as LeaveType,
-                startDate: formStartDate,
-                endDate: formEndDate,
-                numberOfDays,
-                reason: formReason,
-                notes: formNotes,
-              }
-            : req
-        )
-      );
-    } else {
-      // Add new request
-      const newRequest: LeaveRequest = {
-        id: generateId(),
-        employeeId: formEmployeeId,
-        employeeName: formEmployeeName,
-        leaveType: formLeaveType as LeaveType,
-        startDate: formStartDate,
-        endDate: formEndDate,
-        numberOfDays,
-        reason: formReason,
-        status: 'pending',
-        appliedDate: new Date().toISOString().split('T')[0],
-        notes: formNotes,
-      };
+    try {
+      if (editingRequest) {
+        // Update existing request
+        const response = await fetch('/api/leave-requests', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: editingRequest.id,
+            employeeName: formEmployeeName,
+            employeeId: formEmployeeId,
+            leaveType: formLeaveType,
+            startDate: formStartDate,
+            endDate: formEndDate,
+            numberOfDays,
+            reason: formReason,
+            notes: formNotes || null,
+          }),
+        });
 
-      setLeaveRequests((prev) => [...prev, newRequest]);
+        if (response.ok) {
+          // Update local state
+          setLeaveRequests((prev) =>
+            prev.map((req) =>
+              req.id === editingRequest.id
+                ? {
+                    ...req,
+                    employeeName: formEmployeeName,
+                    employeeId: formEmployeeId,
+                    leaveType: formLeaveType as LeaveType,
+                    startDate: formStartDate,
+                    endDate: formEndDate,
+                    numberOfDays,
+                    reason: formReason,
+                    notes: formNotes,
+                  }
+                : req
+            )
+          );
+        } else {
+          const error = await response.json();
+          alert(
+            `Failed to update leave request: ${error.error || 'Unknown error'}`
+          );
+          return;
+        }
+      } else {
+        // Add new request
+        const newRequest = {
+          employeeId: formEmployeeId,
+          employeeName: formEmployeeName,
+          leaveType: formLeaveType,
+          startDate: formStartDate,
+          endDate: formEndDate,
+          numberOfDays,
+          reason: formReason,
+          status: 'pending' as LeaveStatus,
+          appliedDate: new Date().toISOString().split('T')[0],
+          notes: formNotes || null,
+        };
+
+        const response = await fetch('/api/leave-requests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newRequest),
+        });
+
+        if (response.ok) {
+          // Refresh data from server
+          const fetchResponse = await fetch('/api/leave-requests');
+          if (fetchResponse.ok) {
+            const data = await fetchResponse.json();
+            setLeaveRequests(data);
+          }
+        } else {
+          const error = await response.json();
+          alert(
+            `Failed to create leave request: ${error.error || 'Unknown error'}`
+          );
+          return;
+        }
+      }
+
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error saving leave request:', error);
+      alert('Failed to save leave request. Please try again.');
     }
-
-    setIsModalOpen(false);
   };
 
-  const handleApprove = (id: string) => {
-    setLeaveRequests((prev) =>
-      prev.map((req) =>
-        req.id === id
-          ? {
-              ...req,
-              status: 'approved' as LeaveStatus,
-              approvedBy: 'System Admin', // This should come from auth context
-            }
-          : req
-      )
-    );
+  const handleApprove = async (id: string) => {
+    try {
+      const response = await fetch('/api/leave-requests', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id,
+          status: 'approved',
+          approvedBy: 'System Admin', // This should come from auth context
+        }),
+      });
+
+      if (response.ok) {
+        setLeaveRequests((prev) =>
+          prev.map((req) =>
+            req.id === id
+              ? {
+                  ...req,
+                  status: 'approved' as LeaveStatus,
+                  approvedBy: 'System Admin',
+                }
+              : req
+          )
+        );
+      } else {
+        const error = await response.json();
+        alert(
+          `Failed to approve leave request: ${error.error || 'Unknown error'}`
+        );
+      }
+    } catch (error) {
+      console.error('Error approving leave request:', error);
+      alert('Failed to approve leave request. Please try again.');
+    }
   };
 
-  const handleReject = (id: string) => {
-    setLeaveRequests((prev) =>
-      prev.map((req) =>
-        req.id === id ? { ...req, status: 'rejected' as LeaveStatus } : req
-      )
-    );
+  const handleReject = async (id: string) => {
+    try {
+      const response = await fetch('/api/leave-requests', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id,
+          status: 'rejected',
+        }),
+      });
+
+      if (response.ok) {
+        setLeaveRequests((prev) =>
+          prev.map((req) =>
+            req.id === id ? { ...req, status: 'rejected' as LeaveStatus } : req
+          )
+        );
+      } else {
+        const error = await response.json();
+        alert(
+          `Failed to reject leave request: ${error.error || 'Unknown error'}`
+        );
+      }
+    } catch (error) {
+      console.error('Error rejecting leave request:', error);
+      alert('Failed to reject leave request. Please try again.');
+    }
   };
 
   const handleImportCSV = (file: File | null) => {
@@ -352,7 +483,7 @@ export function useLeaveTracker() {
     setIsImporting(true);
     const reader = new FileReader();
 
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const text = e.target?.result as string;
         const lines = text.split('\n').filter((line) => line.trim());
@@ -410,7 +541,7 @@ export function useLeaveTracker() {
           return;
         }
 
-        const importedRequests: LeaveRequest[] = [];
+        const importedRequests: Omit<LeaveRequest, 'id'>[] = [];
         let successCount = 0;
         const errors: string[] = [];
 
@@ -456,8 +587,7 @@ export function useLeaveTracker() {
               ? status
               : 'pending';
 
-            const newRequest: LeaveRequest = {
-              id: generateId(),
+            const newRequest = {
               employeeId: row.employeeid,
               employeeName: row.employeename,
               leaveType: row.leavetype as LeaveType,
@@ -480,8 +610,25 @@ export function useLeaveTracker() {
         }
 
         if (importedRequests.length > 0) {
-          setLeaveRequests((prev) => [...prev, ...importedRequests]);
-          alert(`Successfully imported ${successCount} leave requests`);
+          // Send to API
+          const response = await fetch('/api/leave-requests', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(importedRequests),
+          });
+
+          if (response.ok) {
+            // Refresh data from server
+            const fetchResponse = await fetch('/api/leave-requests');
+            if (fetchResponse.ok) {
+              const data = await fetchResponse.json();
+              setLeaveRequests(data);
+            }
+            alert(`Successfully imported ${successCount} leave requests`);
+          } else {
+            const error = await response.json();
+            alert(`Failed to import: ${error.error || 'Unknown error'}`);
+          }
         }
 
         if (errors.length > 0 && errors.length <= 10) {
@@ -588,6 +735,7 @@ export function useLeaveTracker() {
     activeTab,
     setActiveTab,
     isImporting,
+    isLoading,
 
     // Form state
     formEmployeeName,
