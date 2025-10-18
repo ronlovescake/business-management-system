@@ -99,7 +99,7 @@ export function LeaveFormDialog({
   const baseLabelStyles = useMemo(
     () => ({
       fontWeight: 600,
-      fontSize: '0.85rem',
+      fontSize: '1rem',
       color: '#475467',
       marginBottom: 6,
     }),
@@ -112,7 +112,7 @@ export function LeaveFormDialog({
       border: '1px solid #e5e7ed',
       borderRadius: 12,
       padding: '0.65rem 0.95rem',
-      fontSize: '0.95rem',
+      fontSize: '1.05rem',
       color: '#1f2937',
       transition: 'border-color 120ms ease, box-shadow 120ms ease',
       minHeight: 48,
@@ -137,8 +137,6 @@ export function LeaveFormDialog({
       label: baseLabelStyles,
       input: {
         ...baseInputStyles,
-        backgroundColor: '#eef1f5',
-        color: '#667085',
       },
     }),
     [baseInputStyles, baseLabelStyles]
@@ -210,7 +208,7 @@ export function LeaveFormDialog({
       padding="xl"
       radius="xl"
       centered
-      overlayProps={{ color: '#0f172a', opacity: 0.18, blur: 6 }}
+      overlayProps={{ color: '#0b1120', opacity: 0.8, blur: 9 }}
       styles={{
         content: {
           borderRadius: '28px',
