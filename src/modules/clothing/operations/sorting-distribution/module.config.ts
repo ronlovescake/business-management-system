@@ -21,6 +21,8 @@ export const sortingDistributionModule: ModuleConfig = {
         stroke?: number;
       }>,
       order: 5, // After Dashboard (1), Customers (2), Prices (3), Products (4)
+      business: ['clothing'],
+      workspace: ['operations'],
     },
   ],
 };

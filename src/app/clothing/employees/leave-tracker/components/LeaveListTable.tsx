@@ -156,6 +156,7 @@ export function LeaveListTable({
           {filteredRequests.reduce((sum, req) => sum + req.numberOfDays, 0)}
         </Text>
       }
+      onRowDoubleClick={onEdit}
     />
   );
 }

@@ -20,3 +20,23 @@ export interface AttendanceRecord {
   details?: string;
   notes?: string;
 }
+
+export interface AttendanceFormValues {
+  employeeId: string;
+  employeeName: string;
+  department: string;
+  position: string;
+  date: string;
+  timeIn: string;
+  timeOut: string;
+  break1Start: string;
+  break1End: string;
+  lunchStart: string;
+  lunchEnd: string;
+  break2Start: string;
+  break2End: string;
+  totalHours: string;
+  status: AttendanceStatus;
+  details: string;
+  notes: string;
+}

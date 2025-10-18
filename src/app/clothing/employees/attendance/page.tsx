@@ -25,6 +25,7 @@ import type {
 } from '@/components/shared/PageTemplates';
 import { useAttendance } from './hooks/useAttendance';
 import type { AttendanceRecord } from './types';
+import { AttendanceFormDialog } from './components/AttendanceFormDialog';
 
 export default function Attendance() {
   const {
@@ -45,6 +46,11 @@ export default function Attendance() {
     handleDeleteRecord,
     handleMarkStatus,
     handleAddRecord,
+    handleCloseRecordModal,
+    handleSaveRecord,
+    updateRecordForm,
+    recordForm,
+    isRecordModalOpen,
     handleImportCSV,
     handleExportCSV,
   } = useAttendance();
@@ -253,6 +259,14 @@ export default function Attendance() {
               Average Hours: {formatHours(averageHours)}
             </Text>
           }
+        />
+
+        <AttendanceFormDialog
+          opened={isRecordModalOpen}
+          onClose={handleCloseRecordModal}
+          formValues={recordForm}
+          onChange={updateRecordForm}
+          onSubmit={handleSaveRecord}
         />
       </Stack>
     </PageLayout>

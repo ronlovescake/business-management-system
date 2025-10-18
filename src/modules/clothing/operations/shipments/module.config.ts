@@ -22,6 +22,8 @@ export const shipmentsModule: ModuleConfig = {
         stroke?: number;
       }>,
       order: 6, // After Products (4), Sorting Distribution (5)
+      business: ['clothing'],
+      workspace: ['operations'],
     },
   ],
 };

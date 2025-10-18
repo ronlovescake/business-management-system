@@ -1,5 +1,10 @@
 import { useMemo, useState } from 'react';
-import type { AttendanceRecord, AttendanceStatus } from '../types';
+import { notifications } from '@mantine/notifications';
+import type {
+  AttendanceRecord,
+  AttendanceStatus,
+  AttendanceFormValues,
+} from '../types';
 
 const formatTime = (time: string) => {
   // Handle empty or invalid time strings
@@ -37,8 +42,59 @@ const formatTime = (time: string) => {
 const generateId = () =>
   `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
+const calculateTotalHours = (timeIn: string, timeOut: string) => {
+  if (!timeIn || !timeOut) {
+    return null;
+  }
+
+  const [inHours, inMinutes] = timeIn.split(':').map(Number);
+  const [outHours, outMinutes] = timeOut.split(':').map(Number);
+
+  if (
+    [inHours, inMinutes, outHours, outMinutes].some((value) =>
+      Number.isNaN(value)
+    )
+  ) {
+    return null;
+  }
+
+  const start = inHours * 60 + inMinutes;
+  const end = outHours * 60 + outMinutes;
+  const diff = end - start;
+
+  if (diff <= 0) {
+    return null;
+  }
+
+  return diff / 60;
+};
+
+const createEmptyFormValues = (): AttendanceFormValues => ({
+  employeeId: '',
+  employeeName: '',
+  department: '',
+  position: '',
+  date: new Date().toISOString().split('T')[0],
+  timeIn: '',
+  timeOut: '',
+  break1Start: '',
+  break1End: '',
+  lunchStart: '',
+  lunchEnd: '',
+  break2Start: '',
+  break2End: '',
+  totalHours: '',
+  status: 'present',
+  details: '',
+  notes: '',
+});
+
 export function useAttendance() {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
+  const [recordForm, setRecordForm] = useState<AttendanceFormValues>(
+    createEmptyFormValues()
+  );
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | AttendanceStatus>(
@@ -154,10 +210,102 @@ export function useAttendance() {
     );
   };
 
+  const updateRecordForm = <K extends keyof AttendanceFormValues>(
+    field: K,
+    value: AttendanceFormValues[K]
+  ) => {
+    setRecordForm((prev) => {
+      const next = {
+        ...prev,
+        [field]: value,
+      } as AttendanceFormValues;
+
+      if (field === 'timeIn' || field === 'timeOut') {
+        if (next.timeIn && next.timeOut) {
+          const computed = calculateTotalHours(next.timeIn, next.timeOut);
+          next.totalHours = computed ? computed.toFixed(2) : '';
+        } else {
+          next.totalHours = '';
+        }
+      }
+
+      return next;
+    });
+  };
+
   const handleAddRecord = () => {
-    // This will be used to open a dialog to add a new record
-    // For now, we'll just show an alert
-    alert('Add attendance record dialog will be implemented soon');
+    setRecordForm(createEmptyFormValues());
+    setIsRecordModalOpen(true);
+  };
+
+  const handleCloseRecordModal = () => {
+    setIsRecordModalOpen(false);
+  };
+
+  const handleSaveRecord = () => {
+    const trimmedName = recordForm.employeeName.trim();
+    const trimmedId = recordForm.employeeId.trim();
+
+    if (!trimmedName || !trimmedId || !recordForm.date) {
+      notifications.show({
+        color: 'red',
+        title: 'Incomplete details',
+        message: 'Employee name, employee ID, and date are required.',
+      });
+      return;
+    }
+
+    const computedFromTimes = calculateTotalHours(
+      recordForm.timeIn,
+      recordForm.timeOut
+    );
+
+    const parsedTotalHours = recordForm.totalHours
+      ? parseFloat(recordForm.totalHours)
+      : 0;
+
+    const totalHours = computedFromTimes
+      ? parseFloat(computedFromTimes.toFixed(2))
+      : Number.isNaN(parsedTotalHours)
+        ? 0
+        : parsedTotalHours;
+
+    const newRecord: AttendanceRecord = {
+      id: generateId(),
+      employeeId: trimmedId,
+      employeeName: trimmedName,
+      department: recordForm.department.trim() || 'N/A',
+      position: recordForm.position.trim() || 'N/A',
+      date: recordForm.date,
+      timeIn: recordForm.timeIn || '00:00',
+      timeOut: recordForm.timeOut || '00:00',
+      break1Start: recordForm.break1Start || undefined,
+      break1End: recordForm.break1End || undefined,
+      lunchStart: recordForm.lunchStart || undefined,
+      lunchEnd: recordForm.lunchEnd || undefined,
+      break2Start: recordForm.break2Start || undefined,
+      break2End: recordForm.break2End || undefined,
+      totalHours,
+      status: recordForm.status,
+      details: recordForm.details.trim() || '',
+      notes: recordForm.notes.trim() || undefined,
+    };
+
+    setRecords((prev) => [...prev, newRecord]);
+    setRecordForm(createEmptyFormValues());
+    setIsRecordModalOpen(false);
+
+    const statusLabel =
+      recordForm.status === 'on-leave'
+        ? 'On Leave'
+        : recordForm.status.charAt(0).toUpperCase() +
+          recordForm.status.slice(1);
+
+    notifications.show({
+      color: 'green',
+      title: 'Attendance recorded',
+      message: `${trimmedName} marked as ${statusLabel}.`,
+    });
   };
 
   const handleImportCSV = (file: File | null) => {
@@ -389,6 +537,8 @@ export function useAttendance() {
     filteredRecords,
     searchQuery,
     statusFilter,
+    isRecordModalOpen,
+    recordForm,
 
     // Computed values
     totalRecords,
@@ -414,7 +564,10 @@ export function useAttendance() {
     handleDeleteRecord,
     handleMarkStatus,
     handleAddRecord,
+    handleCloseRecordModal,
+    handleSaveRecord,
     handleImportCSV,
     handleExportCSV,
+    updateRecordForm,
   };
 }
