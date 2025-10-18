@@ -505,8 +505,12 @@ export function TransactionsPage() {
       <CustomerWarningModal
         opened={showCustomerWarningModal}
         onClose={() => {
-          setShowCustomerWarningModal(false);
-          setCustomerWarningData(null);
+          if (customerWarningData?.onCancel) {
+            customerWarningData.onCancel();
+          } else {
+            setShowCustomerWarningModal(false);
+            setCustomerWarningData(null);
+          }
         }}
         data={customerWarningData}
       />
