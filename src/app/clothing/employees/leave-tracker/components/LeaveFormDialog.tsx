@@ -175,9 +175,9 @@ export function LeaveFormDialog({
   const primaryButtonStyles = useMemo(
     () => ({
       root: {
-        backgroundColor: '#4caf50',
+        backgroundColor: '#65ab58',
         color: '#ffffff',
-        borderColor: '#4caf50',
+        borderColor: '#65ab58',
         '&:hover': {
           backgroundColor: '#4f8a45',
         },
@@ -208,7 +208,7 @@ export function LeaveFormDialog({
       padding="xl"
       radius="xl"
       centered
-      overlayProps={{ color: '#0b1120', opacity: 0.8, blur: 9 }}
+      overlayProps={{ color: '#0b1120', opacity: 0.3, blur: 6 }}
       styles={{
         content: {
           borderRadius: '28px',
