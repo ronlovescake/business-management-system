@@ -110,6 +110,38 @@ export function LeaveFormDialog({
   const reasonField = getTextareaProps('reason');
   const notesField = getTextareaProps('notes');
 
+  const startDateStyles = {
+    ...startDateField.styles,
+    input: {
+      ...startDateField.styles.input,
+      '&:required:invalid::-webkit-datetime-edit': {
+        color: 'transparent',
+      },
+      '&:focus::-webkit-datetime-edit': {
+        color: '#1f2937',
+      },
+      '&:required:invalid:focus::-webkit-datetime-edit': {
+        color: '#1f2937',
+      },
+    },
+  };
+
+  const endDateStyles = {
+    ...endDateField.styles,
+    input: {
+      ...endDateField.styles.input,
+      '&:required:invalid::-webkit-datetime-edit': {
+        color: 'transparent',
+      },
+      '&:focus::-webkit-datetime-edit': {
+        color: '#1f2937',
+      },
+      '&:required:invalid:focus::-webkit-datetime-edit': {
+        color: '#1f2937',
+      },
+    },
+  };
+
   const isSubmitDisabled =
     !formEmployeeId ||
     !formEmployeeName ||
@@ -128,7 +160,6 @@ export function LeaveFormDialog({
       <Stack gap="lg">
         <Select
           label="Employee Name"
-          placeholder="Select employee"
           required
           searchable
           clearable
@@ -147,7 +178,6 @@ export function LeaveFormDialog({
 
         <TextInput
           label="Employee ID"
-          placeholder="Auto-populated"
           required
           value={formEmployeeId}
           readOnly
@@ -156,7 +186,6 @@ export function LeaveFormDialog({
 
         <Select
           label="Leave Type"
-          placeholder="Select leave type"
           required
           data={leaveTypes}
           value={formLeaveType}
@@ -173,7 +202,7 @@ export function LeaveFormDialog({
             value={formStartDate}
             onChange={(e) => setFormStartDate(e.target.value)}
             {...startDateField.handlers}
-            styles={startDateField.styles}
+            styles={startDateStyles}
           />
 
           <TextInput
@@ -183,7 +212,7 @@ export function LeaveFormDialog({
             value={formEndDate}
             onChange={(e) => setFormEndDate(e.target.value)}
             {...endDateField.handlers}
-            styles={endDateField.styles}
+            styles={endDateStyles}
           />
         </Group>
 
@@ -198,7 +227,6 @@ export function LeaveFormDialog({
 
         <Textarea
           label="Reason"
-          placeholder="Enter reason for leave"
           required
           minRows={3}
           value={formReason}
@@ -209,7 +237,6 @@ export function LeaveFormDialog({
 
         <Textarea
           label="Notes"
-          placeholder="Additional notes (optional)"
           minRows={2}
           value={formNotes}
           onChange={(e) => setFormNotes(e.target.value)}

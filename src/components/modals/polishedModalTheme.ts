@@ -48,6 +48,21 @@ export const polishedInputBaseStyles = {
   color: '#1f2937',
   transition: 'border-color 120ms ease, box-shadow 120ms ease',
   minHeight: 48,
+  '&::placeholder': {
+    color: 'transparent',
+  },
+  '&::-webkit-input-placeholder': {
+    color: 'transparent',
+  },
+  '&::-moz-placeholder': {
+    color: 'transparent',
+  },
+  '&:-ms-input-placeholder': {
+    color: 'transparent',
+  },
+  '&:-moz-placeholder': {
+    color: 'transparent',
+  },
 };
 
 export const polishedFocusRingStyles = {

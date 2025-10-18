@@ -10,6 +10,7 @@
 
 import {
   Stack,
+  Text,
   TextInput,
   NumberInput,
   Select,
@@ -19,7 +20,9 @@ import {
   Group,
 } from '@mantine/core';
 import { IconReceipt } from '@tabler/icons-react';
-import { ComposedDialog } from '@/components/shared/Dialog';
+import { PolishedModal } from '@/components/modals/PolishedModal';
+import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
+import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 
 interface Expense {
   id: string;
@@ -83,209 +86,146 @@ export function ExpenseFormDialog({
   // Validation
   const isValid = formDate && formAmount && formDescription && formCategory;
 
+  const { getFieldProps, getTextareaProps, getSelectProps } =
+    usePolishedFieldStyles(opened);
+
+  const dateField = getFieldProps('date');
+  const categorySelect = getSelectProps('category');
+  const amountField = getFieldProps('amount');
+  const tripIdField = getFieldProps('tripId');
+  const descriptionField = getFieldProps('description');
+  const notesField = getTextareaProps('notes');
+
+  const modalTitle = (
+    <Group gap="sm" align="center">
+      <IconReceipt size={26} color="#65ab58" />
+      <Stack gap={2}>
+        <Text fw={700} fz="lg" c="#101828">
+          {editingExpense ? 'Edit Expense' : 'Add New Expense'}
+        </Text>
+        <Text fz="sm" c="#667085">
+          {editingExpense
+            ? 'Update the expense details below'
+            : 'Fill in the details to add a new expense'}
+        </Text>
+      </Stack>
+    </Group>
+  );
+
   return (
-    <ComposedDialog
+    <PolishedModal
       opened={opened}
       onClose={onClose}
+      title={modalTitle}
       size="lg"
-      header={{
-        title: editingExpense ? 'Edit Expense' : 'Add New Expense',
-        subtitle: editingExpense
-          ? 'Update the expense details below'
-          : 'Fill in the details to add a new expense',
-        icon: <IconReceipt size={24} />,
-        iconColor: '#85bd3a',
-      }}
-      body={{
-        padding: 'md',
-        maxHeight: '65vh', // Scrollable if content is long
-      }}
-      footer={{
-        layout: 'flex-end',
-        secondaryButton: {
-          label: 'Cancel',
-          onClick: onClose,
-          variant: 'default',
-        },
-        primaryButton: {
-          label: editingExpense ? 'Update Expense' : 'Add Expense',
-          onClick: onSave,
-          disabled: !isValid,
-          color: '#85bd3a',
-        },
-      }}
     >
-      <Stack gap="md">
-        {/* Date and Category Row */}
-        <Group grow align="flex-start">
+      <div style={{ maxHeight: '65vh', overflowY: 'auto' }}>
+        <Stack gap="lg">
+          <Group grow align="flex-start">
+            <TextInput
+              label="Date"
+              placeholder="MM/DD/YYYY"
+              type="date"
+              value={formDate}
+              onChange={(e) => setFormDate(e.target.value)}
+              required
+              {...dateField.handlers}
+              styles={dateField.styles}
+            />
+            <Select
+              label="Category"
+              placeholder="Select category"
+              data={categories}
+              value={formCategory}
+              onChange={(value) => setFormCategory(value || '')}
+              required
+              searchable
+              {...categorySelect.handlers}
+              styles={categorySelect.styles}
+              withCheckIcon={false}
+              comboboxProps={{ withinPortal: true, zIndex: 500 }}
+            />
+          </Group>
+
+          <Group grow align="flex-start">
+            <NumberInput
+              label="Amount"
+              placeholder="0"
+              prefix="₱ "
+              decimalScale={2}
+              value={formAmount}
+              onChange={(value) =>
+                setFormAmount(typeof value === 'number' ? value : '')
+              }
+              required
+              min={0}
+              {...amountField.handlers}
+              styles={amountField.styles}
+            />
+            <TextInput
+              label="Trip ID (Optional)"
+              placeholder="e.g., TRP-001"
+              value={formTripId}
+              onChange={(e) => setFormTripId(e.target.value)}
+              {...tripIdField.handlers}
+              styles={tripIdField.styles}
+            />
+          </Group>
+
           <TextInput
-            label="Date"
-            placeholder="MM/DD/YYYY"
-            type="date"
-            value={formDate}
-            onChange={(e) => setFormDate(e.target.value)}
+            label="Description"
+            placeholder="Brief description of the expense"
+            value={formDescription}
+            onChange={(e) => setFormDescription(e.target.value)}
             required
-            radius="md"
-            size="md"
-            styles={{
-              label: {
-                fontWeight: 500,
-                fontSize: '0.875rem',
-                marginBottom: '0.5rem',
-              },
-              input: {
-                borderColor: '#d0d7de',
-                '&:focus': {
-                  borderColor: '#2188ff',
-                },
-              },
-            }}
+            {...descriptionField.handlers}
+            styles={descriptionField.styles}
           />
-          <Select
-            label="Category"
-            placeholder="Select category"
-            data={categories}
-            value={formCategory}
-            onChange={(value) => setFormCategory(value || '')}
-            required
-            searchable
-            radius="md"
-            size="md"
-            styles={{
-              label: {
-                fontWeight: 500,
-                fontSize: '0.875rem',
-                marginBottom: '0.5rem',
-              },
-              input: {
-                borderColor: '#d0d7de',
-                '&:focus': {
-                  borderColor: '#2188ff',
-                },
-              },
-            }}
+
+          <Textarea
+            label="Notes (Optional)"
+            placeholder="Additional details or notes"
+            value={formNotes}
+            onChange={(e) => setFormNotes(e.target.value)}
+            minRows={3}
+            {...notesField.handlers}
+            styles={notesField.styles}
           />
-        </Group>
 
-        {/* Amount and Trip ID Row */}
-        <Group grow align="flex-start">
-          <NumberInput
-            label="Amount"
-            placeholder="0"
-            prefix="₱ "
-            decimalScale={2}
-            value={formAmount}
-            onChange={(value) =>
-              setFormAmount(typeof value === 'number' ? value : '')
-            }
-            required
-            min={0}
-            radius="md"
-            size="md"
-            styles={{
-              label: {
-                fontWeight: 500,
-                fontSize: '0.875rem',
-                marginBottom: '0.5rem',
-              },
-              input: {
-                borderColor: '#d0d7de',
-                '&:focus': {
-                  borderColor: '#2188ff',
-                },
-              },
-            }}
-          />
-          <TextInput
-            label="Trip ID (Optional)"
-            placeholder="e.g., TRP-001"
-            value={formTripId}
-            onChange={(e) => setFormTripId(e.target.value)}
-            radius="md"
-            size="md"
-            styles={{
-              label: {
-                fontWeight: 500,
-                fontSize: '0.875rem',
-                marginBottom: '0.5rem',
-              },
-              input: {
-                borderColor: '#d0d7de',
-                '&:focus': {
-                  borderColor: '#2188ff',
-                },
-              },
-            }}
-          />
-        </Group>
+          <FileButton
+            onChange={setFormReceipt}
+            accept="image/*,application/pdf"
+          >
+            {(props) => (
+              <Button
+                {...props}
+                fullWidth
+                leftSection={<IconReceipt size={16} />}
+                radius="md"
+                styles={polishedPrimaryButtonStyles}
+              >
+                {formReceipt
+                  ? `Selected: ${formReceipt.name}`
+                  : 'Click to upload receipt (Optional)'}
+              </Button>
+            )}
+          </FileButton>
 
-        {/* Description */}
-        <TextInput
-          label="Description"
-          placeholder="Brief description of the expense"
-          value={formDescription}
-          onChange={(e) => setFormDescription(e.target.value)}
-          required
-          radius="md"
-          size="md"
-          styles={{
-            label: {
-              fontWeight: 500,
-              fontSize: '0.875rem',
-              marginBottom: '0.5rem',
-            },
-            input: {
-              borderColor: '#d0d7de',
-              '&:focus': {
-                borderColor: '#2188ff',
-              },
-            },
-          }}
-        />
-
-        {/* Notes */}
-        <Textarea
-          label="Notes (Optional)"
-          placeholder="Additional details or notes"
-          value={formNotes}
-          onChange={(e) => setFormNotes(e.target.value)}
-          minRows={3}
-          radius="md"
-          size="md"
-          styles={{
-            label: {
-              fontWeight: 500,
-              fontSize: '0.875rem',
-              marginBottom: '0.5rem',
-            },
-            input: {
-              borderColor: '#d0d7de',
-              '&:focus': {
-                borderColor: '#2188ff',
-              },
-            },
-          }}
-        />
-
-        {/* Receipt Upload */}
-        <FileButton onChange={setFormReceipt} accept="image/*,application/pdf">
-          {(props) => (
-            <Button
-              {...props}
-              variant="light"
-              color="#85bd3a"
-              fullWidth
-              leftSection={<IconReceipt size={16} />}
-              radius="md"
-              size="md"
-            >
-              {formReceipt
-                ? `Selected: ${formReceipt.name}`
-                : 'Click to upload receipt (Optional)'}
+          <Group justify="flex-end" gap="sm" mt="sm">
+            <Button radius="md" variant="default" onClick={onClose}>
+              Cancel
             </Button>
-          )}
-        </FileButton>
-      </Stack>
-    </ComposedDialog>
+            <Button
+              radius="md"
+              onClick={onSave}
+              disabled={!isValid}
+              styles={polishedPrimaryButtonStyles}
+            >
+              {editingExpense ? 'Update Expense' : 'Add Expense'}
+            </Button>
+          </Group>
+        </Stack>
+      </div>
+    </PolishedModal>
   );
 }
