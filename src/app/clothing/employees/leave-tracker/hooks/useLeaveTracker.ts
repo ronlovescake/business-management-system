@@ -1,6 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
 import type { LeaveRequest, LeaveStatus, LeaveType } from '../types';
 
+interface EmployeeOption {
+  value: string;
+  label: string;
+}
+
 /**
  * Custom Hook: useLeaveTracker
  *
@@ -36,6 +41,8 @@ export function useLeaveTracker() {
   const [formEndDate, setFormEndDate] = useState('');
   const [formReason, setFormReason] = useState('');
   const [formNotes, setFormNotes] = useState('');
+  const [employeeOptions, setEmployeeOptions] = useState<EmployeeOption[]>([]);
+  const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
 
   // ============================================================================
   // DATA FETCHING
@@ -61,6 +68,61 @@ export function useLeaveTracker() {
     };
 
     fetchLeaveRequests();
+  }, []);
+
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        setIsLoadingEmployees(true);
+        const response = await fetch('/api/employees');
+        if (!response.ok) {
+          console.error(
+            'Failed to fetch employees:',
+            response.status,
+            response.statusText
+          );
+          return;
+        }
+
+        const data = await response.json();
+        if (!Array.isArray(data)) {
+          setEmployeeOptions([]);
+          return;
+        }
+
+        const seen = new Set<string>();
+        const options: EmployeeOption[] = [];
+
+        data.forEach((employee) => {
+          const employeeId = String(employee?.employeeId ?? '').trim();
+          if (!employeeId || seen.has(employeeId)) {
+            return;
+          }
+
+          const nameFromRecord = String(employee?.name ?? '').trim();
+          const fallbackName =
+            `${String(employee?.firstName ?? '').trim()} ${String(employee?.lastName ?? '').trim()}`
+              .replace(/\s+/g, ' ')
+              .trim();
+          const label = (nameFromRecord || fallbackName || employeeId)
+            .replace(/\s+/g, ' ')
+            .trim();
+
+          options.push({ value: employeeId, label });
+          seen.add(employeeId);
+        });
+
+        options.sort((a, b) => a.label.localeCompare(b.label));
+        setEmployeeOptions(options);
+      } catch (error) {
+        console.error('Error fetching employees:', error);
+        setEmployeeOptions([]);
+      } finally {
+        setIsLoadingEmployees(false);
+      }
+    };
+
+    fetchEmployees();
   }, []);
 
   // ============================================================================
@@ -736,6 +798,8 @@ export function useLeaveTracker() {
     setActiveTab,
     isImporting,
     isLoading,
+    employeeOptions,
+    isLoadingEmployees,
 
     // Form state
     formEmployeeName,

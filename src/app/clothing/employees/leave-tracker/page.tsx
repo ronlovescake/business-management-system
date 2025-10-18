@@ -43,6 +43,8 @@ export default function LeaveTracker() {
     activeTab,
     setActiveTab,
     isImporting,
+    employeeOptions,
+    isLoadingEmployees,
 
     // Form state
     formEmployeeName,
@@ -148,6 +150,8 @@ export default function LeaveTracker() {
         onClose={() => setIsModalOpen(false)}
         editingRequest={editingRequest}
         leaveTypes={leaveTypes}
+        employeeOptions={employeeOptions}
+        isLoadingEmployees={isLoadingEmployees}
         formEmployeeName={formEmployeeName}
         setFormEmployeeName={setFormEmployeeName}
         formEmployeeId={formEmployeeId}

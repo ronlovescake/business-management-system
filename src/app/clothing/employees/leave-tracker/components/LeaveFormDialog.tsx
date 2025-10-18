@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Modal,
   Stack,
@@ -15,6 +15,8 @@ interface LeaveFormDialogProps {
   onClose: () => void;
   editingRequest: LeaveRequest | null;
   leaveTypes: LeaveType[];
+  employeeOptions: { value: string; label: string }[];
+  isLoadingEmployees: boolean;
   formEmployeeName: string;
   setFormEmployeeName: (value: string) => void;
   formEmployeeId: string;
@@ -38,6 +40,8 @@ export function LeaveFormDialog({
   onClose,
   editingRequest,
   leaveTypes,
+  employeeOptions,
+  isLoadingEmployees,
   formEmployeeName,
   setFormEmployeeName,
   formEmployeeId,
@@ -60,6 +64,34 @@ export function LeaveFormDialog({
       ? calculateDays(formStartDate, formEndDate)
       : 0;
 
+  const employeeSelectData = useMemo(() => {
+    if (
+      formEmployeeId &&
+      !employeeOptions.some((option) => option.value === formEmployeeId)
+    ) {
+      const fallbackLabel = formEmployeeName || formEmployeeId;
+      return [
+        ...employeeOptions,
+        { value: formEmployeeId, label: fallbackLabel },
+      ];
+    }
+    return employeeOptions;
+  }, [employeeOptions, formEmployeeId, formEmployeeName]);
+
+  const handleEmployeeSelect = (value: string | null) => {
+    if (!value) {
+      setFormEmployeeId('');
+      setFormEmployeeName('');
+      return;
+    }
+
+    const selected = employeeSelectData.find(
+      (option) => option.value === value
+    );
+    setFormEmployeeId(value);
+    setFormEmployeeName(selected ? selected.label : value);
+  };
+
   return (
     <Modal
       opened={opened}
@@ -69,20 +101,29 @@ export function LeaveFormDialog({
       centered
     >
       <Stack gap="md">
-        <TextInput
+        <Select
           label="Employee Name"
-          placeholder="Enter employee name"
+          placeholder="Select employee"
           required
-          value={formEmployeeName}
-          onChange={(e) => setFormEmployeeName(e.target.value)}
+          searchable
+          nothingFoundMessage={
+            isLoadingEmployees ? 'Loading employees...' : 'No employees found'
+          }
+          data={employeeSelectData}
+          value={formEmployeeId || null}
+          onChange={handleEmployeeSelect}
+          disabled={isLoadingEmployees && employeeSelectData.length === 0}
+          withCheckIcon={false}
+          comboboxProps={{ withinPortal: true, zIndex: 400 }}
         />
 
         <TextInput
           label="Employee ID"
-          placeholder="Enter employee ID"
+          placeholder="Auto-populated"
           required
           value={formEmployeeId}
-          onChange={(e) => setFormEmployeeId(e.target.value)}
+          readOnly
+          disabled
         />
 
         <Select
