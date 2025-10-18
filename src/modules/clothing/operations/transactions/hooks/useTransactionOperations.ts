@@ -274,6 +274,17 @@ export function useTransactionOperations(
       };
 
       // Extract cell value
+      const normalizeCellValue = (value: unknown): string => {
+        if (
+          value === null ||
+          value === undefined ||
+          (typeof value === 'string' && value.trim().toLowerCase() === 'null')
+        ) {
+          return '';
+        }
+        return String(value);
+      };
+
       const getCellValue = (val: unknown): string => {
         if (!val || typeof val !== 'object') {
           return '';
@@ -281,9 +292,9 @@ export function useTransactionOperations(
         if ('data' in val) {
           const data = (val as { data: unknown }).data;
           if (typeof data === 'object' && data !== null && 'value' in data) {
-            return String((data as { value: unknown }).value);
+            return normalizeCellValue((data as { value: unknown }).value);
           }
-          return String(data);
+          return normalizeCellValue(data);
         }
         return '';
       };
