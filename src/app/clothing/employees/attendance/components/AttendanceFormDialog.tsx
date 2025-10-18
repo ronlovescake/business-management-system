@@ -1,14 +1,18 @@
 import React from 'react';
 import {
-  Modal,
   Stack,
   Group,
+  Text,
   TextInput,
   Select,
   NumberInput,
   Textarea,
   Button,
 } from '@mantine/core';
+import { IconClipboardCheck } from '@tabler/icons-react';
+import { PolishedModal } from '@/components/modals/PolishedModal';
+import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
+import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 import type { AttendanceFormValues, AttendanceStatus } from '../types';
 
 interface AttendanceFormDialogProps {
@@ -41,54 +45,128 @@ export function AttendanceFormDialog({
     onChange('status', status);
   };
 
+  const { getFieldProps, getTextareaProps, getSelectProps } =
+    usePolishedFieldStyles(opened);
+
+  const employeeNameField = getFieldProps('employeeName');
+  const employeeIdField = getFieldProps('employeeId');
+  const departmentField = getFieldProps('department');
+  const positionField = getFieldProps('position');
+  const dateField = getFieldProps('date');
+  const timeInField = getFieldProps('timeIn');
+  const timeOutField = getFieldProps('timeOut');
+  const break1StartField = getFieldProps('break1Start');
+  const break1EndField = getFieldProps('break1End');
+  const lunchStartField = getFieldProps('lunchStart');
+  const lunchEndField = getFieldProps('lunchEnd');
+  const break2StartField = getFieldProps('break2Start');
+  const break2EndField = getFieldProps('break2End');
+  const totalHoursField = getFieldProps('totalHours');
+  const statusSelect = getSelectProps('status');
+  const detailsField = getTextareaProps('details');
+  const notesField = getTextareaProps('notes');
+
+  const buildDateStyles = (baseStyles: typeof dateField.styles) => ({
+    ...baseStyles,
+    input: {
+      ...baseStyles.input,
+      '&:required:invalid::-webkit-datetime-edit': {
+        color: 'transparent',
+      },
+      '&:focus::-webkit-datetime-edit': {
+        color: '#1f2937',
+      },
+      '&:required:invalid:focus::-webkit-datetime-edit': {
+        color: '#1f2937',
+      },
+    },
+  });
+
+  const buildTimeStyles = (baseStyles: typeof timeInField.styles) => ({
+    ...baseStyles,
+    input: {
+      ...baseStyles.input,
+      '&::-webkit-datetime-edit': {
+        color: '#1f2937',
+      },
+    },
+  });
+
+  const dateInputStyles = buildDateStyles(dateField.styles);
+  const timeInStyles = buildTimeStyles(timeInField.styles);
+  const timeOutStyles = buildTimeStyles(timeOutField.styles);
+  const break1StartStyles = buildTimeStyles(break1StartField.styles);
+  const break1EndStyles = buildTimeStyles(break1EndField.styles);
+  const lunchStartStyles = buildTimeStyles(lunchStartField.styles);
+  const lunchEndStyles = buildTimeStyles(lunchEndField.styles);
+  const break2StartStyles = buildTimeStyles(break2StartField.styles);
+  const break2EndStyles = buildTimeStyles(break2EndField.styles);
+
+  const modalTitle = (
+    <Group gap="sm" align="center">
+      <IconClipboardCheck size={26} color="#65ab58" />
+      <Stack gap={2}>
+        <Text fw={700} fz="lg" c="#101828">
+          Record Attendance
+        </Text>
+        <Text fz="sm" c="#667085">
+          Capture today&apos;s attendance details for this employee
+        </Text>
+      </Stack>
+    </Group>
+  );
+
   return (
-    <Modal
+    <PolishedModal
       opened={opened}
       onClose={onClose}
-      title="Record Attendance"
+      title={modalTitle}
       size="lg"
-      centered
     >
       <Stack gap="md">
         <Group grow>
           <TextInput
             label="Employee Name"
-            placeholder="Enter employee name"
             required
             value={formValues.employeeName}
             onChange={(event) =>
               onChange('employeeName', event.currentTarget.value)
             }
+            {...employeeNameField.handlers}
+            styles={employeeNameField.styles}
           />
 
           <TextInput
             label="Employee ID"
-            placeholder="Enter employee ID"
             required
             value={formValues.employeeId}
             onChange={(event) =>
               onChange('employeeId', event.currentTarget.value)
             }
+            {...employeeIdField.handlers}
+            styles={employeeIdField.styles}
           />
         </Group>
 
         <Group grow>
           <TextInput
             label="Department"
-            placeholder="e.g., Warehouse POC"
             value={formValues.department}
             onChange={(event) =>
               onChange('department', event.currentTarget.value)
             }
+            {...departmentField.handlers}
+            styles={departmentField.styles}
           />
 
           <TextInput
             label="Position"
-            placeholder="e.g., Stay-in Employee"
             value={formValues.position}
             onChange={(event) =>
               onChange('position', event.currentTarget.value)
             }
+            {...positionField.handlers}
+            styles={positionField.styles}
           />
         </Group>
 
@@ -99,15 +177,20 @@ export function AttendanceFormDialog({
             required
             value={formValues.date}
             onChange={(event) => onChange('date', event.currentTarget.value)}
+            {...dateField.handlers}
+            styles={dateInputStyles}
           />
 
           <Select
             label="Status"
-            placeholder="Select status"
             data={statusOptions}
             value={formValues.status}
             onChange={handleStatusChange}
             required
+            {...statusSelect.handlers}
+            styles={statusSelect.styles}
+            withCheckIcon={false}
+            comboboxProps={{ withinPortal: true, zIndex: 500 }}
           />
         </Group>
 
@@ -117,6 +200,8 @@ export function AttendanceFormDialog({
             type="time"
             value={formValues.timeIn}
             onChange={(event) => onChange('timeIn', event.currentTarget.value)}
+            {...timeInField.handlers}
+            styles={timeInStyles}
           />
 
           <TextInput
@@ -124,6 +209,8 @@ export function AttendanceFormDialog({
             type="time"
             value={formValues.timeOut}
             onChange={(event) => onChange('timeOut', event.currentTarget.value)}
+            {...timeOutField.handlers}
+            styles={timeOutStyles}
           />
         </Group>
 
@@ -135,6 +222,8 @@ export function AttendanceFormDialog({
             onChange={(event) =>
               onChange('break1Start', event.currentTarget.value)
             }
+            {...break1StartField.handlers}
+            styles={break1StartStyles}
           />
 
           <TextInput
@@ -144,6 +233,8 @@ export function AttendanceFormDialog({
             onChange={(event) =>
               onChange('break1End', event.currentTarget.value)
             }
+            {...break1EndField.handlers}
+            styles={break1EndStyles}
           />
         </Group>
 
@@ -155,6 +246,8 @@ export function AttendanceFormDialog({
             onChange={(event) =>
               onChange('lunchStart', event.currentTarget.value)
             }
+            {...lunchStartField.handlers}
+            styles={lunchStartStyles}
           />
 
           <TextInput
@@ -164,6 +257,8 @@ export function AttendanceFormDialog({
             onChange={(event) =>
               onChange('lunchEnd', event.currentTarget.value)
             }
+            {...lunchEndField.handlers}
+            styles={lunchEndStyles}
           />
         </Group>
 
@@ -175,6 +270,8 @@ export function AttendanceFormDialog({
             onChange={(event) =>
               onChange('break2Start', event.currentTarget.value)
             }
+            {...break2StartField.handlers}
+            styles={break2StartStyles}
           />
 
           <TextInput
@@ -184,12 +281,13 @@ export function AttendanceFormDialog({
             onChange={(event) =>
               onChange('break2End', event.currentTarget.value)
             }
+            {...break2EndField.handlers}
+            styles={break2EndStyles}
           />
         </Group>
 
         <NumberInput
           label="Total Hours"
-          placeholder="Auto-calculated from Time In/Out"
           min={0}
           decimalScale={2}
           step={0.25}
@@ -197,31 +295,41 @@ export function AttendanceFormDialog({
           value={formValues.totalHours}
           onChange={(value) => onChange('totalHours', value?.toString() || '')}
           description="Automatically calculated when both Time In and Time Out are provided."
+          {...totalHoursField.handlers}
+          styles={totalHoursField.styles}
         />
 
         <Textarea
           label="Details"
-          placeholder="Add shift notes or context"
           minRows={2}
           value={formValues.details}
           onChange={(event) => onChange('details', event.currentTarget.value)}
+          {...detailsField.handlers}
+          styles={detailsField.styles}
         />
 
         <Textarea
           label="Internal Notes"
-          placeholder="Additional notes (optional)"
           minRows={2}
           value={formValues.notes}
           onChange={(event) => onChange('notes', event.currentTarget.value)}
+          {...notesField.handlers}
+          styles={notesField.styles}
         />
 
         <Group justify="flex-end" mt="md">
-          <Button variant="subtle" onClick={onClose}>
+          <Button variant="default" radius="md" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={onSubmit}>Record Attendance</Button>
+          <Button
+            radius="md"
+            onClick={onSubmit}
+            styles={polishedPrimaryButtonStyles}
+          >
+            Record Attendance
+          </Button>
         </Group>
       </Stack>
-    </Modal>
+    </PolishedModal>
   );
 }

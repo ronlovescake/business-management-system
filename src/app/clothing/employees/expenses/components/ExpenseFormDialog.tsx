@@ -96,6 +96,22 @@ export function ExpenseFormDialog({
   const descriptionField = getFieldProps('description');
   const notesField = getTextareaProps('notes');
 
+  const dateFieldStyles = {
+    ...dateField.styles,
+    input: {
+      ...dateField.styles.input,
+      '&:required:invalid::-webkit-datetime-edit': {
+        color: 'transparent',
+      },
+      '&:focus::-webkit-datetime-edit': {
+        color: '#1f2937',
+      },
+      '&:required:invalid:focus::-webkit-datetime-edit': {
+        color: '#1f2937',
+      },
+    },
+  };
+
   const modalTitle = (
     <Group gap="sm" align="center">
       <IconReceipt size={26} color="#65ab58" />
@@ -124,17 +140,15 @@ export function ExpenseFormDialog({
           <Group grow align="flex-start">
             <TextInput
               label="Date"
-              placeholder="MM/DD/YYYY"
               type="date"
               value={formDate}
               onChange={(e) => setFormDate(e.target.value)}
               required
               {...dateField.handlers}
-              styles={dateField.styles}
+              styles={dateFieldStyles}
             />
             <Select
               label="Category"
-              placeholder="Select category"
               data={categories}
               value={formCategory}
               onChange={(value) => setFormCategory(value || '')}
@@ -150,7 +164,6 @@ export function ExpenseFormDialog({
           <Group grow align="flex-start">
             <NumberInput
               label="Amount"
-              placeholder="0"
               prefix="₱ "
               decimalScale={2}
               value={formAmount}
@@ -164,7 +177,6 @@ export function ExpenseFormDialog({
             />
             <TextInput
               label="Trip ID (Optional)"
-              placeholder="e.g., TRP-001"
               value={formTripId}
               onChange={(e) => setFormTripId(e.target.value)}
               {...tripIdField.handlers}
@@ -174,7 +186,6 @@ export function ExpenseFormDialog({
 
           <TextInput
             label="Description"
-            placeholder="Brief description of the expense"
             value={formDescription}
             onChange={(e) => setFormDescription(e.target.value)}
             required
@@ -184,7 +195,6 @@ export function ExpenseFormDialog({
 
           <Textarea
             label="Notes (Optional)"
-            placeholder="Additional details or notes"
             value={formNotes}
             onChange={(e) => setFormNotes(e.target.value)}
             minRows={3}
