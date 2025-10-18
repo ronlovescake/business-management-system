@@ -28,6 +28,32 @@ interface MonthCalendarProps {
   getLeaveTypeColor: (leaveType: LeaveType) => string;
 }
 
+function toDateOnlyString(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function parseDateOnly(value: string): Date | null {
+  if (!value) {
+    return null;
+  }
+
+  const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    return new Date(Number(year), Number(month) - 1, Number(day));
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+}
+
 function MonthCalendar({
   month,
   year,
@@ -256,11 +282,20 @@ export function CalendarView({
 
   // Helper to check if a date has leave requests
   const getLeaveRequestsForDate = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0];
+    const current = new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate()
+    );
+
     return leaveRequests.filter((request) => {
-      const start = new Date(request.startDate);
-      const end = new Date(request.endDate);
-      const current = new Date(dateStr);
+      const start = parseDateOnly(request.startDate);
+      const end = parseDateOnly(request.endDate);
+
+      if (!start || !end) {
+        return false;
+      }
+
       return current >= start && current <= end;
     });
   };
@@ -357,8 +392,7 @@ export function CalendarView({
           >
             <Stack gap="sm">
               <Title order={5} c="dark" style={{ color: '#212529' }}>
-                Leave Requests on{' '}
-                {formatDate(selectedDate.toISOString().split('T')[0])}
+                Leave Requests on {formatDate(toDateOnlyString(selectedDate))}
               </Title>
               {selectedDateRequests.map((request) => (
                 <Group key={request.id} justify="space-between">
