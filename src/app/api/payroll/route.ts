@@ -50,13 +50,6 @@ export async function POST(request: NextRequest) {
       const createdPayrolls = [];
 
       for (const payrollData of body) {
-        const lwopAmountRaw = toNumber(payrollData.lwop);
-        const deductionAmountRaw = toNumber(payrollData.deduction);
-        const lwopAmount =
-          lwopAmountRaw !== 0 ? lwopAmountRaw : deductionAmountRaw;
-        const deductionAmount =
-          deductionAmountRaw !== 0 ? deductionAmountRaw : lwopAmount;
-
         const payroll = await prisma.payroll.create({
           data: {
             employeeId: payrollData.employeeId,
@@ -75,7 +68,7 @@ export async function POST(request: NextRequest) {
             tax: toNumber(payrollData.tax),
             loans: toNumber(payrollData.loans),
             cashAdvance: toNumber(payrollData.cashAdvance),
-            lwop: lwopAmount,
+            lwop: toNumber(payrollData.lwop),
             absentsLates: toNumber(payrollData.absentsLates),
             totalDeductions: toNumber(payrollData.totalDeductions),
             netPay: toNumber(payrollData.netPay),
@@ -83,7 +76,7 @@ export async function POST(request: NextRequest) {
             bankGcash: payrollData.bankGcash || '',
             unpaidDays: parseInt(payrollData.unpaidDays) || 0,
             dailyRate: toNumber(payrollData.dailyRate),
-            deduction: deductionAmount,
+            deduction: toNumber(payrollData.deduction),
             notes: payrollData.notes || null,
           },
         });
@@ -99,12 +92,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Handle single payroll creation
-    const lwopAmountRaw = toNumber(body.lwop);
-    const deductionAmountRaw = toNumber(body.deduction);
-    const lwopAmount = lwopAmountRaw !== 0 ? lwopAmountRaw : deductionAmountRaw;
-    const deductionAmount =
-      deductionAmountRaw !== 0 ? deductionAmountRaw : lwopAmount;
-
     const payroll = await prisma.payroll.create({
       data: {
         employeeId: body.employeeId,
@@ -123,7 +110,7 @@ export async function POST(request: NextRequest) {
         tax: toNumber(body.tax),
         loans: toNumber(body.loans),
         cashAdvance: toNumber(body.cashAdvance),
-        lwop: lwopAmount,
+        lwop: toNumber(body.lwop),
         absentsLates: toNumber(body.absentsLates),
         totalDeductions: toNumber(body.totalDeductions),
         netPay: toNumber(body.netPay),
@@ -131,7 +118,7 @@ export async function POST(request: NextRequest) {
         bankGcash: body.bankGcash || '',
         unpaidDays: parseInt(body.unpaidDays) || 0,
         dailyRate: toNumber(body.dailyRate),
-        deduction: deductionAmount,
+        deduction: toNumber(body.deduction),
         notes: body.notes || null,
       },
     });
@@ -182,29 +169,8 @@ export async function PUT(request: NextRequest) {
       updatedRecord.unpaidDays = parseInt(updateData.unpaidDays) || 0;
     }
 
-    const hasLwop = hasProp('lwop');
-    const hasDeduction = hasProp('deduction');
-
-    if (hasLwop || hasDeduction) {
-      const lwopAmountRaw = hasLwop ? toNumber(updateData.lwop) : undefined;
-      const deductionAmountRaw = hasDeduction
-        ? toNumber(updateData.deduction)
-        : undefined;
-
-      if (hasLwop) {
-        updatedRecord.lwop =
-          lwopAmountRaw !== undefined
-            ? lwopAmountRaw || deductionAmountRaw || 0
-            : updateData.lwop;
-      }
-
-      if (hasDeduction) {
-        updatedRecord.deduction =
-          deductionAmountRaw !== undefined
-            ? deductionAmountRaw || lwopAmountRaw || 0
-            : updateData.deduction;
-      }
-    }
+    assignNumber('lwop');
+    assignNumber('deduction');
 
     const payroll = await prisma.payroll.update({
       where: { id },
