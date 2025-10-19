@@ -25,6 +25,10 @@ interface ScheduleListTableProps {
   getStatusColor: (status: ScheduleStatus) => string;
   getShiftTypeColor: (shiftType: ShiftType) => string;
   calculateDuration: (startTime: string, endTime: string) => number;
+  getEmployeeLeaveForDate: (
+    employeeId: string,
+    date: string
+  ) => { leaveType: string; status: string; employeeName: string } | null;
   onEdit: (schedule: Schedule) => void;
   onDelete: (id: string) => void;
   onMarkCompleted: (id: string) => void;
@@ -46,6 +50,7 @@ export function ScheduleListTable({
   getStatusColor,
   getShiftTypeColor,
   calculateDuration,
+  getEmployeeLeaveForDate,
   onEdit,
   onDelete,
   onMarkCompleted,
@@ -182,116 +187,135 @@ export function ScheduleListTable({
                   </Table.Td>
                 </Table.Tr>
               ) : (
-                schedules.map((schedule) => (
-                  <Table.Tr key={schedule.id}>
-                    <Table.Td>
-                      <Text size="sm" fw={500}>
-                        {formatDate(schedule.date)}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <div>
+                schedules.map((schedule) => {
+                  const leaveInfo = getEmployeeLeaveForDate(
+                    schedule.employeeId,
+                    schedule.date
+                  );
+
+                  return (
+                    <Table.Tr key={schedule.id}>
+                      <Table.Td>
                         <Text size="sm" fw={500}>
-                          {schedule.employeeName}
+                          {formatDate(schedule.date)}
                         </Text>
-                        <Text size="xs" c="dimmed">
-                          {schedule.employeeId}
+                      </Table.Td>
+                      <Table.Td>
+                        <div>
+                          <Text size="sm" fw={500}>
+                            {schedule.employeeName}
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            {schedule.employeeId}
+                          </Text>
+                        </div>
+                      </Table.Td>
+                      <Table.Td>
+                        <Badge
+                          color={getShiftTypeColor(schedule.shiftType)}
+                          variant="light"
+                          size="sm"
+                          tt="capitalize"
+                        >
+                          {schedule.shiftType.replace('-', ' ')}
+                        </Badge>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm">{formatTime(schedule.startTime)}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm">{formatTime(schedule.endTime)}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm" fw={500}>
+                          {calculateDuration(
+                            schedule.startTime,
+                            schedule.endTime
+                          ).toFixed(1)}
+                          h
                         </Text>
-                      </div>
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge
-                        color={getShiftTypeColor(schedule.shiftType)}
-                        variant="light"
-                        size="sm"
-                        tt="capitalize"
-                      >
-                        {schedule.shiftType.replace('-', ' ')}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="sm">{formatTime(schedule.startTime)}</Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="sm">{formatTime(schedule.endTime)}</Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="sm" fw={500}>
-                        {calculateDuration(
-                          schedule.startTime,
-                          schedule.endTime
-                        ).toFixed(1)}
-                        h
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <div>
-                        <Text size="sm">{schedule.position}</Text>
-                        <Text size="xs" c="dimmed">
-                          {schedule.department}
-                        </Text>
-                      </div>
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge
-                        color={getStatusColor(schedule.status)}
-                        variant="light"
-                        size="sm"
-                        tt="capitalize"
-                      >
-                        {schedule.status}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="sm" c="dimmed" lineClamp={1}>
-                        {schedule.notes || '—'}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Group gap={4} justify="center">
-                        <Menu position="bottom-end" withinPortal>
-                          <Menu.Target>
-                            <ActionIcon variant="subtle" color="gray">
-                              <IconDots size={16} />
-                            </ActionIcon>
-                          </Menu.Target>
-                          <Menu.Dropdown>
-                            <Menu.Item
-                              leftSection={<IconEdit size={16} />}
-                              onClick={() => onEdit(schedule)}
-                            >
-                              Edit
-                            </Menu.Item>
-                            {schedule.status === 'scheduled' && (
-                              <>
-                                <Menu.Item
-                                  leftSection={<IconCheck size={16} />}
-                                  onClick={() => onMarkCompleted(schedule.id)}
-                                >
-                                  Mark Completed
-                                </Menu.Item>
-                                <Menu.Item
-                                  leftSection={<IconX size={16} />}
-                                  onClick={() => onMarkCancelled(schedule.id)}
-                                >
-                                  Mark Cancelled
-                                </Menu.Item>
-                              </>
-                            )}
-                            <Menu.Divider />
-                            <Menu.Item
-                              leftSection={<IconTrash size={16} />}
+                      </Table.Td>
+                      <Table.Td>
+                        <div>
+                          <Text size="sm">{schedule.position}</Text>
+                          <Text size="xs" c="dimmed">
+                            {schedule.department}
+                          </Text>
+                        </div>
+                      </Table.Td>
+                      <Table.Td>
+                        <Stack gap={4}>
+                          <Badge
+                            color={getStatusColor(schedule.status)}
+                            variant="light"
+                            size="sm"
+                            tt="capitalize"
+                          >
+                            {schedule.status}
+                          </Badge>
+                          {leaveInfo && (
+                            <Badge
                               color="red"
-                              onClick={() => onDelete(schedule.id)}
+                              variant="filled"
+                              size="sm"
+                              tt="uppercase"
                             >
-                              Delete
-                            </Menu.Item>
-                          </Menu.Dropdown>
-                        </Menu>
-                      </Group>
-                    </Table.Td>
-                  </Table.Tr>
-                ))
+                              {leaveInfo.leaveType}
+                            </Badge>
+                          )}
+                        </Stack>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm" c="dimmed" lineClamp={1}>
+                          {schedule.notes || '—'}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Group gap={4} justify="center">
+                          <Menu position="bottom-end" withinPortal>
+                            <Menu.Target>
+                              <ActionIcon variant="subtle" color="gray">
+                                <IconDots size={16} />
+                              </ActionIcon>
+                            </Menu.Target>
+                            <Menu.Dropdown>
+                              <Menu.Item
+                                leftSection={<IconEdit size={16} />}
+                                onClick={() => onEdit(schedule)}
+                              >
+                                Edit
+                              </Menu.Item>
+                              {schedule.status === 'scheduled' && (
+                                <>
+                                  <Menu.Item
+                                    leftSection={<IconCheck size={16} />}
+                                    onClick={() => onMarkCompleted(schedule.id)}
+                                  >
+                                    Mark Completed
+                                  </Menu.Item>
+                                  <Menu.Item
+                                    leftSection={<IconX size={16} />}
+                                    onClick={() => onMarkCancelled(schedule.id)}
+                                  >
+                                    Mark Cancelled
+                                  </Menu.Item>
+                                </>
+                              )}
+                              <Menu.Divider />
+                              <Menu.Item
+                                leftSection={<IconTrash size={16} />}
+                                color="red"
+                                onClick={() => onDelete(schedule.id)}
+                              >
+                                Delete
+                              </Menu.Item>
+                            </Menu.Dropdown>
+                          </Menu>
+                        </Group>
+                      </Table.Td>
+                    </Table.Tr>
+                  );
+                })
               )}
             </Table.Tbody>
           </Table>

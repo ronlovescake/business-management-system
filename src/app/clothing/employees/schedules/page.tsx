@@ -130,6 +130,7 @@ export default function SchedulesPage() {
             getStatusColor={getStatusColor}
             getShiftTypeColor={getShiftTypeColor}
             calculateDuration={calculateDuration}
+            getEmployeeLeaveForDate={getEmployeeLeaveForDate}
             onEdit={handleEditSchedule}
             onDelete={handleDeleteSchedule}
             onMarkCompleted={handleMarkCompleted}
