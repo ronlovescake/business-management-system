@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 import { useState, useMemo, useEffect } from 'react';
 import type { Employee, EmployeeFormData } from '../types';
+import { getCurrentDateISO } from '@/utils/date';
 
 /**
  * Generate a unique employee ID
@@ -531,7 +532,7 @@ export function useTeam() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `employees-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `employees-${getCurrentDateISO()}.csv`;
     a.click();
   };
 

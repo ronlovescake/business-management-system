@@ -1,3 +1,5 @@
+import { getCurrentDateISO } from '@/utils/date';
+
 /**
  * CSV Utilities Module
  *
@@ -78,11 +80,11 @@ export function exportToCSV<T>(
 
   // Create blob and download
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
 
   // Generate filename with current date
-  const date = new Date().toISOString().split('T')[0];
+  const date = getCurrentDateISO();
   const fullFilename = `${filename}_${date}.csv`;
 
   link.setAttribute('href', url);

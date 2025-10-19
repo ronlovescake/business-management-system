@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import type { Payroll, PayrollFormData } from '../types';
+import { getCurrentDateISO } from '@/utils/date';
 
 export function usePayroll() {
   // State Management
@@ -244,7 +245,7 @@ export function usePayroll() {
               ...p,
               status: 'approved' as const,
               approvedBy: 'Current User',
-              approvedDate: new Date().toISOString().split('T')[0],
+              approvedDate: getCurrentDateISO(),
             }
           : p
       )
@@ -258,7 +259,7 @@ export function usePayroll() {
           ? {
               ...p,
               status: 'paid' as const,
-              paidDate: new Date().toISOString().split('T')[0],
+              paidDate: getCurrentDateISO(),
             }
           : p
       )
@@ -385,7 +386,7 @@ export function usePayroll() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `payroll-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `payroll-${getCurrentDateISO()}.csv`;
     a.click();
   };
 

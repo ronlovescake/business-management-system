@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import type { ThirteenthMonthPay, ThirteenthMonthPayFormData } from '../types';
+import { getCurrentDateISO, formatDisplayDate } from '@/utils/date';
 import { logger } from '@/lib/logger';
 
 // Mock data
@@ -128,16 +129,8 @@ export function useThirteenthMonthPay() {
   };
 
   // Format date
-  const formatDate = (dateString?: string): string => {
-    if (!dateString) {
-      return 'N/A';
-    }
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
+  const formatDate = (dateString?: string): string =>
+    dateString ? formatDisplayDate(dateString, 'MMM D, YYYY') : 'N/A';
 
   // Get status color
   const getStatusColor = (status: string): string => {
@@ -189,7 +182,7 @@ export function useThirteenthMonthPay() {
       deductions: parseFloat(data.deductions),
       thirteenthMonthPay,
       status: 'calculated',
-      calculatedDate: new Date().toISOString().split('T')[0],
+      calculatedDate: getCurrentDateISO(),
       notes: data.notes,
     };
 
@@ -236,7 +229,7 @@ export function useThirteenthMonthPay() {
           ? {
               ...record,
               status: 'approved',
-              approvedDate: new Date().toISOString().split('T')[0],
+              approvedDate: getCurrentDateISO(),
             }
           : record
       )
@@ -251,7 +244,7 @@ export function useThirteenthMonthPay() {
           ? {
               ...record,
               status: 'paid',
-              paidDate: new Date().toISOString().split('T')[0],
+              paidDate: getCurrentDateISO(),
             }
           : record
       )
@@ -304,7 +297,7 @@ export function useThirteenthMonthPay() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `13th-month-pay-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `13th-month-pay-${getCurrentDateISO()}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   };

@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { logger } from '@/lib/logger';
 import { useExpenseData } from '@/hooks/useSheetData';
 import { notifications } from '@mantine/notifications';
+import { getCurrentDateISO } from '@/utils/date';
 
 /**
  * Expense Interface
@@ -684,7 +685,7 @@ export function useExpenses() {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
 
-    const date = new Date().toISOString().split('T')[0];
+    const date = getCurrentDateISO();
     const filename = `expenses_${date}.csv`;
 
     link.setAttribute('href', url);

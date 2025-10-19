@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import type { CashAdvance, CashAdvanceFormData } from '../types';
+import { getCurrentDateISO, formatDisplayDate } from '@/utils/date';
 
 export function useCashAdvance() {
   // State Management
@@ -72,13 +73,8 @@ export function useCashAdvance() {
     .reduce((sum, r) => sum + r.amount, 0);
 
   // Utility Functions
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
+  const formatDate = (dateString: string) =>
+    formatDisplayDate(dateString, 'MMM D, YYYY');
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -163,7 +159,7 @@ export function useCashAdvance() {
               ...r,
               status: 'approved' as const,
               approvedBy: 'Current User', // In real app, this would be the logged-in user
-              approvedDate: new Date().toISOString().split('T')[0],
+              approvedDate: getCurrentDateISO(),
             }
           : r
       )
@@ -180,7 +176,7 @@ export function useCashAdvance() {
                 ...r,
                 status: 'rejected' as const,
                 rejectedBy: 'Current User', // In real app, this would be the logged-in user
-                rejectedDate: new Date().toISOString().split('T')[0],
+                rejectedDate: getCurrentDateISO(),
                 rejectionReason: reason,
               }
             : r
@@ -258,7 +254,7 @@ export function useCashAdvance() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `cash-advances-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `cash-advances-${getCurrentDateISO()}.csv`;
     a.click();
   };
 

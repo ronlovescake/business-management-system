@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import type { EmployeeLoan, EmployeeLoanFormData } from '../types';
+import { getCurrentDateISO } from '@/utils/date';
 
 export function useEmployeeLoans() {
   // Sample data
@@ -248,7 +249,7 @@ export function useEmployeeLoans() {
               ...l,
               status: 'approved' as const,
               approvedBy: 'Current User',
-              approvedDate: new Date().toISOString().split('T')[0],
+              approvedDate: getCurrentDateISO(),
             }
           : l
       )
@@ -278,7 +279,7 @@ export function useEmployeeLoans() {
                 ...l,
                 status: 'rejected' as const,
                 rejectedBy: 'Current User',
-                rejectedDate: new Date().toISOString().split('T')[0],
+                rejectedDate: getCurrentDateISO(),
                 rejectionReason: reason,
               }
             : l
@@ -344,8 +345,7 @@ export function useEmployeeLoans() {
             monthlyPayment,
             remainingBalance: loanAmount,
             status: 'pending' as const,
-            applicationDate:
-              applicationDate?.trim() || new Date().toISOString().split('T')[0],
+            applicationDate: applicationDate?.trim() || getCurrentDateISO(),
             purpose: purpose?.trim() || '',
           };
         });
@@ -388,7 +388,7 @@ export function useEmployeeLoans() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `employee-loans-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `employee-loans-${getCurrentDateISO()}.csv`;
     a.click();
   };
 

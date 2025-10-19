@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import type { LeaveRequest, LeaveStatus, LeaveType } from '../types';
+import { getCurrentDateISO } from '@/utils/date';
 
 interface EmployeeOption {
   value: string;
@@ -443,7 +444,7 @@ export function useLeaveTracker() {
           numberOfDays,
           reason: formReason,
           status: 'pending' as LeaveStatus,
-          appliedDate: new Date().toISOString().split('T')[0],
+          appliedDate: getCurrentDateISO(),
           notes: formNotes || null,
         };
 
@@ -689,8 +690,7 @@ export function useLeaveTracker() {
               numberOfDays,
               reason: row.reason,
               status: validStatus,
-              appliedDate:
-                row.applieddate || new Date().toISOString().split('T')[0],
+              appliedDate: row.applieddate || getCurrentDateISO(),
               approvedBy: row.approvedby || undefined,
               notes: row.notes || undefined,
             };
@@ -802,10 +802,7 @@ export function useLeaveTracker() {
     const url = URL.createObjectURL(blob);
 
     link.setAttribute('href', url);
-    link.setAttribute(
-      'download',
-      `leave_requests_${new Date().toISOString().split('T')[0]}.csv`
-    );
+    link.setAttribute('download', `leave_requests_${getCurrentDateISO()}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();

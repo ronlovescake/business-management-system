@@ -13,6 +13,7 @@ import {
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { ComposedDialog } from '@/components/shared/Dialog';
+import { getCurrentDateISO } from '@/utils/date';
 import type { EmployeeLoan, EmployeeLoanFormData } from '../types';
 import {
   IconUser,
@@ -43,7 +44,7 @@ export function LoanFormDialog({
       amount: '',
       interestRate: '',
       termMonths: '12',
-      applicationDate: new Date().toISOString().split('T')[0],
+      applicationDate: getCurrentDateISO(),
       purpose: '',
       notes: '',
     },

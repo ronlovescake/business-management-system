@@ -16,6 +16,7 @@ import { PolishedModal } from '@/components/modals/PolishedModal';
 import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 import { IconUserPlus, IconUserEdit } from '@tabler/icons-react';
+import { getCurrentDateISO, toDate, toISODate } from '@/utils/date';
 import type { Employee, EmployeeFormData } from '../types';
 
 interface EmployeeFormDialogProps {
@@ -46,7 +47,7 @@ export function EmployeeFormDialog({
       jobTitle: '',
       currentSalary: '',
       basicSalary: '',
-      hireDate: new Date().toISOString().split('T')[0],
+      hireDate: getCurrentDateISO(),
       status: 'active',
       employmentStatus: 'probationary',
       employeeType: 'full-time',
@@ -300,16 +301,9 @@ export function EmployeeFormDialog({
                 label="Date of Birth"
                 valueFormat="MM-DD-YYYY"
                 firstDayOfWeek={0}
-                value={
-                  form.values.dateOfBirth
-                    ? new Date(form.values.dateOfBirth)
-                    : null
-                }
+                value={toDate(form.values.dateOfBirth)}
                 onChange={(value) =>
-                  form.setFieldValue(
-                    'dateOfBirth',
-                    value ? value.toISOString().split('T')[0] : ''
-                  )
+                  form.setFieldValue('dateOfBirth', toISODate(value))
                 }
                 {...getFieldProps('dateOfBirth').handlers}
                 styles={getFieldProps('dateOfBirth').styles}
@@ -386,14 +380,9 @@ export function EmployeeFormDialog({
                 valueFormat="MM-DD-YYYY"
                 firstDayOfWeek={0}
                 required
-                value={
-                  form.values.hireDate ? new Date(form.values.hireDate) : null
-                }
+                value={toDate(form.values.hireDate)}
                 onChange={(value) =>
-                  form.setFieldValue(
-                    'hireDate',
-                    value ? value.toISOString().split('T')[0] : ''
-                  )
+                  form.setFieldValue('hireDate', toISODate(value))
                 }
                 {...getFieldProps('hireDate').handlers}
                 styles={getFieldProps('hireDate').styles}

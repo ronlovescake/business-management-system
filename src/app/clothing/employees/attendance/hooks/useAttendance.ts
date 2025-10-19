@@ -5,6 +5,7 @@ import type {
   AttendanceStatus,
   AttendanceFormValues,
 } from '../types';
+import { getCurrentDateISO, formatDisplayDate, toDate } from '@/utils/date';
 
 const formatTime = (time: string) => {
   // Handle empty or invalid time strings
@@ -74,7 +75,7 @@ const createEmptyFormValues = (): AttendanceFormValues => ({
   employeeName: '',
   department: '',
   position: '',
-  date: new Date().toISOString().split('T')[0],
+  date: getCurrentDateISO(),
   timeIn: '',
   timeOut: '',
   break1Start: '',
@@ -104,7 +105,7 @@ export function useAttendance() {
   const sortedRecords = useMemo(() => {
     return [...records].sort((a, b) => {
       const dateDifference =
-        new Date(b.date).getTime() - new Date(a.date).getTime();
+        (toDate(b.date)?.getTime() ?? 0) - (toDate(a.date)?.getTime() ?? 0);
       if (dateDifference !== 0) {
         return dateDifference;
       }
@@ -154,13 +155,8 @@ export function useAttendance() {
   );
   const averageHours = totalRecords ? totalHours / totalRecords : 0;
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
+  const formatDate = (dateString: string) =>
+    formatDisplayDate(dateString, 'MMM D, YYYY');
 
   const formatTimeRange = (timeIn: string, timeOut: string) => {
     if (timeIn === '00:00' && timeOut === '00:00') {
@@ -523,7 +519,7 @@ export function useAttendance() {
     link.setAttribute('href', url);
     link.setAttribute(
       'download',
-      `attendance_records_${new Date().toISOString().split('T')[0]}.csv`
+      `attendance_records_${getCurrentDateISO()}.csv`
     );
     link.style.visibility = 'hidden';
     document.body.appendChild(link);

@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import { ExpensesLayout, Expense } from '../../../../components/features/expenses/ExpensesLayout';
 import { notifications } from '@mantine/notifications';
+import { getCurrentDateISO } from '@/utils/date';
 
 /**
  * Expense Interface
@@ -675,8 +676,7 @@ export default function Expenses() {
     const url = URL.createObjectURL(blob);
 
     // Generate filename with current date
-    const date = new Date().toISOString().split('T')[0];
-    const filename = `expenses_${date}.csv`;
+  const filename = `expenses_${getCurrentDateISO()}.csv`;
 
     link.setAttribute('href', url);
     link.setAttribute('download', filename);

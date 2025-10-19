@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { TextInput, NumberInput, Textarea } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { ComposedDialog } from '@/components/shared/Dialog';
+import { getCurrentDateISO } from '@/utils/date';
 import type { CashAdvance, CashAdvanceFormData } from '../types';
 
 interface RequestFormDialogProps {
@@ -23,7 +24,7 @@ export function RequestFormDialog({
       amount: '',
       purpose: '',
       terms: '',
-      requestDate: new Date().toISOString().split('T')[0],
+      requestDate: getCurrentDateISO(),
       notes: '',
     },
     validate: {

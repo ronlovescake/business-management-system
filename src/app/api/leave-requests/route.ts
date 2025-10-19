@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { getCurrentDateISO } from '@/utils/date';
 
 type LeaveRequestPayload = Record<string, unknown>;
 
@@ -90,9 +91,7 @@ function normalizeCreatePayload(
   const reason = parseString(data.reason);
 
   const status = parseStatus(data.status);
-  const appliedDate = parseString(
-    data.appliedDate || new Date().toISOString().split('T')[0]
-  );
+  const appliedDate = parseString(data.appliedDate || getCurrentDateISO());
 
   const rawNumber = Number(data.numberOfDays);
   const numberOfDays =

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { getCurrentDateISO, toISODate } from '@/utils/date';
 import type {
   Schedule,
   ScheduleStatus,
@@ -228,7 +229,7 @@ export function useSchedules() {
       const date = new Date(schedule.date);
       const weekStart = new Date(date);
       weekStart.setDate(date.getDate() - date.getDay()); // Start of week (Sunday)
-      const weekKey = weekStart.toISOString().split('T')[0];
+      const weekKey = toISODate(weekStart) || '';
 
       breakdown[weekKey] = (breakdown[weekKey] || 0) + 1;
     });
@@ -873,10 +874,7 @@ export function useSchedules() {
     const url = URL.createObjectURL(blob);
 
     link.setAttribute('href', url);
-    link.setAttribute(
-      'download',
-      `schedules_${new Date().toISOString().split('T')[0]}.csv`
-    );
+    link.setAttribute('download', `schedules_${getCurrentDateISO()}.csv`);
     link.style.visibility = 'hidden';
 
     document.body.appendChild(link);

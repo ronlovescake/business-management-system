@@ -1,4 +1,8 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
+
+// Ensure Node.js runtime uses Philippines timezone by default
+process.env.TZ = 'Asia/Manila';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -8,9 +12,10 @@ const nextConfig = {
   transpilePackages: ['@tabler/icons-react'],
   compiler: {
     // Remove console.log/warn/info in production, but keep console.error and console.warn
-    removeConsole: process.env.NODE_ENV === 'production' 
-      ? { exclude: ['error', 'warn'] } 
-      : false,
+    removeConsole:
+      process.env.NODE_ENV === 'production'
+        ? { exclude: ['error', 'warn'] }
+        : false,
   },
 };
 
