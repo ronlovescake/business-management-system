@@ -82,9 +82,23 @@ export function DataTable<T extends { id: string | number }>({
   return (
     <Stack gap="md">
       <Card withBorder padding={0} style={{ overflow: 'hidden', height }}>
-        <Box style={{ height: '100%', overflowY: 'auto' }}>
+        <Box
+          style={{
+            height: '100%',
+            overflowY: 'auto',
+            position: 'relative',
+          }}
+        >
           <Table highlightOnHover withTableBorder>
-            <Table.Thead style={{ backgroundColor: '#f1f3f5' }}>
+            <Table.Thead
+              style={{
+                backgroundColor: '#f1f3f5',
+                position: 'sticky',
+                top: 0,
+                zIndex: 2,
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
+              }}
+            >
               <Table.Tr>
                 {columns.map((column) => (
                   <Table.Th
