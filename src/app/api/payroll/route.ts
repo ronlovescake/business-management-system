@@ -4,6 +4,24 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+const toNumber = (value: unknown): number => {
+  if (value === null || value === undefined) {
+    return 0;
+  }
+  if (typeof value === 'number') {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = parseFloat(value);
+    return isNaN(parsed) ? 0 : parsed;
+  }
+  if (typeof value === 'object' && 'toString' in (value as object)) {
+    const parsed = parseFloat((value as { toString(): string }).toString());
+    return isNaN(parsed) ? 0 : parsed;
+  }
+  return 0;
+};
+
 export async function GET(_request: NextRequest) {
   try {
     const payrolls = await prisma.payroll.findMany({
@@ -32,6 +50,13 @@ export async function POST(request: NextRequest) {
       const createdPayrolls = [];
 
       for (const payrollData of body) {
+        const lwopAmountRaw = toNumber(payrollData.lwop);
+        const deductionAmountRaw = toNumber(payrollData.deduction);
+        const lwopAmount =
+          lwopAmountRaw !== 0 ? lwopAmountRaw : deductionAmountRaw;
+        const deductionAmount =
+          deductionAmountRaw !== 0 ? deductionAmountRaw : lwopAmount;
+
         const payroll = await prisma.payroll.create({
           data: {
             employeeId: payrollData.employeeId,
@@ -39,26 +64,26 @@ export async function POST(request: NextRequest) {
             payPeriod: payrollData.payPeriod,
             periodStart: payrollData.periodStart,
             periodEnd: payrollData.periodEnd,
-            basicSalary: parseFloat(payrollData.basicSalary) || 0,
-            allowance: parseFloat(payrollData.allowance) || 0,
-            overtime: parseFloat(payrollData.overtime) || 0,
-            bonuses: parseFloat(payrollData.bonuses) || 0,
-            grossPay: parseFloat(payrollData.grossPay) || 0,
-            sss: parseFloat(payrollData.sss) || 0,
-            philHealth: parseFloat(payrollData.philHealth) || 0,
-            pagIbig: parseFloat(payrollData.pagIbig) || 0,
-            tax: parseFloat(payrollData.tax) || 0,
-            loans: parseFloat(payrollData.loans) || 0,
-            cashAdvance: parseFloat(payrollData.cashAdvance) || 0,
-            lwop: parseFloat(payrollData.lwop) || 0,
-            absentsLates: parseFloat(payrollData.absentsLates) || 0,
-            totalDeductions: parseFloat(payrollData.totalDeductions) || 0,
-            netPay: parseFloat(payrollData.netPay) || 0,
+            basicSalary: toNumber(payrollData.basicSalary),
+            allowance: toNumber(payrollData.allowance),
+            overtime: toNumber(payrollData.overtime),
+            bonuses: toNumber(payrollData.bonuses),
+            grossPay: toNumber(payrollData.grossPay),
+            sss: toNumber(payrollData.sss),
+            philHealth: toNumber(payrollData.philHealth),
+            pagIbig: toNumber(payrollData.pagIbig),
+            tax: toNumber(payrollData.tax),
+            loans: toNumber(payrollData.loans),
+            cashAdvance: toNumber(payrollData.cashAdvance),
+            lwop: lwopAmount,
+            absentsLates: toNumber(payrollData.absentsLates),
+            totalDeductions: toNumber(payrollData.totalDeductions),
+            netPay: toNumber(payrollData.netPay),
             status: payrollData.status || 'pending',
             bankGcash: payrollData.bankGcash || '',
             unpaidDays: parseInt(payrollData.unpaidDays) || 0,
-            dailyRate: parseFloat(payrollData.dailyRate) || 0,
-            deduction: parseFloat(payrollData.deduction) || 0,
+            dailyRate: toNumber(payrollData.dailyRate),
+            deduction: deductionAmount,
             notes: payrollData.notes || null,
           },
         });
@@ -74,6 +99,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Handle single payroll creation
+    const lwopAmountRaw = toNumber(body.lwop);
+    const deductionAmountRaw = toNumber(body.deduction);
+    const lwopAmount = lwopAmountRaw !== 0 ? lwopAmountRaw : deductionAmountRaw;
+    const deductionAmount =
+      deductionAmountRaw !== 0 ? deductionAmountRaw : lwopAmount;
+
     const payroll = await prisma.payroll.create({
       data: {
         employeeId: body.employeeId,
@@ -81,26 +112,26 @@ export async function POST(request: NextRequest) {
         payPeriod: body.payPeriod,
         periodStart: body.periodStart,
         periodEnd: body.periodEnd,
-        basicSalary: parseFloat(body.basicSalary) || 0,
-        allowance: parseFloat(body.allowance) || 0,
-        overtime: parseFloat(body.overtime) || 0,
-        bonuses: parseFloat(body.bonuses) || 0,
-        grossPay: parseFloat(body.grossPay) || 0,
-        sss: parseFloat(body.sss) || 0,
-        philHealth: parseFloat(body.philHealth) || 0,
-        pagIbig: parseFloat(body.pagIbig) || 0,
-        tax: parseFloat(body.tax) || 0,
-        loans: parseFloat(body.loans) || 0,
-        cashAdvance: parseFloat(body.cashAdvance) || 0,
-        lwop: parseFloat(body.lwop) || 0,
-        absentsLates: parseFloat(body.absentsLates) || 0,
-        totalDeductions: parseFloat(body.totalDeductions) || 0,
-        netPay: parseFloat(body.netPay) || 0,
+        basicSalary: toNumber(body.basicSalary),
+        allowance: toNumber(body.allowance),
+        overtime: toNumber(body.overtime),
+        bonuses: toNumber(body.bonuses),
+        grossPay: toNumber(body.grossPay),
+        sss: toNumber(body.sss),
+        philHealth: toNumber(body.philHealth),
+        pagIbig: toNumber(body.pagIbig),
+        tax: toNumber(body.tax),
+        loans: toNumber(body.loans),
+        cashAdvance: toNumber(body.cashAdvance),
+        lwop: lwopAmount,
+        absentsLates: toNumber(body.absentsLates),
+        totalDeductions: toNumber(body.totalDeductions),
+        netPay: toNumber(body.netPay),
         status: body.status || 'pending',
         bankGcash: body.bankGcash || '',
         unpaidDays: parseInt(body.unpaidDays) || 0,
-        dailyRate: parseFloat(body.dailyRate) || 0,
-        deduction: parseFloat(body.deduction) || 0,
+        dailyRate: toNumber(body.dailyRate),
+        deduction: deductionAmount,
         notes: body.notes || null,
       },
     });
@@ -120,28 +151,34 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { id, ...updateData } = body;
 
+    const lwopAmountRaw = toNumber(updateData.lwop);
+    const deductionAmountRaw = toNumber(updateData.deduction);
+    const lwopAmount = lwopAmountRaw !== 0 ? lwopAmountRaw : deductionAmountRaw;
+    const deductionAmount =
+      deductionAmountRaw !== 0 ? deductionAmountRaw : lwopAmount;
+
     const payroll = await prisma.payroll.update({
       where: { id },
       data: {
         ...updateData,
-        basicSalary: parseFloat(updateData.basicSalary),
-        allowance: parseFloat(updateData.allowance),
-        overtime: parseFloat(updateData.overtime),
-        bonuses: parseFloat(updateData.bonuses),
-        grossPay: parseFloat(updateData.grossPay),
-        sss: parseFloat(updateData.sss),
-        philHealth: parseFloat(updateData.philHealth),
-        pagIbig: parseFloat(updateData.pagIbig),
-        tax: parseFloat(updateData.tax),
-        loans: parseFloat(updateData.loans),
-        cashAdvance: parseFloat(updateData.cashAdvance),
-        lwop: parseFloat(updateData.lwop),
-        absentsLates: parseFloat(updateData.absentsLates),
-        totalDeductions: parseFloat(updateData.totalDeductions),
-        netPay: parseFloat(updateData.netPay),
+        basicSalary: toNumber(updateData.basicSalary),
+        allowance: toNumber(updateData.allowance),
+        overtime: toNumber(updateData.overtime),
+        bonuses: toNumber(updateData.bonuses),
+        grossPay: toNumber(updateData.grossPay),
+        sss: toNumber(updateData.sss),
+        philHealth: toNumber(updateData.philHealth),
+        pagIbig: toNumber(updateData.pagIbig),
+        tax: toNumber(updateData.tax),
+        loans: toNumber(updateData.loans),
+        cashAdvance: toNumber(updateData.cashAdvance),
+        lwop: lwopAmount,
+        absentsLates: toNumber(updateData.absentsLates),
+        totalDeductions: toNumber(updateData.totalDeductions),
+        netPay: toNumber(updateData.netPay),
         unpaidDays: parseInt(updateData.unpaidDays) || 0,
-        dailyRate: parseFloat(updateData.dailyRate) || 0,
-        deduction: parseFloat(updateData.deduction) || 0,
+        dailyRate: toNumber(updateData.dailyRate),
+        deduction: deductionAmount,
       },
     });
 

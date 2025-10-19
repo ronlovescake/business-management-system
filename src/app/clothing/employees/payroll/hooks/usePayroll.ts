@@ -27,26 +27,46 @@ export function usePayroll() {
       }
       const data = await response.json();
 
+      const toNumber = (value: unknown): number => {
+        if (value === null || value === undefined) {
+          return 0;
+        }
+        if (typeof value === 'number') {
+          return value;
+        }
+        if (typeof value === 'string') {
+          const parsed = parseFloat(value);
+          return isNaN(parsed) ? 0 : parsed;
+        }
+        if (typeof value === 'object' && 'toString' in (value as object)) {
+          const parsed = parseFloat(
+            (value as { toString(): string }).toString()
+          );
+          return isNaN(parsed) ? 0 : parsed;
+        }
+        return 0;
+      };
+
       // Map database records to Payroll type
       const mappedPayrolls = data.map((record: Record<string, unknown>) => ({
         id: record.id,
         employee: record.employeeName,
         payPeriod: record.payPeriod,
-        basicSalary: record.basicSalary,
-        allowance: record.allowance,
-        overtime: record.overtime,
-        bonuses: record.bonuses,
-        grossPay: record.grossPay,
-        sss: record.sss,
-        philHealth: record.philHealth,
-        pagIbig: record.pagIbig,
-        tax: record.tax,
-        loans: record.loans,
-        cashAdvance: record.cashAdvance,
-        lwop: record.lwop,
-        absentsLates: record.absentsLates,
-        totalDeductions: record.totalDeductions,
-        netPay: record.netPay,
+        basicSalary: toNumber(record.basicSalary),
+        allowance: toNumber(record.allowance),
+        overtime: toNumber(record.overtime),
+        bonuses: toNumber(record.bonuses),
+        grossPay: toNumber(record.grossPay),
+        sss: toNumber(record.sss),
+        philHealth: toNumber(record.philHealth),
+        pagIbig: toNumber(record.pagIbig),
+        tax: toNumber(record.tax),
+        loans: toNumber(record.loans),
+        cashAdvance: toNumber(record.cashAdvance),
+        lwop: toNumber(record.lwop ?? record.deduction),
+        absentsLates: toNumber(record.absentsLates),
+        totalDeductions: toNumber(record.totalDeductions),
+        netPay: toNumber(record.netPay),
         status: record.status as 'pending' | 'approved' | 'paid',
         bankGcash: record.bankGcash || '',
         approvedBy: record.approvedBy,
@@ -214,6 +234,7 @@ export function usePayroll() {
             cashAdvance: parseFloat(formData.cashAdvance) || 0,
             lwop: parseFloat(formData.lwop) || 0,
             absentsLates: parseFloat(formData.absentsLates) || 0,
+            deduction: parseFloat(formData.lwop) || 0,
             bankGcash: formData.bankGcash,
             grossPay: totals.grossPay,
             totalDeductions: totals.totalDeductions,
@@ -277,6 +298,7 @@ export function usePayroll() {
             cashAdvance: parseFloat(formData.cashAdvance) || 0,
             lwop: parseFloat(formData.lwop) || 0,
             absentsLates: parseFloat(formData.absentsLates) || 0,
+            deduction: parseFloat(formData.lwop) || 0,
             totalDeductions: totals.totalDeductions,
             netPay: totals.netPay,
             status: 'pending',
