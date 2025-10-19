@@ -116,10 +116,15 @@ export function useLeaveTracker() {
 
           const normalisedDate = dayjs(schedule.date).tz().format('YYYY-MM-DD');
 
-          if (!mapped[schedule.employeeId]) {
-            mapped[schedule.employeeId] = new Set();
+          // Normalize employee ID (trim and lowercase) for consistent lookup
+          const normalizedEmployeeId = String(schedule.employeeId || '')
+            .trim()
+            .toLowerCase();
+
+          if (!mapped[normalizedEmployeeId]) {
+            mapped[normalizedEmployeeId] = new Set();
           }
-          mapped[schedule.employeeId].add(normalisedDate);
+          mapped[normalizedEmployeeId].add(normalisedDate);
         });
 
         setEmployeeScheduleIndex(mapped);
@@ -392,7 +397,11 @@ export function useLeaveTracker() {
       return totalDays;
     }
 
-    const scheduleSet = employeeScheduleIndex[employeeId];
+    // Normalize employee ID for lookup (trim and lowercase)
+    const normalizedEmployeeId = String(employeeId || '')
+      .trim()
+      .toLowerCase();
+    const scheduleSet = employeeScheduleIndex[normalizedEmployeeId];
 
     if (!scheduleSet || scheduleSet.size === 0 || isLoadingSchedules) {
       return totalDays;
@@ -437,8 +446,18 @@ export function useLeaveTracker() {
 
     const combined = [...existingRanges, ...additional];
 
+    // Normalize the candidate employee ID
+    const normalizedCandidateId = String(employeeId || '')
+      .trim()
+      .toLowerCase();
+
     return combined.some((request) => {
-      if (request.employeeId !== employeeId) {
+      // Normalize the request employee ID
+      const normalizedRequestId = String(request.employeeId || '')
+        .trim()
+        .toLowerCase();
+
+      if (normalizedRequestId !== normalizedCandidateId) {
         return false;
       }
 
