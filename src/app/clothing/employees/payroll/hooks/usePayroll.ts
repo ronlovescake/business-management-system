@@ -1,80 +1,64 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { Payroll, PayrollFormData } from '../types';
 import { getCurrentDateISO } from '@/utils/date';
 
 export function usePayroll() {
   // State Management
-  const [payrolls, setPayrolls] = useState<Payroll[]>([
-    {
-      id: '1',
-      employee: 'John Doe',
-      payPeriod: '2024-10-01 to 2024-10-15',
-      basicSalary: 15000,
-      allowance: 2000,
-      overtime: 1500,
-      bonuses: 3000,
-      grossPay: 21500,
-      sss: 900,
-      philHealth: 400,
-      pagIbig: 200,
-      tax: 1500,
-      loans: 1000,
-      others: 500,
-      totalDeductions: 4500,
-      netPay: 17000,
-      status: 'paid',
-      bankGcash: 'BDO - 001234567890',
-      paidDate: '2024-10-16',
-    },
-    {
-      id: '2',
-      employee: 'Jane Smith',
-      payPeriod: '2024-10-01 to 2024-10-15',
-      basicSalary: 18000,
-      allowance: 2500,
-      overtime: 2000,
-      bonuses: 5000,
-      grossPay: 27500,
-      sss: 1200,
-      philHealth: 500,
-      pagIbig: 200,
-      tax: 2000,
-      loans: 2000,
-      others: 300,
-      totalDeductions: 6200,
-      netPay: 21300,
-      status: 'approved',
-      bankGcash: 'GCash - 09171234567',
-      approvedBy: 'Manager Smith',
-      approvedDate: '2024-10-15',
-    },
-    {
-      id: '3',
-      employee: 'Mike Johnson',
-      payPeriod: '2024-10-01 to 2024-10-15',
-      basicSalary: 12000,
-      allowance: 1500,
-      overtime: 1000,
-      bonuses: 2000,
-      grossPay: 16500,
-      sss: 750,
-      philHealth: 350,
-      pagIbig: 200,
-      tax: 1200,
-      loans: 0,
-      others: 200,
-      totalDeductions: 2700,
-      netPay: 13800,
-      status: 'pending',
-      bankGcash: 'BPI - 123456789012',
-    },
-  ]);
+  const [payrolls, setPayrolls] = useState<Payroll[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [payPeriodFilter, setPayPeriodFilter] = useState<string>('all');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingPayroll, setEditingPayroll] = useState<Payroll | null>(null);
+
+  // Fetch payrolls from API
+  useEffect(() => {
+    fetchPayrolls();
+  }, []);
+
+  const fetchPayrolls = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/payroll');
+      if (!response.ok) {
+        throw new Error('Failed to fetch payrolls');
+      }
+      const data = await response.json();
+
+      // Map database records to Payroll type
+      const mappedPayrolls = data.map((record: Record<string, unknown>) => ({
+        id: record.id,
+        employee: record.employeeName,
+        payPeriod: record.payPeriod,
+        basicSalary: record.basicSalary,
+        allowance: record.allowance,
+        overtime: record.overtime,
+        bonuses: record.bonuses,
+        grossPay: record.grossPay,
+        sss: record.sss,
+        philHealth: record.philHealth,
+        pagIbig: record.pagIbig,
+        tax: record.tax,
+        loans: record.loans,
+        others: record.others,
+        totalDeductions: record.totalDeductions,
+        netPay: record.netPay,
+        status: record.status as 'pending' | 'approved' | 'paid',
+        bankGcash: record.bankGcash || '',
+        approvedBy: record.approvedBy,
+        approvedDate: record.approvedDate,
+        paidDate: record.paidDate,
+      }));
+
+      setPayrolls(mappedPayrolls);
+    } catch (error) {
+      console.error('Error fetching payrolls:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Computed Values
   const filteredPayrolls = useMemo(() => {
@@ -173,97 +157,224 @@ export function usePayroll() {
     setIsFormOpen(true);
   };
 
-  const handleDeletePayroll = (id: string) => {
+  const handleDeletePayroll = async (id: string) => {
     if (confirm('Are you sure you want to delete this payroll record?')) {
-      setPayrolls((prev) => prev.filter((p) => p.id !== id));
+      try {
+        const response = await fetch(`/api/payroll?id=${id}`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to delete payroll');
+        }
+
+        // Remove from local state
+        setPayrolls((prev) => prev.filter((p) => p.id !== id));
+      } catch (error) {
+        console.error('Error deleting payroll:', error);
+        alert('Failed to delete payroll record');
+      }
     }
   };
 
-  const handleSavePayroll = (formData: PayrollFormData) => {
+  const handleSavePayroll = async (formData: PayrollFormData) => {
     const totals = calculateTotals(formData);
 
-    if (editingPayroll) {
-      // Update existing payroll
+    try {
+      if (editingPayroll) {
+        // Update existing payroll
+        const response = await fetch('/api/payroll', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: editingPayroll.id,
+            employeeName: formData.employee,
+            payPeriod: formData.payPeriod,
+            basicSalary: parseFloat(formData.basicSalary),
+            allowance: parseFloat(formData.allowance) || 0,
+            overtime: parseFloat(formData.overtime) || 0,
+            bonuses: parseFloat(formData.bonuses) || 0,
+            sss: parseFloat(formData.sss) || 0,
+            philHealth: parseFloat(formData.philHealth) || 0,
+            pagIbig: parseFloat(formData.pagIbig) || 0,
+            tax: parseFloat(formData.tax) || 0,
+            loans: parseFloat(formData.loans) || 0,
+            others: parseFloat(formData.others) || 0,
+            bankGcash: formData.bankGcash,
+            grossPay: totals.grossPay,
+            totalDeductions: totals.totalDeductions,
+            netPay: totals.netPay,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to update payroll');
+        }
+
+        const updated = await response.json();
+
+        setPayrolls((prev) =>
+          prev.map((p) =>
+            p.id === editingPayroll.id
+              ? {
+                  ...p,
+                  employee: updated.employeeName,
+                  payPeriod: updated.payPeriod,
+                  basicSalary: updated.basicSalary,
+                  allowance: updated.allowance,
+                  overtime: updated.overtime,
+                  bonuses: updated.bonuses,
+                  grossPay: updated.grossPay,
+                  sss: updated.sss,
+                  philHealth: updated.philHealth,
+                  pagIbig: updated.pagIbig,
+                  tax: updated.tax,
+                  loans: updated.loans,
+                  others: updated.others,
+                  totalDeductions: updated.totalDeductions,
+                  netPay: updated.netPay,
+                  bankGcash: updated.bankGcash,
+                }
+              : p
+          )
+        );
+      } else {
+        // Add new payroll
+        const response = await fetch('/api/payroll', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            employeeName: formData.employee,
+            payPeriod: formData.payPeriod,
+            periodStart: formData.payPeriod.split(' to ')[0],
+            periodEnd: formData.payPeriod.split(' to ')[1],
+            basicSalary: parseFloat(formData.basicSalary),
+            allowance: parseFloat(formData.allowance) || 0,
+            overtime: parseFloat(formData.overtime) || 0,
+            bonuses: parseFloat(formData.bonuses) || 0,
+            grossPay: totals.grossPay,
+            sss: parseFloat(formData.sss) || 0,
+            philHealth: parseFloat(formData.philHealth) || 0,
+            pagIbig: parseFloat(formData.pagIbig) || 0,
+            tax: parseFloat(formData.tax) || 0,
+            loans: parseFloat(formData.loans) || 0,
+            others: parseFloat(formData.others) || 0,
+            totalDeductions: totals.totalDeductions,
+            netPay: totals.netPay,
+            status: 'pending',
+            bankGcash: formData.bankGcash,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to create payroll');
+        }
+
+        const newPayroll = await response.json();
+
+        setPayrolls((prev) => [
+          {
+            id: newPayroll.id,
+            employee: newPayroll.employeeName,
+            payPeriod: newPayroll.payPeriod,
+            basicSalary: newPayroll.basicSalary,
+            allowance: newPayroll.allowance,
+            overtime: newPayroll.overtime,
+            bonuses: newPayroll.bonuses,
+            grossPay: newPayroll.grossPay,
+            sss: newPayroll.sss,
+            philHealth: newPayroll.philHealth,
+            pagIbig: newPayroll.pagIbig,
+            tax: newPayroll.tax,
+            loans: newPayroll.loans,
+            others: newPayroll.others,
+            totalDeductions: newPayroll.totalDeductions,
+            netPay: newPayroll.netPay,
+            status: newPayroll.status,
+            bankGcash: newPayroll.bankGcash,
+          },
+          ...prev,
+        ]);
+      }
+
+      setIsFormOpen(false);
+      setEditingPayroll(null);
+    } catch (error) {
+      console.error('Error saving payroll:', error);
+      alert('Failed to save payroll record');
+    }
+  };
+
+  const handleApprove = async (id: string) => {
+    try {
+      const response = await fetch('/api/payroll', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id,
+          status: 'approved',
+          approvedBy: 'Current User',
+          approvedDate: getCurrentDateISO(),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to approve payroll');
+      }
+
+      const updated = await response.json();
+
       setPayrolls((prev) =>
         prev.map((p) =>
-          p.id === editingPayroll.id
+          p.id === id
             ? {
                 ...p,
-                employee: formData.employee,
-                payPeriod: formData.payPeriod,
-                basicSalary: parseFloat(formData.basicSalary),
-                allowance: parseFloat(formData.allowance) || 0,
-                overtime: parseFloat(formData.overtime) || 0,
-                bonuses: parseFloat(formData.bonuses) || 0,
-                sss: parseFloat(formData.sss) || 0,
-                philHealth: parseFloat(formData.philHealth) || 0,
-                pagIbig: parseFloat(formData.pagIbig) || 0,
-                tax: parseFloat(formData.tax) || 0,
-                loans: parseFloat(formData.loans) || 0,
-                others: parseFloat(formData.others) || 0,
-                bankGcash: formData.bankGcash,
-                grossPay: totals.grossPay,
-                totalDeductions: totals.totalDeductions,
-                netPay: totals.netPay,
+                status: 'approved' as const,
+                approvedBy: updated.approvedBy,
+                approvedDate: updated.approvedDate,
               }
             : p
         )
       );
-    } else {
-      // Add new payroll
-      const newPayroll: Payroll = {
-        id: Date.now().toString(),
-        employee: formData.employee,
-        payPeriod: formData.payPeriod,
-        basicSalary: parseFloat(formData.basicSalary),
-        allowance: parseFloat(formData.allowance) || 0,
-        overtime: parseFloat(formData.overtime) || 0,
-        bonuses: parseFloat(formData.bonuses) || 0,
-        sss: parseFloat(formData.sss) || 0,
-        philHealth: parseFloat(formData.philHealth) || 0,
-        pagIbig: parseFloat(formData.pagIbig) || 0,
-        tax: parseFloat(formData.tax) || 0,
-        loans: parseFloat(formData.loans) || 0,
-        others: parseFloat(formData.others) || 0,
-        bankGcash: formData.bankGcash,
-        grossPay: totals.grossPay,
-        totalDeductions: totals.totalDeductions,
-        netPay: totals.netPay,
-        status: 'pending',
-      };
-      setPayrolls((prev) => [newPayroll, ...prev]);
+    } catch (error) {
+      console.error('Error approving payroll:', error);
+      alert('Failed to approve payroll record');
     }
-    setIsFormOpen(false);
-    setEditingPayroll(null);
   };
 
-  const handleApprove = (id: string) => {
-    setPayrolls((prev) =>
-      prev.map((p) =>
-        p.id === id
-          ? {
-              ...p,
-              status: 'approved' as const,
-              approvedBy: 'Current User',
-              approvedDate: getCurrentDateISO(),
-            }
-          : p
-      )
-    );
-  };
+  const handleMarkAsPaid = async (id: string) => {
+    try {
+      const response = await fetch('/api/payroll', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id,
+          status: 'paid',
+          paidDate: getCurrentDateISO(),
+        }),
+      });
 
-  const handleMarkAsPaid = (id: string) => {
-    setPayrolls((prev) =>
-      prev.map((p) =>
-        p.id === id
-          ? {
-              ...p,
-              status: 'paid' as const,
-              paidDate: getCurrentDateISO(),
-            }
-          : p
-      )
-    );
+      if (!response.ok) {
+        throw new Error('Failed to mark payroll as paid');
+      }
+
+      const updated = await response.json();
+
+      setPayrolls((prev) =>
+        prev.map((p) =>
+          p.id === id
+            ? {
+                ...p,
+                status: 'paid' as const,
+                paidDate: updated.paidDate,
+              }
+            : p
+        )
+      );
+    } catch (error) {
+      console.error('Error marking payroll as paid:', error);
+      alert('Failed to mark payroll as paid');
+    }
   };
 
   const handleImportCSV = (file: File | null) => {
@@ -399,6 +510,7 @@ export function usePayroll() {
     isFormOpen,
     editingPayroll,
     payPeriods,
+    loading,
 
     // Computed Values
     totalPayrolls,

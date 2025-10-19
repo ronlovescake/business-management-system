@@ -3,67 +3,8 @@ import type { EmployeeLoan, EmployeeLoanFormData } from '../types';
 import { getCurrentDateISO } from '@/utils/date';
 
 export function useEmployeeLoans() {
-  // Sample data
-  const [loans, setLoans] = useState<EmployeeLoan[]>([
-    {
-      id: '1',
-      employee: 'John Doe',
-      loanType: 'personal',
-      amount: 50000,
-      interestRate: 5.5,
-      termMonths: 24,
-      monthlyPayment: 2247.82,
-      remainingBalance: 35000,
-      status: 'active',
-      applicationDate: '2024-01-15',
-      purpose: 'Home renovation',
-      approvedBy: 'Manager Smith',
-      approvedDate: '2024-01-20',
-    },
-    {
-      id: '2',
-      employee: 'Jane Smith',
-      loanType: 'emergency',
-      amount: 15000,
-      interestRate: 3.0,
-      termMonths: 12,
-      monthlyPayment: 1267.5,
-      remainingBalance: 0,
-      status: 'completed',
-      applicationDate: '2023-06-01',
-      purpose: 'Medical emergency',
-      approvedBy: 'Manager Smith',
-      approvedDate: '2023-06-02',
-    },
-    {
-      id: '3',
-      employee: 'Mike Johnson',
-      loanType: 'educational',
-      amount: 30000,
-      interestRate: 4.0,
-      termMonths: 36,
-      monthlyPayment: 885.08,
-      remainingBalance: 30000,
-      status: 'pending',
-      applicationDate: '2024-03-01',
-      purpose: 'Masters degree program',
-    },
-    {
-      id: '4',
-      employee: 'Sarah Williams',
-      loanType: 'vehicle',
-      amount: 25000,
-      interestRate: 6.0,
-      termMonths: 48,
-      monthlyPayment: 587.13,
-      remainingBalance: 18500,
-      status: 'active',
-      applicationDate: '2023-11-10',
-      purpose: 'Car purchase',
-      approvedBy: 'Manager Smith',
-      approvedDate: '2023-11-12',
-    },
-  ]);
+  // State Management
+  const [loans, setLoans] = useState<EmployeeLoan[]>([]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');

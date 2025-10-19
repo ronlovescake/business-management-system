@@ -1,9 +1,0 @@
-Employee ID,Employee Name,Leave Type,Start Date,End Date,Number of Days,Reason,Status,Applied Date,Approved By,Notes
-EMP-0006,Joan Tapic Lacaulan,Vacation Leave,2025-09-16,2025-09-23,7,VL,approved,2025-10-19,System Admin,
-EMP-0004,Arnel Ephraim Subia Aliangan,Other,2025-09-16,2025-09-23,7,LWOP,approved,2025-10-19,System Admin,
-EMP-0005,Rain Joel Orong Subia,Other,2025-08-18,2025-08-20,3,LWOP,approved,2025-10-19,System Admin,
-EMP-0005,Rain Joel Orong Subia,Vacation Leave,2025-08-13,2025-08-16,4,Vacation,approved,2025-10-19,System Admin,
-EMP-0006,Joan Tapic Lacaulan,Emergency Leave,2025-05-12,2025-05-31,18,Extended LWOP,approved,2025-10-19,System Admin,
-EMP-0004,Arnel Ephraim Subia Aliangan,Sick Leave,2025-05-12,2025-05-31,18,Extended LWOP,approved,2025-10-19,System Admin,
-EMP-0005,Rain Joel Orong Subia,Vacation Leave,2025-04-28,2025-04-30,3,Vacation,approved,2025-10-19,System Admin,
-EMP-0004,Arnel Ephraim Subia Aliangan,Vacation Leave,2025-03-31,2025-04-07,7,Vacation,approved,2025-10-19,System Admin,

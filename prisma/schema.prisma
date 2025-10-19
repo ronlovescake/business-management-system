@@ -456,3 +456,63 @@ model Attendance {
   @@index([deletedAt])
   @@map("attendance")
 }
+
+// ============================================================================
+// EMPLOYEE PAYROLL MODULE
+// ============================================================================
+
+model Payroll {
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  // Employee Information
+  employeeId   String   @db.VarChar(50)
+  employeeName String   @db.VarChar(255)
+
+  // Pay Period
+  payPeriod    String   @db.VarChar(50) // e.g., "2025-01-01 to 2025-01-15"
+  periodStart  String   @db.VarChar(50) // "2025-01-01"
+  periodEnd    String   @db.VarChar(50) // "2025-01-15"
+
+  // Earnings
+  basicSalary  Float    @default(0)
+  allowance    Float    @default(0)
+  overtime     Float    @default(0)
+  bonuses      Float    @default(0)
+  grossPay     Float    @default(0)
+
+  // Deductions (Government & Others)
+  sss              Float    @default(0)
+  philHealth       Float    @default(0)
+  pagIbig          Float    @default(0)
+  tax              Float    @default(0)
+  loans            Float    @default(0)
+  others           Float    @default(0)
+  totalDeductions  Float    @default(0)
+
+  // Net Pay
+  netPay       Float    @default(0)
+
+  // Status & Approval
+  status       String   @db.VarChar(20) @default("pending") // 'pending' | 'approved' | 'paid'
+  bankGcash    String   @db.VarChar(255)
+  approvedBy   String?  @db.VarChar(255)
+  approvedDate String?  @db.VarChar(50)
+  paidDate     String?  @db.VarChar(50)
+
+  // Additional Information
+  unpaidDays   Int      @default(0)
+  dailyRate    Float    @default(0)
+  deduction    Float    @default(0) // Deduction from unpaid leaves
+  notes        String?  @db.Text
+
+  @@index([employeeId])
+  @@index([employeeName])
+  @@index([payPeriod])
+  @@index([periodStart])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("payrolls")
+}

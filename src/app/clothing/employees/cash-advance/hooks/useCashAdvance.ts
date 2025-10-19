@@ -4,40 +4,7 @@ import { getCurrentDateISO, formatDisplayDate } from '@/utils/date';
 
 export function useCashAdvance() {
   // State Management
-  const [cashAdvances, setCashAdvances] = useState<CashAdvance[]>([
-    {
-      id: '1',
-      employee: 'John Doe',
-      amount: 5000,
-      purpose: 'Medical Emergency',
-      terms: '6 months installment',
-      requestDate: '2024-01-15',
-      status: 'approved',
-      approvedBy: 'Manager Smith',
-      approvedDate: '2024-01-16',
-    },
-    {
-      id: '2',
-      employee: 'Jane Smith',
-      amount: 3000,
-      purpose: 'Educational expenses',
-      terms: '3 months installment',
-      requestDate: '2024-02-01',
-      status: 'pending',
-    },
-    {
-      id: '3',
-      employee: 'Mike Johnson',
-      amount: 10000,
-      purpose: 'Home renovation',
-      terms: '12 months installment',
-      requestDate: '2024-02-10',
-      status: 'rejected',
-      rejectedBy: 'Manager Smith',
-      rejectedDate: '2024-02-11',
-      rejectionReason: 'Amount exceeds policy limit',
-    },
-  ]);
+  const [cashAdvances, setCashAdvances] = useState<CashAdvance[]>([]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');

@@ -3,63 +3,8 @@ import type { ThirteenthMonthPay, ThirteenthMonthPayFormData } from '../types';
 import { getCurrentDateISO, formatDisplayDate } from '@/utils/date';
 import { logger } from '@/lib/logger';
 
-// Mock data
-const mockData: ThirteenthMonthPay[] = [
-  {
-    id: '1',
-    employee: 'John Doe',
-    year: '2025',
-    basicSalary: 30000,
-    totalEarnings: 360000,
-    eligibilityMonths: 12,
-    deductions: 0,
-    thirteenthMonthPay: 30000,
-    status: 'paid',
-    calculatedDate: '2025-12-01',
-    approvedDate: '2025-12-05',
-    paidDate: '2025-12-15',
-    notes: 'Full year employment',
-  },
-  {
-    id: '2',
-    employee: 'Jane Smith',
-    year: '2025',
-    basicSalary: 35000,
-    totalEarnings: 420000,
-    eligibilityMonths: 12,
-    deductions: 5000,
-    thirteenthMonthPay: 30000,
-    status: 'approved',
-    calculatedDate: '2025-12-01',
-    approvedDate: '2025-12-05',
-  },
-  {
-    id: '3',
-    employee: 'Mike Johnson',
-    year: '2025',
-    basicSalary: 28000,
-    totalEarnings: 224000,
-    eligibilityMonths: 8,
-    deductions: 0,
-    thirteenthMonthPay: 18666.67,
-    status: 'calculated',
-    calculatedDate: '2025-12-01',
-  },
-  {
-    id: '4',
-    employee: 'Sarah Williams',
-    year: '2025',
-    basicSalary: 32000,
-    totalEarnings: 384000,
-    eligibilityMonths: 12,
-    deductions: 2000,
-    thirteenthMonthPay: 30000,
-    status: 'pending',
-  },
-];
-
 export function useThirteenthMonthPay() {
-  const [records, setRecords] = useState<ThirteenthMonthPay[]>(mockData);
+  const [records, setRecords] = useState<ThirteenthMonthPay[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [yearFilter, setYearFilter] = useState<string>('all');

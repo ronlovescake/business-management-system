@@ -1,7 +1,0 @@
-employeeId,employeeName,leaveType,startDate,endDate,reason,status,appliedDate,approvedBy,notes
-EMP-0003,Arnel Ephraim Subia Aliangan,Sick Leave,2025-03-31,2025-04-07,Vacation leave,approved,2025-09-04,1,Paid leave | Cost center: company | Year: 2025 | Dept: Operations | Position: Warehouse POC
-EMP-0003,Arnel Ephraim Subia Aliangan,Other,2025-05-12,2025-05-31,Extended leave without pay,approved,2025-09-04,1,Unpaid leave | Cost center: unpaid | Year: 2025 | Dept: Operations | Position: Warehouse POC
-EMP-0005,Joan Lacaulan Tapic,Other,2025-05-12,2025-05-31,Extended leave without pay,approved,2025-09-04,1,Unpaid leave | Cost center: unpaid | Year: 2025 | Dept: Operations | Position: Warehouse Staff
-EMP-0004,Rain Joel Subia Orong,Other,2025-08-18,2025-08-20,Leave without pay,approved,2025-09-04,1,Unpaid leave | Cost center: unpaid | Year: 2025 | Dept: Operations | Position: Warehouse Staff
-EMP-0004,Rain Joel Subia Orong,Sick Leave,2025-08-13,2025-08-16,Vacation leave,approved,2025-09-07,,Paid leave | Cost center: company | Year: 2025 | Dept: Operations | Position: Warehouse Staff
-EMP-0004,Rain Joel Subia Orong,Sick Leave,2025-04-28,2025-04-30,Paid vacation leave,approved,2025-09-07,1,Paid leave | Cost center: company | Year: 2025 | Dept: Operations | Position: Warehouse Staff
