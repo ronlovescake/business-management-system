@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { Employee, EmployeeFormData } from '../types';
 import { getCurrentDateISO } from '@/utils/date';
 
@@ -43,50 +43,50 @@ export function useTeam() {
   const [activeTab, setActiveTab] = useState<string | null>('employees');
 
   // Fetch employees from API
-  useEffect(() => {
-    const fetchEmployees = async () => {
-      try {
-        setIsLoading(true);
+  const fetchEmployees = useCallback(async () => {
+    try {
+      setIsLoading(true);
 
-        // Build query params
-        const params = new URLSearchParams();
-        if (departmentFilter && departmentFilter !== 'all') {
-          params.append('department', departmentFilter);
-        }
-        if (statusFilter && statusFilter !== 'all') {
-          params.append('status', statusFilter);
-        }
-        if (searchQuery) {
-          params.append('search', searchQuery);
-        }
-
-        const response = await fetch(`/api/employees?${params.toString()}`);
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch employees');
-        }
-
-        const data = await response.json();
-
-        // Transform database IDs to strings for UI compatibility
-        const transformedData = data.map(
-          (emp: Omit<Employee, 'id'> & { id: number }) => ({
-            ...emp,
-            id: emp.id.toString(),
-          })
-        );
-
-        setEmployees(transformedData);
-      } catch (error) {
-        console.error('Error fetching employees:', error);
-        setEmployees([]);
-      } finally {
-        setIsLoading(false);
+      // Build query params
+      const params = new URLSearchParams();
+      if (departmentFilter && departmentFilter !== 'all') {
+        params.append('department', departmentFilter);
       }
-    };
+      if (statusFilter && statusFilter !== 'all') {
+        params.append('status', statusFilter);
+      }
+      if (searchQuery) {
+        params.append('search', searchQuery);
+      }
 
-    fetchEmployees();
+      const response = await fetch(`/api/employees?${params.toString()}`);
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch employees');
+      }
+
+      const data = await response.json();
+
+      // Transform database IDs to strings for UI compatibility
+      const transformedData = data.map(
+        (emp: Omit<Employee, 'id'> & { id: number }) => ({
+          ...emp,
+          id: emp.id.toString(),
+        })
+      );
+
+      setEmployees(transformedData);
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+      setEmployees([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, [departmentFilter, statusFilter, searchQuery]);
+
+  useEffect(() => {
+    fetchEmployees();
+  }, [fetchEmployees]);
 
   // Get unique departments for filter
   const departments = useMemo(() => {
@@ -452,51 +452,144 @@ export function useTeam() {
     }
   };
 
-  const handleImportCSV = (file: File | null) => {
+  const handleImportCSV = async (file: File | null) => {
     if (!file) {
       return;
     }
 
     const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const rows = text.split('\n').slice(1); // Skip header row
+    reader.onload = async (e) => {
+      try {
+        const text = e.target?.result as string;
+        const lines = text.split('\n');
+        const headers = lines[0].split(',').map((h) => h.trim());
 
-      const imported = rows
-        .filter((row) => row.trim())
-        .map((row) => {
-          const [
-            employeeId,
-            name,
-            department,
-            jobTitle,
-            status,
-            hireDate,
-            basicSalary,
-            contact,
-            email,
-          ] = row.split(',');
+        // Parse CSV rows (skip header)
+        const rows = lines.slice(1).filter((row) => row.trim());
 
-          return {
-            id: Date.now().toString() + Math.random(),
-            employeeId: employeeId?.trim() || '',
-            name: name?.trim() || '',
-            firstName: name?.trim().split(' ')[0] || '',
-            lastName: name?.trim().split(' ').slice(1).join(' ') || '',
-            department: department?.trim() || '',
-            jobTitle: jobTitle?.trim() || '',
-            position: jobTitle?.trim() || '',
-            status: (status?.trim() || 'active') as Employee['status'],
-            hireDate: hireDate?.trim() || '',
-            basicSalary: parseFloat(basicSalary?.trim() || '0'),
-            currentSalary: parseFloat(basicSalary?.trim() || '0'),
-            contact: contact?.trim() || '',
-            phone: contact?.trim() || '',
-            email: email?.trim() || '',
-          };
-        });
+        let successCount = 0;
+        let errorCount = 0;
 
-      setEmployees((prev) => [...imported, ...prev]);
+        for (const row of rows) {
+          try {
+            // Parse CSV row handling quoted values
+            const values: string[] = [];
+            let currentValue = '';
+            let insideQuotes = false;
+
+            for (let i = 0; i < row.length; i++) {
+              const char = row[i];
+
+              if (char === '"') {
+                insideQuotes = !insideQuotes;
+              } else if (char === ',' && !insideQuotes) {
+                values.push(currentValue.trim());
+                currentValue = '';
+              } else {
+                currentValue += char;
+              }
+            }
+            values.push(currentValue.trim()); // Push last value
+
+            // Map CSV columns to employee data
+            const employeeData: Record<string, string | number> = {};
+            headers.forEach((header, index) => {
+              const value = values[index] || '';
+              employeeData[header] = value;
+            });
+
+            // Create employee object matching API expectations
+            const employee = {
+              employeeId: employeeData['Employee ID'] as string,
+              name: employeeData['Full Name'] as string,
+              firstName: employeeData['First Name'] as string,
+              middleName: (employeeData['Middle Name'] as string) || undefined,
+              lastName: employeeData['Last Name'] as string,
+              gender: (employeeData['Gender'] as string) || undefined,
+              dateOfBirth:
+                (employeeData['Date of Birth'] as string) || undefined,
+              maritalStatus:
+                (employeeData['Marital Status'] as string) || undefined,
+              numberOfKids: employeeData['Number of Kids']
+                ? parseInt(employeeData['Number of Kids'] as string)
+                : undefined,
+              drivingLicense:
+                (employeeData['Driving License'] as string) || undefined,
+              education: (employeeData['Education'] as string) || undefined,
+              email: (employeeData['Email'] as string) || undefined,
+              phone: employeeData['Phone'] as string,
+              contact: employeeData['Phone'] as string,
+              address: (employeeData['Address'] as string) || undefined,
+              emergencyContactPerson:
+                (employeeData['Emergency Contact Person'] as string) ||
+                undefined,
+              emergencyContactNumber:
+                (employeeData['Emergency Contact Number'] as string) ||
+                undefined,
+              emergencyContact:
+                (employeeData['Emergency Contact'] as string) || undefined,
+              department: employeeData['Department'] as string,
+              position: employeeData['Position'] as string,
+              jobTitle: employeeData['Job Title'] as string,
+              employmentStatus:
+                (employeeData['Employment Status'] as string) || undefined,
+              employeeType:
+                (employeeData['Employee Type'] as string) || undefined,
+              status: employeeData['Status'] as string,
+              hireDate: employeeData['Hire Date'] as string,
+              office: (employeeData['Office'] as string) || undefined,
+              hiringSource:
+                (employeeData['Hiring Source'] as string) || undefined,
+              currentSalary: employeeData['Current Salary']
+                ? parseFloat(employeeData['Current Salary'] as string)
+                : undefined,
+              basicSalary:
+                parseFloat(employeeData['Basic Salary'] as string) || 0,
+              allowance: employeeData['Allowance']
+                ? parseFloat(employeeData['Allowance'] as string)
+                : undefined,
+              paymentSchedule:
+                (employeeData['Payment Schedule'] as string) || undefined,
+              bankAccount:
+                (employeeData['Bank Account'] as string) || undefined,
+              gcashAccount:
+                (employeeData['GCash Account'] as string) || undefined,
+              sssNumber: (employeeData['SSS Number'] as string) || undefined,
+              philHealthNumber:
+                (employeeData['PhilHealth Number'] as string) || undefined,
+              hdmfNumber: (employeeData['HDMF Number'] as string) || undefined,
+              tinNumber: (employeeData['TIN Number'] as string) || undefined,
+            };
+
+            // Call API to create employee
+            const response = await fetch('/api/employees', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(employee),
+            });
+
+            if (response.ok) {
+              successCount++;
+            } else {
+              errorCount++;
+              console.error('Failed to import employee:', employee.employeeId);
+            }
+          } catch (rowError) {
+            errorCount++;
+            console.error('Error parsing row:', rowError);
+          }
+        }
+
+        // Refresh employee list
+        await fetchEmployees();
+
+        alert(
+          `Import complete!\nSuccess: ${successCount}\nFailed: ${errorCount}`
+        );
+      } catch (error) {
+        console.error('Error importing CSV:', error);
+        alert('Failed to import CSV file');
+      }
     };
     reader.readAsText(file);
   };
