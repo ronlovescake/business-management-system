@@ -26,7 +26,7 @@ interface CalendarViewProps {
   getEmployeeLeaveForDate: (
     employeeId: string,
     date: string
-  ) => { leaveType: string; status: string } | null;
+  ) => { leaveType: string; status: string; employeeName: string } | null;
   bulkActions?: ReactNode;
 }
 
@@ -330,13 +330,18 @@ export function CalendarView({
                           dateStr
                         );
 
+                        // Use the employee name from the leave request if on leave, otherwise from schedule
+                        const displayName = leave
+                          ? leave.employeeName
+                          : schedule.employeeName;
+
                         return (
                           <Tooltip
                             key={schedule.id}
                             label={
                               leave
-                                ? `${schedule.employeeName} - ${leave.leaveType} (On Leave)`
-                                : `${schedule.employeeName} - ${schedule.position}`
+                                ? `${leave.employeeName} (ID: ${schedule.employeeId}) - ${leave.leaveType} (On Leave)`
+                                : `${schedule.employeeName} (ID: ${schedule.employeeId}) - ${schedule.position}`
                             }
                             position="top"
                           >
@@ -357,7 +362,7 @@ export function CalendarView({
                               onClick={() => onEditSchedule(schedule)}
                             >
                               {leave ? '🏖️ ' : ''}
-                              {schedule.employeeName.split(' ')[0]}
+                              {displayName.split(' ')[0]}
                               {leave
                                 ? ' - Leave'
                                 : ` - ${

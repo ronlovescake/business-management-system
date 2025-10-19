@@ -456,9 +456,17 @@ export function useSchedules() {
   const getEmployeeLeaveForDate = (
     employeeId: string,
     date: string
-  ): { leaveType: string; status: string } | null => {
+  ): { leaveType: string; status: string; employeeName: string } | null => {
     const leave = leaveRequests.find((request) => {
-      if (request.employeeId !== employeeId) {
+      // Normalize both IDs for comparison (trim and lowercase)
+      const requestId = String(request.employeeId || '')
+        .trim()
+        .toLowerCase();
+      const scheduleId = String(employeeId || '')
+        .trim()
+        .toLowerCase();
+
+      if (requestId !== scheduleId) {
         return false;
       }
 
@@ -471,7 +479,13 @@ export function useSchedules() {
       return date >= request.startDate && date <= request.endDate;
     });
 
-    return leave ? { leaveType: leave.leaveType, status: leave.status } : null;
+    return leave
+      ? {
+          leaveType: leave.leaveType,
+          status: leave.status,
+          employeeName: leave.employeeName,
+        }
+      : null;
   };
 
   // ============================================================================
