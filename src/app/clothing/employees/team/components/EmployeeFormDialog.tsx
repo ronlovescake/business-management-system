@@ -6,10 +6,16 @@ import {
   Select,
   Divider,
   Text,
+  Stack,
+  Group,
+  Button,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
-import { ComposedDialog } from '@/components/shared/Dialog';
+import { PolishedModal } from '@/components/modals/PolishedModal';
+import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
+import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
+import { IconUserPlus, IconUserEdit } from '@tabler/icons-react';
 import type { Employee, EmployeeFormData } from '../types';
 
 interface EmployeeFormDialogProps {
@@ -165,419 +171,497 @@ export function EmployeeFormDialog({
     'Cleaning & Maintenance',
   ];
 
+  // Use the polished field styles hook
+  const { getFieldProps, getSelectProps } = usePolishedFieldStyles(opened);
+
+  const modalTitle = (
+    <Group gap="sm" align="center">
+      {editingEmployee ? (
+        <IconUserEdit size={26} color="#65ab58" />
+      ) : (
+        <IconUserPlus size={26} color="#65ab58" />
+      )}
+      <Stack gap={2}>
+        <Text fw={700} fz="lg" c="#101828">
+          {editingEmployee ? 'Edit Employee' : 'Add Employee'}
+        </Text>
+        <Text fz="sm" c="#667085">
+          {editingEmployee
+            ? 'Update the employee details below'
+            : 'Fill in the details to add a new team member'}
+        </Text>
+      </Stack>
+    </Group>
+  );
+
   return (
-    <ComposedDialog
+    <PolishedModal
       opened={opened}
       onClose={onClose}
+      title={modalTitle}
       size={1400}
-      header={{
-        title: editingEmployee ? 'Edit Employee' : 'Add Employee',
-        subtitle: editingEmployee
-          ? 'Update the employee details below'
-          : 'Fill in the details to add a new team member',
-        iconColor: '#6366f1',
-      }}
-      body={{
-        padding: 'lg',
-        maxHeight: '85vh',
-      }}
-      footer={{
-        layout: 'flex-end',
-        secondaryButton: {
-          label: 'Cancel',
-          onClick: onClose,
-          variant: 'default',
-        },
-        primaryButton: {
-          label: editingEmployee ? 'Update Employee' : 'Add Employee',
-          onClick: handleSave,
-          disabled: !form.isValid(),
-          color: '#6366f1',
-        },
-      }}
     >
-      <Grid gutter="md">
-        {/* Basic Information Section */}
-        <Grid.Col span={12}>
-          <Divider
-            label={
-              <Text size="sm" fw={600}>
-                👤 Basic Information
-              </Text>
-            }
-            labelPosition="left"
-          />
-        </Grid.Col>
+      <div style={{ maxHeight: '75vh', overflowY: 'auto' }}>
+        <Stack gap="lg">
+          <Grid gutter="md">
+            {/* Basic Information Section */}
+            <Grid.Col span={12}>
+              <Divider
+                label={
+                  <Text size="sm" fw={600}>
+                    👤 Basic Information
+                  </Text>
+                }
+                labelPosition="left"
+              />
+            </Grid.Col>
+            <Grid.Col span={4}>
+              <TextInput
+                label="First Name"
+                required
+                {...form.getInputProps('firstName')}
+                {...getFieldProps('firstName').handlers}
+                styles={getFieldProps('firstName').styles}
+              />
+            </Grid.Col>
+            <Grid.Col span={4}>
+              <TextInput
+                label="Middle Name"
+                {...form.getInputProps('middleName')}
+                {...getFieldProps('middleName').handlers}
+                styles={getFieldProps('middleName').styles}
+              />
+            </Grid.Col>
+            <Grid.Col span={4}>
+              <TextInput
+                label="Last Name"
+                required
+                {...form.getInputProps('lastName')}
+                {...getFieldProps('lastName').handlers}
+                styles={getFieldProps('lastName').styles}
+              />
+            </Grid.Col>
+            <Grid.Col span={4}>
+              <Select
+                label="Status"
+                required
+                data={[
+                  { value: 'active', label: 'Active' },
+                  { value: 'inactive', label: 'Inactive' },
+                  { value: 'on-leave', label: 'On Leave' },
+                ]}
+                {...form.getInputProps('status')}
+                {...getSelectProps('status').handlers}
+                styles={getSelectProps('status').styles}
+                withCheckIcon={false}
+                comboboxProps={{ withinPortal: true, zIndex: 500 }}
+              />
+            </Grid.Col>
+            <Grid.Col span={4}>
+              <Select
+                label="Education"
+                data={[
+                  { value: 'highschool', label: 'High School' },
+                  { value: 'college', label: 'College' },
+                  { value: 'vocational', label: 'Vocational' },
+                  { value: 'postgrad', label: 'Post Graduate' },
+                ]}
+                {...form.getInputProps('education')}
+                {...getSelectProps('education').handlers}
+                styles={getSelectProps('education').styles}
+                withCheckIcon={false}
+                comboboxProps={{ withinPortal: true, zIndex: 500 }}
+              />
+            </Grid.Col>
+            <Grid.Col span={4}>
+              <Select
+                label="Gender"
+                data={[
+                  { value: 'male', label: 'Male' },
+                  { value: 'female', label: 'Female' },
+                ]}
+                {...form.getInputProps('gender')}
+                {...getSelectProps('gender').handlers}
+                styles={getSelectProps('gender').styles}
+                withCheckIcon={false}
+                comboboxProps={{ withinPortal: true, zIndex: 500 }}
+              />
+            </Grid.Col>{' '}
+            <Grid.Col span={4}>
+              <DateInput
+                label="Date of Birth"
+                valueFormat="MM-DD-YYYY"
+                firstDayOfWeek={0}
+                value={
+                  form.values.dateOfBirth
+                    ? new Date(form.values.dateOfBirth)
+                    : null
+                }
+                onChange={(value) =>
+                  form.setFieldValue(
+                    'dateOfBirth',
+                    value ? value.toISOString().split('T')[0] : ''
+                  )
+                }
+              />
+            </Grid.Col>
+            <Grid.Col span={4}>
+              <Select
+                label="Marital Status"
+                data={[
+                  { value: 'single', label: 'Single' },
+                  { value: 'married', label: 'Married' },
+                  { value: 'separated', label: 'Separated' },
+                  { value: 'widowed', label: 'Widowed' },
+                ]}
+                {...form.getInputProps('maritalStatus')}
+                {...getSelectProps('maritalStatus').handlers}
+                styles={getSelectProps('maritalStatus').styles}
+                withCheckIcon={false}
+                comboboxProps={{ withinPortal: true, zIndex: 500 }}
+              />
+            </Grid.Col>
+            <Grid.Col span={4}>
+              <NumberInput
+                label="Number of Kids"
+                min={0}
+                hideControls
+                value={form.values.numberOfKids}
+                onChange={(value) =>
+                  form.setFieldValue('numberOfKids', value?.toString() || '')
+                }
+              />
+            </Grid.Col>
+            {/* Employment Section */}
+            <Grid.Col span={12}>
+              <Divider
+                label={
+                  <Text size="sm" fw={600}>
+                    💼 Employment
+                  </Text>
+                }
+                labelPosition="left"
+                mt="md"
+              />
+            </Grid.Col>
+            <Grid.Col span={4}>
+              <Select
+                label="Department"
+                required
+                data={departmentOptions}
+                searchable
+                {...form.getInputProps('department')}
+                {...getSelectProps('department').handlers}
+                styles={getSelectProps('department').styles}
+                withCheckIcon={false}
+                comboboxProps={{ withinPortal: true, zIndex: 500 }}
+              />
+            </Grid.Col>
+            <Grid.Col span={4}>
+              <TextInput
+                label="Position"
+                required
+                {...form.getInputProps('position')}
+                {...getFieldProps('position').handlers}
+                styles={getFieldProps('position').styles}
+              />
+            </Grid.Col>
+            <Grid.Col span={4}>
+              <DateInput
+                label="Hire Date"
+                valueFormat="MM-DD-YYYY"
+                firstDayOfWeek={0}
+                required
+                value={
+                  form.values.hireDate ? new Date(form.values.hireDate) : null
+                }
+                onChange={(value) =>
+                  form.setFieldValue(
+                    'hireDate',
+                    value ? value.toISOString().split('T')[0] : ''
+                  )
+                }
+              />
+            </Grid.Col>
+            <Grid.Col span={4}>
+              <Select
+                label="Employment Status"
+                data={[
+                  { value: 'probationary', label: 'Probationary' },
+                  { value: 'regular', label: 'Regular' },
+                  { value: 'contractual', label: 'Contractual' },
+                  { value: 'project-based', label: 'Project-Based' },
+                ]}
+                {...form.getInputProps('employmentStatus')}
+                {...getSelectProps('employmentStatus').handlers}
+                styles={getSelectProps('employmentStatus').styles}
+                withCheckIcon={false}
+                comboboxProps={{ withinPortal: true, zIndex: 500 }}
+              />
+            </Grid.Col>
+            <Grid.Col span={4}>
+              <Select
+                label="Employee Type"
+                data={[
+                  { value: 'full-time', label: 'Full-Time' },
+                  { value: 'part-time', label: 'Part-Time' },
+                  { value: 'contractor', label: 'Contractor' },
+                  { value: 'stay-in', label: 'Stay-in' },
+                ]}
+                {...form.getInputProps('employeeType')}
+                {...getSelectProps('employeeType').handlers}
+                styles={getSelectProps('employeeType').styles}
+                withCheckIcon={false}
+                comboboxProps={{ withinPortal: true, zIndex: 500 }}
+              />
+            </Grid.Col>
+            <Grid.Col span={4}>
+              <TextInput
+                label="Office Location"
+                {...form.getInputProps('office')}
+                {...getFieldProps('office').handlers}
+                styles={getFieldProps('office').styles}
+              />
+            </Grid.Col>
+            <Grid.Col span={4}>
+              <TextInput
+                label="Hiring Source"
+                {...form.getInputProps('hiringSource')}
+                {...getFieldProps('hiringSource').handlers}
+                styles={getFieldProps('hiringSource').styles}
+              />
+            </Grid.Col>
+            <Grid.Col span={4}>
+              <TextInput
+                label="Education"
+                {...form.getInputProps('education')}
+                {...getFieldProps('education').handlers}
+                styles={getFieldProps('education').styles}
+              />
+            </Grid.Col>
+            <Grid.Col span={4}>
+              <TextInput
+                label="Driving License Number"
+                {...form.getInputProps('drivingLicense')}
+                {...getFieldProps('drivingLicense').handlers}
+                styles={getFieldProps('drivingLicense').styles}
+              />
+            </Grid.Col>
+            {/* Contact Section */}
+            <Grid.Col span={12}>
+              <Divider
+                label={
+                  <Text size="sm" fw={600}>
+                    📞 Contact
+                  </Text>
+                }
+                labelPosition="left"
+                mt="md"
+              />
+            </Grid.Col>
+            <Grid.Col span={6}>
+              <TextInput
+                label="Phone Number"
+                required
+                {...form.getInputProps('phone')}
+                {...getFieldProps('phone').handlers}
+                styles={getFieldProps('phone').styles}
+              />
+            </Grid.Col>
+            <Grid.Col span={6}>
+              <TextInput
+                label="Email Address"
+                type="email"
+                {...form.getInputProps('email')}
+                {...getFieldProps('email').handlers}
+                styles={getFieldProps('email').styles}
+              />
+            </Grid.Col>
+            <Grid.Col span={12}>
+              <TextInput
+                label="Address"
+                {...form.getInputProps('address')}
+                {...getFieldProps('address').handlers}
+                styles={getFieldProps('address').styles}
+              />
+            </Grid.Col>
+            {/* In case of emergency Section */}
+            <Grid.Col span={12}>
+              <Divider
+                label={
+                  <Text size="sm" fw={600}>
+                    🚨 In case of emergency
+                  </Text>
+                }
+                labelPosition="left"
+                mt="md"
+              />
+            </Grid.Col>
+            <Grid.Col span={6}>
+              <TextInput
+                label="Emergency Contact Person"
+                {...form.getInputProps('emergencyContactPerson')}
+                {...getFieldProps('emergencyContactPerson').handlers}
+                styles={getFieldProps('emergencyContactPerson').styles}
+              />
+            </Grid.Col>
+            <Grid.Col span={6}>
+              <TextInput
+                label="Emergency Contact Number"
+                {...form.getInputProps('emergencyContactNumber')}
+                {...getFieldProps('emergencyContactNumber').handlers}
+                styles={getFieldProps('emergencyContactNumber').styles}
+              />
+            </Grid.Col>
+            {/* Government IDs Section */}
+            <Grid.Col span={12}>
+              <Divider
+                label={
+                  <Text size="sm" fw={600}>
+                    🏛️ Government IDs
+                  </Text>
+                }
+                labelPosition="left"
+                mt="md"
+              />
+            </Grid.Col>
+            <Grid.Col span={3}>
+              <TextInput
+                label="SSS Number"
+                {...form.getInputProps('sssNumber')}
+                {...getFieldProps('sssNumber').handlers}
+                styles={getFieldProps('sssNumber').styles}
+              />
+            </Grid.Col>
+            <Grid.Col span={3}>
+              <TextInput
+                label="PhilHealth Number"
+                {...form.getInputProps('philHealthNumber')}
+                {...getFieldProps('philHealthNumber').handlers}
+                styles={getFieldProps('philHealthNumber').styles}
+              />
+            </Grid.Col>
+            <Grid.Col span={3}>
+              <TextInput
+                label="HDMF Number (Pag-IBIG)"
+                {...form.getInputProps('hdmfNumber')}
+                {...getFieldProps('hdmfNumber').handlers}
+                styles={getFieldProps('hdmfNumber').styles}
+              />
+            </Grid.Col>
+            <Grid.Col span={3}>
+              <TextInput
+                label="TIN Number"
+                {...form.getInputProps('tinNumber')}
+                {...getFieldProps('tinNumber').handlers}
+                styles={getFieldProps('tinNumber').styles}
+              />
+            </Grid.Col>
+            {/* Financial Section */}
+            <Grid.Col span={12}>
+              <Divider
+                label={
+                  <Text size="sm" fw={600}>
+                    💰 Financial
+                  </Text>
+                }
+                labelPosition="left"
+                mt="md"
+              />
+            </Grid.Col>
+            <Grid.Col span={3}>
+              <NumberInput
+                label="Basic Salary"
+                required
+                min={0}
+                prefix="₱"
+                decimalScale={2}
+                thousandSeparator=","
+                hideControls
+                value={form.values.basicSalary}
+                onChange={(value) =>
+                  form.setFieldValue('basicSalary', value?.toString() || '')
+                }
+                error={form.errors.basicSalary}
+              />
+            </Grid.Col>
+            <Grid.Col span={3}>
+              <NumberInput
+                label="Allowance"
+                min={0}
+                prefix="₱"
+                decimalScale={2}
+                thousandSeparator=","
+                hideControls
+                value={form.values.allowance}
+                onChange={(value) =>
+                  form.setFieldValue('allowance', value?.toString() || '')
+                }
+              />
+            </Grid.Col>
+            <Grid.Col span={3}>
+              <NumberInput
+                label="Current Salary"
+                min={0}
+                prefix="₱"
+                decimalScale={2}
+                thousandSeparator=","
+                hideControls
+                value={form.values.currentSalary}
+                onChange={(value) =>
+                  form.setFieldValue('currentSalary', value?.toString() || '')
+                }
+              />
+            </Grid.Col>
+            <Grid.Col span={3}>
+              <Select
+                label="Payment Schedule"
+                data={[
+                  { value: 'weekly', label: 'Weekly' },
+                  { value: 'bi-weekly', label: 'Bi-Weekly' },
+                  { value: 'bi-monthly', label: 'Bi-Monthly' },
+                  { value: 'monthly', label: 'Monthly' },
+                ]}
+                {...form.getInputProps('paymentSchedule')}
+                {...getSelectProps('paymentSchedule').handlers}
+                styles={getSelectProps('paymentSchedule').styles}
+                withCheckIcon={false}
+                comboboxProps={{ withinPortal: true, zIndex: 500 }}
+              />
+            </Grid.Col>
+            <Grid.Col span={6}>
+              <TextInput
+                label="Bank Account"
+                {...form.getInputProps('bankAccount')}
+                {...getFieldProps('bankAccount').handlers}
+                styles={getFieldProps('bankAccount').styles}
+              />
+            </Grid.Col>
+            <Grid.Col span={6}>
+              <TextInput
+                label="GCash Account"
+                {...form.getInputProps('gcashAccount')}
+                {...getFieldProps('gcashAccount').handlers}
+                styles={getFieldProps('gcashAccount').styles}
+              />
+            </Grid.Col>
+          </Grid>
 
-        <Grid.Col span={4}>
-          <TextInput
-            label="First Name"
-            required
-            {...form.getInputProps('firstName')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={4}>
-          <TextInput
-            label="Middle Name"
-            {...form.getInputProps('middleName')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={4}>
-          <TextInput
-            label="Last Name"
-            required
-            {...form.getInputProps('lastName')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={4}>
-          <Select
-            label="Status"
-            required
-            data={[
-              { value: 'active', label: 'Active' },
-              { value: 'inactive', label: 'Inactive' },
-              { value: 'on-leave', label: 'On Leave' },
-            ]}
-            {...form.getInputProps('status')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={4}>
-          <Select
-            label="Gender"
-            data={[
-              { value: 'male', label: 'Male' },
-              { value: 'female', label: 'Female' },
-            ]}
-            {...form.getInputProps('gender')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={4}>
-          <DateInput
-            label="Date of Birth"
-            valueFormat="MM-DD-YYYY"
-            firstDayOfWeek={0}
-            value={
-              form.values.dateOfBirth ? new Date(form.values.dateOfBirth) : null
-            }
-            onChange={(value) =>
-              form.setFieldValue(
-                'dateOfBirth',
-                value ? value.toISOString().split('T')[0] : ''
-              )
-            }
-          />
-        </Grid.Col>
-
-        <Grid.Col span={4}>
-          <Select
-            label="Marital Status"
-            data={[
-              { value: 'single', label: 'Single' },
-              { value: 'married', label: 'Married' },
-              { value: 'separated', label: 'Separated' },
-              { value: 'widowed', label: 'Widowed' },
-            ]}
-            {...form.getInputProps('maritalStatus')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={4}>
-          <NumberInput
-            label="Number of Kids"
-            min={0}
-            hideControls
-            value={form.values.numberOfKids}
-            onChange={(value) =>
-              form.setFieldValue('numberOfKids', value?.toString() || '')
-            }
-          />
-        </Grid.Col>
-
-        {/* Employment Section */}
-        <Grid.Col span={12}>
-          <Divider
-            label={
-              <Text size="sm" fw={600}>
-                💼 Employment
-              </Text>
-            }
-            labelPosition="left"
-            mt="md"
-          />
-        </Grid.Col>
-
-        <Grid.Col span={4}>
-          <Select
-            label="Department"
-            required
-            data={departmentOptions}
-            searchable
-            {...form.getInputProps('department')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={4}>
-          <TextInput
-            label="Position"
-            required
-            {...form.getInputProps('position')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={4}>
-          <DateInput
-            label="Hire Date"
-            valueFormat="MM-DD-YYYY"
-            firstDayOfWeek={0}
-            required
-            value={form.values.hireDate ? new Date(form.values.hireDate) : null}
-            onChange={(value) =>
-              form.setFieldValue(
-                'hireDate',
-                value ? value.toISOString().split('T')[0] : ''
-              )
-            }
-          />
-        </Grid.Col>
-
-        <Grid.Col span={4}>
-          <Select
-            label="Employment Status"
-            data={[
-              { value: 'probationary', label: 'Probationary' },
-              { value: 'regular', label: 'Regular' },
-              { value: 'contractual', label: 'Contractual' },
-              { value: 'project-based', label: 'Project-Based' },
-            ]}
-            {...form.getInputProps('employmentStatus')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={4}>
-          <Select
-            label="Employee Type"
-            data={[
-              { value: 'full-time', label: 'Full-Time' },
-              { value: 'part-time', label: 'Part-Time' },
-              { value: 'contractor', label: 'Contractor' },
-              { value: 'stay-in', label: 'Stay-in' },
-            ]}
-            {...form.getInputProps('employeeType')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={4}>
-          <TextInput
-            label="Office Location"
-            {...form.getInputProps('office')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={4}>
-          <TextInput
-            label="Hiring Source"
-            {...form.getInputProps('hiringSource')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={4}>
-          <TextInput label="Education" {...form.getInputProps('education')} />
-        </Grid.Col>
-
-        <Grid.Col span={4}>
-          <TextInput
-            label="Driving License Number"
-            {...form.getInputProps('drivingLicense')}
-          />
-        </Grid.Col>
-
-        {/* Contact Section */}
-        <Grid.Col span={12}>
-          <Divider
-            label={
-              <Text size="sm" fw={600}>
-                📞 Contact
-              </Text>
-            }
-            labelPosition="left"
-            mt="md"
-          />
-        </Grid.Col>
-
-        <Grid.Col span={6}>
-          <TextInput
-            label="Phone Number"
-            required
-            {...form.getInputProps('phone')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={6}>
-          <TextInput
-            label="Email Address"
-            type="email"
-            {...form.getInputProps('email')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={12}>
-          <TextInput label="Address" {...form.getInputProps('address')} />
-        </Grid.Col>
-
-        {/* In case of emergency Section */}
-        <Grid.Col span={12}>
-          <Divider
-            label={
-              <Text size="sm" fw={600}>
-                🚨 In case of emergency
-              </Text>
-            }
-            labelPosition="left"
-            mt="md"
-          />
-        </Grid.Col>
-
-        <Grid.Col span={6}>
-          <TextInput
-            label="Emergency Contact Person"
-            {...form.getInputProps('emergencyContactPerson')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={6}>
-          <TextInput
-            label="Emergency Contact Number"
-            {...form.getInputProps('emergencyContactNumber')}
-          />
-        </Grid.Col>
-
-        {/* Government IDs Section */}
-        <Grid.Col span={12}>
-          <Divider
-            label={
-              <Text size="sm" fw={600}>
-                🏛️ Government IDs
-              </Text>
-            }
-            labelPosition="left"
-            mt="md"
-          />
-        </Grid.Col>
-
-        <Grid.Col span={3}>
-          <TextInput label="SSS Number" {...form.getInputProps('sssNumber')} />
-        </Grid.Col>
-
-        <Grid.Col span={3}>
-          <TextInput
-            label="PhilHealth Number"
-            {...form.getInputProps('philHealthNumber')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={3}>
-          <TextInput
-            label="HDMF Number (Pag-IBIG)"
-            {...form.getInputProps('hdmfNumber')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={3}>
-          <TextInput label="TIN Number" {...form.getInputProps('tinNumber')} />
-        </Grid.Col>
-
-        {/* Financial Section */}
-        <Grid.Col span={12}>
-          <Divider
-            label={
-              <Text size="sm" fw={600}>
-                💰 Financial
-              </Text>
-            }
-            labelPosition="left"
-            mt="md"
-          />
-        </Grid.Col>
-
-        <Grid.Col span={3}>
-          <NumberInput
-            label="Basic Salary"
-            required
-            min={0}
-            prefix="₱"
-            decimalScale={2}
-            thousandSeparator=","
-            hideControls
-            value={form.values.basicSalary}
-            onChange={(value) =>
-              form.setFieldValue('basicSalary', value?.toString() || '')
-            }
-            error={form.errors.basicSalary}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={3}>
-          <NumberInput
-            label="Allowance"
-            min={0}
-            prefix="₱"
-            decimalScale={2}
-            thousandSeparator=","
-            hideControls
-            value={form.values.allowance}
-            onChange={(value) =>
-              form.setFieldValue('allowance', value?.toString() || '')
-            }
-          />
-        </Grid.Col>
-
-        <Grid.Col span={3}>
-          <NumberInput
-            label="Current Salary"
-            min={0}
-            prefix="₱"
-            decimalScale={2}
-            thousandSeparator=","
-            hideControls
-            value={form.values.currentSalary}
-            onChange={(value) =>
-              form.setFieldValue('currentSalary', value?.toString() || '')
-            }
-          />
-        </Grid.Col>
-
-        <Grid.Col span={3}>
-          <Select
-            label="Payment Schedule"
-            data={[
-              { value: 'weekly', label: 'Weekly' },
-              { value: 'bi-weekly', label: 'Bi-Weekly' },
-              { value: 'bi-monthly', label: 'Bi-Monthly' },
-              { value: 'monthly', label: 'Monthly' },
-            ]}
-            {...form.getInputProps('paymentSchedule')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={6}>
-          <TextInput
-            label="Bank Account"
-            {...form.getInputProps('bankAccount')}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={6}>
-          <TextInput
-            label="GCash Account"
-            {...form.getInputProps('gcashAccount')}
-          />
-        </Grid.Col>
-      </Grid>
-    </ComposedDialog>
+          <Group justify="flex-end" gap="sm" mt="xl">
+            <Button radius="md" variant="default" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              radius="md"
+              onClick={handleSave}
+              disabled={!form.isValid()}
+              styles={polishedPrimaryButtonStyles}
+            >
+              {editingEmployee ? 'Update Employee' : 'Add Employee'}
+            </Button>
+          </Group>
+        </Stack>
+      </div>
+    </PolishedModal>
   );
 }
