@@ -151,34 +151,65 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { id, ...updateData } = body;
 
-    const lwopAmountRaw = toNumber(updateData.lwop);
-    const deductionAmountRaw = toNumber(updateData.deduction);
-    const lwopAmount = lwopAmountRaw !== 0 ? lwopAmountRaw : deductionAmountRaw;
-    const deductionAmount =
-      deductionAmountRaw !== 0 ? deductionAmountRaw : lwopAmount;
+    const hasProp = (key: string) =>
+      Object.prototype.hasOwnProperty.call(updateData, key);
+
+    const updatedRecord: Record<string, unknown> = { ...updateData };
+
+    const assignNumber = (key: string) => {
+      if (hasProp(key)) {
+        updatedRecord[key] = toNumber(updateData[key]);
+      }
+    };
+
+    assignNumber('basicSalary');
+    assignNumber('allowance');
+    assignNumber('overtime');
+    assignNumber('bonuses');
+    assignNumber('grossPay');
+    assignNumber('sss');
+    assignNumber('philHealth');
+    assignNumber('pagIbig');
+    assignNumber('tax');
+    assignNumber('loans');
+    assignNumber('cashAdvance');
+    assignNumber('absentsLates');
+    assignNumber('totalDeductions');
+    assignNumber('netPay');
+    assignNumber('dailyRate');
+
+    if (hasProp('unpaidDays')) {
+      updatedRecord.unpaidDays = parseInt(updateData.unpaidDays) || 0;
+    }
+
+    const hasLwop = hasProp('lwop');
+    const hasDeduction = hasProp('deduction');
+
+    if (hasLwop || hasDeduction) {
+      const lwopAmountRaw = hasLwop ? toNumber(updateData.lwop) : undefined;
+      const deductionAmountRaw = hasDeduction
+        ? toNumber(updateData.deduction)
+        : undefined;
+
+      if (hasLwop) {
+        updatedRecord.lwop =
+          lwopAmountRaw !== undefined
+            ? lwopAmountRaw || deductionAmountRaw || 0
+            : updateData.lwop;
+      }
+
+      if (hasDeduction) {
+        updatedRecord.deduction =
+          deductionAmountRaw !== undefined
+            ? deductionAmountRaw || lwopAmountRaw || 0
+            : updateData.deduction;
+      }
+    }
 
     const payroll = await prisma.payroll.update({
       where: { id },
       data: {
-        ...updateData,
-        basicSalary: toNumber(updateData.basicSalary),
-        allowance: toNumber(updateData.allowance),
-        overtime: toNumber(updateData.overtime),
-        bonuses: toNumber(updateData.bonuses),
-        grossPay: toNumber(updateData.grossPay),
-        sss: toNumber(updateData.sss),
-        philHealth: toNumber(updateData.philHealth),
-        pagIbig: toNumber(updateData.pagIbig),
-        tax: toNumber(updateData.tax),
-        loans: toNumber(updateData.loans),
-        cashAdvance: toNumber(updateData.cashAdvance),
-        lwop: lwopAmount,
-        absentsLates: toNumber(updateData.absentsLates),
-        totalDeductions: toNumber(updateData.totalDeductions),
-        netPay: toNumber(updateData.netPay),
-        unpaidDays: parseInt(updateData.unpaidDays) || 0,
-        dailyRate: toNumber(updateData.dailyRate),
-        deduction: deductionAmount,
+        ...updatedRecord,
       },
     });
 
