@@ -199,9 +199,9 @@ export function EmployeeFormDialog({
       opened={opened}
       onClose={onClose}
       title={modalTitle}
-      size={1400}
+      size={1750}
     >
-      <div style={{ maxHeight: '75vh', overflowY: 'auto' }}>
+      <div style={{ maxHeight: '82vh', overflowY: 'auto' }}>
         <Stack gap="lg">
           <Grid gutter="md">
             {/* Basic Information Section */}
@@ -286,7 +286,8 @@ export function EmployeeFormDialog({
                 withCheckIcon={false}
                 comboboxProps={{ withinPortal: true, zIndex: 500 }}
               />
-            </Grid.Col>{' '}
+            </Grid.Col>
+
             <Grid.Col span={4}>
               <DateInput
                 label="Date of Birth"
@@ -303,8 +304,11 @@ export function EmployeeFormDialog({
                     value ? value.toISOString().split('T')[0] : ''
                   )
                 }
+                {...getFieldProps('dateOfBirth').handlers}
+                styles={getFieldProps('dateOfBirth').styles}
               />
             </Grid.Col>
+
             <Grid.Col span={4}>
               <Select
                 label="Marital Status"
@@ -321,6 +325,7 @@ export function EmployeeFormDialog({
                 comboboxProps={{ withinPortal: true, zIndex: 500 }}
               />
             </Grid.Col>
+
             <Grid.Col span={4}>
               <NumberInput
                 label="Number of Kids"
@@ -330,6 +335,8 @@ export function EmployeeFormDialog({
                 onChange={(value) =>
                   form.setFieldValue('numberOfKids', value?.toString() || '')
                 }
+                {...getFieldProps('numberOfKids').handlers}
+                styles={getFieldProps('numberOfKids').styles}
               />
             </Grid.Col>
             {/* Employment Section */}
@@ -381,6 +388,8 @@ export function EmployeeFormDialog({
                     value ? value.toISOString().split('T')[0] : ''
                   )
                 }
+                {...getFieldProps('hireDate').handlers}
+                styles={getFieldProps('hireDate').styles}
               />
             </Grid.Col>
             <Grid.Col span={4}>
@@ -583,8 +592,11 @@ export function EmployeeFormDialog({
                   form.setFieldValue('basicSalary', value?.toString() || '')
                 }
                 error={form.errors.basicSalary}
+                {...getFieldProps('basicSalary').handlers}
+                styles={getFieldProps('basicSalary').styles}
               />
             </Grid.Col>
+
             <Grid.Col span={3}>
               <NumberInput
                 label="Allowance"
@@ -597,8 +609,11 @@ export function EmployeeFormDialog({
                 onChange={(value) =>
                   form.setFieldValue('allowance', value?.toString() || '')
                 }
+                {...getFieldProps('allowance').handlers}
+                styles={getFieldProps('allowance').styles}
               />
             </Grid.Col>
+
             <Grid.Col span={3}>
               <NumberInput
                 label="Current Salary"
@@ -611,6 +626,8 @@ export function EmployeeFormDialog({
                 onChange={(value) =>
                   form.setFieldValue('currentSalary', value?.toString() || '')
                 }
+                {...getFieldProps('currentSalary').handlers}
+                styles={getFieldProps('currentSalary').styles}
               />
             </Grid.Col>
             <Grid.Col span={3}>

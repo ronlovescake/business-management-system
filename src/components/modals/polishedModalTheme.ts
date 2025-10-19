@@ -91,15 +91,15 @@ export const polishedReadOnlyFieldStyles = {
 
 export const polishedPrimaryButtonStyles = {
   root: {
-    backgroundColor: '#65ab58',
+    backgroundColor: '#29A829',
     color: '#ffffff',
-    borderColor: '#65ab58',
+    borderColor: '#29A829',
     '&:hover': {
-      backgroundColor: '#4f8a45',
+      backgroundColor: '#228b22',
     },
     '&:disabled': {
-      backgroundColor: '#bfddba',
-      borderColor: '#bfddba',
+      backgroundColor: '#94d494',
+      borderColor: '#94d494',
       color: '#ffffff',
     },
   },
