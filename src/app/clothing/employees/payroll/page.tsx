@@ -28,6 +28,38 @@ import { PayrollFormDialog } from './components/PayrollFormDialog';
 import type { Payroll as PayrollType } from './types';
 
 export default function Payroll() {
+  const formatPayPeriodDisplay = (period: string) => {
+    if (!period) {
+      return '';
+    }
+
+    const [startRaw, endRaw] = period.split(' to ');
+
+    const formatDatePart = (value: string | undefined) => {
+      if (!value) {
+        return '';
+      }
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return value;
+      }
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    };
+
+    const start = formatDatePart(startRaw);
+    const end = formatDatePart(endRaw);
+
+    if (!start || !end) {
+      return start || end || period;
+    }
+
+    return `${start} to ${end}`;
+  };
+
   const {
     // State
     payrolls,
@@ -102,7 +134,9 @@ export default function Payroll() {
     {
       key: 'payPeriod',
       label: 'PAY PERIOD',
-      render: (item) => <Text size="sm">{item.payPeriod}</Text>,
+      render: (item) => (
+        <Text size="sm">{formatPayPeriodDisplay(item.payPeriod)}</Text>
+      ),
     },
     {
       key: 'basicSalary',
