@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import type { LeaveRequest, LeaveStatus, LeaveType } from '../types';
-import { getCurrentDateISO } from '@/utils/date';
+import type { Schedule } from '../../schedules/types';
+import { dayjs, getCurrentDateISO } from '@/utils/date';
 
 interface EmployeeOption {
   value: string;
@@ -44,6 +45,10 @@ export function useLeaveTracker() {
   const [formNotes, setFormNotes] = useState('');
   const [employeeOptions, setEmployeeOptions] = useState<EmployeeOption[]>([]);
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
+  const [employeeScheduleIndex, setEmployeeScheduleIndex] = useState<
+    Record<string, Set<string>>
+  >({});
+  const [isLoadingSchedules, setIsLoadingSchedules] = useState(false);
 
   const resetFormFields = () => {
     setFormEmployeeName('');
@@ -79,6 +84,46 @@ export function useLeaveTracker() {
     };
 
     fetchLeaveRequests();
+  }, []);
+
+  useEffect(() => {
+    const fetchSchedules = async () => {
+      try {
+        setIsLoadingSchedules(true);
+        const response = await fetch('/api/schedules');
+        if (!response.ok) {
+          throw new Error('Failed to fetch schedules');
+        }
+
+        const data: Schedule[] = await response.json();
+        const mapped: Record<string, Set<string>> = {};
+
+        data.forEach((schedule) => {
+          if (!schedule?.employeeId || !schedule?.date) {
+            return;
+          }
+
+          if (schedule.status === 'cancelled') {
+            return;
+          }
+
+          const normalisedDate = dayjs(schedule.date).tz().format('YYYY-MM-DD');
+
+          if (!mapped[schedule.employeeId]) {
+            mapped[schedule.employeeId] = new Set();
+          }
+          mapped[schedule.employeeId].add(normalisedDate);
+        });
+
+        setEmployeeScheduleIndex(mapped);
+      } catch (error) {
+        console.error('Error fetching schedules for leave tracker:', error);
+      } finally {
+        setIsLoadingSchedules(false);
+      }
+    };
+
+    fetchSchedules();
   }, []);
 
   useEffect(() => {
@@ -318,15 +363,43 @@ export function useLeaveTracker() {
     }
   };
 
-  const calculateDays = (startDate: string, endDate: string): number => {
+  const calculateDays = (
+    startDate: string,
+    endDate: string,
+    employeeId?: string
+  ): number => {
     if (!startDate || !endDate) {
       return 0;
     }
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays + 1; // Include both start and end dates
+    const start = dayjs(startDate).startOf('day');
+    const end = dayjs(endDate).startOf('day');
+
+    if (!start.isValid() || !end.isValid()) {
+      return 0;
+    }
+
+    const totalDays = end.diff(start, 'day') + 1;
+
+    if (!employeeId) {
+      return totalDays;
+    }
+
+    const scheduleSet = employeeScheduleIndex[employeeId];
+
+    if (!scheduleSet || scheduleSet.size === 0 || isLoadingSchedules) {
+      return totalDays;
+    }
+
+    let countedDays = 0;
+
+    for (let offset = 0; offset < totalDays; offset += 1) {
+      const currentDay = start.add(offset, 'day');
+      if (scheduleSet.has(currentDay.format('YYYY-MM-DD'))) {
+        countedDays += 1;
+      }
+    }
+
+    return countedDays;
   };
 
   // ============================================================================
@@ -386,7 +459,11 @@ export function useLeaveTracker() {
       return;
     }
 
-    const numberOfDays = calculateDays(formStartDate, formEndDate);
+    const numberOfDays = calculateDays(
+      formStartDate,
+      formEndDate,
+      formEmployeeId
+    );
 
     try {
       if (editingRequest) {
@@ -669,7 +746,11 @@ export function useLeaveTracker() {
               continue;
             }
 
-            const numberOfDays = calculateDays(row.startdate, row.enddate);
+            const numberOfDays = calculateDays(
+              row.startdate,
+              row.enddate,
+              row.employeeid
+            );
 
             const status =
               (row.status?.toLowerCase() as LeaveStatus) || 'pending';

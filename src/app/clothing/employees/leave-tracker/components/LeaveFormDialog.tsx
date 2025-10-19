@@ -41,7 +41,11 @@ interface LeaveFormDialogProps {
   onSave: () => void;
   onClear: () => void;
   isClearDisabled?: boolean;
-  calculateDays: (startDate: string, endDate: string) => number;
+  calculateDays: (
+    startDate: string,
+    endDate: string,
+    employeeId?: string
+  ) => number;
 }
 
 export function LeaveFormDialog({
@@ -72,7 +76,7 @@ export function LeaveFormDialog({
 }: LeaveFormDialogProps) {
   const numberOfDays =
     formStartDate && formEndDate
-      ? calculateDays(formStartDate, formEndDate)
+      ? calculateDays(formStartDate, formEndDate, formEmployeeId)
       : 0;
 
   const employeeSelectData = useMemo(() => {
