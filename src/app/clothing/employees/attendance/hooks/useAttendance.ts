@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { notifications } from '@mantine/notifications';
 import type {
   AttendanceRecord,
@@ -92,6 +92,7 @@ const createEmptyFormValues = (): AttendanceFormValues => ({
 
 export function useAttendance() {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
   const [recordForm, setRecordForm] = useState<AttendanceFormValues>(
     createEmptyFormValues()
@@ -101,6 +102,32 @@ export function useAttendance() {
   const [statusFilter, setStatusFilter] = useState<'all' | AttendanceStatus>(
     'all'
   );
+
+  // Fetch attendance records from the database
+  useEffect(() => {
+    const fetchAttendance = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch('/api/attendance');
+        if (!response.ok) {
+          throw new Error('Failed to fetch attendance');
+        }
+        const data = await response.json();
+        setRecords(data || []);
+      } catch (error) {
+        console.error('Error fetching attendance:', error);
+        notifications.show({
+          color: 'red',
+          title: 'Error',
+          message: 'Failed to fetch attendance records',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAttendance();
+  }, []);
 
   const sortedRecords = useMemo(() => {
     return [...records].sort((a, b) => {
@@ -187,23 +214,66 @@ export function useAttendance() {
     }
   };
 
-  const handleDeleteRecord = (id: string) => {
+  const handleDeleteRecord = async (id: string) => {
     if (confirm('Are you sure you want to delete this attendance record?')) {
-      setRecords((prev) => prev.filter((record) => record.id !== id));
+      try {
+        const response = await fetch(`/api/attendance?id=${id}`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to delete attendance');
+        }
+
+        setRecords((prev) => prev.filter((record) => record.id !== id));
+
+        notifications.show({
+          color: 'green',
+          title: 'Deleted',
+          message: 'Attendance record deleted successfully',
+        });
+      } catch (error) {
+        console.error('Error deleting attendance:', error);
+        notifications.show({
+          color: 'red',
+          title: 'Error',
+          message: 'Failed to delete attendance record',
+        });
+      }
     }
   };
 
-  const handleMarkStatus = (id: string, status: AttendanceStatus) => {
-    setRecords((prev) =>
-      prev.map((record) =>
-        record.id === id
-          ? {
-              ...record,
-              status,
-            }
-          : record
-      )
-    );
+  const handleMarkStatus = async (id: string, status: AttendanceStatus) => {
+    try {
+      const response = await fetch('/api/attendance', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update status');
+      }
+
+      const updated = await response.json();
+
+      setRecords((prev) =>
+        prev.map((record) => (record.id === id ? updated : record))
+      );
+
+      notifications.show({
+        color: 'green',
+        title: 'Updated',
+        message: 'Status updated successfully',
+      });
+    } catch (error) {
+      console.error('Error updating status:', error);
+      notifications.show({
+        color: 'red',
+        title: 'Error',
+        message: 'Failed to update status',
+      });
+    }
   };
 
   const updateRecordForm = <K extends keyof AttendanceFormValues>(
@@ -238,7 +308,7 @@ export function useAttendance() {
     setIsRecordModalOpen(false);
   };
 
-  const handleSaveRecord = () => {
+  const handleSaveRecord = async () => {
     const trimmedName = recordForm.employeeName.trim();
     const trimmedId = recordForm.employeeId.trim();
 
@@ -266,8 +336,7 @@ export function useAttendance() {
         ? 0
         : parsedTotalHours;
 
-    const newRecord: AttendanceRecord = {
-      id: generateId(),
+    const newRecord = {
       employeeId: trimmedId,
       employeeName: trimmedName,
       department: recordForm.department.trim() || 'N/A',
@@ -287,21 +356,42 @@ export function useAttendance() {
       notes: recordForm.notes.trim() || undefined,
     };
 
-    setRecords((prev) => [...prev, newRecord]);
-    setRecordForm(createEmptyFormValues());
-    setIsRecordModalOpen(false);
+    try {
+      const response = await fetch('/api/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newRecord),
+      });
 
-    const statusLabel =
-      recordForm.status === 'on-leave'
-        ? 'On Leave'
-        : recordForm.status.charAt(0).toUpperCase() +
-          recordForm.status.slice(1);
+      if (!response.ok) {
+        throw new Error('Failed to save attendance');
+      }
 
-    notifications.show({
-      color: 'green',
-      title: 'Attendance recorded',
-      message: `${trimmedName} marked as ${statusLabel}.`,
-    });
+      const saved = await response.json();
+
+      setRecords((prev) => [...prev, saved]);
+      setRecordForm(createEmptyFormValues());
+      setIsRecordModalOpen(false);
+
+      const statusLabel =
+        recordForm.status === 'on-leave'
+          ? 'On Leave'
+          : recordForm.status.charAt(0).toUpperCase() +
+            recordForm.status.slice(1);
+
+      notifications.show({
+        color: 'green',
+        title: 'Attendance recorded',
+        message: `${trimmedName} marked as ${statusLabel}.`,
+      });
+    } catch (error) {
+      console.error('Error saving attendance:', error);
+      notifications.show({
+        color: 'red',
+        title: 'Error',
+        message: 'Failed to save attendance record',
+      });
+    }
   };
 
   const handleImportCSV = (file: File | null) => {
@@ -535,6 +625,7 @@ export function useAttendance() {
     statusFilter,
     isRecordModalOpen,
     recordForm,
+    isLoading,
 
     // Computed values
     totalRecords,
