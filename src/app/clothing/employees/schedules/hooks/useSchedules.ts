@@ -33,6 +33,17 @@ const SHIFT_CONFIG: Record<
   },
 };
 
+const MINUTES_IN_DAY = 24 * 60;
+
+type ScheduleOverlapCandidate = {
+  id?: string;
+  employeeId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  status?: ScheduleStatus;
+};
+
 const DAY_LABELS = [
   'Sunday',
   'Monday',
@@ -73,6 +84,17 @@ export function useSchedules() {
   const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
   const [recurringRules, setRecurringRules] = useState<RecurringRule[]>([]);
+  const [leaveRequests, setLeaveRequests] = useState<
+    Array<{
+      id: string;
+      employeeId: string;
+      employeeName: string;
+      leaveType: string;
+      startDate: string;
+      endDate: string;
+      status: string;
+    }>
+  >([]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterShiftType, setFilterShiftType] = useState<string | null>(null);
@@ -152,6 +174,26 @@ export function useSchedules() {
     };
 
     fetchSchedules();
+  }, []);
+
+  // Fetch leave requests on mount
+  useEffect(() => {
+    const fetchLeaveRequests = async () => {
+      try {
+        const response = await fetch('/api/leave-requests');
+        if (!response.ok) {
+          throw new Error('Failed to fetch leave requests');
+        }
+
+        const data = await response.json();
+        setLeaveRequests(data || []);
+      } catch (error) {
+        console.error('Error fetching leave requests:', error);
+        setLeaveRequests([]);
+      }
+    };
+
+    fetchLeaveRequests();
   }, []);
 
   // ============================================================================
@@ -244,6 +286,54 @@ export function useSchedules() {
   // UTILITY FUNCTIONS
   // ============================================================================
 
+  const timeStringToMinutes = (value: string): number | null => {
+    const trimmed = value?.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const match = /^([0-9]{1,2}):([0-9]{2})$/.exec(trimmed);
+    if (!match) {
+      return null;
+    }
+
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+
+    if (
+      Number.isNaN(hours) ||
+      Number.isNaN(minutes) ||
+      hours < 0 ||
+      hours > 23 ||
+      minutes < 0 ||
+      minutes > 59
+    ) {
+      return null;
+    }
+
+    return hours * 60 + minutes;
+  };
+
+  const getTimeRange = (startTime: string, endTime: string) => {
+    const start = timeStringToMinutes(startTime);
+    const end = timeStringToMinutes(endTime);
+
+    if (start === null || end === null) {
+      return null;
+    }
+
+    const adjustedEnd = end <= start ? end + MINUTES_IN_DAY : end;
+
+    return { start, end: adjustedEnd };
+  };
+
+  const rangesOverlap = (
+    candidateStart: number,
+    candidateEnd: number,
+    existingStart: number,
+    existingEnd: number
+  ) => candidateStart < existingEnd && existingStart < candidateEnd;
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return new Intl.DateTimeFormat('en-US', {
@@ -299,14 +389,89 @@ export function useSchedules() {
       return 0;
     }
 
-    const [startHours, startMinutes] = startTime.split(':').map(Number);
-    const [endHours, endMinutes] = endTime.split(':').map(Number);
+    const range = getTimeRange(startTime, endTime);
+    if (!range) {
+      return 0;
+    }
 
-    const startTotalMinutes = startHours * 60 + startMinutes;
-    const endTotalMinutes = endHours * 60 + endMinutes;
+    return Math.max(0, (range.end - range.start) / 60);
+  };
 
-    const duration = endTotalMinutes - startTotalMinutes;
-    return duration / 60; // Return hours
+  const hasScheduleOverlap = (
+    employeeId: string,
+    date: string,
+    startTime: string,
+    endTime: string,
+    ignoreScheduleId?: string,
+    additional: ScheduleOverlapCandidate[] = []
+  ): boolean => {
+    if (!employeeId || !date) {
+      return false;
+    }
+
+    const candidateRange = getTimeRange(startTime, endTime);
+    if (!candidateRange) {
+      return false;
+    }
+
+    const overlapPool: ScheduleOverlapCandidate[] = [
+      ...schedules,
+      ...additional,
+    ].map((schedule) => ({
+      id: schedule.id,
+      employeeId: schedule.employeeId,
+      date: schedule.date,
+      startTime: schedule.startTime,
+      endTime: schedule.endTime,
+      status: schedule.status,
+    }));
+
+    return overlapPool.some((schedule) => {
+      if (schedule.employeeId !== employeeId || schedule.date !== date) {
+        return false;
+      }
+
+      if (ignoreScheduleId && schedule.id === ignoreScheduleId) {
+        return false;
+      }
+
+      if ((schedule.status ?? 'scheduled') === 'cancelled') {
+        return false;
+      }
+
+      const existingRange = getTimeRange(schedule.startTime, schedule.endTime);
+      if (!existingRange) {
+        return false;
+      }
+
+      return rangesOverlap(
+        candidateRange.start,
+        candidateRange.end,
+        existingRange.start,
+        existingRange.end
+      );
+    });
+  };
+
+  const getEmployeeLeaveForDate = (
+    employeeId: string,
+    date: string
+  ): { leaveType: string; status: string } | null => {
+    const leave = leaveRequests.find((request) => {
+      if (request.employeeId !== employeeId) {
+        return false;
+      }
+
+      // Only show approved leaves
+      if (request.status !== 'approved') {
+        return false;
+      }
+
+      // Check if date falls within leave period
+      return date >= request.startDate && date <= request.endDate;
+    });
+
+    return leave ? { leaveType: leave.leaveType, status: leave.status } : null;
   };
 
   // ============================================================================
@@ -388,6 +553,27 @@ export function useSchedules() {
     const resolvedEndTime = isStayIn
       ? shiftDefaults.end
       : formEndTime || shiftDefaults.end;
+
+    const candidateRange = getTimeRange(resolvedStartTime, resolvedEndTime);
+    if (!candidateRange) {
+      alert('Invalid start or end time');
+      return;
+    }
+
+    if (
+      hasScheduleOverlap(
+        formEmployeeId,
+        formDate,
+        resolvedStartTime,
+        resolvedEndTime,
+        editingSchedule?.id
+      )
+    ) {
+      alert(
+        'This schedule overlaps with an existing schedule for the employee'
+      );
+      return;
+    }
 
     const scheduleData: Partial<Schedule> = {
       employeeId: formEmployeeId,
@@ -749,6 +935,28 @@ export function useSchedules() {
               continue;
             }
 
+            const timeRange = getTimeRange(row.starttime, row.endtime);
+            if (!timeRange) {
+              errors.push(`Row ${i + 1}: Invalid start or end time`);
+              continue;
+            }
+
+            if (
+              hasScheduleOverlap(
+                row.employeeid,
+                row.date,
+                row.starttime,
+                row.endtime,
+                undefined,
+                importedSchedules
+              )
+            ) {
+              errors.push(
+                `Row ${i + 1}: Schedule overlaps with an existing schedule for employee ${row.employeeid}`
+              );
+              continue;
+            }
+
             const schedule: Partial<Schedule> = {
               employeeId: row.employeeid,
               employeeName: row.employeename,
@@ -937,6 +1145,7 @@ export function useSchedules() {
     getStatusColor,
     getShiftTypeColor,
     calculateDuration,
+    getEmployeeLeaveForDate,
 
     // Event handlers
     handleAddSchedule,

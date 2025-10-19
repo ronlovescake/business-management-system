@@ -23,6 +23,10 @@ interface CalendarViewProps {
   getStatusColor: (status: ScheduleStatus) => string;
   onAddSchedule?: () => void;
   onEditSchedule: (schedule: Schedule) => void;
+  getEmployeeLeaveForDate: (
+    employeeId: string,
+    date: string
+  ) => { leaveType: string; status: string } | null;
   bulkActions?: ReactNode;
 }
 
@@ -32,6 +36,7 @@ export function CalendarView({
   getStatusColor: _getStatusColor,
   onAddSchedule: _onAddSchedule,
   onEditSchedule,
+  getEmployeeLeaveForDate,
   bulkActions,
 }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -279,6 +284,9 @@ export function CalendarView({
               const isSundayDate = isSunday(day);
               const isTodayDate = isToday(day);
 
+              // Date string for this day
+              const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
               return (
                 <Card
                   key={day}
@@ -316,35 +324,55 @@ export function CalendarView({
 
                     {/* Schedules for this day */}
                     <Stack gap={2}>
-                      {daySchedules.slice(0, 3).map((schedule) => (
-                        <Tooltip
-                          key={schedule.id}
-                          label={`${schedule.employeeName} - ${schedule.position}`}
-                          position="top"
-                        >
-                          <Badge
-                            size="xs"
-                            color={getShiftTypeColor(schedule.shiftType)}
-                            variant="filled"
-                            style={{
-                              cursor: 'pointer',
-                              textOverflow: 'ellipsis',
-                              overflow: 'hidden',
-                              whiteSpace: 'nowrap',
-                            }}
-                            onClick={() => onEditSchedule(schedule)}
+                      {daySchedules.slice(0, 3).map((schedule) => {
+                        const leave = getEmployeeLeaveForDate(
+                          schedule.employeeId,
+                          dateStr
+                        );
+
+                        return (
+                          <Tooltip
+                            key={schedule.id}
+                            label={
+                              leave
+                                ? `${schedule.employeeName} - ${leave.leaveType} (On Leave)`
+                                : `${schedule.employeeName} - ${schedule.position}`
+                            }
+                            position="top"
                           >
-                            {schedule.employeeName.split(' ')[0]} -{' '}
-                            {schedule.shiftType === 'full-day'
-                              ? 'Full'
-                              : schedule.shiftType === 'morning'
-                                ? 'AM'
-                                : schedule.shiftType === 'afternoon'
-                                  ? 'PM'
-                                  : 'Night'}
-                          </Badge>
-                        </Tooltip>
-                      ))}
+                            <Badge
+                              size="xs"
+                              color={
+                                leave
+                                  ? 'red'
+                                  : getShiftTypeColor(schedule.shiftType)
+                              }
+                              variant={leave ? 'light' : 'filled'}
+                              style={{
+                                cursor: 'pointer',
+                                textOverflow: 'ellipsis',
+                                overflow: 'hidden',
+                                whiteSpace: 'nowrap',
+                              }}
+                              onClick={() => onEditSchedule(schedule)}
+                            >
+                              {leave ? '🏖️ ' : ''}
+                              {schedule.employeeName.split(' ')[0]}
+                              {leave
+                                ? ' - Leave'
+                                : ` - ${
+                                    schedule.shiftType === 'full-day'
+                                      ? 'Full'
+                                      : schedule.shiftType === 'morning'
+                                        ? 'AM'
+                                        : schedule.shiftType === 'afternoon'
+                                          ? 'PM'
+                                          : 'Night'
+                                  }`}
+                            </Badge>
+                          </Tooltip>
+                        );
+                      })}
                       {daySchedules.length > 3 && (
                         <Text size="xs" c="dimmed" ta="center">
                           +{daySchedules.length - 3} more
@@ -376,6 +404,9 @@ export function CalendarView({
           </Badge>
           <Badge color={getShiftTypeColor('full-day')} variant="light">
             Full Day (4AM-5PM)
+          </Badge>
+          <Badge color="red" variant="light" leftSection="🏖️">
+            On Leave
           </Badge>
         </Group>
       </Card>

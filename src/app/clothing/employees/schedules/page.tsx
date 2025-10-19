@@ -52,6 +52,7 @@ export default function SchedulesPage() {
     getStatusColor,
     getShiftTypeColor,
     calculateDuration,
+    getEmployeeLeaveForDate,
 
     // Event handlers
     handleEditSchedule,
@@ -140,6 +141,7 @@ export default function SchedulesPage() {
             getShiftTypeColor={getShiftTypeColor}
             getStatusColor={getStatusColor}
             onEditSchedule={handleEditSchedule}
+            getEmployeeLeaveForDate={getEmployeeLeaveForDate}
             bulkActions={<CalendarBulkActions {...bulkActionProps} />}
           />
         )}
