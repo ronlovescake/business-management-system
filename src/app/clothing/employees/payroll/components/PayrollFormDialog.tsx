@@ -36,7 +36,9 @@ export function PayrollFormDialog({
       pagIbig: '0',
       tax: '0',
       loans: '0',
-      others: '0',
+      cashAdvance: '0',
+      lwop: '0',
+      absentsLates: '0',
       bankGcash: '',
     },
     validate: {
@@ -70,7 +72,9 @@ export function PayrollFormDialog({
         pagIbig: editingPayroll.pagIbig.toString(),
         tax: editingPayroll.tax.toString(),
         loans: editingPayroll.loans.toString(),
-        others: editingPayroll.others.toString(),
+        cashAdvance: editingPayroll.cashAdvance.toString(),
+        lwop: editingPayroll.lwop.toString(),
+        absentsLates: editingPayroll.absentsLates.toString(),
         bankGcash: editingPayroll.bankGcash,
       });
     } else {
@@ -354,16 +358,48 @@ export function PayrollFormDialog({
 
         <Grid.Col span={6}>
           <NumberInput
-            label="Others"
-            placeholder="Enter other deductions"
+            label="Cash Advance"
+            placeholder="Enter cash advance deductions"
             min={0}
             prefix="₱"
             decimalScale={2}
             thousandSeparator=","
             hideControls
-            value={form.values.others}
+            value={form.values.cashAdvance}
             onChange={(value) =>
-              form.setFieldValue('others', value?.toString() || '0')
+              form.setFieldValue('cashAdvance', value?.toString() || '0')
+            }
+          />
+        </Grid.Col>
+
+        <Grid.Col span={6}>
+          <NumberInput
+            label="LWOP"
+            placeholder="Enter leave without pay deductions"
+            min={0}
+            prefix="₱"
+            decimalScale={2}
+            thousandSeparator=","
+            hideControls
+            value={form.values.lwop}
+            onChange={(value) =>
+              form.setFieldValue('lwop', value?.toString() || '0')
+            }
+          />
+        </Grid.Col>
+
+        <Grid.Col span={6}>
+          <NumberInput
+            label="Absents/Lates"
+            placeholder="Enter deductions for absents/lates"
+            min={0}
+            prefix="₱"
+            decimalScale={2}
+            thousandSeparator=","
+            hideControls
+            value={form.values.absentsLates}
+            onChange={(value) =>
+              form.setFieldValue('absentsLates', value?.toString() || '0')
             }
           />
         </Grid.Col>

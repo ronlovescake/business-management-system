@@ -489,7 +489,9 @@ model Payroll {
   pagIbig          Float    @default(0)
   tax              Float    @default(0)
   loans            Float    @default(0)
-  others           Float    @default(0)
+  cashAdvance      Float    @default(0)
+  lwop             Float    @default(0) @map("others")
+  absentsLates     Float    @default(0)
   totalDeductions  Float    @default(0)
 
   // Net Pay

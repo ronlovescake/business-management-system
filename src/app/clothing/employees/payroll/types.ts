@@ -12,7 +12,9 @@ export interface Payroll {
   pagIbig: number;
   tax: number;
   loans: number;
-  others: number;
+  cashAdvance: number;
+  lwop: number;
+  absentsLates: number;
   totalDeductions: number;
   netPay: number;
   status: 'pending' | 'approved' | 'paid';
@@ -34,6 +36,8 @@ export interface PayrollFormData {
   pagIbig: string;
   tax: string;
   loans: string;
-  others: string;
+  cashAdvance: string;
+  lwop: string;
+  absentsLates: string;
   bankGcash: string;
 }

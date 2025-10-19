@@ -42,7 +42,9 @@ export function usePayroll() {
         pagIbig: record.pagIbig,
         tax: record.tax,
         loans: record.loans,
-        others: record.others,
+        cashAdvance: record.cashAdvance,
+        lwop: record.lwop,
+        absentsLates: record.absentsLates,
         totalDeductions: record.totalDeductions,
         netPay: record.netPay,
         status: record.status as 'pending' | 'approved' | 'paid',
@@ -133,10 +135,20 @@ export function usePayroll() {
     const pagIbig = parseFloat(formData.pagIbig) || 0;
     const tax = parseFloat(formData.tax) || 0;
     const loans = parseFloat(formData.loans) || 0;
-    const others = parseFloat(formData.others) || 0;
+    const cashAdvance = parseFloat(formData.cashAdvance) || 0;
+    const lwop = parseFloat(formData.lwop) || 0;
+    const absentsLates = parseFloat(formData.absentsLates) || 0;
 
     const grossPay = basicSalary + allowance + overtime + bonuses;
-    const totalDeductions = sss + philHealth + pagIbig + tax + loans + others;
+    const totalDeductions =
+      sss +
+      philHealth +
+      pagIbig +
+      tax +
+      loans +
+      cashAdvance +
+      lwop +
+      absentsLates;
     const netPay = grossPay - totalDeductions;
 
     return {
@@ -199,7 +211,9 @@ export function usePayroll() {
             pagIbig: parseFloat(formData.pagIbig) || 0,
             tax: parseFloat(formData.tax) || 0,
             loans: parseFloat(formData.loans) || 0,
-            others: parseFloat(formData.others) || 0,
+            cashAdvance: parseFloat(formData.cashAdvance) || 0,
+            lwop: parseFloat(formData.lwop) || 0,
+            absentsLates: parseFloat(formData.absentsLates) || 0,
             bankGcash: formData.bankGcash,
             grossPay: totals.grossPay,
             totalDeductions: totals.totalDeductions,
@@ -230,7 +244,9 @@ export function usePayroll() {
                   pagIbig: updated.pagIbig,
                   tax: updated.tax,
                   loans: updated.loans,
-                  others: updated.others,
+                  cashAdvance: updated.cashAdvance,
+                  lwop: updated.lwop,
+                  absentsLates: updated.absentsLates,
                   totalDeductions: updated.totalDeductions,
                   netPay: updated.netPay,
                   bankGcash: updated.bankGcash,
@@ -258,7 +274,9 @@ export function usePayroll() {
             pagIbig: parseFloat(formData.pagIbig) || 0,
             tax: parseFloat(formData.tax) || 0,
             loans: parseFloat(formData.loans) || 0,
-            others: parseFloat(formData.others) || 0,
+            cashAdvance: parseFloat(formData.cashAdvance) || 0,
+            lwop: parseFloat(formData.lwop) || 0,
+            absentsLates: parseFloat(formData.absentsLates) || 0,
             totalDeductions: totals.totalDeductions,
             netPay: totals.netPay,
             status: 'pending',
@@ -287,7 +305,9 @@ export function usePayroll() {
             pagIbig: newPayroll.pagIbig,
             tax: newPayroll.tax,
             loans: newPayroll.loans,
-            others: newPayroll.others,
+            cashAdvance: newPayroll.cashAdvance,
+            lwop: newPayroll.lwop,
+            absentsLates: newPayroll.absentsLates,
             totalDeductions: newPayroll.totalDeductions,
             netPay: newPayroll.netPay,
             status: newPayroll.status,
@@ -390,22 +410,23 @@ export function usePayroll() {
       const imported = rows
         .filter((row) => row.trim())
         .map((row) => {
-          const [
-            employee,
-            payPeriod,
-            basicSalary,
-            allowance,
-            overtime,
-            bonuses,
-            sss,
-            philHealth,
-            pagIbig,
-            tax,
-            loans,
-            others,
-            bankGcash,
-            status,
-          ] = row.split(',');
+          const columns = row.split(',');
+          const employee = columns[0];
+          const payPeriod = columns[1];
+          const basicSalary = columns[2];
+          const allowance = columns[3];
+          const overtime = columns[4];
+          const bonuses = columns[5];
+          const sss = columns[7];
+          const philHealth = columns[8];
+          const pagIbig = columns[9];
+          const tax = columns[10];
+          const loans = columns[11];
+          const cashAdvance = columns[12];
+          const lwop = columns[13];
+          const absentsLatesValue = columns[14];
+          const status = columns[17];
+          const bankGcash = columns[18];
 
           const basic = parseFloat(basicSalary?.trim() || '0');
           const allow = parseFloat(allowance?.trim() || '0');
@@ -416,11 +437,20 @@ export function usePayroll() {
           const pagIbigAmt = parseFloat(pagIbig?.trim() || '0');
           const taxAmt = parseFloat(tax?.trim() || '0');
           const loansAmt = parseFloat(loans?.trim() || '0');
-          const othersAmt = parseFloat(others?.trim() || '0');
+          const cashAdvanceAmt = parseFloat(cashAdvance?.trim() || '0');
+          const lwopAmt = parseFloat(lwop?.trim() || '0');
+          const absentsLatesAmt = parseFloat(absentsLatesValue?.trim() || '0');
 
           const grossPay = basic + allow + ot + bonus;
           const totalDeductions =
-            sssAmt + philHealthAmt + pagIbigAmt + taxAmt + loansAmt + othersAmt;
+            sssAmt +
+            philHealthAmt +
+            pagIbigAmt +
+            taxAmt +
+            loansAmt +
+            cashAdvanceAmt +
+            lwopAmt +
+            absentsLatesAmt;
           const netPay = grossPay - totalDeductions;
 
           return {
@@ -437,7 +467,9 @@ export function usePayroll() {
             pagIbig: pagIbigAmt,
             tax: taxAmt,
             loans: loansAmt,
-            others: othersAmt,
+            cashAdvance: cashAdvanceAmt,
+            lwop: lwopAmt,
+            absentsLates: absentsLatesAmt,
             totalDeductions,
             netPay,
             status: (status?.trim() || 'pending') as Payroll['status'],
@@ -464,7 +496,9 @@ export function usePayroll() {
       'Pag-IBIG',
       'Tax',
       'Loans',
-      'Others',
+      'Cash Advance',
+      'LWOP',
+      'Absents/Lates',
       'Total Deductions',
       'Net Pay',
       'Status',
@@ -483,7 +517,9 @@ export function usePayroll() {
       p.pagIbig.toString(),
       p.tax.toString(),
       p.loans.toString(),
-      p.others.toString(),
+      p.cashAdvance.toString(),
+      p.lwop.toString(),
+      p.absentsLates.toString(),
       p.totalDeductions.toString(),
       p.netPay.toString(),
       p.status,

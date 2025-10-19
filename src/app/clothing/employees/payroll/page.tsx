@@ -160,9 +160,23 @@ export default function Payroll() {
       render: (item) => <Text size="sm">{formatCurrency(item.loans)}</Text>,
     },
     {
-      key: 'others',
-      label: 'OTHERS',
-      render: (item) => <Text size="sm">{formatCurrency(item.others)}</Text>,
+      key: 'cashAdvance',
+      label: 'CASH ADVANCE',
+      render: (item) => (
+        <Text size="sm">{formatCurrency(item.cashAdvance)}</Text>
+      ),
+    },
+    {
+      key: 'lwop',
+      label: 'LWOP',
+      render: (item) => <Text size="sm">{formatCurrency(item.lwop)}</Text>,
+    },
+    {
+      key: 'absentsLates',
+      label: 'ABSENTS/LATES',
+      render: (item) => (
+        <Text size="sm">{formatCurrency(item.absentsLates)}</Text>
+      ),
     },
     {
       key: 'totalDeductions',
@@ -292,7 +306,7 @@ export default function Payroll() {
                   )}
                 </Text>
               </Table.Th>
-              <Table.Th colSpan={6}></Table.Th>
+              <Table.Th colSpan={8}></Table.Th>
               <Table.Th>
                 <Text fw={700} c="red">
                   {formatCurrency(
@@ -307,7 +321,7 @@ export default function Payroll() {
                   )}
                 </Text>
               </Table.Th>
-              <Table.Th colSpan={2}></Table.Th>
+              <Table.Th colSpan={3}></Table.Th>
             </>
           }
           showSummary
