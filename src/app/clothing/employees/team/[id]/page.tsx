@@ -193,7 +193,7 @@ export default function EmployeeDetailPage() {
     },
     {
       label: 'Education',
-      value: employee.education || 'N/A',
+      value: capitalizeWords(employee.education) || 'N/A',
       category: 'Personal Information',
     },
     {

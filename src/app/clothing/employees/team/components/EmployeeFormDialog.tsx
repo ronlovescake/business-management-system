@@ -447,14 +447,7 @@ export function EmployeeFormDialog({
                 styles={getFieldProps('hiringSource').styles}
               />
             </Grid.Col>
-            <Grid.Col span={4}>
-              <TextInput
-                label="Education"
-                {...form.getInputProps('education')}
-                {...getFieldProps('education').handlers}
-                styles={getFieldProps('education').styles}
-              />
-            </Grid.Col>
+
             <Grid.Col span={4}>
               <TextInput
                 label="Driving License Number"
@@ -463,6 +456,7 @@ export function EmployeeFormDialog({
                 styles={getFieldProps('drivingLicense').styles}
               />
             </Grid.Col>
+
             {/* Contact Section */}
             <Grid.Col span={12}>
               <Divider
