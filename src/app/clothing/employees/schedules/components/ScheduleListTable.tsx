@@ -53,28 +53,116 @@ export function ScheduleListTable({
 }: ScheduleListTableProps) {
   return (
     <Stack gap="md">
-      <Card withBorder radius="md" p={0}>
-        <Box
-          style={{
-            overflowX: 'auto',
-            minHeight: '60vh',
-            maxHeight: '80vh',
-            overflowY: 'auto',
-          }}
-        >
-          <Table highlightOnHover>
-            <Table.Thead>
+      <Card
+        withBorder
+        padding={0}
+        style={{ overflow: 'hidden', height: '71vh' }}
+      >
+        <Box style={{ height: '100%', overflowY: 'auto' }}>
+          <Table highlightOnHover withTableBorder>
+            <Table.Thead style={{ backgroundColor: '#f1f3f5' }}>
               <Table.Tr>
-                <Table.Th>DATE</Table.Th>
-                <Table.Th>EMPLOYEE</Table.Th>
-                <Table.Th>SHIFT TYPE</Table.Th>
-                <Table.Th>START TIME</Table.Th>
-                <Table.Th>END TIME</Table.Th>
-                <Table.Th>DURATION</Table.Th>
-                <Table.Th>POSITION</Table.Th>
-                <Table.Th>STATUS</Table.Th>
-                <Table.Th>NOTES</Table.Th>
-                <Table.Th>ACTIONS</Table.Th>
+                <Table.Th
+                  style={{
+                    padding: '16px 12px',
+                    color: '#495057',
+                    backgroundColor: '#f1f3f5',
+                    textAlign: 'center',
+                  }}
+                >
+                  DATE
+                </Table.Th>
+                <Table.Th
+                  style={{
+                    padding: '16px 12px',
+                    color: '#495057',
+                    backgroundColor: '#f1f3f5',
+                    textAlign: 'center',
+                  }}
+                >
+                  EMPLOYEE
+                </Table.Th>
+                <Table.Th
+                  style={{
+                    padding: '16px 12px',
+                    color: '#495057',
+                    backgroundColor: '#f1f3f5',
+                    textAlign: 'center',
+                  }}
+                >
+                  SHIFT TYPE
+                </Table.Th>
+                <Table.Th
+                  style={{
+                    padding: '16px 12px',
+                    color: '#495057',
+                    backgroundColor: '#f1f3f5',
+                    textAlign: 'center',
+                  }}
+                >
+                  START TIME
+                </Table.Th>
+                <Table.Th
+                  style={{
+                    padding: '16px 12px',
+                    color: '#495057',
+                    backgroundColor: '#f1f3f5',
+                    textAlign: 'center',
+                  }}
+                >
+                  END TIME
+                </Table.Th>
+                <Table.Th
+                  style={{
+                    padding: '16px 12px',
+                    color: '#495057',
+                    backgroundColor: '#f1f3f5',
+                    textAlign: 'center',
+                  }}
+                >
+                  DURATION
+                </Table.Th>
+                <Table.Th
+                  style={{
+                    padding: '16px 12px',
+                    color: '#495057',
+                    backgroundColor: '#f1f3f5',
+                    textAlign: 'center',
+                  }}
+                >
+                  POSITION
+                </Table.Th>
+                <Table.Th
+                  style={{
+                    padding: '16px 12px',
+                    color: '#495057',
+                    backgroundColor: '#f1f3f5',
+                    textAlign: 'center',
+                  }}
+                >
+                  STATUS
+                </Table.Th>
+                <Table.Th
+                  style={{
+                    padding: '16px 12px',
+                    color: '#495057',
+                    backgroundColor: '#f1f3f5',
+                    textAlign: 'center',
+                  }}
+                >
+                  NOTES
+                </Table.Th>
+                <Table.Th
+                  style={{
+                    width: 150,
+                    textAlign: 'center',
+                    padding: '16px 12px',
+                    color: '#495057',
+                    backgroundColor: '#f1f3f5',
+                  }}
+                >
+                  ACTIONS
+                </Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
