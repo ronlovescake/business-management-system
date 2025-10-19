@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import type { LeaveRequest, LeaveStatus, LeaveType } from '../types';
+import type { LeaveRequest, LeaveStatus, LeaveType, PaymentStatus } from '../types';
 import type { Schedule } from '../../schedules/types';
 import { dayjs, getCurrentDateISO } from '@/utils/date';
 
@@ -46,6 +46,7 @@ export function useLeaveTracker() {
   const [formEmployeeName, setFormEmployeeName] = useState('');
   const [formEmployeeId, setFormEmployeeId] = useState('');
   const [formLeaveType, setFormLeaveType] = useState<LeaveType | ''>('');
+  const [formPaymentStatus, setFormPaymentStatus] = useState<PaymentStatus | ''>('unpaid');
   const [formStartDate, setFormStartDate] = useState('');
   const [formEndDate, setFormEndDate] = useState('');
   const [formReason, setFormReason] = useState('');
@@ -61,6 +62,7 @@ export function useLeaveTracker() {
     setFormEmployeeName('');
     setFormEmployeeId('');
     setFormLeaveType('');
+    setFormPaymentStatus('unpaid');
     setFormStartDate('');
     setFormEndDate('');
     setFormReason('');
@@ -207,6 +209,11 @@ export function useLeaveTracker() {
       'Bereavement Leave',
       'Other',
     ],
+    []
+  );
+
+  const paymentStatuses: PaymentStatus[] = useMemo(
+    () => ['paid', 'unpaid', 'not-applicable'],
     []
   );
 
@@ -375,6 +382,19 @@ export function useLeaveTracker() {
     }
   };
 
+  const getPaymentStatusColor = (paymentStatus: PaymentStatus) => {
+    switch (paymentStatus) {
+      case 'paid':
+        return 'green';
+      case 'unpaid':
+        return 'red';
+      case 'not-applicable':
+        return 'gray';
+      default:
+        return 'gray';
+    }
+  };
+
   const calculateDays = (
     startDate: string,
     endDate: string,
@@ -494,6 +514,7 @@ export function useLeaveTracker() {
     setFormEmployeeName(request.employeeName);
     setFormEmployeeId(request.employeeId);
     setFormLeaveType(request.leaveType);
+    setFormPaymentStatus(request.paymentStatus);
     setFormStartDate(request.startDate);
     setFormEndDate(request.endDate);
     setFormReason(request.reason);
@@ -572,6 +593,7 @@ export function useLeaveTracker() {
             employeeName: formEmployeeName,
             employeeId: formEmployeeId,
             leaveType: formLeaveType,
+            paymentStatus: formPaymentStatus,
             startDate: startISO,
             endDate: endISO,
             numberOfDays,
@@ -590,6 +612,7 @@ export function useLeaveTracker() {
                     employeeName: formEmployeeName,
                     employeeId: formEmployeeId,
                     leaveType: formLeaveType as LeaveType,
+                    paymentStatus: formPaymentStatus as PaymentStatus,
                     startDate: startISO,
                     endDate: endISO,
                     numberOfDays,
@@ -612,6 +635,7 @@ export function useLeaveTracker() {
           employeeId: formEmployeeId,
           employeeName: formEmployeeName,
           leaveType: formLeaveType,
+          paymentStatus: formPaymentStatus,
           startDate: startISO,
           endDate: endISO,
           numberOfDays,
@@ -889,10 +913,20 @@ export function useLeaveTracker() {
               ? status
               : 'pending';
 
+            const paymentStatus = (row.paymentstatus?.toLowerCase() || 'unpaid') as PaymentStatus;
+            const validPaymentStatus: PaymentStatus = [
+              'paid',
+              'unpaid',
+              'not-applicable',
+            ].includes(paymentStatus)
+              ? paymentStatus
+              : 'unpaid';
+
             const newRequest = {
               employeeId: row.employeeid,
               employeeName: row.employeename,
               leaveType: row.leavetype as LeaveType,
+              paymentStatus: validPaymentStatus,
               startDate: startISO,
               endDate: endISO,
               numberOfDays,
@@ -1044,6 +1078,8 @@ export function useLeaveTracker() {
     setFormEmployeeId,
     formLeaveType,
     setFormLeaveType,
+    formPaymentStatus,
+    setFormPaymentStatus,
     formStartDate,
     setFormStartDate,
     formEndDate,
@@ -1055,6 +1091,7 @@ export function useLeaveTracker() {
 
     // Computed values
     leaveTypes,
+    paymentStatuses,
     totalRequests,
     pendingRequests,
     approvedRequests,
@@ -1066,6 +1103,7 @@ export function useLeaveTracker() {
     formatDateRange,
     getStatusColor,
     getLeaveTypeColor,
+    getPaymentStatusColor,
     calculateDays,
 
     // Event handlers

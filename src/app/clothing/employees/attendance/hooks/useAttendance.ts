@@ -528,8 +528,38 @@ export function useAttendance() {
         }
 
         if (importedRecords.length > 0) {
-          setRecords((prev) => [...prev, ...importedRecords]);
-          alert(`Successfully imported ${successCount} attendance records`);
+          // Save to database via API
+          fetch('/api/attendance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(importedRecords),
+          })
+            .then(async (response) => {
+              if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error('API Error Response:', errorData);
+                throw new Error(
+                  errorData.details ||
+                    errorData.error ||
+                    'Failed to save attendance records to database'
+                );
+              }
+              return response.json();
+            })
+            .then((result) => {
+              // Update local state with saved records
+              setRecords((prev) => [...prev, ...result.records]);
+              alert(
+                `Successfully imported and saved ${successCount} attendance records to database`
+              );
+            })
+            .catch((error) => {
+              console.error('Error saving imported records:', error);
+              alert(
+                'Failed to save imported records to database. Error: ' +
+                  (error instanceof Error ? error.message : String(error))
+              );
+            });
         }
 
         if (errors.length > 0 && errors.length <= 10) {

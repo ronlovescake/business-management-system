@@ -351,15 +351,17 @@ model LeaveRequest {
   reason       String   @db.Text
 
   // Status & Approval
-  status       String   @db.VarChar(20) // 'pending' | 'approved' | 'rejected'
-  appliedDate  String   @db.VarChar(50)
-  approvedBy   String?  @db.VarChar(255)
-  notes        String?  @db.Text
+  status        String   @db.VarChar(20) // 'pending' | 'approved' | 'rejected'
+  appliedDate   String   @db.VarChar(50)
+  approvedBy    String?  @db.VarChar(255)
+  notes         String?  @db.Text
+  paymentStatus String   @default("unpaid") @db.VarChar(20) // 'paid' | 'unpaid' | 'not-applicable'
 
   @@index([employeeId])
   @@index([employeeName])
   @@index([leaveType])
   @@index([status])
+  @@index([paymentStatus])
   @@index([startDate])
   @@index([appliedDate])
   @@map("leave_requests")
@@ -407,4 +409,50 @@ model Schedule {
   @@index([department])
   @@index([deletedAt])
   @@map("schedules")
+}
+
+// ============================================================================
+// EMPLOYEE ATTENDANCE MODULE
+// ============================================================================
+
+model Attendance {
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  // Employee Information
+  employeeId   String   @db.VarChar(50)
+  employeeName String   @db.VarChar(255)
+  department   String   @db.VarChar(100)
+  position     String   @db.VarChar(100)
+
+  // Attendance Details
+  date         String   @db.VarChar(50)
+  timeIn       String   @db.VarChar(10)
+  timeOut      String   @db.VarChar(10)
+  
+  // Break Times
+  break1Start  String?  @db.VarChar(10)
+  break1End    String?  @db.VarChar(10)
+  lunchStart   String?  @db.VarChar(10)
+  lunchEnd     String?  @db.VarChar(10)
+  break2Start  String?  @db.VarChar(10)
+  break2End    String?  @db.VarChar(10)
+  
+  // Hours & Status
+  totalHours   Float
+  status       String   @db.VarChar(20) // 'present' | 'late' | 'absent' | 'on-leave'
+  
+  // Additional Information
+  details      String?  @db.VarChar(500)
+  notes        String?  @db.Text
+
+  @@index([employeeId])
+  @@index([employeeName])
+  @@index([date])
+  @@index([status])
+  @@index([department])
+  @@index([deletedAt])
+  @@map("attendance")
 }

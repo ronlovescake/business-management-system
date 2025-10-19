@@ -59,14 +59,15 @@ export async function POST(request: NextRequest) {
 
     // Handle bulk create
     if (Array.isArray(body)) {
-      const result = await prisma.attendance.createMany({
-        data: body,
-        skipDuplicates: true,
-      });
+      // Use individual creates in a transaction to get the created records back
+      const records = await prisma.$transaction(
+        body.map((record) => prisma.attendance.create({ data: record }))
+      );
 
       return NextResponse.json({
         success: true,
-        count: result.count,
+        count: records.length,
+        records: records,
       });
     }
 

@@ -53,6 +53,8 @@ export default function LeaveTracker() {
     setFormEmployeeId,
     formLeaveType,
     setFormLeaveType,
+    formPaymentStatus,
+    setFormPaymentStatus,
     formStartDate,
     setFormStartDate,
     formEndDate,
@@ -64,6 +66,7 @@ export default function LeaveTracker() {
 
     // Computed values
     leaveTypes,
+    paymentStatuses,
     totalRequests,
     pendingRequests,
     approvedRequests,
@@ -75,6 +78,7 @@ export default function LeaveTracker() {
     formatDateRange: _formatDateRange,
     getStatusColor,
     getLeaveTypeColor,
+    getPaymentStatusColor,
     calculateDays,
 
     // Event handlers
@@ -128,6 +132,7 @@ export default function LeaveTracker() {
             formatDate={formatDate}
             getStatusColor={getStatusColor}
             getLeaveTypeColor={getLeaveTypeColor}
+            getPaymentStatusColor={getPaymentStatusColor}
             onApprove={handleApprove}
             onReject={handleReject}
             onEdit={handleEditRequest}
@@ -154,6 +159,7 @@ export default function LeaveTracker() {
         onClose={() => setIsModalOpen(false)}
         editingRequest={editingRequest}
         leaveTypes={leaveTypes}
+        paymentStatuses={paymentStatuses}
         employeeOptions={employeeOptions}
         isLoadingEmployees={isLoadingEmployees}
         formEmployeeName={formEmployeeName}
@@ -162,6 +168,8 @@ export default function LeaveTracker() {
         setFormEmployeeId={setFormEmployeeId}
         formLeaveType={formLeaveType}
         setFormLeaveType={setFormLeaveType}
+        formPaymentStatus={formPaymentStatus}
+        setFormPaymentStatus={setFormPaymentStatus}
         formStartDate={formStartDate}
         setFormStartDate={setFormStartDate}
         formEndDate={formEndDate}

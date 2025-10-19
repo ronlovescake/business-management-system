@@ -6,7 +6,7 @@ import type {
 } from '@/components/shared/PageTemplates';
 import { Text, Badge, Group, Avatar } from '@mantine/core';
 import { IconCheck, IconX, IconEdit, IconTrash } from '@tabler/icons-react';
-import type { LeaveRequest, LeaveStatus, LeaveType } from '../types';
+import type { LeaveRequest, LeaveStatus, LeaveType, PaymentStatus } from '../types';
 
 interface LeaveListTableProps {
   leaveRequests: LeaveRequest[];
@@ -14,6 +14,7 @@ interface LeaveListTableProps {
   formatDate: (date: string) => string;
   getStatusColor: (status: LeaveStatus) => string;
   getLeaveTypeColor: (leaveType: LeaveType) => string;
+  getPaymentStatusColor: (paymentStatus: PaymentStatus) => string;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
   onEdit: (request: LeaveRequest) => void;
@@ -26,6 +27,7 @@ export function LeaveListTable({
   formatDate,
   getStatusColor,
   getLeaveTypeColor,
+  getPaymentStatusColor,
   onApprove,
   onReject,
   onEdit,
@@ -62,6 +64,15 @@ export function LeaveListTable({
       render: (item) => (
         <Badge color={getLeaveTypeColor(item.leaveType)} variant="light">
           {item.leaveType.toUpperCase()}
+        </Badge>
+      ),
+    },
+    {
+      key: 'paymentStatus',
+      label: 'PAYMENT STATUS',
+      render: (item) => (
+        <Badge color={getPaymentStatusColor(item.paymentStatus)} variant="light">
+          {item.paymentStatus.toUpperCase().replace('-', ' ')}
         </Badge>
       ),
     },

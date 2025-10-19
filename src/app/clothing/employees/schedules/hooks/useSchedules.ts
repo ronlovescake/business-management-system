@@ -1004,7 +1004,9 @@ export function useSchedules() {
           })
             .then(async (response) => {
               if (!response.ok) {
-                throw new Error('Failed to save schedules to database');
+                const errorData = await response.json().catch(() => ({}));
+                console.error('API Error Response:', errorData);
+                throw new Error(errorData.details || errorData.error || 'Failed to save schedules to database');
               }
               const result = await response.json();
 
@@ -1020,7 +1022,7 @@ export function useSchedules() {
             .catch((error) => {
               console.error('Error saving imported schedules:', error);
               alert(
-                'Failed to save imported schedules to database. Please try again.'
+                'Failed to save imported schedules to database. Error: ' + (error instanceof Error ? error.message : String(error))
               );
               setIsImporting(false);
             });

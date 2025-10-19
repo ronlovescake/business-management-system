@@ -7,11 +7,13 @@ import { getCurrentDateISO } from '@/utils/date';
 type LeaveRequestPayload = Record<string, unknown>;
 
 type LeaveStatus = 'pending' | 'approved' | 'rejected';
+type PaymentStatus = 'paid' | 'unpaid' | 'not-applicable';
 
 interface LeaveRequestCreateInput {
   employeeId: string;
   employeeName: string;
   leaveType: string;
+  paymentStatus: PaymentStatus;
   startDate: string;
   endDate: string;
   numberOfDays: number;
@@ -43,6 +45,7 @@ interface LeaveRequestDelegate {
 }
 
 const VALID_STATUSES: LeaveStatus[] = ['pending', 'approved', 'rejected'];
+const VALID_PAYMENT_STATUSES: PaymentStatus[] = ['paid', 'unpaid', 'not-applicable'];
 
 function parseString(value: unknown): string {
   if (value === null || value === undefined) {
@@ -61,6 +64,13 @@ function parseStatus(value: unknown): LeaveStatus {
   return (VALID_STATUSES as string[]).includes(normalized)
     ? (normalized as LeaveStatus)
     : 'pending';
+}
+
+function parsePaymentStatus(value: unknown): PaymentStatus {
+  const normalized = parseString(value).toLowerCase();
+  return (VALID_PAYMENT_STATUSES as string[]).includes(normalized)
+    ? (normalized as PaymentStatus)
+    : 'unpaid';
 }
 
 function calculateNumberOfDays(startDate: string, endDate: string): number {
@@ -91,6 +101,7 @@ function normalizeCreatePayload(
   const reason = parseString(data.reason);
 
   const status = parseStatus(data.status);
+  const paymentStatus = parsePaymentStatus(data.paymentStatus);
   const appliedDate = parseString(data.appliedDate || getCurrentDateISO());
 
   const rawNumber = Number(data.numberOfDays);
@@ -103,6 +114,7 @@ function normalizeCreatePayload(
     employeeId,
     employeeName,
     leaveType,
+    paymentStatus,
     startDate,
     endDate,
     numberOfDays,
@@ -127,6 +139,9 @@ function normalizeUpdatePayload(
   }
   if (data.leaveType !== undefined) {
     updateData.leaveType = parseString(data.leaveType);
+  }
+  if (data.paymentStatus !== undefined) {
+    updateData.paymentStatus = parsePaymentStatus(data.paymentStatus);
   }
   if (data.startDate !== undefined) {
     updateData.startDate = parseString(data.startDate);
@@ -185,6 +200,7 @@ export async function GET() {
       employeeId: request.employeeId,
       employeeName: request.employeeName,
       leaveType: request.leaveType,
+      paymentStatus: request.paymentStatus as PaymentStatus,
       startDate: request.startDate,
       endDate: request.endDate,
       numberOfDays: request.numberOfDays,

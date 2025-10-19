@@ -1,4 +1,5 @@
 export type LeaveStatus = 'pending' | 'approved' | 'rejected';
+export type PaymentStatus = 'paid' | 'unpaid' | 'not-applicable';
 export type LeaveType =
   | 'Sick Leave'
   | 'Vacation Leave'
@@ -18,6 +19,7 @@ export interface LeaveRequest {
   numberOfDays: number;
   reason: string;
   status: LeaveStatus;
+  paymentStatus: PaymentStatus;
   appliedDate: string;
   approvedBy?: string;
   notes?: string;
