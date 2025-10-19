@@ -60,7 +60,14 @@ export function ScheduleListTable({
       >
         <Box style={{ height: '100%', overflowY: 'auto' }}>
           <Table highlightOnHover withTableBorder>
-            <Table.Thead style={{ backgroundColor: '#f1f3f5' }}>
+            <Table.Thead
+              style={{
+                backgroundColor: '#f1f3f5',
+                position: 'sticky',
+                top: 0,
+                zIndex: 10,
+              }}
+            >
               <Table.Tr>
                 <Table.Th
                   style={{
