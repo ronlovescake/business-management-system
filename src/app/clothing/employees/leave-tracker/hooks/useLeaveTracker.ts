@@ -8,6 +8,13 @@ interface EmployeeOption {
   label: string;
 }
 
+interface LeaveRange {
+  employeeId: string;
+  startDate: string;
+  endDate: string;
+  id?: string;
+}
+
 /**
  * Custom Hook: useLeaveTracker
  *
@@ -371,10 +378,11 @@ export function useLeaveTracker() {
     if (!startDate || !endDate) {
       return 0;
     }
-    const start = dayjs(startDate).startOf('day');
-    const end = dayjs(endDate).startOf('day');
 
-    if (!start.isValid() || !end.isValid()) {
+    const start = dayjs(startDate).tz().startOf('day');
+    const end = dayjs(endDate).tz().startOf('day');
+
+    if (!start.isValid() || !end.isValid() || end.isBefore(start)) {
       return 0;
     }
 
@@ -400,6 +408,56 @@ export function useLeaveTracker() {
     }
 
     return countedDays;
+  };
+
+  const hasLeaveOverlap = (
+    employeeId: string,
+    startDate: string,
+    endDate: string,
+    ignoreRequestId?: string,
+    additional: LeaveRange[] = []
+  ): boolean => {
+    if (!employeeId || !startDate || !endDate) {
+      return false;
+    }
+
+    const candidateStart = dayjs(startDate).tz().startOf('day');
+    const candidateEnd = dayjs(endDate).tz().startOf('day');
+
+    if (!candidateStart.isValid() || !candidateEnd.isValid()) {
+      return false;
+    }
+
+    const existingRanges: LeaveRange[] = leaveRequests.map((request) => ({
+      employeeId: request.employeeId,
+      startDate: request.startDate,
+      endDate: request.endDate,
+      id: request.id,
+    }));
+
+    const combined = [...existingRanges, ...additional];
+
+    return combined.some((request) => {
+      if (request.employeeId !== employeeId) {
+        return false;
+      }
+
+      if (ignoreRequestId && request.id === ignoreRequestId) {
+        return false;
+      }
+
+      const existingStart = dayjs(request.startDate).tz().startOf('day');
+      const existingEnd = dayjs(request.endDate).tz().startOf('day');
+
+      if (!existingStart.isValid() || !existingEnd.isValid()) {
+        return false;
+      }
+
+      return (
+        !existingEnd.isBefore(candidateStart) &&
+        !candidateEnd.isBefore(existingStart)
+      );
+    });
   };
 
   // ============================================================================
@@ -459,11 +517,30 @@ export function useLeaveTracker() {
       return;
     }
 
-    const numberOfDays = calculateDays(
-      formStartDate,
-      formEndDate,
-      formEmployeeId
-    );
+    const parsedStart = dayjs(formStartDate).tz().startOf('day');
+    const parsedEnd = dayjs(formEndDate).tz().startOf('day');
+
+    if (!parsedStart.isValid() || !parsedEnd.isValid()) {
+      alert('Invalid start or end date');
+      return;
+    }
+
+    const startISO = parsedStart.format('YYYY-MM-DD');
+    const endISO = parsedEnd.format('YYYY-MM-DD');
+
+    if (parsedEnd.isBefore(parsedStart)) {
+      alert('End date must be on or after the start date');
+      return;
+    }
+
+    const numberOfDays = calculateDays(startISO, endISO, formEmployeeId);
+
+    if (hasLeaveOverlap(formEmployeeId, startISO, endISO, editingRequest?.id)) {
+      alert(
+        'This leave request overlaps with an existing request for the employee'
+      );
+      return;
+    }
 
     try {
       if (editingRequest) {
@@ -476,8 +553,8 @@ export function useLeaveTracker() {
             employeeName: formEmployeeName,
             employeeId: formEmployeeId,
             leaveType: formLeaveType,
-            startDate: formStartDate,
-            endDate: formEndDate,
+            startDate: startISO,
+            endDate: endISO,
             numberOfDays,
             reason: formReason,
             notes: formNotes || null,
@@ -494,8 +571,8 @@ export function useLeaveTracker() {
                     employeeName: formEmployeeName,
                     employeeId: formEmployeeId,
                     leaveType: formLeaveType as LeaveType,
-                    startDate: formStartDate,
-                    endDate: formEndDate,
+                    startDate: startISO,
+                    endDate: endISO,
                     numberOfDays,
                     reason: formReason,
                     notes: formNotes,
@@ -516,8 +593,8 @@ export function useLeaveTracker() {
           employeeId: formEmployeeId,
           employeeName: formEmployeeName,
           leaveType: formLeaveType,
-          startDate: formStartDate,
-          endDate: formEndDate,
+          startDate: startISO,
+          endDate: endISO,
           numberOfDays,
           reason: formReason,
           status: 'pending' as LeaveStatus,
@@ -746,9 +823,40 @@ export function useLeaveTracker() {
               continue;
             }
 
+            const csvStart = dayjs(row.startdate).tz().startOf('day');
+            const csvEnd = dayjs(row.enddate).tz().startOf('day');
+
+            if (!csvStart.isValid() || !csvEnd.isValid()) {
+              errors.push(`Row ${i + 1}: Invalid start or end date`);
+              continue;
+            }
+
+            if (csvEnd.isBefore(csvStart)) {
+              errors.push(`Row ${i + 1}: End date precedes start date`);
+              continue;
+            }
+
+            const startISO = csvStart.format('YYYY-MM-DD');
+            const endISO = csvEnd.format('YYYY-MM-DD');
+
+            if (
+              hasLeaveOverlap(
+                row.employeeid,
+                startISO,
+                endISO,
+                undefined,
+                importedRequests
+              )
+            ) {
+              errors.push(
+                `Row ${i + 1}: Leave dates overlap with an existing request for employee ${row.employeeid}`
+              );
+              continue;
+            }
+
             const numberOfDays = calculateDays(
-              row.startdate,
-              row.enddate,
+              startISO,
+              endISO,
               row.employeeid
             );
 
@@ -766,8 +874,8 @@ export function useLeaveTracker() {
               employeeId: row.employeeid,
               employeeName: row.employeename,
               leaveType: row.leavetype as LeaveType,
-              startDate: row.startdate,
-              endDate: row.enddate,
+              startDate: startISO,
+              endDate: endISO,
               numberOfDays,
               reason: row.reason,
               status: validStatus,
