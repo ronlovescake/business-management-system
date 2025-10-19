@@ -96,6 +96,7 @@ export default function Payroll() {
     {
       key: 'employee',
       label: 'EMPLOYEE',
+      align: 'left',
       render: (item) => <Text fw={500}>{item.employee}</Text>,
     },
     {
