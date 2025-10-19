@@ -504,25 +504,100 @@ export function useTeam() {
   const handleExportCSV = () => {
     const headers = [
       'Employee ID',
-      'Name',
+      'Full Name',
+      'First Name',
+      'Middle Name',
+      'Last Name',
+      'Gender',
+      'Date of Birth',
+      'Marital Status',
+      'Number of Kids',
+      'Driving License',
+      'Education',
+      'Email',
+      'Phone',
+      'Address',
+      'Emergency Contact Person',
+      'Emergency Contact Number',
+      'Emergency Contact',
       'Department',
+      'Position',
       'Job Title',
+      'Employment Status',
+      'Employee Type',
       'Status',
       'Hire Date',
+      'Office',
+      'Hiring Source',
+      'Current Salary',
       'Basic Salary',
-      'Contact',
-      'Email',
+      'Allowance',
+      'Payment Schedule',
+      'Bank Account',
+      'GCash Account',
+      'SSS Number',
+      'PhilHealth Number',
+      'HDMF Number',
+      'TIN Number',
     ];
+
+    const escapeCSV = (value: string | number | null | undefined): string => {
+      if (value === null || value === undefined) {
+        return '';
+      }
+      const stringValue = String(value ?? '');
+      return stringValue.includes(',') || stringValue.includes('"')
+        ? `"${stringValue.replace(/"/g, '""')}"`
+        : stringValue;
+    };
+
     const rows = filteredEmployees.map((e) => [
-      e.employeeId,
-      e.name,
-      e.department,
-      e.jobTitle,
-      e.status,
-      e.hireDate,
-      e.basicSalary.toString(),
-      e.contact,
-      e.email || '',
+      escapeCSV(e.employeeId),
+      escapeCSV(e.name),
+      escapeCSV(e.firstName),
+      escapeCSV(e.middleName || ''),
+      escapeCSV(e.lastName),
+      escapeCSV(e.gender || ''),
+      escapeCSV(e.dateOfBirth || ''),
+      escapeCSV(e.maritalStatus || ''),
+      escapeCSV(
+        e.numberOfKids !== undefined && e.numberOfKids !== null
+          ? e.numberOfKids
+          : ''
+      ),
+      escapeCSV(e.drivingLicense || ''),
+      escapeCSV(e.education || ''),
+      escapeCSV(e.email || ''),
+      escapeCSV(e.phone),
+      escapeCSV(e.address || ''),
+      escapeCSV(e.emergencyContactPerson || ''),
+      escapeCSV(e.emergencyContactNumber || ''),
+      escapeCSV(e.emergencyContact || ''),
+      escapeCSV(e.department),
+      escapeCSV(e.position),
+      escapeCSV(e.jobTitle),
+      escapeCSV(e.employmentStatus || ''),
+      escapeCSV(e.employeeType || ''),
+      escapeCSV(e.status),
+      escapeCSV(e.hireDate),
+      escapeCSV(e.office || ''),
+      escapeCSV(e.hiringSource || ''),
+      escapeCSV(
+        e.currentSalary !== undefined && e.currentSalary !== null
+          ? e.currentSalary
+          : ''
+      ),
+      escapeCSV(e.basicSalary),
+      escapeCSV(
+        e.allowance !== undefined && e.allowance !== null ? e.allowance : ''
+      ),
+      escapeCSV(e.paymentSchedule || ''),
+      escapeCSV(e.bankAccount || ''),
+      escapeCSV(e.gcashAccount || ''),
+      escapeCSV(e.sssNumber || ''),
+      escapeCSV(e.philHealthNumber || ''),
+      escapeCSV(e.hdmfNumber || ''),
+      escapeCSV(e.tinNumber || ''),
     ]);
 
     const csv = [headers.join(','), ...rows.map((row) => row.join(','))].join(

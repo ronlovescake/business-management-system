@@ -7,6 +7,7 @@ import {
   Button,
   Group,
 } from '@mantine/core';
+import { DateInput } from '@mantine/dates';
 import { PolishedModal } from '@/components/modals/PolishedModal';
 import {
   polishedPrimaryButtonStyles,
@@ -14,6 +15,7 @@ import {
 } from '@/components/modals/polishedModalTheme';
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 import type { LeaveRequest, LeaveType } from '../types';
+import { toDate, toISODate } from '@/utils/date';
 
 interface LeaveFormDialogProps {
   opened: boolean;
@@ -110,38 +112,6 @@ export function LeaveFormDialog({
   const reasonField = getTextareaProps('reason');
   const notesField = getTextareaProps('notes');
 
-  const startDateStyles = {
-    ...startDateField.styles,
-    input: {
-      ...startDateField.styles.input,
-      '&:required:invalid::-webkit-datetime-edit': {
-        color: 'transparent',
-      },
-      '&:focus::-webkit-datetime-edit': {
-        color: '#1f2937',
-      },
-      '&:required:invalid:focus::-webkit-datetime-edit': {
-        color: '#1f2937',
-      },
-    },
-  };
-
-  const endDateStyles = {
-    ...endDateField.styles,
-    input: {
-      ...endDateField.styles.input,
-      '&:required:invalid::-webkit-datetime-edit': {
-        color: 'transparent',
-      },
-      '&:focus::-webkit-datetime-edit': {
-        color: '#1f2937',
-      },
-      '&:required:invalid:focus::-webkit-datetime-edit': {
-        color: '#1f2937',
-      },
-    },
-  };
-
   const isSubmitDisabled =
     !formEmployeeId ||
     !formEmployeeName ||
@@ -195,24 +165,26 @@ export function LeaveFormDialog({
         />
 
         <Group grow>
-          <TextInput
+          <DateInput
             label="Start Date"
-            type="date"
+            valueFormat="MM/DD/YYYY"
+            firstDayOfWeek={0}
             required
-            value={formStartDate}
-            onChange={(e) => setFormStartDate(e.target.value)}
+            value={toDate(formStartDate)}
+            onChange={(value) => setFormStartDate(toISODate(value))}
             {...startDateField.handlers}
-            styles={startDateStyles}
+            styles={startDateField.styles}
           />
 
-          <TextInput
+          <DateInput
             label="End Date"
-            type="date"
+            valueFormat="MM/DD/YYYY"
+            firstDayOfWeek={0}
             required
-            value={formEndDate}
-            onChange={(e) => setFormEndDate(e.target.value)}
+            value={toDate(formEndDate)}
+            onChange={(value) => setFormEndDate(toISODate(value))}
             {...endDateField.handlers}
-            styles={endDateStyles}
+            styles={endDateField.styles}
           />
         </Group>
 

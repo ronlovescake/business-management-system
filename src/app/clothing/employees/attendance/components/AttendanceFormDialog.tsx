@@ -9,11 +9,13 @@ import {
   Textarea,
   Button,
 } from '@mantine/core';
+import { DateInput } from '@mantine/dates';
 import { IconClipboardCheck } from '@tabler/icons-react';
 import { PolishedModal } from '@/components/modals/PolishedModal';
 import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 import type { AttendanceFormValues, AttendanceStatus } from '../types';
+import { toDate, toISODate } from '@/utils/date';
 
 interface AttendanceFormDialogProps {
   opened: boolean;
@@ -66,22 +68,6 @@ export function AttendanceFormDialog({
   const detailsField = getTextareaProps('details');
   const notesField = getTextareaProps('notes');
 
-  const buildDateStyles = (baseStyles: typeof dateField.styles) => ({
-    ...baseStyles,
-    input: {
-      ...baseStyles.input,
-      '&:required:invalid::-webkit-datetime-edit': {
-        color: 'transparent',
-      },
-      '&:focus::-webkit-datetime-edit': {
-        color: '#1f2937',
-      },
-      '&:required:invalid:focus::-webkit-datetime-edit': {
-        color: '#1f2937',
-      },
-    },
-  });
-
   const buildTimeStyles = (baseStyles: typeof timeInField.styles) => ({
     ...baseStyles,
     input: {
@@ -92,7 +78,6 @@ export function AttendanceFormDialog({
     },
   });
 
-  const dateInputStyles = buildDateStyles(dateField.styles);
   const timeInStyles = buildTimeStyles(timeInField.styles);
   const timeOutStyles = buildTimeStyles(timeOutField.styles);
   const break1StartStyles = buildTimeStyles(break1StartField.styles);
@@ -171,14 +156,15 @@ export function AttendanceFormDialog({
         </Group>
 
         <Group grow>
-          <TextInput
+          <DateInput
             label="Date"
-            type="date"
+            valueFormat="MM/DD/YYYY"
+            firstDayOfWeek={0}
             required
-            value={formValues.date}
-            onChange={(event) => onChange('date', event.currentTarget.value)}
+            value={toDate(formValues.date)}
+            onChange={(value) => onChange('date', toISODate(value))}
             {...dateField.handlers}
-            styles={dateInputStyles}
+            styles={dateField.styles}
           />
 
           <Select

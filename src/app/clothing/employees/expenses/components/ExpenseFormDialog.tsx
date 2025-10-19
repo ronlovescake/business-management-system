@@ -19,10 +19,12 @@ import {
   Button,
   Group,
 } from '@mantine/core';
+import { DateInput } from '@mantine/dates';
 import { IconReceipt } from '@tabler/icons-react';
 import { PolishedModal } from '@/components/modals/PolishedModal';
 import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
+import { toDate, toISODate } from '@/utils/date';
 
 interface Expense {
   id: string;
@@ -96,22 +98,6 @@ export function ExpenseFormDialog({
   const descriptionField = getFieldProps('description');
   const notesField = getTextareaProps('notes');
 
-  const dateFieldStyles = {
-    ...dateField.styles,
-    input: {
-      ...dateField.styles.input,
-      '&:required:invalid::-webkit-datetime-edit': {
-        color: 'transparent',
-      },
-      '&:focus::-webkit-datetime-edit': {
-        color: '#1f2937',
-      },
-      '&:required:invalid:focus::-webkit-datetime-edit': {
-        color: '#1f2937',
-      },
-    },
-  };
-
   const modalTitle = (
     <Group gap="sm" align="center">
       <IconReceipt size={26} color="#65ab58" />
@@ -138,14 +124,15 @@ export function ExpenseFormDialog({
       <div style={{ maxHeight: '65vh', overflowY: 'auto' }}>
         <Stack gap="lg">
           <Group grow align="flex-start">
-            <TextInput
+            <DateInput
               label="Date"
-              type="date"
-              value={formDate}
-              onChange={(e) => setFormDate(e.target.value)}
+              valueFormat="MM/DD/YYYY"
+              firstDayOfWeek={0}
+              value={toDate(formDate)}
+              onChange={(value) => setFormDate(toISODate(value))}
               required
               {...dateField.handlers}
-              styles={dateFieldStyles}
+              styles={dateField.styles}
             />
             <Select
               label="Category"
