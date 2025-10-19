@@ -364,3 +364,47 @@ model LeaveRequest {
   @@index([appliedDate])
   @@map("leave_requests")
 }
+
+// ============================================================================
+// EMPLOYEE SCHEDULES MODULE
+// ============================================================================
+
+model Schedule {
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  // Employee Information
+  employeeId   String   @db.VarChar(50)
+  employeeName String   @db.VarChar(255)
+
+  // Schedule Details
+  date         String   @db.VarChar(50)
+  shiftType    String   @db.VarChar(20) // 'morning' | 'afternoon' | 'night' | 'full-day'
+  startTime    String   @db.VarChar(10)
+  endTime      String   @db.VarChar(10)
+  
+  // Position & Department
+  position     String   @db.VarChar(100)
+  department   String   @db.VarChar(100)
+  
+  // Status & Notes
+  status       String   @db.VarChar(20) @default("scheduled") // 'scheduled' | 'completed' | 'cancelled' | 'on-leave'
+  notes        String?  @db.Text
+
+  // Advanced Features (for future use)
+  source       String   @db.VarChar(20) @default("manual") // 'manual' | 'template' | 'recurrence'
+  templateId   String?  @db.VarChar(50)
+  recurrenceId String?  @db.VarChar(50)
+  isOverride   Boolean  @default(false)
+
+  @@index([employeeId])
+  @@index([employeeName])
+  @@index([date])
+  @@index([shiftType])
+  @@index([status])
+  @@index([department])
+  @@index([deletedAt])
+  @@map("schedules")
+}

@@ -92,6 +92,7 @@ export function useSchedules() {
   const [formDepartment, setFormDepartment] = useState('');
   const [formNotes, setFormNotes] = useState('');
 
+  // Fetch employees on mount
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
@@ -130,6 +131,26 @@ export function useSchedules() {
     };
 
     fetchEmployees();
+  }, []);
+
+  // Fetch schedules on mount
+  useEffect(() => {
+    const fetchSchedules = async () => {
+      try {
+        const response = await fetch('/api/schedules');
+        if (!response.ok) {
+          throw new Error('Failed to fetch schedules');
+        }
+
+        const data = await response.json();
+        setSchedules(data || []);
+      } catch (error) {
+        console.error('Error fetching schedules:', error);
+        setSchedules([]);
+      }
+    };
+
+    fetchSchedules();
   }, []);
 
   // ============================================================================
@@ -319,11 +340,25 @@ export function useSchedules() {
     setIsModalOpen(true);
   };
 
-  const handleDeleteSchedule = (id: string) => {
-    setSchedules((prev) => prev.filter((schedule) => schedule.id !== id));
+  const handleDeleteSchedule = async (id: string) => {
+    try {
+      const response = await fetch(`/api/schedules?id=${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete schedule');
+      }
+
+      // Update local state
+      setSchedules((prev) => prev.filter((schedule) => schedule.id !== id));
+    } catch (error) {
+      console.error('Error deleting schedule:', error);
+      alert('Failed to delete schedule. Please try again.');
+    }
   };
 
-  const handleSaveSchedule = () => {
+  const handleSaveSchedule = async () => {
     if (
       !formEmployeeName ||
       !formEmployeeId ||
@@ -353,8 +388,7 @@ export function useSchedules() {
       ? shiftDefaults.end
       : formEndTime || shiftDefaults.end;
 
-    const scheduleData: Schedule = {
-      id: editingSchedule?.id || generateId(),
+    const scheduleData: Partial<Schedule> = {
       employeeId: formEmployeeId,
       employeeName: formEmployeeName,
       date: formDate,
@@ -368,7 +402,7 @@ export function useSchedules() {
       source: editingSchedule?.source || 'manual',
       templateId: editingSchedule?.templateId,
       recurrenceId: editingSchedule?.recurrenceId,
-      isOverride: editingSchedule?.isOverride,
+      isOverride: editingSchedule?.isOverride || false,
     };
 
     if (editingSchedule?.source === 'recurrence') {
@@ -383,37 +417,102 @@ export function useSchedules() {
       }
     }
 
-    if (editingSchedule) {
+    try {
+      if (editingSchedule) {
+        // Update existing schedule
+        const response = await fetch('/api/schedules', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...scheduleData, id: editingSchedule.id }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to update schedule');
+        }
+
+        const result = await response.json();
+
+        // Update local state
+        setSchedules((prev) =>
+          prev.map((schedule) =>
+            schedule.id === editingSchedule.id ? result.schedule : schedule
+          )
+        );
+      } else {
+        // Create new schedule
+        const response = await fetch('/api/schedules', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(scheduleData),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to create schedule');
+        }
+
+        const result = await response.json();
+
+        // Add to local state
+        setSchedules((prev) => [...prev, result.schedules[0]]);
+      }
+
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error saving schedule:', error);
+      alert('Failed to save schedule. Please try again.');
+    }
+  };
+
+  const handleMarkCompleted = async (id: string) => {
+    try {
+      const response = await fetch('/api/schedules', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: 'completed' }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update schedule status');
+      }
+
+      // Update local state
       setSchedules((prev) =>
         prev.map((schedule) =>
-          schedule.id === editingSchedule.id ? scheduleData : schedule
+          schedule.id === id
+            ? { ...schedule, status: 'completed' as const }
+            : schedule
         )
       );
-    } else {
-      setSchedules((prev) => [...prev, scheduleData]);
+    } catch (error) {
+      console.error('Error updating schedule status:', error);
+      alert('Failed to update schedule status. Please try again.');
     }
-
-    setIsModalOpen(false);
   };
 
-  const handleMarkCompleted = (id: string) => {
-    setSchedules((prev) =>
-      prev.map((schedule) =>
-        schedule.id === id
-          ? { ...schedule, status: 'completed' as const }
-          : schedule
-      )
-    );
-  };
+  const handleMarkCancelled = async (id: string) => {
+    try {
+      const response = await fetch('/api/schedules', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: 'cancelled' }),
+      });
 
-  const handleMarkCancelled = (id: string) => {
-    setSchedules((prev) =>
-      prev.map((schedule) =>
-        schedule.id === id
-          ? { ...schedule, status: 'cancelled' as const }
-          : schedule
-      )
-    );
+      if (!response.ok) {
+        throw new Error('Failed to update schedule status');
+      }
+
+      // Update local state
+      setSchedules((prev) =>
+        prev.map((schedule) =>
+          schedule.id === id
+            ? { ...schedule, status: 'cancelled' as const }
+            : schedule
+        )
+      );
+    } catch (error) {
+      console.error('Error updating schedule status:', error);
+      alert('Failed to update schedule status. Please try again.');
+    }
   };
 
   // ==========================================================================
@@ -649,8 +748,7 @@ export function useSchedules() {
               continue;
             }
 
-            const schedule: Schedule = {
-              id: generateId(),
+            const schedule: Partial<Schedule> = {
               employeeId: row.employeeid,
               employeeName: row.employeename,
               date: row.date,
@@ -661,9 +759,11 @@ export function useSchedules() {
               department: row.department,
               status: (row.status as ScheduleStatus) || 'scheduled',
               notes: row.notes || undefined,
+              source: 'manual',
+              isOverride: false,
             };
 
-            importedSchedules.push(schedule);
+            importedSchedules.push(schedule as Schedule);
             successCount++;
           } catch (error) {
             errors.push(
@@ -673,16 +773,38 @@ export function useSchedules() {
         }
 
         if (importedSchedules.length > 0) {
-          setSchedules((prev) => [...prev, ...importedSchedules]);
-          alert(
-            `Successfully imported ${successCount} schedule(s)` +
-              (errors.length > 0 ? `\n\nErrors: ${errors.length}` : '')
-          );
+          // Save imported schedules to database
+          fetch('/api/schedules', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(importedSchedules),
+          })
+            .then(async (response) => {
+              if (!response.ok) {
+                throw new Error('Failed to save schedules to database');
+              }
+              const result = await response.json();
+
+              // Update local state with saved schedules
+              setSchedules((prev) => [...prev, ...result.schedules]);
+
+              alert(
+                `Successfully imported ${successCount} schedule(s)` +
+                  (errors.length > 0 ? `\n\nErrors: ${errors.length}` : '')
+              );
+              setIsImporting(false);
+            })
+            .catch((error) => {
+              console.error('Error saving imported schedules:', error);
+              alert(
+                'Failed to save imported schedules to database. Please try again.'
+              );
+              setIsImporting(false);
+            });
         } else {
           alert('No valid schedules found in the CSV file');
+          setIsImporting(false);
         }
-
-        setIsImporting(false);
       } catch (error) {
         alert(
           `Error importing CSV: ${error instanceof Error ? error.message : 'Unknown error'}`
