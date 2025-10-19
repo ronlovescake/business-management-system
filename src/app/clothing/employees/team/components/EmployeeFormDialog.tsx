@@ -201,9 +201,16 @@ export function EmployeeFormDialog({
       title={modalTitle}
       size={1750}
     >
-      <div style={{ maxHeight: '82vh', overflowY: 'auto' }}>
+      <div
+        style={{
+          maxHeight: '82vh',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          width: '100%',
+        }}
+      >
         <Stack gap="lg">
-          <Grid gutter="md">
+          <Grid gutter="sm">
             {/* Basic Information Section */}
             <Grid.Col span={12}>
               <Divider
