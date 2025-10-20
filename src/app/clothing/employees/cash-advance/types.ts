@@ -1,17 +1,26 @@
+export type CashAdvanceStatus = 'pending' | 'approved' | 'rejected' | 'paid';
+
 export interface CashAdvance {
   id: string;
+  employeeId: string;
   employee: string;
   amount: number;
   purpose: string;
   terms: string;
+  termsMonths?: number | null;
   requestDate: string;
-  status: 'pending' | 'approved' | 'rejected' | 'paid';
+  status: CashAdvanceStatus;
   notes?: string;
   approvedBy?: string;
   approvedDate?: string;
   rejectedBy?: string;
   rejectedDate?: string;
   rejectionReason?: string;
+  monthlyPayment?: number;
+  remainingBalance?: number;
+  settledAmount?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CashAdvanceFormData {
@@ -19,6 +28,7 @@ export interface CashAdvanceFormData {
   amount: string;
   purpose: string;
   terms: string;
+  monthlyPayment: string;
   requestDate: string;
   notes?: string;
 }

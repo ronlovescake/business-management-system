@@ -1,10 +1,104 @@
-import { useState, useMemo } from 'react';
-import type { CashAdvance, CashAdvanceFormData } from '../types';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import type {
+  CashAdvance,
+  CashAdvanceFormData,
+  CashAdvanceStatus,
+} from '../types';
 import { getCurrentDateISO, formatDisplayDate } from '@/utils/date';
+import { FormatterService } from '@/services/FormatterService';
+
+export interface EmployeeOption {
+  value: string;
+  label: string;
+}
+
+export const calculateMonthlyPayment = (amount: number, terms: number) => {
+  if (terms <= 0) {
+    return undefined;
+  }
+  const payment = amount / terms;
+  if (!Number.isFinite(payment) || payment <= 0) {
+    return undefined;
+  }
+  return Number(payment.toFixed(2));
+};
+
+interface CashAdvanceApiRecord {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  amount: number;
+  termsMonths: number | null;
+  monthlyPayment: number | null;
+  settledAmount: number | null;
+  remainingBalance: number | null;
+  purpose: string | null;
+  notes: string | null;
+  requestDate: string | null;
+  status: CashAdvanceStatus;
+  approvedBy: string | null;
+  approvedDate: string | null;
+  rejectedBy: string | null;
+  rejectedDate: string | null;
+  rejectionReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const sortByCreatedAtDesc = (records: CashAdvance[]) =>
+  [...records].sort((a, b) => {
+    const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return bTime - aTime;
+  });
+
+const mapApiRecordToCashAdvance = (
+  record: CashAdvanceApiRecord
+): CashAdvance => {
+  const termsMonths = record.termsMonths;
+  const employeeId = String(record.employeeId ?? '').trim();
+  const employeeName = (record.employeeName ?? '').trim();
+
+  return {
+    id: record.id,
+    employeeId,
+    employee: employeeName || employeeId,
+    amount: Number(record.amount ?? 0),
+    purpose: record.purpose ?? '',
+    terms:
+      termsMonths !== null && termsMonths !== undefined
+        ? String(termsMonths)
+        : '',
+    termsMonths,
+    requestDate: record.requestDate ?? '',
+    status: record.status,
+    notes: record.notes ?? '',
+    approvedBy: record.approvedBy ?? undefined,
+    approvedDate: record.approvedDate ?? undefined,
+    rejectedBy: record.rejectedBy ?? undefined,
+    rejectedDate: record.rejectedDate ?? undefined,
+    rejectionReason: record.rejectionReason ?? undefined,
+    monthlyPayment:
+      record.monthlyPayment !== null && record.monthlyPayment !== undefined
+        ? Number(record.monthlyPayment)
+        : undefined,
+    remainingBalance:
+      record.remainingBalance !== null && record.remainingBalance !== undefined
+        ? Number(record.remainingBalance)
+        : undefined,
+    settledAmount:
+      record.settledAmount !== null && record.settledAmount !== undefined
+        ? Number(record.settledAmount)
+        : undefined,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+  };
+};
 
 export function useCashAdvance() {
   // State Management
   const [cashAdvances, setCashAdvances] = useState<CashAdvance[]>([]);
+  const [isLoadingRequests, setIsLoadingRequests] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -12,6 +106,65 @@ export function useCashAdvance() {
   const [editingRequest, setEditingRequest] = useState<CashAdvance | null>(
     null
   );
+  const [employeeOptions, setEmployeeOptions] = useState<EmployeeOption[]>([]);
+  const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
+
+  const applyUpsert = useCallback((record: CashAdvance) => {
+    setCashAdvances((prev) => {
+      const exists = prev.some((item) => item.id === record.id);
+      const next = exists
+        ? prev.map((item) => (item.id === record.id ? record : item))
+        : [record, ...prev];
+      return sortByCreatedAtDesc(next);
+    });
+  }, []);
+
+  const applyRemoval = useCallback((id: string) => {
+    setCashAdvances((prev) => prev.filter((item) => item.id !== id));
+  }, []);
+
+  const fetchCashAdvances = useCallback(async () => {
+    setIsLoadingRequests(true);
+    try {
+      const response = await fetch('/api/cash-advances', {
+        cache: 'no-store',
+      });
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch cash advances: ${response.status} ${response.statusText}`
+        );
+      }
+
+      const data = await response.json();
+      if (!Array.isArray(data)) {
+        throw new Error('Cash advance response was not an array');
+      }
+
+      const mapped = data
+        .filter(
+          (record): record is CashAdvanceApiRecord =>
+            record && typeof record === 'object' && 'id' in record
+        )
+        .map(mapApiRecordToCashAdvance);
+
+      setCashAdvances(sortByCreatedAtDesc(mapped));
+    } catch (error) {
+      console.error('Error loading cash advances:', error);
+    } finally {
+      setIsLoadingRequests(false);
+    }
+  }, []);
+
+  const resolveEmployeeName = (employeeId: string) => {
+    const normalizedId = employeeId.trim();
+    if (!normalizedId) {
+      return '';
+    }
+    const match = employeeOptions.find(
+      (option) => option.value === normalizedId
+    );
+    return match?.label || normalizedId;
+  };
 
   // Computed Values
   const filteredRequests = useMemo(() => {
@@ -39,16 +192,74 @@ export function useCashAdvance() {
     .filter((r) => r.status === 'approved' || r.status === 'paid')
     .reduce((sum, r) => sum + r.amount, 0);
 
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        setIsLoadingEmployees(true);
+        const response = await fetch('/api/employees');
+        if (!response.ok) {
+          console.error(
+            'Failed to fetch employees:',
+            response.status,
+            response.statusText
+          );
+          setEmployeeOptions([]);
+          return;
+        }
+
+        const data = await response.json();
+        if (!Array.isArray(data)) {
+          setEmployeeOptions([]);
+          return;
+        }
+
+        const seen = new Set<string>();
+        const options: EmployeeOption[] = [];
+
+        data.forEach((employee) => {
+          const employeeId = String(employee?.employeeId ?? '').trim();
+          if (!employeeId || seen.has(employeeId)) {
+            return;
+          }
+
+          const directName = String(employee?.name ?? '').trim();
+          const composedName =
+            `${String(employee?.firstName ?? '').trim()} ${String(
+              employee?.lastName ?? ''
+            ).trim()}`
+              .replace(/\s+/g, ' ')
+              .trim();
+          const label = (directName || composedName || employeeId)
+            .replace(/\s+/g, ' ')
+            .trim();
+
+          options.push({ value: employeeId, label });
+          seen.add(employeeId);
+        });
+
+        options.sort((a, b) => a.label.localeCompare(b.label));
+        setEmployeeOptions(options);
+      } catch (error) {
+        console.error('Error fetching employees for cash advances:', error);
+        setEmployeeOptions([]);
+      } finally {
+        setIsLoadingEmployees(false);
+      }
+    };
+
+    fetchEmployees();
+  }, []);
+
+  useEffect(() => {
+    void fetchCashAdvances();
+  }, [fetchCashAdvances]);
+
   // Utility Functions
   const formatDate = (dateString: string) =>
     formatDisplayDate(dateString, 'MMM D, YYYY');
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number) =>
+    FormatterService.formatCurrency(amount);
 
   const getStatusColor = (status: CashAdvance['status']) => {
     switch (status) {
@@ -78,91 +289,199 @@ export function useCashAdvance() {
 
   const handleDeleteRequest = (id: string) => {
     if (confirm('Are you sure you want to delete this cash advance request?')) {
-      setCashAdvances((prev) => prev.filter((r) => r.id !== id));
+      void (async () => {
+        try {
+          const response = await fetch(`/api/cash-advances?id=${id}`, {
+            method: 'DELETE',
+          });
+          if (!response.ok) {
+            throw new Error(
+              `Failed to delete cash advance: ${response.status} ${response.statusText}`
+            );
+          }
+
+          applyRemoval(id);
+        } catch (error) {
+          console.error('Error deleting cash advance request:', error);
+          alert('Failed to delete cash advance request. Please try again.');
+        }
+      })();
     }
   };
 
-  const handleSaveRequest = (formData: CashAdvanceFormData) => {
-    if (editingRequest) {
-      // Update existing request
-      setCashAdvances((prev) =>
-        prev.map((r) =>
-          r.id === editingRequest.id
-            ? {
-                ...r,
-                employee: formData.employee,
-                amount: parseFloat(formData.amount),
-                purpose: formData.purpose,
-                terms: formData.terms,
-                requestDate: formData.requestDate,
-                notes: formData.notes,
-              }
-            : r
-        )
-      );
-    } else {
-      // Add new request
-      const newRequest: CashAdvance = {
-        id: Date.now().toString(),
-        employee: formData.employee,
-        amount: parseFloat(formData.amount),
-        purpose: formData.purpose,
-        terms: formData.terms,
-        requestDate: formData.requestDate,
-        status: 'pending',
-        notes: formData.notes,
-      };
-      setCashAdvances((prev) => [newRequest, ...prev]);
+  const handleSaveRequest = async (
+    formData: CashAdvanceFormData
+  ): Promise<boolean> => {
+    const employeeId = formData.employee.trim();
+    const employeeName = resolveEmployeeName(employeeId);
+
+    if (!employeeId) {
+      alert('Employee is required. Please select a valid employee.');
+      return false;
     }
-    setIsFormOpen(false);
-    setEditingRequest(null);
+
+    const parsedAmount = Number.parseFloat(formData.amount);
+    const parsedTerms = Number.parseInt(formData.terms, 10);
+    const monthlyPayment = calculateMonthlyPayment(
+      parsedAmount,
+      Number.isNaN(parsedTerms) ? 0 : parsedTerms
+    );
+
+    if (Number.isNaN(parsedAmount) || parsedAmount <= 0) {
+      alert('Amount must be a valid number greater than zero.');
+      return false;
+    }
+
+    const payloadBase = {
+      employeeId,
+      employeeName: employeeName || employeeId,
+      amount: parsedAmount,
+      termsMonths: Number.isNaN(parsedTerms) ? null : parsedTerms,
+      monthlyPayment: monthlyPayment ?? null,
+      purpose: formData.purpose.trim() || null,
+      notes: formData.notes?.trim() || null,
+      requestDate: formData.requestDate || null,
+    };
+
+    try {
+      if (editingRequest) {
+        const existingSettled =
+          editingRequest.settledAmount ??
+          (typeof editingRequest.remainingBalance === 'number'
+            ? Math.max(
+                editingRequest.amount - editingRequest.remainingBalance,
+                0
+              )
+            : 0);
+
+        const response = await fetch('/api/cash-advances', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: editingRequest.id,
+            status: editingRequest.status,
+            settledAmount: existingSettled,
+            remainingBalance: Math.max(parsedAmount - existingSettled, 0),
+            ...payloadBase,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to update cash advance: ${response.status} ${response.statusText}`
+          );
+        }
+
+        const updated = await response.json();
+        applyUpsert(mapApiRecordToCashAdvance(updated));
+      } else {
+        const response = await fetch('/api/cash-advances', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            status: 'pending',
+            settledAmount: 0,
+            remainingBalance: parsedAmount,
+            ...payloadBase,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to create cash advance: ${response.status} ${response.statusText}`
+          );
+        }
+
+        const created = await response.json();
+        applyUpsert(mapApiRecordToCashAdvance(created));
+      }
+
+      setIsFormOpen(false);
+      setEditingRequest(null);
+      return true;
+    } catch (error) {
+      console.error('Error saving cash advance request:', error);
+      alert('Failed to save cash advance request. Please try again.');
+      return false;
+    }
+  };
+
+  const mutateCashAdvance = async (
+    id: string,
+    data: Record<string, unknown>
+  ) => {
+    const response = await fetch('/api/cash-advances', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...data }),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to update cash advance: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const payload = await response.json();
+    const mapped = mapApiRecordToCashAdvance(payload);
+    applyUpsert(mapped);
+    return mapped;
   };
 
   const handleApprove = (id: string) => {
-    setCashAdvances((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? {
-              ...r,
-              status: 'approved' as const,
-              approvedBy: 'Current User', // In real app, this would be the logged-in user
-              approvedDate: getCurrentDateISO(),
-            }
-          : r
-      )
-    );
+    void (async () => {
+      try {
+        await mutateCashAdvance(id, {
+          status: 'approved',
+          approvedBy: 'Current User',
+          approvedDate: new Date().toISOString(),
+          rejectedBy: null,
+          rejectedDate: null,
+          rejectionReason: null,
+        });
+      } catch (error) {
+        console.error('Error approving cash advance:', error);
+        alert('Failed to approve cash advance. Please try again.');
+      }
+    })();
   };
 
   const handleReject = (id: string) => {
     const reason = prompt('Please enter rejection reason:');
     if (reason) {
-      setCashAdvances((prev) =>
-        prev.map((r) =>
-          r.id === id
-            ? {
-                ...r,
-                status: 'rejected' as const,
-                rejectedBy: 'Current User', // In real app, this would be the logged-in user
-                rejectedDate: getCurrentDateISO(),
-                rejectionReason: reason,
-              }
-            : r
-        )
-      );
+      void (async () => {
+        try {
+          await mutateCashAdvance(id, {
+            status: 'rejected',
+            rejectedBy: 'Current User',
+            rejectedDate: new Date().toISOString(),
+            rejectionReason: reason,
+            approvedBy: null,
+            approvedDate: null,
+          });
+        } catch (error) {
+          console.error('Error rejecting cash advance:', error);
+          alert('Failed to reject cash advance. Please try again.');
+        }
+      })();
     }
   };
 
   const handleMarkAsPaid = (id: string) => {
-    setCashAdvances((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? {
-              ...r,
-              status: 'paid' as const,
-            }
-          : r
-      )
-    );
+    void (async () => {
+      try {
+        const target = cashAdvances.find((record) => record.id === id);
+        const amount = target?.amount ?? 0;
+        await mutateCashAdvance(id, {
+          status: 'paid',
+          settledAmount: amount,
+          remainingBalance: 0,
+        });
+      } catch (error) {
+        console.error('Error marking cash advance as paid:', error);
+        alert('Failed to mark cash advance as paid. Please try again.');
+      }
+    })();
   };
 
   const handleImportCSV = (file: File | null) => {
@@ -180,18 +499,35 @@ export function useCashAdvance() {
         .map((row) => {
           const [employee, amount, purpose, terms, requestDate, status] =
             row.split(',');
+          const trimmedEmployee = employee?.trim() || '';
+          const parsedAmount = Number.parseFloat(amount?.trim() || '0');
+          const parsedTerms = Number.parseInt(terms?.trim() || '', 10);
+          const monthlyPayment = calculateMonthlyPayment(
+            parsedAmount,
+            Number.isNaN(parsedTerms) ? 0 : parsedTerms
+          );
+          const timestamp = new Date().toISOString();
+
           return {
             id: Date.now().toString() + Math.random(),
-            employee: employee?.trim() || '',
-            amount: parseFloat(amount?.trim() || '0'),
+            employeeId: trimmedEmployee,
+            employee: trimmedEmployee,
+            amount: parsedAmount,
             purpose: purpose?.trim() || '',
             terms: terms?.trim() || '',
+            termsMonths: Number.isNaN(parsedTerms) ? null : parsedTerms,
             requestDate: requestDate?.trim() || '',
             status: (status?.trim() || 'pending') as CashAdvance['status'],
-          };
+            notes: '',
+            monthlyPayment: monthlyPayment ?? undefined,
+            settledAmount: 0,
+            remainingBalance: parsedAmount,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          } as CashAdvance;
         });
 
-      setCashAdvances((prev) => [...imported, ...prev]);
+      imported.forEach((record) => applyUpsert(record));
     };
     reader.readAsText(file);
   };
@@ -232,6 +568,7 @@ export function useCashAdvance() {
     statusFilter,
     isFormOpen,
     editingRequest,
+    isLoadingRequests,
 
     // Computed Values
     totalRequests,
@@ -259,5 +596,9 @@ export function useCashAdvance() {
     handleMarkAsPaid,
     handleImportCSV,
     handleExportCSV,
+
+    // Employees
+    employeeOptions,
+    isLoadingEmployees,
   };
 }
