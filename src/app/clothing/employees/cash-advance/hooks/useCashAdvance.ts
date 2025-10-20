@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import type {
   CashAdvance,
   CashAdvanceCycle,
@@ -102,10 +102,33 @@ const mapApiRecordToCashAdvance = (
   };
 };
 
+const getSettledAmountFromRecord = (record: CashAdvance) => {
+  if (typeof record.settledAmount === 'number') {
+    return Math.max(record.settledAmount, 0);
+  }
+
+  const remaining =
+    typeof record.remainingBalance === 'number'
+      ? record.remainingBalance
+      : record.amount;
+
+  return Math.max(record.amount - remaining, 0);
+};
+
+const getRemainingBalanceFromRecord = (record: CashAdvance) => {
+  if (typeof record.remainingBalance === 'number') {
+    return Math.max(record.remainingBalance, 0);
+  }
+
+  const settled = getSettledAmountFromRecord(record);
+  return Math.max(record.amount - settled, 0);
+};
+
 export function useCashAdvance() {
   // State Management
   const [cashAdvances, setCashAdvances] = useState<CashAdvance[]>([]);
   const [isLoadingRequests, setIsLoadingRequests] = useState(false);
+  const autoMarkingRef = useRef<Set<string>>(new Set());
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -352,14 +375,9 @@ export function useCashAdvance() {
 
     try {
       if (editingRequest) {
-        const existingSettled =
-          editingRequest.settledAmount ??
-          (typeof editingRequest.remainingBalance === 'number'
-            ? Math.max(
-                editingRequest.amount - editingRequest.remainingBalance,
-                0
-              )
-            : 0);
+        const existingSettled = editingRequest
+          ? getSettledAmountFromRecord(editingRequest)
+          : 0;
 
         const response = await fetch('/api/cash-advances', {
           method: 'PUT',
@@ -413,27 +431,27 @@ export function useCashAdvance() {
     }
   };
 
-  const mutateCashAdvance = async (
-    id: string,
-    data: Record<string, unknown>
-  ) => {
-    const response = await fetch('/api/cash-advances', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, ...data }),
-    });
+  const mutateCashAdvance = useCallback(
+    async (id: string, data: Record<string, unknown>) => {
+      const response = await fetch('/api/cash-advances', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...data }),
+      });
 
-    if (!response.ok) {
-      throw new Error(
-        `Failed to update cash advance: ${response.status} ${response.statusText}`
-      );
-    }
+      if (!response.ok) {
+        throw new Error(
+          `Failed to update cash advance: ${response.status} ${response.statusText}`
+        );
+      }
 
-    const payload = await response.json();
-    const mapped = mapApiRecordToCashAdvance(payload);
-    applyUpsert(mapped);
-    return mapped;
-  };
+      const payload = await response.json();
+      const mapped = mapApiRecordToCashAdvance(payload);
+      applyUpsert(mapped);
+      return mapped;
+    },
+    [applyUpsert]
+  );
 
   const handleApprove = (id: string) => {
     void (async () => {
@@ -490,6 +508,33 @@ export function useCashAdvance() {
       }
     })();
   };
+
+  useEffect(() => {
+    cashAdvances.forEach((record) => {
+      if (record.status !== 'approved') {
+        return;
+      }
+
+      const remaining = getRemainingBalanceFromRecord(record);
+      if (remaining > 0.01) {
+        return;
+      }
+
+      if (autoMarkingRef.current.has(record.id)) {
+        return;
+      }
+
+      autoMarkingRef.current.add(record.id);
+      void mutateCashAdvance(record.id, {
+        status: 'paid',
+        settledAmount: record.amount,
+        remainingBalance: 0,
+      }).catch((error) => {
+        console.error('Error auto-marking cash advance as paid:', error);
+        autoMarkingRef.current.delete(record.id);
+      });
+    });
+  }, [cashAdvances, mutateCashAdvance]);
 
   const handleImportCSV = (file: File | null) => {
     if (!file) {

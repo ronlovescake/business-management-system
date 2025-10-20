@@ -24,6 +24,7 @@ export interface TableAction<T = Record<string, unknown>> {
   color?: string;
   onClick: (item: T) => void;
   show?: (item: T) => boolean;
+  disabled?: boolean | ((item: T) => boolean);
 }
 
 interface DataTableProps<T = Record<string, unknown>> {
@@ -176,6 +177,15 @@ export function DataTable<T extends { id: string | number }>({
                               return null;
                             }
 
+                            const isDisabled =
+                              typeof action.disabled === 'function'
+                                ? action.disabled(item)
+                                : Boolean(action.disabled);
+
+                            const iconColor = isDisabled
+                              ? 'gray'
+                              : action.color || 'gray';
+
                             return (
                               <Tooltip
                                 key={`action-${action.label}`}
@@ -183,8 +193,11 @@ export function DataTable<T extends { id: string | number }>({
                               >
                                 <ActionIcon
                                   variant="subtle"
-                                  color={action.color || 'gray'}
-                                  onClick={() => action.onClick(item)}
+                                  color={iconColor}
+                                  disabled={isDisabled}
+                                  onClick={() =>
+                                    !isDisabled && action.onClick(item)
+                                  }
                                   size="sm"
                                 >
                                   {action.icon}

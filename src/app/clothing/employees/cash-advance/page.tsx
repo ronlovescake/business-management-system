@@ -65,6 +65,28 @@ export default function CashAdvance() {
     handleExportCSV,
   } = useCashAdvance();
 
+  const getResolvedSettledAmount = (item: CashAdvanceType) => {
+    if (typeof item.settledAmount === 'number') {
+      return Math.max(item.settledAmount, 0);
+    }
+
+    const remaining =
+      typeof item.remainingBalance === 'number'
+        ? item.remainingBalance
+        : item.amount;
+
+    return Math.max(item.amount - remaining, 0);
+  };
+
+  const getResolvedRemainingBalance = (item: CashAdvanceType) => {
+    if (typeof item.remainingBalance === 'number') {
+      return Math.max(item.remainingBalance, 0);
+    }
+
+    const settled = getResolvedSettledAmount(item);
+    return Math.max(item.amount - settled, 0);
+  };
+
   // Stats Configuration
   const stats: StatCard[] = [
     {
@@ -138,16 +160,7 @@ export default function CashAdvance() {
       key: 'settledAmount',
       label: 'SETTLED AMOUNT',
       render: (item) => {
-        const settled =
-          typeof item.settledAmount === 'number'
-            ? item.settledAmount
-            : Math.max(
-                0,
-                item.amount -
-                  (typeof item.remainingBalance === 'number'
-                    ? item.remainingBalance
-                    : item.amount)
-              );
+        const settled = getResolvedSettledAmount(item);
         if (settled <= 0) {
           return <Text c="dimmed">--</Text>;
         }
@@ -158,10 +171,7 @@ export default function CashAdvance() {
       key: 'remainingBalance',
       label: 'REMAINING BALANCE',
       render: (item) => {
-        const remaining =
-          typeof item.remainingBalance === 'number'
-            ? item.remainingBalance
-            : Math.max(0, item.amount - (item.settledAmount ?? 0));
+        const remaining = getResolvedRemainingBalance(item);
         const isCleared = remaining <= 0;
         return (
           <Text fw={600} c={isCleared ? 'green' : 'blue'}>
@@ -234,6 +244,7 @@ export default function CashAdvance() {
       color: 'blue',
       onClick: (item) => handleMarkAsPaid(item.id),
       show: (item) => item.status === 'approved',
+      disabled: true,
     },
     {
       icon: <IconEdit size={16} />,
@@ -246,6 +257,7 @@ export default function CashAdvance() {
       label: 'Delete',
       color: 'red',
       onClick: (item) => handleDeleteRequest(item.id),
+      disabled: (item) => getResolvedSettledAmount(item) > 0,
     },
   ];
 
