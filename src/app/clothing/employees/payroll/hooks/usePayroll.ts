@@ -48,31 +48,62 @@ export function usePayroll() {
       };
 
       // Map database records to Payroll type
-      const mappedPayrolls = data.map((record: Record<string, unknown>) => ({
-        id: record.id,
-        employee: record.employeeName,
-        payPeriod: record.payPeriod,
-        basicSalary: toNumber(record.basicSalary),
-        allowance: toNumber(record.allowance),
-        overtime: toNumber(record.overtime),
-        bonuses: toNumber(record.bonuses),
-        grossPay: toNumber(record.grossPay),
-        sss: toNumber(record.sss),
-        philHealth: toNumber(record.philHealth),
-        pagIbig: toNumber(record.pagIbig),
-        tax: toNumber(record.tax),
-        loans: toNumber(record.loans),
-        cashAdvance: toNumber(record.cashAdvance),
-        lwop: toNumber(record.lwop),
-        absentsLates: toNumber(record.absentsLates),
-        totalDeductions: toNumber(record.totalDeductions),
-        netPay: toNumber(record.netPay),
-        status: record.status as 'pending' | 'approved' | 'paid',
-        bankGcash: record.bankGcash || '',
-        approvedBy: record.approvedBy,
-        approvedDate: record.approvedDate,
-        paidDate: record.paidDate,
-      }));
+      const mappedPayrolls = data.map((record: Record<string, unknown>) => {
+        const basicSalary = toNumber(record.basicSalary);
+        const allowance = toNumber(record.allowance);
+        const overtime = toNumber(record.overtime);
+        const bonuses = toNumber(record.bonuses);
+        const grossPay = toNumber(record.grossPay);
+        const sss = toNumber(record.sss);
+        const philHealth = toNumber(record.philHealth);
+        const pagIbig = toNumber(record.pagIbig);
+        const tax = toNumber(record.tax);
+        const loans = toNumber(record.loans);
+        const cashAdvance = toNumber(record.cashAdvance);
+        const lwop = toNumber(
+          record.lwop !== undefined && record.lwop !== null
+            ? record.lwop
+            : record.deduction
+        );
+        const absentsLates = toNumber(record.absentsLates);
+
+        const derivedTotalDeductions =
+          sss +
+          philHealth +
+          pagIbig +
+          tax +
+          loans +
+          cashAdvance +
+          lwop +
+          absentsLates;
+        const derivedNetPay = Math.max(0, grossPay - derivedTotalDeductions);
+
+        return {
+          id: record.id,
+          employee: record.employeeName,
+          payPeriod: record.payPeriod,
+          basicSalary,
+          allowance,
+          overtime,
+          bonuses,
+          grossPay,
+          sss,
+          philHealth,
+          pagIbig,
+          tax,
+          loans,
+          cashAdvance,
+          lwop,
+          absentsLates,
+          totalDeductions: derivedTotalDeductions,
+          netPay: derivedNetPay,
+          status: record.status as 'pending' | 'approved' | 'paid',
+          bankGcash: record.bankGcash || '',
+          approvedBy: record.approvedBy,
+          approvedDate: record.approvedDate,
+          paidDate: record.paidDate,
+        };
+      });
 
       setPayrolls(mappedPayrolls);
     } catch (error) {
@@ -557,6 +588,54 @@ export function usePayroll() {
     a.click();
   };
 
+  // ============================================================================
+  // LWOP SYNC FUNCTIONALITY
+  // ============================================================================
+
+  const [isSyncingLwop, setIsSyncingLwop] = useState(false);
+
+  const handleSyncLwop = async () => {
+    if (isSyncingLwop) {
+      return;
+    }
+
+    if (
+      !confirm(
+        'This will calculate and update LWOP deductions for all payroll records based on approved unpaid leave requests. Continue?'
+      )
+    ) {
+      return;
+    }
+
+    setIsSyncingLwop(true);
+    try {
+      const response = await fetch('/api/payroll/sync-lwop?all=true', {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(
+          `Successfully synced LWOP!\n\nUpdated: ${result.synced} record(s)\nTotal checked: ${result.total} record(s)`
+        );
+        // Refresh payroll data
+        const refreshResponse = await fetch('/api/payroll');
+        if (refreshResponse.ok) {
+          const data = await refreshResponse.json();
+          setPayrolls(data);
+        }
+      } else {
+        const error = await response.json();
+        alert(`Failed to sync LWOP: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error syncing LWOP:', error);
+      alert('Failed to sync LWOP. Please try again.');
+    } finally {
+      setIsSyncingLwop(false);
+    }
+  };
+
   return {
     // State
     payrolls: filteredPayrolls,
@@ -595,5 +674,9 @@ export function usePayroll() {
     handleMarkAsPaid,
     handleImportCSV,
     handleExportCSV,
+    handleSyncLwop,
+
+    // Loading States
+    isSyncingLwop,
   };
 }
