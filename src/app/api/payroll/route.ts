@@ -1,8 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/db';
+import { syncPayrollDeductions } from '@/lib/payroll/deductions';
 
 const toNumber = (value: unknown): number => {
   if (value === null || value === undefined) {
@@ -31,7 +30,9 @@ export async function GET(_request: NextRequest) {
       orderBy: [{ periodStart: 'desc' }, { employeeName: 'asc' }],
     });
 
-    return NextResponse.json(payrolls);
+    const syncedPayrolls = await syncPayrollDeductions(payrolls);
+
+    return NextResponse.json(syncedPayrolls);
   } catch (error) {
     console.error('Error fetching payrolls:', error);
     return NextResponse.json(
