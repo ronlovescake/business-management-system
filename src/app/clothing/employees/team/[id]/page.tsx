@@ -22,6 +22,10 @@ import {
   Loader,
   UnstyledButton,
   Center,
+  Tabs,
+  ScrollArea,
+  Table,
+  Timeline,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -50,6 +54,14 @@ export default function EmployeeDetailPage() {
     handleSaveEmployee,
     handleProfilePhotoUpload,
     isPhotoUploading,
+    isLoadingRelated,
+    payrollHistory,
+    totalPayrollAmount,
+    attendanceHistory,
+    leaveHistory,
+    salaryTimeline,
+    cashAdvanceRecords,
+    outstandingCashAdvance,
   } = useEmployeeDetail(employeeId);
 
   const [isAvatarHovered, setIsAvatarHovered] = React.useState(false);
@@ -337,6 +349,94 @@ export default function EmployeeDetailPage() {
     new Set(employeeDetails.map((d) => d.category))
   );
 
+  const formatPayrollPeriod = (record: (typeof payrollHistory)[number]) => {
+    if (record.payPeriod && record.payPeriod.trim().length > 0) {
+      return record.payPeriod;
+    }
+    if (record.periodStart && record.periodEnd) {
+      return `${formatDate(record.periodStart)} - ${formatDate(
+        record.periodEnd
+      )}`;
+    }
+    if (record.periodStart) {
+      return formatDate(record.periodStart);
+    }
+    return 'N/A';
+  };
+
+  const formatOptionalDate = (value?: string | null) => {
+    if (!value) {
+      return '—';
+    }
+    const formatted = formatDate(value);
+    return formatted === 'Invalid Date' ? value : formatted;
+  };
+
+  const getPayrollStatusBadgeColor = (
+    status: (typeof payrollHistory)[number]['status']
+  ) => {
+    switch (status) {
+      case 'paid':
+        return 'green';
+      case 'approved':
+        return 'blue';
+      default:
+        return 'yellow';
+    }
+  };
+
+  const getAttendanceStatusColor = (
+    status: (typeof attendanceHistory)[number]['status']
+  ) => {
+    switch (status) {
+      case 'present':
+        return 'green';
+      case 'late':
+        return 'yellow';
+      case 'absent':
+        return 'red';
+      case 'on-leave':
+        return 'blue';
+      default:
+        return 'gray';
+    }
+  };
+
+  const getLeaveStatusColor = (
+    status: (typeof leaveHistory)[number]['status']
+  ) => {
+    switch (status) {
+      case 'approved':
+        return 'green';
+      case 'rejected':
+        return 'red';
+      default:
+        return 'yellow';
+    }
+  };
+
+  const getCashAdvanceStatusColor = (
+    status: (typeof cashAdvanceRecords)[number]['status']
+  ) => {
+    switch (status) {
+      case 'paid':
+        return 'green';
+      case 'approved':
+        return 'blue';
+      case 'rejected':
+        return 'red';
+      default:
+        return 'yellow';
+    }
+  };
+
+  const attendanceToDisplay = attendanceHistory.slice(0, 30);
+  const leaveToDisplay = leaveHistory.slice(0, 20);
+  const salaryTimelineToDisplay =
+    salaryTimeline.length > 10
+      ? salaryTimeline.slice(salaryTimeline.length - 10)
+      : salaryTimeline;
+
   return (
     <PageLayout fluid withPadding>
       <Stack gap="lg">
@@ -362,149 +462,475 @@ export default function EmployeeDetailPage() {
           </Button>
         </Group>
 
-        {/* Employee Profile Summary Card */}
-        <Paper withBorder p="xl">
-          <Group align="center" gap="lg">
-            <Box
-              pos="relative"
-              onMouseEnter={() => setIsAvatarHovered(true)}
-              onMouseLeave={() => setIsAvatarHovered(false)}
-              style={{ borderRadius: 'var(--mantine-radius-md)' }}
-            >
-              <FileButton
-                onChange={handleAvatarFileChange}
-                accept="image/png,image/jpeg,image/webp"
-              >
-                {(props) => (
-                  <Tooltip label="Upload profile photo" position="right">
-                    <UnstyledButton
-                      {...props}
-                      style={{ display: 'block', borderRadius: 'inherit' }}
+        <Tabs defaultValue="profile">
+          <Tabs.List>
+            <Tabs.Tab value="profile">Profile</Tabs.Tab>
+            <Tabs.Tab value="records">Records</Tabs.Tab>
+          </Tabs.List>
+
+          <Tabs.Panel value="profile" pt="md">
+            <Stack gap="lg">
+              {/* Employee Profile Summary Card */}
+              <Paper withBorder p="xl">
+                <Group align="center" gap="lg">
+                  <Box
+                    pos="relative"
+                    onMouseEnter={() => setIsAvatarHovered(true)}
+                    onMouseLeave={() => setIsAvatarHovered(false)}
+                    style={{ borderRadius: 'var(--mantine-radius-md)' }}
+                  >
+                    <FileButton
+                      onChange={handleAvatarFileChange}
+                      accept="image/png,image/jpeg,image/webp"
                     >
-                      <Avatar
-                        size={100}
+                      {(props) => (
+                        <Tooltip label="Upload profile photo" position="right">
+                          <UnstyledButton
+                            {...props}
+                            style={{
+                              display: 'block',
+                              borderRadius: 'inherit',
+                            }}
+                          >
+                            <Avatar
+                              size={100}
+                              radius="md"
+                              color="blue"
+                              style={{ fontSize: '2.5rem' }}
+                              src={employee.profilePhoto || undefined}
+                            >
+                              {employee.firstName?.[0]?.toUpperCase() ||
+                                employee.name
+                                  ?.split(' ')[0]?.[0]
+                                  ?.toUpperCase() ||
+                                ''}
+                              {employee.lastName?.[0]?.toUpperCase() ||
+                                employee.name
+                                  ?.split(' ')[1]?.[0]
+                                  ?.toUpperCase() ||
+                                ''}
+                            </Avatar>
+                          </UnstyledButton>
+                        </Tooltip>
+                      )}
+                    </FileButton>
+
+                    {(isAvatarHovered || isPhotoUploading) && (
+                      <Overlay
+                        opacity={0.45}
+                        color="#000"
                         radius="md"
-                        color="blue"
-                        style={{ fontSize: '2.5rem' }}
-                        src={employee.profilePhoto || undefined}
+                        style={{ pointerEvents: 'none' }}
                       >
-                        {employee.firstName?.[0]?.toUpperCase() ||
-                          employee.name?.split(' ')[0]?.[0]?.toUpperCase() ||
-                          ''}
-                        {employee.lastName?.[0]?.toUpperCase() ||
-                          employee.name?.split(' ')[1]?.[0]?.toUpperCase() ||
-                          ''}
-                      </Avatar>
-                    </UnstyledButton>
-                  </Tooltip>
-                )}
-              </FileButton>
-
-              {(isAvatarHovered || isPhotoUploading) && (
-                <Overlay
-                  opacity={0.45}
-                  color="#000"
-                  radius="md"
-                  style={{ pointerEvents: 'none' }}
-                >
-                  <Center style={{ height: '100%' }}>
-                    {isPhotoUploading ? (
-                      <Loader size="sm" color="white" />
-                    ) : (
-                      <Group gap={6} align="center">
-                        <IconCamera size={18} color="#fff" />
-                        <Text size="xs" c="white">
-                          Change photo
-                        </Text>
-                      </Group>
+                        <Center style={{ height: '100%' }}>
+                          {isPhotoUploading ? (
+                            <Loader size="sm" color="white" />
+                          ) : (
+                            <Group gap={6} align="center">
+                              <IconCamera size={18} color="#fff" />
+                              <Text size="xs" c="white">
+                                Change photo
+                              </Text>
+                            </Group>
+                          )}
+                        </Center>
+                      </Overlay>
                     )}
-                  </Center>
-                </Overlay>
-              )}
-            </Box>
-            <div style={{ flex: 1 }}>
-              <Group justify="space-between" align="flex-start">
-                <div>
-                  <Title order={2}>
-                    {employee.firstName && employee.lastName
-                      ? `${employee.firstName} ${employee.middleName ? employee.middleName + ' ' : ''}${employee.lastName}`
-                      : employee.name}
-                  </Title>
-                  <Text size="lg" c="dimmed" mt={4}>
-                    {employee.position || employee.jobTitle}
-                  </Text>
-                  <Text size="sm" c="dimmed">
-                    {employee.department} • {employee.employeeId}
-                  </Text>
-                </div>
-                <Badge
-                  size="lg"
-                  color={getStatusColor(employee.status)}
-                  variant="light"
-                >
-                  {employee.status === 'on-leave'
-                    ? 'ON LEAVE'
-                    : employee.status.toUpperCase()}
-                </Badge>
-              </Group>
-            </div>
-          </Group>
-        </Paper>
-
-        {/* Detailed Information Tables by Category */}
-        {categories.map((category) => {
-          const categoryDetails = employeeDetails.filter(
-            (d) => d.category === category
-          );
-
-          return (
-            <Card key={category} withBorder padding={0}>
-              <Paper p="md" bg="gray.0">
-                <Title order={4}>{category}</Title>
-              </Paper>
-              <Divider />
-              <Box p="lg">
-                <Grid gutter="md">
-                  {categoryDetails.map((detail) => (
-                    <Grid.Col
-                      span={{ base: 12, sm: 6, md: 4 }}
-                      key={`${category}-${detail.label}`}
-                    >
-                      <Box>
-                        <Text
-                          size="xs"
-                          fw={600}
-                          c="dimmed"
-                          tt="uppercase"
-                          mb={4}
-                        >
-                          {detail.label}
+                  </Box>
+                  <div style={{ flex: 1 }}>
+                    <Group justify="space-between" align="flex-start">
+                      <div>
+                        <Title order={2}>
+                          {employee.firstName && employee.lastName
+                            ? `${employee.firstName} ${employee.middleName ? employee.middleName + ' ' : ''}${employee.lastName}`
+                            : employee.name}
+                        </Title>
+                        <Text size="lg" c="dimmed" mt={4}>
+                          {employee.position || employee.jobTitle}
                         </Text>
-                        {detail.label.toLowerCase().includes('salary') ||
-                        detail.label.toLowerCase().includes('allowance') ? (
-                          <Text
-                            fw={600}
-                            size="sm"
-                            c={detail.value !== 'N/A' ? 'green' : 'dimmed'}
+                        <Text size="sm" c="dimmed">
+                          {employee.department} • {employee.employeeId}
+                        </Text>
+                      </div>
+                      <Badge
+                        size="lg"
+                        color={getStatusColor(employee.status)}
+                        variant="light"
+                      >
+                        {employee.status === 'on-leave'
+                          ? 'ON LEAVE'
+                          : employee.status.toUpperCase()}
+                      </Badge>
+                    </Group>
+                  </div>
+                </Group>
+              </Paper>
+
+              {/* Detailed Information Tables by Category */}
+              {categories.map((category) => {
+                const categoryDetails = employeeDetails.filter(
+                  (d) => d.category === category
+                );
+
+                return (
+                  <Card key={category} withBorder padding={0}>
+                    <Paper p="md" bg="gray.0">
+                      <Title order={4}>{category}</Title>
+                    </Paper>
+                    <Divider />
+                    <Box p="lg">
+                      <Grid gutter="md">
+                        {categoryDetails.map((detail) => (
+                          <Grid.Col
+                            span={{ base: 12, sm: 6, md: 4 }}
+                            key={`${category}-${detail.label}`}
                           >
-                            {detail.value}
-                          </Text>
-                        ) : (
-                          <Text
-                            size="sm"
-                            c={detail.value === 'N/A' ? 'dimmed' : undefined}
-                          >
-                            {detail.value}
-                          </Text>
-                        )}
-                      </Box>
-                    </Grid.Col>
-                  ))}
-                </Grid>
-              </Box>
-            </Card>
-          );
-        })}
+                            <Box>
+                              <Text
+                                size="xs"
+                                fw={600}
+                                c="dimmed"
+                                tt="uppercase"
+                                mb={4}
+                              >
+                                {detail.label}
+                              </Text>
+                              {detail.label.toLowerCase().includes('salary') ||
+                              detail.label
+                                .toLowerCase()
+                                .includes('allowance') ? (
+                                <Text
+                                  fw={600}
+                                  size="sm"
+                                  c={
+                                    detail.value !== 'N/A' ? 'green' : 'dimmed'
+                                  }
+                                >
+                                  {detail.value}
+                                </Text>
+                              ) : (
+                                <Text
+                                  size="sm"
+                                  c={
+                                    detail.value === 'N/A'
+                                      ? 'dimmed'
+                                      : undefined
+                                  }
+                                >
+                                  {detail.value}
+                                </Text>
+                              )}
+                            </Box>
+                          </Grid.Col>
+                        ))}
+                      </Grid>
+                    </Box>
+                  </Card>
+                );
+              })}
+            </Stack>
+          </Tabs.Panel>
+
+          <Tabs.Panel value="records" pt="md">
+            <Stack gap="lg">
+              <Card withBorder padding="lg">
+                <Group justify="space-between" align="flex-start">
+                  <div>
+                    <Title order={4}>Payroll History</Title>
+                    <Text size="sm" c="dimmed">
+                      Total net pay recorded:{' '}
+                      {formatCurrency(totalPayrollAmount)}
+                    </Text>
+                  </div>
+                  <Badge variant="light" color="blue">
+                    {payrollHistory.length} records
+                  </Badge>
+                </Group>
+                <Divider my="md" />
+                {isLoadingRelated ? (
+                  <Center py="xl">
+                    <Loader size="sm" />
+                  </Center>
+                ) : payrollHistory.length === 0 ? (
+                  <Text c="dimmed">
+                    No payroll entries yet for this employee.
+                  </Text>
+                ) : (
+                  <ScrollArea h={280}>
+                    <Table highlightOnHover withTableBorder>
+                      <Table.Thead>
+                        <Table.Tr>
+                          <Table.Th>Pay Period</Table.Th>
+                          <Table.Th>Net Pay</Table.Th>
+                          <Table.Th>Gross Pay</Table.Th>
+                          <Table.Th>Deductions</Table.Th>
+                          <Table.Th>Cash Advance</Table.Th>
+                          <Table.Th>Status</Table.Th>
+                        </Table.Tr>
+                      </Table.Thead>
+                      <Table.Tbody>
+                        {payrollHistory.map((record) => (
+                          <Table.Tr key={record.id}>
+                            <Table.Td>{formatPayrollPeriod(record)}</Table.Td>
+                            <Table.Td>{formatCurrency(record.netPay)}</Table.Td>
+                            <Table.Td>
+                              {formatCurrency(record.grossPay)}
+                            </Table.Td>
+                            <Table.Td>
+                              {formatCurrency(record.totalDeductions)}
+                            </Table.Td>
+                            <Table.Td>
+                              {formatCurrency(record.cashAdvance)}
+                            </Table.Td>
+                            <Table.Td>
+                              <Badge
+                                color={getPayrollStatusBadgeColor(
+                                  record.status
+                                )}
+                                variant="light"
+                              >
+                                {record.status.toUpperCase()}
+                              </Badge>
+                            </Table.Td>
+                          </Table.Tr>
+                        ))}
+                      </Table.Tbody>
+                    </Table>
+                  </ScrollArea>
+                )}
+              </Card>
+
+              <Card withBorder padding="lg">
+                <Group justify="space-between" align="flex-start">
+                  <div>
+                    <Title order={4}>Attendance Records</Title>
+                    <Text size="sm" c="dimmed">
+                      Latest {attendanceToDisplay.length} of{' '}
+                      {attendanceHistory.length} entries
+                    </Text>
+                  </div>
+                </Group>
+                <Divider my="md" />
+                {isLoadingRelated ? (
+                  <Center py="xl">
+                    <Loader size="sm" />
+                  </Center>
+                ) : attendanceToDisplay.length === 0 ? (
+                  <Text c="dimmed">
+                    No attendance entries found for this employee.
+                  </Text>
+                ) : (
+                  <ScrollArea h={240}>
+                    <Table highlightOnHover withTableBorder>
+                      <Table.Thead>
+                        <Table.Tr>
+                          <Table.Th>Date</Table.Th>
+                          <Table.Th>Time In</Table.Th>
+                          <Table.Th>Time Out</Table.Th>
+                          <Table.Th>Total Hours</Table.Th>
+                          <Table.Th>Status</Table.Th>
+                        </Table.Tr>
+                      </Table.Thead>
+                      <Table.Tbody>
+                        {attendanceToDisplay.map((record) => (
+                          <Table.Tr key={record.id}>
+                            <Table.Td>
+                              {formatOptionalDate(record.date)}
+                            </Table.Td>
+                            <Table.Td>{record.timeIn || '—'}</Table.Td>
+                            <Table.Td>{record.timeOut || '—'}</Table.Td>
+                            <Table.Td>
+                              {Number.isFinite(record.totalHours)
+                                ? record.totalHours.toFixed(2)
+                                : '0.00'}
+                            </Table.Td>
+                            <Table.Td>
+                              <Badge
+                                color={getAttendanceStatusColor(record.status)}
+                                variant="light"
+                              >
+                                {record.status.replace('-', ' ').toUpperCase()}
+                              </Badge>
+                            </Table.Td>
+                          </Table.Tr>
+                        ))}
+                      </Table.Tbody>
+                    </Table>
+                  </ScrollArea>
+                )}
+              </Card>
+
+              <Card withBorder padding="lg">
+                <Group justify="space-between" align="flex-start">
+                  <div>
+                    <Title order={4}>Leave Requests</Title>
+                    <Text size="sm" c="dimmed">
+                      Latest {leaveToDisplay.length} of {leaveHistory.length}{' '}
+                      requests
+                    </Text>
+                  </div>
+                </Group>
+                <Divider my="md" />
+                {isLoadingRelated ? (
+                  <Center py="xl">
+                    <Loader size="sm" />
+                  </Center>
+                ) : leaveToDisplay.length === 0 ? (
+                  <Text c="dimmed">
+                    No leave requests recorded for this employee.
+                  </Text>
+                ) : (
+                  <ScrollArea h={240}>
+                    <Table highlightOnHover withTableBorder>
+                      <Table.Thead>
+                        <Table.Tr>
+                          <Table.Th>Type</Table.Th>
+                          <Table.Th>Date Range</Table.Th>
+                          <Table.Th>Days</Table.Th>
+                          <Table.Th>Status</Table.Th>
+                          <Table.Th>Payment</Table.Th>
+                        </Table.Tr>
+                      </Table.Thead>
+                      <Table.Tbody>
+                        {leaveToDisplay.map((request) => (
+                          <Table.Tr key={request.id}>
+                            <Table.Td>{request.leaveType}</Table.Td>
+                            <Table.Td>
+                              {`${formatOptionalDate(request.startDate)} - ${formatOptionalDate(
+                                request.endDate
+                              )}`}
+                            </Table.Td>
+                            <Table.Td>{request.numberOfDays}</Table.Td>
+                            <Table.Td>
+                              <Badge
+                                color={getLeaveStatusColor(request.status)}
+                                variant="light"
+                              >
+                                {request.status.toUpperCase()}
+                              </Badge>
+                            </Table.Td>
+                            <Table.Td>
+                              <Badge variant="outline">
+                                {request.paymentStatus.toUpperCase()}
+                              </Badge>
+                            </Table.Td>
+                          </Table.Tr>
+                        ))}
+                      </Table.Tbody>
+                    </Table>
+                  </ScrollArea>
+                )}
+              </Card>
+
+              <Card withBorder padding="lg">
+                <Group justify="space-between" align="flex-start">
+                  <div>
+                    <Title order={4}>Salary Timeline</Title>
+                    <Text size="sm" c="dimmed">
+                      Tracks base salary and allowance adjustments
+                    </Text>
+                  </div>
+                </Group>
+                <Divider my="md" />
+                {isLoadingRelated ? (
+                  <Center py="xl">
+                    <Loader size="sm" />
+                  </Center>
+                ) : salaryTimelineToDisplay.length === 0 ? (
+                  <Text c="dimmed">
+                    No salary adjustments detected in payroll history.
+                  </Text>
+                ) : (
+                  <Timeline
+                    active={salaryTimelineToDisplay.length - 1}
+                    bulletSize={16}
+                    lineWidth={2}
+                  >
+                    {salaryTimelineToDisplay.map((entry) => (
+                      <Timeline.Item
+                        key={`${entry.id}-${entry.effectiveFrom}`}
+                        title={formatOptionalDate(entry.effectiveFrom)}
+                      >
+                        <Text size="sm" fw={600}>
+                          {entry.payPeriodLabel}
+                        </Text>
+                        <Text size="sm" c="dimmed">
+                          Basic {formatCurrency(entry.basicSalary)} • Allowance{' '}
+                          {formatCurrency(entry.allowance)} • Gross{' '}
+                          {formatCurrency(entry.grossPay)}
+                        </Text>
+                      </Timeline.Item>
+                    ))}
+                  </Timeline>
+                )}
+              </Card>
+
+              <Card withBorder padding="lg">
+                <Group justify="space-between" align="flex-start">
+                  <div>
+                    <Title order={4}>Cash Advance Summary</Title>
+                    <Text size="sm" c="dimmed">
+                      Outstanding balance:{' '}
+                      {formatCurrency(outstandingCashAdvance)}
+                    </Text>
+                  </div>
+                  <Badge variant="light" color="grape">
+                    {cashAdvanceRecords.length} requests
+                  </Badge>
+                </Group>
+                <Divider my="md" />
+                {isLoadingRelated ? (
+                  <Center py="xl">
+                    <Loader size="sm" />
+                  </Center>
+                ) : cashAdvanceRecords.length === 0 ? (
+                  <Text c="dimmed">
+                    No cash advance history yet. When this employee requests a
+                    cash advance it will appear here.
+                  </Text>
+                ) : (
+                  <ScrollArea h={240}>
+                    <Table highlightOnHover withTableBorder>
+                      <Table.Thead>
+                        <Table.Tr>
+                          <Table.Th>Request Date</Table.Th>
+                          <Table.Th>Amount</Table.Th>
+                          <Table.Th>Settled</Table.Th>
+                          <Table.Th>Remaining</Table.Th>
+                          <Table.Th>Status</Table.Th>
+                        </Table.Tr>
+                      </Table.Thead>
+                      <Table.Tbody>
+                        {cashAdvanceRecords.map((record) => (
+                          <Table.Tr key={record.id}>
+                            <Table.Td>
+                              {formatOptionalDate(record.requestDate)}
+                            </Table.Td>
+                            <Table.Td>{formatCurrency(record.amount)}</Table.Td>
+                            <Table.Td>
+                              {formatCurrency(record.settledAmount ?? 0)}
+                            </Table.Td>
+                            <Table.Td>
+                              {formatCurrency(record.remainingBalance ?? 0)}
+                            </Table.Td>
+                            <Table.Td>
+                              <Badge
+                                color={getCashAdvanceStatusColor(record.status)}
+                                variant="light"
+                              >
+                                {record.status.toUpperCase()}
+                              </Badge>
+                            </Table.Td>
+                          </Table.Tr>
+                        ))}
+                      </Table.Tbody>
+                    </Table>
+                  </ScrollArea>
+                )}
+              </Card>
+            </Stack>
+          </Tabs.Panel>
+        </Tabs>
       </Stack>
 
       {/* Form Dialog */}
