@@ -7,7 +7,7 @@ import {
   IconPigMoney,
   IconClock,
   IconCheck,
-  IconCurrencyDollar,
+  IconCurrencyPeso,
   IconEdit,
   IconTrash,
   IconX,
@@ -53,9 +53,7 @@ export default function EmployeeLoans() {
     // Utility Functions
     formatDate,
     formatCurrency,
-    formatPercent,
     getStatusColor,
-    getLoanTypeColor,
 
     // Event Handlers
     handleAddLoan,
@@ -90,34 +88,16 @@ export default function EmployeeLoans() {
     {
       title: 'Outstanding',
       value: formatCurrency(totalOutstanding),
-      icon: <IconCurrencyDollar size={32} stroke={1.5} />,
+      icon: <IconCurrencyPeso size={32} stroke={1.5} />,
     },
   ];
 
-  // Table Columns Configuration (11 columns as requested)
+  // Table Columns Configuration
   const columns: TableColumn<EmployeeLoan>[] = [
     {
       key: 'employee',
       label: 'EMPLOYEE',
-      render: (item) => (
-        <div>
-          <Text fw={500}>{item.employee}</Text>
-          {item.notes && (
-            <Text size="xs" c="dimmed">
-              {item.notes}
-            </Text>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: 'loanType',
-      label: 'LOAN TYPE',
-      render: (item) => (
-        <Badge color={getLoanTypeColor(item.loanType)} variant="light">
-          {item.loanType.toUpperCase()}
-        </Badge>
-      ),
+      render: (item) => <Text fw={500}>{item.employee}</Text>,
     },
     {
       key: 'amount',
@@ -125,13 +105,22 @@ export default function EmployeeLoans() {
       render: (item) => <Text fw={600}>{formatCurrency(item.amount)}</Text>,
     },
     {
+      key: 'purpose',
+      label: 'PURPOSE',
+      render: (item) => (
+        <Text size="sm" style={{ maxWidth: 200 }} lineClamp={2}>
+          {item.purpose}
+        </Text>
+      ),
+    },
+    {
       key: 'interestRate',
       label: 'INTEREST RATE',
-      render: (item) => <Text>{formatPercent(item.interestRate)}</Text>,
+      render: (item) => <Text>{item.interestRate.toFixed(2)}%</Text>,
     },
     {
       key: 'termMonths',
-      label: 'TERM (MONTHS)',
+      label: 'TERMS (MONTHS)',
       render: (item) => <Text>{item.termMonths}</Text>,
     },
     {
@@ -147,6 +136,20 @@ export default function EmployeeLoans() {
       render: (item) => (
         <Text fw={600} c={item.remainingBalance === 0 ? 'green' : 'blue'}>
           {formatCurrency(item.remainingBalance)}
+        </Text>
+      ),
+    },
+    {
+      key: 'applicationDate',
+      label: 'REQUEST DATE',
+      render: (item) => formatDate(item.applicationDate),
+    },
+    {
+      key: 'notes',
+      label: 'NOTES',
+      render: (item) => (
+        <Text size="sm" c={item.notes ? undefined : 'dimmed'} lineClamp={2}>
+          {item.notes || 'N/A'}
         </Text>
       ),
     },
@@ -176,20 +179,6 @@ export default function EmployeeLoans() {
         </Group>
       ),
     },
-    {
-      key: 'applicationDate',
-      label: 'APPLICATION DATE',
-      render: (item) => formatDate(item.applicationDate),
-    },
-    {
-      key: 'purpose',
-      label: 'PURPOSE',
-      render: (item) => (
-        <Text size="sm" style={{ maxWidth: 200 }} lineClamp={2}>
-          {item.purpose}
-        </Text>
-      ),
-    },
   ];
 
   // Table Actions Configuration
@@ -216,7 +205,7 @@ export default function EmployeeLoans() {
       show: (item) => item.status === 'approved',
     },
     {
-      icon: <IconCurrencyDollar size={16} />,
+      icon: <IconCurrencyPeso size={16} />,
       label: 'Mark Completed',
       color: 'teal',
       onClick: (item) => handleMarkCompleted(item.id),
@@ -293,17 +282,17 @@ export default function EmployeeLoans() {
           footerContent={
             <>
               <Table.Th>Total ({loans.length} loans)</Table.Th>
-              <Table.Th colSpan={2}>
+              <Table.Th>
                 <Text fw={700}>
                   Disbursed: {formatCurrency(totalDisbursed)}
                 </Text>
               </Table.Th>
-              <Table.Th colSpan={3}>
+              <Table.Th>
                 <Text fw={700}>
                   Outstanding: {formatCurrency(totalOutstanding)}
                 </Text>
               </Table.Th>
-              <Table.Th colSpan={5}></Table.Th>
+              <Table.Th colSpan={8}></Table.Th>
             </>
           }
           showSummary

@@ -13,7 +13,7 @@ import {
   Center,
 } from '@mantine/core';
 import {
-  IconCurrencyDollar,
+  IconCurrencyPeso,
   IconShoppingCart,
   IconTrendingUp,
   IconPackage,
@@ -106,7 +106,7 @@ export function BiDashboard() {
         <StatCard
           title="Month to Date"
           value={formatCurrency(metrics.mtdTotal)}
-          icon={IconCurrencyDollar}
+          icon={IconCurrencyPeso}
           color="green"
         />
         <StatCard
@@ -560,7 +560,7 @@ export function BiDashboard() {
             <StatCard
               title="Total COGS"
               value={formatCurrency(metrics.totalCOGS)}
-              icon={IconCurrencyDollar}
+              icon={IconCurrencyPeso}
               color="orange"
             />
           </Group>

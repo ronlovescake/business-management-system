@@ -21,7 +21,7 @@ import {
   IconSettings,
   IconClipboardList,
   IconReceipt,
-  IconCurrencyDollar,
+  IconCurrencyPeso,
   IconCalendar,
   IconUsers,
 } from '@tabler/icons-react';
@@ -146,7 +146,7 @@ export function Sidebar() {
         {
           label: 'Payroll',
           path: `${basePath}/payroll`,
-          icon: IconCurrencyDollar,
+          icon: IconCurrencyPeso,
           order: 3,
         },
         {
@@ -170,13 +170,13 @@ export function Sidebar() {
         {
           label: 'Cash Advance',
           path: `${basePath}/cash-advance`,
-          icon: IconCurrencyDollar,
+          icon: IconCurrencyPeso,
           order: 7,
         },
         {
           label: 'Employee Loans',
           path: `${basePath}/employee-loans`,
-          icon: IconCurrencyDollar,
+          icon: IconCurrencyPeso,
           order: 8,
         },
         {

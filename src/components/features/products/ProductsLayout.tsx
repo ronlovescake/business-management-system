@@ -15,7 +15,7 @@ import {
 import {
   IconUpload,
   IconSearch,
-  IconCurrencyDollar,
+  IconCurrencyPeso,
   IconTrendingUp,
   IconAdjustments,
   IconPlus,
@@ -142,7 +142,7 @@ export function ProductsLayout<T = Record<string, unknown>>({
               </Title>
             </div>
             <ThemeIcon variant="white" color="blue" size="lg" radius="md">
-              <IconCurrencyDollar size={18} />
+              <IconCurrencyPeso size={18} />
             </ThemeIcon>
           </Group>
         </Card>

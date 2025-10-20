@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import type { EmployeeLoan, EmployeeLoanFormData } from '../types';
 import { getCurrentDateISO } from '@/utils/date';
+import { FormatterService } from '@/services/FormatterService';
 
 export function useEmployeeLoans() {
   // State Management
@@ -51,12 +52,8 @@ export function useEmployeeLoans() {
     });
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number) =>
+    FormatterService.formatCurrency(amount);
 
   const formatPercent = (rate: number) => {
     return `${rate.toFixed(2)}%`;

@@ -1,11 +1,22 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { Payroll, PayrollFormData } from '../types';
 import { getCurrentDateISO } from '@/utils/date';
+
+interface EmployeeDirectoryEntry {
+  employeeId: string;
+  name: string;
+  firstName?: string | null;
+  lastName?: string | null;
+}
+
+const normalizeIdentifier = (value: string | undefined | null) =>
+  (value ?? '').toString().trim().replace(/\s+/g, ' ').toLowerCase();
 
 export function usePayroll() {
   // State Management
   const [payrolls, setPayrolls] = useState<Payroll[]>([]);
   const [loading, setLoading] = useState(true);
+  const [employees, setEmployees] = useState<EmployeeDirectoryEntry[]>([]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -13,9 +24,58 @@ export function usePayroll() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingPayroll, setEditingPayroll] = useState<Payroll | null>(null);
 
+  const resolveEmployeeRecord = useCallback(
+    (identifier: string | undefined | null) => {
+      const normalized = normalizeIdentifier(identifier);
+      if (!normalized) {
+        return undefined;
+      }
+
+      return employees.find((entry) => {
+        if (normalizeIdentifier(entry.employeeId) === normalized) {
+          return true;
+        }
+
+        if (normalizeIdentifier(entry.name) === normalized) {
+          return true;
+        }
+
+        const combined = `${entry.firstName ?? ''} ${entry.lastName ?? ''}`;
+        return normalizeIdentifier(combined) === normalized;
+      });
+    },
+    [employees]
+  );
+
   // Fetch payrolls from API
   useEffect(() => {
     fetchPayrolls();
+  }, []);
+
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const response = await fetch('/api/employees');
+        if (!response.ok) {
+          throw new Error('Failed to load employees');
+        }
+        const data = await response.json();
+        const directory = Array.isArray(data)
+          ? data.map((item) => ({
+              employeeId: item.employeeId,
+              name:
+                item.name ?? `${item.firstName ?? ''} ${item.lastName ?? ''}`,
+              firstName: item.firstName ?? null,
+              lastName: item.lastName ?? null,
+            }))
+          : [];
+        setEmployees(directory);
+      } catch (error) {
+        console.error('Error fetching employees for payroll directory:', error);
+      }
+    };
+
+    fetchEmployees();
   }, []);
 
   const fetchPayrolls = async () => {
@@ -78,9 +138,13 @@ export function usePayroll() {
           absentsLates;
         const derivedNetPay = Math.max(0, grossPay - derivedTotalDeductions);
 
+        const totalDeductions = toNumber(record.totalDeductions);
+        const netPay = toNumber(record.netPay);
+
         return {
           id: record.id,
           employee: record.employeeName,
+          employeeId: record.employeeId ?? null,
           payPeriod: record.payPeriod,
           basicSalary,
           allowance,
@@ -95,8 +159,9 @@ export function usePayroll() {
           cashAdvance,
           lwop,
           absentsLates,
-          totalDeductions: derivedTotalDeductions,
-          netPay: derivedNetPay,
+          totalDeductions:
+            totalDeductions > 0 ? totalDeductions : derivedTotalDeductions,
+          netPay: netPay > 0 ? netPay : derivedNetPay,
           status: record.status as 'pending' | 'approved' | 'paid',
           bankGcash: record.bankGcash || '',
           approvedBy: record.approvedBy,
@@ -242,6 +307,10 @@ export function usePayroll() {
 
   const handleSavePayroll = async (formData: PayrollFormData) => {
     const totals = calculateTotals(formData);
+    const employeeRecord = resolveEmployeeRecord(formData.employee);
+    const employeeId =
+      employeeRecord?.employeeId ?? editingPayroll?.employeeId ?? null;
+    const employeeName = employeeRecord?.name ?? formData.employee;
 
     try {
       if (editingPayroll) {
@@ -251,7 +320,8 @@ export function usePayroll() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             id: editingPayroll.id,
-            employeeName: formData.employee,
+            employeeId,
+            employeeName,
             payPeriod: formData.payPeriod,
             basicSalary: parseFloat(formData.basicSalary),
             allowance: parseFloat(formData.allowance) || 0,
@@ -283,7 +353,9 @@ export function usePayroll() {
             p.id === editingPayroll.id
               ? {
                   ...p,
-                  employee: updated.employeeName,
+                  employee: updated.employeeName ?? employeeName,
+                  employeeId:
+                    updated.employeeId ?? employeeId ?? p.employeeId ?? null,
                   payPeriod: updated.payPeriod,
                   basicSalary: updated.basicSalary,
                   allowance: updated.allowance,
@@ -311,7 +383,8 @@ export function usePayroll() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            employeeName: formData.employee,
+            employeeId,
+            employeeName,
             payPeriod: formData.payPeriod,
             periodStart: formData.payPeriod.split(' to ')[0],
             periodEnd: formData.payPeriod.split(' to ')[1],
@@ -344,7 +417,8 @@ export function usePayroll() {
         setPayrolls((prev) => [
           {
             id: newPayroll.id,
-            employee: newPayroll.employeeName,
+            employee: newPayroll.employeeName ?? employeeName,
+            employeeId: newPayroll.employeeId ?? employeeId ?? null,
             payPeriod: newPayroll.payPeriod,
             basicSalary: newPayroll.basicSalary,
             allowance: newPayroll.allowance,
@@ -454,81 +528,98 @@ export function usePayroll() {
     }
 
     const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const rows = text.split('\n').slice(1); // Skip header row
+    reader.onload = async (e) => {
+      try {
+        const text = (e.target?.result as string) ?? '';
+        const lines = text
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean);
 
-      const imported = rows
-        .filter((row) => row.trim())
-        .map((row) => {
+        if (lines.length <= 1) {
+          return;
+        }
+
+        const [, ...rows] = lines; // drop header
+
+        const unmatchedEmployees = new Set<string>();
+
+        const payload = rows.map((row) => {
           const columns = row.split(',');
-          const employee = columns[0];
-          const payPeriod = columns[1];
-          const basicSalary = columns[2];
-          const allowance = columns[3];
-          const overtime = columns[4];
-          const bonuses = columns[5];
-          const sss = columns[7];
-          const philHealth = columns[8];
-          const pagIbig = columns[9];
-          const tax = columns[10];
-          const loans = columns[11];
-          const cashAdvance = columns[12];
-          const lwop = columns[13];
-          const absentsLatesValue = columns[14];
-          const status = columns[17];
-          const bankGcash = columns[18];
+          const employee = columns[0]?.trim() ?? '';
+          const payPeriod = columns[1]?.trim() ?? '';
+          const [periodStart = '', periodEnd = ''] = payPeriod
+            .split(' to ')
+            .map((value) => value.trim());
 
-          const basic = parseFloat(basicSalary?.trim() || '0');
-          const allow = parseFloat(allowance?.trim() || '0');
-          const ot = parseFloat(overtime?.trim() || '0');
-          const bonus = parseFloat(bonuses?.trim() || '0');
-          const sssAmt = parseFloat(sss?.trim() || '0');
-          const philHealthAmt = parseFloat(philHealth?.trim() || '0');
-          const pagIbigAmt = parseFloat(pagIbig?.trim() || '0');
-          const taxAmt = parseFloat(tax?.trim() || '0');
-          const loansAmt = parseFloat(loans?.trim() || '0');
-          const cashAdvanceAmt = parseFloat(cashAdvance?.trim() || '0');
-          const lwopAmt = parseFloat(lwop?.trim() || '0');
-          const absentsLatesAmt = parseFloat(absentsLatesValue?.trim() || '0');
+          const employeeRecord = resolveEmployeeRecord(employee);
 
-          const grossPay = basic + allow + ot + bonus;
-          const totalDeductions =
-            sssAmt +
-            philHealthAmt +
-            pagIbigAmt +
-            taxAmt +
-            loansAmt +
-            cashAdvanceAmt +
-            lwopAmt +
-            absentsLatesAmt;
-          const netPay = grossPay - totalDeductions;
+          const parseNumber = (value: string | undefined) => {
+            const parsed = parseFloat((value ?? '').trim() || '0');
+            return Number.isFinite(parsed) ? parsed : 0;
+          };
+
+          const status = columns[17]?.trim().toLowerCase() || 'pending';
+
+          if (!employeeRecord) {
+            unmatchedEmployees.add(employee);
+          }
 
           return {
-            id: Date.now().toString() + Math.random(),
-            employee: employee?.trim() || '',
-            payPeriod: payPeriod?.trim() || '',
-            basicSalary: basic,
-            allowance: allow,
-            overtime: ot,
-            bonuses: bonus,
-            grossPay,
-            sss: sssAmt,
-            philHealth: philHealthAmt,
-            pagIbig: pagIbigAmt,
-            tax: taxAmt,
-            loans: loansAmt,
-            cashAdvance: cashAdvanceAmt,
-            lwop: lwopAmt,
-            absentsLates: absentsLatesAmt,
-            totalDeductions,
-            netPay,
-            status: (status?.trim() || 'pending') as Payroll['status'],
-            bankGcash: bankGcash?.trim() || '',
+            employeeId: employeeRecord?.employeeId,
+            employeeName: employeeRecord?.name ?? employee,
+            payPeriod,
+            periodStart,
+            periodEnd,
+            basicSalary: parseNumber(columns[2]),
+            allowance: parseNumber(columns[3]),
+            overtime: parseNumber(columns[4]),
+            bonuses: parseNumber(columns[5]),
+            grossPay: parseNumber(columns[6]),
+            sss: parseNumber(columns[7]),
+            philHealth: parseNumber(columns[8]),
+            pagIbig: parseNumber(columns[9]),
+            tax: parseNumber(columns[10]),
+            loans: parseNumber(columns[11]),
+            cashAdvance: parseNumber(columns[12]),
+            lwop: parseNumber(columns[13]),
+            absentsLates: parseNumber(columns[14]),
+            totalDeductions: parseNumber(columns[15]),
+            netPay: parseNumber(columns[16]),
+            status,
+            bankGcash: columns[18]?.trim() ?? '',
           };
         });
 
-      setPayrolls((prev) => [...imported, ...prev]);
+        if (payload.length === 0) {
+          return;
+        }
+
+        const response = await fetch('/api/payroll', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to import payroll CSV');
+        }
+
+        await fetchPayrolls();
+
+        if (unmatchedEmployees.size > 0) {
+          alert(
+            `Imported payroll data, but the following employees could not be matched to existing employee IDs: ${Array.from(
+              unmatchedEmployees
+            ).join(
+              ', '
+            )}. Cash advance deductions will only apply to matched employees.`
+          );
+        }
+      } catch (err) {
+        console.error('Error importing payroll CSV:', err);
+        alert('Failed to import payroll data. Please try again.');
+      }
     };
     reader.readAsText(file);
   };
@@ -549,7 +640,7 @@ export function usePayroll() {
       'Loans',
       'Cash Advance',
       'LWOP',
-      'Absents/Lates',
+      'Absences/Lates',
       'Total Deductions',
       'Net Pay',
       'Status',
@@ -618,12 +709,7 @@ export function usePayroll() {
         alert(
           `Successfully synced LWOP!\n\nUpdated: ${result.synced} record(s)\nTotal checked: ${result.total} record(s)`
         );
-        // Refresh payroll data
-        const refreshResponse = await fetch('/api/payroll');
-        if (refreshResponse.ok) {
-          const data = await refreshResponse.json();
-          setPayrolls(data);
-        }
+        await fetchPayrolls();
       } else {
         const error = await response.json();
         alert(`Failed to sync LWOP: ${error.error || 'Unknown error'}`);

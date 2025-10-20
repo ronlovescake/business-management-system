@@ -390,8 +390,8 @@ export function PayrollFormDialog({
 
         <Grid.Col span={6}>
           <NumberInput
-            label="Absents/Lates"
-            placeholder="Enter deductions for absents/lates"
+            label="Absences/Lates"
+            placeholder="Enter deductions for absences/lates"
             min={0}
             prefix="₱"
             decimalScale={2}

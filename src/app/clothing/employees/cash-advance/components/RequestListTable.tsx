@@ -13,7 +13,7 @@ import {
   IconTrash,
   IconCheck,
   IconX,
-  IconCurrencyDollar,
+  IconCurrencyPeso,
 } from '@tabler/icons-react';
 import type { CashAdvance } from '../types';
 
@@ -148,7 +148,7 @@ export function RequestListTable({
                           onClick={() => onMarkAsPaid(request.id)}
                           title="Mark as Paid"
                         >
-                          <IconCurrencyDollar size={16} />
+                          <IconCurrencyPeso size={16} />
                         </ActionIcon>
                       )}
                       <ActionIcon

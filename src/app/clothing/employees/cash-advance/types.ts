@@ -1,5 +1,7 @@
 export type CashAdvanceStatus = 'pending' | 'approved' | 'rejected' | 'paid';
 
+export type CashAdvanceCycle = 'FIRST_HALF' | 'SECOND_HALF';
+
 export interface CashAdvance {
   id: string;
   employeeId: string;
@@ -21,6 +23,9 @@ export interface CashAdvance {
   settledAmount?: number;
   createdAt?: string;
   updatedAt?: string;
+  deductionCycle?: CashAdvanceCycle;
+  nextDeductionDate?: string | null;
+  lastDeductedDate?: string | null;
 }
 
 export interface CashAdvanceFormData {

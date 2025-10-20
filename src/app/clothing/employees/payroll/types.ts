@@ -1,5 +1,6 @@
 export interface Payroll {
   id: string;
+  employeeId?: string | null;
   employee: string;
   payPeriod: string;
   basicSalary: number;

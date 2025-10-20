@@ -7,7 +7,7 @@
 
 import { Card, Group, Text, Title, ThemeIcon, SimpleGrid } from '@mantine/core';
 import {
-  IconCurrencyDollar,
+  IconCurrencyPeso,
   IconTrendingUp,
   IconAdjustments,
 } from '@tabler/icons-react';
@@ -40,7 +40,7 @@ export function ProductStatsCards({ statistics }: ProductStatsCardsProps) {
             </Title>
           </div>
           <ThemeIcon variant="white" color="blue" size="lg" radius="md">
-            <IconCurrencyDollar size={18} />
+            <IconCurrencyPeso size={18} />
           </ThemeIcon>
         </Group>
       </Card>

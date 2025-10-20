@@ -13,6 +13,7 @@ async function main() {
   });
 
   await prisma.customer.createMany({
+    skipDuplicates: true,
     data: [
       {
         date: '2025-10-15',
@@ -44,6 +45,7 @@ async function main() {
   });
 
   await prisma.shipment.createMany({
+    skipDuplicates: true,
     data: [
       {
         shipmentCode: 'SHIP-001',
@@ -75,6 +77,7 @@ async function main() {
   });
 
   await prisma.transaction.createMany({
+    skipDuplicates: true,
     data: [
       {
         orderDate: '2025-10-12',
@@ -157,6 +160,7 @@ async function main() {
   });
 
   await prisma.sortingDistribution.createMany({
+    skipDuplicates: true,
     data: [
       {
         productCode: 'SKU-1001',
@@ -182,6 +186,7 @@ async function main() {
   });
 
   await prisma.employee.createMany({
+    skipDuplicates: true,
     data: [
       {
         employeeId: 'EMP-001',
@@ -372,6 +377,22 @@ async function main() {
         bankAccount: 'Landbank - 4567890123',
       },
     ],
+  });
+
+  await prisma.cashAdvanceRecord.create({
+    data: {
+      employeeId: 'EMP-001',
+      employeeName: 'John Michael Doe',
+      amount: '10000.00',
+      termsMonths: 2,
+      monthlyPayment: '5000.00',
+      settledAmount: '0',
+      remainingBalance: '10000.00',
+      purpose: 'Test payroll deduction seed',
+      notes: 'Seeded cash advance for payroll orchestration tests',
+      requestDate: new Date('2025-10-20'),
+      status: 'pending',
+    },
   });
 
   console.log('✅ Test data seeded.');

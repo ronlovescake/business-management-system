@@ -17,6 +17,7 @@ import {
 } from '@mantine/core';
 import { IconReceipt } from '@tabler/icons-react';
 import { ComposedDialog } from '@/components/shared/Dialog';
+import { FormatterService } from '@/services/FormatterService';
 
 // Example Expense type
 interface Expense {
@@ -149,7 +150,7 @@ export function ExpenseDialog({
           placeholder="0.00"
           decimalScale={2}
           fixedDecimalScale
-          prefix="$"
+          prefix={`${FormatterService.currencySymbol} `}
           value={formAmount}
           onChange={(value) => setFormAmount(value as number | '')}
           description="Enter the expense amount"

@@ -20,7 +20,7 @@ import {
 } from '@mantine/core';
 import {
   IconReceipt,
-  IconCurrencyDollar,
+  IconCurrencyPeso,
   IconPackage,
   IconTruck,
   IconShoppingCart,
@@ -296,7 +296,7 @@ export function PackingListGenerationModal({
             </Group>
 
             <Group gap="sm">
-              <IconCurrencyDollar size={18} color="#51cf66" />
+              <IconCurrencyPeso size={18} color="#51cf66" />
               <Text size="sm">
                 Total value:{' '}
                 <Text component="span" fw={600}>
@@ -457,7 +457,7 @@ export function DistributionGenerationModal({
             </Group>
 
             <Group gap="sm">
-              <IconCurrencyDollar size={18} color="#51cf66" />
+              <IconCurrencyPeso size={18} color="#51cf66" />
               <Text size="sm">
                 Total value:{' '}
                 <Text component="span" fw={600}>

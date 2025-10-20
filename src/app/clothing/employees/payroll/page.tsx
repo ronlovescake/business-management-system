@@ -212,7 +212,7 @@ export default function Payroll() {
     },
     {
       key: 'absentsLates',
-      label: 'ABSENTS/LATES',
+      label: 'ABSENCES/LATES',
       render: (item) => (
         <Text size="sm">{formatCurrency(item.absentsLates)}</Text>
       ),

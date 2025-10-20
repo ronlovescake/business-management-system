@@ -16,7 +16,7 @@ import { useMemo } from 'react';
 import { Group, Button } from '@mantine/core';
 import {
   IconPackage,
-  IconCurrencyDollar,
+  IconCurrencyPeso,
   IconBox,
   IconScale,
   IconTruck,
@@ -89,7 +89,7 @@ export function ShipmentsPage() {
       {
         title: 'Total Fees',
         value: `₱${statistics.totalFees.toLocaleString()}`,
-        icon: <IconCurrencyDollar size={18} />,
+        icon: <IconCurrencyPeso size={18} />,
         color: 'purple',
         backgroundColor: '#9775fa',
       },

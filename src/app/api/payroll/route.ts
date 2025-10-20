@@ -30,9 +30,29 @@ export async function GET(_request: NextRequest) {
       orderBy: [{ periodStart: 'desc' }, { employeeName: 'asc' }],
     });
 
-    const syncedPayrolls = await syncPayrollDeductions(payrolls);
+    // Only sync deductions for pending and approved payrolls
+    // Paid payrolls should retain their original deduction values
+    const pendingAndApproved = payrolls.filter(
+      (p) => p.status === 'pending' || p.status === 'approved'
+    );
+    const paid = payrolls.filter((p) => p.status === 'paid');
 
-    return NextResponse.json(syncedPayrolls);
+    const syncedPendingAndApproved =
+      await syncPayrollDeductions(pendingAndApproved);
+    const allPayrolls = [...syncedPendingAndApproved, ...paid];
+
+    // Sort back to original order
+    allPayrolls.sort((a, b) => {
+      const dateCompare = (b.periodStart || '').localeCompare(
+        a.periodStart || ''
+      );
+      if (dateCompare !== 0) {
+        return dateCompare;
+      }
+      return (a.employeeName || '').localeCompare(b.employeeName || '');
+    });
+
+    return NextResponse.json(allPayrolls);
   } catch (error) {
     console.error('Error fetching payrolls:', error);
     return NextResponse.json(
@@ -139,6 +159,15 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { id, ...updateData } = body;
 
+    // Check if status is changing to 'paid'
+    const existingPayroll = await prisma.payroll.findUnique({
+      where: { id },
+    });
+
+    if (!existingPayroll) {
+      return NextResponse.json({ error: 'Payroll not found' }, { status: 404 });
+    }
+
     const hasProp = (key: string) =>
       Object.prototype.hasOwnProperty.call(updateData, key);
 
@@ -179,6 +208,17 @@ export async function PUT(request: NextRequest) {
         ...updatedRecord,
       },
     });
+
+    // If status changed to 'paid', run deduction sync to persist cash advance deductions
+    const statusChanged =
+      hasProp('status') &&
+      updateData.status === 'paid' &&
+      existingPayroll.status !== 'paid';
+
+    if (statusChanged) {
+      const [syncedPayroll] = await syncPayrollDeductions([payroll]);
+      return NextResponse.json(syncedPayroll);
+    }
 
     return NextResponse.json(payroll);
   } catch (error) {

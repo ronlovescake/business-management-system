@@ -22,7 +22,7 @@ import {
   IconPackage,
   IconCalendar,
   IconCreditCard,
-  IconCurrencyDollar,
+  IconCurrencyPeso,
   IconTrendingUp,
   IconTrendingDown,
   IconPercentage,
@@ -294,7 +294,7 @@ export function AddProductModal({
         <div>
           <Group mb="md">
             <ThemeIcon size="sm" radius="md" variant="light" color="orange">
-              <IconCurrencyDollar size={14} />
+              <IconCurrencyPeso size={14} />
             </ThemeIcon>
             <Text size="lg" fw={500} c="orange.7">
               Pricing & Quantity
@@ -504,7 +504,7 @@ export function AddProductModal({
         <div>
           <Group mb="md">
             <ThemeIcon size="sm" radius="md" variant="light" color="indigo">
-              <IconCurrencyDollar size={14} />
+              <IconCurrencyPeso size={14} />
             </ThemeIcon>
             <Text size="lg" fw={500} c="indigo.7">
               Financial Calculations & Business Intelligence
@@ -525,7 +525,7 @@ export function AddProductModal({
             >
               <Group justify="space-between" align="center" mb="md">
                 <ThemeIcon size="sm" radius="md" variant="light" color="indigo">
-                  <IconCurrencyDollar size={14} />
+                  <IconCurrencyPeso size={14} />
                 </ThemeIcon>
                 <Text size="sm" fw={500} c="indigo.7">
                   Suggested Price
@@ -648,7 +648,7 @@ export function AddProductModal({
             >
               <Group justify="space-between" align="center" mb="md">
                 <ThemeIcon size="sm" radius="md" variant="light" color="blue">
-                  <IconCurrencyDollar size={14} />
+                  <IconCurrencyPeso size={14} />
                 </ThemeIcon>
                 <Text size="sm" fw={500} c="blue.7">
                   Base Price

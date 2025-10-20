@@ -4,29 +4,24 @@ import {
   NumberInput,
   Textarea,
   Select,
-  Grid,
   Stack,
-  Paper,
   Text,
   Group,
-  ThemeIcon,
+  Button,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import { ComposedDialog } from '@/components/shared/Dialog';
-import { getCurrentDateISO } from '@/utils/date';
+import { DateInput } from '@mantine/dates';
+import { IconPigMoney } from '@tabler/icons-react';
+import { PolishedModal } from '@/components/modals/PolishedModal';
+import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
+import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
+import { FormatterService } from '@/services/FormatterService';
+import { getCurrentDateISO, toDate, toISODate } from '@/utils/date';
 import type { EmployeeLoan, EmployeeLoanFormData } from '../types';
-import {
-  IconUser,
-  IconCash,
-  IconPercentage,
-  IconCalendar,
-  IconFileText,
-  IconCategory,
-} from '@tabler/icons-react';
 
 interface LoanFormDialogProps {
   opened: boolean;
-  editingLoan: EmployeeLoan | null;
+  editingLoan?: EmployeeLoan | null;
   onClose: () => void;
   onSave: (data: EmployeeLoanFormData) => void;
 }
@@ -37,17 +32,21 @@ export function LoanFormDialog({
   onClose,
   onSave,
 }: LoanFormDialogProps) {
+  const buildDefaultValues = (): EmployeeLoanFormData => ({
+    employee: '',
+    loanType: 'personal',
+    amount: '',
+    interestRate: '',
+    termMonths: '12',
+    applicationDate: getCurrentDateISO(),
+    purpose: '',
+    notes: '',
+  });
+
   const form = useForm<EmployeeLoanFormData>({
-    initialValues: {
-      employee: '',
-      loanType: 'personal',
-      amount: '',
-      interestRate: '',
-      termMonths: '12',
-      applicationDate: getCurrentDateISO(),
-      purpose: '',
-      notes: '',
-    },
+    initialValues: buildDefaultValues(),
+    validateInputOnBlur: true,
+    validateInputOnChange: true,
     validate: {
       employee: (value) => (!value ? 'Employee name is required' : null),
       loanType: (value) => (!value ? 'Loan type is required' : null),
@@ -56,7 +55,7 @@ export function LoanFormDialog({
           return 'Amount is required';
         }
         const num = parseFloat(value);
-        if (isNaN(num) || num <= 0) {
+        if (Number.isNaN(num) || num <= 0) {
           return 'Amount must be greater than 0';
         }
         return null;
@@ -66,7 +65,7 @@ export function LoanFormDialog({
           return 'Interest rate is required';
         }
         const num = parseFloat(value);
-        if (isNaN(num) || num < 0) {
+        if (Number.isNaN(num) || num < 0) {
           return 'Interest rate must be 0 or greater';
         }
         return null;
@@ -75,8 +74,8 @@ export function LoanFormDialog({
         if (!value) {
           return 'Term is required';
         }
-        const num = parseInt(value);
-        if (isNaN(num) || num <= 0) {
+        const num = parseInt(value, 10);
+        if (Number.isNaN(num) || num <= 0) {
           return 'Term must be greater than 0';
         }
         return null;
@@ -88,8 +87,12 @@ export function LoanFormDialog({
   });
 
   useEffect(() => {
+    if (!opened) {
+      return;
+    }
+
     if (editingLoan) {
-      form.setValues({
+      const editValues: EmployeeLoanFormData = {
         employee: editingLoan.employee,
         loanType: editingLoan.loanType,
         amount: editingLoan.amount.toString(),
@@ -98,15 +101,22 @@ export function LoanFormDialog({
         applicationDate: editingLoan.applicationDate,
         purpose: editingLoan.purpose,
         notes: editingLoan.notes || '',
-      });
-    } else {
+      };
+      form.setInitialValues(editValues);
       form.reset();
+      return;
     }
+
+    const defaults = buildDefaultValues();
+    form.setInitialValues(defaults);
+    form.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingLoan, opened]);
 
   const handleSubmit = (values: EmployeeLoanFormData) => {
     onSave(values);
+    const defaults = buildDefaultValues();
+    form.setInitialValues(defaults);
     form.reset();
   };
 
@@ -114,422 +124,292 @@ export function LoanFormDialog({
     form.onSubmit(handleSubmit)();
   };
 
+  const withHiddenError = <T extends Record<string, unknown>>(styles: T) => ({
+    ...styles,
+    error: { display: 'none' },
+  });
+
+  const { getFieldProps, getTextareaProps, getSelectProps } =
+    usePolishedFieldStyles(opened);
+
+  const employeeField = getFieldProps('employee');
+  const loanTypeSelect = getSelectProps('loanType');
+  const amountField = getFieldProps('amount');
+  const interestRateField = getFieldProps('interestRate');
+  const termMonthsField = getFieldProps('termMonths');
+  const applicationDateField = getFieldProps('applicationDate');
+  const purposeField = getFieldProps('purpose');
+  const notesField = getTextareaProps('notes');
+  const monthlyPaymentField = getFieldProps('monthlyPayment');
+
+  const employeeInputProps = form.getInputProps('employee');
+  const purposeInputProps = form.getInputProps('purpose');
+  const { error: notesError, ...notesInputProps } = form.getInputProps('notes');
+
+  const calculateMonthlyPayment = (
+    principal: number,
+    annualRate: number,
+    months: number
+  ) => {
+    if (Number.isNaN(principal) || principal <= 0 || months <= 0) {
+      return NaN;
+    }
+    if (Number.isNaN(annualRate) || annualRate === 0) {
+      return principal / months;
+    }
+    const monthlyRate = annualRate / 100 / 12;
+    const factor = Math.pow(1 + monthlyRate, months);
+    return (principal * monthlyRate * factor) / (factor - 1);
+  };
+
+  const amountValue = parseFloat(form.values.amount);
+  const interestValue = parseFloat(form.values.interestRate);
+  const termValue = parseInt(form.values.termMonths, 10);
+  const monthlyPayment = Number.isNaN(amountValue)
+    ? NaN
+    : calculateMonthlyPayment(amountValue, interestValue, termValue);
+
+  const hasErrors = Object.keys(form.errors).length > 0;
+  const requiredFieldsFilled =
+    form.values.employee.trim() &&
+    form.values.loanType.trim() &&
+    form.values.amount.trim() &&
+    form.values.interestRate.trim() &&
+    form.values.termMonths.trim() &&
+    form.values.applicationDate &&
+    form.values.purpose.trim();
+
+  const hasValidAmount = !Number.isNaN(amountValue) && amountValue > 0;
+  const hasValidInterest = !Number.isNaN(interestValue) && interestValue >= 0;
+  const hasValidTerm = !Number.isNaN(termValue) && termValue > 0;
+
+  const isSubmitDisabled =
+    hasErrors ||
+    !requiredFieldsFilled ||
+    !hasValidAmount ||
+    !hasValidInterest ||
+    !hasValidTerm;
+
+  const modalTitle = (
+    <Group gap="sm" align="center">
+      <IconPigMoney size={26} color="#65ab58" />
+      <Text fw={700} fz="lg" c="#101828">
+        {editingLoan ? 'Edit Loan Application' : 'New Loan Application'}
+      </Text>
+    </Group>
+  );
+
+  const formattedMonthlyPayment = Number.isNaN(monthlyPayment)
+    ? undefined
+    : Number(monthlyPayment.toFixed(2));
+
   return (
-    <ComposedDialog
+    <PolishedModal
       opened={opened}
       onClose={onClose}
-      size="xl"
-      header={{
-        title: editingLoan ? 'Edit Loan Application' : 'New Loan Application',
-        subtitle: editingLoan
-          ? 'Update the loan application details'
-          : 'Fill in the details to submit a new loan application',
-        iconColor: '#85bd3a',
-      }}
-      body={{
-        padding: 'xl',
-        maxHeight: '75vh',
-      }}
-      footer={{
-        layout: 'flex-end',
-        secondaryButton: {
-          label: 'Cancel',
-          onClick: onClose,
-          variant: 'subtle',
-        },
-        primaryButton: {
-          label: editingLoan ? 'Update Loan' : 'Submit Application',
-          onClick: handleSave,
-          disabled: !form.isValid(),
-          color: '#85bd3a',
-        },
-      }}
+      title={modalTitle}
+      size="lg"
     >
       <Stack gap="lg">
-        {/* Employee & Loan Type Section */}
-        <Paper
-          p="xl"
-          radius="lg"
-          style={{
-            backgroundColor: 'rgba(255, 255, 255, 0.95)',
-            border: '1px solid rgba(0, 0, 0, 0.06)',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+        <TextInput
+          label="Employee Name"
+          required
+          {...employeeInputProps}
+          onFocus={(event) => {
+            employeeField.handlers.onFocus();
+            employeeInputProps.onFocus?.(event);
           }}
-        >
-          <Group mb="lg" gap="sm">
-            <ThemeIcon
-              size={32}
-              radius="md"
-              variant="light"
-              color="gray"
-              style={{
-                backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                color: '#666',
-              }}
-            >
-              <IconUser size={18} stroke={1.5} />
-            </ThemeIcon>
-            <Text
-              fw={600}
-              size="sm"
-              c="#555"
-              tt="uppercase"
-              style={{ letterSpacing: '0.5px' }}
-            >
-              Applicant Information
-            </Text>
-          </Group>
-
-          <Grid gutter="lg">
-            <Grid.Col span={6}>
-              <TextInput
-                label="Employee Name"
-                placeholder="Enter employee name"
-                required
-                leftSection={<IconUser size={16} opacity={0.4} />}
-                styles={{
-                  label: {
-                    fontWeight: 500,
-                    color: '#333',
-                    marginBottom: 8,
-                  },
-                  input: {
-                    backgroundColor: '#fff',
-                    border: '1px solid rgba(0, 0, 0, 0.1)',
-                    borderRadius: 8,
-                    padding: '10px 12px',
-                    fontSize: 14,
-                    '&:focus': {
-                      borderColor: '#85bd3a',
-                      boxShadow: '0 0 0 3px rgba(133, 189, 58, 0.1)',
-                    },
-                    '&::placeholder': {
-                      color: '#aaa',
-                    },
-                  },
-                }}
-                {...form.getInputProps('employee')}
-              />
-            </Grid.Col>
-
-            <Grid.Col span={6}>
-              <Select
-                label="Loan Type"
-                placeholder="Select loan type"
-                required
-                leftSection={<IconCategory size={16} opacity={0.4} />}
-                data={[
-                  { value: 'personal', label: 'Personal Loan' },
-                  { value: 'emergency', label: 'Emergency Loan' },
-                  { value: 'educational', label: 'Educational Loan' },
-                  { value: 'housing', label: 'Housing Loan' },
-                  { value: 'vehicle', label: 'Vehicle Loan' },
-                ]}
-                styles={{
-                  label: {
-                    fontWeight: 500,
-                    color: '#333',
-                    marginBottom: 8,
-                  },
-                  input: {
-                    backgroundColor: '#fff',
-                    border: '1px solid rgba(0, 0, 0, 0.1)',
-                    borderRadius: 8,
-                    padding: '10px 12px',
-                    fontSize: 14,
-                    '&:focus': {
-                      borderColor: '#85bd3a',
-                      boxShadow: '0 0 0 3px rgba(133, 189, 58, 0.1)',
-                    },
-                  },
-                }}
-                {...form.getInputProps('loanType')}
-              />
-            </Grid.Col>
-          </Grid>
-        </Paper>
-
-        {/* Financial Details Section */}
-        <Paper
-          p="xl"
-          radius="lg"
-          style={{
-            backgroundColor: 'rgba(255, 255, 255, 0.95)',
-            border: '1px solid rgba(0, 0, 0, 0.06)',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+          onBlur={(event) => {
+            employeeField.handlers.onBlur();
+            employeeInputProps.onBlur?.(event);
           }}
-        >
-          <Group mb="lg" gap="sm">
-            <ThemeIcon
-              size={32}
-              radius="md"
-              variant="light"
-              color="gray"
-              style={{
-                backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                color: '#666',
-              }}
-            >
-              <IconCash size={18} stroke={1.5} />
-            </ThemeIcon>
-            <Text
-              fw={600}
-              size="sm"
-              c="#555"
-              tt="uppercase"
-              style={{ letterSpacing: '0.5px' }}
-            >
-              Financial Details
-            </Text>
-          </Group>
+          styles={withHiddenError(employeeField.styles)}
+          error={form.errors.employee ? ' ' : undefined}
+        />
 
-          <Grid gutter="lg">
-            <Grid.Col span={4}>
-              <NumberInput
-                label="Loan Amount"
-                placeholder="0.00"
-                required
-                min={0}
-                prefix="$"
-                decimalScale={2}
-                thousandSeparator=","
-                hideControls
-                leftSection={<IconCash size={16} opacity={0.4} />}
-                styles={{
-                  label: {
-                    fontWeight: 500,
-                    color: '#333',
-                    marginBottom: 8,
-                  },
-                  input: {
-                    backgroundColor: '#fff',
-                    border: '1px solid rgba(0, 0, 0, 0.1)',
-                    borderRadius: 8,
-                    padding: '10px 12px',
-                    fontSize: 15,
-                    fontWeight: 600,
-                    '&:focus': {
-                      borderColor: '#85bd3a',
-                      boxShadow: '0 0 0 3px rgba(133, 189, 58, 0.1)',
-                    },
-                    '&::placeholder': {
-                      color: '#aaa',
-                      fontWeight: 400,
-                    },
-                  },
-                }}
-                value={form.values.amount}
-                onChange={(value) =>
-                  form.setFieldValue('amount', value?.toString() || '')
-                }
-                error={form.errors.amount}
-              />
-            </Grid.Col>
+        <Group gap="lg" align="flex-start" grow>
+          <DateInput
+            label="Application Date"
+            valueFormat="MM/DD/YYYY"
+            firstDayOfWeek={0}
+            value={toDate(form.values.applicationDate)}
+            onChange={(value) =>
+              form.setFieldValue('applicationDate', toISODate(value))
+            }
+            required
+            {...applicationDateField.handlers}
+            styles={withHiddenError(applicationDateField.styles)}
+            error={form.errors.applicationDate ? ' ' : undefined}
+          />
 
-            <Grid.Col span={4}>
-              <NumberInput
-                label="Interest Rate"
-                placeholder="0.00"
-                required
-                min={0}
-                max={100}
-                decimalScale={2}
-                suffix="%"
-                hideControls
-                leftSection={<IconPercentage size={16} opacity={0.4} />}
-                styles={{
-                  label: {
-                    fontWeight: 500,
-                    color: '#333',
-                    marginBottom: 8,
-                  },
-                  input: {
-                    backgroundColor: '#fff',
-                    border: '1px solid rgba(0, 0, 0, 0.1)',
-                    borderRadius: 8,
-                    padding: '10px 12px',
-                    fontSize: 15,
-                    fontWeight: 600,
-                    '&:focus': {
-                      borderColor: '#85bd3a',
-                      boxShadow: '0 0 0 3px rgba(133, 189, 58, 0.1)',
-                    },
-                    '&::placeholder': {
-                      color: '#aaa',
-                      fontWeight: 400,
-                    },
-                  },
-                }}
-                value={form.values.interestRate}
-                onChange={(value) =>
-                  form.setFieldValue('interestRate', value?.toString() || '')
-                }
-                error={form.errors.interestRate}
-              />
-            </Grid.Col>
+          <TextInput
+            label="Purpose"
+            required
+            {...purposeInputProps}
+            onFocus={(event) => {
+              purposeField.handlers.onFocus();
+              purposeInputProps.onFocus?.(event);
+            }}
+            onBlur={(event) => {
+              purposeField.handlers.onBlur();
+              purposeInputProps.onBlur?.(event);
+            }}
+            styles={withHiddenError(purposeField.styles)}
+            error={form.errors.purpose ? ' ' : undefined}
+          />
+        </Group>
 
-            <Grid.Col span={4}>
-              <NumberInput
-                label="Term (Months)"
-                placeholder="12"
-                required
-                min={1}
-                max={360}
-                hideControls
-                leftSection={<IconCalendar size={16} opacity={0.4} />}
-                styles={{
-                  label: {
-                    fontWeight: 500,
-                    color: '#333',
-                    marginBottom: 8,
-                  },
-                  input: {
-                    backgroundColor: '#fff',
-                    border: '1px solid rgba(0, 0, 0, 0.1)',
-                    borderRadius: 8,
-                    padding: '10px 12px',
-                    fontSize: 15,
-                    fontWeight: 600,
-                    '&:focus': {
-                      borderColor: '#85bd3a',
-                      boxShadow: '0 0 0 3px rgba(133, 189, 58, 0.1)',
-                    },
-                    '&::placeholder': {
-                      color: '#aaa',
-                      fontWeight: 400,
-                    },
-                  },
-                }}
-                value={form.values.termMonths}
-                onChange={(value) =>
-                  form.setFieldValue('termMonths', value?.toString() || '')
-                }
-                error={form.errors.termMonths}
-              />
-            </Grid.Col>
-          </Grid>
-        </Paper>
+        <Group gap="lg" align="flex-start" grow>
+          <Select
+            label="Loan Type"
+            required
+            data={[
+              { value: 'personal', label: 'Personal Loan' },
+              { value: 'emergency', label: 'Emergency Loan' },
+              { value: 'educational', label: 'Educational Loan' },
+              { value: 'housing', label: 'Housing Loan' },
+              { value: 'vehicle', label: 'Vehicle Loan' },
+            ]}
+            {...loanTypeSelect.handlers}
+            value={form.values.loanType}
+            onChange={(value) => form.setFieldValue('loanType', value || '')}
+            styles={withHiddenError(loanTypeSelect.styles)}
+            error={form.errors.loanType ? ' ' : undefined}
+            comboboxProps={{ withinPortal: true, zIndex: 600 }}
+          />
 
-        {/* Additional Details Section */}
-        <Paper
-          p="xl"
-          radius="lg"
-          style={{
-            backgroundColor: 'rgba(255, 255, 255, 0.95)',
-            border: '1px solid rgba(0, 0, 0, 0.06)',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+          <NumberInput
+            label="Interest Rate"
+            required
+            min={0}
+            max={100}
+            decimalScale={2}
+            suffix="%"
+            hideControls
+            value={form.values.interestRate}
+            onChange={(value) =>
+              form.setFieldValue('interestRate', value?.toString() || '')
+            }
+            error={form.errors.interestRate ? ' ' : undefined}
+            {...interestRateField.handlers}
+            styles={{
+              ...withHiddenError(interestRateField.styles),
+              input: {
+                ...interestRateField.styles.input,
+                fontWeight: 600,
+                '&::-webkit-inner-spin-button': {
+                  display: 'none',
+                },
+              },
+            }}
+          />
+
+          <NumberInput
+            label="Term (Months)"
+            required
+            min={1}
+            max={360}
+            hideControls
+            value={form.values.termMonths}
+            onChange={(value) =>
+              form.setFieldValue('termMonths', value?.toString() || '')
+            }
+            error={form.errors.termMonths ? ' ' : undefined}
+            {...termMonthsField.handlers}
+            styles={{
+              ...withHiddenError(termMonthsField.styles),
+              input: {
+                ...termMonthsField.styles.input,
+                fontWeight: 600,
+                '&::-webkit-inner-spin-button': {
+                  display: 'none',
+                },
+              },
+            }}
+          />
+        </Group>
+
+        <Group gap="lg" align="flex-start" grow>
+          <NumberInput
+            label="Loan Amount"
+            required
+            min={0}
+            prefix={`${FormatterService.currencySymbol} `}
+            decimalScale={2}
+            thousandSeparator=","
+            hideControls
+            value={form.values.amount}
+            onChange={(value) =>
+              form.setFieldValue('amount', value?.toString() || '')
+            }
+            error={form.errors.amount ? ' ' : undefined}
+            {...amountField.handlers}
+            styles={{
+              ...withHiddenError(amountField.styles),
+              input: {
+                ...amountField.styles.input,
+                fontWeight: 600,
+                '&::-webkit-inner-spin-button': {
+                  display: 'none',
+                },
+              },
+            }}
+          />
+
+          <NumberInput
+            label="Monthly Payment"
+            min={0}
+            prefix={`${FormatterService.currencySymbol} `}
+            decimalScale={2}
+            thousandSeparator=","
+            hideControls
+            disabled
+            value={formattedMonthlyPayment}
+            {...monthlyPaymentField.handlers}
+            styles={{
+              ...withHiddenError(monthlyPaymentField.styles),
+              input: {
+                ...monthlyPaymentField.styles.input,
+                fontWeight: 600,
+                color: '#047857',
+                '&::-webkit-inner-spin-button': {
+                  display: 'none',
+                },
+              },
+            }}
+          />
+        </Group>
+
+        <Textarea
+          label="Notes"
+          minRows={3}
+          {...notesInputProps}
+          onFocus={(event) => {
+            notesField.handlers.onFocus();
+            notesInputProps.onFocus?.(event);
           }}
-        >
-          <Group mb="lg" gap="sm">
-            <ThemeIcon
-              size={32}
-              radius="md"
-              variant="light"
-              color="gray"
-              style={{
-                backgroundColor: 'rgba(0, 0, 0, 0.04)',
-                color: '#666',
-              }}
-            >
-              <IconFileText size={18} stroke={1.5} />
-            </ThemeIcon>
-            <Text
-              fw={600}
-              size="sm"
-              c="#555"
-              tt="uppercase"
-              style={{ letterSpacing: '0.5px' }}
-            >
-              Additional Details
-            </Text>
-          </Group>
+          onBlur={(event) => {
+            notesField.handlers.onBlur();
+            notesInputProps.onBlur?.(event);
+          }}
+          styles={withHiddenError(notesField.styles)}
+          error={notesError ? ' ' : undefined}
+        />
 
-          <Stack gap="lg">
-            <TextInput
-              label="Application Date"
-              type="date"
-              required
-              leftSection={<IconCalendar size={16} opacity={0.4} />}
-              styles={{
-                label: {
-                  fontWeight: 500,
-                  color: '#333',
-                  marginBottom: 8,
-                },
-                input: {
-                  backgroundColor: '#fff',
-                  border: '1px solid rgba(0, 0, 0, 0.1)',
-                  borderRadius: 8,
-                  padding: '10px 12px',
-                  fontSize: 14,
-                  '&:focus': {
-                    borderColor: '#85bd3a',
-                    boxShadow: '0 0 0 3px rgba(133, 189, 58, 0.1)',
-                  },
-                },
-              }}
-              {...form.getInputProps('applicationDate')}
-            />
-
-            <TextInput
-              label="Purpose"
-              placeholder="Enter loan purpose"
-              required
-              leftSection={<IconFileText size={16} opacity={0.4} />}
-              styles={{
-                label: {
-                  fontWeight: 500,
-                  color: '#333',
-                  marginBottom: 8,
-                },
-                input: {
-                  backgroundColor: '#fff',
-                  border: '1px solid rgba(0, 0, 0, 0.1)',
-                  borderRadius: 8,
-                  padding: '10px 12px',
-                  fontSize: 14,
-                  '&:focus': {
-                    borderColor: '#85bd3a',
-                    boxShadow: '0 0 0 3px rgba(133, 189, 58, 0.1)',
-                  },
-                  '&::placeholder': {
-                    color: '#aaa',
-                  },
-                },
-              }}
-              {...form.getInputProps('purpose')}
-            />
-
-            <Textarea
-              label="Notes"
-              placeholder="Additional notes (optional)"
-              minRows={3}
-              styles={{
-                label: {
-                  fontWeight: 500,
-                  color: '#333',
-                  marginBottom: 8,
-                },
-                input: {
-                  backgroundColor: '#fff',
-                  border: '1px solid rgba(0, 0, 0, 0.1)',
-                  borderRadius: 8,
-                  padding: '10px 12px',
-                  fontSize: 14,
-                  '&:focus': {
-                    borderColor: '#85bd3a',
-                    boxShadow: '0 0 0 3px rgba(133, 189, 58, 0.1)',
-                  },
-                  '&::placeholder': {
-                    color: '#aaa',
-                  },
-                },
-              }}
-              {...form.getInputProps('notes')}
-            />
-          </Stack>
-        </Paper>
+        <Group justify="flex-end" gap="sm">
+          <Button radius="md" variant="default" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            radius="md"
+            onClick={handleSave}
+            disabled={isSubmitDisabled}
+            styles={polishedPrimaryButtonStyles}
+          >
+            {editingLoan ? 'Update Loan' : 'Submit Application'}
+          </Button>
+        </Group>
       </Stack>
-    </ComposedDialog>
+    </PolishedModal>
   );
 }

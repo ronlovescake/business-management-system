@@ -368,6 +368,64 @@ model LeaveRequest {
 }
 
 // ============================================================================
+// CASH ADVANCE MODULE
+// ============================================================================
+
+model CashAdvanceRecord {
+  id               String   @id @default(cuid())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  employeeId       String   @db.VarChar(50)
+  employeeName     String   @db.VarChar(255)
+  amount           Decimal  @db.Decimal(12, 2)
+  termsMonths      Int?
+  monthlyPayment   Decimal? @db.Decimal(12, 2)
+  settledAmount    Decimal? @db.Decimal(12, 2)
+  remainingBalance Decimal? @db.Decimal(12, 2)
+  purpose          String?  @db.VarChar(255)
+  notes            String?  @db.Text
+  requestDate      DateTime?
+  status           String   @default("pending") @db.VarChar(20)
+  approvedBy       String?  @db.VarChar(255)
+  approvedDate     DateTime?
+  rejectedBy       String?  @db.VarChar(255)
+  rejectedDate     DateTime?
+  rejectionReason  String?  @db.Text
+  deductionCycle   CashAdvanceCycle?
+  nextDeductionDate DateTime?
+  lastDeductedDate DateTime?
+
+  deductions       CashAdvanceDeduction[]
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([requestDate])
+  @@map("cash_advances")
+}
+
+model CashAdvanceDeduction {
+  id             String             @id @default(cuid())
+  cashAdvanceId  String
+  employeeId     String             @db.VarChar(50)
+  payrollId      String?
+  payPeriod      String?            @db.VarChar(100)
+  deductionDate  DateTime
+  amount         Decimal            @db.Decimal(12, 2)
+  createdAt      DateTime           @default(now())
+
+  cashAdvance    CashAdvanceRecord  @relation(fields: [cashAdvanceId], references: [id], onDelete: Cascade)
+
+  @@index([cashAdvanceId])
+  @@index([employeeId])
+  @@map("cash_advance_deductions")
+}
+
+enum CashAdvanceCycle {
+  FIRST_HALF
+  SECOND_HALF
+}
+
+// ============================================================================
 // EMPLOYEE SCHEDULES MODULE
 // ============================================================================
 
@@ -420,7 +478,6 @@ model Attendance {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
-
   // Employee Information
   employeeId   String   @db.VarChar(50)
   employeeName String   @db.VarChar(255)
@@ -455,6 +512,23 @@ model Attendance {
   @@index([department])
   @@index([deletedAt])
   @@map("attendance")
+}
+
+// ==========================================================================
+// EMPLOYEE AUTOMATION SETTINGS
+// ==========================================================================
+
+model EmployeeAutomationSetting {
+  id                             String   @id @default(cuid())
+  key                            String   @unique @default("default")
+  createdAt                      DateTime @default(now())
+  updatedAt                      DateTime @updatedAt
+  stayInAutoPresenceEnabled      Boolean  @default(true)
+  stayInAutoPresenceTime         String   @default("02:00") @db.VarChar(5)
+  stayInAutoPresenceTimezone     String   @default("Asia/Manila") @db.VarChar(50)
+  stayInAutoPresenceGraceMinutes Int      @default(0)
+
+  @@map("employee_automation_settings")
 }
 
 // ============================================================================

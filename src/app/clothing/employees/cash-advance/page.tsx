@@ -7,7 +7,7 @@ import {
   IconCash,
   IconClock,
   IconCheck,
-  IconCurrencyDollar,
+  IconCurrencyPeso,
   IconEdit,
   IconTrash,
   IconX,
@@ -34,6 +34,8 @@ export default function CashAdvance() {
     statusFilter,
     isFormOpen,
     editingRequest,
+    employeeOptions,
+    isLoadingEmployees,
 
     // Computed Values
     totalRequests,
@@ -83,7 +85,7 @@ export default function CashAdvance() {
     {
       title: 'Total Amount',
       value: formatCurrency(totalAmount),
-      icon: <IconCurrencyDollar size={32} stroke={1.5} />,
+      icon: <IconCurrencyPeso size={32} stroke={1.5} />,
     },
   ];
 
@@ -91,16 +93,11 @@ export default function CashAdvance() {
   const columns: TableColumn<CashAdvanceType>[] = [
     {
       key: 'employee',
-      label: 'EMPLOYEE',
+      label: 'EMPLOYEE NAME',
       render: (item) => (
-        <div>
-          <Text fw={500}>{item.employee}</Text>
-          {item.notes && (
-            <Text size="xs" c="dimmed">
-              {item.notes}
-            </Text>
-          )}
-        </div>
+        <Text fw={500} ta="left">
+          {item.employee}
+        </Text>
       ),
     },
     {
@@ -111,17 +108,81 @@ export default function CashAdvance() {
     {
       key: 'purpose',
       label: 'PURPOSE',
-      render: (item) => item.purpose,
+      render: (item) => (
+        <Text
+          size="sm"
+          style={{ maxWidth: 200 }}
+          lineClamp={2}
+          c={item.purpose ? undefined : 'dimmed'}
+        >
+          {item.purpose || ''}
+        </Text>
+      ),
     },
     {
       key: 'terms',
-      label: 'TERMS',
-      render: (item) => <Text size="sm">{item.terms}</Text>,
+      label: 'TERMS (MONTHS)',
+      render: (item) => <Text size="sm">{item.terms || 'N/A'}</Text>,
+    },
+    {
+      key: 'monthlyPayment',
+      label: 'MONTHLY PAYMENT',
+      render: (item) => {
+        if (typeof item.monthlyPayment !== 'number') {
+          return <Text c="dimmed">N/A</Text>;
+        }
+        return <Text fw={500}>{formatCurrency(item.monthlyPayment)}</Text>;
+      },
+    },
+    {
+      key: 'settledAmount',
+      label: 'SETTLED AMOUNT',
+      render: (item) => {
+        const settled =
+          typeof item.settledAmount === 'number'
+            ? item.settledAmount
+            : Math.max(
+                0,
+                item.amount -
+                  (typeof item.remainingBalance === 'number'
+                    ? item.remainingBalance
+                    : item.amount)
+              );
+        if (settled <= 0) {
+          return <Text c="dimmed">--</Text>;
+        }
+        return <Text fw={500}>{formatCurrency(settled)}</Text>;
+      },
+    },
+    {
+      key: 'remainingBalance',
+      label: 'REMAINING BALANCE',
+      render: (item) => {
+        const remaining =
+          typeof item.remainingBalance === 'number'
+            ? item.remainingBalance
+            : Math.max(0, item.amount - (item.settledAmount ?? 0));
+        const isCleared = remaining <= 0;
+        return (
+          <Text fw={600} c={isCleared ? 'green' : 'blue'}>
+            {formatCurrency(remaining)}
+          </Text>
+        );
+      },
     },
     {
       key: 'requestDate',
       label: 'REQUEST DATE',
       render: (item) => formatDate(item.requestDate),
+    },
+    {
+      key: 'notes',
+      label: 'NOTES',
+      render: (item) => (
+        <Text size="sm" c={item.notes ? undefined : 'dimmed'} lineClamp={2}>
+          {item.notes || ''}
+        </Text>
+      ),
     },
     {
       key: 'status',
@@ -168,7 +229,7 @@ export default function CashAdvance() {
       show: (item) => item.status === 'pending',
     },
     {
-      icon: <IconCurrencyDollar size={16} />,
+      icon: <IconCurrencyPeso size={16} />,
       label: 'Mark as Paid',
       color: 'blue',
       onClick: (item) => handleMarkAsPaid(item.id),
@@ -232,7 +293,7 @@ export default function CashAdvance() {
                   )}
                 </Text>
               </Table.Th>
-              <Table.Th colSpan={5}></Table.Th>
+              <Table.Th colSpan={9}></Table.Th>
             </>
           }
           showSummary
@@ -255,6 +316,8 @@ export default function CashAdvance() {
         editingRequest={editingRequest}
         onClose={() => setIsFormOpen(false)}
         onSave={handleSaveRequest}
+        employeeOptions={employeeOptions}
+        isLoadingEmployees={isLoadingEmployees}
       />
     </PageLayout>
   );

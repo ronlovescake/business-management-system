@@ -9,7 +9,7 @@ import {
   ThemeIcon,
   SimpleGrid,
 } from '@mantine/core';
-import { IconPlus, IconCurrencyDollar, IconCheck } from '@tabler/icons-react';
+import { IconPlus, IconCurrencyPeso, IconCheck } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import type { PriceFormData } from '../types/price.types';
 import { logger } from '@/lib/logger';
@@ -134,7 +134,7 @@ export function AddPriceModal({
         <div>
           <Group mb="md">
             <ThemeIcon size="sm" radius="md" variant="light" color="green">
-              <IconCurrencyDollar size={14} />
+              <IconCurrencyPeso size={14} />
             </ThemeIcon>
             <Text size="lg" fw={500} c="green.7">
               Product Pricing Information

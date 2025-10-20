@@ -5,14 +5,18 @@
  * Use these formatters in your modules instead of writing custom formatting logic.
  */
 
+export const CURRENCY_SYMBOL = '₱';
+
 export class FormatterService {
+  /** Global currency symbol used across the application */
+  static readonly currencySymbol = CURRENCY_SYMBOL;
   /**
    * Format a number as Philippine Peso currency
    * @example formatCurrency(1500.50) → "₱1,500.50"
    */
   static formatCurrency(value: number | null | undefined): string {
     if (value === null || value === undefined || isNaN(value)) {
-      return '₱0.00';
+      return `${this.currencySymbol}0.00`;
     }
 
     return new Intl.NumberFormat('en-PH', {

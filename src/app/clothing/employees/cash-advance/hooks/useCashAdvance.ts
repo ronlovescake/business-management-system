@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import type {
   CashAdvance,
+  CashAdvanceCycle,
   CashAdvanceFormData,
   CashAdvanceStatus,
 } from '../types';
@@ -43,6 +44,9 @@ interface CashAdvanceApiRecord {
   rejectionReason: string | null;
   createdAt: string;
   updatedAt: string;
+  deductionCycle: CashAdvanceCycle | null;
+  nextDeductionDate: string | null;
+  lastDeductedDate: string | null;
 }
 
 const sortByCreatedAtDesc = (records: CashAdvance[]) =>
@@ -92,6 +96,9 @@ const mapApiRecordToCashAdvance = (
         : undefined,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
+    deductionCycle: record.deductionCycle ?? undefined,
+    nextDeductionDate: record.nextDeductionDate,
+    lastDeductedDate: record.lastDeductedDate,
   };
 };
 

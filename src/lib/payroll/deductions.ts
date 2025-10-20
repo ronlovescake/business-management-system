@@ -1,10 +1,23 @@
-import type { Payroll, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import type { Payroll } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import type { CashAdvanceCycle } from './cashAdvanceSchedule';
+import {
+  advanceCycleByOneMonth,
+  determineCycleFromDate,
+  ensureNextPayday,
+} from './cashAdvanceSchedule';
 
 const WEEKEND_DAYS = new Set([0, 6]);
 
 const roundToCents = (value: number): number =>
   Math.round((Number.isFinite(value) ? value : 0) * 100) / 100;
+
+const normalizeIdentifier = (value?: string | null): string =>
+  (value ?? '').toString().trim().replace(/\s+/g, ' ').toLowerCase();
+
+const toDecimalValue = (value: number): Prisma.Decimal =>
+  new Prisma.Decimal(roundToCents(value).toFixed(2));
 
 const toDateOnlyUtc = (input: Date): Date =>
   new Date(Date.UTC(input.getFullYear(), input.getMonth(), input.getDate()));
@@ -68,6 +81,21 @@ const getPayrollPeriodRange = (
   }
 
   return { start, end };
+};
+
+const getPayrollCycleMetadata = (
+  payroll: Payroll
+): { payDate: Date; cycle: CashAdvanceCycle } | null => {
+  const { end } = getPayrollPeriodRange(payroll);
+  if (!end) {
+    return null;
+  }
+
+  const payDate = toDateOnlyUtc(end);
+  return {
+    payDate,
+    cycle: determineCycleFromDate(payDate),
+  };
 };
 
 const getEffectiveMonthlySalary = (
@@ -180,6 +208,23 @@ interface MinimalSchedule {
 interface AttendanceDataIndex {
   attendanceByEmployee: Map<string, MinimalAttendance[]>;
   schedulesByEmployee: Map<string, MinimalSchedule[]>;
+}
+
+interface MinimalCashAdvanceRecord {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  status: string;
+  amount: Prisma.Decimal;
+  monthlyPayment: Prisma.Decimal | null;
+  settledAmount: Prisma.Decimal | null;
+  remainingBalance: Prisma.Decimal | null;
+  deductionCycle: CashAdvanceCycle | null;
+  nextDeductionDate: Date | null;
+  lastDeductedDate: Date | null;
+  approvedDate: Date | null;
+  createdAt: Date;
+  termsMonths: number | null;
 }
 
 const buildEmployeeDataMap = async (
@@ -332,12 +377,94 @@ const buildAttendanceDataIndex = async (
   return { attendanceByEmployee, schedulesByEmployee };
 };
 
+interface CashAdvanceIndex {
+  byEmployeeId: Map<string, MinimalCashAdvanceRecord[]>;
+  byEmployeeName: Map<string, MinimalCashAdvanceRecord[]>;
+}
+
+const buildCashAdvanceIndex = async (
+  payrolls: Payroll[]
+): Promise<CashAdvanceIndex> => {
+  const employeeIds = Array.from(
+    new Set(payrolls.map((payroll) => payroll.employeeId).filter(Boolean))
+  );
+
+  const employeeNames = Array.from(
+    new Set(
+      payrolls
+        .map((payroll) => payroll.employeeName)
+        .filter((value): value is string => Boolean(value))
+    )
+  );
+
+  if (employeeIds.length === 0 && employeeNames.length === 0) {
+    return {
+      byEmployeeId: new Map(),
+      byEmployeeName: new Map(),
+    };
+  }
+
+  const records = await prisma.cashAdvanceRecord.findMany({
+    where: {
+      status: { in: ['approved', 'paid'] },
+      OR: [
+        employeeIds.length > 0
+          ? { employeeId: { in: employeeIds } }
+          : undefined,
+        employeeNames.length > 0
+          ? { employeeName: { in: employeeNames } }
+          : undefined,
+      ].filter(Boolean) as [
+        { employeeId: { in: string[] } } | { employeeName: { in: string[] } },
+      ],
+    },
+    orderBy: [{ createdAt: 'asc' }],
+    select: {
+      id: true,
+      employeeId: true,
+      employeeName: true,
+      status: true,
+      amount: true,
+      monthlyPayment: true,
+      settledAmount: true,
+      remainingBalance: true,
+      deductionCycle: true,
+      nextDeductionDate: true,
+      lastDeductedDate: true,
+      approvedDate: true,
+      createdAt: true,
+      termsMonths: true,
+    },
+  });
+
+  const byEmployeeId = new Map<string, MinimalCashAdvanceRecord[]>();
+  const byEmployeeName = new Map<string, MinimalCashAdvanceRecord[]>();
+
+  for (const record of records) {
+    const listById = byEmployeeId.get(record.employeeId) ?? [];
+    listById.push(record);
+    byEmployeeId.set(record.employeeId, listById);
+
+    const nameKey = normalizeIdentifier(record.employeeName);
+    if (nameKey) {
+      const listByName = byEmployeeName.get(nameKey) ?? [];
+      listByName.push(record);
+      byEmployeeName.set(nameKey, listByName);
+    }
+  }
+
+  return { byEmployeeId, byEmployeeName };
+};
+
 const sumDeductions = (
   payroll: Payroll,
-  overrides: Partial<Pick<Payroll, 'lwop' | 'absentsLates'>> = {}
+  overrides: Partial<
+    Pick<Payroll, 'lwop' | 'absentsLates' | 'cashAdvance'>
+  > = {}
 ): number => {
   const lwopValue = overrides.lwop ?? payroll.lwop;
   const absentsLatesValue = overrides.absentsLates ?? payroll.absentsLates;
+  const cashAdvanceValue = overrides.cashAdvance ?? payroll.cashAdvance;
 
   const parts = [
     payroll.sss,
@@ -345,7 +472,7 @@ const sumDeductions = (
     payroll.pagIbig,
     payroll.tax,
     payroll.loans,
-    payroll.cashAdvance,
+    cashAdvanceValue,
     absentsLatesValue,
     lwopValue,
   ];
@@ -356,6 +483,19 @@ const sumDeductions = (
       0
     )
   );
+};
+
+const mergeCashAdvanceUpdate = (
+  store: Map<string, Prisma.CashAdvanceRecordUpdateInput>,
+  id: string,
+  update: Prisma.CashAdvanceRecordUpdateInput
+) => {
+  const existing = store.get(id);
+  if (existing) {
+    store.set(id, { ...existing, ...update });
+    return;
+  }
+  store.set(id, update);
 };
 
 const calculateLwopForPayroll = (
@@ -718,6 +858,259 @@ export const syncPayrollAttendanceDeductions = async (
   return applyAttendanceAdjustments(payrolls, employeeDataMap, attendanceIndex);
 };
 
+const applyCashAdvanceAdjustments = async (
+  payrolls: Payroll[]
+): Promise<Payroll[]> => {
+  if (payrolls.length === 0) {
+    return payrolls;
+  }
+
+  const cashAdvanceIndex = await buildCashAdvanceIndex(payrolls);
+
+  if (
+    cashAdvanceIndex.byEmployeeId.size === 0 &&
+    cashAdvanceIndex.byEmployeeName.size === 0
+  ) {
+    return payrolls;
+  }
+
+  const cashAdvanceUpdates = new Map<
+    string,
+    Prisma.CashAdvanceRecordUpdateInput
+  >();
+  const deductionLogs: Prisma.CashAdvanceDeductionCreateManyInput[] = [];
+  const payrollUpdates: Array<{ id: string; data: Prisma.PayrollUpdateInput }> =
+    [];
+  const updatedPayrolls = new Map<string, Payroll>();
+
+  for (const payroll of payrolls) {
+    const cycleMeta = getPayrollCycleMetadata(payroll);
+    if (!cycleMeta) {
+      continue;
+    }
+
+    const idAdvances = payroll.employeeId
+      ? (cashAdvanceIndex.byEmployeeId.get(payroll.employeeId) ?? [])
+      : [];
+    const nameKey = normalizeIdentifier(payroll.employeeName);
+    const nameAdvances = nameKey
+      ? (cashAdvanceIndex.byEmployeeName.get(nameKey) ?? [])
+      : [];
+
+    const advances = idAdvances.length > 0 ? idAdvances : nameAdvances;
+    if (advances.length === 0) {
+      continue;
+    }
+
+    const { payDate, cycle } = cycleMeta;
+    let totalDeduction = 0;
+    const isPaid = payroll.status === 'paid';
+
+    for (const advance of advances) {
+      let remaining = advance.remainingBalance
+        ? Number(advance.remainingBalance)
+        : Math.max(
+            Number(advance.amount) -
+              (advance.settledAmount ? Number(advance.settledAmount) : 0),
+            0
+          );
+
+      if (remaining <= 0) {
+        if (isPaid && advance.status !== 'paid') {
+          mergeCashAdvanceUpdate(cashAdvanceUpdates, advance.id, {
+            status: 'paid',
+            remainingBalance: toDecimalValue(0),
+            nextDeductionDate: null,
+            deductionCycle: null,
+          });
+          advance.status = 'paid';
+        }
+        continue;
+      }
+
+      let scheduledDate = advance.nextDeductionDate
+        ? toDateOnlyUtc(advance.nextDeductionDate)
+        : null;
+      let scheduledCycle = advance.deductionCycle;
+
+      if (!scheduledDate && advance.status === 'approved') {
+        const reference = advance.approvedDate ?? advance.createdAt;
+        const schedule = ensureNextPayday(reference);
+        scheduledDate = schedule.date;
+        scheduledCycle = schedule.cycle;
+
+        if (isPaid) {
+          mergeCashAdvanceUpdate(cashAdvanceUpdates, advance.id, {
+            nextDeductionDate: schedule.date,
+            deductionCycle: schedule.cycle,
+          });
+        }
+
+        advance.nextDeductionDate = schedule.date;
+        advance.deductionCycle = schedule.cycle;
+      }
+
+      const effectiveCycle = scheduledCycle ?? determineCycleFromDate(payDate);
+
+      if (scheduledCycle && scheduledCycle !== cycle) {
+        continue;
+      }
+
+      if (!scheduledDate || payDate < scheduledDate) {
+        continue;
+      }
+
+      const lastDeducted = advance.lastDeductedDate
+        ? toDateOnlyUtc(advance.lastDeductedDate)
+        : null;
+
+      if (lastDeducted && lastDeducted.getTime() === payDate.getTime()) {
+        continue;
+      }
+
+      const baseMonthly = advance.monthlyPayment
+        ? Number(advance.monthlyPayment)
+        : advance.termsMonths && advance.termsMonths > 0
+          ? roundToCents(Number(advance.amount) / advance.termsMonths)
+          : remaining;
+
+      const monthlyPaymentValue =
+        baseMonthly > 0 ? roundToCents(baseMonthly) : remaining;
+
+      const deduction = Math.min(remaining, monthlyPaymentValue);
+
+      if (deduction <= 0) {
+        continue;
+      }
+
+      totalDeduction = roundToCents(totalDeduction + deduction);
+
+      if (isPaid) {
+        remaining = roundToCents(remaining - deduction);
+        const settled = roundToCents(
+          (advance.settledAmount ? Number(advance.settledAmount) : 0) +
+            deduction
+        );
+
+        let nextScheduleDate: Date | null = null;
+        let nextCycle: CashAdvanceCycle | null = effectiveCycle;
+
+        if (remaining > 0) {
+          const referenceDate = advance.nextDeductionDate
+            ? toDateOnlyUtc(advance.nextDeductionDate)
+            : payDate;
+          nextScheduleDate = advanceCycleByOneMonth(
+            referenceDate,
+            effectiveCycle
+          );
+        } else {
+          nextScheduleDate = null;
+          nextCycle = null;
+        }
+
+        const nextStatus = remaining > 0 ? 'approved' : 'paid';
+
+        mergeCashAdvanceUpdate(cashAdvanceUpdates, advance.id, {
+          remainingBalance: toDecimalValue(remaining),
+          settledAmount: toDecimalValue(settled),
+          status: nextStatus,
+          nextDeductionDate: nextScheduleDate,
+          deductionCycle: nextCycle ?? null,
+          lastDeductedDate: payDate,
+        });
+
+        deductionLogs.push({
+          cashAdvanceId: advance.id,
+          employeeId: advance.employeeId,
+          payrollId: payroll.id,
+          payPeriod: payroll.payPeriod,
+          deductionDate: payDate,
+          amount: toDecimalValue(deduction),
+        });
+
+        advance.remainingBalance = toDecimalValue(remaining);
+        advance.settledAmount = toDecimalValue(settled);
+        advance.status = nextStatus;
+        advance.nextDeductionDate = nextScheduleDate;
+        advance.deductionCycle = nextCycle;
+        advance.lastDeductedDate = payDate;
+      }
+    }
+
+    const currentCashAdvance = roundToCents(payroll.cashAdvance ?? 0);
+    const roundedTotal = roundToCents(totalDeduction);
+
+    if (currentCashAdvance !== roundedTotal) {
+      const totalDeductions = sumDeductions(payroll, {
+        cashAdvance: roundedTotal,
+        absentsLates: payroll.absentsLates,
+        lwop: payroll.lwop,
+      });
+      const netPay = roundToCents(
+        Math.max(0, payroll.grossPay - totalDeductions)
+      );
+
+      payrollUpdates.push({
+        id: payroll.id,
+        data: {
+          cashAdvance: roundedTotal,
+          totalDeductions,
+          netPay,
+        },
+      });
+
+      updatedPayrolls.set(payroll.id, {
+        ...payroll,
+        cashAdvance: roundedTotal,
+        totalDeductions,
+        netPay,
+      });
+    }
+  }
+
+  if (cashAdvanceUpdates.size > 0 || deductionLogs.length > 0) {
+    const operations: Prisma.PrismaPromise<unknown>[] = [];
+
+    cashAdvanceUpdates.forEach((data, id) => {
+      operations.push(
+        prisma.cashAdvanceRecord.update({
+          where: { id },
+          data,
+        })
+      );
+    });
+
+    if (deductionLogs.length > 0) {
+      operations.push(
+        prisma.cashAdvanceDeduction.createMany({
+          data: deductionLogs,
+        })
+      );
+    }
+
+    if (operations.length > 0) {
+      await prisma.$transaction(operations);
+    }
+  }
+
+  if (payrollUpdates.length > 0) {
+    const persisted = await prisma.$transaction(
+      payrollUpdates.map(({ id, data }) =>
+        prisma.payroll.update({
+          where: { id },
+          data,
+        })
+      )
+    );
+
+    for (const record of persisted) {
+      updatedPayrolls.set(record.id, record);
+    }
+  }
+
+  return payrolls.map((payroll) => updatedPayrolls.get(payroll.id) ?? payroll);
+};
+
 export const syncPayrollDeductions = async (
   payrolls: Payroll[]
 ): Promise<Payroll[]> => {
@@ -734,5 +1127,5 @@ export const syncPayrollDeductions = async (
     attendanceIndex
   );
 
-  return afterAttendance;
+  return applyCashAdvanceAdjustments(afterAttendance);
 };

@@ -30,7 +30,7 @@ import { GridCellKind } from '@glideapps/glide-data-grid';
 import { allCells } from '@glideapps/glide-data-grid-cells';
 import {
   IconReceipt,
-  IconCurrencyDollar,
+  IconCurrencyPeso,
   IconPackage,
   IconTruck,
   IconShoppingCart,
@@ -401,7 +401,7 @@ export function TransactionsPage() {
       {
         title: 'Total Revenue',
         value: `₱${statistics.totalRevenue.toLocaleString()}`,
-        icon: <IconCurrencyDollar size={18} />,
+        icon: <IconCurrencyPeso size={18} />,
         color: 'white',
         backgroundColor: 'rgba(255, 255, 255, 0.15)',
       },
