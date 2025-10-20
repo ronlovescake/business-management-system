@@ -1,15 +1,58 @@
 /* eslint-disable no-console */
 import { useState, useEffect } from 'react';
+import type { AttendanceRecord } from '@/app/clothing/employees/attendance/types';
+import type { LeaveRequest } from '@/app/clothing/employees/leave-tracker/types';
+import type { CashAdvance } from '@/app/clothing/employees/cash-advance/types';
 import type { Employee, EmployeeFormData } from '../types';
 
 /**
  * Custom hook for employee detail page
  */
+interface EmployeePayrollRecord {
+  id: string;
+  payPeriod: string;
+  periodStart?: string | null;
+  periodEnd?: string | null;
+  status: 'pending' | 'approved' | 'paid';
+  grossPay: number;
+  netPay: number;
+  totalDeductions: number;
+  cashAdvance: number;
+  basicSalary: number;
+  allowance: number;
+  createdAt?: string;
+}
+
+interface SalaryHistoryEntry {
+  id: string;
+  effectiveFrom: string;
+  payPeriodLabel: string;
+  basicSalary: number;
+  allowance: number;
+  grossPay: number;
+}
+
 export function useEmployeeDetail(employeeId: string) {
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isPhotoUploading, setIsPhotoUploading] = useState(false);
+  const [isLoadingRelated, setIsLoadingRelated] = useState(true);
+  const [payrollHistory, setPayrollHistory] = useState<EmployeePayrollRecord[]>(
+    []
+  );
+  const [totalPayrollAmount, setTotalPayrollAmount] = useState(0);
+  const [attendanceHistory, setAttendanceHistory] = useState<
+    AttendanceRecord[]
+  >([]);
+  const [leaveHistory, setLeaveHistory] = useState<LeaveRequest[]>([]);
+  const [salaryTimeline, setSalaryTimeline] = useState<SalaryHistoryEntry[]>(
+    []
+  );
+  const [cashAdvanceRecords, setCashAdvanceRecords] = useState<CashAdvance[]>(
+    []
+  );
+  const [outstandingCashAdvance, setOutstandingCashAdvance] = useState(0);
 
   useEffect(() => {
     // Fetch employee data from API
@@ -45,6 +88,314 @@ export function useEmployeeDetail(employeeId: string) {
     };
 
     fetchEmployee();
+  }, [employeeId]);
+
+  useEffect(() => {
+    if (!employeeId) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const signal = controller.signal;
+    const normalizedEmployeeId = employeeId.trim();
+
+    const parseNumber = (value: unknown) => {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    const allowedAttendanceStatuses = new Set([
+      'present',
+      'late',
+      'absent',
+      'on-leave',
+    ]);
+
+    const allowedPayrollStatuses = new Set(['pending', 'approved', 'paid']);
+    const allowedLeaveStatuses = new Set(['pending', 'approved', 'rejected']);
+    const allowedLeaveTypes = new Set([
+      'Sick Leave',
+      'Vacation Leave',
+      'Emergency Leave',
+      'Maternity Leave',
+      'Paternity Leave',
+      'Bereavement Leave',
+      'Other',
+    ]);
+    const allowedPaymentStatuses = new Set([
+      'paid',
+      'unpaid',
+      'not-applicable',
+    ]);
+    const allowedCashAdvanceStatuses = new Set([
+      'pending',
+      'approved',
+      'rejected',
+      'paid',
+    ]);
+
+    const fetchRelatedRecords = async () => {
+      try {
+        setIsLoadingRelated(true);
+
+        const query = encodeURIComponent(normalizedEmployeeId);
+        const [payrollRes, attendanceRes, leaveRes, cashAdvanceRes] =
+          await Promise.all([
+            fetch(`/api/payroll?employeeId=${query}`, { signal }),
+            fetch(`/api/attendance?employeeId=${query}`, { signal }),
+            fetch(`/api/leave-requests?employeeId=${query}`, { signal }),
+            fetch(`/api/cash-advances?employeeId=${query}`, { signal }),
+          ]);
+
+        if (!signal.aborted) {
+          const payrollJson = payrollRes.ok ? await payrollRes.json() : [];
+          const attendanceJson = attendanceRes.ok
+            ? await attendanceRes.json()
+            : [];
+          const leaveJson = leaveRes.ok ? await leaveRes.json() : [];
+          const cashAdvanceJson = cashAdvanceRes.ok
+            ? await cashAdvanceRes.json()
+            : [];
+
+          const payrollData: EmployeePayrollRecord[] = Array.isArray(
+            payrollJson
+          )
+            ? payrollJson
+                .filter((record) =>
+                  record && typeof record === 'object'
+                    ? String(record.employeeId || '').trim() ===
+                      normalizedEmployeeId
+                    : false
+                )
+                .map((record) => {
+                  const status = allowedPayrollStatuses.has(record.status)
+                    ? (record.status as 'pending' | 'approved' | 'paid')
+                    : 'pending';
+                  return {
+                    id: String(record.id ?? ''),
+                    payPeriod: String(record.payPeriod ?? ''),
+                    periodStart: record.periodStart ?? null,
+                    periodEnd: record.periodEnd ?? null,
+                    status,
+                    grossPay: parseNumber(record.grossPay),
+                    netPay: parseNumber(record.netPay),
+                    totalDeductions: parseNumber(record.totalDeductions),
+                    cashAdvance: parseNumber(record.cashAdvance),
+                    basicSalary: parseNumber(record.basicSalary),
+                    allowance: parseNumber(record.allowance),
+                    createdAt: record.createdAt ?? undefined,
+                  } satisfies EmployeePayrollRecord;
+                })
+            : [];
+
+          payrollData.sort((a, b) => {
+            const aDate = a.periodStart ?? '';
+            const bDate = b.periodStart ?? '';
+            return bDate.localeCompare(aDate);
+          });
+
+          setPayrollHistory(payrollData);
+          setTotalPayrollAmount(
+            payrollData.reduce((sum, record) => sum + record.netPay, 0)
+          );
+
+          const salaryTimelineEntries: SalaryHistoryEntry[] = [];
+          const ascendingPayroll = [...payrollData].sort((a, b) => {
+            const aDate = a.periodStart ?? '';
+            const bDate = b.periodStart ?? '';
+            return aDate.localeCompare(bDate);
+          });
+
+          let lastCombination: string | null = null;
+          ascendingPayroll.forEach((record) => {
+            const combination = `${record.basicSalary}-${record.allowance}`;
+            if (lastCombination !== combination) {
+              salaryTimelineEntries.push({
+                id: record.id,
+                effectiveFrom:
+                  record.periodStart ??
+                  record.payPeriod ??
+                  record.createdAt ??
+                  '',
+                payPeriodLabel:
+                  record.payPeriod ||
+                  [record.periodStart, record.periodEnd]
+                    .filter(Boolean)
+                    .join(' - ') ||
+                  'N/A',
+                basicSalary: record.basicSalary,
+                allowance: record.allowance,
+                grossPay: record.grossPay,
+              });
+              lastCombination = combination;
+            }
+          });
+          setSalaryTimeline(salaryTimelineEntries);
+
+          const attendanceData: AttendanceRecord[] = Array.isArray(
+            attendanceJson
+          )
+            ? attendanceJson
+                .filter((record) =>
+                  record && typeof record === 'object'
+                    ? String(record.employeeId || '').trim() ===
+                      normalizedEmployeeId
+                    : false
+                )
+                .map((record) => {
+                  const status = allowedAttendanceStatuses.has(record.status)
+                    ? (record.status as AttendanceRecord['status'])
+                    : 'present';
+                  return {
+                    id: String(record.id ?? ''),
+                    employeeId: String(record.employeeId ?? ''),
+                    employeeName: String(record.employeeName ?? ''),
+                    department: String(record.department ?? ''),
+                    position: String(record.position ?? ''),
+                    date: String(record.date ?? ''),
+                    timeIn: String(record.timeIn ?? ''),
+                    timeOut: String(record.timeOut ?? ''),
+                    break1Start: record.break1Start ?? undefined,
+                    break1End: record.break1End ?? undefined,
+                    lunchStart: record.lunchStart ?? undefined,
+                    lunchEnd: record.lunchEnd ?? undefined,
+                    break2Start: record.break2Start ?? undefined,
+                    break2End: record.break2End ?? undefined,
+                    totalHours: parseNumber(record.totalHours),
+                    status,
+                    details: record.details ?? undefined,
+                    notes: record.notes ?? undefined,
+                  } satisfies AttendanceRecord;
+                })
+            : [];
+
+          attendanceData.sort((a, b) => b.date.localeCompare(a.date));
+          setAttendanceHistory(attendanceData);
+
+          const leaveData: LeaveRequest[] = Array.isArray(leaveJson)
+            ? leaveJson
+                .filter((record) =>
+                  record && typeof record === 'object'
+                    ? String(record.employeeId || '').trim() ===
+                      normalizedEmployeeId
+                    : false
+                )
+                .map((record) => {
+                  const status = allowedLeaveStatuses.has(record.status)
+                    ? (record.status as LeaveRequest['status'])
+                    : 'pending';
+                  const paymentStatus = allowedPaymentStatuses.has(
+                    record.paymentStatus
+                  )
+                    ? (record.paymentStatus as LeaveRequest['paymentStatus'])
+                    : 'unpaid';
+                  const leaveType = allowedLeaveTypes.has(record.leaveType)
+                    ? (record.leaveType as LeaveRequest['leaveType'])
+                    : 'Other';
+
+                  return {
+                    id: String(record.id ?? ''),
+                    employeeId: String(record.employeeId ?? ''),
+                    employeeName: String(record.employeeName ?? ''),
+                    leaveType,
+                    startDate: String(record.startDate ?? ''),
+                    endDate: String(record.endDate ?? ''),
+                    numberOfDays: parseNumber(record.numberOfDays),
+                    reason: String(record.reason ?? ''),
+                    status,
+                    paymentStatus,
+                    appliedDate: String(record.appliedDate ?? ''),
+                    approvedBy: record.approvedBy ?? undefined,
+                    notes: record.notes ?? undefined,
+                  } satisfies LeaveRequest;
+                })
+            : [];
+
+          leaveData.sort((a, b) => b.startDate.localeCompare(a.startDate));
+          setLeaveHistory(leaveData);
+
+          const cashAdvanceData: CashAdvance[] = Array.isArray(cashAdvanceJson)
+            ? cashAdvanceJson
+                .filter((record) =>
+                  record && typeof record === 'object'
+                    ? String(record.employeeId || '').trim() ===
+                      normalizedEmployeeId
+                    : false
+                )
+                .map((record) => {
+                  const amount = parseNumber(record.amount);
+                  const settledAmount = parseNumber(record.settledAmount);
+                  const remainingBalance =
+                    record.remainingBalance !== undefined
+                      ? parseNumber(record.remainingBalance)
+                      : Math.max(amount - settledAmount, 0);
+                  const status = allowedCashAdvanceStatuses.has(record.status)
+                    ? (record.status as CashAdvance['status'])
+                    : 'pending';
+
+                  return {
+                    id: String(record.id ?? ''),
+                    employeeId: String(record.employeeId ?? ''),
+                    employee: String(record.employeeName ?? ''),
+                    amount,
+                    purpose: record.purpose ?? '',
+                    terms:
+                      record.termsMonths !== null &&
+                      record.termsMonths !== undefined
+                        ? String(record.termsMonths)
+                        : '',
+                    termsMonths: record.termsMonths ?? null,
+                    requestDate: record.requestDate ?? '',
+                    status,
+                    notes: record.notes ?? undefined,
+                    approvedBy: record.approvedBy ?? undefined,
+                    approvedDate: record.approvedDate ?? undefined,
+                    rejectedBy: record.rejectedBy ?? undefined,
+                    rejectedDate: record.rejectedDate ?? undefined,
+                    rejectionReason: record.rejectionReason ?? undefined,
+                    monthlyPayment:
+                      record.monthlyPayment !== null &&
+                      record.monthlyPayment !== undefined
+                        ? parseNumber(record.monthlyPayment)
+                        : undefined,
+                    remainingBalance,
+                    settledAmount,
+                    createdAt: record.createdAt ?? undefined,
+                    updatedAt: record.updatedAt ?? undefined,
+                    deductionCycle: record.deductionCycle ?? undefined,
+                    nextDeductionDate: record.nextDeductionDate ?? undefined,
+                    lastDeductedDate: record.lastDeductedDate ?? undefined,
+                  } satisfies CashAdvance;
+                })
+            : [];
+
+          setCashAdvanceRecords(cashAdvanceData);
+          setOutstandingCashAdvance(
+            cashAdvanceData.reduce((sum, record) => {
+              const remaining = record.remainingBalance ?? 0;
+              return sum + (remaining > 0 ? remaining : 0);
+            }, 0)
+          );
+        }
+      } catch (error) {
+        if (!signal.aborted) {
+          console.error(
+            'Error fetching related employee records for detail view:',
+            error
+          );
+        }
+      } finally {
+        if (!signal.aborted) {
+          setIsLoadingRelated(false);
+        }
+      }
+    };
+
+    fetchRelatedRecords();
+
+    return () => {
+      controller.abort();
+    };
   }, [employeeId]);
 
   const formatDate = (dateString: string) => {
@@ -296,5 +647,13 @@ export function useEmployeeDetail(employeeId: string) {
     handleSaveEmployee,
     handleProfilePhotoUpload,
     isPhotoUploading,
+    isLoadingRelated,
+    payrollHistory,
+    totalPayrollAmount,
+    attendanceHistory,
+    leaveHistory,
+    salaryTimeline,
+    cashAdvanceRecords,
+    outstandingCashAdvance,
   };
 }

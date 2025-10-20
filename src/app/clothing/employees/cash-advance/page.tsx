@@ -60,7 +60,6 @@ export default function CashAdvance() {
     handleSaveRequest,
     handleApprove,
     handleReject,
-    handleMarkAsPaid,
     handleImportCSV,
     handleExportCSV,
   } = useCashAdvance();
@@ -237,14 +236,6 @@ export default function CashAdvance() {
       color: 'red',
       onClick: (item) => handleReject(item.id),
       show: (item) => item.status === 'pending',
-    },
-    {
-      icon: <IconCurrencyPeso size={16} />,
-      label: 'Mark as Paid',
-      color: 'blue',
-      onClick: (item) => handleMarkAsPaid(item.id),
-      show: (item) => item.status === 'approved',
-      disabled: true,
     },
     {
       icon: <IconEdit size={16} />,

@@ -492,23 +492,6 @@ export function useCashAdvance() {
     }
   };
 
-  const handleMarkAsPaid = (id: string) => {
-    void (async () => {
-      try {
-        const target = cashAdvances.find((record) => record.id === id);
-        const amount = target?.amount ?? 0;
-        await mutateCashAdvance(id, {
-          status: 'paid',
-          settledAmount: amount,
-          remainingBalance: 0,
-        });
-      } catch (error) {
-        console.error('Error marking cash advance as paid:', error);
-        alert('Failed to mark cash advance as paid. Please try again.');
-      }
-    })();
-  };
-
   useEffect(() => {
     cashAdvances.forEach((record) => {
       if (record.status !== 'approved') {
@@ -645,7 +628,6 @@ export function useCashAdvance() {
     handleSaveRequest,
     handleApprove,
     handleReject,
-    handleMarkAsPaid,
     handleImportCSV,
     handleExportCSV,
 

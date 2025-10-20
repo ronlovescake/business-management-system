@@ -21,11 +21,18 @@ const toNumber = (value: unknown): number => {
   return 0;
 };
 
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const employeeIdParam = searchParams.get('employeeId');
+    const normalizedEmployeeId = employeeIdParam
+      ? employeeIdParam.trim()
+      : undefined;
+
     const payrolls = await prisma.payroll.findMany({
       where: {
         deletedAt: null,
+        ...(normalizedEmployeeId ? { employeeId: normalizedEmployeeId } : {}),
       },
       orderBy: [{ periodStart: 'desc' }, { employeeName: 'asc' }],
     });

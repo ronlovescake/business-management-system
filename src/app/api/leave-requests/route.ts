@@ -45,7 +45,11 @@ interface LeaveRequestDelegate {
 }
 
 const VALID_STATUSES: LeaveStatus[] = ['pending', 'approved', 'rejected'];
-const VALID_PAYMENT_STATUSES: PaymentStatus[] = ['paid', 'unpaid', 'not-applicable'];
+const VALID_PAYMENT_STATUSES: PaymentStatus[] = [
+  'paid',
+  'unpaid',
+  'not-applicable',
+];
 
 function parseString(value: unknown): string {
   if (value === null || value === undefined) {
@@ -188,10 +192,19 @@ function getLeaveRequestClient(): LeaveRequestDelegate {
     .leaveRequest;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const employeeIdParam = searchParams.get('employeeId');
+    const normalizedEmployeeId = employeeIdParam
+      ? employeeIdParam.trim()
+      : undefined;
+
     const leaveRequestClient = getLeaveRequestClient();
     const leaveRequests = await leaveRequestClient.findMany({
+      where: normalizedEmployeeId
+        ? { employeeId: normalizedEmployeeId }
+        : undefined,
       orderBy: { startDate: 'desc' },
     });
 
