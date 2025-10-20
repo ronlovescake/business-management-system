@@ -91,13 +91,13 @@ export function useEmployeeDetail(employeeId: string) {
   }, [employeeId]);
 
   useEffect(() => {
-    if (!employeeId) {
+    if (!employee?.employeeId) {
       return;
     }
 
     const controller = new AbortController();
     const signal = controller.signal;
-    const normalizedEmployeeId = employeeId.trim();
+    const normalizedEmployeeId = employee.employeeId.trim();
 
     const parseNumber = (value: unknown) => {
       const parsed = Number(value);
@@ -396,7 +396,7 @@ export function useEmployeeDetail(employeeId: string) {
     return () => {
       controller.abort();
     };
-  }, [employeeId]);
+  }, [employee?.employeeId]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
