@@ -465,6 +465,36 @@ export default function EmployeeDetailPage() {
   const scheduleToDisplay = scheduleHistory;
   const leaveToDisplay = leaveHistory;
   const salaryTimelineToDisplay = salaryTimeline;
+  const statutoryDetails = [
+    {
+      label: 'SSS Number',
+      value: employee.sssNumber || 'N/A',
+    },
+    {
+      label: 'PhilHealth Number',
+      value: employee.philHealthNumber || 'N/A',
+    },
+    {
+      label: 'Pag-IBIG / HDMF Number',
+      value: employee.hdmfNumber || 'N/A',
+    },
+    {
+      label: 'TIN',
+      value: employee.tinNumber || 'N/A',
+    },
+    {
+      label: 'Payment Schedule',
+      value: capitalizeWords(employee.paymentSchedule) || 'N/A',
+    },
+    {
+      label: 'Bank Account',
+      value: employee.bankAccount || 'N/A',
+    },
+    {
+      label: 'GCash Account',
+      value: employee.gcashAccount || 'N/A',
+    },
+  ];
 
   return (
     <PageLayout fluid withPadding>
@@ -580,7 +610,20 @@ export default function EmployeeDetailPage() {
           </Group>
         </Paper>
 
-        <Tabs defaultValue="profile">
+        <Tabs
+          defaultValue="profile"
+          styles={(theme) => ({
+            tab: {
+              color: theme.white,
+              '&:hover': {
+                color: theme.colors.gray[7],
+              },
+              '&[data-active]': {
+                color: theme.colors.gray[8],
+              },
+            },
+          })}
+        >
           <Tabs.List>
             <Tabs.Tab value="profile">Profile</Tabs.Tab>
             <Tabs.Tab value="payroll">Payroll History</Tabs.Tab>
@@ -589,6 +632,7 @@ export default function EmployeeDetailPage() {
             <Tabs.Tab value="leave">Leave Requests</Tabs.Tab>
             <Tabs.Tab value="cash-advance">Cash Advance Summary</Tabs.Tab>
             <Tabs.Tab value="salary-timeline">Salary Timeline</Tabs.Tab>
+            <Tabs.Tab value="statutory">Statutory Details</Tabs.Tab>
           </Tabs.List>
 
           <Tabs.Panel value="profile" pt="md">
@@ -1035,6 +1079,50 @@ export default function EmployeeDetailPage() {
                     </Timeline>
                   </ScrollArea>
                 )}
+              </Card>
+            </Stack>
+          </Tabs.Panel>
+
+          <Tabs.Panel value="statutory" pt="md">
+            <Stack gap="lg">
+              <Card withBorder padding="lg">
+                <Group justify="space-between" align="flex-start">
+                  <div>
+                    <Title order={4}>Statutory Details</Title>
+                    <Text size="sm" c="dimmed">
+                      Government IDs and payroll-linked accounts on file
+                    </Text>
+                  </div>
+                </Group>
+                <Divider my="md" />
+                <ScrollArea h="68vh">
+                  <Grid gutter="md">
+                    {statutoryDetails.map((detail) => (
+                      <Grid.Col
+                        span={{ base: 12, sm: 6, md: 4 }}
+                        key={detail.label}
+                      >
+                        <Box>
+                          <Text
+                            size="xs"
+                            fw={600}
+                            c="dimmed"
+                            tt="uppercase"
+                            mb={4}
+                          >
+                            {detail.label}
+                          </Text>
+                          <Text
+                            size="sm"
+                            c={detail.value === 'N/A' ? 'dimmed' : undefined}
+                          >
+                            {detail.value}
+                          </Text>
+                        </Box>
+                      </Grid.Col>
+                    ))}
+                  </Grid>
+                </ScrollArea>
               </Card>
             </Stack>
           </Tabs.Panel>
