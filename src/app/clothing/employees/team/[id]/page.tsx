@@ -555,6 +555,8 @@ export default function EmployeeDetailPage() {
           <Tabs.List>
             <Tabs.Tab value="profile">Profile</Tabs.Tab>
             <Tabs.Tab value="records">Records</Tabs.Tab>
+            <Tabs.Tab value="payroll">Payroll History</Tabs.Tab>
+            <Tabs.Tab value="attendance">Attendance Records</Tabs.Tab>
           </Tabs.List>
 
           <Tabs.Panel value="profile" pt="md">
@@ -626,133 +628,6 @@ export default function EmployeeDetailPage() {
 
           <Tabs.Panel value="records" pt="md">
             <Stack gap="lg">
-              <Card withBorder padding="lg">
-                <Group justify="space-between" align="flex-start">
-                  <div>
-                    <Title order={4}>Payroll History</Title>
-                    <Text size="sm" c="dimmed">
-                      Total net pay recorded:{' '}
-                      {formatCurrency(totalPayrollAmount)}
-                    </Text>
-                  </div>
-                  <Badge variant="light" color="blue">
-                    {payrollHistory.length} records
-                  </Badge>
-                </Group>
-                <Divider my="md" />
-                {isLoadingRelated ? (
-                  <Center py="xl">
-                    <Loader size="sm" />
-                  </Center>
-                ) : payrollHistory.length === 0 ? (
-                  <Text c="dimmed">
-                    No payroll entries yet for this employee.
-                  </Text>
-                ) : (
-                  <ScrollArea h={280}>
-                    <Table highlightOnHover withTableBorder>
-                      <Table.Thead>
-                        <Table.Tr>
-                          <Table.Th>Pay Period</Table.Th>
-                          <Table.Th>Net Pay</Table.Th>
-                          <Table.Th>Gross Pay</Table.Th>
-                          <Table.Th>Deductions</Table.Th>
-                          <Table.Th>Cash Advance</Table.Th>
-                          <Table.Th>Status</Table.Th>
-                        </Table.Tr>
-                      </Table.Thead>
-                      <Table.Tbody>
-                        {payrollHistory.map((record) => (
-                          <Table.Tr key={record.id}>
-                            <Table.Td>{formatPayrollPeriod(record)}</Table.Td>
-                            <Table.Td>{formatCurrency(record.netPay)}</Table.Td>
-                            <Table.Td>
-                              {formatCurrency(record.grossPay)}
-                            </Table.Td>
-                            <Table.Td>
-                              {formatCurrency(record.totalDeductions)}
-                            </Table.Td>
-                            <Table.Td>
-                              {formatCurrency(record.cashAdvance)}
-                            </Table.Td>
-                            <Table.Td>
-                              <Badge
-                                color={getPayrollStatusBadgeColor(
-                                  record.status
-                                )}
-                                variant="light"
-                              >
-                                {record.status.toUpperCase()}
-                              </Badge>
-                            </Table.Td>
-                          </Table.Tr>
-                        ))}
-                      </Table.Tbody>
-                    </Table>
-                  </ScrollArea>
-                )}
-              </Card>
-
-              <Card withBorder padding="lg">
-                <Group justify="space-between" align="flex-start">
-                  <div>
-                    <Title order={4}>Attendance Records</Title>
-                    <Text size="sm" c="dimmed">
-                      Latest {attendanceToDisplay.length} of{' '}
-                      {attendanceHistory.length} entries
-                    </Text>
-                  </div>
-                </Group>
-                <Divider my="md" />
-                {isLoadingRelated ? (
-                  <Center py="xl">
-                    <Loader size="sm" />
-                  </Center>
-                ) : attendanceToDisplay.length === 0 ? (
-                  <Text c="dimmed">
-                    No attendance entries found for this employee.
-                  </Text>
-                ) : (
-                  <ScrollArea h={240}>
-                    <Table highlightOnHover withTableBorder>
-                      <Table.Thead>
-                        <Table.Tr>
-                          <Table.Th>Date</Table.Th>
-                          <Table.Th>Time In</Table.Th>
-                          <Table.Th>Time Out</Table.Th>
-                          <Table.Th>Total Hours</Table.Th>
-                          <Table.Th>Status</Table.Th>
-                        </Table.Tr>
-                      </Table.Thead>
-                      <Table.Tbody>
-                        {attendanceToDisplay.map((record) => (
-                          <Table.Tr key={record.id}>
-                            <Table.Td>
-                              {formatOptionalDate(record.date)}
-                            </Table.Td>
-                            <Table.Td>{record.timeIn || '—'}</Table.Td>
-                            <Table.Td>{record.timeOut || '—'}</Table.Td>
-                            <Table.Td>
-                              {Number.isFinite(record.totalHours)
-                                ? record.totalHours.toFixed(2)
-                                : '0.00'}
-                            </Table.Td>
-                            <Table.Td>
-                              <Badge
-                                color={getAttendanceStatusColor(record.status)}
-                                variant="light"
-                              >
-                                {record.status.replace('-', ' ').toUpperCase()}
-                              </Badge>
-                            </Table.Td>
-                          </Table.Tr>
-                        ))}
-                      </Table.Tbody>
-                    </Table>
-                  </ScrollArea>
-                )}
-              </Card>
-
               <Card withBorder padding="lg">
                 <Group justify="space-between" align="flex-start">
                   <div>
@@ -912,6 +787,141 @@ export default function EmployeeDetailPage() {
                                 variant="light"
                               >
                                 {record.status.toUpperCase()}
+                              </Badge>
+                            </Table.Td>
+                          </Table.Tr>
+                        ))}
+                      </Table.Tbody>
+                    </Table>
+                  </ScrollArea>
+                )}
+              </Card>
+            </Stack>
+          </Tabs.Panel>
+
+          <Tabs.Panel value="payroll" pt="md">
+            <Stack gap="lg">
+              <Card withBorder padding="lg">
+                <Group justify="space-between" align="flex-start">
+                  <div>
+                    <Title order={4}>Payroll History</Title>
+                    <Text size="sm" c="dimmed">
+                      Total net pay recorded:{' '}
+                      {formatCurrency(totalPayrollAmount)}
+                    </Text>
+                  </div>
+                  <Badge variant="light" color="blue">
+                    {payrollHistory.length} records
+                  </Badge>
+                </Group>
+                <Divider my="md" />
+                {isLoadingRelated ? (
+                  <Center py="xl">
+                    <Loader size="sm" />
+                  </Center>
+                ) : payrollHistory.length === 0 ? (
+                  <Text c="dimmed">
+                    No payroll entries yet for this employee.
+                  </Text>
+                ) : (
+                  <ScrollArea h={280}>
+                    <Table highlightOnHover withTableBorder>
+                      <Table.Thead>
+                        <Table.Tr>
+                          <Table.Th>Pay Period</Table.Th>
+                          <Table.Th>Net Pay</Table.Th>
+                          <Table.Th>Gross Pay</Table.Th>
+                          <Table.Th>Deductions</Table.Th>
+                          <Table.Th>Cash Advance</Table.Th>
+                          <Table.Th>Status</Table.Th>
+                        </Table.Tr>
+                      </Table.Thead>
+                      <Table.Tbody>
+                        {payrollHistory.map((record) => (
+                          <Table.Tr key={record.id}>
+                            <Table.Td>{formatPayrollPeriod(record)}</Table.Td>
+                            <Table.Td>{formatCurrency(record.netPay)}</Table.Td>
+                            <Table.Td>
+                              {formatCurrency(record.grossPay)}
+                            </Table.Td>
+                            <Table.Td>
+                              {formatCurrency(record.totalDeductions)}
+                            </Table.Td>
+                            <Table.Td>
+                              {formatCurrency(record.cashAdvance)}
+                            </Table.Td>
+                            <Table.Td>
+                              <Badge
+                                color={getPayrollStatusBadgeColor(
+                                  record.status
+                                )}
+                                variant="light"
+                              >
+                                {record.status.toUpperCase()}
+                              </Badge>
+                            </Table.Td>
+                          </Table.Tr>
+                        ))}
+                      </Table.Tbody>
+                    </Table>
+                  </ScrollArea>
+                )}
+              </Card>
+            </Stack>
+          </Tabs.Panel>
+
+          <Tabs.Panel value="attendance" pt="md">
+            <Stack gap="lg">
+              <Card withBorder padding="lg">
+                <Group justify="space-between" align="flex-start">
+                  <div>
+                    <Title order={4}>Attendance Records</Title>
+                    <Text size="sm" c="dimmed">
+                      Latest {attendanceToDisplay.length} of{' '}
+                      {attendanceHistory.length} entries
+                    </Text>
+                  </div>
+                </Group>
+                <Divider my="md" />
+                {isLoadingRelated ? (
+                  <Center py="xl">
+                    <Loader size="sm" />
+                  </Center>
+                ) : attendanceToDisplay.length === 0 ? (
+                  <Text c="dimmed">
+                    No attendance entries found for this employee.
+                  </Text>
+                ) : (
+                  <ScrollArea h={240}>
+                    <Table highlightOnHover withTableBorder>
+                      <Table.Thead>
+                        <Table.Tr>
+                          <Table.Th>Date</Table.Th>
+                          <Table.Th>Time In</Table.Th>
+                          <Table.Th>Time Out</Table.Th>
+                          <Table.Th>Total Hours</Table.Th>
+                          <Table.Th>Status</Table.Th>
+                        </Table.Tr>
+                      </Table.Thead>
+                      <Table.Tbody>
+                        {attendanceToDisplay.map((record) => (
+                          <Table.Tr key={record.id}>
+                            <Table.Td>
+                              {formatOptionalDate(record.date)}
+                            </Table.Td>
+                            <Table.Td>{record.timeIn || '—'}</Table.Td>
+                            <Table.Td>{record.timeOut || '—'}</Table.Td>
+                            <Table.Td>
+                              {Number.isFinite(record.totalHours)
+                                ? record.totalHours.toFixed(2)
+                                : '0.00'}
+                            </Table.Td>
+                            <Table.Td>
+                              <Badge
+                                color={getAttendanceStatusColor(record.status)}
+                                variant="light"
+                              >
+                                {record.status.replace('-', ' ').toUpperCase()}
                               </Badge>
                             </Table.Td>
                           </Table.Tr>
