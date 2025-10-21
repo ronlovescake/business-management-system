@@ -2,10 +2,12 @@ export interface ThirteenthMonthPay {
   id: string;
   employee: string;
   year: string;
-  basicSalary: number;
-  totalEarnings: number;
-  eligibilityMonths: number;
-  deductions: number;
+  hireDate?: string | null;
+  tenureship?: string;
+  totalBasicSalary: number;
+  totalLwop: number;
+  totalAbsencesLates: number;
+  netBasicSalary: number;
   thirteenthMonthPay: number;
   status: 'pending' | 'calculated' | 'approved' | 'paid';
   calculatedDate?: string;
@@ -17,9 +19,8 @@ export interface ThirteenthMonthPay {
 export interface ThirteenthMonthPayFormData {
   employee: string;
   year: string;
-  basicSalary: string;
-  totalEarnings: string;
-  eligibilityMonths: string;
-  deductions: string;
+  totalBasicSalary: string;
+  totalLwop: string;
+  totalAbsencesLates: string;
   notes?: string;
 }

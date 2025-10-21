@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Stack, Badge } from '@mantine/core';
 import {
   StatsCardGroup,
@@ -29,6 +29,7 @@ import {
 export default function ThirteenthMonthPayPage() {
   const {
     records,
+    isLoading,
     searchQuery,
     setSearchQuery,
     statusFilter,
@@ -53,6 +54,14 @@ export default function ThirteenthMonthPayPage() {
   const [editingRecord, setEditingRecord] = useState<ThirteenthMonthPay | null>(
     null
   );
+
+  const yearFilterOptions = useMemo(() => {
+    const uniqueYears = Array.from(
+      new Set(records.map((record) => record.year))
+    );
+    uniqueYears.sort((a, b) => b.localeCompare(a));
+    return ['All', ...uniqueYears];
+  }, [records]);
 
   // Stats cards configuration
   const stats: StatCard[] = [
@@ -82,7 +91,7 @@ export default function ThirteenthMonthPayPage() {
   const columns: TableColumn<ThirteenthMonthPay>[] = [
     {
       key: 'employee',
-      label: 'EMPLOYEE',
+      label: 'EMPLOYEE NAME',
       render: (record) => (
         <span style={{ fontWeight: 500 }}>{record.employee}</span>
       ),
@@ -93,11 +102,52 @@ export default function ThirteenthMonthPayPage() {
       render: (record) => record.year,
     },
     {
-      key: 'totalEarnings',
-      label: 'EARNINGS',
+      key: 'hireDate',
+      label: 'HIRE DATE',
       render: (record) => (
         <span style={{ fontWeight: 500 }}>
-          {formatCurrency(record.totalEarnings)}
+          {record.hireDate ? formatDate(record.hireDate) : 'N/A'}
+        </span>
+      ),
+    },
+    {
+      key: 'tenureship',
+      label: 'TENURESHIP',
+      render: (record) => record.tenureship ?? 'N/A',
+    },
+    {
+      key: 'totalBasicSalary',
+      label: 'TOTAL BASIC SALARY',
+      render: (record) => (
+        <span style={{ fontWeight: 500 }}>
+          {formatCurrency(record.totalBasicSalary)}
+        </span>
+      ),
+    },
+    {
+      key: 'totalLwop',
+      label: 'TOTAL LWOP',
+      render: (record) => (
+        <span style={{ fontWeight: 500, color: '#ef4444' }}>
+          {formatCurrency(record.totalLwop)}
+        </span>
+      ),
+    },
+    {
+      key: 'totalAbsencesLates',
+      label: 'ABSENCES/LATES',
+      render: (record) => (
+        <span style={{ fontWeight: 500, color: '#ef4444' }}>
+          {formatCurrency(record.totalAbsencesLates)}
+        </span>
+      ),
+    },
+    {
+      key: 'netBasicSalary',
+      label: 'NET BASIC SALARY',
+      render: (record) => (
+        <span style={{ fontWeight: 500 }}>
+          {formatCurrency(record.netBasicSalary)}
         </span>
       ),
     },
@@ -121,21 +171,6 @@ export default function ThirteenthMonthPayPage() {
         >
           {getStatusLabel(record.status)}
         </Badge>
-      ),
-    },
-    {
-      key: 'dates',
-      label: 'DATES',
-      render: (record) => (
-        <div style={{ fontSize: '13px', color: '#666' }}>
-          {record.calculatedDate && (
-            <div>Calculated: {formatDate(record.calculatedDate)}</div>
-          )}
-          {record.approvedDate && (
-            <div>Approved: {formatDate(record.approvedDate)}</div>
-          )}
-          {record.paidDate && <div>Paid: {formatDate(record.paidDate)}</div>}
-        </div>
       ),
     },
   ];
@@ -221,7 +256,7 @@ export default function ThirteenthMonthPayPage() {
           },
           {
             placeholder: 'Filter by year',
-            data: ['All', '2025', '2024', '2023'],
+            data: yearFilterOptions,
             value: yearFilter,
             onChange: (value: string | null) =>
               setYearFilter(value === 'All' || !value ? 'all' : value),
@@ -237,7 +272,11 @@ export default function ThirteenthMonthPayPage() {
         data={records}
         columns={columns}
         actions={actions}
-        emptyMessage="No 13th month pay records found"
+        emptyMessage={
+          isLoading
+            ? 'Loading 13th month pay records...'
+            : 'No 13th month pay records found'
+        }
         showSummary
         summaryLeft={
           <span style={{ fontSize: '14px', color: '#868e96' }}>

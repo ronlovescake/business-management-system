@@ -21,10 +21,9 @@ export function ThirteenthMonthPayFormDialog({
     initialValues: {
       employee: '',
       year: new Date().getFullYear().toString(),
-      basicSalary: '',
-      totalEarnings: '',
-      eligibilityMonths: '12',
-      deductions: '0',
+      totalBasicSalary: '',
+      totalLwop: '0',
+      totalAbsencesLates: '0',
       notes: '',
     },
     validate: {
@@ -39,43 +38,27 @@ export function ThirteenthMonthPayFormDialog({
         }
         return null;
       },
-      basicSalary: (value) => {
+      totalBasicSalary: (value) => {
         if (!value) {
-          return 'Basic salary is required';
+          return 'Total basic salary is required';
         }
         const num = parseFloat(value);
         if (isNaN(num) || num <= 0) {
-          return 'Basic salary must be greater than 0';
+          return 'Total basic salary must be greater than 0';
         }
         return null;
       },
-      totalEarnings: (value) => {
-        if (!value) {
-          return 'Total earnings is required';
-        }
-        const num = parseFloat(value);
-        if (isNaN(num) || num < 0) {
-          return 'Total earnings must be 0 or greater';
+      totalLwop: (value) => {
+        const parsed = value ? parseFloat(value) : 0;
+        if (Number.isNaN(parsed) || parsed < 0) {
+          return 'Total LWOP must be 0 or greater';
         }
         return null;
       },
-      eligibilityMonths: (value) => {
-        if (!value) {
-          return 'Eligibility months is required';
-        }
-        const num = parseInt(value);
-        if (isNaN(num) || num < 1 || num > 12) {
-          return 'Eligibility must be between 1 and 12 months';
-        }
-        return null;
-      },
-      deductions: (value) => {
-        if (!value) {
-          return 'Deductions is required';
-        }
-        const num = parseFloat(value);
-        if (isNaN(num) || num < 0) {
-          return 'Deductions must be 0 or greater';
+      totalAbsencesLates: (value) => {
+        const parsed = value ? parseFloat(value) : 0;
+        if (Number.isNaN(parsed) || parsed < 0) {
+          return 'Total absences/lates must be 0 or greater';
         }
         return null;
       },
@@ -87,10 +70,9 @@ export function ThirteenthMonthPayFormDialog({
       form.setValues({
         employee: editingRecord.employee,
         year: editingRecord.year,
-        basicSalary: editingRecord.basicSalary.toString(),
-        totalEarnings: editingRecord.totalEarnings.toString(),
-        eligibilityMonths: editingRecord.eligibilityMonths.toString(),
-        deductions: editingRecord.deductions.toString(),
+        totalBasicSalary: editingRecord.totalBasicSalary.toString(),
+        totalLwop: editingRecord.totalLwop.toString(),
+        totalAbsencesLates: editingRecord.totalAbsencesLates.toString(),
         notes: editingRecord.notes || '',
       });
     } else {
@@ -220,7 +202,7 @@ export function ThirteenthMonthPayFormDialog({
           }}
         >
           <NumberInput
-            label="Basic Salary"
+            label="Total Basic Salary"
             placeholder="0.00"
             required
             min={0}
@@ -245,15 +227,14 @@ export function ThirteenthMonthPayFormDialog({
                 },
               },
             }}
-            value={form.values.basicSalary}
+            value={form.values.totalBasicSalary}
             onChange={(value) =>
-              form.setFieldValue('basicSalary', value?.toString() || '')
+              form.setFieldValue('totalBasicSalary', value?.toString() || '')
             }
-            error={form.errors.basicSalary}
+            error={form.errors.totalBasicSalary}
           />
-
           <NumberInput
-            label="Total Earnings"
+            label="Total LWOP"
             placeholder="0.00"
             required
             min={0}
@@ -278,11 +259,11 @@ export function ThirteenthMonthPayFormDialog({
                 },
               },
             }}
-            value={form.values.totalEarnings}
+            value={form.values.totalLwop}
             onChange={(value) =>
-              form.setFieldValue('totalEarnings', value?.toString() || '')
+              form.setFieldValue('totalLwop', value?.toString() || '0')
             }
-            error={form.errors.totalEarnings}
+            error={form.errors.totalLwop}
           />
         </div>
 
@@ -291,41 +272,11 @@ export function ThirteenthMonthPayFormDialog({
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
             gap: '16px',
+            alignItems: 'end',
           }}
         >
           <NumberInput
-            label="Eligibility (Months)"
-            placeholder="12"
-            required
-            min={1}
-            max={12}
-            hideControls
-            styles={{
-              label: {
-                fontWeight: 500,
-                color: '#333',
-                marginBottom: 8,
-              },
-              input: {
-                backgroundColor: '#fff',
-                border: '1px solid rgba(0, 0, 0, 0.15)',
-                borderRadius: 8,
-                fontSize: 14,
-                '&:focus': {
-                  borderColor: '#6366f1',
-                  boxShadow: '0 0 0 3px rgba(99, 102, 241, 0.1)',
-                },
-              },
-            }}
-            value={form.values.eligibilityMonths}
-            onChange={(value) =>
-              form.setFieldValue('eligibilityMonths', value?.toString() || '')
-            }
-            error={form.errors.eligibilityMonths}
-          />
-
-          <NumberInput
-            label="Deductions"
+            label="Total Absences/Lates"
             placeholder="0.00"
             required
             min={0}
@@ -350,12 +301,22 @@ export function ThirteenthMonthPayFormDialog({
                 },
               },
             }}
-            value={form.values.deductions}
+            value={form.values.totalAbsencesLates}
             onChange={(value) =>
-              form.setFieldValue('deductions', value?.toString() || '')
+              form.setFieldValue('totalAbsencesLates', value?.toString() || '0')
             }
-            error={form.errors.deductions}
+            error={form.errors.totalAbsencesLates}
           />
+          <div
+            style={{
+              fontSize: 13,
+              color: '#6b7280',
+              lineHeight: 1.5,
+            }}
+          >
+            Formula: <strong>Total Basic Salary</strong> − (
+            <strong>Total LWOP</strong> + <strong>Total Absences/Lates</strong>)
+          </div>
         </div>
 
         <Textarea
