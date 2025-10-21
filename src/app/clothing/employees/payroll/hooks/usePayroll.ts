@@ -28,6 +28,7 @@ export function usePayroll() {
   const [payPeriodFilter, setPayPeriodFilter] = useState<string>('all');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingPayroll, setEditingPayroll] = useState<Payroll | null>(null);
+  const [isGeneratingPayroll, setIsGeneratingPayroll] = useState(false);
 
   const resolveEmployeeRecord = useCallback(
     (identifier: string | undefined | null) => {
@@ -138,6 +139,7 @@ export function usePayroll() {
         const allowance = toNumber(record.allowance);
         const overtime = toNumber(record.overtime);
         const bonuses = toNumber(record.bonuses);
+        const thirteenthMonth = toNumber(record.thirteenthMonth);
         const grossPay = toNumber(record.grossPay);
         const sss = toNumber(record.sss);
         const philHealth = toNumber(record.philHealth);
@@ -176,6 +178,7 @@ export function usePayroll() {
           overtime,
           bonuses,
           grossPay,
+          thirteenthMonth,
           sss,
           philHealth,
           pagIbig,
@@ -300,9 +303,64 @@ export function usePayroll() {
   };
 
   // Event Handlers
-  const handleAddPayroll = () => {
-    setEditingPayroll(null);
-    setIsFormOpen(true);
+  const handleAddPayroll = async () => {
+    if (isGeneratingPayroll) {
+      return;
+    }
+
+    setIsGeneratingPayroll(true);
+
+    try {
+      const response = await fetch('/api/payroll/generate', {
+        method: 'POST',
+      });
+
+      let result: unknown = null;
+      try {
+        result = await response.json();
+      } catch (parseError) {
+        console.error(
+          'Failed to parse payroll generation response:',
+          parseError
+        );
+      }
+
+      const normalized =
+        typeof result === 'object' && result !== null
+          ? (result as Record<string, unknown>)
+          : {};
+
+      if (!response.ok || normalized.success === false) {
+        const message =
+          typeof normalized.message === 'string'
+            ? normalized.message
+            : typeof normalized.error === 'string'
+              ? normalized.error
+              : 'Failed to generate payroll for the current period.';
+        throw new Error(message);
+      }
+
+      await fetchPayrolls();
+
+      if (typeof normalized.message === 'string' && normalized.message.trim()) {
+        alert(normalized.message);
+      } else {
+        const count = Number(normalized.count ?? 0);
+        const safeCount = Number.isFinite(count) ? count : 0;
+        alert(
+          `Successfully generated payroll for ${safeCount} employee${safeCount === 1 ? '' : 's'}.`
+        );
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : 'Failed to generate payroll. Please try again.';
+      console.error('Error generating payroll:', error);
+      alert(message);
+    } finally {
+      setIsGeneratingPayroll(false);
+    }
   };
 
   const handleEditPayroll = (payroll: Payroll) => {
@@ -352,6 +410,7 @@ export function usePayroll() {
             allowance: parseFloat(formData.allowance) || 0,
             overtime: parseFloat(formData.overtime) || 0,
             bonuses: parseFloat(formData.bonuses) || 0,
+            thirteenthMonth: parseFloat(formData.thirteenthMonth) || 0,
             sss: parseFloat(formData.sss) || 0,
             philHealth: parseFloat(formData.philHealth) || 0,
             pagIbig: parseFloat(formData.pagIbig) || 0,
@@ -386,6 +445,7 @@ export function usePayroll() {
                   allowance: updated.allowance,
                   overtime: updated.overtime,
                   bonuses: updated.bonuses,
+                  thirteenthMonth: updated.thirteenthMonth ?? 0,
                   grossPay: updated.grossPay,
                   sss: updated.sss,
                   philHealth: updated.philHealth,
@@ -417,6 +477,7 @@ export function usePayroll() {
             allowance: parseFloat(formData.allowance) || 0,
             overtime: parseFloat(formData.overtime) || 0,
             bonuses: parseFloat(formData.bonuses) || 0,
+            thirteenthMonth: parseFloat(formData.thirteenthMonth) || 0,
             grossPay: totals.grossPay,
             sss: parseFloat(formData.sss) || 0,
             philHealth: parseFloat(formData.philHealth) || 0,
@@ -449,6 +510,7 @@ export function usePayroll() {
             allowance: newPayroll.allowance,
             overtime: newPayroll.overtime,
             bonuses: newPayroll.bonuses,
+            thirteenthMonth: newPayroll.thirteenthMonth ?? 0,
             grossPay: newPayroll.grossPay,
             sss: newPayroll.sss,
             philHealth: newPayroll.philHealth,
@@ -584,7 +646,7 @@ export function usePayroll() {
             return Number.isFinite(parsed) ? parsed : 0;
           };
 
-          const status = columns[17]?.trim().toLowerCase() || 'pending';
+          const status = columns[18]?.trim().toLowerCase() || 'pending';
 
           if (!employeeRecord) {
             unmatchedEmployees.add(employee);
@@ -600,19 +662,20 @@ export function usePayroll() {
             allowance: parseNumber(columns[3]),
             overtime: parseNumber(columns[4]),
             bonuses: parseNumber(columns[5]),
-            grossPay: parseNumber(columns[6]),
-            sss: parseNumber(columns[7]),
-            philHealth: parseNumber(columns[8]),
-            pagIbig: parseNumber(columns[9]),
-            tax: parseNumber(columns[10]),
-            loans: parseNumber(columns[11]),
-            cashAdvance: parseNumber(columns[12]),
-            lwop: parseNumber(columns[13]),
-            absentsLates: parseNumber(columns[14]),
-            totalDeductions: parseNumber(columns[15]),
-            netPay: parseNumber(columns[16]),
+            thirteenthMonth: parseNumber(columns[6]),
+            grossPay: parseNumber(columns[7]),
+            sss: parseNumber(columns[8]),
+            philHealth: parseNumber(columns[9]),
+            pagIbig: parseNumber(columns[10]),
+            tax: parseNumber(columns[11]),
+            loans: parseNumber(columns[12]),
+            cashAdvance: parseNumber(columns[13]),
+            lwop: parseNumber(columns[14]),
+            absentsLates: parseNumber(columns[15]),
+            totalDeductions: parseNumber(columns[16]),
+            netPay: parseNumber(columns[17]),
             status,
-            bankGcash: columns[18]?.trim() ?? '',
+            bankGcash: columns[19]?.trim() ?? '',
           };
         });
 
