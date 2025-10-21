@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import type { AttendanceRecord } from '@/app/clothing/employees/attendance/types';
 import type { LeaveRequest } from '@/app/clothing/employees/leave-tracker/types';
 import type { CashAdvance } from '@/app/clothing/employees/cash-advance/types';
+import type { Schedule } from '@/app/clothing/employees/schedules/types';
 import type { Employee, EmployeeFormData } from '../types';
 
 /**
@@ -45,6 +46,7 @@ export function useEmployeeDetail(employeeId: string) {
   const [attendanceHistory, setAttendanceHistory] = useState<
     AttendanceRecord[]
   >([]);
+  const [scheduleHistory, setScheduleHistory] = useState<Schedule[]>([]);
   const [leaveHistory, setLeaveHistory] = useState<LeaveRequest[]>([]);
   const [salaryTimeline, setSalaryTimeline] = useState<SalaryHistoryEntry[]>(
     []
@@ -139,13 +141,19 @@ export function useEmployeeDetail(employeeId: string) {
         setIsLoadingRelated(true);
 
         const query = encodeURIComponent(normalizedEmployeeId);
-        const [payrollRes, attendanceRes, leaveRes, cashAdvanceRes] =
-          await Promise.all([
-            fetch(`/api/payroll?employeeId=${query}`, { signal }),
-            fetch(`/api/attendance?employeeId=${query}`, { signal }),
-            fetch(`/api/leave-requests?employeeId=${query}`, { signal }),
-            fetch(`/api/cash-advances?employeeId=${query}`, { signal }),
-          ]);
+        const [
+          payrollRes,
+          attendanceRes,
+          leaveRes,
+          cashAdvanceRes,
+          scheduleRes,
+        ] = await Promise.all([
+          fetch(`/api/payroll?employeeId=${query}`, { signal }),
+          fetch(`/api/attendance?employeeId=${query}`, { signal }),
+          fetch(`/api/leave-requests?employeeId=${query}`, { signal }),
+          fetch(`/api/cash-advances?employeeId=${query}`, { signal }),
+          fetch(`/api/schedules?employeeId=${query}`, { signal }),
+        ]);
 
         if (!signal.aborted) {
           const payrollJson = payrollRes.ok ? await payrollRes.json() : [];
@@ -156,6 +164,7 @@ export function useEmployeeDetail(employeeId: string) {
           const cashAdvanceJson = cashAdvanceRes.ok
             ? await cashAdvanceRes.json()
             : [];
+          const scheduleJson = scheduleRes.ok ? await scheduleRes.json() : [];
 
           const payrollData: EmployeePayrollRecord[] = Array.isArray(
             payrollJson
@@ -376,6 +385,56 @@ export function useEmployeeDetail(employeeId: string) {
               return sum + (remaining > 0 ? remaining : 0);
             }, 0)
           );
+
+          const allowedScheduleStatuses = new Set([
+            'scheduled',
+            'completed',
+            'cancelled',
+          ]);
+          const allowedShiftTypes = new Set<Schedule['shiftType']>([
+            'morning',
+            'afternoon',
+            'night',
+            'full-day',
+          ]);
+
+          const scheduleData: Schedule[] = Array.isArray(scheduleJson)
+            ? scheduleJson
+                .filter((record) =>
+                  record && typeof record === 'object'
+                    ? String(record.employeeId || '').trim() ===
+                      normalizedEmployeeId
+                    : false
+                )
+                .map((record) => {
+                  const status = allowedScheduleStatuses.has(record.status)
+                    ? (record.status as Schedule['status'])
+                    : 'scheduled';
+                  const shiftType = allowedShiftTypes.has(record.shiftType)
+                    ? record.shiftType
+                    : 'morning';
+                  return {
+                    id: String(record.id ?? ''),
+                    employeeId: String(record.employeeId ?? ''),
+                    employeeName: String(record.employeeName ?? ''),
+                    date: String(record.date ?? ''),
+                    shiftType,
+                    startTime: String(record.startTime ?? ''),
+                    endTime: String(record.endTime ?? ''),
+                    position: String(record.position ?? ''),
+                    department: String(record.department ?? ''),
+                    status,
+                    notes: record.notes ?? undefined,
+                    source: record.source ?? undefined,
+                    templateId: record.templateId ?? undefined,
+                    recurrenceId: record.recurrenceId ?? undefined,
+                    isOverride: record.isOverride ?? undefined,
+                  } satisfies Schedule;
+                })
+            : [];
+
+          scheduleData.sort((a, b) => b.date.localeCompare(a.date));
+          setScheduleHistory(scheduleData);
         }
       } catch (error) {
         if (!signal.aborted) {
@@ -651,6 +710,7 @@ export function useEmployeeDetail(employeeId: string) {
     payrollHistory,
     totalPayrollAmount,
     attendanceHistory,
+    scheduleHistory,
     leaveHistory,
     salaryTimeline,
     cashAdvanceRecords,

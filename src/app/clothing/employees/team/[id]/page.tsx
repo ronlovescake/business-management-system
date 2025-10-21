@@ -58,6 +58,7 @@ export default function EmployeeDetailPage() {
     payrollHistory,
     totalPayrollAmount,
     attendanceHistory,
+    scheduleHistory,
     leaveHistory,
     salaryTimeline,
     cashAdvanceRecords,
@@ -430,7 +431,38 @@ export default function EmployeeDetailPage() {
     }
   };
 
+  const getScheduleStatusColor = (
+    status: (typeof scheduleHistory)[number]['status']
+  ) => {
+    switch (status) {
+      case 'completed':
+        return 'green';
+      case 'cancelled':
+        return 'red';
+      default:
+        return 'blue';
+    }
+  };
+
+  const formatShiftLabel = (
+    shift: (typeof scheduleHistory)[number]['shiftType']
+  ) => {
+    switch (shift) {
+      case 'morning':
+        return 'Morning (8:00 AM - 5:00 PM)';
+      case 'afternoon':
+        return 'Afternoon (3:00 PM - 12:00 AM)';
+      case 'night':
+        return 'Night (12:00 AM - 9:00 AM)';
+      case 'full-day':
+        return 'Full Day (4:00 AM - 5:00 PM)';
+      default:
+        return shift;
+    }
+  };
+
   const attendanceToDisplay = attendanceHistory;
+  const scheduleToDisplay = scheduleHistory;
   const leaveToDisplay = leaveHistory;
   const salaryTimelineToDisplay = salaryTimeline;
 
@@ -552,6 +584,7 @@ export default function EmployeeDetailPage() {
           <Tabs.List>
             <Tabs.Tab value="profile">Profile</Tabs.Tab>
             <Tabs.Tab value="payroll">Payroll History</Tabs.Tab>
+            <Tabs.Tab value="schedules">Schedules</Tabs.Tab>
             <Tabs.Tab value="attendance">Attendance Records</Tabs.Tab>
             <Tabs.Tab value="leave">Leave Requests</Tabs.Tab>
             <Tabs.Tab value="cash-advance">Cash Advance Summary</Tabs.Tab>
@@ -684,6 +717,71 @@ export default function EmployeeDetailPage() {
                                 variant="light"
                               >
                                 {record.status.toUpperCase()}
+                              </Badge>
+                            </Table.Td>
+                          </Table.Tr>
+                        ))}
+                      </Table.Tbody>
+                    </Table>
+                  </ScrollArea>
+                )}
+              </Card>
+            </Stack>
+          </Tabs.Panel>
+
+          <Tabs.Panel value="schedules" pt="md">
+            <Stack gap="lg">
+              <Card withBorder padding="lg">
+                <Group justify="space-between" align="flex-start">
+                  <div>
+                    <Title order={4}>Schedules</Title>
+                    <Text size="sm" c="dimmed">
+                      Showing all {scheduleHistory.length} schedules
+                    </Text>
+                  </div>
+                </Group>
+                <Divider my="md" />
+                {isLoadingRelated ? (
+                  <Center py="xl">
+                    <Loader size="sm" />
+                  </Center>
+                ) : scheduleToDisplay.length === 0 ? (
+                  <Text c="dimmed">
+                    No schedules assigned to this employee yet.
+                  </Text>
+                ) : (
+                  <ScrollArea h="68vh">
+                    <Table highlightOnHover withTableBorder>
+                      <Table.Thead>
+                        <Table.Tr>
+                          <Table.Th>Date</Table.Th>
+                          <Table.Th>Shift</Table.Th>
+                          <Table.Th>Start</Table.Th>
+                          <Table.Th>End</Table.Th>
+                          <Table.Th>Department</Table.Th>
+                          <Table.Th>Position</Table.Th>
+                          <Table.Th>Status</Table.Th>
+                        </Table.Tr>
+                      </Table.Thead>
+                      <Table.Tbody>
+                        {scheduleToDisplay.map((schedule) => (
+                          <Table.Tr key={schedule.id}>
+                            <Table.Td>
+                              {formatOptionalDate(schedule.date)}
+                            </Table.Td>
+                            <Table.Td>
+                              {formatShiftLabel(schedule.shiftType)}
+                            </Table.Td>
+                            <Table.Td>{schedule.startTime || '—'}</Table.Td>
+                            <Table.Td>{schedule.endTime || '—'}</Table.Td>
+                            <Table.Td>{schedule.department || '—'}</Table.Td>
+                            <Table.Td>{schedule.position || '—'}</Table.Td>
+                            <Table.Td>
+                              <Badge
+                                color={getScheduleStatusColor(schedule.status)}
+                                variant="light"
+                              >
+                                {schedule.status.toUpperCase()}
                               </Badge>
                             </Table.Td>
                           </Table.Tr>
