@@ -461,6 +461,13 @@ export default function EmployeeDetailPage() {
     }
   };
 
+  const formatContribution = (value?: number | null) => {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return formatCurrency(value);
+    }
+    return 'N/A';
+  };
+
   const attendanceToDisplay = attendanceHistory;
   const scheduleToDisplay = scheduleHistory;
   const leaveToDisplay = leaveHistory;
@@ -493,6 +500,24 @@ export default function EmployeeDetailPage() {
     {
       label: 'GCash Account',
       value: employee.gcashAccount || 'N/A',
+    },
+  ];
+  const statutoryContributionDetails = [
+    {
+      label: 'SSS Monthly Contribution',
+      value: formatContribution(employee.sssMonthlyContribution ?? null),
+    },
+    {
+      label: 'PhilHealth Monthly Contribution',
+      value: formatContribution(employee.philHealthMonthlyContribution ?? null),
+    },
+    {
+      label: 'Pag-IBIG Monthly Contribution',
+      value: formatContribution(employee.pagibigMonthlyContribution ?? null),
+    },
+    {
+      label: 'Income Tax Contribution',
+      value: formatContribution(employee.taxMonthlyContribution ?? null),
     },
   ];
 
@@ -1096,32 +1121,70 @@ export default function EmployeeDetailPage() {
                 </Group>
                 <Divider my="md" />
                 <ScrollArea h="68vh">
-                  <Grid gutter="md">
-                    {statutoryDetails.map((detail) => (
-                      <Grid.Col
-                        span={{ base: 12, sm: 6, md: 4 }}
-                        key={detail.label}
-                      >
-                        <Box>
-                          <Text
-                            size="xs"
-                            fw={600}
-                            c="dimmed"
-                            tt="uppercase"
-                            mb={4}
-                          >
-                            {detail.label}
-                          </Text>
-                          <Text
-                            size="sm"
-                            c={detail.value === 'N/A' ? 'dimmed' : undefined}
-                          >
-                            {detail.value}
-                          </Text>
-                        </Box>
-                      </Grid.Col>
-                    ))}
-                  </Grid>
+                  <Stack gap="lg" pr="sm">
+                    <Grid gutter="md">
+                      {statutoryDetails.map((detail) => (
+                        <Grid.Col
+                          span={{ base: 12, sm: 6, md: 4 }}
+                          key={detail.label}
+                        >
+                          <Box>
+                            <Text
+                              size="xs"
+                              fw={600}
+                              c="dimmed"
+                              tt="uppercase"
+                              mb={4}
+                            >
+                              {detail.label}
+                            </Text>
+                            <Text
+                              size="sm"
+                              c={detail.value === 'N/A' ? 'dimmed' : undefined}
+                            >
+                              {detail.value}
+                            </Text>
+                          </Box>
+                        </Grid.Col>
+                      ))}
+                    </Grid>
+
+                    <Divider />
+
+                    <Stack gap={4}>
+                      <Title order={5}>Monthly Contributions</Title>
+                      <Text size="sm" c="dimmed">
+                        Employee share of statutory remittances
+                      </Text>
+                    </Stack>
+
+                    <Grid gutter="md">
+                      {statutoryContributionDetails.map((detail) => (
+                        <Grid.Col
+                          span={{ base: 12, sm: 6, md: 3 }}
+                          key={detail.label}
+                        >
+                          <Box>
+                            <Text
+                              size="xs"
+                              fw={600}
+                              c="dimmed"
+                              tt="uppercase"
+                              mb={4}
+                            >
+                              {detail.label}
+                            </Text>
+                            <Text
+                              size="sm"
+                              c={detail.value === 'N/A' ? 'dimmed' : undefined}
+                            >
+                              {detail.value}
+                            </Text>
+                          </Box>
+                        </Grid.Col>
+                      ))}
+                    </Grid>
+                  </Stack>
                 </ScrollArea>
               </Card>
             </Stack>

@@ -72,6 +72,10 @@ export function EmployeeFormDialog({
       allowance: '',
       paymentSchedule: 'bi-monthly',
       profilePhoto: '',
+      sssMonthlyContribution: '',
+      philHealthMonthlyContribution: '',
+      pagibigMonthlyContribution: '',
+      taxMonthlyContribution: '',
     },
     validate: {
       firstName: (value) => (!value ? 'First name is required' : null),
@@ -138,6 +142,26 @@ export function EmployeeFormDialog({
         allowance: editingEmployee.allowance?.toString() || '',
         paymentSchedule: editingEmployee.paymentSchedule || 'bi-monthly',
         profilePhoto: editingEmployee.profilePhoto || '',
+        sssMonthlyContribution:
+          editingEmployee.sssMonthlyContribution !== undefined &&
+          editingEmployee.sssMonthlyContribution !== null
+            ? editingEmployee.sssMonthlyContribution.toString()
+            : '',
+        philHealthMonthlyContribution:
+          editingEmployee.philHealthMonthlyContribution !== undefined &&
+          editingEmployee.philHealthMonthlyContribution !== null
+            ? editingEmployee.philHealthMonthlyContribution.toString()
+            : '',
+        pagibigMonthlyContribution:
+          editingEmployee.pagibigMonthlyContribution !== undefined &&
+          editingEmployee.pagibigMonthlyContribution !== null
+            ? editingEmployee.pagibigMonthlyContribution.toString()
+            : '',
+        taxMonthlyContribution:
+          editingEmployee.taxMonthlyContribution !== undefined &&
+          editingEmployee.taxMonthlyContribution !== null
+            ? editingEmployee.taxMonthlyContribution.toString()
+            : '',
       });
     } else {
       form.reset();
@@ -554,6 +578,90 @@ export function EmployeeFormDialog({
                 {...form.getInputProps('tinNumber')}
                 {...getFieldProps('tinNumber').handlers}
                 styles={getFieldProps('tinNumber').styles}
+              />
+            </Grid.Col>
+            {/* Statutory Contributions Section */}
+            <Grid.Col span={12}>
+              <Divider
+                label={
+                  <Text size="sm" fw={600}>
+                    📊 Statutory Contributions (Monthly)
+                  </Text>
+                }
+                labelPosition="left"
+                mt="md"
+              />
+            </Grid.Col>
+            <Grid.Col span={3}>
+              <NumberInput
+                label="SSS Contribution"
+                min={0}
+                prefix="₱"
+                decimalScale={2}
+                hideControls
+                value={form.values.sssMonthlyContribution}
+                onChange={(value) =>
+                  form.setFieldValue(
+                    'sssMonthlyContribution',
+                    value?.toString() || ''
+                  )
+                }
+                {...getFieldProps('sssMonthlyContribution').handlers}
+                styles={getFieldProps('sssMonthlyContribution').styles}
+              />
+            </Grid.Col>
+            <Grid.Col span={3}>
+              <NumberInput
+                label="PhilHealth Contribution"
+                min={0}
+                prefix="₱"
+                decimalScale={2}
+                hideControls
+                value={form.values.philHealthMonthlyContribution}
+                onChange={(value) =>
+                  form.setFieldValue(
+                    'philHealthMonthlyContribution',
+                    value?.toString() || ''
+                  )
+                }
+                {...getFieldProps('philHealthMonthlyContribution').handlers}
+                styles={getFieldProps('philHealthMonthlyContribution').styles}
+              />
+            </Grid.Col>
+            <Grid.Col span={3}>
+              <NumberInput
+                label="Pag-IBIG Contribution"
+                min={0}
+                prefix="₱"
+                decimalScale={2}
+                hideControls
+                value={form.values.pagibigMonthlyContribution}
+                onChange={(value) =>
+                  form.setFieldValue(
+                    'pagibigMonthlyContribution',
+                    value?.toString() || ''
+                  )
+                }
+                {...getFieldProps('pagibigMonthlyContribution').handlers}
+                styles={getFieldProps('pagibigMonthlyContribution').styles}
+              />
+            </Grid.Col>
+            <Grid.Col span={3}>
+              <NumberInput
+                label="Income Tax Contribution"
+                min={0}
+                prefix="₱"
+                decimalScale={2}
+                hideControls
+                value={form.values.taxMonthlyContribution}
+                onChange={(value) =>
+                  form.setFieldValue(
+                    'taxMonthlyContribution',
+                    value?.toString() || ''
+                  )
+                }
+                {...getFieldProps('taxMonthlyContribution').handlers}
+                styles={getFieldProps('taxMonthlyContribution').styles}
               />
             </Grid.Col>
             {/* Financial Section */}

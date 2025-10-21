@@ -56,6 +56,10 @@ export interface Employee {
   allowance?: number;
   paymentSchedule?: 'weekly' | 'bi-weekly' | 'monthly' | 'semi-monthly';
   profilePhoto?: string;
+  sssMonthlyContribution?: number | null;
+  philHealthMonthlyContribution?: number | null;
+  pagibigMonthlyContribution?: number | null;
+  taxMonthlyContribution?: number | null;
 }
 
 export interface EmployeeFormData {
@@ -97,4 +101,8 @@ export interface EmployeeFormData {
   contact: string;
   emergencyContact?: string;
   profilePhoto?: string;
+  sssMonthlyContribution?: string;
+  philHealthMonthlyContribution?: string;
+  pagibigMonthlyContribution?: string;
+  taxMonthlyContribution?: string;
 }

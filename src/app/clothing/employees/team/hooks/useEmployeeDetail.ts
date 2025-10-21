@@ -75,9 +75,22 @@ export function useEmployeeDetail(employeeId: string) {
         const data = await response.json();
 
         // Transform database response to match Employee type
+        const toOptionalNumber = (value: unknown) => {
+          const parsed = Number(value);
+          return Number.isFinite(parsed) ? parsed : undefined;
+        };
+
         const transformedEmployee: Employee = {
           ...data,
           id: data.id.toString(), // Convert number to string for UI
+          sssMonthlyContribution:
+            toOptionalNumber(data.sssMonthlyContribution) ?? undefined,
+          philHealthMonthlyContribution:
+            toOptionalNumber(data.philHealthMonthlyContribution) ?? undefined,
+          pagibigMonthlyContribution:
+            toOptionalNumber(data.pagibigMonthlyContribution) ?? undefined,
+          taxMonthlyContribution:
+            toOptionalNumber(data.taxMonthlyContribution) ?? undefined,
         };
 
         setEmployee(transformedEmployee);
@@ -501,6 +514,18 @@ export function useEmployeeDetail(employeeId: string) {
       console.log('🔵 [useEmployeeDetail] handleSaveEmployee called');
       console.log('🔵 [useEmployeeDetail] formData:', formData);
 
+      const parseOptionalNumber = (value?: string) => {
+        if (!value) {
+          return null;
+        }
+        const trimmed = value.trim();
+        if (trimmed.length === 0) {
+          return null;
+        }
+        const parsed = Number.parseFloat(trimmed);
+        return Number.isFinite(parsed) ? parsed : null;
+      };
+
       const payload = {
         employeeId: formData.employeeId,
         // Name fields - use the actual form data
@@ -531,8 +556,20 @@ export function useEmployeeDetail(employeeId: string) {
         currentSalary: formData.currentSalary
           ? parseFloat(formData.currentSalary)
           : parseFloat(formData.basicSalary) || 0,
-        allowance: formData.allowance ? parseFloat(formData.allowance) : null,
+        allowance: parseOptionalNumber(formData.allowance),
         paymentSchedule: formData.paymentSchedule || null,
+        sssMonthlyContribution: parseOptionalNumber(
+          formData.sssMonthlyContribution
+        ),
+        philHealthMonthlyContribution: parseOptionalNumber(
+          formData.philHealthMonthlyContribution
+        ),
+        pagibigMonthlyContribution: parseOptionalNumber(
+          formData.pagibigMonthlyContribution
+        ),
+        taxMonthlyContribution: parseOptionalNumber(
+          formData.taxMonthlyContribution
+        ),
         // Government IDs
         sssNumber: formData.sssNumber || null,
         philHealthNumber: formData.philHealthNumber || null,
@@ -596,6 +633,26 @@ export function useEmployeeDetail(employeeId: string) {
       setEmployee({
         ...updatedEmployee,
         id: updatedEmployee.id.toString(),
+        sssMonthlyContribution:
+          updatedEmployee.sssMonthlyContribution ??
+          payload.sssMonthlyContribution ??
+          employee.sssMonthlyContribution ??
+          null,
+        philHealthMonthlyContribution:
+          updatedEmployee.philHealthMonthlyContribution ??
+          payload.philHealthMonthlyContribution ??
+          employee.philHealthMonthlyContribution ??
+          null,
+        pagibigMonthlyContribution:
+          updatedEmployee.pagibigMonthlyContribution ??
+          payload.pagibigMonthlyContribution ??
+          employee.pagibigMonthlyContribution ??
+          null,
+        taxMonthlyContribution:
+          updatedEmployee.taxMonthlyContribution ??
+          payload.taxMonthlyContribution ??
+          employee.taxMonthlyContribution ??
+          null,
       });
 
       // Close the form
@@ -660,6 +717,11 @@ export function useEmployeeDetail(employeeId: string) {
         emergencyContact: employee.emergencyContact || null,
         bankAccount: employee.bankAccount || null,
         gcashAccount: employee.gcashAccount || null,
+        sssMonthlyContribution: employee.sssMonthlyContribution ?? null,
+        philHealthMonthlyContribution:
+          employee.philHealthMonthlyContribution ?? null,
+        pagibigMonthlyContribution: employee.pagibigMonthlyContribution ?? null,
+        taxMonthlyContribution: employee.taxMonthlyContribution ?? null,
         profilePhoto: base64Photo,
       };
 
@@ -685,6 +747,22 @@ export function useEmployeeDetail(employeeId: string) {
       setEmployee({
         ...updatedEmployee,
         id: updatedEmployee.id.toString(),
+        sssMonthlyContribution:
+          updatedEmployee.sssMonthlyContribution ??
+          employee.sssMonthlyContribution ??
+          null,
+        philHealthMonthlyContribution:
+          updatedEmployee.philHealthMonthlyContribution ??
+          employee.philHealthMonthlyContribution ??
+          null,
+        pagibigMonthlyContribution:
+          updatedEmployee.pagibigMonthlyContribution ??
+          employee.pagibigMonthlyContribution ??
+          null,
+        taxMonthlyContribution:
+          updatedEmployee.taxMonthlyContribution ??
+          employee.taxMonthlyContribution ??
+          null,
       });
     } catch (error) {
       console.error('🔴 [useEmployeeDetail] Error uploading photo:', error);
