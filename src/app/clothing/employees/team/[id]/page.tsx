@@ -430,12 +430,9 @@ export default function EmployeeDetailPage() {
     }
   };
 
-  const attendanceToDisplay = attendanceHistory.slice(0, 30);
-  const leaveToDisplay = leaveHistory.slice(0, 20);
-  const salaryTimelineToDisplay =
-    salaryTimeline.length > 10
-      ? salaryTimeline.slice(salaryTimeline.length - 10)
-      : salaryTimeline;
+  const attendanceToDisplay = attendanceHistory;
+  const leaveToDisplay = leaveHistory;
+  const salaryTimelineToDisplay = salaryTimeline;
 
   return (
     <PageLayout fluid withPadding>
@@ -554,9 +551,11 @@ export default function EmployeeDetailPage() {
         <Tabs defaultValue="profile">
           <Tabs.List>
             <Tabs.Tab value="profile">Profile</Tabs.Tab>
-            <Tabs.Tab value="records">Records</Tabs.Tab>
             <Tabs.Tab value="payroll">Payroll History</Tabs.Tab>
             <Tabs.Tab value="attendance">Attendance Records</Tabs.Tab>
+            <Tabs.Tab value="leave">Leave Requests</Tabs.Tab>
+            <Tabs.Tab value="cash-advance">Cash Advance Summary</Tabs.Tab>
+            <Tabs.Tab value="salary-timeline">Salary Timeline</Tabs.Tab>
           </Tabs.List>
 
           <Tabs.Panel value="profile" pt="md">
@@ -626,179 +625,6 @@ export default function EmployeeDetailPage() {
             </Stack>
           </Tabs.Panel>
 
-          <Tabs.Panel value="records" pt="md">
-            <Stack gap="lg">
-              <Card withBorder padding="lg">
-                <Group justify="space-between" align="flex-start">
-                  <div>
-                    <Title order={4}>Leave Requests</Title>
-                    <Text size="sm" c="dimmed">
-                      Latest {leaveToDisplay.length} of {leaveHistory.length}{' '}
-                      requests
-                    </Text>
-                  </div>
-                </Group>
-                <Divider my="md" />
-                {isLoadingRelated ? (
-                  <Center py="xl">
-                    <Loader size="sm" />
-                  </Center>
-                ) : leaveToDisplay.length === 0 ? (
-                  <Text c="dimmed">
-                    No leave requests recorded for this employee.
-                  </Text>
-                ) : (
-                  <ScrollArea h={240}>
-                    <Table highlightOnHover withTableBorder>
-                      <Table.Thead>
-                        <Table.Tr>
-                          <Table.Th>Type</Table.Th>
-                          <Table.Th>Date Range</Table.Th>
-                          <Table.Th>Days</Table.Th>
-                          <Table.Th>Status</Table.Th>
-                          <Table.Th>Payment</Table.Th>
-                        </Table.Tr>
-                      </Table.Thead>
-                      <Table.Tbody>
-                        {leaveToDisplay.map((request) => (
-                          <Table.Tr key={request.id}>
-                            <Table.Td>{request.leaveType}</Table.Td>
-                            <Table.Td>
-                              {`${formatOptionalDate(request.startDate)} - ${formatOptionalDate(
-                                request.endDate
-                              )}`}
-                            </Table.Td>
-                            <Table.Td>{request.numberOfDays}</Table.Td>
-                            <Table.Td>
-                              <Badge
-                                color={getLeaveStatusColor(request.status)}
-                                variant="light"
-                              >
-                                {request.status.toUpperCase()}
-                              </Badge>
-                            </Table.Td>
-                            <Table.Td>
-                              <Badge variant="outline">
-                                {request.paymentStatus.toUpperCase()}
-                              </Badge>
-                            </Table.Td>
-                          </Table.Tr>
-                        ))}
-                      </Table.Tbody>
-                    </Table>
-                  </ScrollArea>
-                )}
-              </Card>
-
-              <Card withBorder padding="lg">
-                <Group justify="space-between" align="flex-start">
-                  <div>
-                    <Title order={4}>Salary Timeline</Title>
-                    <Text size="sm" c="dimmed">
-                      Tracks base salary and allowance adjustments
-                    </Text>
-                  </div>
-                </Group>
-                <Divider my="md" />
-                {isLoadingRelated ? (
-                  <Center py="xl">
-                    <Loader size="sm" />
-                  </Center>
-                ) : salaryTimelineToDisplay.length === 0 ? (
-                  <Text c="dimmed">
-                    No salary adjustments detected in payroll history.
-                  </Text>
-                ) : (
-                  <Timeline
-                    active={salaryTimelineToDisplay.length - 1}
-                    bulletSize={16}
-                    lineWidth={2}
-                  >
-                    {salaryTimelineToDisplay.map((entry) => (
-                      <Timeline.Item
-                        key={`${entry.id}-${entry.effectiveFrom}`}
-                        title={formatOptionalDate(entry.effectiveFrom)}
-                      >
-                        <Text size="sm" fw={600}>
-                          {entry.payPeriodLabel}
-                        </Text>
-                        <Text size="sm" c="dimmed">
-                          Basic {formatCurrency(entry.basicSalary)} • Allowance{' '}
-                          {formatCurrency(entry.allowance)} • Gross{' '}
-                          {formatCurrency(entry.grossPay)}
-                        </Text>
-                      </Timeline.Item>
-                    ))}
-                  </Timeline>
-                )}
-              </Card>
-
-              <Card withBorder padding="lg">
-                <Group justify="space-between" align="flex-start">
-                  <div>
-                    <Title order={4}>Cash Advance Summary</Title>
-                    <Text size="sm" c="dimmed">
-                      Outstanding balance:{' '}
-                      {formatCurrency(outstandingCashAdvance)}
-                    </Text>
-                  </div>
-                  <Badge variant="light" color="grape">
-                    {cashAdvanceRecords.length} requests
-                  </Badge>
-                </Group>
-                <Divider my="md" />
-                {isLoadingRelated ? (
-                  <Center py="xl">
-                    <Loader size="sm" />
-                  </Center>
-                ) : cashAdvanceRecords.length === 0 ? (
-                  <Text c="dimmed">
-                    No cash advance history yet. When this employee requests a
-                    cash advance it will appear here.
-                  </Text>
-                ) : (
-                  <ScrollArea h={240}>
-                    <Table highlightOnHover withTableBorder>
-                      <Table.Thead>
-                        <Table.Tr>
-                          <Table.Th>Request Date</Table.Th>
-                          <Table.Th>Amount</Table.Th>
-                          <Table.Th>Settled</Table.Th>
-                          <Table.Th>Remaining</Table.Th>
-                          <Table.Th>Status</Table.Th>
-                        </Table.Tr>
-                      </Table.Thead>
-                      <Table.Tbody>
-                        {cashAdvanceRecords.map((record) => (
-                          <Table.Tr key={record.id}>
-                            <Table.Td>
-                              {formatOptionalDate(record.requestDate)}
-                            </Table.Td>
-                            <Table.Td>{formatCurrency(record.amount)}</Table.Td>
-                            <Table.Td>
-                              {formatCurrency(record.settledAmount ?? 0)}
-                            </Table.Td>
-                            <Table.Td>
-                              {formatCurrency(record.remainingBalance ?? 0)}
-                            </Table.Td>
-                            <Table.Td>
-                              <Badge
-                                color={getCashAdvanceStatusColor(record.status)}
-                                variant="light"
-                              >
-                                {record.status.toUpperCase()}
-                              </Badge>
-                            </Table.Td>
-                          </Table.Tr>
-                        ))}
-                      </Table.Tbody>
-                    </Table>
-                  </ScrollArea>
-                )}
-              </Card>
-            </Stack>
-          </Tabs.Panel>
-
           <Tabs.Panel value="payroll" pt="md">
             <Stack gap="lg">
               <Card withBorder padding="lg">
@@ -824,7 +650,7 @@ export default function EmployeeDetailPage() {
                     No payroll entries yet for this employee.
                   </Text>
                 ) : (
-                  <ScrollArea h={280}>
+                  <ScrollArea h="68vh">
                     <Table highlightOnHover withTableBorder>
                       <Table.Thead>
                         <Table.Tr>
@@ -877,8 +703,7 @@ export default function EmployeeDetailPage() {
                   <div>
                     <Title order={4}>Attendance Records</Title>
                     <Text size="sm" c="dimmed">
-                      Latest {attendanceToDisplay.length} of{' '}
-                      {attendanceHistory.length} entries
+                      Showing all {attendanceHistory.length} entries
                     </Text>
                   </div>
                 </Group>
@@ -892,7 +717,7 @@ export default function EmployeeDetailPage() {
                     No attendance entries found for this employee.
                   </Text>
                 ) : (
-                  <ScrollArea h={240}>
+                  <ScrollArea h="68vh">
                     <Table highlightOnHover withTableBorder>
                       <Table.Thead>
                         <Table.Tr>
@@ -928,6 +753,188 @@ export default function EmployeeDetailPage() {
                         ))}
                       </Table.Tbody>
                     </Table>
+                  </ScrollArea>
+                )}
+              </Card>
+            </Stack>
+          </Tabs.Panel>
+
+          <Tabs.Panel value="leave" pt="md">
+            <Stack gap="lg">
+              <Card withBorder padding="lg">
+                <Group justify="space-between" align="flex-start">
+                  <div>
+                    <Title order={4}>Leave Requests</Title>
+                    <Text size="sm" c="dimmed">
+                      Showing all {leaveHistory.length} requests
+                    </Text>
+                  </div>
+                </Group>
+                <Divider my="md" />
+                {isLoadingRelated ? (
+                  <Center py="xl">
+                    <Loader size="sm" />
+                  </Center>
+                ) : leaveToDisplay.length === 0 ? (
+                  <Text c="dimmed">
+                    No leave requests recorded for this employee.
+                  </Text>
+                ) : (
+                  <ScrollArea h="68vh">
+                    <Table highlightOnHover withTableBorder>
+                      <Table.Thead>
+                        <Table.Tr>
+                          <Table.Th>Type</Table.Th>
+                          <Table.Th>Date Range</Table.Th>
+                          <Table.Th>Days</Table.Th>
+                          <Table.Th>Status</Table.Th>
+                          <Table.Th>Payment</Table.Th>
+                        </Table.Tr>
+                      </Table.Thead>
+                      <Table.Tbody>
+                        {leaveToDisplay.map((request) => (
+                          <Table.Tr key={request.id}>
+                            <Table.Td>{request.leaveType}</Table.Td>
+                            <Table.Td>
+                              {`${formatOptionalDate(request.startDate)} - ${formatOptionalDate(
+                                request.endDate
+                              )}`}
+                            </Table.Td>
+                            <Table.Td>{request.numberOfDays}</Table.Td>
+                            <Table.Td>
+                              <Badge
+                                color={getLeaveStatusColor(request.status)}
+                                variant="light"
+                              >
+                                {request.status.toUpperCase()}
+                              </Badge>
+                            </Table.Td>
+                            <Table.Td>
+                              <Badge variant="outline">
+                                {request.paymentStatus.toUpperCase()}
+                              </Badge>
+                            </Table.Td>
+                          </Table.Tr>
+                        ))}
+                      </Table.Tbody>
+                    </Table>
+                  </ScrollArea>
+                )}
+              </Card>
+            </Stack>
+          </Tabs.Panel>
+
+          <Tabs.Panel value="cash-advance" pt="md">
+            <Stack gap="lg">
+              <Card withBorder padding="lg">
+                <Group justify="space-between" align="flex-start">
+                  <div>
+                    <Title order={4}>Cash Advance Summary</Title>
+                    <Text size="sm" c="dimmed">
+                      Outstanding balance:{' '}
+                      {formatCurrency(outstandingCashAdvance)}
+                    </Text>
+                  </div>
+                  <Badge variant="light" color="grape">
+                    {cashAdvanceRecords.length} requests
+                  </Badge>
+                </Group>
+                <Divider my="md" />
+                {isLoadingRelated ? (
+                  <Center py="xl">
+                    <Loader size="sm" />
+                  </Center>
+                ) : cashAdvanceRecords.length === 0 ? (
+                  <Text c="dimmed">
+                    No cash advance history yet. When this employee requests a
+                    cash advance it will appear here.
+                  </Text>
+                ) : (
+                  <ScrollArea h="68vh">
+                    <Table highlightOnHover withTableBorder>
+                      <Table.Thead>
+                        <Table.Tr>
+                          <Table.Th>Request Date</Table.Th>
+                          <Table.Th>Amount</Table.Th>
+                          <Table.Th>Settled</Table.Th>
+                          <Table.Th>Remaining</Table.Th>
+                          <Table.Th>Status</Table.Th>
+                        </Table.Tr>
+                      </Table.Thead>
+                      <Table.Tbody>
+                        {cashAdvanceRecords.map((record) => (
+                          <Table.Tr key={record.id}>
+                            <Table.Td>
+                              {formatOptionalDate(record.requestDate)}
+                            </Table.Td>
+                            <Table.Td>{formatCurrency(record.amount)}</Table.Td>
+                            <Table.Td>
+                              {formatCurrency(record.settledAmount ?? 0)}
+                            </Table.Td>
+                            <Table.Td>
+                              {formatCurrency(record.remainingBalance ?? 0)}
+                            </Table.Td>
+                            <Table.Td>
+                              <Badge
+                                color={getCashAdvanceStatusColor(record.status)}
+                                variant="light"
+                              >
+                                {record.status.toUpperCase()}
+                              </Badge>
+                            </Table.Td>
+                          </Table.Tr>
+                        ))}
+                      </Table.Tbody>
+                    </Table>
+                  </ScrollArea>
+                )}
+              </Card>
+            </Stack>
+          </Tabs.Panel>
+
+          <Tabs.Panel value="salary-timeline" pt="md">
+            <Stack gap="lg">
+              <Card withBorder padding="lg">
+                <Group justify="space-between" align="flex-start">
+                  <div>
+                    <Title order={4}>Salary Timeline</Title>
+                    <Text size="sm" c="dimmed">
+                      Tracks base salary and allowance adjustments
+                    </Text>
+                  </div>
+                </Group>
+                <Divider my="md" />
+                {isLoadingRelated ? (
+                  <Center py="xl">
+                    <Loader size="sm" />
+                  </Center>
+                ) : salaryTimelineToDisplay.length === 0 ? (
+                  <Text c="dimmed">
+                    No salary adjustments detected in payroll history.
+                  </Text>
+                ) : (
+                  <ScrollArea h="68vh">
+                    <Timeline
+                      active={salaryTimelineToDisplay.length - 1}
+                      bulletSize={16}
+                      lineWidth={2}
+                    >
+                      {salaryTimelineToDisplay.map((entry) => (
+                        <Timeline.Item
+                          key={`${entry.id}-${entry.effectiveFrom}`}
+                          title={formatOptionalDate(entry.effectiveFrom)}
+                        >
+                          <Text size="sm" fw={600}>
+                            {entry.payPeriodLabel}
+                          </Text>
+                          <Text size="sm" c="dimmed">
+                            Basic {formatCurrency(entry.basicSalary)} •
+                            Allowance {formatCurrency(entry.allowance)} • Gross{' '}
+                            {formatCurrency(entry.grossPay)}
+                          </Text>
+                        </Timeline.Item>
+                      ))}
+                    </Timeline>
                   </ScrollArea>
                 )}
               </Card>
