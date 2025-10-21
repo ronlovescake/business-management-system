@@ -116,6 +116,20 @@ export async function PUT(
           : 0,
       allowance: body.allowance ? parseFloat(body.allowance) : null,
 
+      // Statutory Monthly Contributions
+      sssMonthlyContribution: body.sssMonthlyContribution
+        ? parseFloat(body.sssMonthlyContribution)
+        : null,
+      philHealthMonthlyContribution: body.philHealthMonthlyContribution
+        ? parseFloat(body.philHealthMonthlyContribution)
+        : null,
+      pagibigMonthlyContribution: body.pagibigMonthlyContribution
+        ? parseFloat(body.pagibigMonthlyContribution)
+        : null,
+      taxMonthlyContribution: body.taxMonthlyContribution
+        ? parseFloat(body.taxMonthlyContribution)
+        : null,
+
       // Optional fields
       employmentStatus: body.employmentStatus || null,
       employeeType: body.employeeType || null,

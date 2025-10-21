@@ -53,15 +53,10 @@ export default function Payroll() {
     const start = formatDatePart(startRaw);
     const end = formatDatePart(endRaw);
 
-    if (!start || !end) {
-      return start || end || period;
-    }
-
-    return `${start} to ${end}`;
+    return end ? `${start} - ${end}` : start;
   };
 
   const {
-    // State
     payrolls,
     searchQuery,
     statusFilter,
@@ -69,26 +64,18 @@ export default function Payroll() {
     isFormOpen,
     editingPayroll,
     payPeriods,
-
-    // Computed Values
     totalPayrolls,
     pendingPayrolls,
     approvedPayrolls,
     totalNetPay,
-
-    // Setters
     setSearchQuery,
     setStatusFilter,
     setPayPeriodFilter,
     setIsFormOpen,
-
-    // Utility Functions
     formatDate,
     formatCurrency,
     getStatusColor,
     calculateTotals,
-
-    // Event Handlers
     handleAddPayroll,
     handleEditPayroll,
     handleDeletePayroll,
@@ -97,11 +84,30 @@ export default function Payroll() {
     handleMarkAsPaid,
     handleImportCSV,
     handleExportCSV,
-    handleSyncLwop,
-
-    // Loading States
-    isSyncingLwop,
+    getEmployeeMonthlyContributions,
   } = usePayroll();
+
+  const resolveContributionValue = (
+    item: PayrollType,
+    field: 'sss' | 'philHealth' | 'pagIbig' | 'tax'
+  ) => {
+    const rawValue = item[field];
+    if (rawValue > 0) {
+      return rawValue;
+    }
+
+    const contributions = getEmployeeMonthlyContributions(
+      item.employeeId ?? null,
+      item.employee
+    );
+
+    if (!contributions) {
+      return rawValue;
+    }
+
+    const fallback = contributions[field];
+    return fallback !== null && fallback !== undefined ? fallback : rawValue;
+  };
 
   // Stats Configuration
   const stats: StatCard[] = [
@@ -174,24 +180,38 @@ export default function Payroll() {
     {
       key: 'sss',
       label: 'SSS',
-      render: (item) => <Text size="sm">{formatCurrency(item.sss)}</Text>,
+      render: (item) => (
+        <Text size="sm">
+          {formatCurrency(resolveContributionValue(item, 'sss'))}
+        </Text>
+      ),
     },
     {
       key: 'philHealth',
       label: 'PHILHEALTH',
       render: (item) => (
-        <Text size="sm">{formatCurrency(item.philHealth)}</Text>
+        <Text size="sm">
+          {formatCurrency(resolveContributionValue(item, 'philHealth'))}
+        </Text>
       ),
     },
     {
       key: 'pagIbig',
       label: 'PAG-IBIG',
-      render: (item) => <Text size="sm">{formatCurrency(item.pagIbig)}</Text>,
+      render: (item) => (
+        <Text size="sm">
+          {formatCurrency(resolveContributionValue(item, 'pagIbig'))}
+        </Text>
+      ),
     },
     {
       key: 'tax',
       label: 'TAX',
-      render: (item) => <Text size="sm">{formatCurrency(item.tax)}</Text>,
+      render: (item) => (
+        <Text size="sm">
+          {formatCurrency(resolveContributionValue(item, 'tax'))}
+        </Text>
+      ),
     },
     {
       key: 'loans',
@@ -326,50 +346,6 @@ export default function Payroll() {
           onAdd={handleAddPayroll}
           addButtonLabel="Add Payroll"
         />
-
-        {/* LWOP Sync Button */}
-        <Group justify="flex-end" mt="md">
-          <button
-            onClick={handleSyncLwop}
-            disabled={isSyncingLwop}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: isSyncingLwop ? '#868e96' : '#228be6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: isSyncingLwop ? 'not-allowed' : 'pointer',
-              fontSize: '14px',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              transition: 'all 0.2s ease',
-              boxShadow: isSyncingLwop
-                ? 'none'
-                : '0 4px 12px rgba(34, 139, 230, 0.3)',
-            }}
-            onMouseEnter={(e) => {
-              if (!isSyncingLwop) {
-                e.currentTarget.style.backgroundColor = '#1971c2';
-                e.currentTarget.style.transform = 'translateY(-1px)';
-                e.currentTarget.style.boxShadow =
-                  '0 6px 16px rgba(34, 139, 230, 0.4)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!isSyncingLwop) {
-                e.currentTarget.style.backgroundColor = '#228be6';
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow =
-                  '0 4px 12px rgba(34, 139, 230, 0.3)';
-              }
-            }}
-          >
-            <IconCash size={18} />
-            {isSyncingLwop ? 'Syncing LWOP...' : 'Sync LWOP from Leave Tracker'}
-          </button>
-        </Group>
 
         {/* Payroll Table */}
         <DataTable

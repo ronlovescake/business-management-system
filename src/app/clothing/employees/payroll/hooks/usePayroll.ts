@@ -3,10 +3,15 @@ import type { Payroll, PayrollFormData } from '../types';
 import { getCurrentDateISO } from '@/utils/date';
 
 interface EmployeeDirectoryEntry {
+  id: string;
   employeeId: string;
   name: string;
   firstName?: string | null;
   lastName?: string | null;
+  sssMonthlyContribution?: number | null;
+  philHealthMonthlyContribution?: number | null;
+  pagibigMonthlyContribution?: number | null;
+  taxMonthlyContribution?: number | null;
 }
 
 const normalizeIdentifier = (value: string | undefined | null) =>
@@ -32,6 +37,10 @@ export function usePayroll() {
       }
 
       return employees.find((entry) => {
+        if (entry.id && normalizeIdentifier(entry.id) === normalized) {
+          return true;
+        }
+
         if (normalizeIdentifier(entry.employeeId) === normalized) {
           return true;
         }
@@ -60,13 +69,29 @@ export function usePayroll() {
           throw new Error('Failed to load employees');
         }
         const data = await response.json();
+        const toOptionalNumber = (value: unknown) => {
+          const parsed = Number(value);
+          return Number.isFinite(parsed) ? parsed : undefined;
+        };
         const directory = Array.isArray(data)
           ? data.map((item) => ({
+              id:
+                item.id !== undefined && item.id !== null
+                  ? String(item.id)
+                  : '',
               employeeId: item.employeeId,
               name:
                 item.name ?? `${item.firstName ?? ''} ${item.lastName ?? ''}`,
               firstName: item.firstName ?? null,
               lastName: item.lastName ?? null,
+              sssMonthlyContribution:
+                toOptionalNumber(item.sssMonthlyContribution) ?? null,
+              philHealthMonthlyContribution:
+                toOptionalNumber(item.philHealthMonthlyContribution) ?? null,
+              pagibigMonthlyContribution:
+                toOptionalNumber(item.pagibigMonthlyContribution) ?? null,
+              taxMonthlyContribution:
+                toOptionalNumber(item.taxMonthlyContribution) ?? null,
             }))
           : [];
         setEmployees(directory);
@@ -679,6 +704,42 @@ export function usePayroll() {
     a.click();
   };
 
+  const getEmployeeMonthlyContributions = useCallback(
+    (employeeId?: string | null, fallbackName?: string) => {
+      const directoryEntry =
+        resolveEmployeeRecord(employeeId) ||
+        resolveEmployeeRecord(fallbackName);
+
+      if (!directoryEntry) {
+        return null;
+      }
+
+      return {
+        sss:
+          directoryEntry.sssMonthlyContribution !== undefined &&
+          directoryEntry.sssMonthlyContribution !== null
+            ? directoryEntry.sssMonthlyContribution
+            : null,
+        philHealth:
+          directoryEntry.philHealthMonthlyContribution !== undefined &&
+          directoryEntry.philHealthMonthlyContribution !== null
+            ? directoryEntry.philHealthMonthlyContribution
+            : null,
+        pagIbig:
+          directoryEntry.pagibigMonthlyContribution !== undefined &&
+          directoryEntry.pagibigMonthlyContribution !== null
+            ? directoryEntry.pagibigMonthlyContribution
+            : null,
+        tax:
+          directoryEntry.taxMonthlyContribution !== undefined &&
+          directoryEntry.taxMonthlyContribution !== null
+            ? directoryEntry.taxMonthlyContribution
+            : null,
+      };
+    },
+    [resolveEmployeeRecord]
+  );
+
   // ============================================================================
   // LWOP SYNC FUNCTIONALITY
   // ============================================================================
@@ -761,6 +822,7 @@ export function usePayroll() {
     handleImportCSV,
     handleExportCSV,
     handleSyncLwop,
+    getEmployeeMonthlyContributions,
 
     // Loading States
     isSyncingLwop,

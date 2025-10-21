@@ -303,6 +303,12 @@ model Employee {
   allowance       Float?
   paymentSchedule String? @db.VarChar(50) // 'weekly' | 'bi-weekly' | 'monthly' | 'semi-monthly'
 
+  // Statutory Monthly Contributions
+  sssMonthlyContribution        Float?
+  philHealthMonthlyContribution Float?
+  pagibigMonthlyContribution    Float?
+  taxMonthlyContribution        Float?
+
   // Financial Accounts
   bankAccount  String? @db.VarChar(255)
   gcashAccount String? @db.VarChar(50)

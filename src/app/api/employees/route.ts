@@ -111,6 +111,18 @@ export async function POST(request: NextRequest) {
       gcashAccount: body.gcashAccount || null,
       allowance: body.allowance ? parseFloat(body.allowance) : null,
       paymentSchedule: body.paymentSchedule || null,
+      sssMonthlyContribution: body.sssMonthlyContribution
+        ? parseFloat(body.sssMonthlyContribution)
+        : null,
+      philHealthMonthlyContribution: body.philHealthMonthlyContribution
+        ? parseFloat(body.philHealthMonthlyContribution)
+        : null,
+      pagibigMonthlyContribution: body.pagibigMonthlyContribution
+        ? parseFloat(body.pagibigMonthlyContribution)
+        : null,
+      taxMonthlyContribution: body.taxMonthlyContribution
+        ? parseFloat(body.taxMonthlyContribution)
+        : null,
       profilePhoto:
         body.profilePhoto && typeof body.profilePhoto === 'string'
           ? body.profilePhoto
