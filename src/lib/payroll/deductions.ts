@@ -249,6 +249,17 @@ interface MinimalCashAdvanceRecord {
   termsMonths: number | null;
 }
 
+type ThirteenthMonthRecord = {
+  recordId: string;
+  employeeId: string | null;
+  employeeName: string;
+  year: number;
+  status: string;
+  thirteenthMonthPay: Prisma.Decimal;
+  approvedDate: string | null;
+  paidDate: string | null;
+};
+
 const buildEmployeeDataMap = async (
   payrolls: Payroll[]
 ): Promise<Map<string, EmployeeMapEntry>> => {
@@ -549,6 +560,231 @@ const mergeCashAdvanceUpdate = (
     return;
   }
   store.set(id, update);
+};
+
+const selectThirteenthMonthTarget = (
+  candidates: Array<{
+    payroll: Payroll;
+    start: Date | null;
+    end: Date | null;
+  }>,
+  approvedDate: Date | null,
+  paidDate: Date | null
+) => {
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  const priorityDate = paidDate ?? approvedDate;
+
+  if (priorityDate) {
+    const matching = candidates.find(({ start, end }) => {
+      if (!start || !end) {
+        return false;
+      }
+      return priorityDate >= start && priorityDate <= end;
+    });
+
+    if (matching) {
+      return matching;
+    }
+  }
+
+  return candidates.reduce((latest, candidate) => {
+    if (!latest.end) {
+      return candidate;
+    }
+    if (!candidate.end) {
+      return latest;
+    }
+    return candidate.end > latest.end ? candidate : latest;
+  }, candidates[0]);
+};
+
+const applyThirteenthMonthAdjustments = async (
+  payrolls: Payroll[]
+): Promise<Payroll[]> => {
+  if (payrolls.length === 0) {
+    return payrolls;
+  }
+
+  const payrollMeta = payrolls.map((payroll) => {
+    const { start, end } = getPayrollPeriodRange(payroll);
+    const periodYear = end?.getUTCFullYear() ?? start?.getUTCFullYear() ?? null;
+    return { payroll, start, end, periodYear };
+  });
+
+  const relevantYears = Array.from(
+    new Set(
+      payrollMeta
+        .map((meta) => meta.periodYear)
+        .filter((year): year is number => year !== null)
+    )
+  );
+
+  if (relevantYears.length === 0) {
+    return payrolls;
+  }
+
+  const thirteenthMonthDelegate = (
+    prisma as unknown as {
+      thirteenthMonthPayRecord?: {
+        findMany: (args: {
+          where?: unknown;
+          select?: unknown;
+        }) => Promise<ThirteenthMonthRecord[]>;
+      };
+    }
+  ).thirteenthMonthPayRecord;
+
+  if (!thirteenthMonthDelegate?.findMany) {
+    return payrolls;
+  }
+
+  const thirteenthRecords = await thirteenthMonthDelegate.findMany({
+    where: {
+      status: { in: ['approved', 'paid'] },
+      year: { in: relevantYears },
+    },
+    select: {
+      recordId: true,
+      employeeId: true,
+      employeeName: true,
+      year: true,
+      status: true,
+      thirteenthMonthPay: true,
+      approvedDate: true,
+      paidDate: true,
+    },
+  });
+
+  if (thirteenthRecords.length === 0) {
+    return payrolls;
+  }
+
+  const updates: Array<{ id: string; data: Prisma.PayrollUpdateInput }> = [];
+  const updatedResults = new Map<string, Payroll>();
+
+  for (const record of thirteenthRecords) {
+    const normalizedId = normalizeIdentifier(record.employeeId);
+    const normalizedName = normalizeIdentifier(record.employeeName);
+
+    const candidates = payrollMeta.filter(({ payroll, periodYear }) => {
+      if (periodYear === null || periodYear !== record.year) {
+        return false;
+      }
+      if (payroll.status === 'paid') {
+        return false;
+      }
+
+      const payrollId = normalizeIdentifier(payroll.employeeId);
+      const payrollName = normalizeIdentifier(payroll.employeeName);
+
+      if (normalizedId && payrollId && normalizedId === payrollId) {
+        return true;
+      }
+
+      if (!normalizedId && normalizedName && payrollName) {
+        return normalizedName === payrollName;
+      }
+
+      if (normalizedId && !payrollId && normalizedName && payrollName) {
+        return normalizedName === payrollName;
+      }
+
+      return false;
+    });
+
+    if (candidates.length === 0) {
+      continue;
+    }
+
+    const approvedDate = parseDate(record.approvedDate);
+    const paidDate = parseDate(record.paidDate);
+    const target = selectThirteenthMonthTarget(
+      candidates,
+      approvedDate,
+      paidDate
+    );
+    if (!target) {
+      continue;
+    }
+
+    const amount = roundToCents(Number(record.thirteenthMonthPay));
+
+    for (const candidate of candidates) {
+      const payroll =
+        updatedResults.get(candidate.payroll.id) ?? candidate.payroll;
+      const desiredAmount = candidate === target ? amount : 0;
+      const currentAmount = roundToCents(payroll.thirteenthMonth ?? 0);
+
+      // Avoid resetting other payrolls if they already match desired amount
+      if (candidate !== target && currentAmount === 0) {
+        continue;
+      }
+
+      const grossPay = roundToCents(
+        Number(payroll.basicSalary ?? 0) +
+          Number(payroll.allowance ?? 0) +
+          Number(payroll.overtime ?? 0) +
+          Number(payroll.bonuses ?? 0) +
+          desiredAmount
+      );
+
+      const totalDeductions = sumDeductions({
+        ...payroll,
+        thirteenthMonth: desiredAmount,
+      } as Payroll);
+      const netPay = roundToCents(Math.max(0, grossPay - totalDeductions));
+
+      const currentGross = roundToCents(payroll.grossPay ?? 0);
+      const currentTotal = roundToCents(payroll.totalDeductions ?? 0);
+      const currentNet = roundToCents(payroll.netPay ?? 0);
+
+      const needsUpdate =
+        currentAmount !== desiredAmount ||
+        currentGross !== grossPay ||
+        currentTotal !== totalDeductions ||
+        currentNet !== netPay;
+
+      if (!needsUpdate) {
+        continue;
+      }
+
+      const updateValues = {
+        thirteenthMonth: desiredAmount,
+        grossPay,
+        totalDeductions,
+        netPay,
+      } satisfies Prisma.PayrollUpdateInput;
+
+      updates.push({ id: payroll.id, data: updateValues });
+
+      updatedResults.set(payroll.id, {
+        ...payroll,
+        ...(updateValues as Partial<Payroll>),
+      });
+    }
+  }
+
+  if (updates.length === 0) {
+    return payrolls.map((payroll) => updatedResults.get(payroll.id) ?? payroll);
+  }
+
+  const persisted = await prisma.$transaction(
+    updates.map(({ id, data }) =>
+      prisma.payroll.update({
+        where: { id },
+        data,
+      })
+    )
+  );
+
+  for (const record of persisted) {
+    updatedResults.set(record.id, record);
+  }
+
+  return payrolls.map((payroll) => updatedResults.get(payroll.id) ?? payroll);
 };
 
 const applyStatutoryContributionAdjustments = async (
@@ -1350,7 +1586,11 @@ export const syncPayrollDeductions = async (
     payrolls,
     employeeDataMap
   );
-  const afterLwop = await applyLwopAdjustments(afterStatutory, employeeDataMap);
+  const afterThirteenth = await applyThirteenthMonthAdjustments(afterStatutory);
+  const afterLwop = await applyLwopAdjustments(
+    afterThirteenth,
+    employeeDataMap
+  );
   const attendanceIndex = await buildAttendanceDataIndex(afterLwop);
   const afterAttendance = await applyAttendanceAdjustments(
     afterLwop,
