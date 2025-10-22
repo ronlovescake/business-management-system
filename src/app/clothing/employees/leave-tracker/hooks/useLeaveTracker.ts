@@ -722,26 +722,71 @@ export function useLeaveTracker() {
 
         if (requestedDays > remainingAllocation && remainingAllocation > 0) {
           // Split into PAID and UNPAID portions
-          // Calculate split date
+          // Calculate split date based on SCHEDULED work days, not calendar days
+          const normalizedEmployeeId = String(formEmployeeId || '')
+            .trim()
+            .toLowerCase();
+          const scheduleSet = employeeScheduleIndex[normalizedEmployeeId];
+
           let daysCounter = 0;
           let splitDate = '';
+          let offset = 0;
+          const maxIterations = 365; // Safety limit
 
-          for (let offset = 0; offset < requestedDays; offset += 1) {
+          while (offset < maxIterations) {
             const currentDay = parsedStart.add(offset, 'day');
-            daysCounter += 1;
+            const currentDateStr = currentDay.format('YYYY-MM-DD');
 
-            if (daysCounter === remainingAllocation) {
-              splitDate = currentDay.format('YYYY-MM-DD');
-              break;
+            // Check if this day is a scheduled work day
+            const isScheduledDay =
+              !scheduleSet ||
+              scheduleSet.size === 0 ||
+              scheduleSet.has(currentDateStr);
+
+            if (isScheduledDay) {
+              daysCounter += 1;
+
+              if (daysCounter === remainingAllocation) {
+                splitDate = currentDateStr;
+                break;
+              }
             }
+
+            offset += 1;
           }
 
           if (splitDate) {
             const paidEndDate = splitDate;
-            const unpaidStartDate = dayjs(splitDate)
-              .tz()
-              .add(1, 'day')
-              .format('YYYY-MM-DD');
+
+            // Find the next scheduled day after splitDate for unpaid start
+            let unpaidStartDate = '';
+            let searchOffset = 1;
+            const maxSearch = 365;
+
+            while (searchOffset < maxSearch) {
+              const nextDay = dayjs(splitDate).tz().add(searchOffset, 'day');
+              const nextDateStr = nextDay.format('YYYY-MM-DD');
+
+              const isNextScheduledDay =
+                !scheduleSet ||
+                scheduleSet.size === 0 ||
+                scheduleSet.has(nextDateStr);
+
+              if (isNextScheduledDay) {
+                unpaidStartDate = nextDateStr;
+                break;
+              }
+
+              searchOffset += 1;
+            }
+
+            // Fallback if no next scheduled day found
+            if (!unpaidStartDate) {
+              unpaidStartDate = dayjs(splitDate)
+                .tz()
+                .add(1, 'day')
+                .format('YYYY-MM-DD');
+            }
 
             // Create PAID request (uses allocation)
             requestsToCreate.push({
