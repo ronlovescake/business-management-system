@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { Payroll, PayrollFormData } from '../types';
 import { getCurrentDateISO } from '@/utils/date';
+import Swal from 'sweetalert2';
 
 interface EmployeeDirectoryEntry {
   id: string;
@@ -575,14 +576,66 @@ export function usePayroll() {
   };
 
   const handleMarkAsPaid = async (id: string) => {
+    const payroll = payrolls.find((p) => p.id === id);
+    if (!payroll) {
+      return;
+    }
+
+    // Show confirmation dialog
+    const result = await Swal.fire({
+      title: 'Mark Payroll as Paid?',
+      html: `
+        <div style="text-align: left; padding: 0 10px;">
+          <p style="margin-bottom: 15px;"><strong>Employee:</strong> ${payroll.employee}</p>
+          <p style="margin-bottom: 15px;"><strong>Period:</strong> ${payroll.payPeriod}</p>
+          <p style="margin-bottom: 15px;"><strong>Net Pay:</strong> ₱${(payroll.netPay ?? 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          ${
+            payroll.thirteenthMonth && payroll.thirteenthMonth > 0
+              ? `
+          <div style="background-color: #e0f2fe; border-left: 4px solid #0284c7; padding: 12px; margin-top: 15px;">
+            <p style="margin: 0; color: #075985;">
+              ℹ️ <strong>Note:</strong> This payroll includes 13th month pay (₱${payroll.thirteenthMonth.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}). 
+              The corresponding 13th month record will also be marked as paid.
+            </p>
+          </div>
+          `
+              : ''
+          }
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, Mark as Paid',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#10b981',
+      cancelButtonColor: '#6c757d',
+      reverseButtons: true,
+    });
+
+    if (!result.isConfirmed) {
+      return;
+    }
+
     try {
+      // Show loading
+      Swal.fire({
+        title: 'Processing...',
+        text: 'Marking payroll as paid',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+      });
+
+      const paidDate = getCurrentDateISO();
+
       const response = await fetch('/api/payroll', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id,
           status: 'paid',
-          paidDate: getCurrentDateISO(),
+          paidDate,
         }),
       });
 
@@ -591,6 +644,66 @@ export function usePayroll() {
       }
 
       const updated = await response.json();
+
+      // If this payroll has 13th month pay, also mark 13th month record as paid
+      if (payroll.thirteenthMonth && payroll.thirteenthMonth > 0) {
+        // Extract year from pay period (format: "MMM DD, YYYY - MMM DD, YYYY")
+        const year = payroll.payPeriod
+          ? new Date(
+              payroll.payPeriod.split(' - ')[1] || payroll.payPeriod
+            ).getFullYear()
+          : new Date().getFullYear();
+
+        // Get employee ID - try payroll.employeeId first, fallback to empty string
+        const employeeId = payroll.employeeId || '';
+
+        // Construct 13th month record ID: employeeId-year
+        const thirteenthMonthRecordId = `${employeeId.toLowerCase()}-${year}`;
+
+        try {
+          // First, try to fetch the existing 13th month record to preserve its data
+          const existingResponse = await fetch('/api/thirteenth-month-pay');
+          const existingRecords = await existingResponse.json();
+
+          const existingRecord = Array.isArray(existingRecords)
+            ? existingRecords.find(
+                (r: { recordId?: string; id?: string }) =>
+                  (r.recordId || r.id) === thirteenthMonthRecordId
+              )
+            : null;
+
+          // Sync to 13th month pay - preserve existing data if available
+          await fetch('/api/thirteenth-month-pay', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: thirteenthMonthRecordId,
+              employeeId: employeeId,
+              employee: payroll.employee,
+              year: year,
+              status: 'paid',
+              paidDate: paidDate,
+              thirteenthMonthPay:
+                existingRecord?.thirteenthMonthPay ?? payroll.thirteenthMonth,
+              // Preserve existing calculated values if record exists, otherwise use defaults
+              totalBasicSalary: existingRecord?.totalBasicSalary ?? 0,
+              totalLwop: existingRecord?.totalLwop ?? 0,
+              totalAbsencesLates: existingRecord?.totalAbsencesLates ?? 0,
+              netBasicSalary: existingRecord?.netBasicSalary ?? 0,
+              monthsWorked: existingRecord?.monthsWorked ?? 12,
+              calculatedDate: existingRecord?.calculatedDate ?? null,
+              approvedDate: existingRecord?.approvedDate ?? null,
+              notes: existingRecord?.notes ?? null,
+            }),
+          });
+        } catch (thirteenthError) {
+          console.warn(
+            'Failed to sync 13th month pay status:',
+            thirteenthError
+          );
+          // Don't fail the entire operation if 13th month sync fails
+        }
+      }
 
       setPayrolls((prev) =>
         prev.map((p) =>
@@ -603,9 +716,27 @@ export function usePayroll() {
             : p
         )
       );
+
+      // Show success message
+      Swal.fire({
+        title: 'Marked as Paid!',
+        text:
+          payroll.thirteenthMonth && payroll.thirteenthMonth > 0
+            ? 'Payroll and 13th month pay have been marked as paid.'
+            : 'Payroll has been marked as paid.',
+        icon: 'success',
+        confirmButtonColor: '#10b981',
+      });
     } catch (error) {
       console.error('Error marking payroll as paid:', error);
-      alert('Failed to mark payroll as paid');
+
+      // Show error message
+      Swal.fire({
+        title: 'Error',
+        text: 'Failed to mark payroll as paid. Please try again.',
+        icon: 'error',
+        confirmButtonColor: '#ef4444',
+      });
     }
   };
 
