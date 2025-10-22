@@ -648,16 +648,7 @@ const applyLwopAdjustments = async (
       employeeSchedules
     );
 
-    const currentDeduction = roundToCents(payroll.lwop ?? 0);
-    const needsUpdate =
-      roundToCents(payroll.unpaidDays ?? 0) !== unpaidDays ||
-      roundToCents(payroll.dailyRate ?? 0) !== dailyRate ||
-      currentDeduction !== deduction;
-
-    if (!needsUpdate) {
-      continue;
-    }
-
+    // Always recalculate totalDeductions to ensure statutory deductions are included
     const totalDeductions = sumDeductions(payroll, {
       lwop: deduction,
       absentsLates: payroll.absentsLates,
@@ -665,6 +656,21 @@ const applyLwopAdjustments = async (
     const netPay = roundToCents(
       Math.max(0, payroll.grossPay - totalDeductions)
     );
+
+    const currentDeduction = roundToCents(payroll.lwop ?? 0);
+    const currentTotal = roundToCents(payroll.totalDeductions ?? 0);
+    const currentNetPay = roundToCents(payroll.netPay ?? 0);
+
+    const needsUpdate =
+      roundToCents(payroll.unpaidDays ?? 0) !== unpaidDays ||
+      roundToCents(payroll.dailyRate ?? 0) !== dailyRate ||
+      currentDeduction !== deduction ||
+      currentTotal !== totalDeductions ||
+      currentNetPay !== netPay;
+
+    if (!needsUpdate) {
+      continue;
+    }
 
     const updateValues = {
       lwop: deduction,
@@ -890,12 +896,7 @@ const applyAttendanceAdjustments = async (
       scheduleRecords
     );
 
-    const currentAbsentsLates = roundToCents(payroll.absentsLates ?? 0);
-
-    if (currentAbsentsLates === deduction) {
-      continue;
-    }
-
+    // Always recalculate totalDeductions to ensure statutory deductions are included
     const totalDeductions = sumDeductions(payroll, {
       absentsLates: deduction,
       lwop: payroll.lwop,
@@ -903,6 +904,19 @@ const applyAttendanceAdjustments = async (
     const netPay = roundToCents(
       Math.max(0, payroll.grossPay - totalDeductions)
     );
+
+    const currentAbsentsLates = roundToCents(payroll.absentsLates ?? 0);
+    const currentTotal = roundToCents(payroll.totalDeductions ?? 0);
+    const currentNetPay = roundToCents(payroll.netPay ?? 0);
+
+    const needsUpdate =
+      currentAbsentsLates !== deduction ||
+      currentTotal !== totalDeductions ||
+      currentNetPay !== netPay;
+
+    if (!needsUpdate) {
+      continue;
+    }
 
     const updateValues = {
       absentsLates: deduction,
