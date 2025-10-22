@@ -178,7 +178,9 @@ export default function ThirteenthMonthPayPage() {
       label: 'Approve',
       icon: <IconCheck size={16} />,
       color: '#10b981',
-      onClick: (record) => approveRecord(record.id),
+      onClick: async (record) => {
+        await approveRecord(record.id);
+      },
       show: (record) =>
         record.status === 'calculated' || record.status === 'pending',
     },
@@ -186,7 +188,9 @@ export default function ThirteenthMonthPayPage() {
       label: 'Mark as Paid',
       icon: <IconCash size={16} />,
       color: '#6366f1',
-      onClick: (record) => markAsPaid(record.id),
+      onClick: async (record) => {
+        await markAsPaid(record.id);
+      },
       show: (record) => record.status === 'approved',
     },
   ];

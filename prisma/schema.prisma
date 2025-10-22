@@ -599,3 +599,32 @@ model Payroll {
   @@index([deletedAt])
   @@map("payrolls")
 }
+
+// ============================================================================
+// THIRTEENTH MONTH PAY RECORDS
+// ============================================================================
+
+model ThirteenthMonthPayRecord {
+  id                   String    @id @default(cuid())
+  recordId             String    @unique @db.VarChar(150)
+  employeeId           String?   @db.VarChar(50)
+  employeeName         String    @db.VarChar(255)
+  year                 Int
+  status               String    @db.VarChar(20) @default("calculated") // 'pending' | 'calculated' | 'approved' | 'paid'
+  totalBasicSalary     Decimal   @db.Decimal(14, 2) @default(0)
+  totalLwop            Decimal   @db.Decimal(14, 2) @default(0)
+  totalAbsencesLates   Decimal   @db.Decimal(14, 2) @default(0)
+  netBasicSalary       Decimal   @db.Decimal(14, 2) @default(0)
+  monthsWorked         Int       @default(1)
+  thirteenthMonthPay   Decimal   @db.Decimal(14, 2) @default(0)
+  notes                String?   @db.Text
+  calculatedDate       String?   @db.VarChar(50)
+  approvedDate         String?   @db.VarChar(50)
+  paidDate             String?   @db.VarChar(50)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([year])
+  @@index([status])
+  @@map("thirteenth_month_pay_records")
+}

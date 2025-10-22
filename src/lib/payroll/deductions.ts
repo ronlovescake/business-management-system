@@ -568,37 +568,26 @@ const selectThirteenthMonthTarget = (
     start: Date | null;
     end: Date | null;
   }>,
-  approvedDate: Date | null,
-  paidDate: Date | null
+  _approvedDate: Date | null,
+  _paidDate: Date | null
 ) => {
   if (candidates.length === 0) {
     return null;
   }
 
-  const priorityDate = paidDate ?? approvedDate;
-
-  if (priorityDate) {
-    const matching = candidates.find(({ start, end }) => {
-      if (!start || !end) {
-        return false;
-      }
-      return priorityDate >= start && priorityDate <= end;
-    });
-
-    if (matching) {
-      return matching;
-    }
-  }
-
-  return candidates.reduce((latest, candidate) => {
-    if (!latest.end) {
+  // Always select the latest (current) pay period only
+  // Do NOT apply 13th month to previous/past periods
+  const latest = candidates.reduce((latestCandidate, candidate) => {
+    if (!latestCandidate.end) {
       return candidate;
     }
     if (!candidate.end) {
-      return latest;
+      return latestCandidate;
     }
-    return candidate.end > latest.end ? candidate : latest;
+    return candidate.end > latestCandidate.end ? candidate : latestCandidate;
   }, candidates[0]);
+
+  return latest;
 };
 
 const applyThirteenthMonthAdjustments = async (

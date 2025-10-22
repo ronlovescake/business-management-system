@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { ThirteenthMonthPay, ThirteenthMonthPayFormData } from '../types';
 import { getCurrentDateISO, formatDisplayDate } from '@/utils/date';
 import { logger } from '@/lib/logger';
+import Swal from 'sweetalert2';
 
 const normalizeValue = (value: string | null | undefined) =>
   (value ?? '').toString().trim().replace(/\s+/g, ' ').toLowerCase();
@@ -24,6 +25,59 @@ const toNumber = (value: unknown): number => {
     return Number.isFinite(parsed) ? parsed : 0;
   }
   return 0;
+};
+
+const buildPersistencePayload = (
+  base: ThirteenthMonthPay,
+  overrides: Partial<ThirteenthMonthPay> & {
+    status?: ThirteenthMonthPay['status'];
+    calculatedDate?: string | null;
+    approvedDate?: string | null;
+    paidDate?: string | null;
+  } = {}
+) => {
+  const merged: ThirteenthMonthPay = {
+    ...base,
+    ...overrides,
+  };
+
+  const yearNumber = Number.parseInt(merged.year, 10);
+  const safeYear = Number.isFinite(yearNumber)
+    ? yearNumber
+    : new Date().getFullYear();
+  const safeMonthsWorked = Math.max(1, Math.trunc(merged.monthsWorked ?? 12));
+
+  // Extract base employee ID from record ID (format: "employeeId-year")
+  // e.g., "emp-0004-2025" -> "emp-0004"
+  const extractEmployeeId = (recordId: string): string => {
+    const parts = recordId.split('-');
+    if (parts.length >= 2) {
+      // Last part is year, remove it
+      const yearPart = parts[parts.length - 1];
+      if (/^\d{4}$/.test(yearPart)) {
+        return parts.slice(0, -1).join('-');
+      }
+    }
+    return recordId;
+  };
+
+  return {
+    id: merged.id,
+    employeeId: extractEmployeeId(merged.id),
+    employee: merged.employee,
+    year: safeYear,
+    status: merged.status,
+    totalBasicSalary: merged.totalBasicSalary,
+    totalLwop: merged.totalLwop,
+    totalAbsencesLates: merged.totalAbsencesLates,
+    netBasicSalary: merged.netBasicSalary,
+    monthsWorked: safeMonthsWorked,
+    thirteenthMonthPay: merged.thirteenthMonthPay,
+    notes: merged.notes ?? null,
+    calculatedDate: merged.calculatedDate ?? null,
+    approvedDate: merged.approvedDate ?? null,
+    paidDate: merged.paidDate ?? null,
+  };
 };
 
 const parseDate = (value?: string | null) => {
@@ -170,10 +224,12 @@ export function useThirteenthMonthPay() {
     try {
       setIsLoading(true);
 
-      const [activeEmployeesResponse, payrollResponse] = await Promise.all([
-        fetch('/api/employees?status=active'),
-        fetch('/api/payroll'),
-      ]);
+      const [activeEmployeesResponse, payrollResponse, persistedResponse] =
+        await Promise.all([
+          fetch('/api/employees?status=active'),
+          fetch('/api/payroll'),
+          fetch('/api/thirteenth-month-pay'),
+        ]);
 
       if (!activeEmployeesResponse.ok) {
         throw new Error('Failed to fetch active employees');
@@ -187,6 +243,8 @@ export function useThirteenthMonthPay() {
         await activeEmployeesResponse.json();
       const payrollRecords: Array<Record<string, unknown>> =
         await payrollResponse.json();
+      const persistedRecords: Array<Record<string, unknown>> =
+        persistedResponse.ok ? await persistedResponse.json() : [];
 
       const employeeById = new Map<string, Record<string, unknown>>();
       const employeeByName = new Map<string, Record<string, unknown>>();
@@ -327,48 +385,74 @@ export function useThirteenthMonthPay() {
 
       // Preserve any manual updates by merging existing records where IDs match
       setRecords((prevRecords) => {
-        if (prevRecords.length === 0) {
+        // Build map of persisted (approved/paid) records from database
+        const persistedMap = new Map(
+          persistedRecords.map((r) => [
+            r.recordId || r.id,
+            {
+              id: (r.recordId || r.id) as string,
+              employee: r.employee as string,
+              year: r.year?.toString() || '2025',
+              hireDate: null,
+              tenureship: 'N/A',
+              totalBasicSalary: toNumber(r.totalBasicSalary),
+              totalLwop: toNumber(r.totalLwop),
+              totalAbsencesLates: toNumber(r.totalAbsencesLates),
+              netBasicSalary: toNumber(r.netBasicSalary),
+              thirteenthMonthPay: toNumber(r.thirteenthMonthPay),
+              monthsWorked: (r.monthsWorked as number) || 12,
+              status:
+                (r.status as ThirteenthMonthPay['status']) || 'calculated',
+              calculatedDate: r.calculatedDate as string | undefined,
+              approvedDate: r.approvedDate as string | undefined,
+              paidDate: r.paidDate as string | undefined,
+              notes: r.notes as string | undefined,
+            } as ThirteenthMonthPay,
+          ])
+        );
+
+        if (prevRecords.length === 0 && persistedMap.size === 0) {
           return autoRecords;
         }
 
-        const manualRecordMap = new Map(prevRecords.map((r) => [r.id, r]));
+        const mergedMap = new Map<string, ThirteenthMonthPay>();
 
+        // First, add all auto-calculated records
         autoRecords.forEach((record) => {
-          const existing = manualRecordMap.get(record.id);
-          if (!existing) {
-            manualRecordMap.set(record.id, record);
-            return;
-          }
-
-          const isLocked =
-            existing.status === 'paid' || existing.status === 'approved';
-
-          manualRecordMap.set(record.id, {
-            ...record,
-            totalBasicSalary: isLocked
-              ? existing.totalBasicSalary
-              : record.totalBasicSalary,
-            totalLwop: isLocked ? existing.totalLwop : record.totalLwop,
-            totalAbsencesLates: isLocked
-              ? existing.totalAbsencesLates
-              : record.totalAbsencesLates,
-            netBasicSalary: isLocked
-              ? existing.netBasicSalary
-              : record.netBasicSalary,
-            hireDate: record.hireDate ?? existing.hireDate ?? null,
-            tenureship: record.tenureship ?? existing.tenureship,
-            status: existing.status,
-            calculatedDate: existing.calculatedDate,
-            approvedDate: existing.approvedDate,
-            paidDate: existing.paidDate,
-            notes: existing.notes,
-            thirteenthMonthPay: isLocked
-              ? existing.thirteenthMonthPay
-              : record.thirteenthMonthPay,
-          });
+          mergedMap.set(record.id, record);
         });
 
-        const merged = Array.from(manualRecordMap.values());
+        // Then overlay persisted records, preserving locked values
+        persistedMap.forEach((persisted, persistedId) => {
+          const id = String(persistedId);
+          const autoRecord = mergedMap.get(id);
+          const isLocked =
+            persisted.status === 'approved' || persisted.status === 'paid';
+
+          if (autoRecord && !isLocked) {
+            // Status is calculated - use fresh values but keep status/dates
+            mergedMap.set(id, {
+              ...autoRecord,
+              status: persisted.status,
+              calculatedDate: persisted.calculatedDate,
+              approvedDate: persisted.approvedDate,
+              paidDate: persisted.paidDate,
+              notes: persisted.notes,
+            });
+          } else if (isLocked) {
+            // Status is approved/paid - lock values, but update employee info
+            mergedMap.set(id, {
+              ...persisted,
+              hireDate: autoRecord?.hireDate ?? persisted.hireDate,
+              tenureship: autoRecord?.tenureship ?? persisted.tenureship,
+            });
+          } else {
+            // No auto record exists, use persisted
+            mergedMap.set(id, persisted);
+          }
+        });
+
+        const merged = Array.from(mergedMap.values());
         merged.sort((a, b) => {
           const nameCompare = a.employee.localeCompare(b.employee);
           if (nameCompare !== 0) {
@@ -519,7 +603,7 @@ export function useThirteenthMonthPay() {
   };
 
   // Edit record
-  const editRecord = (id: string, data: ThirteenthMonthPayFormData) => {
+  const editRecord = async (id: string, data: ThirteenthMonthPayFormData) => {
     const totalBasicSalary = parseFloat(data.totalBasicSalary) || 0;
     const totalLwop = parseFloat(data.totalLwop) || 0;
     const totalAbsencesLates = parseFloat(data.totalAbsencesLates) || 0;
@@ -529,63 +613,270 @@ export function useThirteenthMonthPay() {
       totalAbsencesLates
     );
 
-    setRecords((prevRecords) =>
-      prevRecords.map((record) =>
-        record.id === id
-          ? {
-              ...record,
-              employee: data.employee,
-              year: data.year,
-              totalBasicSalary,
-              totalLwop,
-              totalAbsencesLates,
-              netBasicSalary: thirteenthMonthPay,
-              thirteenthMonthPay,
-              notes: data.notes,
-            }
-          : record
-      )
-    );
+    const record = records.find((r) => r.id === id);
+    if (!record) {
+      return;
+    }
+
+    try {
+      const updatedRecord: ThirteenthMonthPay = {
+        ...record,
+        employee: data.employee,
+        year: data.year,
+        totalBasicSalary,
+        totalLwop,
+        totalAbsencesLates,
+        netBasicSalary: thirteenthMonthPay,
+        thirteenthMonthPay,
+        notes: data.notes,
+      };
+
+      const payload = buildPersistencePayload(updatedRecord);
+
+      // Persist to database
+      const response = await fetch('/api/thirteenth-month-pay', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to edit record');
+      }
+
+      // Update local state
+      setRecords((prevRecords) =>
+        prevRecords.map((r) =>
+          r.id === id
+            ? {
+                ...r,
+                employee: data.employee,
+                year: data.year,
+                totalBasicSalary,
+                totalLwop,
+                totalAbsencesLates,
+                netBasicSalary: thirteenthMonthPay,
+                thirteenthMonthPay,
+                notes: data.notes,
+              }
+            : r
+        )
+      );
+    } catch (error) {
+      console.error('Error editing record:', error);
+    }
   };
 
   // Delete record
-  const deleteRecord = (id: string) => {
-    setRecords((prevRecords) =>
-      prevRecords.filter((record) => record.id !== id)
-    );
+  const deleteRecord = async (id: string) => {
+    try {
+      // Delete from database
+      const response = await fetch('/api/thirteenth-month-pay', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordId: id }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete record');
+      }
+
+      // Update local state
+      setRecords((prevRecords) =>
+        prevRecords.filter((record) => record.id !== id)
+      );
+    } catch (error) {
+      console.error('Error deleting record:', error);
+    }
   };
 
   // Approve record
-  const approveRecord = (id: string) => {
-    setRecords((prevRecords) =>
-      prevRecords.map((record) =>
-        record.id === id
-          ? {
-              ...record,
-              status: 'approved',
-              approvedDate: getCurrentDateISO(),
-            }
-          : record
-      )
-    );
+  const approveRecord = async (id: string) => {
+    const record = records.find((r) => r.id === id);
+    if (!record) {
+      return;
+    }
+
+    // Show confirmation dialog
+    const result = await Swal.fire({
+      title: 'Approve 13th Month Pay?',
+      html: `
+        <div style="text-align: left; padding: 0 10px;">
+          <p style="margin-bottom: 15px;"><strong>Employee:</strong> ${record.employee}</p>
+          <p style="margin-bottom: 15px;"><strong>13th Month Pay:</strong> ₱${record.thirteenthMonthPay.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin-top: 15px;">
+            <p style="margin: 0; color: #856404;">
+              ⚠️ <strong>Warning:</strong> Once approved, the calculated values will be <strong>locked</strong> and will no longer auto-update based on payroll changes.
+            </p>
+          </div>
+        </div>
+      `,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, Approve & Lock',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#10b981',
+      cancelButtonColor: '#6c757d',
+      reverseButtons: true,
+    });
+
+    if (!result.isConfirmed) {
+      return; // User cancelled
+    }
+
+    try {
+      const approvedDate = getCurrentDateISO();
+
+      // Show loading
+      Swal.fire({
+        title: 'Processing...',
+        text: 'Approving 13th month pay record',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+      });
+
+      const payload = buildPersistencePayload(record, {
+        status: 'approved',
+        approvedDate,
+      });
+
+      // Persist to database
+      const response = await fetch('/api/thirteenth-month-pay', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to approve record');
+      }
+
+      // Update local state
+      setRecords((prevRecords) =>
+        prevRecords.map((r) =>
+          r.id === id
+            ? {
+                ...r,
+                status: 'approved',
+                approvedDate,
+              }
+            : r
+        )
+      );
+
+      // Show success message
+      Swal.fire({
+        title: 'Approved!',
+        text: 'The 13th month pay has been approved and locked.',
+        icon: 'success',
+        confirmButtonColor: '#10b981',
+      });
+    } catch (error) {
+      console.error('Error approving record:', error);
+
+      // Show error message
+      Swal.fire({
+        title: 'Error',
+        text: 'Failed to approve the record. Please try again.',
+        icon: 'error',
+        confirmButtonColor: '#ef4444',
+      });
+    }
   };
 
   // Mark as paid
-  const markAsPaid = (id: string) => {
-    setRecords((prevRecords) =>
-      prevRecords.map((record) =>
-        record.id === id
-          ? {
-              ...record,
-              status: 'paid',
-              paidDate: getCurrentDateISO(),
-            }
-          : record
-      )
-    );
-  };
+  const markAsPaid = async (id: string) => {
+    const record = records.find((r) => r.id === id);
+    if (!record) {
+      return;
+    }
 
-  // Import CSV
+    // Show confirmation dialog
+    const result = await Swal.fire({
+      title: 'Mark as Paid?',
+      html: `
+        <div style="text-align: left; padding: 0 10px;">
+          <p style="margin-bottom: 15px;"><strong>Employee:</strong> ${record.employee}</p>
+          <p style="margin-bottom: 15px;"><strong>13th Month Pay:</strong> ₱${record.thirteenthMonthPay.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          <p style="margin: 0;">This will mark the record as paid and record the payment date.</p>
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, Mark as Paid',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#6366f1',
+      cancelButtonColor: '#6c757d',
+      reverseButtons: true,
+    });
+
+    if (!result.isConfirmed) {
+      return; // User cancelled
+    }
+
+    try {
+      const paidDate = getCurrentDateISO();
+
+      // Show loading
+      Swal.fire({
+        title: 'Processing...',
+        text: 'Marking as paid',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+      });
+
+      const payload = buildPersistencePayload(record, {
+        status: 'paid',
+        paidDate,
+      });
+
+      // Persist to database
+      const response = await fetch('/api/thirteenth-month-pay', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to mark as paid');
+      }
+
+      // Update local state
+      setRecords((prevRecords) =>
+        prevRecords.map((r) =>
+          r.id === id
+            ? {
+                ...r,
+                status: 'paid',
+                paidDate,
+              }
+            : r
+        )
+      );
+
+      // Show success message
+      Swal.fire({
+        title: 'Marked as Paid!',
+        text: 'The payment has been recorded successfully.',
+        icon: 'success',
+        confirmButtonColor: '#6366f1',
+      });
+    } catch (error) {
+      console.error('Error marking as paid:', error);
+
+      // Show error message
+      Swal.fire({
+        title: 'Error',
+        text: 'Failed to mark as paid. Please try again.',
+        icon: 'error',
+        confirmButtonColor: '#ef4444',
+      });
+    }
+  }; // Import CSV
   const importFromCSV = (file: File) => {
     logger.debug('Importing CSV:', file.name);
     // CSV import logic would go here
