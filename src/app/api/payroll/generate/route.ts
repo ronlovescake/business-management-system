@@ -150,6 +150,42 @@ export async function POST() {
       employees.map((employee) => [employee.employeeId, employee])
     );
 
+    // ============================================================================
+    // FETCH 13TH MONTH PAY RECORDS TO PREVENT DUPLICATE PAYMENTS
+    // ============================================================================
+    // Get the year from the pay period to check 13th month pay status
+    const payPeriodYear = new Date(currentPeriod.end).getFullYear();
+
+    // Fetch all 13th month records for this year to check payment status
+    // This prevents including 13th month pay in payroll after it's already been paid
+    const thirteenthMonthRecords =
+      await prisma.thirteenthMonthPayRecord.findMany({
+        where: {
+          year: payPeriodYear,
+          employeeId: { in: employeeIds },
+        },
+        select: {
+          employeeId: true,
+          recordId: true,
+          status: true,
+          thirteenthMonthPay: true,
+        },
+      });
+
+    // Create a map: employeeId -> { amount, isPaid }
+    // This allows us to check if 13th month has been paid and exclude it from new payrolls
+    const thirteenthMonthByEmployee = new Map(
+      thirteenthMonthRecords
+        .filter((record) => record.employeeId)
+        .map((record) => [
+          record.employeeId as string,
+          {
+            amount: Number(record.thirteenthMonthPay) || 0,
+            isPaid: record.status === 'paid',
+          },
+        ])
+    );
+
     const payrollRecords = attendanceSummaries.map(
       ({ employeeId, employeeName, totalHours, daysWorked }) => {
         const employee = employeesById.get(employeeId);
@@ -167,7 +203,16 @@ export async function POST() {
 
         const basicSalary = baseSalary / 2;
         const bonuses = 0;
-        const thirteenthMonth = 0;
+
+        // Check if 13th month pay should be included in this payroll
+        // Logic: Only include if there's a calculated/approved record that hasn't been paid yet
+        // Common scenario: Include in 1st December payroll, mark as paid, then exclude from 2nd December payroll
+        const thirteenthMonthData = thirteenthMonthByEmployee.get(employeeId);
+        const thirteenthMonth =
+          thirteenthMonthData && !thirteenthMonthData.isPaid
+            ? thirteenthMonthData.amount
+            : 0;
+
         const grossPay =
           basicSalary + allowance + overtimePay + bonuses + thirteenthMonth;
 

@@ -655,6 +655,12 @@ const applyThirteenthMonthAdjustments = async (
   const updatedResults = new Map<string, Payroll>();
 
   for (const record of thirteenthRecords) {
+    // CRITICAL FIX: If 13th month is already marked as 'paid', NEVER apply it to any payroll
+    // This prevents duplicate inclusion when payrolls are deleted/regenerated
+    if (record.status === 'paid') {
+      continue;
+    }
+
     const normalizedId = normalizeIdentifier(record.employeeId);
     const normalizedName = normalizeIdentifier(record.employeeName);
 
