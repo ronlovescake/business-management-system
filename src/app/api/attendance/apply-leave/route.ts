@@ -77,6 +77,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Filter to only include dates up to today (don't create future attendance records)
+    const today = dayjs().tz().format(DATE_STORAGE_FORMAT);
+    const dateRangeUpToToday = dateRange.filter((date) => date <= today);
+
+    // If there are no dates up to today, still return success (leave is in the future)
+    if (dateRangeUpToToday.length === 0) {
+      return NextResponse.json({
+        success: true,
+        updatedCount: 0,
+        createdCount: 0,
+        totalAffected: 0,
+        message:
+          'Leave request is for future dates only. No attendance records created yet.',
+      });
+    }
+
     const [employeeRecord, existingAttendance] = await Promise.all([
       prisma.employee.findFirst({
         where: {
@@ -87,7 +103,7 @@ export async function POST(request: NextRequest) {
       prisma.attendance.findMany({
         where: {
           employeeId: employeeIdRaw,
-          date: { in: dateRange },
+          date: { in: dateRangeUpToToday },
           deletedAt: null,
         },
         select: { id: true, date: true },
@@ -134,7 +150,9 @@ export async function POST(request: NextRequest) {
       updatedCount = updateResult.count;
     }
 
-    const missingDates = dateRange.filter((date) => !existingDates.has(date));
+    const missingDates = dateRangeUpToToday.filter(
+      (date) => !existingDates.has(date)
+    );
     let createdCount = 0;
 
     if (missingDates.length > 0) {
