@@ -6,7 +6,6 @@
  */
 
 import {
-  Modal,
   Stack,
   Group,
   Text,
@@ -18,6 +17,7 @@ import {
   Button,
   Card,
 } from '@mantine/core';
+import { PolishedModal } from '@/components/modals/PolishedModal';
 import {
   IconPackage,
   IconCalendar,
@@ -61,55 +61,20 @@ export function AddProductModal({
   isSubmitting = false,
 }: AddProductModalProps) {
   return (
-    <Modal
+    <PolishedModal
       opened={opened}
       onClose={onClose}
-      closeOnClickOutside={false}
-      closeOnEscape={false}
-      withCloseButton={true}
-      size="95%"
-      radius="lg"
-      shadow="xl"
-      centered
-      padding="xl"
-      styles={{
-        header: {
-          backgroundColor: 'var(--mantine-color-green-0)',
-          borderRadius: '12px 12px 0 0',
-          padding: '24px 32px 16px 32px',
-          borderBottom: '1px solid var(--mantine-color-gray-2)',
-        },
-        title: {
-          fontSize: '24px',
-          fontWeight: 600,
-          color: 'var(--mantine-color-green-8)',
-        },
-        body: {
-          padding: '32px',
-          backgroundColor: 'var(--mantine-color-gray-0)',
-        },
-        close: {
-          color: 'var(--mantine-color-green-6)',
-          '&:hover': {
-            backgroundColor: 'var(--mantine-color-green-1)',
-          },
-        },
-      }}
+      size="50%"
       title={
         <Group gap="sm">
-          <ThemeIcon
-            size="lg"
-            radius="md"
-            variant="light"
-            color={isEditMode ? 'blue' : 'green'}
-          >
+          <ThemeIcon size="lg" radius="md" variant="light" color="gray">
             <IconPackage size={20} />
           </ThemeIcon>
           <div>
-            <Text size="xl" fw={600} c={isEditMode ? 'blue.8' : 'green.8'}>
+            <Text size="xl" fw={600} c="gray.7">
               {isEditMode ? 'Edit Product' : 'Add New Product'}
             </Text>
-            <Text size="sm" c="dimmed">
+            <Text size="sm" c="gray.6">
               {isEditMode
                 ? 'Update the product information below'
                 : 'Fill in the product information below'}
@@ -117,34 +82,23 @@ export function AddProductModal({
           </div>
         </Group>
       }
+      styles={{
+        body: {
+          backgroundColor: 'var(--mantine-color-gray-0)',
+          '& input, & select, & textarea': {
+            backgroundColor: 'var(--mantine-color-white)',
+          },
+        },
+      }}
     >
-      <Stack gap="lg">
+      <Stack gap={32}>
         {/* Basic Product Information Section */}
         <div>
-          <Group mb="md">
-            <ThemeIcon size="sm" radius="md" variant="light" color="green">
-              <IconPackage size={14} />
-            </ThemeIcon>
-            <Text size="lg" fw={500} c="green.7">
-              Basic Product Information
-            </Text>
-          </Group>
-
-          <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
+          <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="lg">
             <TextInput
               label="Shipment Code"
-              placeholder="e.g. KPC 23930A-00173"
               size="md"
               radius="md"
-              styles={{
-                label: { fontWeight: 500, marginBottom: 8 },
-                input: {
-                  borderWidth: 2,
-                  '&:focus': {
-                    borderColor: 'var(--mantine-color-green-5)',
-                  },
-                },
-              }}
               value={form.shipmentCode}
               onChange={(e) =>
                 updateField('shipmentCode', e.currentTarget?.value || '')
@@ -153,19 +107,9 @@ export function AddProductModal({
 
             <TextInput
               label="Product Name"
-              placeholder="e.g. Premium T-Shirt"
               withAsterisk
               size="md"
               radius="md"
-              styles={{
-                label: { fontWeight: 500, marginBottom: 8 },
-                input: {
-                  borderWidth: 2,
-                  '&:focus': {
-                    borderColor: 'var(--mantine-color-green-5)',
-                  },
-                },
-              }}
               value={form.product}
               onChange={(e) =>
                 updateField('product', e.currentTarget?.value || '')
@@ -174,18 +118,8 @@ export function AddProductModal({
 
             <Select
               label="Age Range"
-              placeholder="Select age range"
               size="md"
               radius="md"
-              styles={{
-                label: { fontWeight: 500, marginBottom: 8 },
-                input: {
-                  borderWidth: 2,
-                  '&:focus': {
-                    borderColor: 'var(--mantine-color-green-5)',
-                  },
-                },
-              }}
               data={AGE_RANGE_OPTIONS.map((opt) => ({ ...opt }))}
               allowDeselect
               clearable
@@ -195,18 +129,8 @@ export function AddProductModal({
 
             <Select
               label="Unit"
-              placeholder="Select unit"
               size="md"
               radius="md"
-              styles={{
-                label: { fontWeight: 500, marginBottom: 8 },
-                input: {
-                  borderWidth: 2,
-                  '&:focus': {
-                    borderColor: 'var(--mantine-color-green-5)',
-                  },
-                },
-              }}
               data={UNIT_OPTIONS.map((opt) => ({ ...opt }))}
               allowDeselect
               clearable
@@ -218,30 +142,13 @@ export function AddProductModal({
 
         {/* Date & Payment Information Section */}
         <div>
-          <Group mb="md">
-            <ThemeIcon size="sm" radius="md" variant="light" color="blue">
-              <IconCalendar size={14} />
-            </ThemeIcon>
-            <Text size="lg" fw={500} c="blue.7">
-              Date & Payment Information
-            </Text>
-          </Group>
-
-          <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
+          <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg">
             <TextInput
               label="Posting Date"
-              placeholder="YYYY-MM-DD"
               type="date"
               size="md"
               radius="md"
               leftSection={<IconCalendar size={16} />}
-              styles={{
-                label: { fontWeight: 500, marginBottom: 8 },
-                input: {
-                  borderWidth: 2,
-                  '&:focus': { borderColor: 'var(--mantine-color-blue-5)' },
-                },
-              }}
               value={form.postingDate}
               onChange={(e) =>
                 updateField('postingDate', e.currentTarget?.value || '')
@@ -250,18 +157,10 @@ export function AddProductModal({
 
             <TextInput
               label="Order Date"
-              placeholder="YYYY-MM-DD"
               type="date"
               size="md"
               radius="md"
               leftSection={<IconCalendar size={16} />}
-              styles={{
-                label: { fontWeight: 500, marginBottom: 8 },
-                input: {
-                  borderWidth: 2,
-                  '&:focus': { borderColor: 'var(--mantine-color-blue-5)' },
-                },
-              }}
               value={form.orderDate}
               onChange={(e) =>
                 updateField('orderDate', e.currentTarget?.value || '')
@@ -270,17 +169,9 @@ export function AddProductModal({
 
             <Select
               label="Payment"
-              placeholder="Select payment status"
               size="md"
               radius="md"
               leftSection={<IconCreditCard size={16} />}
-              styles={{
-                label: { fontWeight: 500, marginBottom: 8 },
-                input: {
-                  borderWidth: 2,
-                  '&:focus': { borderColor: 'var(--mantine-color-blue-5)' },
-                },
-              }}
               data={PAYMENT_STATUS_OPTIONS.map((opt) => ({ ...opt }))}
               allowDeselect
               clearable
@@ -292,74 +183,35 @@ export function AddProductModal({
 
         {/* Pricing & Quantity Section */}
         <div>
-          <Group mb="md">
-            <ThemeIcon size="sm" radius="md" variant="light" color="orange">
-              <IconCurrencyPeso size={14} />
-            </ThemeIcon>
-            <Text size="lg" fw={500} c="orange.7">
-              Pricing & Quantity
-            </Text>
-          </Group>
-
-          <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
+          <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
             <NumberInput
               label="Unit Price"
-              placeholder="0.00"
               size="md"
               radius="md"
               leftSection="₱"
               decimalScale={2}
               fixedDecimalScale
               thousandSeparator=","
-              styles={{
-                label: { fontWeight: 500, marginBottom: 8 },
-                input: {
-                  borderWidth: 2,
-                  '&:focus': {
-                    borderColor: 'var(--mantine-color-orange-5)',
-                  },
-                },
-              }}
               value={form.unitPrice}
               onChange={(value) => updateField('unitPrice', Number(value) || 0)}
             />
 
             <NumberInput
               label="Quantity"
-              placeholder="0"
               size="md"
               radius="md"
               min={0}
-              styles={{
-                label: { fontWeight: 500, marginBottom: 8 },
-                input: {
-                  borderWidth: 2,
-                  '&:focus': {
-                    borderColor: 'var(--mantine-color-orange-5)',
-                  },
-                },
-              }}
               value={form.quantity}
               onChange={(value) => updateField('quantity', Number(value) || 0)}
             />
 
             <NumberInput
               label="Exchange Rate"
-              placeholder="1.00"
               size="md"
               radius="md"
               decimalScale={4}
               fixedDecimalScale
               step={0.0001}
-              styles={{
-                label: { fontWeight: 500, marginBottom: 8 },
-                input: {
-                  borderWidth: 2,
-                  '&:focus': {
-                    borderColor: 'var(--mantine-color-orange-5)',
-                  },
-                },
-              }}
               value={form.exchangeRates}
               onChange={(value) =>
                 updateField('exchangeRates', Number(value) || 1)
@@ -370,34 +222,15 @@ export function AddProductModal({
 
         {/* Shipping & Additional Fees Section */}
         <div>
-          <Group mb="md">
-            <ThemeIcon size="sm" radius="md" variant="light" color="purple">
-              <IconTrendingUp size={14} />
-            </ThemeIcon>
-            <Text size="lg" fw={500} c="purple.7">
-              Shipping & Additional Fees
-            </Text>
-          </Group>
-
-          <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 5 }} spacing="md">
+          <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 5 }} spacing="lg">
             <NumberInput
               label="Alibaba Shipping Cost"
-              placeholder="0.00"
               size="md"
               radius="md"
               leftSection="₱"
               decimalScale={2}
               fixedDecimalScale
               thousandSeparator=","
-              styles={{
-                label: { fontWeight: 500, marginBottom: 8 },
-                input: {
-                  borderWidth: 2,
-                  '&:focus': {
-                    borderColor: 'var(--mantine-color-purple-5)',
-                  },
-                },
-              }}
               value={form.alibabaShippingCost}
               onChange={(value) =>
                 updateField('alibabaShippingCost', Number(value) || 0)
@@ -406,22 +239,12 @@ export function AddProductModal({
 
             <NumberInput
               label="Forwarder's Fee"
-              placeholder="0.00"
               size="md"
               radius="md"
               leftSection="₱"
               decimalScale={2}
               fixedDecimalScale
               thousandSeparator=","
-              styles={{
-                label: { fontWeight: 500, marginBottom: 8 },
-                input: {
-                  borderWidth: 2,
-                  '&:focus': {
-                    borderColor: 'var(--mantine-color-purple-5)',
-                  },
-                },
-              }}
               value={form.forwardersFee}
               onChange={(value) =>
                 updateField('forwardersFee', Number(value) || 0)
@@ -430,44 +253,24 @@ export function AddProductModal({
 
             <NumberInput
               label="Lalamove"
-              placeholder="0.00"
               size="md"
               radius="md"
               leftSection="₱"
               decimalScale={2}
               fixedDecimalScale
               thousandSeparator=","
-              styles={{
-                label: { fontWeight: 500, marginBottom: 8 },
-                input: {
-                  borderWidth: 2,
-                  '&:focus': {
-                    borderColor: 'var(--mantine-color-purple-5)',
-                  },
-                },
-              }}
               value={form.lalamove}
               onChange={(value) => updateField('lalamove', Number(value) || 0)}
             />
 
             <NumberInput
               label="Packaging Cost"
-              placeholder="0.00"
               size="md"
               radius="md"
               leftSection="₱"
               decimalScale={2}
               fixedDecimalScale
               thousandSeparator=","
-              styles={{
-                label: { fontWeight: 500, marginBottom: 8 },
-                input: {
-                  borderWidth: 2,
-                  '&:focus': {
-                    borderColor: 'var(--mantine-color-purple-5)',
-                  },
-                },
-              }}
               value={form.packagingCost}
               onChange={(value) =>
                 updateField('packagingCost', Number(value) || 0)
@@ -476,22 +279,12 @@ export function AddProductModal({
 
             <NumberInput
               label="Actual Price"
-              placeholder="0.00"
               size="md"
               radius="md"
               leftSection="₱"
               decimalScale={2}
               fixedDecimalScale
               thousandSeparator=","
-              styles={{
-                label: { fontWeight: 500, marginBottom: 8 },
-                input: {
-                  borderWidth: 2,
-                  '&:focus': {
-                    borderColor: 'var(--mantine-color-purple-5)',
-                  },
-                },
-              }}
               value={form.actualPrice}
               onChange={(value) =>
                 updateField('actualPrice', Number(value) || 0)
@@ -503,42 +296,42 @@ export function AddProductModal({
         {/* Financial Calculations Section */}
         <div>
           <Group mb="md">
-            <ThemeIcon size="sm" radius="md" variant="light" color="indigo">
+            <ThemeIcon size="sm" radius="md" variant="light" color="gray">
               <IconCurrencyPeso size={14} />
             </ThemeIcon>
-            <Text size="lg" fw={500} c="indigo.7">
+            <Text size="lg" fw={500} c="gray.7">
               Financial Calculations & Business Intelligence
             </Text>
           </Group>
 
           {/* First Row - Key Profit Metrics */}
-          <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md" mb="md">
+          <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md" mb="xl">
             {/* Suggested Price Calculation */}
             <Card
               withBorder
               radius="md"
               padding="md"
               style={{
-                backgroundColor: 'var(--mantine-color-indigo-0)',
-                borderColor: 'var(--mantine-color-indigo-3)',
+                backgroundColor: 'var(--mantine-color-gray-0)',
+                borderColor: 'var(--mantine-color-gray-3)',
               }}
             >
               <Group justify="space-between" align="center" mb="md">
-                <ThemeIcon size="sm" radius="md" variant="light" color="indigo">
+                <ThemeIcon size="sm" radius="md" variant="light" color="gray">
                   <IconCurrencyPeso size={14} />
                 </ThemeIcon>
-                <Text size="sm" fw={500} c="indigo.7">
+                <Text size="sm" fw={500} c="gray.7">
                   Suggested Price
                 </Text>
               </Group>
-              <Text size="xl" fw={700} c="indigo.8" ta="center" mb="xs">
+              <Text size="xl" fw={700} c="gray.8" ta="center" mb="xs">
                 ₱
                 {calculations.suggestedPrice.toLocaleString('en-US', {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
               </Text>
-              <Text size="xs" c="dimmed" ta="center">
+              <Text size="xs" c="gray.6" ta="center">
                 Minimum selling price (122% markup)
               </Text>
             </Card>
@@ -549,26 +342,26 @@ export function AddProductModal({
               radius="md"
               padding="md"
               style={{
-                backgroundColor: 'var(--mantine-color-green-0)',
-                borderColor: 'var(--mantine-color-green-3)',
+                backgroundColor: 'var(--mantine-color-gray-0)',
+                borderColor: 'var(--mantine-color-gray-3)',
               }}
             >
               <Group justify="space-between" align="center" mb="md">
-                <ThemeIcon size="sm" radius="md" variant="light" color="green">
+                <ThemeIcon size="sm" radius="md" variant="light" color="gray">
                   <IconTrendingUp size={14} />
                 </ThemeIcon>
-                <Text size="sm" fw={500} c="green.7">
+                <Text size="sm" fw={500} c="gray.7">
                   Projected Sales Total
                 </Text>
               </Group>
-              <Text size="xl" fw={700} c="green.8" ta="center" mb="xs">
+              <Text size="xl" fw={700} c="gray.8" ta="center" mb="xs">
                 ₱
                 {calculations.projectedSales.toLocaleString('en-US', {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
               </Text>
-              <Text size="xs" c="dimmed" ta="center">
+              <Text size="xs" c="gray.6" ta="center">
                 Total revenue (Actual Price × Quantity)
               </Text>
             </Card>
@@ -579,26 +372,26 @@ export function AddProductModal({
               radius="md"
               padding="md"
               style={{
-                backgroundColor: 'var(--mantine-color-teal-0)',
-                borderColor: 'var(--mantine-color-teal-3)',
+                backgroundColor: 'var(--mantine-color-gray-0)',
+                borderColor: 'var(--mantine-color-gray-3)',
               }}
             >
               <Group justify="space-between" align="center" mb="md">
-                <ThemeIcon size="sm" radius="md" variant="light" color="teal">
+                <ThemeIcon size="sm" radius="md" variant="light" color="gray">
                   <IconTrendingUp size={14} />
                 </ThemeIcon>
-                <Text size="sm" fw={500} c="teal.7">
+                <Text size="sm" fw={500} c="gray.7">
                   Projected Profit
                 </Text>
               </Group>
-              <Text size="xl" fw={700} c="teal.8" ta="center" mb="xs">
+              <Text size="xl" fw={700} c="gray.8" ta="center" mb="xs">
                 ₱
                 {calculations.projectedProfit.toLocaleString('en-US', {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
               </Text>
-              <Text size="xs" c="dimmed" ta="center">
+              <Text size="xs" c="gray.6" ta="center">
                 Expected profit (Revenue - Costs)
               </Text>
             </Card>
@@ -609,26 +402,26 @@ export function AddProductModal({
               radius="md"
               padding="md"
               style={{
-                backgroundColor: 'var(--mantine-color-blue-0)',
-                borderColor: 'var(--mantine-color-blue-3)',
+                backgroundColor: 'var(--mantine-color-gray-0)',
+                borderColor: 'var(--mantine-color-gray-3)',
               }}
             >
               <Group justify="space-between" align="center" mb="md">
-                <ThemeIcon size="sm" radius="md" variant="light" color="blue">
+                <ThemeIcon size="sm" radius="md" variant="light" color="gray">
                   <IconPercentage size={14} />
                 </ThemeIcon>
-                <Text size="sm" fw={500} c="blue.7">
+                <Text size="sm" fw={500} c="gray.7">
                   Profit Margin
                 </Text>
               </Group>
-              <Text size="xl" fw={700} c="blue.8" ta="center" mb="xs">
+              <Text size="xl" fw={700} c="gray.8" ta="center" mb="xs">
                 {calculations.projectedProfitPercent.toLocaleString('en-US', {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
                 %
               </Text>
-              <Text size="xs" c="dimmed" ta="center">
+              <Text size="xs" c="gray.6" ta="center">
                 Profit as % of costs invested
               </Text>
             </Card>
@@ -642,26 +435,26 @@ export function AddProductModal({
               radius="md"
               padding="md"
               style={{
-                backgroundColor: 'var(--mantine-color-blue-0)',
-                borderColor: 'var(--mantine-color-blue-3)',
+                backgroundColor: 'var(--mantine-color-gray-0)',
+                borderColor: 'var(--mantine-color-gray-3)',
               }}
             >
               <Group justify="space-between" align="center" mb="md">
-                <ThemeIcon size="sm" radius="md" variant="light" color="blue">
+                <ThemeIcon size="sm" radius="md" variant="light" color="gray">
                   <IconCurrencyPeso size={14} />
                 </ThemeIcon>
-                <Text size="sm" fw={500} c="blue.7">
+                <Text size="sm" fw={500} c="gray.7">
                   Base Price
                 </Text>
               </Group>
-              <Text size="xl" fw={700} c="blue.8" ta="center" mb="xs">
+              <Text size="xl" fw={700} c="gray.8" ta="center" mb="xs">
                 ₱
                 {calculations.basePrice.toLocaleString('en-US', {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
               </Text>
-              <Text size="xs" c="dimmed" ta="center">
+              <Text size="xs" c="gray.6" ta="center">
                 Cost per item (COGS ÷ Quantity)
               </Text>
             </Card>
@@ -672,26 +465,26 @@ export function AddProductModal({
               radius="md"
               padding="md"
               style={{
-                backgroundColor: 'var(--mantine-color-red-0)',
-                borderColor: 'var(--mantine-color-red-3)',
+                backgroundColor: 'var(--mantine-color-gray-0)',
+                borderColor: 'var(--mantine-color-gray-3)',
               }}
             >
               <Group justify="space-between" align="center" mb="md">
-                <ThemeIcon size="sm" radius="md" variant="light" color="red">
+                <ThemeIcon size="sm" radius="md" variant="light" color="gray">
                   <IconTrendingDown size={14} />
                 </ThemeIcon>
-                <Text size="sm" fw={500} c="red.7">
+                <Text size="sm" fw={500} c="gray.7">
                   COGS
                 </Text>
               </Group>
-              <Text size="xl" fw={700} c="red.8" ta="center" mb="xs">
+              <Text size="xl" fw={700} c="gray.8" ta="center" mb="xs">
                 ₱
                 {calculations.cogs.toLocaleString('en-US', {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
               </Text>
-              <Text size="xs" c="dimmed" ta="center">
+              <Text size="xs" c="gray.6" ta="center">
                 Total cost to acquire & deliver
               </Text>
             </Card>
@@ -702,26 +495,26 @@ export function AddProductModal({
               radius="md"
               padding="md"
               style={{
-                backgroundColor: 'var(--mantine-color-violet-0)',
-                borderColor: 'var(--mantine-color-violet-3)',
+                backgroundColor: 'var(--mantine-color-gray-0)',
+                borderColor: 'var(--mantine-color-gray-3)',
               }}
             >
               <Group justify="space-between" align="center" mb="md">
-                <ThemeIcon size="sm" radius="md" variant="light" color="violet">
+                <ThemeIcon size="sm" radius="md" variant="light" color="gray">
                   <IconTrendingUp size={14} />
                 </ThemeIcon>
-                <Text size="sm" fw={500} c="violet.7">
+                <Text size="sm" fw={500} c="gray.7">
                   Total Markup
                 </Text>
               </Group>
-              <Text size="xl" fw={700} c="violet.8" ta="center" mb="xs">
+              <Text size="xl" fw={700} c="gray.8" ta="center" mb="xs">
                 {calculations.totalMarkup.toLocaleString('en-US', {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
                 %
               </Text>
-              <Text size="xs" c="dimmed" ta="center">
+              <Text size="xs" c="gray.6" ta="center">
                 Price increase from cost to selling
               </Text>
             </Card>
@@ -731,8 +524,8 @@ export function AddProductModal({
         {/* Action Buttons */}
         <Group
           justify="flex-end"
-          mt="xl"
-          pt="md"
+          mt={32}
+          pt="xl"
           style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}
         >
           <Button
@@ -776,6 +569,6 @@ export function AddProductModal({
           </Button>
         </Group>
       </Stack>
-    </Modal>
+    </PolishedModal>
   );
 }
