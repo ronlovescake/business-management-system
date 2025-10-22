@@ -308,8 +308,8 @@ export function useAttendance() {
         <div style="text-align: left;">
           <p>Do you want to automatically record attendance based on schedules?</p>
           <ul style="margin-top: 10px;">
-            <li>Check for employees with schedules yesterday</li>
-            <li>Create attendance records if missing</li>
+            <li><strong>Primary:</strong> Record attendance for today</li>
+            <li><strong>Catch-up:</strong> Also record yesterday if missing</li>
             <li>Check for approved leave requests</li>
             <li>Use schedule times for time-in/time-out</li>
           </ul>
@@ -346,58 +346,68 @@ export function useAttendance() {
         },
       });
 
-      // Get yesterday's date
+      // Get today's and yesterday's dates
+      const today = new Date();
+      const todayISO = today.toISOString().split('T')[0];
+
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayISO = yesterday.toISOString().split('T')[0];
 
-      // Fetch schedules for yesterday
+      // Fetch all schedules
       const schedulesResponse = await fetch('/api/schedules');
       if (!schedulesResponse.ok) {
         throw new Error('Failed to fetch schedules');
       }
       const allSchedules = await schedulesResponse.json();
 
-      // Filter schedules for yesterday that are not cancelled
-      const yesterdaySchedules = allSchedules.filter(
+      // Filter schedules for today and yesterday that are not cancelled
+      const relevantSchedules = allSchedules.filter(
         (schedule: { date: string; status: string }) =>
-          schedule.date === yesterdayISO && schedule.status !== 'cancelled'
+          (schedule.date === todayISO || schedule.date === yesterdayISO) &&
+          schedule.status !== 'cancelled'
       );
 
-      if (yesterdaySchedules.length === 0) {
+      if (relevantSchedules.length === 0) {
         Swal.fire({
           icon: 'info',
           title: 'No Schedules Found',
-          text: `No employee schedules found for yesterday (${yesterdayISO})`,
+          text: `No employee schedules found for today (${todayISO}) or yesterday (${yesterdayISO})`,
         });
         return;
       }
 
-      // Fetch existing attendance for yesterday
+      // Fetch existing attendance for today and yesterday
       const existingAttendanceResponse = await fetch(
-        `/api/attendance?startDate=${yesterdayISO}&endDate=${yesterdayISO}`
+        `/api/attendance?startDate=${yesterdayISO}&endDate=${todayISO}`
       );
       if (!existingAttendanceResponse.ok) {
         throw new Error('Failed to fetch existing attendance');
       }
       const existingAttendance = await existingAttendanceResponse.json();
 
-      // Create a Set of employeeIds who already have attendance
-      const existingEmployeeIds = new Set(
-        existingAttendance.map((a: { employeeId: string }) => a.employeeId)
-      );
+      // Create a map of existing attendance by employeeId and date
+      const existingAttendanceMap = new Map<string, Set<string>>();
+      existingAttendance.forEach((a: { employeeId: string; date: string }) => {
+        if (!existingAttendanceMap.has(a.employeeId)) {
+          existingAttendanceMap.set(a.employeeId, new Set());
+        }
+        existingAttendanceMap.get(a.employeeId)?.add(a.date);
+      });
 
-      // Filter schedules for employees without attendance
-      const schedulesNeedingAttendance = yesterdaySchedules.filter(
-        (schedule: { employeeId: string }) =>
-          !existingEmployeeIds.has(schedule.employeeId)
+      // Filter schedules for employees without attendance for that specific date
+      const schedulesNeedingAttendance = relevantSchedules.filter(
+        (schedule: { employeeId: string; date: string }) => {
+          const employeeDates = existingAttendanceMap.get(schedule.employeeId);
+          return !employeeDates || !employeeDates.has(schedule.date);
+        }
       );
 
       if (schedulesNeedingAttendance.length === 0) {
         Swal.fire({
           icon: 'info',
           title: 'Already Recorded',
-          text: `All employees with schedules for yesterday already have attendance records.`,
+          text: `All employees with schedules for today and yesterday already have attendance records.`,
         });
         return;
       }
@@ -550,12 +560,19 @@ export function useAttendance() {
       // Update local state
       setRecords((prev) => [...prev, ...savedRecords]);
 
-      // Count statuses
+      // Count statuses and dates
       const presentCount = newAttendanceRecords.filter(
         (r: { status: string }) => r.status === 'present'
       ).length;
       const onLeaveCount = newAttendanceRecords.filter(
         (r: { status: string }) => r.status === 'on-leave'
+      ).length;
+
+      const todayRecords = newAttendanceRecords.filter(
+        (r: { date: string }) => r.date === todayISO
+      ).length;
+      const yesterdayRecords = newAttendanceRecords.filter(
+        (r: { date: string }) => r.date === yesterdayISO
       ).length;
 
       // Show success message
@@ -564,10 +581,11 @@ export function useAttendance() {
         title: 'Attendance Recorded!',
         html: `
           <div style="text-align: left;">
-            <p><strong>Successfully recorded ${newAttendanceRecords.length} attendance records for ${yesterdayISO}</strong></p>
+            <p><strong>Successfully recorded ${newAttendanceRecords.length} attendance records</strong></p>
             <ul style="margin-top: 10px;">
-              <li>Present: ${presentCount}</li>
-              <li>On Leave: ${onLeaveCount}</li>
+              <li><strong>Today (${todayISO}):</strong> ${todayRecords} records</li>
+              ${yesterdayRecords > 0 ? `<li><strong>Yesterday (${yesterdayISO}):</strong> ${yesterdayRecords} records (catch-up)</li>` : ''}
+              <li><strong>Status:</strong> ${presentCount} present, ${onLeaveCount} on leave</li>
             </ul>
           </div>
         `,
