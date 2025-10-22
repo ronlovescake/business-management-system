@@ -472,6 +472,27 @@ export default function EmployeeDetailPage() {
   const scheduleToDisplay = scheduleHistory;
   const leaveToDisplay = leaveHistory;
   const salaryTimelineToDisplay = salaryTimeline;
+
+  // Calculate leave allocation for current year
+  const currentYear = new Date().getFullYear();
+  const ANNUAL_LEAVE_ENTITLEMENT = 7; // 7 days paid leave per year
+
+  const usedPaidLeaveDays = leaveHistory
+    .filter((leave) => {
+      // Filter for approved and paid leaves in the current year
+      const leaveYear = new Date(leave.startDate).getFullYear();
+      return (
+        leaveYear === currentYear &&
+        leave.status === 'approved' &&
+        leave.paymentStatus === 'paid'
+      );
+    })
+    .reduce((total, leave) => total + (leave.numberOfDays || 0), 0);
+
+  const remainingLeaveDays = Math.max(
+    ANNUAL_LEAVE_ENTITLEMENT - usedPaidLeaveDays,
+    0
+  );
   const statutoryDetails = [
     {
       label: 'SSS Number',
@@ -928,6 +949,55 @@ export default function EmployeeDetailPage() {
 
           <Tabs.Panel value="leave" pt="md">
             <Stack gap="lg">
+              {/* Leave Allocation Card */}
+              <Card withBorder padding="lg" bg="blue.0">
+                <Group justify="space-between" wrap="nowrap">
+                  <div>
+                    <Text size="sm" fw={500} c="dimmed">
+                      Annual Leave Allocation ({currentYear})
+                    </Text>
+                    <Title order={3} mt={4}>
+                      {remainingLeaveDays}{' '}
+                      {remainingLeaveDays === 1 ? 'Day' : 'Days'} Remaining
+                    </Title>
+                    <Text size="sm" c="dimmed" mt={4}>
+                      {usedPaidLeaveDays} of {ANNUAL_LEAVE_ENTITLEMENT} days
+                      used
+                    </Text>
+                  </div>
+                  <Group gap="xl">
+                    <div style={{ textAlign: 'center' }}>
+                      <Text size="xs" c="dimmed" mb={4}>
+                        Total Entitlement
+                      </Text>
+                      <Badge size="xl" variant="filled" color="blue">
+                        {ANNUAL_LEAVE_ENTITLEMENT} days
+                      </Badge>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <Text size="xs" c="dimmed" mb={4}>
+                        Used
+                      </Text>
+                      <Badge size="xl" variant="filled" color="orange">
+                        {usedPaidLeaveDays} days
+                      </Badge>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <Text size="xs" c="dimmed" mb={4}>
+                        Remaining
+                      </Text>
+                      <Badge
+                        size="xl"
+                        variant="filled"
+                        color={remainingLeaveDays > 0 ? 'green' : 'red'}
+                      >
+                        {remainingLeaveDays} days
+                      </Badge>
+                    </div>
+                  </Group>
+                </Group>
+              </Card>
+
               <Card withBorder padding="lg">
                 <Group justify="space-between" align="flex-start">
                   <div>
