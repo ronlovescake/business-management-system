@@ -383,44 +383,47 @@ export function CustomersPage() {
       const customer = filteredCustomers[row];
       const column = columns[col];
 
-      let cellData = '';
+      let rawValue: unknown = '';
       switch (column.id) {
         case 'date':
-          cellData = customer.Date;
+          rawValue = customer.Date;
           break;
         case 'customerName':
-          cellData = customer['Customer Name'];
+          rawValue = customer['Customer Name'];
           break;
         case 'phoneNumber':
-          cellData = customer['Phone Number'];
+          rawValue = customer['Phone Number'];
           break;
         case 'address':
-          cellData = customer.Address;
+          rawValue = customer.Address;
           break;
         case 'facebook':
-          cellData = customer.Facebook;
+          rawValue = customer.Facebook;
           break;
         case 'emailAddress':
-          cellData = customer['Email Address'];
+          rawValue = customer['Email Address'];
           break;
         case 'businessName':
-          cellData = customer['Business Name'];
+          rawValue = customer['Business Name'];
           break;
         case 'taxNumber':
-          cellData = customer['Tax Number'];
+          rawValue = customer['Tax Number'];
           break;
         case 'businessAddress':
-          cellData = customer['Business Address'];
+          rawValue = customer['Business Address'];
           break;
         case 'businessContactNumber':
-          cellData = customer['Business Contact Number'];
+          rawValue = customer['Business Contact Number'];
           break;
         case 'customerStatus':
-          cellData = customer['Customer Status'];
+          rawValue = customer['Customer Status'];
           break;
         default:
-          cellData = '';
+          rawValue = '';
       }
+
+      const cellData =
+        rawValue === null || rawValue === undefined ? '' : String(rawValue);
 
       // Make customer name column appear as a clickable link
       if (column.id === 'customerName' && cellData && customer.id) {
