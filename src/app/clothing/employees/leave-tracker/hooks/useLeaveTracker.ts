@@ -1,5 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
-import type { LeaveRequest, LeaveStatus, LeaveType, PaymentStatus } from '../types';
+import type {
+  LeaveRequest,
+  LeaveStatus,
+  LeaveType,
+  PaymentStatus,
+} from '../types';
 import type { Schedule } from '../../schedules/types';
 import { dayjs, getCurrentDateISO } from '@/utils/date';
 
@@ -46,7 +51,9 @@ export function useLeaveTracker() {
   const [formEmployeeName, setFormEmployeeName] = useState('');
   const [formEmployeeId, setFormEmployeeId] = useState('');
   const [formLeaveType, setFormLeaveType] = useState<LeaveType | ''>('');
-  const [formPaymentStatus, setFormPaymentStatus] = useState<PaymentStatus | ''>('unpaid');
+  const [formPaymentStatus, setFormPaymentStatus] = useState<
+    PaymentStatus | ''
+  >('unpaid');
   const [formStartDate, setFormStartDate] = useState('');
   const [formEndDate, setFormEndDate] = useState('');
   const [formReason, setFormReason] = useState('');
@@ -702,6 +709,8 @@ export function useLeaveTracker() {
     resetFormFields();
   };
   const handleApprove = async (id: string) => {
+    const targetRequest = leaveRequests.find((request) => request.id === id);
+
     try {
       const response = await fetch('/api/leave-requests', {
         method: 'PATCH',
@@ -725,6 +734,44 @@ export function useLeaveTracker() {
               : req
           )
         );
+
+        if (
+          targetRequest?.employeeId &&
+          targetRequest.startDate &&
+          targetRequest.endDate
+        ) {
+          try {
+            const attendanceResponse = await fetch(
+              '/api/attendance/apply-leave',
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  employeeId: targetRequest.employeeId,
+                  employeeName: targetRequest.employeeName,
+                  leaveType: targetRequest.leaveType,
+                  startDate: targetRequest.startDate,
+                  endDate: targetRequest.endDate,
+                }),
+              }
+            );
+
+            if (!attendanceResponse.ok) {
+              const errorDetails = await attendanceResponse
+                .json()
+                .catch(() => ({}));
+              console.error(
+                'Failed to synchronise attendance for approved leave:',
+                errorDetails
+              );
+            }
+          } catch (attendanceError) {
+            console.error(
+              'Error synchronising attendance for approved leave:',
+              attendanceError
+            );
+          }
+        }
       } else {
         const error = await response.json();
         alert(
@@ -913,7 +960,8 @@ export function useLeaveTracker() {
               ? status
               : 'pending';
 
-            const paymentStatus = (row.paymentstatus?.toLowerCase() || 'unpaid') as PaymentStatus;
+            const paymentStatus = (row.paymentstatus?.toLowerCase() ||
+              'unpaid') as PaymentStatus;
             const validPaymentStatus: PaymentStatus = [
               'paid',
               'unpaid',

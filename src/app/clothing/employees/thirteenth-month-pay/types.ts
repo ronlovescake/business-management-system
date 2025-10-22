@@ -8,6 +8,7 @@ export interface ThirteenthMonthPay {
   totalLwop: number;
   totalAbsencesLates: number;
   netBasicSalary: number;
+  monthsWorked?: number;
   thirteenthMonthPay: number;
   status: 'pending' | 'calculated' | 'approved' | 'paid';
   calculatedDate?: string;

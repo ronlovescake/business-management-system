@@ -86,7 +86,8 @@ const deriveMonthFromPayroll = (
 
 const calculateTenureshipLabel = (
   hireDateValue: string | null | undefined,
-  year: number
+  year: number,
+  referenceDate: Date = new Date()
 ): string => {
   if (!hireDateValue) {
     return 'N/A';
@@ -97,27 +98,37 @@ const calculateTenureshipLabel = (
     return 'N/A';
   }
 
-  const periodEnd = new Date(year, 11, 31);
+  const periodEnd =
+    referenceDate.getFullYear() === year
+      ? referenceDate
+      : new Date(year, 11, 31);
+
   if (hireDate > periodEnd) {
-    return 'Less than 1 month';
+    return 'Less than 1 day';
   }
 
-  let totalMonths =
-    (periodEnd.getFullYear() - hireDate.getFullYear()) * 12 +
-    (periodEnd.getMonth() - hireDate.getMonth());
+  let years = periodEnd.getFullYear() - hireDate.getFullYear();
+  let months = periodEnd.getMonth() - hireDate.getMonth();
+  let days = periodEnd.getDate() - hireDate.getDate();
 
-  if (periodEnd.getDate() >= hireDate.getDate()) {
-    totalMonths += 1;
+  if (days < 0) {
+    const previousMonth = new Date(
+      periodEnd.getFullYear(),
+      periodEnd.getMonth(),
+      0
+    );
+    days += previousMonth.getDate();
+    months -= 1;
   }
 
-  totalMonths = Math.max(totalMonths, 0);
-
-  if (totalMonths <= 0) {
-    return 'Less than 1 month';
+  if (months < 0) {
+    months += 12;
+    years -= 1;
   }
 
-  const years = Math.floor(totalMonths / 12);
-  const months = totalMonths % 12;
+  if (years < 0) {
+    return 'Less than 1 day';
+  }
 
   const parts: string[] = [];
   if (years > 0) {
@@ -126,8 +137,15 @@ const calculateTenureshipLabel = (
   if (months > 0) {
     parts.push(`${months} ${months === 1 ? 'month' : 'months'}`);
   }
+  if (days > 0) {
+    parts.push(`${days} ${days === 1 ? 'day' : 'days'}`);
+  }
 
-  return parts.join(' ') || 'Less than 1 month';
+  if (parts.length === 0) {
+    return 'Less than 1 day';
+  }
+
+  return parts.join(', ');
 };
 
 interface AggregatedThirteenthData {
@@ -275,9 +293,13 @@ export function useThirteenthMonthPay() {
         const totalAbsencesLates = aggregate.totalAbsencesLates;
         const totalDeductions = totalLwop + totalAbsencesLates;
         const netBasicSalary = Math.max(0, totalBasicSalary - totalDeductions);
+        const monthsWorkedCount = Math.max(
+          1,
+          Math.min(aggregate.monthsWorked.size, 12)
+        );
         const hireDate = aggregate.hireDate;
         const tenureship = calculateTenureshipLabel(hireDate, aggregate.year);
-        const thirteenthMonthPay = netBasicSalary;
+        const thirteenthMonthPay = netBasicSalary / monthsWorkedCount;
 
         return {
           id: aggregate.id,
@@ -290,6 +312,7 @@ export function useThirteenthMonthPay() {
           totalAbsencesLates,
           netBasicSalary,
           thirteenthMonthPay,
+          monthsWorked: monthsWorkedCount,
           status: 'calculated',
         } satisfies ThirteenthMonthPay;
       });
@@ -483,6 +506,7 @@ export function useThirteenthMonthPay() {
       totalLwop,
       totalAbsencesLates,
       netBasicSalary: thirteenthMonthPay,
+      monthsWorked: 12,
       thirteenthMonthPay,
       status: 'calculated',
       calculatedDate: getCurrentDateISO(),
