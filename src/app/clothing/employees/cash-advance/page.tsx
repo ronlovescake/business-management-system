@@ -13,16 +13,15 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import { useCashAdvance } from './hooks/useCashAdvance';
-import {
-  StatsCardGroup,
-  PageControls,
-  DataTable,
-} from '@/components/shared/PageTemplates';
+// Direct imports for faster compilation (bypasses barrel export)
+import { StatsCardGroup } from '@/components/shared/PageTemplates/StatsCardGroup';
+import type { StatCard } from '@/components/shared/PageTemplates/StatsCardGroup';
+import { PageControls } from '@/components/shared/PageTemplates/PageControls';
+import { DataTable } from '@/components/shared/PageTemplates/DataTable';
 import type {
-  StatCard,
   TableColumn,
   TableAction,
-} from '@/components/shared/PageTemplates';
+} from '@/components/shared/PageTemplates/DataTable';
 import { RequestFormDialog } from './components/RequestFormDialog';
 import type { CashAdvance as CashAdvanceType } from './types';
 

@@ -1,11 +1,12 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* Mantine CSS imports */
+/* Mantine CSS imports - must come first */
 @import '@mantine/core/styles.css';
 @import '@mantine/notifications/styles.css';
 @import '@mantine/dates/styles.css';
+
+/* Tailwind directives */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* Modern Design System Variables */
 :root {

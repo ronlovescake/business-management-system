@@ -14,16 +14,15 @@ import {
   IconCash,
 } from '@tabler/icons-react';
 import { usePayroll } from './hooks/usePayroll';
-import {
-  StatsCardGroup,
-  PageControls,
-  DataTable,
-} from '@/components/shared/PageTemplates';
+// Direct imports for faster compilation (bypasses barrel export)
+import { StatsCardGroup } from '@/components/shared/PageTemplates/StatsCardGroup';
+import type { StatCard } from '@/components/shared/PageTemplates/StatsCardGroup';
+import { PageControls } from '@/components/shared/PageTemplates/PageControls';
+import { DataTable } from '@/components/shared/PageTemplates/DataTable';
 import type {
-  StatCard,
   TableColumn,
   TableAction,
-} from '@/components/shared/PageTemplates';
+} from '@/components/shared/PageTemplates/DataTable';
 import type { Payroll as PayrollType } from './types';
 
 export default function Payroll() {

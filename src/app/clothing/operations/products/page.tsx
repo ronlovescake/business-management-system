@@ -29,9 +29,11 @@
  * ✓ Search with Ctrl+F
  * ✓ Add/Edit product modal
  * ✓ Real-time statistics
+ *
+ * Note: Direct import path used to optimize compilation speed
  */
 
-import { ProductsPage } from '@/modules/clothing/operations/products';
+import { ProductsPage } from '@/modules/clothing/operations/products/components/ProductsPage';
 
 export default function Page() {
   return <ProductsPage />;

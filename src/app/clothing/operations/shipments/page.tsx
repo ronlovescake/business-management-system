@@ -4,6 +4,7 @@
  * This is a thin wrapper that imports the Shipments module and renders
  * the main ShipmentsPage component. All business logic, state management,
  * and UI components are organized in the module structure.
+ * Direct import path used to optimize compilation speed.
  *
  * Module Location: @/modules/clothing/operations/shipments
  *
@@ -30,7 +31,7 @@
  * @returns {JSX.Element} The Shipments page component
  */
 
-import { ShipmentsPage } from '@/modules/clothing/operations/shipments';
+import { ShipmentsPage } from '@/modules/clothing/operations/shipments/components/ShipmentsPage';
 
 export default function Page() {
   return <ShipmentsPage />;

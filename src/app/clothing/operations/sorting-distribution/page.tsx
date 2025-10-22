@@ -8,6 +8,7 @@
  * - Maintainability: Clear separation of concerns
  * - Reusability: All logic can be reused across the application
  * - Type Safety: Full TypeScript strict mode compliance
+ * Direct import path used to optimize compilation speed.
  *
  * Module Structure:
  * - /types/sortingDistribution.types.ts - All TypeScript interfaces and types
@@ -37,7 +38,7 @@
  * ✓ Greyed-out rows for checked items
  */
 
-import { SortingDistributionPage } from '@/modules/clothing/operations/sorting-distribution';
+import { SortingDistributionPage } from '@/modules/clothing/operations/sorting-distribution/components/SortingDistributionPage';
 
 export default function Page() {
   return <SortingDistributionPage />;

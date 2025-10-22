@@ -15,16 +15,15 @@ import {
   IconChartBar,
 } from '@tabler/icons-react';
 import { useTeam } from './hooks/useTeam';
-import {
-  StatsCardGroup,
-  PageControls,
-  DataTable,
-} from '@/components/shared/PageTemplates';
+// Direct imports for faster compilation (bypasses barrel export)
+import { StatsCardGroup } from '@/components/shared/PageTemplates/StatsCardGroup';
+import type { StatCard } from '@/components/shared/PageTemplates/StatsCardGroup';
+import { PageControls } from '@/components/shared/PageTemplates/PageControls';
+import { DataTable } from '@/components/shared/PageTemplates/DataTable';
 import type {
-  StatCard,
   TableColumn,
   TableAction,
-} from '@/components/shared/PageTemplates';
+} from '@/components/shared/PageTemplates/DataTable';
 import { EmployeeFormDialog } from './components/EmployeeFormDialog';
 import type { Employee as EmployeeType } from './types';
 

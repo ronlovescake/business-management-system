@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbo",
+    "dev:webpack": "next dev",
+    "dev:clean": "bash scripts/clean-dev-cache.sh && npm run dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

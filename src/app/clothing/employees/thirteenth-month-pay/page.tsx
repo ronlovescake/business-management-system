@@ -2,16 +2,15 @@
 
 import { useMemo, useState } from 'react';
 import { Stack, Badge } from '@mantine/core';
-import {
-  StatsCardGroup,
-  PageControls,
-  DataTable,
-} from '@/components/shared/PageTemplates';
+// Direct imports for faster compilation (bypasses barrel export)
+import { StatsCardGroup } from '@/components/shared/PageTemplates/StatsCardGroup';
+import type { StatCard } from '@/components/shared/PageTemplates/StatsCardGroup';
+import { PageControls } from '@/components/shared/PageTemplates/PageControls';
+import { DataTable } from '@/components/shared/PageTemplates/DataTable';
 import type {
   TableColumn,
   TableAction,
-  StatCard,
-} from '@/components/shared/PageTemplates';
+} from '@/components/shared/PageTemplates/DataTable';
 import { useThirteenthMonthPay } from './hooks/useThirteenthMonthPay';
 import type { ThirteenthMonthPay, ThirteenthMonthPayFormData } from './types';
 import { ThirteenthMonthPayFormDialog } from './components/ThirteenthMonthPayFormDialog';

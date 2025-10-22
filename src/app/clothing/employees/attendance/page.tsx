@@ -13,16 +13,15 @@ import {
   IconUserMinus,
   IconTrash,
 } from '@tabler/icons-react';
-import {
-  StatsCardGroup,
-  PageControls,
-  DataTable,
-} from '@/components/shared/PageTemplates';
+// Direct imports for faster compilation (bypasses barrel export)
+import { StatsCardGroup } from '@/components/shared/PageTemplates/StatsCardGroup';
+import type { StatCard } from '@/components/shared/PageTemplates/StatsCardGroup';
+import { PageControls } from '@/components/shared/PageTemplates/PageControls';
+import { DataTable } from '@/components/shared/PageTemplates/DataTable';
 import type {
-  StatCard,
   TableColumn,
   TableAction,
-} from '@/components/shared/PageTemplates';
+} from '@/components/shared/PageTemplates/DataTable';
 import { useAttendance } from './hooks/useAttendance';
 import type { AttendanceRecord } from './types';
 import { AttendanceFormDialog } from './components/AttendanceFormDialog';
