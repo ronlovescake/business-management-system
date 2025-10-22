@@ -189,6 +189,10 @@ interface MinimalEmployee {
   employeeId: string;
   basicSalary: number | null;
   currentSalary: number | null;
+  sssMonthlyContribution?: number | null;
+  philHealthMonthlyContribution?: number | null;
+  pagibigMonthlyContribution?: number | null;
+  taxMonthlyContribution?: number | null;
 }
 
 interface MinimalLeaveRequest {
@@ -263,6 +267,10 @@ const buildEmployeeDataMap = async (
         employeeId: true,
         basicSalary: true,
         currentSalary: true,
+        sssMonthlyContribution: true,
+        philHealthMonthlyContribution: true,
+        pagibigMonthlyContribution: true,
+        taxMonthlyContribution: true,
       },
     }),
     prisma.leaveRequest.findMany({
@@ -489,19 +497,34 @@ const buildCashAdvanceIndex = async (
 const sumDeductions = (
   payroll: Payroll,
   overrides: Partial<
-    Pick<Payroll, 'lwop' | 'absentsLates' | 'cashAdvance'>
+    Pick<
+      Payroll,
+      | 'sss'
+      | 'philHealth'
+      | 'pagIbig'
+      | 'tax'
+      | 'loans'
+      | 'cashAdvance'
+      | 'absentsLates'
+      | 'lwop'
+    >
   > = {}
 ): number => {
-  const lwopValue = overrides.lwop ?? payroll.lwop;
-  const absentsLatesValue = overrides.absentsLates ?? payroll.absentsLates;
+  const sssValue = overrides.sss ?? payroll.sss;
+  const philHealthValue = overrides.philHealth ?? payroll.philHealth;
+  const pagIbigValue = overrides.pagIbig ?? payroll.pagIbig;
+  const taxValue = overrides.tax ?? payroll.tax;
+  const loansValue = overrides.loans ?? payroll.loans;
   const cashAdvanceValue = overrides.cashAdvance ?? payroll.cashAdvance;
+  const absentsLatesValue = overrides.absentsLates ?? payroll.absentsLates;
+  const lwopValue = overrides.lwop ?? payroll.lwop;
 
   const parts = [
-    payroll.sss,
-    payroll.philHealth,
-    payroll.pagIbig,
-    payroll.tax,
-    payroll.loans,
+    sssValue,
+    philHealthValue,
+    pagIbigValue,
+    taxValue,
+    loansValue,
     cashAdvanceValue,
     absentsLatesValue,
     lwopValue,
@@ -526,6 +549,103 @@ const mergeCashAdvanceUpdate = (
     return;
   }
   store.set(id, update);
+};
+
+const applyStatutoryContributionAdjustments = async (
+  payrolls: Payroll[],
+  employeeDataMap: Map<string, EmployeeMapEntry>
+): Promise<Payroll[]> => {
+  if (payrolls.length === 0) {
+    return payrolls;
+  }
+
+  const updates: Array<{ id: string; data: Prisma.PayrollUpdateInput }> = [];
+  const updatedResults = new Map<string, Payroll>();
+
+  for (const payroll of payrolls) {
+    const entry = employeeDataMap.get(payroll.employeeId);
+    const employee = entry?.employee;
+
+    const desiredSss = roundToCents(
+      Number(employee?.sssMonthlyContribution ?? payroll.sss ?? 0)
+    );
+    const desiredPhilHealth = roundToCents(
+      Number(employee?.philHealthMonthlyContribution ?? payroll.philHealth ?? 0)
+    );
+    const desiredPagIbig = roundToCents(
+      Number(employee?.pagibigMonthlyContribution ?? payroll.pagIbig ?? 0)
+    );
+    const desiredTax = roundToCents(
+      Number(employee?.taxMonthlyContribution ?? payroll.tax ?? 0)
+    );
+
+    const overrides = {
+      sss: desiredSss,
+      philHealth: desiredPhilHealth,
+      pagIbig: desiredPagIbig,
+      tax: desiredTax,
+    } as Partial<Payroll>;
+
+    const currentSss = roundToCents(Number(payroll.sss ?? 0));
+    const currentPhilHealth = roundToCents(Number(payroll.philHealth ?? 0));
+    const currentPagIbig = roundToCents(Number(payroll.pagIbig ?? 0));
+    const currentTax = roundToCents(Number(payroll.tax ?? 0));
+
+    const totalDeductions = sumDeductions(payroll, overrides);
+    const netPay = roundToCents(
+      Math.max(0, Number(payroll.grossPay ?? 0) - totalDeductions)
+    );
+
+    const currentTotal = roundToCents(Number(payroll.totalDeductions ?? 0));
+    const currentNetPay = roundToCents(Number(payroll.netPay ?? 0));
+
+    const needsUpdate =
+      currentSss !== desiredSss ||
+      currentPhilHealth !== desiredPhilHealth ||
+      currentPagIbig !== desiredPagIbig ||
+      currentTax !== desiredTax ||
+      currentTotal !== totalDeductions ||
+      currentNetPay !== netPay;
+
+    if (!needsUpdate) {
+      continue;
+    }
+
+    const updateValues = {
+      sss: desiredSss,
+      philHealth: desiredPhilHealth,
+      pagIbig: desiredPagIbig,
+      tax: desiredTax,
+      totalDeductions,
+      netPay,
+    } satisfies Prisma.PayrollUpdateInput;
+
+    updates.push({ id: payroll.id, data: updateValues });
+
+    updatedResults.set(payroll.id, {
+      ...payroll,
+      ...(updateValues as Partial<Payroll>),
+    });
+  }
+
+  if (updates.length === 0) {
+    return payrolls;
+  }
+
+  const persisted = await prisma.$transaction(
+    updates.map(({ id, data }) =>
+      prisma.payroll.update({
+        where: { id },
+        data,
+      })
+    )
+  );
+
+  for (const record of persisted) {
+    updatedResults.set(record.id, record);
+  }
+
+  return payrolls.map((payroll) => updatedResults.get(payroll.id) ?? payroll);
 };
 
 const calculateLwopForPayroll = (
@@ -1226,7 +1346,11 @@ export const syncPayrollDeductions = async (
   }
 
   const employeeDataMap = await buildEmployeeDataMap(payrolls);
-  const afterLwop = await applyLwopAdjustments(payrolls, employeeDataMap);
+  const afterStatutory = await applyStatutoryContributionAdjustments(
+    payrolls,
+    employeeDataMap
+  );
+  const afterLwop = await applyLwopAdjustments(afterStatutory, employeeDataMap);
   const attendanceIndex = await buildAttendanceDataIndex(afterLwop);
   const afterAttendance = await applyAttendanceAdjustments(
     afterLwop,
