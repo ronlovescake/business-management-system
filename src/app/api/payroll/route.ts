@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
       for (const payrollData of body) {
         const payroll = await prisma.payroll.create({
           data: {
-            employeeId: payrollData.employeeId,
+            employeeId: payrollData.employeeId ?? null,
             employeeName: payrollData.employeeName || payrollData.employee,
             payPeriod: payrollData.payPeriod,
             periodStart: payrollData.periodStart,
@@ -89,6 +89,7 @@ export async function POST(request: NextRequest) {
             allowance: toNumber(payrollData.allowance),
             overtime: toNumber(payrollData.overtime),
             bonuses: toNumber(payrollData.bonuses),
+            thirteenthMonth: toNumber(payrollData.thirteenthMonth),
             grossPay: toNumber(payrollData.grossPay),
             sss: toNumber(payrollData.sss),
             philHealth: toNumber(payrollData.philHealth),
@@ -122,7 +123,7 @@ export async function POST(request: NextRequest) {
     // Handle single payroll creation
     const payroll = await prisma.payroll.create({
       data: {
-        employeeId: body.employeeId,
+        employeeId: body.employeeId ?? null,
         employeeName: body.employeeName || body.employee,
         payPeriod: body.payPeriod,
         periodStart: body.periodStart,
@@ -131,6 +132,7 @@ export async function POST(request: NextRequest) {
         allowance: toNumber(body.allowance),
         overtime: toNumber(body.overtime),
         bonuses: toNumber(body.bonuses),
+        thirteenthMonth: toNumber(body.thirteenthMonth),
         grossPay: toNumber(body.grossPay),
         sss: toNumber(body.sss),
         philHealth: toNumber(body.philHealth),

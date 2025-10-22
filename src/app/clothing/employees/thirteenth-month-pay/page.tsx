@@ -18,8 +18,6 @@ import { ThirteenthMonthPayFormDialog } from './components/ThirteenthMonthPayFor
 import {
   IconCheck,
   IconCash,
-  IconEdit,
-  IconTrash,
   IconFileText,
   IconCalculator,
   IconCircleCheck,
@@ -43,7 +41,6 @@ export default function ThirteenthMonthPayPage() {
     getStatusLabel,
     addRecord,
     editRecord,
-    deleteRecord,
     approveRecord,
     markAsPaid,
     importFromCSV,
@@ -191,25 +188,6 @@ export default function ThirteenthMonthPayPage() {
       color: '#6366f1',
       onClick: (record) => markAsPaid(record.id),
       show: (record) => record.status === 'approved',
-    },
-    {
-      label: 'Edit',
-      icon: <IconEdit size={16} />,
-      color: '#f59e0b',
-      onClick: (record) => {
-        setEditingRecord(record);
-        setDialogOpened(true);
-      },
-    },
-    {
-      label: 'Delete',
-      icon: <IconTrash size={16} />,
-      color: '#ef4444',
-      onClick: (record) => {
-        if (confirm(`Delete 13th month pay record for ${record.employee}?`)) {
-          deleteRecord(record.id);
-        }
-      },
     },
   ];
 

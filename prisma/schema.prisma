@@ -346,7 +346,7 @@ model LeaveRequest {
   updatedAt    DateTime @updatedAt
 
   // Employee Information
-  employeeId   String   @db.VarChar(50)
+  employeeId   String?  @db.VarChar(50)
   employeeName String   @db.VarChar(255)
 
   // Leave Details
@@ -561,6 +561,7 @@ model Payroll {
   allowance    Float    @default(0)
   overtime     Float    @default(0)
   bonuses      Float    @default(0)
+  thirteenthMonth Float @default(0)
   grossPay     Float    @default(0)
 
   // Deductions (Government & Others)

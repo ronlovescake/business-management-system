@@ -24,7 +24,6 @@ import type {
   TableColumn,
   TableAction,
 } from '@/components/shared/PageTemplates';
-import { PayrollFormDialog } from './components/PayrollFormDialog';
 import type { Payroll as PayrollType } from './types';
 
 export default function Payroll() {
@@ -61,8 +60,6 @@ export default function Payroll() {
     searchQuery,
     statusFilter,
     payPeriodFilter,
-    isFormOpen,
-    editingPayroll,
     payPeriods,
     totalPayrolls,
     pendingPayrolls,
@@ -71,15 +68,12 @@ export default function Payroll() {
     setSearchQuery,
     setStatusFilter,
     setPayPeriodFilter,
-    setIsFormOpen,
     formatDate,
     formatCurrency,
     getStatusColor,
-    calculateTotals,
     handleAddPayroll,
     handleEditPayroll,
     handleDeletePayroll,
-    handleSavePayroll,
     handleApprove,
     handleMarkAsPaid,
     handleImportCSV,
@@ -137,7 +131,7 @@ export default function Payroll() {
   const columns: TableColumn<PayrollType>[] = [
     {
       key: 'employee',
-      label: 'EMPLOYEE',
+      label: 'EMPLOYEE NAME',
       align: 'left',
       render: (item) => <Text fw={500}>{item.employee}</Text>,
     },
@@ -167,6 +161,11 @@ export default function Payroll() {
       key: 'bonuses',
       label: 'BONUSES',
       render: (item) => <Text>{formatCurrency(item.bonuses)}</Text>,
+    },
+    {
+      key: 'thirteenthMonth',
+      label: '13TH MONTH',
+      render: (item) => <Text>{formatCurrency(item.thirteenthMonth)}</Text>,
     },
     {
       key: 'grossPay',
@@ -344,7 +343,7 @@ export default function Payroll() {
           onImportCSV={handleImportCSV}
           onExportCSV={handleExportCSV}
           onAdd={handleAddPayroll}
-          addButtonLabel="Add Payroll"
+          addButtonLabel="Generate Payroll"
         />
 
         {/* Payroll Table */}
@@ -396,15 +395,6 @@ export default function Payroll() {
           }
         />
       </Stack>
-
-      {/* Form Dialog */}
-      <PayrollFormDialog
-        opened={isFormOpen}
-        editingPayroll={editingPayroll}
-        onClose={() => setIsFormOpen(false)}
-        onSave={handleSavePayroll}
-        calculateTotals={calculateTotals}
-      />
     </PageLayout>
   );
 }

@@ -266,9 +266,21 @@ const buildEmployeeDataMap = async (
   const leaveByEmployee = leaveRequests.reduce<
     Map<string, MinimalLeaveRequest[]>
   >((acc, leave) => {
-    const list = acc.get(leave.employeeId) ?? [];
-    list.push(leave);
-    acc.set(leave.employeeId, list);
+    if (!leave.employeeId) {
+      return acc;
+    }
+
+    const normalized: MinimalLeaveRequest = {
+      id: leave.id,
+      employeeId: leave.employeeId,
+      startDate: leave.startDate,
+      endDate: leave.endDate,
+      numberOfDays: leave.numberOfDays,
+    };
+
+    const list = acc.get(normalized.employeeId) ?? [];
+    list.push(normalized);
+    acc.set(normalized.employeeId, list);
     return acc;
   }, new Map());
 
@@ -635,6 +647,9 @@ interface AttendanceDeductionResult {
   deduction: number;
 }
 
+// Attendance statuses that should never trigger late/undertime penalties.
+const DEDUCTION_EXEMPT_ATTENDANCE_STATUSES = new Set(['on-leave']);
+
 const calculateAbsentsLatesForPayroll = (
   payroll: Payroll,
   entry: EmployeeMapEntry | undefined,
@@ -733,6 +748,10 @@ const calculateAbsentsLatesForPayroll = (
 
   for (const record of attendanceInPeriod) {
     if (record.status === 'absent') {
+      continue;
+    }
+
+    if (DEDUCTION_EXEMPT_ATTENDANCE_STATUSES.has(record.status)) {
       continue;
     }
 

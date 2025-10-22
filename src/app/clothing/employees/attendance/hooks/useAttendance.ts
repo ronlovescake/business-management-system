@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
 import { notifications } from '@mantine/notifications';
+import Swal from 'sweetalert2';
 import type {
   AttendanceRecord,
   AttendanceStatus,
@@ -299,9 +300,295 @@ export function useAttendance() {
     });
   };
 
-  const handleAddRecord = () => {
-    setRecordForm(createEmptyFormValues());
-    setIsRecordModalOpen(true);
+  const handleAddRecord = async () => {
+    // Show confirmation dialog
+    const result = await Swal.fire({
+      title: 'Record Attendance',
+      html: `
+        <div style="text-align: left;">
+          <p>Do you want to automatically record attendance based on schedules?</p>
+          <ul style="margin-top: 10px;">
+            <li>Check for employees with schedules yesterday</li>
+            <li>Create attendance records if missing</li>
+            <li>Check for approved leave requests</li>
+            <li>Use schedule times for time-in/time-out</li>
+          </ul>
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, Record Automatically',
+      cancelButtonText: 'Manual Entry',
+      confirmButtonColor: '#228be6',
+      cancelButtonColor: '#868e96',
+      reverseButtons: true,
+    });
+
+    if (result.isConfirmed) {
+      // User wants automatic recording
+      await handleAutoRecordAttendance();
+    } else if (result.dismiss === Swal.DismissReason.cancel) {
+      // User wants manual entry
+      setRecordForm(createEmptyFormValues());
+      setIsRecordModalOpen(true);
+    }
+  };
+
+  const handleAutoRecordAttendance = async () => {
+    try {
+      // Show loading
+      Swal.fire({
+        title: 'Processing...',
+        text: 'Checking schedules and generating attendance records',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+      });
+
+      // Get yesterday's date
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayISO = yesterday.toISOString().split('T')[0];
+
+      // Fetch schedules for yesterday
+      const schedulesResponse = await fetch('/api/schedules');
+      if (!schedulesResponse.ok) {
+        throw new Error('Failed to fetch schedules');
+      }
+      const allSchedules = await schedulesResponse.json();
+
+      // Filter schedules for yesterday that are not cancelled
+      const yesterdaySchedules = allSchedules.filter(
+        (schedule: { date: string; status: string }) =>
+          schedule.date === yesterdayISO && schedule.status !== 'cancelled'
+      );
+
+      if (yesterdaySchedules.length === 0) {
+        Swal.fire({
+          icon: 'info',
+          title: 'No Schedules Found',
+          text: `No employee schedules found for yesterday (${yesterdayISO})`,
+        });
+        return;
+      }
+
+      // Fetch existing attendance for yesterday
+      const existingAttendanceResponse = await fetch(
+        `/api/attendance?startDate=${yesterdayISO}&endDate=${yesterdayISO}`
+      );
+      if (!existingAttendanceResponse.ok) {
+        throw new Error('Failed to fetch existing attendance');
+      }
+      const existingAttendance = await existingAttendanceResponse.json();
+
+      // Create a Set of employeeIds who already have attendance
+      const existingEmployeeIds = new Set(
+        existingAttendance.map((a: { employeeId: string }) => a.employeeId)
+      );
+
+      // Filter schedules for employees without attendance
+      const schedulesNeedingAttendance = yesterdaySchedules.filter(
+        (schedule: { employeeId: string }) =>
+          !existingEmployeeIds.has(schedule.employeeId)
+      );
+
+      if (schedulesNeedingAttendance.length === 0) {
+        Swal.fire({
+          icon: 'info',
+          title: 'Already Recorded',
+          text: `All employees with schedules for yesterday already have attendance records.`,
+        });
+        return;
+      }
+
+      // Fetch leave requests
+      const leaveResponse = await fetch('/api/leave-requests');
+      if (!leaveResponse.ok) {
+        throw new Error('Failed to fetch leave requests');
+      }
+      const allLeaveRequests = await leaveResponse.json();
+
+      // Helper function to check if employee is on leave
+      const isOnLeave = (employeeId: string, date: string) => {
+        return allLeaveRequests.some(
+          (request: {
+            employeeId: string;
+            status: string;
+            startDate: string;
+            endDate: string;
+          }) => {
+            const requestId = String(request.employeeId || '')
+              .trim()
+              .toLowerCase();
+            const scheduleId = String(employeeId || '')
+              .trim()
+              .toLowerCase();
+
+            if (requestId !== scheduleId) {
+              return false;
+            }
+            if (request.status !== 'approved') {
+              return false;
+            }
+
+            return date >= request.startDate && date <= request.endDate;
+          }
+        );
+      };
+
+      // Helper function to get leave info
+      const getLeaveInfo = (employeeId: string, date: string) => {
+        return allLeaveRequests.find(
+          (request: {
+            employeeId: string;
+            status: string;
+            startDate: string;
+            endDate: string;
+            leaveType: string;
+            reason: string;
+          }) => {
+            const requestId = String(request.employeeId || '')
+              .trim()
+              .toLowerCase();
+            const scheduleId = String(employeeId || '')
+              .trim()
+              .toLowerCase();
+            return (
+              requestId === scheduleId &&
+              request.status === 'approved' &&
+              date >= request.startDate &&
+              date <= request.endDate
+            );
+          }
+        );
+      };
+
+      // Helper function to calculate total hours
+      const calculateHours = (startTime: string, endTime: string) => {
+        const [startHour, startMin] = startTime.split(':').map(Number);
+        const [endHour, endMin] = endTime.split(':').map(Number);
+
+        const startMinutes = startHour * 60 + startMin;
+        let endMinutes = endHour * 60 + endMin;
+
+        // Handle overnight shifts
+        if (endMinutes < startMinutes) {
+          endMinutes += 24 * 60;
+        }
+
+        const totalMinutes = endMinutes - startMinutes;
+        const workMinutes = totalMinutes - 90; // Deduct breaks (90 min)
+
+        return Math.max(0, workMinutes / 60);
+      };
+
+      // Generate attendance records
+      const newAttendanceRecords = schedulesNeedingAttendance.map(
+        (schedule: {
+          employeeId: string;
+          employeeName: string;
+          department: string;
+          position: string;
+          date: string;
+          startTime: string;
+          endTime: string;
+          status: string;
+          notes?: string;
+        }) => {
+          const onLeave = isOnLeave(schedule.employeeId, schedule.date);
+          const leaveInfo = getLeaveInfo(schedule.employeeId, schedule.date);
+
+          let status: AttendanceStatus = 'present';
+          if (onLeave || schedule.status === 'on-leave') {
+            status = 'on-leave';
+          }
+
+          const totalHours = calculateHours(
+            schedule.startTime,
+            schedule.endTime
+          );
+
+          return {
+            employeeId: schedule.employeeId,
+            employeeName: schedule.employeeName,
+            department: schedule.department,
+            position: schedule.position,
+            date: schedule.date,
+            timeIn: schedule.startTime,
+            timeOut: schedule.endTime,
+            break1Start: '09:00',
+            break1End: '09:15',
+            lunchStart: '12:00',
+            lunchEnd: '13:00',
+            break2Start: '15:00',
+            break2End: '15:15',
+            totalHours: totalHours,
+            status: status,
+            details: leaveInfo ? `On ${leaveInfo.leaveType}` : '',
+            notes: leaveInfo
+              ? `Leave period: ${leaveInfo.startDate} to ${leaveInfo.endDate}. Reason: ${leaveInfo.reason}`
+              : schedule.notes || '',
+          };
+        }
+      );
+
+      // Save to database
+      const saveResponse = await fetch('/api/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newAttendanceRecords),
+      });
+
+      if (!saveResponse.ok) {
+        throw new Error('Failed to save attendance records');
+      }
+
+      const savedData = await saveResponse.json();
+      const savedRecords = savedData.records || [];
+
+      // Update local state
+      setRecords((prev) => [...prev, ...savedRecords]);
+
+      // Count statuses
+      const presentCount = newAttendanceRecords.filter(
+        (r: { status: string }) => r.status === 'present'
+      ).length;
+      const onLeaveCount = newAttendanceRecords.filter(
+        (r: { status: string }) => r.status === 'on-leave'
+      ).length;
+
+      // Show success message
+      Swal.fire({
+        icon: 'success',
+        title: 'Attendance Recorded!',
+        html: `
+          <div style="text-align: left;">
+            <p><strong>Successfully recorded ${newAttendanceRecords.length} attendance records for ${yesterdayISO}</strong></p>
+            <ul style="margin-top: 10px;">
+              <li>Present: ${presentCount}</li>
+              <li>On Leave: ${onLeaveCount}</li>
+            </ul>
+          </div>
+        `,
+      });
+
+      notifications.show({
+        color: 'green',
+        title: 'Success',
+        message: `Recorded ${newAttendanceRecords.length} attendance records`,
+      });
+    } catch (error) {
+      console.error('Error auto-recording attendance:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text:
+          error instanceof Error
+            ? error.message
+            : 'Failed to record attendance automatically',
+      });
+    }
   };
 
   const handleCloseRecordModal = () => {

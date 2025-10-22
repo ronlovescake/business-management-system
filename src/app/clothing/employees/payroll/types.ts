@@ -7,6 +7,7 @@ export interface Payroll {
   allowance: number;
   overtime: number;
   bonuses: number;
+  thirteenthMonth: number;
   grossPay: number;
   sss: number;
   philHealth: number;
@@ -32,6 +33,7 @@ export interface PayrollFormData {
   allowance: string;
   overtime: string;
   bonuses: string;
+  thirteenthMonth: string;
   sss: string;
   philHealth: string;
   pagIbig: string;

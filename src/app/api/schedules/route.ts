@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
@@ -29,6 +30,8 @@ type ScheduleCreateInput = {
 type ScheduleUpdateInput = Partial<ScheduleCreateInput> & {
   deletedAt?: Date | string | null;
 };
+
+type PersistableScheduleInput = ScheduleCreateInput & { id: string };
 
 type ScheduleEntity = ScheduleCreateInput & {
   id: string;
@@ -260,18 +263,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const createInputs = items.map((item) => toCreateInput(item));
+    const createInputs: PersistableScheduleInput[] = items.map((item) => ({
+      id: randomUUID(),
+      ...toCreateInput(item),
+    }));
 
-    const created = await prisma.$transaction(async (tx) => {
-      const txSchedule = getScheduleDelegate(tx);
-      const results: ScheduleEntity[] = [];
+    const ids = createInputs.map((input) => input.id);
 
-      for (const data of createInputs) {
-        const schedule = await txSchedule.create({ data });
-        results.push(schedule);
-      }
+    await prisma.schedule.createMany({ data: createInputs });
 
-      return results;
+    const created = await scheduleDelegate.findMany({
+      where: { id: { in: ids }, deletedAt: null },
+      orderBy: [{ date: 'desc' }, { startTime: 'asc' }],
     });
 
     const response = created.map(mapScheduleToResponse);

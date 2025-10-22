@@ -57,6 +57,7 @@
     "react-hook-form": "^7.45.0",
     "react-responsive": "^9.0.0",
     "recharts": "^3.2.1",
+    "sweetalert2": "^11.26.3",
     "zod": "^3.22.0",
     "zustand": "^4.4.0"
   },
