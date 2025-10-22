@@ -17,7 +17,7 @@ import {
   polishedReadOnlyFieldStyles,
 } from '@/components/modals/polishedModalTheme';
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
-import type { LeaveRequest, LeaveType, PaymentStatus } from '../types';
+import type { LeaveRequest, LeaveType } from '../types';
 import { toDate, toISODate } from '@/utils/date';
 
 interface LeaveFormDialogProps {
@@ -25,7 +25,6 @@ interface LeaveFormDialogProps {
   onClose: () => void;
   editingRequest: LeaveRequest | null;
   leaveTypes: LeaveType[];
-  paymentStatuses: PaymentStatus[];
   employeeOptions: { value: string; label: string }[];
   isLoadingEmployees: boolean;
   formEmployeeName: string;
@@ -34,8 +33,6 @@ interface LeaveFormDialogProps {
   setFormEmployeeId: (value: string) => void;
   formLeaveType: LeaveType | '';
   setFormLeaveType: (value: LeaveType | '') => void;
-  formPaymentStatus: PaymentStatus | '';
-  setFormPaymentStatus: (value: PaymentStatus | '') => void;
   formStartDate: string;
   setFormStartDate: (value: string) => void;
   formEndDate: string;
@@ -60,7 +57,6 @@ export function LeaveFormDialog({
   onClose,
   editingRequest,
   leaveTypes,
-  paymentStatuses,
   employeeOptions,
   isLoadingEmployees,
   formEmployeeName,
@@ -69,8 +65,6 @@ export function LeaveFormDialog({
   setFormEmployeeId,
   formLeaveType,
   setFormLeaveType,
-  formPaymentStatus,
-  setFormPaymentStatus,
   formStartDate,
   setFormStartDate,
   formEndDate,
@@ -122,7 +116,6 @@ export function LeaveFormDialog({
 
   const employeeSelectPresentation = getSelectProps('employeeName');
   const leaveTypeSelectPresentation = getSelectProps('leaveType');
-  const paymentStatusSelectPresentation = getSelectProps('paymentStatus');
   const startDateField = getFieldProps('startDate');
   const endDateField = getFieldProps('endDate');
   const reasonField = getTextareaProps('reason');
@@ -245,19 +238,6 @@ export function LeaveFormDialog({
           onChange={(value) => setFormLeaveType(value as LeaveType)}
           {...leaveTypeSelectPresentation.handlers}
           styles={leaveTypeSelectPresentation.styles}
-        />
-
-        <Select
-          label="Payment Status"
-          required
-          data={paymentStatuses.map((status) => ({
-            value: status,
-            label: status.toUpperCase().replace('-', ' '),
-          }))}
-          value={formPaymentStatus}
-          onChange={(value) => setFormPaymentStatus(value as PaymentStatus)}
-          {...paymentStatusSelectPresentation.handlers}
-          styles={paymentStatusSelectPresentation.styles}
         />
 
         <Group grow>
