@@ -8,8 +8,6 @@ import {
   ensureNextPayday,
 } from './cashAdvanceSchedule';
 
-const WEEKEND_DAYS = new Set([0, 6]);
-
 const roundToCents = (value: number): number =>
   Math.round((Number.isFinite(value) ? value : 0) * 100) / 100;
 
@@ -133,29 +131,49 @@ const parseTimeToMinutes = (value?: string | null): number | null => {
   return hours * 60 + minutes;
 };
 
-const countWorkingDays = (start: Date, end: Date): number => {
+/**
+ * Count scheduled working days for an employee within a date range
+ * @param employeeId - The employee ID
+ * @param start - Start date (inclusive)
+ * @param end - End date (inclusive)
+ * @param schedules - Array of schedule records for the employee
+ * @returns Number of days the employee has schedules
+ */
+const countScheduledDays = (
+  employeeId: string,
+  start: Date,
+  end: Date,
+  schedules: MinimalSchedule[]
+): number => {
   if (start > end) {
     return 0;
   }
 
-  const cursor = new Date(start);
-  let count = 0;
+  const startStr = formatDate(start);
+  const endStr = formatDate(end);
 
-  while (cursor <= end) {
-    if (!WEEKEND_DAYS.has(cursor.getUTCDay())) {
-      count += 1;
-    }
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-  }
+  // Filter schedules within the date range
+  const scheduledDates = new Set(
+    schedules
+      .filter(
+        (schedule) =>
+          schedule.employeeId === employeeId &&
+          schedule.date >= startStr &&
+          schedule.date <= endStr
+      )
+      .map((schedule) => schedule.date)
+  );
 
-  return count;
+  return scheduledDates.size;
 };
 
-const getOverlapWorkingDays = (
+const getOverlapScheduledDays = (
+  employeeId: string,
   periodStart: Date,
   periodEnd: Date,
   leaveStart: Date,
-  leaveEnd: Date
+  leaveEnd: Date,
+  schedules: MinimalSchedule[]
 ): number => {
   const overlapStart = leaveStart > periodStart ? leaveStart : periodStart;
   const overlapEnd = leaveEnd < periodEnd ? leaveEnd : periodEnd;
@@ -164,7 +182,7 @@ const getOverlapWorkingDays = (
     return 0;
   }
 
-  return countWorkingDays(overlapStart, overlapEnd);
+  return countScheduledDays(employeeId, overlapStart, overlapEnd, schedules);
 };
 
 interface MinimalEmployee {
@@ -512,7 +530,8 @@ const mergeCashAdvanceUpdate = (
 
 const calculateLwopForPayroll = (
   payroll: Payroll,
-  entry: EmployeeMapEntry | undefined
+  entry: EmployeeMapEntry | undefined,
+  schedules: MinimalSchedule[] = []
 ): {
   unpaidDays: number;
   dailyRate: number;
@@ -550,7 +569,14 @@ const calculateLwopForPayroll = (
 
     return (
       total +
-      getOverlapWorkingDays(periodStart, periodEnd, leaveStart, leaveEnd)
+      getOverlapScheduledDays(
+        payroll.employeeId,
+        periodStart,
+        periodEnd,
+        leaveStart,
+        leaveEnd,
+        schedules
+      )
     );
   }, 0);
 
@@ -564,14 +590,62 @@ const applyLwopAdjustments = async (
   employeeDataMap: Map<string, EmployeeMapEntry>
 ): Promise<Payroll[]> => {
   const updates: Array<{ id: string; data: Prisma.PayrollUpdateInput }> = [];
-
   const updatedResults = new Map<string, Payroll>();
+
+  // Fetch schedules for all employees and date ranges
+  const employeeIds = Array.from(
+    new Set(payrolls.map((payroll) => payroll.employeeId).filter(Boolean))
+  );
+
+  let globalStart: Date | null = null;
+  let globalEnd: Date | null = null;
+
+  for (const payroll of payrolls) {
+    const { start, end } = getPayrollPeriodRange(payroll);
+    if (!start || !end) {
+      continue;
+    }
+
+    if (!globalStart || start < globalStart) {
+      globalStart = start;
+    }
+    if (!globalEnd || end > globalEnd) {
+      globalEnd = end;
+    }
+  }
+
+  // Fetch all schedules for the period
+  const schedules =
+    employeeIds.length > 0 && globalStart && globalEnd
+      ? await prisma.schedule.findMany({
+          where: {
+            employeeId: { in: employeeIds },
+            deletedAt: null,
+            date: {
+              gte: formatDate(globalStart),
+              lte: formatDate(globalEnd),
+            },
+          },
+          select: {
+            id: true,
+            employeeId: true,
+            date: true,
+            startTime: true,
+            endTime: true,
+            shiftType: true,
+          },
+        })
+      : [];
 
   for (const payroll of payrolls) {
     const entry = employeeDataMap.get(payroll.employeeId);
+    const employeeSchedules = schedules.filter(
+      (s) => s.employeeId === payroll.employeeId
+    );
     const { unpaidDays, dailyRate, deduction } = calculateLwopForPayroll(
       payroll,
-      entry
+      entry,
+      employeeSchedules
     );
 
     const currentDeduction = roundToCents(payroll.lwop ?? 0);
