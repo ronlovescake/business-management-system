@@ -647,55 +647,35 @@ export function usePayroll() {
 
       // If this payroll has 13th month pay, also mark 13th month record as paid
       if (payroll.thirteenthMonth && payroll.thirteenthMonth > 0) {
-        // Extract year from pay period (format: "MMM DD, YYYY - MMM DD, YYYY")
-        const year = payroll.payPeriod
-          ? new Date(
-              payroll.payPeriod.split(' - ')[1] || payroll.payPeriod
-            ).getFullYear()
-          : new Date().getFullYear();
+        // Extract year from pay period
+        let year = new Date().getFullYear();
+        if (payroll.payPeriod) {
+          const endDateStr =
+            payroll.payPeriod.split(' to ')[1] ||
+            payroll.payPeriod.split(' - ')[1] ||
+            payroll.payPeriod;
+          const parsedDate = new Date(endDateStr);
+          if (!isNaN(parsedDate.getTime())) {
+            year = parsedDate.getFullYear();
+          }
+        }
 
-        // Get employee ID - try payroll.employeeId first, fallback to empty string
         const employeeId = payroll.employeeId || '';
-
-        // Construct 13th month record ID: employeeId-year
         const thirteenthMonthRecordId = `${employeeId.toLowerCase()}-${year}`;
 
         try {
-          // First, try to fetch the existing 13th month record to preserve its data
-          const existingResponse = await fetch('/api/thirteenth-month-pay');
-          const existingRecords = await existingResponse.json();
-
-          const existingRecord = Array.isArray(existingRecords)
-            ? existingRecords.find(
-                (r: { recordId?: string; id?: string }) =>
-                  (r.recordId || r.id) === thirteenthMonthRecordId
-              )
-            : null;
-
-          // Sync to 13th month pay - preserve existing data if available
-          await fetch('/api/thirteenth-month-pay', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              id: thirteenthMonthRecordId,
-              employeeId: employeeId,
-              employee: payroll.employee,
-              year: year,
-              status: 'paid',
-              paidDate: paidDate,
-              thirteenthMonthPay:
-                existingRecord?.thirteenthMonthPay ?? payroll.thirteenthMonth,
-              // Preserve existing calculated values if record exists, otherwise use defaults
-              totalBasicSalary: existingRecord?.totalBasicSalary ?? 0,
-              totalLwop: existingRecord?.totalLwop ?? 0,
-              totalAbsencesLates: existingRecord?.totalAbsencesLates ?? 0,
-              netBasicSalary: existingRecord?.netBasicSalary ?? 0,
-              monthsWorked: existingRecord?.monthsWorked ?? 12,
-              calculatedDate: existingRecord?.calculatedDate ?? null,
-              approvedDate: existingRecord?.approvedDate ?? null,
-              notes: existingRecord?.notes ?? null,
-            }),
-          });
+          // Simply update the 13th month record status to 'paid'
+          await fetch(
+            `/api/thirteenth-month-pay/${thirteenthMonthRecordId}/status`,
+            {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                status: 'paid',
+                paidDate: paidDate,
+              }),
+            }
+          );
         } catch (thirteenthError) {
           console.warn(
             'Failed to sync 13th month pay status:',
