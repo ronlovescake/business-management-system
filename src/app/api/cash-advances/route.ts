@@ -227,7 +227,7 @@ export async function PUT(request: NextRequest) {
 
     const amount =
       body.amount !== undefined ? toDecimal(body.amount) : undefined;
-    if (amount !== undefined) {
+    if (amount !== undefined && amount !== null) {
       data.amount = amount;
     }
 
@@ -240,7 +240,7 @@ export async function PUT(request: NextRequest) {
       body.monthlyPayment !== undefined
         ? toDecimal(body.monthlyPayment)
         : undefined;
-    if (body.monthlyPayment !== undefined) {
+    if (monthlyPayment !== undefined && monthlyPayment !== null) {
       data.monthlyPayment = monthlyPayment;
     }
 

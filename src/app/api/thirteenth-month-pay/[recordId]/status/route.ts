@@ -44,7 +44,6 @@ export async function PATCH(
     }
 
     // Check if record exists
-    // @ts-expect-error - Prisma client type not yet updated
     const existing = await prisma.thirteenthMonthPayRecord.findUnique({
       where: { recordId },
     });
@@ -54,7 +53,6 @@ export async function PATCH(
     }
 
     // Update only the status and paidDate
-    // @ts-expect-error - Prisma client type not yet updated
     const updated = await prisma.thirteenthMonthPayRecord.update({
       where: { recordId },
       data: {
