@@ -6,7 +6,10 @@ import {
   Select,
   Button,
   Group,
+  Alert,
+  Text,
 } from '@mantine/core';
+import { IconInfoCircle, IconAlertTriangle } from '@tabler/icons-react';
 import { DateInput } from '@mantine/dates';
 import { PolishedModal } from '@/components/modals/PolishedModal';
 import {
@@ -49,6 +52,7 @@ interface LeaveFormDialogProps {
     endDate: string,
     employeeId?: string
   ) => number;
+  employeeLeaveAllocation: number | null;
 }
 
 export function LeaveFormDialog({
@@ -79,6 +83,7 @@ export function LeaveFormDialog({
   onClear,
   isClearDisabled = false,
   calculateDays,
+  employeeLeaveAllocation,
 }: LeaveFormDialogProps) {
   const numberOfDays =
     formStartDate && formEndDate
@@ -131,6 +136,41 @@ export function LeaveFormDialog({
     !formEndDate ||
     !formReason;
 
+  // Determine allocation message
+  const allocationMessage = (() => {
+    if (!formEmployeeId || employeeLeaveAllocation === null) {
+      return null;
+    }
+
+    const currentYear = new Date().getFullYear();
+
+    if (numberOfDays === 0) {
+      return {
+        type: 'info' as const,
+        message: `This employee has ${employeeLeaveAllocation} paid leave ${employeeLeaveAllocation === 1 ? 'day' : 'days'} remaining for ${currentYear}.`,
+      };
+    }
+
+    if (numberOfDays <= employeeLeaveAllocation) {
+      return {
+        type: 'success' as const,
+        message: `✓ This ${numberOfDays}-day request is within the allocation. Will be marked as PAID. (${employeeLeaveAllocation - numberOfDays} ${employeeLeaveAllocation - numberOfDays === 1 ? 'day' : 'days'} will remain)`,
+      };
+    }
+
+    if (employeeLeaveAllocation === 0) {
+      return {
+        type: 'warning' as const,
+        message: `⚠️ This employee has no paid leave remaining for ${currentYear}. This ${numberOfDays}-day request will be marked as UNPAID.`,
+      };
+    }
+
+    return {
+      type: 'warning' as const,
+      message: `⚠️ This ${numberOfDays}-day request exceeds the ${employeeLeaveAllocation}-day allocation. It will be automatically split into:\n• ${employeeLeaveAllocation} PAID ${employeeLeaveAllocation === 1 ? 'day' : 'days'}\n• ${numberOfDays - employeeLeaveAllocation} UNPAID ${numberOfDays - employeeLeaveAllocation === 1 ? 'day' : 'days'}`,
+    };
+  })();
+
   return (
     <PolishedModal
       opened={opened}
@@ -164,6 +204,38 @@ export function LeaveFormDialog({
           readOnly
           styles={polishedReadOnlyFieldStyles}
         />
+
+        {/* Leave Allocation Info/Warning */}
+        {allocationMessage && (
+          <Alert
+            icon={
+              allocationMessage.type === 'warning' ? (
+                <IconAlertTriangle size={16} />
+              ) : (
+                <IconInfoCircle size={16} />
+              )
+            }
+            title={
+              allocationMessage.type === 'success'
+                ? 'Within Allocation'
+                : allocationMessage.type === 'warning'
+                  ? 'Exceeds Allocation'
+                  : 'Leave Allocation'
+            }
+            color={
+              allocationMessage.type === 'success'
+                ? 'green'
+                : allocationMessage.type === 'warning'
+                  ? 'orange'
+                  : 'blue'
+            }
+            variant="light"
+          >
+            <Text size="sm" style={{ whiteSpace: 'pre-line' }}>
+              {allocationMessage.message}
+            </Text>
+          </Alert>
+        )}
 
         <Select
           label="Leave Type"

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import type {
   LeaveRequest,
   LeaveStatus,
@@ -64,6 +64,9 @@ export function useLeaveTracker() {
     Record<string, Set<string>>
   >({});
   const [isLoadingSchedules, setIsLoadingSchedules] = useState(false);
+  const [employeeLeaveAllocation, setEmployeeLeaveAllocation] = useState<
+    number | null
+  >(null);
 
   const resetFormFields = () => {
     setFormEmployeeName('');
@@ -74,6 +77,7 @@ export function useLeaveTracker() {
     setFormEndDate('');
     setFormReason('');
     setFormNotes('');
+    setEmployeeLeaveAllocation(null);
   };
 
   // ============================================================================
@@ -402,49 +406,109 @@ export function useLeaveTracker() {
     }
   };
 
-  const calculateDays = (
-    startDate: string,
-    endDate: string,
-    employeeId?: string
-  ): number => {
-    if (!startDate || !endDate) {
-      return 0;
-    }
-
-    const start = dayjs(startDate).tz().startOf('day');
-    const end = dayjs(endDate).tz().startOf('day');
-
-    if (!start.isValid() || !end.isValid() || end.isBefore(start)) {
-      return 0;
-    }
-
-    const totalDays = end.diff(start, 'day') + 1;
-
-    if (!employeeId) {
-      return totalDays;
-    }
-
-    // Normalize employee ID for lookup (trim and lowercase)
-    const normalizedEmployeeId = String(employeeId || '')
-      .trim()
-      .toLowerCase();
-    const scheduleSet = employeeScheduleIndex[normalizedEmployeeId];
-
-    if (!scheduleSet || scheduleSet.size === 0 || isLoadingSchedules) {
-      return totalDays;
-    }
-
-    let countedDays = 0;
-
-    for (let offset = 0; offset < totalDays; offset += 1) {
-      const currentDay = start.add(offset, 'day');
-      if (scheduleSet.has(currentDay.format('YYYY-MM-DD'))) {
-        countedDays += 1;
+  const calculateDays = useCallback(
+    (startDate: string, endDate: string, employeeId?: string): number => {
+      if (!startDate || !endDate) {
+        return 0;
       }
+
+      const start = dayjs(startDate).tz().startOf('day');
+      const end = dayjs(endDate).tz().startOf('day');
+
+      if (!start.isValid() || !end.isValid() || end.isBefore(start)) {
+        return 0;
+      }
+
+      const totalDays = end.diff(start, 'day') + 1;
+
+      if (!employeeId) {
+        return totalDays;
+      }
+
+      // Normalize employee ID for lookup (trim and lowercase)
+      const normalizedEmployeeId = String(employeeId || '')
+        .trim()
+        .toLowerCase();
+      const scheduleSet = employeeScheduleIndex[normalizedEmployeeId];
+
+      if (!scheduleSet || scheduleSet.size === 0 || isLoadingSchedules) {
+        return totalDays;
+      }
+
+      let countedDays = 0;
+
+      for (let offset = 0; offset < totalDays; offset += 1) {
+        const currentDay = start.add(offset, 'day');
+        if (scheduleSet.has(currentDay.format('YYYY-MM-DD'))) {
+          countedDays += 1;
+        }
+      }
+
+      return countedDays;
+    },
+    [employeeScheduleIndex, isLoadingSchedules]
+  );
+
+  const calculateRemainingLeaveAllocation = useCallback(
+    (employeeId: string): number => {
+      const ANNUAL_LEAVE_ENTITLEMENT = 7;
+      const currentYear = new Date().getFullYear();
+
+      const usedPaidLeaveDays = leaveRequests
+        .filter((leave) => {
+          const leaveYear = new Date(leave.startDate).getFullYear();
+          const normalizedLeaveEmployeeId = String(leave.employeeId || '')
+            .trim()
+            .toLowerCase();
+          const normalizedTargetEmployeeId = String(employeeId || '')
+            .trim()
+            .toLowerCase();
+
+          return (
+            normalizedLeaveEmployeeId === normalizedTargetEmployeeId &&
+            leaveYear === currentYear &&
+            leave.status === 'approved' &&
+            leave.paymentStatus === 'paid'
+          );
+        })
+        .reduce((total, leave) => total + (leave.numberOfDays || 0), 0);
+
+      return Math.max(ANNUAL_LEAVE_ENTITLEMENT - usedPaidLeaveDays, 0);
+    },
+    [leaveRequests]
+  );
+
+  // Auto-calculate leave allocation and payment status when employee or dates change
+  useEffect(() => {
+    if (!formEmployeeId || !formStartDate || !formEndDate) {
+      setEmployeeLeaveAllocation(null);
+      return;
     }
 
-    return countedDays;
-  };
+    const remainingDays = calculateRemainingLeaveAllocation(formEmployeeId);
+    setEmployeeLeaveAllocation(remainingDays);
+
+    // Auto-populate payment status based on remaining allocation
+    const requestedDays = calculateDays(
+      formStartDate,
+      formEndDate,
+      formEmployeeId
+    );
+
+    if (requestedDays <= remainingDays && requestedDays > 0) {
+      // Enough allocation - set to paid
+      setFormPaymentStatus('paid');
+    } else if (requestedDays > remainingDays) {
+      // Exceeds allocation - set to unpaid
+      setFormPaymentStatus('unpaid');
+    }
+  }, [
+    formEmployeeId,
+    formStartDate,
+    formEndDate,
+    calculateDays,
+    calculateRemainingLeaveAllocation,
+  ]);
 
   const hasLeaveOverlap = (
     employeeId: string,
@@ -637,25 +701,112 @@ export function useLeaveTracker() {
           return;
         }
       } else {
-        // Add new request
-        const newRequest = {
-          employeeId: formEmployeeId,
-          employeeName: formEmployeeName,
-          leaveType: formLeaveType,
-          paymentStatus: formPaymentStatus,
-          startDate: startISO,
-          endDate: endISO,
-          numberOfDays,
-          reason: formReason,
-          status: 'pending' as LeaveStatus,
-          appliedDate: getCurrentDateISO(),
-          notes: formNotes || null,
-        };
+        // Add new request - check if we need to split based on allocation
+        const remainingAllocation =
+          calculateRemainingLeaveAllocation(formEmployeeId);
+        const requestedDays = numberOfDays;
 
+        const requestsToCreate: Array<{
+          employeeId: string;
+          employeeName: string;
+          leaveType: LeaveType;
+          paymentStatus: PaymentStatus;
+          startDate: string;
+          endDate: string;
+          numberOfDays: number;
+          reason: string;
+          status: LeaveStatus;
+          appliedDate: string;
+          notes: string | null;
+        }> = [];
+
+        if (requestedDays > remainingAllocation && remainingAllocation > 0) {
+          // Split into PAID and UNPAID portions
+          // Calculate split date
+          let daysCounter = 0;
+          let splitDate = '';
+
+          for (let offset = 0; offset < requestedDays; offset += 1) {
+            const currentDay = parsedStart.add(offset, 'day');
+            daysCounter += 1;
+
+            if (daysCounter === remainingAllocation) {
+              splitDate = currentDay.format('YYYY-MM-DD');
+              break;
+            }
+          }
+
+          if (splitDate) {
+            const paidEndDate = splitDate;
+            const unpaidStartDate = dayjs(splitDate)
+              .tz()
+              .add(1, 'day')
+              .format('YYYY-MM-DD');
+
+            // Create PAID request (uses allocation)
+            requestsToCreate.push({
+              employeeId: formEmployeeId,
+              employeeName: formEmployeeName,
+              leaveType: formLeaveType as LeaveType,
+              paymentStatus: 'paid',
+              startDate: startISO,
+              endDate: paidEndDate,
+              numberOfDays: calculateDays(
+                startISO,
+                paidEndDate,
+                formEmployeeId
+              ),
+              reason: `${formReason} (Paid portion - uses leave allocation)`,
+              status: 'pending' as LeaveStatus,
+              appliedDate: getCurrentDateISO(),
+              notes: formNotes || null,
+            });
+
+            // Create UNPAID request (exceeds allocation)
+            requestsToCreate.push({
+              employeeId: formEmployeeId,
+              employeeName: formEmployeeName,
+              leaveType: formLeaveType as LeaveType,
+              paymentStatus: 'unpaid',
+              startDate: unpaidStartDate,
+              endDate: endISO,
+              numberOfDays: calculateDays(
+                unpaidStartDate,
+                endISO,
+                formEmployeeId
+              ),
+              reason: `${formReason} (Unpaid portion - exceeds allocation)`,
+              status: 'pending' as LeaveStatus,
+              appliedDate: getCurrentDateISO(),
+              notes: formNotes || null,
+            });
+          }
+        } else {
+          // Single request (either within allocation or completely exceeds it)
+          requestsToCreate.push({
+            employeeId: formEmployeeId,
+            employeeName: formEmployeeName,
+            leaveType: formLeaveType as LeaveType,
+            paymentStatus: formPaymentStatus as PaymentStatus,
+            startDate: startISO,
+            endDate: endISO,
+            numberOfDays,
+            reason: formReason,
+            status: 'pending' as LeaveStatus,
+            appliedDate: getCurrentDateISO(),
+            notes: formNotes || null,
+          });
+        }
+
+        // Send request(s) to API
         const response = await fetch('/api/leave-requests', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newRequest),
+          body: JSON.stringify(
+            requestsToCreate.length === 1
+              ? requestsToCreate[0]
+              : requestsToCreate
+          ),
         });
 
         if (response.ok) {
@@ -665,6 +816,18 @@ export function useLeaveTracker() {
             const data = await fetchResponse.json();
             setLeaveRequests(data);
           }
+
+          // Show success message with details
+          if (requestsToCreate.length > 1) {
+            alert(
+              `Leave request created successfully!\n\n` +
+                `Your request has been split into:\n` +
+                `• ${requestsToCreate[0].numberOfDays} paid days (${formatDate(requestsToCreate[0].startDate)} - ${formatDate(requestsToCreate[0].endDate)})\n` +
+                `• ${requestsToCreate[1].numberOfDays} unpaid days (${formatDate(requestsToCreate[1].startDate)} - ${formatDate(requestsToCreate[1].endDate)})\n\n` +
+                `This is because you only have ${remainingAllocation} paid leave days remaining.`
+            );
+          }
+
           resetFormFields();
         } else {
           const error = await response.json();
@@ -1136,6 +1299,7 @@ export function useLeaveTracker() {
     setFormReason,
     formNotes,
     setFormNotes,
+    employeeLeaveAllocation,
 
     // Computed values
     leaveTypes,

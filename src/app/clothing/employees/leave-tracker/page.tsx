@@ -63,6 +63,7 @@ export default function LeaveTracker() {
     setFormReason,
     formNotes,
     setFormNotes,
+    employeeLeaveAllocation,
 
     // Computed values
     leaveTypes,
@@ -182,6 +183,7 @@ export default function LeaveTracker() {
         onClear={handleClearForm}
         isClearDisabled={isClearDisabled}
         calculateDays={calculateDays}
+        employeeLeaveAllocation={employeeLeaveAllocation}
       />
     </PageLayout>
   );
