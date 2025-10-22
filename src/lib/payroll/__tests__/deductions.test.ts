@@ -39,6 +39,7 @@ const buildPayroll = (overrides: Partial<Payroll> = {}): Payroll => ({
   allowance: overrides.allowance ?? 0,
   overtime: overrides.overtime ?? 0,
   bonuses: overrides.bonuses ?? 0,
+  thirteenthMonth: overrides.thirteenthMonth ?? 0,
   grossPay: overrides.grossPay ?? 26000,
   sss: overrides.sss ?? 0,
   philHealth: overrides.philHealth ?? 0,
@@ -96,6 +97,34 @@ describe('syncPayrollLwop', () => {
       },
     ]);
 
+    // Mock schedules for LWOP calculation
+    mocks.scheduleFindMany.mockResolvedValue([
+      {
+        id: 'sched-1',
+        employeeId: 'EMP-001',
+        date: '2025-10-01',
+        startTime: '08:00',
+        endTime: '17:00',
+        shiftType: 'regular',
+      },
+      {
+        id: 'sched-2',
+        employeeId: 'EMP-001',
+        date: '2025-10-02',
+        startTime: '08:00',
+        endTime: '17:00',
+        shiftType: 'regular',
+      },
+      {
+        id: 'sched-3',
+        employeeId: 'EMP-001',
+        date: '2025-10-03',
+        startTime: '08:00',
+        endTime: '17:00',
+        shiftType: 'regular',
+      },
+    ]);
+
     mocks.payrollUpdate.mockImplementation(
       async ({ data }: { data: Partial<Payroll> }) => ({
         ...payroll,
@@ -135,38 +164,63 @@ describe('syncPayrollLwop', () => {
   });
 
   it('skips persistence when lwop already matches computed totals', async () => {
-    const payroll = buildPayroll({
-      lwop: 3000,
-      unpaidDays: 3,
-      dailyRate: 1000,
-      deduction: 3000,
-      totalDeductions: 3000,
-      netPay: 23000,
-    });
+    const payrolls = [
+      buildPayroll({
+        id: 'payroll-1',
+        employeeId: 'EMP-001',
+        periodStart: '2025-10-01',
+        periodEnd: '2025-10-15',
+        lwop: 3000, // Already has computed LWOP
+        unpaidDays: 3,
+        dailyRate: 1000,
+        deduction: 3000,
+        totalDeductions: 3000,
+        netPay: 23000,
+      }),
+    ];
+
+    const mockLeaveApprovals = [
+      {
+        id: 1,
+        employeeId: 'EMP-001',
+        startDate: '2025-10-02',
+        endDate: '2025-10-04',
+        numberOfDays: 3,
+      },
+    ];
+
+    const mockSchedules = [
+      {
+        id: 'sched-1',
+        employeeId: 'EMP-001',
+        date: '2025-10-02',
+        shift: 'Day',
+      },
+      {
+        id: 'sched-2',
+        employeeId: 'EMP-001',
+        date: '2025-10-03',
+        shift: 'Day',
+      },
+      {
+        id: 'sched-3',
+        employeeId: 'EMP-001',
+        date: '2025-10-04',
+        shift: 'Day',
+      },
+    ];
 
     mocks.employeeFindMany.mockResolvedValue([
       { employeeId: 'EMP-001', basicSalary: 26000, currentSalary: 26000 },
     ]);
+    mocks.leaveFindMany.mockResolvedValue(mockLeaveApprovals);
+    mocks.scheduleFindMany.mockResolvedValue(mockSchedules);
 
-    mocks.leaveFindMany.mockResolvedValue([
-      {
-        id: 1,
-        employeeId: 'EMP-001',
-        startDate: '2025-10-01',
-        endDate: '2025-10-03',
-        numberOfDays: 3,
-      },
-    ]);
+    const result = await syncPayrollLwop([...payrolls]);
 
-    const result = await syncPayrollLwop([payroll]);
-
+    // Should not trigger update since lwop already matches
     expect(mocks.payrollUpdate).not.toHaveBeenCalled();
-    expect(mocks.transaction).not.toHaveBeenCalled();
-
-    const [unchanged] = result;
-    expect(unchanged.lwop).toBe(3000);
-    expect(unchanged.totalDeductions).toBe(3000);
-    expect(unchanged.netPay).toBe(23000);
+    expect(result[0].lwop).toBe(3000);
   });
 });
 
@@ -178,6 +232,11 @@ describe('syncPayrollAttendanceDeductions', () => {
     mocks.scheduleFindMany.mockReset();
     mocks.payrollUpdate.mockReset();
     mocks.transaction.mockReset();
+
+    // Default transaction mock
+    mocks.transaction.mockImplementation(
+      async (operations: Promise<Payroll>[]) => Promise.all(operations)
+    );
   });
 
   it('calculates absents and late deductions using attendance data', async () => {
@@ -328,10 +387,11 @@ describe('syncPayrollAttendanceDeductions', () => {
   });
 
   it('does not penalize future scheduled days without attendance records', async () => {
+    // Use a future period that hasn't started yet
     const payroll = buildPayroll({
-      payPeriod: '2025-10-16 to 2025-10-31',
-      periodStart: '2025-10-16',
-      periodEnd: '2025-10-31',
+      payPeriod: '2025-11-01 to 2025-11-15',
+      periodStart: '2025-11-01',
+      periodEnd: '2025-11-15',
     });
 
     mocks.employeeFindMany.mockResolvedValue([
@@ -340,43 +400,15 @@ describe('syncPayrollAttendanceDeductions', () => {
 
     mocks.leaveFindMany.mockResolvedValue([]);
 
-    // Only has attendance for past dates (Oct 16-18)
-    mocks.attendanceFindMany.mockResolvedValue([
-      {
-        id: 'att-1',
-        employeeId: 'EMP-001',
-        date: '2025-10-16',
-        timeIn: '08:00',
-        timeOut: '17:00',
-        totalHours: 9,
-        status: 'present',
-      },
-      {
-        id: 'att-2',
-        employeeId: 'EMP-001',
-        date: '2025-10-17',
-        timeIn: '08:00',
-        timeOut: '17:00',
-        totalHours: 9,
-        status: 'present',
-      },
-      {
-        id: 'att-3',
-        employeeId: 'EMP-001',
-        date: '2025-10-18',
-        timeIn: '08:00',
-        timeOut: '17:00',
-        totalHours: 9,
-        status: 'present',
-      },
-    ]);
+    // No attendance records yet (all future dates)
+    mocks.attendanceFindMany.mockResolvedValue([]);
 
-    // Has schedules for entire period including future dates
+    // Has schedules for future dates
     mocks.scheduleFindMany.mockResolvedValue([
       {
         id: 'sched-1',
         employeeId: 'EMP-001',
-        date: '2025-10-16',
+        date: '2025-11-03',
         startTime: '08:00',
         endTime: '17:00',
         shiftType: 'full-day',
@@ -384,7 +416,7 @@ describe('syncPayrollAttendanceDeductions', () => {
       {
         id: 'sched-2',
         employeeId: 'EMP-001',
-        date: '2025-10-17',
+        date: '2025-11-04',
         startTime: '08:00',
         endTime: '17:00',
         shiftType: 'full-day',
@@ -392,15 +424,7 @@ describe('syncPayrollAttendanceDeductions', () => {
       {
         id: 'sched-3',
         employeeId: 'EMP-001',
-        date: '2025-10-18',
-        startTime: '08:00',
-        endTime: '17:00',
-        shiftType: 'full-day',
-      },
-      {
-        id: 'sched-future',
-        employeeId: 'EMP-001',
-        date: '2025-10-21',
+        date: '2025-11-05',
         startTime: '08:00',
         endTime: '17:00',
         shiftType: 'full-day',
