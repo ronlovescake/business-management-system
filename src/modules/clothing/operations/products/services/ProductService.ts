@@ -91,6 +91,11 @@ export class ProductService {
     for (const word of words) {
       const lowerWord = word.toLowerCase();
 
+      // Skip non-alphanumeric words (like "/", "&", etc.) except for special cases with hyphens
+      if (!/[a-zA-Z0-9]/.test(word)) {
+        continue;
+      }
+
       // Check for special cases (2-PC, 3-PC, 4-PC)
       if (PRODUCT_CODE_SPECIAL_CASES[word]) {
         initials += PRODUCT_CODE_SPECIAL_CASES[word];

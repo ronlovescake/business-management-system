@@ -1,0 +1,328 @@
+<!-- views/invoice.hbs -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Invoice</title>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,700;1,400&family=Comfortaa:wght@700&display=swap" rel="stylesheet">
+  <style>
+    /* Reset & Base */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: #f0f0f0;
+      padding: 0px 0;
+    }
+
+    /* Container */
+    .invoice-container {
+      width: 817px;
+      margin: 0 auto;
+      background: #fff;
+      position: relative;
+    }
+
+    /* Top & Bottom Bars */
+    .bar {
+      width: 100%;
+      height: 18px;
+      background-color: #cc0000;
+    }
+
+    /* Header Section */
+    .body-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 20px;      /* 20px padding to the sides */
+      margin-top: 25px;    /* Space from top bar */
+      margin-bottom: 20px; /* Space before "Prepared for" */
+    }
+
+    /* Wrap title + date for independent spacing */
+    .header-text {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    /* Invoice Title */
+    .invoice-title {
+      font-size: 20pt;
+      color: #cc0000;
+      margin-top: 70px;
+      margin-bottom: 50px;
+    }
+
+    /* Invoice Date */
+    .invoice-date {
+      font-size: 12pt;
+      color: #000;
+      margin-top: 0;
+    }
+
+    /* Logo sizing */
+    .logo {
+      max-width: 190px;
+    }
+
+    /* "Prepared for" Table */
+    .info-table {
+      width: calc(100% - 40px);
+      margin: 0 20px 20px;
+      border-collapse: collapse;
+    }
+    .info-table td {
+      vertical-align: top;
+      padding: 3px;
+    }
+    .info-table .label {
+      font-family: 'Comfortaa', cursive;
+      font-size: 12pt;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    .info-table .value {
+      font-family: 'Comfortaa', cursive;
+      font-size: 15pt;
+      font-weight: bold;
+      color: #660000;
+      margin-bottom: 8px;
+    }
+    .info-table .contact {
+      font-family: 'Comfortaa', cursive;
+      font-size: 10pt;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    .info-table td:nth-child(2) {
+      text-align: right;
+    }
+
+    /* Items Table with white borders */
+    .items-table {
+      width: calc(100% - 40px);
+      border-collapse: collapse;
+      margin: 0 20px 10px;
+    }
+    .items-table th,
+    .items-table td {
+      border: 1px solid #ffffff;
+      padding: 5px;
+      height: 25pt;
+      font-size: 10pt;
+    }
+    .items-table th {
+      background-color: #cc0000;
+      color: #ffffff;
+      font-weight: bold;
+      text-align: center;
+    }
+    .items-table tr:nth-child(even) td {
+      background-color: #f3f3f3;
+    }
+    
+    .items-table {
+  width: calc(100% - 40px);
+  border-collapse: collapse;
+  margin: -20px 20px 10px;  /* ↑ pull it up by 6px */
+}
+    
+    
+
+    /* right-align numeric cells */
+    .items-table td.right {
+      text-align: right;
+    }
+
+    /* Summary & Notes */
+    .summary {
+      width: calc(100% - 40px);
+      border: 1px solid #cccccc;
+      border-collapse: collapse;
+      margin: 0 20px;
+    }
+    .summary td {
+      vertical-align: top;
+      padding: 5px;
+    }
+    .summary .due {
+      font-size: 15pt;
+      font-weight: bold;
+      color: #cc0000;
+    }
+    .summary em {
+      display: block;
+      font-style: italic;
+      font-size: 9pt;
+      color: #555;
+      margin-bottom: 5px;
+    }
+    .summary .note-title {
+      font-size: 12pt;
+      font-weight: bold;
+      color: #cc0000;
+      margin: 10px 0 5px;
+    }
+    .summary .note {
+      font-size: 11pt;
+      margin-bottom: 3px;
+    }
+
+    /* Center-align the left side of the summary (due date & notes) */
+    .summary td:first-child {
+      text-align: center;
+    }
+
+    /* Totals Table */
+    .totals-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .totals-table td {
+      padding: 5px;
+      font-size: 10pt;
+    }
+    .totals-table td.label {
+      text-align: left;
+    }
+    .totals-table td.value {
+      text-align: right;
+    }
+    .totals-table .amount-due .label,
+    .totals-table .amount-due .value {
+      font-size: 12pt;
+      font-weight: bold;
+      color: #cc0000;
+    }
+
+    /* Right-align Sub Total, Adjustment & Amount Due */
+    .totals-table td.label,
+    .totals-table td.value {
+      text-align: right;
+    }
+
+
+    /* Spacer for consistent bottom padding */
+    .spacer {
+      height: 30px;
+    }
+  </style>
+</head>
+<body>
+  <div class="invoice-container">
+
+    <!-- Top red bar -->
+    <div class="bar"></div>
+
+    <!-- Header: Invoice title + date + logo -->
+    <div class="body-header">
+      <div class="header-text">
+        <h1 class="invoice-title">INVOICE</h1>
+        <div class="invoice-date">Invoice Date: {{date}}</div>
+      </div>
+      <img src="data:image/png;base64,{{logoData}}" alt="Logo" class="logo" />
+    </div>
+
+    <!-- "Prepared for" / "Order from" table -->
+    <table class="info-table">
+      <tr>
+        <td width="60%">
+          <div class="label">Prepared for</div>
+          <div class="value">{{customerName}}</div>
+          <div class="contact">{{phone}}</div>
+          <div class="contact">{{address}}</div>
+        </td>
+        <td width="40%">
+          <div class="label">Order from</div>
+          <div class="value">Czarlie &amp; Ron</div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Items listing -->
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th>ITEM DESCRIPTION</th>
+          <th>QUANTITY</th>
+          <th>UNIT PRICE</th>
+          <th>ADJUSTMENT</th>
+          <th>LINE TOTAL</th>
+        </tr>
+      </thead>
+      <tbody id="invoice-items">
+        {{#each items}}
+        <tr>
+          <td>{{description}}</td>
+          <td style="text-align:center">{{quantity}}</td>
+<td class="right">{{currency unitPrice}}</td>
+<td class="right">{{currency adjustment}}</td>
+<td class="right">{{currency lineTotal}}</td>
+
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+
+    <!-- Auto-pad empty rows to 15 -->
+    <script>
+      (function(){
+        const tbody = document.getElementById('invoice-items');
+        const target = 15;
+        while (tbody.rows.length < target) {
+          const tr = document.createElement('tr');
+          for (let i = 0; i < 5; i++) {
+            const td = document.createElement('td');
+            td.innerHTML = '&nbsp;';
+            tr.appendChild(td);
+          }
+          tbody.appendChild(tr);
+        }
+      })();
+    </script>
+
+    <!-- Summary & Notes -->
+    <table class="summary">
+      <tr>
+        <td width="60%">
+          <div class="due">DUE DATE: {{dueDate}}</div>
+          <em>Please complete this transaction on or before the due date</em>
+          <div class="note-title">PLEASE TAKE NOTE !!!</div>
+          <div class="note">For Shopee checkout: Deduct ₱50.00 from the “Amount Due”</div>
+          <div class="note">For Lalamove pickup: Please send the full “Amount Due”</div>
+        </td>
+        <td width="40%">
+          <table class="totals-table">
+            <tr>
+              <td class="label">Sub Total:</td>
+              <td class="value">{{currency subTotal}}</td>
+            </tr>
+            <tr>
+              <td class="label">Adjustment:</td>
+              <td class="value">{{currency creditAmount}}</td>
+            </tr>
+            <tr><td colspan="2"><hr></td></tr>
+            <tr class="amount-due">
+              <td class="label">AMOUNT DUE:</td>
+              <td class="value">{{currency orderTotal}}</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Bottom spacer -->
+    <div class="spacer"></div>
+
+    <!-- Bottom red bar -->
+    <div class="bar"></div>
+  </div>
+</body>
+</html>
+

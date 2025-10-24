@@ -239,7 +239,6 @@ export const SKIP_WORDS = [
   'of',
   'in',
   'for',
-  'with',
   'on',
   'at',
   'to',
@@ -252,9 +251,9 @@ export const SKIP_WORDS = [
  * Special cases for Product Code generation
  */
 export const PRODUCT_CODE_SPECIAL_CASES: Record<string, string> = {
-  '2-PC': '2S',
-  '3-PC': '3S',
-  '4-PC': '4S',
+  '2-PC': '2',
+  '3-PC': '3',
+  '4-PC': '4',
 } as const;
 
 /**

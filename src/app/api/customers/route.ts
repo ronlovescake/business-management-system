@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import type { Customer, Prisma } from '@prisma/client';
+import type { Customer } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import {
   customerDataSchema,
@@ -216,9 +217,20 @@ function dbNotConfigured(): string | null {
   return null;
 }
 
+// GET - Fetch all customers (excluding soft-deleted)
 export async function GET() {
   try {
-    const items = await prisma.customer.findMany({ orderBy: { id: 'asc' } });
+    // ========================================================================
+    // ⚠️ SOFT DELETE FILTER
+    // ========================================================================
+    // Exclude soft-deleted records by filtering where deletedAt is null
+    // ========================================================================
+    const items = await prisma.customer.findMany({
+      where: {
+        deletedAt: null,
+      },
+      orderBy: { id: 'asc' },
+    });
     logger.info(`Successfully fetched ${items.length} customers from database`);
     return NextResponse.json(items.map(mapToDTO));
   } catch (err) {
@@ -246,10 +258,35 @@ export async function PUT(req: NextRequest) {
       );
     }
     const body = await req.json();
+
+    // ========================================================================
+    // ⚠️ DATA VALIDATION - Array Format
+    // ========================================================================
     if (!Array.isArray(body)) {
       return NextResponse.json(
-        { error: 'Invalid payload: Expected an array' },
+        {
+          error: 'Invalid data format',
+          details: 'Expected an array of customers',
+        },
         { status: 400 }
+      );
+    }
+
+    // ========================================================================
+    // ⚠️ BATCH SIZE LIMIT - Maximum 10000 records per update
+    // ========================================================================
+    if (body.length > 10000) {
+      logger.warn(
+        `Batch size limit exceeded: ${body.length} records (max 10000)`
+      );
+      return NextResponse.json(
+        {
+          error: 'Batch size limit exceeded',
+          details: `You are trying to update ${body.length} records. Maximum is 10,000 records per update.`,
+          suggestion:
+            'Please split your update into smaller batches of 10,000 records or less.',
+        },
+        { status: 413 } // Payload Too Large
       );
     }
 
@@ -288,13 +325,21 @@ export async function PUT(req: NextRequest) {
       );
     }
 
+    // ========================================================================
+    // ⚠️ ATOMIC BULK UPDATES - Using prisma.$transaction
+    // ========================================================================
+    // All updates succeed or all fail together
+    // ========================================================================
     const { created, updated } = await prisma.$transaction(async (tx) => {
       let createdCount = 0;
       let updatedCount = 0;
 
       for (const customer of validCustomers) {
         const createData = mapFromDTO(customer);
-        const updateData: Prisma.CustomerUpdateInput = { ...createData };
+        const updateData: Prisma.CustomerUpdateInput = {
+          ...createData,
+          deletedAt: null, // Auto-restore if previously soft-deleted
+        };
 
         if (customer.id) {
           await tx.customer.upsert({
@@ -306,6 +351,7 @@ export async function PUT(req: NextRequest) {
           continue;
         }
 
+        // Check for existing customer (including soft-deleted ones)
         const existing = await tx.customer.findFirst({
           where: { customerName: createData.customerName },
         });
@@ -313,7 +359,7 @@ export async function PUT(req: NextRequest) {
         if (existing) {
           await tx.customer.update({
             where: { id: existing.id },
-            data: updateData,
+            data: updateData, // Will restore if deletedAt was set
           });
           updatedCount++;
         } else {
@@ -325,6 +371,8 @@ export async function PUT(req: NextRequest) {
       return { created: createdCount, updated: updatedCount };
     });
 
+    logger.info(`✅ Atomically processed ${created + updated} customers`);
+
     return NextResponse.json({
       ok: true,
       created,
@@ -334,6 +382,33 @@ export async function PUT(req: NextRequest) {
     });
   } catch (err) {
     logger.error('PUT /api/customers error', err);
+
+    // Enhanced error handling with specific error types
+    if (err instanceof Prisma.PrismaClientKnownRequestError) {
+      // P2025 = Record to update not found
+      if (err.code === 'P2025') {
+        return NextResponse.json(
+          {
+            error: 'Customer not found',
+            details: 'One or more customers do not exist',
+            code: err.code,
+          },
+          { status: 404 }
+        );
+      }
+      // P2002 = Unique constraint failed
+      if (err.code === 'P2002') {
+        return NextResponse.json(
+          {
+            error: 'Duplicate customer',
+            details: 'A customer with this information already exists',
+            code: err.code,
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     const msg = err instanceof Error ? err.message.toLowerCase() : '';
     if (msg.includes('authentication failed')) {
       return NextResponse.json(
@@ -345,7 +420,10 @@ export async function PUT(req: NextRequest) {
       );
     }
     return NextResponse.json(
-      { error: 'Failed to save customers' },
+      {
+        error: 'Failed to save customers',
+        details: err instanceof Error ? err.message : String(err),
+      },
       { status: 500 }
     );
   }
@@ -400,19 +478,70 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE - Clear all customers
-export async function DELETE() {
+// DELETE - Delete all customers (with safety protection)
+export async function DELETE(request: NextRequest) {
   try {
-    const result = await prisma.customer.deleteMany({});
+    // ========================================================================
+    // ⚠️ MASS DELETION PROTECTION
+    // ========================================================================
+    // Require explicit confirmation query parameter to prevent accidental
+    // deletion of all records
+    // ========================================================================
+    const { searchParams } = new URL(request.url);
+    const confirmParam = searchParams.get('confirm');
+
+    if (confirmParam !== 'DELETE_ALL_CUSTOMERS') {
+      return NextResponse.json(
+        {
+          error: 'Mass deletion protection',
+          details:
+            'You must provide confirmation query parameter to delete all customers',
+          required: '?confirm=DELETE_ALL_CUSTOMERS',
+          example: '/api/customers?confirm=DELETE_ALL_CUSTOMERS',
+          suggestion:
+            'This safety measure prevents accidental deletion of all records.',
+        },
+        { status: 400 } // Bad Request
+      );
+    }
+
+    logger.warn('⚠️ Mass deletion requested with confirmation');
+
+    // ========================================================================
+    // ⚠️ SOFT DELETE - Mark as deleted instead of hard delete
+    // ========================================================================
+    // Use soft delete pattern: set deletedAt timestamp instead of removing
+    // records. This allows data recovery and maintains audit trails.
+    // ========================================================================
+
+    // Check how many are already soft-deleted for observability
+    const alreadyDeleted = await prisma.customer.count({
+      where: { deletedAt: { not: null } },
+    });
+
+    const result = await prisma.customer.updateMany({
+      where: { deletedAt: null }, // Only soft-delete active records
+      data: {
+        deletedAt: new Date(),
+      },
+    });
+
+    logger.info(
+      `✅ Soft deleted ${result.count} customers (${alreadyDeleted} were already deleted)`
+    );
 
     return NextResponse.json({
       message: `Successfully deleted ${result.count} customer records`,
       count: result.count,
+      note: 'Records are soft-deleted and can be recovered if needed',
     });
   } catch (error) {
     logger.error('Failed to delete customers:', error);
     return NextResponse.json(
-      { error: 'Failed to delete customers' },
+      {
+        error: 'Failed to delete customers',
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }

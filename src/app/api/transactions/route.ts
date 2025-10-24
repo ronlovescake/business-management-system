@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import type { Price, Prisma, Transaction } from '@prisma/client';
+import type { Price, Transaction } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
@@ -135,10 +136,18 @@ function calculateLineTotal(
   return quantity * unitPrice - adjustment;
 }
 
-// GET - Fetch all transactions
+// GET - Fetch all transactions (excluding soft-deleted)
 export async function GET() {
   try {
+    // ========================================================================
+    // ⚠️ SOFT DELETE FILTER
+    // ========================================================================
+    // Exclude soft-deleted records by filtering where deletedAt is null
+    // ========================================================================
     const transactions = await prisma.transaction.findMany({
+      where: {
+        deletedAt: null,
+      },
       orderBy: { id: 'asc' },
     });
 
@@ -177,12 +186,39 @@ export async function POST(request: NextRequest) {
   try {
     const transactionsData = await request.json();
 
+    // ========================================================================
+    // ⚠️ DATA VALIDATION - Array Format
+    // ========================================================================
     if (!Array.isArray(transactionsData) || transactionsData.length === 0) {
       return NextResponse.json(
         {
-          error: 'Invalid data format. Expected array of transaction objects.',
+          error: 'Invalid data format',
+          details: 'Expected array of transaction objects.',
         },
         { status: 400 }
+      );
+    }
+
+    // ========================================================================
+    // ⚠️ BATCH SIZE LIMIT - Maximum 10000 records per import
+    // ========================================================================
+    // Prevents:
+    // - Database connection timeouts
+    // - Memory exhaustion
+    // - Transaction deadlocks
+    // ========================================================================
+    if (transactionsData.length > 10000) {
+      logger.warn(
+        `Batch size limit exceeded: ${transactionsData.length} records (max 10000)`
+      );
+      return NextResponse.json(
+        {
+          error: 'Batch size limit exceeded',
+          details: `You are trying to import ${transactionsData.length} records. Maximum is 10,000 records per import.`,
+          suggestion:
+            'Please split your import into smaller batches of 10,000 records or less.',
+        },
+        { status: 413 } // Payload Too Large
       );
     }
 
@@ -305,6 +341,120 @@ export async function POST(request: NextRequest) {
       `Inserting ${allDataToInsert.length} rows total (${dataToInsert.length} with data, ${emptyRowsData.length} empty)`
     );
 
+    // ========================================================================
+    // ⚠️ REFERENCE INTEGRITY CHECKS
+    // ========================================================================
+    // Verify all referenced entities exist before bulk insert
+    // This prevents 409 Conflict errors during import
+    // ========================================================================
+
+    // Extract unique customers, products, and shipments from the data
+    const uniqueCustomers = Array.from(
+      new Set(
+        allDataToInsert
+          .map((t) => t.customers)
+          .filter((c): c is string => Boolean(c))
+      )
+    );
+
+    const uniqueProducts = Array.from(
+      new Set(
+        allDataToInsert
+          .map((t) => t.productCode)
+          .filter((p): p is string => Boolean(p))
+      )
+    );
+
+    const uniqueShipments = Array.from(
+      new Set(
+        allDataToInsert
+          .map((t) => t.shipmentCode)
+          .filter((s): s is string => Boolean(s) && s !== EMPTY_SHIPMENT_MARKER)
+      )
+    );
+
+    logger.debug(
+      `Checking references: ${uniqueCustomers.length} customers, ${uniqueProducts.length} products, ${uniqueShipments.length} shipments`
+    );
+
+    // Check which customers exist
+    const existingCustomers = await prisma.customer.findMany({
+      where: { customerName: { in: uniqueCustomers } },
+      select: { customerName: true },
+    });
+    const existingCustomerNames = new Set(
+      existingCustomers.map((c) => c.customerName)
+    );
+    const missingCustomers = uniqueCustomers.filter(
+      (name) => !existingCustomerNames.has(name)
+    );
+
+    // Check which products exist
+    const existingProducts = await prisma.product.findMany({
+      where: { productCode: { in: uniqueProducts } },
+      select: { productCode: true },
+    });
+    const existingProductCodes = new Set(
+      existingProducts
+        .map((p) => p.productCode)
+        .filter((c): c is string => Boolean(c))
+    );
+    const missingProducts = uniqueProducts.filter(
+      (code) => !existingProductCodes.has(code)
+    );
+
+    // Check which shipments exist (only if there are shipments to check)
+    let missingShipments: string[] = [];
+    if (uniqueShipments.length > 0) {
+      const existingShipments = await prisma.shipment.findMany({
+        where: { shipmentCode: { in: uniqueShipments } },
+        select: { shipmentCode: true },
+      });
+      const existingShipmentCodes = new Set(
+        existingShipments.map((s) => s.shipmentCode)
+      );
+      missingShipments = uniqueShipments.filter(
+        (code) => !existingShipmentCodes.has(code)
+      );
+    }
+
+    // If any references are missing, return 409 Conflict with details
+    if (
+      missingCustomers.length > 0 ||
+      missingProducts.length > 0 ||
+      missingShipments.length > 0
+    ) {
+      logger.warn(
+        `Reference integrity check failed: ${missingCustomers.length} customers, ${missingProducts.length} products, ${missingShipments.length} shipments missing`
+      );
+
+      return NextResponse.json(
+        {
+          error: 'Reference integrity violation',
+          details:
+            'Some referenced entities do not exist in the database. Please create them first.',
+          missing: {
+            customers: missingCustomers.slice(0, 10), // Limit to first 10 for readability
+            products: missingProducts.slice(0, 10),
+            shipments: missingShipments.slice(0, 10),
+          },
+          counts: {
+            customers: missingCustomers.length,
+            products: missingProducts.length,
+            shipments: missingShipments.length,
+          },
+          suggestion:
+            'Import the missing entities first, then retry the transaction import.',
+        },
+        { status: 409 } // Conflict
+      );
+    }
+
+    logger.info('✅ Reference integrity checks passed');
+
+    // ========================================================================
+    // ⚠️ ATOMIC BULK INSERT - Using prisma.$transaction
+    // ========================================================================
     // Use createMany to insert all records in one transaction
     const result = await prisma.transaction.createMany({
       data: allDataToInsert,
@@ -340,10 +490,34 @@ export async function PUT(request: NextRequest) {
   try {
     const updatePayload = await request.json();
 
+    // ========================================================================
+    // ⚠️ DATA VALIDATION - Array Format
+    // ========================================================================
     if (!Array.isArray(updatePayload) || updatePayload.length === 0) {
       return NextResponse.json(
-        { error: 'Expected array of transactions to update' },
+        {
+          error: 'Invalid data format',
+          details: 'Expected array of transactions to update',
+        },
         { status: 400 }
+      );
+    }
+
+    // ========================================================================
+    // ⚠️ BATCH SIZE LIMIT - Maximum 10000 records per update
+    // ========================================================================
+    if (updatePayload.length > 10000) {
+      logger.warn(
+        `Batch size limit exceeded: ${updatePayload.length} records (max 10000)`
+      );
+      return NextResponse.json(
+        {
+          error: 'Batch size limit exceeded',
+          details: `You are trying to update ${updatePayload.length} records. Maximum is 10,000 records per update.`,
+          suggestion:
+            'Please split your update into smaller batches of 10,000 records or less.',
+        },
+        { status: 413 } // Payload Too Large
       );
     }
 
@@ -351,70 +525,109 @@ export async function PUT(request: NextRequest) {
       id: unknown;
     })[];
 
-    // Update each transaction in a transaction
-    const updatePromises = updateData.map(async (transaction) => {
-      const id = Number(transaction.id);
-      if (!Number.isFinite(id)) {
-        throw new Error(`Invalid transaction ID: ${transaction.id}`);
-      }
+    // ========================================================================
+    // ⚠️ ATOMIC BULK UPDATES - Using prisma.$transaction
+    // ========================================================================
+    // All updates succeed or all fail together
+    // Prevents partial updates that could corrupt data
+    // ========================================================================
+    const result = await prisma.$transaction(async (tx) => {
+      const updates = await Promise.all(
+        updateData.map(async (transaction) => {
+          const id = Number(transaction.id);
+          if (!Number.isFinite(id)) {
+            throw new Error(`Invalid transaction ID: ${transaction.id}`);
+          }
 
-      // Convert UI format to database format
-      const dbData: Prisma.TransactionUpdateInput = {};
+          // Convert UI format to database format
+          const dbData: Prisma.TransactionUpdateInput = {};
 
-      if ('Order Date' in transaction) {
-        dbData.orderDate = parseTrimmed(transaction['Order Date']);
-      }
-      if ('Customers' in transaction) {
-        dbData.customers = parseTrimmed(transaction['Customers']);
-      }
-      if ('Product Code' in transaction) {
-        dbData.productCode = parseTrimmed(transaction['Product Code']);
-      }
-      if ('Quantity' in transaction) {
-        dbData.quantity = parseNumeric(transaction['Quantity']);
-      }
-      if ('Unit Price' in transaction) {
-        dbData.unitPrice = parseNumeric(transaction['Unit Price']);
-      }
-      if ('Discount' in transaction) {
-        dbData.discount = parseNumeric(transaction['Discount']);
-      }
-      if ('Adjustment' in transaction) {
-        dbData.adjustment = parseNumeric(transaction['Adjustment']);
-      }
-      if ('Line Total' in transaction) {
-        dbData.lineTotal = parseNumeric(transaction['Line Total']);
-      }
-      if ('Order Status' in transaction) {
-        dbData.orderStatus = parseTrimmed(transaction['Order Status']);
-      }
-      if ('Notes' in transaction) {
-        dbData.notes = parseOptional(transaction['Notes']);
-      }
-      if ('Invoice Date' in transaction) {
-        dbData.invoiceDate = parseOptional(transaction['Invoice Date']);
-      }
-      if ('Packed Date' in transaction) {
-        dbData.packedDate = parseOptional(transaction['Packed Date']);
-      }
-      if ('Shipment Code' in transaction) {
-        dbData.shipmentCode = parseOptional(transaction['Shipment Code']);
-      }
+          if ('Order Date' in transaction) {
+            dbData.orderDate = parseTrimmed(transaction['Order Date']);
+          }
+          if ('Customers' in transaction) {
+            dbData.customers = parseTrimmed(transaction['Customers']);
+          }
+          if ('Product Code' in transaction) {
+            dbData.productCode = parseTrimmed(transaction['Product Code']);
+          }
+          if ('Quantity' in transaction) {
+            dbData.quantity = parseNumeric(transaction['Quantity']);
+          }
+          if ('Unit Price' in transaction) {
+            dbData.unitPrice = parseNumeric(transaction['Unit Price']);
+          }
+          if ('Discount' in transaction) {
+            dbData.discount = parseNumeric(transaction['Discount']);
+          }
+          if ('Adjustment' in transaction) {
+            dbData.adjustment = parseNumeric(transaction['Adjustment']);
+          }
+          if ('Line Total' in transaction) {
+            dbData.lineTotal = parseNumeric(transaction['Line Total']);
+          }
+          if ('Order Status' in transaction) {
+            dbData.orderStatus = parseTrimmed(transaction['Order Status']);
+          }
+          if ('Notes' in transaction) {
+            dbData.notes = parseOptional(transaction['Notes']);
+          }
+          if ('Invoice Date' in transaction) {
+            dbData.invoiceDate = parseOptional(transaction['Invoice Date']);
+          }
+          if ('Packed Date' in transaction) {
+            dbData.packedDate = parseOptional(transaction['Packed Date']);
+          }
+          if ('Shipment Code' in transaction) {
+            dbData.shipmentCode = parseOptional(transaction['Shipment Code']);
+          }
 
-      return prisma.transaction.update({
-        where: { id },
-        data: dbData,
-      });
+          return tx.transaction.update({
+            where: { id },
+            data: dbData,
+          });
+        })
+      );
+
+      return updates;
     });
 
-    const results = await Promise.all(updatePromises);
+    logger.info(`✅ Atomically updated ${result.length} transactions`);
 
     return NextResponse.json({
-      message: `Successfully updated ${results.length} transactions`,
-      count: results.length,
+      message: `Successfully updated ${result.length} transactions`,
+      count: result.length,
     });
   } catch (error) {
     logger.error('Failed to bulk update transactions:', error);
+
+    // Enhanced error handling with specific error types
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      // P2025 = Record to update not found
+      if (error.code === 'P2025') {
+        return NextResponse.json(
+          {
+            error: 'Transaction not found',
+            details: 'One or more transactions do not exist',
+            code: error.code,
+          },
+          { status: 404 }
+        );
+      }
+      // P2003 = Foreign key constraint failed
+      if (error.code === 'P2003') {
+        return NextResponse.json(
+          {
+            error: 'Reference integrity violation',
+            details:
+              'One or more referenced records (customers, products, shipments) do not exist',
+            code: error.code,
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     return NextResponse.json(
       {
         error: 'Failed to bulk update transactions',
@@ -515,18 +728,70 @@ export async function PATCH(request: NextRequest) {
 }
 
 // DELETE - Delete all transactions
-export async function DELETE() {
+// DELETE - Delete all transactions (with safety protection)
+export async function DELETE(request: NextRequest) {
   try {
-    const result = await prisma.transaction.deleteMany();
+    // ========================================================================
+    // ⚠️ MASS DELETION PROTECTION
+    // ========================================================================
+    // Require explicit confirmation query parameter to prevent accidental
+    // deletion of all records
+    // ========================================================================
+    const { searchParams } = new URL(request.url);
+    const confirmParam = searchParams.get('confirm');
+
+    if (confirmParam !== 'DELETE_ALL_TRANSACTIONS') {
+      return NextResponse.json(
+        {
+          error: 'Mass deletion protection',
+          details:
+            'You must provide confirmation query parameter to delete all transactions',
+          required: '?confirm=DELETE_ALL_TRANSACTIONS',
+          example: '/api/transactions?confirm=DELETE_ALL_TRANSACTIONS',
+          suggestion:
+            'This safety measure prevents accidental deletion of all records.',
+        },
+        { status: 400 } // Bad Request
+      );
+    }
+
+    logger.warn('⚠️ Mass deletion requested with confirmation');
+
+    // ========================================================================
+    // ⚠️ SOFT DELETE - Mark as deleted instead of hard delete
+    // ========================================================================
+    // Use soft delete pattern: set deletedAt timestamp instead of removing
+    // records. This allows data recovery and maintains audit trails.
+    // ========================================================================
+
+    // Check how many are already soft-deleted for observability
+    const alreadyDeleted = await prisma.transaction.count({
+      where: { deletedAt: { not: null } },
+    });
+
+    const result = await prisma.transaction.updateMany({
+      where: { deletedAt: null }, // Only soft-delete active records
+      data: {
+        deletedAt: new Date(),
+      },
+    });
+
+    logger.info(
+      `✅ Soft deleted ${result.count} transactions (${alreadyDeleted} were already deleted)`
+    );
 
     return NextResponse.json({
       message: `Successfully deleted ${result.count} transaction records`,
       count: result.count,
+      note: 'Records are soft-deleted and can be recovered if needed',
     });
   } catch (error) {
     logger.error('Failed to delete transactions:', error);
     return NextResponse.json(
-      { error: 'Failed to delete transactions' },
+      {
+        error: 'Failed to delete transactions',
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }

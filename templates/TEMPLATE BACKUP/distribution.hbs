@@ -1,0 +1,146 @@
+<!-- views/sorting.hbs -->
+<!DOCTYPE html>
+<html lang="utf-8">
+<head>
+  <meta charset="utf-8">
+  <title>Sorting Template</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@400;700&display=swap');
+
+    /* Force the page to be A6 landscape with no margins */
+    @page {
+      size: A6 landscape;
+      margin: 0;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #f9f9f9;
+      font-family: Raleway, sans-serif;
+    }
+
+    /* Expand wrapper to fill the page */
+    .wrapper {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      background: #fff;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+
+    .logo {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 60%; /* Adjust as needed */
+      max-width: 100mm; /* Example constraint */
+      height: auto;
+      transform: translate(-50%, -50%);
+      z-index: 1; /* Ensure logo is behind text if overlapping */
+      opacity: 1; /* Make logo a light watermark - Increased from 0.08 */
+    }
+
+    .order-for {
+      position: absolute;
+      top: 27px; /* Adjust as needed */
+      left: 40px; /* Adjust as needed */
+      font-size: 12pt;
+      z-index: 2;
+    }
+
+    .customer {
+      position: absolute;
+      top: 20%; /* Adjust as needed */
+      width: 100%;
+      text-align: center;
+      font-size: 2rem; /* Adjust as needed */
+      font-weight: 700;
+      z-index: 2;
+      padding: 0 10px; /* Add some padding */
+      box-sizing: border-box; /* Include padding in width */
+      word-wrap: break-word; /* Wrap long customer names */
+    }
+
+    .line {
+      position: absolute;
+      top: 65%; /* Adjust as needed */
+      width: 100%;
+      text-align: center;
+      z-index: 2;
+      padding: 0 10px; /* Add some padding */
+      box-sizing: border-box; /* Include padding in width */
+    }
+
+    .line .quantity {
+      font-size: 1.8rem; /* Adjust as needed */
+      font-weight: 700;
+    }
+
+    .line .productCode {
+      font-size: 1.5rem; /* Adjust as needed */
+      font-weight: 400;
+      word-wrap: break-word; /* Wrap long product codes */
+    }
+    
+    .entry { /* This class wraps the content for a single PDF page */
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    .logo-placeholder {
+        text-align: center; 
+        position: absolute; 
+        top: 50%; left: 50%; 
+        transform: translate(-50%, -50%); 
+        z-index: 1; 
+        opacity: 0.1; 
+        font-size: 20px;
+        color: #ccc;
+    }
+
+  </style>
+</head>
+<body>
+<div class="wrapper">
+  {{! This template now renders one record at a time, the loop is in server.js }}
+  <div class="entry">
+    {{#if logoDataUri}}
+      <img src="{{logoDataUri}}" class="logo" alt="Logo">
+    {{else}}
+      <div class="logo-placeholder">Logo</div>
+    {{/if}}
+    
+    {{! Optional: Display current date if needed on each slip. Position as required. }}
+    {{! <div style="position: absolute; top: 5px; right: 5px; font-size: 8pt; z-index: 3;">{{currentDate}}</div> }}
+    
+    <div class="order-for">ORDER FOR</div>
+    <div class="customer">{{customer}}</div>
+    <div class="line">
+      <span class="quantity">{{quantity}}</span>
+      &nbsp;&ndash;&nbsp;
+      <span class="productCode">{{productCode}}</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
