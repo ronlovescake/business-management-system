@@ -127,28 +127,48 @@ function sanitizeCustomerRecord(entry: unknown): Record<string, unknown> {
   record['Customer Status'] = normalizeStatus(record['Customer Status']);
 
   if (typeof record['Customer Name'] === 'string') {
-    record['Customer Name'] = record['Customer Name'].trim();
+    // Remove all control characters, newlines, and extra whitespace
+    record['Customer Name'] = record['Customer Name']
+      .replace(/[\r\n\t\u0000-\u001F\u007F-\u009F]/g, ' ') // Replace control chars with space
+      .replace(/\s+/g, ' ') // Collapse multiple spaces to single space
+      .trim();
   }
 
   if (typeof record['Phone Number'] === 'string') {
-    record['Phone Number'] = record['Phone Number'].trim();
+    record['Phone Number'] = record['Phone Number']
+      .replace(/[\r\n\t\u0000-\u001F\u007F-\u009F]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   if (typeof record.Address === 'string') {
-    record.Address = record.Address.trim();
+    record.Address = record.Address.replace(
+      /[\r\n\t\u0000-\u001F\u007F-\u009F]/g,
+      ' '
+    )
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   if (typeof record['Business Name'] === 'string') {
-    record['Business Name'] = record['Business Name'].trim();
+    record['Business Name'] = record['Business Name']
+      .replace(/[\r\n\t\u0000-\u001F\u007F-\u009F]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   if (typeof record['Business Address'] === 'string') {
-    record['Business Address'] = record['Business Address'].trim();
+    record['Business Address'] = record['Business Address']
+      .replace(/[\r\n\t\u0000-\u001F\u007F-\u009F]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   if (typeof record['Business Contact Number'] === 'string') {
-    record['Business Contact Number'] =
-      record['Business Contact Number'].trim();
+    record['Business Contact Number'] = record['Business Contact Number']
+      .replace(/[\r\n\t\u0000-\u001F\u007F-\u009F]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   record['Email Address'] = normalizeEmail(record['Email Address']);
@@ -305,16 +325,48 @@ export async function PUT(req: NextRequest) {
       if (result.success) {
         validCustomers.push(result.data as CustomerDTO);
       } else {
+        const issues = formatValidationErrors(result.error);
         invalidCustomers.push({
           index,
-          issues: formatValidationErrors(result.error),
+          issues,
+        });
+
+        // Detailed console logging for skipped customers
+        logger.warn(`❌ Customer #${index + 1} SKIPPED - Validation failed:`, {
+          customerName: record['Customer Name'] || '(no name)',
+          row: index + 1,
+          issues: issues,
+          rawData: record,
         });
       }
     });
 
+    // Log summary of validation
+    logger.info('📊 Customer Import Validation Summary:', {
+      total: normalizedPayload.length,
+      valid: validCustomers.length,
+      skipped: invalidCustomers.length,
+      successRate: `${((validCustomers.length / normalizedPayload.length) * 100).toFixed(1)}%`,
+    });
+
+    // If there are skipped customers, log them in detail
+    if (invalidCustomers.length > 0) {
+      logger.warn(
+        `⚠️  ${invalidCustomers.length} customers will be SKIPPED due to validation errors`
+      );
+      invalidCustomers.forEach(({ index, issues }) => {
+        const customer = normalizedPayload[index];
+        logger.warn(
+          `  → Row ${index + 1}: ${customer['Customer Name'] || '(no name)'} - Issues:`,
+          issues
+        );
+      });
+    }
+
     if (validCustomers.length === 0) {
-      logger.warn('Bulk customer validation rejected all rows', {
+      logger.error('❌ Bulk customer validation rejected ALL rows', {
         total: normalizedPayload.length,
+        invalidCount: invalidCustomers.length,
       });
       return NextResponse.json(
         {
@@ -329,49 +381,70 @@ export async function PUT(req: NextRequest) {
     // ⚠️ ATOMIC BULK UPDATES - Using prisma.$transaction
     // ========================================================================
     // All updates succeed or all fail together
+    // Increased timeout for large imports (30 seconds)
     // ========================================================================
-    const { created, updated } = await prisma.$transaction(async (tx) => {
-      let createdCount = 0;
-      let updatedCount = 0;
+    logger.info('🔄 Starting database transaction for customer import...');
 
-      for (const customer of validCustomers) {
-        const createData = mapFromDTO(customer);
-        const updateData: Prisma.CustomerUpdateInput = {
-          ...createData,
-          deletedAt: null, // Auto-restore if previously soft-deleted
-        };
+    const { created, updated } = await prisma.$transaction(
+      async (tx) => {
+        let createdCount = 0;
+        let updatedCount = 0;
 
-        if (customer.id) {
-          await tx.customer.upsert({
-            where: { id: customer.id },
-            create: createData,
-            update: updateData,
+        for (const customer of validCustomers) {
+          const createData = mapFromDTO(customer);
+          const updateData: Prisma.CustomerUpdateInput = {
+            ...createData,
+            deletedAt: null, // Auto-restore if previously soft-deleted
+          };
+
+          if (customer.id) {
+            await tx.customer.upsert({
+              where: { id: customer.id },
+              create: createData,
+              update: updateData,
+            });
+            updatedCount++;
+            continue;
+          }
+
+          // Check for existing customer (including soft-deleted ones)
+          const existing = await tx.customer.findFirst({
+            where: { customerName: createData.customerName },
           });
-          updatedCount++;
-          continue;
+
+          if (existing) {
+            await tx.customer.update({
+              where: { id: existing.id },
+              data: updateData, // Will restore if deletedAt was set
+            });
+            updatedCount++;
+          } else {
+            await tx.customer.create({ data: createData });
+            createdCount++;
+          }
         }
 
-        // Check for existing customer (including soft-deleted ones)
-        const existing = await tx.customer.findFirst({
-          where: { customerName: createData.customerName },
-        });
-
-        if (existing) {
-          await tx.customer.update({
-            where: { id: existing.id },
-            data: updateData, // Will restore if deletedAt was set
-          });
-          updatedCount++;
-        } else {
-          await tx.customer.create({ data: createData });
-          createdCount++;
-        }
+        return { created: createdCount, updated: updatedCount };
+      },
+      {
+        maxWait: 30000, // Maximum time to wait to acquire a transaction (30s)
+        timeout: 30000, // Maximum transaction execution time (30s)
       }
+    );
 
-      return { created: createdCount, updated: updatedCount };
+    logger.info('✅ Atomically processed customers:', {
+      created,
+      updated,
+      total: created + updated,
+      skipped: invalidCustomers.length,
     });
 
-    logger.info(`✅ Atomically processed ${created + updated} customers`);
+    // Prepare detailed error information for response
+    const skippedDetails = invalidCustomers.map(({ index, issues }) => ({
+      row: index + 1,
+      customerName: normalizedPayload[index]['Customer Name'] || '(no name)',
+      issues,
+    }));
 
     return NextResponse.json({
       ok: true,
@@ -379,6 +452,7 @@ export async function PUT(req: NextRequest) {
       updated,
       skipped: invalidCustomers.length,
       errors: invalidCustomers,
+      skippedDetails, // Include detailed information about skipped customers
     });
   } catch (err) {
     logger.error('PUT /api/customers error', err);

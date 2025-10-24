@@ -1,8 +1,13 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import {
+  validateSchedule,
+  formatValidationErrors,
+} from '@/lib/validations/schedule.validation';
 
 const SHIFT_TYPES = new Set(['morning', 'afternoon', 'night', 'full-day']);
 const SCHEDULE_STATUSES = new Set(['scheduled', 'completed', 'cancelled']);
@@ -263,10 +268,107 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const createInputs: PersistableScheduleInput[] = items.map((item) => ({
-      id: randomUUID(),
-      ...toCreateInput(item),
-    }));
+    // ========================================================================
+    // ⚠️ BATCH SIZE LIMIT - Maximum 10000 records per import
+    // ========================================================================
+    if (items.length > 10000) {
+      return NextResponse.json(
+        {
+          error: 'Batch size limit exceeded',
+          details: `You are trying to import ${items.length} records. Maximum is 10,000 records per import.`,
+          suggestion:
+            'Please split your import into smaller batches of 10,000 records or less.',
+        },
+        { status: 413 } // Payload Too Large
+      );
+    }
+
+    // Validate all records
+    const validationErrors: Array<{
+      index: number;
+      errors: Record<string, string>;
+    }> = [];
+    const validatedInputs: ScheduleCreateInput[] = [];
+    const employeeIds = new Set<string>();
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+
+      // Convert to create input first
+      let createInput: ScheduleCreateInput;
+      try {
+        createInput = toCreateInput(item);
+      } catch (error) {
+        validationErrors.push({
+          index: i,
+          errors: {
+            _error:
+              error instanceof Error ? error.message : 'Invalid schedule data',
+          },
+        });
+        continue;
+      }
+
+      // Validate with schema
+      const validation = validateSchedule(createInput);
+      if (!validation.success) {
+        validationErrors.push({
+          index: i,
+          errors: formatValidationErrors(validation.error),
+        });
+      } else {
+        validatedInputs.push(validation.data as ScheduleCreateInput);
+        employeeIds.add(createInput.employeeId);
+      }
+    }
+
+    if (validationErrors.length > 0) {
+      return NextResponse.json(
+        {
+          error: 'Validation failed for multiple records',
+          details: validationErrors,
+          validCount: validatedInputs.length,
+          invalidCount: validationErrors.length,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Check if all referenced employees exist
+    if (employeeIds.size > 0) {
+      const existingEmployees = await prisma.employee.findMany({
+        where: {
+          employeeId: { in: Array.from(employeeIds) },
+          deletedAt: null,
+        },
+        select: { employeeId: true },
+      });
+
+      const existingIds = new Set(existingEmployees.map((e) => e.employeeId));
+      const missingIds = Array.from(employeeIds).filter(
+        (id) => !existingIds.has(id)
+      );
+
+      if (missingIds.length > 0) {
+        return NextResponse.json(
+          {
+            error: 'Referenced employees not found',
+            details: `The following employee IDs do not exist: ${missingIds.join(', ')}`,
+            missingEmployeeIds: missingIds,
+            suggestion:
+              'Please ensure all employees exist before importing schedules',
+          },
+          { status: 409 }
+        );
+      }
+    }
+
+    const createInputs: PersistableScheduleInput[] = validatedInputs.map(
+      (input) => ({
+        id: randomUUID(),
+        ...input,
+      })
+    );
 
     const ids = createInputs.map((input) => input.id);
 
@@ -279,13 +381,42 @@ export async function POST(request: NextRequest) {
 
     const response = created.map(mapScheduleToResponse);
 
+    logger.info('Schedules created', { count: response.length });
+
     return NextResponse.json({
       message: `Successfully saved ${response.length} schedule(s)`,
       count: response.length,
       schedules: response,
     });
   } catch (error) {
-    logger.error('Failed to create schedules:', error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2002') {
+        const target = (error.meta?.target as string[]) || [];
+        return NextResponse.json(
+          {
+            error: 'Duplicate schedule',
+            details: `A schedule with this ${target.join(', ')} already exists`,
+            field: target[0],
+          },
+          { status: 409 }
+        );
+      }
+
+      if (error.code === 'P2003') {
+        return NextResponse.json(
+          {
+            error: 'Referenced employee not found',
+            details: 'One or more employee IDs do not exist in the database',
+          },
+          { status: 409 }
+        );
+      }
+    }
+
+    logger.error('Failed to create schedules', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+
     return NextResponse.json(
       {
         error: 'Failed to create schedules',
@@ -317,29 +448,54 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    // Validate update data
+    const validation = validateSchedule(updateData);
+    if (!validation.success) {
+      return NextResponse.json(
+        {
+          error: 'Validation failed',
+          details: formatValidationErrors(validation.error),
+        },
+        { status: 400 }
+      );
+    }
+
     const updated = await scheduleDelegate.update({
       where: { id },
-      data: updateData,
+      data: validation.data as ScheduleUpdateInput,
     });
+
+    logger.info('Schedule updated', { id });
 
     return NextResponse.json({
       message: 'Schedule updated successfully',
       schedule: mapScheduleToResponse(updated),
     });
   } catch (error) {
-    logger.error('Failed to update schedule:', error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2025') {
+        return NextResponse.json(
+          { error: 'Schedule not found or already deleted' },
+          { status: 404 }
+        );
+      }
 
-    if (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      (error as { code?: string }).code === 'P2025'
-    ) {
-      return NextResponse.json(
-        { error: 'Schedule not found' },
-        { status: 404 }
-      );
+      if (error.code === 'P2002') {
+        const target = (error.meta?.target as string[]) || [];
+        return NextResponse.json(
+          {
+            error: 'Duplicate schedule',
+            details: `A schedule with this ${target.join(', ')} already exists`,
+            field: target[0],
+          },
+          { status: 409 }
+        );
+      }
     }
+
+    logger.error('Failed to update schedule', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
 
     return NextResponse.json(
       {
@@ -368,24 +524,25 @@ export async function DELETE(request: NextRequest) {
       data: { deletedAt: new Date() },
     });
 
+    logger.info('Schedule soft deleted', { id });
+
     return NextResponse.json({
       message: 'Schedule deleted successfully',
       schedule: mapScheduleToResponse(deleted),
     });
   } catch (error) {
-    logger.error('Failed to delete schedule:', error);
-
-    if (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      (error as { code?: string }).code === 'P2025'
-    ) {
-      return NextResponse.json(
-        { error: 'Schedule not found' },
-        { status: 404 }
-      );
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2025') {
+        return NextResponse.json(
+          { error: 'Schedule not found or already deleted' },
+          { status: 404 }
+        );
+      }
     }
+
+    logger.error('Failed to delete schedule', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
 
     return NextResponse.json(
       { error: 'Failed to delete schedule' },

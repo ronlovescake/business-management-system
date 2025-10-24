@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { validateMassDeleteConfirmation } from '@/lib/safety/mass-deletion';
 
 /**
  * Expenses API Route
@@ -278,16 +279,31 @@ export async function PATCH(request: NextRequest) {
 }
 
 // DELETE - Delete all expenses
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
   try {
+    // Mass deletion protection - require confirmation token
+    const validation = validateMassDeleteConfirmation(request, 'EXPENSES');
+    if (validation) {
+      return validation;
+    }
+
     const result = await prisma.expense.deleteMany();
+
+    logger.warn('Mass deletion executed', {
+      entity: 'expenses',
+      count: result.count,
+      timestamp: new Date().toISOString(),
+    });
 
     return NextResponse.json({
       message: `Successfully deleted ${result.count} expense records`,
       count: result.count,
     });
   } catch (error) {
-    logger.error('Failed to delete expenses:', error);
+    logger.error('Failed to delete expenses', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+
     return NextResponse.json(
       { error: 'Failed to delete expenses' },
       { status: 500 }

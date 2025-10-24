@@ -7,6 +7,15 @@ const softDeleteModels = new Set([
   'Shipment',
   'Transaction',
   'SortingDistribution',
+  // Employee Workspace Models
+  'Employee',
+  'Attendance',
+  'Schedule',
+  'Payroll',
+  'LeaveRequest',
+  'CashAdvanceRecord',
+  'Expense',
+  'ThirteenthMonthPayRecord',
 ]);
 
 const globalForPrisma = globalThis as unknown as {

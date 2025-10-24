@@ -1,8 +1,10 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { getCurrentDateISO } from '@/utils/date';
+import { validateMassDeleteConfirmation } from '@/lib/safety/mass-deletion';
 
 type LeaveRequestPayload = Record<string, unknown>;
 
@@ -246,6 +248,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ========================================================================
+    // ⚠️ BATCH SIZE LIMIT - Maximum 10000 records per import
+    // ========================================================================
+    if (items.length > 10000) {
+      return NextResponse.json(
+        {
+          error: 'Batch size limit exceeded',
+          details: `You are trying to import ${items.length} records. Maximum is 10,000 records per import.`,
+          suggestion:
+            'Please split your import into smaller batches of 10,000 records or less.',
+        },
+        { status: 413 } // Payload Too Large
+      );
+    }
+
     const data: LeaveRequestCreateInput[] = items.map((item) => {
       const normalized = normalizeCreatePayload(item as LeaveRequestPayload);
 
@@ -270,15 +287,74 @@ export async function POST(request: NextRequest) {
       return normalized;
     });
 
+    // Check if all referenced employees exist
+    const employeeIds = new Set(data.map((item) => item.employeeId));
+    if (employeeIds.size > 0) {
+      const existingEmployees = await prisma.employee.findMany({
+        where: {
+          employeeId: { in: Array.from(employeeIds) },
+          deletedAt: null,
+        },
+        select: { employeeId: true },
+      });
+
+      const existingIds = new Set(existingEmployees.map((e) => e.employeeId));
+      const missingIds = Array.from(employeeIds).filter(
+        (id) => !existingIds.has(id)
+      );
+
+      if (missingIds.length > 0) {
+        return NextResponse.json(
+          {
+            error: 'Referenced employees not found',
+            details: `The following employee IDs do not exist: ${missingIds.join(', ')}`,
+            missingEmployeeIds: missingIds,
+            suggestion:
+              'Please ensure all employees exist before importing leave requests',
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     const leaveRequestClient = getLeaveRequestClient();
     const result = await leaveRequestClient.createMany({ data });
+
+    logger.info('Leave requests created', { count: result.count });
 
     return NextResponse.json({
       message: `Successfully imported ${result.count} leave request records`,
       count: result.count,
     });
   } catch (error) {
-    logger.error('Failed to import leave requests:', error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2002') {
+        const target = (error.meta?.target as string[]) || [];
+        return NextResponse.json(
+          {
+            error: 'Duplicate leave request',
+            details: `A leave request with this ${target.join(', ')} already exists`,
+            field: target[0],
+          },
+          { status: 409 }
+        );
+      }
+
+      if (error.code === 'P2003') {
+        return NextResponse.json(
+          {
+            error: 'Referenced employee not found',
+            details: 'One or more employee IDs do not exist in the database',
+          },
+          { status: 409 }
+        );
+      }
+    }
+
+    logger.error('Failed to import leave requests', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+
     return NextResponse.json(
       {
         error: 'Failed to import leave requests',
@@ -331,7 +407,19 @@ export async function PUT(request: NextRequest) {
       count: updatedCount,
     });
   } catch (error) {
-    logger.error('Failed to bulk update leave requests:', error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2025') {
+        return NextResponse.json(
+          { error: 'Leave request not found or already deleted' },
+          { status: 404 }
+        );
+      }
+    }
+
+    logger.error('Failed to bulk update leave requests', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+
     return NextResponse.json(
       {
         error: 'Failed to bulk update leave requests',
@@ -379,7 +467,19 @@ export async function PATCH(request: NextRequest) {
       },
     });
   } catch (error) {
-    logger.error('Failed to update leave request:', error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2025') {
+        return NextResponse.json(
+          { error: 'Leave request not found or already deleted' },
+          { status: 404 }
+        );
+      }
+    }
+
+    logger.error('Failed to update leave request', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+
     return NextResponse.json(
       {
         error: 'Failed to update leave request',
@@ -390,16 +490,35 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
   try {
+    // Mass deletion protection - require confirmation token
+    const validation = validateMassDeleteConfirmation(
+      request,
+      'LEAVE_REQUESTS'
+    );
+    if (validation) {
+      return validation;
+    }
+
     const leaveRequestClient = getLeaveRequestClient();
     const result = await leaveRequestClient.deleteMany();
+
+    logger.warn('Mass deletion executed', {
+      entity: 'leave_requests',
+      count: result.count,
+      timestamp: new Date().toISOString(),
+    });
+
     return NextResponse.json({
       message: `Successfully deleted ${result.count} leave request records`,
       count: result.count,
     });
   } catch (error) {
-    logger.error('Failed to delete leave requests:', error);
+    logger.error('Failed to delete leave requests', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+
     return NextResponse.json(
       { error: 'Failed to delete leave requests' },
       { status: 500 }

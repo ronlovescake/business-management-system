@@ -85,7 +85,9 @@ export function useCustomersData() {
     },
     onMutate: async (newCustomer) => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: queryKeys.customers.lists() });
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.customers.lists(),
+      });
 
       // Snapshot previous value
       const previousCustomers = queryClient.getQueryData<CustomerData[]>(
@@ -94,10 +96,10 @@ export function useCustomersData() {
 
       // Optimistically update
       if (previousCustomers) {
-        queryClient.setQueryData<CustomerData[]>(
-          queryKeys.customers.lists(),
-          [newCustomer, ...previousCustomers]
-        );
+        queryClient.setQueryData<CustomerData[]>(queryKeys.customers.lists(), [
+          newCustomer,
+          ...previousCustomers,
+        ]);
       }
 
       return { previousCustomers };
@@ -127,7 +129,9 @@ export function useCustomersData() {
     },
     onMutate: async (newCustomers) => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: queryKeys.customers.lists() });
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.customers.lists(),
+      });
 
       // Snapshot previous value
       const previousCustomers = queryClient.getQueryData<CustomerData[]>(
@@ -167,15 +171,37 @@ export function useCustomersData() {
   );
 
   const bulkUpdateCustomers = useCallback(
-    async (newCustomers: CustomerData[]): Promise<void> => {
-      await bulkUpdateCustomersMutation.mutateAsync(newCustomers);
+    async (
+      newCustomers: CustomerData[]
+    ): Promise<{
+      created: number;
+      updated: number;
+      skipped: number;
+      skippedDetails?: Array<{
+        row: number;
+        customerName: string;
+        issues: Record<string, string>;
+      }>;
+    }> => {
+      return await bulkUpdateCustomersMutation.mutateAsync(newCustomers);
     },
     [bulkUpdateCustomersMutation]
   );
 
   const replaceAllCustomers = useCallback(
-    async (newCustomers: CustomerData[]): Promise<void> => {
-      await bulkUpdateCustomers(newCustomers);
+    async (
+      newCustomers: CustomerData[]
+    ): Promise<{
+      created: number;
+      updated: number;
+      skipped: number;
+      skippedDetails?: Array<{
+        row: number;
+        customerName: string;
+        issues: Record<string, string>;
+      }>;
+    }> => {
+      return await bulkUpdateCustomers(newCustomers);
     },
     [bulkUpdateCustomers]
   );

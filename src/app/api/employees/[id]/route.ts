@@ -1,7 +1,9 @@
 /* eslint-disable no-console */
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,23 +16,36 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    const employeeId = parseInt(params.id);
+
+    if (isNaN(employeeId)) {
+      return NextResponse.json(
+        { error: 'Invalid employee ID format' },
+        { status: 400 }
+      );
+    }
+
     const employee = await prisma.employee.findUnique({
       where: {
-        id: parseInt(params.id),
+        id: employeeId,
         deletedAt: null,
       },
     });
 
     if (!employee) {
       return NextResponse.json(
-        { error: 'Employee not found' },
+        { error: 'Employee not found or has been deleted' },
         { status: 404 }
       );
     }
 
     return NextResponse.json(employee);
   } catch (error) {
-    console.error('Error fetching employee:', error);
+    logger.error('Failed to fetch employee', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      employeeId: params.id,
+    });
+
     return NextResponse.json(
       { error: 'Failed to fetch employee' },
       { status: 500 }
@@ -47,29 +62,32 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    console.log(
-      '🔵 [API] PUT /api/employees/[id] - Request received for ID:',
-      params.id
-    );
+    const employeeId = parseInt(params.id);
+
+    if (isNaN(employeeId)) {
+      return NextResponse.json(
+        { error: 'Invalid employee ID format' },
+        { status: 400 }
+      );
+    }
 
     const body = await request.json();
-    // eslint-disable-next-line no-console
-    console.log(
-      '📥 [API] Received update data:',
-      JSON.stringify(body, null, 2)
-    );
+    logger.info('Updating employee', {
+      employeeId,
+      updateFields: Object.keys(body),
+    });
 
     // Check if employee exists
     const existing = await prisma.employee.findUnique({
       where: {
-        id: parseInt(params.id),
+        id: employeeId,
         deletedAt: null,
       },
     });
 
     if (!existing) {
       return NextResponse.json(
-        { error: 'Employee not found' },
+        { error: 'Employee not found or has been deleted' },
         { status: 404 }
       );
     }
@@ -153,27 +171,42 @@ export async function PUT(
       updatedAt: new Date(),
     };
 
-    // eslint-disable-next-line no-console
-    console.log(
-      '💾 [API] Attempting to update employee with data:',
-      JSON.stringify(employeeData, null, 2)
-    );
-
     // Update employee
     const employee = await prisma.employee.update({
-      where: { id: parseInt(params.id) },
+      where: { id: employeeId },
       data: employeeData,
     });
 
-    // eslint-disable-next-line no-console
-    console.log('✅ [API] Employee updated successfully:', employee.id);
+    logger.info('Employee updated successfully', { employeeId: employee.id });
     return NextResponse.json(employee);
   } catch (error) {
-    console.error('❌ [API] Error updating employee:', error);
-    console.error('❌ [API] Error details:', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+    // Handle Prisma errors
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2002') {
+        const target = (error.meta?.target as string[]) || [];
+        return NextResponse.json(
+          {
+            error: 'Duplicate entry',
+            details: `An employee with this ${target.join(', ')} already exists`,
+            field: target[0],
+          },
+          { status: 409 }
+        );
+      }
+
+      if (error.code === 'P2025') {
+        return NextResponse.json(
+          { error: 'Employee not found' },
+          { status: 404 }
+        );
+      }
+    }
+
+    logger.error('Failed to update employee', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      employeeId: params.id,
     });
+
     return NextResponse.json(
       { error: 'Failed to update employee' },
       { status: 500 }
@@ -190,17 +223,43 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    const employeeId = parseInt(params.id);
+
+    if (isNaN(employeeId)) {
+      return NextResponse.json(
+        { error: 'Invalid employee ID format' },
+        { status: 400 }
+      );
+    }
+
     // Soft delete by setting deletedAt timestamp
     const employee = await prisma.employee.update({
-      where: { id: parseInt(params.id) },
+      where: {
+        id: employeeId,
+        deletedAt: null, // Only delete if not already deleted
+      },
       data: {
         deletedAt: new Date(),
       },
     });
 
+    logger.info('Employee soft deleted', { employeeId: employee.id });
     return NextResponse.json({ success: true, employee });
   } catch (error) {
-    console.error('Error deleting employee:', error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2025') {
+        return NextResponse.json(
+          { error: 'Employee not found or already deleted' },
+          { status: 404 }
+        );
+      }
+    }
+
+    logger.error('Failed to delete employee', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      employeeId: params.id,
+    });
+
     return NextResponse.json(
       { error: 'Failed to delete employee' },
       { status: 500 }

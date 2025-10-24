@@ -1,7 +1,13 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import { logger } from '@/lib/logger';
 import { syncPayrollDeductions } from '@/lib/payroll/deductions';
+import {
+  validatePayroll,
+  formatValidationErrors,
+} from '@/lib/validations/payroll.validation';
 
 const toNumber = (value: unknown): number => {
   if (value === null || value === undefined) {
@@ -61,7 +67,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(allPayrolls);
   } catch (error) {
-    console.error('Error fetching payrolls:', error);
+    logger.error('Failed to fetch payrolls', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+
     return NextResponse.json(
       { error: 'Failed to fetch payrolls' },
       { status: 500 }
@@ -75,43 +84,131 @@ export async function POST(request: NextRequest) {
 
     // Handle bulk import
     if (Array.isArray(body)) {
-      const createdPayrolls = [];
-
-      for (const payrollData of body) {
-        const payroll = await prisma.payroll.create({
-          data: {
-            employeeId: payrollData.employeeId ?? null,
-            employeeName: payrollData.employeeName || payrollData.employee,
-            payPeriod: payrollData.payPeriod,
-            periodStart: payrollData.periodStart,
-            periodEnd: payrollData.periodEnd,
-            basicSalary: toNumber(payrollData.basicSalary),
-            allowance: toNumber(payrollData.allowance),
-            overtime: toNumber(payrollData.overtime),
-            bonuses: toNumber(payrollData.bonuses),
-            thirteenthMonth: toNumber(payrollData.thirteenthMonth),
-            grossPay: toNumber(payrollData.grossPay),
-            sss: toNumber(payrollData.sss),
-            philHealth: toNumber(payrollData.philHealth),
-            pagIbig: toNumber(payrollData.pagIbig),
-            tax: toNumber(payrollData.tax),
-            loans: toNumber(payrollData.loans),
-            cashAdvance: toNumber(payrollData.cashAdvance),
-            lwop: toNumber(payrollData.lwop),
-            absentsLates: toNumber(payrollData.absentsLates),
-            totalDeductions: toNumber(payrollData.totalDeductions),
-            netPay: toNumber(payrollData.netPay),
-            status: payrollData.status || 'pending',
-            bankGcash: payrollData.bankGcash || '',
-            unpaidDays: parseInt(payrollData.unpaidDays) || 0,
-            dailyRate: toNumber(payrollData.dailyRate),
-            deduction: toNumber(payrollData.deduction),
-            notes: payrollData.notes || null,
+      // ========================================================================
+      // ⚠️ BATCH SIZE LIMIT - Maximum 10000 records per import
+      // ========================================================================
+      if (body.length > 10000) {
+        return NextResponse.json(
+          {
+            error: 'Batch size limit exceeded',
+            details: `You are trying to import ${body.length} records. Maximum is 10,000 records per import.`,
+            suggestion:
+              'Please split your import into smaller batches of 10,000 records or less.',
           },
+          { status: 413 } // Payload Too Large
+        );
+      }
+
+      // Validate all records
+      const validationErrors: Array<{
+        index: number;
+        errors: Record<string, string>;
+      }> = [];
+      const validatedRecords: Array<(typeof body)[0]> = [];
+      const employeeIds = new Set<string>();
+
+      for (let i = 0; i < body.length; i++) {
+        const payrollData = body[i];
+
+        // Prepare payroll data
+        const preparedData = {
+          employeeId: payrollData.employeeId ?? null,
+          employeeName: payrollData.employeeName || payrollData.employee,
+          payPeriod: payrollData.payPeriod,
+          periodStart: payrollData.periodStart,
+          periodEnd: payrollData.periodEnd,
+          basicSalary: toNumber(payrollData.basicSalary),
+          allowance: toNumber(payrollData.allowance),
+          overtime: toNumber(payrollData.overtime),
+          bonuses: toNumber(payrollData.bonuses),
+          thirteenthMonth: toNumber(payrollData.thirteenthMonth),
+          grossPay: toNumber(payrollData.grossPay),
+          sss: toNumber(payrollData.sss),
+          philHealth: toNumber(payrollData.philHealth),
+          pagIbig: toNumber(payrollData.pagIbig),
+          tax: toNumber(payrollData.tax),
+          loans: toNumber(payrollData.loans),
+          cashAdvance: toNumber(payrollData.cashAdvance),
+          lwop: toNumber(payrollData.lwop),
+          absentsLates: toNumber(payrollData.absentsLates),
+          totalDeductions: toNumber(payrollData.totalDeductions),
+          netPay: toNumber(payrollData.netPay),
+          status: payrollData.status || 'pending',
+          bankGcash: payrollData.bankGcash || '',
+          unpaidDays: parseInt(payrollData.unpaidDays) || 0,
+          dailyRate: toNumber(payrollData.dailyRate),
+          deduction: toNumber(payrollData.deduction),
+          notes: payrollData.notes || null,
+        };
+
+        const validation = validatePayroll(preparedData);
+        if (!validation.success) {
+          validationErrors.push({
+            index: i,
+            errors: formatValidationErrors(validation.error),
+          });
+        } else {
+          validatedRecords.push(validation.data);
+          if (preparedData.employeeId) {
+            employeeIds.add(preparedData.employeeId);
+          }
+        }
+      }
+
+      if (validationErrors.length > 0) {
+        return NextResponse.json(
+          {
+            error: 'Validation failed for multiple records',
+            details: validationErrors,
+            validCount: validatedRecords.length,
+            invalidCount: validationErrors.length,
+          },
+          { status: 400 }
+        );
+      }
+
+      // Check if all referenced employees exist
+      if (employeeIds.size > 0) {
+        const existingEmployees = await prisma.employee.findMany({
+          where: {
+            employeeId: { in: Array.from(employeeIds) },
+            deletedAt: null,
+          },
+          select: { employeeId: true },
         });
 
+        const existingIds = new Set(existingEmployees.map((e) => e.employeeId));
+        const missingIds = Array.from(employeeIds).filter(
+          (id) => !existingIds.has(id)
+        );
+
+        if (missingIds.length > 0) {
+          return NextResponse.json(
+            {
+              error: 'Referenced employees not found',
+              details: `The following employee IDs do not exist: ${missingIds.join(', ')}`,
+              missingEmployeeIds: missingIds,
+              suggestion:
+                'Please ensure all employees exist before importing payroll records',
+            },
+            { status: 409 }
+          );
+        }
+      }
+
+      const createdPayrolls = [];
+
+      for (const payrollData of validatedRecords) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const payroll = await prisma.payroll.create({
+          data: payrollData as any,
+        });
         createdPayrolls.push(payroll);
       }
+
+      logger.info('Bulk payroll records created', {
+        count: createdPayrolls.length,
+      });
 
       return NextResponse.json({
         success: true,
@@ -120,42 +217,105 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Handle single payroll creation
+    // Handle single payroll creation - validate first
+    const preparedData = {
+      employeeId: body.employeeId ?? null,
+      employeeName: body.employeeName || body.employee,
+      payPeriod: body.payPeriod,
+      periodStart: body.periodStart,
+      periodEnd: body.periodEnd,
+      basicSalary: toNumber(body.basicSalary),
+      allowance: toNumber(body.allowance),
+      overtime: toNumber(body.overtime),
+      bonuses: toNumber(body.bonuses),
+      thirteenthMonth: toNumber(body.thirteenthMonth),
+      grossPay: toNumber(body.grossPay),
+      sss: toNumber(body.sss),
+      philHealth: toNumber(body.philHealth),
+      pagIbig: toNumber(body.pagIbig),
+      tax: toNumber(body.tax),
+      loans: toNumber(body.loans),
+      cashAdvance: toNumber(body.cashAdvance),
+      lwop: toNumber(body.lwop),
+      absentsLates: toNumber(body.absentsLates),
+      totalDeductions: toNumber(body.totalDeductions),
+      netPay: toNumber(body.netPay),
+      status: body.status || 'pending',
+      bankGcash: body.bankGcash || '',
+      unpaidDays: parseInt(body.unpaidDays) || 0,
+      dailyRate: toNumber(body.dailyRate),
+      deduction: toNumber(body.deduction),
+      notes: body.notes || null,
+    };
+
+    const validation = validatePayroll(preparedData);
+    if (!validation.success) {
+      return NextResponse.json(
+        {
+          error: 'Validation failed',
+          details: formatValidationErrors(validation.error),
+        },
+        { status: 400 }
+      );
+    }
+
+    // Check if employee exists
+    if (body.employeeId) {
+      const employee = await prisma.employee.findFirst({
+        where: {
+          employeeId: body.employeeId,
+          deletedAt: null,
+        },
+      });
+
+      if (!employee) {
+        return NextResponse.json(
+          {
+            error: 'Employee not found',
+            details: `Employee with ID '${body.employeeId}' does not exist`,
+            employeeId: body.employeeId,
+          },
+          { status: 409 }
+        );
+      }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const payroll = await prisma.payroll.create({
-      data: {
-        employeeId: body.employeeId ?? null,
-        employeeName: body.employeeName || body.employee,
-        payPeriod: body.payPeriod,
-        periodStart: body.periodStart,
-        periodEnd: body.periodEnd,
-        basicSalary: toNumber(body.basicSalary),
-        allowance: toNumber(body.allowance),
-        overtime: toNumber(body.overtime),
-        bonuses: toNumber(body.bonuses),
-        thirteenthMonth: toNumber(body.thirteenthMonth),
-        grossPay: toNumber(body.grossPay),
-        sss: toNumber(body.sss),
-        philHealth: toNumber(body.philHealth),
-        pagIbig: toNumber(body.pagIbig),
-        tax: toNumber(body.tax),
-        loans: toNumber(body.loans),
-        cashAdvance: toNumber(body.cashAdvance),
-        lwop: toNumber(body.lwop),
-        absentsLates: toNumber(body.absentsLates),
-        totalDeductions: toNumber(body.totalDeductions),
-        netPay: toNumber(body.netPay),
-        status: body.status || 'pending',
-        bankGcash: body.bankGcash || '',
-        unpaidDays: parseInt(body.unpaidDays) || 0,
-        dailyRate: toNumber(body.dailyRate),
-        deduction: toNumber(body.deduction),
-        notes: body.notes || null,
-      },
+      data: validation.data as any,
     });
 
+    logger.info('Payroll record created', { id: payroll.id });
     return NextResponse.json(payroll);
   } catch (error) {
-    console.error('Error creating payroll:', error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2002') {
+        const target = (error.meta?.target as string[]) || [];
+        return NextResponse.json(
+          {
+            error: 'Duplicate payroll record',
+            details: `A payroll record with this ${target.join(', ')} already exists`,
+            field: target[0],
+          },
+          { status: 409 }
+        );
+      }
+
+      if (error.code === 'P2003') {
+        return NextResponse.json(
+          {
+            error: 'Referenced employee not found',
+            details: 'The employee ID does not exist in the database',
+          },
+          { status: 409 }
+        );
+      }
+    }
+
+    logger.error('Failed to create payroll', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+
     return NextResponse.json(
       { error: 'Failed to create payroll' },
       { status: 500 }
@@ -231,7 +391,31 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json(payroll);
   } catch (error) {
-    console.error('Error updating payroll:', error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2025') {
+        return NextResponse.json(
+          { error: 'Payroll record not found or already deleted' },
+          { status: 404 }
+        );
+      }
+
+      if (error.code === 'P2002') {
+        const target = (error.meta?.target as string[]) || [];
+        return NextResponse.json(
+          {
+            error: 'Duplicate payroll record',
+            details: `A payroll record with this ${target.join(', ')} already exists`,
+            field: target[0],
+          },
+          { status: 409 }
+        );
+      }
+    }
+
+    logger.error('Failed to update payroll', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+
     return NextResponse.json(
       { error: 'Failed to update payroll' },
       { status: 500 }
@@ -250,13 +434,26 @@ export async function DELETE(request: NextRequest) {
 
     // Soft delete
     await prisma.payroll.update({
-      where: { id },
+      where: { id, deletedAt: null },
       data: { deletedAt: new Date() },
     });
 
+    logger.info('Payroll record soft deleted', { id });
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting payroll:', error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2025') {
+        return NextResponse.json(
+          { error: 'Payroll record not found or already deleted' },
+          { status: 404 }
+        );
+      }
+    }
+
+    logger.error('Failed to delete payroll', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+
     return NextResponse.json(
       { error: 'Failed to delete payroll' },
       { status: 500 }

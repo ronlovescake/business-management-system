@@ -23,6 +23,7 @@ import {
   IconSearch,
   IconPlus,
   IconCheck,
+  IconDownload,
 } from '@tabler/icons-react';
 import {
   GridCellKind,
@@ -303,12 +304,23 @@ export function CustomersPage() {
 
       // Persist to DB and update state
       try {
-        await replaceAllCustomers(result.data);
-        notifications.show({
-          title: 'Import Successful',
-          message: `Imported ${result.rowsImported} customers`,
-          color: 'green',
-        });
+        const importResult = await replaceAllCustomers(result.data);
+
+        // Show notification based on import results
+        if (importResult && importResult.skipped > 0) {
+          notifications.show({
+            title: 'Import Completed with Warnings',
+            message: `Imported ${importResult.created + importResult.updated} customers. ${importResult.skipped} customers were skipped due to validation errors. Check console for details.`,
+            color: 'yellow',
+            autoClose: 8000,
+          });
+        } else {
+          notifications.show({
+            title: 'Import Successful',
+            message: `Imported ${result.rowsImported} customers`,
+            color: 'green',
+          });
+        }
       } catch (e) {
         logger.error('Failed to persist imported CSV', e);
         notifications.show({
@@ -325,6 +337,31 @@ export function CustomersPage() {
       notifications.show({
         title: 'Import Failed',
         message: 'Error importing CSV file. Please check the file format.',
+        color: 'red',
+      });
+    }
+  };
+
+  // CSV export functionality
+  const handleExportCSV = () => {
+    try {
+      const dataToExport =
+        filteredCustomers.length > 0 ? filteredCustomers : customers;
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const filename = `customers-export-${timestamp}.csv`;
+
+      CustomerService.exportToCSV(dataToExport, filename);
+
+      notifications.show({
+        title: 'Export Successful',
+        message: `Exported ${dataToExport.length} customers to ${filename}`,
+        color: 'green',
+      });
+    } catch (error) {
+      logger.error('Error exporting CSV:', error);
+      notifications.show({
+        title: 'Export Failed',
+        message: 'Error exporting CSV file.',
         color: 'red',
       });
     }
@@ -521,6 +558,15 @@ export function CustomersPage() {
               size="sm"
               style={{ minWidth: 260 }}
             />
+            <Button
+              onClick={handleExportCSV}
+              leftSection={<IconDownload size={16} />}
+              size="sm"
+              color="green"
+              variant="outline"
+            >
+              Export CSV
+            </Button>
             <FileInput
               placeholder="Select CSV file"
               accept=".csv"

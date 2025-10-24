@@ -190,6 +190,84 @@ class CustomerService {
   }
 
   /**
+   * Export customers to CSV file
+   */
+  static exportToCSV(
+    customers: CustomerData[],
+    filename = 'customers.csv'
+  ): void {
+    try {
+      // Create CSV header
+      const headers = [
+        'Date',
+        'Customer Name',
+        'Phone Number',
+        'Address',
+        'Facebook',
+        'Email Address',
+        'Business Name',
+        'Tax Number',
+        'Business Address',
+        'Business Contact Number',
+        'Customer Status',
+      ];
+
+      // Create CSV rows
+      const rows = customers.map((customer) => {
+        return [
+          customer.Date || '',
+          customer['Customer Name'] || '',
+          customer['Phone Number'] || '',
+          customer.Address || '',
+          customer.Facebook || '',
+          customer['Email Address'] || '',
+          customer['Business Name'] || '',
+          customer['Tax Number'] || '',
+          customer['Business Address'] || '',
+          customer['Business Contact Number'] || '',
+          customer['Customer Status'] || '',
+        ].map((field) => {
+          // Escape fields that contain commas, quotes, or newlines
+          if (
+            field.includes(',') ||
+            field.includes('"') ||
+            field.includes('\n')
+          ) {
+            return `"${field.replace(/"/g, '""')}"`;
+          }
+          return field;
+        });
+      });
+
+      // Combine header and rows
+      const csvContent = [
+        headers.join(','),
+        ...rows.map((row) => row.join(',')),
+      ].join('\n');
+
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      URL.revokeObjectURL(url);
+
+      logger.info(`Exported ${customers.length} customers to ${filename}`);
+    } catch (error) {
+      logger.error('Failed to export customers to CSV', error);
+      throw error;
+    }
+  }
+
+  /**
    * Import customers from CSV file
    */
   static async importFromCSV(file: File): Promise<CSVImportResult> {
@@ -338,7 +416,16 @@ class CustomerService {
   /**
    * API: Bulk update customers (for CSV import or paste mode)
    */
-  static async bulkUpdateCustomers(customers: CustomerData[]): Promise<void> {
+  static async bulkUpdateCustomers(customers: CustomerData[]): Promise<{
+    created: number;
+    updated: number;
+    skipped: number;
+    skippedDetails?: Array<{
+      row: number;
+      customerName: string;
+      issues: Record<string, string>;
+    }>;
+  }> {
     try {
       const res = await fetch('/api/customers', {
         method: 'PUT',
@@ -346,10 +433,79 @@ class CustomerService {
         body: JSON.stringify(customers),
         cache: 'no-store',
       });
+
+      const json = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error(json?.error || 'Failed to update customers');
+        // Log the full error details for debugging
+        logger.error('Server returned error:', {
+          status: res.status,
+          statusText: res.statusText,
+          error: json?.error,
+          details: json?.details,
+          fullResponse: json,
+        });
+
+        // Show the actual error details from the server
+        const errorMessage =
+          json?.details ||
+          json?.error ||
+          `Failed to update customers (${res.status})`;
+
+        throw new Error(errorMessage);
       }
+
+      // Log skipped customers if any
+      if (json.skipped > 0 && json.skippedDetails) {
+        logger.warn(
+          `⚠️ ${json.skipped} customers were SKIPPED during import:`,
+          json.skippedDetails
+        );
+
+        // Also log to browser console for visibility
+        /* eslint-disable no-console */
+        console.warn(`\n${'='.repeat(80)}`);
+        console.warn(
+          `⚠️  ${json.skipped} CUSTOMERS WERE SKIPPED DURING IMPORT`
+        );
+        console.warn(`${'='.repeat(80)}\n`);
+
+        console.group(
+          `⚠️ ${json.skipped} customers were SKIPPED during import`
+        );
+        json.skippedDetails.forEach(
+          (item: {
+            row: number;
+            customerName: string;
+            issues: Record<string, string>;
+          }) => {
+            console.group(`❌ Row ${item.row}: ${item.customerName}`);
+            Object.entries(item.issues).forEach(([field, message]) => {
+              console.log(`  • ${field}: ${message}`);
+            });
+            console.groupEnd();
+          }
+        );
+        console.groupEnd();
+
+        console.warn(`\n${'='.repeat(80)}\n`);
+        /* eslint-enable no-console */
+      } else if (json.skipped > 0) {
+        // If we have skipped count but no details
+        /* eslint-disable no-console */
+        console.warn(
+          `⚠️ ${json.skipped} customers were skipped but no details available`
+        );
+        console.log('Response:', json);
+        /* eslint-enable no-console */
+      }
+
+      return {
+        created: json.created || 0,
+        updated: json.updated || 0,
+        skipped: json.skipped || 0,
+        skippedDetails: json.skippedDetails,
+      };
     } catch (error) {
       logger.error('Failed to update customers', error);
       throw error;

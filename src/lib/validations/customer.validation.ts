@@ -112,7 +112,8 @@ export const customerDataSchema = z.object({
   Date: z
     .string()
     .datetime()
-    .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
+    .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
+    .or(z.literal('')),
   'Customer Name': customerNameSchema,
   'Phone Number': phoneNumberSchema,
   Address: addressSchema,
@@ -122,7 +123,7 @@ export const customerDataSchema = z.object({
   'Tax Number': taxNumberSchema,
   'Business Address': addressSchema,
   'Business Contact Number': phoneNumberSchema,
-  'Customer Status': customerStatusSchema,
+  'Customer Status': customerStatusSchema.or(z.literal('')),
 });
 
 /**
