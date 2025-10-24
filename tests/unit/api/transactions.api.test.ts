@@ -18,9 +18,28 @@ vi.mock('@/lib/db', () => {
         update: vi.fn(),
         deleteMany: vi.fn(),
       },
+      customer: {
+        findMany: vi.fn(),
+      },
+      product: {
+        findMany: vi.fn(),
+      },
+      shipment: {
+        findMany: vi.fn(),
+      },
     },
   };
 });
+
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    error: vi.fn(),
+    warn: vi.fn(),
+    info: vi.fn(),
+    debug: vi.fn(),
+    success: vi.fn(),
+  },
+}));
 
 type PrismaMock = {
   price: {
@@ -31,6 +50,15 @@ type PrismaMock = {
     findMany: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
     deleteMany: ReturnType<typeof vi.fn>;
+  };
+  customer: {
+    findMany: ReturnType<typeof vi.fn>;
+  };
+  product: {
+    findMany: ReturnType<typeof vi.fn>;
+  };
+  shipment: {
+    findMany: ReturnType<typeof vi.fn>;
   };
 };
 
@@ -45,6 +73,16 @@ describe('POST /api/transactions', () => {
         upperLimit: 1000,
         currentPrice: 25000,
       },
+    ]);
+
+    prismaMock.customer.findMany.mockResolvedValue([
+      { customerName: 'Acme Corp' },
+    ]);
+
+    prismaMock.product.findMany.mockResolvedValue([{ productCode: 'SKU-1' }]);
+
+    prismaMock.shipment.findMany.mockResolvedValue([
+      { shipmentCode: 'SHIP-001' },
     ]);
 
     prismaMock.transaction.createMany.mockResolvedValue({ count: 1 });

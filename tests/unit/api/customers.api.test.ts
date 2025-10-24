@@ -10,6 +10,8 @@ const { mockPrisma } = vi.hoisted(() => {
         create: vi.fn(),
         createMany: vi.fn(),
         deleteMany: vi.fn(),
+        updateMany: vi.fn(),
+        count: vi.fn(),
         upsert: vi.fn(),
         findFirst: vi.fn(),
         update: vi.fn(),
@@ -28,6 +30,8 @@ vi.mock('@/lib/logger', () => ({
     error: vi.fn(),
     warn: vi.fn(),
     info: vi.fn(),
+    debug: vi.fn(),
+    success: vi.fn(),
   },
 }));
 
@@ -254,9 +258,17 @@ describe('Customers API Routes', () => {
 
   describe('DELETE /api/customers', () => {
     it('should delete all customers successfully', async () => {
-      mockPrisma.customer.deleteMany.mockResolvedValue({ count: 5 });
+      mockPrisma.customer.count.mockResolvedValue(0);
+      mockPrisma.customer.updateMany.mockResolvedValue({ count: 5 });
 
-      const response = await DELETE();
+      const request = new NextRequest(
+        'http://localhost:3000/api/customers?confirm=DELETE_ALL_CUSTOMERS',
+        {
+          method: 'DELETE',
+        }
+      );
+
+      const response = await DELETE(request);
       const data = await response.json();
 
       expect(response.status).toBe(200);

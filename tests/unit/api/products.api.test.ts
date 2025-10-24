@@ -6,10 +6,15 @@ const { mockPrisma } = vi.hoisted(() => {
     mockPrisma: {
       product: {
         findMany: vi.fn(),
+        findFirst: vi.fn(),
         create: vi.fn(),
         createMany: vi.fn(),
+        update: vi.fn(),
+        updateMany: vi.fn(),
         deleteMany: vi.fn(),
+        count: vi.fn(),
       },
+      $transaction: vi.fn(),
     },
   };
 });
@@ -23,6 +28,8 @@ vi.mock('@/lib/logger', () => ({
     error: vi.fn(),
     warn: vi.fn(),
     info: vi.fn(),
+    debug: vi.fn(),
+    success: vi.fn(),
   },
 }));
 
@@ -168,8 +175,16 @@ describe('Products API Routes', () => {
         },
       ];
 
-      mockPrisma.product.deleteMany.mockResolvedValue({ count: 0 });
-      mockPrisma.product.createMany.mockResolvedValue({ count: 2 });
+      // Mock transaction to execute the callback
+      mockPrisma.$transaction.mockImplementation(async (callback) => {
+        return callback({
+          product: {
+            findFirst: vi.fn().mockResolvedValue(null),
+            create: vi.fn().mockResolvedValue({ id: 1 }),
+            update: vi.fn().mockResolvedValue({ id: 1 }),
+          },
+        });
+      });
 
       const request = new NextRequest('http://localhost:3000/api/products', {
         method: 'POST',
@@ -181,7 +196,7 @@ describe('Products API Routes', () => {
 
       expect(response.status).toBe(200);
       expect(data.message).toBe('Products imported successfully');
-      expect(data.count).toBe(2);
+      expect(data.total).toBe(2);
     });
 
     it('should return 400 for non-array payload', async () => {
@@ -198,7 +213,8 @@ describe('Products API Routes', () => {
       const data = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toBe('Expected an array of products');
+      expect(data.error).toBe('Invalid data format');
+      expect(data.details).toBe('Expected an array of products');
     });
   });
 
@@ -211,8 +227,16 @@ describe('Products API Routes', () => {
         },
       ];
 
-      mockPrisma.product.deleteMany.mockResolvedValue({ count: 10 });
-      mockPrisma.product.createMany.mockResolvedValue({ count: 1 });
+      // Mock transaction to execute the callback
+      mockPrisma.$transaction.mockImplementation(async (callback) => {
+        return callback({
+          product: {
+            findFirst: vi.fn().mockResolvedValue(null),
+            create: vi.fn().mockResolvedValue({ id: 1 }),
+            update: vi.fn().mockResolvedValue({ id: 1 }),
+          },
+        });
+      });
 
       const request = new NextRequest('http://localhost:3000/api/products', {
         method: 'PUT',
@@ -229,9 +253,17 @@ describe('Products API Routes', () => {
 
   describe('DELETE /api/products', () => {
     it('should delete all products successfully', async () => {
-      mockPrisma.product.deleteMany.mockResolvedValue({ count: 25 });
+      mockPrisma.product.count.mockResolvedValue(0);
+      mockPrisma.product.updateMany.mockResolvedValue({ count: 25 });
 
-      const response = await DELETE();
+      const request = new NextRequest(
+        'http://localhost:3000/api/products?confirm=DELETE_ALL_PRODUCTS',
+        {
+          method: 'DELETE',
+        }
+      );
+
+      const response = await DELETE(request);
       const data = await response.json();
 
       expect(response.status).toBe(200);

@@ -1,6 +1,6 @@
 /**
  * API Tests for Shipments Endpoints
- * 
+ *
  * Tests:
  * - GET /api/shipments - Fetch all shipments
  * - POST /api/shipments - Create single shipment
@@ -9,7 +9,7 @@
  * - GET /api/shipments/[id] - Fetch specific shipment
  * - PUT /api/shipments/[id] - Update shipment (+ cascade to products)
  * - DELETE /api/shipments/[id] - Delete specific shipment
- * 
+ *
  * Features tested:
  * - Currency parsing (₱ symbol, commas)
  * - Number cleaning (commas in numeric values)
@@ -20,8 +20,16 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { GET as getShipments, POST as createShipments, DELETE as deleteAllShipments } from '@/app/api/shipments/route';
-import { GET as getShipmentById, PUT as updateShipment, DELETE as deleteShipment } from '@/app/api/shipments/[id]/route';
+import {
+  GET as getShipments,
+  POST as createShipments,
+  DELETE as deleteAllShipments,
+} from '@/app/api/shipments/route';
+import {
+  GET as getShipmentById,
+  PUT as updateShipment,
+  DELETE as deleteShipment,
+} from '@/app/api/shipments/[id]/route';
 import { prisma } from '@/lib/db';
 
 // Mock Prisma
@@ -30,15 +38,19 @@ vi.mock('@/lib/db', () => ({
     shipment: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       create: vi.fn(),
       createMany: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
       delete: vi.fn(),
       deleteMany: vi.fn(),
+      count: vi.fn(),
     },
     product: {
       updateMany: vi.fn(),
     },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -46,7 +58,10 @@ vi.mock('@/lib/db', () => ({
 vi.mock('@/lib/logger', () => ({
   logger: {
     error: vi.fn(),
+    warn: vi.fn(),
+    info: vi.fn(),
     debug: vi.fn(),
+    success: vi.fn(),
   },
 }));
 
@@ -88,12 +103,15 @@ describe('Shipments API - /api/shipments', () => {
         },
       ];
 
-      vi.mocked(prisma.shipment.findMany).mockResolvedValue(mockShipments as any);
+      vi.mocked(prisma.shipment.findMany).mockResolvedValue(
+        mockShipments as any
+      );
 
       const response = await getShipments();
       const data = await response.json();
 
       expect(prisma.shipment.findMany).toHaveBeenCalledWith({
+        where: { deletedAt: null },
         orderBy: { id: 'asc' },
       });
       expect(data).toHaveLength(2);
@@ -123,13 +141,18 @@ describe('Shipments API - /api/shipments', () => {
     });
 
     it('should handle database errors gracefully', async () => {
-      vi.mocked(prisma.shipment.findMany).mockRejectedValue(new Error('DB Error'));
+      vi.mocked(prisma.shipment.findMany).mockRejectedValue(
+        new Error('DB Error')
+      );
 
       const response = await getShipments();
       const data = await response.json();
 
       expect(response.status).toBe(500);
-      expect(data).toEqual({ error: 'Failed to fetch shipments' });
+      expect(data).toEqual({
+        error: 'Failed to fetch shipments',
+        details: 'DB Error',
+      });
     });
   });
 
@@ -140,13 +163,13 @@ describe('Shipments API - /api/shipments', () => {
         'CV Number': 'CV-99999',
         'No. Of Sacks': 75,
         'Total CBM': 12.3,
-        'Weight': 350.5,
-        'Fee': 3500,
+        Weight: 350.5,
+        Fee: 3500,
         'Shipment Status': 'Manila Port',
         'Date Created': '2025-01-10',
         'Date Delivered': '',
-        'Duration': '',
-        'Notes': 'Urgent delivery',
+        Duration: '',
+        Notes: 'Urgent delivery',
       };
 
       const createdShipment = {
@@ -164,7 +187,9 @@ describe('Shipments API - /api/shipments', () => {
         notes: 'Urgent delivery',
       };
 
-      vi.mocked(prisma.shipment.create).mockResolvedValue(createdShipment as any);
+      vi.mocked(prisma.shipment.create).mockResolvedValue(
+        createdShipment as any
+      );
 
       const request = new Request('http://localhost/api/shipments', {
         method: 'POST',
@@ -183,7 +208,7 @@ describe('Shipments API - /api/shipments', () => {
     it('should handle currency symbols in Fee field (₱)', async () => {
       const newShipment = {
         'Shipment Code': 'SH-004',
-        'Fee': '₱5,500.00', // Peso symbol + comma
+        Fee: '₱5,500.00', // Peso symbol + comma
         'Shipment Status': 'In Transit',
       };
 
@@ -202,7 +227,9 @@ describe('Shipments API - /api/shipments', () => {
         notes: null,
       };
 
-      vi.mocked(prisma.shipment.create).mockResolvedValue(createdShipment as any);
+      vi.mocked(prisma.shipment.create).mockResolvedValue(
+        createdShipment as any
+      );
 
       const request = new Request('http://localhost/api/shipments', {
         method: 'POST',
@@ -223,15 +250,15 @@ describe('Shipments API - /api/shipments', () => {
         'Shipment Code': 'SH-005',
         'No. Of Sacks': '1,234', // String with comma
         'Total CBM': '15,678.90',
-        'Weight': '2,500.50',
+        Weight: '2,500.50',
       };
 
       const createdShipment = {
         id: 5,
         shipmentCode: 'SH-005',
         noOfSacks: 1234,
-        totalCBM: 15678.90,
-        weight: 2500.50,
+        totalCBM: 15678.9,
+        weight: 2500.5,
         fee: 0,
         shipmentStatus: '',
         cvNumber: null,
@@ -241,7 +268,9 @@ describe('Shipments API - /api/shipments', () => {
         notes: null,
       };
 
-      vi.mocked(prisma.shipment.create).mockResolvedValue(createdShipment as any);
+      vi.mocked(prisma.shipment.create).mockResolvedValue(
+        createdShipment as any
+      );
 
       const request = new Request('http://localhost/api/shipments', {
         method: 'POST',
@@ -253,8 +282,8 @@ describe('Shipments API - /api/shipments', () => {
       expect(prisma.shipment.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           noOfSacks: 1234,
-          totalCBM: 15678.90,
-          weight: 2500.50,
+          totalCBM: 15678.9,
+          weight: 2500.5,
         }),
       });
     });
@@ -280,7 +309,9 @@ describe('Shipments API - /api/shipments', () => {
         notes: null,
       };
 
-      vi.mocked(prisma.shipment.create).mockResolvedValue(createdShipment as any);
+      vi.mocked(prisma.shipment.create).mockResolvedValue(
+        createdShipment as any
+      );
 
       const request = new Request('http://localhost/api/shipments', {
         method: 'POST',
@@ -301,8 +332,8 @@ describe('Shipments API - /api/shipments', () => {
         'Shipment Code': 'SH-007',
         'CV Number': '',
         'Date Delivered': '',
-        'Duration': '',
-        'Notes': '',
+        Duration: '',
+        Notes: '',
       };
 
       const createdShipment = {
@@ -320,7 +351,9 @@ describe('Shipments API - /api/shipments', () => {
         notes: null,
       };
 
-      vi.mocked(prisma.shipment.create).mockResolvedValue(createdShipment as any);
+      vi.mocked(prisma.shipment.create).mockResolvedValue(
+        createdShipment as any
+      );
 
       const request = new Request('http://localhost/api/shipments', {
         method: 'POST',
@@ -355,8 +388,16 @@ describe('Shipments API - /api/shipments', () => {
         },
       ];
 
-      vi.mocked(prisma.shipment.deleteMany).mockResolvedValue({ count: 5 } as any);
-      vi.mocked(prisma.shipment.createMany).mockResolvedValue({ count: 2 } as any);
+      // Mock transaction to execute the callback
+      vi.mocked(prisma.$transaction).mockImplementation(async (callback) => {
+        return callback({
+          shipment: {
+            findFirst: vi.fn().mockResolvedValue(null),
+            create: vi.fn().mockResolvedValue({ id: 1 }),
+            update: vi.fn().mockResolvedValue({ id: 1 }),
+          },
+        } as any);
+      });
 
       const request = new Request('http://localhost/api/shipments', {
         method: 'POST',
@@ -366,10 +407,8 @@ describe('Shipments API - /api/shipments', () => {
       const response = await createShipments(request as any);
       const data = await response.json();
 
-      expect(prisma.shipment.deleteMany).toHaveBeenCalledWith({});
-      expect(prisma.shipment.createMany).toHaveBeenCalled();
       expect(data.message).toBe('Shipments imported successfully');
-      expect(data.count).toBe(2);
+      expect(data.total).toBe(2);
     });
 
     it('should handle bulk import with currency and comma cleaning', async () => {
@@ -377,12 +416,25 @@ describe('Shipments API - /api/shipments', () => {
         {
           'Shipment Code': 'SH-200',
           'No. Of Sacks': '1,000',
-          'Fee': '₱10,500.50',
+          Fee: '₱10,500.50',
         },
       ];
 
-      vi.mocked(prisma.shipment.deleteMany).mockResolvedValue({ count: 0 } as any);
-      vi.mocked(prisma.shipment.createMany).mockResolvedValue({ count: 1 } as any);
+      // Mock transaction to execute the callback
+      vi.mocked(prisma.$transaction).mockImplementation(async (callback) => {
+        return callback({
+          shipment: {
+            findFirst: vi.fn().mockResolvedValue(null),
+            create: vi.fn().mockImplementation((args) => {
+              // Verify the cleaned data
+              expect(args.data.noOfSacks).toBe(1000);
+              expect(args.data.fee).toBe(10500.5);
+              return Promise.resolve({ id: 1 });
+            }),
+            update: vi.fn().mockResolvedValue({ id: 1 }),
+          },
+        } as any);
+      });
 
       const request = new Request('http://localhost/api/shipments', {
         method: 'POST',
@@ -390,34 +442,44 @@ describe('Shipments API - /api/shipments', () => {
       });
 
       await createShipments(request as any);
-
-      expect(prisma.shipment.createMany).toHaveBeenCalledWith({
-        data: expect.arrayContaining([
-          expect.objectContaining({
-            noOfSacks: 1000,
-            fee: 10500.50,
-          }),
-        ]),
-      });
     });
   });
 
   describe('DELETE /api/shipments', () => {
     it('should delete all shipments', async () => {
-      vi.mocked(prisma.shipment.deleteMany).mockResolvedValue({ count: 10 } as any);
+      vi.mocked(prisma.shipment.count).mockResolvedValue(0);
+      vi.mocked(prisma.shipment.updateMany).mockResolvedValue({
+        count: 10,
+      } as any);
 
-      const response = await deleteAllShipments();
+      const request = new Request(
+        'http://localhost/api/shipments?confirm=DELETE_ALL_SHIPMENTS',
+        {
+          method: 'DELETE',
+        }
+      ) as any;
+
+      const response = await deleteAllShipments(request);
       const data = await response.json();
 
-      expect(prisma.shipment.deleteMany).toHaveBeenCalledWith({});
       expect(data.message).toBe('Successfully deleted 10 shipment records');
       expect(data.count).toBe(10);
     });
 
     it('should handle deleting when no shipments exist', async () => {
-      vi.mocked(prisma.shipment.deleteMany).mockResolvedValue({ count: 0 } as any);
+      vi.mocked(prisma.shipment.count).mockResolvedValue(0);
+      vi.mocked(prisma.shipment.updateMany).mockResolvedValue({
+        count: 0,
+      } as any);
 
-      const response = await deleteAllShipments();
+      const request = new Request(
+        'http://localhost/api/shipments?confirm=DELETE_ALL_SHIPMENTS',
+        {
+          method: 'DELETE',
+        }
+      ) as any;
+
+      const response = await deleteAllShipments(request);
       const data = await response.json();
 
       expect(data.count).toBe(0);
@@ -447,7 +509,9 @@ describe('Shipments API - /api/shipments/[id]', () => {
         notes: 'Test shipment',
       };
 
-      vi.mocked(prisma.shipment.findUnique).mockResolvedValue(mockShipment as any);
+      vi.mocked(prisma.shipment.findUnique).mockResolvedValue(
+        mockShipment as any
+      );
 
       const request = new Request('http://localhost/api/shipments/1') as any;
       const response = await getShipmentById(request, { params: { id: '1' } });
@@ -464,7 +528,9 @@ describe('Shipments API - /api/shipments/[id]', () => {
       vi.mocked(prisma.shipment.findUnique).mockResolvedValue(null);
 
       const request = new Request('http://localhost/api/shipments/999') as any;
-      const response = await getShipmentById(request, { params: { id: '999' } });
+      const response = await getShipmentById(request, {
+        params: { id: '999' },
+      });
       const data = await response.json();
 
       expect(response.status).toBe(404);
@@ -473,7 +539,9 @@ describe('Shipments API - /api/shipments/[id]', () => {
 
     it('should return 400 for invalid ID format', async () => {
       const request = new Request('http://localhost/api/shipments/abc') as any;
-      const response = await getShipmentById(request, { params: { id: 'abc' } });
+      const response = await getShipmentById(request, {
+        params: { id: 'abc' },
+      });
       const data = await response.json();
 
       expect(response.status).toBe(400);
@@ -499,8 +567,8 @@ describe('Shipments API - /api/shipments/[id]', () => {
         'CV Number': 'CV-NEW',
         'No. Of Sacks': 100,
         'Total CBM': 20,
-        'Weight': 400,
-        'Fee': 4000,
+        Weight: 400,
+        Fee: 4000,
         'Shipment Status': 'Delivered',
       };
 
@@ -519,9 +587,15 @@ describe('Shipments API - /api/shipments/[id]', () => {
         notes: null,
       };
 
-      vi.mocked(prisma.shipment.findUnique).mockResolvedValue(currentShipment as any);
-      vi.mocked(prisma.shipment.update).mockResolvedValue(updatedShipment as any);
-      vi.mocked(prisma.product.updateMany).mockResolvedValue({ count: 5 } as any);
+      vi.mocked(prisma.shipment.findUnique).mockResolvedValue(
+        currentShipment as any
+      );
+      vi.mocked(prisma.shipment.update).mockResolvedValue(
+        updatedShipment as any
+      );
+      vi.mocked(prisma.product.updateMany).mockResolvedValue({
+        count: 5,
+      } as any);
 
       const request = new Request('http://localhost/api/shipments/1', {
         method: 'PUT',
