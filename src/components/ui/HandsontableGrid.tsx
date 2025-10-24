@@ -752,6 +752,7 @@ export function HandsontableGrid<T extends Item>({
           autoColumnSize={false} // Disable auto column width calculation
           rowHeights={55} // Set fixed row height (default is ~23px)
           columnHeaderHeight={55} // Set header height to match row height
+          beforeCut={() => false}
           afterChange={(changes, source) => {
             if (!changes || !onCellEdited) {
               return;

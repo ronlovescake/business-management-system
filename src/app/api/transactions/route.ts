@@ -389,6 +389,16 @@ export async function POST(request: NextRequest) {
       (name) => !existingCustomerNames.has(name)
     );
 
+    logger.debug(
+      `🔍 Customer check: ${existingCustomers.length}/${uniqueCustomers.length} found`
+    );
+    if (missingCustomers.length > 0) {
+      logger.warn(
+        `Missing customers (first 10):`,
+        missingCustomers.slice(0, 10)
+      );
+    }
+
     // Check which products exist
     const existingProducts = await prisma.product.findMany({
       where: { productCode: { in: uniqueProducts } },
@@ -403,6 +413,13 @@ export async function POST(request: NextRequest) {
       (code) => !existingProductCodes.has(code)
     );
 
+    logger.debug(
+      `🔍 Product check: ${existingProducts.length}/${uniqueProducts.length} found`
+    );
+    if (missingProducts.length > 0) {
+      logger.warn(`Missing products (first 10):`, missingProducts.slice(0, 10));
+    }
+
     // Check which shipments exist (only if there are shipments to check)
     let missingShipments: string[] = [];
     if (uniqueShipments.length > 0) {
@@ -416,6 +433,16 @@ export async function POST(request: NextRequest) {
       missingShipments = uniqueShipments.filter(
         (code) => !existingShipmentCodes.has(code)
       );
+
+      logger.debug(
+        `🔍 Shipment check: ${existingShipments.length}/${uniqueShipments.length} found`
+      );
+      if (missingShipments.length > 0) {
+        logger.warn(
+          `Missing shipments (first 10):`,
+          missingShipments.slice(0, 10)
+        );
+      }
     }
 
     // If any references are missing, return 409 Conflict with details
@@ -425,8 +452,60 @@ export async function POST(request: NextRequest) {
       missingShipments.length > 0
     ) {
       logger.warn(
-        `Reference integrity check failed: ${missingCustomers.length} customers, ${missingProducts.length} products, ${missingShipments.length} shipments missing`
+        `❌ Reference integrity check failed: ${missingCustomers.length} customers, ${missingProducts.length} products, ${missingShipments.length} shipments missing`
       );
+
+      const customerSample = allDataToInsert
+        .filter(
+          (row) => row.customers && missingCustomers.includes(row.customers)
+        )
+        .slice(0, 5)
+        .map((row) => ({
+          customers: row.customers,
+          productCode: row.productCode,
+          orderDate: row.orderDate,
+        }));
+
+      const productSample = allDataToInsert
+        .filter(
+          (row) => row.productCode && missingProducts.includes(row.productCode)
+        )
+        .slice(0, 5)
+        .map((row) => ({
+          customers: row.customers,
+          productCode: row.productCode,
+          orderDate: row.orderDate,
+        }));
+
+      const shipmentSample = allDataToInsert
+        .filter(
+          (row) =>
+            row.shipmentCode && missingShipments.includes(row.shipmentCode)
+        )
+        .slice(0, 5)
+        .map((row) => ({
+          customers: row.customers,
+          productCode: row.productCode,
+          orderDate: row.orderDate,
+          shipmentCode: row.shipmentCode,
+        }));
+
+      // Log detailed breakdown for debugging
+      logger.warn(
+        `Missing customers (${missingCustomers.length}):`,
+        missingCustomers
+      );
+      logger.warn(
+        `Missing products (${missingProducts.length}):`,
+        missingProducts
+      );
+      logger.warn(
+        `Missing shipments (${missingShipments.length}):`,
+        missingShipments
+      );
+      logger.warn('Sample rows with missing customers:', customerSample);
+      logger.warn('Sample rows with missing products:', productSample);
+      logger.warn('Sample rows with missing shipments:', shipmentSample);
 
       return NextResponse.json(
         {
