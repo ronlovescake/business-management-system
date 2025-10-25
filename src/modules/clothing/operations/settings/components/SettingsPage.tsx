@@ -13,11 +13,13 @@ import {
   IconPackage,
   IconDownload,
   IconGitBranch,
+  IconDatabase,
 } from '@tabler/icons-react';
 import { MarketplaceTab } from './MarketplaceTab';
 import { InstalledModulesTab } from './InstalledModulesTab';
 import { UpdatesTab } from './UpdatesTab';
 import { DependenciesTab } from './DependenciesTab';
+import { BackupRestoreTab } from './BackupRestoreTab';
 import type { SettingsTab } from '../types';
 
 export function SettingsPage() {
@@ -53,6 +55,9 @@ export function SettingsPage() {
             >
               Dependencies
             </Tabs.Tab>
+            <Tabs.Tab value="backup" leftSection={<IconDatabase size={16} />}>
+              Backup & Restore
+            </Tabs.Tab>
           </Tabs.List>
 
           <Tabs.Panel value="marketplace" pt="md">
@@ -69,6 +74,10 @@ export function SettingsPage() {
 
           <Tabs.Panel value="dependencies" pt="md">
             <DependenciesTab />
+          </Tabs.Panel>
+
+          <Tabs.Panel value="backup" pt="md">
+            <BackupRestoreTab />
           </Tabs.Panel>
         </Tabs>
       </Paper>

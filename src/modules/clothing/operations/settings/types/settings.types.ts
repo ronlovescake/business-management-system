@@ -188,6 +188,7 @@ export const SETTINGS_TABS = [
   { value: 'installed', label: 'Installed Modules', icon: 'package' },
   { value: 'updates', label: 'Updates', icon: 'download' },
   { value: 'dependencies', label: 'Dependencies', icon: 'git-branch' },
+  { value: 'backup', label: 'Backup & Restore', icon: 'database' },
 ] as const;
 
 export type SettingsTab = (typeof SETTINGS_TABS)[number]['value'];

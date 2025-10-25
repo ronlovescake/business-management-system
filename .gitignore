@@ -36,5 +36,11 @@ prisma/migrations/dev.db*
 *.db
 *.sqlite
 
+# Backups (sensitive data - never commit!)
+backups/
+snapshots/
+*.sql
+*.backup
+
 # Bundle analyzer
 .analyze/

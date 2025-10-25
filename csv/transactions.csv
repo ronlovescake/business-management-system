@@ -176,8 +176,8 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Jan 19, 2025",Jai Bulayungan | CJ Bulayungan,Organic Shortsleeves Onesies (OSO-011925),700,₱86.00,,,"₱60,200.00",Shipped,,,,
 "Jan 19, 2025",Fatima Khair | Fami de Leon,Organic Shortsleeves Onesies (OSO-011925),100,₱86.00,,₱860.00,"₱7,740.00",Shipped,,,,
 "Jan 19, 2025",Dwyane Ashley Menil | Erald Domingo,Organic Shortsleeves Onesies (OSO-011925),100,₱86.00,,,"₱8,600.00",Cancelled,,,,
-"Jan 19, 2025",Cloudbabies.dvo | Vironne Nica Manulat-Rakim,Organic Shortsleeves Onesies (OSO-011925),60,₱89.00,,,,Cancelled,,,,
-"Jan 19, 2025",Trixie Mauricio,Organic Shortsleeves Onesies (OSO-011925),200,₱86.00,,,,Cancelled,,,,
+"Jan 19, 2025",Cloudbabies.dvo | Vironne Nica Manulat-Rakim,Organic Shortsleeves Onesies (OSO-011925),60,₱89.00,,,"₱8,900.00",Cancelled,,,,
+"Jan 19, 2025",Trixie Mauricio,Organic Shortsleeves Onesies (OSO-011925),200,₱86.00,,,"₱8,600.00",Cancelled,,,,
 "Jan 19, 2025",Gelina De Rama,Organic Shortsleeves Onesies (OSO-011925),60,₱89.00,,₱534.00,"₱4,806.00",Cancelled,,,,
 "Jan 19, 2025",Madz Curitana - Arizabal | Namron John C. Arizabal,Organic Longsleeves Onesies (OLO-011925),60,₱92.00,,,"₱5,520.00",Cancelled,,,,KPC 23930A-00182
 "Jan 19, 2025",Madz Curitana - Arizabal | Namron John C. Arizabal,Organic Shortsleeves Onesies (OSO-011925),60,₱89.00,,,"₱5,340.00",Cancelled,,,,KPC 23930A-00182
@@ -281,7 +281,7 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Jan 23, 2025",Pam Dadua,R+B Hoodie Jacket (RHJ-072924),10,₱105.00,,"₱1,050.00",₱0.00,Shipped,,,,
 "Jan 23, 2025",Khimmy Francisco,Premium Tops (PT-012125),6,₱69.00,₱6.00,,₱414.00,Cancelled,,,,
 "Jan 23, 2025",Kristel Mae Zulla | Stel May,Premium Tops (PT-012125),12,₱69.00,₱6.00,,₱828.00,Shipped,,,,
-"Jan 23, 2025",Pam Dadua,Premium Tops (PT-012125),6,₱69.00,₱6.00,₱414.00,,Shipped,,,,
+"Jan 23, 2025",Pam Dadua,Premium Tops (PT-012125),6,₱69.00,₱6.00,₱414.00,₱414.00,Shipped,,,,
 "Jan 23, 2025",Marieadeline R. Echalas | Mdz Echls,Premium Tops (PT-012125),10,₱69.00,₱6.00,,₱690.00,Shipped,,,,
 "Jan 23, 2025",Pam Dadua,Premium Tops (PT-012125),6,₱75.00,,₱450.00,₱0.00,Shipped,,,,
 "Jan 23, 2025",Arvee Castillo | Patricia Viudez Lazaro,Premium Tops (PT-012125),6,₱75.00,,,₱450.00,Shipped,,,,
@@ -527,7 +527,7 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Jan 29, 2025",Nix Carbonell,Tex Hooded Baby Towelette (THBT-012525),20,₱110.00,,,"₱2,200.00",Shipped,,,,
 "Jan 30, 2025",Anne Tionson | Enna Yrrehc,Little Loved Zippered Frogsuit (LLZF-110224),20,₱110.00,,"₱2,200.00",₱0.00,Shipped,,,,
 "Jan 30, 2025",Christina Montoya,Little Loved Zippered Frogsuit (LLZF-110224),10,₱110.00,,"₱1,050.00",₱50.00,Shipped,,,,
-"Jan 30, 2025",Ma. Erica C. Casabal,Little Loved Zippered Frogsuit (LLZF-110224),10,₱110.00,,"₱1,050.00",₱50.00,Shipped,,,,
+"Jan 30, 2025",Ma. Erica C. Casabal,Little Loved Zippered Frogsuit (LLZF-110224),10,₱110.00,,"₱1,050.00",,Shipped,,,,
 "Jan 30, 2025",Donna Marie,Little Loved Zippered Frogsuit (LLZF-110224),20,₱110.00,,"₱2,150.00",₱50.00,Shipped,,,,
 "Jan 30, 2025",Daryl Louie Abulencia,Carters Pajama (CP-012525),146,₱50.00,-₱5.00,"₱7,300.00",₱0.00,Shipped,,,,
 "Jan 30, 2025",Daryl Louie Abulencia,Pajama Set (PS-012125),25,₱160.00,,,"₱4,000.00",Cancelled,,,,
@@ -717,7 +717,7 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Feb 5, 2025",Olie's Collection | Ces Obejas,Rabbit + Bear Pants (RBP-092624),25,₱55.00,-₱25.00,"₱1,375.00",₱0.00,Shipped,,,,
 "Feb 5, 2025",Jesica Marcos | Jes Ica,Frogsuits With Hanger (FWH-012025),6,₱99.00,₱20.00,,₱594.00,Shipped,,,,
 "Feb 5, 2025",Anne Beatrice,2-PC Set (2S-102524),6,₱145.00,-₱70.00,₱870.00,₱0.00,Shipped,,,,
-"Feb 5, 2025",Kristel Mae Zulla | Stel May,Baby Berry Onesie (BBO-110424),45,₱45.00,-₱3.00,,"₱2,025.00",Shipped,,,,
+"Feb 5, 2025",Kristel Mae Zulla | Stel May,Baby Berry Onesie (BBO-110424),45,₱45.00,-₱3.00,,"₱4,500.00",Shipped,,,,
 "Feb 5, 2025",Gladys Lagarto Esponilla,2-PC Set (2S-102524),6,₱145.00,-₱70.00,,₱870.00,Shipped,,,,
 "Feb 5, 2025",Anne Beatrice,2-PC Set (2S-102524),5,₱100.00,-₱25.00,₱500.00,₱0.00,Shipped,,,,
 "Feb 5, 2025",Marl Eisler Antonio | Nicole Sacristan,Disney Jogger Pants (DJP-012425),200,₱65.00,,,"₱13,000.00",Shipped,,,,
@@ -729,7 +729,7 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Feb 6, 2025",MQ Gonzaga | Mary Queen Gonzaga,Mixed Onesies (MO-112024),100,₱39.00,₱14.00,"₱3,900.00",₱0.00,Shipped,,,,
 "Feb 6, 2025",Christina Montoya,Mixed Onesies (MO-112024),100,₱39.00,₱14.00,,"₱3,900.00",Shipped,,,,
 "Feb 6, 2025",Kristel Mae Zulla | Stel May,Mixed Onesies (MO-112024),100,₱39.00,₱14.00,,"₱3,900.00",Shipped,,,,
-"Feb 6, 2025",Judith Decolongon Cabial,Mixed Onesies (MO-112024),50,₱39.00,₱14.00,"₱1,900.00",₱50.00,Shipped,,,,
+"Feb 6, 2025",Judith Decolongon Cabial,Mixed Onesies (MO-112024),50,₱39.00,₱14.00,"₱1,900.00",₱0.00,Shipped,,,,
 "Feb 6, 2025",Jennifer Malubay Bartolome,Mixed Onesies (MO-112024),50,₱39.00,₱14.00,,"₱1,950.00",Shipped,,,,
 "Feb 6, 2025",Gel Doneza,Mixed Onesies (MO-112024),100,₱39.00,₱14.00,,"₱3,900.00",Shipped,,,,
 "Feb 6, 2025",Bree Jit,Mixed Onesies (MO-112024),350,₱38.00,₱7.00,"₱13,300.00",₱0.00,Shipped,,,,
@@ -744,7 +744,7 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Feb 6, 2025",Roshelle Devanadera,Mixed Onesies (MO-112024),1000,₱38.00,₱4.00,,"₱38,000.00",Shipped,,,,
 "Feb 6, 2025",Noemi Galero | Imeon OreLag,Organic Shorts (OS-020425),100,₱70.00,,"₱7,000.00",₱0.00,Shipped,,,,
 "Feb 6, 2025",Donna Marie,Tex Hooded Baby Towelette (THBT-012525),70,₱110.00,,,"₱7,700.00",Shipped,,,,
-"Feb 6, 2025",Judith Decolongon Cabial,Disney Jogger Pants (DJP-012425),50,₱70.00,,"₱3,500.00",,Shipped,,,,
+"Feb 6, 2025",Judith Decolongon Cabial,Disney Jogger Pants (DJP-012425),50,₱70.00,,"₱3,500.00","₱3,500.00",Shipped,,,,
 "Feb 6, 2025",Anne Tionson | Enna Yrrehc,Bundle (B-020625),1,"₱1,080.00",,,"₱1,080.00",Shipped,,,,
 "Feb 6, 2025",Christina Montoya,Bundle (B-020625),2,"₱1,080.00",,,"₱2,160.00",Shipped,,,,
 "Feb 6, 2025",Rafunzel Marasigan,Bundle (B-020625),2,"₱1,080.00",,"₱1,080.00","₱1,080.00",Shipped,,,,
@@ -828,7 +828,7 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Feb 10, 2025",Rafunzel Marasigan,Baby Pants (BP-020225),73,₱45.00,,,"₱3,285.00",Shipped,,,,
 "Feb 10, 2025",Olie's Collection | Ces Obejas,Frogsuits (F-021025),30,₱105.00,,,"₱3,150.00",Shipped,,,,
 "Feb 10, 2025",EJ Eslava,Frogsuits (F-021025),20,₱105.00,,"₱2,100.00",₱0.00,Shipped,Onhold,,,
-"Feb 10, 2025",Lean Angelo Miranda | Marsonette Miranda,Frogsuits (F-021025),60,₱105.00,,"₱6,300.00",,Shipped,,,,
+"Feb 10, 2025",Lean Angelo Miranda | Marsonette Miranda,Frogsuits (F-021025),60,₱105.00,,,₱105.00,Shipped,,,,
 "Feb 10, 2025",Jayvie Andaya | Rellie Bayan,Frogsuits (F-021025),30,₱105.00,,,"₱3,150.00",Shipped,,,,
 "Feb 10, 2025",Judith Decolongon Cabial,Frogsuits (F-021025),20,₱105.00,,"₱2,050.00",₱50.00,Shipped,,,,
 "Feb 10, 2025",Khimmy Francisco,Frogsuits (F-021025),20,₱105.00,,,"₱2,100.00",Cancelled,,,,
@@ -2474,10 +2474,10 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "May 13, 2025",Roshayne Maslog,Mixed Set (MS-042325),4,₱99.00,₱81.00,₱396.00,₱0.00,Shipped,,"May 14, 2025 ","May 15, 2025",KPC 23930A-00192
 "May 13, 2025",Joan Lim Javelona,Mixed Set (MS-042325),4,₱99.00,₱81.00,,₱396.00,Cancelled,,"May 14, 2025 ",,KPC 23930A-00192
 "May 14, 2025",Lyn Domingo | SIERRAS THRIFTEES,Zutano Pants (ZP-031225),30,₱49.00,₱16.00,"₱1,470.00",₱0.00,Shipped,,"May 14, 2025 ","May 15, 2025",
-"May 14, 2025",Pam Dadua,Zutano Pants (ZP-031225),30,₱49.00,₱16.00,"₱1,420.00",₱50.00,Shipped,,"May 14, 2025 ","May 15, 2025",
+"May 14, 2025",Pam Dadua,Zutano Pants (ZP-031225),30,49.00,₱16.00,"₱1,420.00",50.00,Shipped,,"May 14, 2025 ","May 15, 2025",
 "May 14, 2025",Erza Lareen | Sharina Arada,Zutano Pants (ZP-031225),30,₱49.00,₱16.00,"₱1,470.00",₱0.00,Shipped,,"May 14, 2025 ","May 15, 2025",
 "May 14, 2025",Nikki Cabotaje | Nikki Dacasin,Zutano Pants (ZP-031225),30,₱49.00,₱16.00,"₱1,470.00",₱0.00,Shipped,,"May 14, 2025 ","May 15, 2025",
-"May 14, 2025",Kate Jewel May Colina,Zutano Pants (ZP-031225),30,49.00,₱16.00,"₱1,470.00",0.00,Shipped,,"May 14, 2025 ","May 15, 2025",
+"May 14, 2025",Kate Jewel May Colina,Zutano Pants (ZP-031225),30,₱49.00,₱16.00,"₱1,470.00",₱0.00,Shipped,,"May 14, 2025 ","May 15, 2025",
 "May 14, 2025",Judith Decolongon Cabial,Romper With Hanger (RWH-041425),20,₱89.00,,"₱1,780.00",₱0.00,Shipped,,"May 14, 2025 ","May 15, 2025",KPC 23930A-00185
 "May 14, 2025",Judith Decolongon Cabial,Mixed Set (MS-042325),8,₱99.00,₱81.00,₱742.00,₱50.00,Shipped,,"May 14, 2025 ","May 15, 2025",KPC 23930A-00192
 "May 14, 2025",Jean Poyos | Jean de Chavez-Poyos,Zutano Pants (ZP-031225),30,₱49.00,₱16.00,"₱1,470.00",₱0.00,Shipped,,"May 14, 2025 ","May 15, 2025",
@@ -2719,10 +2719,10 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "May 31, 2025",Lara Rose Tanguilig,Baby Berry Longsleeves Onesie (BBLO-041125),50,₱58.00,,,"₱2,900.00",Cancelled,,"June 2, 2025 ",,KPC 23930A-00198
 "May 31, 2025",Russell Mayugba | Marjorie Lagarto,Baby Berry Frogsuit (BBF-041125),20,₱119.00,,"₱2,380.00",₱0.00,Shipped,,"June 2, 2025 ","June 19, 2025",KPC 23930A-00198
 "May 31, 2025",Russell Mayugba | Marjorie Lagarto,Baby Berry Longsleeves Onesie (BBLO-041125),50,₱58.00,,"₱2,900.00",₱0.00,Shipped,,"June 2, 2025 ","June 19, 2025",KPC 23930A-00198
-"May 31, 2025",Dave Juarez Mantac | Reigh Andre Catapang,Baby Berry Longsleeves Onesie (BBLO-041125),50,₱58.00,,,"₱2,900.00",Cancelled,,"June 2, 2025 ",,KPC 23930A-00198
+"May 31, 2025",Dave Juarez Mantac | Reigh Andre Catapang,Baby Berry Longsleeves Onesie (BBLO-041125),50,₱58.00,,,"₱2,900.00",Cancelled,,"June 2, 2025",,KPC 23930A-00198
 "May 31, 2025",Anne Tionson | Enna Yrrehc,Milkberry Shorts (MS-053125),25,₱49.00,,,"₱1,225.00",Shipped,,"June 24, 2025 ","June 25, 2025",KPC 23930A-00202
 "May 31, 2025",Anne Tionson | Enna Yrrehc,Milkberry 2-PC Top And Short Set (M2TASS-052325),24,₱168.00,,,"₱4,032.00",Shipped,,"June 24, 2025 ","June 25, 2025",KPC 23930A-00202
-"May 31, 2025",SunnyLune Clothing Shop | Vannie Puddao,Milkberry Shorts (MS-053125),25,₱49.00,,"₱1,225.00",₱0.00,Shipped,,"June 24, 2025","June 25, 2025",KPC 23930A-00202
+"May 31, 2025",SunnyLune Clothing Shop | Vannie Puddao,Milkberry Shorts (MS-053125),25,₱49.00,,"₱1,225.00",₱0.00,Shipped,,"June 24, 2025 ","June 25, 2025",KPC 23930A-00202
 "May 31, 2025",Ellenoire Rosario | ELle NoiRe,Milkberry Shorts (MS-053125),25,₱49.00,,"₱1,225.00",₱0.00,Shipped,,"June 24, 2025 ","June 25, 2025",KPC 23930A-00202
 "May 31, 2025",Ethan Lopez | Charlene Lopez,Milkberry Shorts (MS-053125),50,₱49.00,,"₱2,450.00",₱0.00,Shipped,,"June 24, 2025 ","June 25, 2025",KPC 23930A-00202
 "May 31, 2025",SunnyLune Clothing Shop | Vannie Puddao,Milkberry 2-PC Top And Short Set (M2TASS-052325),24,₱168.00,,"₱4,032.00",₱0.00,Shipped,,"June 24, 2025 ","June 25, 2025",KPC 23930A-00202
@@ -2813,7 +2813,7 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Jun 2, 2025",Jai Bulayungan | CJ Bulayungan,Romper Batch 3 (RB3-042525),20,₱89.00,,"₱1,780.00",₱0.00,Shipped,,"June 2, 2025 ","June 4, 2025",KPC 23930A-00190
 "Jun 2, 2025",Mark Anthony Salazar | Eme Kate Villatema,Premium Footed Pants (PFP-032025),50,₱39.00,₱24.00,"₱1,950.00",₱0.00,Shipped,,"June 2, 2025 ","June 5, 2025",KPC 23930A-00186
 "Jun 2, 2025",Mark Anthony Salazar | Eme Kate Villatema,Baby Berry Romper (BBR-041125),20,₱119.00,,"₱2,380.00",₱0.00,Shipped,,"June 2, 2025 ","June 5, 2025",KPC 23930A-00198
-"Jun 2, 2025",Alvin Ralph Ronquillo | Eleonor De Luna,Baby Berry Romper (BBR-041125),20,₱119.00,,,"₱2,380.00",Cancelled,,"June 2, 2025 ",,KPC 23930A-00198
+"Jun 2, 2025",Bing Pastrana | Eleonor De Luna,Baby Berry Romper (BBR-041125),20,₱119.00,,,"₱2,380.00",Cancelled,,"June 2, 2025 ",,KPC 23930A-00198
 "Jun 2, 2025",Jeh Aguisanda,Premium Footed Pants (PFP-032025),50,₱39.00,₱24.00,"₱1,950.00",₱0.00,Shipped,,"June 2, 2025 ","June 5, 2025",KPC 23930A-00186
 "Jun 2, 2025",JonaG | Jona Alair,Premium Footed Pants (PFP-032025),50,₱39.00,₱24.00,"₱1,950.00",₱0.00,Shipped,,"June 2, 2025 ","June 5, 2025",KPC 23930A-00186
 "Jun 2, 2025",Jeh Aguisanda,Baby Berry Romper (BBR-041125),20,₱119.00,,"₱2,380.00",₱0.00,Shipped,,"June 2, 2025 ","June 5, 2025",KPC 23930A-00198
@@ -2891,9 +2891,9 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Jun 5, 2025",Angela Shania Agbuya | Naya Mangune,Dymples Shortsleeve Onesie (DSO-041125),50,₱45.00,₱29.00,"₱2,250.00",₱0.00,Shipped,,,"June 6, 2025",KPC 23930A-00196
 "Jun 5, 2025",Angela Shania Agbuya | Naya Mangune,Bundle (B-052725),1,₱999.00,,₱999.00,₱0.00,Shipped,,,"June 6, 2025",
 "Jun 5, 2025",Angela Shania Agbuya | Naya Mangune,Jumper Set (JS-041025),4,₱99.00,₱56.00,₱396.00,₱0.00,Shipped,,,"June 6, 2025",KPC 23930A-00191
-"Jun 5, 2025",Alvin Ralph Ronquillo | Eleonor De Luna,Baby Berry Shortsleeves Onesie (BBSO-041125),50,₱58.00,₱5.00,"₱2,900.00",₱0.00,Shipped,,"June 6, 2025 ","June 7, 2025",KPC 23930A-00198
-"Jun 5, 2025",Alvin Ralph Ronquillo | Eleonor De Luna,Dymples Shortsleeve Onesie (DSO-041125),50,₱45.00,₱29.00,"₱2,250.00",₱0.00,Shipped,,"June 6, 2025 ","June 7, 2025",KPC 23930A-00196
-"Jun 5, 2025",Alvin Ralph Ronquillo | Eleonor De Luna,Bundle (B-052725),1,₱999.00,,₱999.00,₱0.00,Shipped,,"June 6, 2025 ","June 7, 2025",
+"Jun 5, 2025",Bing Pastrana | Eleonor De Luna,Baby Berry Shortsleeves Onesie (BBSO-041125),50,₱58.00,₱5.00,"₱2,900.00",₱0.00,Shipped,,"June 6, 2025 ","June 7, 2025",KPC 23930A-00198
+"Jun 5, 2025",Bing Pastrana | Eleonor De Luna,Dymples Shortsleeve Onesie (DSO-041125),50,₱45.00,₱29.00,"₱2,250.00",₱0.00,Shipped,,"June 6, 2025 ","June 7, 2025",KPC 23930A-00196
+"Jun 5, 2025",Bing Pastrana | Eleonor De Luna,Bundle (B-052725),1,₱999.00,,₱999.00,₱0.00,Shipped,,"June 6, 2025 ","June 7, 2025",
 "Jun 5, 2025",Mark Anthony Salazar | Eme Kate Villatema,Dymples Shortsleeve Onesie (DSO-041125),50,₱45.00,₱29.00,"₱2,250.00",₱0.00,Shipped,,"June 6, 2025 ","June 10, 2025",KPC 23930A-00196
 "Jun 5, 2025",Olie's Collection | Ces Obejas,Baby Carrier (BC-031425),20,₱250.00,,"₱5,000.00",₱0.00,Shipped,,"June 6, 2025 ","June 9, 2025",KPC 23930A-00201
 "Jun 5, 2025",Via Dollisen - Aleta,Dymples Shortsleeve Onesie (DSO-041125),50,₱45.00,₱29.00,"₱2,250.00",₱0.00,Shipped,,,"June 11, 2025",KPC 23930A-00196
@@ -2903,7 +2903,7 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Jun 5, 2025",Mark Malubay | Nicole Madrid,Nine West 3PC Onesie (NW3O-053125),10,₱215.00,,"₱2,150.00",₱0.00,Shipped,,"July 4, 2025 ","July 4, 2025",KPC 23930A-00203
 "Jun 5, 2025",Mark Malubay | Nicole Madrid,Cotton On & Milky Romper (CO&MR-053125),12,₱125.00,,"₱1,500.00",₱0.00,Shipped,,"July 4, 2025 ","July 4, 2025",KPC 23930A-00203
 "Jun 6, 2025",Tezza Monique Cabacungan,4-PC set (4s-060525),2,₱345.00,,,₱690.00,Cancelled,,,,KPC 23930A-00201
-"Jun 6, 2025",Alvin Ralph Ronquillo | Eleonor De Luna,Kotton Kandy 3PC- 4PC set (KK34s-060525),15,₱175.00,,"₱2,625.00",₱0.00,Shipped,,"June 6, 2025 ","June 7, 2025",KPC 23930A-00201
+"Jun 6, 2025",Bing Pastrana | Eleonor De Luna,Kotton Kandy 3PC- 4PC set (KK34s-060525),15,₱175.00,,"₱2,625.00",₱0.00,Shipped,,"June 6, 2025 ","June 7, 2025",KPC 23930A-00201
 "Jun 6, 2025",Khristelaver Liangco,Kotton Kandy 3PC- 4PC set (KK34s-060525),15,₱175.00,,"₱2,575.00",₱50.00,Shipped,,"June 6, 2025 ","June 7, 2025",KPC 23930A-00201
 "Jun 6, 2025",Julie Ann Monzon | Jhula Monzon,Kotton Kandy 3PC- 4PC set (KK34s-060525),15,₱175.00,,"₱2,625.00",₱0.00,Shipped,,"June 6, 2025 ","June 7, 2025",KPC 23930A-00201
 "Jun 6, 2025",Danica Joy Reyes | Danica Joy Onagan,Kotton Kandy 3PC- 4PC set (KK34s-060525),15,₱175.00,,"₱2,625.00",₱0.00,Shipped,,"June 6, 2025 ","June 7, 2025",KPC 23930A-00201
@@ -2911,7 +2911,7 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Jun 6, 2025",Julie Ann Monzon | Jhula Monzon,Disney 3-PC set (D3s-060525),6,₱175.00,,"₱1,050.00",₱0.00,Shipped,,"June 6, 2025 ","June 7, 2025",KPC 23930A-00201
 "Jun 6, 2025",Pam Dadua,Little Beggining Romper (LBR-060525),20,₱89.00,,"₱1,730.00",₱50.00,Shipped,,"June 6, 2025 ","June 7, 2025",KPC 23930A-00201
 "Jun 6, 2025",Julie Ann Monzon | Jhula Monzon,Little Beggining Romper (LBR-060525),20,₱89.00,,"₱1,780.00",₱0.00,Shipped,,"June 6, 2025 ","June 7, 2025",KPC 23930A-00201
-"Jun 6, 2025",Alvin Ralph Ronquillo | Eleonor De Luna,Little Beggining Romper (LBR-060525),20,₱89.00,,"₱1,780.00",₱0.00,Shipped,,"June 6, 2025 ","June 7, 2025",KPC 23930A-00201
+"Jun 6, 2025",Bing Pastrana | Eleonor De Luna,Little Beggining Romper (LBR-060525),20,₱89.00,,"₱1,780.00",₱0.00,Shipped,,"June 6, 2025 ","June 7, 2025",KPC 23930A-00201
 "Jun 6, 2025",Lyca Jane Carreon | Lyca Jane Pascual,Little Beggining Romper (LBR-060525),20,₱89.00,,"₱1,780.00",₱0.00,Shipped,,"June 6, 2025 ","June 7, 2025",KPC 23930A-00201
 "Jun 6, 2025",Bunso Ako | Sherry Mae Hidalgo,Little Beggining Romper (LBR-060525),20,₱89.00,,"₱1,730.00",₱50.00,Shipped,,"June 6, 2025 ","June 7, 2025",KPC 23930A-00201
 "Jun 6, 2025",Lean Angelo Miranda | Marsonette Miranda,Little Beggining Romper (LBR-060525),20,₱89.00,,"₱1,780.00",₱0.00,Shipped,,"June 6, 2025 ","June 7, 2025",KPC 23930A-00201
@@ -3021,7 +3021,7 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Jun 7, 2025",MQ Gonzaga | Mary Queen Gonzaga,Zippered Frogsuit (ZF-060725),50,₱129.00,,"₱6,450.00",₱0.00,Shipped,,"July 4, 2025 ","July 4, 2025",KPC 23930A-00204
 "Jun 7, 2025",Cedric Masaquel | Mara Masaquel,Billieblush Romper (BR-060725),7,₱105.00,,₱735.00,₱0.00,Shipped,,"July 4, 2025 ","July 5, 2025",KPC 23930A-00203
 "Jun 7, 2025",Anne Tionson | Enna Yrrehc,H&M Organic Set (HOS-060725),4,₱215.00,,₱860.00,₱0.00,Shipped,,"July 4, 2025 ","July 6, 2025",KPC 23930A-00204
-"Jun 7, 2025",Alvin Ralph Ronquillo | Eleonor De Luna,H&M Organic Rompers (HOR-060725),12,₱145.00,,"₱1,740.00",₱0.00,Shipped,,"July 4, 2025 ","July 6, 2025",KPC 23930A-00204
+"Jun 7, 2025",Bing Pastrana | Eleonor De Luna,H&M Organic Rompers (HOR-060725),12,₱145.00,,"₱1,740.00",₱0.00,Shipped,,"July 4, 2025 ","July 6, 2025",KPC 23930A-00204
 "Jun 7, 2025",Ethan Lopez | Charlene Lopez,H&M Organic Polo Set (HOPS-060725),20,₱225.00,,"₱4,500.00",₱0.00,Shipped,,"July 4, 2025 ","July 6, 2025",KPC 23930A-00204
 "Jun 7, 2025",Aina Kristine Bautista,H&M Organic Polo Set (HOPS-060725),15,₱225.00,,"₱3,375.00",₱0.00,Shipped,,"July 4, 2025 ","July 6, 2025",KPC 23930A-00204
 "Jun 7, 2025",Miko Patrick Agapito | Arrian Caceres,H&M Organic Polo Set (HOPS-060725),12,₱225.00,,"₱2,700.00",₱0.00,Shipped,,"July 4, 2025 ","July 6, 2025",KPC 23930A-00204
@@ -3330,7 +3330,7 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Jun 26, 2025",Elaine Tesio,Milkberry Pants (MP-053125),20,₱59.00,,"₱1,180.00",₱0.00,Shipped,,"June 27, 2025 ","June 30, 2025",KPC 23930A-00202
 "Jun 26, 2025",Ian Consumo | Aidelyn S. Ayap,Banboo Cotton Tops (BCT-052325),30,₱57.00,,"₱1,710.00",₱0.00,Shipped,,"June 27, 2025 ","July 1, 2025",KPC 23930A-00202
 "Jun 26, 2025",Matt Bautista Chavez | Aliya Bautista,Banboo Cotton Tops (BCT-052325),15,₱57.00,,₱855.00,₱0.00,Shipped,,"June 27, 2025 ","June 30, 2025",KPC 23930A-00202
-"Jun 26, 2025",Alvin Ralph Ronquillo | Eleonor De Luna,Bear Paw Snugfit (BPS-040625),30,₱144.00,,,"₱4,320.00",Cancelled,,"June 27, 2025 ",,KPC 23930A-00202
+"Jun 26, 2025",Bing Pastrana | Eleonor De Luna,Bear Paw Snugfit (BPS-040625),30,₱144.00,,,"₱4,320.00",Cancelled,,"June 27, 2025 ",,KPC 23930A-00202
 "Jun 26, 2025",Hannah SJ Perez,Banboo Cotton Tops (BCT-052325),20,₱57.00,,,"₱1,140.00",Cancelled,,"June 27, 2025 ",,KPC 23930A-00202
 "Jun 26, 2025",Kristian Santos | Gia Martinez,Bear Paw Snugfit (BPS-040625),30,₱144.00,,,"₱4,320.00",Cancelled,,"June 27, 2025 ",,KPC 23930A-00202
 "Jun 26, 2025",Virgilyn Bertis,Banboo Cotton Tops (BCT-052325),15,₱57.00,,₱855.00,₱0.00,Shipped,- Lalamove,"June 27, 2025 ","July 6, 2025",KPC 23930A-00202
@@ -3347,7 +3347,7 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Jun 30, 2025",Eunice Yen Dungca-Cantor,Onesie (O-061725),30,₱39.00,,"₱1,170.00",₱0.00,Shipped,,"July 4, 2025 ","July 5, 2025",
 "Jun 30, 2025",Jennifer Malubay Bartolome,Zippered Frogsuit (ZF-060725),40,₱129.00,,"₱5,160.00",₱0.00,Shipped,,"July 4, 2025 ","July 4, 2025",KPC 23930A-00204
 "Jun 30, 2025",Kristian Santos | Gia Martinez,Zippered Frogsuit (ZF-060725),40,₱129.00,,,"₱5,160.00",Cancelled,,"July 4, 2025 ",,KPC 23930A-00204
-"Jun 30, 2025",Alvin Ralph Ronquillo | Eleonor De Luna,Zippered Frogsuit (ZF-060725),40,₱129.00,,"₱5,160.00",₱0.00,Shipped,,"July 4, 2025 ","July 6, 2025",KPC 23930A-00204
+"Jun 30, 2025",Bing Pastrana | Eleonor De Luna,Zippered Frogsuit (ZF-060725),40,₱129.00,,"₱5,160.00",₱0.00,Shipped,,"July 4, 2025 ","July 6, 2025",KPC 23930A-00204
 "Jun 30, 2025",Virgilyn Bertis,Zippered Frogsuit (ZF-060725),40,₱129.00,,"₱5,160.00",₱0.00,Shipped,,"July 4, 2025 ","July 6, 2025",KPC 23930A-00204
 "Jun 30, 2025",Ethan Lopez | Charlene Lopez,Ruffled Frogsuit (RF-053125),20,₱139.00,,"₱2,780.00",₱0.00,Shipped,,"July 4, 2025 ","July 6, 2025",KPC 23930A-00203
 "Jun 30, 2025",Buena Gracia Mesa,Bear Paw Snugfit (BPS-040625),30,₱144.00,,"₱4,320.00",₱0.00,Shipped,,"July 4, 2025 ","July 8, 2025",KPC 23930A-00202
@@ -3416,7 +3416,7 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Jul 5, 2025",Lyca Jane Carreon | Lyca Jane Pascual,H&M Baby Jogger (HBJ-070525),30,₱79.00,,"₱2,370.00",₱0.00,Shipped,,"August 4, 2025 ","August 5, 2025",KPC 23930A-00209
 "Jul 5, 2025",Buena Gracia Mesa,H&M Baby Jogger (HBJ-070525),30,₱79.00,,"₱2,370.00",₱0.00,Shipped,,"August 4, 2025 ","August 5, 2025",KPC 23930A-00209
 "Jul 5, 2025",Miccah Pineda | Mi Kay,H&M Baby Jogger (HBJ-070525),30,₱79.00,,"₱2,370.00",₱0.00,Shipped,,"August 4, 2025 ","August 5, 2025",KPC 23930A-00209
-"Jul 5, 2025",Alvin Ralph Ronquillo | Eleonor De Luna,Rabbit Bear Undies (RBU-070525),30,₱45.00,,"₱1,350.00",₱0.00,Shipped,,"August 4, 2025 ","August 5, 2025",KPC 23930A-00209
+"Jul 5, 2025",Bing Pastrana | Eleonor De Luna,Rabbit Bear Undies (RBU-070525),30,₱45.00,,"₱1,350.00",₱0.00,Shipped,,"August 4, 2025 ","August 5, 2025",KPC 23930A-00209
 "Jul 5, 2025",Tezza Monique Cabacungan,Rabbit Bear Undies (RBU-070525),30,₱45.00,,,"₱1,350.00",Cancelled,,"August 4, 2025 ",,KPC 23930A-00209
 "Jul 5, 2025",Mark Malubay | Nicole Madrid,Organic Romper (OR-070525),20,₱145.00,,,"₱2,900.00",Cancelled,,,,KPC 23930A-00210
 "Jul 5, 2025",Little Veo | Riz Bautista,Rabbit Bear Romper (RBR-070525),12,₱139.00,,,"₱1,668.00",Cancelled,,,,KPC 23930A-00210
@@ -3544,7 +3544,7 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Jul 8, 2025",Louise Ann Ayuson,Onesie 3-PC Set (O3S-061225),20,₱129.00,,"₱2,580.00",₱0.00,Shipped,,"July 10, 2025 ","July 14, 2025",KPC 23930A-00203
 "Jul 8, 2025",Baby Garments PH | Arrian Jade Jaring,Onesie 3-PC Set (O3S-061225),20,₱129.00,,"₱2,580.00",₱0.00,Shipped,,"July 10, 2025 ","July 14, 2025",KPC 23930A-00203
 "Jul 8, 2025",Honey Lette Macapagal | Nhielet Diaz - Macapagal,Onesie 3-PC Set (O3S-061225),12,₱129.00,,"₱1,548.00",₱0.00,Shipped,,"July 10, 2025 ","July 15, 2025",KPC 23930A-00203
-"Jul 8, 2025",Alvin Ralph Ronquillo | Eleonor De Luna,Onesie 3-PC Set (O3S-061225),10,₱129.00,,"₱1,290.00",₱0.00,Shipped,,"July 10, 2025 ","July 15, 2025",KPC 23930A-00203
+"Jul 8, 2025",Bing Pastrana | Eleonor De Luna,Onesie 3-PC Set (O3S-061225),10,₱129.00,,"₱1,290.00",₱0.00,Shipped,,"July 10, 2025 ","July 15, 2025",KPC 23930A-00203
 "Jul 8, 2025",Mavee Valencia | KM Valencia,Onesie 3-PC Set (O3S-061225),20,₱129.00,,"₱2,580.00",₱0.00,Shipped,,"July 10, 2025 ","July 14, 2025",KPC 23930A-00203
 "Jul 8, 2025",Mark Malubay | Nicole Madrid,H&M Shorts (HS-070825),20,₱85.00,,,"₱1,700.00",Cancelled,,,,KPC 23930A-00209
 "Jul 8, 2025",Tezza Monique Cabacungan,H&M Shorts (HS-070825),20,₱85.00,,,"₱1,700.00",Cancelled,,,,KPC 23930A-00209
@@ -3570,7 +3570,7 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Jul 8, 2025",Gianna Elise,Rabbit Bear Shorts (RBS-070825),40,₱69.00,,,"₱2,760.00",Shipped,,"August 4, 2025 ",,KPC 23930A-00209
 "Jul 8, 2025",Gianna Elise,H&M Baby Jogger (HBJ-070525),20,₱79.00,,,"₱1,580.00",Shipped,,"August 4, 2025 ",,KPC 23930A-00209
 "Jul 8, 2025",Lara Rose Tanguilig,H&M Jogger (HJ-070525),30,₱79.00,,"₱2,370.00",₱0.00,Shipped,- Lalamove,"August 4, 2025 ","August 5, 2025",KPC 23930A-00209
-"Jul 8, 2025",Alvin Ralph Ronquillo | Eleonor De Luna,H&M Jogger (HJ-070525),30,₱79.00,,"₱2,370.00",₱0.00,Shipped,,"August 4, 2025 ","August 5, 2025",KPC 23930A-00209
+"Jul 8, 2025",Bing Pastrana | Eleonor De Luna,H&M Jogger (HJ-070525),30,₱79.00,,"₱2,370.00",₱0.00,Shipped,,"August 4, 2025 ","August 5, 2025",KPC 23930A-00209
 "Jul 8, 2025",Donna Marie,H&M Jogger (HJ-070525),60,₱74.00,,"₱4,440.00",₱0.00,Shipped,,"August 4, 2025 ","August 5, 2025",KPC 23930A-00209
 "Jul 8, 2025",Lyca Jane Carreon | Lyca Jane Pascual,H&M Jogger (HJ-070525),30,₱79.00,,"₱2,370.00",₱0.00,Shipped,,"August 4, 2025 ","August 5, 2025",KPC 23930A-00209
 "Jul 8, 2025",Buena Gracia Mesa,H&M Jogger (HJ-070525),30,₱79.00,,"₱2,370.00",₱0.00,Shipped,,"August 4, 2025 ","August 5, 2025",KPC 23930A-00209
@@ -3929,7 +3929,7 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Jul 12, 2025",Kate Jewel May Colina,Baby Yamp! Onesie (BYO-071225),50,₱59.00,,,"₱2,950.00",Cancelled,CANCELLED,"July 20, 2025 ",,KPC 23930A-00207
 "Jul 13, 2025",Mavee Valencia | KM Valencia,Nicole Miller Onesie (NMO-060725),50,₱40.00,₱23.00,"₱2,000.00",₱0.00,Shipped,,,"July 14, 2025",KPC 23930A-00205
 "Jul 13, 2025",Jai Bulayungan | CJ Bulayungan,Nicole Miller Onesie (NMO-060725),50,₱63.00,,"₱3,150.00",₱0.00,Shipped,,,"July 20, 2025",KPC 23930A-00205
-"Jul 14, 2025",Alvin Ralph Ronquillo | Eleonor De Luna,Kotton Kandy 3PC- 4PC set (KK34s-060525),15,₱175.00,,"₱2,625.00",₱0.00,Shipped,,,"July 15, 2025",KPC 23930A-00201
+"Jul 14, 2025",Bing Pastrana | Eleonor De Luna,Kotton Kandy 3PC- 4PC set (KK34s-060525),15,₱175.00,,"₱2,625.00",₱0.00,Shipped,,,"July 15, 2025",KPC 23930A-00201
 "Jul 16, 2025",Shelley Maeve M. Vergara,Chickpea Onesie Batch 2 (COB2-071525),50,₱39.00,,"₱1,950.00",₱0.00,Prepared,,"July 31, 2025 ",,KPC 23930A-00208
 "Jul 16, 2025",Hanna Yoon,Baby Yamp! Onesie (BYO-071225),50,₱59.00,,"₱2,950.00",₱0.00,Shipped,- Bubble Wrap,"July 20, 2025 ","July 21, 2025",KPC 23930A-00207
 "Jul 16, 2025",Lyn Domingo | SIERRAS THRIFTEES,Chickpea Onesie Batch 2 (COB2-071525),700,₱39.00,,"₱27,300.00",₱0.00,Shipped,,,"July 26, 2025",KPC 23930A-00208
@@ -3952,7 +3952,7 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Jul 16, 2025",Jenny Bancoro Caringal,Chickpea Onesie Batch 2 (COB2-071525),100,₱39.00,,"₱3,850.00",₱50.00,Shipped,,"July 31, 2025 ","August 4, 2025",KPC 23930A-00208
 "Jul 16, 2025",Guen Torres | Little Luxe,Chickpea Onesie Batch 2 (COB2-071525),50,₱39.00,,"₱1,900.00",₱50.00,Shipped,,,"August 1, 2025",KPC 23930A-00208
 "Jul 16, 2025",Ivy Arceño | Ivy Diorella,Chickpea Onesie Batch 2 (COB2-071525),50,₱39.00,,"₱1,900.00",₱50.00,Shipped,,,"August 4, 2025",KPC 23930A-00208
-"Jul 16, 2025",Alvin Ralph Ronquillo | Eleonor De Luna,Chickpea Onesie Batch 2 (COB2-071525),50,₱39.00,,"₱1,900.00",₱50.00,Shipped,,"July 31, 2025 ","August 4, 2025",KPC 23930A-00208
+"Jul 16, 2025",Bing Pastrana | Eleonor De Luna,Chickpea Onesie Batch 2 (COB2-071525),50,₱39.00,,"₱1,900.00",₱50.00,Shipped,,"July 31, 2025 ","August 4, 2025",KPC 23930A-00208
 "Jul 16, 2025",Marl Eisler Antonio | Nicole Sacristan,Chickpea Onesie Batch 2 (COB2-071525),50,₱39.00,,,"₱1,950.00",Cancelled,,"July 31, 2025 ",,KPC 23930A-00208
 "Jul 16, 2025",Charlene Sagubo Deep,Chickpea Onesie Batch 2 (COB2-071525),100,₱39.00,,,"₱3,900.00",Cancelled,,"July 31, 2025 ",,KPC 23930A-00208
 "Jul 16, 2025",Via Dollisen - Aleta,Chickpea Onesie Batch 2 (COB2-071525),50,₱39.00,,"₱1,950.00",₱0.00,Shipped,,"July 31, 2025 ","August 11, 2025",KPC 23930A-00208
@@ -3978,7 +3978,7 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Jul 19, 2025",Jazmine Aseo,Bear Paw Snugfit (BPS-040625),15,₱110.00,₱34.00,"₱1,650.00",₱0.00,Shipped,,"July 20, 2025 ","July 22, 2025",KPC 23930A-00202
 "Jul 19, 2025",Jennica San Antonio,Baby Yamp! Onesie (BYO-071225),50,₱59.00,,"₱2,950.00",₱0.00,Shipped,,"July 20, 2025 ",,KPC 23930A-00207
 "Jul 19, 2025",Jennica San Antonio,Bear Paw Snugfit (BPS-040625),10,₱110.00,₱34.00,"₱1,100.00",₱0.00,Shipped,,"July 20, 2025 ",,KPC 23930A-00202
-"Jul 19, 2025",Alvin Ralph Ronquillo | Eleonor De Luna,Baby Yamp! Onesie (BYO-071225),50,₱59.00,,"₱2,900.00",₱50.00,Shipped,,"July 20, 2025 ",,KPC 23930A-00207
+"Jul 19, 2025",Bing Pastrana | Eleonor De Luna,Baby Yamp! Onesie (BYO-071225),50,₱59.00,,"₱2,900.00",₱50.00,Shipped,,"July 20, 2025 ",,KPC 23930A-00207
 "Jul 19, 2025",Jai Bulayungan | CJ Bulayungan,Dymples Onesie Dress (DOD-060225),20,₱147.00,,"₱2,940.00",₱0.00,Shipped,,,"July 24, 2025",KPC 23930A-00203
 "Jul 19, 2025",Jai Bulayungan | CJ Bulayungan,Nicole Miller Onesie (NMO-060725),50,₱63.00,,"₱3,150.00",₱0.00,Shipped,,,"July 24, 2025",KPC 23930A-00205
 "Jul 19, 2025",Jai Bulayungan | CJ Bulayungan,Milkberry 2-PC Set (M2S-052325),12,₱170.00,,"₱2,040.00",₱0.00,Shipped,,"July 20, 2025 ","July 24, 2025",KPC 23930A-00203
@@ -4098,11 +4098,11 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Jul 30, 2025",Hanna Yoon,R+B Frogsuit And Romper Set (RFARS-032125),12,₱149.00,₱90.00,"₱1,788.00",₱0.00,Shipped,,"July 31, 2025 ","August 4, 2025",KPC 23930A-00201
 "Jul 30, 2025",Jean Carla Ronquillo,Kotton Kandy 2-PC Set,12,₱99.00,₱26.00,"₱1,138.00",₱50.00,Shipped,,"July 31, 2025 ","August 4, 2025",
 "Jul 30, 2025",Ian Consumo | Aidelyn S. Ayap,Kotton Kandy 2-PC Set,12,₱99.00,₱26.00,"₱1,188.00",₱0.00,Shipped,,"July 31, 2025 ","August 4, 2025",
-"Jul 30, 2025",Alvin Ralph Ronquillo | Eleonor De Luna,R+B Frogsuit And Romper Set (RFARS-032125),12,₱149.00,₱90.00,"₱1,788.00",₱0.00,Shipped,,,"August 4, 2025",KPC 23930A-00201
-"Jul 30, 2025",Alvin Ralph Ronquillo | Eleonor De Luna,Nine West 3PC Onesie (NW3O-053125),10,₱119.00,₱96.00,"₱1,190.00",₱0.00,Shipped,,"July 31, 2025 ","August 4, 2025",KPC 23930A-00203
+"Jul 30, 2025",Bing Pastrana | Eleonor De Luna,R+B Frogsuit And Romper Set (RFARS-032125),12,₱149.00,₱90.00,"₱1,788.00",₱0.00,Shipped,,,"August 4, 2025",KPC 23930A-00201
+"Jul 30, 2025",Bing Pastrana | Eleonor De Luna,Nine West 3PC Onesie (NW3O-053125),10,₱119.00,₱96.00,"₱1,190.00",₱0.00,Shipped,,"July 31, 2025 ","August 4, 2025",KPC 23930A-00203
 "Jul 30, 2025",Buena Gracia Mesa,Carter's Tops (CT-032025),55,₱19.00,₱35.00,"₱1,045.00",₱0.00,Shipped,,"July 31, 2025 ","August 5, 2025",KPC 23930A-00186
 "Jul 30, 2025",Buena Gracia Mesa,Zippered Frogsuit (ZF-060725),34,₱45.00,₱84.00,"₱1,480.00",₱50.00,Shipped,,"July 31, 2025 ","August 5, 2025",KPC 23930A-00204
-"Jul 30, 2025",Alvin Ralph Ronquillo | Eleonor De Luna,Christmas Pants (Carter's),15,₱10.00,₱15.00,₱150.00,₱0.00,Shipped,,"July 31, 2025 ","August 4, 2025",
+"Jul 30, 2025",Bing Pastrana | Eleonor De Luna,Christmas Pants (Carter's),15,₱10.00,₱15.00,₱150.00,₱0.00,Shipped,,"July 31, 2025 ","August 4, 2025",
 "Jul 30, 2025",Angelica Ripa,Kotton Kandy 2-PC Set,12,₱99.00,₱26.00,"₱1,138.00",₱50.00,Shipped,,"July 31, 2025 ","August 7, 2025",
 "Jul 30, 2025",Patrick Moises M. Gapasin,Nine West 3PC Onesie (NW3O-053125),10,₱119.00,₱96.00,,"₱1,190.00",Cancelled,,"July 31, 2025 ",,KPC 23930A-00203
 "Jul 30, 2025",Patrick Moises M. Gapasin,R+B Frogsuit And Romper Set (RFARS-032125),12,₱149.00,₱90.00,,"₱1,788.00",Cancelled,,"July 31, 2025 ",,KPC 23930A-00201
@@ -4148,10 +4148,10 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Aug 4, 2025",Dianne Pablo,H&M Organic Shorts (HOS-070825),6,₱79.00,,₱424.00,₱50.00,Shipped,,"August 4, 2025 ","August 5, 2025",KPC 23930A-00209
 "Aug 4, 2025",Dianne Pablo,Chickpea Onesie Batch 2 (COB2-071525),50,₱39.00,,"₱1,950.00",₱0.00,Shipped,,"August 4, 2025 ","August 5, 2025",KPC 23930A-00208
 "Aug 4, 2025",Paulanne Cloe Navarro | Cloe Navarro-Joson,Chickpea Onesie Batch 2 (COB2-071525),50,₱39.00,,"₱1,950.00",₱0.00,Shipped,,"August 4, 2025 ","August 5, 2025",KPC 23930A-00208
-"Aug 4, 2025",Alvin Ralph Ronquillo | Eleonor De Luna,Rabbit Bear Quilted Long Sleeves Dress (RBQLSD-070525),12,₱135.00,,"₱1,620.00",₱0.00,Shipped,,"August 4, 2025 ","August 5, 2025",KPC 23930A-00209
+"Aug 4, 2025",Bing Pastrana | Eleonor De Luna,Rabbit Bear Quilted Long Sleeves Dress (RBQLSD-070525),12,₱135.00,,"₱1,620.00",₱0.00,Shipped,,"August 4, 2025 ","August 5, 2025",KPC 23930A-00209
 "Aug 4, 2025",Faye Relusco,Rabbit Bear Quilted Long Sleeves Dress (RBQLSD-070525),12,₱135.00,,"₱1,620.00",₱0.00,Shipped,,"August 4, 2025 ","August 5, 2025",KPC 23930A-00209
 "Aug 4, 2025",Little Hippie | Dianne Mendoza,Rabbit Bear Long Sleeves Tops (RBLST-070825),20,₱95.00,,"₱1,900.00",₱0.00,Shipped,,"August 4, 2025 ","August 5, 2025",KPC 23930A-00209
-"Aug 4, 2025",Alvin Ralph Ronquillo | Eleonor De Luna,Rabbit Bear Long Sleeves Tops (RBLST-070825),10,₱95.00,,₱950.00,₱0.00,Shipped,,"August 4, 2025 ","August 5, 2025",KPC 23930A-00209
+"Aug 4, 2025",Bing Pastrana | Eleonor De Luna,Rabbit Bear Long Sleeves Tops (RBLST-070825),10,₱95.00,,₱950.00,₱0.00,Shipped,,"August 4, 2025 ","August 5, 2025",KPC 23930A-00209
 "Aug 4, 2025",Paulanne Cloe Navarro | Cloe Navarro-Joson,H&M Jogger (HJ-070525),30,₱79.00,,"₱2,370.00",₱0.00,Shipped,,"August 4, 2025 ","August 5, 2025",KPC 23930A-00209
 "Aug 4, 2025",Naleah Patricia Bautista,H&M Jogger (HJ-070525),30,₱79.00,,"₱2,320.00",₱50.00,Shipped,,"August 4, 2025 ","August 5, 2025",KPC 23930A-00209
 "Aug 4, 2025",Junalyn A. Abejuela,Zippered Frogsuit (ZF-060725),7,₱129.00,,₱903.00,₱0.00,Shipped,,"August 4, 2025 ","August 6, 2025",KPC 23930A-00204
@@ -4245,7 +4245,7 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Aug 11, 2025",Tezza Monique Cabacungan,Milkbery 2-PC Set (M2S-071025),6,₱99.00,₱46.00,₱544.00,₱50.00,Shipped,,"August 11, 2025 ","August 14, 2025",
 "Aug 11, 2025",Julie Ann Monzon | Jhula Monzon,Milkbery 2-PC Set (M2S-071025),6,₱99.00,₱46.00,₱544.00,₱50.00,Shipped,,"August 11, 2025 ","August 14, 2025",
 "Aug 11, 2025",Paulanne Cloe Navarro | Cloe Navarro-Joson,H&M Organic Pants (HOP-070825),10,₱85.00,,₱800.00,₱50.00,Shipped,,"August 11, 2025 ","August 14, 2025",KPC 23930A-00209
-"Aug 11, 2025",Alvin Ralph Ronquillo | Eleonor De Luna,Milkbery 2-PC Set (M2S-071025),6,₱99.00,₱46.00,₱554.00,₱40.00,Shipped,,"August 11, 2025 ","August 15, 2025",
+"Aug 11, 2025",Bing Pastrana | Eleonor De Luna,Milkbery 2-PC Set (M2S-071025),6,₱99.00,₱46.00,₱554.00,₱40.00,Shipped,,"August 11, 2025 ","August 15, 2025",
 "Aug 11, 2025",Gianna Elise,Rabbit Bear Pants (RBP-070825),30,₱74.00,,"₱2,220.00",₱0.00,Shipped, - LALAMOVE,"August 11, 2025 ","August 12, 2025",KPC 23930A-00209
 "Aug 11, 2025",Gianna Elise,Rabbit Bear Shorts (RBS-070825),50,₱69.00,,"₱3,450.00",₱0.00,Shipped,,"August 11, 2025 ","August 12, 2025",KPC 23930A-00209
 "Aug 11, 2025",Jazmine Aseo,H&M Baby Jogger (HBJ-070525),30,₱79.00,,,"₱2,370.00",Cancelled,- CX requested to cancel,"August 11, 2025 ",,KPC 23930A-00209
@@ -4317,7 +4317,7 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Aug 15, 2025",Charlene Ona,Baby Yamp! Onesie (BYO-071225),250,₱48.00,₱6.00,,"₱12,000.00",Shipped,,"August 15, 2025 ",,KPC 23930A-00207
 "Aug 15, 2025",Patrick Moises M. Gapasin,Chickpea Onesie Batch 2 (COB2-071525),50,₱39.00,,"₱1,950.00",₱0.00,Shipped,,"August 15, 2025 ","August 18, 2025",KPC 23930A-00208
 "Aug 15, 2025",Patrick Moises M. Gapasin,Kotton Kandy 2-PC Set,12,₱99.00,₱26.00,"₱1,188.00",₱0.00,Shipped,,"August 15, 2025 ","August 18, 2025",
-"Aug 15, 2025",Carissa A Gambol | Kix Aures,Chickpea Onesie Batch 2 (COB2-071525),50,₱45.00,-₱6.00,"₱2,200.00",₱50.00,Shipped,,"August 15, 2025 ","August 18, 2025",KPC 23930A-00208
+"Aug 15, 2025",Kitchen Needs - Herbs&Spices | Kix Aures,Chickpea Onesie Batch 2 (COB2-071525),50,₱45.00,-₱6.00,"₱2,200.00",₱50.00,Shipped,,"August 15, 2025 ","August 18, 2025",KPC 23930A-00208
 "Aug 15, 2025",Ivy Arceño | Ivy Diorella,Rabbit Bear Tops (RBT-070525),25,₱109.00,-₱25.00,"₱2,675.00",₱50.00,Shipped,,"August 15, 2025 ","August 18, 2025",KPC 23930A-00210
 "Aug 15, 2025",Martha Cachuela,Rabbit Bear Tops (RBT-070525),25,₱109.00,-₱25.00,"₱2,675.00",₱50.00,Shipped,,"August 15, 2025 ","August 18, 2025",KPC 23930A-00210
 "Aug 15, 2025",Eyas Shoppy | Eyas CLOTHING,Baby Yamp! Onesie (BYO-071225),100,₱48.00,₱6.00,"₱4,800.00",₱0.00,Shipped,,"August 15, 2025 ","August 18, 2025",KPC 23930A-00207
@@ -4429,7 +4429,7 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Aug 18, 2025",Mark Anthony Salazar | Eme Kate Villatema,Mini Threads 2-PC Set (MT2S-081825),12,₱165.00,,"₱1,980.00",₱0.00,Shipped,,"September 23, 2025 ","October 4, 2025",KPC 23930A-00212
 "Aug 18, 2025",Nicole Ann Caguntas,H&M 2-PC Set (H2S-081625),10,₱235.00,,,"₱2,350.00",Cancelled,,"September 23, 2025 ",,KPC 23930A-00212
 "Aug 18, 2025",Marl Eisler Antonio | Nicole Sacristan,Rabbit Bear Shortsleeves Onesie (RBSO-081625),50,₱78.00,,,"₱3,900.00",Shipped,,"September 8, 2025 ",,KPC 23930A-00213
-"Aug 18, 2025",Carissa A Gambol | Kix Aures,H&M Polo And Pants  2-PC Set (HPAP2S-081825),6,₱225.00,,"₱1,350.00",₱0.00,Shipped,,"September 23, 2025 ","October 7, 2025",KPC 23930A-00212
+"Aug 18, 2025",Kitchen Needs - Herbs&Spices | Kix Aures,H&M Polo And Pants  2-PC Set (HPAP2S-081825),6,₱225.00,,"₱1,350.00",₱0.00,Shipped,,"September 23, 2025 ","October 7, 2025",KPC 23930A-00212
 "Aug 18, 2025",Jholina Bulusan,Rabbit Bear 2-PC Set (RB2S-081825),12,₱190.00,,"₱2,280.00",₱0.00,Shipped,,"September 23, 2025 ","October 8, 2025",KPC 23930A-00212
 "Aug 18, 2025",Paulanne Cloe Navarro | Cloe Navarro-Joson,Rabbit Bear 2-PC Set (RB2S-081825),12,₱190.00,,"₱2,280.00",₱0.00,Shipped,Lalamove,"September 23, 2025 ","October 9, 2025",KPC 23930A-00212
 "Aug 18, 2025",Rachelle Ann V. Telado,Rabbit Bear Frogsuit With Headband (RBFWH-081625),6,₱225.00,,"₱1,300.00",₱50.00,Shipped,,"September 23, 2025 ","October 11, 2025",KPC 23930A-00212
@@ -4490,7 +4490,7 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Aug 25, 2025",Karen Lleno,Mixed Brands Onesie (MBO-080725),1000,₱37.00,,,"₱37,000.00",Shipped,,"August 26, 2025 ",,KPC 23930A-00211
 "Aug 25, 2025",Gladys Lagarto Esponilla,Mixed Brands Onesie (MBO-080725),100,₱37.00,,"₱3,650.00",₱50.00,Shipped,,"August 26, 2025 ","August 27, 2025",KPC 23930A-00211
 "Aug 25, 2025",Nicole Jersey Suliguin,Mixed Brands Onesie (MBO-080725),50,₱37.00,,,"₱1,850.00",Cancelled,,"August 26, 2025 ",,KPC 23930A-00211
-"Aug 25, 2025",Alvin Ralph Ronquillo | Eleonor De Luna,Mixed Brands Onesie (MBO-080725),50,₱37.00,,"₱1,800.00",₱50.00,Shipped,,"August 26, 2025 ","August 29, 2025",KPC 23930A-00211
+"Aug 25, 2025",Bing Pastrana | Eleonor De Luna,Mixed Brands Onesie (MBO-080725),50,₱37.00,,"₱1,800.00",₱50.00,Shipped,,"August 26, 2025 ","August 29, 2025",KPC 23930A-00211
 "Aug 25, 2025",Gazelle Karol Reyes,Mixed Brands Onesie (MBO-080725),100,₱37.00,,"₱3,700.00",₱0.00,Shipped,,"August 26, 2025 ","August 29, 2025",KPC 23930A-00211
 "Aug 25, 2025",Trixie Mauricio,Mixed Brands Onesie (MBO-080725),100,₱37.00,,"₱3,650.00",₱50.00,Shipped,,"August 26, 2025 ","August 30, 2025",KPC 23930A-00211
 "Aug 25, 2025",Jazmine Aseo,Mixed Brands Onesie (MBO-080725),50,₱37.00,,"₱1,850.00",₱0.00,Shipped,,"August 26, 2025 ","September 3, 2025",KPC 23930A-00211
@@ -4542,22 +4542,22 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Sep 2, 2025",Angelina Apar,Mixed Brands Onesie (MBO-072425),50,₱37.00,₱2.00,"₱1,850.00",₱0.00,Shipped,,"September 2, 2025 ","September 3, 2025",KPC 23930A-00207
 "Sep 2, 2025",Faye Lagos,Organic Bundle (OB-090225),10,"₱1,350.00",,"₱13,500.00",₱0.00,Shipped,,"September 2, 2025 ",,
 "Sep 2, 2025",Mylene Obenita Libunao,Sale Onesie (SO-090225),36,₱48.00,-₱3.00,"₱1,728.00",₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
-"Sep 2, 2025",Carissa A Gambol | Kix Aures,Organic Bundle (OB-090225),1,"₱1,350.00",,"₱1,350.00",₱0.00,Shipped,- Awaiting Checkout,"September 2, 2025 ","September 6, 2025",
+"Sep 2, 2025",Kitchen Needs - Herbs&Spices | Kix Aures,Organic Bundle (OB-090225),1,"₱1,350.00",,"₱1,350.00",₱0.00,Shipped,- Awaiting Checkout,"September 2, 2025 ","September 6, 2025",
 "Sep 2, 2025",Louise Ann Ayuson,Sale Onesie (SO-090225),21,₱45.00,,₱945.00,₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
-"Sep 2, 2025",Carissa A Gambol | Kix Aures,Sale Onesie (SO-090225),10,₱45.00,,₱450.00,₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
-"Sep 2, 2025",Carissa A Gambol | Kix Aures,Sale Onesie (SO-090225),20,₱48.00,-₱3.00,₱960.00,₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
+"Sep 2, 2025",Kitchen Needs - Herbs&Spices | Kix Aures,Sale Onesie (SO-090225),10,₱45.00,,₱450.00,₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
+"Sep 2, 2025",Kitchen Needs - Herbs&Spices | Kix Aures,Sale Onesie (SO-090225),20,₱48.00,-₱3.00,₱960.00,₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
 "Sep 2, 2025",Louise Ann Ayuson,Sale Onesie (SO-090225),15,₱48.00,-₱3.00,₱720.00,₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
-"Sep 2, 2025",Carissa A Gambol | Kix Aures,Sale Onesie (SO-090225),20,₱45.00,,₱900.00,₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
-"Sep 2, 2025",Carissa A Gambol | Kix Aures,Sale Onesie (SO-090225),26,₱45.00,,"₱1,170.00",₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
-"Sep 2, 2025",Carissa A Gambol | Kix Aures,Sale Onesie (SO-090225),10,₱45.00,,₱450.00,₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
-"Sep 2, 2025",Carissa A Gambol | Kix Aures,Sale Onesie (SO-090225),10,₱45.00,,₱450.00,₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
+"Sep 2, 2025",Kitchen Needs - Herbs&Spices | Kix Aures,Sale Onesie (SO-090225),20,₱45.00,,₱900.00,₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
+"Sep 2, 2025",Kitchen Needs - Herbs&Spices | Kix Aures,Sale Onesie (SO-090225),26,₱45.00,,"₱1,170.00",₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
+"Sep 2, 2025",Kitchen Needs - Herbs&Spices | Kix Aures,Sale Onesie (SO-090225),10,₱45.00,,₱450.00,₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
+"Sep 2, 2025",Kitchen Needs - Herbs&Spices | Kix Aures,Sale Onesie (SO-090225),10,₱45.00,,₱450.00,₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
 "Sep 2, 2025",Sueset Kho Balagulan,Sale Onesie (SO-090225),10,₱45.00,,₱450.00,₱0.00,Shipped,,"September 2, 2025 ","September 5, 2025",
 "Sep 2, 2025",Sueset Kho Balagulan,Sale Onesie (SO-090225),20,₱48.00,-₱3.00,₱960.00,₱0.00,Shipped,,"September 2, 2025 ","September 5, 2025",
-"Sep 2, 2025",Carissa A Gambol | Kix Aures,Sale Onesie (SO-090225),10,₱45.00,,₱450.00,₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
-"Sep 2, 2025",Carissa A Gambol | Kix Aures,Sale Onesie (SO-090225),10,₱45.00,,₱450.00,₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
-"Sep 2, 2025",Carissa A Gambol | Kix Aures,Sale Onesie (SO-090225),23,₱45.00,,"₱1,035.00",₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
-"Sep 2, 2025",Carissa A Gambol | Kix Aures,Sale Onesie (SO-090225),10,₱45.00,,₱450.00,₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
-"Sep 2, 2025",Carissa A Gambol | Kix Aures,Sale Onesie (SO-090225),10,₱48.00,-₱3.00,₱480.00,₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
+"Sep 2, 2025",Kitchen Needs - Herbs&Spices | Kix Aures,Sale Onesie (SO-090225),10,₱45.00,,₱450.00,₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
+"Sep 2, 2025",Kitchen Needs - Herbs&Spices | Kix Aures,Sale Onesie (SO-090225),10,₱45.00,,₱450.00,₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
+"Sep 2, 2025",Kitchen Needs - Herbs&Spices | Kix Aures,Sale Onesie (SO-090225),23,₱45.00,,"₱1,035.00",₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
+"Sep 2, 2025",Kitchen Needs - Herbs&Spices | Kix Aures,Sale Onesie (SO-090225),10,₱45.00,,₱450.00,₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
+"Sep 2, 2025",Kitchen Needs - Herbs&Spices | Kix Aures,Sale Onesie (SO-090225),10,₱48.00,-₱3.00,₱480.00,₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
 "Sep 2, 2025",Jellie Merce Limson,Sale Onesie (SO-090225),20,₱35.00,₱10.00,₱700.00,₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
 "Sep 2, 2025",Jellie Merce Limson,Sale Onesie (SO-090225),20,₱35.00,₱10.00,₱700.00,₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
 "Sep 2, 2025",Louise Ann Ayuson,Kotton Kandy 2-PC Set,12,₱99.00,₱26.00,"₱1,188.00",₱0.00,Shipped,,"September 2, 2025 ","September 6, 2025",
@@ -4823,7 +4823,7 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Sep 29, 2025",Jamaica Yalung | Mark Joseph,3-PC Set (3S-092225),2,₱219.00,,₱438.00,₱0.00,Shipped,,"September 29, 2025 ","October 1, 2025",
 "Sep 29, 2025",Jane Cordero | Jane Morales,HB Shortsleeves Onesie (HSO-090525),30,₱60.00,,"₱1,800.00",₱0.00,Shipped,,"September 29, 2025 ","October 3, 2025",KPC 23930A-00212
 "Sep 29, 2025",Jamaica Yalung | Mark Joseph,R+B Frogsuit And Romper Set (RFARS-032125),6,₱99.00,₱140.00,₱594.00,₱0.00,Shipped,,"September 29, 2025 ","October 1, 2025",KPC 23930A-00201
-"Sep 29, 2025",Alvin Ralph Ronquillo | Eleonor De Luna,Kotton Kandy 3PC- 4PC set (KK34s-060525),4,₱120.00,₱55.00,₱480.00,₱0.00,Shipped,,"September 29, 2025 ","October 1, 2025",KPC 23930A-00201
+"Sep 29, 2025",Bing Pastrana | Eleonor De Luna,Kotton Kandy 3PC- 4PC set (KK34s-060525),4,₱120.00,₱55.00,₱480.00,₱0.00,Shipped,,"September 29, 2025 ","October 1, 2025",KPC 23930A-00201
 "Sep 29, 2025",Nix Carbonell,Disney Non-Footed Frogsuit (DNF-090525),20,₱95.00,,"₱1,900.00",₱0.00,Shipped,,"September 29, 2025 ","October 1, 2025",KPC 23930A-00212
 "Sep 29, 2025",Katrina Mauricio | Tin Mauricio-Lontoc,Disney Non-Footed Frogsuit (DNF-090525),20,₱95.00,,"₱1,900.00",₱0.00,Shipped,,"September 29, 2025 ","October 1, 2025",KPC 23930A-00212
 "Sep 29, 2025",Sherryl Lynn Pialago | Othaniel Nacino,Organic Bundle (OB-090225),1,"₱1,350.00",,,"₱1,350.00",Cancelled,,"September 29, 2025 ",,
@@ -4835,7 +4835,7 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Sep 30, 2025",Marie Del Rosario | Jozel Bardel - Reyes,Disney Non-Footed Frogsuit (DNF-090525),15,₱95.00,,"₱1,425.00",₱0.00,Shipped,,"September 29, 2025 ","September 30, 2025",KPC 23930A-00212
 "Sep 30, 2025",Vjera Marie Tradio | Lhie Mari,Rabbit Bear 2-PC Set (RB2S-081825),12,₱190.00,,"₱2,280.00",₱0.00,Shipped,,,"September 30, 2025",KPC 23930A-00212
 "Sep 30, 2025",Katrina Mauricio | Tin Mauricio-Lontoc,Disney 2-PC Set (D2S-090525),12,₱185.00,,"₱2,220.00",₱0.00,Shipped,,,"October 1, 2025",KPC 23930A-00213
-"Oct 1, 2025",Alvin Ralph Ronquillo | Eleonor De Luna,Disney Non-Footed Frogsuit (DNF-090525),15,₱95.00,,"₱1,425.00",₱0.00,Shipped,,,"October 1, 2025",KPC 23930A-00212
+"Oct 1, 2025",Bing Pastrana | Eleonor De Luna,Disney Non-Footed Frogsuit (DNF-090525),15,₱95.00,,"₱1,425.00",₱0.00,Shipped,,,"October 1, 2025",KPC 23930A-00212
 "Oct 2, 2025",Apple de la Cruz - Paa,Mixed Onesie (MO-092225),100,₱19.00,₱18.00,,"₱1,900.00",Prepared,,"October 2, 2025 ",,
 "Oct 2, 2025",Arvee Castillo | Patricia Viudez Lazaro,Mixed Onesie (MO-092225),7,₱19.00,₱18.00,,₱133.00,Prepared,,"October 2, 2025 ",,
 "Oct 2, 2025",Francheskah Duque,Mixed Onesie (MO-092225),47,₱19.00,₱18.00,,₱893.00,Shipped,,"October 2, 2025 ",,
@@ -4953,10 +4953,10 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Oct 16, 2025",Ellenoire Rosario | ELle NoiRe,H&M Denim Jumpers (HDJ-101625),6,₱149.00,,,₱894.00,New Order,,,,KPC 23930A-00215
 "Oct 16, 2025",Donna Marie,Baby Berry Onesie Romper Sweatshirt (BBORS-101625),15,₱105.00,,,"₱1,575.00",New Order,,,,KPC 23930A-00215
 "Oct 16, 2025",Lyca Jane Carreon | Lyca Jane Pascual,Baby Berry Onesie Romper Sweatshirt (BBORS-101625),15,₱105.00,,,"₱1,575.00",New Order,,,,KPC 23930A-00215
-"Oct 16, 2025",Lovely May Maligalig,Bear Paw Dress (BPD-101625),12,₱180.00,,,"₱2,160.00",New Order,,,,KPC 23930A-00215
+"Oct 16, 2025",Lovely May Maligalig,Bear Paw Dress (BPD-101625),12,180.00,,,"2,160.00",New Order,,,,KPC 23930A-00215
 "Oct 16, 2025",Ethan Lopez | Charlene Lopez,Bear Paw Dress (BPD-101625),12,₱180.00,,,"₱2,160.00",New Order,,,,KPC 23930A-00215
 "Oct 16, 2025",Kittyhawk | Maryam Quijana,Baby Berry Onesie Romper Sweatshirt (BBORS-101625),15,₱105.00,,,"₱1,575.00",New Order,,,,KPC 23930A-00215
-"Oct 16, 2025",Sueset Kho Balagulan,H&M Denim Jumpers (HDJ-101625),6,149.00,,,894.00,New Order,,,,KPC 23930A-00215
+"Oct 16, 2025",Sueset Kho Balagulan,H&M Denim Jumpers (HDJ-101625),6,₱149.00,,,₱894.00,New Order,,,,KPC 23930A-00215
 "Oct 16, 2025",Olie's Collection | Ces Obejas,Baby Berry Onesie Romper Sweatshirt (BBORS-101625),15,₱105.00,,,"₱1,575.00",New Order,,,,KPC 23930A-00215
 "Oct 16, 2025",Ethan Lopez | Charlene Lopez,Milkberry 2-PC Girl Set (M2GS-101625),3,₱185.00,,,₱555.00,New Order,,,,KPC 23930A-00215
 "Oct 16, 2025",Giewel Macaraeg | Gielyn Macaraeg,Baby Berry Onesie Romper Sweatshirt (BBORS-101625),50,₱105.00,,,"₱5,250.00",New Order,,,,KPC 23930A-00215
@@ -4992,10 +4992,10 @@ ORDER DATE,CUSTOMERS,PRODUCT CODE,QUANTITY,UNIT PRICE,DISCOUNT,ADJUSTMENT,LINE T
 "Oct 21, 2025",Crista | Stang Rosete,H&M Organic Shortsleeve Onesie (102125),60,₱38.00,,"₱2,280.00",₱0.00,Prepared,,,"October 22, 2025",
 "Oct 21, 2025",Rafunzel Marasigan,H&M Organic Shortsleeve Onesie (102125),30,₱38.00,,"₱1,140.00",₱0.00,Prepared,,,"October 23, 2025",
 "Oct 21, 2025",Kristine Avila | Tin Avila,H&M Organic Shortsleeve Onesie (102125),30,₱38.00,,"₱1,140.00",₱0.00,Prepared,,,,
-"Oct 21, 2025",Analou Loren | Bella Bea Godeloson,H&M Organic Shortsleeve Onesie (102125),30,₱38.00,,,"₱1,140.00",Prepared,,,,
+"Oct 21, 2025",Analou Loren | Bella Bea Godeloson,H&M Organic Shortsleeve Onesie (102125),30,₱38.00,,"₱1,140.00",₱0.00,Checked Out,,,"October 24, 2025",
 "Oct 21, 2025",Kristel Mae Zulla | Stel May,H&M Organic Shortsleeve Onesie (102125),70,₱38.00,,"₱2,660.00",₱0.00,Prepared,,,"October 22, 2025",
 "Oct 21, 2025",Mavee Valencia | KM Valencia,H&M Organic Shortsleeve Onesie (102125),50,₱38.00,,,"₱1,900.00",Prepared,,,,
-"Oct 21, 2025",Ethan Lopez | Charlene Lopez,H&M Organic Shortsleeve Onesie (102125),70,₱38.00,,"₱2,660.00",₱0.00,Prepared,,,,
+"Oct 21, 2025",Ethan Lopez | Charlene Lopez,H&M Organic Shortsleeve Onesie (102125),70,₱38.00,,"₱2,660.00",₱0.00,Checked Out,,,"October 24, 2025",
 "Oct 21, 2025",Jenny Bancoro Caringal,H&M Organic Shortsleeve Onesie (102125),50,₱38.00,,"₱1,900.00",₱0.00,Prepared,,,,
 "Oct 21, 2025",Mark Daniel | Ac Oliva,Premium Jumpers (PJ-081825),30,₱88.00,₱17.00,"₱2,640.00",₱0.00,Shipped,,,,KPC 23930A-00212
 "Oct 21, 2025",Miko Patrick Agapito | Arrian Caceres,H&M Organic Shortsleeve Onesie (102125),30,₱38.00,,"₱1,140.00",₱0.00,Shipped,,,"October 22, 2025",
