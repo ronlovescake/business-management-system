@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 /**
  * GET /api/clothing-attendance
@@ -17,7 +18,7 @@ export async function GET() {
 
     return NextResponse.json(attendance);
   } catch (error) {
-    console.error('Error fetching attendance:', error);
+    logger.error('Error fetching attendance:', error);
     return NextResponse.json(
       { error: 'Failed to fetch attendance records' },
       { status: 500 }
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('Error creating attendance:', error);
+    logger.error('Error creating attendance:', error);
     return NextResponse.json(
       { error: 'Failed to create attendance records' },
       { status: 500 }
@@ -125,7 +126,7 @@ export async function PATCH(request: NextRequest) {
       attendance: updated,
     });
   } catch (error) {
-    console.error('Error updating attendance:', error);
+    logger.error('Error updating attendance:', error);
     return NextResponse.json(
       { error: 'Failed to update attendance record' },
       { status: 500 }
@@ -160,7 +161,7 @@ export async function DELETE(request: NextRequest) {
       message: 'Attendance record deleted successfully',
     });
   } catch (error) {
-    console.error('Error deleting attendance:', error);
+    logger.error('Error deleting attendance:', error);
     return NextResponse.json(
       { error: 'Failed to delete attendance record' },
       { status: 500 }

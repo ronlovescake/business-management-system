@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
+import { api } from '@/lib/api/client';
 import { queryKeys } from '@/lib/queryKeys';
 import { logger } from '@/lib/logger';
 import type { CustomerData, Order, Transaction, CustomerStats } from '../types';
@@ -49,11 +50,7 @@ export function useCustomerDetails(
   } = useQuery({
     queryKey: queryKeys.customers.detail(customerId),
     queryFn: async (): Promise<CustomerData> => {
-      const response = await fetch(`/api/customers/${customerId}`);
-      if (!response.ok) {
-        throw new Error('Customer not found');
-      }
-      return response.json();
+      return api.get<CustomerData>(`/api/customers/${customerId}`);
     },
     enabled: !!customerId,
     staleTime: 30 * 1000,
@@ -63,11 +60,9 @@ export function useCustomerDetails(
   const { data: orders = [], isLoading: ordersLoading } = useQuery({
     queryKey: [...queryKeys.customers.detail(customerId), 'orders'],
     queryFn: async (): Promise<Order[]> => {
-      const response = await fetch(`/api/customers/${customerId}/orders`);
-      if (!response.ok) {
-        return [];
-      }
-      return response.json();
+      return api
+        .get<Order[]>(`/api/customers/${customerId}/orders`)
+        .catch(() => []);
     },
     enabled: !!customerId,
     staleTime: 30 * 1000,
@@ -77,11 +72,9 @@ export function useCustomerDetails(
   const { data: transactions = [], isLoading: transactionsLoading } = useQuery({
     queryKey: [...queryKeys.customers.detail(customerId), 'transactions'],
     queryFn: async (): Promise<Transaction[]> => {
-      const response = await fetch(`/api/customers/${customerId}/transactions`);
-      if (!response.ok) {
-        return [];
-      }
-      return response.json();
+      return api
+        .get<Transaction[]>(`/api/customers/${customerId}/transactions`)
+        .catch(() => []);
     },
     enabled: !!customerId,
     staleTime: 30 * 1000,
@@ -104,17 +97,7 @@ export function useCustomerDetails(
     mutationFn: async (
       updatedData: Partial<CustomerData>
     ): Promise<CustomerData> => {
-      const response = await fetch(`/api/customers/${customerId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedData),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update customer');
-      }
-
-      return response.json();
+      return api.put<CustomerData>(`/api/customers/${customerId}`, updatedData);
     },
     onMutate: async (updatedData) => {
       // Cancel outgoing refetches

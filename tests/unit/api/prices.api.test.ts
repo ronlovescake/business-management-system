@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NextRequest } from 'next/server';
+import { mockNextRequest } from '@/core/testing/test-helpers';
 
 const { mockPrisma } = vi.hoisted(() => {
   return {
@@ -207,7 +208,9 @@ describe('Prices API Routes', () => {
       const request = new NextRequest(
         'http://localhost:3000/api/prices/invalid'
       );
-      const response = await DELETE_BY_ID(request, { params: { id: 'invalid' } });
+      const response = await DELETE_BY_ID(request, {
+        params: { id: 'invalid' },
+      });
       const data = await response.json();
 
       expect(response.status).toBe(400);
@@ -219,7 +222,10 @@ describe('Prices API Routes', () => {
     it('should delete all prices successfully', async () => {
       mockPrisma.price.deleteMany.mockResolvedValue({ count: 15 });
 
-      const response = await DELETE();
+      const request = mockNextRequest({
+        method: 'DELETE',
+      }) as unknown as NextRequest;
+      const response = await DELETE(request);
       const data = await response.json();
 
       expect(response.status).toBe(200);

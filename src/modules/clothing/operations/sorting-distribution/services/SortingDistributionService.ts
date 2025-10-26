@@ -20,6 +20,7 @@ import {
   DEFAULT_DISTRIBUTION_ROW,
   SORTING_SHIPMENT_STATUS,
 } from '../types/sortingDistribution.types';
+import { api } from '@/lib/api/client';
 import { logger } from '@/lib/logger';
 
 /**
@@ -197,14 +198,7 @@ export class SortingDistributionService {
     allProducts: Product[];
   }> {
     try {
-      const response = await fetch('/api/products');
-
-      if (!response.ok) {
-        logger.error('Failed to load products, status:', response.status);
-        return { productOptions: [], allProducts: [] };
-      }
-
-      const products: Product[] = await response.json();
+      const products = await api.get<Product[]>('/api/products');
       logger.debug('Loaded products:', products.length);
 
       // Filter products with "Sorting" shipment status
@@ -248,17 +242,9 @@ export class SortingDistributionService {
    */
   static async loadTransactions(): Promise<Transaction[]> {
     try {
-      const response = await fetch('/api/transactions');
-
-      if (!response.ok) {
-        logger.error('Failed to load transactions');
-        return [];
-      }
-
-      const transactions: Transaction[] = await response.json();
-      return transactions;
+      return await api.get<Transaction[]>('/api/transactions');
     } catch (error) {
-      logger.error('Error loading transactions:', error);
+      logger.error('Failed to load transactions:', error);
       return [];
     }
   }
@@ -342,18 +328,7 @@ export class SortingDistributionService {
       const url = `/api/sorting-distribution?productCode=${encodeURIComponent(productCode)}`;
       logger.debug('Loading distribution data from:', url);
 
-      const response = await fetch(url);
-      logger.debug('Response status:', response.status);
-
-      if (!response.ok) {
-        logger.debug('No saved data found or error, using defaults');
-        return {
-          rows: this.createDefaultRows(),
-          selectedQuantity: null,
-        };
-      }
-
-      const result: SortingDistributionLoadResponse = await response.json();
+      const result = await api.get<SortingDistributionLoadResponse>(url);
       const { data, selectedQuantity } = result;
 
       logger.debug('Loaded data:', data.length, 'rows');
@@ -427,25 +402,10 @@ export class SortingDistributionService {
         rows,
       };
 
-      const response = await fetch('/api/sorting-distribution', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      logger.debug('Save response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        logger.error('Failed to save data:', response.status, errorText);
-        return {
-          success: false,
-          savedCount: 0,
-          message: `Failed to save: ${errorText}`,
-        };
-      }
-
-      const result: SortingDistributionSaveResponse = await response.json();
+      const result = await api.post<SortingDistributionSaveResponse>(
+        '/api/sorting-distribution',
+        payload
+      );
       logger.debug('Data saved successfully:', result);
 
       return result;

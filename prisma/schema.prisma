@@ -96,6 +96,8 @@ model Product {
   @@index([productCode])
   @@index([shipmentCode])
   @@index([shipmentStatus])
+  @@index([payment])
+  @@index([ageRange])
   @@map("products")
 }
 

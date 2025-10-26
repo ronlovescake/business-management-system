@@ -191,7 +191,7 @@ export function useVersionHistory<T extends IdentifiableRecord>(
         changeType: pending.type,
         changeCount: pending.count,
         description: pending.description,
-        userName: 'You', // TODO: Get from auth context
+        userName: 'You', // REQUIRES: Auth context (P0 deferred)
         changedRows: Array.from(new Set(pending.changedRows)), // Remove duplicates
       };
 

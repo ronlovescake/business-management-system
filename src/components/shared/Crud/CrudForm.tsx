@@ -183,6 +183,8 @@ export function CrudForm<T extends Record<string, unknown>>({
     if (field.render) {
       return field.render(
         form.values[field.name],
+        // Type assertion needed: Form library's setFieldValue has strict type requirements
+        // while render callback uses unknown for flexibility
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (value) => form.setFieldValue(String(field.name), value as any)
       );

@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
+import { MAX_QUERY_LIMIT } from '@/constants/batch-sizes';
 
 // ==============================================================================
 // ⚠️ FINALIZED BUSINESS LOGIC - DO NOT MODIFY WITHOUT APPROVAL ⚠️
@@ -193,23 +194,22 @@ export async function POST(request: NextRequest) {
     }
 
     // ========================================================================
-    // ⚠️ BATCH SIZE LIMIT - Maximum 10000 records per import
+    // ⚠️ BATCH SIZE LIMIT - Maximum records per import
     // ========================================================================
     // Prevents:
     // - Database connection timeouts
     // - Memory exhaustion
     // - Transaction deadlocks
     // ========================================================================
-    if (transactionsData.length > 10000) {
+    if (transactionsData.length > MAX_QUERY_LIMIT) {
       logger.warn(
-        `Batch size limit exceeded: ${transactionsData.length} records (max 10000)`
+        `Batch size limit exceeded: ${transactionsData.length} records (max ${MAX_QUERY_LIMIT})`
       );
       return NextResponse.json(
         {
           error: 'Batch size limit exceeded',
-          details: `You are trying to import ${transactionsData.length} records. Maximum is 10,000 records per import.`,
-          suggestion:
-            'Please split your import into smaller batches of 10,000 records or less.',
+          details: `You are trying to import ${transactionsData.length} records. Maximum is ${MAX_QUERY_LIMIT.toLocaleString()} records per import.`,
+          suggestion: `Please split your import into smaller batches of ${MAX_QUERY_LIMIT.toLocaleString()} records or less.`,
         },
         { status: 413 } // Payload Too Large
       );
@@ -576,18 +576,17 @@ export async function PUT(request: NextRequest) {
     }
 
     // ========================================================================
-    // ⚠️ BATCH SIZE LIMIT - Maximum 10000 records per update
+    // ⚠️ BATCH SIZE LIMIT - Maximum records per update
     // ========================================================================
-    if (updatePayload.length > 10000) {
+    if (updatePayload.length > MAX_QUERY_LIMIT) {
       logger.warn(
-        `Batch size limit exceeded: ${updatePayload.length} records (max 10000)`
+        `Batch size limit exceeded: ${updatePayload.length} records (max ${MAX_QUERY_LIMIT})`
       );
       return NextResponse.json(
         {
           error: 'Batch size limit exceeded',
-          details: `You are trying to update ${updatePayload.length} records. Maximum is 10,000 records per update.`,
-          suggestion:
-            'Please split your update into smaller batches of 10,000 records or less.',
+          details: `You are trying to update ${updatePayload.length} records. Maximum is ${MAX_QUERY_LIMIT.toLocaleString()} records per update.`,
+          suggestion: `Please split your update into smaller batches of ${MAX_QUERY_LIMIT.toLocaleString()} records or less.`,
         },
         { status: 413 } // Payload Too Large
       );

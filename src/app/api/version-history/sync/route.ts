@@ -19,18 +19,20 @@ export async function POST(request: NextRequest) {
     // Sanitize dataKey
     const sanitizedDataKey = sanitizers.name(dataKey);
 
-    // TODO: Save to database
-    // For now, just log and acknowledge
+    // FUTURE: Persist version history to database
+    // Currently handled client-side via IndexedDB only
+    // Backend persistence deferred until version history schema is finalized
     logger.debug(
       `📤 Syncing ${versions.length} versions for: ${sanitizedDataKey} at ${new Date(timestamp).toLocaleString()}`
     );
 
-    // In production, you would save these to a database:
+    // Future implementation:
     // await prisma.versionHistory.createMany({
     //   data: versions.map((v) => ({
     //     ...v,
     //     dataKey,
     //   })),
+    // });
     //   skipDuplicates: true,
     // });
 

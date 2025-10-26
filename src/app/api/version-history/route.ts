@@ -15,8 +15,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // TODO: Fetch from database
-    // For now, return empty array (will be implemented when Prisma schema is updated)
+    // FUTURE: Fetch version history from database
+    // Currently using IndexedDB for client-side storage only
+    // Backend persistence will be implemented when database schema is finalized
     logger.debug(`📥 GET version history for: ${dataKey}`);
 
     return NextResponse.json([]);

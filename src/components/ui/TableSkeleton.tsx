@@ -2,28 +2,28 @@ import { Skeleton, Stack, Group, Box } from '@mantine/core';
 
 /**
  * TableSkeleton Component
- * 
+ *
  * A reusable skeleton loader for data tables that provides visual feedback
  * during data fetching. Compatible with both DataGrid and HandsontableGrid.
- * 
+ *
  * @example
  * ```tsx
  * // Basic usage with default settings (10 rows, 5 columns)
  * {isLoading && <TableSkeleton />}
- * 
+ *
  * // Custom configuration
  * {isLoading && (
- *   <TableSkeleton 
- *     rows={15} 
- *     columns={8} 
+ *   <TableSkeleton
+ *     rows={15}
+ *     columns={8}
  *     headerHeight={45}
  *     rowHeight={38}
  *   />
  * )}
- * 
+ *
  * // With custom styling
  * {isLoading && (
- *   <TableSkeleton 
+ *   <TableSkeleton
  *     rows={12}
  *     style={{ borderRadius: 8 }}
  *   />
@@ -37,42 +37,42 @@ export interface TableSkeletonProps {
    * @default 10
    */
   rows?: number;
-  
+
   /**
    * Number of skeleton columns to display
    * @default 5
    */
   columns?: number;
-  
+
   /**
    * Height of the header row in pixels
    * @default 40
    */
   headerHeight?: number;
-  
+
   /**
    * Height of each data row in pixels
    * @default 36
    */
   rowHeight?: number;
-  
+
   /**
    * Show alternating row colors for better readability
    * @default true
    */
   striped?: boolean;
-  
+
   /**
    * Animation speed for skeleton pulse effect
    * @default 'medium'
    */
   animationSpeed?: 'slow' | 'medium' | 'fast';
-  
+
   /**
    * Custom CSS styles
    */
   style?: React.CSSProperties;
-  
+
   /**
    * Custom CSS class name
    */
@@ -103,9 +103,16 @@ export function TableSkeleton({
   };
 
   // Generate unique IDs for skeleton elements (prevents ESLint array-index-key warning)
-  const headerIds = Array.from({ length: columns }, (_, i) => `header-${Date.now()}-${i}`);
-  const rowIds = Array.from({ length: rows }, (_, i) => `row-${Date.now()}-${i}`);
-  const getCellId = (rowId: string, colIndex: number) => `${rowId}-cell-${colIndex}`;
+  const headerIds = Array.from(
+    { length: columns },
+    (_, i) => `header-${Date.now()}-${i}`
+  );
+  const rowIds = Array.from(
+    { length: rows },
+    (_, i) => `row-${Date.now()}-${i}`
+  );
+  const getCellId = (rowId: string, colIndex: number) =>
+    `${rowId}-cell-${colIndex}`;
 
   return (
     <Box
@@ -137,10 +144,11 @@ export function TableSkeleton({
             width={`${100 / columns}%`}
             radius="sm"
             animate
-            style={{
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              animationDuration: `${getAnimationDuration()}ms` as any,
-            }}
+            style={
+              {
+                animationDuration: `${getAnimationDuration()}ms`,
+              } as React.CSSProperties
+            }
           />
         ))}
       </Group>
@@ -172,13 +180,13 @@ export function TableSkeleton({
                 width={`${100 / columns}%`}
                 radius="sm"
                 animate
-                style={{
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  animationDuration: `${getAnimationDuration()}ms` as any,
-                  // Stagger animation slightly for visual interest
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  animationDelay: `${(rowIndex * 50 + colIndex * 20) % 500}ms` as any,
-                }}
+                style={
+                  {
+                    animationDuration: `${getAnimationDuration()}ms`,
+                    // Stagger animation slightly for visual interest
+                    animationDelay: `${(rowIndex * 50 + colIndex * 20) % 500}ms`,
+                  } as React.CSSProperties
+                }
               />
             ))}
           </Group>
@@ -190,32 +198,24 @@ export function TableSkeleton({
 
 /**
  * CompactTableSkeleton Component
- * 
+ *
  * A more compact version of TableSkeleton with tighter spacing,
  * ideal for dense data tables or smaller viewports.
  */
-export function CompactTableSkeleton(props: Omit<TableSkeletonProps, 'headerHeight' | 'rowHeight'>) {
-  return (
-    <TableSkeleton
-      {...props}
-      headerHeight={32}
-      rowHeight={28}
-    />
-  );
+export function CompactTableSkeleton(
+  props: Omit<TableSkeletonProps, 'headerHeight' | 'rowHeight'>
+) {
+  return <TableSkeleton {...props} headerHeight={32} rowHeight={28} />;
 }
 
 /**
  * LargeTableSkeleton Component
- * 
+ *
  * A larger version of TableSkeleton with more generous spacing,
  * ideal for less dense data tables or when more breathing room is desired.
  */
-export function LargeTableSkeleton(props: Omit<TableSkeletonProps, 'headerHeight' | 'rowHeight'>) {
-  return (
-    <TableSkeleton
-      {...props}
-      headerHeight={48}
-      rowHeight={44}
-    />
-  );
+export function LargeTableSkeleton(
+  props: Omit<TableSkeletonProps, 'headerHeight' | 'rowHeight'>
+) {
+  return <TableSkeleton {...props} headerHeight={48} rowHeight={44} />;
 }

@@ -5,21 +5,8 @@ import { Text, Badge, Progress } from '@mantine/core';
 import type { LeaveType } from '../types';
 
 interface MonthlyBreakdownItem {
-  leaveType: string;
-  total: number;
-  percentage: number;
-  January: number;
-  February: number;
-  March: number;
-  April: number;
-  May: number;
-  June: number;
-  July: number;
-  August: number;
-  September: number;
-  October: number;
-  November: number;
-  December: number;
+  month: string;
+  [key: string]: number | string;
 }
 
 interface AnalyticsTableProps {
@@ -28,16 +15,17 @@ interface AnalyticsTableProps {
   getLeaveTypeColor: (leaveType: LeaveType) => string;
 }
 
-export function AnalyticsTable({
+export const AnalyticsTable = React.memo(function AnalyticsTable({
   monthlyBreakdown,
   totalDaysRequested,
   getLeaveTypeColor,
 }: AnalyticsTableProps) {
   // Add id to each item for DataTable compatibility
+  // Cast to any to work around index signature limitations
   const dataWithIds = monthlyBreakdown.map((item, index) => ({
     ...item,
     id: index,
-  }));
+  })) as (MonthlyBreakdownItem & { id: number })[];
 
   const columns: TableColumn<(typeof dataWithIds)[0]>[] = [
     {
@@ -49,7 +37,7 @@ export function AnalyticsTable({
             color={getLeaveTypeColor(item.leaveType as LeaveType)}
             variant="light"
           >
-            {item.leaveType.toUpperCase()}
+            {(item.leaveType as string).toUpperCase()}
           </Badge>
         </div>
       ),
@@ -63,7 +51,7 @@ export function AnalyticsTable({
             {item.total} days
           </Text>
           <Progress
-            value={item.percentage}
+            value={item.percentage as number}
             color={getLeaveTypeColor(item.leaveType as LeaveType)}
             size="xs"
             mt={4}
@@ -76,7 +64,7 @@ export function AnalyticsTable({
       label: 'PERCENTAGE',
       render: (item) => (
         <Text size="sm" fw={600}>
-          {item.percentage.toFixed(1)}%
+          {(item.percentage as number).toFixed(1)}%
         </Text>
       ),
     },
@@ -160,4 +148,4 @@ export function AnalyticsTable({
       }
     />
   );
-}
+});

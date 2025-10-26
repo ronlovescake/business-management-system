@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { api } from '@/lib/api/client';
 import type { ModulePackage, InstalledModuleFilter } from '../types';
 import { logger } from '@/lib/logger';
 
@@ -40,13 +41,7 @@ export function useInstalledModules(): UseInstalledModulesReturn {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/api/modules/config');
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch modules: ${response.statusText}`);
-      }
-
-      const data: ModulePackage[] = await response.json();
+      const data = await api.get<ModulePackage[]>('/api/modules/config');
       setModules(data);
     } catch (err) {
       setError((err as Error).message);

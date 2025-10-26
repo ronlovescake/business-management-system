@@ -1,3 +1,4 @@
+import { api } from '@/lib/api/client';
 import { logger } from '@/lib/logger';
 
 /**
@@ -31,13 +32,17 @@ export class ValidationService {
       }
 
       // Fetch all customers to find the selected customer
-      const response = await fetch('/api/customers');
-      if (!response.ok) {
-        logger.warn('Could not fetch customer data for validation');
+      const customersData = await api
+        .get<Array<Record<string, unknown>>>('/api/customers')
+        .catch(() => {
+          logger.warn('Could not fetch customer data for validation');
+          return [];
+        });
+
+      if (customersData.length === 0) {
         return { isValid: true, warnings: [], errors: [] };
       }
 
-      const customersData = await response.json();
       const customer = customersData.find(
         (c: Record<string, unknown>) =>
           (c['Customer Name'] || c.customerName || c.name) ===
@@ -56,8 +61,9 @@ export class ValidationService {
       const warnings: string[] = [];
       const errors: string[] = [];
       let isValid = true;
-      const customerStatus =
-        customer['Customer Status'] || customer.customerStatus || '';
+      const customerStatus = String(
+        customer['Customer Status'] || customer.customerStatus || ''
+      );
 
       // Check if customer is banned
       if (customerStatus.toLowerCase().includes('banned')) {
@@ -71,30 +77,29 @@ export class ValidationService {
       try {
         const customerId = customer.id;
         if (customerId) {
-          const transactionsResponse = await fetch(
-            `/api/customers/${customerId}/transactions`
-          );
-          if (transactionsResponse.ok) {
-            const customerTransactions = await transactionsResponse.json();
+          const customerTransactions = await api
+            .get<
+              Array<Record<string, unknown>>
+            >(`/api/customers/${customerId}/transactions`)
+            .catch(() => []);
 
-            if (customerTransactions.length > 0) {
-              const cancelledTransactions = customerTransactions.filter(
-                (t: Record<string, unknown>) =>
-                  String(t.orderStatus || '')
-                    .toLowerCase()
-                    .includes('cancel')
-              ).length;
+          if (customerTransactions.length > 0) {
+            const cancelledTransactions = customerTransactions.filter(
+              (t: Record<string, unknown>) =>
+                String(t.orderStatus || '')
+                  .toLowerCase()
+                  .includes('cancel')
+            ).length;
 
-              const cancellationRate = Math.round(
-                (cancelledTransactions / customerTransactions.length) * 100
+            const cancellationRate = Math.round(
+              (cancelledTransactions / customerTransactions.length) * 100
+            );
+
+            if (cancellationRate >= 50) {
+              // 50% or higher cancellation rate
+              warnings.push(
+                `⚠️ HIGH CANCELLATION RATE: "${customerName}" has a ${cancellationRate}% cancellation rate (${cancelledTransactions}/${customerTransactions.length} orders cancelled)`
               );
-
-              if (cancellationRate >= 50) {
-                // 50% or higher cancellation rate
-                warnings.push(
-                  `⚠️ HIGH CANCELLATION RATE: "${customerName}" has a ${cancellationRate}% cancellation rate (${cancelledTransactions}/${customerTransactions.length} orders cancelled)`
-                );
-              }
             }
           }
         }

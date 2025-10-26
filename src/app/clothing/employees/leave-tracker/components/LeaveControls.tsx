@@ -23,7 +23,7 @@ interface LeaveControlsProps {
   isImporting: boolean;
 }
 
-export function LeaveControls({
+export const LeaveControls = React.memo(function LeaveControls({
   activeTab,
   onTabChange,
   searchQuery,
@@ -90,4 +90,4 @@ export function LeaveControls({
       isImporting={isImporting}
     />
   );
-}
+});

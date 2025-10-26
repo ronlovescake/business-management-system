@@ -137,8 +137,9 @@ export class DashboardService {
    * In real implementation, this would fetch from APIs/database
    */
   async aggregateDashboardData(): Promise<DashboardData> {
-    // TODO: Replace with actual API calls when backend is ready
-    // This is currently using mock data matching the original implementation
+    // FUTURE: Replace with actual API calls
+    // Currently using mock data for dashboard demonstration
+    // Backend endpoints to be implemented: /api/dashboard/metrics, /api/dashboard/activity
 
     const metrics: DashboardMetrics = {
       totalRevenue: 45231,

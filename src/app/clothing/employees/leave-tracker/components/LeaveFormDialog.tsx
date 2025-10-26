@@ -49,7 +49,7 @@ interface LeaveFormDialogProps {
     endDate: string,
     employeeId?: string
   ) => number;
-  employeeLeaveAllocation: number | null;
+  employeeLeaveAllocation: { remaining: number; used: number; total: number };
 }
 
 export function LeaveFormDialog({
@@ -131,27 +131,28 @@ export function LeaveFormDialog({
 
   // Determine allocation message
   const allocationMessage = (() => {
-    if (!formEmployeeId || employeeLeaveAllocation === null) {
+    if (!formEmployeeId) {
       return null;
     }
 
     const currentYear = new Date().getFullYear();
+    const remaining = employeeLeaveAllocation.remaining;
 
     if (numberOfDays === 0) {
       return {
         type: 'info' as const,
-        message: `This employee has ${employeeLeaveAllocation} paid leave ${employeeLeaveAllocation === 1 ? 'day' : 'days'} remaining for ${currentYear}.`,
+        message: `This employee has ${remaining} paid leave ${remaining === 1 ? 'day' : 'days'} remaining for ${currentYear}.`,
       };
     }
 
-    if (numberOfDays <= employeeLeaveAllocation) {
+    if (numberOfDays <= remaining) {
       return {
         type: 'success' as const,
-        message: `✓ This ${numberOfDays}-day request is within the allocation. Will be marked as PAID. (${employeeLeaveAllocation - numberOfDays} ${employeeLeaveAllocation - numberOfDays === 1 ? 'day' : 'days'} will remain)`,
+        message: `✓ This ${numberOfDays}-day request is within the allocation. Will be marked as PAID. (${remaining - numberOfDays} ${remaining - numberOfDays === 1 ? 'day' : 'days'} will remain)`,
       };
     }
 
-    if (employeeLeaveAllocation === 0) {
+    if (remaining === 0) {
       return {
         type: 'warning' as const,
         message: `⚠️ This employee has no paid leave remaining for ${currentYear}. This ${numberOfDays}-day request will be marked as UNPAID.`,
@@ -160,7 +161,7 @@ export function LeaveFormDialog({
 
     return {
       type: 'warning' as const,
-      message: `⚠️ This ${numberOfDays}-day request exceeds the ${employeeLeaveAllocation}-day allocation. It will be automatically split into:\n• ${employeeLeaveAllocation} PAID ${employeeLeaveAllocation === 1 ? 'day' : 'days'}\n• ${numberOfDays - employeeLeaveAllocation} UNPAID ${numberOfDays - employeeLeaveAllocation === 1 ? 'day' : 'days'}`,
+      message: `⚠️ This ${numberOfDays}-day request exceeds the ${remaining}-day allocation. It will be automatically split into:\n• ${remaining} PAID ${remaining === 1 ? 'day' : 'days'}\n• ${numberOfDays - remaining} UNPAID ${numberOfDays - remaining === 1 ? 'day' : 'days'}`,
     };
   })();
 

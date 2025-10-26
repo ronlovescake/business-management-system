@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import fs from 'fs';
 import path from 'path';
+import { logger } from '@/lib/logger';
 const BACKUP_DIR = path.resolve(process.cwd(), 'backups');
 
 // POST - Restore from backup
@@ -68,7 +69,17 @@ export async function POST(request: NextRequest) {
       expenses: 'expense',
     };
 
-    const results: Record<string, { count: number; error?: string }> = {};
+    const results: Record<
+      string,
+      {
+        count: number;
+        error?: string;
+        beforeCount?: number;
+        afterCount?: number;
+        attempted?: number;
+        skipped?: number;
+      }
+    > = {};
     const tablesToRestore = tables || Object.keys(backupData.tables);
 
     for (const tableName of tablesToRestore) {
@@ -86,26 +97,27 @@ export async function POST(request: NextRequest) {
       }
 
       try {
+        // Dynamic model access requires 'any' type due to Prisma's runtime model resolution
+        // The modelName is validated against modelMap above
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const modelDelegate = (prisma as any)[modelName];
+
         // If force overwrite, delete existing records first
         if (forceOverwrite) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (prisma as any)[modelName].deleteMany({});
+          await modelDelegate.deleteMany({});
         }
 
         // Get current count
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const beforeCount = await (prisma as any)[modelName].count();
+        const beforeCount = await modelDelegate.count();
 
         // Try to create records (skipDuplicates will ignore existing IDs)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const result = await (prisma as any)[modelName].createMany({
+        const result = await modelDelegate.createMany({
           data: tableData.data,
           skipDuplicates: !forceOverwrite, // Don't skip if force overwrite
         });
 
         // Get count after
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const afterCount = await (prisma as any)[modelName].count();
+        const afterCount = await modelDelegate.count();
 
         results[tableName] = {
           count: result.count,
@@ -128,7 +140,7 @@ export async function POST(request: NextRequest) {
       results,
     });
   } catch (error) {
-    console.error('Restore failed:', error);
+    logger.error('Restore failed:', error);
     return NextResponse.json(
       {
         success: false,
@@ -185,6 +197,8 @@ export async function GET(request: NextRequest) {
       where.deletedAt.gte = new Date(date);
     }
 
+    // Dynamic model access requires 'any' type due to Prisma's runtime model resolution
+    // The modelName is validated against modelMap above
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const deletedRecords = await (prisma as any)[modelName].findMany({
       where,
@@ -199,7 +213,7 @@ export async function GET(request: NextRequest) {
       records: deletedRecords,
     });
   } catch (error) {
-    console.error('Failed to get deleted records:', error);
+    logger.error('Failed to get deleted records:', error);
     return NextResponse.json(
       {
         success: false,
@@ -247,6 +261,8 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    // Dynamic model access requires 'any' type due to Prisma's runtime model resolution
+    // The modelName is validated against modelMap above
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await (prisma as any)[modelName].updateMany({
       where: { id: { in: ids } },
@@ -259,7 +275,7 @@ export async function PATCH(request: NextRequest) {
       count: result.count,
     });
   } catch (error) {
-    console.error('Failed to restore records:', error);
+    logger.error('Failed to restore records:', error);
     return NextResponse.json(
       {
         success: false,

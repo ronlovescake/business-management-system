@@ -32,6 +32,7 @@ import {
 } from '../types/product.types';
 
 import { calculateProductFinancials } from '@/lib/productCalculations';
+import { api } from '@/lib/api/client';
 import { logger } from '@/lib/logger';
 
 /**
@@ -576,27 +577,20 @@ export class ProductService {
    */
   static async loadProducts(): Promise<ProductData[]> {
     try {
-      // Fetch products from API (no cache)
-      const productsResponse = await fetch('/api/products', {
-        cache: 'no-store',
-      });
-      if (!productsResponse.ok) {
-        throw new Error('Failed to fetch products');
-      }
-      const products: ProductData[] = await productsResponse.json();
+      // Fetch products from API
+      const products = await api.get<ProductData[]>('/api/products');
 
       // Fetch shipments for lookup
-      const shipmentsResponse = await fetch('/api/shipments', {
-        cache: 'no-store',
-      });
-      if (!shipmentsResponse.ok) {
+      let shipments: ShipmentData[] = [];
+      try {
+        shipments = await api.get<ShipmentData[]>('/api/shipments');
+      } catch {
         // Continue without shipment data if API fails
         logger.warn(
           'Failed to fetch shipments, continuing without shipment data'
         );
         return products;
       }
-      const shipments: ShipmentData[] = await shipmentsResponse.json();
 
       // Enrich products with shipment data
       return products.map((product) => {
@@ -636,11 +630,7 @@ export class ProductService {
     }
 
     try {
-      const response = await fetch('/api/shipments');
-      if (!response.ok) {
-        return null;
-      }
-      const shipments: ShipmentData[] = await response.json();
+      const shipments = await api.get<ShipmentData[]>('/api/shipments');
       return shipments.find((s) => s['Shipment Code'] === shipmentCode) || null;
     } catch (error) {
       logger.error('Failed to lookup shipment:', error);
@@ -655,25 +645,15 @@ export class ProductService {
     product: ProductData
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const response = await fetch('/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify([product]),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        return {
-          success: false,
-          error: errorData.error || 'Failed to add product to database',
-        };
-      }
-
+      await api.post('/api/products', [product]);
       return { success: true };
     } catch (error) {
       return {
         success: false,
-        error: `Network error: ${error}`,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to add product to database',
       };
     }
   }
@@ -686,25 +666,15 @@ export class ProductService {
     product: Partial<ProductData>
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const response = await fetch(`/api/products/${productId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(product),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        return {
-          success: false,
-          error: errorData.error || 'Failed to update product in database',
-        };
-      }
-
+      await api.put(`/api/products/${productId}`, product);
       return { success: true };
     } catch (error) {
       return {
         success: false,
-        error: `Network error: ${error}`,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to update product in database',
       };
     }
   }
@@ -716,25 +686,15 @@ export class ProductService {
     products: ProductData[]
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const response = await fetch('/api/products', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(products),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        return {
-          success: false,
-          error: errorData.error || 'Failed to update products in database',
-        };
-      }
-
+      await api.put('/api/products', products);
       return { success: true };
     } catch (error) {
       return {
         success: false,
-        error: `Network error: ${error}`,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to update products in database',
       };
     }
   }

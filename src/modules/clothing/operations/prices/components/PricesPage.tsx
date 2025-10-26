@@ -182,7 +182,8 @@ export function PricesPage() {
           // Double-click detected - navigate or edit
           const price = filteredPrices[row];
           logger.debug('Double-click on price:', price['Product Code']);
-          // TODO: Implement edit modal
+          // FUTURE: Implement inline edit modal for price tiers
+          // Modal should allow editing all tiers for a product code
           lastClickRef.current = null; // Reset after handling
         } else {
           // First click - store it

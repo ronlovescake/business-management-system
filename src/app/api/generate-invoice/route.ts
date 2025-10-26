@@ -34,6 +34,7 @@ import path from 'path';
 import { PDFDocument } from 'pdf-lib';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
+import { LOADING_SPINNER_DELAY } from '@/constants/timeouts';
 
 interface Transaction {
   id?: number;
@@ -232,7 +233,9 @@ export async function POST(request: NextRequest) {
       });
 
       // Give a moment for fonts to load
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise((resolve) =>
+        setTimeout(resolve, LOADING_SPINNER_DELAY)
+      );
 
       // Generate PDF (817px width, auto height)
       const pdfBuffer = await page.pdf({

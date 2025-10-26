@@ -154,8 +154,7 @@ export async function PUT(
         : currentProfilePhoto;
 
     // Prepare employee data with proper type conversions and sanitization
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const employeeData: any = {
+    const employeeData: Prisma.EmployeeUpdateInput = {
       employeeId: sanitizers.name(body.employeeId),
       firstName: sanitizers.name(
         body.firstName || body.name?.split(' ')[0] || ''

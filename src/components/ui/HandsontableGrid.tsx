@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { HotTable } from '@handsontable/react';
+import type { HotTableClass } from '@handsontable/react';
 import { registerAllModules } from 'handsontable/registry';
 import 'handsontable/styles/handsontable.min.css';
 import 'handsontable/styles/ht-theme-horizon.min.css';
@@ -78,7 +79,7 @@ export function HandsontableGrid<T extends Item>({
   className = '',
 }: HandsontableGridProps<T>) {
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const hotRef = useRef(null);
+  const hotRef = useRef<HotTableClass | null>(null);
   const [currentGridHeight, setCurrentGridHeight] = useState<number>(600);
   const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isBatchModeRef = useRef(false);
@@ -171,8 +172,7 @@ export function HandsontableGrid<T extends Item>({
 
         // Close any active cell editor in Handsontable
         if (hotRef.current) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const hotInstance = (hotRef.current as any).hotInstance;
+          const hotInstance = hotRef.current.hotInstance;
           if (hotInstance) {
             hotInstance.deselectCell(); // Exit edit mode and deselect cell
           }
@@ -208,8 +208,7 @@ export function HandsontableGrid<T extends Item>({
         return;
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const hotInstance = (hotRef.current as any)?.hotInstance;
+      const hotInstance = hotRef.current?.hotInstance;
       if (!hotInstance) {
         return;
       }

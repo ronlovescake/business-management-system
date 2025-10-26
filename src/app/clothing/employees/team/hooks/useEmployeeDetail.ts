@@ -1,5 +1,8 @@
-/* eslint-disable no-console */
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { logger } from '@/lib/logger';
+import { api } from '@/lib/api/client';
+import { queryKeys } from '@/lib/queryKeys';
 import type { AttendanceRecord } from '@/app/clothing/employees/attendance/types';
 import type { LeaveRequest } from '@/app/clothing/employees/leave-tracker/types';
 import type { CashAdvance } from '@/app/clothing/employees/cash-advance/types';
@@ -7,7 +10,7 @@ import type { Schedule } from '@/app/clothing/employees/schedules/types';
 import type { Employee, EmployeeFormData } from '../types';
 
 /**
- * Custom hook for employee detail page
+ * Custom hook for employee detail page - React Query version
  */
 interface EmployeePayrollRecord {
   id: string;
@@ -34,485 +37,437 @@ interface SalaryHistoryEntry {
 }
 
 export function useEmployeeDetail(employeeId: string) {
-  const [employee, setEmployee] = useState<Employee | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isPhotoUploading, setIsPhotoUploading] = useState(false);
-  const [isLoadingRelated, setIsLoadingRelated] = useState(true);
-  const [payrollHistory, setPayrollHistory] = useState<EmployeePayrollRecord[]>(
+
+  // Main employee query
+  const { data: employee = null, isLoading } = useQuery({
+    queryKey: queryKeys.employees.detail(employeeId),
+    queryFn: async () => {
+      const data = await api.get<Employee>(`/api/employees/${employeeId}`);
+
+      // Transform database response to match Employee type
+      const toOptionalNumber = (value: unknown) => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : undefined;
+      };
+
+      const transformedEmployee: Employee = {
+        ...data,
+        id: data.id.toString(), // Convert number to string for UI
+        sssMonthlyContribution:
+          toOptionalNumber(data.sssMonthlyContribution) ?? undefined,
+        philHealthMonthlyContribution:
+          toOptionalNumber(data.philHealthMonthlyContribution) ?? undefined,
+        pagibigMonthlyContribution:
+          toOptionalNumber(data.pagibigMonthlyContribution) ?? undefined,
+        taxMonthlyContribution:
+          toOptionalNumber(data.taxMonthlyContribution) ?? undefined,
+      };
+
+      return transformedEmployee;
+    },
+    staleTime: 30 * 1000,
+  });
+
+  const normalizedEmployeeId = employee?.employeeId?.trim() || '';
+
+  // Helper functions for data transformation
+  const parseNumber = (value: unknown) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
+  const allowedAttendanceStatuses = useMemo(
+    () => new Set(['present', 'late', 'absent', 'on-leave']),
     []
   );
-  const [totalPayrollAmount, setTotalPayrollAmount] = useState(0);
-  const [attendanceHistory, setAttendanceHistory] = useState<
-    AttendanceRecord[]
-  >([]);
-  const [scheduleHistory, setScheduleHistory] = useState<Schedule[]>([]);
-  const [leaveHistory, setLeaveHistory] = useState<LeaveRequest[]>([]);
-  const [salaryTimeline, setSalaryTimeline] = useState<SalaryHistoryEntry[]>(
+  const allowedPayrollStatuses = useMemo(
+    () => new Set(['pending', 'approved', 'paid']),
     []
   );
-  const [cashAdvanceRecords, setCashAdvanceRecords] = useState<CashAdvance[]>(
+  const allowedLeaveStatuses = useMemo(
+    () => new Set(['pending', 'approved', 'rejected']),
     []
   );
-  const [outstandingCashAdvance, setOutstandingCashAdvance] = useState(0);
+  const allowedLeaveTypes = useMemo(
+    () =>
+      new Set([
+        'Sick Leave',
+        'Vacation Leave',
+        'Emergency Leave',
+        'Maternity Leave',
+        'Paternity Leave',
+        'Bereavement Leave',
+        'Other',
+      ]),
+    []
+  );
+  const allowedPaymentStatuses = useMemo(
+    () => new Set(['paid', 'unpaid', 'not-applicable']),
+    []
+  );
+  const allowedCashAdvanceStatuses = useMemo(
+    () => new Set(['pending', 'approved', 'rejected', 'paid']),
+    []
+  );
+  const allowedScheduleStatuses = useMemo(
+    () => new Set(['scheduled', 'completed', 'cancelled']),
+    []
+  );
+  const allowedShiftTypes = useMemo(
+    () =>
+      new Set<Schedule['shiftType']>([
+        'morning',
+        'afternoon',
+        'night',
+        'full-day',
+      ]),
+    []
+  );
 
-  useEffect(() => {
-    // Fetch employee data from API
-    const fetchEmployee = async () => {
-      try {
-        setIsLoading(true);
+  // Parallel queries for related data (enabled only when employee data is available)
+  const { data: payrollHistory = [], isLoading: isLoadingPayroll } = useQuery({
+    queryKey: queryKeys.payroll.byEmployee(normalizedEmployeeId),
+    queryFn: async () => {
+      const query = encodeURIComponent(normalizedEmployeeId);
+      const payrollJson = await api.get<
+        Array<EmployeePayrollRecord & { employeeId?: string }>
+      >(`/api/payroll?employeeId=${query}`);
 
-        const response = await fetch(`/api/employees/${employeeId}`);
+      const payrollData: EmployeePayrollRecord[] = Array.isArray(payrollJson)
+        ? payrollJson
+            .filter((record) =>
+              record && typeof record === 'object'
+                ? String(record.employeeId || '').trim() ===
+                  normalizedEmployeeId
+                : false
+            )
+            .map((record) => {
+              const status = allowedPayrollStatuses.has(record.status)
+                ? (record.status as 'pending' | 'approved' | 'paid')
+                : 'pending';
+              return {
+                id: String(record.id ?? ''),
+                payPeriod: String(record.payPeriod ?? ''),
+                periodStart: record.periodStart ?? null,
+                periodEnd: record.periodEnd ?? null,
+                status,
+                grossPay: parseNumber(record.grossPay),
+                netPay: parseNumber(record.netPay),
+                totalDeductions: parseNumber(record.totalDeductions),
+                cashAdvance: parseNumber(record.cashAdvance),
+                basicSalary: parseNumber(record.basicSalary),
+                allowance: parseNumber(record.allowance),
+                createdAt: record.createdAt ?? undefined,
+              } satisfies EmployeePayrollRecord;
+            })
+        : [];
 
-        if (!response.ok) {
-          if (response.status === 404) {
-            setEmployee(null);
-            return;
-          }
-          throw new Error('Failed to fetch employee');
-        }
+      payrollData.sort((a, b) => {
+        const aDate = a.periodStart ?? '';
+        const bDate = b.periodStart ?? '';
+        return bDate.localeCompare(aDate);
+      });
 
-        const data = await response.json();
+      return payrollData;
+    },
+    enabled: !!normalizedEmployeeId,
+    staleTime: 30 * 1000,
+  });
 
-        // Transform database response to match Employee type
-        const toOptionalNumber = (value: unknown) => {
-          const parsed = Number(value);
-          return Number.isFinite(parsed) ? parsed : undefined;
-        };
-
-        const transformedEmployee: Employee = {
-          ...data,
-          id: data.id.toString(), // Convert number to string for UI
-          sssMonthlyContribution:
-            toOptionalNumber(data.sssMonthlyContribution) ?? undefined,
-          philHealthMonthlyContribution:
-            toOptionalNumber(data.philHealthMonthlyContribution) ?? undefined,
-          pagibigMonthlyContribution:
-            toOptionalNumber(data.pagibigMonthlyContribution) ?? undefined,
-          taxMonthlyContribution:
-            toOptionalNumber(data.taxMonthlyContribution) ?? undefined,
-        };
-
-        setEmployee(transformedEmployee);
-      } catch (error) {
-        console.error('Error fetching employee:', error);
-        setEmployee(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchEmployee();
-  }, [employeeId]);
-
-  useEffect(() => {
-    if (!employee?.employeeId) {
-      return;
-    }
-
-    const controller = new AbortController();
-    const signal = controller.signal;
-    const normalizedEmployeeId = employee.employeeId.trim();
-
-    const parseNumber = (value: unknown) => {
-      const parsed = Number(value);
-      return Number.isFinite(parsed) ? parsed : 0;
-    };
-
-    const allowedAttendanceStatuses = new Set([
-      'present',
-      'late',
-      'absent',
-      'on-leave',
-    ]);
-
-    const allowedPayrollStatuses = new Set(['pending', 'approved', 'paid']);
-    const allowedLeaveStatuses = new Set(['pending', 'approved', 'rejected']);
-    const allowedLeaveTypes = new Set([
-      'Sick Leave',
-      'Vacation Leave',
-      'Emergency Leave',
-      'Maternity Leave',
-      'Paternity Leave',
-      'Bereavement Leave',
-      'Other',
-    ]);
-    const allowedPaymentStatuses = new Set([
-      'paid',
-      'unpaid',
-      'not-applicable',
-    ]);
-    const allowedCashAdvanceStatuses = new Set([
-      'pending',
-      'approved',
-      'rejected',
-      'paid',
-    ]);
-
-    const fetchRelatedRecords = async () => {
-      try {
-        setIsLoadingRelated(true);
-
+  const { data: attendanceHistory = [], isLoading: isLoadingAttendance } =
+    useQuery({
+      queryKey: ['attendance', 'byEmployee', normalizedEmployeeId],
+      queryFn: async () => {
         const query = encodeURIComponent(normalizedEmployeeId);
-        const [
-          payrollRes,
-          attendanceRes,
-          leaveRes,
-          cashAdvanceRes,
-          scheduleRes,
-        ] = await Promise.all([
-          fetch(`/api/payroll?employeeId=${query}`, { signal }),
-          fetch(`/api/attendance?employeeId=${query}`, { signal }),
-          fetch(`/api/leave-requests?employeeId=${query}`, { signal }),
-          fetch(`/api/cash-advances?employeeId=${query}`, { signal }),
-          fetch(`/api/schedules?employeeId=${query}`, { signal }),
-        ]);
+        const attendanceJson = await api.get<AttendanceRecord[]>(
+          `/api/attendance?employeeId=${query}`
+        );
 
-        if (!signal.aborted) {
-          const payrollJson = payrollRes.ok ? await payrollRes.json() : [];
-          const attendanceJson = attendanceRes.ok
-            ? await attendanceRes.json()
-            : [];
-          const leaveJson = leaveRes.ok ? await leaveRes.json() : [];
-          const cashAdvanceJson = cashAdvanceRes.ok
-            ? await cashAdvanceRes.json()
-            : [];
-          const scheduleJson = scheduleRes.ok ? await scheduleRes.json() : [];
+        const attendanceData: AttendanceRecord[] = Array.isArray(attendanceJson)
+          ? attendanceJson
+              .filter((record) =>
+                record && typeof record === 'object'
+                  ? String(record.employeeId || '').trim() ===
+                    normalizedEmployeeId
+                  : false
+              )
+              .map((record) => {
+                const status = allowedAttendanceStatuses.has(record.status)
+                  ? (record.status as AttendanceRecord['status'])
+                  : 'present';
+                return {
+                  id: String(record.id ?? ''),
+                  employeeId: String(record.employeeId ?? ''),
+                  employeeName: String(record.employeeName ?? ''),
+                  department: String(record.department ?? ''),
+                  position: String(record.position ?? ''),
+                  date: String(record.date ?? ''),
+                  timeIn: String(record.timeIn ?? ''),
+                  timeOut: String(record.timeOut ?? ''),
+                  break1Start: record.break1Start ?? undefined,
+                  break1End: record.break1End ?? undefined,
+                  lunchStart: record.lunchStart ?? undefined,
+                  lunchEnd: record.lunchEnd ?? undefined,
+                  break2Start: record.break2Start ?? undefined,
+                  break2End: record.break2End ?? undefined,
+                  totalHours: parseNumber(record.totalHours),
+                  status,
+                  details: record.details ?? undefined,
+                  notes: record.notes ?? undefined,
+                } satisfies AttendanceRecord;
+              })
+          : [];
 
-          const payrollData: EmployeePayrollRecord[] = Array.isArray(
-            payrollJson
-          )
-            ? payrollJson
-                .filter((record) =>
-                  record && typeof record === 'object'
-                    ? String(record.employeeId || '').trim() ===
-                      normalizedEmployeeId
-                    : false
-                )
-                .map((record) => {
-                  const status = allowedPayrollStatuses.has(record.status)
-                    ? (record.status as 'pending' | 'approved' | 'paid')
-                    : 'pending';
-                  return {
-                    id: String(record.id ?? ''),
-                    payPeriod: String(record.payPeriod ?? ''),
-                    periodStart: record.periodStart ?? null,
-                    periodEnd: record.periodEnd ?? null,
-                    status,
-                    grossPay: parseNumber(record.grossPay),
-                    netPay: parseNumber(record.netPay),
-                    totalDeductions: parseNumber(record.totalDeductions),
-                    cashAdvance: parseNumber(record.cashAdvance),
-                    basicSalary: parseNumber(record.basicSalary),
-                    allowance: parseNumber(record.allowance),
-                    createdAt: record.createdAt ?? undefined,
-                  } satisfies EmployeePayrollRecord;
-                })
-            : [];
-
-          payrollData.sort((a, b) => {
-            const aDate = a.periodStart ?? '';
-            const bDate = b.periodStart ?? '';
-            return bDate.localeCompare(aDate);
-          });
-
-          setPayrollHistory(payrollData);
-          setTotalPayrollAmount(
-            payrollData.reduce((sum, record) => sum + record.netPay, 0)
-          );
-
-          const salaryTimelineEntries: SalaryHistoryEntry[] = [];
-          const ascendingPayroll = [...payrollData].sort((a, b) => {
-            const aDate = a.periodStart ?? '';
-            const bDate = b.periodStart ?? '';
-            return aDate.localeCompare(bDate);
-          });
-
-          let lastCombination: string | null = null;
-          ascendingPayroll.forEach((record) => {
-            const combination = `${record.basicSalary}-${record.allowance}`;
-            if (lastCombination !== combination) {
-              salaryTimelineEntries.push({
-                id: record.id,
-                effectiveFrom:
-                  record.periodStart ??
-                  record.payPeriod ??
-                  record.createdAt ??
-                  '',
-                payPeriodLabel:
-                  record.payPeriod ||
-                  [record.periodStart, record.periodEnd]
-                    .filter(Boolean)
-                    .join(' - ') ||
-                  'N/A',
-                basicSalary: record.basicSalary,
-                allowance: record.allowance,
-                grossPay: record.grossPay,
-              });
-              lastCombination = combination;
-            }
-          });
-          setSalaryTimeline(salaryTimelineEntries);
-
-          const attendanceData: AttendanceRecord[] = Array.isArray(
-            attendanceJson
-          )
-            ? attendanceJson
-                .filter((record) =>
-                  record && typeof record === 'object'
-                    ? String(record.employeeId || '').trim() ===
-                      normalizedEmployeeId
-                    : false
-                )
-                .map((record) => {
-                  const status = allowedAttendanceStatuses.has(record.status)
-                    ? (record.status as AttendanceRecord['status'])
-                    : 'present';
-                  return {
-                    id: String(record.id ?? ''),
-                    employeeId: String(record.employeeId ?? ''),
-                    employeeName: String(record.employeeName ?? ''),
-                    department: String(record.department ?? ''),
-                    position: String(record.position ?? ''),
-                    date: String(record.date ?? ''),
-                    timeIn: String(record.timeIn ?? ''),
-                    timeOut: String(record.timeOut ?? ''),
-                    break1Start: record.break1Start ?? undefined,
-                    break1End: record.break1End ?? undefined,
-                    lunchStart: record.lunchStart ?? undefined,
-                    lunchEnd: record.lunchEnd ?? undefined,
-                    break2Start: record.break2Start ?? undefined,
-                    break2End: record.break2End ?? undefined,
-                    totalHours: parseNumber(record.totalHours),
-                    status,
-                    details: record.details ?? undefined,
-                    notes: record.notes ?? undefined,
-                  } satisfies AttendanceRecord;
-                })
-            : [];
-
-          attendanceData.sort((a, b) => b.date.localeCompare(a.date));
-          setAttendanceHistory(attendanceData);
-
-          const leaveData: LeaveRequest[] = Array.isArray(leaveJson)
-            ? leaveJson
-                .filter((record) =>
-                  record && typeof record === 'object'
-                    ? String(record.employeeId || '').trim() ===
-                      normalizedEmployeeId
-                    : false
-                )
-                .map((record) => {
-                  const status = allowedLeaveStatuses.has(record.status)
-                    ? (record.status as LeaveRequest['status'])
-                    : 'pending';
-                  const paymentStatus = allowedPaymentStatuses.has(
-                    record.paymentStatus
-                  )
-                    ? (record.paymentStatus as LeaveRequest['paymentStatus'])
-                    : 'unpaid';
-                  const leaveType = allowedLeaveTypes.has(record.leaveType)
-                    ? (record.leaveType as LeaveRequest['leaveType'])
-                    : 'Other';
-
-                  return {
-                    id: String(record.id ?? ''),
-                    employeeId: String(record.employeeId ?? ''),
-                    employeeName: String(record.employeeName ?? ''),
-                    leaveType,
-                    startDate: String(record.startDate ?? ''),
-                    endDate: String(record.endDate ?? ''),
-                    numberOfDays: parseNumber(record.numberOfDays),
-                    reason: String(record.reason ?? ''),
-                    status,
-                    paymentStatus,
-                    appliedDate: String(record.appliedDate ?? ''),
-                    approvedBy: record.approvedBy ?? undefined,
-                    notes: record.notes ?? undefined,
-                  } satisfies LeaveRequest;
-                })
-            : [];
-
-          leaveData.sort((a, b) => b.startDate.localeCompare(a.startDate));
-          setLeaveHistory(leaveData);
-
-          const cashAdvanceData: CashAdvance[] = Array.isArray(cashAdvanceJson)
-            ? cashAdvanceJson
-                .filter((record) =>
-                  record && typeof record === 'object'
-                    ? String(record.employeeId || '').trim() ===
-                      normalizedEmployeeId
-                    : false
-                )
-                .map((record) => {
-                  const amount = parseNumber(record.amount);
-                  const settledAmount = parseNumber(record.settledAmount);
-                  const remainingBalance =
-                    record.remainingBalance !== undefined
-                      ? parseNumber(record.remainingBalance)
-                      : Math.max(amount - settledAmount, 0);
-                  const status = allowedCashAdvanceStatuses.has(record.status)
-                    ? (record.status as CashAdvance['status'])
-                    : 'pending';
-
-                  return {
-                    id: String(record.id ?? ''),
-                    employeeId: String(record.employeeId ?? ''),
-                    employee: String(record.employeeName ?? ''),
-                    amount,
-                    purpose: record.purpose ?? '',
-                    terms:
-                      record.termsMonths !== null &&
-                      record.termsMonths !== undefined
-                        ? String(record.termsMonths)
-                        : '',
-                    termsMonths: record.termsMonths ?? null,
-                    requestDate: record.requestDate ?? '',
-                    status,
-                    notes: record.notes ?? undefined,
-                    approvedBy: record.approvedBy ?? undefined,
-                    approvedDate: record.approvedDate ?? undefined,
-                    rejectedBy: record.rejectedBy ?? undefined,
-                    rejectedDate: record.rejectedDate ?? undefined,
-                    rejectionReason: record.rejectionReason ?? undefined,
-                    monthlyPayment:
-                      record.monthlyPayment !== null &&
-                      record.monthlyPayment !== undefined
-                        ? parseNumber(record.monthlyPayment)
-                        : undefined,
-                    remainingBalance,
-                    settledAmount,
-                    createdAt: record.createdAt ?? undefined,
-                    updatedAt: record.updatedAt ?? undefined,
-                    deductionCycle: record.deductionCycle ?? undefined,
-                    nextDeductionDate: record.nextDeductionDate ?? undefined,
-                    lastDeductedDate: record.lastDeductedDate ?? undefined,
-                  } satisfies CashAdvance;
-                })
-            : [];
-
-          setCashAdvanceRecords(cashAdvanceData);
-          setOutstandingCashAdvance(
-            cashAdvanceData.reduce((sum, record) => {
-              const remaining = record.remainingBalance ?? 0;
-              return sum + (remaining > 0 ? remaining : 0);
-            }, 0)
-          );
-
-          const allowedScheduleStatuses = new Set([
-            'scheduled',
-            'completed',
-            'cancelled',
-          ]);
-          const allowedShiftTypes = new Set<Schedule['shiftType']>([
-            'morning',
-            'afternoon',
-            'night',
-            'full-day',
-          ]);
-
-          const scheduleData: Schedule[] = Array.isArray(scheduleJson)
-            ? scheduleJson
-                .filter((record) =>
-                  record && typeof record === 'object'
-                    ? String(record.employeeId || '').trim() ===
-                      normalizedEmployeeId
-                    : false
-                )
-                .map((record) => {
-                  const status = allowedScheduleStatuses.has(record.status)
-                    ? (record.status as Schedule['status'])
-                    : 'scheduled';
-                  const shiftType = allowedShiftTypes.has(record.shiftType)
-                    ? record.shiftType
-                    : 'morning';
-                  return {
-                    id: String(record.id ?? ''),
-                    employeeId: String(record.employeeId ?? ''),
-                    employeeName: String(record.employeeName ?? ''),
-                    date: String(record.date ?? ''),
-                    shiftType,
-                    startTime: String(record.startTime ?? ''),
-                    endTime: String(record.endTime ?? ''),
-                    position: String(record.position ?? ''),
-                    department: String(record.department ?? ''),
-                    status,
-                    notes: record.notes ?? undefined,
-                    source: record.source ?? undefined,
-                    templateId: record.templateId ?? undefined,
-                    recurrenceId: record.recurrenceId ?? undefined,
-                    isOverride: record.isOverride ?? undefined,
-                  } satisfies Schedule;
-                })
-            : [];
-
-          scheduleData.sort((a, b) => b.date.localeCompare(a.date));
-          setScheduleHistory(scheduleData);
-        }
-      } catch (error) {
-        if (!signal.aborted) {
-          console.error(
-            'Error fetching related employee records for detail view:',
-            error
-          );
-        }
-      } finally {
-        if (!signal.aborted) {
-          setIsLoadingRelated(false);
-        }
-      }
-    };
-
-    fetchRelatedRecords();
-
-    return () => {
-      controller.abort();
-    };
-  }, [employee?.employeeId]);
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
+        attendanceData.sort((a, b) => b.date.localeCompare(a.date));
+        return attendanceData;
+      },
+      enabled: !!normalizedEmployeeId,
+      staleTime: 30 * 1000,
     });
-  };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-PH', {
-      style: 'currency',
-      currency: 'PHP',
-      minimumFractionDigits: 2,
-    }).format(amount);
-  };
+  const { data: leaveHistory = [], isLoading: isLoadingLeaves } = useQuery({
+    queryKey: queryKeys.leaveRequests.list({
+      employeeId: normalizedEmployeeId,
+    }),
+    queryFn: async () => {
+      const query = encodeURIComponent(normalizedEmployeeId);
+      const leaveJson = await api.get<LeaveRequest[]>(
+        `/api/leave-requests?employeeId=${query}`
+      );
 
-  const getStatusColor = (status: Employee['status']) => {
-    switch (status) {
-      case 'active':
-        return 'green';
-      case 'inactive':
-        return 'red';
-      case 'on-leave':
-        return 'orange';
-      default:
-        return 'gray';
-    }
-  };
+      const leaveData: LeaveRequest[] = Array.isArray(leaveJson)
+        ? leaveJson
+            .filter((record) =>
+              record && typeof record === 'object'
+                ? String(record.employeeId || '').trim() ===
+                  normalizedEmployeeId
+                : false
+            )
+            .map((record) => {
+              const status = allowedLeaveStatuses.has(record.status)
+                ? (record.status as LeaveRequest['status'])
+                : 'pending';
+              const paymentStatus = allowedPaymentStatuses.has(
+                record.paymentStatus
+              )
+                ? (record.paymentStatus as LeaveRequest['paymentStatus'])
+                : 'unpaid';
+              const leaveType = allowedLeaveTypes.has(record.leaveType)
+                ? (record.leaveType as LeaveRequest['leaveType'])
+                : 'Other';
 
-  const handleEdit = () => {
-    // Open the edit modal
-    setIsFormOpen(true);
-  };
+              return {
+                id: String(record.id ?? ''),
+                employeeId: String(record.employeeId ?? ''),
+                employeeName: String(record.employeeName ?? ''),
+                leaveType,
+                startDate: String(record.startDate ?? ''),
+                endDate: String(record.endDate ?? ''),
+                numberOfDays: parseNumber(record.numberOfDays),
+                reason: String(record.reason ?? ''),
+                status,
+                paymentStatus,
+                appliedDate: String(record.appliedDate ?? ''),
+                approvedBy: record.approvedBy ?? undefined,
+                notes: record.notes ?? undefined,
+              } satisfies LeaveRequest;
+            })
+        : [];
 
-  const handleSaveEmployee = async (formData: EmployeeFormData) => {
-    if (!employee) {
-      return;
-    }
+      leaveData.sort((a, b) => b.startDate.localeCompare(a.startDate));
+      return leaveData;
+    },
+    enabled: !!normalizedEmployeeId,
+    staleTime: 30 * 1000,
+  });
 
-    try {
-      console.log('🔵 [useEmployeeDetail] handleSaveEmployee called');
-      console.log('🔵 [useEmployeeDetail] formData:', formData);
+  const { data: cashAdvanceRecords = [], isLoading: isLoadingCashAdvances } =
+    useQuery({
+      queryKey: queryKeys.cashAdvances.list({
+        employeeId: normalizedEmployeeId,
+      }),
+      queryFn: async () => {
+        const query = encodeURIComponent(normalizedEmployeeId);
+        const cashAdvanceJson = await api.get<
+          Array<CashAdvance & { employeeName?: string }>
+        >(`/api/cash-advances?employeeId=${query}`);
+
+        const cashAdvanceData: CashAdvance[] = Array.isArray(cashAdvanceJson)
+          ? cashAdvanceJson
+              .filter((record) =>
+                record && typeof record === 'object'
+                  ? String(record.employeeId || '').trim() ===
+                    normalizedEmployeeId
+                  : false
+              )
+              .map((record) => {
+                const amount = parseNumber(record.amount);
+                const settledAmount = parseNumber(record.settledAmount);
+                const remainingBalance =
+                  record.remainingBalance !== undefined
+                    ? parseNumber(record.remainingBalance)
+                    : Math.max(amount - settledAmount, 0);
+                const status = allowedCashAdvanceStatuses.has(record.status)
+                  ? (record.status as CashAdvance['status'])
+                  : 'pending';
+
+                return {
+                  id: String(record.id ?? ''),
+                  employeeId: String(record.employeeId ?? ''),
+                  employee: String(record.employeeName ?? ''),
+                  amount,
+                  purpose: record.purpose ?? '',
+                  terms:
+                    record.termsMonths !== null &&
+                    record.termsMonths !== undefined
+                      ? String(record.termsMonths)
+                      : '',
+                  termsMonths: record.termsMonths ?? null,
+                  requestDate: record.requestDate ?? '',
+                  status,
+                  notes: record.notes ?? undefined,
+                  approvedBy: record.approvedBy ?? undefined,
+                  approvedDate: record.approvedDate ?? undefined,
+                  rejectedBy: record.rejectedBy ?? undefined,
+                  rejectedDate: record.rejectedDate ?? undefined,
+                  rejectionReason: record.rejectionReason ?? undefined,
+                  monthlyPayment:
+                    record.monthlyPayment !== null &&
+                    record.monthlyPayment !== undefined
+                      ? parseNumber(record.monthlyPayment)
+                      : undefined,
+                  remainingBalance,
+                  settledAmount,
+                  createdAt: record.createdAt ?? undefined,
+                  updatedAt: record.updatedAt ?? undefined,
+                  deductionCycle: record.deductionCycle ?? undefined,
+                  nextDeductionDate: record.nextDeductionDate ?? undefined,
+                  lastDeductedDate: record.lastDeductedDate ?? undefined,
+                } satisfies CashAdvance;
+              })
+          : [];
+
+        return cashAdvanceData;
+      },
+      enabled: !!normalizedEmployeeId,
+      staleTime: 30 * 1000,
+    });
+
+  const { data: scheduleHistory = [], isLoading: isLoadingSchedules } =
+    useQuery({
+      queryKey: queryKeys.schedules.byEmployee(normalizedEmployeeId),
+      queryFn: async () => {
+        const query = encodeURIComponent(normalizedEmployeeId);
+        const scheduleJson = await api.get<Schedule[]>(
+          `/api/schedules?employeeId=${query}`
+        );
+
+        const scheduleData: Schedule[] = Array.isArray(scheduleJson)
+          ? scheduleJson
+              .filter((record) =>
+                record && typeof record === 'object'
+                  ? String(record.employeeId || '').trim() ===
+                    normalizedEmployeeId
+                  : false
+              )
+              .map((record) => {
+                const status = allowedScheduleStatuses.has(record.status)
+                  ? (record.status as Schedule['status'])
+                  : 'scheduled';
+                const shiftType = allowedShiftTypes.has(record.shiftType)
+                  ? record.shiftType
+                  : 'morning';
+                return {
+                  id: String(record.id ?? ''),
+                  employeeId: String(record.employeeId ?? ''),
+                  employeeName: String(record.employeeName ?? ''),
+                  date: String(record.date ?? ''),
+                  shiftType,
+                  startTime: String(record.startTime ?? ''),
+                  endTime: String(record.endTime ?? ''),
+                  position: String(record.position ?? ''),
+                  department: String(record.department ?? ''),
+                  status,
+                  notes: record.notes ?? undefined,
+                  source: record.source ?? undefined,
+                  templateId: record.templateId ?? undefined,
+                  recurrenceId: record.recurrenceId ?? undefined,
+                  isOverride: record.isOverride ?? undefined,
+                } satisfies Schedule;
+              })
+          : [];
+
+        scheduleData.sort((a, b) => b.date.localeCompare(a.date));
+        return scheduleData;
+      },
+      enabled: !!normalizedEmployeeId,
+      staleTime: 30 * 1000,
+    });
+
+  // Computed values
+  const isLoadingRelated =
+    isLoadingPayroll ||
+    isLoadingAttendance ||
+    isLoadingLeaves ||
+    isLoadingCashAdvances ||
+    isLoadingSchedules;
+
+  const totalPayrollAmount = useMemo(
+    () => payrollHistory.reduce((sum, record) => sum + record.netPay, 0),
+    [payrollHistory]
+  );
+
+  const salaryTimeline = useMemo(() => {
+    const salaryTimelineEntries: SalaryHistoryEntry[] = [];
+    const ascendingPayroll = [...payrollHistory].sort((a, b) => {
+      const aDate = a.periodStart ?? '';
+      const bDate = b.periodStart ?? '';
+      return aDate.localeCompare(bDate);
+    });
+
+    let lastCombination: string | null = null;
+    ascendingPayroll.forEach((record) => {
+      const combination = `${record.basicSalary}-${record.allowance}`;
+      if (lastCombination !== combination) {
+        salaryTimelineEntries.push({
+          id: record.id,
+          effectiveFrom:
+            record.periodStart ?? record.payPeriod ?? record.createdAt ?? '',
+          payPeriodLabel:
+            record.payPeriod ||
+            [record.periodStart, record.periodEnd]
+              .filter(Boolean)
+              .join(' - ') ||
+            'N/A',
+          basicSalary: record.basicSalary,
+          allowance: record.allowance,
+          grossPay: record.grossPay,
+        });
+        lastCombination = combination;
+      }
+    });
+
+    return salaryTimelineEntries;
+  }, [payrollHistory]);
+
+  const outstandingCashAdvance = useMemo(
+    () =>
+      cashAdvanceRecords.reduce((sum, record) => {
+        const remaining = record.remainingBalance ?? 0;
+        return sum + (remaining > 0 ? remaining : 0);
+      }, 0),
+    [cashAdvanceRecords]
+  );
+
+  // Update employee mutation
+  const updateEmployeeMutation = useMutation({
+    mutationFn: async (formData: EmployeeFormData) => {
+      if (!employee) {
+        throw new Error('No employee to update');
+      }
 
       const parseOptionalNumber = (value?: string) => {
         if (!value) {
@@ -599,38 +554,13 @@ export function useEmployeeDetail(employeeId: string) {
             : employee.profilePhoto || null,
       };
 
-      console.log(
-        '🟡 [useEmployeeDetail] Updating employee - payload:',
+      const updatedEmployee = await api.put<Employee>(
+        `/api/employees/${employee.id}`,
         payload
       );
 
-      const response = await fetch(`/api/employees/${employee.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      console.log(
-        '🟢 [useEmployeeDetail] Update response status:',
-        response.status
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('🔴 [useEmployeeDetail] Update failed:', errorText);
-        throw new Error('Failed to update employee');
-      }
-
-      const updatedEmployee = await response.json();
-      console.log(
-        '✅ [useEmployeeDetail] Employee updated successfully:',
-        updatedEmployee
-      );
-
-      // Update local state with transformed employee
-      setEmployee({
+      // Return transformed employee
+      return {
         ...updatedEmployee,
         id: updatedEmployee.id.toString(),
         sssMonthlyContribution:
@@ -653,27 +583,79 @@ export function useEmployeeDetail(employeeId: string) {
           payload.taxMonthlyContribution ??
           employee.taxMonthlyContribution ??
           null,
+      };
+    },
+    onMutate: async (formData) => {
+      // Cancel outgoing queries
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.employees.detail(employeeId),
       });
 
-      // Close the form
-      setIsFormOpen(false);
-    } catch (error) {
-      console.error('🔴 [useEmployeeDetail] Error updating employee:', error);
-      console.error('🔴 [useEmployeeDetail] Error details:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-      });
+      // Snapshot previous value
+      const previous = queryClient.getQueryData<Employee>(
+        queryKeys.employees.detail(employeeId)
+      );
+
+      // Optimistically update
+      if (previous) {
+        const optimisticUpdate: Employee = {
+          ...previous,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          middleName: formData.middleName || undefined,
+          name: formData.name || previous.name,
+          email: formData.email || undefined,
+          phone: formData.phone,
+          contact: formData.contact || formData.phone,
+          department: formData.department,
+          position: formData.position,
+          jobTitle: formData.jobTitle || formData.position,
+          status: formData.status,
+          hireDate: formData.hireDate,
+          basicSalary: parseFloat(formData.basicSalary) || 0,
+          currentSalary: formData.currentSalary
+            ? parseFloat(formData.currentSalary)
+            : parseFloat(formData.basicSalary) || 0,
+        };
+
+        queryClient.setQueryData<Employee>(
+          queryKeys.employees.detail(employeeId),
+          optimisticUpdate
+        );
+      }
+
+      return { previous };
+    },
+    onError: (error, variables, context) => {
+      // Rollback on error
+      if (context?.previous) {
+        queryClient.setQueryData(
+          queryKeys.employees.detail(employeeId),
+          context.previous
+        );
+      }
+      logger.error('Error updating employee:', error);
       alert('Failed to update employee. Please try again.');
-    }
-  };
+    },
+    onSuccess: () => {
+      // Close form on success
+      setIsFormOpen(false);
+    },
+    onSettled: () => {
+      // Invalidate and refetch
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.employees.detail(employeeId),
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.employees.lists() });
+    },
+  });
 
-  const handleProfilePhotoUpload = async (base64Photo: string) => {
-    if (!employee) {
-      return;
-    }
-
-    try {
-      setIsPhotoUploading(true);
+  // Profile photo upload mutation
+  const uploadPhotoMutation = useMutation({
+    mutationFn: async (base64Photo: string) => {
+      if (!employee) {
+        throw new Error('No employee to update');
+      }
 
       const payload = {
         employeeId: employee.employeeId,
@@ -725,26 +707,12 @@ export function useEmployeeDetail(employeeId: string) {
         profilePhoto: base64Photo,
       };
 
-      const response = await fetch(`/api/employees/${employee.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
+      const updatedEmployee = await api.put<Employee>(
+        `/api/employees/${employee.id}`,
+        payload
+      );
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(
-          '🔴 [useEmployeeDetail] Profile photo update failed:',
-          errorText
-        );
-        throw new Error('Failed to update profile photo');
-      }
-
-      const updatedEmployee = await response.json();
-
-      setEmployee({
+      return {
         ...updatedEmployee,
         id: updatedEmployee.id.toString(),
         sssMonthlyContribution:
@@ -763,13 +731,96 @@ export function useEmployeeDetail(employeeId: string) {
           updatedEmployee.taxMonthlyContribution ??
           employee.taxMonthlyContribution ??
           null,
+      };
+    },
+    onMutate: async (base64Photo) => {
+      setIsPhotoUploading(true);
+
+      // Cancel outgoing queries
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.employees.detail(employeeId),
       });
-    } catch (error) {
-      console.error('🔴 [useEmployeeDetail] Error uploading photo:', error);
+
+      // Snapshot previous value
+      const previous = queryClient.getQueryData<Employee>(
+        queryKeys.employees.detail(employeeId)
+      );
+
+      // Optimistically update photo
+      if (previous) {
+        queryClient.setQueryData<Employee>(
+          queryKeys.employees.detail(employeeId),
+          {
+            ...previous,
+            profilePhoto: base64Photo,
+          }
+        );
+      }
+
+      return { previous };
+    },
+    onError: (error, variables, context) => {
+      // Rollback on error
+      if (context?.previous) {
+        queryClient.setQueryData(
+          queryKeys.employees.detail(employeeId),
+          context.previous
+        );
+      }
+      logger.error('Error uploading photo:', error);
       alert('Failed to upload profile photo. Please try again.');
-    } finally {
+    },
+    onSettled: () => {
       setIsPhotoUploading(false);
+      // Invalidate and refetch
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.employees.detail(employeeId),
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.employees.lists() });
+    },
+  });
+
+  // Utility functions
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-PH', {
+      style: 'currency',
+      currency: 'PHP',
+      minimumFractionDigits: 2,
+    }).format(amount);
+  };
+
+  const getStatusColor = (status: Employee['status']) => {
+    switch (status) {
+      case 'active':
+        return 'green';
+      case 'inactive':
+        return 'red';
+      case 'on-leave':
+        return 'orange';
+      default:
+        return 'gray';
     }
+  };
+
+  const handleEdit = () => {
+    setIsFormOpen(true);
+  };
+
+  const handleSaveEmployee = (formData: EmployeeFormData) => {
+    updateEmployeeMutation.mutate(formData);
+  };
+
+  const handleProfilePhotoUpload = (base64Photo: string) => {
+    uploadPhotoMutation.mutate(base64Photo);
   };
 
   return {

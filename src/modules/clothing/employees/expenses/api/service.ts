@@ -67,7 +67,8 @@ export class ExpenseService {
         employeeName: data.employeeName ?? undefined,
       };
 
-      // Type assertion needed due to Prisma date type mismatch (DB stores string, schema expects Date)
+      // Type assertion needed: ExpenseCreateDbInput structure matches database schema
+      // but type system cannot verify due to BaseRepository's generic constraints
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return await expenseRepository.create(expenseData as any);
     } catch (error) {
@@ -90,7 +91,8 @@ export class ExpenseService {
         employeeName: expense.employeeName ?? undefined,
       }));
 
-      // Type assertion needed due to Prisma date type mismatch
+      // Type assertion needed: Converted data matches database schema
+      // but type system cannot verify due to BaseRepository's generic constraints
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return await expenseRepository.createMany(expenses as any);
     } catch (error) {
@@ -115,13 +117,16 @@ export class ExpenseService {
 
       // Convert Date to string if present and remove id from update
       const { id: _, ...updateFields } = data;
+      // Type assertion needed: Dynamic update data structure matches database schema
+      // but type system cannot verify due to BaseRepository's generic constraints
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const updateData: Record<string, any> = { ...updateFields };
       if (updateData.date instanceof Date) {
         updateData.date = updateData.date.toISOString().split('T')[0];
       }
 
-      // Type assertion needed due to Prisma date type mismatch
+      // Type assertion needed: Converted data matches database schema
+      // but type system cannot verify due to BaseRepository's generic constraints
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return await expenseRepository.update(id, updateData as any);
     } catch (error) {

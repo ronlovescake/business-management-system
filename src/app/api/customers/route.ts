@@ -9,6 +9,7 @@ import {
 } from '@/lib/validations/customer.validation';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
+import { MAX_QUERY_LIMIT } from '@/constants/batch-sizes';
 
 const STATUS_LOOKUP: Record<string, CustomerDTO['Customer Status']> = {
   active: 'Active',
@@ -181,18 +182,17 @@ export async function PUT(req: NextRequest) {
     }
 
     // ========================================================================
-    // ⚠️ BATCH SIZE LIMIT - Maximum 10000 records per update
+    // ⚠️ BATCH SIZE LIMIT - Maximum records per update
     // ========================================================================
-    if (body.length > 10000) {
+    if (body.length > MAX_QUERY_LIMIT) {
       logger.warn(
-        `Batch size limit exceeded: ${body.length} records (max 10000)`
+        `Batch size limit exceeded: ${body.length} records (max ${MAX_QUERY_LIMIT})`
       );
       return NextResponse.json(
         {
           error: 'Batch size limit exceeded',
-          details: `You are trying to update ${body.length} records. Maximum is 10,000 records per update.`,
-          suggestion:
-            'Please split your update into smaller batches of 10,000 records or less.',
+          details: `You are trying to update ${body.length} records. Maximum is ${MAX_QUERY_LIMIT.toLocaleString()} records per update.`,
+          suggestion: `Please split your update into smaller batches of ${MAX_QUERY_LIMIT.toLocaleString()} records or less.`,
         },
         { status: 413 } // Payload Too Large
       );

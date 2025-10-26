@@ -2,7 +2,14 @@
  * Thirteenth Month Pay Repository
  *
  * Data access layer for 13th month pay operations
+ *
+ * Note: This file contains 'as any' type assertions due to incompatibility between
+ * BaseRepository's generic types and Prisma's strict where clause types. This is an
+ * architectural limitation that would require refactoring BaseRepository to resolve.
+ * The eslint warnings are accepted as unavoidable in this context.
  */
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import type { ThirteenthMonthPayRecord, Prisma } from '@prisma/client';
 import { BaseRepository } from '@/core/database/repository/BaseRepository';

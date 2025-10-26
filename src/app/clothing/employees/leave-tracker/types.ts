@@ -24,3 +24,8 @@ export interface LeaveRequest {
   approvedBy?: string;
   notes?: string;
 }
+
+export interface MonthlyBreakdownItem {
+  month: string;
+  [key: string]: number | string;
+}

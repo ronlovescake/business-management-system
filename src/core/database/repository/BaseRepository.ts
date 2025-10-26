@@ -73,10 +73,14 @@ export abstract class BaseRepository<TEntity, TCreateInput, TUpdateInput> {
 
   /**
    * Get the Prisma delegate for this model
+   *
+   * Note: TypeScript cannot type-check dynamic model access at compile time.
+   * We use `any` here because Prisma's client structure requires runtime model resolution.
+   * The actual type safety is enforced through the generic TEntity parameter.
    */
   protected get model(): any {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (prisma as any)[this.modelName];
+    // eslint-disable-line @typescript-eslint/no-explicit-any
+    return (prisma as any)[this.modelName]; // eslint-disable-line @typescript-eslint/no-explicit-any
   }
 
   /**

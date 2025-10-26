@@ -191,9 +191,8 @@ export async function POST(request: NextRequest) {
       const createdPayrolls = [];
 
       for (const payrollData of validatedRecords) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const payroll = await prisma.payroll.create({
-          data: payrollData as any,
+          data: payrollData as Prisma.PayrollCreateInput,
         });
         createdPayrolls.push(payroll);
       }
@@ -272,9 +271,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const payroll = await prisma.payroll.create({
-      data: validation.data as any,
+      data: validation.data as Prisma.PayrollCreateInput,
     });
 
     logger.info('Payroll record created', { id: payroll.id });

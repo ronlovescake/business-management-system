@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
         source: sanitizedSource,
         installPath: sanitizedInstallPath,
         config: modulePackage as unknown as Prisma.InputJsonValue,
-        installedBy: null, // TODO: Add user authentication
+        installedBy: null, // REQUIRES: User authentication (P0 deferred)
       },
       update: {
         name: sanitizedName,

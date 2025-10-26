@@ -1,7 +1,12 @@
-/* eslint-disable no-console */
-import { useState, useMemo, useEffect, useCallback } from 'react';
+'use client';
+
+import { useState, useMemo, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Employee, EmployeeFormData } from '../types';
 import { getCurrentDateISO } from '@/utils/date';
+import { logger } from '@/lib/logger';
+import { api } from '@/lib/api/client';
+import { queryKeys } from '@/lib/queryKeys';
 
 /**
  * Generate a unique employee ID
@@ -9,8 +14,7 @@ import { getCurrentDateISO } from '@/utils/date';
  */
 const generateEmployeeId = async (retryOffset = 0): Promise<string> => {
   // Fetch existing employees to find the next available number
-  const response = await fetch('/api/employees');
-  const employees = await response.json();
+  const employees = await api.get<Employee[]>('/api/employees');
 
   const prefix = 'EMP-';
   const existingNumbers = employees
@@ -31,10 +35,75 @@ const isDuplicateEmployeeIdError = (errorText: string) =>
   errorText.includes('Unique constraint failed') &&
   errorText.includes('employeeId');
 
+/**
+ * Transform employee payload from form data
+ */
+const transformEmployeePayload = (
+  formData: EmployeeFormData,
+  editingEmployee?: Employee | null
+) => ({
+  employeeId: formData.employeeId,
+  // Name fields
+  firstName: formData.firstName,
+  lastName: formData.lastName,
+  middleName: formData.middleName || null,
+  name:
+    formData.name ||
+    `${formData.firstName} ${formData.middleName || ''} ${formData.lastName}`
+      .replace(/\s+/g, ' ')
+      .trim(),
+  // Contact
+  phone: formData.phone,
+  contact: formData.contact || formData.phone,
+  email: formData.email || null,
+  // Employment
+  department: formData.department,
+  position: formData.position,
+  jobTitle: formData.jobTitle || formData.position,
+  status: formData.status,
+  employmentStatus: formData.employmentStatus || null,
+  employeeType: formData.employeeType || null,
+  office: formData.office || null,
+  hiringSource: formData.hiringSource || null,
+  hireDate: formData.hireDate,
+  // Salary
+  basicSalary: parseFloat(formData.basicSalary) || 0,
+  currentSalary: formData.currentSalary
+    ? parseFloat(formData.currentSalary)
+    : parseFloat(formData.basicSalary) || 0,
+  allowance: formData.allowance ? parseFloat(formData.allowance) : null,
+  paymentSchedule: formData.paymentSchedule || null,
+  // Government IDs
+  sssNumber: formData.sssNumber || null,
+  philHealthNumber: formData.philHealthNumber || null,
+  hdmfNumber: formData.hdmfNumber || null,
+  tinNumber: formData.tinNumber || null,
+  // Personal Info
+  gender: formData.gender || null,
+  education: formData.education || null,
+  dateOfBirth: formData.dateOfBirth || null,
+  maritalStatus: formData.maritalStatus || null,
+  numberOfKids: formData.numberOfKids ? parseInt(formData.numberOfKids) : null,
+  drivingLicense: formData.drivingLicense || null,
+  // Address & Emergency
+  address: formData.address || null,
+  emergencyContactPerson: formData.emergencyContactPerson || null,
+  emergencyContactNumber: formData.emergencyContactNumber || null,
+  emergencyContact:
+    formData.emergencyContact || formData.emergencyContactNumber || null,
+  // Financial
+  bankAccount: formData.bankAccount || null,
+  gcashAccount: formData.gcashAccount || null,
+  profilePhoto:
+    formData.profilePhoto && formData.profilePhoto.trim().length > 0
+      ? formData.profilePhoto
+      : editingEmployee?.profilePhoto || null,
+});
+
 export function useTeam() {
-  // State Management
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  // UI State
   const [searchQuery, setSearchQuery] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -42,51 +111,53 @@ export function useTeam() {
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [activeTab, setActiveTab] = useState<string | null>('employees');
 
-  // Fetch employees from API
-  const fetchEmployees = useCallback(async () => {
-    try {
-      setIsLoading(true);
+  // Build query filters
+  const filters = useMemo(
+    () => ({
+      department: departmentFilter !== 'all' ? departmentFilter : undefined,
+      status: statusFilter !== 'all' ? statusFilter : undefined,
+      search: searchQuery || undefined,
+    }),
+    [departmentFilter, statusFilter, searchQuery]
+  );
 
-      // Build query params
+  /**
+   * Fetch employees using React Query
+   */
+  const {
+    data: rawEmployees = [],
+    isLoading,
+    error: queryError,
+  } = useQuery({
+    queryKey: queryKeys.employees.list(filters),
+    queryFn: async () => {
       const params = new URLSearchParams();
-      if (departmentFilter && departmentFilter !== 'all') {
-        params.append('department', departmentFilter);
+      if (filters.department) {
+        params.append('department', filters.department);
       }
-      if (statusFilter && statusFilter !== 'all') {
-        params.append('status', statusFilter);
+      if (filters.status) {
+        params.append('status', filters.status);
       }
-      if (searchQuery) {
-        params.append('search', searchQuery);
-      }
-
-      const response = await fetch(`/api/employees?${params.toString()}`);
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch employees');
+      if (filters.search) {
+        params.append('search', filters.search);
       }
 
-      const data = await response.json();
-
-      // Transform database IDs to strings for UI compatibility
-      const transformedData = data.map(
-        (emp: Omit<Employee, 'id'> & { id: number }) => ({
-          ...emp,
-          id: emp.id.toString(),
-        })
+      const data = await api.get<Array<Omit<Employee, 'id'> & { id: number }>>(
+        `/api/employees?${params.toString()}`
       );
 
-      setEmployees(transformedData);
-    } catch (error) {
-      console.error('Error fetching employees:', error);
-      setEmployees([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [departmentFilter, statusFilter, searchQuery]);
+      // Transform database IDs to strings for UI compatibility
+      return data.map((emp) => ({
+        ...emp,
+        id: emp.id.toString(),
+      }));
+    },
+    staleTime: 30 * 1000, // 30 seconds
+  });
 
-  useEffect(() => {
-    fetchEmployees();
-  }, [fetchEmployees]);
+  const error = queryError ? 'Failed to load employees' : null;
+  const employees = rawEmployees;
+  const filteredEmployees = employees; // Already filtered by API
 
   // Get unique departments for filter
   const departments = useMemo(() => {
@@ -94,9 +165,7 @@ export function useTeam() {
     return ['all', ...depts.sort()];
   }, [employees]);
 
-  // Computed Values (API handles filtering, so just use employees directly)
-  const filteredEmployees = employees;
-
+  // Computed Values
   const totalEmployees = employees.length;
   const activeEmployees = employees.filter((e) => e.status === 'active').length;
   const onLeaveEmployees = employees.filter(
@@ -106,23 +175,223 @@ export function useTeam() {
     .filter((e) => e.status === 'active')
     .reduce((sum, e) => sum + e.basicSalary, 0);
 
+  /**
+   * Create employee mutation
+   */
+  const createEmployeeMutation = useMutation({
+    mutationFn: async (
+      payload: ReturnType<typeof transformEmployeePayload>
+    ) => {
+      // Generate employee ID if needed
+      const isValidFormat =
+        payload.employeeId?.trim() &&
+        /^EMP-\d{4}$/.test(payload.employeeId.trim());
+
+      const employeeId = isValidFormat
+        ? payload.employeeId.trim()
+        : await generateEmployeeId();
+
+      const finalPayload = { ...payload, employeeId };
+
+      try {
+        return await api.post<Employee>('/api/employees', finalPayload);
+      } catch (error) {
+        // Handle duplicate employee ID with retries
+        if (
+          error instanceof Error &&
+          isDuplicateEmployeeIdError(error.message)
+        ) {
+          const maxRetries = 5;
+          for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
+            const newEmployeeId = await generateEmployeeId(attempt);
+            const retryPayload = { ...finalPayload, employeeId: newEmployeeId };
+
+            try {
+              return await api.post<Employee>('/api/employees', retryPayload);
+            } catch (retryError) {
+              logger.error(`Retry attempt ${attempt} failed:`, retryError);
+
+              if (
+                !(retryError instanceof Error) ||
+                !isDuplicateEmployeeIdError(retryError.message)
+              ) {
+                throw new Error('Failed to create employee');
+              }
+            }
+          }
+          throw new Error('Failed to create employee after retries');
+        }
+        throw error;
+      }
+    },
+    onMutate: async (newEmployee) => {
+      // Cancel outgoing queries
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.employees.lists(),
+      });
+
+      // Snapshot previous value
+      const previousEmployees = queryClient.getQueryData<Employee[]>(
+        queryKeys.employees.list(filters)
+      );
+
+      // Optimistically update - add to beginning of list
+      if (previousEmployees) {
+        const optimisticEmployee: Employee = {
+          ...newEmployee,
+          id: 'temp-' + Date.now(), // Temporary ID
+        } as Employee;
+
+        queryClient.setQueryData<Employee[]>(
+          queryKeys.employees.list(filters),
+          [optimisticEmployee, ...previousEmployees]
+        );
+      }
+
+      return { previousEmployees };
+    },
+    onError: (error, _variables, context) => {
+      // Rollback on error
+      if (context?.previousEmployees) {
+        queryClient.setQueryData(
+          queryKeys.employees.list(filters),
+          context.previousEmployees
+        );
+      }
+      logger.error('Failed to create employee:', error);
+      alert('Failed to save employee. Please try again.');
+    },
+    onSuccess: () => {
+      // Close form on success
+      setIsFormOpen(false);
+      setEditingEmployee(null);
+    },
+    onSettled: () => {
+      // Always refetch to ensure consistency
+      queryClient.invalidateQueries({ queryKey: queryKeys.employees.lists() });
+    },
+  });
+
+  /**
+   * Update employee mutation
+   */
+  const updateEmployeeMutation = useMutation({
+    mutationFn: async ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: ReturnType<typeof transformEmployeePayload>;
+    }) => {
+      return await api.put<Employee>(`/api/employees/${id}`, payload);
+    },
+    onMutate: async ({ id, payload }) => {
+      // Cancel outgoing queries
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.employees.lists(),
+      });
+
+      // Snapshot previous value
+      const previousEmployees = queryClient.getQueryData<Employee[]>(
+        queryKeys.employees.list(filters)
+      );
+
+      // Optimistically update
+      if (previousEmployees) {
+        queryClient.setQueryData<Employee[]>(
+          queryKeys.employees.list(filters),
+          previousEmployees.map((emp) =>
+            emp.id === id ? ({ ...payload, id } as Employee) : emp
+          )
+        );
+      }
+
+      return { previousEmployees };
+    },
+    onError: (error, _variables, context) => {
+      // Rollback on error
+      if (context?.previousEmployees) {
+        queryClient.setQueryData(
+          queryKeys.employees.list(filters),
+          context.previousEmployees
+        );
+      }
+      logger.error('Failed to update employee:', error);
+      alert('Failed to save employee. Please try again.');
+    },
+    onSuccess: () => {
+      // Close form on success
+      setIsFormOpen(false);
+      setEditingEmployee(null);
+    },
+    onSettled: () => {
+      // Always refetch to ensure consistency
+      queryClient.invalidateQueries({ queryKey: queryKeys.employees.lists() });
+    },
+  });
+
+  /**
+   * Delete employee mutation
+   */
+  const deleteEmployeeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await api.delete(`/api/employees/${id}`);
+    },
+    onMutate: async (id) => {
+      // Cancel outgoing queries
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.employees.lists(),
+      });
+
+      // Snapshot previous value
+      const previousEmployees = queryClient.getQueryData<Employee[]>(
+        queryKeys.employees.list(filters)
+      );
+
+      // Optimistically update - remove from list
+      if (previousEmployees) {
+        queryClient.setQueryData<Employee[]>(
+          queryKeys.employees.list(filters),
+          previousEmployees.filter((emp) => emp.id !== id)
+        );
+      }
+
+      return { previousEmployees };
+    },
+    onError: (error, _variables, context) => {
+      // Rollback on error
+      if (context?.previousEmployees) {
+        queryClient.setQueryData(
+          queryKeys.employees.list(filters),
+          context.previousEmployees
+        );
+      }
+      logger.error('Failed to delete employee:', error);
+      alert('Failed to delete employee. Please try again.');
+    },
+    onSettled: () => {
+      // Always refetch to ensure consistency
+      queryClient.invalidateQueries({ queryKey: queryKeys.employees.lists() });
+    },
+  });
+
   // Utility Functions
-  const formatDate = (dateString: string) => {
+  const formatDate = useCallback((dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
     });
-  };
+  }, []);
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = useCallback((amount: number) => {
     return new Intl.NumberFormat('en-PH', {
       style: 'currency',
       currency: 'PHP',
     }).format(amount);
-  };
+  }, []);
 
-  const getStatusColor = (status: Employee['status']) => {
+  const getStatusColor = useCallback((status: Employee['status']) => {
     switch (status) {
       case 'active':
         return 'green';
@@ -133,474 +402,207 @@ export function useTeam() {
       default:
         return 'gray';
     }
-  };
+  }, []);
 
   // Event Handlers
-  const handleAddEmployee = () => {
+  const handleAddEmployee = useCallback(() => {
     setEditingEmployee(null);
     setIsFormOpen(true);
-  };
+  }, []);
 
-  const handleEditEmployee = (employee: Employee) => {
+  const handleEditEmployee = useCallback((employee: Employee) => {
     setEditingEmployee(employee);
     setIsFormOpen(true);
-  };
+  }, []);
 
-  const handleDeleteEmployee = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this employee?')) {
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/employees/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete employee');
+  const handleDeleteEmployee = useCallback(
+    async (id: string) => {
+      if (!confirm('Are you sure you want to delete this employee?')) {
+        return;
       }
 
-      // Remove from local state
-      setEmployees((prev) => prev.filter((e) => e.id !== id));
-    } catch (error) {
-      console.error('Error deleting employee:', error);
-      alert('Failed to delete employee. Please try again.');
-    }
-  };
+      await deleteEmployeeMutation.mutateAsync(id);
+    },
+    [deleteEmployeeMutation]
+  );
 
-  const handleSaveEmployee = async (formData: EmployeeFormData) => {
-    try {
-      console.log('🔵 [useTeam] handleSaveEmployee called');
-      console.log('🔵 [useTeam] editingEmployee:', editingEmployee);
-      console.log('🔵 [useTeam] formData:', formData);
-
-      if (editingEmployee) {
-        // Update existing employee
-        const payload = {
-          employeeId: formData.employeeId,
-          // Name fields - use the actual form data, don't split
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          middleName: formData.middleName || null,
-          name:
-            formData.name ||
-            `${formData.firstName} ${formData.middleName || ''} ${formData.lastName}`
-              .replace(/\s+/g, ' ')
-              .trim(),
-          // Contact
-          phone: formData.phone,
-          contact: formData.contact || formData.phone,
-          email: formData.email || null,
-          // Employment
-          department: formData.department,
-          position: formData.position,
-          jobTitle: formData.jobTitle || formData.position,
-          status: formData.status,
-          employmentStatus: formData.employmentStatus || null,
-          employeeType: formData.employeeType || null,
-          office: formData.office || null,
-          hiringSource: formData.hiringSource || null,
-          hireDate: formData.hireDate,
-          // Salary
-          basicSalary: parseFloat(formData.basicSalary) || 0,
-          currentSalary: formData.currentSalary
-            ? parseFloat(formData.currentSalary)
-            : parseFloat(formData.basicSalary) || 0,
-          allowance: formData.allowance ? parseFloat(formData.allowance) : null,
-          paymentSchedule: formData.paymentSchedule || null,
-          // Government IDs
-          sssNumber: formData.sssNumber || null,
-          philHealthNumber: formData.philHealthNumber || null,
-          hdmfNumber: formData.hdmfNumber || null,
-          tinNumber: formData.tinNumber || null,
-          // Personal Info
-          gender: formData.gender || null,
-          education: formData.education || null,
-          dateOfBirth: formData.dateOfBirth || null,
-          maritalStatus: formData.maritalStatus || null,
-          numberOfKids: formData.numberOfKids
-            ? parseInt(formData.numberOfKids)
-            : null,
-          drivingLicense: formData.drivingLicense || null,
-          // Address & Emergency
-          address: formData.address || null,
-          emergencyContactPerson: formData.emergencyContactPerson || null,
-          emergencyContactNumber: formData.emergencyContactNumber || null,
-          emergencyContact:
-            formData.emergencyContact ||
-            formData.emergencyContactNumber ||
-            null,
-          // Financial
-          bankAccount: formData.bankAccount || null,
-          gcashAccount: formData.gcashAccount || null,
-          profilePhoto:
-            formData.profilePhoto && formData.profilePhoto.trim().length > 0
-              ? formData.profilePhoto
-              : editingEmployee.profilePhoto || null,
-        };
-
-        console.log('🟡 [useTeam] Updating employee - payload:', payload);
-
-        const response = await fetch(`/api/employees/${editingEmployee.id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
+  const handleSaveEmployee = useCallback(
+    async (formData: EmployeeFormData) => {
+      try {
+        logger.debug('useTeam', 'handleSaveEmployee called', {
+          editingEmployee,
+          formData,
         });
 
-        console.log('🟢 [useTeam] Update response status:', response.status);
+        const payload = transformEmployeePayload(formData, editingEmployee);
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('🔴 [useTeam] Update failed:', errorText);
-          throw new Error('Failed to update employee');
+        if (editingEmployee) {
+          // Update existing employee
+          await updateEmployeeMutation.mutateAsync({
+            id: editingEmployee.id,
+            payload,
+          });
+        } else {
+          // Create new employee
+          await createEmployeeMutation.mutateAsync(payload);
         }
+      } catch (error) {
+        // Error handling is done in mutation callbacks
+        logger.error('Error in handleSaveEmployee:', error);
+      }
+    },
+    [editingEmployee, createEmployeeMutation, updateEmployeeMutation]
+  );
 
-        const updatedEmployee = await response.json();
-        console.log(
-          '✅ [useTeam] Employee updated successfully:',
-          updatedEmployee
-        );
+  const handleImportCSV = useCallback(
+    async (file: File | null) => {
+      if (!file) {
+        return;
+      }
 
-        // Update local state
-        setEmployees((prev) =>
-          prev.map((e) =>
-            e.id === editingEmployee.id
-              ? { ...updatedEmployee, id: updatedEmployee.id.toString() }
-              : e
-          )
-        );
-      } else {
-        // Add new employee
-        // Generate a unique employee ID if not provided, empty, or invalid format
-        const isValidFormat =
-          formData.employeeId?.trim() &&
-          /^EMP-\d{4}$/.test(formData.employeeId.trim());
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const text = e.target?.result as string;
+          const lines = text.split('\n');
+          const headers = lines[0].split(',').map((h) => h.trim());
 
-        const employeeId = isValidFormat
-          ? formData.employeeId.trim()
-          : await generateEmployeeId();
+          // Parse CSV rows (skip header)
+          const rows = lines.slice(1).filter((row) => row.trim());
 
-        console.log('🟢 [useTeam] Generated/Using employee ID:', employeeId);
+          let successCount = 0;
+          let errorCount = 0;
 
-        const payload = {
-          employeeId,
-          // Name fields - use the actual form data, don't split
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          middleName: formData.middleName || null,
-          name:
-            formData.name ||
-            `${formData.firstName} ${formData.middleName || ''} ${formData.lastName}`
-              .replace(/\s+/g, ' ')
-              .trim(),
-          // Contact
-          phone: formData.phone,
-          contact: formData.contact || formData.phone,
-          email: formData.email || null,
-          // Employment
-          department: formData.department,
-          position: formData.position,
-          jobTitle: formData.jobTitle || formData.position,
-          status: formData.status,
-          employmentStatus: formData.employmentStatus || null,
-          employeeType: formData.employeeType || null,
-          office: formData.office || null,
-          hiringSource: formData.hiringSource || null,
-          hireDate: formData.hireDate,
-          // Salary
-          basicSalary: parseFloat(formData.basicSalary) || 0,
-          currentSalary: formData.currentSalary
-            ? parseFloat(formData.currentSalary)
-            : parseFloat(formData.basicSalary) || 0,
-          allowance: formData.allowance ? parseFloat(formData.allowance) : null,
-          paymentSchedule: formData.paymentSchedule || null,
-          // Government IDs
-          sssNumber: formData.sssNumber || null,
-          philHealthNumber: formData.philHealthNumber || null,
-          hdmfNumber: formData.hdmfNumber || null,
-          tinNumber: formData.tinNumber || null,
-          // Personal Info
-          gender: formData.gender || null,
-          education: formData.education || null,
-          dateOfBirth: formData.dateOfBirth || null,
-          maritalStatus: formData.maritalStatus || null,
-          numberOfKids: formData.numberOfKids
-            ? parseInt(formData.numberOfKids)
-            : null,
-          drivingLicense: formData.drivingLicense || null,
-          // Address & Emergency
-          address: formData.address || null,
-          emergencyContactPerson: formData.emergencyContactPerson || null,
-          emergencyContactNumber: formData.emergencyContactNumber || null,
-          emergencyContact:
-            formData.emergencyContact ||
-            formData.emergencyContactNumber ||
-            null,
-          // Financial
-          bankAccount: formData.bankAccount || null,
-          gcashAccount: formData.gcashAccount || null,
-          profilePhoto:
-            formData.profilePhoto && formData.profilePhoto.trim().length > 0
-              ? formData.profilePhoto
-              : null,
-        };
+          for (const row of rows) {
+            try {
+              // Parse CSV row handling quoted values
+              const values: string[] = [];
+              let currentValue = '';
+              let insideQuotes = false;
 
-        console.log('🟢 [useTeam] Creating new employee - payload:', payload);
-        console.log('🟢 [useTeam] API endpoint: /api/employees');
+              for (let i = 0; i < row.length; i++) {
+                const char = row[i];
 
-        const response = await fetch('/api/employees', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        });
+                if (char === '"') {
+                  insideQuotes = !insideQuotes;
+                } else if (char === ',' && !insideQuotes) {
+                  values.push(currentValue.trim());
+                  currentValue = '';
+                } else {
+                  currentValue += char;
+                }
+              }
+              values.push(currentValue.trim()); // Push last value
 
-        console.log('🟢 [useTeam] Create response status:', response.status);
-        console.log('🟢 [useTeam] Create response ok:', response.ok);
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(
-            '🔴 [useTeam] Create failed - status:',
-            response.status
-          );
-          console.error('🔴 [useTeam] Create failed - error:', errorText);
-
-          if (isDuplicateEmployeeIdError(errorText)) {
-            console.log(
-              '🔄 [useTeam] Duplicate employeeId detected, attempting retries...'
-            );
-
-            const maxRetries = 5;
-            for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
-              const newEmployeeId = await generateEmployeeId(attempt);
-              console.log(
-                `🔄 [useTeam] Retry attempt ${attempt} with employee ID: ${newEmployeeId}`
-              );
-
-              const retryPayload = { ...payload, employeeId: newEmployeeId };
-              const retryResponse = await fetch('/api/employees', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(retryPayload),
+              // Map CSV columns to employee data
+              const employeeData: Record<string, string | number> = {};
+              headers.forEach((header, index) => {
+                const value = values[index] || '';
+                employeeData[header] = value;
               });
 
-              if (retryResponse.ok) {
-                const newEmployee = await retryResponse.json();
-                console.log(
-                  '✅ [useTeam] Employee created successfully on retry:',
-                  newEmployee
-                );
+              // Create employee object matching API expectations
+              const employee = {
+                employeeId: employeeData['Employee ID'] as string,
+                name: employeeData['Full Name'] as string,
+                firstName: employeeData['First Name'] as string,
+                middleName:
+                  (employeeData['Middle Name'] as string) || undefined,
+                lastName: employeeData['Last Name'] as string,
+                gender: (employeeData['Gender'] as string) || undefined,
+                dateOfBirth:
+                  (employeeData['Date of Birth'] as string) || undefined,
+                maritalStatus:
+                  (employeeData['Marital Status'] as string) || undefined,
+                numberOfKids: employeeData['Number of Kids']
+                  ? parseInt(employeeData['Number of Kids'] as string)
+                  : undefined,
+                drivingLicense:
+                  (employeeData['Driving License'] as string) || undefined,
+                education: (employeeData['Education'] as string) || undefined,
+                email: (() => {
+                  const email = employeeData['Email'] as string;
+                  return email && email.includes('@') ? email : undefined;
+                })(),
+                phone: employeeData['Phone'] as string,
+                contact: employeeData['Phone'] as string,
+                address: (employeeData['Address'] as string) || undefined,
+                emergencyContactPerson:
+                  (employeeData['Emergency Contact Person'] as string) ||
+                  undefined,
+                emergencyContactNumber:
+                  (employeeData['Emergency Contact Number'] as string) ||
+                  undefined,
+                emergencyContact:
+                  (employeeData['Emergency Contact'] as string) || undefined,
+                department: employeeData['Department'] as string,
+                position: employeeData['Position'] as string,
+                jobTitle: employeeData['Job Title'] as string,
+                employmentStatus:
+                  (employeeData['Employment Status'] as string) || undefined,
+                employeeType:
+                  (employeeData['Employee Type'] as string) || undefined,
+                status: employeeData['Status'] as string,
+                hireDate: employeeData['Hire Date'] as string,
+                office: (employeeData['Office'] as string) || undefined,
+                hiringSource:
+                  (employeeData['Hiring Source'] as string) || undefined,
+                currentSalary: employeeData['Current Salary']
+                  ? parseFloat(employeeData['Current Salary'] as string)
+                  : undefined,
+                basicSalary:
+                  parseFloat(employeeData['Basic Salary'] as string) || 0,
+                allowance: employeeData['Allowance']
+                  ? parseFloat(employeeData['Allowance'] as string)
+                  : undefined,
+                paymentSchedule:
+                  (employeeData['Payment Schedule'] as string) || undefined,
+                bankAccount:
+                  (employeeData['Bank Account'] as string) || undefined,
+                gcashAccount:
+                  (employeeData['GCash Account'] as string) || undefined,
+                sssNumber: (employeeData['SSS Number'] as string) || undefined,
+                philHealthNumber:
+                  (employeeData['PhilHealth Number'] as string) || undefined,
+                hdmfNumber:
+                  (employeeData['HDMF Number'] as string) || undefined,
+                tinNumber: (employeeData['TIN Number'] as string) || undefined,
+              };
 
-                setEmployees((prev) => [
-                  { ...newEmployee, id: newEmployee.id.toString() },
-                  ...prev,
-                ]);
-
-                setIsFormOpen(false);
-                setEditingEmployee(null);
-                console.log('✅ [useTeam] Form closed and state reset');
-                return;
-              }
-
-              const retryErrorText = await retryResponse.text();
-              console.error(
-                `🔴 [useTeam] Retry attempt ${attempt} failed - status:`,
-                retryResponse.status
+              // Call API to create employee
+              const response = await api.post<Employee>(
+                '/api/employees',
+                employee
               );
-              console.error(
-                `🔴 [useTeam] Retry attempt ${attempt} failed - error:`,
-                retryErrorText
-              );
 
-              if (!isDuplicateEmployeeIdError(retryErrorText)) {
-                throw new Error('Failed to create employee');
+              if (response) {
+                successCount++;
               }
-            }
-
-            throw new Error('Failed to create employee after retries');
-          }
-
-          throw new Error('Failed to create employee');
-        }
-
-        const newEmployee = await response.json();
-        console.log('✅ [useTeam] Employee created successfully:', newEmployee);
-
-        // Add to local state
-        setEmployees((prev) => [
-          { ...newEmployee, id: newEmployee.id.toString() },
-          ...prev,
-        ]);
-      }
-
-      setIsFormOpen(false);
-      setEditingEmployee(null);
-      console.log('✅ [useTeam] Form closed and state reset');
-    } catch (error) {
-      console.error('🔴 [useTeam] Error saving employee:', error);
-      console.error('🔴 [useTeam] Error details:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-      alert('Failed to save employee. Please try again.');
-    }
-  };
-
-  const handleImportCSV = async (file: File | null) => {
-    if (!file) {
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const text = e.target?.result as string;
-        const lines = text.split('\n');
-        const headers = lines[0].split(',').map((h) => h.trim());
-
-        // Parse CSV rows (skip header)
-        const rows = lines.slice(1).filter((row) => row.trim());
-
-        let successCount = 0;
-        let errorCount = 0;
-
-        for (const row of rows) {
-          try {
-            // Parse CSV row handling quoted values
-            const values: string[] = [];
-            let currentValue = '';
-            let insideQuotes = false;
-
-            for (let i = 0; i < row.length; i++) {
-              const char = row[i];
-
-              if (char === '"') {
-                insideQuotes = !insideQuotes;
-              } else if (char === ',' && !insideQuotes) {
-                values.push(currentValue.trim());
-                currentValue = '';
-              } else {
-                currentValue += char;
-              }
-            }
-            values.push(currentValue.trim()); // Push last value
-
-            // Map CSV columns to employee data
-            const employeeData: Record<string, string | number> = {};
-            headers.forEach((header, index) => {
-              const value = values[index] || '';
-              employeeData[header] = value;
-            });
-
-            // Create employee object matching API expectations
-            const employee = {
-              employeeId: employeeData['Employee ID'] as string,
-              name: employeeData['Full Name'] as string,
-              firstName: employeeData['First Name'] as string,
-              middleName: (employeeData['Middle Name'] as string) || undefined,
-              lastName: employeeData['Last Name'] as string,
-              gender: (employeeData['Gender'] as string) || undefined,
-              dateOfBirth:
-                (employeeData['Date of Birth'] as string) || undefined,
-              maritalStatus:
-                (employeeData['Marital Status'] as string) || undefined,
-              numberOfKids: employeeData['Number of Kids']
-                ? parseInt(employeeData['Number of Kids'] as string)
-                : undefined,
-              drivingLicense:
-                (employeeData['Driving License'] as string) || undefined,
-              education: (employeeData['Education'] as string) || undefined,
-              email: (() => {
-                const email = employeeData['Email'] as string;
-                // Only include email if it's valid format (contains @)
-                return email && email.includes('@') ? email : undefined;
-              })(),
-              phone: employeeData['Phone'] as string,
-              contact: employeeData['Phone'] as string,
-              address: (employeeData['Address'] as string) || undefined,
-              emergencyContactPerson:
-                (employeeData['Emergency Contact Person'] as string) ||
-                undefined,
-              emergencyContactNumber:
-                (employeeData['Emergency Contact Number'] as string) ||
-                undefined,
-              emergencyContact:
-                (employeeData['Emergency Contact'] as string) || undefined,
-              department: employeeData['Department'] as string,
-              position: employeeData['Position'] as string,
-              jobTitle: employeeData['Job Title'] as string,
-              employmentStatus:
-                (employeeData['Employment Status'] as string) || undefined,
-              employeeType:
-                (employeeData['Employee Type'] as string) || undefined,
-              status: employeeData['Status'] as string,
-              hireDate: employeeData['Hire Date'] as string,
-              office: (employeeData['Office'] as string) || undefined,
-              hiringSource:
-                (employeeData['Hiring Source'] as string) || undefined,
-              currentSalary: employeeData['Current Salary']
-                ? parseFloat(employeeData['Current Salary'] as string)
-                : undefined,
-              basicSalary:
-                parseFloat(employeeData['Basic Salary'] as string) || 0,
-              allowance: employeeData['Allowance']
-                ? parseFloat(employeeData['Allowance'] as string)
-                : undefined,
-              paymentSchedule:
-                (employeeData['Payment Schedule'] as string) || undefined,
-              bankAccount:
-                (employeeData['Bank Account'] as string) || undefined,
-              gcashAccount:
-                (employeeData['GCash Account'] as string) || undefined,
-              sssNumber: (employeeData['SSS Number'] as string) || undefined,
-              philHealthNumber:
-                (employeeData['PhilHealth Number'] as string) || undefined,
-              hdmfNumber: (employeeData['HDMF Number'] as string) || undefined,
-              tinNumber: (employeeData['TIN Number'] as string) || undefined,
-            };
-
-            // Call API to create employee
-            const response = await fetch('/api/employees', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(employee),
-            });
-
-            if (response.ok) {
-              successCount++;
-            } else {
+            } catch (rowError) {
               errorCount++;
-              const errorData = await response.json();
-              console.error('Failed to import employee:', employee.employeeId);
-              console.error('Error details:', errorData);
+              logger.error('Failed to import employee:', rowError);
             }
-          } catch (rowError) {
-            errorCount++;
-            console.error('Error parsing row:', rowError);
           }
+
+          // Refetch employees after import
+          await queryClient.invalidateQueries({
+            queryKey: queryKeys.employees.lists(),
+          });
+
+          alert(
+            `Import complete!\nSuccess: ${successCount}\nFailed: ${errorCount}`
+          );
+        } catch (error) {
+          logger.error('Error importing CSV:', error);
+          alert('Failed to import CSV file');
         }
+      };
+      reader.readAsText(file);
+    },
+    [queryClient]
+  );
 
-        // Refresh employee list
-        await fetchEmployees();
-
-        alert(
-          `Import complete!\nSuccess: ${successCount}\nFailed: ${errorCount}`
-        );
-      } catch (error) {
-        console.error('Error importing CSV:', error);
-        alert('Failed to import CSV file');
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  const handleExportCSV = () => {
+  const handleExportCSV = useCallback(() => {
     const headers = [
       'Employee ID',
       'Full Name',
@@ -708,7 +710,7 @@ export function useTeam() {
     a.href = url;
     a.download = `employees-${getCurrentDateISO()}.csv`;
     a.click();
-  };
+  }, [filteredEmployees]);
 
   return {
     // State
@@ -721,6 +723,7 @@ export function useTeam() {
     activeTab,
     departments,
     isLoading,
+    error,
 
     // Computed Values
     totalEmployees,

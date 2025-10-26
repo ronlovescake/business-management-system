@@ -1,6 +1,10 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { logger } from '@/lib/logger';
+import { api } from '@/lib/api/client';
 import { notifications } from '@mantine/notifications';
 import Swal from 'sweetalert2';
+import { queryKeys } from '@/lib/queryKeys';
 import type {
   AttendanceRecord,
   AttendanceStatus,
@@ -40,9 +44,6 @@ const formatTime = (time: string) => {
     minute: '2-digit',
   }).format(date);
 };
-
-const generateId = () =>
-  `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 const calculateTotalHours = (timeIn: string, timeOut: string) => {
   if (!timeIn || !timeOut) {
@@ -92,8 +93,8 @@ const createEmptyFormValues = (): AttendanceFormValues => ({
 });
 
 export function useAttendance() {
-  const [records, setRecords] = useState<AttendanceRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
+
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
   const [recordForm, setRecordForm] = useState<AttendanceFormValues>(
     createEmptyFormValues()
@@ -104,31 +105,35 @@ export function useAttendance() {
     'all'
   );
 
-  // Fetch attendance records from the database
-  useEffect(() => {
-    const fetchAttendance = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch('/api/attendance');
-        if (!response.ok) {
-          throw new Error('Failed to fetch attendance');
-        }
-        const data = await response.json();
-        setRecords(data || []);
-      } catch (error) {
-        console.error('Error fetching attendance:', error);
-        notifications.show({
-          color: 'red',
-          title: 'Error',
-          message: 'Failed to fetch attendance records',
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // Query filters object for cache key
+  const filters = useMemo(
+    () => ({ search: searchQuery, status: statusFilter }),
+    [searchQuery, statusFilter]
+  );
 
-    fetchAttendance();
-  }, []);
+  // Fetch attendance records with React Query
+  const {
+    data: records = [],
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: queryKeys.attendance.list(filters),
+    queryFn: async () => {
+      const data = await api.get<AttendanceRecord[]>('/api/attendance');
+      return data || [];
+    },
+    staleTime: 30 * 1000, // 30 seconds
+  });
+
+  // Log errors
+  if (error) {
+    logger.error('Error fetching attendance:', error);
+    notifications.show({
+      color: 'red',
+      title: 'Error',
+      message: 'Failed to fetch attendance records',
+    });
+  }
 
   const sortedRecords = useMemo(() => {
     return [...records].sort((a, b) => {
@@ -215,66 +220,291 @@ export function useAttendance() {
     }
   };
 
-  const handleDeleteRecord = async (id: string) => {
-    if (confirm('Are you sure you want to delete this attendance record?')) {
-      try {
-        const response = await fetch(`/api/attendance?id=${id}`, {
-          method: 'DELETE',
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to delete attendance');
-        }
-
-        setRecords((prev) => prev.filter((record) => record.id !== id));
-
-        notifications.show({
-          color: 'green',
-          title: 'Deleted',
-          message: 'Attendance record deleted successfully',
-        });
-      } catch (error) {
-        console.error('Error deleting attendance:', error);
-        notifications.show({
-          color: 'red',
-          title: 'Error',
-          message: 'Failed to delete attendance record',
-        });
-      }
-    }
-  };
-
-  const handleMarkStatus = async (id: string, status: AttendanceStatus) => {
-    try {
-      const response = await fetch('/api/attendance', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status }),
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/api/attendance?id=${id}`);
+      return id;
+    },
+    onMutate: async (deletedId) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.attendance.lists(),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to update status');
-      }
-
-      const updated = await response.json();
-
-      setRecords((prev) =>
-        prev.map((record) => (record.id === id ? updated : record))
+      // Snapshot previous value
+      const previous = queryClient.getQueryData<AttendanceRecord[]>(
+        queryKeys.attendance.list(filters)
       );
 
+      // Optimistically remove from cache
+      if (previous) {
+        queryClient.setQueryData<AttendanceRecord[]>(
+          queryKeys.attendance.list(filters),
+          previous.filter((record) => record.id !== deletedId)
+        );
+      }
+
+      return { previous };
+    },
+    onError: (error, deletedId, context) => {
+      // Rollback on error
+      if (context?.previous) {
+        queryClient.setQueryData(
+          queryKeys.attendance.list(filters),
+          context.previous
+        );
+      }
+      logger.error('Error deleting attendance:', error);
+      notifications.show({
+        color: 'red',
+        title: 'Error',
+        message: 'Failed to delete attendance record',
+      });
+    },
+    onSuccess: () => {
       notifications.show({
         color: 'green',
-        title: 'Updated',
-        message: 'Status updated successfully',
+        title: 'Deleted',
+        message: 'Attendance record deleted successfully',
       });
-    } catch (error) {
-      console.error('Error updating status:', error);
+    },
+    onSettled: () => {
+      // Refetch to ensure consistency
+      queryClient.invalidateQueries({ queryKey: queryKeys.attendance.lists() });
+    },
+  });
+
+  // Update status mutation
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({
+      id,
+      status,
+    }: {
+      id: string;
+      status: AttendanceStatus;
+    }) => {
+      const updated = await api.patch<AttendanceRecord>('/api/attendance', {
+        id,
+        status,
+      });
+      return updated;
+    },
+    onMutate: async ({ id, status }) => {
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.attendance.lists(),
+      });
+
+      const previous = queryClient.getQueryData<AttendanceRecord[]>(
+        queryKeys.attendance.list(filters)
+      );
+
+      // Optimistically update
+      if (previous) {
+        queryClient.setQueryData<AttendanceRecord[]>(
+          queryKeys.attendance.list(filters),
+          previous.map((record) =>
+            record.id === id ? { ...record, status } : record
+          )
+        );
+      }
+
+      return { previous };
+    },
+    onError: (error, variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(
+          queryKeys.attendance.list(filters),
+          context.previous
+        );
+      }
+      logger.error('Error updating status:', error);
       notifications.show({
         color: 'red',
         title: 'Error',
         message: 'Failed to update status',
       });
+    },
+    onSuccess: () => {
+      notifications.show({
+        color: 'green',
+        title: 'Updated',
+        message: 'Status updated successfully',
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.attendance.lists() });
+    },
+  });
+
+  // Create single record mutation (manual entry)
+  const createRecordMutation = useMutation({
+    mutationFn: async (payload: Omit<AttendanceRecord, 'id'>) => {
+      const saved = await api.post<AttendanceRecord>(
+        '/api/attendance',
+        payload
+      );
+      return saved;
+    },
+    onMutate: async (newRecord) => {
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.attendance.lists(),
+      });
+
+      const previous = queryClient.getQueryData<AttendanceRecord[]>(
+        queryKeys.attendance.list(filters)
+      );
+
+      // Optimistically add with temp ID
+      if (previous) {
+        queryClient.setQueryData<AttendanceRecord[]>(
+          queryKeys.attendance.list(filters),
+          [
+            { ...newRecord, id: 'temp-' + Date.now() } as AttendanceRecord,
+            ...previous,
+          ]
+        );
+      }
+
+      return { previous };
+    },
+    onError: (error, variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(
+          queryKeys.attendance.list(filters),
+          context.previous
+        );
+      }
+      logger.error('Error saving attendance:', error);
+      notifications.show({
+        color: 'red',
+        title: 'Error',
+        message: 'Failed to save attendance record',
+      });
+    },
+    onSuccess: (saved, variables) => {
+      setRecordForm(createEmptyFormValues());
+      setIsRecordModalOpen(false);
+
+      const statusLabel =
+        variables.status === 'on-leave'
+          ? 'On Leave'
+          : variables.status.charAt(0).toUpperCase() +
+            variables.status.slice(1);
+
+      notifications.show({
+        color: 'green',
+        title: 'Attendance recorded',
+        message: `${variables.employeeName} marked as ${statusLabel}.`,
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.attendance.lists() });
+    },
+  });
+
+  // Bulk create mutation (auto-record from schedules)
+  const bulkCreateMutation = useMutation({
+    mutationFn: async (payload: Array<Omit<AttendanceRecord, 'id'>>) => {
+      const result = await api.post<{ records: AttendanceRecord[] }>(
+        '/api/attendance',
+        payload
+      );
+      return result.records || [];
+    },
+    onMutate: async (newRecords) => {
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.attendance.lists(),
+      });
+
+      const previous = queryClient.getQueryData<AttendanceRecord[]>(
+        queryKeys.attendance.list(filters)
+      );
+
+      // Optimistically add bulk records
+      if (previous) {
+        const tempRecords = newRecords.map((record, index) => ({
+          ...record,
+          id: `temp-${Date.now()}-${index}`,
+        })) as AttendanceRecord[];
+
+        queryClient.setQueryData<AttendanceRecord[]>(
+          queryKeys.attendance.list(filters),
+          [...previous, ...tempRecords]
+        );
+      }
+
+      return { previous };
+    },
+    onError: (error, variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(
+          queryKeys.attendance.list(filters),
+          context.previous
+        );
+      }
+      logger.error('Error auto-recording attendance:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text:
+          error instanceof Error
+            ? error.message
+            : 'Failed to record attendance automatically',
+      });
+    },
+    onSuccess: (savedRecords, variables) => {
+      const todayISO = new Date().toISOString().split('T')[0];
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayISO = yesterday.toISOString().split('T')[0];
+
+      const presentCount = variables.filter(
+        (r) => r.status === 'present'
+      ).length;
+      const onLeaveCount = variables.filter(
+        (r) => r.status === 'on-leave'
+      ).length;
+
+      const todayRecords = variables.filter((r) => r.date === todayISO).length;
+      const yesterdayRecords = variables.filter(
+        (r) => r.date === yesterdayISO
+      ).length;
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Attendance Recorded!',
+        html: `
+          <div style="text-align: left;">
+            <p><strong>Successfully recorded ${variables.length} attendance records</strong></p>
+            <ul style="margin-top: 10px;">
+              <li><strong>Today (${todayISO}):</strong> ${todayRecords} records</li>
+              ${yesterdayRecords > 0 ? `<li><strong>Yesterday (${yesterdayISO}):</strong> ${yesterdayRecords} records (catch-up)</li>` : ''}
+              <li><strong>Status:</strong> ${presentCount} present, ${onLeaveCount} on leave</li>
+            </ul>
+          </div>
+        `,
+      });
+
+      notifications.show({
+        color: 'green',
+        title: 'Success',
+        message: `Recorded ${variables.length} attendance records`,
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.attendance.lists() });
+    },
+  });
+
+  const handleDeleteRecord = async (id: string) => {
+    if (confirm('Are you sure you want to delete this attendance record?')) {
+      deleteMutation.mutate(id);
     }
+  };
+
+  const handleMarkStatus = async (id: string, status: AttendanceStatus) => {
+    updateStatusMutation.mutate({ id, status });
   };
 
   const updateRecordForm = <K extends keyof AttendanceFormValues>(
@@ -355,11 +585,19 @@ export function useAttendance() {
       const yesterdayISO = yesterday.toISOString().split('T')[0];
 
       // Fetch all schedules
-      const schedulesResponse = await fetch('/api/schedules');
-      if (!schedulesResponse.ok) {
-        throw new Error('Failed to fetch schedules');
-      }
-      const allSchedules = await schedulesResponse.json();
+      const allSchedules = await api.get<
+        Array<{
+          employeeId: string;
+          employeeName: string;
+          department: string;
+          position: string;
+          date: string;
+          startTime: string;
+          endTime: string;
+          status: string;
+          notes?: string;
+        }>
+      >('/api/schedules');
 
       // Filter schedules for today and yesterday that are not cancelled
       const relevantSchedules = allSchedules.filter(
@@ -378,13 +616,9 @@ export function useAttendance() {
       }
 
       // Fetch existing attendance for today and yesterday
-      const existingAttendanceResponse = await fetch(
-        `/api/attendance?startDate=${yesterdayISO}&endDate=${todayISO}`
-      );
-      if (!existingAttendanceResponse.ok) {
-        throw new Error('Failed to fetch existing attendance');
-      }
-      const existingAttendance = await existingAttendanceResponse.json();
+      const existingAttendance = await api.get<
+        Array<{ employeeId: string; date: string }>
+      >(`/api/attendance?startDate=${yesterdayISO}&endDate=${todayISO}`);
 
       // Create a map of existing attendance by employeeId and date
       const existingAttendanceMap = new Map<string, Set<string>>();
@@ -413,11 +647,16 @@ export function useAttendance() {
       }
 
       // Fetch leave requests
-      const leaveResponse = await fetch('/api/leave-requests');
-      if (!leaveResponse.ok) {
-        throw new Error('Failed to fetch leave requests');
-      }
-      const allLeaveRequests = await leaveResponse.json();
+      const allLeaveRequests = await api.get<
+        Array<{
+          employeeId: string;
+          status: string;
+          startDate: string;
+          endDate: string;
+          leaveType: string;
+          reason: string;
+        }>
+      >('/api/leave-requests');
 
       // Helper function to check if employee is on leave
       const isOnLeave = (employeeId: string, date: string) => {
@@ -543,68 +782,17 @@ export function useAttendance() {
         }
       );
 
-      // Save to database
-      const saveResponse = await fetch('/api/attendance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newAttendanceRecords),
-      });
-
-      if (!saveResponse.ok) {
-        throw new Error('Failed to save attendance records');
-      }
-
-      const savedData = await saveResponse.json();
-      const savedRecords = savedData.records || [];
-
-      // Update local state
-      setRecords((prev) => [...prev, ...savedRecords]);
-
-      // Count statuses and dates
-      const presentCount = newAttendanceRecords.filter(
-        (r: { status: string }) => r.status === 'present'
-      ).length;
-      const onLeaveCount = newAttendanceRecords.filter(
-        (r: { status: string }) => r.status === 'on-leave'
-      ).length;
-
-      const todayRecords = newAttendanceRecords.filter(
-        (r: { date: string }) => r.date === todayISO
-      ).length;
-      const yesterdayRecords = newAttendanceRecords.filter(
-        (r: { date: string }) => r.date === yesterdayISO
-      ).length;
-
-      // Show success message
-      Swal.fire({
-        icon: 'success',
-        title: 'Attendance Recorded!',
-        html: `
-          <div style="text-align: left;">
-            <p><strong>Successfully recorded ${newAttendanceRecords.length} attendance records</strong></p>
-            <ul style="margin-top: 10px;">
-              <li><strong>Today (${todayISO}):</strong> ${todayRecords} records</li>
-              ${yesterdayRecords > 0 ? `<li><strong>Yesterday (${yesterdayISO}):</strong> ${yesterdayRecords} records (catch-up)</li>` : ''}
-              <li><strong>Status:</strong> ${presentCount} present, ${onLeaveCount} on leave</li>
-            </ul>
-          </div>
-        `,
-      });
-
-      notifications.show({
-        color: 'green',
-        title: 'Success',
-        message: `Recorded ${newAttendanceRecords.length} attendance records`,
-      });
+      // Use bulk mutation
+      bulkCreateMutation.mutate(newAttendanceRecords);
     } catch (error) {
-      console.error('Error auto-recording attendance:', error);
+      logger.error('Error in auto-record attendance:', error);
       Swal.fire({
         icon: 'error',
         title: 'Error',
         text:
           error instanceof Error
             ? error.message
-            : 'Failed to record attendance automatically',
+            : 'Failed to process automatic attendance recording',
       });
     }
   };
@@ -661,42 +849,7 @@ export function useAttendance() {
       notes: recordForm.notes.trim() || undefined,
     };
 
-    try {
-      const response = await fetch('/api/attendance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newRecord),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save attendance');
-      }
-
-      const saved = await response.json();
-
-      setRecords((prev) => [...prev, saved]);
-      setRecordForm(createEmptyFormValues());
-      setIsRecordModalOpen(false);
-
-      const statusLabel =
-        recordForm.status === 'on-leave'
-          ? 'On Leave'
-          : recordForm.status.charAt(0).toUpperCase() +
-            recordForm.status.slice(1);
-
-      notifications.show({
-        color: 'green',
-        title: 'Attendance recorded',
-        message: `${trimmedName} marked as ${statusLabel}.`,
-      });
-    } catch (error) {
-      console.error('Error saving attendance:', error);
-      notifications.show({
-        color: 'red',
-        title: 'Error',
-        message: 'Failed to save attendance record',
-      });
-    }
+    createRecordMutation.mutate(newRecord);
   };
 
   const handleImportCSV = (file: File | null) => {
@@ -706,7 +859,7 @@ export function useAttendance() {
 
     const reader = new FileReader();
 
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const text = e.target?.result as string;
         const lines = text.split('\n').filter((line) => line.trim());
@@ -757,7 +910,7 @@ export function useAttendance() {
           return;
         }
 
-        const importedRecords: AttendanceRecord[] = [];
+        const importedRecords: Array<Omit<AttendanceRecord, 'id'>> = [];
         let successCount = 0;
         const errors: string[] = [];
 
@@ -804,8 +957,7 @@ export function useAttendance() {
               ? status
               : 'present';
 
-            const newRecord: AttendanceRecord = {
-              id: row.id || generateId(),
+            const newRecord = {
               employeeId: row.employeeid,
               employeeName: row.employeename,
               department: row.department || 'N/A',
@@ -833,45 +985,24 @@ export function useAttendance() {
         }
 
         if (importedRecords.length > 0) {
-          // Save to database via API
-          fetch('/api/attendance', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(importedRecords),
-          })
-            .then(async (response) => {
-              if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                console.error('API Error Response:', errorData);
-                throw new Error(
-                  errorData.details ||
-                    errorData.error ||
-                    'Failed to save attendance records to database'
-                );
-              }
-              return response.json();
-            })
-            .then((result) => {
-              // Update local state with saved records
-              setRecords((prev) => [...prev, ...result.records]);
-              alert(
-                `Successfully imported and saved ${successCount} attendance records to database`
-              );
-            })
-            .catch((error) => {
-              console.error('Error saving imported records:', error);
-              alert(
-                'Failed to save imported records to database. Error: ' +
-                  (error instanceof Error ? error.message : String(error))
-              );
-            });
+          // Use bulk mutation
+          try {
+            bulkCreateMutation.mutate(importedRecords);
+            alert(`Successfully imported ${successCount} attendance records`);
+          } catch (error) {
+            logger.error('Error saving imported records:', error);
+            alert(
+              'Failed to save imported records to database. Error: ' +
+                (error instanceof Error ? error.message : String(error))
+            );
+          }
         }
 
         if (errors.length > 0 && errors.length <= 10) {
-          console.error('Import errors:', errors);
+          logger.error('Import errors:', errors);
         }
       } catch (error) {
-        console.error('CSV import error:', error);
+        logger.error('CSV import error:', error);
         alert('Failed to import CSV file. Please check the file format.');
       }
     };

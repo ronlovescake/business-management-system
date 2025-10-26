@@ -8,6 +8,8 @@
 
 import { useState, useCallback } from 'react';
 import { notifications } from '@mantine/notifications';
+import { api } from '@/lib/api/client';
+import { LOADING_SPINNER_DELAY } from '@/constants/timeouts';
 import type { ModuleOperationStatus, ModuleInstallOptions } from '../types';
 
 interface UseModuleOperationsReturn {
@@ -59,17 +61,10 @@ export function useModuleOperations(): UseModuleOperationsReturn {
       try {
         updateStatus(moduleId, { operation: 'install', status: 'loading' });
 
-        const response = await fetch('/api/modules/install', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ moduleId, ...options }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.details || data.error || 'Installation failed');
-        }
+        await api.post<{ success: boolean; details?: string; error?: string }>(
+          '/api/modules/install',
+          { moduleId, ...options }
+        );
 
         updateStatus(moduleId, { status: 'success' });
 
@@ -104,19 +99,7 @@ export function useModuleOperations(): UseModuleOperationsReturn {
       try {
         updateStatus(moduleId, { operation: 'uninstall', status: 'loading' });
 
-        const response = await fetch('/api/modules/uninstall', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ moduleId }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            data.details || data.error || 'Uninstallation failed'
-          );
-        }
+        await api.post('/api/modules/uninstall', { moduleId });
 
         updateStatus(moduleId, { status: 'success' });
 
@@ -151,17 +134,7 @@ export function useModuleOperations(): UseModuleOperationsReturn {
       try {
         updateStatus(moduleId, { operation: 'update', status: 'loading' });
 
-        const response = await fetch('/api/modules/update', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ moduleId }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.details || data.error || 'Update failed');
-        }
+        await api.post('/api/modules/update', { moduleId });
 
         updateStatus(moduleId, { status: 'success' });
 
@@ -196,8 +169,11 @@ export function useModuleOperations(): UseModuleOperationsReturn {
       try {
         updateStatus(moduleId, { operation: 'enable', status: 'loading' });
 
-        // TODO: Implement enable endpoint or update config
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        // FUTURE: Implement enable endpoint (POST /api/modules/config/enable)
+        // Currently using mock delay for UI demonstration
+        await new Promise((resolve) =>
+          setTimeout(resolve, LOADING_SPINNER_DELAY)
+        );
 
         updateStatus(moduleId, { status: 'success' });
 
@@ -232,8 +208,11 @@ export function useModuleOperations(): UseModuleOperationsReturn {
       try {
         updateStatus(moduleId, { operation: 'disable', status: 'loading' });
 
-        // TODO: Implement disable endpoint or update config
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        // FUTURE: Implement disable endpoint (POST /api/modules/config/disable)
+        // Currently using mock delay for UI demonstration
+        await new Promise((resolve) =>
+          setTimeout(resolve, LOADING_SPINNER_DELAY)
+        );
 
         updateStatus(moduleId, { status: 'success' });
 

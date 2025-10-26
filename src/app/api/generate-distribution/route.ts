@@ -28,6 +28,7 @@ import path from 'path';
 import { PDFDocument } from 'pdf-lib';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
+import { SEARCH_DEBOUNCE_DELAY } from '@/constants/timeouts';
 
 interface Transaction {
   id?: number;
@@ -140,7 +141,9 @@ export async function POST(request: NextRequest) {
       });
 
       // Give a moment for fonts to load
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      await new Promise((resolve) =>
+        setTimeout(resolve, SEARCH_DEBOUNCE_DELAY)
+      );
 
       // Generate PDF (A6 landscape: 148mm x 105mm)
       const pdfBuffer = await page.pdf({

@@ -22,6 +22,8 @@ export class CashAdvanceService {
    */
   async findAll(): Promise<CashAdvanceRecord[]> {
     try {
+      // Empty object passed as filter to retrieve all records
+      // Type assertion needed due to BaseRepository's generic constraints
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return await cashAdvanceRepository.findMany({} as any);
     } catch (error) {
@@ -64,7 +66,8 @@ export class CashAdvanceService {
    */
   async create(data: CashAdvanceCreateInput): Promise<CashAdvanceRecord> {
     try {
-      // Type assertion needed due to Prisma Decimal type complexity
+      // Type assertion needed: Zod-validated input structure matches database schema
+      // but type system cannot verify due to BaseRepository's generic constraints
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return await cashAdvanceRepository.create(data as any);
     } catch (error) {
@@ -78,7 +81,8 @@ export class CashAdvanceService {
    */
   async createMany(data: CashAdvanceCreateInput[]): Promise<{ count: number }> {
     try {
-      // Type assertion needed due to Prisma Decimal type complexity
+      // Type assertion needed: Zod-validated input array matches database schema
+      // but type system cannot verify due to BaseRepository's generic constraints
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return await cashAdvanceRepository.createMany(data as any);
     } catch (error) {
@@ -107,7 +111,8 @@ export class CashAdvanceService {
       // Remove id from update data
       const { id: _, ...updateData } = data;
 
-      // Type assertion needed due to Prisma Decimal type complexity
+      // Type assertion needed: Update data structure matches database schema
+      // but type system cannot verify due to BaseRepository's generic constraints
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return await cashAdvanceRepository.update(id, updateData as any);
     } catch (error) {
@@ -154,6 +159,8 @@ export class CashAdvanceService {
    */
   async deleteAll(): Promise<{ count: number }> {
     try {
+      // Empty object passed as filter to retrieve all records
+      // Type assertion needed due to BaseRepository's generic constraints
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const cashAdvances = await cashAdvanceRepository.findMany({} as any);
       let count = 0;

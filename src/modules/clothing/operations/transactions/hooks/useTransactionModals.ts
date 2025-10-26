@@ -13,6 +13,7 @@
 import { useState, useCallback } from 'react';
 import { notifications } from '@mantine/notifications';
 import { TransactionService } from '../services/TransactionService';
+import { api } from '@/lib/api/client';
 import { logger } from '@/lib/logger';
 import type {
   TransactionData,
@@ -139,19 +140,10 @@ export function useTransactionModals(
   const saveTransactionToDatabase = useCallback(
     async (transaction: TransactionData) => {
       try {
-        const response = await fetch('/api/transactions', {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(transaction),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to save transaction to database');
-        }
-
-        return await response.json();
+        return await api.patch<TransactionData>(
+          '/api/transactions',
+          transaction
+        );
       } catch (error) {
         logger.error('Error saving transaction:', error);
         throw error;
@@ -278,17 +270,17 @@ export function useTransactionModals(
       });
 
       // Fetch customers for invoice
-      const customersResponse = await fetch('/api/customers');
       let customersData: Record<string, unknown>[] = [];
-
-      if (customersResponse.ok) {
-        customersData = (await customersResponse.json()) as Record<
-          string,
-          unknown
-        >[];
+      try {
+        customersData =
+          await api.get<Record<string, unknown>[]>('/api/customers');
+      } catch {
+        // Continue without customer data if it fails
+        logger.warn('Failed to fetch customers data');
       }
 
       // Call invoice generation API
+      // Note: Using raw fetch for blob response (API client doesn't handle blobs yet)
       const response = await fetch('/api/generate-invoice', {
         method: 'POST',
         headers: {
@@ -471,6 +463,7 @@ export function useTransactionModals(
       const transformed =
         TransactionService.transformToPackingListTransactions(eligible);
 
+      // Note: Using raw fetch for blob response (API client doesn't handle blobs yet)
       const response = await fetch('/api/generate-packing-list', {
         method: 'POST',
         headers: {
@@ -629,6 +622,7 @@ export function useTransactionModals(
         (t) => t['Order Status'] === 'Warehouse'
       );
 
+      // Note: Using raw fetch for blob response (API client doesn't handle blobs yet)
       const response = await fetch('/api/generate-distribution', {
         method: 'POST',
         headers: {

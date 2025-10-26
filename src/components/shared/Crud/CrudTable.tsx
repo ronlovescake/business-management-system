@@ -24,6 +24,7 @@
 
 import { useMemo, useCallback } from 'react';
 import type { ReactNode } from 'react';
+import { Skeleton, Stack } from '@mantine/core';
 import { DataTable } from '@/components/ui/DataTable';
 import type { GridColumn, Item, GridCell } from '@glideapps/glide-data-grid';
 import { GridCellKind } from '@glideapps/glide-data-grid';
@@ -278,7 +279,13 @@ export function CrudTable<T extends Record<string, unknown>>({
   }, [statsCards]);
 
   if (loading) {
-    return <div>Loading...</div>; // TODO: Add proper loading skeleton
+    return (
+      <Stack gap="md" p="md">
+        <Skeleton height={40} radius="sm" />
+        <Skeleton height={300} radius="sm" />
+        <Skeleton height={50} radius="sm" />
+      </Stack>
+    );
   }
 
   if (data.length === 0) {

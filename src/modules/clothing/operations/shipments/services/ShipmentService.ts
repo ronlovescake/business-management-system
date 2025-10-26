@@ -17,10 +17,8 @@ import type {
   ShipmentStatistics,
   ValidationResult,
 } from '../types/shipment.types';
-import {
-  API_REVALIDATION_SECONDS,
-  FORM_VALIDATION_RULES,
-} from '../types/shipment.types';
+import { FORM_VALIDATION_RULES } from '../types/shipment.types';
+import { api } from '@/lib/api/client';
 import { logger } from '@/lib/logger';
 
 /**
@@ -294,15 +292,7 @@ export class ShipmentService {
    * @throws Error if fetch fails
    */
   static async loadShipments(): Promise<ShipmentData[]> {
-    const response = await fetch('/api/shipments', {
-      next: { revalidate: API_REVALIDATION_SECONDS },
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch shipments');
-    }
-
-    return response.json();
+    return await api.get<ShipmentData[]>('/api/shipments');
   }
 
   /**
@@ -337,17 +327,10 @@ export class ShipmentService {
     };
 
     // Send to API
-    const response = await fetch('/api/shipments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newShipment),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to create shipment');
-    }
-
-    const createdShipment = await response.json();
+    const createdShipment = await api.post<ShipmentData>(
+      '/api/shipments',
+      newShipment
+    );
 
     // Show success notification
     notifications.show({
@@ -397,17 +380,10 @@ export class ShipmentService {
     };
 
     // Send to API
-    const response = await fetch(`/api/shipments/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updatedShipment),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to update shipment');
-    }
-
-    const updatedShipmentFromAPI = await response.json();
+    const updatedShipmentFromAPI = await api.put<ShipmentData>(
+      `/api/shipments/${id}`,
+      updatedShipment
+    );
 
     // Show success notification
     notifications.show({
@@ -487,16 +463,7 @@ export class ShipmentService {
   static async bulkImportShipments(
     shipments: ShipmentData[]
   ): Promise<ShipmentData[]> {
-    const response = await fetch('/api/shipments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(shipments),
-      cache: 'no-store', // Bypass cache for mutations
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to save shipments to database');
-    }
+    await api.post('/api/shipments', shipments);
 
     // Show success notification
     notifications.show({

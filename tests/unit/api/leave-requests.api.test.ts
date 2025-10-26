@@ -1,5 +1,6 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { mockNextRequest } from '@/core/testing/test-helpers';
 
 // Mock Prisma before importing the route
 const mockPrisma = vi.hoisted(() => ({
@@ -753,7 +754,10 @@ describe('Leave Requests API - DELETE', () => {
   it('should delete all leave requests', async () => {
     mockPrisma.leaveRequest.deleteMany.mockResolvedValue({ count: 5 });
 
-    const response = await DELETE();
+    const request = mockNextRequest({
+      method: 'DELETE',
+    }) as unknown as NextRequest;
+    const response = await DELETE(request);
     const data = await response.json();
 
     expect(response.status).toBe(200);
@@ -767,7 +771,10 @@ describe('Leave Requests API - DELETE', () => {
       new Error('Database error')
     );
 
-    const response = await DELETE();
+    const request = mockNextRequest({
+      method: 'DELETE',
+    }) as unknown as NextRequest;
+    const response = await DELETE(request);
     const data = await response.json();
 
     expect(response.status).toBe(500);

@@ -448,8 +448,7 @@ export function DataTable<T = Record<string, unknown>>({
             }}
             verticalBorder={false}
             getCellsForSelection={true}
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            customRenderers={customRenderers as any}
+            customRenderers={customRenderers}
           />
         </Card>
 

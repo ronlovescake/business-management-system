@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { NextRequest } from 'next/server';
 import { Prisma } from '@prisma/client';
+import { mockNextRequest } from '@/core/testing/test-helpers';
 
 const { mockPrisma } = vi.hoisted(() => {
   return {
@@ -81,7 +82,8 @@ describe('13th Month Pay API', () => {
         mockRecords
       );
 
-      const response = await GET();
+      const request = mockNextRequest() as unknown as NextRequest;
+      const response = await GET(request);
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -96,7 +98,8 @@ describe('13th Month Pay API', () => {
         mockRecords
       );
 
-      const response = await GET();
+      const request = mockNextRequest() as unknown as NextRequest;
+      const response = await GET(request);
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -111,7 +114,8 @@ describe('13th Month Pay API', () => {
         mockRecords[1],
       ]);
 
-      const response = await GET();
+      const request = mockNextRequest() as unknown as NextRequest;
+      const response = await GET(request);
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -126,7 +130,8 @@ describe('13th Month Pay API', () => {
         mockRecords
       );
 
-      await GET();
+      const request = mockNextRequest() as unknown as NextRequest;
+      await GET(request);
 
       expect(mockPrisma.thirteenthMonthPayRecord.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -140,7 +145,8 @@ describe('13th Month Pay API', () => {
         new Error('Database connection failed')
       );
 
-      const response = await GET();
+      const request = mockNextRequest() as unknown as NextRequest;
+      const response = await GET(request);
       const data = await response.json();
 
       expect(response.status).toBe(500);

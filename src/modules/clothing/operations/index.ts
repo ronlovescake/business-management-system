@@ -1,35 +1,28 @@
 /**
  * Operations Workspace Barrel Export
  *
- * Consolidates all operations-related modules.
+ * IMPORTANT: Due to naming conflicts between modules (CSVImportResult, ValidationResult,
+ * IconComponent, PriceTier, etc.), this file intentionally does NOT re-export everything.
+ *
+ * Always import directly from specific modules to avoid ambiguity:
  *
  * @example
- * import { CustomerService, ProductService, TransactionService } from '@/modules/clothing/operations';
+ * // ✅ Correct - Import from specific module
+ * import { CustomerService } from '@/modules/clothing/operations/customers';
+ * import { ProductService } from '@/modules/clothing/operations/products';
+ * import type { CSVImportResult } from '@/modules/clothing/operations/customers';
+ *
+ * // ❌ Incorrect - Ambiguous due to type conflicts
+ * import { CSVImportResult } from '@/modules/clothing/operations';
  */
 
-// Customers Module
-export * from './customers';
-
-// Dashboard Module
-export * from './dashboard';
-
-// Due Dates Module
-export * from './due-dates';
-
-// Prices Module
-export * from './prices';
-
-// Products Module
-export * from './products';
-
-// Settings Module
-export * from './settings';
-
-// Shipments Module
-export * from './shipments';
-
-// Sorting Distribution Module
-export * from './sorting-distribution';
-
-// Transactions Module
-export * from './transactions';
+// Re-export only the module configs for workspace registration
+export { customersModule } from './customers/module.config';
+export { dashboardModule } from './dashboard/module.config';
+export { dueDatesModule } from './due-dates/module.config';
+export { pricesModule } from './prices/module.config';
+export { productsModule } from './products/module.config';
+export { settingsModule } from './settings/module.config';
+export { shipmentsModule } from './shipments/module.config';
+export { sortingDistributionModule } from './sorting-distribution/module.config';
+export { transactionsModule } from './transactions/module.config';

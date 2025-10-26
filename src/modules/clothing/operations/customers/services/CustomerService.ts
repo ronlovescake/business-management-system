@@ -7,6 +7,7 @@ import type {
   CustomerWithSearchIndex,
   CustomerStatusOption,
 } from '../types/customer.types';
+import { api } from '@/lib/api/client';
 import { logger } from '@/lib/logger';
 
 /**
@@ -380,13 +381,7 @@ class CustomerService {
    */
   static async loadCustomers(): Promise<CustomerData[]> {
     try {
-      const res = await fetch('/api/customers', {
-        next: { revalidate: 30 },
-      });
-      if (!res.ok) {
-        throw new Error('Failed to load customers');
-      }
-      return await res.json();
+      return await api.get<CustomerData[]>('/api/customers');
     } catch (error) {
       logger.error('Failed to load customers', error);
       throw error;
@@ -398,15 +393,7 @@ class CustomerService {
    */
   static async addCustomer(customer: CustomerData): Promise<void> {
     try {
-      const res = await fetch('/api/customers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(customer),
-      });
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error(json?.error || 'Failed to add customer');
-      }
+      await api.post('/api/customers', customer);
     } catch (error) {
       logger.error('Failed to add customer', error);
       throw error;
@@ -427,33 +414,16 @@ class CustomerService {
     }>;
   }> {
     try {
-      const res = await fetch('/api/customers', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(customers),
-        cache: 'no-store',
-      });
-
-      const json = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        // Log the full error details for debugging
-        logger.error('Server returned error:', {
-          status: res.status,
-          statusText: res.statusText,
-          error: json?.error,
-          details: json?.details,
-          fullResponse: json,
-        });
-
-        // Show the actual error details from the server
-        const errorMessage =
-          json?.details ||
-          json?.error ||
-          `Failed to update customers (${res.status})`;
-
-        throw new Error(errorMessage);
-      }
+      const json = await api.put<{
+        created: number;
+        updated: number;
+        skipped: number;
+        skippedDetails?: Array<{
+          row: number;
+          customerName: string;
+          issues: Record<string, string>;
+        }>;
+      }>('/api/customers', customers);
 
       // Log skipped customers if any
       if (json.skipped > 0 && json.skippedDetails) {
@@ -463,41 +433,33 @@ class CustomerService {
         );
 
         // Also log to browser console for visibility
-        /* eslint-disable no-console */
-        console.warn(`\n${'='.repeat(80)}`);
-        console.warn(
-          `⚠️  ${json.skipped} CUSTOMERS WERE SKIPPED DURING IMPORT`
-        );
-        console.warn(`${'='.repeat(80)}\n`);
+        logger.warn(`\n${'='.repeat(80)}`);
+        logger.warn(`⚠️  ${json.skipped} CUSTOMERS WERE SKIPPED DURING IMPORT`);
+        logger.warn(`${'='.repeat(80)}\n`);
 
-        console.group(
-          `⚠️ ${json.skipped} customers were SKIPPED during import`
-        );
+        logger.group(`⚠️ ${json.skipped} customers were SKIPPED during import`);
         json.skippedDetails.forEach(
           (item: {
             row: number;
             customerName: string;
             issues: Record<string, string>;
           }) => {
-            console.group(`❌ Row ${item.row}: ${item.customerName}`);
+            logger.group(`❌ Row ${item.row}: ${item.customerName}`);
             Object.entries(item.issues).forEach(([field, message]) => {
-              console.log(`  • ${field}: ${message}`);
+              logger.debug('CustomerService', `  • ${field}: ${message}`);
             });
-            console.groupEnd();
+            logger.groupEnd();
           }
         );
-        console.groupEnd();
+        logger.groupEnd();
 
-        console.warn(`\n${'='.repeat(80)}\n`);
-        /* eslint-enable no-console */
+        logger.warn(`\n${'='.repeat(80)}\n`);
       } else if (json.skipped > 0) {
         // If we have skipped count but no details
-        /* eslint-disable no-console */
-        console.warn(
+        logger.warn(
           `⚠️ ${json.skipped} customers were skipped but no details available`
         );
-        console.log('Response:', json);
-        /* eslint-enable no-console */
+        logger.debug('CustomerService', 'Response:', json);
       }
 
       return {

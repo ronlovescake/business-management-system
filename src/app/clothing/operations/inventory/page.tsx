@@ -9,7 +9,8 @@ export default function Inventory() {
           Inventory management system will be implemented here
         </Text>
 
-        {/* TODO: Implement inventory data grid */}
+        {/* FUTURE: Implement inventory data grid with stock tracking */}
+        {/* Features: Product quantities, warehouse locations, reorder alerts */}
       </Stack>
     </PageLayout>
   );

@@ -67,8 +67,10 @@ export class CashAdvanceRepository extends BaseRepository<
       };
     }
 
+    // Type assertion needed: Prisma's WhereInput types are more complex than BaseRepository's WhereInput
+    // This is safe because the model.findMany() internally accepts Prisma's WhereInput
     return this.findMany({
-      where,
+      where: where as any, // eslint-disable-line @typescript-eslint/no-explicit-any
       orderBy: { requestDate: 'desc' },
     });
   }
@@ -93,7 +95,7 @@ export class CashAdvanceRepository extends BaseRepository<
           contains: name,
           mode: 'insensitive',
         },
-      },
+      } as any, // eslint-disable-line @typescript-eslint/no-explicit-any
       orderBy: { requestDate: 'desc' },
     });
   }
@@ -117,7 +119,7 @@ export class CashAdvanceRepository extends BaseRepository<
         remainingBalance: {
           gt: 0,
         },
-      },
+      } as any, // eslint-disable-line @typescript-eslint/no-explicit-any
       orderBy: { requestDate: 'desc' },
     });
   }

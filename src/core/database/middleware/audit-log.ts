@@ -17,6 +17,7 @@
  */
 
 import type { PrismaClient } from '@prisma/client';
+import { logger } from '@/lib/logger';
 
 /**
  * Gets a Prisma model delegate for dynamic model access
@@ -76,8 +77,7 @@ export function applyAuditLogMiddleware(
           before = await delegate.findMany?.({ where: params.args?.where });
         }
       } catch (error) {
-        // eslint-disable-next-line no-console
-        console.warn(
+        logger.warn(
           '⚠️ Unable to capture "before" snapshot for audit log.',
           error
         );
@@ -110,8 +110,7 @@ export function applyAuditLogMiddleware(
           },
         });
       } catch (error) {
-        // eslint-disable-next-line no-console
-        console.warn('⚠️ Failed to persist audit log entry.', error);
+        logger.warn('⚠️ Failed to persist audit log entry.', error);
       }
     }
 

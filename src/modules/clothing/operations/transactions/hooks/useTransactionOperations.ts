@@ -16,6 +16,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { notifications } from '@mantine/notifications';
 import type { Item } from '@glideapps/glide-data-grid';
 import { TransactionService } from '../services/TransactionService';
+import { api } from '@/lib/api/client';
 import { logger } from '@/lib/logger';
 import type { TransactionData, PriceTier } from '../types/transaction.types';
 
@@ -159,19 +160,10 @@ export function useTransactionOperations(
   const saveTransactionToDatabase = useCallback(
     async (transaction: TransactionData) => {
       try {
-        const response = await fetch('/api/transactions', {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(transaction),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to save transaction to database');
-        }
-
-        return await response.json();
+        return await api.patch<TransactionData>(
+          '/api/transactions',
+          transaction
+        );
       } catch (error) {
         logger.error('Error saving transaction:', error);
         throw error;
@@ -801,33 +793,11 @@ export function useTransactionOperations(
     const newEmptyRows = TransactionService.generateEmptyRows(10);
 
     try {
-      const response = await fetch('/api/transactions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newEmptyRows),
-      });
-
-      if (!response.ok) {
-        const errorData = (await response.json()) as {
-          details?: string;
-          error?: string;
-        };
-        logger.error('API error response:', errorData);
-        throw new Error(
-          errorData.details ||
-            errorData.error ||
-            'Failed to save empty rows to database'
-        );
-      }
+      await api.post<{ count: number }>('/api/transactions', newEmptyRows);
 
       // Reload transactions
-      const reloadResponse = await fetch('/api/transactions');
-      if (reloadResponse.ok) {
-        const data = (await reloadResponse.json()) as TransactionData[];
-        bulkUpdate(data);
-      }
+      const data = await api.get<TransactionData[]>('/api/transactions');
+      bulkUpdate(data);
 
       notifications.show({
         title: 'Success',
@@ -872,27 +842,15 @@ export function useTransactionOperations(
         }
 
         // Send to API
-        const response = await fetch('/api/transactions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(importedTransactions),
-        });
-
-        if (!response.ok) {
-          throw new Error(`API error: ${response.statusText}`);
-        }
-
-        const result = (await response.json()) as { count: number };
+        const result = await api.post<{ count: number }>(
+          '/api/transactions',
+          importedTransactions
+        );
 
         // Reload transactions
-        const reloadResponse = await fetch('/api/transactions');
-        if (reloadResponse.ok) {
-          const reloadedData =
-            (await reloadResponse.json()) as TransactionData[];
-          bulkUpdate(reloadedData);
-        }
+        const reloadedData =
+          await api.get<TransactionData[]>('/api/transactions');
+        bulkUpdate(reloadedData);
 
         notifications.show({
           title: '✅ Import Successful',

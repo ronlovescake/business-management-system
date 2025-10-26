@@ -27,6 +27,7 @@ import {
   ScrollArea,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
+import { api } from '@/lib/api/client';
 import Swal from 'sweetalert2';
 import {
   IconDatabase,
@@ -131,8 +132,9 @@ export function BackupRestoreTab() {
   const fetchBackups = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/backup');
-      const data = await response.json();
+      const data = await api.get<{ success: boolean; backups?: Backup[] }>(
+        '/api/backup'
+      );
 
       if (data.success) {
         setBackups(data.backups || []);
@@ -156,21 +158,19 @@ export function BackupRestoreTab() {
   const handleCreateBackup = async () => {
     setCreating(true);
     try {
-      const response = await fetch('/api/backup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          format: backupFormat,
-          includeSoftDeleted,
-        }),
+      const data = await api.post<{
+        success: boolean;
+        backup?: { totalSize: number };
+        error?: string;
+      }>('/api/backup', {
+        format: backupFormat,
+        includeSoftDeleted,
       });
-
-      const data = await response.json();
 
       if (data.success) {
         notifications.show({
           title: '✅ Backup Created',
-          message: `Backup saved successfully (${(data.backup.totalSize / 1024 / 1024).toFixed(2)} MB)`,
+          message: `Backup saved successfully${data.backup ? ` (${(data.backup.totalSize / 1024 / 1024).toFixed(2)} MB)` : ''}`,
           color: 'green',
         });
         await fetchBackups();
@@ -212,11 +212,9 @@ export function BackupRestoreTab() {
     }
 
     try {
-      const response = await fetch(`/api/backup?timestamp=${timestamp}`, {
-        method: 'DELETE',
-      });
-
-      const data = await response.json();
+      const data = await api.delete<{ success: boolean; error?: string }>(
+        `/api/backup?timestamp=${encodeURIComponent(timestamp)}`
+      );
 
       if (data.success) {
         notifications.show({
@@ -339,18 +337,26 @@ export function BackupRestoreTab() {
         return;
       }
 
-      const response = await fetch('/api/restore', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          timestamp: selectedBackup.timestamp,
-          file: jsonFile,
-          tables: selectedTables,
-          forceOverwrite,
-        }),
+      const data = await api.post<{
+        success: boolean;
+        results?: Record<
+          string,
+          {
+            count: number;
+            attempted?: number;
+            skipped?: number;
+            beforeCount?: number;
+            afterCount?: number;
+            error?: string;
+          }
+        >;
+        error?: string;
+      }>('/api/restore', {
+        timestamp: selectedBackup.timestamp,
+        file: jsonFile,
+        tables: selectedTables,
+        forceOverwrite,
       });
-
-      const data = await response.json();
 
       if (data.success) {
         const results = data.results as Record<
@@ -428,8 +434,10 @@ export function BackupRestoreTab() {
   // Fetch soft-deleted records
   const fetchDeletedRecords = async () => {
     try {
-      const response = await fetch(`/api/restore?table=${selectedTable}`);
-      const data = await response.json();
+      const data = await api.get<{
+        success: boolean;
+        records?: DeletedRecord[];
+      }>(`/api/restore?table=${encodeURIComponent(selectedTable)}`);
 
       if (data.success) {
         setDeletedRecords(data.records || []);
@@ -451,16 +459,14 @@ export function BackupRestoreTab() {
     }
 
     try {
-      const response = await fetch('/api/restore', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          table: selectedTable,
-          ids: selectedRecords,
-        }),
+      const data = await api.patch<{
+        success: boolean;
+        count?: number;
+        error?: string;
+      }>('/api/restore', {
+        table: selectedTable,
+        ids: selectedRecords,
       });
-
-      const data = await response.json();
 
       if (data.success) {
         notifications.show({

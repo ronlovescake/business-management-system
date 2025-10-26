@@ -14,6 +14,7 @@ import { useDataTable } from '@/components/ui';
 import { TransactionService } from '../services/TransactionService';
 import { ALL_STATUS_CONTROLLED_STATUSES } from '../types/transaction.types';
 import { queryKeys } from '@/lib/queryKeys';
+import { api } from '@/lib/api/client';
 import { logger } from '@/lib/logger';
 import type {
   TransactionData,
@@ -114,17 +115,8 @@ export function useTransactionsData(): UseTransactionsDataReturn {
         queryKey: queryKeys.customers.lists(),
         queryFn: async () => {
           try {
-            const response = await fetch('/api/customers', {
-              next: { revalidate: 30 } as never,
-            });
-            if (!response.ok) {
-              logger.warn('Could not fetch customers from API');
-              return [];
-            }
-            const customersData = (await response.json()) as Record<
-              string,
-              unknown
-            >[];
+            const customersData =
+              await api.get<Record<string, unknown>[]>('/api/customers');
             // Extract customer names from the API data
             return customersData
               .map((customer) => {
@@ -149,14 +141,7 @@ export function useTransactionsData(): UseTransactionsDataReturn {
         queryKey: queryKeys.prices.lists(),
         queryFn: async () => {
           try {
-            const response = await fetch('/api/prices', {
-              next: { revalidate: 30 } as never,
-            });
-            if (!response.ok) {
-              logger.error('Failed to fetch prices data');
-              return [];
-            }
-            return (await response.json()) as PriceTier[];
+            return await api.get<PriceTier[]>('/api/prices');
           } catch (error) {
             logger.error('Error loading product codes:', error);
             return [];
@@ -169,14 +154,7 @@ export function useTransactionsData(): UseTransactionsDataReturn {
         queryKey: queryKeys.products.lists(),
         queryFn: async () => {
           try {
-            const response = await fetch('/api/products', {
-              next: { revalidate: 30 } as never,
-            });
-            if (!response.ok) {
-              logger.error('Failed to fetch products data');
-              return [];
-            }
-            return (await response.json()) as Record<string, unknown>[];
+            return await api.get<Record<string, unknown>[]>('/api/products');
           } catch (error) {
             logger.error('Error loading products:', error);
             return [];
@@ -189,14 +167,7 @@ export function useTransactionsData(): UseTransactionsDataReturn {
         queryKey: queryKeys.shipments.lists(),
         queryFn: async () => {
           try {
-            const response = await fetch('/api/shipments', {
-              next: { revalidate: 30 } as never,
-            });
-            if (!response.ok) {
-              logger.error('Failed to fetch shipments data');
-              return [];
-            }
-            return (await response.json()) as Record<string, unknown>[];
+            return await api.get<Record<string, unknown>[]>('/api/shipments');
           } catch (error) {
             logger.error('Error loading shipments:', error);
             return [];
@@ -231,7 +202,9 @@ export function useTransactionsData(): UseTransactionsDataReturn {
 
     // 🚀 PERFORMANCE: Use Set for O(n) deduplication
     const codes = Array.from(
-      new Set(priceTiersData.map((price) => price['Product Code']).filter(Boolean))
+      new Set(
+        priceTiersData.map((price) => price['Product Code']).filter(Boolean)
+      )
     ).sort();
 
     return {

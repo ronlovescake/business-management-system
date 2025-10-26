@@ -17,11 +17,15 @@ import { vi } from 'vitest';
  *   },
  * });
  */
-export function mockPrismaClient(overrides = {}) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mockPrismaClient(overrides: Record<string, any> = {}): any {
   return {
     $connect: vi.fn(),
     $disconnect: vi.fn(),
-    $transaction: vi.fn((callback) => callback(mockPrismaClient(overrides))),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    $transaction: vi.fn((callback: (prisma: any) => any) =>
+      callback(mockPrismaClient(overrides))
+    ),
     ...overrides,
   };
 }
@@ -78,6 +82,7 @@ export function mockNextRequest(
  *   create: vi.fn().mockResolvedValue(mockExpense),
  * });
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function mockService<T>(methods: Record<string, any>) {
   return methods as T;
 }

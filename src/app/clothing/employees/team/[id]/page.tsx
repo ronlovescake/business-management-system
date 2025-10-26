@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { logger } from '@/lib/logger';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Stack,
@@ -101,7 +102,7 @@ export default function EmployeeDetailPage() {
       const base64 = await convertFileToBase64(file);
       await handleProfilePhotoUpload(base64);
     } catch (error) {
-      console.error('Failed to upload profile photo:', error);
+      logger.error('Failed to upload profile photo:', error);
       alert('Failed to upload profile photo. Please try again.');
     }
   };

@@ -1,4 +1,8 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { logger } from '@/lib/logger';
+import { api } from '@/lib/api/client';
+import { queryKeys } from '@/lib/queryKeys';
 import type { Payroll, PayrollFormData } from '../types';
 import { getCurrentDateISO } from '@/utils/date';
 import Swal from 'sweetalert2';
@@ -19,9 +23,9 @@ const normalizeIdentifier = (value: string | undefined | null) =>
   (value ?? '').toString().trim().replace(/\s+/g, ' ').toLowerCase();
 
 export function usePayroll() {
+  const queryClient = useQueryClient();
+
   // State Management
-  const [payrolls, setPayrolls] = useState<Payroll[]>([]);
-  const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState<EmployeeDirectoryEntry[]>([]);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -30,6 +34,17 @@ export function usePayroll() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingPayroll, setEditingPayroll] = useState<Payroll | null>(null);
   const [isGeneratingPayroll, setIsGeneratingPayroll] = useState(false);
+  const [isSyncingLwop, setIsSyncingLwop] = useState(false);
+
+  // Filters for cache key
+  const filters = useMemo(
+    () => ({
+      search: searchQuery,
+      status: statusFilter,
+      period: payPeriodFilter,
+    }),
+    [searchQuery, statusFilter, payPeriodFilter]
+  );
 
   const resolveEmployeeRecord = useCallback(
     (identifier: string | undefined | null) => {
@@ -58,61 +73,59 @@ export function usePayroll() {
     [employees]
   );
 
-  // Fetch payrolls from API
-  useEffect(() => {
-    fetchPayrolls();
-  }, []);
-
+  // Fetch employees for directory
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        const response = await fetch('/api/employees');
-        if (!response.ok) {
-          throw new Error('Failed to load employees');
-        }
-        const data = await response.json();
+        const data = await api.get<unknown[]>('/api/employees');
         const toOptionalNumber = (value: unknown) => {
           const parsed = Number(value);
           return Number.isFinite(parsed) ? parsed : undefined;
         };
         const directory = Array.isArray(data)
-          ? data.map((item) => ({
-              id:
-                item.id !== undefined && item.id !== null
-                  ? String(item.id)
-                  : '',
-              employeeId: item.employeeId,
-              name:
-                item.name ?? `${item.firstName ?? ''} ${item.lastName ?? ''}`,
-              firstName: item.firstName ?? null,
-              lastName: item.lastName ?? null,
-              sssMonthlyContribution:
-                toOptionalNumber(item.sssMonthlyContribution) ?? null,
-              philHealthMonthlyContribution:
-                toOptionalNumber(item.philHealthMonthlyContribution) ?? null,
-              pagibigMonthlyContribution:
-                toOptionalNumber(item.pagibigMonthlyContribution) ?? null,
-              taxMonthlyContribution:
-                toOptionalNumber(item.taxMonthlyContribution) ?? null,
-            }))
+          ? data.map((item: unknown) => {
+              const record = item as Record<string, unknown>;
+              return {
+                id:
+                  record.id !== undefined && record.id !== null
+                    ? String(record.id)
+                    : '',
+                employeeId: String(record.employeeId ?? ''),
+                name:
+                  record.name ??
+                  `${record.firstName ?? ''} ${record.lastName ?? ''}`,
+                firstName: record.firstName ?? null,
+                lastName: record.lastName ?? null,
+                sssMonthlyContribution:
+                  toOptionalNumber(record.sssMonthlyContribution) ?? null,
+                philHealthMonthlyContribution:
+                  toOptionalNumber(record.philHealthMonthlyContribution) ??
+                  null,
+                pagibigMonthlyContribution:
+                  toOptionalNumber(record.pagibigMonthlyContribution) ?? null,
+                taxMonthlyContribution:
+                  toOptionalNumber(record.taxMonthlyContribution) ?? null,
+              };
+            })
           : [];
-        setEmployees(directory);
+        setEmployees(directory as EmployeeDirectoryEntry[]);
       } catch (error) {
-        console.error('Error fetching employees for payroll directory:', error);
+        logger.error('Error fetching employees for payroll directory:', error);
       }
     };
 
     fetchEmployees();
   }, []);
 
-  const fetchPayrolls = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/payroll');
-      if (!response.ok) {
-        throw new Error('Failed to fetch payrolls');
-      }
-      const data = await response.json();
+  // Fetch payrolls with React Query
+  const {
+    data: payrolls = [],
+    isLoading: loading,
+    error,
+  } = useQuery({
+    queryKey: queryKeys.payroll.list(filters),
+    queryFn: async () => {
+      const data = await api.get<Record<string, unknown>[]>('/api/payroll');
 
       const toNumber = (value: unknown): number => {
         if (value === null || value === undefined) {
@@ -170,10 +183,10 @@ export function usePayroll() {
         const netPay = toNumber(record.netPay);
 
         return {
-          id: record.id,
-          employee: record.employeeName,
-          employeeId: record.employeeId ?? null,
-          payPeriod: record.payPeriod,
+          id: String(record.id ?? ''),
+          employee: String(record.employeeName ?? ''),
+          employeeId: record.employeeId ? String(record.employeeId) : null,
+          payPeriod: String(record.payPeriod ?? ''),
           basicSalary,
           allowance,
           overtime,
@@ -192,20 +205,22 @@ export function usePayroll() {
             totalDeductions > 0 ? totalDeductions : derivedTotalDeductions,
           netPay: netPay > 0 ? netPay : derivedNetPay,
           status: record.status as 'pending' | 'approved' | 'paid',
-          bankGcash: record.bankGcash || '',
+          bankGcash: String(record.bankGcash ?? ''),
           approvedBy: record.approvedBy,
           approvedDate: record.approvedDate,
           paidDate: record.paidDate,
         };
       });
 
-      setPayrolls(mappedPayrolls);
-    } catch (error) {
-      console.error('Error fetching payrolls:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      return mappedPayrolls as Payroll[];
+    },
+    staleTime: 30 * 1000,
+  });
+
+  // Log errors
+  if (error) {
+    logger.error('Error fetching payrolls:', error);
+  }
 
   // Computed Values
   const filteredPayrolls = useMemo(() => {
@@ -303,6 +318,200 @@ export function usePayroll() {
     };
   };
 
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/api/payroll?id=${id}`);
+      return id;
+    },
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.payroll.lists() });
+
+      const previous = queryClient.getQueryData<Payroll[]>(
+        queryKeys.payroll.list(filters)
+      );
+
+      if (previous) {
+        queryClient.setQueryData<Payroll[]>(
+          queryKeys.payroll.list(filters),
+          previous.filter((p) => p.id !== deletedId)
+        );
+      }
+
+      return { previous };
+    },
+    onError: (error, deletedId, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(
+          queryKeys.payroll.list(filters),
+          context.previous
+        );
+      }
+      logger.error('Error deleting payroll:', error);
+      alert('Failed to delete payroll record');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.payroll.lists() });
+    },
+  });
+
+  // Create mutation
+  const createMutation = useMutation({
+    mutationFn: async (payload: Record<string, unknown>) => {
+      const newPayroll = await api.post<Record<string, unknown>>(
+        '/api/payroll',
+        payload
+      );
+      return newPayroll;
+    },
+    onMutate: async (newPayroll) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.payroll.lists() });
+
+      const previous = queryClient.getQueryData<Payroll[]>(
+        queryKeys.payroll.list(filters)
+      );
+
+      if (previous) {
+        const tempPayroll = {
+          id: 'temp-' + Date.now(),
+          employee: String(newPayroll.employeeName ?? ''),
+          employeeId: newPayroll.employeeId
+            ? String(newPayroll.employeeId)
+            : null,
+          payPeriod: String(newPayroll.payPeriod ?? ''),
+          basicSalary: Number(newPayroll.basicSalary ?? 0),
+          allowance: Number(newPayroll.allowance ?? 0),
+          overtime: Number(newPayroll.overtime ?? 0),
+          bonuses: Number(newPayroll.bonuses ?? 0),
+          thirteenthMonth: Number(newPayroll.thirteenthMonth ?? 0),
+          grossPay: Number(newPayroll.grossPay ?? 0),
+          sss: Number(newPayroll.sss ?? 0),
+          philHealth: Number(newPayroll.philHealth ?? 0),
+          pagIbig: Number(newPayroll.pagIbig ?? 0),
+          tax: Number(newPayroll.tax ?? 0),
+          loans: Number(newPayroll.loans ?? 0),
+          cashAdvance: Number(newPayroll.cashAdvance ?? 0),
+          lwop: Number(newPayroll.lwop ?? 0),
+          absentsLates: Number(newPayroll.absentsLates ?? 0),
+          totalDeductions: Number(newPayroll.totalDeductions ?? 0),
+          netPay: Number(newPayroll.netPay ?? 0),
+          status: newPayroll.status as 'pending' | 'approved' | 'paid',
+          bankGcash: String(newPayroll.bankGcash ?? ''),
+        } as Payroll;
+
+        queryClient.setQueryData<Payroll[]>(queryKeys.payroll.list(filters), [
+          tempPayroll,
+          ...previous,
+        ]);
+      }
+
+      return { previous };
+    },
+    onError: (error, variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(
+          queryKeys.payroll.list(filters),
+          context.previous
+        );
+      }
+      logger.error('Error saving payroll:', error);
+      alert('Failed to save payroll record');
+    },
+    onSuccess: () => {
+      setIsFormOpen(false);
+      setEditingPayroll(null);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.payroll.lists() });
+    },
+  });
+
+  // Update mutation
+  const updateMutation = useMutation({
+    mutationFn: async (payload: { id: string } & Record<string, unknown>) => {
+      const updated = await api.put<Record<string, unknown>>(
+        '/api/payroll',
+        payload
+      );
+      return { id: payload.id, updated };
+    },
+    onMutate: async ({ id, ...updates }) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.payroll.lists() });
+
+      const previous = queryClient.getQueryData<Payroll[]>(
+        queryKeys.payroll.list(filters)
+      );
+
+      if (previous) {
+        queryClient.setQueryData<Payroll[]>(
+          queryKeys.payroll.list(filters),
+          previous.map((p) =>
+            p.id === id
+              ? {
+                  ...p,
+                  employee: String(updates.employeeName ?? p.employee),
+                  employeeId: updates.employeeId
+                    ? String(updates.employeeId)
+                    : p.employeeId,
+                  payPeriod: String(updates.payPeriod ?? p.payPeriod),
+                  basicSalary: Number(updates.basicSalary ?? p.basicSalary),
+                  allowance: Number(updates.allowance ?? p.allowance),
+                  overtime: Number(updates.overtime ?? p.overtime),
+                  bonuses: Number(updates.bonuses ?? p.bonuses),
+                  thirteenthMonth: Number(
+                    updates.thirteenthMonth ?? p.thirteenthMonth
+                  ),
+                  grossPay: Number(updates.grossPay ?? p.grossPay),
+                  sss: Number(updates.sss ?? p.sss),
+                  philHealth: Number(updates.philHealth ?? p.philHealth),
+                  pagIbig: Number(updates.pagIbig ?? p.pagIbig),
+                  tax: Number(updates.tax ?? p.tax),
+                  loans: Number(updates.loans ?? p.loans),
+                  cashAdvance: Number(updates.cashAdvance ?? p.cashAdvance),
+                  lwop: Number(updates.lwop ?? p.lwop),
+                  absentsLates: Number(updates.absentsLates ?? p.absentsLates),
+                  totalDeductions: Number(
+                    updates.totalDeductions ?? p.totalDeductions
+                  ),
+                  netPay: Number(updates.netPay ?? p.netPay),
+                  bankGcash: String(updates.bankGcash ?? p.bankGcash),
+                  status:
+                    (updates.status as 'pending' | 'approved' | 'paid') ??
+                    p.status,
+                  approvedBy:
+                    (updates.approvedBy as string | undefined) ?? p.approvedBy,
+                  approvedDate:
+                    (updates.approvedDate as string | undefined) ??
+                    p.approvedDate,
+                  paidDate:
+                    (updates.paidDate as string | undefined) ?? p.paidDate,
+                }
+              : p
+          )
+        );
+      }
+
+      return { previous };
+    },
+    onError: (error, variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(
+          queryKeys.payroll.list(filters),
+          context.previous
+        );
+      }
+      logger.error('Error updating payroll:', error);
+      alert('Failed to update payroll record');
+    },
+    onSuccess: () => {
+      setIsFormOpen(false);
+      setEditingPayroll(null);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.payroll.lists() });
+    },
+  });
+
   // Event Handlers
   const handleAddPayroll = async () => {
     if (isGeneratingPayroll) {
@@ -312,26 +521,14 @@ export function usePayroll() {
     setIsGeneratingPayroll(true);
 
     try {
-      const response = await fetch('/api/payroll/generate', {
-        method: 'POST',
-      });
-
-      let result: unknown = null;
-      try {
-        result = await response.json();
-      } catch (parseError) {
-        console.error(
-          'Failed to parse payroll generation response:',
-          parseError
-        );
-      }
+      const result = await api.post<unknown>('/api/payroll/generate');
 
       const normalized =
         typeof result === 'object' && result !== null
           ? (result as Record<string, unknown>)
           : {};
 
-      if (!response.ok || normalized.success === false) {
+      if (normalized.success === false) {
         const message =
           typeof normalized.message === 'string'
             ? normalized.message
@@ -341,7 +538,8 @@ export function usePayroll() {
         throw new Error(message);
       }
 
-      await fetchPayrolls();
+      // Invalidate cache to refetch
+      queryClient.invalidateQueries({ queryKey: queryKeys.payroll.lists() });
 
       if (typeof normalized.message === 'string' && normalized.message.trim()) {
         alert(normalized.message);
@@ -357,7 +555,7 @@ export function usePayroll() {
         error instanceof Error && error.message
           ? error.message
           : 'Failed to generate payroll. Please try again.';
-      console.error('Error generating payroll:', error);
+      logger.error('Error generating payroll:', error);
       alert(message);
     } finally {
       setIsGeneratingPayroll(false);
@@ -371,21 +569,7 @@ export function usePayroll() {
 
   const handleDeletePayroll = async (id: string) => {
     if (confirm('Are you sure you want to delete this payroll record?')) {
-      try {
-        const response = await fetch(`/api/payroll?id=${id}`, {
-          method: 'DELETE',
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to delete payroll');
-        }
-
-        // Remove from local state
-        setPayrolls((prev) => prev.filter((p) => p.id !== id));
-      } catch (error) {
-        console.error('Error deleting payroll:', error);
-        alert('Failed to delete payroll record');
-      }
+      deleteMutation.mutate(id);
     }
   };
 
@@ -396,183 +580,50 @@ export function usePayroll() {
       employeeRecord?.employeeId ?? editingPayroll?.employeeId ?? null;
     const employeeName = employeeRecord?.name ?? formData.employee;
 
-    try {
-      if (editingPayroll) {
-        // Update existing payroll
-        const response = await fetch('/api/payroll', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: editingPayroll.id,
-            employeeId,
-            employeeName,
-            payPeriod: formData.payPeriod,
-            basicSalary: parseFloat(formData.basicSalary),
-            allowance: parseFloat(formData.allowance) || 0,
-            overtime: parseFloat(formData.overtime) || 0,
-            bonuses: parseFloat(formData.bonuses) || 0,
-            thirteenthMonth: parseFloat(formData.thirteenthMonth) || 0,
-            sss: parseFloat(formData.sss) || 0,
-            philHealth: parseFloat(formData.philHealth) || 0,
-            pagIbig: parseFloat(formData.pagIbig) || 0,
-            tax: parseFloat(formData.tax) || 0,
-            loans: parseFloat(formData.loans) || 0,
-            cashAdvance: parseFloat(formData.cashAdvance) || 0,
-            lwop: parseFloat(formData.lwop) || 0,
-            absentsLates: parseFloat(formData.absentsLates) || 0,
-            bankGcash: formData.bankGcash,
-            grossPay: totals.grossPay,
-            totalDeductions: totals.totalDeductions,
-            netPay: totals.netPay,
-          }),
-        });
+    const payload = {
+      employeeId,
+      employeeName,
+      payPeriod: formData.payPeriod,
+      basicSalary: parseFloat(formData.basicSalary),
+      allowance: parseFloat(formData.allowance) || 0,
+      overtime: parseFloat(formData.overtime) || 0,
+      bonuses: parseFloat(formData.bonuses) || 0,
+      thirteenthMonth: parseFloat(formData.thirteenthMonth) || 0,
+      sss: parseFloat(formData.sss) || 0,
+      philHealth: parseFloat(formData.philHealth) || 0,
+      pagIbig: parseFloat(formData.pagIbig) || 0,
+      tax: parseFloat(formData.tax) || 0,
+      loans: parseFloat(formData.loans) || 0,
+      cashAdvance: parseFloat(formData.cashAdvance) || 0,
+      lwop: parseFloat(formData.lwop) || 0,
+      absentsLates: parseFloat(formData.absentsLates) || 0,
+      bankGcash: formData.bankGcash,
+      grossPay: totals.grossPay,
+      totalDeductions: totals.totalDeductions,
+      netPay: totals.netPay,
+    };
 
-        if (!response.ok) {
-          throw new Error('Failed to update payroll');
-        }
-
-        const updated = await response.json();
-
-        setPayrolls((prev) =>
-          prev.map((p) =>
-            p.id === editingPayroll.id
-              ? {
-                  ...p,
-                  employee: updated.employeeName ?? employeeName,
-                  employeeId:
-                    updated.employeeId ?? employeeId ?? p.employeeId ?? null,
-                  payPeriod: updated.payPeriod,
-                  basicSalary: updated.basicSalary,
-                  allowance: updated.allowance,
-                  overtime: updated.overtime,
-                  bonuses: updated.bonuses,
-                  thirteenthMonth: updated.thirteenthMonth ?? 0,
-                  grossPay: updated.grossPay,
-                  sss: updated.sss,
-                  philHealth: updated.philHealth,
-                  pagIbig: updated.pagIbig,
-                  tax: updated.tax,
-                  loans: updated.loans,
-                  cashAdvance: updated.cashAdvance,
-                  lwop: updated.lwop,
-                  absentsLates: updated.absentsLates,
-                  totalDeductions: updated.totalDeductions,
-                  netPay: updated.netPay,
-                  bankGcash: updated.bankGcash,
-                }
-              : p
-          )
-        );
-      } else {
-        // Add new payroll
-        const response = await fetch('/api/payroll', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            employeeId,
-            employeeName,
-            payPeriod: formData.payPeriod,
-            periodStart: formData.payPeriod.split(' to ')[0],
-            periodEnd: formData.payPeriod.split(' to ')[1],
-            basicSalary: parseFloat(formData.basicSalary),
-            allowance: parseFloat(formData.allowance) || 0,
-            overtime: parseFloat(formData.overtime) || 0,
-            bonuses: parseFloat(formData.bonuses) || 0,
-            thirteenthMonth: parseFloat(formData.thirteenthMonth) || 0,
-            grossPay: totals.grossPay,
-            sss: parseFloat(formData.sss) || 0,
-            philHealth: parseFloat(formData.philHealth) || 0,
-            pagIbig: parseFloat(formData.pagIbig) || 0,
-            tax: parseFloat(formData.tax) || 0,
-            loans: parseFloat(formData.loans) || 0,
-            cashAdvance: parseFloat(formData.cashAdvance) || 0,
-            lwop: parseFloat(formData.lwop) || 0,
-            absentsLates: parseFloat(formData.absentsLates) || 0,
-            totalDeductions: totals.totalDeductions,
-            netPay: totals.netPay,
-            status: 'pending',
-            bankGcash: formData.bankGcash,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to create payroll');
-        }
-
-        const newPayroll = await response.json();
-
-        setPayrolls((prev) => [
-          {
-            id: newPayroll.id,
-            employee: newPayroll.employeeName ?? employeeName,
-            employeeId: newPayroll.employeeId ?? employeeId ?? null,
-            payPeriod: newPayroll.payPeriod,
-            basicSalary: newPayroll.basicSalary,
-            allowance: newPayroll.allowance,
-            overtime: newPayroll.overtime,
-            bonuses: newPayroll.bonuses,
-            thirteenthMonth: newPayroll.thirteenthMonth ?? 0,
-            grossPay: newPayroll.grossPay,
-            sss: newPayroll.sss,
-            philHealth: newPayroll.philHealth,
-            pagIbig: newPayroll.pagIbig,
-            tax: newPayroll.tax,
-            loans: newPayroll.loans,
-            cashAdvance: newPayroll.cashAdvance,
-            lwop: newPayroll.lwop,
-            absentsLates: newPayroll.absentsLates,
-            totalDeductions: newPayroll.totalDeductions,
-            netPay: newPayroll.netPay,
-            status: newPayroll.status,
-            bankGcash: newPayroll.bankGcash,
-          },
-          ...prev,
-        ]);
-      }
-
-      setIsFormOpen(false);
-      setEditingPayroll(null);
-    } catch (error) {
-      console.error('Error saving payroll:', error);
-      alert('Failed to save payroll record');
+    if (editingPayroll) {
+      // Update existing payroll
+      updateMutation.mutate({ id: editingPayroll.id, ...payload });
+    } else {
+      // Add new payroll
+      createMutation.mutate({
+        ...payload,
+        periodStart: formData.payPeriod.split(' to ')[0],
+        periodEnd: formData.payPeriod.split(' to ')[1],
+        status: 'pending',
+      });
     }
   };
 
   const handleApprove = async (id: string) => {
-    try {
-      const response = await fetch('/api/payroll', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id,
-          status: 'approved',
-          approvedBy: 'Current User',
-          approvedDate: getCurrentDateISO(),
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to approve payroll');
-      }
-
-      const updated = await response.json();
-
-      setPayrolls((prev) =>
-        prev.map((p) =>
-          p.id === id
-            ? {
-                ...p,
-                status: 'approved' as const,
-                approvedBy: updated.approvedBy,
-                approvedDate: updated.approvedDate,
-              }
-            : p
-        )
-      );
-    } catch (error) {
-      console.error('Error approving payroll:', error);
-      alert('Failed to approve payroll record');
-    }
+    updateMutation.mutate({
+      id,
+      status: 'approved',
+      approvedBy: 'Current User',
+      approvedDate: getCurrentDateISO(),
+    });
   };
 
   const handleMarkAsPaid = async (id: string) => {
@@ -629,22 +680,6 @@ export function usePayroll() {
 
       const paidDate = getCurrentDateISO();
 
-      const response = await fetch('/api/payroll', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id,
-          status: 'paid',
-          paidDate,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to mark payroll as paid');
-      }
-
-      const updated = await response.json();
-
       // If this payroll has 13th month pay, also mark 13th month record as paid
       if (payroll.thirteenthMonth && payroll.thirteenthMonth > 0) {
         // Extract year from pay period
@@ -664,38 +699,26 @@ export function usePayroll() {
         const thirteenthMonthRecordId = `${employeeId.toLowerCase()}-${year}`;
 
         try {
-          // Simply update the 13th month record status to 'paid'
-          await fetch(
+          // Update the 13th month record status to 'paid'
+          await api.patch(
             `/api/thirteenth-month-pay/${thirteenthMonthRecordId}/status`,
             {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                status: 'paid',
-                paidDate: paidDate,
-              }),
+              status: 'paid',
+              paidDate: paidDate,
             }
           );
         } catch (thirteenthError) {
-          console.warn(
-            'Failed to sync 13th month pay status:',
-            thirteenthError
-          );
+          logger.warn('Failed to sync 13th month pay status:', thirteenthError);
           // Don't fail the entire operation if 13th month sync fails
         }
       }
 
-      setPayrolls((prev) =>
-        prev.map((p) =>
-          p.id === id
-            ? {
-                ...p,
-                status: 'paid' as const,
-                paidDate: updated.paidDate,
-              }
-            : p
-        )
-      );
+      // Use mutation to update status
+      updateMutation.mutate({
+        id,
+        status: 'paid',
+        paidDate,
+      });
 
       // Show success message
       Swal.fire({
@@ -708,7 +731,7 @@ export function usePayroll() {
         confirmButtonColor: '#10b981',
       });
     } catch (error) {
-      console.error('Error marking payroll as paid:', error);
+      logger.error('Error marking payroll as paid:', error);
 
       // Show error message
       Swal.fire({
@@ -794,17 +817,10 @@ export function usePayroll() {
           return;
         }
 
-        const response = await fetch('/api/payroll', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
+        await api.post('/api/payroll', payload);
 
-        if (!response.ok) {
-          throw new Error('Failed to import payroll CSV');
-        }
-
-        await fetchPayrolls();
+        // Invalidate cache to refetch
+        queryClient.invalidateQueries({ queryKey: queryKeys.payroll.lists() });
 
         if (unmatchedEmployees.size > 0) {
           alert(
@@ -816,7 +832,7 @@ export function usePayroll() {
           );
         }
       } catch (err) {
-        console.error('Error importing payroll CSV:', err);
+        logger.error('Error importing payroll CSV:', err);
         alert('Failed to import payroll data. Please try again.');
       }
     };
@@ -914,12 +930,6 @@ export function usePayroll() {
     [resolveEmployeeRecord]
   );
 
-  // ============================================================================
-  // LWOP SYNC FUNCTIONALITY
-  // ============================================================================
-
-  const [isSyncingLwop, setIsSyncingLwop] = useState(false);
-
   const handleSyncLwop = async () => {
     if (isSyncingLwop) {
       return;
@@ -935,23 +945,23 @@ export function usePayroll() {
 
     setIsSyncingLwop(true);
     try {
-      const response = await fetch('/api/payroll/sync-lwop?all=true', {
-        method: 'POST',
-      });
+      const result = await api.post<{
+        synced: number;
+        total: number;
+        error?: string;
+      }>('/api/payroll/sync-lwop?all=true');
 
-      if (response.ok) {
-        const result = await response.json();
-        alert(
-          `Successfully synced LWOP!\n\nUpdated: ${result.synced} record(s)\nTotal checked: ${result.total} record(s)`
-        );
-        await fetchPayrolls();
-      } else {
-        const error = await response.json();
-        alert(`Failed to sync LWOP: ${error.error || 'Unknown error'}`);
-      }
+      alert(
+        `Successfully synced LWOP!\n\nUpdated: ${result.synced} record(s)\nTotal checked: ${result.total} record(s)`
+      );
+
+      // Invalidate cache to refetch
+      queryClient.invalidateQueries({ queryKey: queryKeys.payroll.lists() });
     } catch (error) {
-      console.error('Error syncing LWOP:', error);
-      alert('Failed to sync LWOP. Please try again.');
+      logger.error('Error syncing LWOP:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      alert(`Failed to sync LWOP: ${errorMessage}`);
     } finally {
       setIsSyncingLwop(false);
     }

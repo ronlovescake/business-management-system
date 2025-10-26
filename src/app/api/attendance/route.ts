@@ -152,8 +152,9 @@ export async function POST(request: NextRequest) {
       // Use individual creates in a transaction to get the created records back
       const records = await prisma.$transaction(
         validatedRecords.map((record) =>
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          prisma.attendance.create({ data: record as any })
+          prisma.attendance.create({
+            data: record as Prisma.AttendanceCreateInput,
+          })
         )
       );
 

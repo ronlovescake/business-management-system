@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { logger } from '@/lib/logger';
 import {
   Stack,
   Group,
@@ -136,7 +137,7 @@ export function RequestFormDialog({
       form.setInitialValues(defaults);
       form.reset();
     } catch (error) {
-      console.error('Error submitting cash advance form:', error);
+      logger.error('Error submitting cash advance form:', error);
     }
   };
 

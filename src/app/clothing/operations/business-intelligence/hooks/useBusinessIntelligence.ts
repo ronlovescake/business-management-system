@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQueries } from '@tanstack/react-query';
+import { api } from '@/lib/api/client';
 import { queryKeys } from '@/lib/queryKeys';
 import { logger } from '@/lib/logger';
 import type {
@@ -93,33 +94,21 @@ export function useBusinessIntelligence() {
       {
         queryKey: queryKeys.transactions.all,
         queryFn: async (): Promise<TransactionData[]> => {
-          const response = await fetch('/api/transactions');
-          if (!response.ok) {
-            throw new Error('Failed to fetch transactions');
-          }
-          return response.json();
+          return api.get<TransactionData[]>('/api/transactions');
         },
         staleTime: 30 * 1000, // 30 seconds
       },
       {
         queryKey: queryKeys.products.all,
         queryFn: async (): Promise<ProductData[]> => {
-          const response = await fetch('/api/products');
-          if (!response.ok) {
-            throw new Error('Failed to fetch products');
-          }
-          return response.json();
+          return api.get<ProductData[]>('/api/products');
         },
         staleTime: 30 * 1000,
       },
       {
         queryKey: queryKeys.shipments.all,
         queryFn: async (): Promise<ShipmentData[]> => {
-          const response = await fetch('/api/shipments');
-          if (!response.ok) {
-            throw new Error('Failed to fetch shipments');
-          }
-          return response.json();
+          return api.get<ShipmentData[]>('/api/shipments');
         },
         staleTime: 30 * 1000,
       },
@@ -131,7 +120,10 @@ export function useBusinessIntelligence() {
     () => transactionsQuery.data || [],
     [transactionsQuery.data]
   );
-  const products = useMemo(() => productsQuery.data || [], [productsQuery.data]);
+  const products = useMemo(
+    () => productsQuery.data || [],
+    [productsQuery.data]
+  );
   const shipments = useMemo(
     () => shipmentsQuery.data || [],
     [shipmentsQuery.data]

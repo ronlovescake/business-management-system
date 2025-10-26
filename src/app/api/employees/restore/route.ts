@@ -15,6 +15,7 @@ import {
 } from '@/lib/safety/restore';
 import { z } from 'zod';
 import { sanitizers } from '@/lib/security/sanitize';
+import { logger } from '@/lib/logger';
 
 // Validation schemas
 const restoreSchema = z.object({
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
-    console.error('Restore employee error:', error);
+    logger.error('Restore employee error:', error);
     return NextResponse.json(
       {
         error: 'Failed to restore employee',
@@ -123,7 +124,7 @@ export async function GET(request: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
-    console.error('List deleted employees error:', error);
+    logger.error('List deleted employees error:', error);
     return NextResponse.json(
       {
         error: 'Failed to list deleted employees',
@@ -170,7 +171,7 @@ export async function PUT(request: NextRequest) {
       { status }
     );
   } catch (error) {
-    console.error('Bulk restore error:', error);
+    logger.error('Bulk restore error:', error);
     return NextResponse.json(
       {
         error: 'Failed to bulk restore employees',

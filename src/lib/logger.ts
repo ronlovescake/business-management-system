@@ -1,12 +1,12 @@
 /**
  * Logger Utility
- * 
+ *
  * Provides development-only logging that is automatically stripped in production.
  * This prevents console clutter in production while maintaining debug capabilities during development.
- * 
+ *
  * Usage:
  * import { logger } from '@/lib/logger';
- * 
+ *
  * logger.log('User action', data);
  * logger.debug('API', 'Fetching customers');
  * logger.warn('Validation failed', errors);
@@ -31,7 +31,7 @@ export const logger = {
   /**
    * Debug logging with category - only in development
    * Use for detailed debugging with categorization
-   * 
+   *
    * @example
    * logger.debug('API', 'Fetching transactions');
    * logger.debug('Validation', 'Customer check passed');
@@ -55,14 +55,16 @@ export const logger = {
   /**
    * Error logging - ALWAYS logs (development and production)
    * Use for critical errors that need investigation
-   * 
+   *
    * In production, consider sending these to an error tracking service
    * like Sentry, LogRocket, or DataDog
    */
   error: (...args: unknown[]): void => {
     console.error(...args);
-    
-    // TODO: Send to error tracking service in production
+
+    // REQUIRES: Error tracking service (Sentry)
+    // Deferred until P1 Task #2 (Setup Sentry - 2-3h) is complete
+    // Implementation:
     // if (!isDevelopment) {
     //   Sentry.captureException(args[0]);
     // }

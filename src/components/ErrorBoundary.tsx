@@ -17,19 +17,22 @@ interface ErrorBoundaryState {
 
 /**
  * Global Error Boundary Component
- * 
+ *
  * Catches unhandled errors in React component tree and displays
  * a user-friendly error UI instead of crashing the entire app.
- * 
+ *
  * Note: Error fallback UI uses plain HTML/CSS to avoid dependency
  * on Mantine context which may be unavailable after error.
- * 
+ *
  * Usage:
  * <ErrorBoundary>
  *   <YourApp />
  * </ErrorBoundary>
  */
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+export class ErrorBoundary extends Component<
+  ErrorBoundaryProps,
+  ErrorBoundaryState
+> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = {
@@ -55,8 +58,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       errorInfo,
     });
 
-    // TODO: Send to error reporting service (Sentry, LogRocket, etc.)
-    // Example:
+    // REQUIRES: Error reporting service (Sentry/LogRocket)
+    // Deferred until P1 Task #2 (Setup Sentry) is complete
+    // Example implementation:
     // Sentry.captureException(error, { contexts: { react: { componentStack: errorInfo.componentStack } } });
   }
 
@@ -158,35 +162,42 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               </p>
 
               {/* Error details (development only) */}
-              {process.env.NODE_ENV === 'development' && this.state.errorInfo && (
-                <div
-                  style={{
-                    backgroundColor: '#f8f9fa',
-                    borderRadius: '4px',
-                    padding: '16px',
-                    marginBottom: '24px',
-                    maxHeight: '200px',
-                    overflow: 'auto',
-                    textAlign: 'left',
-                  }}
-                >
-                  <pre
+              {process.env.NODE_ENV === 'development' &&
+                this.state.errorInfo && (
+                  <div
                     style={{
-                      fontSize: '11px',
-                      color: '#495057',
-                      margin: 0,
-                      fontFamily: 'monospace',
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '4px',
+                      padding: '16px',
+                      marginBottom: '24px',
+                      maxHeight: '200px',
+                      overflow: 'auto',
+                      textAlign: 'left',
                     }}
                   >
-                    {this.state.errorInfo.componentStack}
-                  </pre>
-                </div>
-              )}
+                    <pre
+                      style={{
+                        fontSize: '11px',
+                        color: '#495057',
+                        margin: 0,
+                        fontFamily: 'monospace',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {this.state.errorInfo.componentStack}
+                    </pre>
+                  </div>
+                )}
 
               {/* Action buttons */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
+                }}
+              >
                 <button
                   onClick={this.handleReload}
                   style={{
@@ -285,4 +296,3 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return this.props.children;
   }
 }
-

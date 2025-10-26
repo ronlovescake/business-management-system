@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { MEDIUM_TIMEOUT } from '@/constants/timeouts';
 
 function dbMisconfig(): string | null {
   const url = process.env.DATABASE_URL || '';
@@ -33,7 +34,7 @@ export async function GET() {
     // Try to connect quickly
     const connect = prisma.$connect();
     const timeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Connection timeout')), 8000)
+      setTimeout(() => reject(new Error('Connection timeout')), MEDIUM_TIMEOUT)
     );
     await Promise.race([connect, timeout]);
 

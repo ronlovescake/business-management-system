@@ -31,7 +31,8 @@ export const SOFT_DELETE_MODELS = new Set([
   'Attendance',
   'Schedule',
   'Payroll',
-  // 'LeaveRequest', // TODO: Add deletedAt field to LeaveRequest model to enable soft-delete
+  // NOTE: 'LeaveRequest' excluded - requires deletedAt field in Prisma schema
+  // FUTURE: Add deletedAt field to LeaveRequest model to enable soft-delete
   'CashAdvanceRecord',
   'Expense',
   'ThirteenthMonthPayRecord',

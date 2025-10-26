@@ -9,7 +9,7 @@ import { LeaveListTable } from './components/LeaveListTable';
 import { AnalyticsTable } from './components/AnalyticsTable';
 import { CalendarView } from './components/CalendarView';
 import { LeaveFormDialog } from './components/LeaveFormDialog';
-import { useLeaveTracker } from './hooks/useLeaveTracker';
+import useLeaveTracker from './hooks/useLeaveTracker';
 
 /**
  * Leave Tracker Page Component

@@ -1,5 +1,6 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { mockNextRequest } from '@/core/testing/test-helpers';
 
 // Mock Prisma before importing the route
 const mockPrisma = vi.hoisted(() => ({
@@ -58,7 +59,8 @@ describe('Expenses API - GET', () => {
 
     mockPrisma.expense.findMany.mockResolvedValue(mockExpenses);
 
-    const response = await GET();
+    const request = mockNextRequest() as unknown as NextRequest;
+    const response = await GET(request);
     const data = await response.json();
 
     expect(response.status).toBe(200);
@@ -89,7 +91,8 @@ describe('Expenses API - GET', () => {
 
     mockPrisma.expense.findMany.mockResolvedValue(mockExpenses);
 
-    const response = await GET();
+    const request = mockNextRequest() as unknown as NextRequest;
+    const response = await GET(request);
     const data = await response.json();
 
     expect(data[0].notes).toBe(''); // null notes becomes empty string
@@ -100,7 +103,8 @@ describe('Expenses API - GET', () => {
   it('should handle errors', async () => {
     mockPrisma.expense.findMany.mockRejectedValue(new Error('Database error'));
 
-    const response = await GET();
+    const request = mockNextRequest() as unknown as NextRequest;
+    const response = await GET(request);
     const data = await response.json();
 
     expect(response.status).toBe(500);
@@ -597,7 +601,10 @@ describe('Expenses API - DELETE', () => {
   it('should delete all expenses', async () => {
     mockPrisma.expense.deleteMany.mockResolvedValue({ count: 10 });
 
-    const response = await DELETE();
+    const request = mockNextRequest({
+      method: 'DELETE',
+    }) as unknown as NextRequest;
+    const response = await DELETE(request);
     const data = await response.json();
 
     expect(response.status).toBe(200);
@@ -611,7 +618,10 @@ describe('Expenses API - DELETE', () => {
       new Error('Database error')
     );
 
-    const response = await DELETE();
+    const request = mockNextRequest({
+      method: 'DELETE',
+    }) as unknown as NextRequest;
+    const response = await DELETE(request);
     const data = await response.json();
 
     expect(response.status).toBe(500);

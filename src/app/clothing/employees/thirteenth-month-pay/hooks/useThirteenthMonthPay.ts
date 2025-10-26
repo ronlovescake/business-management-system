@@ -1,7 +1,10 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ThirteenthMonthPay, ThirteenthMonthPayFormData } from '../types';
 import { getCurrentDateISO, formatDisplayDate } from '@/utils/date';
 import { logger } from '@/lib/logger';
+import { api } from '@/lib/api/client';
+import { queryKeys } from '@/lib/queryKeys';
 import Swal from 'sweetalert2';
 
 const normalizeValue = (value: string | null | undefined) =>
@@ -214,37 +217,34 @@ interface AggregatedThirteenthData {
 }
 
 export function useThirteenthMonthPay() {
-  const [records, setRecords] = useState<ThirteenthMonthPay[]>([]);
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [yearFilter, setYearFilter] = useState<string>('all');
-  const [isLoading, setIsLoading] = useState(false);
 
-  const loadAutomaticRecords = useCallback(async () => {
-    try {
-      setIsLoading(true);
+  // Filters for query key
+  const filters = useMemo(
+    () => ({
+      year: yearFilter === 'all' ? undefined : parseInt(yearFilter, 10),
+      status: statusFilter === 'all' ? undefined : statusFilter,
+    }),
+    [yearFilter, statusFilter]
+  );
 
-      const [activeEmployeesResponse, payrollResponse, persistedResponse] =
+  // Main query - fetches and calculates 13th month pay records
+  const { data: records = [], isLoading } = useQuery({
+    queryKey: queryKeys.thirteenthMonthPay.list(filters),
+    queryFn: async () => {
+      const [activeEmployees, payrollRecords, persistedRecords] =
         await Promise.all([
-          fetch('/api/employees?status=active'),
-          fetch('/api/payroll'),
-          fetch('/api/thirteenth-month-pay'),
+          api.get<Array<Record<string, unknown>>>(
+            '/api/employees?status=active'
+          ),
+          api.get<Array<Record<string, unknown>>>('/api/payroll'),
+          api
+            .get<Array<Record<string, unknown>>>('/api/thirteenth-month-pay')
+            .catch(() => []),
         ]);
-
-      if (!activeEmployeesResponse.ok) {
-        throw new Error('Failed to fetch active employees');
-      }
-
-      if (!payrollResponse.ok) {
-        throw new Error('Failed to fetch payroll records');
-      }
-
-      const activeEmployees: Array<Record<string, unknown>> =
-        await activeEmployeesResponse.json();
-      const payrollRecords: Array<Record<string, unknown>> =
-        await payrollResponse.json();
-      const persistedRecords: Array<Record<string, unknown>> =
-        persistedResponse.ok ? await persistedResponse.json() : [];
 
       const employeeById = new Map<string, Record<string, unknown>>();
       const employeeByName = new Map<string, Record<string, unknown>>();
@@ -375,7 +375,70 @@ export function useThirteenthMonthPay() {
         } satisfies ThirteenthMonthPay;
       });
 
-      autoRecords.sort((a, b) => {
+      // Build map of persisted (approved/paid) records from database
+      const persistedMap = new Map(
+        persistedRecords.map((r) => [
+          r.recordId || r.id,
+          {
+            id: (r.recordId || r.id) as string,
+            employee: r.employee as string,
+            year: r.year?.toString() || '2025',
+            hireDate: null,
+            tenureship: 'N/A',
+            totalBasicSalary: toNumber(r.totalBasicSalary),
+            totalLwop: toNumber(r.totalLwop),
+            totalAbsencesLates: toNumber(r.totalAbsencesLates),
+            netBasicSalary: toNumber(r.netBasicSalary),
+            thirteenthMonthPay: toNumber(r.thirteenthMonthPay),
+            monthsWorked: (r.monthsWorked as number) || 12,
+            status: (r.status as ThirteenthMonthPay['status']) || 'calculated',
+            calculatedDate: r.calculatedDate as string | undefined,
+            approvedDate: r.approvedDate as string | undefined,
+            paidDate: r.paidDate as string | undefined,
+            notes: r.notes as string | undefined,
+          } as ThirteenthMonthPay,
+        ])
+      );
+
+      const mergedMap = new Map<string, ThirteenthMonthPay>();
+
+      // First, add all auto-calculated records
+      autoRecords.forEach((record) => {
+        mergedMap.set(record.id, record);
+      });
+
+      // Then overlay persisted records, preserving locked values
+      persistedMap.forEach((persisted, persistedId) => {
+        const id = String(persistedId);
+        const autoRecord = mergedMap.get(id);
+        const isLocked =
+          persisted.status === 'approved' || persisted.status === 'paid';
+
+        if (autoRecord && !isLocked) {
+          // Status is calculated - use fresh values but keep status/dates
+          mergedMap.set(id, {
+            ...autoRecord,
+            status: persisted.status,
+            calculatedDate: persisted.calculatedDate,
+            approvedDate: persisted.approvedDate,
+            paidDate: persisted.paidDate,
+            notes: persisted.notes,
+          });
+        } else if (isLocked) {
+          // Status is approved/paid - lock values, but update employee info
+          mergedMap.set(id, {
+            ...persisted,
+            hireDate: autoRecord?.hireDate ?? persisted.hireDate,
+            tenureship: autoRecord?.tenureship ?? persisted.tenureship,
+          });
+        } else {
+          // No auto record exists, use persisted
+          mergedMap.set(id, persisted);
+        }
+      });
+
+      const merged = Array.from(mergedMap.values());
+      merged.sort((a, b) => {
         const nameCompare = a.employee.localeCompare(b.employee);
         if (nameCompare !== 0) {
           return nameCompare;
@@ -383,106 +446,10 @@ export function useThirteenthMonthPay() {
         return b.year.localeCompare(a.year);
       });
 
-      // Preserve any manual updates by merging existing records where IDs match
-      setRecords((prevRecords) => {
-        // Build map of persisted (approved/paid) records from database
-        const persistedMap = new Map(
-          persistedRecords.map((r) => [
-            r.recordId || r.id,
-            {
-              id: (r.recordId || r.id) as string,
-              employee: r.employee as string,
-              year: r.year?.toString() || '2025',
-              hireDate: null,
-              tenureship: 'N/A',
-              totalBasicSalary: toNumber(r.totalBasicSalary),
-              totalLwop: toNumber(r.totalLwop),
-              totalAbsencesLates: toNumber(r.totalAbsencesLates),
-              netBasicSalary: toNumber(r.netBasicSalary),
-              thirteenthMonthPay: toNumber(r.thirteenthMonthPay),
-              monthsWorked: (r.monthsWorked as number) || 12,
-              status:
-                (r.status as ThirteenthMonthPay['status']) || 'calculated',
-              calculatedDate: r.calculatedDate as string | undefined,
-              approvedDate: r.approvedDate as string | undefined,
-              paidDate: r.paidDate as string | undefined,
-              notes: r.notes as string | undefined,
-            } as ThirteenthMonthPay,
-          ])
-        );
-
-        if (prevRecords.length === 0 && persistedMap.size === 0) {
-          return autoRecords;
-        }
-
-        const mergedMap = new Map<string, ThirteenthMonthPay>();
-
-        // First, add all auto-calculated records
-        autoRecords.forEach((record) => {
-          mergedMap.set(record.id, record);
-        });
-
-        // Then overlay persisted records, preserving locked values
-        persistedMap.forEach((persisted, persistedId) => {
-          const id = String(persistedId);
-          const autoRecord = mergedMap.get(id);
-          const isLocked =
-            persisted.status === 'approved' || persisted.status === 'paid';
-
-          if (autoRecord && !isLocked) {
-            // Status is calculated - use fresh values but keep status/dates
-            mergedMap.set(id, {
-              ...autoRecord,
-              status: persisted.status,
-              calculatedDate: persisted.calculatedDate,
-              approvedDate: persisted.approvedDate,
-              paidDate: persisted.paidDate,
-              notes: persisted.notes,
-            });
-          } else if (isLocked) {
-            // Status is approved/paid - lock values, but update employee info
-            mergedMap.set(id, {
-              ...persisted,
-              hireDate: autoRecord?.hireDate ?? persisted.hireDate,
-              tenureship: autoRecord?.tenureship ?? persisted.tenureship,
-            });
-          } else {
-            // No auto record exists, use persisted
-            mergedMap.set(id, persisted);
-          }
-        });
-
-        const merged = Array.from(mergedMap.values());
-        merged.sort((a, b) => {
-          const nameCompare = a.employee.localeCompare(b.employee);
-          if (nameCompare !== 0) {
-            return nameCompare;
-          }
-          return b.year.localeCompare(a.year);
-        });
-
-        return merged;
-      });
-    } catch (error) {
-      logger.error('Failed to auto-load 13th month pay records', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadAutomaticRecords();
-  }, [loadAutomaticRecords]);
-
-  // Calculate 13th month pay
-  const calculate13thMonthPay = (
-    totalBasicSalary: number,
-    totalLwop: number,
-    totalAbsencesLates: number
-  ): number => {
-    const finalAmount = totalBasicSalary - totalLwop - totalAbsencesLates;
-    return Math.max(0, finalAmount);
-  };
+      return merged;
+    },
+    staleTime: 30 * 1000,
+  });
 
   // Filtered records
   const filteredRecords = useMemo(() => {
@@ -527,98 +494,28 @@ export function useThirteenthMonthPay() {
     };
   }, [records]);
 
-  // Format currency
-  const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('en-PH', {
-      style: 'currency',
-      currency: 'PHP',
-    }).format(amount);
-  };
+  // Edit record mutation
+  const editRecordMutation = useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: ThirteenthMonthPayFormData;
+    }) => {
+      const record = records.find((r) => r.id === id);
+      if (!record) {
+        throw new Error('Record not found');
+      }
 
-  // Format date
-  const formatDate = (dateString?: string): string =>
-    dateString ? formatDisplayDate(dateString, 'MMM D, YYYY') : 'N/A';
+      const totalBasicSalary = parseFloat(data.totalBasicSalary) || 0;
+      const totalLwop = parseFloat(data.totalLwop) || 0;
+      const totalAbsencesLates = parseFloat(data.totalAbsencesLates) || 0;
+      const thirteenthMonthPay = Math.max(
+        0,
+        totalBasicSalary - totalLwop - totalAbsencesLates
+      );
 
-  // Get status color
-  const getStatusColor = (status: string): string => {
-    switch (status) {
-      case 'pending':
-        return '#f59e0b';
-      case 'calculated':
-        return '#3b82f6';
-      case 'approved':
-        return '#10b981';
-      case 'paid':
-        return '#6366f1';
-      default:
-        return '#6b7280';
-    }
-  };
-
-  // Get status label
-  const getStatusLabel = (status: string): string => {
-    switch (status) {
-      case 'pending':
-        return 'Pending';
-      case 'calculated':
-        return 'Calculated';
-      case 'approved':
-        return 'Approved';
-      case 'paid':
-        return 'Paid';
-      default:
-        return status;
-    }
-  };
-
-  // Add record
-  const addRecord = (data: ThirteenthMonthPayFormData) => {
-    const totalBasicSalary = parseFloat(data.totalBasicSalary) || 0;
-    const totalLwop = parseFloat(data.totalLwop) || 0;
-    const totalAbsencesLates = parseFloat(data.totalAbsencesLates) || 0;
-    const thirteenthMonthPay = calculate13thMonthPay(
-      totalBasicSalary,
-      totalLwop,
-      totalAbsencesLates
-    );
-
-    const newRecord: ThirteenthMonthPay = {
-      id: Date.now().toString(),
-      employee: data.employee,
-      year: data.year,
-      totalBasicSalary,
-      totalLwop,
-      totalAbsencesLates,
-      netBasicSalary: thirteenthMonthPay,
-      monthsWorked: 12,
-      thirteenthMonthPay,
-      status: 'calculated',
-      calculatedDate: getCurrentDateISO(),
-      notes: data.notes,
-      hireDate: null,
-      tenureship: 'N/A',
-    };
-
-    setRecords((prev) => [newRecord, ...prev]);
-  };
-
-  // Edit record
-  const editRecord = async (id: string, data: ThirteenthMonthPayFormData) => {
-    const totalBasicSalary = parseFloat(data.totalBasicSalary) || 0;
-    const totalLwop = parseFloat(data.totalLwop) || 0;
-    const totalAbsencesLates = parseFloat(data.totalAbsencesLates) || 0;
-    const thirteenthMonthPay = calculate13thMonthPay(
-      totalBasicSalary,
-      totalLwop,
-      totalAbsencesLates
-    );
-
-    const record = records.find((r) => r.id === id);
-    if (!record) {
-      return;
-    }
-
-    try {
       const updatedRecord: ThirteenthMonthPay = {
         ...record,
         employee: data.employee,
@@ -632,65 +529,269 @@ export function useThirteenthMonthPay() {
       };
 
       const payload = buildPersistencePayload(updatedRecord);
+      await api.patch('/api/thirteenth-month-pay', payload);
 
-      // Persist to database
-      const response = await fetch('/api/thirteenth-month-pay', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+      return updatedRecord;
+    },
+    onMutate: async ({ id, data }) => {
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.thirteenthMonthPay.lists(),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to edit record');
+      const previous = queryClient.getQueryData<ThirteenthMonthPay[]>(
+        queryKeys.thirteenthMonthPay.list(filters)
+      );
+
+      if (previous) {
+        const totalBasicSalary = parseFloat(data.totalBasicSalary) || 0;
+        const totalLwop = parseFloat(data.totalLwop) || 0;
+        const totalAbsencesLates = parseFloat(data.totalAbsencesLates) || 0;
+        const thirteenthMonthPay = Math.max(
+          0,
+          totalBasicSalary - totalLwop - totalAbsencesLates
+        );
+
+        queryClient.setQueryData<ThirteenthMonthPay[]>(
+          queryKeys.thirteenthMonthPay.list(filters),
+          previous.map((r) =>
+            r.id === id
+              ? {
+                  ...r,
+                  employee: data.employee,
+                  year: data.year,
+                  totalBasicSalary,
+                  totalLwop,
+                  totalAbsencesLates,
+                  netBasicSalary: thirteenthMonthPay,
+                  thirteenthMonthPay,
+                  notes: data.notes,
+                }
+              : r
+          )
+        );
       }
 
-      // Update local state
-      setRecords((prevRecords) =>
-        prevRecords.map((r) =>
-          r.id === id
-            ? {
-                ...r,
-                employee: data.employee,
-                year: data.year,
-                totalBasicSalary,
-                totalLwop,
-                totalAbsencesLates,
-                netBasicSalary: thirteenthMonthPay,
-                thirteenthMonthPay,
-                notes: data.notes,
-              }
-            : r
-        )
-      );
-    } catch (error) {
-      console.error('Error editing record:', error);
-    }
-  };
+      return { previous };
+    },
+    onError: (error, variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(
+          queryKeys.thirteenthMonthPay.list(filters),
+          context.previous
+        );
+      }
+      logger.error('Error editing record:', error);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.thirteenthMonthPay.lists(),
+      });
+    },
+  });
 
-  // Delete record
-  const deleteRecord = async (id: string) => {
-    try {
-      // Delete from database
-      const response = await fetch('/api/thirteenth-month-pay', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recordId: id }),
+  // Delete record mutation
+  const deleteRecordMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(
+        `/api/thirteenth-month-pay?recordId=${encodeURIComponent(id)}`
+      );
+      return id;
+    },
+    onMutate: async (deletedId) => {
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.thirteenthMonthPay.lists(),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to delete record');
+      const previous = queryClient.getQueryData<ThirteenthMonthPay[]>(
+        queryKeys.thirteenthMonthPay.list(filters)
+      );
+
+      if (previous) {
+        queryClient.setQueryData<ThirteenthMonthPay[]>(
+          queryKeys.thirteenthMonthPay.list(filters),
+          previous.filter((record) => record.id !== deletedId)
+        );
       }
 
-      // Update local state
-      setRecords((prevRecords) =>
-        prevRecords.filter((record) => record.id !== id)
+      return { previous };
+    },
+    onError: (error, variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(
+          queryKeys.thirteenthMonthPay.list(filters),
+          context.previous
+        );
+      }
+      logger.error('Error deleting record:', error);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.thirteenthMonthPay.lists(),
+      });
+    },
+  });
+
+  // Approve record mutation
+  const approveRecordMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const record = records.find((r) => r.id === id);
+      if (!record) {
+        throw new Error('Record not found');
+      }
+
+      const approvedDate = getCurrentDateISO();
+      const payload = buildPersistencePayload(record, {
+        status: 'approved',
+        approvedDate,
+      });
+
+      await api.patch('/api/thirteenth-month-pay', payload);
+
+      return { id, approvedDate };
+    },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.thirteenthMonthPay.lists(),
+      });
+
+      const previous = queryClient.getQueryData<ThirteenthMonthPay[]>(
+        queryKeys.thirteenthMonthPay.list(filters)
       );
-    } catch (error) {
-      console.error('Error deleting record:', error);
-    }
+
+      if (previous) {
+        const approvedDate = getCurrentDateISO();
+        queryClient.setQueryData<ThirteenthMonthPay[]>(
+          queryKeys.thirteenthMonthPay.list(filters),
+          previous.map((r) =>
+            r.id === id
+              ? {
+                  ...r,
+                  status: 'approved',
+                  approvedDate,
+                }
+              : r
+          )
+        );
+      }
+
+      return { previous };
+    },
+    onError: (error, variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(
+          queryKeys.thirteenthMonthPay.list(filters),
+          context.previous
+        );
+      }
+      logger.error('Error approving record:', error);
+
+      Swal.fire({
+        title: 'Error',
+        text: 'Failed to approve the record. Please try again.',
+        icon: 'error',
+        confirmButtonColor: '#ef4444',
+      });
+    },
+    onSuccess: () => {
+      Swal.fire({
+        title: 'Approved!',
+        text: 'The 13th month pay has been approved and locked.',
+        icon: 'success',
+        confirmButtonColor: '#10b981',
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.thirteenthMonthPay.lists(),
+      });
+    },
+  });
+
+  // Mark as paid mutation
+  const markAsPaidMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const record = records.find((r) => r.id === id);
+      if (!record) {
+        throw new Error('Record not found');
+      }
+
+      const paidDate = getCurrentDateISO();
+      const payload = buildPersistencePayload(record, {
+        status: 'paid',
+        paidDate,
+      });
+
+      await api.patch('/api/thirteenth-month-pay', payload);
+
+      return { id, paidDate };
+    },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.thirteenthMonthPay.lists(),
+      });
+
+      const previous = queryClient.getQueryData<ThirteenthMonthPay[]>(
+        queryKeys.thirteenthMonthPay.list(filters)
+      );
+
+      if (previous) {
+        const paidDate = getCurrentDateISO();
+        queryClient.setQueryData<ThirteenthMonthPay[]>(
+          queryKeys.thirteenthMonthPay.list(filters),
+          previous.map((r) =>
+            r.id === id
+              ? {
+                  ...r,
+                  status: 'paid',
+                  paidDate,
+                }
+              : r
+          )
+        );
+      }
+
+      return { previous };
+    },
+    onError: (error, variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(
+          queryKeys.thirteenthMonthPay.list(filters),
+          context.previous
+        );
+      }
+      logger.error('Error marking as paid:', error);
+
+      Swal.fire({
+        title: 'Error',
+        text: 'Failed to mark as paid. Please try again.',
+        icon: 'error',
+        confirmButtonColor: '#ef4444',
+      });
+    },
+    onSuccess: () => {
+      Swal.fire({
+        title: 'Marked as Paid!',
+        text: 'The payment has been recorded successfully.',
+        icon: 'success',
+        confirmButtonColor: '#6366f1',
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.thirteenthMonthPay.lists(),
+      });
+    },
+  });
+
+  // Wrapper functions
+  const editRecord = (id: string, data: ThirteenthMonthPayFormData) => {
+    editRecordMutation.mutate({ id, data });
   };
 
-  // Approve record
+  const deleteRecord = (id: string) => {
+    deleteRecordMutation.mutate(id);
+  };
+
   const approveRecord = async (id: string) => {
     const record = records.find((r) => r.id === id);
     if (!record) {
@@ -721,72 +822,21 @@ export function useThirteenthMonthPay() {
     });
 
     if (!result.isConfirmed) {
-      return; // User cancelled
+      return;
     }
 
-    try {
-      const approvedDate = getCurrentDateISO();
+    Swal.fire({
+      title: 'Processing...',
+      text: 'Approving 13th month pay record',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+    });
 
-      // Show loading
-      Swal.fire({
-        title: 'Processing...',
-        text: 'Approving 13th month pay record',
-        allowOutsideClick: false,
-        didOpen: () => {
-          Swal.showLoading();
-        },
-      });
-
-      const payload = buildPersistencePayload(record, {
-        status: 'approved',
-        approvedDate,
-      });
-
-      // Persist to database
-      const response = await fetch('/api/thirteenth-month-pay', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to approve record');
-      }
-
-      // Update local state
-      setRecords((prevRecords) =>
-        prevRecords.map((r) =>
-          r.id === id
-            ? {
-                ...r,
-                status: 'approved',
-                approvedDate,
-              }
-            : r
-        )
-      );
-
-      // Show success message
-      Swal.fire({
-        title: 'Approved!',
-        text: 'The 13th month pay has been approved and locked.',
-        icon: 'success',
-        confirmButtonColor: '#10b981',
-      });
-    } catch (error) {
-      console.error('Error approving record:', error);
-
-      // Show error message
-      Swal.fire({
-        title: 'Error',
-        text: 'Failed to approve the record. Please try again.',
-        icon: 'error',
-        confirmButtonColor: '#ef4444',
-      });
-    }
+    approveRecordMutation.mutate(id);
   };
 
-  // Mark as paid
   const markAsPaid = async (id: string) => {
     const record = records.find((r) => r.id === id);
     if (!record) {
@@ -813,76 +863,73 @@ export function useThirteenthMonthPay() {
     });
 
     if (!result.isConfirmed) {
-      return; // User cancelled
+      return;
     }
 
-    try {
-      const paidDate = getCurrentDateISO();
+    Swal.fire({
+      title: 'Processing...',
+      text: 'Marking as paid',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+    });
 
-      // Show loading
-      Swal.fire({
-        title: 'Processing...',
-        text: 'Marking as paid',
-        allowOutsideClick: false,
-        didOpen: () => {
-          Swal.showLoading();
-        },
-      });
+    markAsPaidMutation.mutate(id);
+  };
 
-      const payload = buildPersistencePayload(record, {
-        status: 'paid',
-        paidDate,
-      });
+  // Utility functions
+  const formatCurrency = (amount: number): string => {
+    return new Intl.NumberFormat('en-PH', {
+      style: 'currency',
+      currency: 'PHP',
+    }).format(amount);
+  };
 
-      // Persist to database
-      const response = await fetch('/api/thirteenth-month-pay', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+  const formatDate = (dateString?: string): string =>
+    dateString ? formatDisplayDate(dateString, 'MMM D, YYYY') : 'N/A';
 
-      if (!response.ok) {
-        throw new Error('Failed to mark as paid');
-      }
-
-      // Update local state
-      setRecords((prevRecords) =>
-        prevRecords.map((r) =>
-          r.id === id
-            ? {
-                ...r,
-                status: 'paid',
-                paidDate,
-              }
-            : r
-        )
-      );
-
-      // Show success message
-      Swal.fire({
-        title: 'Marked as Paid!',
-        text: 'The payment has been recorded successfully.',
-        icon: 'success',
-        confirmButtonColor: '#6366f1',
-      });
-    } catch (error) {
-      console.error('Error marking as paid:', error);
-
-      // Show error message
-      Swal.fire({
-        title: 'Error',
-        text: 'Failed to mark as paid. Please try again.',
-        icon: 'error',
-        confirmButtonColor: '#ef4444',
-      });
+  const getStatusColor = (status: string): string => {
+    switch (status) {
+      case 'pending':
+        return '#f59e0b';
+      case 'calculated':
+        return '#3b82f6';
+      case 'approved':
+        return '#10b981';
+      case 'paid':
+        return '#6366f1';
+      default:
+        return '#6b7280';
     }
-  }; // Import CSV
+  };
+
+  const getStatusLabel = (status: string): string => {
+    switch (status) {
+      case 'pending':
+        return 'Pending';
+      case 'calculated':
+        return 'Calculated';
+      case 'approved':
+        return 'Approved';
+      case 'paid':
+        return 'Paid';
+      default:
+        return status;
+    }
+  };
+
+  const addRecord = (_data: ThirteenthMonthPayFormData) => {
+    logger.debug(
+      'Add record not implemented with React Query - records are auto-calculated'
+    );
+  };
+
   const importFromCSV = (file: File) => {
     logger.debug('Importing CSV:', file.name);
     // CSV import logic would go here
   };
 
-  // Export CSV
   const exportToCSV = () => {
     const headers = [
       'Employee',

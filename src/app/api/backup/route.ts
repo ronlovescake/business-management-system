@@ -11,6 +11,7 @@ import { promisify } from 'util';
 import { prisma } from '@/lib/db';
 import fs from 'fs';
 import path from 'path';
+import { logger } from '@/lib/logger';
 
 const execAsync = promisify(exec);
 
@@ -92,16 +93,19 @@ export async function POST(request: NextRequest) {
 
       for (const { name, model } of TABLES) {
         try {
-          // Check if model has deletedAt field
+          // Dynamic model access requires 'any' type due to Prisma's runtime model resolution
+          // The model name is validated against TABLES array above
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const sampleRecord = await (prisma as any)[model].findFirst();
+          const modelDelegate = prisma[model as keyof typeof prisma] as any;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const sampleRecord = await modelDelegate.findFirst();
           const hasDeletedAt = sampleRecord && 'deletedAt' in sampleRecord;
 
           const where =
             hasDeletedAt && !includeSoftDeleted ? { deletedAt: null } : {};
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const data = await (prisma as any)[model].findMany({ where });
+          const data = await modelDelegate.findMany({ where });
 
           (backup.tables as Record<string, unknown>)[name] = {
             count: data.length,
@@ -132,7 +136,7 @@ export async function POST(request: NextRequest) {
         files.push(sqlFile);
         backupFile = sqlFile;
       } catch (error) {
-        console.error('SQL backup failed:', error);
+        logger.error('SQL backup failed:', error);
         // Continue with JSON backup if SQL fails
       }
     }
@@ -168,7 +172,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Backup failed:', error);
+    logger.error('Backup failed:', error);
     return NextResponse.json(
       {
         success: false,
@@ -228,7 +232,7 @@ export async function GET() {
 
     return NextResponse.json({ success: true, backups });
   } catch (error) {
-    console.error('Failed to list backups:', error);
+    logger.error('Failed to list backups:', error);
     return NextResponse.json(
       {
         success: false,
@@ -270,7 +274,7 @@ export async function DELETE(request: NextRequest) {
       message: 'Backup deleted successfully',
     });
   } catch (error) {
-    console.error('Failed to delete backup:', error);
+    logger.error('Failed to delete backup:', error);
     return NextResponse.json(
       {
         success: false,

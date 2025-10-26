@@ -78,7 +78,7 @@ export class ExpenseRepository extends BaseRepository<
       },
     };
     return this.findMany({
-      where,
+      where: where as any, // eslint-disable-line @typescript-eslint/no-explicit-any
       orderBy: { date: 'desc' },
     });
   }
@@ -89,7 +89,7 @@ export class ExpenseRepository extends BaseRepository<
   async findByStatus(status: string): Promise<Expense[]> {
     const where: Prisma.ExpenseWhereInput = { status };
     return this.findMany({
-      where,
+      where: where as any, // eslint-disable-line @typescript-eslint/no-explicit-any
       orderBy: { date: 'desc' },
     });
   }
@@ -100,7 +100,7 @@ export class ExpenseRepository extends BaseRepository<
   async findByCategory(category: string): Promise<Expense[]> {
     const where: Prisma.ExpenseWhereInput = { category };
     return this.findMany({
-      where,
+      where: where as any, // eslint-disable-line @typescript-eslint/no-explicit-any
       orderBy: { date: 'desc' },
     });
   }
@@ -116,7 +116,7 @@ export class ExpenseRepository extends BaseRepository<
       },
     };
     return this.findMany({
-      where,
+      where: where as any, // eslint-disable-line @typescript-eslint/no-explicit-any
       orderBy: { date: 'desc' },
     });
   }

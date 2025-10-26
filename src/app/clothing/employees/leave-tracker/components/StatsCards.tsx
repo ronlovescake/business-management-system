@@ -15,7 +15,7 @@ interface StatsCardsProps {
   totalDaysRequested: number;
 }
 
-export function StatsCards({
+export const StatsCards = React.memo(function StatsCards({
   totalRequests,
   pendingRequests,
   approvedRequests,
@@ -45,4 +45,4 @@ export function StatsCards({
   ];
 
   return <StatsCardGroup stats={stats} />;
-}
+});

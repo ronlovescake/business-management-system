@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 type AttendanceSummary = {
   employeeId: string;
@@ -273,7 +274,7 @@ export async function POST() {
       count: created.count,
     });
   } catch (error) {
-    console.error('Error generating payroll:', error);
+    logger.error('Error generating payroll:', error);
     return NextResponse.json(
       {
         success: false,

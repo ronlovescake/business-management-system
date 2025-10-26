@@ -6,7 +6,12 @@ import type {
 } from '@/components/shared/PageTemplates';
 import { Text, Badge, Group, Avatar } from '@mantine/core';
 import { IconCheck, IconX, IconEdit, IconTrash } from '@tabler/icons-react';
-import type { LeaveRequest, LeaveStatus, LeaveType, PaymentStatus } from '../types';
+import type {
+  LeaveRequest,
+  LeaveStatus,
+  LeaveType,
+  PaymentStatus,
+} from '../types';
 
 interface LeaveListTableProps {
   leaveRequests: LeaveRequest[];
@@ -21,7 +26,7 @@ interface LeaveListTableProps {
   onDelete: (id: string) => void;
 }
 
-export function LeaveListTable({
+export const LeaveListTable = React.memo(function LeaveListTable({
   leaveRequests,
   filteredRequests,
   formatDate,
@@ -71,7 +76,10 @@ export function LeaveListTable({
       key: 'paymentStatus',
       label: 'PAYMENT STATUS',
       render: (item) => (
-        <Badge color={getPaymentStatusColor(item.paymentStatus)} variant="light">
+        <Badge
+          color={getPaymentStatusColor(item.paymentStatus)}
+          variant="light"
+        >
           {item.paymentStatus.toUpperCase().replace('-', ' ')}
         </Badge>
       ),
@@ -170,4 +178,4 @@ export function LeaveListTable({
       onRowDoubleClick={onEdit}
     />
   );
-}
+});

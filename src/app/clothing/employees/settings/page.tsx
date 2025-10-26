@@ -2,6 +2,7 @@
 
 import type { FormEvent } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { logger } from '@/lib/logger';
 import {
   Alert,
   Button,
@@ -61,7 +62,7 @@ export default function EmployeeSettings() {
       setDraft(data);
       setInitial(data);
     } catch (fetchError) {
-      console.error(fetchError);
+      logger.error(fetchError);
       setError(
         fetchError instanceof Error
           ? fetchError.message
@@ -177,7 +178,7 @@ export default function EmployeeSettings() {
       setInitial(updated);
       setSuccess('Automation settings updated successfully.');
     } catch (submitError) {
-      console.error(submitError);
+      logger.error(submitError);
       setError(
         submitError instanceof Error
           ? submitError.message
@@ -358,7 +359,7 @@ export default function EmployeeSettings() {
                         'Automation executed successfully.'
                     );
                   } catch (runError) {
-                    console.error(runError);
+                    logger.error(runError);
                     setError(
                       runError instanceof Error
                         ? runError.message

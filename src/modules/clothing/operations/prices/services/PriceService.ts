@@ -6,6 +6,7 @@ import type {
   ValidationResult,
   CSVImportResult,
 } from '../types/price.types';
+import { api } from '@/lib/api/client';
 import { logger } from '@/lib/logger';
 
 /**
@@ -337,15 +338,7 @@ class PriceService {
    */
   static async loadPrices(): Promise<PriceData[]> {
     try {
-      const response = await fetch('/api/prices', {
-        cache: 'no-store',
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch prices: ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      const data = await api.get<PriceData[]>('/api/prices');
       return Array.isArray(data) ? data : [];
     } catch (error) {
       logger.error('Error loading prices:', error);
@@ -358,19 +351,7 @@ class PriceService {
    */
   static async addPrice(price: PriceData): Promise<boolean> {
     try {
-      const response = await fetch('/api/prices', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify([price]), // Send as array
-        cache: 'no-store',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save price');
-      }
-
+      await api.post('/api/prices', [price]); // Send as array
       return true;
     } catch (error) {
       logger.error('Error adding price:', error);
@@ -383,19 +364,7 @@ class PriceService {
    */
   static async bulkUpdatePrices(prices: PriceData[]): Promise<boolean> {
     try {
-      const response = await fetch('/api/prices', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(prices),
-        cache: 'no-store',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update prices');
-      }
-
+      await api.post('/api/prices', prices);
       return true;
     } catch (error) {
       logger.error('Error updating prices:', error);
@@ -408,20 +377,7 @@ class PriceService {
    */
   static async replaceAllPrices(prices: PriceData[]): Promise<number> {
     try {
-      const response = await fetch('/api/prices', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(prices),
-        cache: 'no-store',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save to database');
-      }
-
-      const result = await response.json();
+      const result = await api.post<{ count: number }>('/api/prices', prices);
       return result.count || prices.length;
     } catch (error) {
       logger.error('Error replacing prices:', error);

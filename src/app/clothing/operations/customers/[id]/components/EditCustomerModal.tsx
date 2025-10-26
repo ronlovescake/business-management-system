@@ -19,7 +19,7 @@ import {
   IconCheck,
 } from '@tabler/icons-react';
 import type { CustomerData } from '../types';
-import { CustomerService } from '@/modules/clothing/operations/customers/services/CustomerService';
+import { CustomerService } from '@/modules/clothing/operations/customers';
 
 // ============================================================================
 // EDIT CUSTOMER MODAL

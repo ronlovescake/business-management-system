@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 interface LeaveRequestRecord {
   id: number;
@@ -251,7 +252,7 @@ export async function POST(request: NextRequest) {
       updates,
     });
   } catch (error) {
-    console.error('Error syncing LWOP:', error);
+    logger.error('Error syncing LWOP:', error);
     return NextResponse.json(
       { error: 'Failed to sync LWOP', details: String(error) },
       { status: 500 }
@@ -373,7 +374,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(preview);
   } catch (error) {
-    console.error('Error previewing LWOP:', error);
+    logger.error('Error previewing LWOP:', error);
     return NextResponse.json(
       { error: 'Failed to preview LWOP', details: String(error) },
       { status: 500 }

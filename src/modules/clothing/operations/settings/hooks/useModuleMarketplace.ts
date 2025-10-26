@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { api } from '@/lib/api/client';
 import type { ModulePackage, MarketplaceFilter, SortOption } from '../types';
 import { logger } from '@/lib/logger';
 
@@ -51,15 +52,9 @@ export function useModuleMarketplace(): UseModuleMarketplaceReturn {
         params.set('sort', filter.sortBy);
       }
 
-      const response = await fetch(
+      const data = await api.get<{ modules: ModulePackage[] }>(
         `/api/marketplace/modules?${params.toString()}`
       );
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch marketplace: ${response.statusText}`);
-      }
-
-      const data = await response.json();
       setModules(data.modules || []);
     } catch (err) {
       setError((err as Error).message);

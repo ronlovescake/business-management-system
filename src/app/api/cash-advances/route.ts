@@ -1,9 +1,12 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
+import { sanitizeString, sanitizeNumber } from '@/lib/security/sanitize';
 import {
   cashAdvanceService,
   CashAdvanceQuerySchema,
+  CashAdvanceCreateSchema,
+  CashAdvanceUpdateSchema,
 } from '@/modules/clothing/employees/cash-advance/api';
 
 /**
@@ -62,72 +65,107 @@ export async function GET(request: NextRequest) {
   }
 }
 
+/**
+ * POST /api/cash-advances
+ *
+ * Create a new cash advance
+ */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const amount = toDecimal(body.amount) ?? new Prisma.Decimal(0);
-    const settledAmount =
-      toDecimal(body.settledAmount) ?? new Prisma.Decimal(0);
-    const remainingBalance =
-      toDecimal(body.remainingBalance) ?? amount.minus(settledAmount);
+    // Sanitize and validate input
+    const sanitizedData = {
+      employeeId: sanitizeString(body.employeeId, { maxLength: 50 }),
+      employeeName: sanitizeString(body.employeeName || body.employee, {
+        maxLength: 255,
+      }),
+      amount: sanitizeNumber(body.amount, { min: 0, decimals: 2 }),
+      termsMonths: body.termsMonths
+        ? Math.floor(sanitizeNumber(body.termsMonths, { min: 1 }) ?? 0) ||
+          undefined
+        : undefined,
+      monthlyPayment: body.monthlyPayment
+        ? sanitizeNumber(body.monthlyPayment, { min: 0, decimals: 2 })
+        : undefined,
+      settledAmount: body.settledAmount
+        ? sanitizeNumber(body.settledAmount, { min: 0, decimals: 2 })
+        : 0,
+      remainingBalance: body.remainingBalance
+        ? sanitizeNumber(body.remainingBalance, { min: 0, decimals: 2 })
+        : undefined,
+      purpose: body.purpose
+        ? sanitizeString(body.purpose, { maxLength: 255 })
+        : undefined,
+      notes: body.notes ? sanitizeString(body.notes) : undefined,
+      requestDate: body.requestDate ? new Date(body.requestDate) : new Date(),
+      status:
+        body.status && typeof body.status === 'string'
+          ? sanitizeString(body.status, { maxLength: 50 })
+          : 'pending',
+      approvedBy: body.approvedBy
+        ? sanitizeString(body.approvedBy, { maxLength: 255 })
+        : undefined,
+      approvedDate: body.approvedDate ? new Date(body.approvedDate) : undefined,
+      rejectedBy: body.rejectedBy
+        ? sanitizeString(body.rejectedBy, { maxLength: 255 })
+        : undefined,
+      rejectedDate: body.rejectedDate ? new Date(body.rejectedDate) : undefined,
+      rejectionReason: body.rejectionReason
+        ? sanitizeString(body.rejectionReason)
+        : undefined,
+      deductionCycle: body.deductionCycle
+        ? sanitizeString(body.deductionCycle, { maxLength: 50 })
+        : undefined,
+      nextDeductionDate: body.nextDeductionDate
+        ? new Date(body.nextDeductionDate)
+        : undefined,
+      lastDeductedDate: body.lastDeductedDate
+        ? new Date(body.lastDeductedDate)
+        : undefined,
+    };
 
-    const status = typeof body.status === 'string' ? body.status : 'pending';
-    let approvedDate = toDate(body.approvedDate);
-    if (status === 'approved' && !approvedDate) {
-      approvedDate = new Date();
-    }
+    // Validate with Zod schema
+    const validatedData = CashAdvanceCreateSchema.parse(sanitizedData);
 
-    let deductionCycle: CashAdvanceCycle | null = null;
-    let nextDeductionDate: Date | null = null;
+    // Create using service layer
+    const record = await cashAdvanceService.create(validatedData);
 
-    if (status === 'approved' && approvedDate) {
-      const schedule = ensureNextPayday(approvedDate);
-      deductionCycle = schedule.cycle;
-      nextDeductionDate = schedule.date;
-    }
-
-    const record = await prisma.cashAdvanceRecord.create({
-      data: {
-        employeeId: body.employeeId,
-        employeeName: body.employeeName ?? body.employee ?? '',
-        amount,
-        termsMonths:
-          body.termsMonths !== undefined && body.termsMonths !== null
-            ? parseInt(body.termsMonths, 10)
-            : null,
-        monthlyPayment: toDecimal(body.monthlyPayment),
-        settledAmount,
-        remainingBalance,
-        purpose: body.purpose || null,
-        notes: body.notes || null,
-        requestDate: toDate(body.requestDate),
-        status,
-        approvedBy: body.approvedBy || null,
-        approvedDate,
-        rejectedBy: body.rejectedBy || null,
-        rejectedDate: toDate(body.rejectedDate),
-        rejectionReason: body.rejectionReason || null,
-        deductionCycle: deductionCycle ?? undefined,
-        nextDeductionDate: nextDeductionDate ?? undefined,
-        lastDeductedDate: null,
-      },
-    });
-
-    return NextResponse.json(serializeRecord(record), { status: 201 });
+    return NextResponse.json(record, { status: 201 });
   } catch (error) {
-    console.error('Error creating cash advance:', error);
+    logger.error('Error creating cash advance:', error);
+
+    // Handle validation errors
+    if (error && typeof error === 'object' && 'issues' in error) {
+      return NextResponse.json(
+        {
+          error: 'Validation failed',
+          details: error,
+        },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
-      { error: 'Failed to create cash advance' },
+      {
+        error: 'Failed to create cash advance',
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }
 }
 
+/**
+ * PUT /api/cash-advances
+ *
+ * Update an existing cash advance
+ */
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id } = body;
+
+    const id = sanitizeString(body.id, { maxLength: 50 });
 
     if (!id) {
       return NextResponse.json(
@@ -136,188 +174,165 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const existing = await prisma.cashAdvanceRecord.findUnique({
-      where: { id },
-    });
+    // Build update data object with only provided fields
+    const updateData: Record<string, unknown> = { id };
 
-    if (!existing) {
-      return NextResponse.json(
-        { error: 'Cash advance not found' },
-        { status: 404 }
+    if (body.employeeId !== undefined) {
+      updateData.employeeId = sanitizeString(body.employeeId, {
+        maxLength: 50,
+      });
+    }
+
+    if (body.employeeName !== undefined || body.employee !== undefined) {
+      updateData.employeeName = sanitizeString(
+        body.employeeName || body.employee,
+        { maxLength: 255 }
       );
     }
 
-    const data: Prisma.CashAdvanceRecordUpdateInput = {};
-
-    if (body.employeeId !== undefined) {
-      data.employeeId = body.employeeId;
-    }
-    if (body.employeeName !== undefined) {
-      data.employeeName = body.employeeName ?? body.employee;
-    } else if (body.employee !== undefined) {
-      data.employeeName = body.employee;
-    }
-
-    const amount =
-      body.amount !== undefined ? toDecimal(body.amount) : undefined;
-    if (amount !== undefined && amount !== null) {
-      data.amount = amount;
+    if (body.amount !== undefined) {
+      updateData.amount = sanitizeNumber(body.amount, {
+        min: 0,
+        decimals: 2,
+      });
     }
 
     if (body.termsMonths !== undefined) {
-      data.termsMonths =
-        body.termsMonths !== null ? parseInt(body.termsMonths, 10) : null;
+      updateData.termsMonths =
+        body.termsMonths !== null
+          ? Math.floor(sanitizeNumber(body.termsMonths, { min: 1 }) ?? 0) ||
+            undefined
+          : null;
     }
 
-    const monthlyPayment =
-      body.monthlyPayment !== undefined
-        ? toDecimal(body.monthlyPayment)
-        : undefined;
-    if (monthlyPayment !== undefined && monthlyPayment !== null) {
-      data.monthlyPayment = monthlyPayment;
+    if (body.monthlyPayment !== undefined) {
+      updateData.monthlyPayment = sanitizeNumber(body.monthlyPayment, {
+        min: 0,
+        decimals: 2,
+      });
     }
 
-    const settledAmount =
-      body.settledAmount !== undefined
-        ? toDecimal(body.settledAmount)
-        : undefined;
     if (body.settledAmount !== undefined) {
-      data.settledAmount = settledAmount;
+      updateData.settledAmount = sanitizeNumber(body.settledAmount, {
+        min: 0,
+        decimals: 2,
+      });
     }
 
-    const remainingBalance =
-      body.remainingBalance !== undefined
-        ? toDecimal(body.remainingBalance)
-        : undefined;
     if (body.remainingBalance !== undefined) {
-      data.remainingBalance = remainingBalance;
+      updateData.remainingBalance = sanitizeNumber(body.remainingBalance, {
+        min: 0,
+        decimals: 2,
+      });
     }
 
     if (body.purpose !== undefined) {
-      data.purpose = body.purpose;
+      updateData.purpose = body.purpose
+        ? sanitizeString(body.purpose, { maxLength: 255 })
+        : null;
     }
+
     if (body.notes !== undefined) {
-      data.notes = body.notes;
+      updateData.notes = body.notes ? sanitizeString(body.notes) : null;
     }
+
     if (body.requestDate !== undefined) {
-      data.requestDate = toDate(body.requestDate);
+      updateData.requestDate = new Date(body.requestDate);
+    }
+
+    if (body.status !== undefined) {
+      updateData.status = sanitizeString(body.status, { maxLength: 50 });
     }
 
     if (body.approvedBy !== undefined) {
-      data.approvedBy = body.approvedBy;
+      updateData.approvedBy = body.approvedBy
+        ? sanitizeString(body.approvedBy, { maxLength: 255 })
+        : null;
     }
-    let approvedDateValue =
-      body.approvedDate !== undefined
-        ? toDate(body.approvedDate)
-        : existing.approvedDate;
+
     if (body.approvedDate !== undefined) {
-      data.approvedDate = approvedDateValue;
+      updateData.approvedDate = body.approvedDate
+        ? new Date(body.approvedDate)
+        : null;
     }
 
     if (body.rejectedBy !== undefined) {
-      data.rejectedBy = body.rejectedBy;
+      updateData.rejectedBy = body.rejectedBy
+        ? sanitizeString(body.rejectedBy, { maxLength: 255 })
+        : null;
     }
+
     if (body.rejectedDate !== undefined) {
-      data.rejectedDate = toDate(body.rejectedDate);
+      updateData.rejectedDate = body.rejectedDate
+        ? new Date(body.rejectedDate)
+        : null;
     }
+
     if (body.rejectionReason !== undefined) {
-      data.rejectionReason = body.rejectionReason;
-    }
-
-    if (body.lastDeductedDate !== undefined) {
-      data.lastDeductedDate = toDate(body.lastDeductedDate);
-    }
-
-    let nextStatus =
-      body.status !== undefined ? String(body.status) : existing.status;
-    if (body.status !== undefined) {
-      data.status = nextStatus;
-    }
-
-    if (nextStatus === 'approved') {
-      if (!approvedDateValue) {
-        approvedDateValue = new Date();
-        data.approvedDate = approvedDateValue;
-      }
-    }
-
-    let nextDeductionDateUpdate: Date | null | undefined;
-    let deductionCycleUpdate: CashAdvanceCycle | null | undefined;
-
-    if (body.nextDeductionDate !== undefined) {
-      const parsed = toDate(body.nextDeductionDate);
-      nextDeductionDateUpdate = parsed;
-      if (parsed) {
-        deductionCycleUpdate = determineCycleFromDate(parsed);
-      }
+      updateData.rejectionReason = body.rejectionReason
+        ? sanitizeString(body.rejectionReason)
+        : null;
     }
 
     if (body.deductionCycle !== undefined) {
-      const value = String(body.deductionCycle);
-      if (value === 'FIRST_HALF' || value === 'SECOND_HALF') {
-        deductionCycleUpdate = value;
-      }
+      updateData.deductionCycle = body.deductionCycle
+        ? sanitizeString(body.deductionCycle, { maxLength: 50 })
+        : null;
     }
 
-    if (nextStatus === 'approved') {
-      const needsSchedule =
-        existing.status !== 'approved' || existing.nextDeductionDate === null;
-
-      if (needsSchedule && approvedDateValue) {
-        const schedule = ensureNextPayday(approvedDateValue);
-        nextDeductionDateUpdate = schedule.date;
-        deductionCycleUpdate = schedule.cycle;
-      }
-    } else if (existing.status === 'approved' && nextStatus !== 'approved') {
-      nextDeductionDateUpdate = null;
-      deductionCycleUpdate = null;
+    if (body.nextDeductionDate !== undefined) {
+      updateData.nextDeductionDate = body.nextDeductionDate
+        ? new Date(body.nextDeductionDate)
+        : null;
     }
 
-    const remainingBalanceValue = (() => {
-      if (remainingBalance !== undefined) {
-        return Number(remainingBalance ?? 0);
-      }
-      if (existing.remainingBalance !== null) {
-        return Number(existing.remainingBalance);
-      }
-      const settled = existing.settledAmount
-        ? Number(existing.settledAmount)
-        : 0;
-      return Math.max(Number(existing.amount) - settled, 0);
-    })();
-
-    if (remainingBalanceValue <= 0) {
-      nextStatus = 'paid';
-      data.status = 'paid';
-      nextDeductionDateUpdate = null;
-      deductionCycleUpdate = null;
-      if (remainingBalance === undefined) {
-        data.remainingBalance = new Prisma.Decimal(0);
-      }
+    if (body.lastDeductedDate !== undefined) {
+      updateData.lastDeductedDate = body.lastDeductedDate
+        ? new Date(body.lastDeductedDate)
+        : null;
     }
 
-    if (nextDeductionDateUpdate !== undefined) {
-      data.nextDeductionDate = nextDeductionDateUpdate;
-    }
-    if (deductionCycleUpdate !== undefined) {
-      data.deductionCycle = deductionCycleUpdate;
-    }
+    // Validate with Zod schema
+    const validatedData = CashAdvanceUpdateSchema.parse(updateData);
 
-    const record = await prisma.cashAdvanceRecord.update({
-      where: { id },
-      data,
-    });
+    // Update using service layer
+    const record = await cashAdvanceService.update(id, validatedData);
 
-    return NextResponse.json(serializeRecord(record));
+    return NextResponse.json(record);
   } catch (error) {
-    console.error('Error updating cash advance:', error);
+    logger.error('Error updating cash advance:', error);
+
+    // Handle validation errors
+    if (error && typeof error === 'object' && 'issues' in error) {
+      return NextResponse.json(
+        {
+          error: 'Validation failed',
+          details: error,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Handle not found errors
+    if (error instanceof Error && error.message.includes('not found')) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+
     return NextResponse.json(
-      { error: 'Failed to update cash advance' },
+      {
+        error: 'Failed to update cash advance',
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }
 }
 
+/**
+ * DELETE /api/cash-advances
+ *
+ * Delete a cash advance by ID
+ */
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -330,13 +345,32 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await prisma.cashAdvanceRecord.delete({ where: { id } });
+    const sanitizedId = sanitizeString(id, { maxLength: 50 });
+
+    // Delete using service layer
+    await cashAdvanceService.delete(sanitizedId);
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting cash advance:', error);
+    logger.error('Error deleting cash advance:', error);
+
+    // Handle not found errors
+    if (
+      error instanceof Error &&
+      (error.message.includes('not found') ||
+        error.message.includes('Record to delete does not exist'))
+    ) {
+      return NextResponse.json(
+        { error: 'Cash advance not found' },
+        { status: 404 }
+      );
+    }
+
     return NextResponse.json(
-      { error: 'Failed to delete cash advance' },
+      {
+        error: 'Failed to delete cash advance',
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }

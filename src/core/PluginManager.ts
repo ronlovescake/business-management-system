@@ -17,6 +17,7 @@ import type {
   ModuleUpdateInfo,
   ModuleValidationResult,
 } from './ModuleRegistry';
+import { api } from '@/lib/api/client';
 import { logger } from '@/lib/logger';
 
 // ============================================================================
@@ -96,15 +97,9 @@ class PluginManager {
    */
   async fetchMarketplace(): Promise<ModulePackage[]> {
     try {
-      const response = await fetch('/api/marketplace/modules');
-
-      if (!response.ok) {
-        throw new DownloadError(
-          `Failed to fetch marketplace: ${response.statusText}`
-        );
-      }
-
-      const manifest: ModuleManifest = await response.json();
+      const manifest = await api.get<ModuleManifest>(
+        '/api/marketplace/modules'
+      );
       this.marketplace = manifest.modules;
 
       logger.debug(
@@ -435,27 +430,19 @@ class PluginManager {
       logger.debug(`📍 From: ${modulePackage.downloadUrl}`);
 
       // Call the download API
-      const response = await fetch('/api/modules/download', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          moduleId: modulePackage.id,
-          downloadUrl: modulePackage.downloadUrl,
-          version: modulePackage.version,
-          checksum: modulePackage.checksum,
-          size: modulePackage.size,
-        }),
+      const result = await api.post<{
+        success: boolean;
+        error?: string;
+        installPath?: string;
+        size?: number;
+        duration?: number;
+      }>('/api/modules/download', {
+        moduleId: modulePackage.id,
+        downloadUrl: modulePackage.downloadUrl,
+        version: modulePackage.version,
+        checksum: modulePackage.checksum,
+        size: modulePackage.size,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage =
-          (errorData as { error?: string }).error ||
-          `HTTP ${response.status}: ${response.statusText}`;
-        throw new DownloadError(errorMessage);
-      }
-
-      const result = await response.json();
 
       if (!result.success) {
         throw new DownloadError(
@@ -483,16 +470,7 @@ class PluginManager {
    */
   private async saveModuleConfig(modulePackage: ModulePackage): Promise<void> {
     try {
-      const response = await fetch('/api/modules/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(modulePackage),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to save module config: ${response.statusText}`);
-      }
-
+      await api.post('/api/modules/config', modulePackage);
       logger.debug(`💾 Module configuration saved: ${modulePackage.id}`);
     } catch (error) {
       logger.error('Failed to save module config:', error);
@@ -508,16 +486,7 @@ class PluginManager {
    */
   private async removeModuleConfig(moduleId: string): Promise<void> {
     try {
-      const response = await fetch(`/api/modules/config/${moduleId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error(
-          `Failed to remove module config: ${response.statusText}`
-        );
-      }
-
+      await api.delete(`/api/modules/config/${encodeURIComponent(moduleId)}`);
       logger.debug(`🗑️  Module configuration removed: ${moduleId}`);
     } catch (error) {
       logger.error('Failed to remove module config:', error);
@@ -533,18 +502,16 @@ class PluginManager {
    */
   private async loadInstalledModules(): Promise<void> {
     try {
-      const response = await fetch('/api/modules/config');
-
-      if (!response.ok) {
-        // If no modules exist yet, that's okay
-        if (response.status === 404) {
-          logger.debug('ℹ️  No installed modules found');
-          return;
-        }
-        throw new Error(`Failed to load modules: ${response.statusText}`);
-      }
-
-      const modules: ModulePackage[] = await response.json();
+      const modules = await api
+        .get<ModulePackage[]>('/api/modules/config')
+        .catch((error) => {
+          // If no modules exist yet (404), that's okay
+          if (error.status === 404) {
+            logger.debug('ℹ️  No installed modules found');
+            return [];
+          }
+          throw error;
+        });
 
       modules.forEach((modulePackage) => {
         this.installedModules.set(modulePackage.id, modulePackage);

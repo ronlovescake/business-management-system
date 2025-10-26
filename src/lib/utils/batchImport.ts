@@ -10,6 +10,8 @@
  * - Returns summary with successful and failed batches
  */
 
+import { logger } from '@/lib/logger';
+
 export interface BatchImportOptions {
   /** Callback for progress updates (0-100) */
   onProgress?: (percent: number, status: string) => void;
@@ -179,7 +181,7 @@ export async function importInBatches<T>(
           };
 
           // Log detailed error for debugging
-          console.error(`Batch ${batchNumber} failed:`, {
+          logger.error(`Batch ${batchNumber} failed:`, {
             status: response.status,
             error: errorData,
             batchSize: batches[i].length,

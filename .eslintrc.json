@@ -36,12 +36,8 @@
     ],
 
     // Code Quality
-    "no-console": [
-      "warn",
-      {
-        "allow": ["warn", "error"]
-      }
-    ],
+    // Prevent console.log in production - use logger from '@/lib/logger' instead
+    "no-console": "error",
     "no-debugger": "error",
     "eqeqeq": ["error", "always"],
     "curly": ["error", "all"],
@@ -55,5 +51,13 @@
     "jsx-a11y/click-events-have-key-events": "warn",
     "jsx-a11y/no-static-element-interactions": "warn"
   },
+  "overrides": [
+    {
+      "files": ["src/lib/logger.ts", "scripts/**/*.js", "scripts/**/*.ts"],
+      "rules": {
+        "no-console": "off"
+      }
+    }
+  ],
   "ignorePatterns": ["node_modules/", ".next/", "out/", "build/"]
 }

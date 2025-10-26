@@ -6,6 +6,7 @@ import {
   type EmployeeAutomationSettingsUpdate,
 } from '@/lib/settings/employeeAutomation';
 import { runStayInAutoPresenceAutomation } from '@/lib/automation/stayInAutoPresence';
+import { logger } from '@/lib/logger';
 
 // Note: Input validation is handled by the service layer (employeeAutomation.ts)
 // which includes sanitization and validation for all fields:
@@ -19,7 +20,7 @@ export async function GET() {
     const settings = await getEmployeeAutomationSettings();
     return NextResponse.json(settings);
   } catch (error) {
-    console.error('Error fetching employee automation settings:', error);
+    logger.error('Error fetching employee automation settings:', error);
     return NextResponse.json(
       { error: 'Failed to load employee automation settings.' },
       { status: 500 }
@@ -33,7 +34,7 @@ export async function PUT(request: NextRequest) {
     const updated = await updateEmployeeAutomationSettings(payload);
     return NextResponse.json(updated);
   } catch (error) {
-    console.error('Error updating employee automation settings:', error);
+    logger.error('Error updating employee automation settings:', error);
 
     if (error instanceof Error && error.name === 'ValidationError') {
       return NextResponse.json({ error: error.message }, { status: 400 });
@@ -51,7 +52,7 @@ export async function POST() {
     const result = await runStayInAutoPresenceAutomation();
     return NextResponse.json({ success: true, result });
   } catch (error) {
-    console.error('Error running stay-in automation manually:', error);
+    logger.error('Error running stay-in automation manually:', error);
 
     return NextResponse.json(
       { error: 'Failed to run automation. Please try again later.' },
