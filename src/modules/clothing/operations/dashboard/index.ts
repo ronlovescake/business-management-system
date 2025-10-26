@@ -14,33 +14,22 @@ export { dashboardModule } from './module.config';
 // TYPES
 // =============================================================================
 
-export type {
-  DashboardData,
-  DashboardMetrics,
-  DashboardStatistic,
-  TodayActivity,
-  MonthlyGoal,
-  RecentActivity,
-  IconComponent,
-} from './types/dashboard.types';
+export * from './types';
 
 // =============================================================================
 // SERVICES
 // =============================================================================
 
-export {
-  DashboardService,
-  dashboardService,
-} from './services/DashboardService';
+export * from './services';
 
 // =============================================================================
 // HOOKS
 // =============================================================================
 
-export { useDashboardData } from './hooks/useDashboardData';
+export * from './hooks';
 
 // =============================================================================
 // COMPONENTS
 // =============================================================================
 
-export { DashboardPage } from './components/DashboardPage';
+export * from './components';

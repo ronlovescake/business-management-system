@@ -1,24 +1,35 @@
 /**
- * Due Dates Module - Public API
+ * Due Dates Module Public API
  *
- * This is the only file other modules should import from.
+ * Central export point for Due Dates module
  */
 
-// Export module configuration
+// =============================================================================
+// MODULE CONFIGURATION
+// =============================================================================
+
 export { dueDatesModule } from './module.config';
 
-// Export types
-export type {
-  DueDateItem,
-  DueDateFilters,
-  DueDateStats,
-} from './types/dueDate.types';
+// =============================================================================
+// TYPES
+// =============================================================================
 
-// Export services (in case other modules need them)
-export { DueDateService } from './services/DueDateService';
+export * from './types';
 
-// Export hooks
-export { useDueDateData } from './hooks/useDueDateData';
+// =============================================================================
+// SERVICES
+// =============================================================================
 
-// Export components
-export { DueDatesPage } from './components/DueDatesPage';
+export * from './services';
+
+// =============================================================================
+// HOOKS
+// =============================================================================
+
+export * from './hooks';
+
+// =============================================================================
+// COMPONENTS
+// =============================================================================
+
+export * from './components';

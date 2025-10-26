@@ -1,129 +1,62 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
-import { prisma } from '@/lib/db';
-import type { CashAdvanceCycle } from '@/lib/payroll/cashAdvanceSchedule';
+import { logger } from '@/lib/logger';
 import {
-  determineCycleFromDate,
-  ensureNextPayday,
-} from '@/lib/payroll/cashAdvanceSchedule';
+  cashAdvanceService,
+  CashAdvanceQuerySchema,
+} from '@/modules/clothing/employees/cash-advance/api';
 
-const toDecimal = (value: unknown) => {
-  if (value === null || value === undefined || value === '') {
-    return null;
-  }
+/**
+ * Cash Advances API Route
+ *
+ * Handles CRUD operations for cash advances using service layer:
+ * - GET: Fetch all cash advances with optional filters
+ * - POST: Create a new cash advance
+ * - PUT: Update an existing cash advance
+ * - DELETE: Delete a cash advance or all cash advances
+ */
 
-  try {
-    return new Prisma.Decimal(value as Prisma.Decimal.Value);
-  } catch (error) {
-    const parsed = Number(value);
-    if (Number.isNaN(parsed)) {
-      return null;
-    }
-    return new Prisma.Decimal(parsed);
-  }
-};
-
-const toDate = (value: unknown) => {
-  if (!value) {
-    return null;
-  }
-
-  if (value instanceof Date) {
-    return Number.isNaN(value.getTime()) ? null : value;
-  }
-
-  const parsed = new Date(value as string);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-};
-
-const serializeRecord = (record: {
-  id: string;
-  employeeId: string;
-  employeeName: string;
-  amount: Prisma.Decimal;
-  termsMonths: number | null;
-  monthlyPayment: Prisma.Decimal | null;
-  settledAmount: Prisma.Decimal | null;
-  remainingBalance: Prisma.Decimal | null;
-  purpose: string | null;
-  notes: string | null;
-  requestDate: Date | null;
-  status: string;
-  approvedBy: string | null;
-  approvedDate: Date | null;
-  rejectedBy: string | null;
-  rejectedDate: Date | null;
-  rejectionReason: string | null;
-  deductionCycle: CashAdvanceCycle | null;
-  nextDeductionDate: Date | null;
-  lastDeductedDate: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-}) => {
-  const amount = Number(record.amount);
-  const settled = record.settledAmount ? Number(record.settledAmount) : 0;
-  const remaining = record.remainingBalance
-    ? Number(record.remainingBalance)
-    : Math.max(amount - settled, 0);
-
-  return {
-    id: record.id,
-    employeeId: record.employeeId,
-    employeeName: record.employeeName,
-    amount,
-    termsMonths: record.termsMonths,
-    monthlyPayment: record.monthlyPayment
-      ? Number(record.monthlyPayment)
-      : null,
-    settledAmount: settled,
-    remainingBalance: remaining,
-    purpose: record.purpose,
-    notes: record.notes,
-    requestDate: record.requestDate
-      ? record.requestDate.toISOString().slice(0, 10)
-      : null,
-    status: record.status,
-    approvedBy: record.approvedBy,
-    approvedDate: record.approvedDate
-      ? record.approvedDate.toISOString()
-      : null,
-    rejectedBy: record.rejectedBy,
-    rejectedDate: record.rejectedDate
-      ? record.rejectedDate.toISOString()
-      : null,
-    rejectionReason: record.rejectionReason,
-    deductionCycle: record.deductionCycle,
-    nextDeductionDate: record.nextDeductionDate
-      ? record.nextDeductionDate.toISOString()
-      : null,
-    lastDeductedDate: record.lastDeductedDate
-      ? record.lastDeductedDate.toISOString()
-      : null,
-    createdAt: record.createdAt.toISOString(),
-    updatedAt: record.updatedAt.toISOString(),
-  };
-};
-
+/**
+ * GET /api/cash-advances
+ *
+ * Fetch all cash advances with optional filters
+ */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status');
-    const employeeId = searchParams.get('employeeId');
 
-    const records = await prisma.cashAdvanceRecord.findMany({
-      where: {
-        status: status && status !== 'all' ? status : undefined,
-        employeeId: employeeId ?? undefined,
-      },
-      orderBy: [{ createdAt: 'desc' }],
-    });
+    const statusParam = searchParams.get('status');
+    const employeeIdParam = searchParams.get('employeeId');
 
-    return NextResponse.json(records.map(serializeRecord));
+    // Build query from search params
+    const queryParams = {
+      status: statusParam && statusParam !== 'all' ? statusParam : undefined,
+      employeeId: employeeIdParam || undefined,
+    };
+
+    // Remove undefined values
+    const query = Object.fromEntries(
+      Object.entries(queryParams).filter(([_, v]) => v !== undefined)
+    );
+
+    // Validate query params
+    const validatedQuery =
+      Object.keys(query).length > 0 ? CashAdvanceQuerySchema.parse(query) : {};
+
+    // Fetch cash advances using service
+    const cashAdvances =
+      Object.keys(validatedQuery).length > 0
+        ? await cashAdvanceService.findWithFilters(validatedQuery)
+        : await cashAdvanceService.findAll();
+
+    return NextResponse.json(cashAdvances);
   } catch (error) {
-    console.error('Error fetching cash advances:', error);
+    logger.error('Failed to fetch cash advances', { error });
     return NextResponse.json(
-      { error: 'Failed to fetch cash advances' },
+      {
+        error: 'Failed to fetch cash advances',
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }

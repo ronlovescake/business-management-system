@@ -1,49 +1,35 @@
 /**
  * Transactions Module Public API
  *
- * Exports all public types, services, hooks, and components.
+ * Central export point for Transactions module
  */
 
-// Module configuration
+// =============================================================================
+// MODULE CONFIGURATION
+// =============================================================================
+
 export { transactionsModule } from './module.config';
 
-// Types
-export type {
-  TransactionData,
-  PriceTier,
-  ProductShipmentMapping,
-  CustomerValidationResult,
-  CustomerWarningData,
-  InvoiceConfirmationData,
-  PackingListConfirmationData,
-  DistributionConfirmationData,
-  TransactionStatistics,
-  ColumnIdToKey,
-  OrderStatus,
-  StatusFilterOption,
-  PackingListTransaction,
-  SanitizedTransaction,
-} from './types/transaction.types';
+// =============================================================================
+// TYPES
+// =============================================================================
 
-export {
-  ORDER_STATUS_OPTIONS,
-  STATUS_FILTER_OPTIONS,
-  ALL_STATUS_CONTROLLED_STATUSES,
-} from './types/transaction.types';
+export * from './types';
 
-// Services
-export { TransactionService } from './services/TransactionService';
+// =============================================================================
+// SERVICES
+// =============================================================================
 
-// Hooks
-export { useTransactionsData } from './hooks/useTransactionsData';
-export { useTransactionOperations } from './hooks/useTransactionOperations';
-export { useTransactionModals } from './hooks/useTransactionModals';
+export * from './services';
 
-// Components
-export { TransactionsPage } from './components/TransactionsPage';
-export {
-  InvoiceGenerationModal,
-  PackingListGenerationModal,
-  DistributionGenerationModal,
-  CustomerWarningModal,
-} from './components/TransactionModals';
+// =============================================================================
+// HOOKS
+// =============================================================================
+
+export * from './hooks';
+
+// =============================================================================
+// COMPONENTS
+// =============================================================================
+
+export * from './components';

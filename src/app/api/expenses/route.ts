@@ -1,131 +1,70 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import type { Prisma } from '@prisma/client';
-import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { validateMassDeleteConfirmation } from '@/lib/safety/mass-deletion';
+import {
+  expenseService,
+  ExpenseQuerySchema,
+  ExpenseBatchCreateSchema,
+} from '@/modules/clothing/employees/expenses/api';
 
 /**
  * Expenses API Route
  *
- * Handles CRUD operations for employee expenses:
- * - GET: Fetch all expenses
+ * Handles CRUD operations for employee expenses using service layer:
+ * - GET: Fetch all expenses with optional filters
  * - POST: Create multiple expenses (for CSV import)
  * - PUT: Bulk update multiple expenses
  * - PATCH: Update a single expense
  * - DELETE: Delete all expenses
  */
 
-type ExpenseRow = Record<string, unknown>;
-
-function parseTrimmed(value: unknown): string {
-  if (value === null || value === undefined) {
-    return '';
-  }
-  return String(value).trim();
-}
-
-function parseOptional(value: unknown): string | null {
-  const trimmed = parseTrimmed(value);
-  return trimmed.length === 0 ? null : trimmed;
-}
-
-function parseNumeric(value: unknown): number {
-  if (value === undefined || value === null || value === '') {
-    return 0;
-  }
-
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : 0;
-  }
-
-  const str = String(value)
-    .replace(/[₱$,\s]/g, '')
-    .trim();
-  if (str.length === 0) {
-    return 0;
-  }
-
-  const parsed = Number.parseFloat(str);
-  return Number.isNaN(parsed) ? 0 : parsed;
-}
-
-// GET - Fetch all expenses
-export async function GET() {
+/**
+ * GET /api/expenses
+ *
+ * Fetch all expenses with optional filters
+ */
+export async function GET(request: NextRequest) {
   try {
-    const expenses = await prisma.expense.findMany({
-      orderBy: { date: 'desc' },
-    });
+    const { searchParams } = new URL(request.url);
 
-    // Convert database format to UI format
-    const formattedExpenses = expenses.map((expense) => ({
-      id: String(expense.id),
-      date: expense.date,
-      amount: expense.amount,
-      description: expense.description,
-      category: expense.category,
-      notes: expense.notes ?? '',
-      receipt: expense.receipt ?? null,
-      status: expense.status,
-      employeeName: expense.employeeName ?? undefined,
-    }));
+    // Build query from search params
+    const startDateParam = searchParams.get('startDate');
+    const endDateParam = searchParams.get('endDate');
+    const minAmountParam = searchParams.get('minAmount');
+    const maxAmountParam = searchParams.get('maxAmount');
 
-    return NextResponse.json(formattedExpenses);
-  } catch (error) {
-    logger.error('Failed to fetch expenses:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch expenses' },
-      { status: 500 }
-    );
-  }
-}
+    const queryParams = {
+      category: searchParams.get('category') || undefined,
+      status: searchParams.get('status') || undefined,
+      startDate: startDateParam ? new Date(startDateParam) : undefined,
+      endDate: endDateParam ? new Date(endDateParam) : undefined,
+      employeeName: searchParams.get('employeeName') || undefined,
+      minAmount: minAmountParam ? Number(minAmountParam) : undefined,
+      maxAmount: maxAmountParam ? Number(maxAmountParam) : undefined,
+    };
 
-// POST - Create multiple expenses (for CSV import)
-export async function POST(request: NextRequest) {
-  try {
-    const expensesData = await request.json();
-
-    if (!Array.isArray(expensesData) || expensesData.length === 0) {
-      return NextResponse.json(
-        {
-          error: 'Invalid data format. Expected array of expense objects.',
-        },
-        { status: 400 }
-      );
-    }
-
-    const dataToInsert: Prisma.ExpenseCreateManyInput[] = expensesData.map(
-      (row: ExpenseRow) => ({
-        date: parseTrimmed(row.date),
-        amount: parseNumeric(row.amount),
-        description: parseTrimmed(row.description),
-        category: parseTrimmed(row.category),
-        notes: parseOptional(row.notes),
-        receipt: parseOptional(row.receipt),
-        status: parseTrimmed(row.status) || 'pending',
-        employeeName: parseOptional(row.employeeName),
-      })
+    // Remove undefined values
+    const query = Object.fromEntries(
+      Object.entries(queryParams).filter(([_, v]) => v !== undefined)
     );
 
-    const result = await prisma.expense.createMany({
-      data: dataToInsert,
-    });
+    // Validate query params
+    const validatedQuery =
+      Object.keys(query).length > 0 ? ExpenseQuerySchema.parse(query) : {};
 
-    return NextResponse.json({
-      message: `Successfully imported ${result.count} expense records`,
-      count: result.count,
-    });
+    // Fetch expenses using service
+    const expenses =
+      Object.keys(validatedQuery).length > 0
+        ? await expenseService.findWithFilters(validatedQuery)
+        : await expenseService.findAll();
+
+    return NextResponse.json(expenses);
   } catch (error) {
-    logger.error('Failed to import expenses:', error);
-
-    if (error instanceof Error) {
-      logger.error('Error message:', error.message);
-      logger.error('Error stack:', error.stack);
-    }
-
+    logger.error('Failed to fetch expenses', { error });
     return NextResponse.json(
       {
-        error: 'Failed to import expense data to database',
+        error: 'Failed to fetch expenses',
         details: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }
@@ -133,7 +72,64 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT - Bulk update multiple expenses
+/**
+ * POST /api/expenses
+ *
+ * Create multiple expenses (batch import)
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const payload = await request.json();
+    const items = Array.isArray(payload) ? payload : [payload];
+
+    if (items.length === 0) {
+      return NextResponse.json(
+        { error: 'Request body must contain one or more expenses' },
+        { status: 400 }
+      );
+    }
+
+    // Validate batch size (max 10,000)
+    const validatedData = ExpenseBatchCreateSchema.parse(items);
+
+    // Create expenses using service
+    const result = await expenseService.createMany(validatedData);
+
+    logger.info('Expenses created', { count: result.count });
+
+    return NextResponse.json({
+      message: `Successfully imported ${result.count} expense records`,
+      count: result.count,
+    });
+  } catch (error) {
+    logger.error('Failed to import expenses', { error });
+
+    // Handle validation errors
+    if (error instanceof Error && error.name === 'ZodError') {
+      return NextResponse.json(
+        {
+          error: 'Validation failed',
+          details: error.message,
+        },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        error: 'Failed to import expenses',
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PUT /api/expenses
+ *
+ * Bulk update multiple expenses
+ */
 export async function PUT(request: NextRequest) {
   try {
     const updatePayload = await request.json();
@@ -145,46 +141,15 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const updateData = updatePayload as (ExpenseRow & { id: unknown })[];
-
-    // Update each expense in a transaction
-    const updatePromises = updateData.map(async (expense) => {
+    // Update each expense using service
+    const updatePromises = updatePayload.map(async (expense) => {
       const id = Number(expense.id);
       if (!Number.isFinite(id)) {
         throw new Error(`Invalid expense ID: ${expense.id}`);
       }
 
-      const dbData: Prisma.ExpenseUpdateInput = {};
-
-      if ('date' in expense) {
-        dbData.date = parseTrimmed(expense.date);
-      }
-      if ('amount' in expense) {
-        dbData.amount = parseNumeric(expense.amount);
-      }
-      if ('description' in expense) {
-        dbData.description = parseTrimmed(expense.description);
-      }
-      if ('category' in expense) {
-        dbData.category = parseTrimmed(expense.category);
-      }
-      if ('notes' in expense) {
-        dbData.notes = parseOptional(expense.notes);
-      }
-      if ('receipt' in expense) {
-        dbData.receipt = parseOptional(expense.receipt);
-      }
-      if ('status' in expense) {
-        dbData.status = parseTrimmed(expense.status);
-      }
-      if ('employeeName' in expense) {
-        dbData.employeeName = parseOptional(expense.employeeName);
-      }
-
-      return prisma.expense.update({
-        where: { id },
-        data: dbData,
-      });
+      const { id: _, ...updateData } = expense;
+      return expenseService.update(id, updateData);
     });
 
     const results = await Promise.all(updatePromises);
@@ -194,7 +159,7 @@ export async function PUT(request: NextRequest) {
       count: results.length,
     });
   } catch (error) {
-    logger.error('Failed to bulk update expenses:', error);
+    logger.error('Failed to bulk update expenses', { error });
     return NextResponse.json(
       {
         error: 'Failed to bulk update expenses',
@@ -205,7 +170,11 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// PATCH - Update a single expense
+/**
+ * PATCH /api/expenses
+ *
+ * Update a single expense
+ */
 export async function PATCH(request: NextRequest) {
   try {
     const updatePayload = await request.json();
@@ -213,7 +182,7 @@ export async function PATCH(request: NextRequest) {
     if (
       typeof updatePayload !== 'object' ||
       updatePayload === null ||
-      (updatePayload as Record<string, unknown>).id === undefined
+      updatePayload.id === undefined
     ) {
       return NextResponse.json(
         { error: 'Expense ID is required' },
@@ -221,8 +190,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const updateData = updatePayload as ExpenseRow & { id: unknown };
-    const id = Number(updateData.id);
+    const id = Number(updatePayload.id);
     if (!Number.isFinite(id)) {
       return NextResponse.json(
         { error: 'Expense ID must be a number' },
@@ -230,44 +198,16 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const dbData: Prisma.ExpenseUpdateInput = {};
+    const { id: _, ...updateData } = updatePayload;
 
-    if ('date' in updateData) {
-      dbData.date = parseTrimmed(updateData.date);
-    }
-    if ('amount' in updateData) {
-      dbData.amount = parseNumeric(updateData.amount);
-    }
-    if ('description' in updateData) {
-      dbData.description = parseTrimmed(updateData.description);
-    }
-    if ('category' in updateData) {
-      dbData.category = parseTrimmed(updateData.category);
-    }
-    if ('notes' in updateData) {
-      dbData.notes = parseOptional(updateData.notes);
-    }
-    if ('receipt' in updateData) {
-      dbData.receipt = parseOptional(updateData.receipt);
-    }
-    if ('status' in updateData) {
-      dbData.status = parseTrimmed(updateData.status);
-    }
-    if ('employeeName' in updateData) {
-      dbData.employeeName = parseOptional(updateData.employeeName);
-    }
-
-    const updatedExpense = await prisma.expense.update({
-      where: { id },
-      data: dbData,
-    });
+    const updatedExpense = await expenseService.update(id, updateData);
 
     return NextResponse.json({
       message: 'Expense updated successfully',
       expense: updatedExpense,
     });
   } catch (error) {
-    logger.error('Failed to update expense:', error);
+    logger.error('Failed to update expense', { error });
     return NextResponse.json(
       {
         error: 'Failed to update expense',
@@ -278,7 +218,11 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-// DELETE - Delete all expenses
+/**
+ * DELETE /api/expenses
+ *
+ * Delete all expenses (requires mass deletion confirmation)
+ */
 export async function DELETE(request: NextRequest) {
   try {
     // Mass deletion protection - require confirmation token
@@ -287,7 +231,7 @@ export async function DELETE(request: NextRequest) {
       return validation;
     }
 
-    const result = await prisma.expense.deleteMany();
+    const result = await expenseService.deleteAll();
 
     logger.warn('Mass deletion executed', {
       entity: 'expenses',
@@ -300,9 +244,7 @@ export async function DELETE(request: NextRequest) {
       count: result.count,
     });
   } catch (error) {
-    logger.error('Failed to delete expenses', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
+    logger.error('Failed to delete expenses', { error });
 
     return NextResponse.json(
       { error: 'Failed to delete expenses' },
