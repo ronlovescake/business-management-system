@@ -47,11 +47,11 @@ const employmentStatusSchema = z.enum(
  * Employee Type enum
  */
 const employeeTypeSchema = z.enum(
-  ['full-time', 'part-time', 'contractor', 'intern'],
+  ['full-time', 'part-time', 'contractor', 'intern', 'stay-in'],
   {
     errorMap: () => ({
       message:
-        'Employee type must be: full-time, part-time, contractor, or intern',
+        'Employee type must be: full-time, part-time, contractor, intern, or stay-in',
     }),
   }
 );
@@ -81,11 +81,11 @@ const maritalStatusSchema = z.enum(
  * Payment Schedule enum
  */
 const paymentScheduleSchema = z.enum(
-  ['weekly', 'bi-weekly', 'semi-monthly', 'monthly'],
+  ['weekly', 'bi-weekly', 'bi-monthly', 'semi-monthly', 'monthly'],
   {
     errorMap: () => ({
       message:
-        'Payment schedule must be: weekly, bi-weekly, semi-monthly, or monthly',
+        'Payment schedule must be: weekly, bi-weekly, bi-monthly, semi-monthly, or monthly',
     }),
   }
 );

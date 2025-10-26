@@ -95,6 +95,54 @@ export async function PUT(
     const currentProfilePhoto =
       (existing as { profilePhoto?: string | null }).profilePhoto ?? null;
 
+    // Check for duplicate email (excluding current employee)
+    if (body.email && body.email.trim() !== '') {
+      const duplicateEmail = await prisma.employee.findFirst({
+        where: {
+          email: body.email,
+          deletedAt: null,
+          NOT: {
+            id: employeeId, // Exclude current employee
+          },
+        },
+      });
+
+      if (duplicateEmail) {
+        return NextResponse.json(
+          {
+            error: 'Duplicate entry',
+            details: 'An employee with this email already exists',
+            field: 'email',
+          },
+          { status: 409 }
+        );
+      }
+    }
+
+    // Check for duplicate phone (excluding current employee)
+    if (body.phone && body.phone.trim() !== '') {
+      const duplicatePhone = await prisma.employee.findFirst({
+        where: {
+          phone: body.phone,
+          deletedAt: null,
+          NOT: {
+            id: employeeId, // Exclude current employee
+          },
+        },
+      });
+
+      if (duplicatePhone) {
+        return NextResponse.json(
+          {
+            error: 'Duplicate entry',
+            details: 'An employee with this phone number already exists',
+            field: 'phone',
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     const resolvedProfilePhoto =
       typeof body.profilePhoto === 'string'
         ? body.profilePhoto.trim().length > 0

@@ -516,7 +516,11 @@ export function useTeam() {
               drivingLicense:
                 (employeeData['Driving License'] as string) || undefined,
               education: (employeeData['Education'] as string) || undefined,
-              email: (employeeData['Email'] as string) || undefined,
+              email: (() => {
+                const email = employeeData['Email'] as string;
+                // Only include email if it's valid format (contains @)
+                return email && email.includes('@') ? email : undefined;
+              })(),
               phone: employeeData['Phone'] as string,
               contact: employeeData['Phone'] as string,
               address: (employeeData['Address'] as string) || undefined,
@@ -572,7 +576,9 @@ export function useTeam() {
               successCount++;
             } else {
               errorCount++;
+              const errorData = await response.json();
               console.error('Failed to import employee:', employee.employeeId);
+              console.error('Error details:', errorData);
             }
           } catch (rowError) {
             errorCount++;
