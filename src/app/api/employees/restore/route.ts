@@ -14,6 +14,7 @@ import {
   findDeletedRecords,
 } from '@/lib/safety/restore';
 import { z } from 'zod';
+import { sanitizers } from '@/lib/security/sanitize';
 
 // Validation schemas
 const restoreSchema = z.object({
@@ -92,8 +93,15 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const department = searchParams.get('department');
+    const limitParam = searchParams.get('limit');
+    const departmentParam = searchParams.get('department');
+
+    const limit = limitParam
+      ? (sanitizers.number(limitParam, { min: 1, max: 100 }) ?? 50)
+      : 50;
+    const department = departmentParam
+      ? sanitizers.name(departmentParam)
+      : undefined;
 
     // Build filters
     const filters: Record<string, unknown> = {};

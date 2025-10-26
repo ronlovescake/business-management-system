@@ -6,11 +6,9 @@
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/db';
 import fs from 'fs';
 import path from 'path';
-
-const prisma = new PrismaClient();
 const BACKUP_DIR = path.resolve(process.cwd(), 'backups');
 
 // POST - Restore from backup

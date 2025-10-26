@@ -4,6 +4,7 @@ import type { Product } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { sanitizers } from '@/lib/security/sanitize';
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic';
@@ -11,46 +12,52 @@ export const revalidate = 0;
 
 type ProductImportRow = Record<string, unknown>;
 
+/**
+ * Sanitize and get string field from import record
+ */
 function getStringField(record: ProductImportRow, key: string): string | null {
   const value = record[key];
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    return trimmed.length === 0 ? null : trimmed;
-  }
-  return value === null || value === undefined ? null : String(value);
+  // Use sanitizer for string cleaning
+  const sanitized = sanitizers.name(value);
+  return sanitized.length === 0 ? null : sanitized;
 }
 
+/**
+ * Sanitize and get number field from import record
+ */
 function getNumberField(record: ProductImportRow, key: string): number {
   const value = record[key];
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : 0;
-  }
-  if (typeof value === 'string') {
-    const cleaned = value.replace(/,/g, '').trim();
-    if (cleaned.length === 0) {
-      return 0;
-    }
-    const parsed = Number.parseFloat(cleaned);
-    return Number.isNaN(parsed) ? 0 : parsed;
-  }
-  return 0;
+  // Use sanitizer for number validation
+  const sanitized = sanitizers.number(value, { min: 0, decimals: 2 });
+  return sanitized ?? 0;
 }
 
+/**
+ * Map and sanitize import row to Prisma input
+ * All fields are sanitized to prevent XSS and injection attacks
+ */
 function mapImportRow(record: ProductImportRow): Prisma.ProductCreateManyInput {
   return {
-    shipmentCode: getStringField(record, 'Shipment Code'),
+    // Sanitize code fields with productCode sanitizer
+    shipmentCode: sanitizers.productCode(record['Shipment Code']) || null,
     cvNumber: getStringField(record, 'CV Number'),
+    productCode: sanitizers.productCode(record['Product Code']) || null,
+
+    // Sanitize text fields
+    product: getStringField(record, 'Product'),
+    ageRange: getStringField(record, 'Age Range'),
+    unit: getStringField(record, 'Unit'),
+    shipmentStatus: getStringField(record, 'Shipment Status'),
+    payment: getStringField(record, 'Payment'),
+
+    // Sanitize date fields
+    postingDate: sanitizers.date(record['Posting Date']) || null,
+    orderDate: sanitizers.date(record['Order Date']) || null,
+
+    // Sanitize numeric fields (all with min: 0 for non-negative values)
     noOfSacks: getNumberField(record, 'No. Of Sacks'),
     totalCBM: getNumberField(record, 'Total CBM'),
     weight: getNumberField(record, 'Weight'),
-    shipmentStatus: getStringField(record, 'Shipment Status'),
-    postingDate: getStringField(record, 'Posting Date'),
-    orderDate: getStringField(record, 'Order Date'),
-    payment: getStringField(record, 'Payment'),
-    product: getStringField(record, 'Product'),
-    productCode: getStringField(record, 'Product Code'),
-    ageRange: getStringField(record, 'Age Range'),
-    unit: getStringField(record, 'Unit'),
     unitPrice: getNumberField(record, 'Unit Price'),
     quantity: getNumberField(record, 'Quantity'),
     alibabaShippingCost: getNumberField(record, 'Alibaba Shipping Cost'),

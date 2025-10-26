@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { logger } from '@/lib/logger';
+import { sanitizers } from '@/lib/security/sanitize';
 
 // POST: Sync version history to server
 export async function POST(request: NextRequest) {
@@ -15,10 +16,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Sanitize dataKey
+    const sanitizedDataKey = sanitizers.name(dataKey);
+
     // TODO: Save to database
     // For now, just log and acknowledge
     logger.debug(
-      `📤 Syncing ${versions.length} versions for: ${dataKey} at ${new Date(timestamp).toLocaleString()}`
+      `📤 Syncing ${versions.length} versions for: ${sanitizedDataKey} at ${new Date(timestamp).toLocaleString()}`
     );
 
     // In production, you would save these to a database:

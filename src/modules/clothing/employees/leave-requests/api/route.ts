@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { getCurrentDateISO } from '@/utils/date';
 import { validateMassDeleteConfirmation } from '@/lib/safety/mass-deletion';
+import { sanitizers } from '@/lib/security/sanitize';
 
 type LeaveRequestPayload = Record<string, unknown>;
 
@@ -54,10 +55,7 @@ const VALID_PAYMENT_STATUSES: PaymentStatus[] = [
 ];
 
 function parseString(value: unknown): string {
-  if (value === null || value === undefined) {
-    return '';
-  }
-  return String(value).trim();
+  return sanitizers.name(value);
 }
 
 function parseOptionalString(value: unknown): string | undefined {

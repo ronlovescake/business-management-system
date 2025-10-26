@@ -1,8 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/db';
 
 /**
  * GET /api/clothing-attendance
@@ -14,10 +12,7 @@ export async function GET() {
       where: {
         deletedAt: null,
       },
-      orderBy: [
-        { date: 'desc' },
-        { employeeName: 'asc' },
-      ],
+      orderBy: [{ date: 'desc' }, { employeeName: 'asc' }],
     });
 
     return NextResponse.json(attendance);

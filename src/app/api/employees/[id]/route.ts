@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { sanitizers } from '@/lib/security/sanitize';
 
 export const dynamic = 'force-dynamic';
 
@@ -97,9 +98,10 @@ export async function PUT(
 
     // Check for duplicate email (excluding current employee)
     if (body.email && body.email.trim() !== '') {
+      const sanitizedEmail = sanitizers.email(body.email);
       const duplicateEmail = await prisma.employee.findFirst({
         where: {
-          email: body.email,
+          email: sanitizedEmail,
           deletedAt: null,
           NOT: {
             id: employeeId, // Exclude current employee
@@ -121,9 +123,10 @@ export async function PUT(
 
     // Check for duplicate phone (excluding current employee)
     if (body.phone && body.phone.trim() !== '') {
+      const sanitizedPhone = sanitizers.phone(body.phone);
       const duplicatePhone = await prisma.employee.findFirst({
         where: {
-          phone: body.phone,
+          phone: sanitizedPhone,
           deletedAt: null,
           NOT: {
             id: employeeId, // Exclude current employee
@@ -150,70 +153,117 @@ export async function PUT(
           : null
         : currentProfilePhoto;
 
-    // Prepare employee data with proper type conversions
+    // Prepare employee data with proper type conversions and sanitization
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const employeeData: any = {
-      employeeId: body.employeeId,
-      firstName: body.firstName || body.name?.split(' ')[0] || '',
-      lastName: body.lastName || body.name?.split(' ').slice(1).join(' ') || '',
-      middleName: body.middleName || null,
-      name: body.name,
-      department: body.department,
-      position: body.position || body.jobTitle,
-      jobTitle: body.jobTitle || body.position,
-      status: body.status,
-      hireDate: body.hireDate,
-      phone: body.phone || body.contact,
-      contact: body.contact || body.phone,
-      email: body.email || null,
-      address: body.address || null,
+      employeeId: sanitizers.name(body.employeeId),
+      firstName: sanitizers.name(
+        body.firstName || body.name?.split(' ')[0] || ''
+      ),
+      lastName: sanitizers.name(
+        body.lastName || body.name?.split(' ').slice(1).join(' ') || ''
+      ),
+      middleName: body.middleName ? sanitizers.name(body.middleName) : null,
+      name: sanitizers.name(body.name),
+      department: sanitizers.name(body.department),
+      position: sanitizers.name(body.position || body.jobTitle),
+      jobTitle: sanitizers.name(body.jobTitle || body.position),
+      status: sanitizers.name(body.status),
+      hireDate: sanitizers.date(body.hireDate),
+      phone: sanitizers.phone(body.phone || body.contact),
+      contact: sanitizers.phone(body.contact || body.phone),
+      email: body.email ? sanitizers.email(body.email) : null,
+      address: body.address ? sanitizers.address(body.address) : null,
       emergencyContact:
-        body.emergencyContact || body.emergencyContactNumber || null,
-      emergencyContactPerson: body.emergencyContactPerson || null,
+        body.emergencyContact || body.emergencyContactNumber
+          ? sanitizers.phone(
+              body.emergencyContact || body.emergencyContactNumber
+            )
+          : null,
+      emergencyContactPerson: body.emergencyContactPerson
+        ? sanitizers.name(body.emergencyContactPerson)
+        : null,
       emergencyContactNumber:
-        body.emergencyContactNumber || body.emergencyContact || null,
+        body.emergencyContactNumber || body.emergencyContact
+          ? sanitizers.phone(
+              body.emergencyContactNumber || body.emergencyContact
+            )
+          : null,
 
-      // Convert string to number for salary fields
-      basicSalary: body.basicSalary ? parseFloat(body.basicSalary) : 0,
+      // Convert string to number for salary fields with sanitization
+      basicSalary:
+        sanitizers.number(body.basicSalary, { min: 0, decimals: 2 }) ?? 0,
       currentSalary: body.currentSalary
-        ? parseFloat(body.currentSalary)
+        ? (sanitizers.number(body.currentSalary, { min: 0, decimals: 2 }) ?? 0)
         : body.basicSalary
-          ? parseFloat(body.basicSalary)
+          ? (sanitizers.number(body.basicSalary, { min: 0, decimals: 2 }) ?? 0)
           : 0,
-      allowance: body.allowance ? parseFloat(body.allowance) : null,
+      allowance: body.allowance
+        ? sanitizers.number(body.allowance, { min: 0, decimals: 2 })
+        : null,
 
       // Statutory Monthly Contributions
       sssMonthlyContribution: body.sssMonthlyContribution
-        ? parseFloat(body.sssMonthlyContribution)
+        ? sanitizers.number(body.sssMonthlyContribution, {
+            min: 0,
+            decimals: 2,
+          })
         : null,
       philHealthMonthlyContribution: body.philHealthMonthlyContribution
-        ? parseFloat(body.philHealthMonthlyContribution)
+        ? sanitizers.number(body.philHealthMonthlyContribution, {
+            min: 0,
+            decimals: 2,
+          })
         : null,
       pagibigMonthlyContribution: body.pagibigMonthlyContribution
-        ? parseFloat(body.pagibigMonthlyContribution)
+        ? sanitizers.number(body.pagibigMonthlyContribution, {
+            min: 0,
+            decimals: 2,
+          })
         : null,
       taxMonthlyContribution: body.taxMonthlyContribution
-        ? parseFloat(body.taxMonthlyContribution)
+        ? sanitizers.number(body.taxMonthlyContribution, {
+            min: 0,
+            decimals: 2,
+          })
         : null,
 
       // Optional fields
-      employmentStatus: body.employmentStatus || null,
-      employeeType: body.employeeType || null,
-      office: body.office || null,
-      hiringSource: body.hiringSource || null,
-      sssNumber: body.sssNumber || null,
-      philHealthNumber: body.philHealthNumber || null,
-      hdmfNumber: body.hdmfNumber || null,
-      tinNumber: body.tinNumber || null,
-      gender: body.gender || null,
-      education: body.education || null,
-      dateOfBirth: body.dateOfBirth || null,
-      maritalStatus: body.maritalStatus || null,
-      numberOfKids: body.numberOfKids ? parseInt(body.numberOfKids) : null,
-      drivingLicense: body.drivingLicense || null,
-      bankAccount: body.bankAccount || null,
-      gcashAccount: body.gcashAccount || null,
-      paymentSchedule: body.paymentSchedule || null,
+      employmentStatus: body.employmentStatus
+        ? sanitizers.name(body.employmentStatus)
+        : null,
+      employeeType: body.employeeType
+        ? sanitizers.name(body.employeeType)
+        : null,
+      office: body.office ? sanitizers.name(body.office) : null,
+      hiringSource: body.hiringSource
+        ? sanitizers.name(body.hiringSource)
+        : null,
+      sssNumber: body.sssNumber ? sanitizers.name(body.sssNumber) : null,
+      philHealthNumber: body.philHealthNumber
+        ? sanitizers.name(body.philHealthNumber)
+        : null,
+      hdmfNumber: body.hdmfNumber ? sanitizers.name(body.hdmfNumber) : null,
+      tinNumber: body.tinNumber ? sanitizers.name(body.tinNumber) : null,
+      gender: body.gender ? sanitizers.name(body.gender) : null,
+      education: body.education ? sanitizers.name(body.education) : null,
+      dateOfBirth: body.dateOfBirth ? sanitizers.date(body.dateOfBirth) : null,
+      maritalStatus: body.maritalStatus
+        ? sanitizers.name(body.maritalStatus)
+        : null,
+      numberOfKids: body.numberOfKids
+        ? sanitizers.number(body.numberOfKids, { min: 0 })
+        : null,
+      drivingLicense: body.drivingLicense
+        ? sanitizers.name(body.drivingLicense)
+        : null,
+      bankAccount: body.bankAccount ? sanitizers.name(body.bankAccount) : null,
+      gcashAccount: body.gcashAccount
+        ? sanitizers.name(body.gcashAccount)
+        : null,
+      paymentSchedule: body.paymentSchedule
+        ? sanitizers.name(body.paymentSchedule)
+        : null,
       profilePhoto: resolvedProfilePhoto,
 
       updatedAt: new Date(),

@@ -11,6 +11,7 @@ import type { NextRequest } from 'next/server';
 import { moduleHMR } from '@/core/ModuleHMR';
 import type { HMROptions } from '@/core/ModuleHMR';
 import { logger } from '@/lib/logger';
+import { sanitizers } from '@/lib/security/sanitize';
 
 // ============================================================================
 // REQUEST/RESPONSE TYPES
@@ -82,7 +83,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const { moduleId, options = {} } = body;
+    const { options = {} } = body;
+    const moduleId = sanitizers.name(body.moduleId);
 
     logger.debug(`🔄 Reload request received for module: ${moduleId}`);
 

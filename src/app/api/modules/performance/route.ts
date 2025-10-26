@@ -10,6 +10,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { modulePerformance } from '@/core/ModulePerformance';
 import { logger } from '@/lib/logger';
+import { sanitizers } from '@/lib/security/sanitize';
 
 /**
  * GET /api/modules/performance
@@ -19,7 +20,8 @@ import { logger } from '@/lib/logger';
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const moduleId = searchParams.get('moduleId');
+    const moduleIdParam = searchParams.get('moduleId');
+    const moduleId = moduleIdParam ? sanitizers.name(moduleIdParam) : null;
 
     // Get specific module metrics
     if (moduleId) {
@@ -66,7 +68,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json();
-    const { action, moduleId, strategy } = body;
+    const actionParam = body.action;
+    const moduleIdParam = body.moduleId;
+    const strategyParam = body.strategy;
+
+    // Sanitize inputs
+    const action = actionParam ? sanitizers.name(actionParam) : null;
+    const moduleId = moduleIdParam ? sanitizers.name(moduleIdParam) : null;
+    const strategy = strategyParam ? sanitizers.name(strategyParam) : null;
 
     switch (action) {
       case 'optimize':

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { logger } from '@/lib/logger';
+import { sanitizers } from '@/lib/security/sanitize';
 
 // import { prisma } from '@/lib/db';
 
@@ -129,17 +130,22 @@ export async function POST(
 
     const body = await request.json();
 
-    // For now, return mock created order
+    // For now, return mock created order with sanitized data
     // This will be replaced with actual database insertion once the schema is updated
     const newOrder: Order = {
       id: Math.floor(Math.random() * 10000),
       customerId,
-      orderDate: body.orderDate || new Date().toISOString(),
-      orderNumber: body.orderNumber,
-      status: body.status || 'pending',
-      totalAmount: body.totalAmount || 0,
+      orderDate: body.orderDate
+        ? sanitizers.date(body.orderDate)
+        : new Date().toISOString(),
+      orderNumber: sanitizers.name(body.orderNumber),
+      status: body.status
+        ? (sanitizers.name(body.status) as Order['status'])
+        : 'pending',
+      totalAmount:
+        sanitizers.number(body.totalAmount, { min: 0, decimals: 2 }) ?? 0,
       items: body.items || [],
-      notes: body.notes,
+      notes: body.notes ? sanitizers.notes(body.notes) : undefined,
     };
 
     return NextResponse.json(newOrder);

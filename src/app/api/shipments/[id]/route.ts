@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { prisma } from '../../../../lib/db';
 import type { ShipmentData, ShipmentDB } from '../../../../types';
 import { logger } from '@/lib/logger';
+import { sanitizers } from '@/lib/security/sanitize';
 
 // Helper function to convert database model to frontend interface
 function convertShipmentDBToData(shipment: ShipmentDB): ShipmentData {
@@ -25,17 +26,22 @@ function convertShipmentDBToData(shipment: ShipmentDB): ShipmentData {
 // Helper function to convert frontend interface to database model
 function convertShipmentDataToDB(data: Partial<ShipmentData>) {
   return {
-    shipmentCode: data['Shipment Code'] || '',
-    cvNumber: data['CV Number'] || null,
-    noOfSacks: data['No. Of Sacks'] || 0,
-    totalCBM: data['Total CBM'] || 0,
-    weight: data['Weight'] || 0,
-    fee: data['Fee'] || 0,
-    shipmentStatus: data['Shipment Status'] || '',
-    dateCreated: data['Date Created'] || null,
-    dateDelivered: data['Date Delivered'] || null,
-    duration: data['Duration'] || null,
-    notes: data['Notes'] || null,
+    shipmentCode: sanitizers.productCode(data['Shipment Code'] || ''),
+    cvNumber: data['CV Number'] ? sanitizers.name(data['CV Number']) : null,
+    noOfSacks: sanitizers.number(data['No. Of Sacks'], { min: 0 }) ?? 0,
+    totalCBM:
+      sanitizers.number(data['Total CBM'], { min: 0, decimals: 2 }) ?? 0,
+    weight: sanitizers.number(data['Weight'], { min: 0, decimals: 2 }) ?? 0,
+    fee: sanitizers.number(data['Fee'], { min: 0, decimals: 2 }) ?? 0,
+    shipmentStatus: sanitizers.name(data['Shipment Status'] || ''),
+    dateCreated: data['Date Created']
+      ? sanitizers.date(data['Date Created'])
+      : null,
+    dateDelivered: data['Date Delivered']
+      ? sanitizers.date(data['Date Delivered'])
+      : null,
+    duration: data['Duration'] ? sanitizers.name(data['Duration']) : null,
+    notes: data['Notes'] ? sanitizers.notes(data['Notes']) : null,
   };
 }
 

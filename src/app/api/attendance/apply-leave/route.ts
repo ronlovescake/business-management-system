@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { dayjs, DATE_STORAGE_FORMAT } from '@/utils/date';
+import { sanitizers } from '@/lib/security/sanitize';
 
 interface ApplyLeavePayload {
   employeeId?: string;
@@ -12,14 +13,17 @@ interface ApplyLeavePayload {
   endDate?: string;
 }
 
-const normaliseEmployeeId = (value?: string) => (value ? value.trim() : '');
+const normaliseEmployeeId = (value?: string) => {
+  return value ? sanitizers.name(value) : '';
+};
 
 const toStorageDate = (value?: string) => {
   if (!value) {
     return '';
   }
 
-  const parsed = dayjs(value).tz();
+  const sanitized = sanitizers.date(value);
+  const parsed = dayjs(sanitized).tz();
   return parsed.isValid() ? parsed.format(DATE_STORAGE_FORMAT) : '';
 };
 

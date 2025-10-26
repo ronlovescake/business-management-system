@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { syncPayrollDeductions } from '@/lib/payroll/deductions';
+import { sanitizers } from '@/lib/security/sanitize';
 import {
   validatePayroll,
   formatValidationErrors,
@@ -13,18 +14,9 @@ const toNumber = (value: unknown): number => {
   if (value === null || value === undefined) {
     return 0;
   }
-  if (typeof value === 'number') {
-    return value;
-  }
-  if (typeof value === 'string') {
-    const parsed = parseFloat(value);
-    return isNaN(parsed) ? 0 : parsed;
-  }
-  if (typeof value === 'object' && 'toString' in (value as object)) {
-    const parsed = parseFloat((value as { toString(): string }).toString());
-    return isNaN(parsed) ? 0 : parsed;
-  }
-  return 0;
+  // Use sanitizers.number for better validation
+  const sanitized = sanitizers.number(value, { min: 0, decimals: 2 });
+  return sanitized ?? 0;
 };
 
 export async function GET(request: NextRequest) {
@@ -32,7 +24,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const employeeIdParam = searchParams.get('employeeId');
     const normalizedEmployeeId = employeeIdParam
-      ? employeeIdParam.trim()
+      ? sanitizers.name(employeeIdParam)
       : undefined;
 
     const payrolls = await prisma.payroll.findMany({

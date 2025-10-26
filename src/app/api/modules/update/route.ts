@@ -8,12 +8,13 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { pluginManager } from '@/core/PluginManager';
 import { logger } from '@/lib/logger';
+import { sanitizers } from '@/lib/security/sanitize';
 
 export async function POST(request: NextRequest) {
   try {
     const { moduleId } = await request.json();
 
-    // Validate required fields
+    // Validate and sanitize required fields
     if (!moduleId) {
       return NextResponse.json(
         { error: 'Missing required field: moduleId' },
@@ -21,15 +22,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const sanitizedModuleId = sanitizers.name(moduleId);
+
     // Initialize plugin manager if not already initialized
     await pluginManager.initialize();
 
     // Update module
-    await pluginManager.updateModule(moduleId);
+    await pluginManager.updateModule(sanitizedModuleId);
 
     return NextResponse.json({
       success: true,
-      message: `Module ${moduleId} updated successfully`,
+      message: `Module ${sanitizedModuleId} updated successfully`,
     });
   } catch (error) {
     logger.error('Error updating module:', error);

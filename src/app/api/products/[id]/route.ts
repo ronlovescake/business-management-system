@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-
-const prisma = new PrismaClient();
+import { sanitizers } from '@/lib/security/sanitize';
 
 export async function PUT(
   request: NextRequest,
@@ -20,44 +19,121 @@ export async function PUT(
 
     const productData = await request.json();
 
-    // Update the product in the database
+    // Sanitize and update the product in the database
     const updatedProduct = await prisma.product.update({
       where: { id },
       data: {
-        shipmentCode: productData['Shipment Code'] || null,
-        cvNumber: productData['CV Number'] || null,
-        noOfSacks: parseFloat(productData['No. Of Sacks']) || 0,
-        totalCBM: parseFloat(productData['Total CBM']) || 0,
-        weight: parseFloat(productData['Weight']) || 0,
-        shipmentStatus: productData['Shipment Status'] || null,
-        postingDate: productData['Posting Date'] || null,
-        orderDate: productData['Order Date'] || null,
-        payment: productData['Payment'] || null,
-        product: productData['Product'] || null,
-        productCode: productData['Product Code'] || null,
-        ageRange: productData['Age Range'] || null,
-        unit: productData['Unit'] || null,
-        unitPrice: parseFloat(productData['Unit Price']) || 0,
-        quantity: parseFloat(productData['Quantity']) || 0,
+        // Sanitize code fields
+        shipmentCode:
+          sanitizers.productCode(productData['Shipment Code']) || null,
+        cvNumber: sanitizers.name(productData['CV Number']) || null,
+        productCode:
+          sanitizers.productCode(productData['Product Code']) || null,
+
+        // Sanitize text fields
+        product: sanitizers.name(productData['Product']) || null,
+        ageRange: sanitizers.name(productData['Age Range']) || null,
+        unit: sanitizers.name(productData['Unit']) || null,
+        shipmentStatus: sanitizers.name(productData['Shipment Status']) || null,
+        payment: sanitizers.name(productData['Payment']) || null,
+
+        // Sanitize date fields
+        postingDate: sanitizers.date(productData['Posting Date']) || null,
+        orderDate: sanitizers.date(productData['Order Date']) || null,
+
+        // Sanitize numeric fields
+        noOfSacks:
+          sanitizers.number(productData['No. Of Sacks'], {
+            min: 0,
+            decimals: 2,
+          }) || 0,
+        totalCBM:
+          sanitizers.number(productData['Total CBM'], {
+            min: 0,
+            decimals: 2,
+          }) || 0,
+        weight:
+          sanitizers.number(productData['Weight'], { min: 0, decimals: 2 }) ||
+          0,
+        unitPrice:
+          sanitizers.number(productData['Unit Price'], {
+            min: 0,
+            decimals: 2,
+          }) || 0,
+        quantity:
+          sanitizers.number(productData['Quantity'], { min: 0, decimals: 2 }) ||
+          0,
         alibabaShippingCost:
-          parseFloat(productData['Alibaba Shipping Cost']) || 0,
-        exchangeRates: parseFloat(productData['Exchange Rates']) || 0,
-        php: parseFloat(productData['PHP']) || 0,
-        subTotalPHP: parseFloat(productData['Sub Total (PHP)']) || 0,
-        transactionFee: parseFloat(productData['Transaction Fee']) || 0,
-        grandTotal: parseFloat(productData['Grand Total']) || 0,
-        forwardersFee: parseFloat(productData["Forwarder's Fee"]) || 0,
-        lalamove: parseFloat(productData['Lalamove']) || 0,
-        packagingCost: parseFloat(productData['Packaging Cost']) || 0,
-        suggestedPrice: parseFloat(productData['Suggested Price']) || 0,
-        actualPrice: parseFloat(productData['Actual Price']) || 0,
-        basePrice: parseFloat(productData['Base Price']) || 0,
-        cogs: parseFloat(productData['COGS']) || 0,
-        projectedSales: parseFloat(productData['Projected Sales']) || 0,
-        projectedProfit: parseFloat(productData['Projected Profit']) || 0,
+          sanitizers.number(productData['Alibaba Shipping Cost'], {
+            min: 0,
+            decimals: 2,
+          }) || 0,
+        exchangeRates:
+          sanitizers.number(productData['Exchange Rates'], {
+            min: 0,
+            decimals: 2,
+          }) || 0,
+        php:
+          sanitizers.number(productData['PHP'], { min: 0, decimals: 2 }) || 0,
+        subTotalPHP:
+          sanitizers.number(productData['Sub Total (PHP)'], {
+            min: 0,
+            decimals: 2,
+          }) || 0,
+        transactionFee:
+          sanitizers.number(productData['Transaction Fee'], {
+            min: 0,
+            decimals: 2,
+          }) || 0,
+        grandTotal:
+          sanitizers.number(productData['Grand Total'], {
+            min: 0,
+            decimals: 2,
+          }) || 0,
+        forwardersFee:
+          sanitizers.number(productData["Forwarder's Fee"], {
+            min: 0,
+            decimals: 2,
+          }) || 0,
+        lalamove:
+          sanitizers.number(productData['Lalamove'], { min: 0, decimals: 2 }) ||
+          0,
+        packagingCost:
+          sanitizers.number(productData['Packaging Cost'], {
+            min: 0,
+            decimals: 2,
+          }) || 0,
+        suggestedPrice:
+          sanitizers.number(productData['Suggested Price'], {
+            min: 0,
+            decimals: 2,
+          }) || 0,
+        actualPrice:
+          sanitizers.number(productData['Actual Price'], {
+            min: 0,
+            decimals: 2,
+          }) || 0,
+        basePrice:
+          sanitizers.number(productData['Base Price'], {
+            min: 0,
+            decimals: 2,
+          }) || 0,
+        cogs:
+          sanitizers.number(productData['COGS'], { min: 0, decimals: 2 }) || 0,
+        projectedSales:
+          sanitizers.number(productData['Projected Sales'], {
+            min: 0,
+            decimals: 2,
+          }) || 0,
+        projectedProfit:
+          sanitizers.number(productData['Projected Profit'], { decimals: 2 }) ||
+          0,
         projectedProfitPercent:
-          parseFloat(productData['Projected Profit (%)']) || 0,
-        totalMarkup: parseFloat(productData['Total Markup']) || 0,
+          sanitizers.number(productData['Projected Profit (%)'], {
+            decimals: 2,
+          }) || 0,
+        totalMarkup:
+          sanitizers.number(productData['Total Markup'], { decimals: 2 }) || 0,
       },
     });
 

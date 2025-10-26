@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
+import { sanitizers } from '@/lib/security/sanitize';
 import {
   thirteenthMonthPayService,
   ThirteenthMonthPayQuerySchema,
@@ -23,13 +24,19 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
 
-    // Build query from search params
+    // Build query from search params with sanitization
+    const employeeIdParam = searchParams.get('employeeId');
+    const yearParam = searchParams.get('year');
+    const statusParam = searchParams.get('status');
+
     const queryParams = {
-      employeeId: searchParams.get('employeeId') || undefined,
-      year: searchParams.get('year')
-        ? Number(searchParams.get('year'))
+      employeeId: employeeIdParam
+        ? sanitizers.name(employeeIdParam)
         : undefined,
-      status: searchParams.get('status') || undefined,
+      year: yearParam
+        ? sanitizers.number(yearParam, { min: 2000, max: 2100 })
+        : undefined,
+      status: statusParam ? sanitizers.name(statusParam) : undefined,
     };
 
     // Remove undefined values

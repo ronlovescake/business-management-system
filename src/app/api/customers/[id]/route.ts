@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import type { Customer, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import { sanitizers } from '@/lib/security/sanitize';
 import {
   partialCustomerDataSchema,
   formatValidationErrors,
@@ -43,17 +44,17 @@ function mapToDTO(c: Customer): CustomerDTO {
 
 function mapFromDTO(d: CustomerDTO): Prisma.CustomerUpdateInput {
   return {
-    date: d.Date ?? '',
-    customerName: d['Customer Name'] ?? '',
-    phoneNumber: d['Phone Number'] ?? '',
-    address: d.Address ?? '',
-    facebook: d.Facebook ?? '',
-    emailAddress: d['Email Address'] ?? '',
-    businessName: d['Business Name'] ?? '',
-    taxNumber: d['Tax Number'] ?? '',
-    businessAddress: d['Business Address'] ?? '',
-    businessContactNumber: d['Business Contact Number'] ?? '',
-    customerStatus: d['Customer Status'] ?? '',
+    date: sanitizers.date(d.Date ?? ''),
+    customerName: sanitizers.name(d['Customer Name'] ?? ''),
+    phoneNumber: sanitizers.phone(d['Phone Number'] ?? ''),
+    address: sanitizers.address(d.Address ?? ''),
+    facebook: sanitizers.name(d.Facebook ?? ''),
+    emailAddress: sanitizers.email(d['Email Address'] ?? ''),
+    businessName: sanitizers.name(d['Business Name'] ?? ''),
+    taxNumber: sanitizers.name(d['Tax Number'] ?? ''),
+    businessAddress: sanitizers.address(d['Business Address'] ?? ''),
+    businessContactNumber: sanitizers.phone(d['Business Contact Number'] ?? ''),
+    customerStatus: sanitizers.name(d['Customer Status'] ?? ''),
   };
 }
 
@@ -111,7 +112,10 @@ export async function PUT(
     // Validate with Zod (partial schema for updates)
     const validation = partialCustomerDataSchema.safeParse(body);
     if (!validation.success) {
-      logger.warn(`Customer ${customerId} update validation failed:`, validation.error);
+      logger.warn(
+        `Customer ${customerId} update validation failed:`,
+        validation.error
+      );
       return NextResponse.json(
         {
           error: 'Validation failed',

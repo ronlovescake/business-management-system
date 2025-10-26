@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { validateMassDeleteConfirmation } from '@/lib/safety/mass-deletion';
+import { sanitizers } from '@/lib/security/sanitize';
 import {
   expenseService,
   ExpenseQuerySchema,
@@ -28,20 +29,33 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
 
-    // Build query from search params
+    // Build query from search params with sanitization
     const startDateParam = searchParams.get('startDate');
     const endDateParam = searchParams.get('endDate');
     const minAmountParam = searchParams.get('minAmount');
     const maxAmountParam = searchParams.get('maxAmount');
+    const categoryParam = searchParams.get('category');
+    const statusParam = searchParams.get('status');
+    const employeeNameParam = searchParams.get('employeeName');
 
     const queryParams = {
-      category: searchParams.get('category') || undefined,
-      status: searchParams.get('status') || undefined,
-      startDate: startDateParam ? new Date(startDateParam) : undefined,
-      endDate: endDateParam ? new Date(endDateParam) : undefined,
-      employeeName: searchParams.get('employeeName') || undefined,
-      minAmount: minAmountParam ? Number(minAmountParam) : undefined,
-      maxAmount: maxAmountParam ? Number(maxAmountParam) : undefined,
+      category: categoryParam ? sanitizers.name(categoryParam) : undefined,
+      status: statusParam ? sanitizers.name(statusParam) : undefined,
+      startDate: startDateParam
+        ? new Date(sanitizers.date(startDateParam))
+        : undefined,
+      endDate: endDateParam
+        ? new Date(sanitizers.date(endDateParam))
+        : undefined,
+      employeeName: employeeNameParam
+        ? sanitizers.name(employeeNameParam)
+        : undefined,
+      minAmount: minAmountParam
+        ? sanitizers.number(minAmountParam, { min: 0, decimals: 2 })
+        : undefined,
+      maxAmount: maxAmountParam
+        ? sanitizers.number(maxAmountParam, { min: 0, decimals: 2 })
+        : undefined,
     };
 
     // Remove undefined values

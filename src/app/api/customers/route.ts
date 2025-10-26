@@ -8,6 +8,7 @@ import {
   formatValidationErrors,
 } from '@/lib/validations/customer.validation';
 import { logger } from '@/lib/logger';
+import { sanitizers } from '@/lib/security/sanitize';
 
 const STATUS_LOOKUP: Record<string, CustomerDTO['Customer Status']> = {
   active: 'Active',
@@ -17,63 +18,6 @@ const STATUS_LOOKUP: Record<string, CustomerDTO['Customer Status']> = {
   banned: 'Banned',
   '🚫 banned': 'Banned',
 };
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const HOSTNAME_REGEX = /^[a-z0-9.-]+\.[a-z]{2,}$/i;
-
-function normalizeUrl(value: unknown): string {
-  if (typeof value !== 'string') {
-    return '';
-  }
-
-  let trimmed = value.trim();
-  if (!trimmed) {
-    return '';
-  }
-
-  if (!/^https?:\/\//i.test(trimmed)) {
-    if (HOSTNAME_REGEX.test(trimmed)) {
-      trimmed = `https://${trimmed}`;
-    } else {
-      logger.warn('Invalid URL supplied for customer, dropping value', {
-        url: trimmed,
-      });
-      return '';
-    }
-  }
-
-  try {
-    // eslint-disable-next-line no-new
-    new URL(trimmed);
-    return trimmed;
-  } catch (error) {
-    logger.warn('Failed to parse URL for customer, dropping value', {
-      url: trimmed,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return '';
-  }
-}
-
-function normalizeEmail(value: unknown): string {
-  if (typeof value !== 'string') {
-    return '';
-  }
-
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return '';
-  }
-
-  if (EMAIL_REGEX.test(trimmed)) {
-    return trimmed;
-  }
-
-  logger.warn('Invalid email supplied for customer, dropping value', {
-    email: trimmed,
-  });
-  return '';
-}
 
 function normalizeStatus(value: unknown): CustomerDTO['Customer Status'] {
   if (typeof value === 'string') {
@@ -96,26 +40,6 @@ function normalizeStatus(value: unknown): CustomerDTO['Customer Status'] {
   return 'Active';
 }
 
-function normalizeDate(value: unknown): string {
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return new Date().toISOString().slice(0, 10);
-    }
-
-    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-      return trimmed;
-    }
-
-    const parsed = new Date(trimmed);
-    if (!Number.isNaN(parsed.getTime())) {
-      return parsed.toISOString().slice(0, 10);
-    }
-  }
-
-  return new Date().toISOString().slice(0, 10);
-}
-
 function sanitizeCustomerRecord(entry: unknown): Record<string, unknown> {
   if (typeof entry !== 'object' || entry === null) {
     return {};
@@ -123,56 +47,20 @@ function sanitizeCustomerRecord(entry: unknown): Record<string, unknown> {
 
   const record = { ...(entry as Record<string, unknown>) };
 
-  record.Date = normalizeDate(record.Date);
+  // Use sanitization utilities
+  record.Date = sanitizers.date(record.Date);
   record['Customer Status'] = normalizeStatus(record['Customer Status']);
-
-  if (typeof record['Customer Name'] === 'string') {
-    // Remove all control characters, newlines, and extra whitespace
-    record['Customer Name'] = record['Customer Name']
-      .replace(/[\r\n\t\u0000-\u001F\u007F-\u009F]/g, ' ') // Replace control chars with space
-      .replace(/\s+/g, ' ') // Collapse multiple spaces to single space
-      .trim();
-  }
-
-  if (typeof record['Phone Number'] === 'string') {
-    record['Phone Number'] = record['Phone Number']
-      .replace(/[\r\n\t\u0000-\u001F\u007F-\u009F]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  if (typeof record.Address === 'string') {
-    record.Address = record.Address.replace(
-      /[\r\n\t\u0000-\u001F\u007F-\u009F]/g,
-      ' '
-    )
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  if (typeof record['Business Name'] === 'string') {
-    record['Business Name'] = record['Business Name']
-      .replace(/[\r\n\t\u0000-\u001F\u007F-\u009F]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  if (typeof record['Business Address'] === 'string') {
-    record['Business Address'] = record['Business Address']
-      .replace(/[\r\n\t\u0000-\u001F\u007F-\u009F]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  if (typeof record['Business Contact Number'] === 'string') {
-    record['Business Contact Number'] = record['Business Contact Number']
-      .replace(/[\r\n\t\u0000-\u001F\u007F-\u009F]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  record['Email Address'] = normalizeEmail(record['Email Address']);
-  record.Facebook = normalizeUrl(record.Facebook);
+  record['Customer Name'] = sanitizers.name(record['Customer Name']);
+  record['Phone Number'] = sanitizers.phone(record['Phone Number']);
+  record.Address = sanitizers.address(record.Address);
+  record['Business Name'] = sanitizers.name(record['Business Name']);
+  record['Business Address'] = sanitizers.address(record['Business Address']);
+  record['Business Contact Number'] = sanitizers.phone(
+    record['Business Contact Number']
+  );
+  record['Email Address'] = sanitizers.email(record['Email Address']);
+  record.Facebook = sanitizers.url(record.Facebook);
+  record['Tax Number'] = sanitizers.name(record['Tax Number']);
 
   return record;
 }
@@ -516,8 +404,11 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
+    // Sanitize input (same as sanitizeCustomerRecord)
+    const sanitized = sanitizeCustomerRecord(body);
+
     // Validate with Zod
-    const validation = customerDataSchema.safeParse(body);
+    const validation = customerDataSchema.safeParse(sanitized);
     if (!validation.success) {
       logger.warn('Customer validation failed:', validation.error);
       return NextResponse.json(

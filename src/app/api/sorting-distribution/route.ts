@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-
-const prisma = new PrismaClient();
 
 // GET: Fetch sorting distribution data for a product
 export async function GET(request: Request) {

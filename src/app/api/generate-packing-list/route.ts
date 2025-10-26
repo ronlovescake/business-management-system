@@ -6,6 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import { PDFDocument } from 'pdf-lib';
 import { logger } from '@/lib/logger';
+import { sanitizers } from '@/lib/security/sanitize';
 
 interface Transaction {
   id: string;
@@ -119,17 +120,18 @@ export async function POST(request: NextRequest) {
       const rows: PackingListRow[] = transactions.map((transaction, index) => ({
         line: index + 1,
         quantity: transaction.quantity,
-        productCode: transaction.productCode,
+        productCode: sanitizers.productCode(transaction.productCode),
       }));
 
-      // Combine notes from all transactions for this customer
+      // Combine notes from all transactions for this customer (sanitized)
       const notes = transactions
         .map((t) => t.notes)
         .filter((note) => note && note.trim())
+        .map((note) => sanitizers.notes(note || ''))
         .join('; ');
 
       customerPackingLists.push({
-        customer,
+        customer: sanitizers.name(customer),
         rows,
         note: notes || '',
       });

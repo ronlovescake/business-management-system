@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { sanitizers } from '@/lib/security/sanitize';
 import {
   validateEmployee,
   formatValidationErrors,
@@ -41,23 +42,26 @@ export async function GET(request: NextRequest) {
       deletedAt: null,
     };
 
+    // Sanitize filter parameters
     if (department && department !== 'all') {
-      where.department = department;
+      where.department = sanitizers.name(department);
     }
 
     if (status && status !== 'all') {
-      where.status = status;
+      where.status = sanitizers.name(status);
     }
 
     if (search) {
+      // Sanitize search query to prevent injection
+      const sanitizedSearch = sanitizers.name(search);
       where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
-        { employeeId: { contains: search, mode: 'insensitive' } },
-        { department: { contains: search, mode: 'insensitive' } },
-        { contact: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
+        { name: { contains: sanitizedSearch, mode: 'insensitive' } },
+        { firstName: { contains: sanitizedSearch, mode: 'insensitive' } },
+        { lastName: { contains: sanitizedSearch, mode: 'insensitive' } },
+        { employeeId: { contains: sanitizedSearch, mode: 'insensitive' } },
+        { department: { contains: sanitizedSearch, mode: 'insensitive' } },
+        { contact: { contains: sanitizedSearch, mode: 'insensitive' } },
+        { email: { contains: sanitizedSearch, mode: 'insensitive' } },
       ];
     }
 

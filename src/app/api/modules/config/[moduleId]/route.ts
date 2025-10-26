@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { sanitizers } from '@/lib/security/sanitize';
 
 interface RouteParams {
   params: {
@@ -21,15 +22,15 @@ interface RouteParams {
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const { moduleId } = params;
+    const sanitizedModuleId = sanitizers.name(params.moduleId);
 
     const installedModule = await prisma.installedModule.findUnique({
-      where: { moduleId },
+      where: { moduleId: sanitizedModuleId },
     });
 
     if (!installedModule) {
       return NextResponse.json(
-        { error: `Module ${moduleId} not found` },
+        { error: `Module ${sanitizedModuleId} not found` },
         { status: 404 }
       );
     }
@@ -52,28 +53,28 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const { moduleId } = params;
+    const sanitizedModuleId = sanitizers.name(params.moduleId);
 
     // Check if module exists
     const existingModule = await prisma.installedModule.findUnique({
-      where: { moduleId },
+      where: { moduleId: sanitizedModuleId },
     });
 
     if (!existingModule) {
       return NextResponse.json(
-        { error: `Module ${moduleId} not found` },
+        { error: `Module ${sanitizedModuleId} not found` },
         { status: 404 }
       );
     }
 
     // Delete module
     await prisma.installedModule.delete({
-      where: { moduleId },
+      where: { moduleId: sanitizedModuleId },
     });
 
     return NextResponse.json({
       success: true,
-      message: `Module ${moduleId} removed successfully`,
+      message: `Module ${sanitizedModuleId} removed successfully`,
     });
   } catch (error) {
     logger.error('Error removing module configuration:', error);

@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import type { Price, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { sanitizers } from '@/lib/security/sanitize';
 
 type PriceUpdatePayload = {
   'Product Code': string;
@@ -17,24 +18,16 @@ function parseNumericField(value: number | string | undefined): number {
     return 0;
   }
 
-  if (typeof value === 'number') {
-    return value;
-  }
-
-  const cleaned = value.toString().replace(/,/g, '').trim();
-  if (cleaned.length === 0) {
-    return 0;
-  }
-
-  const parsed = Number.parseFloat(cleaned);
-  return Number.isNaN(parsed) ? 0 : parsed;
+  // Use sanitizers.number for better validation
+  const sanitized = sanitizers.number(value, { min: 0, decimals: 2 });
+  return sanitized ?? 0;
 }
 
 function mapToUpdateInput(
   priceData: PriceUpdatePayload
 ): Prisma.PriceUpdateInput {
   return {
-    productCode: priceData['Product Code'],
+    productCode: sanitizers.productCode(priceData['Product Code']),
     lowerLimit: Math.round(parseNumericField(priceData['Lower Limit']) * 100),
     upperLimit: Math.round(parseNumericField(priceData['Upper Limit']) * 100),
     currentPrice: Math.round(parseNumericField(priceData['Prices']) * 100),

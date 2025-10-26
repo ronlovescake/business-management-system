@@ -7,6 +7,13 @@ import {
 } from '@/lib/settings/employeeAutomation';
 import { runStayInAutoPresenceAutomation } from '@/lib/automation/stayInAutoPresence';
 
+// Note: Input validation is handled by the service layer (employeeAutomation.ts)
+// which includes sanitization and validation for all fields:
+// - stayInAutoPresenceTime: HH:mm format validation
+// - stayInAutoPresenceGraceMinutes: numeric validation with min/max
+// - stayInAutoPresenceTimezone: non-empty string validation
+// - stayInAutoPresenceEnabled: boolean coercion
+
 export async function GET() {
   try {
     const settings = await getEmployeeAutomationSettings();

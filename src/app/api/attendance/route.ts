@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { sanitizers } from '@/lib/security/sanitize';
 import {
   validateAttendance,
   formatValidationErrors,
@@ -20,26 +21,27 @@ export async function GET(request: NextRequest) {
       deletedAt: null,
     };
 
+    // Sanitize query parameters
     if (employeeId) {
-      where.employeeId = employeeId;
+      where.employeeId = sanitizers.productCode(employeeId);
     }
 
     if (status && status !== 'all') {
-      where.status = status;
+      where.status = sanitizers.name(status);
     }
 
     if (startDate) {
       if (!where.date) {
         where.date = {};
       }
-      (where.date as Record<string, unknown>).gte = startDate;
+      (where.date as Record<string, unknown>).gte = sanitizers.date(startDate);
     }
 
     if (endDate) {
       if (!where.date) {
         where.date = {};
       }
-      (where.date as Record<string, unknown>).lte = endDate;
+      (where.date as Record<string, unknown>).lte = sanitizers.date(endDate);
     }
 
     const attendance = await prisma.attendance.findMany({

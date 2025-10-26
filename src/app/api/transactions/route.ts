@@ -4,6 +4,7 @@ import type { Price, Transaction } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { sanitizers } from '@/lib/security/sanitize';
 
 // ==============================================================================
 // ⚠️ FINALIZED BUSINESS LOGIC - DO NOT MODIFY WITHOUT APPROVAL ⚠️
@@ -35,33 +36,25 @@ type TransactionImportRow = Record<string, unknown>;
 
 const EMPTY_SHIPMENT_MARKER = '-';
 
+/**
+ * Parse and sanitize numeric value
+ */
 function parseNumeric(value: unknown): number {
-  if (value === undefined || value === null || value === '') {
-    return 0;
-  }
-
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : 0;
-  }
-
-  const str = String(value).replace(/,/g, '').trim();
-  if (str.length === 0) {
-    return 0;
-  }
-
-  const parsed = Number.parseFloat(str);
-  return Number.isNaN(parsed) ? 0 : parsed;
+  return sanitizers.number(value, { min: 0, decimals: 2 }) ?? 0;
 }
 
+/**
+ * Parse and sanitize string value
+ */
 function parseTrimmed(value: unknown): string {
-  if (value === undefined || value === null) {
-    return '';
-  }
-  return String(value).trim();
+  return sanitizers.name(value);
 }
 
+/**
+ * Parse and sanitize optional string value
+ */
 function parseOptional(value: unknown): string | null {
-  const trimmed = parseTrimmed(value);
+  const trimmed = sanitizers.name(value);
   return trimmed.length === 0 ? null : trimmed;
 }
 

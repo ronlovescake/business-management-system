@@ -4,6 +4,7 @@ import type { Price } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { sanitizers } from '@/lib/security/sanitize';
 
 type PriceDTO = {
   id?: number;
@@ -34,28 +35,20 @@ function mapToDTO(price: Price): PriceDTO {
   };
 }
 
+/**
+ * Parse and sanitize numeric field
+ */
 function parseNumericField(value: number | string | undefined): number {
-  if (value === undefined || value === null) {
-    return 0;
-  }
-
-  if (typeof value === 'number') {
-    return value;
-  }
-
-  const cleaned = value.toString().replace(/,/g, '').trim();
-  if (cleaned.length === 0) {
-    return 0;
-  }
-
-  const parsed = Number.parseFloat(cleaned);
-  return Number.isNaN(parsed) ? 0 : parsed;
+  return sanitizers.number(value, { min: 0, decimals: 2 }) ?? 0;
 }
 
+/**
+ * Map and sanitize DTO to Prisma input
+ */
 function mapFromDTO(dto: PriceImportRow): Prisma.PriceCreateManyInput {
   const adjustment = parseNumericField(dto['Price Adjustment']);
   return {
-    productCode: dto['Product Code'].trim(),
+    productCode: sanitizers.productCode(dto['Product Code']) || '',
     lowerLimit: Math.round(parseNumericField(dto['Lower Limit']) * 100),
     upperLimit: Math.round(parseNumericField(dto['Upper Limit']) * 100),
     currentPrice: Math.round(parseNumericField(dto['Prices']) * 100),

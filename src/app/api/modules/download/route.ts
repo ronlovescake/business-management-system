@@ -11,6 +11,7 @@ import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { logger } from '@/lib/logger';
+import { sanitizers } from '@/lib/security/sanitize';
 
 // ============================================================================
 // TYPES
@@ -257,7 +258,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const { moduleId, downloadUrl, version, checksum, size } = body;
+    // Sanitize inputs
+    const moduleId = sanitizers.name(body.moduleId);
+    const downloadUrl = sanitizers.url(body.downloadUrl);
+    const version = sanitizers.name(body.version);
+    const checksum = body.checksum ? sanitizers.name(body.checksum) : undefined;
+    const size = body.size
+      ? sanitizers.number(body.size, { min: 0 })
+      : undefined;
 
     logger.debug(`📥 Starting download for module: ${moduleId} v${version}`);
 

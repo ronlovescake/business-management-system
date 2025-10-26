@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../../lib/db';
 import type { ShipmentData, ShipmentDB } from '../../../types';
 import { logger } from '@/lib/logger';
+import { sanitizers } from '@/lib/security/sanitize';
 
 // Helper function to convert database model to frontend interface
 function convertShipmentDBToData(shipment: ShipmentDB): ShipmentData {
@@ -25,41 +26,28 @@ function convertShipmentDBToData(shipment: ShipmentDB): ShipmentData {
 
 // Helper function to convert frontend interface to database model
 function convertShipmentDataToDB(data: Partial<ShipmentData>) {
-  // Clean numeric value - remove commas and convert to number
+  // Use sanitizers for numeric cleaning
   const cleanNumber = (value: unknown): number => {
-    if (value === undefined || value === null || value === '') {
-      return 0;
-    }
-    const str = String(value);
-    const cleaned = str.replace(/,/g, '');
-    const parsed = Number.parseFloat(cleaned);
-    return Number.isNaN(parsed) ? 0 : parsed;
+    return sanitizers.number(value, { min: 0, decimals: 2 }) ?? 0;
   };
 
-  // Clean fee value - remove peso symbol and commas, then parse as number
+  // Use sanitizers for fee value - handles peso symbol and commas
   const cleanFee = (feeValue: unknown): number => {
-    if (feeValue === undefined || feeValue === null || feeValue === '') {
-      return 0;
-    }
-    const feeStr = String(feeValue);
-    // Remove peso symbol, commas, and any other non-numeric characters except decimal point
-    const cleaned = feeStr.replace(/[₱,\s]/g, '');
-    const parsed = Number.parseFloat(cleaned);
-    return Number.isNaN(parsed) ? 0 : parsed;
+    return sanitizers.number(feeValue, { min: 0, decimals: 2 }) ?? 0;
   };
 
   return {
-    shipmentCode: data['Shipment Code'] || '',
-    cvNumber: data['CV Number'] || null,
+    shipmentCode: sanitizers.productCode(data['Shipment Code']) || '',
+    cvNumber: sanitizers.name(data['CV Number']) || null,
     noOfSacks: Math.round(cleanNumber(data['No. Of Sacks'])), // Must be Int
     totalCBM: cleanNumber(data['Total CBM']),
     weight: cleanNumber(data['Weight']),
     fee: cleanFee(data['Fee']),
-    shipmentStatus: data['Shipment Status'] || '',
-    dateCreated: data['Date Created'] || null,
-    dateDelivered: data['Date Delivered'] || null,
-    duration: data['Duration'] || null,
-    notes: data['Notes'] || null,
+    shipmentStatus: sanitizers.name(data['Shipment Status']) || '',
+    dateCreated: sanitizers.date(data['Date Created']) || null,
+    dateDelivered: sanitizers.date(data['Date Delivered']) || null,
+    duration: sanitizers.name(data['Duration']) || null,
+    notes: sanitizers.notes(data['Notes']) || null,
   };
 }
 

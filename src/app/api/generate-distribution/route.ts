@@ -27,6 +27,7 @@ import fs from 'fs';
 import path from 'path';
 import { PDFDocument } from 'pdf-lib';
 import { logger } from '@/lib/logger';
+import { sanitizers } from '@/lib/security/sanitize';
 
 interface Transaction {
   id?: number;
@@ -119,11 +120,13 @@ export async function POST(request: NextRequest) {
       year: 'numeric',
     });
 
-    // Generate one slip per transaction
+    // Generate one slip per transaction with sanitized data
     for (const transaction of sortedTransactions) {
       const slipData: DistributionSlipData = {
-        customer: transaction.Customers || 'Unknown Customer',
-        productCode: transaction['Product Code'] || 'N/A',
+        customer: sanitizers.name(transaction.Customers || 'Unknown Customer'),
+        productCode: sanitizers.productCode(
+          transaction['Product Code'] || 'N/A'
+        ),
         quantity: transaction.Quantity || 0,
         logoDataUri,
         currentDate,

@@ -33,6 +33,7 @@ import fs from 'fs';
 import path from 'path';
 import { PDFDocument } from 'pdf-lib';
 import { logger } from '@/lib/logger';
+import { sanitizers } from '@/lib/security/sanitize';
 
 interface Transaction {
   id?: number;
@@ -185,10 +186,12 @@ export async function POST(request: NextRequest) {
       const phone = customerData?.['Phone Number'] || '';
       const address = customerData?.Address || '';
 
-      // Create invoice items
+      // Create invoice items with sanitization
       const items: InvoiceItem[] = customerTransactions.map(
         (transaction: Transaction) => ({
-          description: transaction['Product Code'] || '',
+          description: sanitizers.productCode(
+            transaction['Product Code'] || ''
+          ),
           quantity: transaction.Quantity || 0,
           unitPrice: transaction['Unit Price'] || 0,
           adjustment: transaction.Adjustment || 0,
@@ -207,13 +210,14 @@ export async function POST(request: NextRequest) {
       );
       const orderTotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
 
+      // Sanitize customer data for PDF generation
       const invoiceData: InvoiceData = {
         date: invoiceDate,
         dueDate: dueDateFormatted,
         logoData,
-        customerName,
-        phone,
-        address,
+        customerName: sanitizers.name(customerName),
+        phone: sanitizers.phone(phone),
+        address: sanitizers.address(address),
         items,
         subTotal,
         creditAmount,

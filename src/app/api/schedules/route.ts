@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { sanitizers } from '@/lib/security/sanitize';
 import {
   validateSchedule,
   formatValidationErrors,
@@ -64,11 +65,7 @@ type ScheduleResponse = {
 };
 
 const parseString = (value: unknown): string => {
-  if (value === null || value === undefined) {
-    return '';
-  }
-
-  return String(value).trim();
+  return sanitizers.name(value);
 };
 
 const parseOptionalString = (value: unknown): string | undefined => {

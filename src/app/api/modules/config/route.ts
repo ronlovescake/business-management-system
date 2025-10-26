@@ -11,6 +11,7 @@ import { prisma } from '@/lib/db';
 import type { ModulePackage } from '@/core/ModuleRegistry';
 import type { Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
+import { sanitizers } from '@/lib/security/sanitize';
 
 /**
  * GET - Fetch all installed modules
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
   try {
     const modulePackage: ModulePackage = await request.json();
 
-    // Validate required fields
+    // Validate and sanitize required fields
     if (!modulePackage.id || !modulePackage.name || !modulePackage.version) {
       return NextResponse.json(
         { error: 'Missing required fields: id, name, version' },
@@ -66,22 +67,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const sanitizedId = sanitizers.name(modulePackage.id);
+    const sanitizedName = sanitizers.name(modulePackage.name);
+    const sanitizedVersion = sanitizers.name(modulePackage.version);
+    const sanitizedSource = modulePackage.source
+      ? sanitizers.name(modulePackage.source)
+      : 'local';
+    const sanitizedInstallPath = modulePackage.installPath
+      ? sanitizers.name(modulePackage.installPath)
+      : null;
+
     // Upsert module configuration
     const savedModule = await prisma.installedModule.upsert({
-      where: { moduleId: modulePackage.id },
+      where: { moduleId: sanitizedId },
       create: {
-        moduleId: modulePackage.id,
-        name: modulePackage.name,
-        version: modulePackage.version,
+        moduleId: sanitizedId,
+        name: sanitizedName,
+        version: sanitizedVersion,
         enabled: modulePackage.enabled,
-        source: modulePackage.source || 'local',
-        installPath: modulePackage.installPath || null,
+        source: sanitizedSource,
+        installPath: sanitizedInstallPath,
         config: modulePackage as unknown as Prisma.InputJsonValue,
         installedBy: null, // TODO: Add user authentication
       },
       update: {
-        name: modulePackage.name,
-        version: modulePackage.version,
+        name: sanitizedName,
+        version: sanitizedVersion,
         enabled: modulePackage.enabled,
         config: modulePackage as unknown as Prisma.InputJsonValue,
         updatedAt: new Date(),

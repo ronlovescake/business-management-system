@@ -8,12 +8,13 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { pluginManager } from '@/core/PluginManager';
 import { logger } from '@/lib/logger';
+import { sanitizers } from '@/lib/security/sanitize';
 
 export async function POST(request: NextRequest) {
   try {
     const { moduleId, version, force, skipDependencies } = await request.json();
 
-    // Validate required fields
+    // Validate and sanitize required fields
     if (!moduleId) {
       return NextResponse.json(
         { error: 'Missing required field: moduleId' },
@@ -21,19 +22,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const sanitizedModuleId = sanitizers.name(moduleId);
+    const sanitizedVersion = version ? sanitizers.name(version) : undefined;
+
     // Initialize plugin manager if not already initialized
     await pluginManager.initialize();
 
     // Install module
-    await pluginManager.installModule(moduleId, {
-      version,
+    await pluginManager.installModule(sanitizedModuleId, {
+      version: sanitizedVersion,
       force: force || false,
       skipDependencies: skipDependencies || false,
     });
 
     return NextResponse.json({
       success: true,
-      message: `Module ${moduleId} installed successfully`,
+      message: `Module ${sanitizedModuleId} installed successfully`,
     });
   } catch (error) {
     logger.error('Error installing module:', error);
