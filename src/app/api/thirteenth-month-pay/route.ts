@@ -1,202 +1,112 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
-import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import {
+  thirteenthMonthPayService,
+  ThirteenthMonthPayQuerySchema,
+} from '@/modules/clothing/employees/thirteenth-month-pay/api';
 
-type PersistedStatus = 'pending' | 'calculated' | 'approved' | 'paid';
+/**
+ * Thirteenth Month Pay API Route
+ *
+ * Handles CRUD operations for 13th month pay using service layer:
+ * - GET: Fetch all records with optional filters
+ * - PATCH: Create or update a record (upsert)
+ */
 
-const isValidStatus = (status: unknown): status is PersistedStatus =>
-  status === 'pending' ||
-  status === 'calculated' ||
-  status === 'approved' ||
-  status === 'paid';
-
-const toDecimal = (value: unknown): Prisma.Decimal => {
-  if (value instanceof Prisma.Decimal) {
-    return value;
-  }
-
-  const numeric =
-    typeof value === 'string'
-      ? Number.parseFloat(value)
-      : typeof value === 'number'
-        ? value
-        : 0;
-
-  if (!Number.isFinite(numeric)) {
-    return new Prisma.Decimal(0);
-  }
-
-  return new Prisma.Decimal(numeric);
-};
-
-const toOptionalString = (value: unknown): string | null => {
-  if (typeof value !== 'string') {
-    return null;
-  }
-  const trimmed = value.trim();
-  return trimmed.length === 0 ? null : trimmed;
-};
-
-const toNumber = (value: unknown): number => {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : 0;
-  }
-  if (typeof value === 'string') {
-    const parsed = Number.parseFloat(value);
-    return Number.isNaN(parsed) ? 0 : parsed;
-  }
-  return 0;
-};
-
-export async function GET() {
+/**
+ * GET /api/thirteenth-month-pay
+ *
+ * Fetch all 13th month pay records with optional filters
+ */
+export async function GET(request: NextRequest) {
   try {
-    const records = await prisma.thirteenthMonthPayRecord.findMany({
-      orderBy: [{ employeeName: 'asc' }, { year: 'desc' }],
-    });
+    const { searchParams } = new URL(request.url);
 
-    const formatted = records.map((record) => ({
-      id: record.recordId,
-      recordId: record.recordId,
-      employeeId: record.employeeId,
-      employee: record.employeeName,
-      year: record.year,
-      status: record.status as PersistedStatus,
-      totalBasicSalary: Number(record.totalBasicSalary),
-      totalLwop: Number(record.totalLwop),
-      totalAbsencesLates: Number(record.totalAbsencesLates),
-      netBasicSalary: Number(record.netBasicSalary),
-      monthsWorked: record.monthsWorked,
-      thirteenthMonthPay: Number(record.thirteenthMonthPay),
-      notes: record.notes,
-      calculatedDate: record.calculatedDate,
-      approvedDate: record.approvedDate,
-      paidDate: record.paidDate,
-      updatedAt: record.updatedAt.toISOString(),
-    }));
+    // Build query from search params
+    const queryParams = {
+      employeeId: searchParams.get('employeeId') || undefined,
+      year: searchParams.get('year')
+        ? Number(searchParams.get('year'))
+        : undefined,
+      status: searchParams.get('status') || undefined,
+    };
 
-    return NextResponse.json(formatted);
+    // Remove undefined values
+    const query = Object.fromEntries(
+      Object.entries(queryParams).filter(([_, v]) => v !== undefined)
+    );
+
+    // Validate query params
+    const validatedQuery =
+      Object.keys(query).length > 0
+        ? ThirteenthMonthPayQuerySchema.parse(query)
+        : {};
+
+    // Fetch records using service
+    const records =
+      Object.keys(validatedQuery).length > 0
+        ? await thirteenthMonthPayService.findWithFilters(validatedQuery)
+        : await thirteenthMonthPayService.findAll();
+
+    return NextResponse.json(records);
   } catch (error) {
-    logger.error('Failed to fetch 13th month pay statuses', error);
+    logger.error('Failed to fetch 13th month pay records', { error });
     return NextResponse.json(
-      { error: 'Failed to load 13th month pay statuses' },
+      {
+        error: 'Failed to load 13th month pay records',
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }
 }
 
+/**
+ * PATCH /api/thirteenth-month-pay
+ *
+ * Create or update a 13th month pay record (upsert)
+ */
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
 
     if (typeof body !== 'object' || body === null) {
-      return NextResponse.json(
-        { error: 'Invalid payload for updating 13th month pay record' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
     }
 
-    const {
-      id,
-      employeeId,
-      employee,
-      year,
-      status,
-      totalBasicSalary,
-      totalLwop,
-      totalAbsencesLates,
-      netBasicSalary,
-      monthsWorked,
-      thirteenthMonthPay,
-      notes,
-      calculatedDate,
-      approvedDate,
-      paidDate,
-    } = body as Record<string, unknown>;
+    const { id: recordId, ...data } = body;
 
-    if (typeof id !== 'string' || id.trim().length === 0) {
+    if (typeof recordId !== 'string' || recordId.trim().length === 0) {
       return NextResponse.json(
         { error: 'Record ID is required' },
         { status: 400 }
       );
     }
 
-    if (typeof employee !== 'string' || employee.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'Employee name is required' },
-        { status: 400 }
-      );
+    // Check if record exists
+    const existing = await thirteenthMonthPayService.findByRecordId(recordId);
+
+    let result;
+    if (existing) {
+      // Update existing record
+      result = await thirteenthMonthPayService.update(existing.id, data);
+    } else {
+      // Create new record
+      result = await thirteenthMonthPayService.create({
+        recordId,
+        ...data,
+      });
     }
-
-    if (!isValidStatus(status)) {
-      return NextResponse.json(
-        { error: 'Invalid status value' },
-        { status: 400 }
-      );
-    }
-
-    const parsedYear = Number.parseInt(String(year), 10);
-    if (!Number.isFinite(parsedYear)) {
-      return NextResponse.json(
-        { error: 'Year must be a valid number' },
-        { status: 400 }
-      );
-    }
-
-    const safeMonthsWorked = Math.max(1, Math.trunc(toNumber(monthsWorked)));
-
-    const payload = {
-      employeeId: toOptionalString(employeeId),
-      employeeName: employee.trim(),
-      year: parsedYear,
-      status,
-      totalBasicSalary: toDecimal(totalBasicSalary),
-      totalLwop: toDecimal(totalLwop),
-      totalAbsencesLates: toDecimal(totalAbsencesLates),
-      netBasicSalary: toDecimal(netBasicSalary),
-      monthsWorked: safeMonthsWorked,
-      thirteenthMonthPay: toDecimal(thirteenthMonthPay),
-      notes: toOptionalString(notes),
-      calculatedDate: toOptionalString(calculatedDate),
-      approvedDate: toOptionalString(approvedDate),
-      paidDate: toOptionalString(paidDate),
-    };
-
-    const persisted = await prisma.thirteenthMonthPayRecord.upsert({
-      where: { recordId: id },
-      update: payload,
-      create: {
-        recordId: id,
-        ...payload,
-      },
-    });
-
-    const result = {
-      id: persisted.recordId,
-      recordId: persisted.recordId,
-      employeeId: persisted.employeeId,
-      employee: persisted.employeeName,
-      year: persisted.year,
-      status: persisted.status as PersistedStatus,
-      totalBasicSalary: Number(persisted.totalBasicSalary),
-      totalLwop: Number(persisted.totalLwop),
-      totalAbsencesLates: Number(persisted.totalAbsencesLates),
-      netBasicSalary: Number(persisted.netBasicSalary),
-      monthsWorked: persisted.monthsWorked,
-      thirteenthMonthPay: Number(persisted.thirteenthMonthPay),
-      notes: persisted.notes,
-      calculatedDate: persisted.calculatedDate,
-      approvedDate: persisted.approvedDate,
-      paidDate: persisted.paidDate,
-      updatedAt: persisted.updatedAt.toISOString(),
-    };
 
     return NextResponse.json(result);
   } catch (error) {
-    logger.error('Failed to persist 13th month pay status', error);
+    logger.error('Failed to persist 13th month pay record', { error });
     return NextResponse.json(
-      { error: 'Failed to persist 13th month pay status' },
+      {
+        error: 'Failed to persist record',
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }

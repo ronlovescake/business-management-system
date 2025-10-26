@@ -1,24 +1,13 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { thirteenthMonthPayService } from '@/modules/clothing/employees/thirteenth-month-pay/api';
 
-type PersistedStatus = 'pending' | 'calculated' | 'approved' | 'paid';
-
-const isValidStatus = (status: unknown): status is PersistedStatus =>
-  status === 'pending' ||
-  status === 'calculated' ||
-  status === 'approved' ||
-  status === 'paid';
-
-const toOptionalString = (value: unknown): string | null => {
-  if (typeof value !== 'string') {
-    return null;
-  }
-  const trimmed = value.trim();
-  return trimmed.length === 0 ? null : trimmed;
-};
-
+/**
+ * PATCH /api/thirteenth-month-pay/[recordId]/status
+ *
+ * Update the status of a 13th month pay record
+ */
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { recordId: string } }
@@ -34,59 +23,35 @@ export async function PATCH(
       );
     }
 
-    const { status, paidDate } = body as Record<string, unknown>;
+    const { status } = body;
 
-    if (!isValidStatus(status)) {
+    if (typeof status !== 'string') {
       return NextResponse.json(
-        { error: 'Invalid status value' },
+        { error: 'Status is required' },
         { status: 400 }
       );
     }
 
-    // Check if record exists
-    const existing = await prisma.thirteenthMonthPayRecord.findUnique({
-      where: { recordId },
-    });
+    // Update status using service
+    const updated = await thirteenthMonthPayService.updateStatusByRecordId(
+      recordId,
+      status
+    );
 
-    if (!existing) {
-      return NextResponse.json({ error: 'Record not found' }, { status: 404 });
-    }
-
-    // Update only the status and paidDate
-    const updated = await prisma.thirteenthMonthPayRecord.update({
-      where: { recordId },
-      data: {
-        status,
-        paidDate: toOptionalString(paidDate),
-      },
-    });
-
-    const result = {
-      id: updated.recordId,
-      recordId: updated.recordId,
-      employeeId: updated.employeeId,
-      employee: updated.employeeName,
-      year: updated.year,
-      status: updated.status as PersistedStatus,
-      totalBasicSalary: Number(updated.totalBasicSalary),
-      totalLwop: Number(updated.totalLwop),
-      totalAbsencesLates: Number(updated.totalAbsencesLates),
-      netBasicSalary: Number(updated.netBasicSalary),
-      monthsWorked: updated.monthsWorked,
-      thirteenthMonthPay: Number(updated.thirteenthMonthPay),
-      notes: updated.notes,
-      calculatedDate: updated.calculatedDate,
-      approvedDate: updated.approvedDate,
-      paidDate: updated.paidDate,
-      updatedAt: updated.updatedAt.toISOString(),
-    };
-
-    return NextResponse.json(result);
+    return NextResponse.json(updated);
   } catch (error) {
-    logger.error('Failed to update 13th month pay status', error);
+    logger.error('Failed to update 13th month pay status', { error });
     return NextResponse.json(
-      { error: 'Failed to update 13th month pay status' },
-      { status: 500 }
+      {
+        error: 'Failed to update status',
+        details: error instanceof Error ? error.message : String(error),
+      },
+      {
+        status:
+          error instanceof Error && error.message.includes('not found')
+            ? 404
+            : 500,
+      }
     );
   }
 }
