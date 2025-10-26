@@ -55,10 +55,11 @@ export class ThirteenthMonthPayRepository extends BaseRepository<
       }
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return this.findMany({
       where,
       orderBy: [{ employeeName: 'asc' }, { year: 'desc' }],
-    });
+    } as any);
   }
 
   /**
@@ -67,30 +68,33 @@ export class ThirteenthMonthPayRepository extends BaseRepository<
   async findByEmployeeId(
     employeeId: string
   ): Promise<ThirteenthMonthPayRecord[]> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return this.findMany({
       where: { employeeId },
       orderBy: { year: 'desc' },
-    });
+    } as any);
   }
 
   /**
    * Find by year
    */
   async findByYear(year: number): Promise<ThirteenthMonthPayRecord[]> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return this.findMany({
       where: { year },
       orderBy: { employeeName: 'asc' },
-    });
+    } as any);
   }
 
   /**
    * Find by status
    */
   async findByStatus(status: string): Promise<ThirteenthMonthPayRecord[]> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return this.findMany({
       where: { status },
       orderBy: [{ year: 'desc' }, { employeeName: 'asc' }],
-    });
+    } as any);
   }
 
   /**
@@ -100,10 +104,8 @@ export class ThirteenthMonthPayRepository extends BaseRepository<
     recordId: string
   ): Promise<ThirteenthMonthPayRecord | null> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const records = await this.findMany({
-      where: { recordId } as any,
-    });
-    return records[0] || null;
+    const results = await this.findMany({ recordId, deletedAt: null } as any);
+    return results.length > 0 ? results[0] : null;
   }
 
   /**
