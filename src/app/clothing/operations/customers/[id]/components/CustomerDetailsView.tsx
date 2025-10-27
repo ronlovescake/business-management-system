@@ -20,6 +20,7 @@ import { CustomerAnalytics } from './CustomerAnalytics';
 import { CustomerInfoCard } from './CustomerInfoCard';
 import { OrdersAndTransactions } from './OrdersAndTransactions';
 import { EditCustomerModal } from './EditCustomerModal';
+import { getIconButtonLabel } from '@/lib/accessibility';
 
 // ============================================================================
 // CUSTOMER DETAILS VIEW
@@ -86,7 +87,7 @@ export function CustomerDetailsView({ customerId }: CustomerDetailsViewProps) {
       {/* Header */}
       <Group justify="space-between">
         <Group>
-          <ActionIcon variant="light" onClick={() => router.back()} size="lg">
+          <ActionIcon variant="light" onClick={() => router.back()} size="lg" {...getIconButtonLabel('Go back to customers list')}>
             <IconArrowLeft size={18} />
           </ActionIcon>
           <div>

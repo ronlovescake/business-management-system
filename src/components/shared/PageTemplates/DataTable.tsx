@@ -9,6 +9,7 @@ import {
   ActionIcon,
   Tooltip,
 } from '@mantine/core';
+import { getIconButtonLabel } from '@/lib/accessibility';
 
 export interface TableColumn<T = Record<string, unknown>> {
   key: string;
@@ -199,6 +200,7 @@ export function DataTable<T extends { id: string | number }>({
                                     !isDisabled && action.onClick(item)
                                   }
                                   size="sm"
+                                  {...getIconButtonLabel(action.label)}
                                 >
                                   {action.icon}
                                 </ActionIcon>

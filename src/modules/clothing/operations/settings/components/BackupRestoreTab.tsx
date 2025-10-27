@@ -42,6 +42,7 @@ import {
   IconRestore,
   IconFile,
 } from '@tabler/icons-react';
+import { getIconButtonLabel } from '@/lib/accessibility';
 
 // Custom styles for SweetAlert2
 const swalStyles = `
@@ -665,6 +666,7 @@ export function BackupRestoreTab() {
             variant="subtle"
             onClick={() => void fetchBackups()}
             loading={loading}
+            {...getIconButtonLabel('Refresh backups list')}
           >
             <IconRefresh size={18} />
           </ActionIcon>
@@ -722,6 +724,7 @@ export function BackupRestoreTab() {
                           color="blue"
                           variant="subtle"
                           onClick={() => openRestoreModal(backup)}
+                          {...getIconButtonLabel(`Restore backup from ${formatDate(backup.timestamp)}`)}
                         >
                           <IconDownload size={18} />
                         </ActionIcon>
@@ -731,6 +734,7 @@ export function BackupRestoreTab() {
                           onClick={() =>
                             void handleDeleteBackup(backup.timestamp)
                           }
+                          {...getIconButtonLabel(`Delete backup from ${formatDate(backup.timestamp)}`)}
                         >
                           <IconTrash size={18} />
                         </ActionIcon>

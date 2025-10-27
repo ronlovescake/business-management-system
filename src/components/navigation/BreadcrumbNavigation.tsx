@@ -22,6 +22,7 @@ import {
 import { useBusinessStore } from '../../lib/store';
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
+import { getIconButtonLabel } from '@/lib/accessibility';
 
 const businesses = [
   { value: 'clothing', label: 'Czarlie & Ron Clothing' },
@@ -277,6 +278,7 @@ export function BreadcrumbNavigation() {
           radius="md"
           component="a"
           href="/"
+          {...getIconButtonLabel('Go to home page')}
         >
           <IconHome size={18} />
         </ActionIcon>
