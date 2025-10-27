@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { logger } from '@/lib/logger';
 import {
   Stack,
@@ -33,7 +33,7 @@ interface RequestFormDialogProps {
   isLoadingEmployees: boolean;
 }
 
-export function RequestFormDialog({
+export const RequestFormDialog = React.memo(function RequestFormDialog({
   opened,
   editingRequest,
   onClose,
@@ -369,4 +369,4 @@ export function RequestFormDialog({
       </Stack>
     </PolishedModal>
   );
-}
+});

@@ -24,8 +24,9 @@ import type {
 } from '@/components/shared/PageTemplates/DataTable';
 import { RequestFormDialog } from './components/RequestFormDialog';
 import type { CashAdvance as CashAdvanceType } from './types';
+import { CashAdvanceErrorBoundary } from './components/CashAdvanceErrorBoundary';
 
-export default function CashAdvance() {
+function CashAdvance() {
   const {
     // State
     cashAdvances,
@@ -324,3 +325,13 @@ export default function CashAdvance() {
     </PageLayout>
   );
 }
+
+function CashAdvanceWrapper() {
+  return (
+    <CashAdvanceErrorBoundary>
+      <CashAdvance />
+    </CashAdvanceErrorBoundary>
+  );
+}
+
+export { CashAdvanceWrapper as default };
