@@ -55,6 +55,7 @@
     "handsontable": "^16.1.1",
     "idb": "^8.0.3",
     "isomorphic-dompurify": "^2.30.1",
+    "marked": "^16.4.1",
     "next": "^14.0.0",
     "openapi3-ts": "^4.5.0",
     "pdf-lib": "^1.17.1",
