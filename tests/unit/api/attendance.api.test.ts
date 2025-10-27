@@ -37,6 +37,27 @@ vi.mock('@prisma/client', () => ({
 // Import route handlers after mocks
 import { GET, POST, PATCH, DELETE } from '@/app/api/attendance/route';
 
+// Expected select clause for attendance queries (sanitization fields)
+const ATTENDANCE_SELECT = {
+  id: true,
+  employeeId: true,
+  employeeName: true,
+  department: true,
+  position: true,
+  date: true,
+  timeIn: true,
+  timeOut: true,
+  totalHours: true,
+  status: true,
+  details: true,
+  break1Start: true,
+  break1End: true,
+  lunchStart: true,
+  lunchEnd: true,
+  break2Start: true,
+  break2End: true,
+};
+
 describe('Attendance API - GET', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -84,6 +105,7 @@ describe('Attendance API - GET', () => {
       where: {
         deletedAt: null,
       },
+      select: ATTENDANCE_SELECT,
       orderBy: [{ date: 'desc' }, { employeeName: 'asc' }],
     });
   });
@@ -101,6 +123,7 @@ describe('Attendance API - GET', () => {
         deletedAt: null,
         employeeId: 'EMP1', // Normalized to uppercase
       },
+      select: ATTENDANCE_SELECT,
       orderBy: [{ date: 'desc' }, { employeeName: 'asc' }],
     });
   });
@@ -118,6 +141,7 @@ describe('Attendance API - GET', () => {
         deletedAt: null,
         status: 'present',
       },
+      select: ATTENDANCE_SELECT,
       orderBy: [{ date: 'desc' }, { employeeName: 'asc' }],
     });
   });
@@ -135,6 +159,7 @@ describe('Attendance API - GET', () => {
         deletedAt: null,
         // status should not be included
       },
+      select: ATTENDANCE_SELECT,
       orderBy: [{ date: 'desc' }, { employeeName: 'asc' }],
     });
   });
@@ -155,6 +180,7 @@ describe('Attendance API - GET', () => {
           lte: '2025-10-31',
         },
       },
+      select: ATTENDANCE_SELECT,
       orderBy: [{ date: 'desc' }, { employeeName: 'asc' }],
     });
   });
@@ -174,6 +200,7 @@ describe('Attendance API - GET', () => {
           gte: '2025-10-01',
         },
       },
+      select: ATTENDANCE_SELECT,
       orderBy: [{ date: 'desc' }, { employeeName: 'asc' }],
     });
   });
@@ -193,6 +220,7 @@ describe('Attendance API - GET', () => {
           lte: '2025-10-31',
         },
       },
+      select: ATTENDANCE_SELECT,
       orderBy: [{ date: 'desc' }, { employeeName: 'asc' }],
     });
   });
@@ -215,6 +243,7 @@ describe('Attendance API - GET', () => {
           lte: '2025-10-31',
         },
       },
+      select: ATTENDANCE_SELECT,
       orderBy: [{ date: 'desc' }, { employeeName: 'asc' }],
     });
   });

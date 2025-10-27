@@ -75,7 +75,9 @@ export function PricesPage() {
 
   // Local state
   const [file, setFile] = useState<File | null>(null);
-  const [gridHeight, setGridHeight] = useState(window.innerHeight * 0.85);
+  const [gridHeight, setGridHeight] = useState(
+    typeof window !== 'undefined' ? window.innerHeight * 0.85 : 600
+  );
   const searchInputRef = useRef<HTMLInputElement>(null);
   const lastClickRef = useRef<{ cell: Item; time: number } | null>(null);
 
@@ -93,10 +95,17 @@ export function PricesPage() {
 
   // Throttled resize handler for performance
   const handleResize = useThrottledCallback(() => {
-    setGridHeight(window.innerHeight * 0.85);
+    if (typeof window !== 'undefined') {
+      setGridHeight(window.innerHeight * 0.85);
+    }
   }, 150);
 
   useEffect(() => {
+    // SSR guard: Only run in browser environment
+    if (typeof window === 'undefined') {
+      return;
+    }
+
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [handleResize]);

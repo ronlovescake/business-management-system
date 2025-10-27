@@ -172,6 +172,11 @@ export function DataTable<T = Record<string, unknown>>({
   // Set grid height to 83vh by default
   // 🚀 PERFORMANCE: Throttle resize events to prevent excessive re-renders
   useEffect(() => {
+    // SSR guard: Only run in browser environment
+    if (typeof window === 'undefined') {
+      return;
+    }
+
     const updateGridHeight = () => {
       const targetHeight = gridHeight || window.innerHeight * 0.83;
       setCurrentGridHeight(targetHeight);
@@ -192,6 +197,11 @@ export function DataTable<T = Record<string, unknown>>({
   // Handle Ctrl+F to focus search bar
   useEffect(() => {
     if (!enableCtrlF) {
+      return;
+    }
+
+    // SSR guard: Only run in browser environment
+    if (typeof document === 'undefined') {
       return;
     }
 

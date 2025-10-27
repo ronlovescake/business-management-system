@@ -87,6 +87,11 @@ export function HandsontableGrid<T extends Item>({
 
   // Debug: Check if theme is applied
   useEffect(() => {
+    // SSR guard: Only run in browser environment
+    if (typeof document === 'undefined') {
+      return;
+    }
+
     const wrapper = document.querySelector('.ht-theme-horizon');
     if (wrapper) {
       logger.debug('✅ Horizon theme wrapper found');
@@ -98,6 +103,11 @@ export function HandsontableGrid<T extends Item>({
 
   // Apply header height styles dynamically
   useEffect(() => {
+    // SSR guard: Only run in browser environment
+    if (typeof document === 'undefined') {
+      return;
+    }
+
     const styleId = 'handsontable-header-height-styles';
 
     // Remove existing style if present
@@ -148,6 +158,11 @@ export function HandsontableGrid<T extends Item>({
 
   // Set grid height to 84vh by default
   useEffect(() => {
+    // SSR guard: Only run in browser environment
+    if (typeof window === 'undefined') {
+      return;
+    }
+
     const updateGridHeight = () => {
       const targetHeight = gridHeight || window.innerHeight * 0.84;
       setCurrentGridHeight(targetHeight);
@@ -162,6 +177,11 @@ export function HandsontableGrid<T extends Item>({
   // Handle Ctrl+F to focus search bar
   useEffect(() => {
     if (!enableCtrlF) {
+      return;
+    }
+
+    // SSR guard: Only run in browser environment
+    if (typeof document === 'undefined') {
       return;
     }
 
@@ -194,6 +214,11 @@ export function HandsontableGrid<T extends Item>({
   // Google Sheets-style Ctrl+Arrow navigation
   useEffect(() => {
     if (!hotRef.current) {
+      return;
+    }
+
+    // SSR guard: Only run in browser environment
+    if (typeof document === 'undefined') {
       return;
     }
 

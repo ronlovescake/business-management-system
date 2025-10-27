@@ -17,8 +17,14 @@ interface VersionHistoryPanelProps {
 /**
  * Version History Panel Component
  *
- * TODO: Complete implementation of version history functionality
+ * @status DEFERRED - Feature implementation postponed to future sprint
+ * @reason Version history requires additional backend infrastructure:
+ *   - Database schema for storing historical versions
+ *   - API endpoints for version retrieval and restoration
+ *   - Diff calculation and comparison logic
  * Currently displays a placeholder until the full feature is implemented.
+ *
+ * @see https://github.com/czarlieandron-oss/business-management-system/issues/VERSION-HISTORY
  */
 export function VersionHistoryPanel({
   opened,

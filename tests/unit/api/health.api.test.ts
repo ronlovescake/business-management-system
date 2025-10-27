@@ -1,17 +1,26 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-const { mockPrisma } = vi.hoisted(() => {
+const { mockPrisma, mockGetDatabaseUrl } = vi.hoisted(() => {
   return {
     mockPrisma: {
       $connect: vi.fn(),
       $queryRaw: vi.fn(),
     },
+    mockGetDatabaseUrl: vi.fn(),
   };
 });
 
 vi.mock('@/lib/db', () => ({
   prisma: mockPrisma,
 }));
+
+vi.mock('@/lib/env', async () => {
+  const actual = await vi.importActual('@/lib/env');
+  return {
+    ...actual,
+    getDatabaseUrl: mockGetDatabaseUrl,
+  };
+});
 
 import { GET } from '@/app/api/health/route';
 
@@ -21,6 +30,10 @@ describe('Health Check API', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.DATABASE_URL = 'postgresql://user:pass@localhost:5432/testdb';
+    // Default mock returns valid URL
+    mockGetDatabaseUrl.mockReturnValue(
+      'postgresql://user:pass@localhost:5432/testdb'
+    );
   });
 
   afterEach(() => {
@@ -48,6 +61,9 @@ describe('Health Check API', () => {
 
     it('should return degraded status when DATABASE_URL is not set', async () => {
       delete process.env.DATABASE_URL;
+      mockGetDatabaseUrl.mockImplementation(() => {
+        throw new Error('DATABASE_URL is not set');
+      });
 
       const response = await GET();
       const data = await response.json();
@@ -61,6 +77,9 @@ describe('Health Check API', () => {
     it('should return degraded status for placeholder credentials', async () => {
       process.env.DATABASE_URL =
         'postgresql://username:password@localhost:5432/db';
+      mockGetDatabaseUrl.mockReturnValue(
+        'postgresql://username:password@localhost:5432/db'
+      );
 
       const response = await GET();
       const data = await response.json();

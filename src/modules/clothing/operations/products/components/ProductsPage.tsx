@@ -596,6 +596,11 @@ export function ProductsPage() {
    * Set grid height to 83vh
    */
   useEffect(() => {
+    // SSR guard: Only run in browser environment
+    if (typeof window === 'undefined') {
+      return;
+    }
+
     const updateGridHeight = () => {
       const vh83 = window.innerHeight * 0.83;
       setGridHeight(vh83);
@@ -616,6 +621,11 @@ export function ProductsPage() {
    * Handle Ctrl+F to focus search bar
    */
   useEffect(() => {
+    // SSR guard: Only run in browser environment
+    if (typeof document === 'undefined') {
+      return;
+    }
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
         event.preventDefault();
