@@ -32,12 +32,14 @@ export class ValidationService {
       }
 
       // Fetch all customers to find the selected customer
-      const customersData = await api
-        .get<Array<Record<string, unknown>>>('/api/customers')
-        .catch(() => {
-          logger.warn('Could not fetch customer data for validation');
-          return [];
-        });
+      let customersData: Array<Record<string, unknown>> = [];
+      try {
+        customersData =
+          await api.get<Array<Record<string, unknown>>>('/api/customers');
+      } catch (error) {
+        logger.warn('Could not fetch customer data for validation', error);
+        return { isValid: true, warnings: [], errors: [] };
+      }
 
       if (customersData.length === 0) {
         return { isValid: true, warnings: [], errors: [] };
@@ -77,11 +79,14 @@ export class ValidationService {
       try {
         const customerId = customer.id;
         if (customerId) {
-          const customerTransactions = await api
-            .get<
+          let customerTransactions: Array<Record<string, unknown>> = [];
+          try {
+            customerTransactions = await api.get<
               Array<Record<string, unknown>>
-            >(`/api/customers/${customerId}/transactions`)
-            .catch(() => []);
+            >(`/api/customers/${customerId}/transactions`);
+          } catch (error) {
+            logger.warn('Could not fetch customer transactions', error);
+          }
 
           if (customerTransactions.length > 0) {
             const cancelledTransactions = customerTransactions.filter(

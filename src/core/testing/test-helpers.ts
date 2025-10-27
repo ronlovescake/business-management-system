@@ -7,6 +7,34 @@
 import { vi } from 'vitest';
 
 /**
+ * Test environment base URL
+ * Use this constant instead of hardcoding localhost:3000 in tests
+ */
+export const TEST_BASE_URL = 'http://localhost:3000';
+
+/**
+ * Helper to build test API URLs
+ *
+ * @example
+ * ```typescript
+ * const url = getTestApiUrl('/api/customers'); // "http://localhost:3000/api/customers"
+ * const url = getTestApiUrl('/api/customers', { status: 'active' }); // "http://localhost:3000/api/customers?status=active"
+ * ```
+ */
+export function getTestApiUrl(
+  path: string,
+  params?: Record<string, string>
+): string {
+  const url = new URL(path, TEST_BASE_URL);
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      url.searchParams.set(key, value);
+    });
+  }
+  return url.toString();
+}
+
+/**
  * Mock Prisma Client
  *
  * @example

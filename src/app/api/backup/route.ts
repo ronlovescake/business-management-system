@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { prisma } from '@/lib/db';
+import { getDatabaseUrl } from '@/lib/env';
 import fs from 'fs';
 import path from 'path';
 import { logger } from '@/lib/logger';
@@ -34,7 +35,7 @@ const TABLES = [
 ];
 
 function parseDatabaseUrl() {
-  const dbUrl = process.env.DATABASE_URL;
+  const dbUrl = getDatabaseUrl();
   if (!dbUrl) {
     throw new Error('DATABASE_URL not found');
   }

@@ -1,3 +1,5 @@
+/* eslint-disable no-console */
+/* eslint-disable no-console */
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
@@ -39,7 +41,7 @@ async function cleanDuplicates() {
         duplicateCount++;
         // Keep the first one (oldest), delete the rest
         const [_keep, ...deleteRecords] = records;
-        toDelete.push(...deleteRecords.map(r => r.id));
+        toDelete.push(...deleteRecords.map((r) => r.id));
       }
     }
 
@@ -83,7 +85,9 @@ async function cleanDuplicates() {
 
       console.log('\n👥 Employee Breakdown:');
       breakdown.forEach((item) => {
-        console.log(`   ${item.employeeId} - ${item.status}: ${item._count._all} days`);
+        console.log(
+          `   ${item.employeeId} - ${item.status}: ${item._count._all} days`
+        );
       });
     } else {
       console.log('✨ No duplicates found!');

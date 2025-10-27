@@ -33,7 +33,8 @@ export const SOFT_DELETE_MODELS = new Set([
   'Payroll',
   // NOTE: 'LeaveRequest' excluded - requires deletedAt field in Prisma schema
   // FUTURE: Add deletedAt field to LeaveRequest model to enable soft-delete
-  'CashAdvanceRecord',
+  // NOTE: 'CashAdvanceRecord' excluded - requires deletedAt field in Prisma schema
+  // FUTURE: Add deletedAt field to CashAdvanceRecord model to enable soft-delete
   'Expense',
   'ThirteenthMonthPayRecord',
 ]);

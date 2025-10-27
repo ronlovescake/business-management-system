@@ -259,7 +259,7 @@ export async function PUT(request: NextRequest) {
     if (body.rejectedBy !== undefined) {
       updateData.rejectedBy = body.rejectedBy
         ? sanitizeString(body.rejectedBy, { maxLength: 255 })
-        : null;
+        : undefined;
     }
 
     if (body.rejectedDate !== undefined) {
@@ -271,7 +271,7 @@ export async function PUT(request: NextRequest) {
     if (body.rejectionReason !== undefined) {
       updateData.rejectionReason = body.rejectionReason
         ? sanitizeString(body.rejectionReason)
-        : null;
+        : undefined;
     }
 
     if (body.deductionCycle !== undefined) {

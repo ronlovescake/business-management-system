@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Generate Attendance Records from Actual Schedules
  * Date Range: January 1, 2025 to October 21, 2025

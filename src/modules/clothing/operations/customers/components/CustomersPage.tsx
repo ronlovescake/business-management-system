@@ -140,7 +140,11 @@ export function CustomersPage() {
 
     updateHeight();
     window.addEventListener('resize', throttledResize);
-    return () => window.removeEventListener('resize', throttledResize);
+
+    return () => {
+      window.removeEventListener('resize', throttledResize);
+      throttledResize.cancel(); // Cancel any pending throttled calls
+    };
   }, []);
 
   // Handle Ctrl+F to focus search input

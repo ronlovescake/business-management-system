@@ -43,6 +43,7 @@ vi.mock('@/lib/logger', () => ({
 
 import { GET, POST, DELETE } from '@/app/api/prices/route';
 import { PUT, DELETE as DELETE_BY_ID } from '@/app/api/prices/[id]/route';
+import { getTestApiUrl } from '@/core/testing/test-helpers';
 
 describe('Prices API Routes', () => {
   beforeEach(() => {
@@ -109,7 +110,7 @@ describe('Prices API Routes', () => {
         restored: 0,
       });
 
-      const request = new NextRequest('http://localhost:3000/api/prices', {
+      const request = new NextRequest(getTestApiUrl('/api/prices'), {
         method: 'POST',
         body: JSON.stringify(priceImport),
       });
@@ -126,7 +127,7 @@ describe('Prices API Routes', () => {
         notAnArray: true,
       };
 
-      const request = new NextRequest('http://localhost:3000/api/prices', {
+      const request = new NextRequest(getTestApiUrl('/api/prices'), {
         method: 'POST',
         body: JSON.stringify(invalidPayload),
       });
@@ -163,7 +164,7 @@ describe('Prices API Routes', () => {
 
       mockPrisma.price.update.mockResolvedValue(updatedPrice);
 
-      const request = new NextRequest('http://localhost:3000/api/prices/1', {
+      const request = new NextRequest(getTestApiUrl('/api/prices/1'), {
         method: 'PUT',
         body: JSON.stringify(priceUpdate),
       });
@@ -184,13 +185,10 @@ describe('Prices API Routes', () => {
         'Price Adjustment': 5,
       };
 
-      const request = new NextRequest(
-        'http://localhost:3000/api/prices/invalid',
-        {
-          method: 'PUT',
-          body: JSON.stringify(priceUpdate),
-        }
-      );
+      const request = new NextRequest(getTestApiUrl('/api/prices/invalid'), {
+        method: 'PUT',
+        body: JSON.stringify(priceUpdate),
+      });
 
       const response = await PUT(request, { params: { id: 'invalid' } });
       const data = await response.json();
@@ -214,7 +212,7 @@ describe('Prices API Routes', () => {
         updatedAt: new Date(),
       });
 
-      const request = new NextRequest('http://localhost:3000/api/prices/1');
+      const request = new NextRequest(getTestApiUrl('/api/prices/1'));
       const response = await DELETE_BY_ID(request, { params: { id: '1' } });
       const data = await response.json();
 
@@ -223,9 +221,7 @@ describe('Prices API Routes', () => {
     });
 
     it('should return 400 for invalid price ID', async () => {
-      const request = new NextRequest(
-        'http://localhost:3000/api/prices/invalid'
-      );
+      const request = new NextRequest(getTestApiUrl('/api/prices/invalid'));
       const response = await DELETE_BY_ID(request, {
         params: { id: 'invalid' },
       });
@@ -242,7 +238,7 @@ describe('Prices API Routes', () => {
       mockPrisma.price.updateMany.mockResolvedValue({ count: 15 });
 
       const request = new NextRequest(
-        'http://localhost:3000/api/prices?confirm=DELETE_ALL_PRICES',
+        getTestApiUrl('/api/prices', { confirm: 'DELETE_ALL_PRICES' }),
         {
           method: 'DELETE',
         }
@@ -255,7 +251,7 @@ describe('Prices API Routes', () => {
     });
 
     it('should return 400 without confirmation parameter', async () => {
-      const request = new NextRequest('http://localhost:3000/api/prices', {
+      const request = new NextRequest(getTestApiUrl('/api/prices'), {
         method: 'DELETE',
       });
       const response = await DELETE(request);

@@ -209,10 +209,13 @@ class ModuleExtractor {
 
     try {
       // Check if directory exists
-      const exists = await fs
-        .stat(extractPath)
-        .then(() => true)
-        .catch(() => false);
+      let exists = false;
+      try {
+        await fs.stat(extractPath);
+        exists = true;
+      } catch {
+        // Directory doesn't exist
+      }
 
       if (exists) {
         if (!overwrite) {
@@ -349,10 +352,13 @@ class ModuleExtractor {
       // Check required files exist
       for (const requiredFile of this.REQUIRED_FILES) {
         const filePath = path.join(extractPath, requiredFile);
-        const exists = await fs
-          .stat(filePath)
-          .then(() => true)
-          .catch(() => false);
+        let exists = false;
+        try {
+          await fs.stat(filePath);
+          exists = true;
+        } catch {
+          // File doesn't exist
+        }
 
         if (!exists) {
           errors.push(`Missing required file: ${requiredFile}`);

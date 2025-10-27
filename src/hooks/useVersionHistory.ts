@@ -604,7 +604,16 @@ export function useVersionHistory<T extends IdentifiableRecord>(
 
   // Initialize on mount
   useEffect(() => {
-    initDB().then(loadVersions);
+    const initialize = async () => {
+      try {
+        await initDB();
+        await loadVersions();
+      } catch (error) {
+        logger.error('Error initializing version history:', error);
+      }
+    };
+
+    initialize();
     loadFromServer();
   }, [initDB, loadVersions, loadFromServer]);
 

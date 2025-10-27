@@ -26,6 +26,7 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 import { GET, PUT, DELETE } from '@/app/api/customers/[id]/route';
+import { getTestApiUrl } from '@/core/testing/test-helpers';
 
 describe('Customers By ID API Routes', () => {
   beforeEach(() => {
@@ -53,7 +54,7 @@ describe('Customers By ID API Routes', () => {
 
       mockPrisma.customer.findUnique.mockResolvedValue(mockCustomer);
 
-      const request = new NextRequest('http://localhost:3000/api/customers/1');
+      const request = new NextRequest(getTestApiUrl('/api/customers/1'));
       const response = await GET(request, { params: { id: '1' } });
       const data = await response.json();
 
@@ -64,7 +65,7 @@ describe('Customers By ID API Routes', () => {
     it('should return 404 when customer not found', async () => {
       mockPrisma.customer.findUnique.mockResolvedValue(null);
 
-      const request = new NextRequest('http://localhost:3000/api/customers/999');
+      const request = new NextRequest(getTestApiUrl('/api/customers/999'));
       const response = await GET(request, { params: { id: '999' } });
       const data = await response.json();
 
@@ -73,9 +74,7 @@ describe('Customers By ID API Routes', () => {
     });
 
     it('should return 400 for invalid customer ID', async () => {
-      const request = new NextRequest(
-        'http://localhost:3000/api/customers/invalid'
-      );
+      const request = new NextRequest(getTestApiUrl('/api/customers/invalid'));
       const response = await GET(request, { params: { id: 'invalid' } });
       const data = await response.json();
 
@@ -112,7 +111,7 @@ describe('Customers By ID API Routes', () => {
 
       mockPrisma.customer.update.mockResolvedValue(updatedCustomer);
 
-      const request = new NextRequest('http://localhost:3000/api/customers/1', {
+      const request = new NextRequest(getTestApiUrl('/api/customers/1'), {
         method: 'PUT',
         body: JSON.stringify(updateData),
       });
@@ -133,13 +132,10 @@ describe('Customers By ID API Routes', () => {
         Status: 'Active',
       };
 
-      const request = new NextRequest(
-        'http://localhost:3000/api/customers/invalid',
-        {
-          method: 'PUT',
-          body: JSON.stringify(updateData),
-        }
-      );
+      const request = new NextRequest(getTestApiUrl('/api/customers/invalid'), {
+        method: 'PUT',
+        body: JSON.stringify(updateData),
+      });
 
       const response = await PUT(request, { params: { id: 'invalid' } });
       const data = await response.json();
@@ -168,7 +164,7 @@ describe('Customers By ID API Routes', () => {
         updatedAt: new Date(),
       });
 
-      const request = new NextRequest('http://localhost:3000/api/customers/1');
+      const request = new NextRequest(getTestApiUrl('/api/customers/1'));
       const response = await DELETE(request, { params: { id: '1' } });
       const data = await response.json();
 
@@ -177,9 +173,7 @@ describe('Customers By ID API Routes', () => {
     });
 
     it('should return 400 for invalid customer ID', async () => {
-      const request = new NextRequest(
-        'http://localhost:3000/api/customers/invalid'
-      );
+      const request = new NextRequest(getTestApiUrl('/api/customers/invalid'));
       const response = await DELETE(request, { params: { id: 'invalid' } });
       const data = await response.json();
 

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import type { Customer } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import { getDatabaseUrl } from '@/lib/env';
 import {
   customerDataSchema,
   formatValidationErrors,
@@ -116,14 +117,15 @@ function mapFromDTO(d: CustomerDTO): Prisma.CustomerCreateInput {
 }
 
 function dbNotConfigured(): string | null {
-  const url = process.env.DATABASE_URL || '';
-  if (!url) {
+  try {
+    const url = getDatabaseUrl();
+    if (/postgresql:\/\/username:password@/i.test(url)) {
+      return 'DATABASE_URL still has placeholder username/password';
+    }
+    return null;
+  } catch {
     return 'DATABASE_URL is not set';
   }
-  if (/postgresql:\/\/username:password@/i.test(url)) {
-    return 'DATABASE_URL still has placeholder username/password';
-  }
-  return null;
 }
 
 // GET - Fetch all customers (excluding soft-deleted)

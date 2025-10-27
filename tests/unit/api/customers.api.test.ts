@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NextRequest } from 'next/server';
+import { getTestApiUrl } from '@/core/testing/test-helpers';
 
 // Hoist mocks to avoid initialization issues
 const { mockPrisma } = vi.hoisted(() => {
@@ -126,7 +127,7 @@ describe('Customers API Routes', () => {
 
       mockPrisma.customer.create.mockResolvedValue(createdCustomer);
 
-      const request = new NextRequest('http://localhost:3000/api/customers', {
+      const request = new NextRequest(getTestApiUrl('/api/customers'), {
         method: 'POST',
         body: JSON.stringify(newCustomer),
       });
@@ -165,7 +166,7 @@ describe('Customers API Routes', () => {
 
       mockPrisma.customer.create.mockResolvedValue(mockCreatedCustomer);
 
-      const request = new NextRequest('http://localhost:3000/api/customers', {
+      const request = new NextRequest(getTestApiUrl('/api/customers'), {
         method: 'POST',
         body: JSON.stringify(customerWithInvalidStatus),
       });
@@ -212,7 +213,7 @@ describe('Customers API Routes', () => {
         });
       });
 
-      const request = new NextRequest('http://localhost:3000/api/customers', {
+      const request = new NextRequest(getTestApiUrl('/api/customers'), {
         method: 'PUT',
         body: JSON.stringify(bulkCustomers),
       });
@@ -260,7 +261,7 @@ describe('Customers API Routes', () => {
         });
       });
 
-      const request = new NextRequest('http://localhost:3000/api/customers', {
+      const request = new NextRequest(getTestApiUrl('/api/customers'), {
         method: 'PUT',
         body: JSON.stringify(bulkCustomers),
       });
@@ -281,7 +282,7 @@ describe('Customers API Routes', () => {
       mockPrisma.customer.updateMany.mockResolvedValue({ count: 5 });
 
       const request = new NextRequest(
-        'http://localhost:3000/api/customers?confirm=DELETE_ALL_CUSTOMERS',
+        getTestApiUrl('/api/customers', { confirm: 'DELETE_ALL_CUSTOMERS' }),
         {
           method: 'DELETE',
         }

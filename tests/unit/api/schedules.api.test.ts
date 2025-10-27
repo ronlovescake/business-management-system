@@ -105,10 +105,12 @@ describe('Schedules API - GET', () => {
     expect(data[0].id).toBe('sch1');
     expect(data[0].shiftType).toBe('morning');
     expect(data[1].id).toBe('sch2');
-    expect(mockPrisma.schedule.findMany).toHaveBeenCalledWith({
-      where: { deletedAt: null },
-      orderBy: [{ date: 'desc' }, { startTime: 'asc' }],
-    });
+    // Verify query was called with soft-delete filter and ordering
+    expect(mockPrisma.schedule.findMany).toHaveBeenCalled();
+    const callArgs = mockPrisma.schedule.findMany.mock.calls[0][0];
+    expect(callArgs.where).toEqual({ deletedAt: null });
+    expect(callArgs.orderBy).toEqual([{ date: 'desc' }, { startTime: 'asc' }]);
+    // select is added for optimization (implementation detail)
   });
 
   it('should exclude deleted schedules', async () => {
@@ -116,10 +118,11 @@ describe('Schedules API - GET', () => {
 
     await GET();
 
-    expect(mockPrisma.schedule.findMany).toHaveBeenCalledWith({
-      where: { deletedAt: null },
-      orderBy: [{ date: 'desc' }, { startTime: 'asc' }],
-    });
+    // Verify query was called with soft-delete filter
+    expect(mockPrisma.schedule.findMany).toHaveBeenCalled();
+    const callArgs = mockPrisma.schedule.findMany.mock.calls[0][0];
+    expect(callArgs.where).toEqual({ deletedAt: null });
+    expect(callArgs.orderBy).toEqual([{ date: 'desc' }, { startTime: 'asc' }]);
   });
 
   it('should handle empty schedules list', async () => {

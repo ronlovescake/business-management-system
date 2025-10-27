@@ -42,5 +42,13 @@ snapshots/
 *.sql
 *.backup
 
+# Temporary files and scripts
+tmp-*.js
+tmp-*.ts
+temp-*.js
+temp-*.ts
+*-tmp.js
+*-tmp.ts
+
 # Bundle analyzer
 .analyze/

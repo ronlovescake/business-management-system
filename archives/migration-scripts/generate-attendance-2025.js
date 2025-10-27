@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
@@ -17,10 +18,7 @@ async function generateAttendance() {
           lte: '2025-10-19',
         },
       },
-      orderBy: [
-        { date: 'asc' },
-        { employeeId: 'asc' },
-      ],
+      orderBy: [{ date: 'asc' }, { employeeId: 'asc' }],
     });
 
     console.log(`📅 Found ${schedules.length} schedules to process\n`);
@@ -50,12 +48,12 @@ async function generateAttendance() {
       if (!leaveMap[employeeId]) {
         leaveMap[employeeId] = [];
       }
-      
+
       // Generate all dates in the leave period
       const startDate = new Date(leave.startDate);
       const endDate = new Date(leave.endDate);
       const currentDate = new Date(startDate);
-      
+
       while (currentDate <= endDate) {
         const dateStr = currentDate.toISOString().split('T')[0];
         leaveMap[employeeId].push(dateStr);
@@ -74,7 +72,7 @@ async function generateAttendance() {
 
       // Stay-in employees are always present unless on leave
       const status = isOnLeave ? 'on-leave' : 'present';
-      
+
       // Calculate total hours (4:00 AM to 5:00 PM = 13 hours)
       const totalHours = 13.0;
 
@@ -85,7 +83,7 @@ async function generateAttendance() {
         position: schedule.position,
         date: schedule.date,
         timeIn: schedule.startTime, // 04:00
-        timeOut: schedule.endTime,  // 17:00
+        timeOut: schedule.endTime, // 17:00
         totalHours: totalHours,
         status: status,
         notes: isOnLeave ? 'Employee on approved leave' : 'Regular attendance',
@@ -111,14 +109,16 @@ async function generateAttendance() {
 
     for (let i = 0; i < attendanceRecords.length; i += batchSize) {
       const batch = attendanceRecords.slice(i, i + batchSize);
-      
+
       await prisma.attendance.createMany({
         data: batch,
         skipDuplicates: true,
       });
 
       inserted += batch.length;
-      console.log(`✅ Inserted batch ${Math.floor(i / batchSize) + 1}: ${inserted}/${attendanceRecords.length}`);
+      console.log(
+        `✅ Inserted batch ${Math.floor(i / batchSize) + 1}: ${inserted}/${attendanceRecords.length}`
+      );
     }
 
     console.log('\n✨ Attendance generation completed successfully!');
@@ -136,9 +136,10 @@ async function generateAttendance() {
 
     console.log('\n👥 Employee Breakdown:');
     breakdown.forEach((item) => {
-      console.log(`   ${item.employeeId} - ${item.status}: ${item._count} days`);
+      console.log(
+        `   ${item.employeeId} - ${item.status}: ${item._count} days`
+      );
     });
-
   } catch (error) {
     console.error('❌ Error generating attendance:', error);
     throw error;

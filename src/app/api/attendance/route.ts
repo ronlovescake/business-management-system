@@ -44,8 +44,34 @@ export async function GET(request: NextRequest) {
       (where.date as Record<string, unknown>).lte = sanitizers.date(endDate);
     }
 
+    // ========================================================================
+    // ⚠️ QUERY OPTIMIZATION - Use select to fetch only needed fields
+    // ========================================================================
+    // Fetch only essential fields for list view (exclude break times if not needed)
+    // ========================================================================
     const attendance = await prisma.attendance.findMany({
       where,
+      select: {
+        id: true,
+        employeeId: true,
+        employeeName: true,
+        department: true,
+        position: true,
+        date: true,
+        timeIn: true,
+        timeOut: true,
+        totalHours: true,
+        status: true,
+        details: true,
+        // Break times included (needed for timesheet calculations)
+        break1Start: true,
+        break1End: true,
+        lunchStart: true,
+        lunchEnd: true,
+        break2Start: true,
+        break2End: true,
+        // Exclude notes (can be fetched separately if needed)
+      },
       orderBy: [{ date: 'desc' }, { employeeName: 'asc' }],
     });
 

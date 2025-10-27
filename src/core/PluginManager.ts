@@ -502,16 +502,22 @@ class PluginManager {
    */
   private async loadInstalledModules(): Promise<void> {
     try {
-      const modules = await api
-        .get<ModulePackage[]>('/api/modules/config')
-        .catch((error) => {
-          // If no modules exist yet (404), that's okay
-          if (error.status === 404) {
-            logger.debug('ℹ️  No installed modules found');
-            return [];
-          }
+      let modules: ModulePackage[] = [];
+      try {
+        modules = await api.get<ModulePackage[]>('/api/modules/config');
+      } catch (error: unknown) {
+        // If no modules exist yet (404), that's okay
+        if (
+          error &&
+          typeof error === 'object' &&
+          'status' in error &&
+          error.status === 404
+        ) {
+          logger.debug('ℹ️  No installed modules found');
+        } else {
           throw error;
-        });
+        }
+      }
 
       modules.forEach((modulePackage) => {
         this.installedModules.set(modulePackage.id, modulePackage);

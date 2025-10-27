@@ -34,6 +34,7 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 import { GET, POST, PUT, DELETE } from '@/app/api/products/route';
+import { getTestApiUrl } from '@/core/testing/test-helpers';
 
 describe('Products API Routes', () => {
   beforeEach(() => {
@@ -151,7 +152,7 @@ describe('Products API Routes', () => {
 
       mockPrisma.product.create.mockResolvedValue(createdProduct);
 
-      const request = new NextRequest('http://localhost:3000/api/products', {
+      const request = new NextRequest(getTestApiUrl('/api/products'), {
         method: 'POST',
         body: JSON.stringify(singleProduct),
       });
@@ -186,7 +187,7 @@ describe('Products API Routes', () => {
         });
       });
 
-      const request = new NextRequest('http://localhost:3000/api/products', {
+      const request = new NextRequest(getTestApiUrl('/api/products'), {
         method: 'POST',
         body: JSON.stringify(bulkProducts),
       });
@@ -204,7 +205,7 @@ describe('Products API Routes', () => {
         notAnArray: true,
       };
 
-      const request = new NextRequest('http://localhost:3000/api/products', {
+      const request = new NextRequest(getTestApiUrl('/api/products'), {
         method: 'POST',
         body: JSON.stringify(invalidPayload),
       });
@@ -238,7 +239,7 @@ describe('Products API Routes', () => {
         });
       });
 
-      const request = new NextRequest('http://localhost:3000/api/products', {
+      const request = new NextRequest(getTestApiUrl('/api/products'), {
         method: 'PUT',
         body: JSON.stringify(bulkProducts),
       });
@@ -257,7 +258,7 @@ describe('Products API Routes', () => {
       mockPrisma.product.updateMany.mockResolvedValue({ count: 25 });
 
       const request = new NextRequest(
-        'http://localhost:3000/api/products?confirm=DELETE_ALL_PRODUCTS',
+        getTestApiUrl('/api/products', { confirm: 'DELETE_ALL_PRODUCTS' }),
         {
           method: 'DELETE',
         }

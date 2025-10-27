@@ -236,8 +236,28 @@ const scheduleDelegate = getScheduleDelegate(prisma);
 
 export async function GET() {
   try {
+    // ========================================================================
+    // ⚠️ QUERY OPTIMIZATION - Use select to fetch only needed fields
+    // ========================================================================
+    // Fetch only essential fields for schedule list view
+    // ========================================================================
     const schedules = await scheduleDelegate.findMany({
       where: { deletedAt: null },
+      select: {
+        id: true,
+        employeeId: true,
+        employeeName: true,
+        date: true,
+        shiftType: true,
+        startTime: true,
+        endTime: true,
+        position: true,
+        department: true,
+        status: true,
+        // Exclude advanced features not commonly used in list view:
+        // - source, templateId, recurrenceId, isOverride
+        // - notes (can be fetched separately if needed)
+      },
       orderBy: [{ date: 'desc' }, { startTime: 'asc' }],
     });
 

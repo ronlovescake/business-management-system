@@ -3,6 +3,7 @@
 import { Component } from 'react';
 import type { ReactNode } from 'react';
 import { logger } from '@/lib/logger';
+import { isDevelopment } from '@/lib/env';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -162,33 +163,32 @@ export class ErrorBoundary extends Component<
               </p>
 
               {/* Error details (development only) */}
-              {process.env.NODE_ENV === 'development' &&
-                this.state.errorInfo && (
-                  <div
+              {isDevelopment && this.state.errorInfo && (
+                <div
+                  style={{
+                    backgroundColor: '#f8f9fa',
+                    borderRadius: '4px',
+                    padding: '16px',
+                    marginBottom: '24px',
+                    maxHeight: '200px',
+                    overflow: 'auto',
+                    textAlign: 'left',
+                  }}
+                >
+                  <pre
                     style={{
-                      backgroundColor: '#f8f9fa',
-                      borderRadius: '4px',
-                      padding: '16px',
-                      marginBottom: '24px',
-                      maxHeight: '200px',
-                      overflow: 'auto',
-                      textAlign: 'left',
+                      fontSize: '11px',
+                      color: '#495057',
+                      margin: 0,
+                      fontFamily: 'monospace',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
                     }}
                   >
-                    <pre
-                      style={{
-                        fontSize: '11px',
-                        color: '#495057',
-                        margin: 0,
-                        fontFamily: 'monospace',
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                      }}
-                    >
-                      {this.state.errorInfo.componentStack}
-                    </pre>
-                  </div>
-                )}
+                    {this.state.errorInfo.componentStack}
+                  </pre>
+                </div>
+              )}
 
               {/* Action buttons */}
               <div

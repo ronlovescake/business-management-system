@@ -9,6 +9,7 @@ import {
   validateEmployee,
   formatValidationErrors,
 } from '@/lib/validations/employee.validation';
+import { getDatabaseUrl } from '@/lib/env';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,14 +17,15 @@ export const dynamic = 'force-dynamic';
  * Database configuration check
  */
 function dbNotConfigured(): string | null {
-  const url = process.env.DATABASE_URL || '';
-  if (!url) {
+  try {
+    const url = getDatabaseUrl();
+    if (/postgresql:\/\/username:password@/i.test(url)) {
+      return 'DATABASE_URL still has placeholder username/password';
+    }
+    return null;
+  } catch {
     return 'DATABASE_URL is not set';
   }
-  if (/postgresql:\/\/username:password@/i.test(url)) {
-    return 'DATABASE_URL still has placeholder username/password';
-  }
-  return null;
 }
 
 /**
@@ -64,8 +66,34 @@ export async function GET(request: NextRequest) {
       ];
     }
 
+    // ========================================================================
+    // ⚠️ QUERY OPTIMIZATION - Use select to fetch only needed fields
+    // ========================================================================
+    // Exclude heavy fields like profilePhoto in list view to reduce data transfer
+    // ========================================================================
     const employees = await prisma.employee.findMany({
       where,
+      select: {
+        id: true,
+        employeeId: true,
+        firstName: true,
+        lastName: true,
+        middleName: true,
+        name: true,
+        email: true,
+        phone: true,
+        contact: true,
+        department: true,
+        position: true,
+        status: true,
+        hireDate: true,
+        basicSalary: true,
+        currentSalary: true,
+        // Exclude heavy fields for list view:
+        // - profilePhoto (can be large base64 string)
+        // - address, notes (text fields not needed in list)
+        // Client can fetch full details via /api/employees/[id] if needed
+      },
       orderBy: { createdAt: 'desc' },
     });
 

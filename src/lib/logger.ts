@@ -15,7 +15,7 @@
 
 /* eslint-disable no-console */
 
-const isDevelopment = process.env.NODE_ENV === 'development';
+import { isDevelopment } from '@/lib/env';
 
 export const logger = {
   /**
@@ -56,18 +56,27 @@ export const logger = {
    * Error logging - ALWAYS logs (development and production)
    * Use for critical errors that need investigation
    *
-   * In production, consider sending these to an error tracking service
-   * like Sentry, LogRocket, or DataDog
+   * In production, these are sent to Sentry for tracking
    */
   error: (...args: unknown[]): void => {
     console.error(...args);
 
-    // REQUIRES: Error tracking service (Sentry)
-    // Deferred until P1 Task #2 (Setup Sentry - 2-3h) is complete
-    // Implementation:
-    // if (!isDevelopment) {
-    //   Sentry.captureException(args[0]);
-    // }
+    // Send to Sentry in production
+    if (!isDevelopment && typeof window !== 'undefined') {
+      // Dynamically import Sentry only when needed
+      import('@sentry/nextjs')
+        .then((Sentry) => {
+          const error = args[0];
+          if (error instanceof Error) {
+            Sentry.captureException(error);
+          } else {
+            Sentry.captureMessage(String(error), 'error');
+          }
+        })
+        .catch(() => {
+          // Silently fail if Sentry is not available
+        });
+    }
   },
 
   /**

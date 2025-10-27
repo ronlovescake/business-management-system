@@ -287,7 +287,12 @@ export class ApiClient {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
+        let errorData = null;
+        try {
+          errorData = await response.json();
+        } catch {
+          // Response body is not valid JSON or empty
+        }
         throw new ApiError(
           response.status,
           response.statusText,

@@ -605,7 +605,11 @@ export function ProductsPage() {
 
     updateGridHeight();
     window.addEventListener('resize', throttledResize);
-    return () => window.removeEventListener('resize', throttledResize);
+
+    return () => {
+      window.removeEventListener('resize', throttledResize);
+      throttledResize.cancel(); // Cancel any pending throttled calls
+    };
   }, []);
 
   /**

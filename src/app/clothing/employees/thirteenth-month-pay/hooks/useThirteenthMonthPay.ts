@@ -241,9 +241,16 @@ export function useThirteenthMonthPay() {
             '/api/employees?status=active'
           ),
           api.get<Array<Record<string, unknown>>>('/api/payroll'),
-          api
-            .get<Array<Record<string, unknown>>>('/api/thirteenth-month-pay')
-            .catch(() => []),
+          (async () => {
+            try {
+              return await api.get<Array<Record<string, unknown>>>(
+                '/api/thirteenth-month-pay'
+              );
+            } catch (error) {
+              logger.error('Failed to fetch 13th month pay records:', error);
+              return [];
+            }
+          })(),
         ]);
 
       const employeeById = new Map<string, Record<string, unknown>>();

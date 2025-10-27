@@ -93,12 +93,12 @@ describe('Employees API - GET /api/employees', () => {
     expect(data).toHaveLength(2);
     expect(data[0].employeeId).toBe('EMP-0001');
     expect(data[1].employeeId).toBe('EMP-0002');
-    expect(mockPrisma.employee.findMany).toHaveBeenCalledWith({
-      where: {
-        deletedAt: null,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    // Verify query was called with soft-delete filter and ordering
+    expect(mockPrisma.employee.findMany).toHaveBeenCalled();
+    const callArgs = mockPrisma.employee.findMany.mock.calls[0][0];
+    expect(callArgs.where).toEqual({ deletedAt: null });
+    expect(callArgs.orderBy).toEqual({ createdAt: 'desc' });
+    // select is added for optimization (implementation detail)
   });
 
   it('should filter by department', async () => {
@@ -134,13 +134,14 @@ describe('Employees API - GET /api/employees', () => {
     expect(response.status).toBe(200);
     expect(data).toHaveLength(1);
     expect(data[0].department).toBe('Operations');
-    expect(mockPrisma.employee.findMany).toHaveBeenCalledWith({
-      where: {
-        deletedAt: null,
-        department: 'Operations',
-      },
-      orderBy: { createdAt: 'desc' },
+    // Verify query was called with department filter
+    expect(mockPrisma.employee.findMany).toHaveBeenCalled();
+    const callArgs = mockPrisma.employee.findMany.mock.calls[0][0];
+    expect(callArgs.where).toEqual({
+      deletedAt: null,
+      department: 'Operations',
     });
+    expect(callArgs.orderBy).toEqual({ createdAt: 'desc' });
   });
 
   it('should filter by status', async () => {
@@ -176,13 +177,14 @@ describe('Employees API - GET /api/employees', () => {
     expect(response.status).toBe(200);
     expect(data).toHaveLength(1);
     expect(data[0].status).toBe('active');
-    expect(mockPrisma.employee.findMany).toHaveBeenCalledWith({
-      where: {
-        deletedAt: null,
-        status: 'active',
-      },
-      orderBy: { createdAt: 'desc' },
+    // Verify query was called with status filter
+    expect(mockPrisma.employee.findMany).toHaveBeenCalled();
+    const callArgs = mockPrisma.employee.findMany.mock.calls[0][0];
+    expect(callArgs.where).toEqual({
+      deletedAt: null,
+      status: 'active',
     });
+    expect(callArgs.orderBy).toEqual({ createdAt: 'desc' });
   });
 
   it('should search across multiple fields', async () => {
@@ -217,21 +219,22 @@ describe('Employees API - GET /api/employees', () => {
 
     expect(response.status).toBe(200);
     expect(data).toHaveLength(1);
-    expect(mockPrisma.employee.findMany).toHaveBeenCalledWith({
-      where: {
-        deletedAt: null,
-        OR: [
-          { name: { contains: 'John', mode: 'insensitive' } },
-          { firstName: { contains: 'John', mode: 'insensitive' } },
-          { lastName: { contains: 'John', mode: 'insensitive' } },
-          { employeeId: { contains: 'John', mode: 'insensitive' } },
-          { department: { contains: 'John', mode: 'insensitive' } },
-          { contact: { contains: 'John', mode: 'insensitive' } },
-          { email: { contains: 'John', mode: 'insensitive' } },
-        ],
-      },
-      orderBy: { createdAt: 'desc' },
+    // Verify query was called with search OR conditions
+    expect(mockPrisma.employee.findMany).toHaveBeenCalled();
+    const callArgs = mockPrisma.employee.findMany.mock.calls[0][0];
+    expect(callArgs.where).toMatchObject({
+      deletedAt: null,
+      OR: [
+        { name: { contains: 'John', mode: 'insensitive' } },
+        { firstName: { contains: 'John', mode: 'insensitive' } },
+        { lastName: { contains: 'John', mode: 'insensitive' } },
+        { employeeId: { contains: 'John', mode: 'insensitive' } },
+        { department: { contains: 'John', mode: 'insensitive' } },
+        { contact: { contains: 'John', mode: 'insensitive' } },
+        { email: { contains: 'John', mode: 'insensitive' } },
+      ],
     });
+    expect(callArgs.orderBy).toEqual({ createdAt: 'desc' });
   });
 
   it('should ignore department filter when set to "all"', async () => {
@@ -242,12 +245,11 @@ describe('Employees API - GET /api/employees', () => {
     );
     await GET(request);
 
-    expect(mockPrisma.employee.findMany).toHaveBeenCalledWith({
-      where: {
-        deletedAt: null,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    // Verify query was called without department filter
+    expect(mockPrisma.employee.findMany).toHaveBeenCalled();
+    const callArgs = mockPrisma.employee.findMany.mock.calls[0][0];
+    expect(callArgs.where).toEqual({ deletedAt: null });
+    expect(callArgs.where).not.toHaveProperty('department');
   });
 
   it('should ignore status filter when set to "all"', async () => {
@@ -258,12 +260,11 @@ describe('Employees API - GET /api/employees', () => {
     );
     await GET(request);
 
-    expect(mockPrisma.employee.findMany).toHaveBeenCalledWith({
-      where: {
-        deletedAt: null,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    // Verify query was called without status filter
+    expect(mockPrisma.employee.findMany).toHaveBeenCalled();
+    const callArgs = mockPrisma.employee.findMany.mock.calls[0][0];
+    expect(callArgs.where).toEqual({ deletedAt: null });
+    expect(callArgs.where).not.toHaveProperty('status');
   });
 
   it('should handle errors', async () => {

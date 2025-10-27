@@ -182,7 +182,11 @@ export function DataTable<T = Record<string, unknown>>({
 
     updateGridHeight();
     window.addEventListener('resize', throttledResize);
-    return () => window.removeEventListener('resize', throttledResize);
+
+    return () => {
+      window.removeEventListener('resize', throttledResize);
+      throttledResize.cancel(); // Cancel any pending throttled calls
+    };
   }, [gridHeight]);
 
   // Handle Ctrl+F to focus search bar

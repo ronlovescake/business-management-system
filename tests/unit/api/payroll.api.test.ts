@@ -28,6 +28,7 @@ vi.mock('@/lib/payroll/deductions', () => ({
 }));
 
 import { GET, POST, PUT, DELETE } from '@/app/api/payroll/route';
+import { getTestApiUrl } from '@/core/testing/test-helpers';
 
 describe('Payroll API', () => {
   beforeEach(() => {
@@ -104,7 +105,7 @@ describe('Payroll API', () => {
   ];
 
   const createMockRequest = (
-    url: string = 'http://localhost:3000/api/payroll',
+    url: string = getTestApiUrl('/api/payroll'),
     options: { method?: string; body?: unknown } = {}
   ): NextRequest => {
     return {
@@ -137,7 +138,7 @@ describe('Payroll API', () => {
 
     it('should filter by employeeId when provided', async () => {
       const request = createMockRequest(
-        'http://localhost:3000/api/payroll?employeeId=EMP-001'
+        getTestApiUrl('/api/payroll', { employeeId: 'EMP-001' })
       );
 
       mockPrisma.payroll.findMany.mockResolvedValue([mockPayrolls[0]]);
@@ -261,7 +262,7 @@ describe('Payroll API', () => {
         bankGcash: '09181234567',
       };
 
-      const request = createMockRequest('http://localhost:3000/api/payroll', {
+      const request = createMockRequest(getTestApiUrl('/api/payroll'), {
         method: 'POST',
         body: newPayroll,
       });
@@ -319,7 +320,7 @@ describe('Payroll API', () => {
         },
       ];
 
-      const request = createMockRequest('http://localhost:3000/api/payroll', {
+      const request = createMockRequest(getTestApiUrl('/api/payroll'), {
         method: 'POST',
         body: bulkPayrolls,
       });
@@ -404,7 +405,7 @@ describe('Payroll API', () => {
         netPay: '9500',
       };
 
-      const request = createMockRequest('http://localhost:3000/api/payroll', {
+      const request = createMockRequest(getTestApiUrl('/api/payroll'), {
         method: 'POST',
         body: payrollWithStrings,
       });
@@ -478,7 +479,7 @@ describe('Payroll API', () => {
         netPay: 8000,
       };
 
-      const request = createMockRequest('http://localhost:3000/api/payroll', {
+      const request = createMockRequest(getTestApiUrl('/api/payroll'), {
         method: 'POST',
         body: validPayroll,
       });
@@ -509,7 +510,7 @@ describe('Payroll API', () => {
         notes: 'Approved by manager',
       };
 
-      const request = createMockRequest('http://localhost:3000/api/payroll', {
+      const request = createMockRequest(getTestApiUrl('/api/payroll'), {
         method: 'PUT',
         body: updateData,
       });
@@ -535,7 +536,7 @@ describe('Payroll API', () => {
         status: 'paid',
       };
 
-      const request = createMockRequest('http://localhost:3000/api/payroll', {
+      const request = createMockRequest(getTestApiUrl('/api/payroll'), {
         method: 'PUT',
         body: updateData,
       });
@@ -563,7 +564,7 @@ describe('Payroll API', () => {
         status: 'approved',
       };
 
-      const request = createMockRequest('http://localhost:3000/api/payroll', {
+      const request = createMockRequest(getTestApiUrl('/api/payroll'), {
         method: 'PUT',
         body: updateData,
       });
@@ -587,7 +588,7 @@ describe('Payroll API', () => {
         notes: 'Payment confirmed',
       };
 
-      const request = createMockRequest('http://localhost:3000/api/payroll', {
+      const request = createMockRequest(getTestApiUrl('/api/payroll'), {
         method: 'PUT',
         body: updateData,
       });
@@ -606,7 +607,7 @@ describe('Payroll API', () => {
     });
 
     it('should return 404 when payroll not found', async () => {
-      const request = createMockRequest('http://localhost:3000/api/payroll', {
+      const request = createMockRequest(getTestApiUrl('/api/payroll'), {
         method: 'PUT',
         body: { id: 'non-existent', status: 'approved' },
       });
@@ -628,7 +629,7 @@ describe('Payroll API', () => {
         netPay: '10175',
       };
 
-      const request = createMockRequest('http://localhost:3000/api/payroll', {
+      const request = createMockRequest(getTestApiUrl('/api/payroll'), {
         method: 'PUT',
         body: updateData,
       });
@@ -657,7 +658,7 @@ describe('Payroll API', () => {
     });
 
     it('should handle database errors gracefully', async () => {
-      const request = createMockRequest('http://localhost:3000/api/payroll', {
+      const request = createMockRequest(getTestApiUrl('/api/payroll'), {
         method: 'PUT',
         body: { id: 'payroll-1', status: 'approved' },
       });
@@ -678,7 +679,7 @@ describe('Payroll API', () => {
   describe('DELETE /api/payroll', () => {
     it('should soft delete a payroll record', async () => {
       const request = createMockRequest(
-        'http://localhost:3000/api/payroll?id=payroll-1',
+        getTestApiUrl('/api/payroll', { id: 'payroll-1' }),
         { method: 'DELETE' }
       );
 
@@ -704,7 +705,7 @@ describe('Payroll API', () => {
     });
 
     it('should return error when ID is missing', async () => {
-      const request = createMockRequest('http://localhost:3000/api/payroll', {
+      const request = createMockRequest(getTestApiUrl('/api/payroll'), {
         method: 'DELETE',
       });
 
@@ -717,7 +718,7 @@ describe('Payroll API', () => {
 
     it('should handle database errors gracefully', async () => {
       const request = createMockRequest(
-        'http://localhost:3000/api/payroll?id=payroll-1',
+        getTestApiUrl('/api/payroll', { id: 'payroll-1' }),
         { method: 'DELETE' }
       );
 

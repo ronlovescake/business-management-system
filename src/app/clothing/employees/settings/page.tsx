@@ -167,9 +167,12 @@ export default function EmployeeSettings() {
       });
 
       if (!response.ok) {
-        const data = (await response.json().catch(() => null)) as {
-          error?: string;
-        } | null;
+        let data: { error?: string } | null = null;
+        try {
+          data = await response.json();
+        } catch {
+          // Response body is not valid JSON or empty
+        }
         throw new Error(data?.error ?? 'Failed to update settings.');
       }
 
@@ -318,9 +321,12 @@ export default function EmployeeSettings() {
                     });
 
                     if (!response.ok) {
-                      const data = (await response
-                        .json()
-                        .catch(() => null)) as { error?: string } | null;
+                      let data: { error?: string } | null = null;
+                      try {
+                        data = await response.json();
+                      } catch {
+                        // Response body is not valid JSON or empty
+                      }
                       throw new Error(
                         data?.error ?? 'Failed to run automation.'
                       );

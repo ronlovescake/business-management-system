@@ -60,9 +60,12 @@ export function useCustomerDetails(
   const { data: orders = [], isLoading: ordersLoading } = useQuery({
     queryKey: [...queryKeys.customers.detail(customerId), 'orders'],
     queryFn: async (): Promise<Order[]> => {
-      return api
-        .get<Order[]>(`/api/customers/${customerId}/orders`)
-        .catch(() => []);
+      try {
+        return await api.get<Order[]>(`/api/customers/${customerId}/orders`);
+      } catch (error) {
+        logger.error('Failed to fetch orders:', error);
+        return [];
+      }
     },
     enabled: !!customerId,
     staleTime: 30 * 1000,
@@ -72,9 +75,14 @@ export function useCustomerDetails(
   const { data: transactions = [], isLoading: transactionsLoading } = useQuery({
     queryKey: [...queryKeys.customers.detail(customerId), 'transactions'],
     queryFn: async (): Promise<Transaction[]> => {
-      return api
-        .get<Transaction[]>(`/api/customers/${customerId}/transactions`)
-        .catch(() => []);
+      try {
+        return await api.get<Transaction[]>(
+          `/api/customers/${customerId}/transactions`
+        );
+      } catch (error) {
+        logger.error('Failed to fetch transactions:', error);
+        return [];
+      }
     },
     enabled: !!customerId,
     staleTime: 30 * 1000,

@@ -3,8 +3,10 @@ import { prisma } from '@/lib/db';
 import {
   getEmployeeAutomationSettings,
   getDefaultEmployeeAutomationSettings,
+  type EmployeeAutomationSettings,
 } from '@/lib/settings/employeeAutomation';
 import { dayjs } from '@/utils/date';
+import { logger } from '@/lib/logger';
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 const MINUTES_PER_DAY = 24 * 60;
@@ -196,9 +198,13 @@ const buildAttendancePayload = (
 };
 
 export async function runStayInAutoPresenceAutomation(): Promise<StayInAutomationResult> {
-  const settings = await getEmployeeAutomationSettings().catch(() =>
-    getDefaultEmployeeAutomationSettings()
-  );
+  let settings: EmployeeAutomationSettings;
+  try {
+    settings = await getEmployeeAutomationSettings();
+  } catch (error) {
+    logger.warn('Failed to get automation settings, using defaults', error);
+    settings = getDefaultEmployeeAutomationSettings();
+  }
 
   if (!settings.stayInAutoPresenceEnabled) {
     return buildResult({

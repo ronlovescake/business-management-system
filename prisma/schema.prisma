@@ -142,11 +142,19 @@ model Transaction {
   shipmentCode String?  @db.VarChar(100)
   deletedAt    DateTime?
 
+  // Single-column indexes
   @@index([orderDate])
   @@index([customers])
   @@index([productCode])
   @@index([orderStatus])
   @@index([shipmentCode])
+  
+  // Composite indexes for common query patterns
+  @@index([customers, deletedAt]) // For customer transaction history
+  @@index([orderStatus, deletedAt]) // For status-based transaction filtering
+  @@index([productCode, deletedAt]) // For product transaction history
+  @@index([orderDate, deletedAt]) // For date-based transaction queries
+  
   @@map("transactions")
 }
 
@@ -253,10 +261,17 @@ model Expense {
   status       String   @db.VarChar(20) // 'pending' | 'approved' | 'rejected'
   employeeName String?  @db.VarChar(255)
 
+  // Single-column indexes
   @@index([date])
   @@index([category])
   @@index([status])
   @@index([employeeName])
+  
+  // Composite indexes for common query patterns
+  @@index([status, date]) // For expense approval queries by date
+  @@index([employeeName, status]) // For employee expense filtering
+  @@index([category, status]) // For category-based expense reporting
+  
   @@map("expenses")
 }
 
@@ -330,11 +345,18 @@ model Employee {
   drivingLicense String? @db.VarChar(100)
   profilePhoto   String? @db.Text
 
+  // Single-column indexes
   @@index([employeeId])
   @@index([department])
   @@index([status])
   @@index([firstName, lastName])
   @@index([deletedAt])
+  
+  // Composite indexes for common query patterns
+  @@index([deletedAt, employeeId]) // For active employee lookups
+  @@index([status, deletedAt]) // For active employee filtering by status
+  @@index([department, deletedAt]) // For department-based queries
+  
   @@map("employees")
 }
 
@@ -365,6 +387,7 @@ model LeaveRequest {
   notes         String?  @db.Text
   paymentStatus String   @default("unpaid") @db.VarChar(20) // 'paid' | 'unpaid' | 'not-applicable'
 
+  // Single-column indexes
   @@index([employeeId])
   @@index([employeeName])
   @@index([leaveType])
@@ -372,6 +395,12 @@ model LeaveRequest {
   @@index([paymentStatus])
   @@index([startDate])
   @@index([appliedDate])
+  
+  // Composite indexes for common query patterns
+  @@index([status, paymentStatus]) // For LWOP sync queries (approved + unpaid)
+  @@index([employeeId, status]) // For employee leave history by status
+  @@index([status, startDate]) // For filtering approved leaves by date
+  
   @@map("leave_requests")
 }
 
@@ -405,9 +434,15 @@ model CashAdvanceRecord {
 
   deductions       CashAdvanceDeduction[]
 
+  // Single-column indexes
   @@index([employeeId])
   @@index([status])
   @@index([requestDate])
+  
+  // Composite indexes for common query patterns
+  @@index([employeeId, status]) // For employee cash advance history
+  @@index([status, requestDate]) // For filtering cash advances by status and date
+  
   @@map("cash_advances")
 }
 
@@ -467,6 +502,7 @@ model Schedule {
   recurrenceId String?  @db.VarChar(50)
   isOverride   Boolean  @default(false)
 
+  // Single-column indexes
   @@index([employeeId])
   @@index([employeeName])
   @@index([date])
@@ -474,6 +510,12 @@ model Schedule {
   @@index([status])
   @@index([department])
   @@index([deletedAt])
+  
+  // Composite indexes for common query patterns
+  @@index([employeeId, date, deletedAt]) // For employee schedule lookups by date
+  @@index([date, status, deletedAt]) // For daily schedule views with status
+  @@index([department, date, deletedAt]) // For department schedule views
+  
   @@map("schedules")
 }
 
@@ -513,12 +555,19 @@ model Attendance {
   details      String?  @db.VarChar(500)
   notes        String?  @db.Text
 
+  // Single-column indexes
   @@index([employeeId])
   @@index([employeeName])
   @@index([date])
   @@index([status])
   @@index([department])
   @@index([deletedAt])
+  
+  // Composite indexes for common query patterns
+  @@index([status, date, deletedAt]) // For payroll generation queries
+  @@index([employeeId, date, deletedAt]) // For employee attendance lookups
+  @@index([deletedAt, employeeId]) // For active employee attendance queries
+  
   @@map("attendance")
 }
 
@@ -593,12 +642,19 @@ model Payroll {
   deduction    Float    @default(0) // Deduction from unpaid leaves
   notes        String?  @db.Text
 
+  // Single-column indexes
   @@index([employeeId])
   @@index([employeeName])
   @@index([payPeriod])
   @@index([periodStart])
   @@index([status])
   @@index([deletedAt])
+  
+  // Composite indexes for common query patterns
+  @@index([periodStart, periodEnd, deletedAt]) // For period-based payroll queries
+  @@index([employeeId, periodStart, deletedAt]) // For employee payroll history
+  @@index([status, deletedAt]) // For payroll status filtering
+  
   @@map("payrolls")
 }
 
