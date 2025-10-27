@@ -28,6 +28,7 @@
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import type { PrismaModelName } from '@/types/prisma';
 
 /**
  * Generic where clause type
@@ -67,20 +68,27 @@ export interface FindOptions<T> {
 export abstract class BaseRepository<TEntity, TCreateInput, TUpdateInput> {
   /**
    * The Prisma model name (e.g., 'user', 'product', 'leaveRequest')
-   * Must be set by child classes
+   * Must be set by child classes. Type restricted to known Prisma models.
    */
-  protected abstract readonly modelName: string;
+  protected abstract readonly modelName: PrismaModelName;
 
   /**
    * Get the Prisma delegate for this model
    *
    * Note: TypeScript cannot type-check dynamic model access at compile time.
    * We use `any` here because Prisma's client structure requires runtime model resolution.
-   * The actual type safety is enforced through the generic TEntity parameter.
+   * Type safety is enforced through:
+   * - PrismaModelName restricts modelName to valid Prisma models
+   * - Generic TEntity parameter enforces result type correctness
+   * - Each repository validates its modelName matches its entity type
+   * 
+   * This is an acceptable use of `any` for dynamic model access patterns.
+   * See: https://www.prisma.io/docs/concepts/components/prisma-client/working-with-prisma-client-api
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected get model(): any {
-    // eslint-disable-line @typescript-eslint/no-explicit-any
-    return (prisma as any)[this.modelName]; // eslint-disable-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (prisma as any)[this.modelName];
   }
 
   /**
