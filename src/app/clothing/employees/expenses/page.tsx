@@ -10,6 +10,7 @@ import { ExpenseListTable } from './components/ExpenseListTable';
 import { AnalyticsTable } from './components/AnalyticsTable';
 import { ReceiptViewerModal } from './components/ReceiptViewerModal';
 import { useExpenses } from './hooks/useExpenses';
+import { ExpensesErrorBoundary } from './components/ExpensesErrorBoundary';
 
 /**
  * Expenses Page Component
@@ -94,99 +95,101 @@ export default function Expenses() {
   } = useExpenses();
 
   return (
-    <PageLayout fluid withPadding>
-      <Stack gap="lg">
-        {/* Stats Cards */}
-        <StatsCards
-          totalExpenses={totalExpenses}
-          pendingExpenses={pendingExpenses}
-          approvedExpenses={approvedExpenses}
-          thisMonthExpenses={thisMonthExpenses}
-          formatCurrency={formatCurrency}
-        />
-
-        {/* Controls - Tabs, Search, Filters, Actions */}
-        <ExpenseControls
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          filterCategory={filterCategory}
-          onCategoryFilterChange={setFilterCategory}
-          filterStatus={filterStatus}
-          onStatusFilterChange={setFilterStatus}
-          categories={categories}
-          onImportCSV={handleImportCSV}
-          onExportCSV={handleExportCSV}
-          onAddExpense={handleAddExpense}
-          isImporting={isImporting}
-        />
-
-        {/* Tables */}
-        {activeTab === 'list' ? (
-          <ExpenseListTable
-            expenses={expenses}
-            filteredExpenses={filteredExpenses}
-            formatDate={formatDate}
-            formatCurrency={formatCurrency}
-            getCategoryColor={getCategoryColor}
-            onViewReceipt={handleViewReceipt}
-            onApprove={handleApprove}
-            onReject={handleReject}
-            onEdit={handleEditExpense}
-            onDelete={handleDeleteExpense}
-          />
-        ) : (
-          <AnalyticsTable
-            monthlyBreakdown={monthlyBreakdown}
+    <ExpensesErrorBoundary>
+      <PageLayout fluid withPadding>
+        <Stack gap="lg">
+          {/* Stats Cards */}
+          <StatsCards
             totalExpenses={totalExpenses}
+            pendingExpenses={pendingExpenses}
+            approvedExpenses={approvedExpenses}
+            thisMonthExpenses={thisMonthExpenses}
             formatCurrency={formatCurrency}
-            getCategoryColor={getCategoryColor}
           />
-        )}
-      </Stack>
 
-      {/* Add/Edit Expense Dialog */}
-      <ExpenseFormDialog
-        opened={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        editingExpense={editingExpense}
-        categories={categories}
-        formDate={formDate}
-        setFormDate={setFormDate}
-        formAmount={formAmount}
-        setFormAmount={setFormAmount}
-        formDescription={formDescription}
-        setFormDescription={setFormDescription}
-        formCategory={formCategory}
-        setFormCategory={setFormCategory}
-        formTripId={formTripId}
-        setFormTripId={setFormTripId}
-        formNotes={formNotes}
-        setFormNotes={setFormNotes}
-        formReceipt={formReceipt}
-        setFormReceipt={setFormReceipt}
-        onSave={handleSaveExpense}
-      />
+          {/* Controls - Tabs, Search, Filters, Actions */}
+          <ExpenseControls
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            filterCategory={filterCategory}
+            onCategoryFilterChange={setFilterCategory}
+            filterStatus={filterStatus}
+            onStatusFilterChange={setFilterStatus}
+            categories={categories}
+            onImportCSV={handleImportCSV}
+            onExportCSV={handleExportCSV}
+            onAddExpense={handleAddExpense}
+            isImporting={isImporting}
+          />
 
-      {/* Receipt Viewer Modal */}
-      <ReceiptViewerModal
-        opened={receiptModalOpen}
-        onClose={() => setReceiptModalOpen(false)}
-        receiptData={viewingReceipt}
-        zoom={receiptZoom}
-        onZoomIn={() => setReceiptZoom((prev) => Math.min(300, prev + 25))}
-        onZoomOut={() => setReceiptZoom((prev) => Math.max(25, prev - 25))}
-        onZoomReset={() => setReceiptZoom(100)}
-        onDownload={() => {
-          if (viewingReceipt) {
-            const link = document.createElement('a');
-            link.href = viewingReceipt;
-            link.download = receiptFileName || 'receipt';
-            link.click();
-          }
-        }}
-      />
-    </PageLayout>
+          {/* Tables */}
+          {activeTab === 'list' ? (
+            <ExpenseListTable
+              expenses={expenses}
+              filteredExpenses={filteredExpenses}
+              formatDate={formatDate}
+              formatCurrency={formatCurrency}
+              getCategoryColor={getCategoryColor}
+              onViewReceipt={handleViewReceipt}
+              onApprove={handleApprove}
+              onReject={handleReject}
+              onEdit={handleEditExpense}
+              onDelete={handleDeleteExpense}
+            />
+          ) : (
+            <AnalyticsTable
+              monthlyBreakdown={monthlyBreakdown}
+              totalExpenses={totalExpenses}
+              formatCurrency={formatCurrency}
+              getCategoryColor={getCategoryColor}
+            />
+          )}
+        </Stack>
+
+        {/* Add/Edit Expense Dialog */}
+        <ExpenseFormDialog
+          opened={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          editingExpense={editingExpense}
+          categories={categories}
+          formDate={formDate}
+          setFormDate={setFormDate}
+          formAmount={formAmount}
+          setFormAmount={setFormAmount}
+          formDescription={formDescription}
+          setFormDescription={setFormDescription}
+          formCategory={formCategory}
+          setFormCategory={setFormCategory}
+          formTripId={formTripId}
+          setFormTripId={setFormTripId}
+          formNotes={formNotes}
+          setFormNotes={setFormNotes}
+          formReceipt={formReceipt}
+          setFormReceipt={setFormReceipt}
+          onSave={handleSaveExpense}
+        />
+
+        {/* Receipt Viewer Modal */}
+        <ReceiptViewerModal
+          opened={receiptModalOpen}
+          onClose={() => setReceiptModalOpen(false)}
+          receiptData={viewingReceipt}
+          zoom={receiptZoom}
+          onZoomIn={() => setReceiptZoom((prev) => Math.min(300, prev + 25))}
+          onZoomOut={() => setReceiptZoom((prev) => Math.max(25, prev - 25))}
+          onZoomReset={() => setReceiptZoom(100)}
+          onDownload={() => {
+            if (viewingReceipt) {
+              const link = document.createElement('a');
+              link.href = viewingReceipt;
+              link.download = receiptFileName || 'receipt';
+              link.click();
+            }
+          }}
+        />
+      </PageLayout>
+    </ExpensesErrorBoundary>
   );
 }

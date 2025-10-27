@@ -8,6 +8,7 @@
 
 'use client';
 
+import React from 'react';
 import {
   Stack,
   Text,
@@ -64,7 +65,7 @@ interface ExpenseFormDialogProps {
   onSave: () => void;
 }
 
-export function ExpenseFormDialog({
+export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
   opened,
   onClose,
   editingExpense,
@@ -225,4 +226,4 @@ export function ExpenseFormDialog({
       </div>
     </PolishedModal>
   );
-}
+});
