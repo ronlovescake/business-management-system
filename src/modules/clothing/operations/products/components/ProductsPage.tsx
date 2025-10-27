@@ -39,6 +39,7 @@ import {
 import { PageLayout } from '@/components/layout/PageLayout';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { logger } from '@/lib/logger';
+import { throttle } from '@/lib/performance';
 import { useProductsData } from '../hooks/useProductsData';
 import { useProductForm } from '../hooks/useProductForm';
 import { ProductStatsCards } from './ProductStatsCards';
@@ -59,39 +60,6 @@ const customGridStyles = `
     font-size: 20px !important;
   }
 `;
-
-/**
- * Simple throttle function
- */
-function throttle<T extends (...args: unknown[]) => void>(
-  func: T,
-  wait: number
-): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout | null = null;
-  let lastRan = 0;
-
-  return function (this: unknown, ...args: Parameters<T>) {
-    const now = Date.now();
-
-    if (!lastRan) {
-      func.apply(this, args);
-      lastRan = now;
-    } else {
-      if (timeout) {
-        clearTimeout(timeout);
-      }
-      timeout = setTimeout(
-        () => {
-          if (now - lastRan >= wait) {
-            func.apply(this, args);
-            lastRan = now;
-          }
-        },
-        wait - (now - lastRan)
-      );
-    }
-  };
-}
 
 export function ProductsPage() {
   // Hooks
