@@ -49,7 +49,7 @@ interface InvoiceModalProps {
   isGenerating: boolean;
 }
 
-export function InvoiceGenerationModal({
+export const InvoiceGenerationModal = React.memo(function InvoiceGenerationModal({
   opened,
   onClose,
   onConfirm,
@@ -202,7 +202,7 @@ export function InvoiceGenerationModal({
       </Stack>
     </Modal>
   );
-}
+});
 
 // ============================================================================
 // PACKING LIST GENERATION CONFIRMATION MODAL
@@ -216,7 +216,7 @@ interface PackingListModalProps {
   isGenerating: boolean;
 }
 
-export function PackingListGenerationModal({
+export const PackingListGenerationModal = React.memo(function PackingListGenerationModal({
   opened,
   onClose,
   onConfirm,
@@ -352,7 +352,7 @@ export function PackingListGenerationModal({
       </Stack>
     </Modal>
   );
-}
+});
 
 // ============================================================================
 // DISTRIBUTION GENERATION CONFIRMATION MODAL
@@ -366,7 +366,7 @@ interface DistributionModalProps {
   isGenerating: boolean;
 }
 
-export function DistributionGenerationModal({
+export const DistributionGenerationModal = React.memo(function DistributionGenerationModal({
   opened,
   onClose,
   onConfirm,
@@ -516,7 +516,7 @@ export function DistributionGenerationModal({
       </Stack>
     </Modal>
   );
-}
+});
 
 // ============================================================================
 // CUSTOMER WARNING MODAL
@@ -528,7 +528,7 @@ interface CustomerWarningModalProps {
   data: CustomerWarningData | null;
 }
 
-export function CustomerWarningModal({
+export const CustomerWarningModal = React.memo(function CustomerWarningModal({
   opened,
   onClose,
   data,
@@ -654,4 +654,4 @@ export function CustomerWarningModal({
       </Stack>
     </Modal>
   );
-}
+});
