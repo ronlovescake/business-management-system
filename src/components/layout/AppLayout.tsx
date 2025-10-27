@@ -60,6 +60,30 @@ export function AppLayout({ children }: AppLayoutProps) {
     <MantineProvider theme={theme}>
       <GridAdapterProvider adapter={glideGridAdapter}>
         <GridLayoutProvider>
+          {/* Skip navigation link for accessibility */}
+          <a
+            href="#main-content"
+            style={{
+              position: 'absolute',
+              left: '-9999px',
+              zIndex: 9999,
+              padding: '1rem',
+              backgroundColor: '#2563eb',
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: '4px',
+              fontWeight: 600,
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.left = '1rem';
+              e.currentTarget.style.top = '1rem';
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.left = '-9999px';
+            }}
+          >
+            Skip to main content
+          </a>
           <Notifications />
           <AppShell
             navbar={{ width: 280, breakpoint: 'sm' }}
@@ -112,6 +136,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             </AppShell.Navbar>
 
             <AppShell.Main
+              id="main-content"
               style={{
                 backgroundColor: 'transparent',
                 minHeight: '100vh',
