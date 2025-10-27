@@ -20,7 +20,7 @@
 
 'use client';
 
-import React from 'react';
+import React, { Profiler } from 'react';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import type { StatCard } from '@/components/ui';
@@ -39,6 +39,9 @@ import {
   IconCheck,
   IconUsers,
 } from '@tabler/icons-react';
+
+// Import performance tracking
+import { onRenderCallback } from '@/lib/performance/monitoring';
 
 // Import hooks
 import { useTransactionsData } from '../hooks/useTransactionsData';
@@ -473,88 +476,90 @@ export function TransactionsPage() {
   // MAIN RENDER
   // ============================================================================
   return (
-    <PageLayout fluid withPadding>
-      {/* Invoice Generation Modal */}
-      <InvoiceGenerationModal
-        opened={showInvoiceModal}
-        onClose={cancelInvoiceGeneration}
-        onConfirm={confirmInvoiceGeneration}
-        data={invoiceData}
-        isGenerating={isGeneratingInvoice}
-      />
+    <Profiler id="TransactionsPage" onRender={onRenderCallback}>
+      <PageLayout fluid withPadding>
+        {/* Invoice Generation Modal */}
+        <InvoiceGenerationModal
+          opened={showInvoiceModal}
+          onClose={cancelInvoiceGeneration}
+          onConfirm={confirmInvoiceGeneration}
+          data={invoiceData}
+          isGenerating={isGeneratingInvoice}
+        />
 
-      {/* Packing List Generation Modal */}
-      <PackingListGenerationModal
-        opened={showPackingListModal}
-        onClose={cancelPackingListGeneration}
-        onConfirm={confirmPackingListGeneration}
-        data={packingListData}
-        isGenerating={isGeneratingPackingList}
-      />
+        {/* Packing List Generation Modal */}
+        <PackingListGenerationModal
+          opened={showPackingListModal}
+          onClose={cancelPackingListGeneration}
+          onConfirm={confirmPackingListGeneration}
+          data={packingListData}
+          isGenerating={isGeneratingPackingList}
+        />
 
-      {/* Distribution Generation Modal */}
-      <DistributionGenerationModal
-        opened={showDistributionModal}
-        onClose={cancelDistributionGeneration}
-        onConfirm={confirmDistributionGeneration}
-        data={distributionData}
-        isGenerating={isGeneratingDistribution}
-      />
+        {/* Distribution Generation Modal */}
+        <DistributionGenerationModal
+          opened={showDistributionModal}
+          onClose={cancelDistributionGeneration}
+          onConfirm={confirmDistributionGeneration}
+          data={distributionData}
+          isGenerating={isGeneratingDistribution}
+        />
 
-      {/* Customer Warning Modal */}
-      <CustomerWarningModal
-        opened={showCustomerWarningModal}
-        onClose={() => {
-          if (customerWarningData?.onCancel) {
-            customerWarningData.onCancel();
-          } else {
-            setShowCustomerWarningModal(false);
-            setCustomerWarningData(null);
+        {/* Customer Warning Modal */}
+        <CustomerWarningModal
+          opened={showCustomerWarningModal}
+          onClose={() => {
+            if (customerWarningData?.onCancel) {
+              customerWarningData.onCancel();
+            } else {
+              setShowCustomerWarningModal(false);
+              setCustomerWarningData(null);
+            }
+          }}
+          data={customerWarningData}
+        />
+
+        {/* Main Transactions Layout */}
+        <TransactionsLayout
+          data={transactions as unknown as Item[]}
+          filteredData={filteredData as unknown as Item[]}
+          columns={columns}
+          searchQuery={searchQuery}
+          onSearch={handleSearch}
+          searchPlaceholder="Search transactions by customer, product code, status, notes, or shipment code..."
+          getCellContent={getCellContent}
+          onCellEdited={handleCellEdited}
+          statsCards={statsCards}
+          enableCSVImport={true}
+          enableCtrlF={true}
+          csvFile={csvFile}
+          onFileChange={setCsvFile}
+          onCSVImport={handleCSVImport}
+          customRenderers={
+            allCells as unknown as readonly Record<string, unknown>[]
           }
-        }}
-        data={customerWarningData}
-      />
-
-      {/* Main Transactions Layout */}
-      <TransactionsLayout
-        data={transactions as unknown as Item[]}
-        filteredData={filteredData as unknown as Item[]}
-        columns={columns}
-        searchQuery={searchQuery}
-        onSearch={handleSearch}
-        searchPlaceholder="Search transactions by customer, product code, status, notes, or shipment code..."
-        getCellContent={getCellContent}
-        onCellEdited={handleCellEdited}
-        statsCards={statsCards}
-        enableCSVImport={true}
-        enableCtrlF={true}
-        csvFile={csvFile}
-        onFileChange={setCsvFile}
-        onCSVImport={handleCSVImport}
-        customRenderers={
-          allCells as unknown as readonly Record<string, unknown>[]
-        }
-        onAddRows={handleAdd10Rows}
-        statusOptions={Array.from(STATUS_FILTER_OPTIONS)}
-        selectedStatuses={selectedStatuses}
-        onStatusFilter={handleStatusFilter}
-        onGenerateInvoice={
-          prepareInvoiceGeneration as unknown as (data: Item[]) => Promise<void>
-        }
-        onGeneratePackingList={
-          preparePackingListGeneration as unknown as (
-            data: Item[]
-          ) => Promise<void>
-        }
-        onGenerateDistribution={
-          prepareDistributionGeneration as unknown as (
-            data: Item[]
-          ) => Promise<void>
-        }
-        isGeneratingInvoice={isGeneratingInvoice}
-        isGeneratingPackingList={isGeneratingPackingList}
-        isGeneratingDistribution={isGeneratingDistribution}
-      />
-    </PageLayout>
+          onAddRows={handleAdd10Rows}
+          statusOptions={Array.from(STATUS_FILTER_OPTIONS)}
+          selectedStatuses={selectedStatuses}
+          onStatusFilter={handleStatusFilter}
+          onGenerateInvoice={
+            prepareInvoiceGeneration as unknown as (data: Item[]) => Promise<void>
+          }
+          onGeneratePackingList={
+            preparePackingListGeneration as unknown as (
+              data: Item[]
+            ) => Promise<void>
+          }
+          onGenerateDistribution={
+            prepareDistributionGeneration as unknown as (
+              data: Item[]
+            ) => Promise<void>
+          }
+          isGeneratingInvoice={isGeneratingInvoice}
+          isGeneratingPackingList={isGeneratingPackingList}
+          isGeneratingDistribution={isGeneratingDistribution}
+        />
+      </PageLayout>
+    </Profiler>
   );
 }

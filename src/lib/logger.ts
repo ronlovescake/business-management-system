@@ -140,6 +140,16 @@ export const logger = {
       console.timeEnd(label);
     }
   },
+
+  /**
+   * Performance logging - only in development
+   * Use for tracking performance metrics
+   */
+  performance: (message: string, data?: Record<string, unknown>): void => {
+    if (isDevelopment) {
+      console.log(`⚡ ${message}`, data || '');
+    }
+  },
 };
 
 /**

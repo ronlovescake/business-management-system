@@ -1,5 +1,6 @@
 'use client';
 
+import { Profiler } from 'react';
 import {
   Stack,
   Text,
@@ -46,6 +47,7 @@ import {
 import { StatCard } from './StatCard';
 import { CHART_COLORS } from '../constants';
 import type { DateFilterType } from '../types';
+import { onRenderCallback } from '@/lib/performance/monitoring';
 
 export function BiDashboard() {
   const {
@@ -68,7 +70,8 @@ export function BiDashboard() {
   }
 
   return (
-    <Stack gap="lg">
+    <Profiler id="BiDashboard" onRender={onRenderCallback}>
+      <Stack gap="lg">
       {/* Header with Filter */}
       <Group justify="space-between" align="center" wrap="nowrap">
         <div>
@@ -643,5 +646,6 @@ export function BiDashboard() {
         </SimpleGrid>
       </Paper>
     </Stack>
+    </Profiler>
   );
 }

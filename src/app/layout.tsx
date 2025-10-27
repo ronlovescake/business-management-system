@@ -4,6 +4,7 @@ import './globals.css';
 import { AppLayout } from '../components/layout/AppLayout';
 import { ReactQueryProvider } from '../lib/query-client';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+import { PerformanceMonitor } from '../components/PerformanceMonitor';
 
 // Initialize module registry
 import '@/modules';
@@ -30,6 +31,8 @@ export default function RootLayout({
         </ErrorBoundary>
         {/* Portal for Glide Data Grid overlay editor */}
         <div id="portal" />
+        {/* Performance monitoring */}
+        <PerformanceMonitor />
       </body>
     </html>
   );
