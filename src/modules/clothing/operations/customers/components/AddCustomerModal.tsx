@@ -36,7 +36,7 @@ interface AddCustomerModalProps {
  * Add Customer Modal Component
  * Enhanced modern design with personal and business info sections
  */
-export function AddCustomerModal({
+export const AddCustomerModal = React.memo(function AddCustomerModal({
   isOpen,
   formData,
   onClose,
@@ -373,4 +373,4 @@ export function AddCustomerModal({
       </Stack>
     </Modal>
   );
-}
+});
