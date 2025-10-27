@@ -6,7 +6,8 @@
  *
  * ✅ All business logic is preserved in TransactionService
  * ✅ All UI logic is in TransactionsPage component
- * ✅ Route handler reduced from 3,857 lines to 13 lines
+ * ✅ Error boundary added for graceful error handling
+ * ✅ Route handler optimized for performance
  *
  * 📋 Original file backed up at: page.tsx.backup
  *
@@ -14,7 +15,12 @@
  */
 
 import { TransactionsPage } from '@/modules/clothing/operations/transactions/components/TransactionsPage';
+import { TransactionsErrorBoundary } from '@/modules/clothing/operations/transactions/components/TransactionsErrorBoundary';
 
 export default function TransactionsRoute() {
-  return <TransactionsPage />;
+  return (
+    <TransactionsErrorBoundary>
+      <TransactionsPage />
+    </TransactionsErrorBoundary>
+  );
 }
