@@ -9,5 +9,12 @@
  */
 
 import { PricesPage } from '@/modules/clothing/operations/prices/components/PricesPage';
+import { PricesErrorBoundary } from '@/modules/clothing/operations/prices/components/PricesErrorBoundary';
 
-export default PricesPage;
+export default function Page() {
+  return (
+    <PricesErrorBoundary>
+      <PricesPage />
+    </PricesErrorBoundary>
+  );
+}

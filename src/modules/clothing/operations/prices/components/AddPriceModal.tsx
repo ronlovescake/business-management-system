@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import {
   Modal,
   Stack,
@@ -32,7 +33,7 @@ interface AddPriceModalProps {
 /**
  * Modal for adding new prices with tier support
  */
-export function AddPriceModal({
+export const AddPriceModal = memo(function AddPriceModal({
   opened,
   onClose,
   form,
@@ -369,4 +370,4 @@ export function AddPriceModal({
       </Stack>
     </Modal>
   );
-}
+});
