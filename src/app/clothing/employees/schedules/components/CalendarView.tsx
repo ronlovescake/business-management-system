@@ -15,6 +15,7 @@ import {
   IconChevronRight,
   IconPlus,
 } from '@tabler/icons-react';
+import { getIconButtonLabel } from '@/lib/accessibility';
 import type { Schedule, ShiftType, ScheduleStatus } from '../types';
 
 interface CalendarViewProps {
@@ -190,6 +191,7 @@ export function CalendarView({
               color="gray"
               onClick={previousMonth}
               size="lg"
+              {...getIconButtonLabel('Previous month')}
             >
               <IconChevronLeft size={20} />
             </ActionIcon>
@@ -201,6 +203,7 @@ export function CalendarView({
               color="gray"
               onClick={nextMonth}
               size="lg"
+              {...getIconButtonLabel('Next month')}
             >
               <IconChevronRight size={20} />
             </ActionIcon>

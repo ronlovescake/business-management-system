@@ -16,6 +16,7 @@ import {
   IconCheck,
   IconX,
 } from '@tabler/icons-react';
+import { getIconButtonLabel } from '@/lib/accessibility';
 import type { Schedule, ScheduleStatus, ShiftType } from '../types';
 
 interface ScheduleListTableProps {
@@ -274,7 +275,7 @@ export function ScheduleListTable({
                         <Group gap={4} justify="center">
                           <Menu position="bottom-end" withinPortal>
                             <Menu.Target>
-                              <ActionIcon variant="subtle" color="gray">
+                              <ActionIcon variant="subtle" color="gray" {...getIconButtonLabel('Schedule actions menu')}>
                                 <IconDots size={16} />
                               </ActionIcon>
                             </Menu.Target>

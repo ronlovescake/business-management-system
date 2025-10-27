@@ -15,6 +15,7 @@ import {
   Textarea,
 } from '@mantine/core';
 import { IconTrash } from '@tabler/icons-react';
+import { getActionLabel } from '@/lib/accessibility';
 import type { EmployeeSummary, RecurringRule, ShiftType } from '../types';
 
 interface CalendarBulkActionsProps {
@@ -372,6 +373,7 @@ export function CalendarBulkActions({
                       color="red"
                       variant="subtle"
                       onClick={() => handleDeleteRule(rule.id)}
+                      {...getActionLabel('Delete', 'recurring schedule rule', `${rule.employeeName} - ${rule.shiftType}`)}
                     >
                       <IconTrash size={16} />
                     </ActionIcon>

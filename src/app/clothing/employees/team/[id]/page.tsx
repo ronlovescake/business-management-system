@@ -37,6 +37,7 @@ import {
 import { PageLayout } from '../../../../../components/layout/PageLayout';
 import { useEmployeeDetail } from '@/app/clothing/employees/team/hooks/useEmployeeDetail';
 import { EmployeeFormDialog } from '../components/EmployeeFormDialog';
+import { getIconButtonLabel } from '@/lib/accessibility';
 
 export default function EmployeeDetailPage() {
   const params = useParams();
@@ -553,6 +554,7 @@ export default function EmployeeDetailPage() {
               variant="subtle"
               size="lg"
               onClick={() => router.push('/clothing/employees/team')}
+              {...getIconButtonLabel('Back to team list')}
             >
               <IconArrowLeft size={20} />
             </ActionIcon>
