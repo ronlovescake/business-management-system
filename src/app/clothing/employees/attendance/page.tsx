@@ -25,8 +25,9 @@ import type {
 import { useAttendance } from './hooks/useAttendance';
 import type { AttendanceRecord } from './types';
 import { AttendanceFormDialog } from './components/AttendanceFormDialog';
+import { AttendanceErrorBoundary } from './components/AttendanceErrorBoundary';
 
-export default function Attendance() {
+function AttendanceContent() {
   const {
     filteredRecords,
     searchQuery,
@@ -269,5 +270,13 @@ export default function Attendance() {
         />
       </Stack>
     </PageLayout>
+  );
+}
+
+export default function Attendance() {
+  return (
+    <AttendanceErrorBoundary>
+      <AttendanceContent />
+    </AttendanceErrorBoundary>
   );
 }

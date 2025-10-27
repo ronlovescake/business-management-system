@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import {
   Stack,
   Group,
@@ -35,7 +35,7 @@ const statusOptions = [
   { value: 'on-leave', label: 'On Leave' },
 ];
 
-export function AttendanceFormDialog({
+export const AttendanceFormDialog = memo(function AttendanceFormDialog({
   opened,
   onClose,
   formValues,
@@ -318,4 +318,4 @@ export function AttendanceFormDialog({
       </Stack>
     </PolishedModal>
   );
-}
+});
