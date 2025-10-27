@@ -1,9 +1,28 @@
 import React from 'react';
+import dynamic from 'next/dynamic';
 import { Group, Button, Text, Loader, Pill } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
-import { HandsontableGrid } from '@/components/ui/HandsontableGrid';
 import type { StatCard } from '@/components/ui';
 import type { GridColumn, Item, GridCell } from '@glideapps/glide-data-grid';
+
+// Lazy load HandsontableGrid to reduce initial bundle size
+// This is a large dependency (handsontable library) that's only needed when viewing tables
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const HandsontableGrid: any = dynamic(
+  () =>
+    import('@/components/ui/HandsontableGrid').then(
+      (mod) => mod.HandsontableGrid
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div style={{ textAlign: 'center', padding: '2rem' }}>
+        <Loader size="lg" />
+        <Text mt="md">Loading table...</Text>
+      </div>
+    ),
+  }
+);
 
 /**
  * TransactionsLayout Component

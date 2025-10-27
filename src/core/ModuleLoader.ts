@@ -10,7 +10,7 @@
  */
 
 import dynamic from 'next/dynamic';
-import type { DynamicOptions, Loader } from 'next/dynamic';
+import type { Loader } from 'next/dynamic';
 import type { ComponentType } from 'react';
 import { moduleRegistry } from './ModuleRegistry';
 import type {
@@ -210,13 +210,11 @@ class ModuleLoader {
         }
       };
 
-      // Configure dynamic options
-      const dynamicOptions: DynamicOptions<{ default: T }> = {
-        ssr: options.ssr ?? false,
-      };
-
       // Load module dynamically
-      const DynamicModule = dynamic<{ default: T }>(loader, dynamicOptions);
+      // Note: dynamic() requires SSR option as literal for Next.js static analysis
+      const DynamicModule = options.ssr
+        ? dynamic<{ default: T }>(loader, { ssr: true })
+        : dynamic<{ default: T }>(loader, { ssr: false });
 
       // For React components, dynamic() returns the component
       if (typeof DynamicModule === 'function') {
