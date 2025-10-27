@@ -61,10 +61,12 @@
     "react-dom": "^18.0.0",
     "recharts": "^3.2.1",
     "sweetalert2": "^11.26.3",
+    "web-vitals": "^5.1.0",
     "zod": "^3.22.0",
     "zustand": "^4.4.0"
   },
   "devDependencies": {
+    "@axe-core/react": "^4.11.0",
     "@commitlint/cli": "^17.7.0",
     "@commitlint/config-conventional": "^17.7.0",
     "@next/bundle-analyzer": "^14.0.0",
