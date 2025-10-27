@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import React from 'react';
 import { TextInput, NumberInput, Grid } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { ComposedDialog } from '@/components/shared/Dialog';
@@ -16,7 +17,7 @@ interface PayrollFormDialogProps {
   };
 }
 
-export function PayrollFormDialog({
+export const PayrollFormDialog = React.memo(function PayrollFormDialog({
   opened,
   editingPayroll,
   onClose,
@@ -482,4 +483,4 @@ export function PayrollFormDialog({
       </Grid>
     </ComposedDialog>
   );
-}
+});
