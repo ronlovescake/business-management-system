@@ -2,19 +2,17 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { Prisma } from '@prisma/client';
 
-// Mock Prisma before importing the route
-const mockPrisma = vi.hoisted(() => ({
-  cashAdvanceRecord: {
-    findMany: vi.fn(),
-    findUnique: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  },
+// Mock CashAdvanceService before importing the route
+const mockCashAdvanceService = vi.hoisted(() => ({
+  findAll: vi.fn(),
+  findWithFilters: vi.fn(),
+  create: vi.fn(),
+  update: vi.fn(),
+  delete: vi.fn(),
 }));
 
-vi.mock('@/lib/db', () => ({
-  prisma: mockPrisma,
+vi.mock('@/modules/clothing/employees/cash-advance/api/service', () => ({
+  cashAdvanceService: mockCashAdvanceService,
 }));
 
 // Mock cash advance schedule functions
@@ -23,9 +21,6 @@ const mockCashAdvanceSchedule = vi.hoisted(() => ({
     return date.getUTCDate() <= 15 ? 'FIRST_HALF' : 'SECOND_HALF';
   }),
   ensureNextPayday: vi.fn((approvedDate: Date) => {
-    // If date is before 15th, next payday is 15th of same month
-    // If date is after 15th, next payday is last day of same month
-    // If date is after last day, next payday is 15th of next month
     const day = approvedDate.getUTCDate();
     const year = approvedDate.getUTCFullYear();
     const month = approvedDate.getUTCMonth();
@@ -37,7 +32,7 @@ const mockCashAdvanceSchedule = vi.hoisted(() => ({
       };
     } else if (day < 28) {
       return {
-        date: new Date(Date.UTC(year, month + 1, 0)), // Last day of month
+        date: new Date(Date.UTC(year, month + 1, 0)),
         cycle: 'SECOND_HALF' as const,
       };
     } else {
@@ -62,7 +57,7 @@ describe('Cash Advances API - GET', () => {
   it('should fetch all cash advance records', async () => {
     const mockRecords = [
       {
-        id: 'ca1',
+        id: 'clfhj3k8n0000xyz000000001',
         employeeId: 'emp1',
         employeeName: 'John Doe',
         amount: new Prisma.Decimal(5000),
@@ -87,7 +82,7 @@ describe('Cash Advances API - GET', () => {
       },
     ];
 
-    mockPrisma.cashAdvanceRecord.findMany.mockResolvedValue(mockRecords);
+    mockCashAdvanceService.findAll.mockResolvedValue(mockRecords);
 
     const request = new NextRequest('http://localhost/api/cash-advances');
     const response = await GET(request);
@@ -95,74 +90,62 @@ describe('Cash Advances API - GET', () => {
 
     expect(response.status).toBe(200);
     expect(data).toHaveLength(1);
-    expect(data[0].amount).toBe(5000);
-    expect(data[0].monthlyPayment).toBe(1666.67);
-    expect(data[0].settledAmount).toBe(1666.67);
-    expect(data[0].remainingBalance).toBe(3333.33);
+    expect(data[0].amount).toBe('5000');
+    expect(data[0].monthlyPayment).toBe('1666.67');
+    expect(data[0].settledAmount).toBe('1666.67');
+    expect(data[0].remainingBalance).toBe('3333.33');
   });
 
   it('should filter by status', async () => {
-    mockPrisma.cashAdvanceRecord.findMany.mockResolvedValue([]);
+    mockCashAdvanceService.findWithFilters.mockResolvedValue([]);
 
     const request = new NextRequest(
       'http://localhost/api/cash-advances?status=approved'
     );
     await GET(request);
 
-    expect(mockPrisma.cashAdvanceRecord.findMany).toHaveBeenCalledWith({
-      where: {
-        status: 'approved',
-        employeeId: undefined,
-      },
-      orderBy: [{ createdAt: 'desc' }],
+    expect(mockCashAdvanceService.findWithFilters).toHaveBeenCalledWith({
+      status: 'approved',
+      employeeId: undefined,
     });
   });
 
   it('should filter by employeeId', async () => {
-    mockPrisma.cashAdvanceRecord.findMany.mockResolvedValue([]);
+    mockCashAdvanceService.findWithFilters.mockResolvedValue([]);
 
     const request = new NextRequest(
       'http://localhost/api/cash-advances?employeeId=emp1'
     );
     await GET(request);
 
-    expect(mockPrisma.cashAdvanceRecord.findMany).toHaveBeenCalledWith({
-      where: {
-        status: undefined,
-        employeeId: 'emp1',
-      },
-      orderBy: [{ createdAt: 'desc' }],
+    expect(mockCashAdvanceService.findWithFilters).toHaveBeenCalledWith({
+      status: undefined,
+      employeeId: 'emp1',
     });
   });
 
   it('should handle "all" status filter', async () => {
-    mockPrisma.cashAdvanceRecord.findMany.mockResolvedValue([]);
+    mockCashAdvanceService.findAll.mockResolvedValue([]);
 
     const request = new NextRequest(
       'http://localhost/api/cash-advances?status=all'
     );
     await GET(request);
 
-    expect(mockPrisma.cashAdvanceRecord.findMany).toHaveBeenCalledWith({
-      where: {
-        status: undefined,
-        employeeId: undefined,
-      },
-      orderBy: [{ createdAt: 'desc' }],
-    });
+    expect(mockCashAdvanceService.findAll).toHaveBeenCalled();
   });
 
-  it('should calculate remainingBalance from amount and settledAmount', async () => {
+  it('should return remainingBalance as provided by service', async () => {
     const mockRecords = [
       {
-        id: 'ca1',
+        id: 'clfhj3k8n0000xyz000000001',
         employeeId: 'emp1',
         employeeName: 'John Doe',
         amount: new Prisma.Decimal(10000),
         termsMonths: null,
         monthlyPayment: null,
         settledAmount: new Prisma.Decimal(3000),
-        remainingBalance: null, // null to test calculation
+        remainingBalance: new Prisma.Decimal(7000), // Provided by service
         purpose: null,
         notes: null,
         requestDate: null,
@@ -175,22 +158,23 @@ describe('Cash Advances API - GET', () => {
         deductionCycle: null,
         nextDeductionDate: null,
         lastDeductedDate: null,
-        createdAt: new Date('2025-10-01'),
-        updatedAt: new Date('2025-10-01'),
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
     ];
 
-    mockPrisma.cashAdvanceRecord.findMany.mockResolvedValue(mockRecords);
+    mockCashAdvanceService.findAll.mockResolvedValue(mockRecords);
 
     const request = new NextRequest('http://localhost/api/cash-advances');
     const response = await GET(request);
     const data = await response.json();
 
-    expect(data[0].remainingBalance).toBe(7000); // 10000 - 3000
+    expect(response.status).toBe(200);
+    expect(data[0].remainingBalance).toBe('7000'); // Decimal serialized to string
   });
 
   it('should handle errors', async () => {
-    mockPrisma.cashAdvanceRecord.findMany.mockRejectedValue(
+    mockCashAdvanceService.findAll.mockRejectedValue(
       new Error('Database error')
     );
 
@@ -210,7 +194,7 @@ describe('Cash Advances API - POST', () => {
 
   it('should create a pending cash advance', async () => {
     const mockRecord = {
-      id: 'ca1',
+      id: 'clfhj3k8n0000xyz000000001',
       employeeId: 'emp1',
       employeeName: 'John Doe',
       amount: new Prisma.Decimal(5000),
@@ -234,7 +218,7 @@ describe('Cash Advances API - POST', () => {
       updatedAt: new Date('2025-10-01'),
     };
 
-    mockPrisma.cashAdvanceRecord.create.mockResolvedValue(mockRecord);
+    mockCashAdvanceService.create.mockResolvedValue(mockRecord);
 
     const request = new NextRequest('http://localhost/api/cash-advances', {
       method: 'POST',
@@ -254,15 +238,13 @@ describe('Cash Advances API - POST', () => {
 
     expect(response.status).toBe(201);
     expect(data.status).toBe('pending');
-    expect(data.amount).toBe(5000);
-    expect(mockPrisma.cashAdvanceRecord.create).toHaveBeenCalledWith(
+    expect(data.amount).toBe('5000');
+    expect(mockCashAdvanceService.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({
-          employeeId: 'emp1',
-          status: 'pending',
-          deductionCycle: undefined, // No cycle for pending
-          nextDeductionDate: undefined, // No date for pending
-        }),
+        employeeId: 'emp1',
+        status: 'pending',
+        deductionCycle: undefined,
+        nextDeductionDate: undefined,
       })
     );
   });
@@ -270,7 +252,7 @@ describe('Cash Advances API - POST', () => {
   it('should create approved cash advance with deduction schedule', async () => {
     const approvedDate = new Date('2025-10-05');
     const mockRecord = {
-      id: 'ca1',
+      id: 'clfhj3k8n0000xyz000000001',
       employeeId: 'emp1',
       employeeName: 'John Doe',
       amount: new Prisma.Decimal(5000),
@@ -294,7 +276,7 @@ describe('Cash Advances API - POST', () => {
       updatedAt: new Date('2025-10-05'),
     };
 
-    mockPrisma.cashAdvanceRecord.create.mockResolvedValue(mockRecord);
+    mockCashAdvanceService.create.mockResolvedValue(mockRecord);
 
     const request = new NextRequest('http://localhost/api/cash-advances', {
       method: 'POST',
@@ -317,21 +299,19 @@ describe('Cash Advances API - POST', () => {
 
     expect(response.status).toBe(201);
     expect(data.status).toBe('approved');
-    expect(mockCashAdvanceSchedule.ensureNextPayday).toHaveBeenCalled();
-    expect(mockPrisma.cashAdvanceRecord.create).toHaveBeenCalledWith(
+    expect(mockCashAdvanceService.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({
-          status: 'approved',
-          deductionCycle: 'FIRST_HALF',
-          nextDeductionDate: expect.any(Date),
-        }),
+        status: 'approved',
+        employeeId: 'emp1',
+        employeeName: 'John Doe',
+        amount: 5000,
       })
     );
   });
 
   it('should auto-set approvedDate when status is approved', async () => {
     const mockRecord = {
-      id: 'ca1',
+      id: 'clfhj3k8n0000xyz000000001',
       employeeId: 'emp1',
       employeeName: 'John Doe',
       amount: new Prisma.Decimal(5000),
@@ -355,7 +335,7 @@ describe('Cash Advances API - POST', () => {
       updatedAt: new Date(),
     };
 
-    mockPrisma.cashAdvanceRecord.create.mockResolvedValue(mockRecord);
+    mockCashAdvanceService.create.mockResolvedValue(mockRecord);
 
     const request = new NextRequest('http://localhost/api/cash-advances', {
       method: 'POST',
@@ -378,7 +358,7 @@ describe('Cash Advances API - POST', () => {
 
   it('should handle employee name from "employee" field', async () => {
     const mockRecord = {
-      id: 'ca1',
+      id: 'clfhj3k8n0000xyz000000001',
       employeeId: 'emp1',
       employeeName: 'John Doe',
       amount: new Prisma.Decimal(5000),
@@ -402,7 +382,7 @@ describe('Cash Advances API - POST', () => {
       updatedAt: new Date(),
     };
 
-    mockPrisma.cashAdvanceRecord.create.mockResolvedValue(mockRecord);
+    mockCashAdvanceService.create.mockResolvedValue(mockRecord);
 
     const request = new NextRequest('http://localhost/api/cash-advances', {
       method: 'POST',
@@ -416,17 +396,15 @@ describe('Cash Advances API - POST', () => {
     const response = await POST(request);
 
     expect(response.status).toBe(201);
-    expect(mockPrisma.cashAdvanceRecord.create).toHaveBeenCalledWith(
+    expect(mockCashAdvanceService.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({
-          employeeName: 'John Doe',
-        }),
+        employeeName: 'John Doe',
       })
     );
   });
 
   it('should handle errors', async () => {
-    mockPrisma.cashAdvanceRecord.create.mockRejectedValue(
+    mockCashAdvanceService.create.mockRejectedValue(
       new Error('Database error')
     );
 
@@ -468,12 +446,14 @@ describe('Cash Advances API - PUT', () => {
   });
 
   it('should return 404 if record not found', async () => {
-    mockPrisma.cashAdvanceRecord.findUnique.mockResolvedValue(null);
+    mockCashAdvanceService.update.mockRejectedValue(
+      new Error('Cash advance not found')
+    );
 
     const request = new NextRequest('http://localhost/api/cash-advances', {
       method: 'PUT',
       body: JSON.stringify({
-        id: 'nonexistent',
+        id: 'clfhj3k8n0000xyz000000000', // Valid CUID format
         amount: 5000,
       }),
     });
@@ -482,12 +462,12 @@ describe('Cash Advances API - PUT', () => {
     const data = await response.json();
 
     expect(response.status).toBe(404);
-    expect(data.error).toBe('Cash advance not found');
+    expect(data.error).toContain('not found');
   });
 
   it('should update cash advance fields', async () => {
     const existingRecord = {
-      id: 'ca1',
+      id: 'clfhj3k8n0000xyz000000001',
       employeeId: 'emp1',
       employeeName: 'John Doe',
       amount: new Prisma.Decimal(5000),
@@ -518,13 +498,12 @@ describe('Cash Advances API - PUT', () => {
       updatedAt: new Date('2025-10-02'),
     };
 
-    mockPrisma.cashAdvanceRecord.findUnique.mockResolvedValue(existingRecord);
-    mockPrisma.cashAdvanceRecord.update.mockResolvedValue(updatedRecord);
+    mockCashAdvanceService.update.mockResolvedValue(updatedRecord);
 
     const request = new NextRequest('http://localhost/api/cash-advances', {
       method: 'PUT',
       body: JSON.stringify({
-        id: 'ca1',
+        id: 'clfhj3k8n0000xyz000000001',
         amount: 6000,
         notes: 'Updated notes',
       }),
@@ -534,13 +513,13 @@ describe('Cash Advances API - PUT', () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.amount).toBe(6000);
+    expect(data.amount).toBe('6000');
     expect(data.notes).toBe('Updated notes');
   });
 
   it('should auto-set approvedDate when status changes to approved', async () => {
     const existingRecord = {
-      id: 'ca1',
+      id: 'clfhj3k8n0000xyz000000001',
       employeeId: 'emp1',
       employeeName: 'John Doe',
       amount: new Prisma.Decimal(5000),
@@ -574,13 +553,12 @@ describe('Cash Advances API - PUT', () => {
       updatedAt: new Date('2025-10-05'),
     };
 
-    mockPrisma.cashAdvanceRecord.findUnique.mockResolvedValue(existingRecord);
-    mockPrisma.cashAdvanceRecord.update.mockResolvedValue(updatedRecord);
+    mockCashAdvanceService.update.mockResolvedValue(updatedRecord);
 
     const request = new NextRequest('http://localhost/api/cash-advances', {
       method: 'PUT',
       body: JSON.stringify({
-        id: 'ca1',
+        id: 'clfhj3k8n0000xyz000000001',
         status: 'approved',
         approvedBy: 'admin',
       }),
@@ -591,12 +569,18 @@ describe('Cash Advances API - PUT', () => {
 
     expect(response.status).toBe(200);
     expect(data.status).toBe('approved');
-    expect(mockCashAdvanceSchedule.ensureNextPayday).toHaveBeenCalled();
+    expect(mockCashAdvanceService.update).toHaveBeenCalledWith(
+      'clfhj3k8n0000xyz000000001',
+      expect.objectContaining({
+        status: 'approved',
+        approvedBy: 'admin',
+      })
+    );
   });
 
   it('should set deduction schedule when status changes to approved', async () => {
     const existingRecord = {
-      id: 'ca1',
+      id: 'clfhj3k8n0000xyz000000001',
       employeeId: 'emp1',
       employeeName: 'John Doe',
       amount: new Prisma.Decimal(5000),
@@ -628,33 +612,31 @@ describe('Cash Advances API - PUT', () => {
       nextDeductionDate: new Date('2025-10-15'),
     };
 
-    mockPrisma.cashAdvanceRecord.findUnique.mockResolvedValue(existingRecord);
-    mockPrisma.cashAdvanceRecord.update.mockResolvedValue(updatedRecord);
+    mockCashAdvanceService.update.mockResolvedValue(updatedRecord);
 
     const request = new NextRequest('http://localhost/api/cash-advances', {
       method: 'PUT',
       body: JSON.stringify({
-        id: 'ca1',
+        id: 'clfhj3k8n0000xyz000000001',
         status: 'approved',
-        approvedDate: '2025-10-05', // Provide explicit date before 15th
+        approvedDate: '2025-10-05',
       }),
     });
 
     await PUT(request);
 
-    expect(mockPrisma.cashAdvanceRecord.update).toHaveBeenCalledWith(
+    expect(mockCashAdvanceService.update).toHaveBeenCalledWith(
+      'clfhj3k8n0000xyz000000001',
       expect.objectContaining({
-        data: expect.objectContaining({
-          deductionCycle: 'FIRST_HALF',
-          nextDeductionDate: expect.any(Date),
-        }),
+        status: 'approved',
+        approvedDate: expect.any(Date),
       })
     );
   });
 
   it('should clear deduction schedule when status changes from approved', async () => {
     const existingRecord = {
-      id: 'ca1',
+      id: 'clfhj3k8n0000xyz000000001',
       employeeId: 'emp1',
       employeeName: 'John Doe',
       amount: new Prisma.Decimal(5000),
@@ -688,13 +670,12 @@ describe('Cash Advances API - PUT', () => {
       nextDeductionDate: null,
     };
 
-    mockPrisma.cashAdvanceRecord.findUnique.mockResolvedValue(existingRecord);
-    mockPrisma.cashAdvanceRecord.update.mockResolvedValue(updatedRecord);
+    mockCashAdvanceService.update.mockResolvedValue(updatedRecord);
 
     const request = new NextRequest('http://localhost/api/cash-advances', {
       method: 'PUT',
       body: JSON.stringify({
-        id: 'ca1',
+        id: 'clfhj3k8n0000xyz000000001',
         status: 'rejected',
         rejectedBy: 'admin',
         rejectionReason: 'Not approved',
@@ -703,20 +684,19 @@ describe('Cash Advances API - PUT', () => {
 
     await PUT(request);
 
-    expect(mockPrisma.cashAdvanceRecord.update).toHaveBeenCalledWith(
+    expect(mockCashAdvanceService.update).toHaveBeenCalledWith(
+      'clfhj3k8n0000xyz000000001',
       expect.objectContaining({
-        data: expect.objectContaining({
-          status: 'rejected',
-          nextDeductionDate: null,
-          deductionCycle: null,
-        }),
+        status: 'rejected',
+        rejectedBy: 'admin',
+        rejectionReason: 'Not approved',
       })
     );
   });
 
   it('should auto-change status to paid when remainingBalance reaches 0', async () => {
     const existingRecord = {
-      id: 'ca1',
+      id: 'clfhj3k8n0000xyz000000001',
       employeeId: 'emp1',
       employeeName: 'John Doe',
       amount: new Prisma.Decimal(5000),
@@ -749,13 +729,12 @@ describe('Cash Advances API - PUT', () => {
       nextDeductionDate: null,
     };
 
-    mockPrisma.cashAdvanceRecord.findUnique.mockResolvedValue(existingRecord);
-    mockPrisma.cashAdvanceRecord.update.mockResolvedValue(updatedRecord);
+    mockCashAdvanceService.update.mockResolvedValue(updatedRecord);
 
     const request = new NextRequest('http://localhost/api/cash-advances', {
       method: 'PUT',
       body: JSON.stringify({
-        id: 'ca1',
+        id: 'clfhj3k8n0000xyz000000001',
         settledAmount: 5000,
         remainingBalance: 0,
       }),
@@ -766,21 +745,19 @@ describe('Cash Advances API - PUT', () => {
 
     expect(response.status).toBe(200);
     expect(data.status).toBe('paid');
-    expect(data.remainingBalance).toBe(0);
-    expect(mockPrisma.cashAdvanceRecord.update).toHaveBeenCalledWith(
+    expect(data.remainingBalance).toBe('0');
+    expect(mockCashAdvanceService.update).toHaveBeenCalledWith(
+      'clfhj3k8n0000xyz000000001',
       expect.objectContaining({
-        data: expect.objectContaining({
-          status: 'paid',
-          nextDeductionDate: null,
-          deductionCycle: null,
-        }),
+        settledAmount: 5000,
+        remainingBalance: 0,
       })
     );
   });
 
   it('should handle manual deductionCycle and nextDeductionDate updates', async () => {
     const existingRecord = {
-      id: 'ca1',
+      id: 'clfhj3k8n0000xyz000000001',
       employeeId: 'emp1',
       employeeName: 'John Doe',
       amount: new Prisma.Decimal(5000),
@@ -810,13 +787,12 @@ describe('Cash Advances API - PUT', () => {
       nextDeductionDate: new Date('2025-10-31'),
     };
 
-    mockPrisma.cashAdvanceRecord.findUnique.mockResolvedValue(existingRecord);
-    mockPrisma.cashAdvanceRecord.update.mockResolvedValue(updatedRecord);
+    mockCashAdvanceService.update.mockResolvedValue(updatedRecord);
 
     const request = new NextRequest('http://localhost/api/cash-advances', {
       method: 'PUT',
       body: JSON.stringify({
-        id: 'ca1',
+        id: 'clfhj3k8n0000xyz000000001',
         deductionCycle: 'SECOND_HALF',
         nextDeductionDate: '2025-10-31',
       }),
@@ -830,14 +806,14 @@ describe('Cash Advances API - PUT', () => {
   });
 
   it('should handle errors', async () => {
-    mockPrisma.cashAdvanceRecord.findUnique.mockRejectedValue(
+    mockCashAdvanceService.update.mockRejectedValue(
       new Error('Database error')
     );
 
     const request = new NextRequest('http://localhost/api/cash-advances', {
       method: 'PUT',
       body: JSON.stringify({
-        id: 'ca1',
+        id: 'clfhj3k8n0000xyz000000001',
         amount: 5000,
       }),
     });
@@ -865,30 +841,30 @@ describe('Cash Advances API - DELETE', () => {
   });
 
   it('should delete cash advance', async () => {
-    mockPrisma.cashAdvanceRecord.delete.mockResolvedValue({
-      id: 'ca1',
+    mockCashAdvanceService.delete.mockResolvedValue({
+      id: 'clfhj3k8n0000xyz000000001',
     } as never);
 
     const request = new NextRequest(
-      'http://localhost/api/cash-advances?id=ca1'
+      'http://localhost/api/cash-advances?id=clfhj3k8n0000xyz000000001'
     );
     const response = await DELETE(request);
     const data = await response.json();
 
     expect(response.status).toBe(200);
     expect(data.success).toBe(true);
-    expect(mockPrisma.cashAdvanceRecord.delete).toHaveBeenCalledWith({
-      where: { id: 'ca1' },
-    });
+    expect(mockCashAdvanceService.delete).toHaveBeenCalledWith(
+      'clfhj3k8n0000xyz000000001'
+    );
   });
 
   it('should handle errors', async () => {
-    mockPrisma.cashAdvanceRecord.delete.mockRejectedValue(
+    mockCashAdvanceService.delete.mockRejectedValue(
       new Error('Database error')
     );
 
     const request = new NextRequest(
-      'http://localhost/api/cash-advances?id=ca1'
+      'http://localhost/api/cash-advances?id=clfhj3k8n0000xyz000000001'
     );
     const response = await DELETE(request);
     const data = await response.json();

@@ -155,8 +155,15 @@ export function sanitizeNumber(
     return null;
   }
 
+  // Clean currency symbols and thousands separators (commas)
+  let cleaned = String(input);
+  // Remove currency symbols (₱, $, €, £, ¥, etc.) and whitespace
+  cleaned = cleaned.replace(/[₱$€£¥¢₹₽₩₪₦₴₵₸₺₻₼₾₿\s]/g, '');
+  // Remove thousands separators (commas)
+  cleaned = cleaned.replace(/,/g, '');
+
   // Convert to number
-  const num = typeof input === 'number' ? input : parseFloat(String(input));
+  const num = typeof input === 'number' ? input : parseFloat(cleaned);
 
   // Check if valid number
   if (isNaN(num) || !isFinite(num)) {

@@ -1,17 +1,29 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NextRequest } from 'next/server';
-import { mockNextRequest } from '@/core/testing/test-helpers';
 
 const { mockPrisma } = vi.hoisted(() => {
   return {
     mockPrisma: {
       price: {
         findMany: vi.fn(),
+        findFirst: vi.fn(),
         createMany: vi.fn(),
+        upsert: vi.fn(),
         update: vi.fn(),
+        updateMany: vi.fn(),
         delete: vi.fn(),
         deleteMany: vi.fn(),
+        count: vi.fn(),
       },
+      $transaction: vi.fn((callback) => {
+        // Execute the callback with a mock transaction object
+        return callback({
+          price: {
+            findFirst: vi.fn().mockResolvedValue(null),
+            upsert: vi.fn().mockResolvedValue({ id: 1 }),
+          },
+        });
+      }),
     },
   };
 });
@@ -89,7 +101,13 @@ describe('Prices API Routes', () => {
       ];
 
       mockPrisma.price.deleteMany.mockResolvedValue({ count: 0 });
-      mockPrisma.price.createMany.mockResolvedValue({ count: 1 });
+
+      // Mock the transaction to return the expected result
+      mockPrisma.$transaction.mockResolvedValue({
+        created: 1,
+        updated: 0,
+        restored: 0,
+      });
 
       const request = new NextRequest('http://localhost:3000/api/prices', {
         method: 'POST',
@@ -97,10 +115,10 @@ describe('Prices API Routes', () => {
       });
 
       const response = await POST(request);
-      const data = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data.count).toBe(1);
+      expect(mockPrisma.price.deleteMany).toHaveBeenCalled();
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
     });
 
     it('should return 400 for non-array payload', async () => {
@@ -219,17 +237,32 @@ describe('Prices API Routes', () => {
   });
 
   describe('DELETE /api/prices', () => {
-    it('should delete all prices successfully', async () => {
-      mockPrisma.price.deleteMany.mockResolvedValue({ count: 15 });
+    it('should delete all prices successfully with confirmation', async () => {
+      mockPrisma.price.count.mockResolvedValue(0);
+      mockPrisma.price.updateMany.mockResolvedValue({ count: 15 });
 
-      const request = mockNextRequest({
-        method: 'DELETE',
-      }) as unknown as NextRequest;
+      const request = new NextRequest(
+        'http://localhost:3000/api/prices?confirm=DELETE_ALL_PRICES',
+        {
+          method: 'DELETE',
+        }
+      );
       const response = await DELETE(request);
       const data = await response.json();
 
       expect(response.status).toBe(200);
       expect(data.count).toBe(15);
+    });
+
+    it('should return 400 without confirmation parameter', async () => {
+      const request = new NextRequest('http://localhost:3000/api/prices', {
+        method: 'DELETE',
+      });
+      const response = await DELETE(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toBe('Mass deletion protection');
     });
   });
 });

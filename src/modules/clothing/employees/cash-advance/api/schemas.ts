@@ -20,11 +20,7 @@ export type CashAdvanceStatus = z.infer<typeof CashAdvanceStatusSchema>;
 /**
  * Cash advance deduction cycle enum
  */
-export const CashAdvanceCycleSchema = z.enum([
-  'weekly',
-  'bi-weekly',
-  'monthly',
-]);
+export const CashAdvanceCycleSchema = z.enum(['FIRST_HALF', 'SECOND_HALF']);
 export type CashAdvanceCycle = z.infer<typeof CashAdvanceCycleSchema>;
 
 /**

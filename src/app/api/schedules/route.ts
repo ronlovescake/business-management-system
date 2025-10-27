@@ -8,6 +8,7 @@ import { sanitizers } from '@/lib/security/sanitize';
 import {
   validateSchedule,
   formatValidationErrors,
+  scheduleUpdateSchema,
 } from '@/lib/validations/schedule.validation';
 
 const SHIFT_TYPES = new Set(['morning', 'afternoon', 'night', 'full-day']);
@@ -445,8 +446,8 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Validate update data
-    const validation = validateSchedule(updateData);
+    // Validate update data (partial schema for updates)
+    const validation = scheduleUpdateSchema.safeParse(updateData);
     if (!validation.success) {
       return NextResponse.json(
         {

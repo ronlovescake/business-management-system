@@ -8,11 +8,30 @@ const mockPrisma = vi.hoisted(() => ({
     create: vi.fn(),
     update: vi.fn(),
   },
+  employee: {
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+  },
   $transaction: vi.fn(),
+  $use: vi.fn(), // Mock middleware method
 }));
 
 vi.mock('@prisma/client', () => ({
   PrismaClient: vi.fn(() => mockPrisma),
+  Prisma: {
+    PrismaClientKnownRequestError: class PrismaClientKnownRequestError extends Error {
+      code: string;
+      meta?: Record<string, unknown>;
+      constructor(
+        message: string,
+        options: { code: string; meta?: Record<string, unknown> }
+      ) {
+        super(message);
+        this.code = options.code;
+        this.meta = options.meta;
+      }
+    },
+  },
 }));
 
 // Import route handlers after mocks
@@ -80,7 +99,7 @@ describe('Attendance API - GET', () => {
     expect(mockPrisma.attendance.findMany).toHaveBeenCalledWith({
       where: {
         deletedAt: null,
-        employeeId: 'emp1',
+        employeeId: 'EMP1', // Normalized to uppercase
       },
       orderBy: [{ date: 'desc' }, { employeeName: 'asc' }],
     });
@@ -189,7 +208,7 @@ describe('Attendance API - GET', () => {
     expect(mockPrisma.attendance.findMany).toHaveBeenCalledWith({
       where: {
         deletedAt: null,
-        employeeId: 'emp1',
+        employeeId: 'EMP1', // Normalized to uppercase
         status: 'present',
         date: {
           gte: '2025-10-01',
@@ -224,16 +243,23 @@ describe('Attendance API - POST', () => {
       id: 'att1',
       employeeId: 'emp1',
       employeeName: 'John Doe',
+      department: 'IT',
+      position: 'Developer',
       date: '2025-10-15',
       status: 'present',
       timeIn: '08:00',
       timeOut: '17:00',
+      totalHours: 9,
       hoursWorked: 9,
       deletedAt: null,
       createdAt: new Date('2025-10-15'),
       updatedAt: new Date('2025-10-15'),
     };
 
+    mockPrisma.employee.findFirst.mockResolvedValue({
+      employeeId: 'emp1',
+      employeeName: 'John Doe',
+    });
     mockPrisma.attendance.create.mockResolvedValue(mockRecord);
 
     const request = new NextRequest('http://localhost/api/attendance', {
@@ -241,11 +267,13 @@ describe('Attendance API - POST', () => {
       body: JSON.stringify({
         employeeId: 'emp1',
         employeeName: 'John Doe',
+        department: 'IT',
+        position: 'Developer',
         date: '2025-10-15',
         status: 'present',
         timeIn: '08:00',
         timeOut: '17:00',
-        hoursWorked: 9,
+        totalHours: 9,
       }),
     });
 
@@ -259,11 +287,13 @@ describe('Attendance API - POST', () => {
       data: {
         employeeId: 'emp1',
         employeeName: 'John Doe',
+        department: 'IT',
+        position: 'Developer',
         date: '2025-10-15',
         status: 'present',
         timeIn: '08:00',
         timeOut: '17:00',
-        hoursWorked: 9,
+        totalHours: 9,
       },
     });
   });
@@ -298,6 +328,11 @@ describe('Attendance API - POST', () => {
       },
     ];
 
+    // Mock employee existence check
+    mockPrisma.employee.findMany.mockResolvedValue([
+      { employeeId: 'emp1' },
+      { employeeId: 'emp2' },
+    ]);
     mockPrisma.$transaction.mockResolvedValue(mockRecords);
 
     const request = new NextRequest('http://localhost/api/attendance', {
@@ -306,20 +341,24 @@ describe('Attendance API - POST', () => {
         {
           employeeId: 'emp1',
           employeeName: 'John Doe',
+          department: 'IT',
+          position: 'Developer',
           date: '2025-10-15',
           status: 'present',
           timeIn: '08:00',
           timeOut: '17:00',
-          hoursWorked: 9,
+          totalHours: 9,
         },
         {
           employeeId: 'emp2',
           employeeName: 'Jane Smith',
+          department: 'IT',
+          position: 'Designer',
           date: '2025-10-15',
           status: 'present',
           timeIn: '08:00',
           timeOut: '17:00',
-          hoursWorked: 9,
+          totalHours: 9,
         },
       ]),
     });
@@ -359,8 +398,13 @@ describe('Attendance API - POST', () => {
       body: JSON.stringify({
         employeeId: 'emp1',
         employeeName: 'John Doe',
+        department: 'IT',
+        position: 'Developer',
         date: '2025-10-15',
         status: 'present',
+        timeIn: '08:00',
+        timeOut: '17:00',
+        totalHours: 9,
       }),
     });
 
@@ -397,10 +441,13 @@ describe('Attendance API - PATCH', () => {
       id: 'att1',
       employeeId: 'emp1',
       employeeName: 'John Doe',
+      department: 'IT',
+      position: 'Developer',
       date: '2025-10-15',
       status: 'absent',
-      timeIn: null,
-      timeOut: null,
+      timeIn: '08:00',
+      timeOut: '17:00',
+      totalHours: 0,
       hoursWorked: 0,
       deletedAt: null,
       createdAt: new Date('2025-10-15'),
@@ -413,10 +460,15 @@ describe('Attendance API - PATCH', () => {
       method: 'PATCH',
       body: JSON.stringify({
         id: 'att1',
+        employeeId: 'emp1',
+        employeeName: 'John Doe',
+        department: 'IT',
+        position: 'Developer',
+        date: '2025-10-15',
         status: 'absent',
-        timeIn: null,
-        timeOut: null,
-        hoursWorked: 0,
+        timeIn: '08:00',
+        timeOut: '17:00',
+        totalHours: 0,
       }),
     });
 
@@ -426,12 +478,17 @@ describe('Attendance API - PATCH', () => {
     expect(response.status).toBe(200);
     expect(data.status).toBe('absent');
     expect(mockPrisma.attendance.update).toHaveBeenCalledWith({
-      where: { id: 'att1' },
+      where: { id: 'att1', deletedAt: null },
       data: {
+        employeeId: 'emp1',
+        employeeName: 'John Doe',
+        department: 'IT',
+        position: 'Developer',
+        date: '2025-10-15',
         status: 'absent',
-        timeIn: null,
-        timeOut: null,
-        hoursWorked: 0,
+        timeIn: '08:00',
+        timeOut: '17:00',
+        totalHours: 0,
       },
     });
   });
@@ -441,10 +498,13 @@ describe('Attendance API - PATCH', () => {
       id: 'att1',
       employeeId: 'emp1',
       employeeName: 'John Doe',
+      department: 'IT',
+      position: 'Developer',
       date: '2025-10-15',
       status: 'late',
       timeIn: '09:30',
       timeOut: '17:00',
+      totalHours: 7.5,
       hoursWorked: 7.5,
       deletedAt: null,
       createdAt: new Date('2025-10-15'),
@@ -457,8 +517,15 @@ describe('Attendance API - PATCH', () => {
       method: 'PATCH',
       body: JSON.stringify({
         id: 'att1',
+        employeeId: 'emp1',
+        employeeName: 'John Doe',
+        department: 'IT',
+        position: 'Developer',
+        date: '2025-10-15',
         status: 'late',
         timeIn: '09:30',
+        timeOut: '17:00',
+        totalHours: 7.5,
       }),
     });
 
@@ -477,7 +544,15 @@ describe('Attendance API - PATCH', () => {
       method: 'PATCH',
       body: JSON.stringify({
         id: 'att1',
+        employeeId: 'emp1',
+        employeeName: 'John Doe',
+        department: 'IT',
+        position: 'Developer',
+        date: '2025-10-15',
         status: 'absent',
+        timeIn: '08:00',
+        timeOut: '17:00',
+        totalHours: 0,
       }),
     });
 
@@ -527,7 +602,7 @@ describe('Attendance API - DELETE', () => {
     expect(response.status).toBe(200);
     expect(data.deletedAt).toBeTruthy();
     expect(mockPrisma.attendance.update).toHaveBeenCalledWith({
-      where: { id: 'att1' },
+      where: { id: 'att1', deletedAt: null },
       data: { deletedAt: expect.any(Date) },
     });
   });

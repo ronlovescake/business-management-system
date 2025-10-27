@@ -1,6 +1,5 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
-import { mockNextRequest } from '@/core/testing/test-helpers';
 
 // Mock Prisma before importing the route
 const mockPrisma = vi.hoisted(() => ({
@@ -10,15 +9,25 @@ const mockPrisma = vi.hoisted(() => ({
     update: vi.fn(),
     deleteMany: vi.fn(),
   },
+  employee: {
+    findMany: vi.fn(),
+  },
 }));
 
 vi.mock('@/lib/db', () => ({
   prisma: mockPrisma,
 }));
 
+// Mock mass deletion validation
+vi.mock('@/lib/safety/mass-deletion', () => ({
+  validateMassDeleteConfirmation: vi.fn(() => null), // Returns null = validation passes
+}));
+
 // Mock logger
 vi.mock('@/lib/logger', () => ({
   logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
     error: vi.fn(),
   },
 }));
@@ -160,6 +169,9 @@ describe('Leave Requests API - POST', () => {
   });
 
   it('should create a single leave request', async () => {
+    mockPrisma.employee.findMany.mockResolvedValue([
+      { id: 1, employeeId: 'emp1', deletedAt: null },
+    ]);
     mockPrisma.leaveRequest.createMany.mockResolvedValue({ count: 1 });
 
     const request = new NextRequest('http://localhost/api/leave-requests', {
@@ -196,6 +208,10 @@ describe('Leave Requests API - POST', () => {
   });
 
   it('should handle bulk creation', async () => {
+    mockPrisma.employee.findMany.mockResolvedValue([
+      { id: 1, employeeId: 'emp1', deletedAt: null },
+      { id: 2, employeeId: 'emp2', deletedAt: null },
+    ]);
     mockPrisma.leaveRequest.createMany.mockResolvedValue({ count: 2 });
 
     const request = new NextRequest('http://localhost/api/leave-requests', {
@@ -229,6 +245,9 @@ describe('Leave Requests API - POST', () => {
   });
 
   it('should calculate numberOfDays from date range', async () => {
+    mockPrisma.employee.findMany.mockResolvedValue([
+      { id: 1, employeeId: 'emp1', deletedAt: null },
+    ]);
     mockPrisma.leaveRequest.createMany.mockResolvedValue({ count: 1 });
 
     const request = new NextRequest('http://localhost/api/leave-requests', {
@@ -257,6 +276,9 @@ describe('Leave Requests API - POST', () => {
   });
 
   it('should use provided numberOfDays if valid', async () => {
+    mockPrisma.employee.findMany.mockResolvedValue([
+      { id: 1, employeeId: 'emp1', deletedAt: null },
+    ]);
     mockPrisma.leaveRequest.createMany.mockResolvedValue({ count: 1 });
 
     const request = new NextRequest('http://localhost/api/leave-requests', {
@@ -285,6 +307,9 @@ describe('Leave Requests API - POST', () => {
   });
 
   it('should normalize status values', async () => {
+    mockPrisma.employee.findMany.mockResolvedValue([
+      { id: 1, employeeId: 'emp1', deletedAt: null },
+    ]);
     mockPrisma.leaveRequest.createMany.mockResolvedValue({ count: 1 });
 
     const request = new NextRequest('http://localhost/api/leave-requests', {
@@ -313,6 +338,9 @@ describe('Leave Requests API - POST', () => {
   });
 
   it('should default to pending for invalid status', async () => {
+    mockPrisma.employee.findMany.mockResolvedValue([
+      { id: 1, employeeId: 'emp1', deletedAt: null },
+    ]);
     mockPrisma.leaveRequest.createMany.mockResolvedValue({ count: 1 });
 
     const request = new NextRequest('http://localhost/api/leave-requests', {
@@ -341,6 +369,9 @@ describe('Leave Requests API - POST', () => {
   });
 
   it('should normalize payment status values', async () => {
+    mockPrisma.employee.findMany.mockResolvedValue([
+      { id: 1, employeeId: 'emp1', deletedAt: null },
+    ]);
     mockPrisma.leaveRequest.createMany.mockResolvedValue({ count: 1 });
 
     const request = new NextRequest('http://localhost/api/leave-requests', {
@@ -369,6 +400,9 @@ describe('Leave Requests API - POST', () => {
   });
 
   it('should default to unpaid for invalid payment status', async () => {
+    mockPrisma.employee.findMany.mockResolvedValue([
+      { id: 1, employeeId: 'emp1', deletedAt: null },
+    ]);
     mockPrisma.leaveRequest.createMany.mockResolvedValue({ count: 1 });
 
     const request = new NextRequest('http://localhost/api/leave-requests', {
@@ -397,6 +431,9 @@ describe('Leave Requests API - POST', () => {
   });
 
   it('should use current date for appliedDate if not provided', async () => {
+    mockPrisma.employee.findMany.mockResolvedValue([
+      { id: 1, employeeId: 'emp1', deletedAt: null },
+    ]);
     mockPrisma.leaveRequest.createMany.mockResolvedValue({ count: 1 });
 
     const request = new NextRequest('http://localhost/api/leave-requests', {
@@ -754,9 +791,9 @@ describe('Leave Requests API - DELETE', () => {
   it('should delete all leave requests', async () => {
     mockPrisma.leaveRequest.deleteMany.mockResolvedValue({ count: 5 });
 
-    const request = mockNextRequest({
+    const request = new NextRequest('http://localhost/api/leave-requests', {
       method: 'DELETE',
-    }) as unknown as NextRequest;
+    });
     const response = await DELETE(request);
     const data = await response.json();
 
@@ -771,9 +808,9 @@ describe('Leave Requests API - DELETE', () => {
       new Error('Database error')
     );
 
-    const request = mockNextRequest({
+    const request = new NextRequest('http://localhost/api/leave-requests', {
       method: 'DELETE',
-    }) as unknown as NextRequest;
+    });
     const response = await DELETE(request);
     const data = await response.json();
 

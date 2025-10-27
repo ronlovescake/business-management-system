@@ -1,5 +1,15 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { Prisma } from '@prisma/client';
+
+// Helper to create Prisma error
+const createPrismaError = (code: string, message: string) => {
+  const error = new Error(message) as any;
+  error.code = code;
+  // Make it pass instanceof check
+  Object.setPrototypeOf(error, Prisma.PrismaClientKnownRequestError.prototype);
+  return error;
+};
 
 // Mock Prisma before importing the route
 const mockPrisma = vi.hoisted(() => ({
@@ -8,6 +18,9 @@ const mockPrisma = vi.hoisted(() => ({
     create: vi.fn(),
     createMany: vi.fn(),
     update: vi.fn(),
+  },
+  employee: {
+    findMany: vi.fn(),
   },
 }));
 
@@ -19,6 +32,14 @@ vi.mock('@/lib/db', () => ({
 vi.mock('@/lib/logger', () => ({
   logger: {
     error: vi.fn(),
+    info: vi.fn(),
+  },
+}));
+
+// Mock sanitizers
+vi.mock('@/lib/security/sanitize', () => ({
+  sanitizers: {
+    name: vi.fn((value) => String(value ?? '')),
   },
 }));
 
@@ -150,6 +171,8 @@ describe('Schedules API - POST', () => {
       updatedAt: new Date('2025-10-20'),
     };
 
+    // Mock employee existence check
+    mockPrisma.employee.findMany.mockResolvedValue([{ employeeId: 'emp1' }]);
     mockPrisma.schedule.createMany.mockResolvedValue({ count: 1 });
     mockPrisma.schedule.findMany.mockResolvedValue([mockSchedule]);
 
@@ -224,6 +247,11 @@ describe('Schedules API - POST', () => {
       },
     ];
 
+    // Mock employee existence check
+    mockPrisma.employee.findMany.mockResolvedValue([
+      { employeeId: 'emp1' },
+      { employeeId: 'emp2' },
+    ]);
     mockPrisma.schedule.createMany.mockResolvedValue({ count: 2 });
     mockPrisma.schedule.findMany.mockResolvedValue(mockSchedules);
 
@@ -284,6 +312,8 @@ describe('Schedules API - POST', () => {
       updatedAt: new Date('2025-10-20'),
     };
 
+    // Mock employee existence check
+    mockPrisma.employee.findMany.mockResolvedValue([{ employeeId: 'emp1' }]);
     mockPrisma.schedule.createMany.mockResolvedValue({ count: 1 });
     mockPrisma.schedule.findMany.mockResolvedValue([mockSchedule]);
 
@@ -330,6 +360,8 @@ describe('Schedules API - POST', () => {
       updatedAt: new Date('2025-10-20'),
     };
 
+    // Mock employee existence check
+    mockPrisma.employee.findMany.mockResolvedValue([{ employeeId: 'emp1' }]);
     mockPrisma.schedule.createMany.mockResolvedValue({ count: 1 });
     mockPrisma.schedule.findMany.mockResolvedValue([mockSchedule]);
 
@@ -376,6 +408,8 @@ describe('Schedules API - POST', () => {
       updatedAt: new Date('2025-10-20'),
     };
 
+    // Mock employee existence check
+    mockPrisma.employee.findMany.mockResolvedValue([{ employeeId: 'emp1' }]);
     mockPrisma.schedule.createMany.mockResolvedValue({ count: 1 });
     mockPrisma.schedule.findMany.mockResolvedValue([mockSchedule]);
 
@@ -423,6 +457,8 @@ describe('Schedules API - POST', () => {
       updatedAt: new Date('2025-10-20'),
     };
 
+    // Mock employee existence check
+    mockPrisma.employee.findMany.mockResolvedValue([{ employeeId: 'emp1' }]);
     mockPrisma.schedule.createMany.mockResolvedValue({ count: 1 });
     mockPrisma.schedule.findMany.mockResolvedValue([mockSchedule]);
 
@@ -471,6 +507,8 @@ describe('Schedules API - POST', () => {
       updatedAt: new Date('2025-10-20'),
     };
 
+    // Mock employee existence check
+    mockPrisma.employee.findMany.mockResolvedValue([{ employeeId: 'emp1' }]);
     mockPrisma.schedule.createMany.mockResolvedValue({ count: 1 });
     mockPrisma.schedule.findMany.mockResolvedValue([mockSchedule]);
 
@@ -509,7 +547,7 @@ describe('Schedules API - POST', () => {
     expect(data.error).toBe('Request body must contain schedule data');
   });
 
-  it('should return 500 for missing required fields', async () => {
+  it('should return 400 for missing required fields', async () => {
     const request = new NextRequest('http://localhost/api/schedules', {
       method: 'POST',
       body: JSON.stringify({
@@ -521,9 +559,11 @@ describe('Schedules API - POST', () => {
     const response = await POST(request);
     const data = await response.json();
 
-    expect(response.status).toBe(500);
-    expect(data.error).toBe('Failed to create schedules');
-    expect(data.details).toContain('Missing required schedule fields');
+    expect(response.status).toBe(400);
+    expect(data.error).toBe('Validation failed for multiple records');
+    expect(data.details[0].errors._error).toContain(
+      'Missing required schedule fields'
+    );
   });
 
   it('should handle errors', async () => {
@@ -638,10 +678,9 @@ describe('Schedules API - PATCH', () => {
   });
 
   it('should return 404 if schedule not found', async () => {
-    mockPrisma.schedule.update.mockRejectedValue({
-      code: 'P2025',
-      message: 'Record not found',
-    });
+    mockPrisma.schedule.update.mockRejectedValue(
+      createPrismaError('P2025', 'Record not found')
+    );
 
     const request = new NextRequest('http://localhost/api/schedules', {
       method: 'PATCH',
@@ -655,7 +694,7 @@ describe('Schedules API - PATCH', () => {
     const data = await response.json();
 
     expect(response.status).toBe(404);
-    expect(data.error).toBe('Schedule not found');
+    expect(data.error).toBe('Schedule not found or already deleted');
   });
 
   it('should handle errors', async () => {
@@ -728,10 +767,9 @@ describe('Schedules API - DELETE', () => {
   });
 
   it('should return 404 if schedule not found', async () => {
-    mockPrisma.schedule.update.mockRejectedValue({
-      code: 'P2025',
-      message: 'Record not found',
-    });
+    mockPrisma.schedule.update.mockRejectedValue(
+      createPrismaError('P2025', 'Record not found')
+    );
 
     const request = new NextRequest(
       'http://localhost/api/schedules?id=nonexistent'
@@ -740,7 +778,7 @@ describe('Schedules API - DELETE', () => {
     const data = await response.json();
 
     expect(response.status).toBe(404);
-    expect(data.error).toBe('Schedule not found');
+    expect(data.error).toBe('Schedule not found or already deleted');
   });
 
   it('should handle errors', async () => {

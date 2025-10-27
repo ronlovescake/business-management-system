@@ -10,6 +10,10 @@ const { mockPrisma, mockSyncPayrollDeductions } = vi.hoisted(() => {
         create: vi.fn(),
         update: vi.fn(),
       },
+      employee: {
+        findFirst: vi.fn(),
+        findMany: vi.fn(),
+      },
     },
     mockSyncPayrollDeductions: vi.fn(),
   };
@@ -262,6 +266,12 @@ describe('Payroll API', () => {
         body: newPayroll,
       });
 
+      // Mock employee existence check
+      mockPrisma.employee.findFirst.mockResolvedValue({
+        employeeId: 'EMP-003',
+        employeeName: 'Bob Johnson',
+      } as any);
+
       mockPrisma.payroll.create.mockResolvedValue({
         id: 'payroll-3',
         ...newPayroll,
@@ -313,6 +323,12 @@ describe('Payroll API', () => {
         method: 'POST',
         body: bulkPayrolls,
       });
+
+      // Mock employee existence check for bulk
+      mockPrisma.employee.findMany.mockResolvedValue([
+        { employeeId: 'EMP-004' },
+        { employeeId: 'EMP-005' },
+      ] as any);
 
       mockPrisma.payroll.create
         .mockResolvedValueOnce({
@@ -393,6 +409,12 @@ describe('Payroll API', () => {
         body: payrollWithStrings,
       });
 
+      // Mock employee existence check
+      mockPrisma.employee.findFirst.mockResolvedValue({
+        employeeId: 'EMP-006',
+        employeeName: 'Test Employee',
+      } as any);
+
       mockPrisma.payroll.create.mockResolvedValue({
         id: 'payroll-6',
         employeeId: 'EMP-006',
@@ -444,11 +466,29 @@ describe('Payroll API', () => {
     });
 
     it('should handle database errors gracefully', async () => {
+      const validPayroll = {
+        employeeId: 'EMP-007',
+        employeeName: 'Test',
+        payPeriod: '2025-10-16 to 2025-10-31',
+        periodStart: '2025-10-16',
+        periodEnd: '2025-10-31',
+        basicSalary: 10000,
+        grossPay: 10000,
+        totalDeductions: 2000,
+        netPay: 8000,
+      };
+
       const request = createMockRequest('http://localhost:3000/api/payroll', {
         method: 'POST',
-        body: { employeeId: 'EMP-007', employeeName: 'Test' },
+        body: validPayroll,
       });
 
+      // Mock employee check succeeds
+      mockPrisma.employee.findFirst.mockResolvedValue({
+        employeeId: 'EMP-007',
+      } as any);
+
+      // But create fails
       mockPrisma.payroll.create.mockRejectedValue(
         new Error('Database constraint violation')
       );
@@ -655,7 +695,7 @@ describe('Payroll API', () => {
 
       expect(mockPrisma.payroll.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'payroll-1' },
+          where: { id: 'payroll-1', deletedAt: null },
           data: expect.objectContaining({
             deletedAt: expect.any(Date),
           }),

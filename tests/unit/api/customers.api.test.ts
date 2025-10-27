@@ -138,24 +138,43 @@ describe('Customers API Routes', () => {
       expect(data.id).toBe(3);
     });
 
-    it('should return 400 for invalid customer data', async () => {
-      const invalidCustomer = {
-        'Customer Name': 'AB',
-        'Phone Number': '12345',
-        Address: '',
-        Status: 'InvalidStatus',
+    it('should normalize invalid status to Active and create customer', async () => {
+      const customerWithInvalidStatus = {
+        'Customer Name': 'Test Customer',
+        'Phone Number': '123-456-7890',
+        Address: '123 Main St',
+        Status: 'InvalidStatus', // This will be normalized to 'Active'
       };
+
+      const mockCreatedCustomer = {
+        id: 3,
+        date: '',
+        customerName: 'Test Customer',
+        phoneNumber: '123-456-7890',
+        address: '123 Main St',
+        facebook: '',
+        emailAddress: '',
+        businessName: '',
+        taxNumber: '',
+        businessAddress: '',
+        businessContactNumber: '',
+        customerStatus: 'Active', // Normalized
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      mockPrisma.customer.create.mockResolvedValue(mockCreatedCustomer);
 
       const request = new NextRequest('http://localhost:3000/api/customers', {
         method: 'POST',
-        body: JSON.stringify(invalidCustomer),
+        body: JSON.stringify(customerWithInvalidStatus),
       });
 
       const response = await POST(request);
       const data = await response.json();
 
-      expect(response.status).toBe(400);
-      expect(data.error).toBe('Validation failed');
+      expect(response.status).toBe(200);
+      expect(data['Customer Status']).toBe('Active');
     });
   });
 

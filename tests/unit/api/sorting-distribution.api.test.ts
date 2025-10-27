@@ -1,11 +1,11 @@
 /**
  * API Tests for Sorting Distribution Endpoints
- * 
+ *
  * Tests:
  * - GET /api/sorting-distribution?productCode=XXX - Fetch distribution data for product
  * - POST /api/sorting-distribution - Save/update distribution data
  * - DELETE /api/sorting-distribution?productCode=XXX - Delete distribution data
- * 
+ *
  * Features tested:
  * - ProductCode query parameter validation
  * - Raw SQL query execution ($queryRaw)
@@ -25,8 +25,9 @@ vi.mock('@prisma/client', () => {
   const mockPrismaClient = {
     $queryRaw: vi.fn(),
     $executeRaw: vi.fn(),
+    $use: vi.fn(), // Mock middleware method
   };
-  
+
   return {
     PrismaClient: vi.fn(() => mockPrismaClient),
   };
@@ -347,9 +348,27 @@ describe('Sorting Distribution API - /api/sorting-distribution', () => {
         productCode: 'PROD-007',
         selectedQuantity: 1000,
         rows: [
-          { quantity: 10, percentage: 1.0, groupNumber: 'R1', distribution: 1, checked: false },
-          { quantity: 20, percentage: 2.0, groupNumber: 'R2', distribution: 2, checked: false },
-          { quantity: 30, percentage: 3.0, groupNumber: 'R3', distribution: 3, checked: false },
+          {
+            quantity: 10,
+            percentage: 1.0,
+            groupNumber: 'R1',
+            distribution: 1,
+            checked: false,
+          },
+          {
+            quantity: 20,
+            percentage: 2.0,
+            groupNumber: 'R2',
+            distribution: 2,
+            checked: false,
+          },
+          {
+            quantity: 30,
+            percentage: 3.0,
+            groupNumber: 'R3',
+            distribution: 3,
+            checked: false,
+          },
         ],
       };
 

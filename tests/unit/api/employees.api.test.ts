@@ -6,6 +6,7 @@ const mockPrisma = vi.hoisted(() => ({
   employee: {
     findMany: vi.fn(),
     findUnique: vi.fn(),
+    findFirst: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
   },
@@ -743,6 +744,7 @@ describe('Employees API - PUT /api/employees/[id]', () => {
     };
 
     mockPrisma.employee.findUnique.mockResolvedValue(existingEmployee);
+    mockPrisma.employee.findFirst.mockResolvedValue(null); // No duplicates
     mockPrisma.employee.update.mockResolvedValue(updatedEmployee);
 
     const request = new NextRequest('http://localhost/api/employees/1', {
@@ -824,6 +826,7 @@ describe('Employees API - PUT /api/employees/[id]', () => {
     };
 
     mockPrisma.employee.findUnique.mockResolvedValue(existingEmployee);
+    mockPrisma.employee.findFirst.mockResolvedValue(null); // No duplicates
     mockPrisma.employee.update.mockResolvedValue(existingEmployee);
 
     const request = new NextRequest('http://localhost/api/employees/1', {
@@ -884,6 +887,7 @@ describe('Employees API - PUT /api/employees/[id]', () => {
     };
 
     mockPrisma.employee.findUnique.mockResolvedValue(existingEmployee);
+    mockPrisma.employee.findFirst.mockResolvedValue(null); // No duplicates
     mockPrisma.employee.update.mockResolvedValue(existingEmployee);
 
     const request = new NextRequest('http://localhost/api/employees/1', {
