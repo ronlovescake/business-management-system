@@ -31,6 +31,7 @@ export interface TransactionData {
   'Invoice Date': string;
   'Packed Date': string;
   'Shipment Code': string;
+  version?: number; // For optimistic locking
 }
 
 /**
