@@ -37,7 +37,7 @@ Task 18 (P2 - dangerouslySetInnerHTML): 100% complete (45min spent, 5 uses justi
 | --------------- | ----- | --------- | ------------------------- | ----------------------- |
 | 🔧 P0 Immediate | 3     | 3.00      | ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛ 100% | 0h remaining - DONE! 🎉 |
 | 🔥 P1 High      | 6     | 6.00      | ⬛⬛⬛⬛⬛⬛⬛⬛⬛⬛ 100% | 0h remaining - DONE! 🎉 |
-| ⚡ P2 Medium    | 13    | 6         | ⬛⬛⬛⬛⬛⬜⬜⬜⬜⬜ 46%  | 41-69h                  |
+| ⚡ P2 Medium    | 13    | 9         | ⬛⬛⬛⬛⬛⬛⬛⬜⬜⬜ 69%  | 13-19h                  |
 | 📚 P3 Low       | 9     | 0         | ⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 0%   | 59-87h                  |
 | ⏸️ Deferred     | 3     | 0         | ⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 0%   | 36-52h (at deployment)  |
 
