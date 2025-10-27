@@ -6,6 +6,7 @@ import {
   IconZoomReset,
   IconDownload,
 } from '@tabler/icons-react';
+import { getIconButtonLabel } from '@/lib/accessibility';
 
 interface ReceiptViewerModalProps {
   opened: boolean;
@@ -46,6 +47,7 @@ export function ReceiptViewerModal({
                 variant="light"
                 onClick={onZoomOut}
                 disabled={zoom <= 25}
+                {...getIconButtonLabel('Zoom out receipt')}
               >
                 <IconZoomOut size={18} />
               </ActionIcon>
@@ -62,17 +64,18 @@ export function ReceiptViewerModal({
                 variant="light"
                 onClick={onZoomIn}
                 disabled={zoom >= 300}
+                {...getIconButtonLabel('Zoom in receipt')}
               >
                 <IconZoomIn size={18} />
               </ActionIcon>
             </Tooltip>
             <Tooltip label="Reset Zoom">
-              <ActionIcon variant="light" onClick={onZoomReset}>
+              <ActionIcon variant="light" onClick={onZoomReset} {...getIconButtonLabel('Reset zoom')}>
                 <IconZoomReset size={18} />
               </ActionIcon>
             </Tooltip>
             <Tooltip label="Download Receipt">
-              <ActionIcon variant="filled" color="blue" onClick={onDownload}>
+              <ActionIcon variant="filled" color="blue" onClick={onDownload} {...getIconButtonLabel('Download receipt')}>
                 <IconDownload size={18} />
               </ActionIcon>
             </Tooltip>

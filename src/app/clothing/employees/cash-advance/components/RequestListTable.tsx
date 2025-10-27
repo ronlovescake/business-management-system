@@ -15,6 +15,7 @@ import {
   IconX,
   IconCurrencyPeso,
 } from '@tabler/icons-react';
+import { getActionLabel } from '@/lib/accessibility';
 import type { CashAdvance } from '../types';
 
 interface RequestListTableProps {
@@ -127,7 +128,7 @@ export function RequestListTable({
                             color="green"
                             variant="light"
                             onClick={() => onApprove(request.id)}
-                            title="Approve"
+                            {...getActionLabel('Approve', 'cash advance request', request.employee)}
                           >
                             <IconCheck size={16} />
                           </ActionIcon>
@@ -135,7 +136,7 @@ export function RequestListTable({
                             color="red"
                             variant="light"
                             onClick={() => onReject(request.id)}
-                            title="Reject"
+                            {...getActionLabel('Reject', 'cash advance request', request.employee)}
                           >
                             <IconX size={16} />
                           </ActionIcon>
@@ -146,7 +147,7 @@ export function RequestListTable({
                           color="blue"
                           variant="light"
                           onClick={() => onMarkAsPaid(request.id)}
-                          title="Mark as Paid"
+                          {...getActionLabel('Mark as paid', 'cash advance', request.employee)}
                         >
                           <IconCurrencyPeso size={16} />
                         </ActionIcon>
@@ -155,7 +156,7 @@ export function RequestListTable({
                         color="blue"
                         variant="light"
                         onClick={() => onEdit(request)}
-                        title="Edit"
+                        {...getActionLabel('Edit', 'cash advance request', request.employee)}
                       >
                         <IconEdit size={16} />
                       </ActionIcon>
@@ -163,7 +164,7 @@ export function RequestListTable({
                         color="red"
                         variant="light"
                         onClick={() => onDelete(request.id)}
-                        title="Delete"
+                        {...getActionLabel('Delete', 'cash advance request', request.employee)}
                       >
                         <IconTrash size={16} />
                       </ActionIcon>
