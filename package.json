@@ -100,5 +100,8 @@
   },
   "prisma": {
     "seed": "node prisma/seed.js"
+  },
+  "overrides": {
+    "dompurify": "^3.2.4"
   }
 }
