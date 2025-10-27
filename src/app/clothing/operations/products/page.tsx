@@ -34,7 +34,12 @@
  */
 
 import { ProductsPage } from '@/modules/clothing/operations/products/components/ProductsPage';
+import { ProductsErrorBoundary } from '@/modules/clothing/operations/products/components/ProductsErrorBoundary';
 
 export default function Page() {
-  return <ProductsPage />;
+  return (
+    <ProductsErrorBoundary>
+      <ProductsPage />
+    </ProductsErrorBoundary>
+  );
 }

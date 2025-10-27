@@ -5,6 +5,7 @@
  * Complex form with 15 fields and real-time financial calculations
  */
 
+import { memo } from 'react';
 import {
   Stack,
   Group,
@@ -50,7 +51,7 @@ interface AddProductModalProps {
   isSubmitting?: boolean;
 }
 
-export function AddProductModal({
+export const AddProductModal = memo(function AddProductModal({
   opened,
   onClose,
   form,
@@ -571,4 +572,4 @@ export function AddProductModal({
       </Stack>
     </PolishedModal>
   );
-}
+});
