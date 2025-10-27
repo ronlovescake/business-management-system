@@ -24,8 +24,9 @@ import type {
   TableAction,
 } from '@/components/shared/PageTemplates/DataTable';
 import type { Payroll as PayrollType } from './types';
+import { PayrollErrorBoundary } from './components/PayrollErrorBoundary';
 
-export default function Payroll() {
+function PayrollContent() {
   const formatPayPeriodDisplay = (period: string) => {
     if (!period) {
       return '';
@@ -395,5 +396,13 @@ export default function Payroll() {
         />
       </Stack>
     </PageLayout>
+  );
+}
+
+export default function Payroll() {
+  return (
+    <PayrollErrorBoundary>
+      <PayrollContent />
+    </PayrollErrorBoundary>
   );
 }
