@@ -13,6 +13,7 @@ const nextConfig = {
       '@mantine/notifications',
       '@tabler/icons-react',
       '@glideapps/glide-data-grid',
+      'recharts', // Heavy charting library - tree-shake unused components
     ],
     // Turbopack is enabled via CLI flag: next dev --turbo
   },

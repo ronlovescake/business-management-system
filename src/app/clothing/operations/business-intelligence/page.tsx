@@ -1,7 +1,18 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { PageLayout } from '../../../../components/layout/PageLayout';
-import { BiDashboard } from './components/BiDashboard';
+import { Center, Loader } from '@mantine/core';
+
+// Lazy load BiDashboard to reduce initial bundle size (heavy recharts dependency)
+const BiDashboard = dynamic(() => import('./components/BiDashboard').then(mod => ({ default: mod.BiDashboard })), {
+  ssr: false,
+  loading: () => (
+    <Center h={400}>
+      <Loader size="lg" />
+    </Center>
+  ),
+});
 
 // ============================================================================
 // BUSINESS INTELLIGENCE PAGE
