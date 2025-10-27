@@ -7,7 +7,13 @@ process.env.TZ = 'Asia/Manila';
 const nextConfig = {
   reactStrictMode: true,
   experimental: {
-    optimizePackageImports: ['@mantine/core', '@mantine/hooks'],
+    optimizePackageImports: [
+      '@mantine/core',
+      '@mantine/hooks',
+      '@mantine/notifications',
+      '@tabler/icons-react',
+      '@glideapps/glide-data-grid',
+    ],
     // Turbopack is enabled via CLI flag: next dev --turbo
   },
   transpilePackages: ['@tabler/icons-react'],

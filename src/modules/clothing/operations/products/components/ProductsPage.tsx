@@ -12,6 +12,7 @@
  */
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Stack,
   Group,
@@ -43,13 +44,18 @@ import { throttle } from '@/lib/performance';
 import { useProductsData } from '../hooks/useProductsData';
 import { useProductForm } from '../hooks/useProductForm';
 import { ProductStatsCards } from './ProductStatsCards';
-import { AddProductModal } from './AddProductModal';
 import { ProductService } from '../services/ProductService';
 import type {
   ProductData,
   ProductColumnKey,
   GridCellWithCursor,
 } from '../types/product.types';
+
+// Lazy load heavy modal component
+const AddProductModal = dynamic(() => import('./AddProductModal').then(mod => ({ default: mod.AddProductModal })), {
+  ssr: false,
+  loading: () => null,
+});
 
 // Custom grid styles for 20px font
 const customGridStyles = `

@@ -7,6 +7,7 @@ import React, {
   useCallback,
   useMemo,
 } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import {
   Stack,
@@ -41,7 +42,12 @@ import { CustomerService } from '../services/CustomerService';
 import { useCustomersData } from '../hooks/useCustomersData';
 import { useCustomerForm } from '../hooks/useCustomerForm';
 import { CustomerStatsCards } from './CustomerStatsCards';
-import { AddCustomerModal } from './AddCustomerModal';
+
+// Lazy load modal component
+const AddCustomerModal = dynamic(() => import('./AddCustomerModal').then(mod => ({ default: mod.AddCustomerModal })), {
+  ssr: false,
+  loading: () => null,
+});
 
 // Custom styles for larger font and center aligned headers
 const customGridStyles = `
