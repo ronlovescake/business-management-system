@@ -213,7 +213,7 @@ export function sanitizeDate(date: unknown): string {
 }
 
 /**
- * Sanitize product code (alphanumeric, hyphens, underscores, spaces, parentheses, forward slash, periods, and ampersand)
+ * Sanitize product code (alphanumeric, hyphens, underscores, spaces, parentheses, forward slash, periods, ampersand, and plus sign)
  */
 export function sanitizeProductCode(code: unknown): string {
   if (!code) {
@@ -222,9 +222,9 @@ export function sanitizeProductCode(code: unknown): string {
 
   const str = String(code).trim();
 
-  // Keep alphanumeric, hyphens, underscores, spaces, parentheses, forward slash, periods, and ampersand
+  // Keep alphanumeric, hyphens, underscores, spaces, parentheses, forward slash, periods, ampersand, and plus sign
   // Preserve original casing
-  return str.replace(/[^a-zA-Z0-9\-_() /.&]/g, '');
+  return str.replace(/[^a-zA-Z0-9\-_() /.&+]/g, '');
 }
 
 /**

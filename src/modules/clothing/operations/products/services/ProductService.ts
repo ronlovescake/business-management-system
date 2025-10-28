@@ -109,9 +109,26 @@ export class ProductService {
         continue;
       }
 
-      // Take first letter (uppercase)
-      if (word.length > 0) {
-        initials += word[0].toUpperCase();
+      // For words with special characters like "H&M", "Rabbit+Bear", extract all uppercase letters
+      if (/[&/.+]/.test(word)) {
+        // Extract all uppercase letters from the word
+        const uppercaseLetters = word.match(/[A-Z]/g);
+        if (uppercaseLetters) {
+          initials += uppercaseLetters.join('');
+        } else {
+          // If no uppercase, take first letter of each alphanumeric part
+          const parts = word.split(/[^a-zA-Z0-9]+/);
+          for (const part of parts) {
+            if (part.length > 0) {
+              initials += part[0].toUpperCase();
+            }
+          }
+        }
+      } else {
+        // Take first letter (uppercase)
+        if (word.length > 0) {
+          initials += word[0].toUpperCase();
+        }
       }
     }
 

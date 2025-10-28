@@ -251,9 +251,9 @@ export const SKIP_WORDS = [
  * Special cases for Product Code generation
  */
 export const PRODUCT_CODE_SPECIAL_CASES: Record<string, string> = {
-  '2-PC': '2',
-  '3-PC': '3',
-  '4-PC': '4',
+  '2-PC': '2PC',
+  '3-PC': '3PC',
+  '4-PC': '4PC',
 } as const;
 
 /**
