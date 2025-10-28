@@ -64,17 +64,16 @@ export function sanitizeString(
 
 /**
  * Escape HTML entities to prevent XSS
+ * Note: Forward slash (/) and ampersand (&) are not escaped as they're commonly used in product/brand names
  */
 export function escapeHtml(text: string): string {
   const map: Record<string, string> = {
-    '&': '&amp;',
     '<': '&lt;',
     '>': '&gt;',
     '"': '&quot;',
     "'": '&#x27;',
-    '/': '&#x2F;',
   };
-  return text.replace(/[&<>"'/]/g, (char) => map[char] || char);
+  return text.replace(/[<>"']/g, (char) => map[char] || char);
 }
 
 /**
@@ -214,17 +213,18 @@ export function sanitizeDate(date: unknown): string {
 }
 
 /**
- * Sanitize product code (alphanumeric, hyphens, underscores only)
+ * Sanitize product code (alphanumeric, hyphens, underscores, spaces, parentheses, forward slash, periods, and ampersand)
  */
 export function sanitizeProductCode(code: unknown): string {
   if (!code) {
     return '';
   }
 
-  const str = String(code).trim().toUpperCase();
+  const str = String(code).trim();
 
-  // Keep only alphanumeric, hyphens, and underscores
-  return str.replace(/[^A-Z0-9\-_]/g, '');
+  // Keep alphanumeric, hyphens, underscores, spaces, parentheses, forward slash, periods, and ampersand
+  // Preserve original casing
+  return str.replace(/[^a-zA-Z0-9\-_() /.&]/g, '');
 }
 
 /**

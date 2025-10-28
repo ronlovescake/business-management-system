@@ -115,8 +115,18 @@ export class ProductService {
       }
     }
 
-    // Format: "Product Name (INITIALS-DATE)"
-    return `${productName} (${initials}-${postingDate})`;
+    // Convert date from ISO format (YYYY-MM-DD) to MMDDYYYY (no dashes)
+    let formattedDate = postingDate;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(postingDate)) {
+      const [year, month, day] = postingDate.split('-');
+      formattedDate = `${month}${day}${year}`;
+    } else if (/^\d{2}-\d{2}-\d{4}$/.test(postingDate)) {
+      // If already in MM-DD-YYYY format, just remove dashes
+      formattedDate = postingDate.replace(/-/g, '');
+    }
+
+    // Format: "Product Name (INITIALS-MMDDYYYY)"
+    return `${productName} (${initials}-${formattedDate})`;
   }
 
   /**
@@ -292,6 +302,63 @@ export class ProductService {
   }
 
   /**
+   * Parse date from CSV format to ISO format (YYYY-MM-DD)
+   * Supports multiple formats:
+   * - "MM-DD-YYYY" -> "YYYY-MM-DD" (e.g., "01-04-2025" -> "2025-01-04")
+   * - "MMDDYY" -> "YYYY-MM-DD" (e.g., "061224" -> "2024-12-06")
+   * - "YYYY-MM-DD" -> "YYYY-MM-DD" (already ISO format)
+   */
+  private static parseCSVDate(value: unknown): string {
+    if (value === null || value === undefined || value === '') {
+      return '';
+    }
+
+    const dateStr = String(value).trim();
+
+    // If already in ISO format (YYYY-MM-DD), return as is
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      return dateStr;
+    }
+
+    // Parse MM-DD-YYYY format
+    if (/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) {
+      const parts = dateStr.split('-');
+      const month = parts[0];
+      const day = parts[1];
+      const year = parts[2];
+
+      // Validate month and day ranges
+      const monthNum = parseInt(month, 10);
+      const dayNum = parseInt(day, 10);
+
+      if (monthNum >= 1 && monthNum <= 12 && dayNum >= 1 && dayNum <= 31) {
+        return `${year}-${month}-${day}`;
+      }
+    }
+
+    // Parse MMDDYY format (6 digits) - legacy support
+    if (/^\d{6}$/.test(dateStr)) {
+      const month = dateStr.substring(0, 2);
+      const day = dateStr.substring(2, 4);
+      const year = dateStr.substring(4, 6);
+
+      // Assume 20xx for year (2000-2099)
+      const fullYear = `20${year}`;
+
+      // Validate month and day ranges
+      const monthNum = parseInt(month, 10);
+      const dayNum = parseInt(day, 10);
+
+      if (monthNum >= 1 && monthNum <= 12 && dayNum >= 1 && dayNum <= 31) {
+        return `${fullYear}-${month}-${day}`;
+      }
+    }
+
+    // If date cannot be parsed, return empty string
+    return '';
+  }
+
+  /**
    * Import products from CSV
    * Handles 32+ columns with quoted fields
    */
@@ -333,15 +400,15 @@ export class ProductService {
             'Total CBM': parseNumeric(values[3]),
             Weight: parseNumeric(values[4]),
             'Shipment Status': this.toSafeString(values[5]),
-            'Posting Date': this.toSafeString(values[6]),
-            'Order Date': this.toSafeString(values[7]),
+            'Posting Date': this.parseCSVDate(values[6]),
+            'Order Date': this.parseCSVDate(values[7]),
             Payment: this.toSafeString(values[8]),
             Product: this.toSafeString(values[9]),
             'Product Code':
               this.toSafeString(values[10]) ||
               this.generateProductCode(
                 this.toSafeString(values[9]),
-                this.toSafeString(values[6])
+                this.parseCSVDate(values[6])
               ),
             'Age Range': this.toSafeString(values[11]),
             Unit: this.toSafeString(values[12]),

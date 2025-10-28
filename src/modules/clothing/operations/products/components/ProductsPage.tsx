@@ -119,8 +119,8 @@ export function ProductsPage() {
       { id: 'postingDate', title: 'Posting Date', width: 140 },
       { id: 'orderDate', title: 'Order Date', width: 140 },
       { id: 'payment', title: 'Payment', width: 120 },
-      { id: 'product', title: 'Product', width: 200 },
-      { id: 'productCode', title: 'Product Code', width: 250 },
+      { id: 'product', title: 'Product', width: 400 },
+      { id: 'productCode', title: 'Product Code', width: 500 },
       { id: 'ageRange', title: 'Age Range', width: 130 },
       { id: 'unit', title: 'Unit', width: 100 },
       { id: 'unitPrice', title: 'Unit Price', width: 130 },
@@ -456,7 +456,25 @@ export function ProductsPage() {
 
       let cellContent: GridCellWithCursor;
 
-      if (typeof value === 'number') {
+      // Format date columns (postingDate, orderDate)
+      if (column.id === 'postingDate' || column.id === 'orderDate') {
+        const dateValue = value?.toString() || '';
+        let displayDate = dateValue;
+
+        // Convert from ISO format (YYYY-MM-DD) to MM-DD-YYYY
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+          const [year, month, day] = dateValue.split('-');
+          displayDate = `${month}-${day}-${year}`;
+        }
+
+        cellContent = {
+          kind: GridCellKind.Text,
+          data: dateValue,
+          displayData: displayDate,
+          allowOverlay: false,
+          contentAlign: alignment,
+        };
+      } else if (typeof value === 'number') {
         const displayData = useTwoDecimals
           ? value.toLocaleString('en-US', {
               minimumFractionDigits: 2,
