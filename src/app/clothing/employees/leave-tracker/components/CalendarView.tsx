@@ -269,7 +269,7 @@ function MonthCalendar({
   );
 }
 
-export function CalendarView({
+export const CalendarView = React.memo(function CalendarView({
   leaveRequests,
   formatDate,
   getLeaveTypeColor,
@@ -468,4 +468,4 @@ export function CalendarView({
       </Stack>
     </Card>
   );
-}
+});
