@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Stack } from '@mantine/core';
+import { Stack } from '@mantine/core'
+import { SchedulesErrorBoundary } from './components/SchedulesErrorBoundary';;
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import { useSchedules } from './hooks/useSchedules';
 import { StatsCards } from './components/StatsCards';

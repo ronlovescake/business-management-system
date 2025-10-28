@@ -32,7 +32,12 @@
  */
 
 import { ShipmentsPage } from '@/modules/clothing/operations/shipments/components/ShipmentsPage';
+import { ShipmentsErrorBoundary } from './components/ShipmentsErrorBoundary';
 
 export default function Page() {
-  return <ShipmentsPage />;
+  return (
+    <ShipmentsErrorBoundary>
+      <ShipmentsPage />
+    </ShipmentsErrorBoundary>
+  );
 }

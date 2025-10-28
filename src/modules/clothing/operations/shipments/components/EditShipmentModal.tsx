@@ -4,6 +4,7 @@
  * Modal form for editing existing shipments with 10 pre-populated fields.
  */
 
+import React from 'react';
 import {
   Modal,
   Stack,
@@ -27,7 +28,7 @@ interface EditShipmentModalProps {
   onSubmit: (values: ShipmentFormData) => Promise<void>;
 }
 
-export function EditShipmentModal({
+export const EditShipmentModal = React.memo(function EditShipmentModal({
   opened,
   onClose,
   form,
@@ -146,4 +147,5 @@ export function EditShipmentModal({
       </form>
     </Modal>
   );
-}
+});
+

@@ -10,6 +10,7 @@
 
 'use client';
 
-import { DueDatesPage } from '@/modules/clothing/operations/due-dates/components/DueDatesPage';
+import { DueDatesPage } from '@/modules/clothing/operations/due-dates/components/DueDatesPage'
+import { DueDatesErrorBoundary } from './components/DueDatesErrorBoundary';;
 
 export default DueDatesPage;

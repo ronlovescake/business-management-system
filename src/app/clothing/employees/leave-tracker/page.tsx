@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Stack } from '@mantine/core';
+import { Stack } from '@mantine/core'
+import { LeaveTrackerErrorBoundary } from './components/LeaveTrackerErrorBoundary';;
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import { StatsCards } from './components/StatsCards';
 import { LeaveControls } from './components/LeaveControls';

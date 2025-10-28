@@ -1,4 +1,5 @@
-import { PageLayout } from '../../../../components/layout/PageLayout';
+import { PageLayout } from '../../../../components/layout/PageLayout'
+import { CalendarErrorBoundary } from './components/CalendarErrorBoundary';;
 
 export default function Calendar() {
   return (

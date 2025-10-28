@@ -4,6 +4,7 @@
  * Modal form for adding new shipments with 10 input fields.
  */
 
+import React from 'react';
 import {
   Modal,
   Stack,
@@ -27,7 +28,7 @@ interface AddShipmentModalProps {
   onSubmit: (values: ShipmentFormData) => Promise<void>;
 }
 
-export function AddShipmentModal({
+export const AddShipmentModal = React.memo(function AddShipmentModal({
   opened,
   onClose,
   form,
@@ -146,4 +147,5 @@ export function AddShipmentModal({
       </form>
     </Modal>
   );
-}
+});
+

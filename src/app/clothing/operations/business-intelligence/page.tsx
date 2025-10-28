@@ -1,7 +1,8 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { PageLayout } from '../../../../components/layout/PageLayout';
+import { PageLayout } from '../../../../components/layout/PageLayout'
+import { BusinessIntelligenceErrorBoundary } from './components/BusinessIntelligenceErrorBoundary';;
 import { Center, Loader } from '@mantine/core';
 
 // Lazy load BiDashboard to reduce initial bundle size (heavy recharts dependency)

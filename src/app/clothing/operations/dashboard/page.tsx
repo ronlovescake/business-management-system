@@ -6,8 +6,13 @@
  * Direct import path used to optimize compilation speed.
  */
 
-import { DashboardPage } from '@/modules/clothing/operations/dashboard/components/DashboardPage';
+import { DashboardPage } from '@/modules/clothing/operations/dashboard/components/DashboardPage'
+import { DashboardErrorBoundary } from './components/DashboardErrorBoundary';;
 
 export default function DashboardRouteHandler() {
-  return <DashboardPage />;
+  return (
+    <DashboardErrorBoundary>
+      <DashboardPage />
+    </DashboardErrorBoundary>
+  );;
 }

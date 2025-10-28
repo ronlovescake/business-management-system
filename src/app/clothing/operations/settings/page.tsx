@@ -5,8 +5,13 @@
  * Direct import path used to optimize compilation speed.
  */
 
-import { SettingsPage } from '@/modules/clothing/operations/settings/components/SettingsPage';
+import { SettingsPage } from '@/modules/clothing/operations/settings/components/SettingsPage'
+import { SettingsErrorBoundary } from './components/SettingsErrorBoundary';;
 
 export default function Settings() {
-  return <SettingsPage />;
+  return (
+    <SettingsErrorBoundary>
+      <SettingsPage />
+    </SettingsErrorBoundary>
+  );;
 }

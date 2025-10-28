@@ -2,7 +2,8 @@
 
 import type { FormEvent } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { logger } from '@/lib/logger';
+import { logger } from '@/lib/logger'
+import { SettingsErrorBoundary } from './components/SettingsErrorBoundary';;
 import {
   Alert,
   Button,
