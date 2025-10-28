@@ -1,4 +1,5 @@
-import { PageLayout } from '../../../../components/layout/PageLayout';
+import { PageLayout } from '../../../../components/layout/PageLayout'
+import { PostTemplateErrorBoundary } from './components/PostTemplateErrorBoundary';;
 
 export default function PostTemplate() {
   return (

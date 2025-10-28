@@ -1,4 +1,5 @@
-import { PageLayout } from '../../../../components/layout/PageLayout';
+import { PageLayout } from '../../../../components/layout/PageLayout'
+import { InventoryErrorBoundary } from './components/InventoryErrorBoundary';;
 import { Stack, Text } from '@mantine/core';
 
 export default function Inventory() {

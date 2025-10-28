@@ -1,4 +1,5 @@
-import { PageLayout } from '../../../../components/layout/PageLayout';
+import { PageLayout } from '../../../../components/layout/PageLayout'
+import { PickupFormErrorBoundary } from './components/PickupFormErrorBoundary';;
 
 export default function PickupForm() {
   return (

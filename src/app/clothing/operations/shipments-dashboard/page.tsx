@@ -1,4 +1,5 @@
-import { PageLayout } from '../../../../components/layout/PageLayout';
+import { PageLayout } from '../../../../components/layout/PageLayout'
+import { ShipmentsDashboardErrorBoundary } from './components/ShipmentsDashboardErrorBoundary';;
 
 export default function ShipmentsDashboard() {
   return (

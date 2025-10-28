@@ -78,21 +78,30 @@ export class ${moduleName}ErrorBoundary extends Component<Props, State> {
 
 const MODULES = {
   operations: [
-    { name: 'due-dates', displayName: 'Due Dates', workspace: 'operations' },
-    { name: 'settings', displayName: 'Settings', workspace: 'operations' },
-    { name: 'sorting-distribution', displayName: 'Sorting Distribution', workspace: 'operations' },
-    { name: 'business-intelligence', displayName: 'Business Intelligence', workspace: 'operations' },
-    { name: 'dashboard', displayName: 'Dashboard', workspace: 'operations' },
+    // Already completed
+    // { name: 'due-dates', displayName: 'Due Dates', workspace: 'operations' },
+    // { name: 'settings', displayName: 'Settings', workspace: 'operations' },
+    // { name: 'sorting-distribution', displayName: 'Sorting Distribution', workspace: 'operations' },
+    // { name: 'business-intelligence', displayName: 'Business Intelligence', workspace: 'operations' },
+    // { name: 'dashboard', displayName: 'Dashboard', workspace: 'operations' },
+    
+    // Remaining modules to process
+    { name: 'inventory', displayName: 'Inventory', workspace: 'operations' },
+    { name: 'pickup-form', displayName: 'Pickup Form', workspace: 'operations' },
+    { name: 'post-template', displayName: 'Post Template', workspace: 'operations' },
+    { name: 'shipments-dashboard', displayName: 'Shipments Dashboard', workspace: 'operations' },
+    { name: 'notifications', displayName: 'Notifications', workspace: 'operations' },
   ],
   employees: [
-    { name: 'schedules', displayName: 'Schedules', workspace: 'employees' },
-    { name: 'leave-tracker', displayName: 'Leave Tracker', workspace: 'employees' },
-    { name: 'employee-loans', displayName: 'Employee Loans', workspace: 'employees' },
-    { name: 'team', displayName: 'Team', workspace: 'employees' },
-    { name: 'calendar', displayName: 'Calendar', workspace: 'employees' },
-    { name: 'settings', displayName: 'Settings', workspace: 'employees' },
-    { name: 'notifications', displayName: 'Notifications', workspace: 'employees' },
-    { name: 'dashboard', displayName: 'Dashboard', workspace: 'employees' },
+    // Already completed
+    // { name: 'schedules', displayName: 'Schedules', workspace: 'employees' },
+    // { name: 'leave-tracker', displayName: 'Leave Tracker', workspace: 'employees' },
+    // { name: 'employee-loans', displayName: 'Employee Loans', workspace: 'employees' },
+    // { name: 'team', displayName: 'Team', workspace: 'employees' },
+    // { name: 'calendar', displayName: 'Calendar', workspace: 'employees' },
+    // { name: 'settings', displayName: 'Settings', workspace: 'employees' },
+    // { name: 'notifications', displayName: 'Notifications', workspace: 'employees' },
+    // { name: 'dashboard', displayName: 'Dashboard', workspace: 'employees' },
   ],
 };
 

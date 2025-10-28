@@ -1,4 +1,5 @@
-import { PageLayout } from '../../../../components/layout/PageLayout';
+import { PageLayout } from '../../../../components/layout/PageLayout'
+import { NotificationsErrorBoundary } from './components/NotificationsErrorBoundary';;
 
 export default function OperationsNotifications() {
   return (
