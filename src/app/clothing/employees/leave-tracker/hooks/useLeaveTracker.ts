@@ -543,43 +543,55 @@ export default function useLeaveTracker() {
   } = stats;
 
   const monthlyBreakdown = useMemo<MonthlyBreakdownItem[]>(() => {
-    const breakdown: Record<
-      string,
-      { month: string; [key: string]: number | string }
-    > = {};
+    // Group by leave type (rows) with month columns
+    const breakdown: Record<string, MonthlyBreakdownItem> = {};
+    
+    // Initialize breakdown for each leave type
+    leaveTypes.forEach((type) => {
+      breakdown[type] = {
+        leaveType: type,
+        total: 0,
+        percentage: 0,
+        January: 0,
+        February: 0,
+        March: 0,
+        April: 0,
+        May: 0,
+        June: 0,
+        July: 0,
+        August: 0,
+        September: 0,
+        October: 0,
+        November: 0,
+        December: 0,
+      };
+    });
 
+    // Populate with actual data
     filteredRequests.forEach((request: LeaveRequest) => {
-      const month = dayjs(request.startDate).format('MMM YYYY');
-
-      if (!breakdown[month]) {
-        breakdown[month] = { month };
-        leaveTypes.forEach((type) => {
-          breakdown[month][type] = 0;
-        });
+      const monthName = dayjs(request.startDate).format('MMMM');
+      const leaveType = request.leaveType;
+      
+      if (breakdown[leaveType]) {
+        const currentMonthValue = (breakdown[leaveType][monthName] as number) || 0;
+        breakdown[leaveType][monthName] = currentMonthValue + request.numberOfDays;
+        breakdown[leaveType].total = (breakdown[leaveType].total as number) + request.numberOfDays;
       }
-
-      const currentValue = breakdown[month][request.leaveType] || 0;
-      breakdown[month][request.leaveType] =
-        (currentValue as number) + request.numberOfDays;
     });
 
     // Calculate percentages
-    const result: MonthlyBreakdownItem[] = Object.values(breakdown);
+    const result: MonthlyBreakdownItem[] = Object.values(breakdown).filter(
+      (item) => (item.total as number) > 0
+    );
 
     result.forEach((item) => {
-      const total = leaveTypes.reduce((sum, type) => {
-        return sum + ((item[type] as number) || 0);
-      }, 0);
-
-      leaveTypes.forEach((type) => {
-        const days = (item[type] as number) || 0;
-        const percentage = total > 0 ? Math.round((days / total) * 100) : 0;
-        item[`${type}Percentage`] = percentage;
-      });
+      item.percentage = totalDaysRequested > 0 
+        ? ((item.total as number) / totalDaysRequested) * 100 
+        : 0;
     });
 
     return result;
-  }, [filteredRequests, leaveTypes]);
+  }, [filteredRequests, leaveTypes, totalDaysRequested]);
 
   // Employee leave allocation (for form)
   const employeeLeaveAllocation = useMemo(() => {

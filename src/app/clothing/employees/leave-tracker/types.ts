@@ -26,6 +26,8 @@ export interface LeaveRequest {
 }
 
 export interface MonthlyBreakdownItem {
-  month: string;
+  leaveType: LeaveType;
+  total: number;
+  percentage: number;
   [key: string]: number | string;
 }
