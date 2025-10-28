@@ -178,11 +178,22 @@ export function useTransactionsData(): UseTransactionsDataReturn {
     ],
   });
 
-  // Extract query results
+  // Destructure query results to avoid complex dependencies
+  const [
+    customersQuery,
+    pricesQuery,
+    productsQuery,
+    shipmentsQuery,
+  ] = lookupQueries;
+
+  // Extract data with proper memoization
+  const customersQueryData = useMemo(() => customersQuery.data || [], [customersQuery.data]);
+  const pricesQueryData = useMemo(() => pricesQuery.data || [], [pricesQuery.data]);
+  const productsQueryData = useMemo(() => productsQuery.data || [], [productsQuery.data]);
+  const shipmentsQueryData = useMemo(() => shipmentsQuery.data || [], [shipmentsQuery.data]);
+  
   // Compute customer names from API + transactions
   const customerNames = useMemo(() => {
-    const apiCustomers = lookupQueries[0].data || [];
-
     // Extract unique customer names from imported transactions
     const transactionCustomers = transactions
       .map((t) => t.Customers)
@@ -190,38 +201,33 @@ export function useTransactionsData(): UseTransactionsDataReturn {
 
     // 🚀 PERFORMANCE: Use Set for O(n) deduplication
     const allCustomers = Array.from(
-      new Set([...apiCustomers, ...transactionCustomers])
+      new Set([...customersQueryData, ...transactionCustomers])
     ).sort();
 
     return allCustomers;
-  }, [lookupQueries, transactions]);
+  }, [customersQueryData, transactions]);
 
   // Compute product codes and price tiers from prices API
   const { productCodes, priceTiers } = useMemo(() => {
-    const priceTiersData = lookupQueries[1].data || [];
-
     // 🚀 PERFORMANCE: Use Set for O(n) deduplication
     const codes = Array.from(
       new Set(
-        priceTiersData.map((price) => price['Product Code']).filter(Boolean)
+        pricesQueryData.map((price) => price['Product Code']).filter(Boolean)
       )
     ).sort();
 
     return {
       productCodes: codes,
-      priceTiers: priceTiersData,
+      priceTiers: pricesQueryData,
     };
-  }, [lookupQueries]);
+  }, [pricesQueryData]);
 
   // Compute product-to-shipment and product-to-shipment-status mappings
   const { productToShipmentMap, productToShipmentStatusMap } = useMemo(() => {
-    const productsData = lookupQueries[2].data || [];
-    const shipmentsData = lookupQueries[3].data || [];
-
     // Create mapping from Shipment Code to Shipment Status
     const shipmentCodeToStatus: Record<string, string> = {};
 
-    shipmentsData.forEach((shipment) => {
+    shipmentsQueryData.forEach((shipment) => {
       const shipmentCode = String(
         shipment['Shipment Code'] || shipment.shipmentCode || ''
       );
@@ -238,7 +244,7 @@ export function useTransactionsData(): UseTransactionsDataReturn {
     const shipmentMapping: Record<string, string> = {};
     const statusMapping: Record<string, string> = {};
 
-    productsData.forEach((product) => {
+    productsQueryData.forEach((product) => {
       const productCode = String(
         product.productCode || product['Product Code'] || ''
       );
@@ -265,7 +271,7 @@ export function useTransactionsData(): UseTransactionsDataReturn {
       productToShipmentMap: shipmentMapping,
       productToShipmentStatusMap: statusMapping,
     };
-  }, [lookupQueries]);
+  }, [productsQueryData, shipmentsQueryData]);
 
   // ============================================================================
   // STATUS FILTERING

@@ -154,25 +154,6 @@ export function useTransactionOperations(
   }, [transactions, bulkUpdate]);
 
   // ============================================================================
-  // HELPER: Save transaction to database
-  // ============================================================================
-
-  const saveTransactionToDatabase = useCallback(
-    async (transaction: TransactionData) => {
-      try {
-        return await api.patch<TransactionData>(
-          '/api/transactions',
-          transaction
-        );
-      } catch (error) {
-        logger.error('Error saving transaction:', error);
-        throw error;
-      }
-    },
-    []
-  );
-
-  // ============================================================================
   // CELL EDITING HANDLER
   // ============================================================================
 
@@ -303,17 +284,6 @@ export function useTransactionOperations(
         const newDate = getCellValue(newValue);
         updateTransactionData({ 'Order Date': newDate });
 
-        if (!isBatchEdit && !isBatchModeRef.current) {
-          const updatedTransaction = { ...transaction, 'Order Date': newDate };
-          saveTransactionToDatabase(updatedTransaction).catch(() => {
-            showNotification({
-              title: 'Error',
-              message: 'Failed to save Order Date to database',
-              color: 'red',
-            });
-          });
-        }
-
         showNotification({
           title: 'Success',
           message: 'Order Date updated successfully',
@@ -345,12 +315,6 @@ export function useTransactionOperations(
                   },
                   onCancel: () => {
                     updateTransactionData({ Customers: '' });
-                    if (!isBatchEdit && !isBatchModeRef.current) {
-                      saveTransactionToDatabase({
-                        ...transaction,
-                        Customers: '',
-                      }).catch(logger.error);
-                    }
                     notifications.show({
                       title: '🚫 Customer Selection Cancelled',
                       message: `Customer "${dropdownValue}" was not selected due to warnings`,
@@ -385,20 +349,6 @@ export function useTransactionOperations(
           Customers: dropdownValue,
           'Order Date': autoPopulatedOrderDate,
         });
-
-        if (!isBatchEdit && !isBatchModeRef.current) {
-          saveTransactionToDatabase({
-            ...transaction,
-            Customers: dropdownValue,
-            'Order Date': autoPopulatedOrderDate,
-          }).catch(() => {
-            showNotification({
-              title: 'Error',
-              message: 'Failed to save Customer to database',
-              color: 'red',
-            });
-          });
-        }
 
         showNotification({
           title: 'Success',
@@ -504,13 +454,6 @@ export function useTransactionOperations(
         };
 
         updateTransactionData(updatedTransaction);
-        saveTransactionToDatabase(updatedTransaction).catch(() => {
-          showNotification({
-            title: 'Error',
-            message: 'Failed to save Product Code to database',
-            color: 'red',
-          });
-        });
 
         // Build notification message
         let message = 'Product Code updated successfully';
@@ -580,16 +523,6 @@ export function useTransactionOperations(
 
         updateTransactionData(updatedFields);
 
-        // Save full transaction to database
-        const fullTransaction = { ...currentTransaction, ...updatedFields };
-        saveTransactionToDatabase(fullTransaction).catch(() => {
-          showNotification({
-            title: 'Error',
-            message: 'Failed to save Quantity to database',
-            color: 'red',
-          });
-        });
-
         let message = 'Quantity updated successfully';
         if (unitPriceAutoPopulated) {
           message = 'Quantity updated and Unit Price auto-populated';
@@ -625,16 +558,6 @@ export function useTransactionOperations(
         };
 
         updateTransactionData(updatedFields);
-
-        // Save full transaction to database
-        const fullTransaction = { ...currentTransaction, ...updatedFields };
-        saveTransactionToDatabase(fullTransaction).catch(() => {
-          showNotification({
-            title: 'Error',
-            message: 'Failed to save Unit Price to database',
-            color: 'red',
-          });
-        });
 
         showNotification({
           title: 'Success',
@@ -684,16 +607,6 @@ export function useTransactionOperations(
 
         updateTransactionData(updatedFields);
 
-        // Save full transaction to database
-        const fullTransaction = { ...currentTransaction, ...updatedFields };
-        saveTransactionToDatabase(fullTransaction).catch(() => {
-          showNotification({
-            title: 'Error',
-            message: 'Failed to save Discount to database',
-            color: 'red',
-          });
-        });
-
         showNotification({
           title: 'Success',
           message: 'Discount updated successfully',
@@ -726,16 +639,6 @@ export function useTransactionOperations(
         };
 
         updateTransactionData(updatedFields);
-
-        // Save full transaction to database
-        const fullTransaction = { ...currentTransaction, ...updatedFields };
-        saveTransactionToDatabase(fullTransaction).catch(() => {
-          showNotification({
-            title: 'Error',
-            message: 'Failed to save Adjustment to database',
-            color: 'red',
-          });
-        });
 
         showNotification({
           title: 'Success',
@@ -780,7 +683,6 @@ export function useTransactionOperations(
       productToShipmentMap,
       productToShipmentStatusMap,
       update,
-      saveTransactionToDatabase,
       onCustomerWarning,
     ]
   );

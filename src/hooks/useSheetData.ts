@@ -168,10 +168,8 @@ export function useTransactionData() {
         queryClient.setQueryData(queryKey, context.previousTransactions);
       }
     },
-    onSettled: () => {
-      // Always refetch after error or success to ensure we have the latest data
-      queryClient.invalidateQueries({ queryKey });
-    },
+    // Removed onSettled - optimistic updates are sufficient for single edits
+    // Only refetch on error (handled by onError rollback)
   });
 
   const bulkUpdateMutation = useMutation({
@@ -204,10 +202,8 @@ export function useTransactionData() {
         queryClient.setQueryData(queryKey, context.previousTransactions);
       }
     },
-    onSettled: () => {
-      // Refetch to ensure consistency
-      queryClient.invalidateQueries({ queryKey });
-    },
+    // Removed onSettled - optimistic updates are sufficient for bulk edits
+    // Only refetch on error (handled by onError rollback)
   });
 
   return {
