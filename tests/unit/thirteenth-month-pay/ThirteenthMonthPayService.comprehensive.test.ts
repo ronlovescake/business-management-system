@@ -91,24 +91,38 @@ describe('ThirteenthMonthPayService', () => {
         recordId: 'TMP-2025-002',
         employeeId: 'EMP002',
         employeeName: 'Jane Smith',
-        department: 'HR',
         year: 2025,
-        basicSalary: 20000,
-        totalMonthsWorked: 12,
+        totalBasicSalary: 240000,
+        totalLwop: 0,
+        totalAbsencesLates: 0,
+        netBasicSalary: 240000,
+        monthsWorked: 12,
         thirteenthMonthPay: 20000,
         status: 'pending',
       };
 
-      vi.mocked(thirteenthMonthPayRepository.create).mockResolvedValue({
+      const mockCreatedRecord: ThirteenthMonthPayRecord = {
         ...mockRecord,
-        ...createData,
         id: '2',
-      });
+        recordId: createData.recordId,
+        employeeId: createData.employeeId ?? null,
+        employeeName: createData.employeeName,
+        year: createData.year,
+        totalBasicSalary: new Prisma.Decimal(createData.totalBasicSalary),
+        totalLwop: new Prisma.Decimal(createData.totalLwop),
+        totalAbsencesLates: new Prisma.Decimal(createData.totalAbsencesLates),
+        netBasicSalary: new Prisma.Decimal(createData.netBasicSalary),
+        monthsWorked: createData.monthsWorked,
+        thirteenthMonthPay: new Prisma.Decimal(createData.thirteenthMonthPay),
+        status: createData.status,
+      };
+
+      vi.mocked(thirteenthMonthPayRepository.create).mockResolvedValue(mockCreatedRecord);
       
       const result = await thirteenthMonthPayService.create(createData);
       
       expect(result.employeeName).toBe('Jane Smith');
-      expect(result.thirteenthMonthPay).toBe(20000);
+      expect(result.thirteenthMonthPay.toString()).toBe('20000');
       expect(thirteenthMonthPayRepository.create).toHaveBeenCalledWith(createData);
     });
 
@@ -118,10 +132,12 @@ describe('ThirteenthMonthPayService', () => {
           recordId: 'TMP-2025-003',
           employeeId: 'EMP003',
           employeeName: 'Bob Johnson',
-          department: 'Finance',
           year: 2025,
-          basicSalary: 18000,
-          totalMonthsWorked: 12,
+          totalBasicSalary: 216000,
+          totalLwop: 0,
+          totalAbsencesLates: 0,
+          netBasicSalary: 216000,
+          monthsWorked: 12,
           thirteenthMonthPay: 18000,
           status: 'pending',
         },
@@ -129,10 +145,12 @@ describe('ThirteenthMonthPayService', () => {
           recordId: 'TMP-2025-004',
           employeeId: 'EMP004',
           employeeName: 'Alice Brown',
-          department: 'IT',
           year: 2025,
-          basicSalary: 22000,
-          totalMonthsWorked: 12,
+          totalBasicSalary: 264000,
+          totalLwop: 0,
+          totalAbsencesLates: 0,
+          netBasicSalary: 264000,
+          monthsWorked: 12,
           thirteenthMonthPay: 22000,
           status: 'pending',
         },
@@ -152,12 +170,13 @@ describe('ThirteenthMonthPayService', () => {
       vi.mocked(thirteenthMonthPayRepository.findById).mockResolvedValue(mockRecord);
       vi.mocked(thirteenthMonthPayRepository.update).mockResolvedValue({
         ...mockRecord,
-        ...updateData,
+        thirteenthMonthPay: new Prisma.Decimal(updateData.thirteenthMonthPay),
+        notes: updateData.notes,
       });
       
       const result = await thirteenthMonthPayService.update('1', updateData);
       
-      expect(result.thirteenthMonthPay).toBe(16000);
+      expect(result.thirteenthMonthPay.toString()).toBe('16000');
       expect(result.notes).toBe('Adjusted amount');
       expect(thirteenthMonthPayRepository.update).toHaveBeenCalledWith('1', updateData);
     });
@@ -171,7 +190,7 @@ describe('ThirteenthMonthPayService', () => {
     });
 
     it('should delete a record', async () => {
-      vi.mocked(thirteenthMonthPayRepository.delete).mockResolvedValue(undefined);
+      vi.mocked(thirteenthMonthPayRepository.delete).mockResolvedValue(mockRecord);
       
       await thirteenthMonthPayService.delete('1');
       
@@ -181,7 +200,7 @@ describe('ThirteenthMonthPayService', () => {
     it('should delete all records', async () => {
       const records = [mockRecord, { ...mockRecord, id: '2' }];
       vi.mocked(thirteenthMonthPayRepository.findMany).mockResolvedValue(records);
-      vi.mocked(thirteenthMonthPayRepository.delete).mockResolvedValue(undefined);
+      vi.mocked(thirteenthMonthPayRepository.delete).mockResolvedValue(mockRecord);
       
       const result = await thirteenthMonthPayService.deleteAll();
       
@@ -222,7 +241,7 @@ describe('ThirteenthMonthPayService', () => {
     });
 
     it('should find with filters', async () => {
-      const filters = { year: 2025, status: 'pending' };
+      const filters = { year: 2025, status: 'pending' as const };
       vi.mocked(thirteenthMonthPayRepository.findWithFilters).mockResolvedValue([mockRecord]);
       
       const result = await thirteenthMonthPayService.findWithFilters(filters);
@@ -381,10 +400,12 @@ describe('ThirteenthMonthPayService', () => {
           recordId: 'TMP-2025-001',
           employeeId: 'EMP001',
           employeeName: 'John Doe',
-          department: 'Operations',
           year: 2025,
-          basicSalary: 15000,
-          totalMonthsWorked: 12,
+          totalBasicSalary: 180000,
+          totalLwop: 0,
+          totalAbsencesLates: 0,
+          netBasicSalary: 180000,
+          monthsWorked: 12,
           thirteenthMonthPay: 15000,
           status: 'pending',
         })
@@ -410,10 +431,10 @@ describe('ThirteenthMonthPayService', () => {
 
   describe('Edge Cases', () => {
     it('should handle record with zero months worked', async () => {
-      const zeroMonthsRecord = {
+      const zeroMonthsRecord: ThirteenthMonthPayRecord = {
         ...mockRecord,
-        totalMonthsWorked: 0,
-        thirteenthMonthPay: 0,
+        monthsWorked: 0,
+        thirteenthMonthPay: new Prisma.Decimal(0),
       };
       
       vi.mocked(thirteenthMonthPayRepository.create).mockResolvedValue(zeroMonthsRecord);
@@ -422,23 +443,25 @@ describe('ThirteenthMonthPayService', () => {
         recordId: 'TMP-2025-005',
         employeeId: 'EMP005',
         employeeName: 'New Employee',
-        department: 'Sales',
         year: 2025,
-        basicSalary: 15000,
-        totalMonthsWorked: 0,
+        totalBasicSalary: 180000,
+        totalLwop: 0,
+        totalAbsencesLates: 0,
+        netBasicSalary: 180000,
+        monthsWorked: 0,
         thirteenthMonthPay: 0,
         status: 'pending',
       });
       
-      expect(result.totalMonthsWorked).toBe(0);
-      expect(result.thirteenthMonthPay).toBe(0);
+      expect(result.monthsWorked).toBe(0);
+      expect(result.thirteenthMonthPay.toString()).toBe('0');
     });
 
     it('should handle partial year calculations', async () => {
-      const partialYearRecord = {
+      const partialYearRecord: ThirteenthMonthPayRecord = {
         ...mockRecord,
-        totalMonthsWorked: 6,
-        thirteenthMonthPay: 7500, // Half of basic salary
+        monthsWorked: 6,
+        thirteenthMonthPay: new Prisma.Decimal(7500), // Half of basic salary
       };
       
       vi.mocked(thirteenthMonthPayRepository.create).mockResolvedValue(partialYearRecord);
@@ -447,16 +470,18 @@ describe('ThirteenthMonthPayService', () => {
         recordId: 'TMP-2025-006',
         employeeId: 'EMP006',
         employeeName: 'Mid-year Hire',
-        department: 'Marketing',
         year: 2025,
-        basicSalary: 15000,
-        totalMonthsWorked: 6,
+        totalBasicSalary: 90000,
+        totalLwop: 0,
+        totalAbsencesLates: 0,
+        netBasicSalary: 90000,
+        monthsWorked: 6,
         thirteenthMonthPay: 7500,
         status: 'pending',
       });
       
-      expect(result.totalMonthsWorked).toBe(6);
-      expect(result.thirteenthMonthPay).toBe(7500);
+      expect(result.monthsWorked).toBe(6);
+      expect(result.thirteenthMonthPay.toString()).toBe('7500');
     });
 
     it('should handle update with id in data (should be excluded)', async () => {
@@ -465,7 +490,7 @@ describe('ThirteenthMonthPayService', () => {
       vi.mocked(thirteenthMonthPayRepository.findById).mockResolvedValue(mockRecord);
       vi.mocked(thirteenthMonthPayRepository.update).mockResolvedValue({
         ...mockRecord,
-        thirteenthMonthPay: 16000,
+        thirteenthMonthPay: new Prisma.Decimal(16000),
       });
       
       await thirteenthMonthPayService.update('1', updateData);
