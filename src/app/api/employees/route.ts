@@ -85,10 +85,13 @@ export async function GET(request: NextRequest) {
         contact: true,
         department: true,
         position: true,
+        jobTitle: true,
+        employeeType: true,
         status: true,
         hireDate: true,
         basicSalary: true,
         currentSalary: true,
+        allowance: true,
         // Exclude heavy fields for list view:
         // - profilePhoto (can be large base64 string)
         // - address, notes (text fields not needed in list)

@@ -134,7 +134,9 @@ export default function Team() {
     {
       key: 'jobTitle',
       label: 'JOB TITLE',
-      render: (item) => <Text size="sm">{item.jobTitle}</Text>,
+      render: (item) => (
+        <Text size="sm">{item.jobTitle || item.position || 'N/A'}</Text>
+      ),
     },
     {
       key: 'employeeType',
