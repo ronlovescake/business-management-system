@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import {
   TextInput,
   NumberInput,
@@ -26,7 +26,7 @@ interface LoanFormDialogProps {
   onSave: (data: EmployeeLoanFormData) => void;
 }
 
-export function LoanFormDialog({
+export const LoanFormDialog = React.memo(function LoanFormDialog({
   opened,
   editingLoan,
   onClose,
@@ -412,4 +412,4 @@ export function LoanFormDialog({
       </Stack>
     </PolishedModal>
   );
-}
+});

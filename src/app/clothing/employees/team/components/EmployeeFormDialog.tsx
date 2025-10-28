@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import {
   TextInput,
   NumberInput,
@@ -26,7 +26,7 @@ interface EmployeeFormDialogProps {
   onSave: (data: EmployeeFormData) => void;
 }
 
-export function EmployeeFormDialog({
+export const EmployeeFormDialog = React.memo(function EmployeeFormDialog({
   opened,
   editingEmployee,
   onClose,
@@ -779,4 +779,4 @@ export function EmployeeFormDialog({
       </div>
     </PolishedModal>
   );
-}
+});

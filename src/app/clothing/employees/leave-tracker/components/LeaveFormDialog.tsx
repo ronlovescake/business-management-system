@@ -52,7 +52,7 @@ interface LeaveFormDialogProps {
   employeeLeaveAllocation: { remaining: number; used: number; total: number };
 }
 
-export function LeaveFormDialog({
+export const LeaveFormDialog = React.memo(function LeaveFormDialog({
   opened,
   onClose,
   editingRequest,
@@ -321,4 +321,4 @@ export function LeaveFormDialog({
       </Stack>
     </PolishedModal>
   );
-}
+});
