@@ -229,7 +229,7 @@ export const RequestFormDialog = React.memo(function RequestFormDialog({
           withCheckIcon={false}
         />
 
-        <Group gap="lg" align="flex-start" grow>
+        <Group gap="lg" align="flex-start">
           <NumberInput
             label="Amount"
             required
@@ -253,6 +253,7 @@ export const RequestFormDialog = React.memo(function RequestFormDialog({
                 },
               },
             }}
+            style={{ flex: 1 }}
           />
 
           <DateInput
@@ -267,6 +268,20 @@ export const RequestFormDialog = React.memo(function RequestFormDialog({
             {...requestDateField.handlers}
             styles={withHiddenError(requestDateField.styles)}
             error={form.errors.requestDate ? ' ' : undefined}
+            popoverProps={{
+              withinPortal: true,
+              position: 'bottom-start',
+              width: 320,
+              styles: {
+                dropdown: {
+                  width: 'min(320px, calc(100vw - 2.5rem))',
+                },
+              },
+            }}
+            style={{
+              flex: '0 0 260px',
+              maxWidth: '320px',
+            }}
           />
         </Group>
 
