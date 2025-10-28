@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { SimpleGrid, Card, Text, Group } from '@mantine/core';
 import {
   IconCalendarEvent,
@@ -18,7 +19,7 @@ interface StatsCardsProps {
  *
  * Shows overview statistics for schedules
  */
-export function StatsCards({
+export const StatsCards = memo(function StatsCards({
   totalSchedules,
   scheduledCount,
   completedCount,
@@ -100,4 +101,4 @@ export function StatsCards({
       ))}
     </SimpleGrid>
   );
-}
+});
