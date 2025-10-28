@@ -671,6 +671,11 @@ export default function EmployeeDetailPage() {
                 color: theme.colors.gray[8],
               },
             },
+            tabsList: {
+              '&::before': {
+                display: 'none', // Remove default border
+              },
+            },
           })}
         >
           <Tabs.List>
