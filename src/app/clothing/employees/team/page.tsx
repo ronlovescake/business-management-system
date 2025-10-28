@@ -1,8 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useRouter } from 'next/navigation'
-import { TeamErrorBoundary } from './components/TeamErrorBoundary';;
+import { useRouter } from 'next/navigation';
 import { Stack, Text, Badge, Tabs, Paper, Group, Avatar } from '@mantine/core';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import {
