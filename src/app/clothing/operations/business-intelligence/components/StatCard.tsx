@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Card, Group, Text, Title, ThemeIcon } from '@mantine/core';
 import type { Icon } from '@tabler/icons-react';
 
@@ -8,7 +9,7 @@ interface StatCardProps {
   color: string;
 }
 
-export function StatCard({
+export const StatCard = memo(function StatCard({
   title,
   value,
   icon: IconComponent,
@@ -40,4 +41,4 @@ export function StatCard({
       </Group>
     </Card>
   );
-}
+});

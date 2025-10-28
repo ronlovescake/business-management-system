@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Card, Stack, Title, SimpleGrid, Text, Group } from '@mantine/core';
 import type { CustomerStats } from '../types';
 import { formatCurrency, getRateColor } from '../utils';
@@ -10,7 +11,7 @@ interface CustomerAnalyticsProps {
   stats: CustomerStats;
 }
 
-export function CustomerAnalytics({ stats }: CustomerAnalyticsProps) {
+export const CustomerAnalytics = memo(function CustomerAnalytics({ stats }: CustomerAnalyticsProps) {
   const customerValue =
     stats.totalSpent >= 10000
       ? 'High'
@@ -176,4 +177,4 @@ export function CustomerAnalytics({ stats }: CustomerAnalyticsProps) {
       </Stack>
     </Card>
   );
-}
+});

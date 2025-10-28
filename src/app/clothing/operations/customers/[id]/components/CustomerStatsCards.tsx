@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Card, Group, Text, Title, ThemeIcon, SimpleGrid } from '@mantine/core';
 import { IconReceipt, IconCheck, IconX } from '@tabler/icons-react';
 import type { CustomerStats } from '../types';
@@ -11,7 +12,7 @@ interface CustomerStatsCardsProps {
   stats: CustomerStats;
 }
 
-export function CustomerStatsCards({ stats }: CustomerStatsCardsProps) {
+export const CustomerStatsCards = memo(function CustomerStatsCards({ stats }: CustomerStatsCardsProps) {
   return (
     <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
       {/* Total Transactions Card */}
@@ -124,4 +125,4 @@ export function CustomerStatsCards({ stats }: CustomerStatsCardsProps) {
       </Card>
     </SimpleGrid>
   );
-}
+});

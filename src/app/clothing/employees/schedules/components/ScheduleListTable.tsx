@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import {
   Stack,
   Card,
@@ -44,7 +45,7 @@ interface ScheduleListTableProps {
  * - Mark Completed/Cancelled buttons for scheduled shifts
  * - Edit and Delete actions
  */
-export function ScheduleListTable({
+export const ScheduleListTable = memo(function ScheduleListTable({
   schedules,
   formatDate,
   formatTime,
@@ -324,4 +325,4 @@ export function ScheduleListTable({
       </Card>
     </Stack>
   );
-}
+});

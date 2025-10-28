@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Grid, Paper, Text, Group } from '@mantine/core';
 import type { CashAdvanceStats } from '../types';
 
@@ -5,7 +6,7 @@ interface StatsCardsProps {
   stats: CashAdvanceStats[];
 }
 
-export function StatsCards({ stats }: StatsCardsProps) {
+export const StatsCards = memo(function StatsCards({ stats }: StatsCardsProps) {
   return (
     <Grid mb="md">
       {stats.map((stat, index) => {
@@ -51,4 +52,4 @@ export function StatsCards({ stats }: StatsCardsProps) {
       })}
     </Grid>
   );
-}
+});

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import {
   Modal,
   Stack,
@@ -34,7 +35,7 @@ interface EditCustomerModalProps {
   setEditForm: React.Dispatch<React.SetStateAction<Partial<CustomerData>>>;
 }
 
-export function EditCustomerModal({
+export const EditCustomerModal = memo(function EditCustomerModal({
   opened,
   customer,
   editForm,
@@ -408,4 +409,4 @@ export function EditCustomerModal({
       </Stack>
     </Modal>
   );
-}
+});

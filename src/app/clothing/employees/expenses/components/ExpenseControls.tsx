@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import {
   Card,
   Stack,
@@ -40,7 +40,7 @@ interface ExpenseControlsProps {
  *
  * Header section with tabs, filters, and action buttons
  */
-export function ExpenseControls({
+export const ExpenseControls = memo(function ExpenseControls({
   activeTab,
   onTabChange,
   searchQuery,
@@ -157,4 +157,4 @@ export function ExpenseControls({
       </Stack>
     </Card>
   );
-}
+});

@@ -1,4 +1,4 @@
-import { useState, useMemo, cloneElement, isValidElement } from 'react';
+import { useState, useMemo, cloneElement, isValidElement, memo } from 'react';
 import type { ReactNode } from 'react';
 import {
   Card,
@@ -31,7 +31,7 @@ interface CalendarViewProps {
   bulkActions?: ReactNode;
 }
 
-export function CalendarView({
+export const CalendarView = memo(function CalendarView({
   schedules,
   getShiftTypeColor,
   getStatusColor: _getStatusColor,
@@ -420,4 +420,4 @@ export function CalendarView({
       </Card>
     </Stack>
   );
-}
+});

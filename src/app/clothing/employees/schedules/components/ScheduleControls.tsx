@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import {
   Card,
   Stack,
@@ -50,7 +50,7 @@ interface ScheduleControlsProps {
  *
  * Header section with tabs, filters, and action buttons
  */
-export function ScheduleControls({
+export const ScheduleControls = memo(function ScheduleControls({
   activeTab,
   onTabChange,
   searchQuery,
@@ -191,4 +191,4 @@ export function ScheduleControls({
       </Stack>
     </Card>
   );
-}
+});

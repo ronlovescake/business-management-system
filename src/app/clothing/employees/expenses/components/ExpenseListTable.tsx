@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import {
   Stack,
   Card,
@@ -40,7 +41,7 @@ interface ExpenseListTableProps {
  * - Approve/Reject buttons for pending expenses
  * - Edit and Delete actions
  */
-export function ExpenseListTable({
+export const ExpenseListTable = memo(function ExpenseListTable({
   expenses,
   filteredExpenses,
   formatDate,
@@ -283,4 +284,4 @@ export function ExpenseListTable({
       </Card>
     </Stack>
   );
-}
+});

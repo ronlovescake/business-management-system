@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Card, Stack, Title, Group, Text, ThemeIcon } from '@mantine/core';
 import {
   IconUser,
@@ -16,7 +17,7 @@ interface CustomerInfoCardProps {
   customer: CustomerData;
 }
 
-export function CustomerInfoCard({ customer }: CustomerInfoCardProps) {
+export const CustomerInfoCard = memo(function CustomerInfoCard({ customer }: CustomerInfoCardProps) {
   return (
     <Card shadow="sm" padding="lg" radius="md" withBorder>
       <Stack gap="sm">
@@ -92,4 +93,4 @@ export function CustomerInfoCard({ customer }: CustomerInfoCardProps) {
       </Stack>
     </Card>
   );
-}
+});

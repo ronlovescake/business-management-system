@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, memo } from 'react';
 import {
   ActionIcon,
   Badge,
@@ -34,7 +34,7 @@ interface RecurringRuleDraft extends Omit<RecurringRule, 'id'> {
   id?: string;
 }
 
-export function CalendarBulkActions({
+export const CalendarBulkActions = memo(function CalendarBulkActions({
   recurringRules,
   onSaveRule,
   onDeleteRule,
@@ -386,4 +386,4 @@ export function CalendarBulkActions({
       </Modal>
     </>
   );
-}
+});

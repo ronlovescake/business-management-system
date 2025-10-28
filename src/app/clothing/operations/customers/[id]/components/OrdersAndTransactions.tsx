@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Card, Tabs, Stack, Text, Table, Group, Badge } from '@mantine/core';
 import type { Order, Transaction, CustomerStats } from '../types';
 import {
@@ -17,7 +18,7 @@ interface OrdersAndTransactionsProps {
   stats: CustomerStats;
 }
 
-export function OrdersAndTransactions({
+export const OrdersAndTransactions = memo(function OrdersAndTransactions({
   orders,
   transactions,
   stats,
@@ -214,4 +215,4 @@ export function OrdersAndTransactions({
       </Tabs>
     </Card>
   );
-}
+});

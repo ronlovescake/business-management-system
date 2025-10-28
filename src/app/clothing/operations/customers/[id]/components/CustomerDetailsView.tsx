@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import {
   Stack,
   Group,
@@ -30,7 +31,7 @@ interface CustomerDetailsViewProps {
   customerId: string;
 }
 
-export function CustomerDetailsView({ customerId }: CustomerDetailsViewProps) {
+export const CustomerDetailsView = memo(function CustomerDetailsView({ customerId }: CustomerDetailsViewProps) {
   const router = useRouter();
   const {
     customer,
@@ -150,4 +151,4 @@ export function CustomerDetailsView({ customerId }: CustomerDetailsViewProps) {
       />
     </Stack>
   );
-}
+});

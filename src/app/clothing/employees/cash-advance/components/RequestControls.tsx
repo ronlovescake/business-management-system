@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Group, TextInput, Select, Button, FileButton } from '@mantine/core';
 import {
   IconSearch,
@@ -16,7 +17,7 @@ interface RequestControlsProps {
   onAddRequest: () => void;
 }
 
-export function RequestControls({
+export const RequestControls = memo(function RequestControls({
   searchQuery,
   statusFilter,
   onSearchChange,
@@ -88,4 +89,4 @@ export function RequestControls({
       </Group>
     </>
   );
-}
+});

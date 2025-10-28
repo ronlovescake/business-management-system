@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import {
   Card,
   Table,
@@ -30,7 +31,7 @@ interface RequestListTableProps {
   onMarkAsPaid: (id: string) => void;
 }
 
-export function RequestListTable({
+export const RequestListTable = memo(function RequestListTable({
   requests,
   formatDate,
   formatCurrency,
@@ -189,4 +190,4 @@ export function RequestListTable({
       </Box>
     </Card>
   );
-}
+});

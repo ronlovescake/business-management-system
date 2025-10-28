@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, memo } from 'react';
 import { NumberInput, Select, Textarea } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { ComposedDialog } from '@/components/shared/Dialog';
@@ -11,7 +11,7 @@ interface ThirteenthMonthPayFormDialogProps {
   onSave: (data: ThirteenthMonthPayFormData) => void;
 }
 
-export function ThirteenthMonthPayFormDialog({
+export const ThirteenthMonthPayFormDialog = memo(function ThirteenthMonthPayFormDialog({
   opened,
   editingRecord,
   onClose,
@@ -345,4 +345,4 @@ export function ThirteenthMonthPayFormDialog({
       </div>
     </ComposedDialog>
   );
-}
+});

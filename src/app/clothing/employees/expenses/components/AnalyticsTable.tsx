@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Card, Box, Table, Text, Badge, Group, Progress } from '@mantine/core';
 import type { MonthlyBreakdown } from '../hooks/useExpenses';
 
@@ -13,7 +14,7 @@ interface AnalyticsTableProps {
  *
  * Displays expense analytics by category with monthly breakdown
  */
-export function AnalyticsTable({
+export const AnalyticsTable = memo(function AnalyticsTable({
   monthlyBreakdown,
   totalExpenses,
   formatCurrency,
@@ -168,4 +169,4 @@ export function AnalyticsTable({
       </Box>
     </Card>
   );
-}
+});

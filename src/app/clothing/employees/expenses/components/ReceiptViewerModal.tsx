@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Modal, Group, Text, Tooltip, ActionIcon, Box } from '@mantine/core';
 import {
   IconZoomOut,
@@ -24,7 +24,7 @@ interface ReceiptViewerModalProps {
  *
  * Modal for viewing and downloading receipt images with zoom controls
  */
-export function ReceiptViewerModal({
+export const ReceiptViewerModal = memo(function ReceiptViewerModal({
   opened,
   onClose,
   receiptData,
@@ -115,4 +115,4 @@ export function ReceiptViewerModal({
       )}
     </Modal>
   );
-}
+});

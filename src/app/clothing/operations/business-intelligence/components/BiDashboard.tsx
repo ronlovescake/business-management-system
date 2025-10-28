@@ -1,6 +1,6 @@
 'use client';
 
-import { Profiler } from 'react';
+import { Profiler, memo } from 'react';
 import {
   Stack,
   Text,
@@ -49,7 +49,7 @@ import { CHART_COLORS } from '../constants';
 import type { DateFilterType } from '../types';
 import { onRenderCallback } from '@/lib/performance/monitoring';
 
-export function BiDashboard() {
+export const BiDashboard = memo(function BiDashboard() {
   const {
     dateFilter,
     setDateFilter,
@@ -648,4 +648,4 @@ export function BiDashboard() {
     </Stack>
     </Profiler>
   );
-}
+});

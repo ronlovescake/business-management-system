@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Paper, Group, Text, Grid } from '@mantine/core';
 import {
   IconReceipt,
@@ -23,7 +24,7 @@ interface StatsCardsProps {
  * - Approved Total
  * - This Month's Expenses
  */
-export function StatsCards({
+export const StatsCards = memo(function StatsCards({
   totalExpenses,
   pendingExpenses,
   approvedExpenses,
@@ -122,4 +123,4 @@ export function StatsCards({
       ))}
     </Grid>
   );
-}
+});
