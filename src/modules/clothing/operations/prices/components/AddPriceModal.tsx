@@ -4,7 +4,7 @@ import {
   Stack,
   Group,
   Text,
-  TextInput,
+  Select,
   NumberInput,
   Button,
   ThemeIcon,
@@ -19,6 +19,7 @@ interface AddPriceModalProps {
   opened: boolean;
   onClose: () => void;
   form: PriceFormData;
+  productCodeOptions: string[];
   onProductCodeChange: (value: string) => void;
   onTierChange: (
     index: number,
@@ -37,6 +38,7 @@ export const AddPriceModal = memo(function AddPriceModal({
   opened,
   onClose,
   form,
+  productCodeOptions,
   onProductCodeChange,
   onTierChange,
   onPriceAdjustmentChange,
@@ -142,12 +144,15 @@ export const AddPriceModal = memo(function AddPriceModal({
             </Text>
           </Group>
 
-          <TextInput
+          <Select
             label="Product Code"
-            placeholder="e.g. TSH-001"
+            placeholder="Select or search product code"
             withAsterisk
             size="md"
             radius="md"
+            searchable
+            clearable
+            data={productCodeOptions}
             styles={{
               label: { fontWeight: 500, marginBottom: 8 },
               input: {
@@ -156,7 +161,7 @@ export const AddPriceModal = memo(function AddPriceModal({
               },
             }}
             value={form.productCode}
-            onChange={(e) => onProductCodeChange(e.target.value)}
+            onChange={(value) => onProductCodeChange(value || '')}
           />
 
           {/* Pricing Tiers */}
@@ -241,61 +246,43 @@ export const AddPriceModal = memo(function AddPriceModal({
 
                     <NumberInput
                       label="Upper Limit"
-                      placeholder="100"
+                      placeholder="Auto-calculated"
                       size="md"
                       radius="md"
-                      min={0}
                       hideControls
-                      disabled={!isTierEnabled}
+                      readOnly
+                      tabIndex={-1}
                       styles={{
                         label: { fontWeight: 500, marginBottom: 8 },
                         input: {
                           borderWidth: 2,
-                          '&:focus': {
-                            borderColor: 'var(--mantine-color-green-5)',
-                          },
-                          backgroundColor: !isTierEnabled
-                            ? 'var(--mantine-color-gray-1)'
-                            : undefined,
-                          color: !isTierEnabled
-                            ? 'var(--mantine-color-gray-5)'
-                            : undefined,
+                          backgroundColor: 'var(--mantine-color-gray-1)',
+                          color: 'var(--mantine-color-gray-7)',
+                          cursor: 'not-allowed',
                         },
                       }}
                       value={tier.upperLimit}
-                      onChange={(value) =>
-                        onTierChange(index, 'upperLimit', Number(value) || 0)
-                      }
                     />
 
                     <NumberInput
                       label="Price"
-                      placeholder="₱350"
+                      placeholder="Auto-calculated"
                       size="md"
                       radius="md"
                       prefix="₱"
-                      min={0}
                       hideControls
-                      disabled={!isTierEnabled}
+                      readOnly
+                      tabIndex={-1}
                       styles={{
                         label: { fontWeight: 500, marginBottom: 8 },
                         input: {
                           borderWidth: 2,
-                          '&:focus': {
-                            borderColor: 'var(--mantine-color-green-5)',
-                          },
-                          backgroundColor: !isTierEnabled
-                            ? 'var(--mantine-color-gray-1)'
-                            : undefined,
-                          color: !isTierEnabled
-                            ? 'var(--mantine-color-gray-5)'
-                            : undefined,
+                          backgroundColor: 'var(--mantine-color-gray-1)',
+                          color: 'var(--mantine-color-gray-7)',
+                          cursor: 'not-allowed',
                         },
                       }}
                       value={tier.price}
-                      onChange={(value) =>
-                        onTierChange(index, 'price', Number(value) || 0)
-                      }
                     />
                   </SimpleGrid>
                 </div>

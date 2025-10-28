@@ -96,6 +96,30 @@ class PriceService {
   }
 
   /**
+   * Convert form data to array of price data (all filled tiers)
+   * Returns one PriceData object per tier that has values
+   */
+  static formToMultiplePriceData(form: PriceFormData): PriceData[] {
+    const priceDataArray: PriceData[] = [];
+
+    // Iterate through all tiers and create a PriceData object for each filled tier
+    for (const tier of form.tiers) {
+      // Only add tier if it has a lower limit set (meaning it's been filled)
+      if (tier.lowerLimit > 0) {
+        priceDataArray.push({
+          'Product Code': form.productCode.trim(),
+          'Lower Limit': tier.lowerLimit,
+          'Upper Limit': tier.upperLimit,
+          Prices: tier.price,
+          'Price Adjustment': form.priceAdjustment,
+        });
+      }
+    }
+
+    return priceDataArray;
+  }
+
+  /**
    * Create empty price form
    */
   static createEmptyForm(): PriceFormData {
@@ -347,7 +371,7 @@ class PriceService {
   }
 
   /**
-   * Add a new price
+   * Add a single price
    */
   static async addPrice(price: PriceData): Promise<boolean> {
     try {
@@ -355,6 +379,19 @@ class PriceService {
       return true;
     } catch (error) {
       logger.error('Error adding price:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Add multiple prices (for multi-tier pricing)
+   */
+  static async addMultiplePrices(prices: PriceData[]): Promise<boolean> {
+    try {
+      await api.post('/api/prices', prices);
+      return true;
+    } catch (error) {
+      logger.error('Error adding multiple prices:', error);
       return false;
     }
   }

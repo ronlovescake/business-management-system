@@ -184,19 +184,19 @@ export class ProductService {
 
     return {
       id: existingProduct?.id,
-      'Shipment Code': form.shipmentCode.trim(),
+      'Shipment Code': form.shipmentCode?.trim() || '',
       'CV Number': existingProduct?.['CV Number'] || '',
       'No. Of Sacks': existingProduct?.['No. Of Sacks'] || 0,
       'Total CBM': existingProduct?.['Total CBM'] || 0,
       Weight: existingProduct?.Weight || 0,
       'Shipment Status': existingProduct?.['Shipment Status'] || '',
-      'Posting Date': form.postingDate,
-      'Order Date': form.orderDate,
-      Payment: form.payment,
-      Product: form.product.trim(),
+      'Posting Date': form.postingDate || '',
+      'Order Date': form.orderDate || '',
+      Payment: form.payment || '',
+      Product: form.product?.trim() || '',
       'Product Code': productCode,
-      'Age Range': form.ageRange,
-      Unit: form.unit,
+      'Age Range': form.ageRange || '',
+      Unit: form.unit || '',
       'Unit Price': form.unitPrice,
       Quantity: form.quantity,
       'Alibaba Shipping Cost': form.alibabaShippingCost,
@@ -658,11 +658,19 @@ export class ProductService {
   /**
    * Load products with shipment integration
    * Fetches products and enriches with shipment data
+   * Sorted by newest first (highest ID first)
    */
   static async loadProducts(): Promise<ProductData[]> {
     try {
       // Fetch products from API
       const products = await api.get<ProductData[]>('/api/products');
+
+      // Sort by ID descending (newest first)
+      const sortedProducts = products.sort((a, b) => {
+        const idA = a.id || 0;
+        const idB = b.id || 0;
+        return idB - idA; // Descending order
+      });
 
       // Fetch shipments for lookup
       let shipments: ShipmentData[] = [];
@@ -673,11 +681,11 @@ export class ProductService {
         logger.warn(
           'Failed to fetch shipments, continuing without shipment data'
         );
-        return products;
+        return sortedProducts;
       }
 
       // Enrich products with shipment data
-      return products.map((product) => {
+      return sortedProducts.map((product) => {
         if (product['Shipment Code']) {
           const shipment = shipments.find(
             (s) => s['Shipment Code'] === product['Shipment Code']

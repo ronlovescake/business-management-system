@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { PriceFormData, PriceData } from '../types/price.types';
 import { PriceService } from '../services/PriceService';
+import { api } from '@/lib/api/client';
+import { logger } from '@/lib/logger';
 
 /**
  * Custom hook for managing price form state and operations
@@ -15,6 +17,32 @@ export function usePriceForm() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingPrice, setEditingPrice] = useState<PriceData | null>(null);
+  const [productCodeOptions, setProductCodeOptions] = useState<string[]>([]);
+
+  /**
+   * Fetch product codes for dropdown
+   */
+  const fetchProductCodes = useCallback(async () => {
+    try {
+      const products = await api.get<Array<Record<string, unknown>>>('/api/products');
+      const codes = products
+        .map((p) => p['Product Code'] as string)
+        .filter(Boolean)
+        .sort();
+      setProductCodeOptions(codes);
+      logger.info(`Fetched ${codes.length} product codes`);
+    } catch (error) {
+      logger.error('Failed to fetch product codes:', error);
+      setProductCodeOptions([]);
+    }
+  }, []);
+
+  /**
+   * Fetch product codes on mount
+   */
+  useEffect(() => {
+    fetchProductCodes();
+  }, [fetchProductCodes]);
 
   /**
    * Reset form to empty state
@@ -24,14 +52,94 @@ export function usePriceForm() {
   }, []);
 
   /**
-   * Update product code
+   * Fetch product by product code and auto-populate price
+   * Logic:
+   * - Find the highest tier with a lower limit > 0 (the "active" tier)
+   * - Set that tier's price to the actual price
+   * - Set each tier above it to actual price + (₱5 * number of tiers down)
+   * Example: If Tier 2 is active:
+   *   - Tier 2 = Actual Price
+   *   - Tier 1 = Actual Price + ₱5
+   */
+  const fetchProductAndPopulatePrice = useCallback(async (productCode: string) => {
+    if (!productCode.trim()) {
+      return;
+    }
+
+    try {
+      // Fetch all products
+      const products = await api.get<Array<Record<string, unknown>>>('/api/products');
+      
+      // Find the product by product code
+      const product = products.find(
+        (p) => p['Product Code'] === productCode.trim()
+      );
+
+      if (product && product['Actual Price']) {
+        const actualPrice = Number(product['Actual Price']) || 0;
+        
+        // Auto-populate prices based on filled tiers
+        setForm((prev) => {
+          const newTiers = [...prev.tiers];
+          
+          // Find the highest tier with lower limit > 0
+          let highestFilledTierIndex = -1;
+          for (let i = newTiers.length - 1; i >= 0; i--) {
+            if (newTiers[i].lowerLimit > 0) {
+              highestFilledTierIndex = i;
+              break;
+            }
+          }
+          
+          // If no tier has lower limit, default to Tier 1 (index 0)
+          if (highestFilledTierIndex === -1) {
+            highestFilledTierIndex = 0;
+          }
+          
+          // Set the highest filled tier to actual price
+          newTiers[highestFilledTierIndex] = {
+            ...newTiers[highestFilledTierIndex],
+            price: actualPrice,
+          };
+          
+          // Set each tier above it with +₱5 markup per tier
+          for (let i = highestFilledTierIndex - 1; i >= 0; i--) {
+            const tierDifference = highestFilledTierIndex - i;
+            newTiers[i] = {
+              ...newTiers[i],
+              price: actualPrice + (5 * tierDifference),
+            };
+          }
+          
+          logger.info(`Auto-populated prices for ${productCode} with highest tier at index ${highestFilledTierIndex}`);
+          
+          return {
+            ...prev,
+            tiers: newTiers,
+          };
+        });
+      } else {
+        logger.warn(`Product not found or has no actual price: ${productCode}`);
+      }
+    } catch (error) {
+      logger.error('Failed to fetch product:', error);
+    }
+  }, []);
+
+  /**
+   * Update product code and fetch product data
    */
   const setProductCode = useCallback((productCode: string) => {
     setForm((prev) => ({
       ...prev,
       productCode,
     }));
-  }, []);
+
+    // Fetch product and auto-populate price when product code is entered
+    if (productCode.trim()) {
+      fetchProductAndPopulatePrice(productCode);
+    }
+  }, [fetchProductAndPopulatePrice]);
 
   /**
    * Update tier field
@@ -79,6 +187,22 @@ export function usePriceForm() {
             // Also update Tier 3's Upper Limit to be 1 less than Tier 4's Lower Limit
             newTiers[2].upperLimit = numValue - 1;
           }
+          
+          // After updating lower limit, recalculate prices if product code is set
+          const updatedForm = {
+            ...prev,
+            tiers: newTiers,
+          };
+          
+          // Trigger price recalculation after state update
+          if (prev.productCode.trim()) {
+            // Schedule the recalculation to happen after this state update
+            setTimeout(() => {
+              fetchProductAndPopulatePrice(prev.productCode);
+            }, 0);
+          }
+          
+          return updatedForm;
         } else {
           // For upperLimit and price, just update the field
           newTiers[index][field] = numValue;
@@ -90,7 +214,7 @@ export function usePriceForm() {
         };
       });
     },
-    []
+    [fetchProductAndPopulatePrice]
   );
 
   /**
@@ -189,6 +313,10 @@ export function usePriceForm() {
     isAddOpen,
     isEditOpen,
     editingPrice,
+
+    // Product codes
+    productCodeOptions,
+    fetchProductCodes,
 
     // Form fields
     setProductCode,

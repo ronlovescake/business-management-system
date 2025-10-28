@@ -57,17 +57,17 @@ export function PricesPage() {
     handleSearch: handleSearchData,
     stats,
     isLoading,
-    addPrice: addPriceToData,
     replaceAllPrices,
+    reloadPrices,
   } = usePricesData();
 
   const {
     form,
     isAddOpen,
+    productCodeOptions,
     setProductCode,
     updateTier,
     setPriceAdjustment,
-    formToPriceData,
     openAddModal,
     closeAddModal,
     resetForm,
@@ -304,11 +304,22 @@ export function PricesPage() {
 
   // Handle add price submission
   const handleAddPriceSubmit = async () => {
-    const priceData = formToPriceData();
-    const success = await addPriceToData(priceData);
-    if (!success) {
-      throw new Error('Failed to add price');
+    // Convert form to multiple price data (one per tier)
+    const priceDataArray = PriceService.formToMultiplePriceData(form);
+    
+    if (priceDataArray.length === 0) {
+      throw new Error('No tiers filled');
     }
+    
+    // Add all tiers at once
+    const success = await PriceService.addMultiplePrices(priceDataArray);
+    
+    if (!success) {
+      throw new Error('Failed to add prices');
+    }
+    
+    // Reload prices to show the new tiers
+    await reloadPrices();
   };
 
   if (isLoading) {
@@ -447,6 +458,7 @@ export function PricesPage() {
           opened={isAddOpen}
           onClose={closeAddModal}
           form={form}
+          productCodeOptions={productCodeOptions}
           onProductCodeChange={setProductCode}
           onTierChange={updateTier}
           onPriceAdjustmentChange={setPriceAdjustment}
