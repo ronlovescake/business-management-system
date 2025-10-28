@@ -65,6 +65,7 @@ export function PricesPage() {
     form,
     isAddOpen,
     productCodeOptions,
+    fetchProductCodes,
     setProductCode,
     updateTier,
     setPriceAdjustment,
@@ -320,6 +321,9 @@ export function PricesPage() {
     
     // Reload prices to show the new tiers
     await reloadPrices();
+    
+    // Refresh product codes dropdown to exclude newly added product
+    await fetchProductCodes();
   };
 
   if (isLoading) {

@@ -87,7 +87,7 @@ export async function GET() {
   }
 }
 
-// POST - Create multiple prices (for CSV import)
+// POST - Create multiple prices (for CSV import or adding new prices)
 export async function POST(request: NextRequest) {
   try {
     const rawData = await request.json();
@@ -124,7 +124,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await prisma.price.deleteMany();
+    // ========================================================================
+    // ⚠️ IMPORT MODE DETECTION
+    // Check if this is a CSV import (large batch) or adding new prices (small batch)
+    // CSV imports: delete all first then import
+    // Adding prices: just insert/update without deleting
+    // ========================================================================
+    const isCSVImport = pricesData.length > 10; // CSV imports typically have many records
+    
+    if (isCSVImport) {
+      await prisma.price.deleteMany();
+      logger.info(`CSV import mode: cleared existing prices before import`);
+    }
 
     // Filter out empty rows and invalid data
     const validPricesData = pricesData.filter((priceData) => {

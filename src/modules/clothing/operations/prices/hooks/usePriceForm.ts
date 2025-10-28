@@ -21,16 +21,28 @@ export function usePriceForm() {
 
   /**
    * Fetch product codes for dropdown
+   * Excludes product codes that already have prices
    */
   const fetchProductCodes = useCallback(async () => {
     try {
+      // Fetch all products
       const products = await api.get<Array<Record<string, unknown>>>('/api/products');
+      
+      // Fetch existing prices to filter out product codes that already have prices
+      const prices = await api.get<PriceData[]>('/api/prices');
+      const existingProductCodes = new Set(
+        prices.map((p) => p['Product Code'])
+      );
+      
+      // Filter out product codes that already have prices
       const codes = products
         .map((p) => p['Product Code'] as string)
         .filter(Boolean)
+        .filter((code) => !existingProductCodes.has(code))
         .sort();
+      
       setProductCodeOptions(codes);
-      logger.info(`Fetched ${codes.length} product codes`);
+      logger.info(`Fetched ${codes.length} available product codes (${existingProductCodes.size} already priced)`);
     } catch (error) {
       logger.error('Failed to fetch product codes:', error);
       setProductCodeOptions([]);
@@ -247,7 +259,9 @@ export function usePriceForm() {
   const openAddModal = useCallback(() => {
     resetForm();
     setIsAddOpen(true);
-  }, [resetForm]);
+    // Refresh product codes to ensure latest available list
+    fetchProductCodes();
+  }, [resetForm, fetchProductCodes]);
 
   /**
    * Close add modal
