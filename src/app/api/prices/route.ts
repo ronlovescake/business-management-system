@@ -68,7 +68,7 @@ export async function GET() {
       where: {
         deletedAt: null,
       },
-      orderBy: { id: 'asc' },
+      orderBy: { createdAt: 'desc' }, // Newest first
     });
 
     // Convert database format to UI format
