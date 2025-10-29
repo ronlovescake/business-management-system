@@ -33,7 +33,7 @@ export function DistributionSummaryBar({
     .toLocaleString();
   const availableStock = statistics.availableStock.toLocaleString();
   const availableStockColor = statistics.availableStock < 0 ? 'red' : undefined;
-  const totalReservation = statistics.totalReservation.toLocaleString();
+  const totalOrders = statistics.totalReservation.toLocaleString();
 
   const gridTemplateColumns = columnLayout
     ? [columnLayout.rowHeaderWidth, ...columnLayout.colWidths]
@@ -83,10 +83,10 @@ export function DistributionSummaryBar({
 
         <Stack gap={2} align="center" justify="center">
           <Text size="xs" c="dimmed" fw={600} tt="uppercase" lh={1.2}>
-            Total Reservation
+            Total Orders
           </Text>
           <Text size="sm" fw={600}>
-            {totalReservation}
+            {totalOrders}
           </Text>
         </Stack>
 

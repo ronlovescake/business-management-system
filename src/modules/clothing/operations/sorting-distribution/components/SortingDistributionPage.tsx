@@ -22,7 +22,6 @@ import 'handsontable/styles/handsontable.min.css';
 import 'handsontable/styles/ht-theme-horizon.min.css';
 import '@/styles/handsontable-horizon-light.css';
 import { InfoSection } from './InfoSection';
-import { QuantityPillButtons } from './QuantityPillButtons';
 import {
   DistributionSummaryBar,
   type ColumnLayout,
@@ -617,14 +616,10 @@ export function SortingDistributionPage() {
           ordered={form.ordered}
           productOptions={dataHook.productOptions}
           statistics={dataHook.statistics}
-          onItemChange={handleItemChange}
-        />
-
-        {/* Quantity Pill Buttons */}
-        <QuantityPillButtons
           uniqueQuantities={dataHook.uniqueQuantities}
           selectedQuantity={selectedQuantity}
           onSelectQuantity={setSelectedQuantity}
+          onItemChange={handleItemChange}
         />
 
         {/* Distribution Grid with Handsontable */}

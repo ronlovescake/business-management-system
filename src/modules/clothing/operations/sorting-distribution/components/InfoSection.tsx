@@ -7,6 +7,7 @@
 import React from 'react';
 import { Card, Stack, Group, Text, Select, Flex } from '@mantine/core';
 import type { SortingDistributionStatistics } from '../types/sortingDistribution.types';
+import { QuantityPillButtons } from './QuantityPillButtons';
 
 export interface InfoSectionProps {
   // Form fields
@@ -16,6 +17,11 @@ export interface InfoSectionProps {
 
   // Statistics
   statistics: SortingDistributionStatistics;
+
+  // Quantity filters
+  uniqueQuantities: number[];
+  selectedQuantity: number | null;
+  onSelectQuantity: (quantity: number | null) => void;
 
   // Actions
   onItemChange: (item: string) => void;
@@ -30,6 +36,9 @@ export function InfoSection({
   ordered,
   productOptions,
   statistics,
+  uniqueQuantities,
+  selectedQuantity,
+  onSelectQuantity,
   onItemChange,
 }: InfoSectionProps) {
   const Stat = ({
@@ -82,8 +91,17 @@ export function InfoSection({
             placeholder="Select a product..."
             searchable
             clearable
-            comboboxProps={{ withinPortal: false }}
+            comboboxProps={{ withinPortal: true }}
           />
+          {uniqueQuantities.length > 0 && (
+            <Group gap="xs" wrap="wrap">
+              <QuantityPillButtons
+                uniqueQuantities={uniqueQuantities}
+                selectedQuantity={selectedQuantity}
+                onSelectQuantity={onSelectQuantity}
+              />
+            </Group>
+          )}
         </Stack>
 
         <Group
@@ -95,31 +113,12 @@ export function InfoSection({
         >
           <Stat label="Ordered" value={(ordered || '0').toString()} />
           <Stat
-            label="Est. Qty. Received"
-            value={statistics.estQtyReceived.toLocaleString()}
-          />
-          <Stat
-            label="Total Reservation"
-            value={statistics.totalReservation.toLocaleString()}
-          />
-          <Stat
-            label="Available Stock"
-            value={statistics.availableStock.toLocaleString()}
-            color={statistics.availableStock < 0 ? 'red' : undefined}
-            emphasize
-          />
-          <Stat
             label="Total Customers"
             value={statistics.totalCustomers.toLocaleString()}
           />
           <Stat
             label="Customer w/ Order Qty"
             value={statistics.customerWithOrderQty.toLocaleString()}
-          />
-          <Stat
-            label="Total Distribution"
-            value={statistics.totalDistribution.toLocaleString()}
-            emphasize
           />
         </Group>
       </Flex>
