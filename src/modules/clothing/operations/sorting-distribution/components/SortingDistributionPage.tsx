@@ -19,6 +19,7 @@ import { InfoSection } from './InfoSection';
 import { QuantityPillButtons } from './QuantityPillButtons';
 import { useSortingDistributionData } from '../hooks/useSortingDistributionData';
 import { useSortingDistributionForm } from '../hooks/useSortingDistributionForm';
+import type { HotTableClass } from '@handsontable/react';
 
 // Register Handsontable modules
 registerAllModules();
@@ -27,7 +28,295 @@ registerAllModules();
  * Sorting Distribution Page Component
  */
 export function SortingDistributionPage() {
-  const hotTableRef = useRef(null);
+  const hotTableRef = useRef<HotTableClass | null>(null);
+  const isEffectivelyEmpty = useCallback((value: unknown) => {
+    if (value === null || value === undefined) {
+      return true;
+    }
+    if (typeof value === 'string') {
+      return value.trim() === '';
+    }
+    if (typeof value === 'number') {
+      return value === 0;
+    }
+    if (typeof value === 'boolean') {
+      return !value;
+    }
+    return false;
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) {
+        return;
+      }
+      if (
+        event.key !== 'ArrowDown' &&
+        event.key !== 'ArrowUp' &&
+        event.key !== 'ArrowLeft' &&
+        event.key !== 'ArrowRight'
+      ) {
+        return;
+      }
+
+      const hot = hotTableRef.current?.hotInstance ?? null;
+      if (!hot) {
+        return;
+      }
+
+      const lastSelection = hot.getSelectedLast();
+      if (!lastSelection) {
+        return;
+      }
+
+      const [startRow, startCol, endRow, endCol] = lastSelection;
+      const currentRow = endRow ?? startRow;
+      const currentCol = endCol ?? startCol;
+
+      if (
+        currentRow === null ||
+        currentRow === undefined ||
+        currentCol === null ||
+        currentCol === undefined
+      ) {
+        return;
+      }
+
+      const columnsSetting = hot.getSettings().columns;
+      const getColumnDataId = (colIndex: number) => {
+        if (!Array.isArray(columnsSetting)) {
+          return undefined;
+        }
+        const config = columnsSetting[colIndex] as
+          | { data?: string }
+          | undefined;
+        return typeof config?.data === 'string' ? config.data : undefined;
+      };
+      const isCheckboxColumn = (colIndex: number) =>
+        getColumnDataId(colIndex) === 'checked';
+
+      if (isCheckboxColumn(currentCol)) {
+        return;
+      }
+
+      const isCellEmpty = (row: number, col: number) => {
+        if (row < 0 || col < 0) {
+          return true;
+        }
+        if (isCheckboxColumn(col)) {
+          return false;
+        }
+        const value = hot.getDataAtCell(row, col);
+        return isEffectivelyEmpty(value);
+      };
+
+      let targetRow = currentRow;
+      let targetCol = currentCol;
+
+      if (event.key === 'ArrowDown') {
+        const maxRow = hot.countRows() - 1;
+        const currentEmpty = isCellEmpty(currentRow, currentCol);
+        if (currentEmpty) {
+          for (let row = currentRow + 1; row <= maxRow; row += 1) {
+            if (!isCellEmpty(row, currentCol)) {
+              targetRow = row;
+              break;
+            }
+          }
+          if (targetRow === currentRow) {
+            targetRow = maxRow;
+          }
+        } else {
+          let lastNonEmpty = currentRow;
+          for (let row = currentRow + 1; row <= maxRow; row += 1) {
+            if (!isCellEmpty(row, currentCol)) {
+              lastNonEmpty = row;
+            } else {
+              break;
+            }
+          }
+          if (lastNonEmpty > currentRow) {
+            targetRow = lastNonEmpty;
+          } else {
+            for (let row = currentRow + 1; row <= maxRow; row += 1) {
+              if (!isCellEmpty(row, currentCol)) {
+                targetRow = row;
+                break;
+              }
+            }
+            if (targetRow === currentRow) {
+              targetRow = maxRow;
+            }
+          }
+        }
+      } else if (event.key === 'ArrowUp') {
+        const currentEmpty = isCellEmpty(currentRow, currentCol);
+        if (currentEmpty) {
+          for (let row = currentRow - 1; row >= 0; row -= 1) {
+            if (!isCellEmpty(row, currentCol)) {
+              targetRow = row;
+              break;
+            }
+          }
+          if (targetRow === currentRow) {
+            targetRow = 0;
+          }
+        } else {
+          let firstNonEmpty = currentRow;
+          for (let row = currentRow - 1; row >= 0; row -= 1) {
+            if (!isCellEmpty(row, currentCol)) {
+              firstNonEmpty = row;
+            } else {
+              break;
+            }
+          }
+          if (firstNonEmpty < currentRow) {
+            targetRow = firstNonEmpty;
+          } else {
+            for (let row = currentRow - 1; row >= 0; row -= 1) {
+              if (!isCellEmpty(row, currentCol)) {
+                targetRow = row;
+                break;
+              }
+            }
+            if (targetRow === currentRow) {
+              targetRow = 0;
+            }
+          }
+        }
+      } else if (event.key === 'ArrowRight') {
+        const maxCol = hot.countCols() - 1;
+        const currentEmpty = isCellEmpty(currentRow, currentCol);
+        if (currentEmpty) {
+          for (let col = currentCol + 1; col <= maxCol; col += 1) {
+            if (isCheckboxColumn(col)) {
+              continue;
+            }
+            if (!isCellEmpty(currentRow, col)) {
+              targetCol = col;
+              break;
+            }
+          }
+          if (targetCol === currentCol) {
+            let fallbackCol = maxCol;
+            while (fallbackCol > currentCol && isCheckboxColumn(fallbackCol)) {
+              fallbackCol -= 1;
+            }
+            targetCol = fallbackCol >= 0 ? fallbackCol : currentCol;
+          }
+        } else {
+          let lastNonEmpty = currentCol;
+          for (let col = currentCol + 1; col <= maxCol; col += 1) {
+            if (isCheckboxColumn(col)) {
+              continue;
+            }
+            if (!isCellEmpty(currentRow, col)) {
+              lastNonEmpty = col;
+            } else {
+              break;
+            }
+          }
+          if (lastNonEmpty > currentCol) {
+            targetCol = lastNonEmpty;
+          } else {
+            for (let col = currentCol + 1; col <= maxCol; col += 1) {
+              if (isCheckboxColumn(col)) {
+                continue;
+              }
+              if (!isCellEmpty(currentRow, col)) {
+                targetCol = col;
+                break;
+              }
+            }
+            if (targetCol === currentCol) {
+              let fallbackCol = maxCol;
+              while (
+                fallbackCol > currentCol &&
+                isCheckboxColumn(fallbackCol)
+              ) {
+                fallbackCol -= 1;
+              }
+              targetCol = fallbackCol >= 0 ? fallbackCol : currentCol;
+            }
+          }
+        }
+      } else if (event.key === 'ArrowLeft') {
+        const currentEmpty = isCellEmpty(currentRow, currentCol);
+        if (currentEmpty) {
+          for (let col = currentCol - 1; col >= 0; col -= 1) {
+            if (isCheckboxColumn(col)) {
+              continue;
+            }
+            if (!isCellEmpty(currentRow, col)) {
+              targetCol = col;
+              break;
+            }
+          }
+          if (targetCol === currentCol) {
+            let fallbackCol = 0;
+            while (fallbackCol < currentCol && isCheckboxColumn(fallbackCol)) {
+              fallbackCol += 1;
+            }
+            targetCol =
+              fallbackCol <= hot.countCols() - 1 ? fallbackCol : currentCol;
+          }
+        } else {
+          let firstNonEmpty = currentCol;
+          for (let col = currentCol - 1; col >= 0; col -= 1) {
+            if (isCheckboxColumn(col)) {
+              continue;
+            }
+            if (!isCellEmpty(currentRow, col)) {
+              firstNonEmpty = col;
+            } else {
+              break;
+            }
+          }
+          if (firstNonEmpty < currentCol) {
+            targetCol = firstNonEmpty;
+          } else {
+            for (let col = currentCol - 1; col >= 0; col -= 1) {
+              if (isCheckboxColumn(col)) {
+                continue;
+              }
+              if (!isCellEmpty(currentRow, col)) {
+                targetCol = col;
+                break;
+              }
+            }
+            if (targetCol === currentCol) {
+              let fallbackCol = 0;
+              while (
+                fallbackCol < currentCol &&
+                isCheckboxColumn(fallbackCol)
+              ) {
+                fallbackCol += 1;
+              }
+              targetCol =
+                fallbackCol <= hot.countCols() - 1 ? fallbackCol : currentCol;
+            }
+          }
+        }
+      }
+
+      if (targetRow === currentRow && targetCol === currentCol) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof event.stopImmediatePropagation === 'function') {
+        event.stopImmediatePropagation();
+      }
+
+      hot.selectCell(targetRow, targetCol);
+    };
+
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, true);
+    };
+  }, [isEffectivelyEmpty]);
 
   // Form state
   const [selectedQuantity, setSelectedQuantity] = useState<number | null>(null);
@@ -131,19 +420,33 @@ export function SortingDistributionPage() {
       value: unknown,
       cellProperties: unknown
     ) => {
-      // Call default text renderer
+      // Call default text renderer first so Handsontable maintains editors and formatting
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const textRenderer = (window as any).Handsontable?.renderers?.TextRenderer;
+      const textRenderer = (window as any).Handsontable?.renderers
+        ?.TextRenderer;
       if (textRenderer) {
         textRenderer(instance, td, row, col, prop, value, cellProperties);
       } else {
-        td.textContent = value !== null && value !== undefined ? String(value) : '';
+        td.textContent =
+          value !== null && value !== undefined ? String(value) : '';
       }
-      
+
       // Apply center alignment
       td.style.textAlign = 'center';
       td.style.verticalAlign = 'middle';
-      
+
+      // Hide zeroes to keep the grid visually clean while preserving the underlying values
+      const shouldHideZero =
+        prop !== 'checked' &&
+        prop !== 'percentage' &&
+        value !== '' &&
+        value !== null &&
+        value !== undefined &&
+        Number(value) === 0;
+      if (shouldHideZero) {
+        td.textContent = '';
+      }
+
       const rowData = dataHook.rows[row];
       if (rowData?.checked) {
         td.style.backgroundColor = '#f0f0f0';
@@ -165,7 +468,7 @@ export function SortingDistributionPage() {
           number,
           string,
           unknown,
-          unknown
+          unknown,
         ];
         if (oldValue === newValue) {
           return;
@@ -173,9 +476,10 @@ export function SortingDistributionPage() {
 
         if (prop === 'quantity') {
           // Quantity column - handle both number and string (empty string becomes 0)
-          const numValue = newValue === '' || newValue === null || newValue === undefined 
-            ? 0 
-            : Number(newValue);
+          const numValue =
+            newValue === '' || newValue === null || newValue === undefined
+              ? 0
+              : Number(newValue);
           dataHook.updateRowQuantity(row, isNaN(numValue) ? 0 : numValue);
         } else if (prop === 'checked') {
           // Checkbox column
