@@ -14,7 +14,7 @@ import React, {
   useEffect,
   useLayoutEffect,
 } from 'react';
-import { Stack } from '@mantine/core';
+import { Stack, useCombobox } from '@mantine/core';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { HotTable } from '@handsontable/react';
 import { registerAllModules } from 'handsontable/registry';
@@ -347,6 +347,64 @@ export function SortingDistributionPage() {
 
   const { totalDistribution, availableStock } = dataHook.statistics;
 
+  const productSelectCombobox = useCombobox();
+
+  const focusSearchInputSafely = useCallback(() => {
+    let attempts = 0;
+    const tryFocus = () => {
+      const searchInput = productSelectCombobox.searchRef.current;
+      if (searchInput) {
+        searchInput.focus();
+        searchInput.select();
+        return;
+      }
+
+      if (attempts >= 3) {
+        productSelectCombobox.focusTarget();
+        return;
+      }
+
+      attempts += 1;
+      requestAnimationFrame(tryFocus);
+    };
+
+    tryFocus();
+  }, [productSelectCombobox]);
+
+  const focusProductSelect = useCallback(() => {
+    productSelectCombobox.openDropdown('keyboard');
+    requestAnimationFrame(() => {
+      productSelectCombobox.updateSelectedOptionIndex('selected', {
+        scrollIntoView: true,
+      });
+      focusSearchInputSafely();
+    });
+  }, [productSelectCombobox, focusSearchInputSafely]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return undefined;
+    }
+
+    const handleShortcut = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) {
+        return;
+      }
+      if (event.key.toLowerCase() !== 'f') {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      focusProductSelect();
+    };
+
+    document.addEventListener('keydown', handleShortcut, true);
+    return () => {
+      document.removeEventListener('keydown', handleShortcut, true);
+    };
+  }, [focusProductSelect]);
+
   const [columnLayout, setColumnLayout] = useState<ColumnLayout | null>(null);
 
   const updateColumnLayout = useCallback(() => {
@@ -619,6 +677,7 @@ export function SortingDistributionPage() {
           uniqueQuantities={dataHook.uniqueQuantities}
           selectedQuantity={selectedQuantity}
           onSelectQuantity={setSelectedQuantity}
+          productSelectCombobox={productSelectCombobox}
           onItemChange={handleItemChange}
         />
 

@@ -5,7 +5,15 @@
  */
 
 import React from 'react';
-import { Card, Stack, Group, Text, Select, Flex } from '@mantine/core';
+import {
+  Card,
+  Stack,
+  Group,
+  Text,
+  Select,
+  Flex,
+  type ComboboxStore,
+} from '@mantine/core';
 import type { SortingDistributionStatistics } from '../types/sortingDistribution.types';
 import { QuantityPillButtons } from './QuantityPillButtons';
 
@@ -23,6 +31,9 @@ export interface InfoSectionProps {
   selectedQuantity: number | null;
   onSelectQuantity: (quantity: number | null) => void;
 
+  // Combobox store
+  productSelectCombobox: ComboboxStore;
+
   // Actions
   onItemChange: (item: string) => void;
 }
@@ -39,8 +50,38 @@ export function InfoSection({
   uniqueQuantities,
   selectedQuantity,
   onSelectQuantity,
+  productSelectCombobox,
   onItemChange,
 }: InfoSectionProps) {
+  const SELECT_WIDTH_PX = 500;
+  const ITEM_HEIGHT_PX = 36;
+  const DROPDOWN_PADDING_PX = 16;
+  const dropdownHeight = productOptions.length
+    ? productOptions.length * ITEM_HEIGHT_PX + DROPDOWN_PADDING_PX
+    : undefined;
+
+  const focusSearchInputSafely = React.useCallback(() => {
+    let attempts = 0;
+    const tryFocus = () => {
+      const searchInput = productSelectCombobox.searchRef.current;
+      if (searchInput) {
+        searchInput.focus();
+        searchInput.select();
+        return;
+      }
+
+      if (attempts >= 3) {
+        productSelectCombobox.focusTarget();
+        return;
+      }
+
+      attempts += 1;
+      requestAnimationFrame(tryFocus);
+    };
+
+    tryFocus();
+  }, [productSelectCombobox]);
+
   const Stat = ({
     label,
     value,
@@ -80,21 +121,55 @@ export function InfoSection({
         wrap="wrap"
         style={{ rowGap: '0.75rem' }}
       >
-        <Stack gap={6} style={{ minWidth: '260px', flex: '0 0 auto' }}>
-          <Text size="xs" c="dimmed" fw={600} tt="uppercase" lh={1.2}>
-            Product Code
-          </Text>
-          <Select
-            value={item}
-            onChange={(value) => onItemChange(value || '')}
-            data={productOptions}
-            placeholder="Select a product..."
-            searchable
-            clearable
-            comboboxProps={{ withinPortal: true }}
-          />
+        <Group
+          gap="lg"
+          align="flex-end"
+          wrap="wrap"
+          style={{ alignSelf: 'stretch', flex: '1 1 auto' }}
+        >
+          <Stack
+            gap={6}
+            style={{
+              minWidth: '260px',
+              maxWidth: `${SELECT_WIDTH_PX}px`,
+              width: '100%',
+              flex: '0 0 auto',
+            }}
+          >
+            <Text size="xs" c="dimmed" fw={600} tt="uppercase" lh={1.2}>
+              Product Code
+            </Text>
+            <Select
+              value={item}
+              onChange={(value) => onItemChange(value || '')}
+              data={productOptions}
+              placeholder="Select a product..."
+              searchable
+              clearable
+              style={{ width: '100%' }}
+              maxDropdownHeight={dropdownHeight}
+              onDropdownOpen={() => {
+                productSelectCombobox.updateSelectedOptionIndex('selected', {
+                  scrollIntoView: true,
+                });
+                focusSearchInputSafely();
+              }}
+              comboboxProps={{
+                withinPortal: true,
+                store: productSelectCombobox,
+                styles: {
+                  dropdown: {
+                    width: `${SELECT_WIDTH_PX}px`,
+                    maxHeight: dropdownHeight ? `${dropdownHeight}px` : 'none',
+                    boxShadow: '0 12px 30px rgba(15, 23, 42, 0.25)',
+                  },
+                },
+              }}
+            />
+          </Stack>
+
           {uniqueQuantities.length > 0 && (
-            <Group gap="xs" wrap="wrap">
+            <Group gap="xs" wrap="wrap" style={{ alignSelf: 'flex-end' }}>
               <QuantityPillButtons
                 uniqueQuantities={uniqueQuantities}
                 selectedQuantity={selectedQuantity}
@@ -102,7 +177,7 @@ export function InfoSection({
               />
             </Group>
           )}
-        </Stack>
+        </Group>
 
         <Group
           gap="lg"
