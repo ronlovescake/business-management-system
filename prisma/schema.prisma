@@ -14,20 +14,20 @@ model HealthCheck {
 }
 
 model Customer {
-  id                    Int      @id @default(autoincrement())
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  date                  String   @db.VarChar(50)
-  customerName          String   @db.VarChar(255)
-  phoneNumber           String   @db.VarChar(100)
-  address               String   @db.VarChar(500)
-  facebook              String   @db.VarChar(255)
-  emailAddress          String   @db.VarChar(255)
-  businessName          String   @db.VarChar(255)
-  taxNumber             String   @db.VarChar(100)
-  businessAddress       String   @db.VarChar(500)
-  businessContactNumber String   @db.VarChar(100)
-  customerStatus        String   @db.VarChar(50)
+  id                    Int       @id @default(autoincrement())
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  date                  String    @db.VarChar(50)
+  customerName          String    @db.VarChar(255)
+  phoneNumber           String    @db.VarChar(100)
+  address               String    @db.VarChar(500)
+  facebook              String    @db.VarChar(255)
+  emailAddress          String    @db.VarChar(255)
+  businessName          String    @db.VarChar(255)
+  taxNumber             String    @db.VarChar(100)
+  businessAddress       String    @db.VarChar(500)
+  businessContactNumber String    @db.VarChar(100)
+  customerStatus        String    @db.VarChar(50)
   deletedAt             DateTime?
 
   @@index([customerName])
@@ -36,17 +36,17 @@ model Customer {
 }
 
 model Price {
-  id              Int      @id @default(autoincrement())
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @default(now()) @updatedAt
-  productCode     String   @db.VarChar(100)
+  id              Int       @id @default(autoincrement())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now()) @updatedAt
+  productCode     String    @db.VarChar(100)
   lowerLimit      Int
   upperLimit      Int
   currentPrice    Int
-  priceAdjustment Int      @default(0)
-  description     String?  @db.VarChar(500)
-  category        String?  @db.VarChar(100)
-  isActive        Boolean  @default(true)
+  priceAdjustment Int       @default(0)
+  description     String?   @db.VarChar(500)
+  category        String?   @db.VarChar(100)
+  isActive        Boolean   @default(true)
   deletedAt       DateTime?
 
   @@index([productCode])
@@ -56,41 +56,41 @@ model Price {
 }
 
 model Product {
-  id                     Int      @id @default(autoincrement())
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
-  shipmentCode           String?  @db.VarChar(100)
-  cvNumber               String?  @db.VarChar(100)
-  noOfSacks              Float    @default(0)
-  totalCBM               Float    @default(0)
-  weight                 Float    @default(0)
-  shipmentStatus         String?  @db.VarChar(100)
-  postingDate            String?  @db.VarChar(50)
-  orderDate              String?  @db.VarChar(50)
-  payment                String?  @db.VarChar(100)
-  product                String?  @db.VarChar(500)
-  productCode            String?  @db.VarChar(100)
-  ageRange               String?  @db.VarChar(100)
-  unit                   String?  @db.VarChar(50)
-  unitPrice              Float    @default(0)
-  quantity               Float    @default(0)
-  alibabaShippingCost    Float    @default(0)
-  exchangeRates          Float    @default(0)
-  php                    Float    @default(0)
-  subTotalPHP            Float    @default(0)
-  transactionFee         Float    @default(0)
-  grandTotal             Float    @default(0)
-  forwardersFee          Float    @default(0)
-  lalamove               Float    @default(0)
-  packagingCost          Float    @default(0)
-  suggestedPrice         Float    @default(0)
-  actualPrice            Float    @default(0)
-  basePrice              Float    @default(0)
-  cogs                   Float    @default(0)
-  projectedSales         Float    @default(0)
-  projectedProfit        Float    @default(0)
-  projectedProfitPercent Float    @default(0)
-  totalMarkup            Float    @default(0)
+  id                     Int       @id @default(autoincrement())
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  shipmentCode           String?   @db.VarChar(100)
+  cvNumber               String?   @db.VarChar(100)
+  noOfSacks              Float     @default(0)
+  totalCBM               Float     @default(0)
+  weight                 Float     @default(0)
+  shipmentStatus         String?   @db.VarChar(100)
+  postingDate            String?   @db.VarChar(50)
+  orderDate              String?   @db.VarChar(50)
+  payment                String?   @db.VarChar(100)
+  product                String?   @db.VarChar(500)
+  productCode            String?   @db.VarChar(100)
+  ageRange               String?   @db.VarChar(100)
+  unit                   String?   @db.VarChar(50)
+  unitPrice              Float     @default(0)
+  quantity               Float     @default(0)
+  alibabaShippingCost    Float     @default(0)
+  exchangeRates          Float     @default(0)
+  php                    Float     @default(0)
+  subTotalPHP            Float     @default(0)
+  transactionFee         Float     @default(0)
+  grandTotal             Float     @default(0)
+  forwardersFee          Float     @default(0)
+  lalamove               Float     @default(0)
+  packagingCost          Float     @default(0)
+  suggestedPrice         Float     @default(0)
+  actualPrice            Float     @default(0)
+  basePrice              Float     @default(0)
+  cogs                   Float     @default(0)
+  projectedSales         Float     @default(0)
+  projectedProfit        Float     @default(0)
+  projectedProfitPercent Float     @default(0)
+  totalMarkup            Float     @default(0)
   deletedAt              DateTime?
 
   @@index([productCode])
@@ -102,21 +102,21 @@ model Product {
 }
 
 model Shipment {
-  id            Int      @id @default(autoincrement())
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  shipmentCode  String   @db.VarChar(100)
-  cvNumber      String?  @db.VarChar(100)
-  noOfSacks     Int      @default(0)
-  totalCBM      Float    @default(0)
-  weight        Float    @default(0)
-  fee           Float    @default(0)
-  shipmentStatus String  @db.VarChar(100)
-  dateCreated   String?  @db.VarChar(50)
-  dateDelivered String?  @db.VarChar(50)
-  duration      String?  @db.VarChar(20)
-  notes         String?  @db.Text
-  deletedAt     DateTime?
+  id             Int       @id @default(autoincrement())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  shipmentCode   String    @db.VarChar(100)
+  cvNumber       String?   @db.VarChar(100)
+  noOfSacks      Int       @default(0)
+  totalCBM       Float     @default(0)
+  weight         Float     @default(0)
+  fee            Float     @default(0)
+  shipmentStatus String    @db.VarChar(100)
+  dateCreated    String?   @db.VarChar(50)
+  dateDelivered  String?   @db.VarChar(50)
+  duration       String?   @db.VarChar(20)
+  notes          String?
+  deletedAt      DateTime?
 
   @@index([shipmentCode])
   @@index([shipmentStatus])
@@ -124,53 +124,49 @@ model Shipment {
 }
 
 model Transaction {
-  id           Int      @id @default(autoincrement())
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  orderDate    String?  @db.VarChar(50)
-  customers    String?  @db.VarChar(255)
-  productCode  String?  @db.VarChar(100)
+  id           Int       @id @default(autoincrement())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  orderDate    String?   @db.VarChar(50)
+  customers    String?   @db.VarChar(255)
+  productCode  String?   @db.VarChar(100)
   quantity     Float?
   unitPrice    Float?
   discount     Float?
   adjustment   Float?
   lineTotal    Float?
-  orderStatus  String?  @db.VarChar(100)
-  notes        String?  @db.Text
-  invoiceDate  String?  @db.VarChar(50)
-  packedDate   String?  @db.VarChar(50)
-  shipmentCode String?  @db.VarChar(100)
+  orderStatus  String?   @db.VarChar(100)
+  notes        String?
+  invoiceDate  String?   @db.VarChar(50)
+  packedDate   String?   @db.VarChar(50)
+  shipmentCode String?   @db.VarChar(100)
   deletedAt    DateTime?
 
-  // Single-column indexes
   @@index([orderDate])
   @@index([customers])
   @@index([productCode])
   @@index([orderStatus])
   @@index([shipmentCode])
-  
-  // Composite indexes for common query patterns
-  @@index([customers, deletedAt]) // For customer transaction history
-  @@index([orderStatus, deletedAt]) // For status-based transaction filtering
-  @@index([productCode, deletedAt]) // For product transaction history
-  @@index([orderDate, deletedAt]) // For date-based transaction queries
-  
+  @@index([customers, deletedAt])
+  @@index([orderStatus, deletedAt])
+  @@index([productCode, deletedAt])
+  @@index([orderDate, deletedAt])
   @@map("transactions")
 }
 
 model SortingDistribution {
-  id                  Int      @id @default(autoincrement())
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  productCode         String   @db.VarChar(100)
-  selectedQuantity    Int?
-  rowNumber           Int
-  quantity            Float    @default(0)
-  percentage          Float    @default(0)
-  groupNumber         String   @default("") @db.VarChar(50)
-  distribution        Float    @default(0)
-  checked             Boolean  @default(false)
-  deletedAt           DateTime?
+  id               Int       @id @default(autoincrement())
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  productCode      String    @db.VarChar(100)
+  selectedQuantity Int?
+  rowNumber        Int
+  quantity         Float     @default(0)
+  percentage       Float     @default(0)
+  groupNumber      String    @default("") @db.VarChar(50)
+  distribution     Float     @default(0)
+  checked          Boolean   @default(false)
+  deletedAt        DateTime?
 
   @@unique([productCode, rowNumber])
   @@index([productCode])
@@ -178,22 +174,18 @@ model SortingDistribution {
   @@map("sorting_distributions")
 }
 
-// ============================================================================
-// MODULE MARKETPLACE & PLUGIN SYSTEM MODELS
-// ============================================================================
-
 model InstalledModule {
   id          String   @id @default(cuid())
   moduleId    String   @unique
   name        String   @db.VarChar(255)
   version     String   @db.VarChar(50)
   enabled     Boolean  @default(true)
-  source      String   @db.VarChar(50) // 'local' | 'marketplace' | 'npm' | 'git'
+  source      String   @db.VarChar(50)
   installPath String?  @db.VarChar(500)
-  config      Json // Store full ModulePackage config
+  config      Json
   installedAt DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  installedBy String?  @db.VarChar(100) // User ID who installed it
+  installedBy String?  @db.VarChar(100)
 
   @@index([moduleId])
   @@index([enabled])
@@ -202,26 +194,26 @@ model InstalledModule {
 }
 
 model ModuleMarketplace {
-  id           String    @id @default(cuid())
-  moduleId     String    @unique
-  name         String    @db.VarChar(255)
-  description  String?   @db.Text
-  version      String    @db.VarChar(50)
-  author       String    @db.VarChar(255)
-  authorEmail  String?   @db.VarChar(255)
-  downloadUrl  String    @db.VarChar(1000)
-  repository   String?   @db.VarChar(500)
-  license      String?   @db.VarChar(100)
-  size         Int? // in bytes
-  downloads    Int       @default(0)
-  rating       Float?
-  screenshots  String[] // Array of image URLs
-  keywords     String[]
-  config       Json // Full ModulePackage config
-  published    Boolean   @default(false)
-  publishedAt  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id          String    @id @default(cuid())
+  moduleId    String    @unique
+  name        String    @db.VarChar(255)
+  description String?
+  version     String    @db.VarChar(50)
+  author      String    @db.VarChar(255)
+  authorEmail String?   @db.VarChar(255)
+  downloadUrl String    @db.VarChar(1000)
+  repository  String?   @db.VarChar(500)
+  license     String?   @db.VarChar(100)
+  size        Int?
+  downloads   Int       @default(0)
+  rating      Float?
+  screenshots String[]
+  keywords    String[]
+  config      Json
+  published   Boolean   @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([moduleId])
   @@index([published])
@@ -244,10 +236,6 @@ model AuditLog {
   @@map("audit_logs")
 }
 
-// ============================================================================
-// EXPENSES MODULE
-// ============================================================================
-
 model Expense {
   id           Int      @id @default(autoincrement())
   createdAt    DateTime @default(now())
@@ -256,138 +244,97 @@ model Expense {
   amount       Float
   description  String   @db.VarChar(500)
   category     String   @db.VarChar(100)
-  notes        String?  @db.Text
+  notes        String?
   receipt      String?  @db.VarChar(500)
-  status       String   @db.VarChar(20) // 'pending' | 'approved' | 'rejected'
+  status       String   @db.VarChar(20)
   employeeName String?  @db.VarChar(255)
 
-  // Single-column indexes
   @@index([date])
   @@index([category])
   @@index([status])
   @@index([employeeName])
-  
-  // Composite indexes for common query patterns
-  @@index([status, date]) // For expense approval queries by date
-  @@index([employeeName, status]) // For employee expense filtering
-  @@index([category, status]) // For category-based expense reporting
-  
+  @@index([status, date])
+  @@index([employeeName, status])
+  @@index([category, status])
   @@map("expenses")
 }
 
-// ============================================================================
-// EMPLOYEES MODULE
-// ============================================================================
-
 model Employee {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  deletedAt DateTime?
-
-  // Employee Identification
-  employeeId String  @unique @db.VarChar(50)
-  
-  // Name Fields
-  firstName  String  @db.VarChar(100)
-  lastName   String  @db.VarChar(100)
-  middleName String? @db.VarChar(100)
-  name       String  @db.VarChar(255) // Full name for backward compatibility
-
-  // Contact Information
-  email                    String? @db.VarChar(255)
-  phone                    String? @db.VarChar(50)
-  contact                  String  @db.VarChar(50) // Primary contact
-  address                  String? @db.Text
-  emergencyContactPerson   String? @db.VarChar(255)
-  emergencyContactNumber   String? @db.VarChar(50)
-  emergencyContact         String? @db.VarChar(50) // Legacy field
-
-  // Employment Details
-  department       String   @db.VarChar(100)
-  position         String   @db.VarChar(100)
-  jobTitle         String   @db.VarChar(100) // Legacy field
-  status           String   @db.VarChar(20) // 'active' | 'inactive' | 'on-leave'
-  employmentStatus String?  @db.VarChar(50) // 'probationary' | 'regular' | 'contractual' | 'project-based'
-  employeeType     String?  @db.VarChar(50) // 'full-time' | 'part-time' | 'contractor' | 'intern'
-  office           String?  @db.VarChar(255)
-  hiringSource     String?  @db.VarChar(100)
-  hireDate         String   @db.VarChar(50)
-
-  // Compensation
-  basicSalary     Float
-  currentSalary   Float?
-  allowance       Float?
-  paymentSchedule String? @db.VarChar(50) // 'weekly' | 'bi-weekly' | 'monthly' | 'semi-monthly'
-
-  // Statutory Monthly Contributions
-  sssMonthlyContribution        Float?
-  philHealthMonthlyContribution Float?
+  id                            Int       @id @default(autoincrement())
+  createdAt                     DateTime  @default(now())
+  updatedAt                     DateTime  @updatedAt
+  deletedAt                     DateTime?
+  employeeId                    String    @unique @db.VarChar(50)
+  firstName                     String    @db.VarChar(100)
+  lastName                      String    @db.VarChar(100)
+  middleName                    String?   @db.VarChar(100)
+  name                          String    @db.VarChar(255)
+  email                         String?   @db.VarChar(255)
+  phone                         String?   @db.VarChar(50)
+  contact                       String    @db.VarChar(50)
+  address                       String?
+  emergencyContactPerson        String?   @db.VarChar(255)
+  emergencyContactNumber        String?   @db.VarChar(50)
+  emergencyContact              String?   @db.VarChar(50)
+  department                    String    @db.VarChar(100)
+  position                      String    @db.VarChar(100)
+  jobTitle                      String    @db.VarChar(100)
+  status                        String    @db.VarChar(20)
+  employmentStatus              String?   @db.VarChar(50)
+  employeeType                  String?   @db.VarChar(50)
+  office                        String?   @db.VarChar(255)
+  hiringSource                  String?   @db.VarChar(100)
+  hireDate                      String    @db.VarChar(50)
+  basicSalary                   Float
+  currentSalary                 Float?
+  allowance                     Float?
+  paymentSchedule               String?   @db.VarChar(50)
+  bankAccount                   String?   @db.VarChar(255)
+  gcashAccount                  String?   @db.VarChar(50)
+  sssNumber                     String?   @db.VarChar(50)
+  philHealthNumber              String?   @db.VarChar(50)
+  hdmfNumber                    String?   @db.VarChar(50)
+  tinNumber                     String?   @db.VarChar(50)
+  gender                        String?   @db.VarChar(20)
+  dateOfBirth                   String?   @db.VarChar(50)
+  maritalStatus                 String?   @db.VarChar(20)
+  numberOfKids                  Int?
+  education                     String?   @db.VarChar(255)
+  drivingLicense                String?   @db.VarChar(100)
+  profilePhoto                  String?
   pagibigMonthlyContribution    Float?
+  philHealthMonthlyContribution Float?
+  sssMonthlyContribution        Float?
   taxMonthlyContribution        Float?
 
-  // Financial Accounts
-  bankAccount  String? @db.VarChar(255)
-  gcashAccount String? @db.VarChar(50)
-
-  // Government IDs
-  sssNumber        String? @db.VarChar(50)
-  philHealthNumber String? @db.VarChar(50)
-  hdmfNumber       String? @db.VarChar(50)
-  tinNumber        String? @db.VarChar(50)
-
-  // Personal Information
-  gender         String? @db.VarChar(20) // 'male' | 'female' | 'other' | 'prefer-not-to-say'
-  dateOfBirth    String? @db.VarChar(50)
-  maritalStatus  String? @db.VarChar(20) // 'single' | 'married' | 'divorced' | 'widowed'
-  numberOfKids   Int?
-  education      String? @db.VarChar(255)
-  drivingLicense String? @db.VarChar(100)
-  profilePhoto   String? @db.Text
-
-  // Single-column indexes
   @@index([employeeId])
   @@index([department])
   @@index([status])
   @@index([firstName, lastName])
   @@index([deletedAt])
-  
-  // Composite indexes for common query patterns
-  @@index([deletedAt, employeeId]) // For active employee lookups
-  @@index([status, deletedAt]) // For active employee filtering by status
-  @@index([department, deletedAt]) // For department-based queries
-  
+  @@index([deletedAt, employeeId])
+  @@index([status, deletedAt])
+  @@index([department, deletedAt])
   @@map("employees")
 }
 
-// ============================================================================
-// LEAVE TRACKER MODULE
-// ============================================================================
-
 model LeaveRequest {
-  id           Int      @id @default(autoincrement())
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  // Employee Information
-  employeeId   String?  @db.VarChar(50)
-  employeeName String   @db.VarChar(255)
-
-  // Leave Details
-  leaveType    String   @db.VarChar(50) // 'Sick Leave' | 'Vacation Leave' | 'Emergency Leave' | 'Maternity Leave' | 'Paternity Leave' | 'Bereavement Leave' | 'Other'
-  startDate    String   @db.VarChar(50)
-  endDate      String   @db.VarChar(50)
-  numberOfDays Int
-  reason       String   @db.Text
-
-  // Status & Approval
-  status        String   @db.VarChar(20) // 'pending' | 'approved' | 'rejected'
+  id            Int      @id @default(autoincrement())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  employeeId    String?  @db.VarChar(50)
+  employeeName  String   @db.VarChar(255)
+  leaveType     String   @db.VarChar(50)
+  startDate     String   @db.VarChar(50)
+  endDate       String   @db.VarChar(50)
+  numberOfDays  Int
+  reason        String
+  status        String   @db.VarChar(20)
   appliedDate   String   @db.VarChar(50)
   approvedBy    String?  @db.VarChar(255)
-  notes         String?  @db.Text
-  paymentStatus String   @default("unpaid") @db.VarChar(20) // 'paid' | 'unpaid' | 'not-applicable'
+  notes         String?
+  paymentStatus String   @default("unpaid") @db.VarChar(20)
 
-  // Single-column indexes
   @@index([employeeId])
   @@index([employeeName])
   @@index([leaveType])
@@ -395,114 +342,81 @@ model LeaveRequest {
   @@index([paymentStatus])
   @@index([startDate])
   @@index([appliedDate])
-  
-  // Composite indexes for common query patterns
-  @@index([status, paymentStatus]) // For LWOP sync queries (approved + unpaid)
-  @@index([employeeId, status]) // For employee leave history by status
-  @@index([status, startDate]) // For filtering approved leaves by date
-  
+  @@index([status, paymentStatus])
+  @@index([employeeId, status])
+  @@index([status, startDate])
   @@map("leave_requests")
 }
 
-// ============================================================================
-// CASH ADVANCE MODULE
-// ============================================================================
-
 model CashAdvanceRecord {
-  id               String   @id @default(cuid())
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  employeeId       String   @db.VarChar(50)
-  employeeName     String   @db.VarChar(255)
-  amount           Decimal  @db.Decimal(12, 2)
-  termsMonths      Int?
-  monthlyPayment   Decimal? @db.Decimal(12, 2)
-  settledAmount    Decimal? @db.Decimal(12, 2)
-  remainingBalance Decimal? @db.Decimal(12, 2)
-  purpose          String?  @db.VarChar(255)
-  notes            String?  @db.Text
-  requestDate      DateTime?
-  status           String   @default("pending") @db.VarChar(20)
-  approvedBy       String?  @db.VarChar(255)
-  approvedDate     DateTime?
-  rejectedBy       String?  @db.VarChar(255)
-  rejectedDate     DateTime?
-  rejectionReason  String?  @db.Text
-  deductionCycle   CashAdvanceCycle?
+  id                String                 @id @default(cuid())
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  employeeId        String                 @db.VarChar(50)
+  employeeName      String                 @db.VarChar(255)
+  amount            Decimal                @db.Decimal(12, 2)
+  termsMonths       Int?
+  monthlyPayment    Decimal?               @db.Decimal(12, 2)
+  settledAmount     Decimal?               @db.Decimal(12, 2)
+  remainingBalance  Decimal?               @db.Decimal(12, 2)
+  purpose           String?                @db.VarChar(255)
+  notes             String?
+  requestDate       DateTime?
+  status            String                 @default("pending") @db.VarChar(20)
+  approvedBy        String?                @db.VarChar(255)
+  approvedDate      DateTime?
+  rejectedBy        String?                @db.VarChar(255)
+  rejectedDate      DateTime?
+  rejectionReason   String?
+  deductionCycle    CashAdvanceCycle?
+  lastDeductedDate  DateTime?
   nextDeductionDate DateTime?
-  lastDeductedDate DateTime?
+  deductions        CashAdvanceDeduction[]
 
-  deductions       CashAdvanceDeduction[]
-
-  // Single-column indexes
   @@index([employeeId])
   @@index([status])
   @@index([requestDate])
-  
-  // Composite indexes for common query patterns
-  @@index([employeeId, status]) // For employee cash advance history
-  @@index([status, requestDate]) // For filtering cash advances by status and date
-  
+  @@index([employeeId, status])
+  @@index([status, requestDate])
   @@map("cash_advances")
 }
 
 model CashAdvanceDeduction {
-  id             String             @id @default(cuid())
-  cashAdvanceId  String
-  employeeId     String             @db.VarChar(50)
-  payrollId      String?
-  payPeriod      String?            @db.VarChar(100)
-  deductionDate  DateTime
-  amount         Decimal            @db.Decimal(12, 2)
-  createdAt      DateTime           @default(now())
-
-  cashAdvance    CashAdvanceRecord  @relation(fields: [cashAdvanceId], references: [id], onDelete: Cascade)
+  id            String            @id @default(cuid())
+  cashAdvanceId String
+  employeeId    String            @db.VarChar(50)
+  payrollId     String?
+  payPeriod     String?           @db.VarChar(100)
+  deductionDate DateTime
+  amount        Decimal           @db.Decimal(12, 2)
+  createdAt     DateTime          @default(now())
+  cashAdvance   CashAdvanceRecord @relation(fields: [cashAdvanceId], references: [id], onDelete: Cascade)
 
   @@index([cashAdvanceId])
   @@index([employeeId])
   @@map("cash_advance_deductions")
 }
 
-enum CashAdvanceCycle {
-  FIRST_HALF
-  SECOND_HALF
-}
-
-// ============================================================================
-// EMPLOYEE SCHEDULES MODULE
-// ============================================================================
-
 model Schedule {
-  id          String    @id @default(cuid())
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime?
+  id           String    @id @default(cuid())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+  employeeId   String    @db.VarChar(50)
+  employeeName String    @db.VarChar(255)
+  date         String    @db.VarChar(50)
+  shiftType    String    @db.VarChar(20)
+  startTime    String    @db.VarChar(10)
+  endTime      String    @db.VarChar(10)
+  position     String    @db.VarChar(100)
+  department   String    @db.VarChar(100)
+  status       String    @default("scheduled") @db.VarChar(20)
+  notes        String?
+  source       String    @default("manual") @db.VarChar(20)
+  templateId   String?   @db.VarChar(50)
+  recurrenceId String?   @db.VarChar(50)
+  isOverride   Boolean   @default(false)
 
-  // Employee Information
-  employeeId   String   @db.VarChar(50)
-  employeeName String   @db.VarChar(255)
-
-  // Schedule Details
-  date         String   @db.VarChar(50)
-  shiftType    String   @db.VarChar(20) // 'morning' | 'afternoon' | 'night' | 'full-day'
-  startTime    String   @db.VarChar(10)
-  endTime      String   @db.VarChar(10)
-  
-  // Position & Department
-  position     String   @db.VarChar(100)
-  department   String   @db.VarChar(100)
-  
-  // Status & Notes
-  status       String   @db.VarChar(20) @default("scheduled") // 'scheduled' | 'completed' | 'cancelled' | 'on-leave'
-  notes        String?  @db.Text
-
-  // Advanced Features (for future use)
-  source       String   @db.VarChar(20) @default("manual") // 'manual' | 'template' | 'recurrence'
-  templateId   String?  @db.VarChar(50)
-  recurrenceId String?  @db.VarChar(50)
-  isOverride   Boolean  @default(false)
-
-  // Single-column indexes
   @@index([employeeId])
   @@index([employeeName])
   @@index([date])
@@ -510,70 +424,46 @@ model Schedule {
   @@index([status])
   @@index([department])
   @@index([deletedAt])
-  
-  // Composite indexes for common query patterns
-  @@index([employeeId, date, deletedAt]) // For employee schedule lookups by date
-  @@index([date, status, deletedAt]) // For daily schedule views with status
-  @@index([department, date, deletedAt]) // For department schedule views
-  
+  @@index([employeeId, date, deletedAt])
+  @@index([date, status, deletedAt])
+  @@index([department, date, deletedAt])
   @@map("schedules")
 }
 
-// ============================================================================
-// EMPLOYEE ATTENDANCE MODULE
-// ============================================================================
-
 model Attendance {
-  id          String    @id @default(cuid())
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime?
-  // Employee Information
-  employeeId   String   @db.VarChar(50)
-  employeeName String   @db.VarChar(255)
-  department   String   @db.VarChar(100)
-  position     String   @db.VarChar(100)
-
-  // Attendance Details
-  date         String   @db.VarChar(50)
-  timeIn       String   @db.VarChar(10)
-  timeOut      String   @db.VarChar(10)
-  
-  // Break Times
-  break1Start  String?  @db.VarChar(10)
-  break1End    String?  @db.VarChar(10)
-  lunchStart   String?  @db.VarChar(10)
-  lunchEnd     String?  @db.VarChar(10)
-  break2Start  String?  @db.VarChar(10)
-  break2End    String?  @db.VarChar(10)
-  
-  // Hours & Status
+  id           String    @id @default(cuid())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+  employeeId   String    @db.VarChar(50)
+  employeeName String    @db.VarChar(255)
+  department   String    @db.VarChar(100)
+  position     String    @db.VarChar(100)
+  date         String    @db.VarChar(50)
+  timeIn       String    @db.VarChar(10)
+  timeOut      String    @db.VarChar(10)
+  break1Start  String?   @db.VarChar(10)
+  break1End    String?   @db.VarChar(10)
+  lunchStart   String?   @db.VarChar(10)
+  lunchEnd     String?   @db.VarChar(10)
+  break2Start  String?   @db.VarChar(10)
+  break2End    String?   @db.VarChar(10)
   totalHours   Float
-  status       String   @db.VarChar(20) // 'present' | 'late' | 'absent' | 'on-leave'
-  
-  // Additional Information
-  details      String?  @db.VarChar(500)
-  notes        String?  @db.Text
+  status       String    @db.VarChar(20)
+  details      String?   @db.VarChar(500)
+  notes        String?
 
-  // Single-column indexes
   @@index([employeeId])
   @@index([employeeName])
   @@index([date])
   @@index([status])
   @@index([department])
   @@index([deletedAt])
-  
-  // Composite indexes for common query patterns
-  @@index([status, date, deletedAt]) // For payroll generation queries
-  @@index([employeeId, date, deletedAt]) // For employee attendance lookups
-  @@index([deletedAt, employeeId]) // For active employee attendance queries
-  
+  @@index([status, date, deletedAt])
+  @@index([employeeId, date, deletedAt])
+  @@index([deletedAt, employeeId])
   @@map("attendance")
 }
-
-// ==========================================================================
-// EMPLOYEE AUTOMATION SETTINGS
-// ==========================================================================
 
 model EmployeeAutomationSetting {
   id                             String   @id @default(cuid())
@@ -588,101 +478,80 @@ model EmployeeAutomationSetting {
   @@map("employee_automation_settings")
 }
 
-// ============================================================================
-// EMPLOYEE PAYROLL MODULE
-// ============================================================================
-
 model Payroll {
-  id          String    @id @default(cuid())
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime?
+  id              String    @id @default(cuid())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+  employeeId      String    @db.VarChar(50)
+  employeeName    String    @db.VarChar(255)
+  payPeriod       String    @db.VarChar(50)
+  periodStart     String    @db.VarChar(50)
+  periodEnd       String    @db.VarChar(50)
+  basicSalary     Float     @default(0)
+  allowance       Float     @default(0)
+  overtime        Float     @default(0)
+  bonuses         Float     @default(0)
+  grossPay        Float     @default(0)
+  sss             Float     @default(0)
+  philHealth      Float     @default(0)
+  pagIbig         Float     @default(0)
+  tax             Float     @default(0)
+  loans           Float     @default(0)
+  lwop            Float     @default(0) @map("others")
+  totalDeductions Float     @default(0)
+  netPay          Float     @default(0)
+  status          String    @default("pending") @db.VarChar(20)
+  bankGcash       String    @db.VarChar(255)
+  approvedBy      String?   @db.VarChar(255)
+  approvedDate    String?   @db.VarChar(50)
+  paidDate        String?   @db.VarChar(50)
+  unpaidDays      Int       @default(0)
+  dailyRate       Float     @default(0)
+  deduction       Float     @default(0)
+  notes           String?
+  absentsLates    Float     @default(0)
+  cashAdvance     Float     @default(0)
+  thirteenthMonth Float     @default(0)
 
-  // Employee Information
-  employeeId   String   @db.VarChar(50)
-  employeeName String   @db.VarChar(255)
-
-  // Pay Period
-  payPeriod    String   @db.VarChar(50) // e.g., "2025-01-01 to 2025-01-15"
-  periodStart  String   @db.VarChar(50) // "2025-01-01"
-  periodEnd    String   @db.VarChar(50) // "2025-01-15"
-
-  // Earnings
-  basicSalary  Float    @default(0)
-  allowance    Float    @default(0)
-  overtime     Float    @default(0)
-  bonuses      Float    @default(0)
-  thirteenthMonth Float @default(0)
-  grossPay     Float    @default(0)
-
-  // Deductions (Government & Others)
-  sss              Float    @default(0)
-  philHealth       Float    @default(0)
-  pagIbig          Float    @default(0)
-  tax              Float    @default(0)
-  loans            Float    @default(0)
-  cashAdvance      Float    @default(0)
-  lwop             Float    @default(0) @map("others")
-  absentsLates     Float    @default(0)
-  totalDeductions  Float    @default(0)
-
-  // Net Pay
-  netPay       Float    @default(0)
-
-  // Status & Approval
-  status       String   @db.VarChar(20) @default("pending") // 'pending' | 'approved' | 'paid'
-  bankGcash    String   @db.VarChar(255)
-  approvedBy   String?  @db.VarChar(255)
-  approvedDate String?  @db.VarChar(50)
-  paidDate     String?  @db.VarChar(50)
-
-  // Additional Information
-  unpaidDays   Int      @default(0)
-  dailyRate    Float    @default(0)
-  deduction    Float    @default(0) // Deduction from unpaid leaves
-  notes        String?  @db.Text
-
-  // Single-column indexes
   @@index([employeeId])
   @@index([employeeName])
   @@index([payPeriod])
   @@index([periodStart])
   @@index([status])
   @@index([deletedAt])
-  
-  // Composite indexes for common query patterns
-  @@index([periodStart, periodEnd, deletedAt]) // For period-based payroll queries
-  @@index([employeeId, periodStart, deletedAt]) // For employee payroll history
-  @@index([status, deletedAt]) // For payroll status filtering
-  
+  @@index([periodStart, periodEnd, deletedAt])
+  @@index([employeeId, periodStart, deletedAt])
+  @@index([status, deletedAt])
   @@map("payrolls")
 }
 
-// ============================================================================
-// THIRTEENTH MONTH PAY RECORDS
-// ============================================================================
-
 model ThirteenthMonthPayRecord {
-  id                   String    @id @default(cuid())
-  recordId             String    @unique @db.VarChar(150)
-  employeeId           String?   @db.VarChar(50)
-  employeeName         String    @db.VarChar(255)
-  year                 Int
-  status               String    @db.VarChar(20) @default("calculated") // 'pending' | 'calculated' | 'approved' | 'paid'
-  totalBasicSalary     Decimal   @db.Decimal(14, 2) @default(0)
-  totalLwop            Decimal   @db.Decimal(14, 2) @default(0)
-  totalAbsencesLates   Decimal   @db.Decimal(14, 2) @default(0)
-  netBasicSalary       Decimal   @db.Decimal(14, 2) @default(0)
-  monthsWorked         Int       @default(1)
-  thirteenthMonthPay   Decimal   @db.Decimal(14, 2) @default(0)
-  notes                String?   @db.Text
-  calculatedDate       String?   @db.VarChar(50)
-  approvedDate         String?   @db.VarChar(50)
-  paidDate             String?   @db.VarChar(50)
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  id                 String   @id @default(cuid())
+  recordId           String   @unique @db.VarChar(150)
+  employeeId         String?  @db.VarChar(50)
+  employeeName       String   @db.VarChar(255)
+  year               Int
+  status             String   @default("calculated") @db.VarChar(20)
+  totalBasicSalary   Decimal  @default(0) @db.Decimal(14, 2)
+  totalLwop          Decimal  @default(0) @db.Decimal(14, 2)
+  totalAbsencesLates Decimal  @default(0) @db.Decimal(14, 2)
+  netBasicSalary     Decimal  @default(0) @db.Decimal(14, 2)
+  monthsWorked       Int      @default(1)
+  thirteenthMonthPay Decimal  @default(0) @db.Decimal(14, 2)
+  notes              String?
+  calculatedDate     String?  @db.VarChar(50)
+  approvedDate       String?  @db.VarChar(50)
+  paidDate           String?  @db.VarChar(50)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   @@index([year])
   @@index([status])
   @@map("thirteenth_month_pay_records")
+}
+
+enum CashAdvanceCycle {
+  FIRST_HALF
+  SECOND_HALF
 }

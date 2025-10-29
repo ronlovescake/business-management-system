@@ -159,32 +159,6 @@ async function main() {
     ],
   });
 
-  await prisma.sortingDistribution.createMany({
-    skipDuplicates: true,
-    data: [
-      {
-        productCode: 'SKU-1001',
-        selectedQuantity: 12,
-        rowNumber: 1,
-        quantity: 50,
-        percentage: 60,
-        groupNumber: 'A',
-        distribution: 30,
-        checked: true,
-      },
-      {
-        productCode: 'SKU-2040',
-        selectedQuantity: 4,
-        rowNumber: 1,
-        quantity: 20,
-        percentage: 40,
-        groupNumber: 'B',
-        distribution: 8,
-        checked: false,
-      },
-    ],
-  });
-
   console.log('✅ Test data seeded.');
 }
 

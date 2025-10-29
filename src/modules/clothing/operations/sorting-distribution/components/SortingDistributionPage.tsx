@@ -32,8 +32,13 @@ export function SortingDistributionPage() {
   // Form state
   const [selectedQuantity, setSelectedQuantity] = useState<number | null>(null);
 
-  // State for product selection
-  const [productCode, setProductCode] = useState<string>('');
+  // State for product selection - restore from localStorage on mount
+  const [productCode, setProductCode] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('sorting-distribution-product-code') || '';
+    }
+    return '';
+  });
 
   // Initialize data hook
   const dataHook = useSortingDistributionData({
@@ -52,9 +57,28 @@ export function SortingDistributionPage() {
     (item: string) => {
       form.setItem(item);
       setProductCode(item);
+      // Save to localStorage for persistence across refreshes
+      if (typeof window !== 'undefined') {
+        if (item) {
+          localStorage.setItem('sorting-distribution-product-code', item);
+        } else {
+          localStorage.removeItem('sorting-distribution-product-code');
+        }
+      }
     },
     [form]
   );
+
+  // Restore form item when products are loaded and we have a saved product code
+  useEffect(() => {
+    if (productCode && dataHook.allProducts.length > 0 && !form.item) {
+      // Check if the saved product code exists in the product list
+      const productExists = dataHook.productOptions.includes(productCode);
+      if (productExists) {
+        form.setItem(productCode);
+      }
+    }
+  }, [productCode, dataHook.allProducts, dataHook.productOptions, form]);
 
   // Add vertical middle alignment styles
   useEffect(() => {
@@ -148,8 +172,11 @@ export function SortingDistributionPage() {
         }
 
         if (prop === 'quantity') {
-          // Quantity column
-          dataHook.updateRowQuantity(row, Number(newValue) || 0);
+          // Quantity column - handle both number and string (empty string becomes 0)
+          const numValue = newValue === '' || newValue === null || newValue === undefined 
+            ? 0 
+            : Number(newValue);
+          dataHook.updateRowQuantity(row, isNaN(numValue) ? 0 : numValue);
         } else if (prop === 'checked') {
           // Checkbox column
           dataHook.updateRowCheckbox(row, Boolean(newValue));
@@ -190,7 +217,7 @@ export function SortingDistributionPage() {
               'Percentage',
               'Group Number',
               'Distribution',
-              'Check',
+              'Checkbox',
             ]}
             headerClassName="htCenter htMiddle"
             columns={[
@@ -233,6 +260,12 @@ export function SortingDistributionPage() {
             stretchH="all"
             licenseKey="non-commercial-and-evaluation"
             afterChange={handleAfterChange}
+            allowInsertColumn={false}
+            allowInsertRow={false}
+            allowRemoveColumn={false}
+            allowRemoveRow={false}
+            contextMenu={false}
+            beforeCut={() => false}
           />
         </div>
       </Stack>

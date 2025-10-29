@@ -10,8 +10,6 @@ import type {
   Product,
   Transaction,
   SortingDistributionStatistics,
-  SortingDistributionLoadResponse,
-  SortingDistributionSaveRequest,
   SortingDistributionSaveResponse,
   ValidationResult,
 } from '../types/sortingDistribution.types';
@@ -20,8 +18,8 @@ import {
   DEFAULT_DISTRIBUTION_ROW,
   SORTING_SHIPMENT_STATUS,
 } from '../types/sortingDistribution.types';
-import { api } from '@/lib/api/client';
 import { logger } from '@/lib/logger';
+import { api } from '@/lib/api/client';
 
 /**
  * Sorting Distribution Service
@@ -333,45 +331,36 @@ export class SortingDistributionService {
     }
 
     try {
-      const url = `/api/sorting-distribution?productCode=${encodeURIComponent(productCode)}`;
-      logger.debug('Loading distribution data from:', url);
+      logger.debug('Loading distribution data from API', { productCode });
+      
+      const response = await api.get<{
+        data: DistributionRow[];
+        selectedQuantity: number | null;
+      }>(`/api/sorting-distribution?productCode=${encodeURIComponent(productCode)}`);
 
-      const result = await api.get<SortingDistributionLoadResponse>(url);
-      const { data, selectedQuantity } = result;
+      logger.debug('Loaded distribution data', {
+        rowCount: response.data.length,
+        selectedQuantity: response.selectedQuantity,
+      });
 
-      logger.debug('Loaded data:', data.length, 'rows');
-      logger.debug('Saved selected quantity:', selectedQuantity);
-
-      if (data.length === 0) {
+      // If we have saved data, use it; otherwise return empty rows
+      if (response.data.length > 0) {
+        // Ensure we have exactly GRID_ROW_COUNT rows
+        const rows = this.createDefaultRows();
+        response.data.forEach((savedRow, index) => {
+          if (index < GRID_ROW_COUNT) {
+            rows[index] = { ...savedRow };
+          }
+        });
         return {
-          rows: this.createDefaultRows(),
-          selectedQuantity: null,
+          rows,
+          selectedQuantity: response.selectedQuantity,
         };
       }
 
-      // Restore rows from database (snake_case to camelCase)
-      const restoredRows = Array.from({ length: GRID_ROW_COUNT }, (_, i) => {
-        const savedRow = data.find((d) => d.row_number === i + 1);
-        return savedRow
-          ? {
-              quantity: savedRow.quantity,
-              percentage: savedRow.percentage,
-              groupNumber: savedRow.group_number,
-              distribution: savedRow.distribution,
-              checked: savedRow.checked,
-            }
-          : { ...DEFAULT_DISTRIBUTION_ROW };
-      });
-
-      logger.debug(
-        'Restored',
-        restoredRows.filter((r) => r.quantity > 0).length,
-        'non-empty rows'
-      );
-
       return {
-        rows: restoredRows,
-        selectedQuantity: selectedQuantity ?? null,
+        rows: this.createDefaultRows(),
+        selectedQuantity: null,
       };
     } catch (error) {
       logger.error('Error loading distribution data:', error);
@@ -391,38 +380,33 @@ export class SortingDistributionService {
     rows: DistributionRow[]
   ): Promise<SortingDistributionSaveResponse> {
     try {
-      logger.debug('Saving distribution data for:', productCode);
-      logger.debug('Selected quantity:', selectedQuantity);
-
-      const nonEmptyRows = rows.filter(
-        (r) =>
-          r.quantity > 0 ||
-          r.percentage > 0 ||
-          r.groupNumber ||
-          r.distribution > 0 ||
-          r.checked
-      );
-      logger.debug('Non-empty rows to save:', nonEmptyRows.length);
-
-      const payload: SortingDistributionSaveRequest = {
+      logger.debug('Saving distribution data to API', {
         productCode,
         selectedQuantity,
-        rows,
-      };
+        rowCount: rows.length,
+      });
 
-      const result = await api.post<SortingDistributionSaveResponse>(
+      const response = await api.post<SortingDistributionSaveResponse>(
         '/api/sorting-distribution',
-        payload
+        {
+          productCode,
+          selectedQuantity,
+          rows,
+        }
       );
-      logger.debug('Data saved successfully:', result);
 
-      return result;
+      logger.info('Saved distribution data successfully', {
+        productCode,
+        savedCount: response.savedCount,
+      });
+
+      return response;
     } catch (error) {
       logger.error('Error saving distribution data:', error);
       return {
         success: false,
         savedCount: 0,
-        message: error instanceof Error ? error.message : 'Unknown error',
+        message: 'Failed to save distribution data',
       };
     }
   }

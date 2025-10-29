@@ -1,174 +1,138 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { prisma } from '@/lib/db';
 
-// GET: Fetch sorting distribution data for a product
+// GET: Load distribution data for a product code
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const productCode = searchParams.get('productCode');
 
-    logger.debug(
-      '🔍 GET /api/sorting-distribution - Product Code:',
-      productCode
-    );
+    logger.debug('📥 GET /api/sorting-distribution', { productCode });
 
     if (!productCode) {
-      logger.debug('❌ GET - No product code provided');
       return NextResponse.json(
         { error: 'Product code is required' },
         { status: 400 }
       );
     }
 
-    // Use raw query until Prisma client recognizes the new model
-    const data = await prisma.$queryRaw`
-      SELECT * FROM sorting_distributions 
-      WHERE product_code = ${productCode}
-      ORDER BY row_number ASC
-    `;
-
-    interface SortingDistributionRow {
-      id: number;
-      product_code: string;
-      selected_quantity: number | null;
-      row_number: number;
-      quantity: number;
-      percentage: number;
-      group_number: string;
-      distribution: number;
-      checked: boolean;
-      created_at: Date;
-      updated_at: Date;
-    }
-
-    const sortingData = data as SortingDistributionRow[];
-
-    logger.debug('📊 GET - Found rows:', sortingData.length);
-    logger.debug(
-      '📊 GET - Selected quantity:',
-      sortingData[0]?.selected_quantity
-    );
-    logger.debug('📊 GET - Sample data:', sortingData.slice(0, 3));
-
-    return NextResponse.json({
-      data: sortingData,
-      selectedQuantity: sortingData[0]?.selected_quantity || null,
+    // Load saved distribution data
+    const records = await prisma.sortingDistribution.findMany({
+      where: {
+        productCode,
+        deletedAt: null,
+      },
+      orderBy: {
+        rowNumber: 'asc',
+      },
     });
+
+    // Get selected quantity from the first record (if any)
+    const selectedQuantity = records[0]?.selectedQuantity ?? null;
+
+    // Convert database records to distribution rows
+    const data = records.map((record) => ({
+      quantity: record.quantity,
+      percentage: record.percentage,
+      groupNumber: record.groupNumber,
+      distribution: record.distribution,
+      checked: record.checked,
+    }));
+
+    logger.debug(`Loaded ${data.length} distribution rows`, { productCode });
+
+    return NextResponse.json({ data, selectedQuantity });
   } catch (error) {
-    logger.error('❌ GET - Error fetching sorting distribution:', error);
+    logger.error('Error loading sorting distribution:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch sorting distribution data' },
+      { error: 'Failed to load distribution data' },
       { status: 500 }
     );
   }
 }
 
-// POST: Save or update sorting distribution data
+// POST: Save distribution data
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { productCode, selectedQuantity, rows } = body;
 
-    logger.debug('💾 POST /api/sorting-distribution - Starting save...');
-    logger.debug('💾 POST - Product Code:', productCode);
-    logger.debug('💾 POST - Selected Quantity:', selectedQuantity);
-    logger.debug('💾 POST - Total rows received:', rows?.length || 0);
+    logger.debug('💾 POST /api/sorting-distribution', {
+      productCode,
+      selectedQuantity,
+      rowCount: rows?.length,
+    });
 
-    if (!productCode) {
-      logger.debug('❌ POST - No product code provided');
+    if (!productCode || !Array.isArray(rows)) {
       return NextResponse.json(
-        { error: 'Product code is required' },
+        { error: 'Product code and rows are required' },
         { status: 400 }
       );
     }
 
-    // First, delete all existing rows for this product
-    logger.debug('🗑️ POST - Deleting existing rows...');
-    const deleteResult = await prisma.$executeRaw`
-      DELETE FROM sorting_distributions 
-      WHERE product_code = ${productCode}
-    `;
-    logger.debug('🗑️ POST - Delete result:', deleteResult);
+    // Filter out empty rows (rows with no data)
+    const nonEmptyRows = rows.filter(
+      (row) =>
+        row.quantity > 0 ||
+        row.percentage > 0 ||
+        row.groupNumber ||
+        row.distribution > 0 ||
+        row.checked
+    );
 
-    // Prepare rows data
-    interface RowData {
-      quantity: number;
-      percentage: number;
-      groupNumber: string;
-      distribution: number;
-      checked: boolean;
-    }
-
-    const rowsToInsert = (rows as RowData[])
-      .map((row, index) => ({
-        productCode,
-        selectedQuantity,
-        rowNumber: index + 1,
-        quantity: row.quantity || 0,
-        percentage: row.percentage || 0,
-        groupNumber: row.groupNumber || '',
-        distribution: row.distribution || 0,
-        checked: row.checked || false,
-      }))
-      .filter(
-        (row) =>
-          row.quantity > 0 ||
-          row.percentage > 0 ||
-          row.groupNumber ||
-          row.distribution > 0 ||
-          row.checked
+    // Use a transaction to delete and create atomically
+    await prisma.$transaction(async (tx) => {
+      // Hard delete existing records (bypass soft delete middleware)
+      // Use proper column name with quotes for snake_case
+      await tx.$executeRawUnsafe(
+        `DELETE FROM sorting_distributions WHERE "productCode" = $1`,
+        productCode
       );
 
-    logger.debug(
-      `💾 POST - Filtered ${rowsToInsert.length} non-empty rows from ${rows?.length || 0} total rows`
-    );
-    logger.debug('💾 POST - Sample filtered rows:', rowsToInsert.slice(0, 3));
-
-    // Insert new data
-    if (rowsToInsert.length > 0) {
-      logger.debug('📝 POST - Inserting rows...');
-      for (let i = 0; i < rowsToInsert.length; i++) {
-        const row = rowsToInsert[i];
-        try {
-          await prisma.$executeRaw`
-            INSERT INTO sorting_distributions 
-            (product_code, selected_quantity, row_number, quantity, percentage, group_number, distribution, checked, created_at, updated_at)
-            VALUES (${row.productCode}, ${row.selectedQuantity}, ${row.rowNumber}, ${row.quantity}, ${row.percentage}, ${row.groupNumber}, ${row.distribution}, ${row.checked}, NOW(), NOW())
-          `;
-          if (i < 3) {
-            logger.debug(`📝 POST - Inserted row ${i + 1}:`, row);
-          }
-        } catch (insertError) {
-          logger.error(`❌ POST - Error inserting row ${i + 1}:`, insertError);
-          throw insertError;
-        }
+      // Create new records
+      if (nonEmptyRows.length > 0) {
+        await tx.sortingDistribution.createMany({
+          data: nonEmptyRows.map((row, index) => ({
+            productCode,
+            selectedQuantity,
+            rowNumber: index,
+            quantity: row.quantity || 0,
+            percentage: row.percentage || 0,
+            groupNumber: row.groupNumber || '',
+            distribution: row.distribution || 0,
+            checked: row.checked || false,
+          })),
+        });
       }
-      logger.debug('✅ POST - All rows inserted successfully');
-    } else {
-      logger.debug('📝 POST - No rows to insert (all empty)');
-    }
+    });
 
-    logger.debug('✅ POST - Save operation completed successfully');
+    logger.info('Saved sorting distribution data', {
+      productCode,
+      savedCount: nonEmptyRows.length,
+    });
+
     return NextResponse.json({
       success: true,
-      message: 'Sorting distribution saved successfully',
-      rowsSaved: rowsToInsert.length,
+      savedCount: nonEmptyRows.length,
+      message: `Saved ${nonEmptyRows.length} distribution rows`,
     });
   } catch (error) {
-    logger.error('❌ POST - Error saving sorting distribution:', error);
+    logger.error('Error saving sorting distribution:', error);
     return NextResponse.json(
-      { error: 'Failed to save sorting distribution data' },
+      { error: 'Failed to save distribution data' },
       { status: 500 }
     );
   }
 }
 
-// DELETE: Delete sorting distribution data for a product
+// DELETE: Clear distribution data for a product code
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const productCode = searchParams.get('productCode');
+
+    logger.debug('🗑️ DELETE /api/sorting-distribution', { productCode });
 
     if (!productCode) {
       return NextResponse.json(
@@ -177,19 +141,31 @@ export async function DELETE(request: Request) {
       );
     }
 
-    await prisma.$executeRaw`
-      DELETE FROM sorting_distributions 
-      WHERE product_code = ${productCode}
-    `;
+    // Soft delete by setting deletedAt
+    const result = await prisma.sortingDistribution.updateMany({
+      where: {
+        productCode,
+        deletedAt: null,
+      },
+      data: {
+        deletedAt: new Date(),
+      },
+    });
+
+    logger.info('Deleted sorting distribution data', {
+      productCode,
+      deletedCount: result.count,
+    });
 
     return NextResponse.json({
       success: true,
-      message: 'Sorting distribution deleted successfully',
+      deletedCount: result.count,
+      message: `Deleted ${result.count} distribution rows`,
     });
   } catch (error) {
     logger.error('Error deleting sorting distribution:', error);
     return NextResponse.json(
-      { error: 'Failed to delete sorting distribution data' },
+      { error: 'Failed to delete distribution data' },
       { status: 500 }
     );
   }

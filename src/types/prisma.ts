@@ -72,7 +72,6 @@ export function isPrismaModelName(
     'product',
     'schedule',
     'shipment',
-    'sortingDistribution',
     'thirteenthMonthPayRecord',
     'transaction',
   ];

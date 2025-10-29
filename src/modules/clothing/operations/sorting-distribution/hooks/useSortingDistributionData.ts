@@ -18,6 +18,35 @@ import type {
 import { AUTO_SAVE_DELAY } from '../types/sortingDistribution.types';
 import { logger } from '@/lib/logger';
 
+const cloneRows = (rows: DistributionRow[]): DistributionRow[] =>
+  rows.map((row) => ({ ...row }));
+
+const areRowsEqual = (
+  a: DistributionRow[],
+  b: DistributionRow[]
+): boolean => {
+  if (a.length !== b.length) {
+    return false;
+  }
+
+  for (let index = 0; index < a.length; index += 1) {
+    const rowA = a[index];
+    const rowB = b[index];
+
+    if (
+      rowA.quantity !== rowB.quantity ||
+      rowA.percentage !== rowB.percentage ||
+      rowA.groupNumber !== rowB.groupNumber ||
+      rowA.distribution !== rowB.distribution ||
+      rowA.checked !== rowB.checked
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
 export interface UseSortingDistributionDataReturn {
   // Data
   rows: DistributionRow[];
@@ -62,9 +91,13 @@ export function useSortingDistributionData({
   selectedQuantity,
   onSelectedQuantityChange,
 }: UseSortingDistributionDataProps): UseSortingDistributionDataReturn {
-  // State
-  const [rows, setRows] = useState<DistributionRow[]>(
+  const defaultRowsRef = useRef<DistributionRow[]>(
     SortingDistributionService.createDefaultRows()
+  );
+
+  // State
+  const [rows, setRows] = useState<DistributionRow[]>(() =>
+    cloneRows(defaultRowsRef.current)
   );
   const [productOptions, setProductOptions] = useState<string[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
@@ -75,6 +108,12 @@ export function useSortingDistributionData({
 
   // Refs
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSavedRowsRef = useRef<DistributionRow[]>(
+    cloneRows(defaultRowsRef.current)
+  );
+  const lastSavedSelectedQuantityRef = useRef<number | null>(
+    selectedQuantity ?? null
+  );
 
   /**
    * Load products on mount
@@ -101,7 +140,6 @@ export function useSortingDistributionData({
         await SortingDistributionService.loadTransactions();
       setTransactions(transactionsData);
     };
-
     loadTransactions();
   }, []);
 
@@ -141,16 +179,38 @@ export function useSortingDistributionData({
    */
   const loadDistributionData = useCallback(
     async (code: string) => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+
       if (!code) {
         logger.debug('No product code, using default rows');
-        setRows(SortingDistributionService.createDefaultRows());
+        const emptyRows = SortingDistributionService.createDefaultRows();
+        setRows(emptyRows);
+        lastSavedRowsRef.current = cloneRows(emptyRows);
+        lastSavedSelectedQuantityRef.current = null;
         onSelectedQuantityChange(null);
         return;
       }
 
+      logger.info('🔄 LOADING distribution data for:', code);
       setIsLoading(true);
       const { rows: loadedRows, selectedQuantity: savedQuantity } =
         await SortingDistributionService.loadDistributionData(code);
+      
+      lastSavedRowsRef.current = cloneRows(loadedRows);
+      lastSavedSelectedQuantityRef.current = savedQuantity ?? null;
+
+      const nonEmptyRows = loadedRows.filter(r => r.quantity > 0 || r.checked);
+      logger.info('✅ LOADED distribution data:', {
+        productCode: code,
+        totalRows: loadedRows.length,
+        nonEmptyRows: nonEmptyRows.length,
+        selectedQuantity: savedQuantity,
+        sampleRows: nonEmptyRows.slice(0, 3)
+      });
+      
       setRows(loadedRows);
       onSelectedQuantityChange(savedQuantity);
       setIsLoading(false);
@@ -206,34 +266,78 @@ export function useSortingDistributionData({
   useEffect(() => {
     if (!productCode) {
       logger.debug('No product code, skipping auto-save');
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
       return;
     }
 
-    logger.debug('Change detected, scheduling auto-save');
+    const nonEmptyRows = rows.filter((row) => row.quantity > 0 || row.checked);
+    const hasChanges =
+      !areRowsEqual(rows, lastSavedRowsRef.current) ||
+      selectedQuantity !== lastSavedSelectedQuantityRef.current;
 
-    // Clear existing timeout
+    if (!hasChanges) {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+      logger.debug('No changes detected, skipping auto-save', {
+        productCode,
+        selectedQuantity,
+        nonEmptyRowCount: nonEmptyRows.length,
+      });
+      return;
+    }
+
+    logger.debug('Change detected, scheduling auto-save', {
+      productCode,
+      selectedQuantity,
+      nonEmptyRowCount: nonEmptyRows.length,
+      totalRows: rows.length,
+    });
+
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
 
-    // Set new timeout for debounced save
     saveTimeoutRef.current = setTimeout(async () => {
-      setIsSaving(true);
-      await SortingDistributionService.saveDistributionData(
+      logger.info('🔄 AUTO-SAVING distribution data...', {
         productCode,
         selectedQuantity,
-        rows
-      );
-      setIsSaving(false);
+        nonEmptyRowCount: nonEmptyRows.length,
+      });
+      setIsSaving(true);
+      try {
+        const result = await SortingDistributionService.saveDistributionData(
+          productCode,
+          selectedQuantity,
+          rows
+        );
+        logger.info('✅ AUTO-SAVE successful:', result);
+        if (result.success) {
+          lastSavedRowsRef.current = cloneRows(rows);
+          lastSavedSelectedQuantityRef.current = selectedQuantity;
+        }
+      } catch (error) {
+        logger.error('❌ AUTO-SAVE failed:', error);
+      } finally {
+        setIsSaving(false);
+        if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current);
+          saveTimeoutRef.current = null;
+        }
+      }
     }, AUTO_SAVE_DELAY);
 
-    // Cleanup function
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
       }
     };
-  }, [rows, selectedQuantity, productCode]);
+  }, [productCode, rows, selectedQuantity]);
 
   /**
    * Auto-calculate derived fields when dependencies change

@@ -79,30 +79,6 @@ export interface SortingDistributionData {
 }
 
 /**
- * API Response for Load Operation
- */
-export interface SortingDistributionLoadResponse {
-  data: Array<{
-    row_number: number;
-    quantity: number;
-    percentage: number;
-    group_number: string;
-    distribution: number;
-    checked: boolean;
-  }>;
-  selectedQuantity: number | null;
-}
-
-/**
- * API Request for Save Operation
- */
-export interface SortingDistributionSaveRequest {
-  productCode: string;
-  selectedQuantity: number | null;
-  rows: DistributionRow[];
-}
-
-/**
  * API Response for Save Operation
  */
 export interface SortingDistributionSaveResponse {

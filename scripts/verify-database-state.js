@@ -18,14 +18,13 @@ async function verifyDatabaseState() {
     // Check Operations Workspace
     console.log('📊 Operations Workspace Tables:\n');
 
-    const [customers, prices, products, shipments, transactions, sortingDist] =
+    const [customers, prices, products, shipments, transactions] =
       await Promise.all([
         prisma.customer.count(),
         prisma.price.count(),
         prisma.product.count(),
         prisma.shipment.count(),
         prisma.transaction.count(),
-        prisma.sortingDistribution.count(),
       ]);
 
     console.log(
@@ -41,12 +40,8 @@ async function verifyDatabaseState() {
     console.log(
       `   Transactions:          ${transactions.toLocaleString()} records`
     );
-    console.log(
-      `   Sorting Distributions: ${sortingDist.toLocaleString()} records`
-    );
-
     const operationsTotal =
-      customers + prices + products + shipments + transactions + sortingDist;
+      customers + prices + products + shipments + transactions;
     console.log(`\n   Total: ${operationsTotal.toLocaleString()} records`);
 
     if (operationsTotal === 0) {

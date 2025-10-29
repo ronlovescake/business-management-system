@@ -25,7 +25,6 @@ const TABLES = [
   { name: 'products', model: 'product' },
   { name: 'prices', model: 'price' },
   { name: 'shipments', model: 'shipment' },
-  { name: 'sorting_distributions', model: 'sortingDistribution' },
   { name: 'employees', model: 'employee' },
   { name: 'schedules', model: 'schedule' },
   { name: 'attendance', model: 'attendance' },

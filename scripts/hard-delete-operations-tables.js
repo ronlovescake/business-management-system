@@ -7,7 +7,6 @@
  * - products
  * - shipments
  * - transactions
- * - sorting_distributions
  *
  * ⚠️ WARNING: This bypasses soft-delete and audit logging!
  * ⚠️ WARNING: This action CANNOT be undone!
@@ -32,7 +31,6 @@ async function hardDeleteOperationsTables() {
   console.log('   - products');
   console.log('   - shipments');
   console.log('   - transactions');
-  console.log('   - sorting_distributions');
   console.log('\n✅ Employees workspace tables will NOT be touched.\n');
 
   try {
@@ -45,14 +43,12 @@ async function hardDeleteOperationsTables() {
       productsCount,
       shipmentsCount,
       transactionsCount,
-      sortingDistCount,
     ] = await Promise.all([
       prisma.customer.count(),
       prisma.price.count(),
       prisma.product.count(),
       prisma.shipment.count(),
       prisma.transaction.count(),
-      prisma.sortingDistribution.count(),
     ]);
 
     console.log(
@@ -70,17 +66,13 @@ async function hardDeleteOperationsTables() {
     console.log(
       `   Transactions:          ${transactionsCount.toLocaleString()} records`
     );
-    console.log(
-      `   Sorting Distributions: ${sortingDistCount.toLocaleString()} records`
-    );
 
     const totalRecords =
       customersCount +
       pricesCount +
       productsCount +
       shipmentsCount +
-      transactionsCount +
-      sortingDistCount;
+      transactionsCount;
 
     console.log(
       `\n   TOTAL: ${totalRecords.toLocaleString()} records will be deleted\n`
@@ -94,43 +86,36 @@ async function hardDeleteOperationsTables() {
     // Hard delete in correct order (respect potential foreign keys)
     console.log('🗑️  Starting hard delete process...\n');
 
-    // 1. Delete sorting distributions (depends on products via productCode)
-    console.log('   [1/6] Deleting sorting_distributions...');
-    const sortingResult = await prisma.sortingDistribution.deleteMany({});
-    console.log(
-      `         ✅ Deleted ${sortingResult.count.toLocaleString()} records\n`
-    );
-
-    // 2. Delete transactions (depends on customers, products)
-    console.log('   [2/6] Deleting transactions...');
+    // 1. Delete transactions (depends on customers, products)
+    console.log('   [1/5] Deleting transactions...');
     const transactionsResult = await prisma.transaction.deleteMany({});
     console.log(
       `         ✅ Deleted ${transactionsResult.count.toLocaleString()} records\n`
     );
 
-    // 3. Delete prices (depends on products via productCode)
-    console.log('   [3/6] Deleting prices...');
+    // 2. Delete prices (depends on products via productCode)
+    console.log('   [2/5] Deleting prices...');
     const pricesResult = await prisma.price.deleteMany({});
     console.log(
       `         ✅ Deleted ${pricesResult.count.toLocaleString()} records\n`
     );
 
-    // 4. Delete products
-    console.log('   [4/6] Deleting products...');
+    // 3. Delete products
+    console.log('   [3/5] Deleting products...');
     const productsResult = await prisma.product.deleteMany({});
     console.log(
       `         ✅ Deleted ${productsResult.count.toLocaleString()} records\n`
     );
 
-    // 5. Delete shipments
-    console.log('   [5/6] Deleting shipments...');
+    // 4. Delete shipments
+    console.log('   [4/5] Deleting shipments...');
     const shipmentsResult = await prisma.shipment.deleteMany({});
     console.log(
       `         ✅ Deleted ${shipmentsResult.count.toLocaleString()} records\n`
     );
 
-    // 6. Delete customers
-    console.log('   [6/6] Deleting customers...');
+    // 5. Delete customers
+    console.log('   [5/5] Deleting customers...');
     const customersResult = await prisma.customer.deleteMany({});
     console.log(
       `         ✅ Deleted ${customersResult.count.toLocaleString()} records\n`
@@ -138,7 +123,6 @@ async function hardDeleteOperationsTables() {
 
     // Summary
     const totalDeleted =
-      sortingResult.count +
       transactionsResult.count +
       pricesResult.count +
       productsResult.count +
@@ -150,9 +134,6 @@ async function hardDeleteOperationsTables() {
     console.log('✅ ============================================\n');
     console.log(`   Total records deleted: ${totalDeleted.toLocaleString()}`);
     console.log('\n📝 Summary:');
-    console.log(
-      `   - Sorting Distributions: ${sortingResult.count.toLocaleString()}`
-    );
     console.log(
       `   - Transactions:          ${transactionsResult.count.toLocaleString()}`
     );
@@ -180,14 +161,12 @@ async function hardDeleteOperationsTables() {
       verifyProducts,
       verifyShipments,
       verifyTransactions,
-      verifySorting,
     ] = await Promise.all([
       prisma.customer.count(),
       prisma.price.count(),
       prisma.product.count(),
       prisma.shipment.count(),
       prisma.transaction.count(),
-      prisma.sortingDistribution.count(),
     ]);
 
     const verifyTotal =
@@ -195,8 +174,7 @@ async function hardDeleteOperationsTables() {
       verifyPrices +
       verifyProducts +
       verifyShipments +
-      verifyTransactions +
-      verifySorting;
+      verifyTransactions;
 
     if (verifyTotal === 0) {
       console.log(
@@ -218,9 +196,6 @@ async function hardDeleteOperationsTables() {
       }
       if (verifyTransactions > 0) {
         console.log(`      - Transactions: ${verifyTransactions}`);
-      }
-      if (verifySorting > 0) {
-        console.log(`      - Sorting Distributions: ${verifySorting}`);
       }
       console.log('');
     }
