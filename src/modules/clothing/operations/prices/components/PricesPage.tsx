@@ -261,7 +261,7 @@ export function PricesPage() {
         kind: GridCellKind.Text,
         data: cellData,
         displayData: displayData,
-        allowOverlay: false,
+        allowOverlay: column.id === 'productCode', // Allow copying for Product Code
         readonly: true,
         cursor: column.id === 'productCode' ? 'pointer' : 'default',
       };
