@@ -52,6 +52,8 @@ export function useSortingDistributionForm({
             allProducts
           );
         logger.debug(`Total quantity for ${productCode}:`, totalQuantity);
+        logger.debug(`All products count:`, allProducts.length);
+        logger.debug(`Sample product:`, allProducts[0]);
         setOrdered(totalQuantity.toString());
       } else {
         setOrdered('');

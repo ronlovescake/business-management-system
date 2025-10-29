@@ -267,6 +267,120 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// PUT - Update prices for a specific product code
+export async function PUT(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const productCode = searchParams.get('productCode');
+
+    if (!productCode) {
+      return NextResponse.json(
+        {
+          error: 'Missing product code',
+          details: 'Product code is required as query parameter',
+        },
+        { status: 400 }
+      );
+    }
+
+    const rawData = await request.json();
+
+    // Validate data format
+    if (!Array.isArray(rawData) || rawData.length === 0) {
+      return NextResponse.json(
+        {
+          error: 'Invalid data format',
+          details: 'Expected array of price objects',
+        },
+        { status: 400 }
+      );
+    }
+
+    const pricesData = rawData as PriceImportRow[];
+
+    // Filter valid data
+    const validPricesData = pricesData.filter((priceData) => {
+      const code = priceData['Product Code'];
+      const lower = priceData['Lower Limit'];
+      const upper = priceData['Upper Limit'];
+      const price = priceData['Prices'];
+
+      return (
+        typeof code === 'string' &&
+        code.trim() !== '' &&
+        code === productCode && // Ensure product code matches
+        lower !== undefined &&
+        upper !== undefined &&
+        price !== undefined
+      );
+    });
+
+    if (validPricesData.length === 0) {
+      return NextResponse.json(
+        {
+          error: 'No valid price data',
+          details: 'No valid tiers found for the specified product code',
+        },
+        { status: 400 }
+      );
+    }
+
+    // Convert to database format
+    const dataToInsert = validPricesData.map(mapFromDTO);
+
+    // Update prices for this product code in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Delete existing tiers for this product code
+      await tx.price.deleteMany({
+        where: { productCode },
+      });
+
+      // Insert new tiers
+      await tx.price.createMany({
+        data: dataToInsert,
+      });
+
+      return {
+        productCode,
+        tiersUpdated: dataToInsert.length,
+      };
+    });
+
+    logger.info(
+      `✅ Updated ${result.tiersUpdated} price tiers for product ${result.productCode}`
+    );
+
+    return NextResponse.json({
+      message: `Successfully updated ${result.tiersUpdated} price tiers for ${result.productCode}`,
+      tiersUpdated: result.tiersUpdated,
+      productCode: result.productCode,
+    });
+  } catch (error) {
+    logger.error('Failed to update prices:', error);
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2002') {
+        return NextResponse.json(
+          {
+            error: 'Duplicate price',
+            details: 'A price with this product code and range already exists',
+            code: error.code,
+          },
+          { status: 409 }
+        );
+      }
+    }
+
+    return NextResponse.json(
+      {
+        error: 'Failed to update prices',
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
+  }
+}
+
 // DELETE - Delete all prices (with safety protection)
 export async function DELETE(request: NextRequest) {
   try {

@@ -22,9 +22,9 @@ export interface DistributionRow {
  * Represents a product from the products table
  */
 export interface Product {
-  productCode: string | null;
-  shipmentStatus: string | null;
-  quantity: number;
+  'Product Code': string | null;
+  'Shipment Status': string | null;
+  Quantity: number;
 }
 
 /**

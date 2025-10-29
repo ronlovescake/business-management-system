@@ -33,6 +33,7 @@ import { usePriceForm } from '../hooks/usePriceForm';
 import { PriceService } from '../services/PriceService';
 import { PriceStatsCards } from './PriceStatsCards';
 import { AddPriceModal } from './AddPriceModal';
+import { EditPriceModal } from './EditPriceModal';
 
 // Custom styles for grid
 const customGridStyles = `
@@ -73,6 +74,64 @@ export function PricesPage() {
     closeAddModal,
     resetForm,
   } = usePriceForm();
+
+  // Edit modal state and form
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState<typeof form>({
+    productCode: '',
+    tiers: [
+      { lowerLimit: 0, upperLimit: 0, price: 0 },
+      { lowerLimit: 0, upperLimit: 0, price: 0 },
+      { lowerLimit: 0, upperLimit: 0, price: 0 },
+      { lowerLimit: 0, upperLimit: 0, price: 0 },
+    ],
+    priceAdjustment: 0,
+  });
+
+  // Edit modal handlers
+  const openEditModal = useCallback((productCode: string) => {
+    // Get all tiers for this product code
+    const allTiersForProduct = prices.filter(
+      (p) => p['Product Code'] === productCode
+    );
+
+    // Convert to form format
+    const formData = PriceService.priceDataToForm(allTiersForProduct);
+    setEditForm(formData);
+    setIsEditOpen(true);
+  }, [prices]);
+
+  const closeEditModal = useCallback(() => {
+    setIsEditOpen(false);
+  }, []);
+
+  const resetEditForm = useCallback(() => {
+    setEditForm({
+      productCode: '',
+      tiers: [
+        { lowerLimit: 0, upperLimit: 0, price: 0 },
+        { lowerLimit: 0, upperLimit: 0, price: 0 },
+        { lowerLimit: 0, upperLimit: 0, price: 0 },
+        { lowerLimit: 0, upperLimit: 0, price: 0 },
+      ],
+      priceAdjustment: 0,
+    });
+  }, []);
+
+  const updateEditTier = useCallback(
+    (index: number, field: 'lowerLimit' | 'upperLimit' | 'price', value: number) => {
+      setEditForm((prev) => {
+        const newTiers = [...prev.tiers];
+        newTiers[index] = { ...newTiers[index], [field]: value };
+        return { ...prev, tiers: newTiers };
+      });
+    },
+    []
+  );
+
+  const setEditPriceAdjustment = useCallback((value: number) => {
+    setEditForm((prev) => ({ ...prev, priceAdjustment: value }));
+  }, []);
 
   // Local state
   const [file, setFile] = useState<File | null>(null);
@@ -189,11 +248,10 @@ export function PricesPage() {
           lastClick.cell[1] === row &&
           now - lastClick.time < 500
         ) {
-          // Double-click detected - navigate or edit
+          // Double-click detected - open edit modal
           const price = filteredPrices[row];
           logger.debug('Double-click on price:', price['Product Code']);
-          // FUTURE: Implement inline edit modal for price tiers
-          // Modal should allow editing all tiers for a product code
+          openEditModal(price['Product Code']);
           lastClickRef.current = null; // Reset after handling
         } else {
           // First click - store it
@@ -201,7 +259,7 @@ export function PricesPage() {
         }
       }
     },
-    [filteredPrices, columns]
+    [filteredPrices, columns, openEditModal]
   );
 
   // Data rendering
@@ -324,6 +382,29 @@ export function PricesPage() {
     
     // Refresh product codes dropdown to exclude newly added product
     await fetchProductCodes();
+  };
+
+  // Handle edit price submission
+  const handleEditPriceSubmit = async () => {
+    // Convert form to multiple price data (one per tier)
+    const priceDataArray = PriceService.formToMultiplePriceData(editForm);
+    
+    if (priceDataArray.length === 0) {
+      throw new Error('No tiers filled');
+    }
+    
+    // Update all tiers for this product code
+    const success = await PriceService.updateProductPrices(
+      editForm.productCode,
+      priceDataArray
+    );
+    
+    if (!success) {
+      throw new Error('Failed to update prices');
+    }
+    
+    // Reload prices to show the updated tiers
+    await reloadPrices();
   };
 
   if (isLoading) {
@@ -469,6 +550,17 @@ export function PricesPage() {
           onPriceAdjustmentChange={setPriceAdjustment}
           onSubmit={handleAddPriceSubmit}
           onReset={resetForm}
+        />
+
+        {/* Edit Price Modal */}
+        <EditPriceModal
+          opened={isEditOpen}
+          onClose={closeEditModal}
+          form={editForm}
+          onTierChange={updateEditTier}
+          onPriceAdjustmentChange={setEditPriceAdjustment}
+          onSubmit={handleEditPriceSubmit}
+          onReset={resetEditForm}
         />
       </Stack>
     </PageLayout>

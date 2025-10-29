@@ -203,12 +203,12 @@ export class SortingDistributionService {
 
       // Filter products with "Sorting" shipment status
       const sortingProducts = products.filter(
-        (p) => p.shipmentStatus === SORTING_SHIPMENT_STATUS
+        (p) => p['Shipment Status'] === SORTING_SHIPMENT_STATUS
       );
 
       // Extract unique product codes
       const productCodes = sortingProducts
-        .map((p) => p.productCode)
+        .map((p) => p['Product Code'])
         .filter((code): code is string => code !== null && code.trim() !== '');
 
       const uniqueCodes = Array.from(new Set(productCodes));
@@ -232,9 +232,9 @@ export class SortingDistributionService {
     allProducts: Product[]
   ): number {
     const matchingProducts = allProducts.filter(
-      (p) => p.productCode === productCode
+      (p) => p['Product Code'] === productCode
     );
-    return matchingProducts.reduce((sum, p) => sum + (p.quantity || 0), 0);
+    return matchingProducts.reduce((sum, p) => sum + (p.Quantity || 0), 0);
   }
 
   /**
@@ -256,9 +256,17 @@ export class SortingDistributionService {
     productCode: string,
     transactions: Transaction[]
   ): number {
+    logger.debug(`Getting reservation for product code: "${productCode}"`);
     const matchingTransactions = transactions.filter(
-      (t) => t['Product Code'] === productCode
+      (t) => {
+        const matches = t['Product Code'] === productCode;
+        if (!matches && t['Product Code']?.includes('Lace')) {
+          logger.debug(`Transaction code: "${t['Product Code']}" vs Product code: "${productCode}"`);
+        }
+        return matches;
+      }
     );
+    logger.debug(`Found ${matchingTransactions.length} matching transactions`);
     return matchingTransactions.reduce((sum, t) => sum + (t.Quantity || 0), 0);
   }
 

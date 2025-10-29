@@ -114,6 +114,22 @@ export function useSortingDistributionData({
         productCode,
         transactions
       );
+      logger.debug(`Unique quantities for ${productCode}:`, quantities);
+      logger.debug(`Total transactions count:`, transactions.length);
+      
+      // Log transactions for this product
+      const matchingTransactions = transactions.filter(
+        (t) => t['Product Code'] === productCode
+      );
+      logger.debug(`Matching transactions for ${productCode}:`, matchingTransactions.length);
+      if (matchingTransactions.length > 0) {
+        logger.debug(`Sample transaction:`, matchingTransactions[0]);
+      } else {
+        logger.warn(`No transactions found for product: ${productCode}`);
+        // Log a few sample transactions to see the data structure
+        logger.debug(`Sample transactions (first 3):`, transactions.slice(0, 3));
+      }
+      
       setUniqueQuantities(quantities);
     } else {
       setUniqueQuantities([]);
@@ -153,6 +169,9 @@ export function useSortingDistributionData({
    * Calculate statistics (memoized)
    */
   const statistics = useMemo<SortingDistributionStatistics>(() => {
+    logger.debug('Calculating statistics for product:', productCode);
+    logger.debug('Transactions available:', transactions.length);
+    
     const totalReservation = productCode
       ? SortingDistributionService.getTotalReservation(
           productCode,

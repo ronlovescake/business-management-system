@@ -421,6 +421,60 @@ class PriceService {
       throw error;
     }
   }
+
+  /**
+   * Update prices for a specific product code
+   * This removes all existing tiers for the product and replaces with new ones
+   */
+  static async updateProductPrices(
+    productCode: string,
+    prices: PriceData[]
+  ): Promise<boolean> {
+    try {
+      // Use PUT endpoint to update specific product
+      await api.put(`/api/prices?productCode=${encodeURIComponent(productCode)}`, prices);
+      return true;
+    } catch (error) {
+      logger.error('Error updating product prices:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Convert existing price data to form data for editing
+   * Groups all tiers by product code and populates form
+   */
+  static priceDataToForm(
+    allPricesForProduct: PriceData[]
+  ): PriceFormData {
+    // Sort by lower limit to get proper tier order
+    const sortedTiers = [...allPricesForProduct].sort(
+      (a, b) => a['Lower Limit'] - b['Lower Limit']
+    );
+
+    // Initialize with 4 empty tiers
+    const tiers = [
+      { lowerLimit: 0, upperLimit: 0, price: 0 },
+      { lowerLimit: 0, upperLimit: 0, price: 0 },
+      { lowerLimit: 0, upperLimit: 0, price: 0 },
+      { lowerLimit: 0, upperLimit: 0, price: 0 },
+    ];
+
+    // Fill in the existing tiers (up to 4)
+    sortedTiers.slice(0, 4).forEach((tier, index) => {
+      tiers[index] = {
+        lowerLimit: tier['Lower Limit'],
+        upperLimit: tier['Upper Limit'],
+        price: tier['Prices'],
+      };
+    });
+
+    return {
+      productCode: allPricesForProduct[0]?.['Product Code'] || '',
+      tiers,
+      priceAdjustment: allPricesForProduct[0]?.['Price Adjustment'] || 0,
+    };
+  }
 }
 
 // Export both the class and a default instance

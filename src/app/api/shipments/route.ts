@@ -174,6 +174,20 @@ export async function POST(request: NextRequest) {
               },
             });
 
+            // Cascade update to products with this shipment code
+            await tx.product.updateMany({
+              where: {
+                shipmentCode: shipmentCode,
+              },
+              data: {
+                cvNumber: shipmentData.cvNumber,
+                noOfSacks: shipmentData.noOfSacks,
+                totalCBM: shipmentData.totalCBM,
+                weight: shipmentData.weight,
+                shipmentStatus: shipmentData.shipmentStatus,
+              },
+            });
+
             if (wasDeleted) {
               restored++;
             } else {
@@ -184,6 +198,21 @@ export async function POST(request: NextRequest) {
             await tx.shipment.create({
               data: shipmentData,
             });
+
+            // Cascade create to products with this shipment code
+            await tx.product.updateMany({
+              where: {
+                shipmentCode: shipmentCode,
+              },
+              data: {
+                cvNumber: shipmentData.cvNumber,
+                noOfSacks: shipmentData.noOfSacks,
+                totalCBM: shipmentData.totalCBM,
+                weight: shipmentData.weight,
+                shipmentStatus: shipmentData.shipmentStatus,
+              },
+            });
+
             created++;
           }
         }
@@ -208,6 +237,26 @@ export async function POST(request: NextRequest) {
       const createdShipment = await prisma.shipment.create({
         data: shipmentData,
       });
+
+      // Cascade update to products with this shipment code
+      if (shipmentData.shipmentCode) {
+        await prisma.product.updateMany({
+          where: {
+            shipmentCode: shipmentData.shipmentCode,
+          },
+          data: {
+            cvNumber: shipmentData.cvNumber,
+            noOfSacks: shipmentData.noOfSacks,
+            totalCBM: shipmentData.totalCBM,
+            weight: shipmentData.weight,
+            shipmentStatus: shipmentData.shipmentStatus,
+          },
+        });
+
+        logger.debug(
+          `Cascaded shipment data to products with code: ${shipmentData.shipmentCode}`
+        );
+      }
 
       const convertedShipment = convertShipmentDBToData(
         createdShipment as ShipmentDB
