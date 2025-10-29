@@ -13,10 +13,12 @@ import {
   Select,
   Flex,
   Alert,
+  Popover,
   type ComboboxStore,
 } from '@mantine/core';
 import type { SortingDistributionStatistics } from '../types/sortingDistribution.types';
 import { QuantityPillButtons } from './QuantityPillButtons';
+import classes from './InfoSection.module.css';
 
 export interface InfoSectionProps {
   // Form fields
@@ -37,6 +39,15 @@ export interface InfoSectionProps {
 
   // Actions
   onItemChange: (item: string) => void;
+
+  // Customer notes
+  customerNotes: CustomerNote[];
+}
+
+export interface CustomerNote {
+  id: string;
+  customer: string;
+  note: string;
 }
 
 /**
@@ -53,6 +64,7 @@ export function InfoSection({
   onSelectQuantity,
   productSelectCombobox,
   onItemChange,
+  customerNotes,
 }: InfoSectionProps) {
   const SELECT_WIDTH_PX = 500;
   const ITEM_HEIGHT_PX = 36;
@@ -124,6 +136,23 @@ export function InfoSection({
     </Stack>
   );
 
+  const [notesOpened, setNotesOpened] = React.useState(false);
+
+  const toggleNotes = () => {
+    setNotesOpened((prev) => !prev);
+  };
+
+  const closeNotes = () => {
+    setNotesOpened(false);
+  };
+
+  const handleNotesKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      toggleNotes();
+    }
+  };
+
   return (
     <Card shadow="sm" padding="md" radius="md" withBorder>
       <Flex
@@ -191,16 +220,18 @@ export function InfoSection({
           )}
         </Group>
 
-        <Flex
-          align="flex-end"
+        <Stack
+          gap={12}
+          align="stretch"
           justify="center"
-          style={{ flex: '1 1 200px', minHeight: '44px' }}
+          style={{ flex: '1 1 240px', minHeight: '44px' }}
         >
           {showQuantityAdjustment && (
             <Alert
               color={quantityAdjustmentColor}
               variant="light"
               radius="md"
+              className={classes.quantityAlert}
               style={{
                 fontWeight: 600,
                 textTransform: 'uppercase',
@@ -210,7 +241,63 @@ export function InfoSection({
               {quantityAdjustmentLabel}
             </Alert>
           )}
-        </Flex>
+
+          {customerNotes.length > 0 && (
+            <Popover
+              width={360}
+              trapFocus={false}
+              position="bottom"
+              shadow="lg"
+              radius="md"
+              opened={notesOpened}
+              onClose={closeNotes}
+            >
+              <Popover.Target>
+                <Alert
+                  color="yellow"
+                  variant="outline"
+                  radius="md"
+                  className={classes.notesAlert}
+                  onClick={toggleNotes}
+                  onKeyDown={handleNotesKeyDown}
+                  style={{
+                    cursor: 'pointer',
+                  }}
+                  title="Notes / Request"
+                  tabIndex={0}
+                >
+                  <Text fw={600} tt="uppercase" size="sm">
+                    Notes / request!
+                  </Text>
+                  <Text
+                    size="sm"
+                    fw={500}
+                    style={{ textDecoration: 'underline' }}
+                  >
+                    Click here to view
+                  </Text>
+                </Alert>
+              </Popover.Target>
+              <Popover.Dropdown>
+                <Stack gap="sm" maw={320}>
+                  <Text fw={600} size="sm">
+                    Customer notes ({customerNotes.length})
+                  </Text>
+                  {customerNotes.map((noteEntry, noteIndex) => (
+                    <Stack gap={4} key={noteEntry.id}>
+                      <Text fw={600} size="sm">
+                        {noteIndex + 1}. {noteEntry.customer}
+                      </Text>
+                      <Text size="sm" c="dimmed">
+                        {noteEntry.note}
+                      </Text>
+                    </Stack>
+                  ))}
+                </Stack>
+              </Popover.Dropdown>
+            </Popover>
+          )}
+        </Stack>
 
         <Group
           gap="lg"

@@ -13,6 +13,7 @@ import React, {
   useRef,
   useEffect,
   useLayoutEffect,
+  useMemo,
 } from 'react';
 import { Stack, useCombobox } from '@mantine/core';
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -21,7 +22,7 @@ import { registerAllModules } from 'handsontable/registry';
 import 'handsontable/styles/handsontable.min.css';
 import 'handsontable/styles/ht-theme-horizon.min.css';
 import '@/styles/handsontable-horizon-light.css';
-import { InfoSection } from './InfoSection';
+import { InfoSection, type CustomerNote } from './InfoSection';
 import {
   DistributionSummaryBar,
   type ColumnLayout,
@@ -515,6 +516,78 @@ export function SortingDistributionPage() {
     allProducts: dataHook.allProducts,
   });
 
+  const customerNotes = useMemo<CustomerNote[]>(() => {
+    if (!form.item) {
+      return [];
+    }
+
+    const noteFieldOrder = [
+      'Notes',
+      'Note',
+      'Requests',
+      'Request',
+      'Remarks',
+    ] as const;
+    const optionalIdentityFields = [
+      'Order Code',
+      'Order Date',
+      'Line Total',
+      'Packed Date',
+      'Shipment Code',
+    ];
+
+    const seenIds = new Set<string>();
+
+    return dataHook.transactions
+      .filter((transaction) => transaction['Product Code'] === form.item)
+      .map((transaction) => {
+        const note = noteFieldOrder
+          .map((field) => transaction[field])
+          .find(
+            (value) => typeof value === 'string' && value.trim().length > 0
+          );
+
+        if (!note) {
+          return null;
+        }
+
+        const normalizedNote = note.trim();
+
+        const baseIdParts = [
+          transaction['Product Code'],
+          transaction.Customers,
+          `${transaction.Quantity ?? ''}`,
+          normalizedNote,
+        ];
+
+        const transactionRecord = transaction as unknown as Record<
+          string,
+          unknown
+        >;
+        optionalIdentityFields.forEach((field) => {
+          const value = transactionRecord[field];
+          if (typeof value === 'string' && value.trim().length > 0) {
+            baseIdParts.push(value.trim());
+          }
+        });
+
+        const candidateId = baseIdParts.filter(Boolean).join('|');
+
+        if (seenIds.has(candidateId)) {
+          return null;
+        }
+        seenIds.add(candidateId);
+
+        const customerNote: CustomerNote = {
+          id: candidateId,
+          customer: transaction.Customers,
+          note: normalizedNote,
+        };
+        return customerNote;
+      })
+      .filter((entry): entry is CustomerNote => entry !== null);
+  }, [dataHook.transactions, form.item]);
+
   // Sync product code between form and data hook
   const handleItemChange = useCallback(
     (item: string) => {
@@ -679,6 +752,7 @@ export function SortingDistributionPage() {
           onSelectQuantity={setSelectedQuantity}
           productSelectCombobox={productSelectCombobox}
           onItemChange={handleItemChange}
+          customerNotes={customerNotes}
         />
 
         {/* Distribution Grid with Handsontable */}

@@ -1,0 +1,29 @@
+.quantityAlert {
+  animation: quantityAlertPulse 3s ease-in-out infinite;
+}
+
+.notesAlert {
+  animation: notesAlertPulse 4.5s ease-in-out infinite;
+}
+
+@keyframes quantityAlertPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes notesAlertPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  60% {
+    opacity: 0.6;
+  }
+}
