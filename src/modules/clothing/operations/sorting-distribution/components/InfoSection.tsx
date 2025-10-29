@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Card, Grid, Stack, Group, Text, Select } from '@mantine/core';
+import { Card, Stack, Group, Text, Select, Flex } from '@mantine/core';
 import type { SortingDistributionStatistics } from '../types/sortingDistribution.types';
 
 export interface InfoSectionProps {
@@ -32,101 +32,97 @@ export function InfoSection({
   statistics,
   onItemChange,
 }: InfoSectionProps) {
+  const Stat = ({
+    label,
+    value,
+    color,
+    emphasize,
+  }: {
+    label: string;
+    value: string;
+    color?: string;
+    emphasize?: boolean;
+  }) => (
+    <Stack
+      gap={4}
+      align="flex-end"
+      style={{ minWidth: '104px', flex: '0 0 auto' }}
+    >
+      <Text size="xs" c="dimmed" fw={600} tt="uppercase" lh={1.2}>
+        {label}
+      </Text>
+      <Text
+        size="sm"
+        fw={emphasize ? 600 : 500}
+        c={color}
+        style={{ whiteSpace: 'nowrap' }}
+      >
+        {value}
+      </Text>
+    </Stack>
+  );
+
   return (
-    <Card shadow="sm" padding="lg" radius="md" withBorder>
-      <Grid gutter="md">
-        {/* Left Column */}
-        <Grid.Col span={6}>
-          <Stack gap="xs">
-            <Group gap="xs">
-              <Text size="sm" fw={500} style={{ minWidth: '140px' }}>
-                Product Code
-              </Text>
-              <Select
-                value={item}
-                onChange={(value) => onItemChange(value || '')}
-                data={productOptions}
-                placeholder="Select a product..."
-                searchable
-                clearable
-                style={{ flex: 1 }}
-              />
-            </Group>
+    <Card shadow="sm" padding="md" radius="md" withBorder>
+      <Flex
+        gap="xl"
+        justify="space-between"
+        align="flex-end"
+        wrap="wrap"
+        style={{ rowGap: '0.75rem' }}
+      >
+        <Stack gap={6} style={{ minWidth: '260px', flex: '0 0 auto' }}>
+          <Text size="xs" c="dimmed" fw={600} tt="uppercase" lh={1.2}>
+            Product Code
+          </Text>
+          <Select
+            value={item}
+            onChange={(value) => onItemChange(value || '')}
+            data={productOptions}
+            placeholder="Select a product..."
+            searchable
+            clearable
+            comboboxProps={{ withinPortal: false }}
+          />
+        </Stack>
 
-            <Group gap="xs">
-              <Text size="sm" fw={500} style={{ minWidth: '140px' }}>
-                Ordered
-              </Text>
-              <Text size="sm" style={{ flex: 1 }}>
-                {ordered || '0'}
-              </Text>
-            </Group>
-
-            <Group gap="xs">
-              <Text size="sm" fw={500} style={{ minWidth: '140px' }}>
-                Est. Qty. Received
-              </Text>
-              <Text size="sm" style={{ flex: 1 }}>
-                {statistics.estQtyReceived.toLocaleString()}
-              </Text>
-            </Group>
-
-            <Group gap="xs">
-              <Text size="sm" fw={500} style={{ minWidth: '140px' }}>
-                Total Reservation
-              </Text>
-              <Text size="sm" style={{ flex: 1 }}>
-                {statistics.totalReservation.toLocaleString()}
-              </Text>
-            </Group>
-          </Stack>
-        </Grid.Col>
-
-        {/* Right Column */}
-        <Grid.Col span={6}>
-          <Stack gap="xs">
-            <Group gap="xs">
-              <Text size="sm" fw={500} style={{ minWidth: '140px' }}>
-                Available Stock
-              </Text>
-              <Text
-                size="sm"
-                style={{ flex: 1 }}
-                c={statistics.availableStock < 0 ? 'red' : undefined}
-              >
-                {statistics.availableStock.toLocaleString()}
-              </Text>
-            </Group>
-
-            <Group gap="xs">
-              <Text size="sm" fw={500} style={{ minWidth: '140px' }}>
-                Total Customers
-              </Text>
-              <Text size="sm" style={{ flex: 1 }}>
-                {statistics.totalCustomers.toLocaleString()}
-              </Text>
-            </Group>
-
-            <Group gap="xs">
-              <Text size="sm" fw={500} style={{ minWidth: '140px' }}>
-                Customer w/ Order Qty
-              </Text>
-              <Text size="sm" style={{ flex: 1 }}>
-                {statistics.customerWithOrderQty.toLocaleString()}
-              </Text>
-            </Group>
-
-            <Group gap="xs">
-              <Text size="sm" fw={500} style={{ minWidth: '140px' }}>
-                Total Distribution
-              </Text>
-              <Text size="sm" style={{ flex: 1 }} fw={600}>
-                {statistics.totalDistribution.toLocaleString()}
-              </Text>
-            </Group>
-          </Stack>
-        </Grid.Col>
-      </Grid>
+        <Group
+          gap="lg"
+          align="flex-end"
+          justify="flex-end"
+          wrap="wrap"
+          style={{ flex: '1 1 auto', columnGap: '1.75rem', rowGap: '0.75rem' }}
+        >
+          <Stat label="Ordered" value={(ordered || '0').toString()} />
+          <Stat
+            label="Est. Qty. Received"
+            value={statistics.estQtyReceived.toLocaleString()}
+          />
+          <Stat
+            label="Total Reservation"
+            value={statistics.totalReservation.toLocaleString()}
+          />
+          <Stat
+            label="Available Stock"
+            value={statistics.availableStock.toLocaleString()}
+            color={statistics.availableStock < 0 ? 'red' : undefined}
+            emphasize
+          />
+          <Stat
+            label="Total Customers"
+            value={statistics.totalCustomers.toLocaleString()}
+          />
+          <Stat
+            label="Customer w/ Order Qty"
+            value={statistics.customerWithOrderQty.toLocaleString()}
+          />
+          <Stat
+            label="Total Distribution"
+            value={statistics.totalDistribution.toLocaleString()}
+            emphasize
+          />
+        </Group>
+      </Flex>
     </Card>
   );
 }

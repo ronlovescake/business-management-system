@@ -7,7 +7,13 @@
 
 'use client';
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, {
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+  useLayoutEffect,
+} from 'react';
 import { Stack } from '@mantine/core';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { HotTable } from '@handsontable/react';
@@ -17,6 +23,10 @@ import 'handsontable/styles/ht-theme-horizon.min.css';
 import '@/styles/handsontable-horizon-light.css';
 import { InfoSection } from './InfoSection';
 import { QuantityPillButtons } from './QuantityPillButtons';
+import {
+  DistributionSummaryBar,
+  type ColumnLayout,
+} from './DistributionSummaryBar';
 import { useSortingDistributionData } from '../hooks/useSortingDistributionData';
 import { useSortingDistributionForm } from '../hooks/useSortingDistributionForm';
 import type { HotTableClass } from '@handsontable/react';
@@ -336,6 +346,113 @@ export function SortingDistributionPage() {
     onSelectedQuantityChange: setSelectedQuantity,
   });
 
+  const { totalDistribution, availableStock } = dataHook.statistics;
+
+  const [columnLayout, setColumnLayout] = useState<ColumnLayout | null>(null);
+
+  const updateColumnLayout = useCallback(() => {
+    const hot = hotTableRef.current?.hotInstance;
+    const rootElement = hot?.rootElement ?? null;
+    if (!rootElement) {
+      return;
+    }
+
+    const headerRow = rootElement.querySelector(
+      '.ht_clone_top .wtHolder thead tr'
+    );
+    if (!headerRow) {
+      return;
+    }
+
+    const cells = Array.from(headerRow.children) as HTMLElement[];
+    if (cells.length <= 1) {
+      return;
+    }
+
+    const widths = cells.map((cell) =>
+      Math.round(cell.getBoundingClientRect().width)
+    );
+    const [rowHeaderWidth, ...rawColWidths] = widths;
+    if (!Number.isFinite(rowHeaderWidth)) {
+      return;
+    }
+    const expectedCols = hot?.countCols() ?? rawColWidths.length;
+    const colWidths = [...rawColWidths];
+    while (colWidths.length < expectedCols) {
+      colWidths.push(colWidths[colWidths.length - 1] ?? rowHeaderWidth ?? 120);
+    }
+
+    setColumnLayout((prev) => {
+      if (prev) {
+        const sameRowHeader = prev.rowHeaderWidth === rowHeaderWidth;
+        const sameColumns =
+          prev.colWidths.length === colWidths.length &&
+          prev.colWidths.every((width, index) => width === colWidths[index]);
+        if (sameRowHeader && sameColumns) {
+          return prev;
+        }
+      }
+      return { rowHeaderWidth, colWidths };
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    let frameId: number | null = null;
+    const scheduleUpdate = () => {
+      if (frameId !== null) {
+        cancelAnimationFrame(frameId);
+      }
+      frameId = requestAnimationFrame(() => {
+        frameId = null;
+        updateColumnLayout();
+      });
+    };
+
+    const hot = hotTableRef.current?.hotInstance;
+    const hookableHot = hot as unknown as {
+      addHook?: (key: string, callback: () => void) => void;
+      removeHook?: (key: string, callback: () => void) => void;
+      isDestroyed?: () => boolean;
+    };
+    const rootElement = hot?.rootElement ?? null;
+    const holder = rootElement?.querySelector(
+      '.ht_master .wtHolder'
+    ) as HTMLElement | null;
+
+    scheduleUpdate();
+    window.addEventListener('resize', scheduleUpdate);
+    hookableHot?.addHook?.('afterRender', scheduleUpdate);
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (holder) {
+      resizeObserver = new ResizeObserver(scheduleUpdate);
+      resizeObserver.observe(holder);
+    }
+
+    return () => {
+      if (frameId !== null) {
+        cancelAnimationFrame(frameId);
+      }
+      window.removeEventListener('resize', scheduleUpdate);
+      if (
+        hookableHot?.isDestroyed &&
+        typeof hookableHot.isDestroyed === 'function' &&
+        !hookableHot.isDestroyed()
+      ) {
+        hookableHot.removeHook?.('afterRender', scheduleUpdate);
+      }
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+    };
+  }, [
+    updateColumnLayout,
+    dataHook.rows.length,
+    selectedQuantity,
+    totalDistribution,
+    availableStock,
+  ]);
+
   // Initialize form hook with loaded products
   const form = useSortingDistributionForm({
     allProducts: dataHook.allProducts,
@@ -572,6 +689,14 @@ export function SortingDistributionPage() {
             beforeCut={() => false}
           />
         </div>
+
+        <DistributionSummaryBar
+          rows={dataHook.rows}
+          statistics={dataHook.statistics}
+          selectedQuantity={selectedQuantity}
+          isSaving={dataHook.isSaving}
+          columnLayout={columnLayout}
+        />
       </Stack>
     </PageLayout>
   );
