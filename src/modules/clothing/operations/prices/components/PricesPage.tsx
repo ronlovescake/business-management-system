@@ -261,7 +261,7 @@ export function PricesPage() {
         kind: GridCellKind.Text,
         data: cellData,
         displayData: displayData,
-        allowOverlay: column.id === 'productCode', // Allow copying for Product Code
+        allowOverlay: false,
         readonly: true,
         cursor: column.id === 'productCode' ? 'pointer' : 'default',
       };
@@ -414,6 +414,7 @@ export function PricesPage() {
             rowMarkers="number"
             onCellClicked={onCellClicked}
             isDraggable={false}
+            getCellsForSelection={true}
             experimental={{
               scrollbarWidthOverride: 16,
             }}
