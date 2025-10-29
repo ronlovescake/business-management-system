@@ -12,6 +12,7 @@ import {
   Text,
   Select,
   Flex,
+  Alert,
   type ComboboxStore,
 } from '@mantine/core';
 import type { SortingDistributionStatistics } from '../types/sortingDistribution.types';
@@ -59,6 +60,17 @@ export function InfoSection({
   const dropdownHeight = productOptions.length
     ? productOptions.length * ITEM_HEIGHT_PX + DROPDOWN_PADDING_PX
     : undefined;
+
+  const totalDistribution = statistics.totalDistribution;
+  const quantityDifference =
+    selectedQuantity !== null ? selectedQuantity - totalDistribution : 0;
+  const showQuantityAdjustment =
+    selectedQuantity !== null && quantityDifference !== 0;
+  const quantityAdjustmentLabel =
+    quantityDifference > 0
+      ? `Add ${quantityDifference}`
+      : `Deduct ${Math.abs(quantityDifference)}`;
+  const quantityAdjustmentColor = quantityDifference > 0 ? 'blue' : 'red';
 
   const focusSearchInputSafely = React.useCallback(() => {
     let attempts = 0;
@@ -178,6 +190,27 @@ export function InfoSection({
             </Group>
           )}
         </Group>
+
+        <Flex
+          align="flex-end"
+          justify="center"
+          style={{ flex: '1 1 200px', minHeight: '44px' }}
+        >
+          {showQuantityAdjustment && (
+            <Alert
+              color={quantityAdjustmentColor}
+              variant="light"
+              radius="md"
+              style={{
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+              }}
+            >
+              {quantityAdjustmentLabel}
+            </Alert>
+          )}
+        </Flex>
 
         <Group
           gap="lg"
