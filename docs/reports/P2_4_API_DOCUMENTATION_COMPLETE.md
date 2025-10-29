@@ -2,7 +2,7 @@
 
 **Status:** ✅ COMPLETE  
 **Date:** October 27, 2025  
-**Time Invested:** ~6 hours  
+**Time Invested:** ~6 hours
 
 ---
 
@@ -19,9 +19,11 @@
 ## 📁 Files Created
 
 ### 1. OpenAPI Specification
+
 **File:** `src/lib/openapi/spec.ts` (1,200+ lines)
 
 Comprehensive OpenAPI 3.0 specification covering:
+
 - **System**: Health check, backup/restore
 - **Operations**: Customers, Products, Prices, Transactions, Shipments
 - **Employees**: Team management, Attendance, Schedules, Payroll
@@ -29,6 +31,7 @@ Comprehensive OpenAPI 3.0 specification covering:
 - **Reports**: Invoice generation, Packing lists, Distribution reports
 
 #### Key Features:
+
 - Complete request/response schemas
 - Validation rules (min/max lengths, required fields)
 - Error response standards
@@ -37,6 +40,7 @@ Comprehensive OpenAPI 3.0 specification covering:
 - Detailed endpoint descriptions
 
 ### 2. API Spec Endpoint
+
 **File:** `src/app/api/docs/spec/route.ts`
 
 - Serves OpenAPI specification as JSON
@@ -44,9 +48,11 @@ Comprehensive OpenAPI 3.0 specification covering:
 - Used by Swagger UI to render documentation
 
 ### 3. Swagger UI Page
+
 **File:** `src/app/api/docs/page.tsx`
 
 Interactive documentation interface with:
+
 - Dynamic import (avoids SSR issues)
 - Loading states with Mantine UI
 - Error handling
@@ -60,6 +66,7 @@ Interactive documentation interface with:
   - All HTTP methods supported (GET, POST, PUT, DELETE, PATCH)
 
 ### 4. Dependencies Installed
+
 ```json
 {
   "swagger-ui-react": "^5.x" // Interactive API documentation UI
@@ -73,6 +80,7 @@ Interactive documentation interface with:
 ### Accessing Documentation
 
 1. **Development:**
+
    ```
    http://localhost:3000/api/docs
    ```
@@ -126,6 +134,7 @@ Response (201 Created):
 ## 📊 API Coverage
 
 ### System Endpoints (3)
+
 - `GET /api/health` - Health check
 - `GET /api/backup` - List backups
 - `POST /api/backup` - Create backup
@@ -134,6 +143,7 @@ Response (201 Created):
 ### Operations Module (18 endpoints)
 
 #### Customers (4)
+
 - `GET /api/customers` - List all customers
 - `POST /api/customers` - Create customer
 - `GET /api/customers/{id}` - Get customer
@@ -141,6 +151,7 @@ Response (201 Created):
 - `DELETE /api/customers/{id}` - Delete customer
 
 #### Products (4)
+
 - `GET /api/products` - List all products
 - `POST /api/products` - Create product
 - `GET /api/products/{id}` - Get product
@@ -148,15 +159,18 @@ Response (201 Created):
 - `DELETE /api/products/{id}` - Delete product
 
 #### Prices (3)
+
 - `GET /api/prices` - List all prices
 - `POST /api/prices` - Create price
 - `PUT /api/prices/{id}` - Update price
 
 #### Transactions (2)
+
 - `GET /api/transactions` - List transactions
 - `POST /api/transactions` - Create transaction
 
 #### Shipments (3)
+
 - `GET /api/shipments` - List shipments
 - `POST /api/shipments` - Create shipment
 - `PUT /api/shipments/{id}` - Update shipment
@@ -164,6 +178,7 @@ Response (201 Created):
 ### Employee Module (15 endpoints)
 
 #### Team Management (4)
+
 - `GET /api/employees` - List employees
 - `POST /api/employees` - Create employee
 - `GET /api/employees/{id}` - Get employee
@@ -171,36 +186,44 @@ Response (201 Created):
 - `DELETE /api/employees/{id}` - Delete employee
 
 #### Attendance (2)
+
 - `GET /api/attendance` - List attendance
 - `POST /api/attendance` - Record attendance
 
 #### Schedules (2)
+
 - `GET /api/schedules` - List schedules
 - `POST /api/schedules` - Create schedule
 
 #### Payroll (2)
+
 - `GET /api/payroll` - List payroll
 - `POST /api/payroll` - Create payroll
 
 #### Leave Requests (3)
+
 - `GET /api/leave-requests` - List leaves
 - `POST /api/leave-requests` - Create leave request
 - `PUT /api/leave-requests/{id}` - Update leave status
 
 #### Expenses (3)
+
 - `GET /api/expenses` - List expenses
 - `POST /api/expenses` - Submit expense
 - `PUT /api/expenses/{id}` - Update expense status
 
 #### Cash Advances (2)
+
 - `GET /api/cash-advances` - List cash advances
 - `POST /api/cash-advances` - Request cash advance
 
 #### Thirteenth Month Pay (2)
+
 - `GET /api/thirteenth-month-pay` - List records
 - `POST /api/thirteenth-month-pay` - Calculate pay
 
 ### Reports Module (3 endpoints)
+
 - `POST /api/generate-invoice` - Generate invoice PDF
 - `POST /api/generate-packing-list` - Generate packing list PDF
 - `POST /api/generate-distribution` - Generate distribution report
@@ -210,7 +233,9 @@ Response (201 Created):
 ## 🔐 Security & Best Practices
 
 ### Authentication (Future)
+
 Currently deferred - will implement JWT authentication before production:
+
 ```yaml
 securitySchemes:
   bearerAuth:
@@ -220,7 +245,9 @@ securitySchemes:
 ```
 
 ### Error Standards
+
 All errors follow consistent format:
+
 ```json
 {
   "error": "Human-readable message",
@@ -232,6 +259,7 @@ All errors follow consistent format:
 ```
 
 ### Status Codes
+
 - `200 OK` - Success
 - `201 Created` - Resource created
 - `400 Bad Request` - Validation error
@@ -263,6 +291,7 @@ Edit `src/app/api/docs/page.tsx`:
 ### Adding New Endpoints
 
 1. **Add to spec:**
+
    ```typescript
    // src/lib/openapi/spec.ts
    paths: {
@@ -277,6 +306,7 @@ Edit `src/app/api/docs/page.tsx`:
    ```
 
 2. **Add schema (if needed):**
+
    ```typescript
    components: {
      schemas: {
@@ -297,28 +327,33 @@ Edit `src/app/api/docs/page.tsx`:
 ## 🔧 Troubleshooting
 
 ### Issue: "Cannot find module 'swagger-ui-react'"
+
 **Solution:**
+
 ```bash
 npm install --legacy-peer-deps swagger-ui-react
 ```
 
 ### Issue: SSR Errors
+
 **Solution:** Already handled with dynamic import
+
 ```typescript
-const SwaggerUI = dynamic(
-  () => import('swagger-ui-react'),
-  { ssr: false }
-);
+const SwaggerUI = dynamic(() => import('swagger-ui-react'), { ssr: false });
 ```
 
 ### Issue: Styles Not Loading
+
 **Solution:** Ensure CSS import:
+
 ```typescript
 import 'swagger-ui-react/swagger-ui.css';
 ```
 
 ### Issue: Spec Not Loading
+
 **Solution:** Check:
+
 1. `/api/docs/spec` returns JSON
 2. Browser console for errors
 3. Network tab for failed requests
@@ -328,31 +363,39 @@ import 'swagger-ui-react/swagger-ui.css';
 ## 📈 Performance Optimizations
 
 ### 1. Static Generation
+
 ```typescript
 export const dynamic = 'force-static';
 ```
+
 Spec endpoint is statically generated at build time.
 
 ### 2. Caching
+
 ```typescript
 headers: {
   'Cache-Control': 'public, max-age=3600'
 }
 ```
+
 Spec is cached for 1 hour in browser.
 
 ### 3. Code Splitting
+
 ```typescript
 const SwaggerUI = dynamic(() => import('swagger-ui-react'));
 ```
+
 Swagger UI loaded only when needed (reduces initial bundle).
 
 ### 4. Lazy Loading
+
 Page component loads spec asynchronously:
+
 ```typescript
 useEffect(() => {
   fetch('/api/docs/spec')
-    .then(res => res.json())
+    .then((res) => res.json())
     .then(setSpec);
 }, []);
 ```
@@ -362,6 +405,7 @@ useEffect(() => {
 ## 🎓 Developer Guide
 
 ### For Frontend Developers
+
 1. Navigate to `/api/docs`
 2. Explore available endpoints
 3. Test endpoints with "Try it out"
@@ -369,6 +413,7 @@ useEffect(() => {
 5. Implement in your components
 
 ### For Backend Developers
+
 1. Update `src/lib/openapi/spec.ts` when adding endpoints
 2. Follow existing schema patterns
 3. Document all parameters and responses
@@ -376,6 +421,7 @@ useEffect(() => {
 5. Tag endpoints appropriately
 
 ### For API Consumers
+
 1. Download spec: `GET /api/docs/spec`
 2. Generate client: Use OpenAPI Generator
 3. Import spec into Postman/Insomnia
@@ -386,14 +432,17 @@ useEffect(() => {
 ## 📚 Resources
 
 ### OpenAPI Specification
+
 - [OpenAPI 3.0 Spec](https://swagger.io/specification/)
 - [OpenAPI Examples](https://swagger.io/docs/specification/examples/)
 
 ### Swagger UI
+
 - [Swagger UI Documentation](https://swagger.io/docs/open-source-tools/swagger-ui/)
 - [Configuration Options](https://swagger.io/docs/open-source-tools/swagger-ui/usage/configuration/)
 
 ### Tools
+
 - [OpenAPI Generator](https://openapi-generator.tech/) - Generate clients
 - [Stoplight Studio](https://stoplight.io/studio) - Visual API designer
 - [Postman](https://www.postman.com/) - Import OpenAPI specs
@@ -403,6 +452,7 @@ useEffect(() => {
 ## 🎉 Summary
 
 ### Accomplishments
+
 ✅ Complete OpenAPI 3.0 specification (33+ endpoints)  
 ✅ Interactive Swagger UI documentation  
 ✅ All CRUD operations documented  
@@ -410,9 +460,10 @@ useEffect(() => {
 ✅ Error handling documented  
 ✅ "Try it out" functionality enabled  
 ✅ Performance optimized (caching, code splitting)  
-✅ Production-ready implementation  
+✅ Production-ready implementation
 
 ### Benefits
+
 - **Developers:** Interactive API reference
 - **Frontend Teams:** Clear contracts and examples
 - **API Consumers:** Automated client generation
@@ -420,6 +471,7 @@ useEffect(() => {
 - **Onboarding:** Self-documenting API
 
 ### Impact
+
 - Reduced API integration time by ~50%
 - Eliminated "How do I call this endpoint?" questions
 - Enabled automated client generation
@@ -435,6 +487,6 @@ useEffect(() => {
 
 ---
 
-*Generated: October 27, 2025*  
-*Task: P2-4 - API Documentation*  
-*Developer: Ron + GitHub Copilot*
+_Generated: October 27, 2025_  
+_Task: P2-4 - API Documentation_  
+_Developer: Ron + GitHub Copilot_

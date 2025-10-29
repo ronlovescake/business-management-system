@@ -10,14 +10,17 @@ The database queries are **already well-optimized**. The codebase follows best p
 ## Existing Optimizations ✅
 
 ### 1. Comprehensive Indexing
+
 The Prisma schema includes extensive indexes on:
 
 **Customer Model**:
+
 - `@@index([customerName])`
 - `@@index([phoneNumber])`
 - `@@index([customerStatus])`
 
 **Transaction Model** (Most complex):
+
 - Single column indexes: `orderDate`, `customers`, `productCode`, `orderStatus`, `shipmentCode`
 - Composite indexes for common patterns:
   - `[customers, deletedAt]` - Customer transaction history
@@ -26,11 +29,13 @@ The Prisma schema includes extensive indexes on:
   - `[orderDate, deletedAt]` - Date-based queries
 
 **Price Model**:
+
 - `@@index([productCode])`
 - `@@index([productCode, lowerLimit, upperLimit])` - Range queries
 - `@@index([isActive])`
 
 **Product Model**:
+
 - `@@index([productCode])`
 - `@@index([shipmentCode])`
 - `@@index([shipmentStatus])`
@@ -38,16 +43,20 @@ The Prisma schema includes extensive indexes on:
 - `@@index([ageRange])`
 
 **Shipment Model**:
+
 - `@@index([shipmentCode])`
 - `@@index([shipmentStatus])`
 
 ### 2. Efficient Query Patterns
 
 **✅ Field Selection (Avoiding Over-fetching)**
+
 ```typescript
 // Good: Only fetch needed fields
 const attendance = await prisma.attendance.findMany({
-  where: { /* ... */ },
+  where: {
+    /* ... */
+  },
   select: {
     employeeId: true,
     employeeName: true,
@@ -57,17 +66,19 @@ const attendance = await prisma.attendance.findMany({
 ```
 
 **✅ Batch Queries (Avoiding N+1)**
+
 ```typescript
 // Good: Fetch all employees in one query
-const employeeIds = attendanceSummaries.map(s => s.employeeId);
+const employeeIds = attendanceSummaries.map((s) => s.employeeId);
 const employees = await prisma.employee.findMany({
   where: {
-    employeeId: { in: employeeIds }
-  }
+    employeeId: { in: employeeIds },
+  },
 });
 ```
 
 **✅ Proper WHERE Clauses**
+
 ```typescript
 // Good: Uses indexed fields
 where: {
@@ -81,13 +92,17 @@ where: {
 ```
 
 ### 3. Soft Delete Pattern
+
 All models use `deletedAt` for soft deletes with proper indexing:
+
 - Composite indexes include `deletedAt` for filtered queries
 - Middleware automatically adds soft delete filters
 - No N+1 queries found in codebase
 
 ### 4. Repository Pattern
+
 Base repository provides consistent query patterns:
+
 - Type-safe operations
 - Centralized error handling
 - Consistent soft delete handling
@@ -96,12 +111,14 @@ Base repository provides consistent query patterns:
 ## Potential Improvements (Low Priority)
 
 ### 1. Consider Adding Employee Indexes
+
 **Current State**: No specific indexes on Employee model  
 **Recommendation**: Add if query patterns show need
+
 ```prisma
 model Employee {
   // ... fields ...
-  
+
   @@index([employeeId])
   @@index([deletedAt])
   @@index([employeeId, deletedAt])
@@ -111,12 +128,14 @@ model Employee {
 **Impact**: LOW - Employee queries are typically by ID which is the primary key
 
 ### 2. Consider Attendance Composite Indexes
+
 **Current State**: No composite indexes on attendance  
 **Recommendation**: Add for date range queries
+
 ```prisma
 model Attendance {
   // ... fields ...
-  
+
   @@index([date, employeeId])
   @@index([date, status])
   @@index([employeeId, date, status])
@@ -126,21 +145,26 @@ model Attendance {
 **Impact**: MEDIUM - Would speed up payroll generation queries
 
 ### 3. Add Database Query Monitoring
+
 **Recommendation**: Add Prisma query logging in development
+
 ```typescript
 // In prisma client initialization
 const prisma = new PrismaClient({
-  log: process.env.NODE_ENV === 'development' 
-    ? ['query', 'info', 'warn', 'error']
-    : ['error']
+  log:
+    process.env.NODE_ENV === 'development'
+      ? ['query', 'info', 'warn', 'error']
+      : ['error'],
 });
 ```
 
 **Impact**: HIGH for debugging - Helps identify slow queries
 
 ### 4. Consider Read Replicas (Production)
+
 **Current State**: Single database connection  
 **Recommendation**: Use read replicas for heavy read operations
+
 - Separate connection for reads
 - Primary for writes only
 - Reduces load on primary database
@@ -150,6 +174,7 @@ const prisma = new PrismaClient({
 ## Performance Metrics
 
 ### Query Patterns Analyzed
+
 - ✅ 30+ `findMany` calls reviewed
 - ✅ No N+1 query patterns found
 - ✅ Proper use of `select` for field limiting
@@ -157,6 +182,7 @@ const prisma = new PrismaClient({
 - ✅ Efficient WHERE clauses using indexed fields
 
 ### Index Coverage
+
 - ✅ Customer: 100% coverage
 - ✅ Transaction: 100% coverage (extensive)
 - ✅ Price: 100% coverage
@@ -168,13 +194,14 @@ const prisma = new PrismaClient({
 ## Testing Recommendations
 
 ### 1. Add Query Performance Tests
+
 ```typescript
 describe('Query Performance', () => {
   it('should fetch transactions efficiently', async () => {
     const start = performance.now();
     await prisma.transaction.findMany({
       where: { customers: 'test' },
-      take: 100
+      take: 100,
     });
     const duration = performance.now() - start;
     expect(duration).toBeLessThan(1000); // Under 1 second
@@ -183,14 +210,17 @@ describe('Query Performance', () => {
 ```
 
 ### 2. Enable Query Logging in Dev
+
 Monitor query execution times during development to catch slow queries early.
 
 ### 3. Use Database Profiling
+
 Run `EXPLAIN ANALYZE` on complex queries in production to identify bottlenecks.
 
 ## Conclusion
 
 ### Current State: ✅ EXCELLENT
+
 - Comprehensive indexing strategy
 - No N+1 query patterns detected
 - Proper use of field selection
@@ -198,15 +228,18 @@ Run `EXPLAIN ANALYZE` on complex queries in production to identify bottlenecks.
 - Type-safe query patterns
 
 ### Priority: LOW
+
 The database is already well-optimized. The recommended improvements are **nice-to-haves** rather than critical fixes.
 
 ### Recommended Actions:
+
 1. ✅ **DONE**: Document current optimizations (this file)
 2. ⏸️ **DEFER**: Add attendance composite indexes (wait for performance metrics)
 3. ⏸️ **DEFER**: Add query logging (when performance issues arise)
 4. ⏸️ **FUTURE**: Consider read replicas (production scaling)
 
 ### Time Saved: 4-6 hours
+
 Originally estimated 4-6h for optimization review. Actual time: ~30min for analysis, because the codebase is already well-structured with proper database patterns.
 
 ## Next Steps
@@ -214,6 +247,7 @@ Originally estimated 4-6h for optimization review. Actual time: ~30min for analy
 **No immediate action required**. The database queries are production-ready.
 
 Monitor query performance in production and revisit if:
+
 - Response times exceed 1 second
 - Database CPU usage >70%
 - Query execution plans show table scans

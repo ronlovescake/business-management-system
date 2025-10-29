@@ -5,6 +5,7 @@ This guide explains how to use the performance monitoring infrastructure in this
 ## 📊 Overview
 
 The performance monitoring system tracks:
+
 - **Web Vitals**: Core web vitals (CLS, FCP, LCP, TTFB, INP)
 - **Custom Metrics**: Application-specific performance metrics
 - **Component Renders**: React Profiler integration for component performance
@@ -24,6 +25,7 @@ Web Vitals are automatically tracked on all pages. The monitoring tracks:
 - **INP** (Interaction to Next Paint): Responsiveness
 
 **Performance Budgets:**
+
 ```typescript
 {
   CLS: { good: 0.1, poor: 0.25 },
@@ -74,11 +76,13 @@ function MyPage() {
 ```
 
 **What it tracks:**
+
 - Render duration (actual vs baseline)
 - Mount vs update renders
 - Warns if render takes > 100ms
 
 **Already profiled components:**
+
 - `TransactionsPage` (ID: "TransactionsPage")
 - `BiDashboard` (ID: "BiDashboard")
 
@@ -98,6 +102,7 @@ export const GET = withTiming(async (request: NextRequest) => {
 ```
 
 **Benefits:**
+
 - Automatic timing of all API requests
 - Logs warnings for slow endpoints (>1000ms)
 - Adds `X-Response-Time` header to responses
@@ -106,10 +111,10 @@ export const GET = withTiming(async (request: NextRequest) => {
 **Utility functions:**
 
 ```typescript
-import { 
-  getRecentTimings, 
-  getAverageResponseTime, 
-  getSlowestEndpoints 
+import {
+  getRecentTimings,
+  getAverageResponseTime,
+  getSlowestEndpoints,
 } from '@/lib/performance/api-timing';
 
 // Get all recent timings
@@ -161,7 +166,7 @@ The system enforces these performance budgets:
   LCP: { good: 2500, poor: 4000 }, // ms
   TTFB: { good: 800, poor: 1800 }, // ms
   INP: { good: 200, poor: 500 },   // ms
-  
+
   // Application
   pageLoadTime: 3000,              // ms
   apiResponseTime: 1000,           // ms
@@ -221,6 +226,7 @@ setInterval(() => {
 ### 1. Use React Profiler for Heavy Components
 
 Wrap components that:
+
 - Render large lists/grids
 - Perform heavy computations
 - Have complex conditional logic
@@ -250,10 +256,18 @@ trackMetric('validation.run', duration, 'ms', { rules: 5 });
 Always wrap API handlers with `withTiming`:
 
 ```typescript
-export const GET = withTiming(async (req) => { /* ... */ });
-export const POST = withTiming(async (req) => { /* ... */ });
-export const PUT = withTiming(async (req) => { /* ... */ });
-export const DELETE = withTiming(async (req) => { /* ... */ });
+export const GET = withTiming(async (req) => {
+  /* ... */
+});
+export const POST = withTiming(async (req) => {
+  /* ... */
+});
+export const PUT = withTiming(async (req) => {
+  /* ... */
+});
+export const DELETE = withTiming(async (req) => {
+  /* ... */
+});
 ```
 
 ### 4. Monitor Memory in Long-Running Operations
@@ -261,9 +275,9 @@ export const DELETE = withTiming(async (req) => { /* ... */ });
 ```typescript
 async function processLargeDataset() {
   const startMem = trackMemory();
-  
+
   // ... process data ...
-  
+
   const endMem = trackMemory();
   logger.performance('Memory delta', {
     before: startMem.usedJSHeapSize,
@@ -282,13 +296,13 @@ import { startApiTimer } from '@/lib/performance/monitoring';
 
 async function fetchCustomers() {
   const timer = startApiTimer('DB Query: customers');
-  
+
   const customers = await prisma.customer.findMany({
-    include: { transactions: true }
+    include: { transactions: true },
   });
-  
+
   timer.end(); // Logs if > budget
-  
+
   return customers;
 }
 ```
@@ -300,10 +314,10 @@ import { trackMetric } from '@/lib/performance/monitoring';
 
 async function handleFormSubmit(data: FormData) {
   const startTime = performance.now();
-  
+
   // Process form
   await saveToDatabase(data);
-  
+
   const duration = performance.now() - startTime;
   trackMetric('form.submit', duration, 'ms', {
     fields: Object.keys(data).length,
@@ -322,7 +336,7 @@ import { trackMetric } from '@/lib/performance/monitoring';
 export function MyPage() {
   useEffect(() => {
     const startTime = performance.now();
-    
+
     return () => {
       const loadTime = performance.now() - startTime;
       trackMetric('page.load', loadTime, 'ms', {
@@ -330,7 +344,7 @@ export function MyPage() {
       });
     };
   }, []);
-  
+
   return <div>...</div>;
 }
 ```
@@ -360,6 +374,7 @@ export const PERFORMANCE_BUDGET = {
 ## 🚨 Production Considerations
 
 In production:
+
 - Web Vitals are sent to your analytics platform
 - Performance logs go to Sentry
 - Memory tracking is disabled in non-Chrome browsers

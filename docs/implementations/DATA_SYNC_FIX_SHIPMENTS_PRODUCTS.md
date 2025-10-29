@@ -28,6 +28,7 @@
 ### User's Workaround
 
 The user had to:
+
 1. Change the shipment status to something else (e.g., "For Pickup")
 2. Change it back to "Sorting"
 3. This triggered the UPDATE endpoint's cascade logic, which properly synced the status to products
@@ -134,6 +135,7 @@ if (existing) {
 ## Expected Behavior After Fix
 
 ### Scenario 1: Import Products First, Then Shipment
+
 1. User imports products via CSV (without Shipment Status column)
 2. Products have `shipmentStatus = null`
 3. User creates/imports shipment with matching `Shipment Code`
@@ -145,6 +147,7 @@ if (existing) {
    - **Shipment Status**
 
 ### Scenario 2: Import Shipment First, Then Products
+
 1. User imports shipment with status "Sorting"
 2. User imports products with matching `Shipment Code` (without status)
 3. Products have `shipmentStatus = null` initially
@@ -152,6 +155,7 @@ if (existing) {
 5. **Alternative solution needed:** Consider adding shipment lookup during product creation
 
 ### Scenario 3: Update Existing Shipment
+
 1. User changes shipment status from "Sorting" to "For Pickup"
 2. **✅ ALREADY WORKING:** All products with that `shipmentCode` get updated
 3. This behavior is unchanged

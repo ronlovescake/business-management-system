@@ -14,7 +14,20 @@ See: **[IMPLEMENTATION_GUIDE.md](./IMPLEMENTATION_GUIDE.md)**
 
 ---
 
-## 📊 What This Framework Provides
+## � Folder Organization
+
+Most historical markdown files now live under dedicated subfolders so the repository root stays uncluttered:
+
+- `guides/` – walkthroughs, quick references, and checklists.
+- `implementations/` – rollout plans, feature notes, and architecture decisions.
+- `reports/` – milestone recaps, audit results, and working session notes.
+- `reference/` – living TODO lists or other running inventories.
+
+Add new documents to the appropriate folder and drop a short link in this README when something notable appears.
+
+---
+
+## �📊 What This Framework Provides
 
 | Metric                     | Before | After     | How                                        |
 | -------------------------- | ------ | --------- | ------------------------------------------ |

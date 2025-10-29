@@ -48,11 +48,12 @@ Categorized into 5 priority groups:
 **Purpose**: Provide type-safe alternatives for common Prisma patterns
 
 **Contents**:
+
 ```typescript
 /**
  * Valid Prisma model names (excludes client methods)
  */
-export type PrismaModelName = 
+export type PrismaModelName =
   | 'customer'
   | 'product'
   | 'transaction'
@@ -84,6 +85,7 @@ export type PrismaInclude<T extends PrismaModelName> = /* ... */;
 ```
 
 **Benefits**:
+
 - ✅ Restricts model names to valid Prisma models at compile time
 - ✅ Provides runtime validation with type guards
 - ✅ Reusable across entire codebase
@@ -92,6 +94,7 @@ export type PrismaInclude<T extends PrismaModelName> = /* ... */;
 ### 2. Updated BaseRepository ✅
 
 **Before**:
+
 ```typescript
 protected abstract readonly modelName: string;
 protected get model(): any {
@@ -100,6 +103,7 @@ protected get model(): any {
 ```
 
 **After**:
+
 ```typescript
 protected abstract readonly modelName: PrismaModelName;
 /**
@@ -111,7 +115,7 @@ protected abstract readonly modelName: PrismaModelName;
  * - PrismaModelName restricts modelName to valid Prisma models
  * - Generic TEntity parameter enforces result type correctness
  * - Each repository validates its modelName matches its entity type
- * 
+ *
  * This is an acceptable use of `any` for dynamic model access patterns.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -122,6 +126,7 @@ protected get model(): any {
 ```
 
 **Improvements**:
+
 - ✅ Type-restricted modelName (compile-time safety)
 - ✅ Comprehensive documentation explaining why `any` is acceptable
 - ✅ ESLint rules properly configured with context
@@ -131,6 +136,7 @@ protected get model(): any {
 All other `any` usages already have proper documentation:
 
 - **backup/route.ts** (Line 100):
+
   ```typescript
   // Dynamic model access requires 'any' type due to Prisma's runtime model resolution
   // The model name is validated against TABLES array above
@@ -138,6 +144,7 @@ All other `any` usages already have proper documentation:
   ```
 
 - **restore/route.ts** (Lines 103, 203, 267):
+
   ```typescript
   // Dynamic model access requires 'any' type due to Prisma's runtime model resolution
   // The modelName is validated against modelMap above
@@ -186,6 +193,7 @@ All other `any` usages already have proper documentation:
 ### 1. TypeScript Configuration
 
 Current `tsconfig.json` is already strict:
+
 ```json
 {
   "compilerOptions": {
@@ -202,6 +210,7 @@ Current `tsconfig.json` is already strict:
 ### 2. ESLint Configuration
 
 Current rules are well-configured:
+
 ```json
 {
   "@typescript-eslint/no-explicit-any": "error"
@@ -257,36 +266,40 @@ const records = await model.findMany();
 ## Performance Impact
 
 ### Compile Time:
+
 - **Before**: ~45 seconds
-- **After**: ~45 seconds  
+- **After**: ~45 seconds
 - **Impact**: ✅ None (type utilities are compile-time only)
 
 ### Runtime:
+
 - **Impact**: ✅ None (all type utilities are erased at runtime)
 - **Bundle Size**: ✅ No change (types don't affect bundle)
 
 ## Documentation Updates
 
 ### Files Created:
+
 1. ✅ `src/types/prisma.ts` (107 lines) - Type utility library
 2. ✅ `P2-6_TYPE_SAFETY_IMPROVEMENTS.md` (this file) - Comprehensive documentation
 
 ### Files Modified:
+
 1. ✅ `src/core/database/repository/BaseRepository.ts`
    - Added PrismaModelName type restriction
    - Enhanced documentation for acceptable `any` usage
 
 ## Statistics
 
-| Metric | Count | Status |
-|--------|-------|--------|
-| Total `any` instances found | 71 | ✅ Audited |
-| High-priority fixes needed | 14 | ✅ Resolved |
-| Acceptable patterns documented | 57 | ✅ Verified |
-| Type utilities created | 5 | ✅ Complete |
-| Tests passing | 562/562 | ✅ 100% |
-| TypeScript errors | 0 | ✅ Clean |
-| ESLint violations | 0 | ✅ Clean |
+| Metric                         | Count   | Status      |
+| ------------------------------ | ------- | ----------- |
+| Total `any` instances found    | 71      | ✅ Audited  |
+| High-priority fixes needed     | 14      | ✅ Resolved |
+| Acceptable patterns documented | 57      | ✅ Verified |
+| Type utilities created         | 5       | ✅ Complete |
+| Tests passing                  | 562/562 | ✅ 100%     |
+| TypeScript errors              | 0       | ✅ Clean    |
+| ESLint violations              | 0       | ✅ Clean    |
 
 ## Conclusion
 
@@ -309,13 +322,15 @@ Instead of blindly refactoring all 71 `any` instances (which would introduce ris
 - Clear guidelines for future development
 
 ### Time Investment:
+
 - **Analysis**: 1 hour
-- **Implementation**: 45 minutes  
+- **Implementation**: 45 minutes
 - **Testing**: 15 minutes
 - **Documentation**: 30 minutes
 - **Total**: ~2.5 hours (vs estimated 4-6h for "refactor everything" approach)
 
 ### Value Delivered:
+
 - ✅ Compile-time safety for Prisma model access
 - ✅ Runtime validation utilities
 - ✅ Comprehensive documentation
@@ -328,6 +343,7 @@ Instead of blindly refactoring all 71 `any` instances (which would introduce ris
 P2-6 is **COMPLETE**. The codebase has strong type safety with pragmatic use of `any` where necessary. All instances are documented and justified.
 
 **Recommended follow-up** (low priority):
+
 - Consider Prisma v6 when released (improved dynamic model typing)
 - Monitor TypeScript releases for better Prisma integration
 - Revisit if Prisma adds built-in type-safe dynamic model access
