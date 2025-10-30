@@ -110,14 +110,27 @@ export function PostTemplateComponent() {
       ) : null}
 
       {selectedProduct && (
-        <Paper withBorder p="md" bg="#f8f9fa">
-          <Text size="sm" fw={500} mb="xs">
-            Selected Product:
-          </Text>
-          <Text size="md" fw={600} c="blue">
-            {selectedProduct['Product Code']}
-          </Text>
-        </Paper>
+        <>
+          <Paper withBorder p="md" bg="#f8f9fa">
+            <Text size="sm" fw={500} mb="xs">
+              Selected Product:
+            </Text>
+            <Text size="md" fw={600} c="blue">
+              {selectedProduct['Product Code']}
+            </Text>
+          </Paper>
+
+          <Paper
+            withBorder
+            style={{
+              backgroundColor: '#ffffff',
+              minHeight: '500px',
+              width: '100%',
+            }}
+          >
+            {/* Blank canvas - content will be added later */}
+          </Paper>
+        </>
       )}
     </Stack>
   );
