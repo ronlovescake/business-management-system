@@ -10,7 +10,7 @@ import {
   BulkCreateCheckoutLinksSchema,
   CheckoutLinksQuerySchema,
   UpdateCheckoutLinksSchema,
-} from './schemas';
+} from '@/modules/clothing/operations/checkout-links/api/schemas';
 
 /**
  * GET /api/checkout-links
