@@ -14,6 +14,7 @@ import {
   Flex,
   Alert,
   Popover,
+  Box,
   type ComboboxStore,
 } from '@mantine/core';
 import type { SortingDistributionStatistics } from '../types/sortingDistribution.types';
@@ -220,84 +221,99 @@ export function InfoSection({
           )}
         </Group>
 
-        <Stack
-          gap={12}
-          align="stretch"
-          justify="center"
-          style={{ flex: '1 1 240px', minHeight: '44px' }}
+        <Flex
+          align="center"
+          gap="md"
+          style={{ flex: '1 1 320px', minHeight: '44px', width: '100%' }}
         >
-          {showQuantityAdjustment && (
-            <Alert
-              color={quantityAdjustmentColor}
-              variant="light"
-              radius="md"
-              className={classes.quantityAlert}
-              style={{
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.04em',
-              }}
-            >
-              {quantityAdjustmentLabel}
-            </Alert>
-          )}
+          <Box style={{ display: 'flex', flex: '0 1 auto' }}>
+            {showQuantityAdjustment && (
+              <Alert
+                color={quantityAdjustmentColor}
+                variant="light"
+                radius="md"
+                className={classes.quantityAlert}
+                style={{
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                {quantityAdjustmentLabel}
+              </Alert>
+            )}
+          </Box>
 
-          {customerNotes.length > 0 && (
-            <Popover
-              width={360}
-              trapFocus={false}
-              position="bottom"
-              shadow="lg"
-              radius="md"
-              opened={notesOpened}
-              onClose={closeNotes}
-            >
-              <Popover.Target>
-                <Alert
-                  color="yellow"
-                  variant="outline"
-                  radius="md"
-                  className={classes.notesAlert}
-                  onClick={toggleNotes}
-                  onKeyDown={handleNotesKeyDown}
-                  style={{
-                    cursor: 'pointer',
-                  }}
-                  title="Notes / Request"
-                  tabIndex={0}
-                >
-                  <Text fw={600} tt="uppercase" size="sm">
-                    Notes / request!
-                  </Text>
-                  <Text
-                    size="sm"
-                    fw={500}
-                    style={{ textDecoration: 'underline' }}
+          <Box
+            style={{
+              display: 'flex',
+              flex: '1 1 auto',
+              justifyContent: 'flex-end',
+              marginLeft: 'auto',
+            }}
+          >
+            {customerNotes.length > 0 && (
+              <Popover
+                width={360}
+                trapFocus={false}
+                position="bottom"
+                shadow="lg"
+                radius="md"
+                opened={notesOpened}
+                onClose={closeNotes}
+              >
+                <Popover.Target>
+                  <Alert
+                    color="yellow"
+                    variant="outline"
+                    radius="md"
+                    className={classes.notesAlert}
+                    onClick={toggleNotes}
+                    onKeyDown={handleNotesKeyDown}
+                    style={{ cursor: 'pointer' }}
+                    tabIndex={0}
                   >
-                    Click here to view
-                  </Text>
-                </Alert>
-              </Popover.Target>
-              <Popover.Dropdown>
-                <Stack gap="sm" maw={320}>
-                  <Text fw={600} size="sm">
-                    Customer notes ({customerNotes.length})
-                  </Text>
-                  {customerNotes.map((noteEntry, noteIndex) => (
-                    <Stack gap={4} key={noteEntry.id}>
-                      <Text fw={600} size="sm">
-                        {noteIndex + 1}. {noteEntry.customer}
-                      </Text>
-                      <Text size="sm" c="dimmed">
-                        {noteEntry.note}
-                      </Text>
-                    </Stack>
-                  ))}
-                </Stack>
-              </Popover.Dropdown>
-            </Popover>
-          )}
-        </Stack>
+                    <Text
+                      fw={600}
+                      tt="uppercase"
+                      size="sm"
+                      color="yellow.7"
+                      component="span"
+                      mr={6}
+                    >
+                      Notes / Request:
+                    </Text>
+                    <Text
+                      size="sm"
+                      fw={500}
+                      component="span"
+                      style={{ textDecoration: 'underline' }}
+                    >
+                      Click here to view
+                    </Text>
+                  </Alert>
+                </Popover.Target>
+                <Popover.Dropdown>
+                  <Stack gap="sm" maw={320}>
+                    <Text fw={600} size="sm">
+                      Customer notes ({customerNotes.length})
+                    </Text>
+                    {customerNotes.map((noteEntry, noteIndex) => (
+                      <Stack gap={4} key={noteEntry.id}>
+                        <Text fw={600} size="sm">
+                          {noteIndex + 1}. {noteEntry.customer}
+                        </Text>
+                        <Text size="sm" c="dimmed">
+                          {noteEntry.note}
+                        </Text>
+                      </Stack>
+                    ))}
+                  </Stack>
+                </Popover.Dropdown>
+              </Popover>
+            )}
+          </Box>
+        </Flex>
 
         <Group
           gap="lg"
