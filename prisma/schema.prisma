@@ -555,3 +555,22 @@ enum CashAdvanceCycle {
   FIRST_HALF
   SECOND_HALF
 }
+
+model CheckoutLink {
+  id             String    @id @default(cuid())
+  weight         String    @db.VarChar(50)
+  width          String    @db.VarChar(50)
+  length         String    @db.VarChar(50)
+  height         String    @db.VarChar(50)
+  checkoutLinks  String?   @db.VarChar(500)
+  productPortals String?   @db.VarChar(500)
+  productNames   String    @db.VarChar(500)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  @@index([weight])
+  @@index([deletedAt])
+  @@index([weight, width, length, height])
+  @@map("checkout_links")
+}
