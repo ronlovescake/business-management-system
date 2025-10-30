@@ -49,8 +49,8 @@ async function fixApostrophes() {
     const products = await prisma.product.findMany({
       where: {
         OR: [
-          { code: { contains: '&#x27;' } },
-          { name: { contains: '&#x27;' } },
+          { productCode: { contains: '&#x27;' } },
+          { product: { contains: '&#x27;' } },
         ],
       },
     });
@@ -60,11 +60,11 @@ async function fixApostrophes() {
     let productCount = 0;
     for (const product of products) {
       const updates = {};
-      if (product.code?.includes('&#x27;')) {
-        updates.code = product.code.replace(/&#x27;/g, "'");
+      if (product.productCode?.includes('&#x27;')) {
+        updates.productCode = product.productCode.replace(/&#x27;/g, "'");
       }
-      if (product.name?.includes('&#x27;')) {
-        updates.name = product.name.replace(/&#x27;/g, "'");
+      if (product.product?.includes('&#x27;')) {
+        updates.product = product.product.replace(/&#x27;/g, "'");
       }
 
       if (Object.keys(updates).length > 0) {
@@ -73,7 +73,7 @@ async function fixApostrophes() {
           data: updates,
         });
         productCount++;
-        console.log(`  ✅ Fixed: ${updates.name || product.name}`);
+        console.log(`  ✅ Fixed: ${updates.product || product.product}`);
       }
     }
 
