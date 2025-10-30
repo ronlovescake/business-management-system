@@ -38,10 +38,10 @@ describe('Server-Side Sanitization Security Tests', () => {
     });
 
     describe('Special Characters', () => {
-      it('should escape apostrophes for safety', () => {
+      it('should preserve apostrophes in names', () => {
         const result = sanitizers.name("O'Brien");
-        // Apostrophes are HTML-escaped for XSS protection
-        expect(result).toContain('&#x27;');
+        // Apostrophes are preserved as they're commonly used in names and don't pose XSS risk in React
+        expect(result).toBe("O'Brien");
       });
 
       it('should allow hyphens in names', () => {
@@ -347,11 +347,11 @@ describe('Server-Side Sanitization Security Tests', () => {
   });
 
   describe('SQL Injection Prevention', () => {
-    it('should escape single quotes safely', () => {
+    it('should preserve single quotes in names', () => {
       const name = "O'Brien";
       const result = sanitizers.name(name);
-      // HTML escaping protects against both XSS and SQL injection
-      expect(result).toContain('&#x27;');
+      // Single quotes are preserved as SQL injection is handled by parameterized queries
+      expect(result).toBe("O'Brien");
     });
 
     it('should handle double dashes', () => {

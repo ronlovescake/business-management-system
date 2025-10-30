@@ -64,16 +64,15 @@ export function sanitizeString(
 
 /**
  * Escape HTML entities to prevent XSS
- * Note: Forward slash (/) and ampersand (&) are not escaped as they're commonly used in product/brand names
+ * Note: Forward slash (/), ampersand (&), and apostrophe (') are not escaped as they're commonly used in names and product/brand names
  */
 export function escapeHtml(text: string): string {
   const map: Record<string, string> = {
     '<': '&lt;',
     '>': '&gt;',
     '"': '&quot;',
-    "'": '&#x27;',
   };
-  return text.replace(/[<>"']/g, (char) => map[char] || char);
+  return text.replace(/[<>"]/g, (char) => map[char] || char);
 }
 
 /**
