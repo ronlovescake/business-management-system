@@ -5,13 +5,13 @@
 import { z } from 'zod';
 
 export const CreateCheckoutLinksSchema = z.object({
-  weight: z.string().min(1, 'Weight is required'),
-  width: z.string().min(1, 'Width is required'),
-  length: z.string().min(1, 'Length is required'),
-  height: z.string().min(1, 'Height is required'),
+  weight: z.string(),
+  width: z.string(),
+  length: z.string(),
+  height: z.string(),
   checkoutLinks: z.string().optional().nullable(),
   productPortals: z.string().optional().nullable(),
-  productNames: z.string().min(1, 'Product names is required'),
+  productNames: z.string().optional().nullable(),
 });
 
 export const BulkCreateCheckoutLinksSchema = z.object({

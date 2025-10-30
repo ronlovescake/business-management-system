@@ -564,7 +564,7 @@ model CheckoutLink {
   height         String    @db.VarChar(50)
   checkoutLinks  String?   @db.VarChar(500)
   productPortals String?   @db.VarChar(500)
-  productNames   String    @db.VarChar(500)
+  productNames   String?   @db.VarChar(500)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?

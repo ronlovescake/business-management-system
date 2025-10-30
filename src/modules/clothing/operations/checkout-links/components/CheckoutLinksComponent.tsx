@@ -201,13 +201,13 @@ export function CheckoutLinksComponent() {
           },
           body: JSON.stringify({
             items: parsedData.map((item) => ({
-              weight: item.weight,
-              width: item.width,
-              length: item.length,
-              height: item.height,
+              weight: item.weight || '',
+              width: item.width || '',
+              length: item.length || '',
+              height: item.height || '',
               checkoutLinks: item.checkoutLinks || null,
               productPortals: item.productPortals || null,
-              productNames: item.productNames,
+              productNames: item.productNames || null,
             })),
           }),
         })
