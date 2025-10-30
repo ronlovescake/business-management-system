@@ -17,6 +17,7 @@ import {
   IconDashboard,
   IconPackage,
   IconGift,
+  IconLink,
   IconBell,
   IconSettings,
   IconClipboardList,
@@ -109,16 +110,22 @@ export function Sidebar() {
           order: 10,
         },
         {
+          label: 'Checkout Links',
+          path: `${basePath}/checkout-links`,
+          icon: IconLink,
+          order: 11,
+        },
+        {
           label: 'Notifications',
           path: `${basePath}/notifications`,
           icon: IconBell,
-          order: 11,
+          order: 12,
         },
         {
           label: 'Settings',
           path: `${basePath}/settings`,
           icon: IconSettings,
-          order: 12,
+          order: 13,
         }
       );
     }
