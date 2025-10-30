@@ -8,7 +8,7 @@ import { CheckoutLinksComponent } from '@/modules/clothing/operations/checkout-l
 
 export default function CheckoutLinksPage() {
   return (
-    <PageLayout title="Checkout Links">
+    <PageLayout fluid withPadding>
       <CheckoutLinksComponent />
     </PageLayout>
   );
