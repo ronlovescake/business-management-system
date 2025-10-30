@@ -1,12 +1,13 @@
-import { PageLayout } from '../../../../components/layout/PageLayout'
-import { PostTemplateErrorBoundary } from './components/PostTemplateErrorBoundary';;
+import { PageLayout } from '../../../../components/layout/PageLayout';
+import { PostTemplateErrorBoundary } from './components/PostTemplateErrorBoundary';
+import { PostTemplateComponent } from '@/modules/clothing/operations/post-template/components/PostTemplateComponent';
 
 export default function PostTemplate() {
   return (
     <PageLayout title="Post Template">
-      <div>
-        {/* Empty shell - content will be added later */}
-      </div>
+      <PostTemplateErrorBoundary>
+        <PostTemplateComponent />
+      </PostTemplateErrorBoundary>
     </PageLayout>
   );
 }
