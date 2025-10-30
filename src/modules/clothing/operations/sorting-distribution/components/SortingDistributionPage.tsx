@@ -15,7 +15,7 @@ import React, {
   useLayoutEffect,
   useMemo,
 } from 'react';
-import { Stack, useCombobox } from '@mantine/core';
+import { Stack } from '@mantine/core';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { HotTable } from '@handsontable/react';
 import { registerAllModules } from 'handsontable/registry';
@@ -348,39 +348,22 @@ export function SortingDistributionPage() {
 
   const { totalDistribution, availableStock } = dataHook.statistics;
 
-  const productSelectCombobox = useCombobox();
-
-  const focusSearchInputSafely = useCallback(() => {
-    let attempts = 0;
-    const tryFocus = () => {
-      const searchInput = productSelectCombobox.searchRef.current;
-      if (searchInput) {
-        searchInput.focus();
-        searchInput.select();
-        return;
-      }
-
-      if (attempts >= 3) {
-        productSelectCombobox.focusTarget();
-        return;
-      }
-
-      attempts += 1;
-      requestAnimationFrame(tryFocus);
-    };
-
-    tryFocus();
-  }, [productSelectCombobox]);
+  const productSelectRef = useRef<HTMLInputElement>(null);
 
   const focusProductSelect = useCallback(() => {
-    productSelectCombobox.openDropdown('keyboard');
-    requestAnimationFrame(() => {
-      productSelectCombobox.updateSelectedOptionIndex('selected', {
-        scrollIntoView: true,
-      });
-      focusSearchInputSafely();
-    });
-  }, [productSelectCombobox, focusSearchInputSafely]);
+    // Deselect any active table cell so arrow keys work in the dropdown
+    const hot = hotTableRef.current?.hotInstance;
+    if (hot) {
+      hot.deselectCell();
+    }
+
+    const input = productSelectRef.current;
+    if (input) {
+      input.click(); // Click to open dropdown
+      input.focus();
+      input.select();
+    }
+  }, []);
 
   useEffect(() => {
     if (typeof document === 'undefined') {
@@ -750,7 +733,7 @@ export function SortingDistributionPage() {
           uniqueQuantities={dataHook.uniqueQuantities}
           selectedQuantity={selectedQuantity}
           onSelectQuantity={setSelectedQuantity}
-          productSelectCombobox={productSelectCombobox}
+          productSelectRef={productSelectRef}
           onItemChange={handleItemChange}
           customerNotes={customerNotes}
         />
@@ -805,7 +788,7 @@ export function SortingDistributionPage() {
             ]}
             rowHeaders={true}
             width="100%"
-            height="calc(90vh - 280px)"
+            height="calc(97vh - 280px)"
             stretchH="all"
             licenseKey="non-commercial-and-evaluation"
             afterChange={handleAfterChange}

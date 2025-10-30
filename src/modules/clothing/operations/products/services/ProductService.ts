@@ -132,17 +132,19 @@ export class ProductService {
       }
     }
 
-    // Convert date from ISO format (YYYY-MM-DD) to MMDDYYYY (no dashes)
+    // Convert date from ISO format (YYYY-MM-DD) to MMDDYY (no dashes)
     let formattedDate = postingDate;
     if (/^\d{4}-\d{2}-\d{2}$/.test(postingDate)) {
       const [year, month, day] = postingDate.split('-');
-      formattedDate = `${month}${day}${year}`;
+      // Use last 2 digits of year (YY format)
+      formattedDate = `${month}${day}${year.slice(2)}`;
     } else if (/^\d{2}-\d{2}-\d{4}$/.test(postingDate)) {
-      // If already in MM-DD-YYYY format, just remove dashes
-      formattedDate = postingDate.replace(/-/g, '');
+      // If already in MM-DD-YYYY format, remove dashes and use last 2 digits of year
+      const [month, day, year] = postingDate.split('-');
+      formattedDate = `${month}${day}${year.slice(2)}`;
     }
 
-    // Format: "Product Name (INITIALS-MMDDYYYY)"
+    // Format: "Product Name (INITIALS-MMDDYY)"
     return `${productName} (${initials}-${formattedDate})`;
   }
 

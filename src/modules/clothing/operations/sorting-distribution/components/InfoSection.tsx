@@ -15,8 +15,8 @@ import {
   Alert,
   Popover,
   Box,
-  type ComboboxStore,
 } from '@mantine/core';
+import Swal from 'sweetalert2';
 import type { SortingDistributionStatistics } from '../types/sortingDistribution.types';
 import { QuantityPillButtons } from './QuantityPillButtons';
 import classes from './InfoSection.module.css';
@@ -35,8 +35,8 @@ export interface InfoSectionProps {
   selectedQuantity: number | null;
   onSelectQuantity: (quantity: number | null) => void;
 
-  // Combobox store
-  productSelectCombobox: ComboboxStore;
+  // Ref for focusing product select
+  productSelectRef?: React.RefObject<HTMLInputElement>;
 
   // Actions
   onItemChange: (item: string) => void;
@@ -63,7 +63,7 @@ export function InfoSection({
   uniqueQuantities,
   selectedQuantity,
   onSelectQuantity,
-  productSelectCombobox,
+  productSelectRef,
   onItemChange,
   customerNotes,
 }: InfoSectionProps) {
@@ -83,29 +83,6 @@ export function InfoSection({
     quantityDifference > 0
       ? `Add ${quantityDifference}`
       : `Deduct ${Math.abs(quantityDifference)}`;
-  const quantityAdjustmentColor = quantityDifference > 0 ? 'blue' : 'red';
-
-  const focusSearchInputSafely = React.useCallback(() => {
-    let attempts = 0;
-    const tryFocus = () => {
-      const searchInput = productSelectCombobox.searchRef.current;
-      if (searchInput) {
-        searchInput.focus();
-        searchInput.select();
-        return;
-      }
-
-      if (attempts >= 3) {
-        productSelectCombobox.focusTarget();
-        return;
-      }
-
-      attempts += 1;
-      requestAnimationFrame(tryFocus);
-    };
-
-    tryFocus();
-  }, [productSelectCombobox]);
 
   const Stat = ({
     label,
@@ -154,6 +131,109 @@ export function InfoSection({
     }
   };
 
+  // Test SweetAlert for quantity mismatch
+  React.useEffect(() => {
+    if (showQuantityAdjustment) {
+      const alertText = quantityAdjustmentLabel;
+
+      // Inject rotating animation CSS for icon
+      const styleId = 'rotating-icon-animation';
+      if (!document.getElementById(styleId)) {
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.textContent = `
+          .swal2-icon.swal2-info.rotate-icon,
+          .swal2-icon.swal2-warning.rotate-icon {
+            animation: rotateY 2s infinite linear !important;
+          }
+          
+          @keyframes rotateY {
+            to {
+              transform: rotateY(360deg);
+            }
+          }
+          
+          /* Fade in/out animation */
+          @keyframes fadeIn {
+            from {
+              opacity: 0;
+            }
+            to {
+              opacity: 1;
+            }
+          }
+          
+          @keyframes fadeOut {
+            from {
+              opacity: 1;
+            }
+            to {
+              opacity: 0;
+            }
+          }
+          
+          .swal2-show {
+            animation: fadeIn 0.3s !important;
+          }
+          
+          .swal2-hide {
+            animation: fadeOut 0.3s !important;
+          }
+        `;
+        document.head.appendChild(style);
+      }
+
+      Swal.fire({
+        html: `<div style="font-size: 24px; font-weight: bold;">${alertText}</div>`,
+        icon: quantityDifference > 0 ? 'info' : 'warning',
+        iconColor: quantityDifference > 0 ? '#228be6' : '#fa5252',
+        showConfirmButton: false,
+        allowOutsideClick: false,
+        allowEscapeKey: true,
+        backdrop: false,
+        position: 'top',
+        showClass: {
+          popup: 'swal2-show',
+        },
+        hideClass: {
+          popup: 'swal2-hide',
+        },
+        customClass: {
+          container: 'swal-no-block',
+          icon: 'rotate-icon',
+          popup: 'swal-shadow',
+        },
+        didOpen: () => {
+          // Apply drop shadow and reduce height
+          const popup = document.querySelector('.swal2-popup');
+          if (popup instanceof HTMLElement) {
+            popup.style.boxShadow = '0 10px 40px rgba(0, 0, 0, 0.3)';
+            popup.style.padding = '1rem 1.25rem';
+          }
+
+          // Reduce icon size
+          const icon = document.querySelector('.swal2-icon');
+          if (icon instanceof HTMLElement) {
+            icon.style.width = '3.5rem';
+            icon.style.height = '3.5rem';
+            icon.style.margin = '0.75rem auto';
+          }
+
+          // Reduce text spacing
+          const htmlContainer = document.querySelector('.swal2-html-container');
+          if (htmlContainer instanceof HTMLElement) {
+            htmlContainer.style.margin = '0.75rem 0 0 0';
+          }
+        },
+      });
+    } else {
+      // Close the alert when mismatch is resolved
+      if (Swal.isVisible()) {
+        Swal.close();
+      }
+    }
+  }, [showQuantityAdjustment, quantityAdjustmentLabel, quantityDifference]);
+
   return (
     <Card shadow="sm" padding="md" radius="md" withBorder>
       <Flex
@@ -190,15 +270,9 @@ export function InfoSection({
               clearable
               style={{ width: '100%' }}
               maxDropdownHeight={dropdownHeight}
-              onDropdownOpen={() => {
-                productSelectCombobox.updateSelectedOptionIndex('selected', {
-                  scrollIntoView: true,
-                });
-                focusSearchInputSafely();
-              }}
+              ref={productSelectRef}
               comboboxProps={{
                 withinPortal: true,
-                store: productSelectCombobox,
                 styles: {
                   dropdown: {
                     width: `${SELECT_WIDTH_PX}px`,
@@ -226,24 +300,6 @@ export function InfoSection({
           gap="md"
           style={{ flex: '1 1 320px', minHeight: '44px', width: '100%' }}
         >
-          <Box style={{ display: 'flex', flex: '0 1 auto' }}>
-            {showQuantityAdjustment && (
-              <Alert
-                color={quantityAdjustmentColor}
-                variant="light"
-                radius="md"
-                className={classes.quantityAlert}
-                style={{
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.04em',
-                }}
-              >
-                {quantityAdjustmentLabel}
-              </Alert>
-            )}
-          </Box>
-
           <Box
             style={{
               display: 'flex',
