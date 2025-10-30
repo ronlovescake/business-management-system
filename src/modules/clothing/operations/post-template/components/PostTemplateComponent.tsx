@@ -13,6 +13,8 @@ import { Text, Paper } from '@mantine/core';
 interface Product {
   id: string;
   ['Product Code']: string;
+  Product?: string;
+  ['Age Range']?: string;
 }
 
 export function PostTemplateComponent() {
@@ -126,9 +128,24 @@ export function PostTemplateComponent() {
               backgroundColor: '#ffffff',
               minHeight: '500px',
               width: '100%',
+              padding: '40px',
             }}
           >
-            {/* Blank canvas - content will be added later */}
+            <Stack gap="lg" align="center">
+              <Text size="xl" fw={700} c="red" style={{ letterSpacing: '1px' }}>
+                ONHAND!!!
+              </Text>
+
+              <Stack gap="xs" align="center">
+                <Text size="lg" fw={600} ta="center">
+                  {selectedProduct.Product || selectedProduct['Product Code']}
+                </Text>
+
+                <Text size="md" c="dimmed" ta="center">
+                  Age Range: {selectedProduct['Age Range'] || 'N/A'}
+                </Text>
+              </Stack>
+            </Stack>
           </Paper>
         </>
       )}
