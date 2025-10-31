@@ -425,7 +425,7 @@ export function DispatchComponent() {
               >
                 {filteredData.map((item) => (
                   <Table.Tr key={item.id}>
-                    <Table.Td style={{ textAlign: 'left' }}>
+                    <Table.Td style={{ textAlign: 'center' }}>
                       <Text
                         c={
                           item.orderStatus === 'Shipped'
@@ -439,7 +439,7 @@ export function DispatchComponent() {
                         {item.orderStatus}
                       </Text>
                     </Table.Td>
-                    <Table.Td style={{ textAlign: 'left' }}>
+                    <Table.Td style={{ textAlign: 'center' }}>
                       {item.shippingOptions}
                     </Table.Td>
                     <Table.Td style={{ textAlign: 'left' }}>
