@@ -76,7 +76,18 @@ export const AddPriceModal = memo(function AddPriceModal({
     }
   };
 
+  // Check if any tier has validation errors
+  const hasValidationErrors = form.tiers.some((tier, index) => {
+    if (index === 0) {
+      return false; // First tier has no previous tier to validate against
+    }
+    const previousTier = form.tiers[index - 1];
+    const previousLowerLimit = previousTier?.lowerLimit ?? 0;
+    return tier.lowerLimit > 0 && tier.lowerLimit <= previousLowerLimit;
+  });
+
   const isSubmitDisabled =
+    hasValidationErrors ||
     !form.productCode.trim() ||
     !form.tiers.some(
       (tier) => tier.lowerLimit > 0 || tier.upperLimit > 0 || tier.price > 0
@@ -215,7 +226,6 @@ export const AddPriceModal = memo(function AddPriceModal({
                       }
                       size="md"
                       radius="md"
-                      min={index === 0 ? 0 : previousLowerLimit + 1}
                       hideControls
                       disabled={!isTierEnabled}
                       error={
@@ -238,7 +248,9 @@ export const AddPriceModal = memo(function AddPriceModal({
                             : undefined,
                         },
                       }}
-                      value={tier.lowerLimit}
+                      value={
+                        tier.lowerLimit === 0 ? undefined : tier.lowerLimit
+                      }
                       onChange={(value) =>
                         onTierChange(index, 'lowerLimit', Number(value) || 0)
                       }

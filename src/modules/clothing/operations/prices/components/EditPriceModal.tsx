@@ -76,9 +76,21 @@ export const EditPriceModal = memo(function EditPriceModal({
     }
   };
 
-  const isSubmitDisabled = !form.tiers.some(
-    (tier) => tier.lowerLimit > 0 || tier.upperLimit > 0 || tier.price > 0
-  );
+  // Check if any tier has validation errors
+  const hasValidationErrors = form.tiers.some((tier, index) => {
+    if (index === 0) {
+      return false; // First tier has no previous tier to validate against
+    }
+    const previousTier = form.tiers[index - 1];
+    const previousLowerLimit = previousTier?.lowerLimit ?? 0;
+    return tier.lowerLimit > 0 && tier.lowerLimit <= previousLowerLimit;
+  });
+
+  const isSubmitDisabled =
+    hasValidationErrors ||
+    !form.tiers.some(
+      (tier) => tier.lowerLimit > 0 || tier.upperLimit > 0 || tier.price > 0
+    );
 
   return (
     <Modal
@@ -174,18 +186,20 @@ export const EditPriceModal = memo(function EditPriceModal({
                 upperLimit: 0,
                 price: 0,
               };
-              
+
               // For edit modal, enable tier if any of its values are > 0 (existing data)
               // or if it's tier 1
-              const hasTierData = tier.lowerLimit > 0 || tier.upperLimit > 0 || tier.price > 0;
+              const hasTierData =
+                tier.lowerLimit > 0 || tier.upperLimit > 0 || tier.price > 0;
               const isPreviousTierComplete =
                 index === 0
                   ? true
                   : form.tiers[index - 1].lowerLimit > 0 &&
                     form.tiers[index - 1].upperLimit > 0 &&
                     form.tiers[index - 1].price > 0;
-              const isTierEnabled = index === 0 || hasTierData || isPreviousTierComplete;
-              
+              const isTierEnabled =
+                index === 0 || hasTierData || isPreviousTierComplete;
+
               const previousTier = index > 0 ? form.tiers[index - 1] : null;
               const previousLowerLimit = previousTier?.lowerLimit ?? 0;
               const tierHasLowerLimitError =
@@ -212,7 +226,6 @@ export const EditPriceModal = memo(function EditPriceModal({
                       }
                       size="md"
                       radius="md"
-                      min={index === 0 ? 0 : previousLowerLimit + 1}
                       hideControls
                       disabled={!isTierEnabled}
                       error={
@@ -235,7 +248,9 @@ export const EditPriceModal = memo(function EditPriceModal({
                             : undefined,
                         },
                       }}
-                      value={tier.lowerLimit}
+                      value={
+                        tier.lowerLimit === 0 ? undefined : tier.lowerLimit
+                      }
                       onChange={(value) =>
                         onTierChange(index, 'lowerLimit', Number(value) || 0)
                       }
