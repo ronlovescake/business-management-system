@@ -21,8 +21,7 @@ import {
   Accordion,
 } from '@mantine/core';
 import {
-  IconEdit,
-  IconTrash,
+  IconMessageCircle,
   IconLink,
   IconMapPin,
   IconPhone,
@@ -223,13 +222,6 @@ export function DispatchComponent() {
     alert(`Edit simulation: Would edit order for "${item.customerNames}"`);
   };
 
-  // Delete handler
-  const handleDelete = (id: string, customerName: string) => {
-    alert(
-      `Delete simulation: Would delete order for "${customerName}" (ID: ${id})`
-    );
-  };
-
   // Link customer to order handler
   const handleLinkCustomer = (
     orderId: string,
@@ -349,7 +341,7 @@ export function DispatchComponent() {
     'SHIPPING OPTIONS',
     'USERNAME (BUYER)',
     'CUSTOMER NAMES',
-    'MESSAGE CUSTOMER',
+    'CUSTOMER MESSAGE',
     'ACTION',
   ];
 
@@ -468,26 +460,14 @@ export function DispatchComponent() {
                     </Table.Td>
                     <Table.Td style={{ textAlign: 'center' }}>
                       <Group gap="xs" justify="center">
-                        <Tooltip label="Edit order">
+                        <Tooltip label="Message customer">
                           <ActionIcon
                             variant="light"
                             color="blue"
                             onClick={() => handleEdit(item)}
-                            aria-label="Edit order"
+                            aria-label="Message customer"
                           >
-                            <IconEdit size={16} />
-                          </ActionIcon>
-                        </Tooltip>
-                        <Tooltip label="Delete order">
-                          <ActionIcon
-                            variant="light"
-                            color="red"
-                            onClick={() =>
-                              handleDelete(item.id, item.customerNames)
-                            }
-                            aria-label="Delete order"
-                          >
-                            <IconTrash size={16} />
+                            <IconMessageCircle size={16} />
                           </ActionIcon>
                         </Tooltip>
                       </Group>
