@@ -219,6 +219,12 @@ interface StandardTableControlsProps {
   hideExport?: boolean;
   hideAddNew?: boolean;
   hideSearch?: boolean;
+
+  /**
+   * Optional: File types to accept for import
+   * @default ".csv,text/csv"
+   */
+  acceptFileTypes?: string;
 }
 
 export function StandardTableControls({
@@ -232,6 +238,7 @@ export function StandardTableControls({
   hideExport = false,
   hideAddNew = false,
   hideSearch = false,
+  acceptFileTypes = '.csv,text/csv',
 }: StandardTableControlsProps) {
   const [searchValue, setSearchValue] = useState('');
 
@@ -256,7 +263,7 @@ export function StandardTableControls({
         {!hideImport && (
           <FileButton
             onChange={(file) => onImport?.(file)}
-            accept=".csv,text/csv"
+            accept={acceptFileTypes}
           >
             {(props) => (
               <Button

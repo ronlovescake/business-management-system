@@ -1,6 +1,6 @@
 /**
- * Test Module Component
- * Testing the reusable StandardTableControls template
+ * Dispatching Component
+ * Manage dispatching operations and tracking
  */
 
 'use client';
@@ -22,7 +22,7 @@ interface TestItem {
   quantity: number;
 }
 
-export function TestModuleComponent() {
+export function DispatchingComponent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isImporting, setIsImporting] = useState(false);
 
