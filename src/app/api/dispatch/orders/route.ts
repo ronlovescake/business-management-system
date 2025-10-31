@@ -12,6 +12,7 @@ import type { Prisma } from '@prisma/client';
 /**
  * GET /api/dispatch/orders
  * Retrieve all dispatch orders from the latest import
+ * Transforms database camelCase fields back to XLSX column names
  */
 export async function GET() {
   try {
@@ -21,12 +22,61 @@ export async function GET() {
       },
     });
 
+    // Transform database records back to XLSX format (camelCase → 'Column Name')
+    const transformedOrders = orders.map((order) => ({
+      'Order ID': order.orderId,
+      'Order Status': order.orderStatus,
+      'Return/Refund Status': order.returnRefundStatus,
+      'Tracking Number': order.trackingNumber,
+      'Shipping Option': order.shippingOption,
+      'Shipment Method': order.shipmentMethod,
+      'Estimated Ship Out Date': order.estimatedShipOutDate,
+      'Ship Time': order.shipTime,
+      'Order Creation Date': order.orderCreationDate,
+      'Order Paid Time': order.orderPaidTime,
+      'Parent SKU Reference No': order.parentSkuReferenceNo,
+      'Product Name': order.productName,
+      'SKU Reference No': order.skuReferenceNo,
+      'Variation Name': order.variationName,
+      'Original Price': order.originalPrice,
+      'Deal Price': order.dealPrice,
+      Quantity: order.quantity,
+      'Product Subtotal': order.productSubtotal,
+      'Total Discount': order.totalDiscount,
+      'Price Discount From Seller': order.priceDiscountFromSeller,
+      'Shopee Rebate': order.shopeeRebate,
+      'SKU Total Weight': order.skuTotalWeight,
+      'Number of Products in Order (Seller)': order.numberOfProductsSeller,
+      'Original Shipping Fee': order.originalShippingFee,
+      'Shipping Fee Rebate (Seller)': order.shippingFeeRebateSeller,
+      'Reverse Shipping Fee': order.reverseShippingFee,
+      'Service Fee': order.serviceFee,
+      'Grand Total': order.grandTotal,
+      'Estimated Shipping Fee': order.estimatedShippingFee,
+      'Username (Buyer)': order.usernameBuyer,
+      'Receiver Name': order.receiverName,
+      'Phone Number': order.phoneNumber,
+      'Delivery Address': order.deliveryAddress,
+      Town: order.town,
+      District: order.district,
+      Province: order.province,
+      Region: order.region,
+      Country: order.country,
+      'Zip Code': order.zipCode,
+      'Remark from buyer': order.remarkFromBuyer,
+      'Order Complete Time': order.orderCompleteTime,
+      Note: order.note,
+      // Internal fields
+      _linkedCustomerId: order.linkedCustomerId,
+      _importedAt: order.importedAt,
+    }));
+
     logger.info(`Retrieved ${orders.length} dispatch orders`);
 
     return NextResponse.json({
       success: true,
-      data: orders,
-      count: orders.length,
+      data: transformedOrders,
+      count: transformedOrders.length,
     });
   } catch (error) {
     logger.error('Error fetching dispatch orders:', error);
