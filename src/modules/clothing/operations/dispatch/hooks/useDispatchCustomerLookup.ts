@@ -112,6 +112,21 @@ export function useDispatchCustomerLookup(enabled = true) {
   }, [customersWithShopee]);
 
   /**
+   * Create a lookup map: customer ID -> Facebook link
+   */
+  const facebookByIdMap = useMemo(() => {
+    const map = new Map<number, string>();
+
+    customersWithShopee.forEach((customer) => {
+      if (customer.facebook) {
+        map.set(customer.id, customer.facebook);
+      }
+    });
+
+    return map;
+  }, [customersWithShopee]);
+
+  /**
    * Lookup function: given a shopee username, return the customer display name
    */
   const lookupCustomerName = (shopeeUsername: string): string => {
@@ -135,12 +150,25 @@ export function useDispatchCustomerLookup(enabled = true) {
     return facebookLinkMap.get(normalizedUsername) || '';
   };
 
+  /**
+   * Lookup function: given a customer ID, return the customer's Facebook link
+   */
+  const lookupFacebookLinkById = (customerId: number): string => {
+    if (!customerId) {
+      return '';
+    }
+
+    return facebookByIdMap.get(customerId) || '';
+  };
+
   return {
     customersWithShopee,
     shopeeUsernameMap,
     facebookLinkMap,
+    facebookByIdMap,
     lookupCustomerName,
     lookupFacebookLink,
+    lookupFacebookLinkById,
     isLoading,
   };
 }

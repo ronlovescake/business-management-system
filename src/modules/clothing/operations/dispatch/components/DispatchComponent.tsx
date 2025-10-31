@@ -199,6 +199,7 @@ export function DispatchComponent() {
   const {
     lookupCustomerName,
     lookupFacebookLink,
+    lookupFacebookLinkById,
     isLoading: loadingCustomers,
   } = useDispatchCustomerLookup(true);
 
@@ -771,6 +772,51 @@ export function DispatchComponent() {
                                               {index + 1}.{' '}
                                               {match.customer.customerName}
                                             </Text>
+                                            <Tooltip
+                                              label={
+                                                lookupFacebookLinkById(
+                                                  match.customer.id
+                                                )
+                                                  ? 'Message customer'
+                                                  : 'No Facebook link available'
+                                              }
+                                            >
+                                              <ActionIcon
+                                                variant="light"
+                                                color="blue"
+                                                size="sm"
+                                                component="a"
+                                                href={
+                                                  lookupFacebookLinkById(
+                                                    match.customer.id
+                                                  ) || '#'
+                                                }
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                aria-label="Message customer"
+                                                disabled={
+                                                  !lookupFacebookLinkById(
+                                                    match.customer.id
+                                                  )
+                                                }
+                                                style={{
+                                                  cursor:
+                                                    lookupFacebookLinkById(
+                                                      match.customer.id
+                                                    )
+                                                      ? 'pointer'
+                                                      : 'not-allowed',
+                                                  opacity:
+                                                    lookupFacebookLinkById(
+                                                      match.customer.id
+                                                    )
+                                                      ? 1
+                                                      : 0.5,
+                                                }}
+                                              >
+                                                <IconMessageCircle size={16} />
+                                              </ActionIcon>
+                                            </Tooltip>
                                             {match.customer.businessName && (
                                               <Badge
                                                 variant="light"
