@@ -14,25 +14,41 @@ model HealthCheck {
 }
 
 model Customer {
-  id                    Int       @id @default(autoincrement())
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-  date                  String    @db.VarChar(50)
-  customerName          String    @db.VarChar(255)
-  phoneNumber           String    @db.VarChar(100)
-  address               String    @db.VarChar(500)
-  facebook              String    @db.VarChar(255)
-  emailAddress          String    @db.VarChar(255)
-  businessName          String    @db.VarChar(255)
-  taxNumber             String    @db.VarChar(100)
-  businessAddress       String    @db.VarChar(500)
-  businessContactNumber String    @db.VarChar(100)
-  customerStatus        String    @db.VarChar(50)
-  deletedAt             DateTime?
+  id                       Int                            @id @default(autoincrement())
+  createdAt                DateTime                       @default(now())
+  updatedAt                DateTime                       @updatedAt
+  date                     String                         @db.VarChar(50)
+  customerName             String                         @db.VarChar(255)
+  phoneNumber              String                         @db.VarChar(100)
+  address                  String                         @db.VarChar(500)
+  facebook                 String                         @db.VarChar(255)
+  emailAddress             String                         @db.VarChar(255)
+  businessName             String                         @db.VarChar(255)
+  taxNumber                String                         @db.VarChar(100)
+  businessAddress          String                         @db.VarChar(500)
+  businessContactNumber    String                         @db.VarChar(100)
+  customerStatus           String                         @db.VarChar(50)
+  deletedAt                DateTime?
+  additionalCustomerInfo   AdditionalCustomerInfo[]
 
   @@index([customerName])
   @@index([phoneNumber])
   @@index([customerStatus])
+}
+
+model AdditionalCustomerInfo {
+  id         Int       @id @default(autoincrement())
+  customerId Int
+  type       String    @db.VarChar(50) // 'address', 'phone', 'shopee_username'
+  value      String    @db.VarChar(500)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([type])
+  @@map("additional_customer_info")
 }
 
 model Price {

@@ -14,6 +14,7 @@ import {
   ActionIcon,
   Tooltip,
   Tabs,
+  Badge,
 } from '@mantine/core';
 import { IconEdit, IconTrash } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
@@ -23,6 +24,7 @@ import {
   StandardTableContainer,
   StandardTableControls,
 } from '@/components/tables/StandardDataTable';
+import { useDispatchCustomerLookup } from '../hooks';
 
 interface DispatchItem {
   id: string;
@@ -52,6 +54,10 @@ export function DispatchComponent() {
   const [rawDataSearch, setRawDataSearch] = useState('');
   const [isImportingRawData, setIsImportingRawData] = useState(false);
 
+  // Customer lookup hook
+  const { lookupCustomerName, isLoading: loadingCustomers } =
+    useDispatchCustomerLookup();
+
   // Sample test data - empty array, will use imported data from rawData
   const mockData: DispatchItem[] = useMemo(() => [], []);
 
@@ -60,14 +66,19 @@ export function DispatchComponent() {
     // Transform raw data from XLSX import to DispatchItem format
     const dataSource: DispatchItem[] =
       rawData.length > 0
-        ? rawData.map((row, index) => ({
-            id: row['Order ID'] || `imported-${index}`,
-            orderStatus: row['Order Status'] || '',
-            shippingOptions: row['Shipping Option'] || '',
-            username: row['Username (Buyer)'] || '',
-            customerNames: row['Receiver Name'] || '',
-            messageCustomer: row['Remark from buyer'] || '',
-          }))
+        ? rawData.map((row, index) => {
+            const username = row['Username (Buyer)'] || '';
+            const matchedCustomer = lookupCustomerName(username);
+
+            return {
+              id: row['Order ID'] || `imported-${index}`,
+              orderStatus: row['Order Status'] || '',
+              shippingOptions: row['Shipping Option'] || '',
+              username,
+              customerNames: matchedCustomer || '', // Leave blank if no match
+              messageCustomer: row['Remark from buyer'] || '',
+            };
+          })
         : mockData;
 
     if (!searchQuery.trim()) {
@@ -84,7 +95,7 @@ export function DispatchComponent() {
         item.messageCustomer.toLowerCase().includes(query)
       );
     });
-  }, [mockData, searchQuery, rawData]);
+  }, [mockData, searchQuery, rawData, lookupCustomerName]);
 
   // CSV import handler
   const handleImportCSV = (file: File | null) => {
@@ -196,6 +207,11 @@ export function DispatchComponent() {
                         (Imported from XLSX)
                       </Text>
                     )}
+                    {loadingCustomers && (
+                      <Text component="span" c="orange" fw={500} ml="xs">
+                        (Loading customer data...)
+                      </Text>
+                    )}
                   </Text>
                 </Group>
               }
@@ -234,7 +250,25 @@ export function DispatchComponent() {
                       {item.username}
                     </Table.Td>
                     <Table.Td style={{ textAlign: 'center' }}>
-                      {item.customerNames}
+                      {item.customerNames ? (
+                        <Group gap="xs" justify="center">
+                          <Text>{item.customerNames}</Text>
+                          {lookupCustomerName(item.username) && (
+                            <Badge size="xs" color="green" variant="light">
+                              Matched
+                            </Badge>
+                          )}
+                        </Group>
+                      ) : (
+                        <Group gap="xs" justify="center">
+                          <Text c="dimmed" fs="italic">
+                            No customer found
+                          </Text>
+                          <Badge size="xs" color="yellow" variant="light">
+                            No Match
+                          </Badge>
+                        </Group>
+                      )}
                     </Table.Td>
                     <Table.Td style={{ textAlign: 'center' }}>
                       {item.messageCustomer}

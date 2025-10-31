@@ -19,6 +19,7 @@ import { useCustomerDetails } from '../hooks/useCustomerDetails';
 import { CustomerStatsCards } from './CustomerStatsCards';
 import { CustomerAnalytics } from './CustomerAnalytics';
 import { CustomerInfoCard } from './CustomerInfoCard';
+import { AdditionalCustomerInfoCard } from './AdditionalCustomerInfoCard';
 import { OrdersAndTransactions } from './OrdersAndTransactions';
 import { EditCustomerModal } from './EditCustomerModal';
 import { getIconButtonLabel } from '@/lib/accessibility';
@@ -31,7 +32,9 @@ interface CustomerDetailsViewProps {
   customerId: string;
 }
 
-export const CustomerDetailsView = memo(function CustomerDetailsView({ customerId }: CustomerDetailsViewProps) {
+export const CustomerDetailsView = memo(function CustomerDetailsView({
+  customerId,
+}: CustomerDetailsViewProps) {
   const router = useRouter();
   const {
     customer,
@@ -88,7 +91,12 @@ export const CustomerDetailsView = memo(function CustomerDetailsView({ customerI
       {/* Header */}
       <Group justify="space-between">
         <Group>
-          <ActionIcon variant="light" onClick={() => router.back()} size="lg" {...getIconButtonLabel('Go back to customers list')}>
+          <ActionIcon
+            variant="light"
+            onClick={() => router.back()}
+            size="lg"
+            {...getIconButtonLabel('Go back to customers list')}
+          >
             <IconArrowLeft size={18} />
           </ActionIcon>
           <div>
@@ -130,7 +138,10 @@ export const CustomerDetailsView = memo(function CustomerDetailsView({ customerI
       {/* Customer Details and Orders/Transactions */}
       <SimpleGrid cols={{ base: 1, lg: 3 }} spacing="lg">
         {/* Customer Info */}
-        <CustomerInfoCard customer={customer} />
+        <Stack gap="lg">
+          <CustomerInfoCard customer={customer} />
+          <AdditionalCustomerInfoCard customerId={customerId} />
+        </Stack>
 
         {/* Orders and Transactions */}
         <OrdersAndTransactions
