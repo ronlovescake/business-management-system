@@ -100,13 +100,13 @@ export function DispatchComponent() {
       };
       return response.data;
     },
-    onSuccess: (data) => {
-      logger.info('Orders saved to database', data);
+    onSuccess: (response) => {
+      logger.info('Orders saved to database', response);
       // Invalidate and refetch
       queryClient.invalidateQueries({ queryKey: ['dispatch-orders'] });
       notifications.show({
         title: 'Success',
-        message: `${data.data.created} orders saved to database (replaced ${data.data.deleted} previous orders)`,
+        message: `${response.data.created} orders saved to database (replaced ${response.data.deleted} previous orders)`,
         color: 'green',
       });
     },
