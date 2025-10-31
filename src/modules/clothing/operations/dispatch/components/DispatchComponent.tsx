@@ -61,7 +61,6 @@ interface RawOrderData {
 export function DispatchComponent() {
   const [activeTab, setActiveTab] = useState<string | null>('match');
   const [searchQuery, setSearchQuery] = useState('');
-  const [isImporting, setIsImporting] = useState(false);
   const [rawData, setRawData] = useState<RawOrderData[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [rawDataSearch, setRawDataSearch] = useState('');
@@ -218,20 +217,6 @@ export function DispatchComponent() {
     getMatchesForOrder,
   ]);
 
-  // CSV import handler
-  const handleImportCSV = (file: File | null) => {
-    if (!file) {
-      return;
-    }
-
-    setIsImporting(true);
-    // Simulate import delay
-    setTimeout(() => {
-      setIsImporting(false);
-      alert(`Import simulation: Would import file "${file.name}"`);
-    }, 1500);
-  };
-
   // CSV export handler
   const handleExportCSV = () => {
     alert('Export simulation: Would export CSV file');
@@ -385,10 +370,11 @@ export function DispatchComponent() {
             <StandardTableControls
               searchPlaceholder="Search dispatch orders..."
               onSearch={setSearchQuery}
-              onImport={handleImportCSV}
+              onImport={handleXlsxImport}
               onExport={handleExportCSV}
               onAddNew={handleAddNew}
-              isImporting={isImporting}
+              isImporting={isImportingRawData}
+              acceptFileTypes=".xlsx,.xls"
             />
 
             {/* Table Container */}
