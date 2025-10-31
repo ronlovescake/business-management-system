@@ -150,12 +150,15 @@ export function DispatchComponent() {
       }));
   }, [effectiveRawData, lookupCustomerName]);
 
-  // Possible matches hook - only enabled when the "Possible Match" tab is active
+  // Possible matches hook - enabled when either Dashboard or Possible Match tab is active
   const {
     getMatchesForOrder,
     stats,
     isLoading: loadingMatches,
-  } = usePossibleMatches(unmatchedOrders, activeTab === 'possible-match');
+  } = usePossibleMatches(
+    unmatchedOrders,
+    activeTab === 'possible-match' || activeTab === 'match'
+  );
 
   // Search filtering - use effectiveRawData (saved orders or imported data)
   const filteredData = useMemo(() => {
@@ -165,13 +168,28 @@ export function DispatchComponent() {
         ? effectiveRawData.map((row, index) => {
             const username = row['Username (Buyer)'] || '';
             const matchedCustomer = lookupCustomerName(username);
+            const orderId = row['Order ID'] || `imported-${index}`;
+
+            // If no direct match, check for possible matches
+            let customerName = matchedCustomer || '';
+            if (!matchedCustomer && activeTab === 'match') {
+              const possibleMatches = getMatchesForOrder(orderId);
+              if (possibleMatches && possibleMatches.length > 0) {
+                // Get the highest scoring match
+                const highestMatch = possibleMatches[0];
+                const displayName = highestMatch.customer.businessName
+                  ? `${highestMatch.customer.customerName} | ${highestMatch.customer.businessName}`
+                  : highestMatch.customer.customerName;
+                customerName = displayName;
+              }
+            }
 
             return {
-              id: row['Order ID'] || `imported-${index}`,
+              id: orderId,
               orderStatus: row['Order Status'] || '',
               shippingOptions: row['Shipping Option'] || '',
               username,
-              customerNames: matchedCustomer || '', // Leave blank if no match
+              customerNames: customerName,
               messageCustomer: row['Remark from buyer'] || '',
             };
           })
@@ -191,7 +209,14 @@ export function DispatchComponent() {
         item.messageCustomer.toLowerCase().includes(query)
       );
     });
-  }, [mockData, searchQuery, effectiveRawData, lookupCustomerName]);
+  }, [
+    mockData,
+    searchQuery,
+    effectiveRawData,
+    lookupCustomerName,
+    activeTab,
+    getMatchesForOrder,
+  ]);
 
   // CSV import handler
   const handleImportCSV = (file: File | null) => {
@@ -438,9 +463,13 @@ export function DispatchComponent() {
                       {item.customerNames ? (
                         <Group gap="xs" justify="center">
                           <Text>{item.customerNames}</Text>
-                          {lookupCustomerName(item.username) && (
+                          {lookupCustomerName(item.username) ? (
                             <Badge size="xs" color="green" variant="light">
                               Matched
+                            </Badge>
+                          ) : (
+                            <Badge size="xs" color="orange" variant="light">
+                              Possible Match
                             </Badge>
                           )}
                         </Group>
