@@ -170,6 +170,101 @@ function normalizeAddress(address: string): string {
 }
 
 /**
+ * Extract landmark identifiers (business names, buildings, etc.)
+ * These are highly specific and should be weighted heavily
+ */
+function extractLandmarks(address: string): Set<string> {
+  const landmarks = new Set<string>();
+
+  // Common landmark patterns (case-insensitive matching)
+  const landmarkPatterns = [
+    // Buildings and establishments
+    /\b([a-z]+\s+)?plaza\b/gi,
+    /\b([a-z]+\s+)?mall\b/gi,
+    /\b([a-z]+\s+)?tower\b/gi,
+    /\b([a-z]+\s+)?building\b/gi,
+    /\b([a-z]+\s+)?hotel\b/gi,
+    /\b([a-z]+\s+)?condominium\b/gi,
+    /\b([a-z]+\s+)?condo\b/gi,
+    /\b([a-z]+\s+)?residence\b/gi,
+
+    // Services and businesses
+    /\b([a-z]+\s+)?gas\s+station\b/gi,
+    /\b([a-z]+\s+)?gasoline\s+station\b/gi,
+    /\b([a-z]+\s+)?carwash\b/gi,
+    /\b([a-z]+\s+)?car\s+wash\b/gi,
+    /\b([a-z]+\s+)?restaurant\b/gi,
+    /\b([a-z]+\s+)?store\b/gi,
+    /\b([a-z]+\s+)?shop\b/gi,
+    /\b([a-z]+\s+)?market\b/gi,
+    /\b([a-z]+\s+)?supermarket\b/gi,
+
+    // Specific brand names (highly identifiable)
+    /\bparagon\b/gi,
+    /\bpetron\b/gi,
+    /\bshell\b/gi,
+    /\bcaltex\b/gi,
+    /\bseaoil\b/gi,
+    /\b7\s*-?\s*eleven\b/gi,
+    /\bmercedes\b/gi,
+    /\bsm\b/gi,
+    /\brobinsons\b/gi,
+    /\bayala\b/gi,
+  ];
+
+  for (const pattern of landmarkPatterns) {
+    const matches = Array.from(address.matchAll(pattern));
+    for (const match of matches) {
+      // Add the full match (including prefix if any)
+      const landmark = match[0].toLowerCase().trim().replace(/\s+/g, ' ');
+      if (landmark.length > 2) {
+        landmarks.add(landmark);
+      }
+    }
+  }
+
+  return landmarks;
+}
+
+/**
+ * Extract street markers (KM markers, block numbers, lot numbers)
+ * These are highly specific location identifiers
+ */
+function extractStreetMarkers(address: string): Set<string> {
+  const markers = new Set<string>();
+
+  // KM markers (Kilometer markers on highways)
+  const kmPattern = /\bkm\s*\.?\s*(\d+\.?\d*)\b/gi;
+  const kmMatches = Array.from(address.matchAll(kmPattern));
+  for (const match of kmMatches) {
+    markers.add(`km${match[1]}`); // Normalize to "km39", "km42", etc.
+  }
+
+  // Block numbers
+  const blockPattern = /\bblk\.?\s*(\d+[a-z]?)\b/gi;
+  const blockMatches = Array.from(address.matchAll(blockPattern));
+  for (const match of blockMatches) {
+    markers.add(`block${match[1]}`);
+  }
+
+  // Lot numbers
+  const lotPattern = /\blot\.?\s*(\d+[a-z]?)\b/gi;
+  const lotMatches = Array.from(address.matchAll(lotPattern));
+  for (const match of lotMatches) {
+    markers.add(`lot${match[1]}`);
+  }
+
+  // House/building numbers at the start
+  const housePattern = /^(\d+[a-z]?)\s/i;
+  const houseMatch = address.match(housePattern);
+  if (houseMatch) {
+    markers.add(`house${houseMatch[1]}`);
+  }
+
+  return markers;
+}
+
+/**
  * Extract key components from address
  */
 function extractAddressComponents(address: string): {
@@ -178,6 +273,8 @@ function extractAddressComponents(address: string): {
   province: string;
   zipCode: string;
   keywords: Set<string>;
+  landmarks: Set<string>;
+  streetMarkers: Set<string>;
 } {
   const normalized = normalizeAddress(address);
   const parts = normalized.split(',').map((p) => p.trim());
@@ -247,6 +344,12 @@ function extractAddressComponents(address: string): {
   // Get first part as street (usually most detailed)
   const street = parts[0] || '';
 
+  // Extract landmarks (brand names, buildings, etc.)
+  const landmarks = extractLandmarks(address);
+
+  // Extract street markers (KM, block, lot numbers)
+  const streetMarkers = extractStreetMarkers(address);
+
   // Extract keywords (significant words) - focus on meaningful address components
   const stopWords = new Set([
     'street',
@@ -278,11 +381,20 @@ function extractAddressComponents(address: string): {
     })
   );
 
-  return { street, city, province, zipCode, keywords };
+  return {
+    street,
+    city,
+    province,
+    zipCode,
+    keywords,
+    landmarks,
+    streetMarkers,
+  };
 }
 
 /**
  * Calculate address similarity score with component weighting
+ * Prioritizes landmarks and street markers (KM, block numbers) as they are highly specific
  */
 export function calculateAddressSimilarity(
   address1: string,
@@ -312,39 +424,71 @@ export function calculateAddressSimilarity(
   let score = 0;
   let totalWeight = 0;
 
-  // Exact zip code match (high confidence)
+  // ===== HIGHEST PRIORITY: Landmarks (brand names, buildings) =====
+  // These are HIGHLY specific and distinctive - if they match, it's likely the same place
+  const commonLandmarks = new Set(
+    Array.from(comp1.landmarks).filter((l) => comp2.landmarks.has(l))
+  );
+  if (comp1.landmarks.size > 0 || comp2.landmarks.size > 0) {
+    totalWeight += 30; // Very high weight!
+    if (commonLandmarks.size > 0) {
+      // Full credit if any landmark matches
+      score += 30;
+    }
+  }
+
+  // ===== HIGH PRIORITY: Street Markers (KM, Block, Lot numbers) =====
+  // These are precise location identifiers
+  const commonMarkers = new Set(
+    Array.from(comp1.streetMarkers).filter((m) => comp2.streetMarkers.has(m))
+  );
+  if (comp1.streetMarkers.size > 0 || comp2.streetMarkers.size > 0) {
+    totalWeight += 25; // High weight!
+    if (commonMarkers.size > 0) {
+      // Proportional credit based on how many markers match
+      const markerScore =
+        (commonMarkers.size /
+          Math.max(comp1.streetMarkers.size, comp2.streetMarkers.size)) *
+        25;
+      score += markerScore;
+    }
+  }
+
+  // ===== MEDIUM PRIORITY: Geographic components =====
+  // Exact zip code match (good confidence)
   if (comp1.zipCode && comp2.zipCode) {
-    totalWeight += 20;
+    totalWeight += 10;
     if (comp1.zipCode === comp2.zipCode) {
-      score += 20;
+      score += 10;
     }
   }
 
-  // Province match (important)
+  // Province match
   if (comp1.province && comp2.province) {
-    totalWeight += 15;
+    totalWeight += 8;
     if (comp1.province === comp2.province) {
-      score += 15;
+      score += 8;
     }
   }
 
-  // City match (important)
+  // City match
   if (comp1.city && comp2.city) {
-    totalWeight += 15;
+    totalWeight += 8;
     if (comp1.city === comp2.city) {
-      score += 15;
+      score += 8;
     }
   }
 
-  // Street similarity (most detailed part) - use both methods
-  totalWeight += 25;
+  // ===== LOWER PRIORITY: Street similarity =====
+  // Street-level matching (less reliable due to variations)
+  totalWeight += 12;
   const streetLevenshtein = calculateSimilarity(comp1.street, comp2.street);
   const streetToken = calculateTokenSimilarity(comp1.street, comp2.street);
-  const streetScore = Math.max(streetLevenshtein, streetToken); // Take the better score
-  score += (streetScore / 100) * 25;
+  const streetScore = Math.max(streetLevenshtein, streetToken);
+  score += (streetScore / 100) * 12;
 
-  // Keyword overlap (significant indicators)
-  totalWeight += 15;
+  // Keyword overlap (backup indicator)
+  totalWeight += 7;
   const commonKeywords = new Set(
     Array.from(comp1.keywords).filter((k) => comp2.keywords.has(k))
   );
@@ -352,13 +496,9 @@ export function calculateAddressSimilarity(
     commonKeywords.size > 0
       ? (commonKeywords.size /
           Math.max(comp1.keywords.size, comp2.keywords.size)) *
-        15
+        7
       : 0;
   score += keywordScore;
-
-  // Token-based overall similarity (backup method)
-  totalWeight += 10;
-  score += (tokenSimilarity / 100) * 10;
 
   // Normalize to 0-100
   const componentScore =
