@@ -273,7 +273,9 @@ export const EditPriceModal = memo(function EditPriceModal({
                           cursor: 'not-allowed',
                         },
                       }}
-                      value={tier.upperLimit}
+                      value={
+                        tier.upperLimit === 0 ? undefined : tier.upperLimit
+                      }
                     />
 
                     <NumberInput
@@ -294,7 +296,7 @@ export const EditPriceModal = memo(function EditPriceModal({
                           cursor: 'not-allowed',
                         },
                       }}
-                      value={tier.price}
+                      value={tier.price === 0 ? undefined : tier.price}
                     />
                   </SimpleGrid>
                 </div>

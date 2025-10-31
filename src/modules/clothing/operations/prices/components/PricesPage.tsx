@@ -89,17 +89,20 @@ export function PricesPage() {
   });
 
   // Edit modal handlers
-  const openEditModal = useCallback((productCode: string) => {
-    // Get all tiers for this product code
-    const allTiersForProduct = prices.filter(
-      (p) => p['Product Code'] === productCode
-    );
+  const openEditModal = useCallback(
+    (productCode: string) => {
+      // Get all tiers for this product code
+      const allTiersForProduct = prices.filter(
+        (p) => p['Product Code'] === productCode
+      );
 
-    // Convert to form format
-    const formData = PriceService.priceDataToForm(allTiersForProduct);
-    setEditForm(formData);
-    setIsEditOpen(true);
-  }, [prices]);
+      // Convert to form format
+      const formData = PriceService.priceDataToForm(allTiersForProduct);
+      setEditForm(formData);
+      setIsEditOpen(true);
+    },
+    [prices]
+  );
 
   const closeEditModal = useCallback(() => {
     setIsEditOpen(false);
@@ -119,11 +122,185 @@ export function PricesPage() {
   }, []);
 
   const updateEditTier = useCallback(
-    (index: number, field: 'lowerLimit' | 'upperLimit' | 'price', value: number) => {
+    (
+      index: number,
+      field: 'lowerLimit' | 'upperLimit' | 'price',
+      value: number
+    ) => {
       setEditForm((prev) => {
         const newTiers = [...prev.tiers];
-        newTiers[index] = { ...newTiers[index], [field]: value };
-        return { ...prev, tiers: newTiers };
+        const numValue = value || 0;
+
+        // Handle lower limit changes with clearing logic
+        if (field === 'lowerLimit') {
+          // Allow clearing the field (value = 0 or empty)
+          // But validate if there's an actual value being set
+          if (index > 0 && numValue > 0) {
+            const previousLowerLimit = newTiers[index - 1]?.lowerLimit ?? 0;
+            if (numValue <= previousLowerLimit) {
+              // Don't update if the value is not greater than previous tier
+              return prev;
+            }
+          }
+
+          newTiers[index].lowerLimit = numValue;
+
+          // If clearing the lower limit (numValue = 0), also clear upper limit AND price
+          if (numValue === 0) {
+            newTiers[index].upperLimit = 0;
+            newTiers[index].price = 0;
+
+            // Recalculate prices for remaining tiers if product code is set
+            const updatedForm = {
+              ...prev,
+              tiers: newTiers,
+            };
+
+            if (prev.productCode.trim()) {
+              // Schedule the recalculation to happen after this state update
+              setTimeout(async () => {
+                try {
+                  // Fetch all products
+                  const response = await fetch('/api/products');
+                  const products = await response.json();
+
+                  // Find the product by product code
+                  const product = products.find(
+                    (p: Record<string, unknown>) =>
+                      p['Product Code'] === prev.productCode.trim()
+                  );
+
+                  if (product && product['Actual Price']) {
+                    const actualPrice = Number(product['Actual Price']) || 0;
+
+                    // Find the highest filled tier
+                    let highestFilledTier = -1;
+                    for (let i = updatedForm.tiers.length - 1; i >= 0; i--) {
+                      if (updatedForm.tiers[i].lowerLimit > 0) {
+                        highestFilledTier = i;
+                        break;
+                      }
+                    }
+
+                    // If no tier has lower limit, default to Tier 1 (index 0)
+                    if (highestFilledTier === -1) {
+                      highestFilledTier = 0;
+                    }
+
+                    // Calculate prices based on highest filled tier
+                    const newTiersWithPrices = updatedForm.tiers.map(
+                      (tier, i) => {
+                        if (tier.lowerLimit > 0 && i <= highestFilledTier) {
+                          const priceIncrement = (highestFilledTier - i) * 5;
+                          return {
+                            ...tier,
+                            price: actualPrice + priceIncrement,
+                          };
+                        }
+                        return tier;
+                      }
+                    );
+
+                    setEditForm((current) => ({
+                      ...current,
+                      tiers: newTiersWithPrices,
+                    }));
+                  }
+                } catch (error) {
+                  logger.error('Failed to recalculate prices:', error);
+                }
+              }, 0);
+            }
+
+            return updatedForm;
+          }
+
+          // Auto-fill logic based on tier (only when numValue > 0)
+          if (index === 0 && numValue > 0) {
+            newTiers[index].upperLimit = 10000;
+          } else if (index === 1 && numValue > 0) {
+            newTiers[index].upperLimit = 10000;
+            newTiers[0].upperLimit = numValue - 1;
+          } else if (index === 2 && numValue > 0) {
+            newTiers[index].upperLimit = 10000;
+            newTiers[1].upperLimit = numValue - 1;
+          } else if (index === 3 && numValue > 0) {
+            newTiers[index].upperLimit = 10000;
+            newTiers[2].upperLimit = numValue - 1;
+          }
+
+          // After updating lower limit, recalculate prices if product code is set
+          const updatedForm = {
+            ...prev,
+            tiers: newTiers,
+          };
+
+          // Trigger price recalculation after state update (only if numValue > 0)
+          if (prev.productCode.trim() && numValue > 0) {
+            setTimeout(async () => {
+              try {
+                // Fetch all products
+                const response = await fetch('/api/products');
+                const products = await response.json();
+
+                // Find the product by product code
+                const product = products.find(
+                  (p: Record<string, unknown>) =>
+                    p['Product Code'] === prev.productCode.trim()
+                );
+
+                if (product && product['Actual Price']) {
+                  const actualPrice = Number(product['Actual Price']) || 0;
+
+                  // Find the highest filled tier
+                  let highestFilledTier = -1;
+                  for (let i = updatedForm.tiers.length - 1; i >= 0; i--) {
+                    if (updatedForm.tiers[i].lowerLimit > 0) {
+                      highestFilledTier = i;
+                      break;
+                    }
+                  }
+
+                  // If no tier has lower limit, default to Tier 1 (index 0)
+                  if (highestFilledTier === -1) {
+                    highestFilledTier = 0;
+                  }
+
+                  // Calculate prices based on highest filled tier
+                  const newTiersWithPrices = updatedForm.tiers.map(
+                    (tier, i) => {
+                      if (tier.lowerLimit > 0 && i <= highestFilledTier) {
+                        const priceIncrement = (highestFilledTier - i) * 5;
+                        return {
+                          ...tier,
+                          price: actualPrice + priceIncrement,
+                        };
+                      }
+                      return tier;
+                    }
+                  );
+
+                  setEditForm((current) => ({
+                    ...current,
+                    tiers: newTiersWithPrices,
+                  }));
+                }
+              } catch (error) {
+                logger.error('Failed to recalculate prices:', error);
+              }
+            }, 0);
+          }
+
+          return updatedForm;
+        } else {
+          // For upperLimit and price, just update the field
+          newTiers[index][field] = numValue;
+        }
+
+        return {
+          ...prev,
+          tiers: newTiers,
+        };
       });
     },
     []
@@ -365,21 +542,21 @@ export function PricesPage() {
   const handleAddPriceSubmit = async () => {
     // Convert form to multiple price data (one per tier)
     const priceDataArray = PriceService.formToMultiplePriceData(form);
-    
+
     if (priceDataArray.length === 0) {
       throw new Error('No tiers filled');
     }
-    
+
     // Add all tiers at once
     const success = await PriceService.addMultiplePrices(priceDataArray);
-    
+
     if (!success) {
       throw new Error('Failed to add prices');
     }
-    
+
     // Reload prices to show the new tiers
     await reloadPrices();
-    
+
     // Refresh product codes dropdown to exclude newly added product
     await fetchProductCodes();
   };
@@ -388,21 +565,21 @@ export function PricesPage() {
   const handleEditPriceSubmit = async () => {
     // Convert form to multiple price data (one per tier)
     const priceDataArray = PriceService.formToMultiplePriceData(editForm);
-    
+
     if (priceDataArray.length === 0) {
       throw new Error('No tiers filled');
     }
-    
+
     // Update all tiers for this product code
     const success = await PriceService.updateProductPrices(
       editForm.productCode,
       priceDataArray
     );
-    
+
     if (!success) {
       throw new Error('Failed to update prices');
     }
-    
+
     // Reload prices to show the updated tiers
     await reloadPrices();
   };
