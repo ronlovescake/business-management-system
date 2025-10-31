@@ -65,6 +65,68 @@ export function calculateSimilarity(str1: string, str2: string): number {
 }
 
 /**
+ * Calculate token-based similarity (more forgiving of word order and small differences)
+ */
+function calculateTokenSimilarity(str1: string, str2: string): number {
+  if (!str1 || !str2) {
+    return 0;
+  }
+
+  const tokens1 = str1
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((t) => t.length > 1); // Ignore single characters
+  const tokens2 = str2
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((t) => t.length > 1);
+
+  if (tokens1.length === 0 || tokens2.length === 0) {
+    return 0;
+  }
+
+  let matchedTokens = 0;
+  const used = new Set<number>();
+
+  // Count tokens that match or are very similar
+  for (const token1 of tokens1) {
+    for (let i = 0; i < tokens2.length; i++) {
+      if (used.has(i)) {
+        continue;
+      }
+
+      const token2 = tokens2[i];
+
+      // Exact match
+      if (token1 === token2) {
+        matchedTokens += 1;
+        used.add(i);
+        break;
+      }
+
+      // One contains the other (e.g., "mercdes" vs "mercedes")
+      if (token1.includes(token2) || token2.includes(token1)) {
+        matchedTokens += 0.9;
+        used.add(i);
+        break;
+      }
+
+      // Very similar (> 80% Levenshtein similarity)
+      const similarity = calculateSimilarity(token1, token2);
+      if (similarity >= 80) {
+        matchedTokens += similarity / 100;
+        used.add(i);
+        break;
+      }
+    }
+  }
+
+  // Return percentage of matched tokens
+  const totalTokens = Math.max(tokens1.length, tokens2.length);
+  return Math.round((matchedTokens / totalTokens) * 100);
+}
+
+/**
  * Normalize address for comparison
  * Removes common variations and standardizes format
  */
@@ -75,18 +137,35 @@ function normalizeAddress(address: string): string {
       .trim()
       // Remove extra whitespace
       .replace(/\s+/g, ' ')
-      // Standardize common abbreviations
-      .replace(/\bst\b\.?/g, 'street')
-      .replace(/\bave\b\.?/g, 'avenue')
-      .replace(/\brd\b\.?/g, 'road')
-      .replace(/\bblvd\b\.?/g, 'boulevard')
-      .replace(/\bblk\b\.?/g, 'block')
-      .replace(/\bapt\b\.?/g, 'apartment')
-      .replace(/\bunit\b\.?/g, 'unit')
-      // Remove punctuation
-      .replace(/[,.;:#]/g, '')
+      // Standardize common abbreviations (more comprehensive)
+      .replace(/\bst\b\.?/gi, 'street')
+      .replace(/\bave\b\.?/gi, 'avenue')
+      .replace(/\bavenue\b\.?/gi, 'avenue')
+      .replace(/\brd\b\.?/gi, 'road')
+      .replace(/\bblvd\b\.?/gi, 'boulevard')
+      .replace(/\bblk\b\.?/gi, 'block')
+      .replace(/\bapt\b\.?/gi, 'apartment')
+      .replace(/\bunit\b\.?/gi, 'unit')
+      .replace(/\bbrgy\b\.?/gi, 'barangay')
+      .replace(/\bsubd\b\.?/gi, 'subdivision')
+      .replace(/\bph\b\.?/gi, 'phase')
+      .replace(/\bqc\b\.?/gi, 'quezon city')
+      // Common typos and variations
+      .replace(/mercdes/gi, 'mercedes')
+      .replace(/excutive/gi, 'executive')
+      .replace(/vilige/gi, 'village')
+      .replace(/villge/gi, 'village')
+      .replace(/pasig\s*city/gi, 'pasig')
+      .replace(/metro\s*manila/gi, 'metromanila')
+      // Remove common filler words
+      .replace(/\b(the|of|at|in)\b/gi, '')
+      // Remove punctuation but keep numbers
+      .replace(/[,.;:#()\[\]]/g, ' ')
       // Standardize spacing around numbers
       .replace(/(\d+)\s*-\s*(\d+)/g, '$1-$2')
+      // Remove extra spaces again after replacements
+      .replace(/\s+/g, ' ')
+      .trim()
   );
 }
 
@@ -168,23 +247,35 @@ function extractAddressComponents(address: string): {
   // Get first part as street (usually most detailed)
   const street = parts[0] || '';
 
-  // Extract keywords (significant words)
+  // Extract keywords (significant words) - focus on meaningful address components
+  const stopWords = new Set([
+    'street',
+    'avenue',
+    'road',
+    'boulevard',
+    'block',
+    'apartment',
+    'unit',
+    'city',
+    'metro',
+    'floor',
+    'gate',
+    'phase',
+    'subdivision',
+    'village',
+    'metromanila',
+  ]);
+
   const keywords = new Set(
-    normalized
-      .split(/\s+/)
-      .filter((word) => word.length > 3)
-      .filter(
-        (word) =>
-          ![
-            'street',
-            'avenue',
-            'road',
-            'boulevard',
-            'block',
-            'apartment',
-            'unit',
-          ].includes(word)
-      )
+    normalized.split(/\s+/).filter((word) => {
+      // Keep words that are:
+      // - Numbers with letters (lot16b, 4a, etc.)
+      // - Words longer than 2 characters
+      // - Not in stop words list
+      const hasNumberAndLetter = /\d/.test(word) && /[a-z]/.test(word);
+      const isSignificant = word.length > 2 && !stopWords.has(word);
+      return hasNumberAndLetter || isSignificant;
+    })
   );
 
   return { street, city, province, zipCode, keywords };
@@ -201,6 +292,20 @@ export function calculateAddressSimilarity(
     return 0;
   }
 
+  // Normalize both addresses
+  const norm1 = normalizeAddress(address1);
+  const norm2 = normalizeAddress(address2);
+
+  // Quick check: if normalized addresses are very similar, return high score
+  const directSimilarity = calculateSimilarity(norm1, norm2);
+  if (directSimilarity >= 95) {
+    return directSimilarity;
+  }
+
+  // Token-based similarity (more forgiving)
+  const tokenSimilarity = calculateTokenSimilarity(norm1, norm2);
+
+  // Component-based analysis
   const comp1 = extractAddressComponents(address1);
   const comp2 = extractAddressComponents(address2);
 
@@ -209,37 +314,39 @@ export function calculateAddressSimilarity(
 
   // Exact zip code match (high confidence)
   if (comp1.zipCode && comp2.zipCode) {
-    totalWeight += 25;
+    totalWeight += 20;
     if (comp1.zipCode === comp2.zipCode) {
-      score += 25;
+      score += 20;
     }
   }
 
   // Province match (important)
   if (comp1.province && comp2.province) {
-    totalWeight += 20;
+    totalWeight += 15;
     if (comp1.province === comp2.province) {
-      score += 20;
+      score += 15;
     }
   }
 
   // City match (important)
   if (comp1.city && comp2.city) {
-    totalWeight += 20;
+    totalWeight += 15;
     if (comp1.city === comp2.city) {
-      score += 20;
+      score += 15;
     }
   }
 
-  // Street similarity (most detailed part)
-  totalWeight += 20;
-  const streetSimilarity = calculateSimilarity(comp1.street, comp2.street);
-  score += (streetSimilarity / 100) * 20;
+  // Street similarity (most detailed part) - use both methods
+  totalWeight += 25;
+  const streetLevenshtein = calculateSimilarity(comp1.street, comp2.street);
+  const streetToken = calculateTokenSimilarity(comp1.street, comp2.street);
+  const streetScore = Math.max(streetLevenshtein, streetToken); // Take the better score
+  score += (streetScore / 100) * 25;
 
-  // Keyword overlap
+  // Keyword overlap (significant indicators)
   totalWeight += 15;
   const commonKeywords = new Set(
-    [...comp1.keywords].filter((k) => comp2.keywords.has(k))
+    Array.from(comp1.keywords).filter((k) => comp2.keywords.has(k))
   );
   const keywordScore =
     commonKeywords.size > 0
@@ -249,8 +356,16 @@ export function calculateAddressSimilarity(
       : 0;
   score += keywordScore;
 
+  // Token-based overall similarity (backup method)
+  totalWeight += 10;
+  score += (tokenSimilarity / 100) * 10;
+
   // Normalize to 0-100
-  return totalWeight > 0 ? Math.round((score / totalWeight) * 100) : 0;
+  const componentScore =
+    totalWeight > 0 ? Math.round((score / totalWeight) * 100) : 0;
+
+  // Return the best score from any method
+  return Math.max(componentScore, tokenSimilarity, directSimilarity);
 }
 
 /**
