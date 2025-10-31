@@ -12,8 +12,8 @@
 
 'use client';
 
-import { useMemo } from 'react';
-import { Group, Button } from '@mantine/core';
+import { useMemo, useState } from 'react';
+import { Group, Button, Tabs } from '@mantine/core';
 import {
   IconPackage,
   IconCurrencyPeso,
@@ -42,6 +42,12 @@ import {
 } from '../types/shipment.types';
 
 export function ShipmentsPage() {
+  // ==========================================================================
+  // STATE
+  // ==========================================================================
+
+  const [activeTab, setActiveTab] = useState<string>('shipments');
+
   // ==========================================================================
   // HOOKS
   // ==========================================================================
@@ -235,52 +241,82 @@ export function ShipmentsPage() {
 
   return (
     <PageLayout fluid withPadding>
-      <DataTable
-        data={shipments}
-        filteredData={filteredData}
-        columns={columns}
-        searchQuery={searchQuery}
-        onSearch={handleSearch}
-        searchPlaceholder="Search shipments by code, CV number, status, or notes..."
-        getCellContent={cellContentGetter}
-        statsCards={statsCards}
-        enableCSVImport={true}
-        csvFile={csvFile}
-        onFileChange={setCsvFile}
-        onCSVImport={handleCSVImportWrapper}
-        footerLeft={`Showing ${filteredData.length} of ${shipments.length} shipments`}
-        actionButtons={
-          <Group gap="sm">
-            <Button
-              leftSection={<IconPlus size={16} />}
-              color="green"
-              onClick={handleAddShipment}
-            >
-              Add Shipment
-            </Button>
-          </Group>
-        }
-        enableClickableCursor={true}
-        onCellClick={(cell, shipment) => {
-          handleCellClick(cell, shipment as ShipmentData);
-        }}
-      />
+      <Tabs
+        value={activeTab}
+        onChange={(value) => setActiveTab(value || 'shipments')}
+      >
+        <Tabs.List>
+          <Tabs.Tab value="shipments">Shipments</Tabs.Tab>
+          <Tabs.Tab value="dashboard">Shipments Dashboard</Tabs.Tab>
+          <Tabs.Tab value="pickup">Pickup Form</Tabs.Tab>
+        </Tabs.List>
 
-      {/* Add Shipment Modal */}
-      <AddShipmentModal
-        opened={addModalOpened}
-        onClose={closeAddModal}
-        form={addShipmentForm}
-        onSubmit={handleSubmitAdd}
-      />
+        {/* Shipments Tab */}
+        <Tabs.Panel value="shipments" pt="md">
+          <DataTable
+            data={shipments}
+            filteredData={filteredData}
+            columns={columns}
+            searchQuery={searchQuery}
+            onSearch={handleSearch}
+            searchPlaceholder="Search shipments by code, CV number, status, or notes..."
+            getCellContent={cellContentGetter}
+            statsCards={statsCards}
+            enableCSVImport={true}
+            csvFile={csvFile}
+            onFileChange={setCsvFile}
+            onCSVImport={handleCSVImportWrapper}
+            footerLeft={`Showing ${filteredData.length} of ${shipments.length} shipments`}
+            actionButtons={
+              <Group gap="sm">
+                <Button
+                  leftSection={<IconPlus size={16} />}
+                  color="green"
+                  onClick={handleAddShipment}
+                >
+                  Add Shipment
+                </Button>
+              </Group>
+            }
+            enableClickableCursor={true}
+            onCellClick={(cell, shipment) => {
+              handleCellClick(cell, shipment as ShipmentData);
+            }}
+          />
 
-      {/* Edit Shipment Modal */}
-      <EditShipmentModal
-        opened={editModalOpened}
-        onClose={closeEditModal}
-        form={editShipmentForm}
-        onSubmit={handleSubmitEdit}
-      />
+          {/* Add Shipment Modal */}
+          <AddShipmentModal
+            opened={addModalOpened}
+            onClose={closeAddModal}
+            form={addShipmentForm}
+            onSubmit={handleSubmitAdd}
+          />
+
+          {/* Edit Shipment Modal */}
+          <EditShipmentModal
+            opened={editModalOpened}
+            onClose={closeEditModal}
+            form={editShipmentForm}
+            onSubmit={handleSubmitEdit}
+          />
+        </Tabs.Panel>
+
+        {/* Shipments Dashboard Tab */}
+        <Tabs.Panel value="dashboard" pt="md">
+          <div style={{ padding: '20px', textAlign: 'center' }}>
+            <h2>Shipments Dashboard</h2>
+            <p>Dashboard content coming soon...</p>
+          </div>
+        </Tabs.Panel>
+
+        {/* Pickup Form Tab */}
+        <Tabs.Panel value="pickup" pt="md">
+          <div style={{ padding: '20px', textAlign: 'center' }}>
+            <h2>Pickup Form</h2>
+            <p>Pickup form content coming soon...</p>
+          </div>
+        </Tabs.Panel>
+      </Tabs>
     </PageLayout>
   );
 }
