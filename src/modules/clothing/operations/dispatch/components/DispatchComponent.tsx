@@ -425,7 +425,7 @@ export function DispatchComponent() {
               >
                 {filteredData.map((item) => (
                   <Table.Tr key={item.id}>
-                    <Table.Td style={{ textAlign: 'center' }}>
+                    <Table.Td style={{ textAlign: 'left' }}>
                       <Text
                         c={
                           item.orderStatus === 'Shipped'
@@ -439,15 +439,15 @@ export function DispatchComponent() {
                         {item.orderStatus}
                       </Text>
                     </Table.Td>
-                    <Table.Td style={{ textAlign: 'center' }}>
+                    <Table.Td style={{ textAlign: 'left' }}>
                       {item.shippingOptions}
                     </Table.Td>
-                    <Table.Td style={{ textAlign: 'center' }}>
+                    <Table.Td style={{ textAlign: 'left' }}>
                       {item.username}
                     </Table.Td>
-                    <Table.Td style={{ textAlign: 'center' }}>
+                    <Table.Td style={{ textAlign: 'left' }}>
                       {item.customerNames ? (
-                        <Group gap="xs" justify="center">
+                        <Group gap="xs">
                           <Text>{item.customerNames}</Text>
                           {lookupCustomerName(item.username) ? (
                             <Badge size="xs" color="green" variant="light">
@@ -460,7 +460,7 @@ export function DispatchComponent() {
                           )}
                         </Group>
                       ) : (
-                        <Group gap="xs" justify="center">
+                        <Group gap="xs">
                           <Text c="dimmed" fs="italic">
                             No customer found
                           </Text>
@@ -470,7 +470,7 @@ export function DispatchComponent() {
                         </Group>
                       )}
                     </Table.Td>
-                    <Table.Td style={{ textAlign: 'center' }}>
+                    <Table.Td style={{ textAlign: 'left' }}>
                       {item.messageCustomer}
                     </Table.Td>
                     <Table.Td style={{ textAlign: 'center' }}>
