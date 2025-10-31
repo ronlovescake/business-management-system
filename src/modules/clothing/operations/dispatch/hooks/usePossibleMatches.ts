@@ -21,12 +21,7 @@ interface CustomerData {
   businessName: string;
   phoneNumber: string;
   address: string;
-}
-
-interface AdditionalInfo {
-  addresses: Array<{ id: string; value: string }>;
-  phones: Array<{ id: string; value: string }>;
-  shopeeUsernames: Array<{ id: string; value: string }>;
+  additionalAddresses?: string[]; // Pre-loaded additional addresses
 }
 
 interface PossibleMatch {
@@ -51,42 +46,48 @@ interface UnmatchedOrder {
 }
 
 /**
- * Fetch all customers with their details
+ * Fetch all customers with ALL their addresses in a single optimized query
+ * This prevents the N+1 query problem of fetching addresses individually
  */
-async function fetchCustomers(): Promise<CustomerData[]> {
+async function fetchCustomersWithAllAddresses(): Promise<CustomerData[]> {
   try {
-    const customers =
-      await api.get<Array<Record<string, unknown>>>('/api/customers');
-    return customers.map((c) => ({
-      id: Number(c.id),
-      customerName: String(c.customerName || c['Customer Name'] || ''),
-      businessName: String(c.businessName || c['Business Name'] || ''),
-      phoneNumber: String(c.phoneNumber || c['Phone Number'] || ''),
-      address: String(c.address || c.Address || ''),
+    const response = await api.get<{
+      success: boolean;
+      data: Array<{
+        id: number;
+        customerName: string;
+        businessName: string;
+        phoneNumber: string;
+        address: string;
+        additionalAddresses: string[];
+      }>;
+    }>('/api/customers/with-all-addresses');
+
+    if (!response.success || !response.data) {
+      throw new Error('Invalid response from API');
+    }
+
+    logger.info(
+      `Fetched ${response.data.length} customers with all addresses in single query`
+    );
+
+    return response.data.map((c) => ({
+      id: c.id,
+      customerName: c.customerName || '',
+      businessName: c.businessName || '',
+      phoneNumber: c.phoneNumber || '',
+      address: c.address || '',
+      additionalAddresses: c.additionalAddresses || [],
     }));
   } catch (error) {
-    logger.error('Failed to fetch customers:', error);
+    logger.error('Failed to fetch customers with addresses:', error);
     throw error;
   }
 }
 
 /**
- * Fetch additional addresses for a customer
- */
-async function fetchAdditionalAddresses(customerId: number): Promise<string[]> {
-  try {
-    const info = await api.get<AdditionalInfo>(
-      `/api/customers/${customerId}/additional-info`
-    );
-    return info.addresses.map((a) => a.value);
-  } catch (error) {
-    return [];
-  }
-}
-
-/**
  * Find possible matches for an unmatched order
- * Checks additional addresses for all customers to ensure accurate matching
+ * Uses pre-loaded addresses to avoid N+1 query problem
  */
 async function findPossibleMatches(
   order: UnmatchedOrder,
@@ -94,94 +95,79 @@ async function findPossibleMatches(
 ): Promise<PossibleMatch[]> {
   const matches: PossibleMatch[] = [];
 
-  // Process customers in smaller batches to prevent overwhelming the API
-  const BATCH_SIZE = 20;
+  // Process all customers - no need for batching since we have all data in memory
+  for (const customer of customers) {
+    // Calculate similarity scores for primary data
+    const addressScore = calculateAddressSimilarity(
+      order.deliveryAddress,
+      customer.address
+    );
 
-  for (let i = 0; i < customers.length; i += BATCH_SIZE) {
-    const batch = customers.slice(i, i + BATCH_SIZE);
+    const phoneScore = calculatePhoneSimilarity(
+      order.phoneNumber,
+      customer.phoneNumber
+    );
 
-    const batchPromises = batch.map(async (customer) => {
-      // Calculate similarity scores for primary data first
-      const addressScore = calculateAddressSimilarity(
-        order.deliveryAddress,
-        customer.address
+    const nameScore = calculateNameSimilarity(
+      order.receiverName,
+      customer.customerName
+    );
+
+    // Check additional addresses from pre-loaded data (no API call needed!)
+    let maxAddressScore = addressScore;
+    if (
+      customer.additionalAddresses &&
+      customer.additionalAddresses.length > 0
+    ) {
+      const additionalAddressScores = customer.additionalAddresses.map((addr) =>
+        calculateAddressSimilarity(order.deliveryAddress, addr)
       );
+      maxAddressScore = Math.max(addressScore, ...additionalAddressScores);
+    }
 
-      const phoneScore = calculatePhoneSimilarity(
-        order.phoneNumber,
-        customer.phoneNumber
-      );
+    // Calculate overall similarity (weighted average)
+    const overallScore = Math.round(
+      maxAddressScore * 0.6 + // Address is most important
+        phoneScore * 0.25 + // Phone is secondary
+        nameScore * 0.15 // Name is least reliable (often masked)
+    );
 
-      const nameScore = calculateNameSimilarity(
-        order.receiverName,
-        customer.customerName
-      );
+    // Only include if overall score is above threshold (40%)
+    if (overallScore >= 40) {
+      let matchedField: 'address' | 'phone' | 'name' | 'multiple' = 'address';
+      const highScores = [
+        { field: 'address' as const, score: maxAddressScore },
+        { field: 'phone' as const, score: phoneScore },
+        { field: 'name' as const, score: nameScore },
+      ].filter((s) => s.score >= 70);
 
-      // Always check additional addresses since customers often have multiple delivery locations
-      // This is essential for accurate matching even when primary address differs
-      let maxAddressScore = addressScore;
-      const additionalAddresses = await fetchAdditionalAddresses(customer.id);
-      if (additionalAddresses.length > 0) {
-        const additionalAddressScores = additionalAddresses.map((addr) =>
-          calculateAddressSimilarity(order.deliveryAddress, addr)
-        );
-        maxAddressScore = Math.max(addressScore, ...additionalAddressScores);
+      if (highScores.length > 1) {
+        matchedField = 'multiple';
+      } else if (highScores.length === 1) {
+        matchedField = highScores[0].field;
       }
 
-      // Calculate overall similarity (weighted average) using already calculated scores
-      const overallScore = Math.round(
-        maxAddressScore * 0.6 + // Address is most important
-          phoneScore * 0.25 + // Phone is secondary
-          nameScore * 0.15 // Name is least reliable (often masked)
-      );
-
-      // Only include if overall score is above threshold (40%)
-      if (overallScore >= 40) {
-        let matchedField: 'address' | 'phone' | 'name' | 'multiple' = 'address';
-        const highScores = [
-          { field: 'address' as const, score: maxAddressScore },
-          { field: 'phone' as const, score: phoneScore },
-          { field: 'name' as const, score: nameScore },
-        ].filter((s) => s.score >= 70);
-
-        if (highScores.length > 1) {
-          matchedField = 'multiple';
-        } else if (highScores.length === 1) {
-          matchedField = highScores[0].field;
-        }
-
-        // Generate details string
-        const details = [];
-        if (maxAddressScore >= 60) {
-          details.push(`Address: ${maxAddressScore}%`);
-        }
-        if (phoneScore >= 60) {
-          details.push(`Phone: ${phoneScore}%`);
-        }
-        if (nameScore >= 60) {
-          details.push(`Name: ${nameScore}%`);
-        }
-
-        return {
-          customer,
-          similarityScore: overallScore,
-          matchedField,
-          addressScore: maxAddressScore,
-          phoneScore,
-          nameScore,
-          details: details.join(' • '),
-        };
+      // Generate details string
+      const details = [];
+      if (maxAddressScore >= 60) {
+        details.push(`Address: ${maxAddressScore}%`);
+      }
+      if (phoneScore >= 60) {
+        details.push(`Phone: ${phoneScore}%`);
+      }
+      if (nameScore >= 60) {
+        details.push(`Name: ${nameScore}%`);
       }
 
-      return null;
-    });
-
-    const batchResults = await Promise.all(batchPromises);
-    matches.push(...batchResults.filter((m): m is PossibleMatch => m !== null));
-
-    // Small delay between batches to prevent overwhelming the API
-    if (i + BATCH_SIZE < customers.length) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      matches.push({
+        customer,
+        similarityScore: overallScore,
+        matchedField,
+        addressScore: maxAddressScore,
+        phoneScore,
+        nameScore,
+        details: details.join(' • '),
+      });
     }
   }
 
@@ -198,10 +184,10 @@ export function usePossibleMatches(
   unmatchedOrders: UnmatchedOrder[],
   enabled = false
 ) {
-  // Fetch all customers
+  // Fetch all customers WITH all their addresses in ONE query (no N+1 problem!)
   const { data: customers = [], isLoading: loadingCustomers } = useQuery({
-    queryKey: ['possible-match-customers'],
-    queryFn: fetchCustomers,
+    queryKey: ['possible-match-customers-with-addresses'],
+    queryFn: fetchCustomersWithAllAddresses,
     staleTime: 5 * 60 * 1000, // 5 minutes
     enabled, // Only fetch when enabled
   });
@@ -216,7 +202,7 @@ export function usePossibleMatches(
 
       const matchesMap = new Map<string, PossibleMatch[]>();
 
-      // Process all orders
+      // Process all orders - now FAST because all addresses are pre-loaded!
       for (const order of unmatchedOrders) {
         try {
           const matches = await findPossibleMatches(order, customers);
