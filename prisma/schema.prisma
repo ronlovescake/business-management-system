@@ -590,3 +590,60 @@ model CheckoutLink {
   @@index([weight, width, length, height])
   @@map("checkout_links")
 }
+
+model DispatchOrder {
+  id                      String    @id @default(cuid())
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  orderId                 String    @db.VarChar(100)
+  orderStatus             String?   @db.VarChar(100)
+  returnRefundStatus      String?   @db.VarChar(100)
+  trackingNumber          String?   @db.VarChar(100)
+  shippingOption          String?   @db.VarChar(100)
+  shipmentMethod          String?   @db.VarChar(100)
+  estimatedShipOutDate    String?   @db.VarChar(50)
+  shipTime                String?   @db.VarChar(50)
+  orderCreationDate       String?   @db.VarChar(50)
+  orderPaidTime           String?   @db.VarChar(50)
+  parentSkuReferenceNo    String?   @db.VarChar(100)
+  productName             String?   @db.VarChar(500)
+  skuReferenceNo          String?   @db.VarChar(100)
+  variationName           String?   @db.VarChar(500)
+  originalPrice           Float?
+  dealPrice               Float?
+  quantity                Int?
+  productSubtotal         Float?
+  totalDiscount           Float?
+  priceDiscountFromSeller Float?
+  shopeeRebate            Float?
+  skuTotalWeight          Float?
+  numberOfProductsSeller  Int?
+  originalShippingFee     Float?
+  shippingFeeRebateSeller Float?
+  reverseShippingFee      Float?
+  serviceFee              Float?
+  grandTotal              Float?
+  estimatedShippingFee    Float?
+  usernameBuyer           String?   @db.VarChar(100)
+  receiverName            String?   @db.VarChar(255)
+  phoneNumber             String?   @db.VarChar(50)
+  deliveryAddress         String?
+  town                    String?   @db.VarChar(255)
+  district                String?   @db.VarChar(255)
+  province                String?   @db.VarChar(255)
+  region                  String?   @db.VarChar(255)
+  country                 String?   @db.VarChar(100)
+  zipCode                 String?   @db.VarChar(20)
+  remarkFromBuyer         String?
+  orderCompleteTime       String?   @db.VarChar(50)
+  note                    String?
+  linkedCustomerId        Int?
+  importedAt              DateTime  @default(now())
+
+  @@index([orderId])
+  @@index([usernameBuyer])
+  @@index([orderStatus])
+  @@index([linkedCustomerId])
+  @@index([importedAt])
+  @@map("dispatch_orders")
+}

@@ -30,12 +30,15 @@ import {
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import * as XLSX from 'xlsx';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   StandardDataTable,
   StandardTableContainer,
   StandardTableControls,
 } from '@/components/tables/StandardDataTable';
 import { useDispatchCustomerLookup, usePossibleMatches } from '../hooks';
+import { apiClient } from '@/lib/api/client';
+import { logger } from '@/lib/logger';
 
 interface DispatchItem {
   id: string;
@@ -65,6 +68,62 @@ export function DispatchComponent() {
   const [rawDataSearch, setRawDataSearch] = useState('');
   const [isImportingRawData, setIsImportingRawData] = useState(false);
 
+  const queryClient = useQueryClient();
+
+  // Fetch saved dispatch orders from database
+  const {
+    data: savedOrders,
+    isLoading: loadingSavedOrders,
+    error: fetchError,
+  } = useQuery({
+    queryKey: ['dispatch-orders'],
+    queryFn: async () => {
+      const response = (await apiClient.get('/api/dispatch/orders')) as {
+        data: { data: RawOrderData[] };
+      };
+      return response.data.data;
+    },
+    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+  });
+
+  // Mutation to save orders to database
+  const saveOrdersMutation = useMutation({
+    mutationFn: async (orders: RawOrderData[]) => {
+      const response = (await apiClient.post('/api/dispatch/orders', {
+        orders,
+      })) as {
+        data: {
+          success: boolean;
+          message: string;
+          data: { deleted: number; created: number };
+        };
+      };
+      return response.data;
+    },
+    onSuccess: (data) => {
+      logger.info('Orders saved to database', data);
+      // Invalidate and refetch
+      queryClient.invalidateQueries({ queryKey: ['dispatch-orders'] });
+      notifications.show({
+        title: 'Success',
+        message: `${data.data.created} orders saved to database (replaced ${data.data.deleted} previous orders)`,
+        color: 'green',
+      });
+    },
+    onError: (error) => {
+      logger.error('Failed to save orders to database', error);
+      notifications.show({
+        title: 'Error',
+        message: 'Failed to save orders to database. Please try again.',
+        color: 'red',
+      });
+    },
+  });
+
+  // Use saved orders if available, otherwise use rawData
+  const effectiveRawData =
+    savedOrders && savedOrders.length > 0 ? savedOrders : rawData;
+
   // Customer lookup hook
   const { lookupCustomerName, isLoading: loadingCustomers } =
     useDispatchCustomerLookup();
@@ -74,7 +133,7 @@ export function DispatchComponent() {
 
   // Get unmatched orders for possible match tab
   const unmatchedOrders = useMemo(() => {
-    return rawData
+    return effectiveRawData
       .filter((row) => {
         const username = row['Username (Buyer)'] || '';
         const matchedCustomer = lookupCustomerName(username);
@@ -90,7 +149,7 @@ export function DispatchComponent() {
         province: String(row['Province'] || ''),
         zipCode: String(row['Zip Code'] || ''),
       }));
-  }, [rawData, lookupCustomerName]);
+  }, [effectiveRawData, lookupCustomerName]);
 
   // Possible matches hook
   const {
@@ -99,12 +158,12 @@ export function DispatchComponent() {
     isLoading: loadingMatches,
   } = usePossibleMatches(unmatchedOrders);
 
-  // Search filtering - use rawData if available, otherwise use mockData
+  // Search filtering - use effectiveRawData (saved orders or imported data)
   const filteredData = useMemo(() => {
-    // Transform raw data from XLSX import to DispatchItem format
+    // Transform raw data from database or XLSX import to DispatchItem format
     const dataSource: DispatchItem[] =
-      rawData.length > 0
-        ? rawData.map((row, index) => {
+      effectiveRawData.length > 0
+        ? effectiveRawData.map((row, index) => {
             const username = row['Username (Buyer)'] || '';
             const matchedCustomer = lookupCustomerName(username);
 
@@ -133,7 +192,7 @@ export function DispatchComponent() {
         item.messageCustomer.toLowerCase().includes(query)
       );
     });
-  }, [mockData, searchQuery, rawData, lookupCustomerName]);
+  }, [mockData, searchQuery, effectiveRawData, lookupCustomerName]);
 
   // CSV import handler
   const handleImportCSV = (file: File | null) => {
@@ -203,13 +262,19 @@ export function DispatchComponent() {
       const worksheet = workbook.Sheets[sheetName];
       const jsonData = XLSX.utils.sheet_to_json(worksheet) as RawOrderData[];
 
+      // Update local state first for immediate UI feedback
       setRawData(jsonData);
+
+      // Save to database (replaces previous data)
+      await saveOrdersMutation.mutateAsync(jsonData);
+
       notifications.show({
         title: 'Success',
-        message: `Successfully imported ${jsonData.length} rows from ${file.name}`,
+        message: `Successfully imported and saved ${jsonData.length} rows from ${file.name}`,
         color: 'green',
       });
     } catch (error) {
+      logger.error('Failed to import XLSX file', error);
       notifications.show({
         title: 'Error',
         message: 'Failed to import XLSX file. Please check the file format.',
@@ -256,16 +321,29 @@ export function DispatchComponent() {
                 <Group justify="space-between">
                   <Text size="sm" c="dimmed">
                     Showing {filteredData.length} of{' '}
-                    {rawData.length > 0 ? rawData.length : mockData.length}{' '}
+                    {effectiveRawData.length > 0
+                      ? effectiveRawData.length
+                      : mockData.length}{' '}
                     dispatch orders
-                    {rawData.length > 0 && (
+                    {savedOrders && savedOrders.length > 0 && (
                       <Text component="span" c="blue" fw={500} ml="xs">
-                        (Imported from XLSX)
+                        (From Database)
                       </Text>
                     )}
+                    {rawData.length > 0 &&
+                      (!savedOrders || savedOrders.length === 0) && (
+                        <Text component="span" c="orange" fw={500} ml="xs">
+                          (Imported - Not Saved Yet)
+                        </Text>
+                      )}
                     {loadingCustomers && (
-                      <Text component="span" c="orange" fw={500} ml="xs">
+                      <Text component="span" c="grape" fw={500} ml="xs">
                         (Loading customer data...)
+                      </Text>
+                    )}
+                    {loadingSavedOrders && (
+                      <Text component="span" c="teal" fw={500} ml="xs">
+                        (Loading saved orders...)
                       </Text>
                     )}
                   </Text>
@@ -414,7 +492,7 @@ export function DispatchComponent() {
             {unmatchedOrders.length === 0 ? (
               <Card withBorder padding="xl">
                 <Text ta="center" c="dimmed" size="lg">
-                  {rawData.length === 0
+                  {effectiveRawData.length === 0
                     ? 'No data imported yet. Go to Raw Data tab to import orders.'
                     : 'All orders have been matched! 🎉'}
                 </Text>
@@ -620,11 +698,25 @@ export function DispatchComponent() {
               acceptFileTypes=".xlsx,.xls"
             />
 
-            {rawData.length > 0 && (
+            {effectiveRawData.length > 0 && (
               <Stack gap="xs">
-                <Text size="sm" fw={500}>
-                  Imported Data Preview ({rawData.length} rows)
-                </Text>
+                <Group justify="space-between">
+                  <Text size="sm" fw={500}>
+                    {savedOrders && savedOrders.length > 0
+                      ? `Saved Data from Database (${effectiveRawData.length} rows)`
+                      : `Imported Data Preview (${effectiveRawData.length} rows - Not saved yet)`}
+                  </Text>
+                  {savedOrders && savedOrders.length > 0 && (
+                    <Badge color="blue" variant="light">
+                      From Database
+                    </Badge>
+                  )}
+                  {fetchError && (
+                    <Badge color="red" variant="light">
+                      Error loading from database
+                    </Badge>
+                  )}
+                </Group>
                 <div
                   style={{
                     maxHeight: '86vh',
@@ -642,16 +734,20 @@ export function DispatchComponent() {
                       wordBreak: 'break-all',
                     }}
                   >
-                    {JSON.stringify(rawData, null, 2)}
+                    {JSON.stringify(effectiveRawData, null, 2)}
                   </pre>
                 </div>
               </Stack>
             )}
 
-            {rawData.length === 0 && (
-              <Text c="dimmed" ta="center" py="xl">
-                No data imported yet. Click Import to upload an XLSX file.
-              </Text>
+            {effectiveRawData.length === 0 && (
+              <Card withBorder padding="xl">
+                <Text ta="center" c="dimmed" size="lg">
+                  {loadingSavedOrders
+                    ? 'Loading saved orders from database...'
+                    : 'No data available. Click Import to upload an XLSX file.'}
+                </Text>
+              </Card>
             )}
           </Stack>
         </Tabs.Panel>
