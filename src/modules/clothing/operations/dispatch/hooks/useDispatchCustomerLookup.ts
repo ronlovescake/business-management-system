@@ -14,6 +14,7 @@ interface CustomerData {
   id: number;
   customerName: string;
   businessName: string;
+  facebook: string;
 }
 
 interface CustomerWithShopee extends CustomerData {
@@ -32,6 +33,7 @@ async function fetchCustomersWithShopee(): Promise<CustomerWithShopee[]> {
         id: number;
         customerName: string;
         businessName: string;
+        facebook: string;
         shopeeUsernames: string[];
       }>;
     }>('/api/customers/with-shopee');
@@ -48,6 +50,7 @@ async function fetchCustomersWithShopee(): Promise<CustomerWithShopee[]> {
       id: c.id,
       customerName: c.customerName || '',
       businessName: c.businessName || '',
+      facebook: c.facebook || '',
       shopeeUsernames: c.shopeeUsernames,
     }));
   } catch (error) {
@@ -92,6 +95,23 @@ export function useDispatchCustomerLookup(enabled = true) {
   }, [customersWithShopee]);
 
   /**
+   * Create a lookup map: shopee username -> Facebook link
+   */
+  const facebookLinkMap = useMemo(() => {
+    const map = new Map<string, string>();
+
+    customersWithShopee.forEach((customer) => {
+      customer.shopeeUsernames.forEach((username) => {
+        if (customer.facebook) {
+          map.set(username, customer.facebook);
+        }
+      });
+    });
+
+    return map;
+  }, [customersWithShopee]);
+
+  /**
    * Lookup function: given a shopee username, return the customer display name
    */
   const lookupCustomerName = (shopeeUsername: string): string => {
@@ -103,10 +123,24 @@ export function useDispatchCustomerLookup(enabled = true) {
     return shopeeUsernameMap.get(normalizedUsername) || '';
   };
 
+  /**
+   * Lookup function: given a shopee username, return the customer's Facebook link
+   */
+  const lookupFacebookLink = (shopeeUsername: string): string => {
+    if (!shopeeUsername) {
+      return '';
+    }
+
+    const normalizedUsername = shopeeUsername.toLowerCase().trim();
+    return facebookLinkMap.get(normalizedUsername) || '';
+  };
+
   return {
     customersWithShopee,
     shopeeUsernameMap,
+    facebookLinkMap,
     lookupCustomerName,
+    lookupFacebookLink,
     isLoading,
   };
 }

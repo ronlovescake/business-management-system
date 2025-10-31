@@ -22,6 +22,7 @@ export async function GET() {
         id: true,
         customerName: true,
         businessName: true,
+        facebook: true,
         address: true,
         phoneNumber: true,
         additionalCustomerInfo: {
@@ -42,6 +43,7 @@ export async function GET() {
       id: customer.id,
       customerName: customer.customerName || '',
       businessName: customer.businessName || '',
+      facebook: customer.facebook || '',
       address: customer.address || '',
       phoneNumber: customer.phoneNumber || '',
       shopeeUsernames: customer.additionalCustomerInfo.map((info) =>

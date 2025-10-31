@@ -196,8 +196,11 @@ export function DispatchComponent() {
     savedOrders && savedOrders.length > 0 ? savedOrders : rawData;
 
   // Customer lookup hook - always enabled to lookup Shopee usernames
-  const { lookupCustomerName, isLoading: loadingCustomers } =
-    useDispatchCustomerLookup(true);
+  const {
+    lookupCustomerName,
+    lookupFacebookLink,
+    isLoading: loadingCustomers,
+  } = useDispatchCustomerLookup(true);
 
   // Sample test data - empty array, will use imported data from rawData
   const mockData: DispatchItem[] = useMemo(() => [], []);
@@ -315,11 +318,6 @@ export function DispatchComponent() {
   // Add new handler
   const handleAddNew = () => {
     alert('Add New simulation: Would open form to create new dispatch order');
-  };
-
-  // Edit handler
-  const handleEdit = (item: DispatchItem) => {
-    alert(`Edit simulation: Would edit order for "${item.customerNames}"`);
   };
 
   // Link customer to order handler
@@ -590,12 +588,30 @@ export function DispatchComponent() {
                     </Table.Td>
                     <Table.Td style={{ textAlign: 'center' }}>
                       <Group gap="xs" justify="center">
-                        <Tooltip label="Message customer">
+                        <Tooltip
+                          label={
+                            lookupFacebookLink(item.username)
+                              ? 'Message customer'
+                              : 'No Facebook link available'
+                          }
+                        >
                           <ActionIcon
                             variant="light"
                             color="blue"
-                            onClick={() => handleEdit(item)}
+                            component="a"
+                            href={lookupFacebookLink(item.username) || '#'}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             aria-label="Message customer"
+                            disabled={!lookupFacebookLink(item.username)}
+                            style={{
+                              cursor: lookupFacebookLink(item.username)
+                                ? 'pointer'
+                                : 'not-allowed',
+                              opacity: lookupFacebookLink(item.username)
+                                ? 1
+                                : 0.5,
+                            }}
                           >
                             <IconMessageCircle size={16} />
                           </ActionIcon>
