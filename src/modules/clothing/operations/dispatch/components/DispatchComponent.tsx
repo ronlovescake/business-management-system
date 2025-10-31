@@ -79,9 +79,11 @@ export function DispatchComponent() {
     queryKey: ['dispatch-orders'],
     queryFn: async () => {
       const response = (await apiClient.get('/api/dispatch/orders')) as {
-        data: { data: RawOrderData[] };
+        success: boolean;
+        data: RawOrderData[];
+        count: number;
       };
-      return response.data.data;
+      return response.data;
     },
     staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
   });
@@ -92,16 +94,14 @@ export function DispatchComponent() {
       const response = (await apiClient.post('/api/dispatch/orders', {
         orders,
       })) as {
-        data: {
-          success: boolean;
-          message: string;
-          data: { deleted: number; created: number };
-        };
+        success: boolean;
+        message: string;
+        data: { deleted: number; created: number };
       };
-      return response.data;
+      return response;
     },
     onSuccess: (response) => {
-      logger.info('Orders saved to database', response);
+      logger.info('Orders saved to database', response.data);
       // Invalidate and refetch
       queryClient.invalidateQueries({ queryKey: ['dispatch-orders'] });
       notifications.show({
@@ -124,9 +124,9 @@ export function DispatchComponent() {
   const effectiveRawData =
     savedOrders && savedOrders.length > 0 ? savedOrders : rawData;
 
-  // Customer lookup hook
+  // Customer lookup hook - always enabled to lookup Shopee usernames
   const { lookupCustomerName, isLoading: loadingCustomers } =
-    useDispatchCustomerLookup();
+    useDispatchCustomerLookup(true);
 
   // Sample test data - empty array, will use imported data from rawData
   const mockData: DispatchItem[] = useMemo(() => [], []);
@@ -151,12 +151,12 @@ export function DispatchComponent() {
       }));
   }, [effectiveRawData, lookupCustomerName]);
 
-  // Possible matches hook
+  // Possible matches hook - only enabled when the "Possible Match" tab is active
   const {
     getMatchesForOrder,
     stats,
     isLoading: loadingMatches,
-  } = usePossibleMatches(unmatchedOrders);
+  } = usePossibleMatches(unmatchedOrders, activeTab === 'possible-match');
 
   // Search filtering - use effectiveRawData (saved orders or imported data)
   const filteredData = useMemo(() => {
@@ -256,11 +256,56 @@ export function DispatchComponent() {
 
     setIsImportingRawData(true);
     try {
+      // Validate file extension
+      const fileName = file.name.toLowerCase();
+      if (!fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
+        throw new Error(
+          'Invalid file format. Please upload an Excel file (.xlsx or .xls)'
+        );
+      }
+
+      // Validate file size (max 10MB)
+      const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+      if (file.size > maxSize) {
+        throw new Error(
+          'File size exceeds 10MB limit. Please upload a smaller file.'
+        );
+      }
+
       const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
+      const workbook = XLSX.read(data, { type: 'array' });
+
+      // Validate workbook has sheets
+      if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+        throw new Error(
+          'The Excel file appears to be empty or corrupted. No sheets found.'
+        );
+      }
+
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
+
+      // Validate worksheet exists
+      if (!worksheet) {
+        throw new Error('Unable to read worksheet data from the Excel file.');
+      }
+
       const jsonData = XLSX.utils.sheet_to_json(worksheet) as RawOrderData[];
+
+      // Validate data is not empty
+      if (!jsonData || jsonData.length === 0) {
+        throw new Error(
+          'The Excel file contains no data rows. Please check the file and try again.'
+        );
+      }
+
+      // Log imported data structure for debugging
+      logger.info('XLSX import successful', {
+        fileName: file.name,
+        rowCount: jsonData.length,
+        sheetName,
+        sampleRow: jsonData[0],
+      });
 
       // Update local state first for immediate UI feedback
       setRawData(jsonData);
@@ -274,11 +319,25 @@ export function DispatchComponent() {
         color: 'green',
       });
     } catch (error) {
-      logger.error('Failed to import XLSX file', error);
+      // Enhanced error logging
+      logger.error('Failed to import XLSX file', {
+        error,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+      });
+
+      // Provide more specific error message
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Failed to import XLSX file. Please ensure the file is a valid Excel file with data.';
+
       notifications.show({
-        title: 'Error',
-        message: 'Failed to import XLSX file. Please check the file format.',
+        title: 'Import Failed',
+        message: errorMessage,
         color: 'red',
+        autoClose: 7000,
       });
     } finally {
       setIsImportingRawData(false);

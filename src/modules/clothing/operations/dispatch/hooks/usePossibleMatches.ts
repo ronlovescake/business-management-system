@@ -86,6 +86,7 @@ async function fetchAdditionalAddresses(customerId: number): Promise<string[]> {
 
 /**
  * Find possible matches for an unmatched order
+ * Checks additional addresses for all customers to ensure accurate matching
  */
 async function findPossibleMatches(
   order: UnmatchedOrder,
@@ -93,73 +94,94 @@ async function findPossibleMatches(
 ): Promise<PossibleMatch[]> {
   const matches: PossibleMatch[] = [];
 
-  for (const customer of customers) {
-    // Calculate similarity scores
-    const addressScore = calculateAddressSimilarity(
-      order.deliveryAddress,
-      customer.address
-    );
+  // Process customers in smaller batches to prevent overwhelming the API
+  const BATCH_SIZE = 20;
 
-    // Also check additional addresses
-    const additionalAddresses = await fetchAdditionalAddresses(customer.id);
-    const additionalAddressScores = additionalAddresses.map((addr) =>
-      calculateAddressSimilarity(order.deliveryAddress, addr)
-    );
-    const maxAddressScore = Math.max(addressScore, ...additionalAddressScores);
+  for (let i = 0; i < customers.length; i += BATCH_SIZE) {
+    const batch = customers.slice(i, i + BATCH_SIZE);
 
-    const phoneScore = calculatePhoneSimilarity(
-      order.phoneNumber,
-      customer.phoneNumber
-    );
+    const batchPromises = batch.map(async (customer) => {
+      // Calculate similarity scores for primary data first
+      const addressScore = calculateAddressSimilarity(
+        order.deliveryAddress,
+        customer.address
+      );
 
-    const nameScore = calculateNameSimilarity(
-      order.receiverName,
-      customer.customerName
-    );
+      const phoneScore = calculatePhoneSimilarity(
+        order.phoneNumber,
+        customer.phoneNumber
+      );
 
-    // Calculate overall similarity (weighted average)
-    const overallScore = Math.round(
-      maxAddressScore * 0.6 + // Address is most important
-        phoneScore * 0.25 + // Phone is secondary
-        nameScore * 0.15 // Name is least reliable (often masked)
-    );
+      const nameScore = calculateNameSimilarity(
+        order.receiverName,
+        customer.customerName
+      );
 
-    // Only include if overall score is above threshold (40%)
-    if (overallScore >= 40) {
-      let matchedField: 'address' | 'phone' | 'name' | 'multiple' = 'address';
-      const highScores = [
-        { field: 'address' as const, score: maxAddressScore },
-        { field: 'phone' as const, score: phoneScore },
-        { field: 'name' as const, score: nameScore },
-      ].filter((s) => s.score >= 70);
-
-      if (highScores.length > 1) {
-        matchedField = 'multiple';
-      } else if (highScores.length === 1) {
-        matchedField = highScores[0].field;
+      // Always check additional addresses since customers often have multiple delivery locations
+      // This is essential for accurate matching even when primary address differs
+      let maxAddressScore = addressScore;
+      const additionalAddresses = await fetchAdditionalAddresses(customer.id);
+      if (additionalAddresses.length > 0) {
+        const additionalAddressScores = additionalAddresses.map((addr) =>
+          calculateAddressSimilarity(order.deliveryAddress, addr)
+        );
+        maxAddressScore = Math.max(addressScore, ...additionalAddressScores);
       }
 
-      // Generate details string
-      const details = [];
-      if (maxAddressScore >= 60) {
-        details.push(`Address: ${maxAddressScore}%`);
-      }
-      if (phoneScore >= 60) {
-        details.push(`Phone: ${phoneScore}%`);
-      }
-      if (nameScore >= 60) {
-        details.push(`Name: ${nameScore}%`);
+      // Calculate overall similarity (weighted average) using already calculated scores
+      const overallScore = Math.round(
+        maxAddressScore * 0.6 + // Address is most important
+          phoneScore * 0.25 + // Phone is secondary
+          nameScore * 0.15 // Name is least reliable (often masked)
+      );
+
+      // Only include if overall score is above threshold (40%)
+      if (overallScore >= 40) {
+        let matchedField: 'address' | 'phone' | 'name' | 'multiple' = 'address';
+        const highScores = [
+          { field: 'address' as const, score: maxAddressScore },
+          { field: 'phone' as const, score: phoneScore },
+          { field: 'name' as const, score: nameScore },
+        ].filter((s) => s.score >= 70);
+
+        if (highScores.length > 1) {
+          matchedField = 'multiple';
+        } else if (highScores.length === 1) {
+          matchedField = highScores[0].field;
+        }
+
+        // Generate details string
+        const details = [];
+        if (maxAddressScore >= 60) {
+          details.push(`Address: ${maxAddressScore}%`);
+        }
+        if (phoneScore >= 60) {
+          details.push(`Phone: ${phoneScore}%`);
+        }
+        if (nameScore >= 60) {
+          details.push(`Name: ${nameScore}%`);
+        }
+
+        return {
+          customer,
+          similarityScore: overallScore,
+          matchedField,
+          addressScore: maxAddressScore,
+          phoneScore,
+          nameScore,
+          details: details.join(' • '),
+        };
       }
 
-      matches.push({
-        customer,
-        similarityScore: overallScore,
-        matchedField,
-        addressScore: maxAddressScore,
-        phoneScore,
-        nameScore,
-        details: details.join(' • '),
-      });
+      return null;
+    });
+
+    const batchResults = await Promise.all(batchPromises);
+    matches.push(...batchResults.filter((m): m is PossibleMatch => m !== null));
+
+    // Small delay between batches to prevent overwhelming the API
+    if (i + BATCH_SIZE < customers.length) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
   }
 
@@ -172,12 +194,16 @@ async function findPossibleMatches(
 /**
  * Custom hook for possible matches
  */
-export function usePossibleMatches(unmatchedOrders: UnmatchedOrder[]) {
+export function usePossibleMatches(
+  unmatchedOrders: UnmatchedOrder[],
+  enabled = false
+) {
   // Fetch all customers
   const { data: customers = [], isLoading: loadingCustomers } = useQuery({
     queryKey: ['possible-match-customers'],
     queryFn: fetchCustomers,
     staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled, // Only fetch when enabled
   });
 
   // Find matches for all unmatched orders
@@ -206,7 +232,7 @@ export function usePossibleMatches(unmatchedOrders: UnmatchedOrder[]) {
 
       return matchesMap;
     },
-    enabled: unmatchedOrders.length > 0 && customers.length > 0,
+    enabled: enabled && unmatchedOrders.length > 0 && customers.length > 0, // Only run when explicitly enabled
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
