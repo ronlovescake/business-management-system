@@ -159,6 +159,23 @@ export function DispatchComponent() {
     activeTab === 'possible-match' || activeTab === 'match'
   );
 
+  // Helper function to extract carrier name from shipping option
+  // "Standard Local-J&T Express" -> "J&T"
+  const extractCarrierName = (shippingOption: string): string => {
+    if (!shippingOption) {
+      return '';
+    }
+
+    // Extract carrier name from format like "Standard Local-J&T Express"
+    const match = shippingOption.match(/-([\w&]+)/);
+    if (match && match[1]) {
+      return match[1]; // Returns "J&T", "LBC", etc.
+    }
+
+    // If no match, return the original
+    return shippingOption;
+  };
+
   // Search filtering - use effectiveRawData (saved orders or imported data)
   const filteredData = useMemo(() => {
     // Transform raw data from database or XLSX import to DispatchItem format
@@ -186,7 +203,7 @@ export function DispatchComponent() {
             return {
               id: orderId,
               orderStatus: row['Order Status'] || '',
-              shippingOptions: row['Shipping Option'] || '',
+              shippingOptions: extractCarrierName(row['Shipping Option'] || ''),
               username,
               customerNames: customerName,
               messageCustomer: row['Remark from buyer'] || '',
