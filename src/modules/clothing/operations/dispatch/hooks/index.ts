@@ -3,3 +3,4 @@
  */
 
 export * from './useDispatchCustomerLookup';
+export * from './usePossibleMatches';
