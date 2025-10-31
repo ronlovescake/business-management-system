@@ -28,6 +28,7 @@ import {
   IconUser,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
+import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -113,6 +114,78 @@ export function DispatchComponent() {
       notifications.show({
         title: 'Error',
         message: 'Failed to save orders to database. Please try again.',
+        color: 'red',
+      });
+    },
+  });
+
+  // Mutation to link customer (add Shopee username and optionally address)
+  const linkCustomerMutation = useMutation({
+    mutationFn: async ({
+      customerId,
+      username,
+      deliveryAddress,
+      addressScore,
+    }: {
+      customerId: number;
+      username: string;
+      deliveryAddress: string;
+      addressScore: number;
+    }) => {
+      // Add Shopee username
+      const usernameResponse = (await apiClient.post(
+        `/api/customers/${customerId}/additional-info/add`,
+        {
+          type: 'shopee_username',
+          value: username.toLowerCase().trim(),
+        }
+      )) as { alreadyExists: boolean; message: string };
+
+      let addressResponse: { alreadyExists: boolean; message: string } | null =
+        null;
+      // If address match is 80% or below, also add the delivery address
+      if (addressScore <= 80) {
+        addressResponse = (await apiClient.post(
+          `/api/customers/${customerId}/additional-info/add`,
+          {
+            type: 'address',
+            value: deliveryAddress,
+          }
+        )) as { alreadyExists: boolean; message: string };
+      }
+
+      return {
+        customerId,
+        username,
+        addressAdded: addressScore <= 80,
+        usernameAlreadyExists: usernameResponse.alreadyExists || false,
+        addressAlreadyExists: addressResponse?.alreadyExists || false,
+      };
+    },
+    onSuccess: (data) => {
+      logger.info('Customer linked successfully', data);
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({
+        queryKey: ['dispatch-customers-shopee'],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['possible-match-customers-with-addresses'],
+      });
+      queryClient.invalidateQueries({ queryKey: ['dispatch-orders'] });
+
+      notifications.show({
+        title: 'Customer Linked',
+        message: data.addressAdded
+          ? `Shopee username and delivery address added successfully!`
+          : `Shopee username added successfully!`,
+        color: 'green',
+      });
+    },
+    onError: (error) => {
+      logger.error('Failed to link customer', error);
+      notifications.show({
+        title: 'Error',
+        message: 'Failed to link customer. Please try again.',
         color: 'red',
       });
     },
@@ -250,21 +323,46 @@ export function DispatchComponent() {
   };
 
   // Link customer to order handler
-  const handleLinkCustomer = (
+  const handleLinkCustomer = async (
     orderId: string,
     customerId: number,
-    customerName: string
+    customerName: string,
+    username: string,
+    deliveryAddress: string,
+    addressScore: number
   ) => {
-    // TODO: Implement actual linking logic (save to database or state)
-    notifications.show({
-      title: 'Customer Linked',
-      message: `Order ${orderId} has been linked to ${customerName}`,
-      color: 'green',
+    // Show confirmation dialog
+    const result = await Swal.fire({
+      title: 'Link Customer?',
+      html: `
+        <div style="text-align: left; margin-top: 15px;">
+          <p><strong>Customer:</strong> ${customerName}</p>
+          <p><strong>Shopee Username:</strong> ${username}</p>
+          <p><strong>Match Score:</strong> ${addressScore.toFixed(1)}%</p>
+          ${
+            addressScore <= 80
+              ? `<p style="color: #ff6b6b;"><strong>Note:</strong> Address will be saved (match ≤80%)</p>`
+              : ''
+          }
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#adb5bd',
+      confirmButtonText: 'Yes, link customer',
+      cancelButtonText: 'Cancel',
     });
-    // In a real implementation, you would:
-    // 1. Save the link to additional customer info (shopee username)
-    // 2. Refresh the data
-    // 3. Remove from unmatched list
+
+    if (result.isConfirmed) {
+      // Call mutation to save Shopee username and optionally address
+      linkCustomerMutation.mutate({
+        customerId,
+        username,
+        deliveryAddress,
+        addressScore,
+      });
+    }
   };
 
   // XLSX import handler for Raw Data tab
@@ -731,7 +829,10 @@ export function DispatchComponent() {
                                         handleLinkCustomer(
                                           order.orderId,
                                           match.customer.id,
-                                          match.customer.customerName
+                                          match.customer.customerName,
+                                          order.username,
+                                          order.deliveryAddress,
+                                          match.addressScore
                                         )
                                       }
                                     >
