@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Stack,
   Card,
@@ -27,7 +27,6 @@ import {
 } from '@tabler/icons-react';
 import { DateInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
-import useSWR, { mutate } from 'swr';
 
 interface SalaryHistoryRecord {
   id: string;
@@ -48,8 +47,6 @@ interface SalaryTimelineProps {
   currentAllowance: number;
 }
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
-
 export function SalaryTimeline({
   employeeId,
   currentBasicSalary,
@@ -66,11 +63,35 @@ export function SalaryTimeline({
   const [reason, setReason] = useState('');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [salaryHistory, setSalaryHistory] = useState<SalaryHistoryRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const { data: salaryHistory, isLoading } = useSWR<SalaryHistoryRecord[]>(
-    `/api/employees/${employeeId}/salary-history`,
-    fetcher
-  );
+  // Fetch salary history
+  const fetchSalaryHistory = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(
+        `/api/employees/${employeeId}/salary-history`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setSalaryHistory(data);
+      }
+    } catch (error) {
+      notifications.show({
+        title: 'Error',
+        message: 'Failed to load salary history',
+        color: 'red',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSalaryHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [employeeId]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-PH', {
@@ -135,7 +156,7 @@ export function SalaryTimeline({
       });
 
       // Refresh the data
-      mutate(`/api/employees/${employeeId}/salary-history`);
+      await fetchSalaryHistory();
 
       // Reset form
       setIsModalOpen(false);
