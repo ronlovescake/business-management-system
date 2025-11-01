@@ -435,7 +435,7 @@ export function ShipmentsDashboard({ shipments }: ShipmentsDashboardProps) {
       {/* 3 Comparison Canvases Side by Side */}
       <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
         {/* Total Shipments vs Last Year */}
-        <Card shadow="sm" padding="lg" radius="md" withBorder h={300}>
+        <Card shadow="sm" padding="lg" radius="md" withBorder h={450}>
           <Title order={4} mb="xs">
             Total Shipments vs Last Year
           </Title>
@@ -468,11 +468,11 @@ export function ShipmentsDashboard({ shipments }: ShipmentsDashboardProps) {
             gap={4}
             align="flex-end"
             justify="space-around"
-            style={{ height: 150 }}
+            style={{ height: 300 }}
           >
             {comparisonData.currentYear.map((month, index) => {
               const prevMonth = comparisonData.previousYear[index];
-              const maxHeight = 140; // Maximum height in pixels
+              const maxHeight = 290; // Maximum height in pixels
               const currentHeight =
                 comparisonData.maxShipments > 0
                   ? (month.totalShipments / comparisonData.maxShipments) *
@@ -530,7 +530,7 @@ export function ShipmentsDashboard({ shipments }: ShipmentsDashboardProps) {
         </Card>
 
         {/* Total Sacks vs Last Year */}
-        <Card shadow="sm" padding="lg" radius="md" withBorder h={300}>
+        <Card shadow="sm" padding="lg" radius="md" withBorder h={450}>
           <Title order={4} mb="xs">
             Total Sacks vs Last Year
           </Title>
@@ -563,11 +563,11 @@ export function ShipmentsDashboard({ shipments }: ShipmentsDashboardProps) {
             gap={4}
             align="flex-end"
             justify="space-around"
-            style={{ height: 150 }}
+            style={{ height: 300 }}
           >
             {comparisonData.currentYear.map((month, index) => {
               const prevMonth = comparisonData.previousYear[index];
-              const maxHeight = 140; // Maximum height in pixels
+              const maxHeight = 290; // Maximum height in pixels
               const currentHeight =
                 comparisonData.maxSacks > 0
                   ? (month.totalSacks / comparisonData.maxSacks) * maxHeight
@@ -624,7 +624,7 @@ export function ShipmentsDashboard({ shipments }: ShipmentsDashboardProps) {
 
         {/* Total CBM vs Last Year */}
         {/* Total CBM vs Last Year */}
-        <Card shadow="sm" padding="lg" radius="md" withBorder h={300}>
+        <Card shadow="sm" padding="lg" radius="md" withBorder h={450}>
           <Title order={4} mb="xs">
             Total CBM vs Last Year
           </Title>
@@ -657,11 +657,11 @@ export function ShipmentsDashboard({ shipments }: ShipmentsDashboardProps) {
             gap={4}
             align="flex-end"
             justify="space-around"
-            style={{ height: 150 }}
+            style={{ height: 300 }}
           >
             {comparisonData.currentYear.map((month, index) => {
               const prevMonth = comparisonData.previousYear[index];
-              const maxHeight = 140; // Maximum height in pixels
+              const maxHeight = 290; // Maximum height in pixels
               const currentHeight =
                 comparisonData.maxCBM > 0
                   ? (month.totalCBM / comparisonData.maxCBM) * maxHeight
