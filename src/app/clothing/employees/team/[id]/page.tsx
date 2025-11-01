@@ -26,7 +26,6 @@ import {
   Tabs,
   ScrollArea,
   Table,
-  Timeline,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -37,6 +36,7 @@ import {
 import { PageLayout } from '../../../../../components/layout/PageLayout';
 import { useEmployeeDetail } from '@/app/clothing/employees/team/hooks/useEmployeeDetail';
 import { EmployeeFormDialog } from '../components/EmployeeFormDialog';
+import { SalaryTimeline } from '../components/SalaryTimeline';
 import { getIconButtonLabel } from '@/lib/accessibility';
 
 export default function EmployeeDetailPage() {
@@ -62,7 +62,6 @@ export default function EmployeeDetailPage() {
     attendanceHistory,
     scheduleHistory,
     leaveHistory,
-    salaryTimeline,
     cashAdvanceRecords,
     outstandingCashAdvance,
   } = useEmployeeDetail(employeeId);
@@ -473,7 +472,6 @@ export default function EmployeeDetailPage() {
   const attendanceToDisplay = attendanceHistory;
   const scheduleToDisplay = scheduleHistory;
   const leaveToDisplay = leaveHistory;
-  const salaryTimelineToDisplay = salaryTimeline;
 
   // Calculate leave allocation for current year
   const currentYear = new Date().getFullYear();
@@ -1138,52 +1136,11 @@ export default function EmployeeDetailPage() {
           </Tabs.Panel>
 
           <Tabs.Panel value="salary-timeline" pt="md">
-            <Stack gap="lg">
-              <Card withBorder padding="lg">
-                <Group justify="space-between" align="flex-start">
-                  <div>
-                    <Title order={4}>Salary Timeline</Title>
-                    <Text size="sm" c="dimmed">
-                      Tracks base salary and allowance adjustments
-                    </Text>
-                  </div>
-                </Group>
-                <Divider my="md" />
-                {isLoadingRelated ? (
-                  <Center py="xl">
-                    <Loader size="sm" />
-                  </Center>
-                ) : salaryTimelineToDisplay.length === 0 ? (
-                  <Text c="dimmed">
-                    No salary adjustments detected in payroll history.
-                  </Text>
-                ) : (
-                  <ScrollArea h="68vh">
-                    <Timeline
-                      active={salaryTimelineToDisplay.length - 1}
-                      bulletSize={16}
-                      lineWidth={2}
-                    >
-                      {salaryTimelineToDisplay.map((entry) => (
-                        <Timeline.Item
-                          key={`${entry.id}-${entry.effectiveFrom}`}
-                          title={formatOptionalDate(entry.effectiveFrom)}
-                        >
-                          <Text size="sm" fw={600}>
-                            {entry.payPeriodLabel}
-                          </Text>
-                          <Text size="sm" c="dimmed">
-                            Basic {formatCurrency(entry.basicSalary)} •
-                            Allowance {formatCurrency(entry.allowance)} • Gross{' '}
-                            {formatCurrency(entry.grossPay)}
-                          </Text>
-                        </Timeline.Item>
-                      ))}
-                    </Timeline>
-                  </ScrollArea>
-                )}
-              </Card>
-            </Stack>
+            <SalaryTimeline
+              employeeId={employeeId}
+              currentBasicSalary={employee.basicSalary || 0}
+              currentAllowance={employee.allowance || 0}
+            />
           </Tabs.Panel>
 
           <Tabs.Panel value="statutory" pt="md">

@@ -647,3 +647,23 @@ model DispatchOrder {
   @@index([importedAt])
   @@map("dispatch_orders")
 }
+
+model SalaryHistory {
+  id            String    @id @default(cuid())
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  employeeId    String    @db.VarChar(50)
+  employeeName  String    @db.VarChar(255)
+  effectiveDate String    @db.VarChar(50)
+  basicSalary   Float
+  allowance     Float     @default(0)
+  totalSalary   Float
+  reason        String?   @db.VarChar(255)
+  notes         String?   @db.VarChar(500)
+  createdBy     String?   @db.VarChar(100)
+
+  @@index([employeeId])
+  @@index([effectiveDate])
+  @@map("salary_history")
+}
