@@ -13,7 +13,7 @@
 
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   SimpleGrid,
   Card,
@@ -23,6 +23,7 @@ import {
   Title,
   Table,
   Box,
+  Select,
 } from '@mantine/core';
 import {
   IconPackage,
@@ -31,6 +32,7 @@ import {
   IconClockUp,
   IconClockDown,
   IconChartLine,
+  IconCalendar,
 } from '@tabler/icons-react';
 import type { ShipmentData } from '../types/shipment.types';
 
@@ -65,9 +67,25 @@ interface ComparisonData {
 }
 
 export function ShipmentsDashboard({ shipments }: ShipmentsDashboardProps) {
-  // Calculate monthly analytics for both current and previous year
-  const { monthlyData, yearlyTotals, comparisonData } = useMemo(() => {
+  // State for selected year
+  const [selectedYear, setSelectedYear] = useState<string>(
+    new Date().getFullYear().toString()
+  );
+
+  // Generate year options (current year and past 5 years)
+  const yearOptions = useMemo(() => {
     const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let i = 0; i < 10; i++) {
+      const year = currentYear - i;
+      years.push({ value: year.toString(), label: year.toString() });
+    }
+    return years;
+  }, []);
+
+  // Calculate monthly analytics for both selected and previous year
+  const { monthlyData, yearlyTotals, comparisonData } = useMemo(() => {
+    const currentYear = parseInt(selectedYear);
     const previousYear = currentYear - 1;
     const monthNames = [
       'January',
@@ -269,9 +287,7 @@ export function ShipmentsDashboard({ shipments }: ShipmentsDashboardProps) {
       yearlyTotals: totals,
       comparisonData: comparison,
     };
-  }, [shipments]);
-
-  const currentYear = new Date().getFullYear();
+  }, [shipments, selectedYear]);
 
   return (
     <Stack gap="lg">
@@ -280,9 +296,17 @@ export function ShipmentsDashboard({ shipments }: ShipmentsDashboardProps) {
         <div>
           <Title order={2}>Yearly Analytics</Title>
           <Text size="sm" c="dimmed">
-            {currentYear} - Monthly Breakdown
+            {selectedYear} - Monthly Breakdown
           </Text>
         </div>
+        <Select
+          value={selectedYear}
+          onChange={(value) => setSelectedYear(value || selectedYear)}
+          data={yearOptions}
+          leftSection={<IconCalendar size={16} />}
+          w={120}
+          allowDeselect={false}
+        />
       </Group>
 
       {/* Yearly Totals Cards */}
@@ -291,7 +315,7 @@ export function ShipmentsDashboard({ shipments }: ShipmentsDashboardProps) {
         <Card shadow="sm" padding="lg" radius="md" withBorder>
           <Group justify="space-between" mb="xs">
             <Text size="sm" fw={500} c="dimmed">
-              Total Shipments ({currentYear})
+              Total Shipments ({selectedYear})
             </Text>
             <IconPackage size={20} color="var(--mantine-color-blue-6)" />
           </Group>
@@ -304,7 +328,7 @@ export function ShipmentsDashboard({ shipments }: ShipmentsDashboardProps) {
         <Card shadow="sm" padding="lg" radius="md" withBorder>
           <Group justify="space-between" mb="xs">
             <Text size="sm" fw={500} c="dimmed">
-              Total Sacks ({currentYear})
+              Total Sacks ({selectedYear})
             </Text>
             <IconPackage size={20} color="var(--mantine-color-orange-6)" />
           </Group>
@@ -317,7 +341,7 @@ export function ShipmentsDashboard({ shipments }: ShipmentsDashboardProps) {
         <Card shadow="sm" padding="lg" radius="md" withBorder>
           <Group justify="space-between" mb="xs">
             <Text size="sm" fw={500} c="dimmed">
-              Total CBM ({currentYear})
+              Total CBM ({selectedYear})
             </Text>
             <IconBox size={20} color="var(--mantine-color-teal-6)" />
           </Group>
@@ -330,7 +354,7 @@ export function ShipmentsDashboard({ shipments }: ShipmentsDashboardProps) {
         <Card shadow="sm" padding="lg" radius="md" withBorder>
           <Group justify="space-between" mb="xs">
             <Text size="sm" fw={500} c="dimmed">
-              Total Fees ({currentYear})
+              Total Fees ({selectedYear})
             </Text>
             <IconCurrencyPeso size={20} color="var(--mantine-color-purple-6)" />
           </Group>
@@ -449,7 +473,7 @@ export function ShipmentsDashboard({ shipments }: ShipmentsDashboardProps) {
               }}
             />
             <Text size="xs" c="dimmed">
-              {currentYear - 1}
+              {parseInt(selectedYear) - 1}
             </Text>
             <Box
               style={{
@@ -461,7 +485,7 @@ export function ShipmentsDashboard({ shipments }: ShipmentsDashboardProps) {
               }}
             />
             <Text size="xs" c="dimmed">
-              {currentYear}
+              {selectedYear}
             </Text>
           </Group>
           <Group
@@ -544,7 +568,7 @@ export function ShipmentsDashboard({ shipments }: ShipmentsDashboardProps) {
               }}
             />
             <Text size="xs" c="dimmed">
-              {currentYear - 1}
+              {parseInt(selectedYear) - 1}
             </Text>
             <Box
               style={{
@@ -556,7 +580,7 @@ export function ShipmentsDashboard({ shipments }: ShipmentsDashboardProps) {
               }}
             />
             <Text size="xs" c="dimmed">
-              {currentYear}
+              {selectedYear}
             </Text>
           </Group>
           <Group
@@ -638,19 +662,19 @@ export function ShipmentsDashboard({ shipments }: ShipmentsDashboardProps) {
               }}
             />
             <Text size="xs" c="dimmed">
-              {currentYear - 1}
+              {parseInt(selectedYear) - 1}
             </Text>
             <Box
               style={{
                 width: 12,
                 height: 12,
-                backgroundColor: 'var(--mantine-color-teal-6)',
+                backgroundColor: 'var(--mantine-color-green-6)',
                 borderRadius: 2,
                 marginLeft: 8,
               }}
             />
             <Text size="xs" c="dimmed">
-              {currentYear}
+              {selectedYear}
             </Text>
           </Group>
           <Group
@@ -721,7 +745,7 @@ export function ShipmentsDashboard({ shipments }: ShipmentsDashboardProps) {
       {yearlyTotals.totalShipments === 0 && (
         <Card shadow="sm" padding="lg" radius="md" withBorder>
           <Text size="sm" c="dimmed" ta="center">
-            No shipments data available for {currentYear}
+            No shipments data available for {selectedYear}
           </Text>
         </Card>
       )}
