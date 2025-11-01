@@ -1,12 +1,30 @@
 /* eslint-disable no-console */
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
+import { Prisma, type Employee } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
 
 export const dynamic = 'force-dynamic';
+
+async function findEmployeeByIdentifier(
+  identifier: string
+): Promise<Employee | null> {
+  const trimmedIdentifier = identifier.trim();
+
+  if (!trimmedIdentifier) {
+    return null;
+  }
+
+  const isNumericId = /^\d+$/.test(trimmedIdentifier);
+
+  const whereClause: Prisma.EmployeeWhereInput = isNumericId
+    ? { id: Number(trimmedIdentifier), deletedAt: null }
+    : { employeeId: trimmedIdentifier, deletedAt: null };
+
+  return prisma.employee.findFirst({ where: whereClause });
+}
 
 /**
  * GET /api/employees/[id]
@@ -17,21 +35,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const employeeId = parseInt(params.id);
-
-    if (isNaN(employeeId)) {
-      return NextResponse.json(
-        { error: 'Invalid employee ID format' },
-        { status: 400 }
-      );
-    }
-
-    const employee = await prisma.employee.findUnique({
-      where: {
-        id: employeeId,
-        deletedAt: null,
-      },
-    });
+    const employee = await findEmployeeByIdentifier(params.id);
 
     if (!employee) {
       return NextResponse.json(
@@ -63,35 +67,25 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const employeeId = parseInt(params.id);
+    const employeeRecord = await findEmployeeByIdentifier(params.id);
 
-    if (isNaN(employeeId)) {
-      return NextResponse.json(
-        { error: 'Invalid employee ID format' },
-        { status: 400 }
-      );
-    }
-
-    const body = await request.json();
-    logger.info('Updating employee', {
-      employeeId,
-      updateFields: Object.keys(body),
-    });
-
-    // Check if employee exists
-    const existing = await prisma.employee.findUnique({
-      where: {
-        id: employeeId,
-        deletedAt: null,
-      },
-    });
-
-    if (!existing) {
+    if (!employeeRecord) {
       return NextResponse.json(
         { error: 'Employee not found or has been deleted' },
         { status: 404 }
       );
     }
+
+    const employeeNumericId = employeeRecord.id;
+
+    const body = await request.json();
+    logger.info('Updating employee', {
+      employeeId: employeeNumericId,
+      updateFields: Object.keys(body),
+    });
+
+    // Check if employee exists
+    const existing = employeeRecord;
 
     const currentProfilePhoto =
       (existing as { profilePhoto?: string | null }).profilePhoto ?? null;
@@ -104,7 +98,7 @@ export async function PUT(
           email: sanitizedEmail,
           deletedAt: null,
           NOT: {
-            id: employeeId, // Exclude current employee
+            id: employeeNumericId, // Exclude current employee
           },
         },
       });
@@ -129,7 +123,7 @@ export async function PUT(
           phone: sanitizedPhone,
           deletedAt: null,
           NOT: {
-            id: employeeId, // Exclude current employee
+            id: employeeNumericId, // Exclude current employee
           },
         },
       });
@@ -270,7 +264,7 @@ export async function PUT(
 
     // Update employee
     const employee = await prisma.employee.update({
-      where: { id: employeeId },
+      where: { id: employeeNumericId },
       data: employeeData,
     });
 
@@ -320,19 +314,19 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const employeeId = parseInt(params.id);
+    const employeeRecord = await findEmployeeByIdentifier(params.id);
 
-    if (isNaN(employeeId)) {
+    if (!employeeRecord) {
       return NextResponse.json(
-        { error: 'Invalid employee ID format' },
-        { status: 400 }
+        { error: 'Employee not found or already deleted' },
+        { status: 404 }
       );
     }
 
     // Soft delete by setting deletedAt timestamp
     const employee = await prisma.employee.update({
       where: {
-        id: employeeId,
+        id: employeeRecord.id,
         deletedAt: null, // Only delete if not already deleted
       },
       data: {
