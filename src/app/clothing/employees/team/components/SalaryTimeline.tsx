@@ -329,7 +329,7 @@ export function SalaryTimeline({
       <Modal
         opened={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={<Title order={4}>Add Salary Adjustment</Title>}
+        title="Add Salary Adjustment"
         size="md"
       >
         <Stack gap="md">
