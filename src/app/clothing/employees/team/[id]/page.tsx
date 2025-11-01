@@ -26,7 +26,6 @@ import {
   Tabs,
   ScrollArea,
   Table,
-  createStyles,
 } from '@mantine/core';
 import {
   IconArrowLeft,
@@ -40,28 +39,10 @@ import { EmployeeFormDialog } from '../components/EmployeeFormDialog';
 import { SalaryTimeline } from '../components/SalaryTimeline';
 import { getIconButtonLabel } from '@/lib/accessibility';
 
-const useTabsStyles = createStyles((theme) => ({
-  tab: {
-    color: theme.white,
-    '&:hover': {
-      color: theme.colors.gray[7],
-    },
-    '&[data-active]': {
-      color: theme.colors.gray[8],
-    },
-  },
-  tabsList: {
-    '&::before': {
-      display: 'none',
-    },
-  },
-}));
-
 export default function EmployeeDetailPage() {
   const params = useParams();
   const router = useRouter();
   const employeeId = params.id as string;
-  const { classes: tabsClasses } = useTabsStyles();
 
   const {
     employee,
@@ -676,7 +657,7 @@ export default function EmployeeDetailPage() {
           </Group>
         </Paper>
 
-        <Tabs defaultValue="profile" classNames={tabsClasses}>
+        <Tabs defaultValue="profile">
           <Tabs.List>
             <Tabs.Tab value="profile">Profile</Tabs.Tab>
             <Tabs.Tab value="payroll">Payroll History</Tabs.Tab>
