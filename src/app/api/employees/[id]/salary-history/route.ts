@@ -1,8 +1,76 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/db';
 
-const prisma = new PrismaClient();
+type EmployeeIdentifier = {
+  id: number | null;
+  employeeId: string | null;
+  name: string | null;
+};
+
+interface SalaryHistoryRecord {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  effectiveDate: string;
+  basicSalary: number;
+  allowance: number;
+  totalSalary: number;
+  reason: string | null;
+  notes: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
+  createdBy: string | null;
+}
+
+type SalaryHistoryDelegate = {
+  findMany: (...args: unknown[]) => Promise<unknown>;
+  create: (...args: unknown[]) => Promise<unknown>;
+};
+
+const salaryHistoryModel = (
+  prisma as unknown as {
+    salaryHistory: SalaryHistoryDelegate;
+  }
+).salaryHistory;
+
+async function resolveEmployee(
+  identifier: string
+): Promise<EmployeeIdentifier | null> {
+  const isNumeric = /^\d+$/.test(identifier.trim());
+
+  if (isNumeric) {
+    const numericId = Number(identifier);
+    const employee = await prisma.employee.findFirst({
+      where: {
+        id: numericId,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        employeeId: true,
+        name: true,
+      },
+    });
+
+    return employee ?? null;
+  }
+
+  const employee = await prisma.employee.findFirst({
+    where: {
+      employeeId: identifier,
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      employeeId: true,
+      name: true,
+    },
+  });
+
+  return employee ?? null;
+}
 
 // GET - Fetch salary history for an employee
 export async function GET(
@@ -10,17 +78,24 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const employeeId = params.id;
+    const employee = await resolveEmployee(params.id);
 
-    const salaryHistory = await prisma.salaryHistory.findMany({
+    if (!employee?.employeeId) {
+      return NextResponse.json(
+        { error: 'Employee not found' },
+        { status: 404 }
+      );
+    }
+
+    const salaryHistory = (await salaryHistoryModel.findMany({
       where: {
-        employeeId,
+        employeeId: employee.employeeId,
         deletedAt: null,
       },
       orderBy: {
         effectiveDate: 'desc',
       },
-    });
+    })) as SalaryHistoryRecord[];
 
     return NextResponse.json(salaryHistory);
   } catch (error) {
@@ -39,7 +114,15 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const employeeId = params.id;
+    const employee = await resolveEmployee(params.id);
+
+    if (!employee?.employeeId) {
+      return NextResponse.json(
+        { error: 'Employee not found' },
+        { status: 404 }
+      );
+    }
+
     const body = await request.json();
 
     const { effectiveDate, basicSalary, allowance, reason, notes } = body;
@@ -52,33 +135,21 @@ export async function POST(
       );
     }
 
-    // Get employee info
-    const employee = await prisma.employee.findUnique({
-      where: { employeeId },
-      select: { name: true },
-    });
+    const allowanceValue = typeof allowance === 'number' ? allowance : 0;
+    const totalSalary = basicSalary + allowanceValue;
 
-    if (!employee) {
-      return NextResponse.json(
-        { error: 'Employee not found' },
-        { status: 404 }
-      );
-    }
-
-    const totalSalary = basicSalary + (allowance || 0);
-
-    const salaryRecord = await prisma.salaryHistory.create({
+    const salaryRecord = (await salaryHistoryModel.create({
       data: {
-        employeeId,
-        employeeName: employee.name,
+        employeeId: employee.employeeId,
+        employeeName: employee.name ?? 'Unknown Employee',
         effectiveDate,
         basicSalary,
-        allowance: allowance || 0,
+        allowance: allowanceValue,
         totalSalary,
         reason: reason || null,
         notes: notes || null,
       },
-    });
+    })) as SalaryHistoryRecord;
 
     return NextResponse.json(salaryRecord, { status: 201 });
   } catch (error) {
