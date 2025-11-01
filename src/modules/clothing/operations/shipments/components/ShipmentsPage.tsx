@@ -13,7 +13,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Group, Button, Tabs } from '@mantine/core';
+import { Group, Button, Tabs, SimpleGrid, Card, Text } from '@mantine/core';
 import {
   IconPackage,
   IconCurrencyPeso,
@@ -34,6 +34,8 @@ import { useShipmentsData } from '../hooks/useShipmentsData';
 import { useShipmentForm } from '../hooks/useShipmentForm';
 import { AddShipmentModal } from './AddShipmentModal';
 import { EditShipmentModal } from './EditShipmentModal';
+import { ShipmentsDashboard } from './ShipmentsDashboard';
+import { PickupForm } from './PickupForm';
 import type { ShipmentData } from '../types/shipment.types';
 import {
   GRID_COLUMNS,
@@ -241,6 +243,36 @@ export function ShipmentsPage() {
 
   return (
     <PageLayout fluid withPadding>
+      {/* Statistics Cards */}
+      {statsCards && statsCards.length > 0 && (
+        <SimpleGrid cols={statsCards.length} spacing="md" mb="md">
+          {statsCards.map((stat) => (
+            <Card
+              key={stat.title}
+              p="md"
+              radius="md"
+              withBorder
+              style={{
+                backgroundColor: stat.backgroundColor,
+                color: 'white',
+                cursor: 'default',
+              }}
+            >
+              <Group justify="space-between" mb="xs">
+                <Text size="sm" fw={500}>
+                  {stat.title}
+                </Text>
+                {stat.icon}
+              </Group>
+              <Text size="xl" fw={700}>
+                {stat.value}
+              </Text>
+            </Card>
+          ))}
+        </SimpleGrid>
+      )}
+
+      {/* Navigation Tabs */}
       <Tabs
         value={activeTab}
         onChange={(value) => setActiveTab(value || 'shipments')}
@@ -261,7 +293,6 @@ export function ShipmentsPage() {
             onSearch={handleSearch}
             searchPlaceholder="Search shipments by code, CV number, status, or notes..."
             getCellContent={cellContentGetter}
-            statsCards={statsCards}
             enableCSVImport={true}
             csvFile={csvFile}
             onFileChange={setCsvFile}
@@ -303,18 +334,12 @@ export function ShipmentsPage() {
 
         {/* Shipments Dashboard Tab */}
         <Tabs.Panel value="dashboard" pt="md">
-          <div style={{ padding: '20px', textAlign: 'center' }}>
-            <h2>Shipments Dashboard</h2>
-            <p>Dashboard content coming soon...</p>
-          </div>
+          <ShipmentsDashboard shipments={shipments} />
         </Tabs.Panel>
 
         {/* Pickup Form Tab */}
         <Tabs.Panel value="pickup" pt="md">
-          <div style={{ padding: '20px', textAlign: 'center' }}>
-            <h2>Pickup Form</h2>
-            <p>Pickup form content coming soon...</p>
-          </div>
+          <PickupForm shipments={shipments} />
         </Tabs.Panel>
       </Tabs>
     </PageLayout>
