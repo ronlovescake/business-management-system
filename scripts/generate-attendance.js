@@ -90,15 +90,28 @@ async function main() {
     // Only create attendance for scheduled days
     if (schedule.status === 'scheduled') {
       const empInfo = EMPLOYEE_INFO[empId];
+
+      // Use actual schedule times, or -- for leave days
+      const timeIn = isOnLeave ? '--' : schedule.startTime || '4:00';
+      const timeOut = isOnLeave ? '--' : schedule.endTime || '17:00';
+
+      // Calculate total hours
+      let totalHours = 0;
+      if (!isOnLeave && schedule.startTime && schedule.endTime) {
+        const startHour = parseFloat(schedule.startTime.replace(':', '.'));
+        const endHour = parseFloat(schedule.endTime.replace(':', '.'));
+        totalHours = endHour - startHour;
+      }
+
       attendanceRecords.push({
         employeeId: empId,
         employeeName: empInfo.name,
         department: empInfo.department,
         position: empInfo.position,
         date: schedule.date,
-        timeIn: isOnLeave ? '--' : '08:00',
-        timeOut: isOnLeave ? '--' : '17:00',
-        totalHours: isOnLeave ? 0 : 8,
+        timeIn: timeIn,
+        timeOut: timeOut,
+        totalHours: totalHours,
         status: isOnLeave ? 'on-leave' : 'present',
         details: isOnLeave ? 'Approved leave' : null,
       });
