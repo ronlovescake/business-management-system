@@ -198,7 +198,8 @@ export async function POST() {
         const allowance = employee?.allowance ?? 0;
         const hourlyRate = baseSalary > 0 ? baseSalary / 26 / 8 : 0;
 
-        const standardHours = daysWorked * 8;
+        // For stay-in employees, standard workday is 13 hours (not 8)
+        const standardHours = daysWorked * 13;
         const overtimeHours = Math.max(0, totalHours - standardHours);
         const overtimePay = overtimeHours * hourlyRate * 1.25;
 
