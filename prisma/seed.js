@@ -44,37 +44,7 @@ async function main() {
     ],
   });
 
-  await prisma.shipment.createMany({
-    skipDuplicates: true,
-    data: [
-      {
-        shipmentCode: 'SHIP-001',
-        cvNumber: 'CV-001',
-        noOfSacks: 25,
-        totalCBM: 12.5,
-        weight: 540,
-        fee: 1500,
-        shipmentStatus: 'in_transit',
-        dateCreated: '2025-10-01',
-        dateDelivered: null,
-        duration: null,
-        notes: 'Initial load for fall collection',
-      },
-      {
-        shipmentCode: 'SHIP-002',
-        cvNumber: 'CV-002',
-        noOfSacks: 15,
-        totalCBM: 8.2,
-        weight: 320,
-        fee: 900,
-        shipmentStatus: 'delivered',
-        dateCreated: '2025-09-15',
-        dateDelivered: '2025-09-18',
-        duration: '3 days',
-        notes: 'Restock delivery',
-      },
-    ],
-  });
+  // Shipment seed data removed - SHIP-001 and SHIP-002 were deleted
 
   await prisma.transaction.createMany({
     skipDuplicates: true,

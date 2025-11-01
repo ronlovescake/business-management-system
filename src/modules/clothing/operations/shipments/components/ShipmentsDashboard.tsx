@@ -323,6 +323,85 @@ export function ShipmentsDashboard({ shipments }: ShipmentsDashboardProps) {
         </Card>
       </div>
 
+      {/* 3 Blank Canvases Side by Side */}
+      <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
+        <Card shadow="sm" padding="lg" radius="md" withBorder h={300}>
+          <Title order={4} mb="md">
+            Total Shipments vs Last Year
+          </Title>
+          <Group justify="space-between" mt="auto" pt="xl">
+            {[
+              'Jan',
+              'Feb',
+              'Mar',
+              'Apr',
+              'May',
+              'Jun',
+              'Jul',
+              'Aug',
+              'Sep',
+              'Oct',
+              'Nov',
+              'Dec',
+            ].map((month) => (
+              <Text key={month} size="xs" c="dimmed">
+                {month}
+              </Text>
+            ))}
+          </Group>
+        </Card>
+        <Card shadow="sm" padding="lg" radius="md" withBorder h={300}>
+          <Title order={4} mb="md">
+            Total Sacks vs Last Year
+          </Title>
+          <Group justify="space-between" mt="auto" pt="xl">
+            {[
+              'Jan',
+              'Feb',
+              'Mar',
+              'Apr',
+              'May',
+              'Jun',
+              'Jul',
+              'Aug',
+              'Sep',
+              'Oct',
+              'Nov',
+              'Dec',
+            ].map((month) => (
+              <Text key={month} size="xs" c="dimmed">
+                {month}
+              </Text>
+            ))}
+          </Group>
+        </Card>
+        <Card shadow="sm" padding="lg" radius="md" withBorder h={300}>
+          <Title order={4} mb="md">
+            Total CBM vs Last Year
+          </Title>
+          <Group justify="space-between" mt="auto" pt="xl">
+            {[
+              'Jan',
+              'Feb',
+              'Mar',
+              'Apr',
+              'May',
+              'Jun',
+              'Jul',
+              'Aug',
+              'Sep',
+              'Oct',
+              'Nov',
+              'Dec',
+            ].map((month) => (
+              <Text key={month} size="xs" c="dimmed">
+                {month}
+              </Text>
+            ))}
+          </Group>
+        </Card>
+      </SimpleGrid>
+
       {/* Empty State */}
       {yearlyTotals.totalShipments === 0 && (
         <Card shadow="sm" padding="lg" radius="md" withBorder>
