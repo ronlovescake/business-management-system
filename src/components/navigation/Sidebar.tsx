@@ -15,7 +15,6 @@ import {
   IconChartBar,
   IconBoxSeam,
   IconDashboard,
-  IconPackage,
   IconGift,
   IconLink,
   IconBell,
@@ -90,18 +89,6 @@ export function Sidebar() {
           path: `${basePath}/inventory`,
           icon: IconBoxSeam,
           order: 8.5, // After the main modules
-        },
-        {
-          label: 'Shipments Dashboard',
-          path: `${basePath}/shipments-dashboard`,
-          icon: IconDashboard,
-          order: 6.5, // After Shipments module
-        },
-        {
-          label: 'Pickup Form',
-          path: `${basePath}/pickup-form`,
-          icon: IconPackage,
-          order: 9,
         },
         {
           label: 'Post Template',

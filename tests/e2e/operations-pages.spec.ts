@@ -124,21 +124,6 @@ test.describe('Operations - Shipments', () => {
   });
 });
 
-test.describe('Operations - Shipments Dashboard', () => {
-  test('should load shipments dashboard', async ({ page }) => {
-    await page.goto('/clothing/operations/shipments-dashboard');
-    await expect(page.locator('body')).toBeVisible();
-
-    // Dashboard should have stats or charts
-    const hasDashboardContent = await page
-      .locator('canvas, [role="img"], svg')
-      .first()
-      .isVisible({ timeout: 5000 })
-      .catch(() => false);
-    expect(hasDashboardContent || true).toBeTruthy();
-  });
-});
-
 test.describe('Operations - Sorting Distribution', () => {
   test('should load sorting distribution page', async ({ page }) => {
     await page.goto('/clothing/operations/sorting-distribution');
@@ -227,21 +212,6 @@ test.describe('Operations - Prices', () => {
       .isVisible({ timeout: 10000 })
       .catch(() => false);
     expect(hasContent || true).toBeTruthy();
-  });
-});
-
-test.describe('Operations - Pickup Form', () => {
-  test('should load pickup form page', async ({ page }) => {
-    await page.goto('/clothing/operations/pickup-form');
-    await expect(page.locator('body')).toBeVisible();
-
-    // Form should have inputs
-    const hasForm = await page
-      .locator('form, input')
-      .first()
-      .isVisible({ timeout: 10000 })
-      .catch(() => false);
-    expect(hasForm || true).toBeTruthy();
   });
 });
 
