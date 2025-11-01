@@ -192,7 +192,7 @@ export default function Team() {
 
   // Handle double-click on employee row
   const handleRowDoubleClick = (employee: EmployeeType) => {
-    router.push(`/clothing/employees/team/${employee.id}`);
+    router.push(`/clothing/employees/team/${employee.employeeId}`);
   };
 
   // Table Actions Configuration
