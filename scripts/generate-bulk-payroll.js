@@ -105,7 +105,7 @@ async function getEmployeeDetailsForPeriod(employeeId, periodEnd) {
           reason: salaryHistory[0].reason,
         }
       : {
-          basicSalary: employee.currentSalary ?? employee.basicSalary ?? 0,
+          basicSalary: employee.basicSalary ?? 0, // Use basicSalary field, NOT currentSalary (which includes allowance)
           allowance: employee.allowance ?? 0,
           reason: null,
         };
@@ -214,7 +214,7 @@ async function generatePayrollForPeriod(period) {
     }
 
     const baseSalary = employee.basicSalary;
-    const allowance = employee.allowance ?? 0;
+    const allowance = (employee.allowance ?? 0) / 2; // Half-month allowance
     const hourlyRate = baseSalary > 0 ? baseSalary / 26 / 8 : 0;
 
     // For stay-in employees, standard workday is 13 hours (not 8)

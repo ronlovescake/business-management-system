@@ -193,17 +193,16 @@ export async function POST() {
         const resolvedName =
           employee?.name ?? employeeName ?? 'Unknown Employee';
 
-        const baseSalary =
-          employee?.currentSalary ?? employee?.basicSalary ?? 0;
-        const allowance = employee?.allowance ?? 0;
-        const hourlyRate = baseSalary > 0 ? baseSalary / 26 / 8 : 0;
+        const monthlySalary = employee?.basicSalary ?? 0; // Use basicSalary field, NOT currentSalary (which includes allowance)
+        const allowance = (employee?.allowance ?? 0) / 2; // Half-month allowance
+        const hourlyRate = monthlySalary > 0 ? monthlySalary / 26 / 8 : 0;
 
         // For stay-in employees, standard workday is 13 hours (not 8)
         const standardHours = daysWorked * 13;
         const overtimeHours = Math.max(0, totalHours - standardHours);
         const overtimePay = overtimeHours * hourlyRate * 1.25;
 
-        const basicSalary = baseSalary / 2;
+        const basicSalary = monthlySalary / 2;
         const bonuses = 0;
 
         // Check if 13th month pay should be included in this payroll

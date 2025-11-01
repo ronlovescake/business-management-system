@@ -518,6 +518,22 @@ export function usePayroll() {
       return;
     }
 
+    // Confirmation prompt before generating
+    const confirmResult = await Swal.fire({
+      title: 'Generate Payroll?',
+      text: 'This will generate payroll for the current pay period for all active employees.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, generate it!',
+      cancelButtonText: 'Cancel',
+    });
+
+    if (!confirmResult.isConfirmed) {
+      return;
+    }
+
     setIsGeneratingPayroll(true);
 
     try {
@@ -541,22 +557,35 @@ export function usePayroll() {
       // Invalidate cache to refetch
       queryClient.invalidateQueries({ queryKey: queryKeys.payroll.lists() });
 
-      if (typeof normalized.message === 'string' && normalized.message.trim()) {
-        alert(normalized.message);
-      } else {
-        const count = Number(normalized.count ?? 0);
-        const safeCount = Number.isFinite(count) ? count : 0;
-        alert(
-          `Successfully generated payroll for ${safeCount} employee${safeCount === 1 ? '' : 's'}.`
-        );
-      }
+      // Success prompt with details
+      const count = Number(normalized.count ?? 0);
+      const safeCount = Number.isFinite(count) ? count : 0;
+      const message =
+        typeof normalized.message === 'string' && normalized.message.trim()
+          ? normalized.message
+          : `Successfully generated payroll for ${safeCount} employee${safeCount === 1 ? '' : 's'}.`;
+
+      await Swal.fire({
+        title: 'Success!',
+        text: message,
+        icon: 'success',
+        confirmButtonColor: '#3085d6',
+        confirmButtonText: 'OK',
+      });
     } catch (error) {
       const message =
         error instanceof Error && error.message
           ? error.message
           : 'Failed to generate payroll. Please try again.';
       logger.error('Error generating payroll:', error);
-      alert(message);
+
+      await Swal.fire({
+        title: 'Error!',
+        text: message,
+        icon: 'error',
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'OK',
+      });
     } finally {
       setIsGeneratingPayroll(false);
     }
