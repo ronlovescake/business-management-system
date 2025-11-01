@@ -9,6 +9,7 @@
 
 import { useMemo } from 'react';
 import { Stack, Card, Text, Group, Table, Title } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import {
   IconUser,
   IconBarcode,
@@ -45,6 +46,28 @@ export function PickupForm({ shipments }: PickupFormProps) {
       (shipment) => shipment['Shipment Status'] === 'For Pickup'
     );
   }, [shipments]);
+
+  // Function to copy text to clipboard
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      notifications.show({
+        title: 'Copied!',
+        message: `${label} copied to clipboard`,
+        color: 'green',
+        position: 'top-right',
+        autoClose: 2000,
+      });
+    } catch (err) {
+      notifications.show({
+        title: 'Failed to copy',
+        message: 'Please try again',
+        color: 'red',
+        position: 'top-right',
+        autoClose: 2000,
+      });
+    }
+  };
 
   // Calculate totals from filtered shipments
   const calculatedData = useMemo(() => {
@@ -98,7 +121,11 @@ export function PickupForm({ shipments }: PickupFormProps) {
             </Title>
 
             {/* Complete Name */}
-            <Group gap="xs">
+            <Group
+              gap="xs"
+              style={{ cursor: 'pointer' }}
+              onClick={() => copyToClipboard('CZARINA C. BALNIG', 'Name')}
+            >
               <IconUser size={20} color="var(--mantine-color-blue-6)" />
               <div>
                 <Text size="xs" c="dimmed" fw={500}>
@@ -111,7 +138,11 @@ export function PickupForm({ shipments }: PickupFormProps) {
             </Group>
 
             {/* KPC Code */}
-            <Group gap="xs">
+            <Group
+              gap="xs"
+              style={{ cursor: 'pointer' }}
+              onClick={() => copyToClipboard('KPC 23930A', 'KPC Code')}
+            >
               <IconBarcode size={20} color="var(--mantine-color-indigo-6)" />
               <div>
                 <Text size="xs" c="dimmed" fw={500}>
@@ -124,7 +155,16 @@ export function PickupForm({ shipments }: PickupFormProps) {
             </Group>
 
             {/* Container Number (CV) */}
-            <Group gap="xs">
+            <Group
+              gap="xs"
+              style={{ cursor: 'pointer' }}
+              onClick={() =>
+                copyToClipboard(
+                  formData.containerNumber || '-',
+                  'Container Number'
+                )
+              }
+            >
               <IconContainer size={20} color="var(--mantine-color-cyan-6)" />
               <div>
                 <Text size="xs" c="dimmed" fw={500}>
@@ -137,7 +177,16 @@ export function PickupForm({ shipments }: PickupFormProps) {
             </Group>
 
             {/* How Many Sacks */}
-            <Group gap="xs">
+            <Group
+              gap="xs"
+              style={{ cursor: 'pointer' }}
+              onClick={() =>
+                copyToClipboard(
+                  formData.howManySacks.toString(),
+                  'Number of Sacks'
+                )
+              }
+            >
               <IconPackage size={20} color="var(--mantine-color-orange-6)" />
               <div>
                 <Text size="xs" c="dimmed" fw={500}>
@@ -150,7 +199,16 @@ export function PickupForm({ shipments }: PickupFormProps) {
             </Group>
 
             {/* Total Shipment Fee */}
-            <Group gap="xs">
+            <Group
+              gap="xs"
+              style={{ cursor: 'pointer' }}
+              onClick={() =>
+                copyToClipboard(
+                  formData.totalShipmentFee.toString(),
+                  'Total Shipment Fee'
+                )
+              }
+            >
               <IconCurrencyPeso
                 size={20}
                 color="var(--mantine-color-purple-6)"
@@ -166,7 +224,13 @@ export function PickupForm({ shipments }: PickupFormProps) {
             </Group>
 
             {/* Total CBM */}
-            <Group gap="xs">
+            <Group
+              gap="xs"
+              style={{ cursor: 'pointer' }}
+              onClick={() =>
+                copyToClipboard(formData.totalCBM.toFixed(2), 'Total CBM')
+              }
+            >
               <IconBox size={20} color="var(--mantine-color-teal-6)" />
               <div>
                 <Text size="xs" c="dimmed" fw={500}>
@@ -179,7 +243,13 @@ export function PickupForm({ shipments }: PickupFormProps) {
             </Group>
 
             {/* Total Weight */}
-            <Group gap="xs">
+            <Group
+              gap="xs"
+              style={{ cursor: 'pointer' }}
+              onClick={() =>
+                copyToClipboard(formData.totalWeight.toString(), 'Total Weight')
+              }
+            >
               <IconScale size={20} color="var(--mantine-color-indigo-6)" />
               <div>
                 <Text size="xs" c="dimmed" fw={500}>
@@ -203,50 +273,59 @@ export function PickupForm({ shipments }: PickupFormProps) {
       <div>
         <StandardTableContainer
           summary={
-            <Group justify="space-between" wrap="nowrap">
-              <Group gap="xl">
-                <div>
-                  <Text size="xs" c="dimmed" fw={500}>
-                    Total Shipments
-                  </Text>
-                  <Text size="lg" fw={700}>
-                    {forPickupShipments.length}
-                  </Text>
-                </div>
-                <div>
-                  <Text size="xs" c="dimmed" fw={500}>
-                    Total Sacks
-                  </Text>
-                  <Text size="lg" fw={700}>
-                    {calculatedData.howManySacks.toLocaleString()}
-                  </Text>
-                </div>
-                <div>
-                  <Text size="xs" c="dimmed" fw={500}>
-                    Total CBM
-                  </Text>
-                  <Text size="lg" fw={700}>
-                    {calculatedData.totalCBM.toFixed(2)} m³
-                  </Text>
-                </div>
-                <div>
-                  <Text size="xs" c="dimmed" fw={500}>
-                    Total Weight
-                  </Text>
-                  <Text size="lg" fw={700}>
-                    {calculatedData.totalWeight.toLocaleString()} kg
-                  </Text>
-                </div>
-                <div>
-                  <Text size="xs" c="dimmed" fw={500}>
-                    Total Fee
-                  </Text>
-                  <Text size="lg" fw={700}>
-                    ₱{calculatedData.totalShipmentFee.toLocaleString()}
-                  </Text>
-                </div>
-              </Group>
-            </Group>
+            <div
+              style={{
+                display: 'flex',
+                width: '100%',
+                textAlign: 'center',
+              }}
+            >
+              {/* Shipment Code column - empty for alignment */}
+              <div style={{ flex: '1 1 0', minWidth: 0 }}></div>
+
+              {/* CV Number column - empty for alignment */}
+              <div style={{ flex: '1 1 0', minWidth: 0 }}></div>
+
+              {/* No. Of Sacks column */}
+              <div style={{ flex: '1 1 0', minWidth: 0 }}>
+                <Text size="xs" c="dimmed" fw={500}>
+                  Total Sacks
+                </Text>
+                <Text size="lg" fw={700}>
+                  {calculatedData.howManySacks.toLocaleString()}
+                </Text>
+              </div>
+
+              {/* Total CBM column */}
+              <div style={{ flex: '1 1 0', minWidth: 0 }}>
+                <Text size="xs" c="dimmed" fw={500}>
+                  Total CBM
+                </Text>
+                <Text size="lg" fw={700}>
+                  {calculatedData.totalCBM.toFixed(2)} m³
+                </Text>
+              </div>
+
+              {/* Weight column */}
+              <div style={{ flex: '1 1 0', minWidth: 0 }}>
+                <Text size="xs" c="dimmed" fw={500}>
+                  Total Weight
+                </Text>
+                <Text size="lg" fw={700}>
+                  {calculatedData.totalWeight.toLocaleString()} kg
+                </Text>
+              </div>
+
+              {/* Fee column */}
+              <div style={{ flex: '1 1 0', minWidth: 0 }}>
+                <Text size="xs" c="dimmed" fw={500}>
+                  Total Fee
+                </Text>
+                <Text size="lg" fw={700}>
+                  ₱{calculatedData.totalShipmentFee.toLocaleString()}
+                </Text>
+              </div>
+            </div>
           }
         >
           <StandardDataTable
