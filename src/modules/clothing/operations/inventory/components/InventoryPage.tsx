@@ -19,6 +19,13 @@ interface ProductFromAPI {
   'Shipment Status': string | null;
 }
 
+interface TransactionFromAPI {
+  id: string;
+  'Product Code': string | null;
+  Quantity: number;
+  'Order Status': string | null;
+}
+
 interface InventoryItem {
   id: string;
   productCode: string;
@@ -58,22 +65,41 @@ export function InventoryPage() {
   const [isImporting, setIsImporting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [products, setProducts] = useState<ProductFromAPI[]>([]);
+  const [transactions, setTransactions] = useState<TransactionFromAPI[]>([]);
 
-  // Fetch products from API on mount
+  // Fetch products and transactions from API on mount
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchData = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch('/api/products');
 
-        if (!response.ok) {
-          throw new Error(`Failed to fetch products: ${response.statusText}`);
+        // Fetch products and transactions in parallel
+        const [productsResponse, transactionsResponse] = await Promise.all([
+          fetch('/api/products'),
+          fetch('/api/transactions'),
+        ]);
+
+        if (!productsResponse.ok) {
+          throw new Error(
+            `Failed to fetch products: ${productsResponse.statusText}`
+          );
         }
 
-        const data = await response.json();
-        setProducts(data);
+        if (!transactionsResponse.ok) {
+          throw new Error(
+            `Failed to fetch transactions: ${transactionsResponse.statusText}`
+          );
+        }
+
+        const [productsData, transactionsData] = await Promise.all([
+          productsResponse.json(),
+          transactionsResponse.json(),
+        ]);
+
+        setProducts(productsData);
+        setTransactions(transactionsData);
       } catch (error) {
-        logger.error('Failed to load products:', error);
+        logger.error('Failed to load data:', error);
         notifications.show({
           title: 'Error',
           message: 'Failed to load inventory data',
@@ -84,18 +110,37 @@ export function InventoryPage() {
       }
     };
 
-    void fetchProducts();
+    void fetchData();
   }, []);
 
   // Transform products API data to inventory items
-  const data = useMemo<InventoryItem[]>(
-    () =>
-      products.map((product) => ({
+  const data = useMemo<InventoryItem[]>(() => {
+    // Calculate total order per product code from transactions
+    // Sum quantities where Order Status is NOT "Cancelled"
+    const totalOrderByProduct = new Map<string, number>();
+
+    transactions.forEach((transaction) => {
+      const productCode = transaction['Product Code'];
+      const orderStatus = transaction['Order Status'];
+      const quantity = transaction.Quantity || 0;
+
+      // Only count non-cancelled orders
+      if (productCode && orderStatus !== 'Cancelled') {
+        const currentTotal = totalOrderByProduct.get(productCode) || 0;
+        totalOrderByProduct.set(productCode, currentTotal + quantity);
+      }
+    });
+
+    return products.map((product) => {
+      const productCode = product['Product Code'] || '';
+      const totalOrder = totalOrderByProduct.get(productCode) || 0;
+
+      return {
         id: product.id,
-        productCode: product['Product Code'] || '',
+        productCode,
         quantity: product.Quantity || 0,
         onhand: 0, // TODO: Calculate from transactions/sales
-        totalOrder: 0, // TODO: Calculate from orders
+        totalOrder,
         availableStock: 0, // TODO: Calculate (onhand - totalOrder)
         totalSales: 0, // TODO: Calculate from transactions
         cogs: 0, // TODO: Get from product COGS field
@@ -104,9 +149,9 @@ export function InventoryPage() {
         endingInventoryValue: 0, // TODO: Calculate (availableStock * cost)
         shipmentCode: product['Shipment Code'] || '',
         shipmentStatus: product['Shipment Status'] || '',
-      })),
-    [products]
-  );
+      };
+    });
+  }, [products, transactions]);
 
   const filteredData = useMemo(() => {
     if (!searchQuery.trim()) {
