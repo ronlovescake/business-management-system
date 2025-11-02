@@ -150,6 +150,7 @@ export function InventoryPage() {
       const totalSales = totalSalesByProduct.get(productCode) || 0;
       const cogs = product.COGS || 0;
       const availableStock = quantity - totalOrder;
+      const netProfit = cogs - totalSales;
 
       return {
         id: product.id,
@@ -160,7 +161,7 @@ export function InventoryPage() {
         availableStock,
         totalSales,
         cogs,
-        netProfit: 0, // TODO: Calculate (totalSales - cogs)
+        netProfit,
         percentage: 0, // TODO: Calculate profit percentage
         endingInventoryValue: 0, // TODO: Calculate (availableStock * cost)
         shipmentCode: product['Shipment Code'] || '',
