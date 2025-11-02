@@ -637,7 +637,7 @@ export function useTransactionOperations(
                 await Swal.fire({
                   icon: 'warning',
                   title: '🟡 Low Stock Warning',
-                  html: `<p>${stockInfo.message}</p><p>Adding <strong>${quantityChange}</strong> more units.</p>`,
+                  text: stockInfo.message,
                   confirmButtonText: 'Continue Anyway',
                   confirmButtonColor: '#fab005',
                   showCancelButton: true,
