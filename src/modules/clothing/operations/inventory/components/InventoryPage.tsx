@@ -366,52 +366,52 @@ export function InventoryPage() {
                   {item.productCode}
                 </Text>
               </Table.Td>
-              <Table.Td style={{ textAlign: 'right' }}>
+              <Table.Td style={{ textAlign: 'center' }}>
                 <Text size="sm" c="#495057">
                   {numberFormatter.format(item.quantity)}
                 </Text>
               </Table.Td>
-              <Table.Td style={{ textAlign: 'right' }}>
+              <Table.Td style={{ textAlign: 'center' }}>
                 <Text size="sm" c="#495057">
                   {numberFormatter.format(item.onhand)}
                 </Text>
               </Table.Td>
-              <Table.Td style={{ textAlign: 'right' }}>
+              <Table.Td style={{ textAlign: 'center' }}>
                 <Text size="sm" c="#495057">
                   {numberFormatter.format(item.totalOrder)}
                 </Text>
               </Table.Td>
-              <Table.Td style={{ textAlign: 'right' }}>
+              <Table.Td style={{ textAlign: 'center' }}>
                 <Text size="sm" c="#495057">
                   {numberFormatter.format(item.availableStock)}
                 </Text>
               </Table.Td>
-              <Table.Td style={{ textAlign: 'right' }}>
+              <Table.Td style={{ textAlign: 'center' }}>
                 <Text size="sm" c="#495057">
                   {currencyFormatter.format(item.totalSales)}
                 </Text>
               </Table.Td>
-              <Table.Td style={{ textAlign: 'right' }}>
+              <Table.Td style={{ textAlign: 'center' }}>
                 <Text size="sm" c="#495057">
                   {currencyFormatter.format(item.cogs)}
                 </Text>
               </Table.Td>
-              <Table.Td style={{ textAlign: 'right' }}>
+              <Table.Td style={{ textAlign: 'center' }}>
                 <Text size="sm" c="#495057">
                   {currencyFormatter.format(item.netProfit)}
                 </Text>
               </Table.Td>
-              <Table.Td style={{ textAlign: 'right' }}>
+              <Table.Td style={{ textAlign: 'center' }}>
                 <Text size="sm" c="#495057">
                   {percentFormatter.format(item.percentage)}
                 </Text>
               </Table.Td>
-              <Table.Td style={{ textAlign: 'right' }}>
+              <Table.Td style={{ textAlign: 'center' }}>
                 <Text size="sm" c="#495057">
                   {currencyFormatter.format(item.endingInventoryValue)}
                 </Text>
               </Table.Td>
-              <Table.Td style={{ textAlign: 'left' }}>
+              <Table.Td style={{ textAlign: 'center' }}>
                 <Text size="sm" c="#495057">
                   {item.shipmentCode}
                 </Text>
