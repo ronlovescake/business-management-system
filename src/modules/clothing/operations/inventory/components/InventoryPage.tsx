@@ -150,7 +150,7 @@ export function InventoryPage() {
       const totalSales = totalSalesByProduct.get(productCode) || 0;
       const cogs = product.COGS || 0;
       const availableStock = quantity - totalOrder;
-      const netProfit = cogs - totalSales;
+      const netProfit = totalSales - cogs;
 
       return {
         id: product.id,
