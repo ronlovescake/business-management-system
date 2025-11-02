@@ -145,17 +145,19 @@ export function InventoryPage() {
 
     return products.map((product) => {
       const productCode = product['Product Code'] || '';
+      const quantity = product.Quantity || 0;
       const totalOrder = totalOrderByProduct.get(productCode) || 0;
       const totalSales = totalSalesByProduct.get(productCode) || 0;
       const cogs = product.COGS || 0;
+      const availableStock = quantity - totalOrder;
 
       return {
         id: product.id,
         productCode,
-        quantity: product.Quantity || 0,
+        quantity,
         onhand: 0, // TODO: Calculate from transactions/sales
         totalOrder,
-        availableStock: 0, // TODO: Calculate (onhand - totalOrder)
+        availableStock,
         totalSales,
         cogs,
         netProfit: 0, // TODO: Calculate (totalSales - cogs)
