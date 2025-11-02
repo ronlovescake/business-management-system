@@ -373,6 +373,79 @@ export function useTransactionOperations(
       if (columnId === 'productCode') {
         const dropdownValue = getCellValue(newValue);
 
+        // =====================================================================
+        // 🛡️ STOCK CHECK - Prevent overselling
+        // Only check if:
+        // 1. Product code is not empty
+        // 2. Transaction has no ID (new row) OR is being created
+        // 3. Not in batch mode (skip during paste operations)
+        // =====================================================================
+        if (
+          dropdownValue &&
+          dropdownValue.trim() !== '' &&
+          !isBatchModeRef.current
+        ) {
+          try {
+            const currentQuantity = getCurrentTransaction().Quantity || 0;
+
+            const stockResponse = await fetch('/api/inventory/check-stock', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                productCode: dropdownValue.trim(),
+                requestedQuantity: currentQuantity,
+              }),
+            });
+
+            if (stockResponse.ok) {
+              const stockInfo = (await stockResponse.json()) as {
+                status: string;
+                message: string;
+                availableStock: number;
+                canFulfill: boolean;
+              };
+
+              // 🔴 SOLD OUT or INSUFFICIENT STOCK - Block order creation
+              if (
+                stockInfo.status === 'SOLD_OUT' ||
+                stockInfo.status === 'INSUFFICIENT_STOCK'
+              ) {
+                notifications.show({
+                  title: '🔴 Cannot Create Order',
+                  message: stockInfo.message,
+                  color: 'red',
+                  autoClose: 6000,
+                });
+                logger.warn(
+                  `Stock check failed for ${dropdownValue}:`,
+                  stockInfo
+                );
+                return; // Prevent saving the transaction
+              }
+
+              // 🟡 LOW STOCK - Show warning but allow order
+              if (stockInfo.status === 'LOW_STOCK') {
+                notifications.show({
+                  title: '🟡 Low Stock Warning',
+                  message: stockInfo.message,
+                  color: 'yellow',
+                  autoClose: 5000,
+                });
+                logger.info(
+                  `Low stock warning for ${dropdownValue}:`,
+                  stockInfo
+                );
+                // Continue with order creation
+              }
+            }
+          } catch (error) {
+            logger.error('Stock check failed:', error);
+            // Continue with order creation on error (fail-safe)
+          }
+        }
+
         // Auto-populate shipment code
         const correspondingShipmentCode =
           productToShipmentMap[dropdownValue] || '';
