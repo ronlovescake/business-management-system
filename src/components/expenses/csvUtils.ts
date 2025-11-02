@@ -1,4 +1,5 @@
 import { getCurrentDateISO } from '@/utils/date';
+import { showError } from '@/lib/alerts';
 
 /**
  * CSV Utilities Module
@@ -65,7 +66,7 @@ export function exportToCSV<T>(
   mapRowFn: (item: T) => (string | number | null | undefined)[]
 ): void {
   if (data.length === 0) {
-    alert('No data to export');
+    void showError('No data to export', 'Export Error');
     return;
   }
 

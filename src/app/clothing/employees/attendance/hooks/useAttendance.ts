@@ -5,6 +5,7 @@ import { api } from '@/lib/api/client';
 import { notifications } from '@mantine/notifications';
 import Swal from 'sweetalert2';
 import { queryKeys } from '@/lib/queryKeys';
+import { showError, showSuccess, showDeleteConfirm } from '@/lib/alerts';
 import type {
   AttendanceRecord,
   AttendanceStatus,
@@ -498,7 +499,8 @@ export function useAttendance() {
   });
 
   const handleDeleteRecord = async (id: string) => {
-    if (confirm('Are you sure you want to delete this attendance record?')) {
+    const confirmed = await showDeleteConfirm('this attendance record');
+    if (confirmed) {
       deleteMutation.mutate(id);
     }
   };
@@ -865,7 +867,7 @@ export function useAttendance() {
         const lines = text.split('\n').filter((line) => line.trim());
 
         if (lines.length < 2) {
-          alert('CSV file is empty or invalid');
+          await showError('CSV file is empty or invalid', 'Import Error');
           return;
         }
 
@@ -900,12 +902,13 @@ export function useAttendance() {
         );
 
         if (missingColumns.length > 0) {
-          alert(
+          await showError(
             `Missing required columns: ${missingColumns.join(', ')}\n\n` +
               'Required columns: employeeId, employeeName, date\n' +
               'Optional columns: timeIn, timeOut, department, position, status, ' +
               'break1Start, break1End, lunchStart, lunchEnd, break2Start, break2End, ' +
-              'totalHours, details, notes'
+              'totalHours, details, notes',
+            'Import Error'
           );
           return;
         }
@@ -988,12 +991,16 @@ export function useAttendance() {
           // Use bulk mutation
           try {
             bulkCreateMutation.mutate(importedRecords);
-            alert(`Successfully imported ${successCount} attendance records`);
+            await showSuccess(
+              `Successfully imported ${successCount} attendance records`,
+              'Import Successful'
+            );
           } catch (error) {
             logger.error('Error saving imported records:', error);
-            alert(
+            await showError(
               'Failed to save imported records to database. Error: ' +
-                (error instanceof Error ? error.message : String(error))
+                (error instanceof Error ? error.message : String(error)),
+              'Import Failed'
             );
           }
         }
@@ -1003,20 +1010,23 @@ export function useAttendance() {
         }
       } catch (error) {
         logger.error('CSV import error:', error);
-        alert('Failed to import CSV file. Please check the file format.');
+        await showError(
+          'Failed to import CSV file. Please check the file format.',
+          'Import Error'
+        );
       }
     };
 
-    reader.onerror = () => {
-      alert('Failed to read CSV file');
+    reader.onerror = async () => {
+      await showError('Failed to read CSV file', 'File Read Error');
     };
 
     reader.readAsText(file);
   };
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     if (filteredRecords.length === 0) {
-      alert('No attendance records to export');
+      await showError('No attendance records to export', 'Export Error');
       return;
     }
 

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { logger } from '@/lib/logger';
+import { showError } from '@/lib/alerts';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Stack,
@@ -94,7 +95,10 @@ export default function EmployeeDetailPage() {
     }
 
     if (file.size > MAX_PROFILE_PHOTO_SIZE) {
-      alert('Please select an image that is 2MB or smaller.');
+      await showError(
+        'Please select an image that is 2MB or smaller.',
+        'File Size Error'
+      );
       return;
     }
 
@@ -103,7 +107,10 @@ export default function EmployeeDetailPage() {
       await handleProfilePhotoUpload(base64);
     } catch (error) {
       logger.error('Failed to upload profile photo:', error);
-      alert('Failed to upload profile photo. Please try again.');
+      await showError(
+        'Failed to upload profile photo. Please try again.',
+        'Upload Failed'
+      );
     }
   };
 

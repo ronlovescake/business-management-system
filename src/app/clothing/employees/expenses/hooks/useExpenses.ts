@@ -3,6 +3,7 @@ import { logger } from '@/lib/logger';
 import { useExpenseData } from '@/hooks/useSheetData';
 import { notifications } from '@mantine/notifications';
 import { getCurrentDateISO } from '@/utils/date';
+import { showError, showDeleteConfirm } from '@/lib/alerts';
 
 /**
  * Expense Interface
@@ -325,8 +326,9 @@ export function useExpenses() {
     setIsModalOpen(true);
   };
 
-  const handleDeleteExpense = (id: string) => {
-    if (confirm('Are you sure you want to delete this expense?')) {
+  const handleDeleteExpense = async (id: string) => {
+    const confirmed = await showDeleteConfirm('this expense');
+    if (confirmed) {
       deleteExpense(Number(id));
       notifications.show({
         title: 'Success',
@@ -336,9 +338,9 @@ export function useExpenses() {
     }
   };
 
-  const handleSaveExpense = () => {
+  const handleSaveExpense = async () => {
     if (!formDate || !formAmount || !formDescription || !formCategory) {
-      alert('Please fill in all required fields');
+      await showError('Please fill in all required fields', 'Validation Error');
       return;
     }
 
@@ -426,7 +428,7 @@ export function useExpenses() {
     });
   };
 
-  const handleViewReceipt = (receiptName: string) => {
+  const handleViewReceipt = async (receiptName: string) => {
     const receiptData = receiptFiles[receiptName];
     if (receiptData) {
       setViewingReceipt(receiptData);
@@ -434,7 +436,10 @@ export function useExpenses() {
       setReceiptZoom(100);
       setReceiptModalOpen(true);
     } else {
-      alert('Receipt file not found. This may be a pre-existing receipt.');
+      await showError(
+        'Receipt file not found. This may be a pre-existing receipt.',
+        'Receipt Not Found'
+      );
     }
   };
 
@@ -446,13 +451,13 @@ export function useExpenses() {
     setIsImporting(true);
     const reader = new FileReader();
 
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const text = e.target?.result as string;
         const lines = text.split('\n').filter((line) => line.trim());
 
         if (lines.length < 2) {
-          alert('CSV file is empty or invalid');
+          await showError('CSV file is empty or invalid', 'Import Error');
           setIsImporting(false);
           return;
         }
@@ -488,10 +493,11 @@ export function useExpenses() {
         );
 
         if (missingColumns.length > 0) {
-          alert(
+          await showError(
             `Missing required columns: ${missingColumns.join(', ')}\n\n` +
               'Required columns: date, amount, description, category\n' +
-              'Optional columns: notes, receipt, status, employeeName'
+              'Optional columns: notes, receipt, status, employeeName',
+            'Import Error'
           );
           setIsImporting(false);
           return;
@@ -616,26 +622,29 @@ export function useExpenses() {
           message += `\n\nErrors:\n${errors.join('\n')}`;
         }
 
-        alert(message);
+        await showError(message, 'Import Complete');
       } catch (error) {
         logger.error('CSV import error:', error);
-        alert('Failed to import CSV file. Please check the file format.');
+        await showError(
+          'Failed to import CSV file. Please check the file format.',
+          'Import Error'
+        );
       } finally {
         setIsImporting(false);
       }
     };
 
-    reader.onerror = () => {
-      alert('Failed to read CSV file');
+    reader.onerror = async () => {
+      await showError('Failed to read CSV file', 'File Read Error');
       setIsImporting(false);
     };
 
     reader.readAsText(file);
   };
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     if (filteredExpenses.length === 0) {
-      alert('No expenses to export');
+      await showError('No expenses to export', 'Export Error');
       return;
     }
 

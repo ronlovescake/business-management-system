@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { showError } from '@/lib/alerts';
 
 /**
  * Custom hook for managing receipt files and viewer
@@ -46,7 +47,7 @@ export function useReceiptManager() {
    * Open receipt viewer
    */
   const viewReceipt = useCallback(
-    (receiptName: string) => {
+    async (receiptName: string) => {
       const receiptData = receiptFiles[receiptName];
       if (receiptData) {
         setViewingReceipt(receiptData);
@@ -54,7 +55,10 @@ export function useReceiptManager() {
         setReceiptZoom(100);
         setReceiptModalOpen(true);
       } else {
-        alert('Receipt file not found. This may be a pre-existing receipt.');
+        await showError(
+          'Receipt file not found. This may be a pre-existing receipt.',
+          'Receipt Not Found'
+        );
       }
     },
     [receiptFiles]

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
 import { queryKeys } from '@/lib/queryKeys';
+import { showError, showDeleteConfirm } from '@/lib/alerts';
 import type {
   CashAdvance,
   CashAdvanceCycle,
@@ -305,7 +306,10 @@ export function useCashAdvance() {
         );
       }
       logger.error('Error deleting cash advance request:', error);
-      alert('Failed to delete cash advance request. Please try again.');
+      void showError(
+        'Failed to delete cash advance request. Please try again.',
+        'Delete Failed'
+      );
     },
     onSettled: () => {
       queryClient.invalidateQueries({
@@ -394,7 +398,10 @@ export function useCashAdvance() {
         );
       }
       logger.error('Error saving cash advance request:', error);
-      alert('Failed to save cash advance request. Please try again.');
+      void showError(
+        'Failed to save cash advance request. Please try again.',
+        'Save Failed'
+      );
     },
     onSuccess: () => {
       setIsFormOpen(false);
@@ -446,7 +453,10 @@ export function useCashAdvance() {
         );
       }
       logger.error('Error updating cash advance:', error);
-      alert('Failed to update cash advance. Please try again.');
+      void showError(
+        'Failed to update cash advance. Please try again.',
+        'Update Failed'
+      );
     },
     onSettled: () => {
       queryClient.invalidateQueries({
@@ -488,8 +498,9 @@ export function useCashAdvance() {
     setIsFormOpen(true);
   };
 
-  const handleDeleteRequest = (id: string) => {
-    if (confirm('Are you sure you want to delete this cash advance request?')) {
+  const handleDeleteRequest = async (id: string) => {
+    const confirmed = await showDeleteConfirm('this cash advance request');
+    if (confirmed) {
       deleteMutation.mutate(id);
     }
   };
@@ -501,7 +512,10 @@ export function useCashAdvance() {
     const employeeName = resolveEmployeeName(employeeId);
 
     if (!employeeId) {
-      alert('Employee is required. Please select a valid employee.');
+      await showError(
+        'Employee is required. Please select a valid employee.',
+        'Validation Error'
+      );
       return false;
     }
 
@@ -513,7 +527,10 @@ export function useCashAdvance() {
     );
 
     if (Number.isNaN(parsedAmount) || parsedAmount <= 0) {
-      alert('Amount must be a valid number greater than zero.');
+      await showError(
+        'Amount must be a valid number greater than zero.',
+        'Validation Error'
+      );
       return false;
     }
 
@@ -664,7 +681,10 @@ export function useCashAdvance() {
         });
       } catch (error) {
         logger.error('Error importing cash advances:', error);
-        alert('Failed to import some cash advances. Please try again.');
+        void showError(
+          'Failed to import some cash advances. Please try again.',
+          'Import Failed'
+        );
       }
     };
     reader.readAsText(file);

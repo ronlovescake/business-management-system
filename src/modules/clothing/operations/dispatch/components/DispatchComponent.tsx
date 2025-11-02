@@ -31,6 +31,7 @@ import { notifications } from '@mantine/notifications';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { showInfo } from '@/lib/alerts';
 import {
   StandardDataTable,
   StandardTableContainer,
@@ -312,13 +313,16 @@ export function DispatchComponent() {
   ]);
 
   // CSV export handler
-  const handleExportCSV = () => {
-    alert('Export simulation: Would export CSV file');
+  const handleExportCSV = async () => {
+    await showInfo('Would export CSV file', 'Export Simulation');
   };
 
   // Add new handler
-  const handleAddNew = () => {
-    alert('Add New simulation: Would open form to create new dispatch order');
+  const handleAddNew = async () => {
+    await showInfo(
+      'Would open form to create new dispatch order',
+      'Add New Simulation'
+    );
   };
 
   // Link customer to order handler
@@ -922,11 +926,14 @@ export function DispatchComponent() {
               searchPlaceholder="Search raw data..."
               onSearch={setRawDataSearch}
               onImport={handleXlsxImport}
-              onExport={() => {
-                alert('Export simulation: Would export raw data');
+              onExport={async () => {
+                await showInfo('Would export raw data', 'Export Simulation');
               }}
-              onAddNew={() => {
-                alert('Add New simulation: Would add new raw data entry');
+              onAddNew={async () => {
+                await showInfo(
+                  'Would add new raw data entry',
+                  'Add New Simulation'
+                );
               }}
               isImporting={isImportingRawData}
               acceptFileTypes=".xlsx,.xls"

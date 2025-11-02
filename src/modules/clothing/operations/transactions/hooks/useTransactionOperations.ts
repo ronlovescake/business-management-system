@@ -18,6 +18,7 @@ import type { Item } from '@glideapps/glide-data-grid';
 import { TransactionService } from '../services/TransactionService';
 import { api } from '@/lib/api/client';
 import { logger } from '@/lib/logger';
+import { showConfirm } from '@/lib/alerts';
 import type { TransactionData, PriceTier } from '../types/transaction.types';
 
 interface UseTransactionOperationsProps {
@@ -158,7 +159,7 @@ export function useTransactionOperations(
   // ============================================================================
 
   const handleCellEdited = useCallback(
-    (cell: Item, newValue: unknown) => {
+    async (cell: Item, newValue: unknown) => {
       const [col, row] = cell;
 
       // Column IDs mapping
@@ -402,17 +403,21 @@ export function useTransactionOperations(
             finalOrderStatus = '';
           } else if (currentOrderStatus && currentOrderStatus.trim() !== '') {
             // Show confirmation for important statuses
-            const shouldClear = window.confirm(
-              `⚠️ CONFIRMATION REQUIRED\n\n` +
+            const shouldClear = await showConfirm({
+              title: '⚠️ CONFIRMATION REQUIRED',
+              message:
                 `You are about to clear the Product Code for a transaction with Order Status: "${currentOrderStatus}"\n\n` +
                 `This is an important status that may indicate:\n` +
                 `• Order is in advanced processing stage\n` +
                 `• Customer has been notified\n` +
                 `• Business processes may be affected\n\n` +
                 `Do you want to continue clearing the Product Code?\n\n` +
-                `• Click OK to clear Product Code and preserve Order Status\n` +
-                `• Click Cancel to keep both Product Code and Order Status unchanged`
-            );
+                `• Click Yes to clear Product Code and preserve Order Status\n` +
+                `• Click No to keep both Product Code and Order Status unchanged`,
+              type: 'warning',
+              confirmButtonText: 'Yes, Clear Product Code',
+              cancelButtonText: 'No, Keep Both',
+            });
 
             if (!shouldClear) {
               notifications.show({

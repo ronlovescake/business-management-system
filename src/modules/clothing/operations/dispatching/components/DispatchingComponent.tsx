@@ -8,6 +8,7 @@
 import { useState, useMemo } from 'react';
 import { Stack, Text, Group, Table, ActionIcon, Tooltip } from '@mantine/core';
 import { IconEdit, IconTrash } from '@tabler/icons-react';
+import { showInfo } from '@/lib/alerts';
 import {
   StandardDataTable,
   StandardTableContainer,
@@ -93,30 +94,33 @@ export function DispatchingComponent() {
 
     setIsImporting(true);
     // Simulate import delay
-    setTimeout(() => {
+    setTimeout(async () => {
       setIsImporting(false);
-      alert(`Import simulation: Would import file "${file.name}"`);
+      await showInfo(`Would import file "${file.name}"`, 'Import Simulation');
     }, 1500);
   };
 
   // CSV export handler
-  const handleExportCSV = () => {
-    alert('Export simulation: Would export CSV file');
+  const handleExportCSV = async () => {
+    await showInfo('Would export CSV file', 'Export Simulation');
   };
 
   // Add new handler
-  const handleAddNew = () => {
-    alert('Add New simulation: Would open form to create new item');
+  const handleAddNew = async () => {
+    await showInfo('Would open form to create new item', 'Add New Simulation');
   };
 
   // Edit handler
-  const handleEdit = (item: TestItem) => {
-    alert(`Edit simulation: Would edit item "${item.name}"`);
+  const handleEdit = async (item: TestItem) => {
+    await showInfo(`Would edit item "${item.name}"`, 'Edit Simulation');
   };
 
   // Delete handler
-  const handleDelete = (id: string, name: string) => {
-    alert(`Delete simulation: Would delete item "${name}" (ID: ${id})`);
+  const handleDelete = async (id: string, name: string) => {
+    await showInfo(
+      `Would delete item "${name}" (ID: ${id})`,
+      'Delete Simulation'
+    );
   };
 
   const headers = ['NAME', 'CATEGORY', 'STATUS', 'QUANTITY', 'ACTION'];
