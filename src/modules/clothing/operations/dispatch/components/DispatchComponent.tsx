@@ -464,6 +464,28 @@ export function DispatchComponent() {
     }
   };
 
+  // Copy to clipboard handler
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      notifications.show({
+        title: 'Copied!',
+        message: `${label} copied to clipboard`,
+        color: 'green',
+        position: 'top-right',
+        autoClose: 2000,
+      });
+    } catch (err) {
+      notifications.show({
+        title: 'Failed to copy',
+        message: 'Please try again',
+        color: 'red',
+        position: 'top-right',
+        autoClose: 2000,
+      });
+    }
+  };
+
   const headers = [
     'ORDER STATUS',
     'SHIPPING OPTIONS',
@@ -566,7 +588,17 @@ export function DispatchComponent() {
                     <Table.Td style={{ textAlign: 'left' }}>
                       {item.customerNames ? (
                         <Group gap="xs">
-                          <Text>{item.customerNames}</Text>
+                          <Text
+                            onClick={() =>
+                              copyToClipboard(
+                                item.customerNames,
+                                'Customer name'
+                              )
+                            }
+                            style={{ cursor: 'pointer' }}
+                          >
+                            {item.customerNames}
+                          </Text>
                           {lookupCustomerName(item.username) ? (
                             <Badge size="xs" color="green" variant="light">
                               Matched
