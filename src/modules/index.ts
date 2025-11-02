@@ -19,6 +19,7 @@ import { transactionsModule } from './clothing/operations/transactions';
 import { dueDatesModule } from './clothing/operations/due-dates';
 import { shipmentsModule } from './clothing/operations/shipments';
 import { productsModule } from './clothing/operations/products';
+import { inventoryModule } from './clothing/operations/inventory';
 import { pricesModule } from './clothing/operations/prices';
 import { sortingDistributionModule } from './clothing/operations/sorting-distribution';
 import { dispatchModule } from './clothing/operations/dispatch';
@@ -62,6 +63,7 @@ moduleRegistry.register(transactionsModule); // ✅ REGISTERED!
 moduleRegistry.register(dueDatesModule); // ✅ REGISTERED!
 moduleRegistry.register(shipmentsModule); // ✅ REGISTERED!
 moduleRegistry.register(productsModule); // ✅ REGISTERED!
+moduleRegistry.register(inventoryModule); // ✅ REGISTERED!
 moduleRegistry.register(pricesModule); // ✅ REGISTERED!
 moduleRegistry.register(sortingDistributionModule); // ✅ REGISTERED!
 moduleRegistry.register(dispatchModule); // ✅ REGISTERED!

@@ -1,18 +1,15 @@
-import { PageLayout } from '../../../../components/layout/PageLayout'
-import { InventoryErrorBoundary } from './components/InventoryErrorBoundary';;
-import { Stack, Text } from '@mantine/core';
+/**
+ * Inventory Page Route
+ * Renders the clothing operations inventory workspace using the reusable table template.
+ */
 
-export default function Inventory() {
+import { PageLayout } from '@/components/layout/PageLayout';
+import { InventoryPage } from '@/modules/clothing/operations/inventory';
+
+export default function InventoryRoute() {
   return (
-    <PageLayout title="Inventory">
-      <Stack gap="md">
-        <Text size="sm" c="dimmed">
-          Inventory management system will be implemented here
-        </Text>
-
-        {/* FUTURE: Implement inventory data grid with stock tracking */}
-        {/* Features: Product quantities, warehouse locations, reorder alerts */}
-      </Stack>
+    <PageLayout fluid withPadding>
+      <InventoryPage />
     </PageLayout>
   );
 }
