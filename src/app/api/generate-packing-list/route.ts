@@ -1,29 +1,63 @@
-import { NextResponse } from 'next/server';
+// ==============================================================================
+// ⚠️⚠️⚠️ CRITICAL WARNING - READ BEFORE MAKING ANY CHANGES ⚠️⚠️⚠️
+// ==============================================================================
+//
+// This API route generates packing lists for order fulfillment operations.
+// The PDF generation logic has been carefully designed and tested.
+//
+// ✅ ALLOWED MODIFICATIONS:
+//    - Fix TypeScript/ESLint errors or warnings
+//    - Fix runtime bugs that break functionality
+//    - Improve code structure/organization (refactoring)
+//    - Performance optimizations
+//    - Update styling/template (in packinglist.hbs file)
+//
+// ❌ FORBIDDEN MODIFICATIONS (without explicit business approval):
+//    - Change grouping logic (by customer)
+//    - Modify PDF format, size, or orientation (A6 landscape)
+//    - Alter the template rendering process
+//    - Change file saving location or naming convention
+//    - Modify Puppeteer timeout or wait settings (unless fixing bugs)
+//    - Change the 12-row table structure
+//
+// 📋 CURRENT SPECIFICATIONS - DO NOT CHANGE:
+//    - Page Size: A6 Landscape (148mm x 105mm)
+//    - One page per customer (grouped transactions)
+//    - Table: Line #, Quantity, Product Code (12 rows fixed)
+//    - Saves to: pdf_output/packing_list/ directory with timestamp
+//    - Template: templates/packinglist.hbs
+//    - Groups multiple transactions by customer
+//
+// 🚨 IF YOU NEED TO CHANGE THE BUSINESS LOGIC:
+//    1. DO NOT proceed without business owner approval
+//    2. Test thoroughly with real production data
+//    3. Verify PDF output matches business requirements
+//    4. Update this warning comment to reflect new specifications
+//
+// ==============================================================================
+
 import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import puppeteer from 'puppeteer';
-import handlebars from 'handlebars';
+import Handlebars from 'handlebars';
 import fs from 'fs';
 import path from 'path';
-import { PDFDocument } from 'pdf-lib';
-import { logger } from '@/lib/logger';
-import { sanitizers } from '@/lib/security/sanitize';
+
+// Register Handlebars helper for empty rows
+Handlebars.registerHelper(
+  'emptyRows',
+  function (rows: unknown[], maxRows: number) {
+    const currentRows = Array.isArray(rows) ? rows.length : 0;
+    const emptyCount = Math.max(0, maxRows - currentRows);
+    return new Array(emptyCount).fill({});
+  }
+);
 
 interface Transaction {
-  id: string;
-  orderDate: string;
-  customers: string;
-  productCode: string;
-  quantity: number;
-  unitPrice: number;
-  discount: number;
-  adjustment: number;
-  lineTotal: number;
-  orderStatus?: string; // Made optional since frontend might send 'status' instead
-  status?: string; // Added to handle frontend data structure
-  notes?: string;
-  invoiceDate?: string;
-  packedDate?: string;
-  shipmentCode?: string;
+  Customers: string;
+  'Product Code': string;
+  Quantity: number;
+  Notes?: string;
 }
 
 interface PackingListRow {
@@ -32,141 +66,95 @@ interface PackingListRow {
   productCode: string;
 }
 
-interface CustomerPackingList {
+interface PackingListData {
   customer: string;
   rows: PackingListRow[];
   note: string;
 }
 
-// Register emptyRows helper for Handlebars
-handlebars.registerHelper(
-  'emptyRows',
-  function (rows: PackingListRow[], totalRows: number) {
-    const emptyCount = Math.max(0, totalRows - rows.length);
-    return new Array(emptyCount).fill({});
-  }
-);
-
 export async function POST(request: NextRequest) {
   try {
-    const transactions: Transaction[] = await request.json();
+    const { transactions } = await request.json();
 
-    logger.debug('📋 PACKING LIST GENERATION STARTED');
-    logger.debug(`📊 Total transactions received: ${transactions.length}`);
-
-    // Debug: Log first few transactions to see their structure
-    logger.debug('🔍 Sample transaction data:', transactions.slice(0, 2));
-
-    // Filter transactions based on validation rules
-    const filteredTransactions = transactions.filter((transaction) => {
-      // Rule 1: Only "Prepared" status
-      // Handle both 'status' (from frontend) and 'orderStatus' (from database)
-      const status = transaction.status || transaction.orderStatus;
-      if (status !== 'Prepared') {
-        return false;
-      }
-
-      // Rule 2: Line total not more than ₱50.00
-      if (transaction.lineTotal > 50.0) {
-        return false;
-      }
-
-      return true;
-    });
-
-    logger.debug(
-      `✅ Filtered transactions: ${filteredTransactions.length} (Prepared status & ≤₱50.00)`
-    );
-
-    if (filteredTransactions.length === 0) {
+    if (
+      !transactions ||
+      !Array.isArray(transactions) ||
+      transactions.length === 0
+    ) {
       return NextResponse.json(
-        {
-          error:
-            'No transactions meet the packing list criteria (Prepared status & line total ≤₱50.00)',
-        },
+        { error: 'No transactions provided' },
         { status: 400 }
       );
     }
 
-    // Group by customer
-    const customerGroups = new Map<string, Transaction[]>();
+    // Group transactions by customer
+    const groupedByCustomer = new Map<string, Transaction[]>();
 
-    filteredTransactions.forEach((transaction) => {
-      const customer = transaction.customers;
-      const existingTransactions = customerGroups.get(customer);
-      if (existingTransactions) {
-        existingTransactions.push(transaction);
-        return;
+    transactions.forEach((transaction: Transaction) => {
+      const customer = transaction.Customers || 'Unknown Customer';
+      if (!groupedByCustomer.has(customer)) {
+        groupedByCustomer.set(customer, []);
       }
-      customerGroups.set(customer, [transaction]);
+      const customerGroup = groupedByCustomer.get(customer);
+      if (customerGroup) {
+        customerGroup.push(transaction);
+      }
     });
 
-    logger.debug(`👥 Grouped into ${customerGroups.size} customers`);
-
-    // Generate packed date (current date in required format)
-    const currentDate = new Date();
-    const packedDate = currentDate.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-
-    logger.debug(`📅 Packed Date: ${packedDate}`);
-
-    // Create packing list data for each customer
-    const customerPackingLists: CustomerPackingList[] = [];
-
-    customerGroups.forEach((transactions, customer) => {
-      const rows: PackingListRow[] = transactions.map((transaction, index) => ({
-        line: index + 1,
-        quantity: transaction.quantity,
-        productCode: sanitizers.productCode(transaction.productCode),
-      }));
-
-      // Combine notes from all transactions for this customer (sanitized)
-      const notes = transactions
-        .map((t) => t.notes)
-        .filter((note) => note && note.trim())
-        .map((note) => sanitizers.notes(note || ''))
-        .join('; ');
-
-      customerPackingLists.push({
-        customer: sanitizers.name(customer),
-        rows,
-        note: notes || '',
-      });
-
-      logger.debug(`📦 ${customer}: ${rows.length} items`);
-    });
-
-    // Load and compile template
+    // Read the packing list template
     const templatePath = path.join(
       process.cwd(),
       'templates',
       'packinglist.hbs'
     );
-    const templateContent = fs.readFileSync(templatePath, 'utf8');
-    const template = handlebars.compile(templateContent);
+    const templateSource = fs.readFileSync(templatePath, 'utf-8');
+    const template = Handlebars.compile(templateSource);
 
-    // Launch Puppeteer
+    // Launch puppeteer
     const browser = await puppeteer.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 
-    const pages: Uint8Array[] = [];
+    const page = await browser.newPage();
+    const pdfBuffers: Buffer[] = [];
 
-    // Generate a page for each customer
-    for (const packingList of customerPackingLists) {
-      const html = template({
-        customer: packingList.customer,
-        rows: packingList.rows,
-        note: packingList.note,
+    // Generate a PDF page for each customer
+    for (const [customer, customerTransactions] of Array.from(
+      groupedByCustomer.entries()
+    )) {
+      // Create rows for this customer's packing list
+      const rows: PackingListRow[] = customerTransactions.map(
+        (transaction: Transaction, index: number) => ({
+          line: index + 1,
+          quantity: transaction.Quantity || 0,
+          productCode: transaction['Product Code'] || '',
+        })
+      );
+
+      // Collect notes (use first non-empty note if any)
+      const note =
+        customerTransactions
+          .map((t: Transaction) => t.Notes)
+          .find((n: string | undefined) => n && n.trim()) || '';
+
+      const packingListData: PackingListData = {
+        customer,
+        rows,
+        note,
+      };
+
+      const html = template(packingListData);
+
+      await page.setContent(html, {
+        waitUntil: 'domcontentloaded',
+        timeout: 10000,
       });
 
-      const page = await browser.newPage();
-      await page.setContent(html);
+      // Give a moment for fonts to load
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
+      // Generate PDF for this customer (A6 landscape)
       const pdfBuffer = await page.pdf({
         format: 'A6',
         landscape: true,
@@ -174,32 +162,42 @@ export async function POST(request: NextRequest) {
         margin: { top: 0, right: 0, bottom: 0, left: 0 },
       });
 
-      pages.push(pdfBuffer);
-      await page.close();
+      pdfBuffers.push(Buffer.from(pdfBuffer));
     }
 
     await browser.close();
 
-    // Merge all customer pages into one multi-page PDF document
+    // Merge all PDF buffers into one
+    const { PDFDocument } = await import('pdf-lib');
+
     const mergedPdf = await PDFDocument.create();
 
-    for (const pdfBuffer of pages) {
+    for (const pdfBuffer of pdfBuffers) {
       const pdf = await PDFDocument.load(pdfBuffer);
       const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
-      copiedPages.forEach((page) => mergedPdf.addPage(page));
+      for (const page of copiedPages) {
+        mergedPdf.addPage(page);
+      }
     }
 
     const mergedPdfBytes = await mergedPdf.save();
-    const finalPdf = Buffer.from(mergedPdfBytes);
+
+    // Save the PDF to the pdf_output/packing_list directory
+    const outputDir = path.join(process.cwd(), 'pdf_output', 'packing_list');
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `packing-lists-${timestamp}.pdf`;
+    const filename = `packing-list-${timestamp}.pdf`;
+    const outputPath = path.join(outputDir, filename);
 
-    logger.debug('✅ PACKING LIST GENERATION COMPLETED');
-    logger.debug(`📄 Generated ${pages.length} packing slips`);
-    logger.debug(`💾 Filename: ${filename}`);
+    fs.writeFileSync(outputPath, mergedPdfBytes);
+    // eslint-disable-next-line no-console
+    console.log(`✅ Packing List PDF saved to: ${outputPath}`);
 
-    return new NextResponse(finalPdf, {
+    // Return the PDF
+    return new NextResponse(Buffer.from(mergedPdfBytes), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
@@ -207,9 +205,13 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    logger.error('❌ Error generating packing list:', error);
+    // eslint-disable-next-line no-console
+    console.error('Error generating packing list PDF:', error);
     return NextResponse.json(
-      { error: 'Failed to generate packing list' },
+      {
+        error: 'Failed to generate packing list PDF',
+        details: (error as Error).message,
+      },
       { status: 500 }
     );
   }

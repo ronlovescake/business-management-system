@@ -1,21 +1,37 @@
 // ==============================================================================
-// 📦 DISTRIBUTION SLIP GENERATION API
+// ⚠️⚠️⚠️ CRITICAL WARNING - READ BEFORE MAKING ANY CHANGES ⚠️⚠️⚠️
 // ==============================================================================
 //
-// This API generates distribution/sorting slips for warehouse operations.
+// This API route generates distribution slips for warehouse operations.
+// The PDF generation logic has been carefully designed and tested.
 //
-// ✅ BUSINESS LOGIC:
-//    - Filter: Only "Warehouse" Order Status transactions
-//    - Sort: Ascending order by Quantity
-//    - One slip per transaction line/row
-//    - A6 landscape format for easy handling
-//    - Multi-page PDF output (like invoice system)
+// ✅ ALLOWED MODIFICATIONS:
+//    - Fix TypeScript/ESLint errors or warnings
+//    - Fix runtime bugs that break functionality
+//    - Improve code structure/organization (refactoring)
+//    - Performance optimizations
+//    - Update styling/template (in distribution.hbs file)
 //
-// 📋 SLIP CONTENT:
-//    - Customer Name (prominent display)
-//    - Product Code
-//    - Quantity
-//    - Background logo (watermark)
+// ❌ FORBIDDEN MODIFICATIONS (without explicit business approval):
+//    - Change data extraction logic (Customers, Product Code, Quantity)
+//    - Modify PDF format, size, or orientation (A6 landscape)
+//    - Alter the template rendering process
+//    - Change file saving location or naming convention
+//    - Modify Puppeteer timeout or wait settings (unless fixing bugs)
+//
+// 📋 CURRENT SPECIFICATIONS - DO NOT CHANGE:
+//    - Page Size: A6 Landscape (148mm x 105mm)
+//    - One page per transaction
+//    - Fields: Customer Name, Quantity, Product Code
+//    - Logo embedded as base64 data URI
+//    - Saves to: pdf_output/ directory with timestamp
+//    - Template: templates/distribution.hbs
+//
+// 🚨 IF YOU NEED TO CHANGE THE BUSINESS LOGIC:
+//    1. DO NOT proceed without business owner approval
+//    2. Test thoroughly with real production data
+//    3. Verify PDF output matches business requirements
+//    4. Update this warning comment to reflect new specifications
 //
 // ==============================================================================
 
@@ -25,61 +41,21 @@ import puppeteer from 'puppeteer';
 import Handlebars from 'handlebars';
 import fs from 'fs';
 import path from 'path';
-import { PDFDocument } from 'pdf-lib';
-import { logger } from '@/lib/logger';
-import { sanitizers } from '@/lib/security/sanitize';
-import { SEARCH_DEBOUNCE_DELAY } from '@/constants/timeouts';
-
-interface Transaction {
-  id?: number;
-  Customers?: string;
-  'Product Code'?: string;
-  Quantity?: number;
-  'Order Status'?: string;
-}
-
-interface DistributionSlipData {
-  customer: string;
-  productCode: string;
-  quantity: number;
-  logoDataUri?: string;
-  currentDate: string;
-}
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { transactions } = body as {
-      transactions: Transaction[];
-    };
+    const { transactions } = await request.json();
 
-    if (!transactions || transactions.length === 0) {
+    if (
+      !transactions ||
+      !Array.isArray(transactions) ||
+      transactions.length === 0
+    ) {
       return NextResponse.json(
         { error: 'No transactions provided' },
         { status: 400 }
       );
     }
-
-    // Filter only "Warehouse" status transactions
-    const warehouseTransactions = transactions.filter(
-      (transaction: Transaction) => transaction['Order Status'] === 'Warehouse'
-    );
-
-    if (warehouseTransactions.length === 0) {
-      return NextResponse.json(
-        {
-          error: 'No warehouse transactions found',
-          message:
-            'No transactions with "Warehouse" status found for distribution slip generation',
-        },
-        { status: 400 }
-      );
-    }
-
-    // Sort transactions by Quantity in ascending order
-    const sortedTransactions = warehouseTransactions.sort(
-      (a: Transaction, b: Transaction) => (a.Quantity || 0) - (b.Quantity || 0)
-    );
 
     // Read the distribution template
     const templatePath = path.join(
@@ -90,19 +66,17 @@ export async function POST(request: NextRequest) {
     const templateSource = fs.readFileSync(templatePath, 'utf-8');
     const template = Handlebars.compile(templateSource);
 
-    // Read and encode logo
+    // Read the logo and convert to data URI
+    const logoPath = path.join(
+      process.cwd(),
+      'templates',
+      'images',
+      'logo.png'
+    );
     let logoDataUri = '';
-    try {
-      const logoPath = path.join(
-        process.cwd(),
-        'templates',
-        'images',
-        'logo.png'
-      );
+    if (fs.existsSync(logoPath)) {
       const logoBuffer = fs.readFileSync(logoPath);
       logoDataUri = `data:image/png;base64,${logoBuffer.toString('base64')}`;
-    } catch (logoError) {
-      logger.warn('Logo file not found, using placeholder');
     }
 
     // Launch puppeteer
@@ -114,26 +88,14 @@ export async function POST(request: NextRequest) {
     const page = await browser.newPage();
     const pdfBuffers: Buffer[] = [];
 
-    // Current date for slips
-    const currentDate = new Date().toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    });
-
-    // Generate one slip per transaction with sanitized data
-    for (const transaction of sortedTransactions) {
-      const slipData: DistributionSlipData = {
-        customer: sanitizers.name(transaction.Customers || 'Unknown Customer'),
-        productCode: sanitizers.productCode(
-          transaction['Product Code'] || 'N/A'
-        ),
+    // Generate a PDF page for each transaction
+    for (const transaction of transactions) {
+      const html = template({
+        customer: transaction.Customers || '',
         quantity: transaction.Quantity || 0,
+        productCode: transaction['Product Code'] || '',
         logoDataUri,
-        currentDate,
-      };
-
-      const html = template(slipData);
+      });
 
       await page.setContent(html, {
         waitUntil: 'domcontentloaded',
@@ -141,11 +103,9 @@ export async function POST(request: NextRequest) {
       });
 
       // Give a moment for fonts to load
-      await new Promise((resolve) =>
-        setTimeout(resolve, SEARCH_DEBOUNCE_DELAY)
-      );
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Generate PDF (A6 landscape: 148mm x 105mm)
+      // Generate PDF for this single transaction (A6 landscape)
       const pdfBuffer = await page.pdf({
         format: 'A6',
         landscape: true,
@@ -158,47 +118,53 @@ export async function POST(request: NextRequest) {
 
     await browser.close();
 
-    // Merge all PDFs into one multi-page document
+    // Merge all PDF buffers into one
+    // For simplicity, we'll use PDFLib or return individual PDFs
+    // Here, I'll concatenate them (you might want to use pdf-lib for proper merging)
+    const { PDFDocument } = await import('pdf-lib');
+
     const mergedPdf = await PDFDocument.create();
 
     for (const pdfBuffer of pdfBuffers) {
       const pdf = await PDFDocument.load(pdfBuffer);
       const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
-      copiedPages.forEach((page) => mergedPdf.addPage(page));
+      for (const page of copiedPages) {
+        mergedPdf.addPage(page);
+      }
     }
 
     const mergedPdfBytes = await mergedPdf.save();
-    const mergedPdfBuffer = Buffer.from(mergedPdfBytes);
 
-    // Save the merged PDF to the distribution directory
-    const outputDir = path.join(process.cwd(), 'pdf_output', 'distribution');
+    // Save the PDF to the pdf_output directory
+    const outputDir = path.join(process.cwd(), 'pdf_output');
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    const timestamp = new Date().toISOString().replace(/:/g, '-');
-    const outputPath = path.join(
-      outputDir,
-      `distribution-slips-${timestamp}.pdf`
-    );
-    fs.writeFileSync(outputPath, mergedPdfBuffer);
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `distribution-slips-${timestamp}.pdf`;
+    const outputPath = path.join(outputDir, filename);
 
-    logger.debug(
-      `✅ Generated ${sortedTransactions.length} distribution slips (sorted by quantity ascending)`
-    );
+    fs.writeFileSync(outputPath, mergedPdfBytes);
+    // eslint-disable-next-line no-console
+    console.log(`✅ Distribution PDF saved to: ${outputPath}`);
 
     // Return the PDF
-    return new NextResponse(mergedPdfBuffer, {
+    return new NextResponse(Buffer.from(mergedPdfBytes), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': 'attachment; filename="distribution-slips.pdf"',
+        'Content-Disposition': `attachment; filename="distribution-slips-${Date.now()}.pdf"`,
       },
     });
   } catch (error) {
-    logger.error('Error generating distribution slips:', error);
+    // eslint-disable-next-line no-console
+    console.error('Error generating distribution PDF:', error);
     return NextResponse.json(
-      { error: 'Failed to generate distribution slips' },
+      {
+        error: 'Failed to generate distribution PDF',
+        details: (error as Error).message,
+      },
       { status: 500 }
     );
   }
