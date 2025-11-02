@@ -1,13 +1,23 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Stack, Text, Group, Table } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import {
   StandardDataTable,
   StandardTableContainer,
   StandardTableControls,
 } from '@/components/tables/StandardDataTable';
 import { showInfo } from '@/lib/alerts';
+import { logger } from '@/lib/logger';
+
+interface ProductFromAPI {
+  id: string;
+  'Product Code': string | null;
+  Quantity: number;
+  'Shipment Code': string | null;
+  'Shipment Status': string | null;
+}
 
 interface InventoryItem {
   id: string;
@@ -46,87 +56,56 @@ const percentFormatter = new Intl.NumberFormat('en-PH', {
 export function InventoryPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isImporting, setIsImporting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [products, setProducts] = useState<ProductFromAPI[]>([]);
 
-  // Static data placeholder until API wiring is ready
+  // Fetch products from API on mount
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch('/api/products');
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch products: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        setProducts(data);
+      } catch (error) {
+        logger.error('Failed to load products:', error);
+        notifications.show({
+          title: 'Error',
+          message: 'Failed to load inventory data',
+          color: 'red',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    void fetchProducts();
+  }, []);
+
+  // Transform products API data to inventory items
   const data = useMemo<InventoryItem[]>(
-    () => [
-      {
-        id: 'P-0001',
-        productCode: 'P-0001',
-        quantity: 1250,
-        onhand: 940,
-        totalOrder: 1100,
-        availableStock: 550,
-        totalSales: 245000,
-        cogs: 168500,
-        netProfit: 76500,
-        percentage: 0.3125,
-        endingInventoryValue: 103250,
-        shipmentCode: 'SHIP-2025-001',
-        shipmentStatus: 'In Transit',
-      },
-      {
-        id: 'P-0002',
-        productCode: 'P-0002',
-        quantity: 820,
-        onhand: 780,
-        totalOrder: 640,
-        availableStock: 410,
-        totalSales: 198750,
-        cogs: 122400,
-        netProfit: 76350,
-        percentage: 0.3844,
-        endingInventoryValue: 65400,
-        shipmentCode: 'SHIP-2025-004',
-        shipmentStatus: 'Delivered',
-      },
-      {
-        id: 'P-0003',
-        productCode: 'P-0003',
-        quantity: 540,
-        onhand: 320,
-        totalOrder: 480,
-        availableStock: 175,
-        totalSales: 146500,
-        cogs: 98750,
-        netProfit: 47750,
-        percentage: 0.3261,
-        endingInventoryValue: 38200,
-        shipmentCode: 'SHIP-2025-008',
-        shipmentStatus: 'Awaiting Sorting',
-      },
-      {
-        id: 'P-0004',
-        productCode: 'P-0004',
-        quantity: 1090,
-        onhand: 870,
-        totalOrder: 950,
-        availableStock: 620,
-        totalSales: 312400,
-        cogs: 221600,
-        netProfit: 90800,
-        percentage: 0.2906,
-        endingInventoryValue: 158700,
-        shipmentCode: 'SHIP-2025-010',
-        shipmentStatus: 'For Pickup',
-      },
-      {
-        id: 'P-0005',
-        productCode: 'P-0005',
-        quantity: 460,
-        onhand: 240,
-        totalOrder: 390,
-        availableStock: 140,
-        totalSales: 118950,
-        cogs: 80400,
-        netProfit: 38550,
-        percentage: 0.3242,
-        endingInventoryValue: 26750,
-        shipmentCode: 'SHIP-2025-013',
-        shipmentStatus: 'Queued',
-      },
-    ],
-    []
+    () =>
+      products.map((product) => ({
+        id: product.id,
+        productCode: product['Product Code'] || '',
+        quantity: product.Quantity || 0,
+        onhand: 0, // TODO: Calculate from transactions/sales
+        totalOrder: 0, // TODO: Calculate from orders
+        availableStock: 0, // TODO: Calculate (onhand - totalOrder)
+        totalSales: 0, // TODO: Calculate from transactions
+        cogs: 0, // TODO: Get from product COGS field
+        netProfit: 0, // TODO: Calculate (totalSales - cogs)
+        percentage: 0, // TODO: Calculate profit percentage
+        endingInventoryValue: 0, // TODO: Calculate (availableStock * cost)
+        shipmentCode: product['Shipment Code'] || '',
+        shipmentStatus: product['Shipment Status'] || '',
+      })),
+    [products]
   );
 
   const filteredData = useMemo(() => {
@@ -248,6 +227,34 @@ export function InventoryPage() {
   const emptyStateMessage = searchQuery
     ? `No inventory records match "${searchQuery}".`
     : 'No inventory records yet. Use import or add new to populate the table.';
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <Stack gap="md">
+        <StandardTableControls
+          searchPlaceholder="Search inventory..."
+          onSearch={setSearchQuery}
+          onImport={handleImportCSV}
+          onExport={handleExportCSV}
+          onAddNew={handleAddNew}
+          isImporting={isImporting}
+          hideImport
+          hideExport
+          hideAddNew
+        />
+        <StandardTableContainer>
+          <StandardDataTable
+            headers={headers}
+            emptyState="Loading inventory data..."
+            colSpan={headers.length}
+          >
+            {[]}
+          </StandardDataTable>
+        </StandardTableContainer>
+      </Stack>
+    );
+  }
 
   return (
     <Stack gap="md">
