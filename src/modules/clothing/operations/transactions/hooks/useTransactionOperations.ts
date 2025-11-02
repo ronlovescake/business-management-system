@@ -566,8 +566,81 @@ export function useTransactionOperations(
         // Get current transaction with any pending batch updates
         const currentTransaction = getCurrentTransaction();
 
-        // ⚠️ FINALIZED: Unit Price auto-population
+        // =====================================================================
+        // 🛡️ STOCK CHECK - Validate quantity against available stock
+        // Only check if:
+        // 1. Quantity is greater than 0
+        // 2. Product code exists
+        // 3. Not in batch mode
+        // =====================================================================
         const currentProductCode = currentTransaction['Product Code'] || '';
+
+        if (
+          newQuantity > 0 &&
+          currentProductCode &&
+          currentProductCode.trim() !== '' &&
+          !isBatchModeRef.current
+        ) {
+          try {
+            const stockResponse = await fetch('/api/inventory/check-stock', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                productCode: currentProductCode.trim(),
+                requestedQuantity: newQuantity,
+              }),
+            });
+
+            if (stockResponse.ok) {
+              const stockInfo = (await stockResponse.json()) as {
+                status: string;
+                message: string;
+                availableStock: number;
+                canFulfill: boolean;
+              };
+
+              // 🔴 SOLD OUT or INSUFFICIENT STOCK - Block order creation
+              if (
+                stockInfo.status === 'SOLD_OUT' ||
+                stockInfo.status === 'INSUFFICIENT_STOCK'
+              ) {
+                notifications.show({
+                  title: '🔴 Cannot Create Order',
+                  message: stockInfo.message,
+                  color: 'red',
+                  autoClose: 6000,
+                });
+                logger.warn(
+                  `Stock check failed for ${currentProductCode} (qty: ${newQuantity}):`,
+                  stockInfo
+                );
+                return; // Prevent saving the transaction
+              }
+
+              // 🟡 LOW STOCK - Show warning but allow order
+              if (stockInfo.status === 'LOW_STOCK') {
+                notifications.show({
+                  title: '🟡 Low Stock Warning',
+                  message: stockInfo.message,
+                  color: 'yellow',
+                  autoClose: 5000,
+                });
+                logger.info(
+                  `Low stock warning for ${currentProductCode} (qty: ${newQuantity}):`,
+                  stockInfo
+                );
+                // Continue with order creation
+              }
+            }
+          } catch (error) {
+            logger.error('Stock check failed:', error);
+            // Continue with order creation on error (fail-safe)
+          }
+        }
+
+        // ⚠️ FINALIZED: Unit Price auto-population
         const currentDiscount = currentTransaction.Discount || 0;
         let autoPopulatedUnitPrice = 0;
         let unitPriceAutoPopulated = false;
