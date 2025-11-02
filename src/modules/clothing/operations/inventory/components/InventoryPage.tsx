@@ -23,6 +23,7 @@ interface TransactionFromAPI {
   id: string;
   'Product Code': string | null;
   Quantity: number;
+  'Unit Price': number;
   'Order Status': string | null;
 }
 
@@ -115,25 +116,36 @@ export function InventoryPage() {
 
   // Transform products API data to inventory items
   const data = useMemo<InventoryItem[]>(() => {
-    // Calculate total order per product code from transactions
-    // Sum quantities where Order Status is NOT "Cancelled"
+    // Calculate total order and total sales per product code from transactions
+    // Sum quantities and sales where Order Status is NOT "Cancelled"
     const totalOrderByProduct = new Map<string, number>();
+    const totalSalesByProduct = new Map<string, number>();
 
     transactions.forEach((transaction) => {
       const productCode = transaction['Product Code'];
       const orderStatus = transaction['Order Status'];
       const quantity = transaction.Quantity || 0;
+      const unitPrice = transaction['Unit Price'] || 0;
 
       // Only count non-cancelled orders
       if (productCode && orderStatus !== 'Cancelled') {
-        const currentTotal = totalOrderByProduct.get(productCode) || 0;
-        totalOrderByProduct.set(productCode, currentTotal + quantity);
+        // Total Order: sum of quantities
+        const currentTotalOrder = totalOrderByProduct.get(productCode) || 0;
+        totalOrderByProduct.set(productCode, currentTotalOrder + quantity);
+
+        // Total Sales: sum of (unit price × quantity)
+        const currentTotalSales = totalSalesByProduct.get(productCode) || 0;
+        totalSalesByProduct.set(
+          productCode,
+          currentTotalSales + unitPrice * quantity
+        );
       }
     });
 
     return products.map((product) => {
       const productCode = product['Product Code'] || '';
       const totalOrder = totalOrderByProduct.get(productCode) || 0;
+      const totalSales = totalSalesByProduct.get(productCode) || 0;
 
       return {
         id: product.id,
@@ -142,7 +154,7 @@ export function InventoryPage() {
         onhand: 0, // TODO: Calculate from transactions/sales
         totalOrder,
         availableStock: 0, // TODO: Calculate (onhand - totalOrder)
-        totalSales: 0, // TODO: Calculate from transactions
+        totalSales,
         cogs: 0, // TODO: Get from product COGS field
         netProfit: 0, // TODO: Calculate (totalSales - cogs)
         percentage: 0, // TODO: Calculate profit percentage
