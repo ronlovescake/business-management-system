@@ -19,6 +19,7 @@ import { TransactionService } from '../services/TransactionService';
 import { api } from '@/lib/api/client';
 import { logger } from '@/lib/logger';
 import { showConfirm } from '@/lib/alerts';
+import Swal from 'sweetalert2';
 import type { TransactionData, PriceTier } from '../types/transaction.types';
 
 interface UseTransactionOperationsProps {
@@ -412,11 +413,12 @@ export function useTransactionOperations(
                 stockInfo.status === 'SOLD_OUT' ||
                 stockInfo.status === 'INSUFFICIENT_STOCK'
               ) {
-                notifications.show({
+                await Swal.fire({
+                  icon: 'error',
                   title: '🔴 Cannot Create Order',
-                  message: stockInfo.message,
-                  color: 'red',
-                  autoClose: 6000,
+                  text: stockInfo.message,
+                  confirmButtonText: 'OK',
+                  confirmButtonColor: '#fa5252',
                 });
                 logger.warn(
                   `Stock check failed for ${dropdownValue}:`,
@@ -427,11 +429,14 @@ export function useTransactionOperations(
 
               // 🟡 LOW STOCK - Show warning but allow order
               if (stockInfo.status === 'LOW_STOCK') {
-                notifications.show({
+                await Swal.fire({
+                  icon: 'warning',
                   title: '🟡 Low Stock Warning',
-                  message: stockInfo.message,
-                  color: 'yellow',
-                  autoClose: 5000,
+                  text: stockInfo.message,
+                  confirmButtonText: 'Continue Anyway',
+                  confirmButtonColor: '#fab005',
+                  showCancelButton: true,
+                  cancelButtonText: 'Cancel Order',
                 });
                 logger.info(
                   `Low stock warning for ${dropdownValue}:`,
@@ -613,11 +618,12 @@ export function useTransactionOperations(
                 stockInfo.status === 'SOLD_OUT' ||
                 stockInfo.status === 'INSUFFICIENT_STOCK'
               ) {
-                notifications.show({
+                await Swal.fire({
+                  icon: 'error',
                   title: '🔴 Cannot Increase Quantity',
-                  message: `${stockInfo.message}. You're trying to add ${quantityChange} more units.`,
-                  color: 'red',
-                  autoClose: 6000,
+                  html: `<p>${stockInfo.message}</p><p><strong>You're trying to add ${quantityChange} more units.</strong></p>`,
+                  confirmButtonText: 'OK',
+                  confirmButtonColor: '#fa5252',
                 });
                 logger.warn(
                   `Stock check failed for ${currentProductCode} (adding ${quantityChange} units):`,
@@ -628,11 +634,14 @@ export function useTransactionOperations(
 
               // 🟡 LOW STOCK - Show warning but allow order
               if (stockInfo.status === 'LOW_STOCK') {
-                notifications.show({
+                await Swal.fire({
+                  icon: 'warning',
                   title: '🟡 Low Stock Warning',
-                  message: `${stockInfo.message}. Adding ${quantityChange} more units.`,
-                  color: 'yellow',
-                  autoClose: 5000,
+                  html: `<p>${stockInfo.message}</p><p>Adding <strong>${quantityChange}</strong> more units.</p>`,
+                  confirmButtonText: 'Continue Anyway',
+                  confirmButtonColor: '#fab005',
+                  showCancelButton: true,
+                  cancelButtonText: 'Cancel',
                 });
                 logger.info(
                   `Low stock warning for ${currentProductCode} (adding ${quantityChange} units):`,
