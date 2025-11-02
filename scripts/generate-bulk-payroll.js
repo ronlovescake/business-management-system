@@ -236,7 +236,7 @@ async function generatePayrollForPeriod(period) {
     const grossPay =
       basicSalaryHalf + allowance + overtimePay + bonuses + thirteenthMonth;
 
-    const sss = employee.sssMonthlyContribution ?? 0;
+    const sss = 0; // TEMPORARILY SET TO 0 - was: employee.sssMonthlyContribution ?? 0
     const philHealth = employee.philHealthMonthlyContribution ?? 0;
     const pagIbig = employee.pagibigMonthlyContribution ?? 0;
     const tax = employee.taxMonthlyContribution ?? 0;

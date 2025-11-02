@@ -25,6 +25,7 @@ import type {
 } from '@/components/shared/PageTemplates/DataTable';
 import type { Payroll as PayrollType } from './types';
 import { PayrollErrorBoundary } from './components/PayrollErrorBoundary';
+import { PayrollFormDialog } from './components/PayrollFormDialog';
 
 function PayrollContent() {
   const formatPayPeriodDisplay = (period: string) => {
@@ -65,15 +66,20 @@ function PayrollContent() {
     pendingPayrolls,
     approvedPayrolls,
     totalNetPay,
+    isFormOpen,
+    editingPayroll,
     setSearchQuery,
     setStatusFilter,
     setPayPeriodFilter,
+    setIsFormOpen,
     formatDate,
     formatCurrency,
     getStatusColor,
+    calculateTotals,
     handleAddPayroll,
     handleEditPayroll,
     handleDeletePayroll,
+    handleSavePayroll,
     handleApprove,
     handleMarkAsPaid,
     handleImportCSV,
@@ -395,6 +401,15 @@ function PayrollContent() {
           }
         />
       </Stack>
+
+      {/* Payroll Form Dialog */}
+      <PayrollFormDialog
+        opened={isFormOpen}
+        editingPayroll={editingPayroll}
+        onClose={() => setIsFormOpen(false)}
+        onSave={handleSavePayroll}
+        calculateTotals={calculateTotals}
+      />
     </PageLayout>
   );
 }
