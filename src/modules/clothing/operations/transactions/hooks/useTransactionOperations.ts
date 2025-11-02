@@ -568,15 +568,22 @@ export function useTransactionOperations(
 
         // =====================================================================
         // 🛡️ STOCK CHECK - Validate quantity against available stock
+        // Smart logic:
+        // - If REDUCING quantity: Allow (frees up stock)
+        // - If INCREASING quantity: Check if additional stock available
+        // - If NEW transaction: Check full quantity
         // Only check if:
         // 1. Quantity is greater than 0
         // 2. Product code exists
         // 3. Not in batch mode
         // =====================================================================
         const currentProductCode = currentTransaction['Product Code'] || '';
+        const oldQuantity = transaction.Quantity || 0; // Original quantity before edit
+        const quantityChange = newQuantity - oldQuantity; // Positive = increase, Negative = decrease
 
+        // Only check if INCREASING quantity (quantityChange > 0)
         if (
-          newQuantity > 0 &&
+          quantityChange > 0 &&
           currentProductCode &&
           currentProductCode.trim() !== '' &&
           !isBatchModeRef.current
@@ -589,7 +596,7 @@ export function useTransactionOperations(
               },
               body: JSON.stringify({
                 productCode: currentProductCode.trim(),
-                requestedQuantity: newQuantity,
+                requestedQuantity: quantityChange, // Only check the ADDITIONAL quantity needed
               }),
             });
 
@@ -607,13 +614,13 @@ export function useTransactionOperations(
                 stockInfo.status === 'INSUFFICIENT_STOCK'
               ) {
                 notifications.show({
-                  title: '🔴 Cannot Create Order',
-                  message: stockInfo.message,
+                  title: '🔴 Cannot Increase Quantity',
+                  message: `${stockInfo.message}. You're trying to add ${quantityChange} more units.`,
                   color: 'red',
                   autoClose: 6000,
                 });
                 logger.warn(
-                  `Stock check failed for ${currentProductCode} (qty: ${newQuantity}):`,
+                  `Stock check failed for ${currentProductCode} (adding ${quantityChange} units):`,
                   stockInfo
                 );
                 return; // Prevent saving the transaction
@@ -623,12 +630,12 @@ export function useTransactionOperations(
               if (stockInfo.status === 'LOW_STOCK') {
                 notifications.show({
                   title: '🟡 Low Stock Warning',
-                  message: stockInfo.message,
+                  message: `${stockInfo.message}. Adding ${quantityChange} more units.`,
                   color: 'yellow',
                   autoClose: 5000,
                 });
                 logger.info(
-                  `Low stock warning for ${currentProductCode} (qty: ${newQuantity}):`,
+                  `Low stock warning for ${currentProductCode} (adding ${quantityChange} units):`,
                   stockInfo
                 );
                 // Continue with order creation
@@ -638,6 +645,11 @@ export function useTransactionOperations(
             logger.error('Stock check failed:', error);
             // Continue with order creation on error (fail-safe)
           }
+        } else if (quantityChange < 0) {
+          // User is REDUCING quantity - this FREES UP stock, always allow
+          logger.info(
+            `Reducing quantity for ${currentProductCode}: ${oldQuantity} → ${newQuantity} (freeing ${Math.abs(quantityChange)} units)`
+          );
         }
 
         // ⚠️ FINALIZED: Unit Price auto-population
