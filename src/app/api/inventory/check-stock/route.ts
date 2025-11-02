@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
       status = 'INSUFFICIENT_STOCK';
       canFulfill = false;
       message = `Only ${availableStock} units available, but ${requestedQuantity} requested`;
-    } else if (availableStock <= 10) {
+    } else if (availableStock <= 20) {
       status = 'LOW_STOCK';
       canFulfill = true;
       message = `Low stock warning: Only ${availableStock} units remaining`;
