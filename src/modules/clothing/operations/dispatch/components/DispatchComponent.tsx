@@ -804,7 +804,16 @@ export function DispatchComponent() {
                                       <Group justify="space-between">
                                         <div>
                                           <Group gap="xs">
-                                            <Text fw={600}>
+                                            <Text
+                                              fw={600}
+                                              onClick={() =>
+                                                copyToClipboard(
+                                                  match.customer.customerName,
+                                                  'Customer name'
+                                                )
+                                              }
+                                              style={{ cursor: 'pointer' }}
+                                            >
                                               {index + 1}.{' '}
                                               {match.customer.customerName}
                                             </Text>
