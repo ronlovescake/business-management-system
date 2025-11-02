@@ -16,6 +16,7 @@ interface ProductFromAPI {
   'Product Code': string | null;
   Quantity: number;
   COGS: number;
+  'Actual Price': number;
   'Shipment Code': string | null;
   'Shipment Status': string | null;
 }
@@ -149,9 +150,11 @@ export function InventoryPage() {
       const totalOrder = totalOrderByProduct.get(productCode) || 0;
       const totalSales = totalSalesByProduct.get(productCode) || 0;
       const cogs = product.COGS || 0;
+      const actualPrice = product['Actual Price'] || 0;
       const availableStock = quantity - totalOrder;
       const netProfit = totalSales - cogs;
       const percentage = cogs !== 0 ? netProfit / cogs : 0;
+      const endingInventoryValue = availableStock * actualPrice;
 
       return {
         id: product.id,
@@ -164,7 +167,7 @@ export function InventoryPage() {
         cogs,
         netProfit,
         percentage,
-        endingInventoryValue: 0, // TODO: Calculate (availableStock * cost)
+        endingInventoryValue,
         shipmentCode: product['Shipment Code'] || '',
         shipmentStatus: product['Shipment Status'] || '',
       };
