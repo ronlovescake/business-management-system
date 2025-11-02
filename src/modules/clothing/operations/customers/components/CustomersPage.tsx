@@ -37,17 +37,22 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { throttle } from '@/lib/performance';
 import { logger } from '@/lib/logger';
-import type { CustomerData } from '../types/customer.types';
 import { CustomerService } from '../services/CustomerService';
 import { useCustomersData } from '../hooks/useCustomersData';
 import { useCustomerForm } from '../hooks/useCustomerForm';
 import { CustomerStatsCards } from './CustomerStatsCards';
 
 // Lazy load modal component
-const AddCustomerModal = dynamic(() => import('./AddCustomerModal').then(mod => ({ default: mod.AddCustomerModal })), {
-  ssr: false,
-  loading: () => null,
-});
+const AddCustomerModal = dynamic(
+  () =>
+    import('./AddCustomerModal').then((mod) => ({
+      default: mod.AddCustomerModal,
+    })),
+  {
+    ssr: false,
+    loading: () => null,
+  }
+);
 
 // Custom styles for larger font and center aligned headers
 const customGridStyles = `
@@ -116,7 +121,6 @@ export function CustomersPage() {
     isLoading,
     handleSearch,
     addCustomer,
-    bulkUpdateCustomers,
     replaceAllCustomers,
   } = useCustomersData();
 
@@ -133,7 +137,6 @@ export function CustomersPage() {
   // Local state
   const [file, setFile] = useState<File | null>(null);
   const [gridHeight, setGridHeight] = useState<number>(600);
-  const [pasteMode, setPasteMode] = useState(false);
 
   // Keep grid height at ~85vh responsively
   useEffect(() => {
@@ -189,109 +192,6 @@ export function CustomersPage() {
       { title: 'Customer Status', width: 120, id: 'customerStatus', grow: 1 },
     ],
     []
-  );
-
-  // Map column ids to CustomerData keys
-  const idToKey: Record<string, keyof CustomerData> = useMemo(
-    () => ({
-      date: 'Date',
-      customerName: 'Customer Name',
-      phoneNumber: 'Phone Number',
-      address: 'Address',
-      facebook: 'Facebook',
-      emailAddress: 'Email Address',
-      businessName: 'Business Name',
-      taxNumber: 'Tax Number',
-      businessAddress: 'Business Address',
-      businessContactNumber: 'Business Contact Number',
-      customerStatus: 'Customer Status',
-    }),
-    []
-  );
-
-  // Handle paste into grid (multi-cell)
-  const handlePaste = useCallback(
-    (target: Item, values: readonly (readonly string[])[]) => {
-      if (!pasteMode) {
-        return false;
-      }
-      const [startCol, startRow] = target;
-      let applied = 0;
-      let clipped = false;
-      const nextCustomers = [...customers];
-
-      for (let r = 0; r < values.length; r++) {
-        const rowIdx = startRow + r;
-        const rowData = values[r] ?? [];
-
-        let globalIndex: number;
-        if (rowIdx < filteredCustomers.length) {
-          const rowObj = filteredCustomers[rowIdx];
-          globalIndex = nextCustomers.indexOf(rowObj);
-          if (globalIndex === -1) {
-            nextCustomers.push(CustomerService.createEmptyCustomer());
-            globalIndex = nextCustomers.length - 1;
-          }
-        } else {
-          nextCustomers.push(CustomerService.createEmptyCustomer());
-          globalIndex = nextCustomers.length - 1;
-        }
-
-        for (let c = 0; c < rowData.length; c++) {
-          const colIdx = startCol + c;
-          if (colIdx >= columns.length) {
-            clipped = true;
-            break;
-          }
-          const v = (rowData[c] ?? '').toString();
-          const col = columns[colIdx];
-          const key = col ? idToKey[col.id ?? ''] : undefined;
-          if (key) {
-            const updated: CustomerData = {
-              ...nextCustomers[globalIndex],
-              [key]: v,
-            } as CustomerData;
-            nextCustomers[globalIndex] = updated;
-            applied++;
-          }
-        }
-      }
-
-      if (applied > 0) {
-        // Persist via bulk update
-        (async () => {
-          try {
-            await bulkUpdateCustomers(nextCustomers);
-          } catch (e) {
-            logger.error('Failed to persist pasted rows', e);
-            notifications.show({
-              title: 'Paste saved locally only',
-              message: 'Database not reachable',
-              color: 'yellow',
-            });
-          }
-        })();
-
-        notifications.show({
-          title: 'Pasted into table',
-          message: `Applied ${applied} cell${applied === 1 ? '' : 's'}${
-            clipped ? ' (some data clipped to grid size)' : ''
-          }`,
-          color: 'blue',
-        });
-
-        return true;
-      }
-      return false;
-    },
-    [
-      pasteMode,
-      customers,
-      filteredCustomers,
-      columns,
-      idToKey,
-      bulkUpdateCustomers,
-    ]
   );
 
   // CSV import functionality
@@ -549,31 +449,37 @@ export function CustomersPage() {
         {/* Stats cards */}
         <CustomerStatsCards stats={stats} />
 
-        <Group justify="flex-end">
-          <Group gap="sm">
-            <Button
-              variant={pasteMode ? 'filled' : 'outline'}
-              color={pasteMode ? 'yellow' : 'gray'}
-              size="sm"
-              onClick={() => setPasteMode((v) => !v)}
-            >
-              {pasteMode ? 'Disable Paste Mode' : 'Enable Paste Mode'}
-            </Button>
+        {/* Search and controls */}
+        <Group justify="space-between" align="flex-end" wrap="wrap" gap="md">
+          <Group gap="md" style={{ flex: 1 }}>
             <TextInput
               ref={searchInputRef}
-              placeholder="Search customers... (Ctrl+F)"
+              placeholder={'Search customers... (Ctrl+F)'}
               leftSection={<IconSearch size={16} />}
               value={searchQuery}
-              onChange={(event) => handleSearch(event.currentTarget.value)}
-              size="sm"
-              style={{ minWidth: 260 }}
+              onChange={(e) => handleSearch(e.target.value)}
+              style={{
+                flex: 1,
+                minWidth: 300,
+              }}
+              styles={{
+                input: {
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #dee2e6',
+                  '&:focus': {
+                    borderColor: '#228be6',
+                  },
+                },
+              }}
             />
+          </Group>
+
+          <Group gap="sm">
             <Button
               onClick={handleExportCSV}
               leftSection={<IconDownload size={16} />}
-              size="sm"
-              color="green"
               variant="outline"
+              color="green"
             >
               Export CSV
             </Button>
@@ -583,20 +489,17 @@ export function CustomersPage() {
               value={file}
               onChange={setFile}
               leftSection={<IconUpload size={16} />}
-              size="sm"
               style={{ minWidth: 200 }}
             />
             <Button
               onClick={handleImportCSV}
               disabled={!file}
               leftSection={<IconUpload size={16} />}
-              size="sm"
             >
               Import CSV
             </Button>
             <Button
               leftSection={<IconPlus size={16} />}
-              size="sm"
               color="blue"
               onClick={openModal}
             >
@@ -643,7 +546,6 @@ export function CustomersPage() {
             rowHeight={70}
             headerHeight={80}
             rowMarkers="number"
-            onPaste={pasteMode ? handlePaste : undefined}
             isDraggable={false}
             onCellClicked={(cell: Item) => {
               const [col, row] = cell;
