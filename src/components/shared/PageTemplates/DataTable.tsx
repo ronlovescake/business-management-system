@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import {
   Stack,
@@ -40,6 +41,7 @@ interface DataTableProps<T = Record<string, unknown>> {
   summaryLeft?: ReactNode;
   summaryRight?: ReactNode;
   onRowDoubleClick?: (item: T) => void;
+  onColumnWidthsChange?: (widths: number[]) => void;
 }
 
 /**
@@ -80,7 +82,46 @@ export function DataTable<T extends { id: string | number }>({
   summaryLeft,
   summaryRight,
   onRowDoubleClick,
+  onColumnWidthsChange,
 }: DataTableProps<T>) {
+  const headerRefs = useRef<(HTMLTableCellElement | null)[]>([]);
+  headerRefs.current.length = columns.length + (actions.length > 0 ? 1 : 0);
+
+  const measureColumnWidths = useCallback(() => {
+    if (!onColumnWidthsChange) {
+      return;
+    }
+
+    const widths = headerRefs.current.map((cell) =>
+      cell ? Math.round(cell.getBoundingClientRect().width) : 0
+    );
+
+    onColumnWidthsChange(widths);
+  }, [onColumnWidthsChange]);
+
+  useEffect(() => {
+    measureColumnWidths();
+  }, [measureColumnWidths, columns.length, data.length, actions.length]);
+
+  useEffect(() => {
+    if (!onColumnWidthsChange) {
+      return;
+    }
+
+    const handleResize = () => measureColumnWidths();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [measureColumnWidths, onColumnWidthsChange]);
+
+  const renderSummaryLeft =
+    summaryLeft !== undefined ? (
+      summaryLeft
+    ) : (
+      <Text size="sm" c="dimmed">
+        Showing {data.length} records
+      </Text>
+    );
+
   return (
     <Stack gap="md">
       <Card withBorder padding={0} style={{ overflow: 'hidden', height }}>
@@ -102,7 +143,7 @@ export function DataTable<T extends { id: string | number }>({
               }}
             >
               <Table.Tr>
-                {columns.map((column) => (
+                {columns.map((column, index) => (
                   <Table.Th
                     key={column.key}
                     style={{
@@ -111,6 +152,9 @@ export function DataTable<T extends { id: string | number }>({
                       backgroundColor: '#f1f3f5',
                       textAlign: column.align || 'center',
                       width: column.width,
+                    }}
+                    ref={(element) => {
+                      headerRefs.current[index] = element;
                     }}
                   >
                     {column.label}
@@ -123,6 +167,9 @@ export function DataTable<T extends { id: string | number }>({
                       color: '#495057',
                       backgroundColor: '#f1f3f5',
                       textAlign: 'center',
+                    }}
+                    ref={(element) => {
+                      headerRefs.current[columns.length] = element;
                     }}
                   >
                     ACTION
@@ -227,11 +274,7 @@ export function DataTable<T extends { id: string | number }>({
       {showSummary && (
         <Card withBorder padding="md">
           <Group justify="space-between">
-            {summaryLeft || (
-              <Text size="sm" c="dimmed">
-                Showing {data.length} records
-              </Text>
-            )}
+            {renderSummaryLeft}
             {summaryRight}
           </Group>
         </Card>
