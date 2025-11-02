@@ -863,7 +863,7 @@ export function usePayroll() {
       });
 
       // Show success message
-      Swal.fire({
+      await Swal.fire({
         title: 'Marked as Paid!',
         text:
           payroll.thirteenthMonth && payroll.thirteenthMonth > 0
@@ -871,6 +871,12 @@ export function usePayroll() {
             : 'Payroll has been marked as paid.',
         icon: 'success',
         confirmButtonColor: '#10b981',
+        confirmButtonText: 'Okay',
+        allowOutsideClick: false,
+        allowEscapeKey: true,
+        didOpen: () => {
+          Swal.hideLoading();
+        },
       });
     } catch (error) {
       logger.error('Error marking payroll as paid:', error);
