@@ -794,6 +794,12 @@ const applyStatutoryContributionAdjustments = async (
   const updatedResults = new Map<string, Payroll>();
 
   for (const payroll of payrolls) {
+    // CRITICAL FIX: Do NOT sync statutory contributions for paid or approved payrolls
+    // These should retain their historical values as they were at the time of payment/approval
+    if (payroll.status === 'paid' || payroll.status === 'approved') {
+      continue;
+    }
+
     const entry = employeeDataMap.get(payroll.employeeId);
     const employee = entry?.employee;
 

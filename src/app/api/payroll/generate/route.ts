@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
+const normalizeKey = (value?: string | null): string =>
+  (value ?? '').trim().toLowerCase();
+
 type AttendanceSummary = {
   employeeId: string;
   employeeName: string;
@@ -74,22 +77,48 @@ export async function POST() {
   try {
     const currentPeriod = getCurrentPayPeriod(new Date());
 
-    const existing = await prisma.payroll.findFirst({
+    // Check for existing payroll (including soft-deleted ones)
+    const existingRecords = await prisma.payroll.findMany({
       where: {
-        deletedAt: null,
         periodStart: currentPeriod.start,
         periodEnd: currentPeriod.end,
       },
-      select: { id: true },
+      select: {
+        id: true,
+        deletedAt: true,
+        employeeId: true,
+        employeeName: true,
+      },
     });
 
-    if (existing) {
-      return NextResponse.json({
-        success: false,
-        message: `Payroll already exists for period ${currentPeriod.label}`,
-        period: currentPeriod,
-      });
-    }
+    const softDeletedRecords = existingRecords.filter(
+      (record) => record.deletedAt !== null
+    );
+    const activeRecords = existingRecords.filter(
+      (record) => record.deletedAt === null
+    );
+
+    const activeEmployeeIds = new Set(
+      activeRecords
+        .map((record) => record.employeeId)
+        .filter((id): id is string => Boolean(id))
+    );
+    const activeEmployeeNames = new Set(
+      activeRecords
+        .map((record) => normalizeKey(record.employeeName))
+        .filter((name) => name.length > 0)
+    );
+
+    const softDeletedEmployeeIds = new Set(
+      softDeletedRecords
+        .map((record) => record.employeeId)
+        .filter((id): id is string => Boolean(id))
+    );
+    const softDeletedEmployeeNames = new Set(
+      softDeletedRecords
+        .map((record) => normalizeKey(record.employeeName))
+        .filter((name) => name.length > 0)
+    );
 
     const attendance = await prisma.attendance.findMany({
       where: {
@@ -124,8 +153,54 @@ export async function POST() {
       });
     }
 
-    const employeeIds = attendanceSummaries.map(
-      (summary) => summary.employeeId
+    const eligibleSummaries = attendanceSummaries.filter((summary) => {
+      if (summary.employeeId && activeEmployeeIds.has(summary.employeeId)) {
+        return false;
+      }
+
+      const nameKey = normalizeKey(summary.employeeName);
+      if (nameKey && activeEmployeeNames.has(nameKey)) {
+        return false;
+      }
+
+      return true;
+    });
+
+    if (eligibleSummaries.length === 0) {
+      return NextResponse.json({
+        success: false,
+        message: `Payroll already exists for period ${currentPeriod.label}`,
+        period: currentPeriod,
+      });
+    }
+
+    const softConflictSummaries = eligibleSummaries.filter((summary) => {
+      if (
+        summary.employeeId &&
+        softDeletedEmployeeIds.has(summary.employeeId)
+      ) {
+        return true;
+      }
+
+      const nameKey = normalizeKey(summary.employeeName);
+      return nameKey ? softDeletedEmployeeNames.has(nameKey) : false;
+    });
+
+    if (softConflictSummaries.length > 0) {
+      return NextResponse.json({
+        success: false,
+        message: `Deleted payroll exists for ${softConflictSummaries.length} employee${softConflictSummaries.length === 1 ? '' : 's'} in period ${currentPeriod.label}. Please clean up the deleted records before generating new payroll.`,
+        period: currentPeriod,
+        action: 'cleanup_soft_deleted',
+        conflicts: softConflictSummaries.map((summary) => ({
+          employeeId: summary.employeeId,
+          employeeName: summary.employeeName,
+        })),
+      });
+    }
+
+    const employeeIds = Array.from(
+      new Set(eligibleSummaries.map((summary) => summary.employeeId))
     );
     const employees = await prisma.employee.findMany({
       where: {
@@ -187,7 +262,7 @@ export async function POST() {
         ])
     );
 
-    const payrollRecords = attendanceSummaries.map(
+    const payrollRecords = eligibleSummaries.map(
       ({ employeeId, employeeName, totalHours, daysWorked }) => {
         const employee = employeesById.get(employeeId);
         const resolvedName =

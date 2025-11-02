@@ -454,26 +454,62 @@ export function usePayroll() {
                     ? String(updates.employeeId)
                     : p.employeeId,
                   payPeriod: String(updates.payPeriod ?? p.payPeriod),
-                  basicSalary: Number(updates.basicSalary ?? p.basicSalary),
-                  allowance: Number(updates.allowance ?? p.allowance),
-                  overtime: Number(updates.overtime ?? p.overtime),
-                  bonuses: Number(updates.bonuses ?? p.bonuses),
-                  thirteenthMonth: Number(
-                    updates.thirteenthMonth ?? p.thirteenthMonth
-                  ),
-                  grossPay: Number(updates.grossPay ?? p.grossPay),
-                  sss: Number(updates.sss ?? p.sss),
-                  philHealth: Number(updates.philHealth ?? p.philHealth),
-                  pagIbig: Number(updates.pagIbig ?? p.pagIbig),
-                  tax: Number(updates.tax ?? p.tax),
-                  loans: Number(updates.loans ?? p.loans),
-                  cashAdvance: Number(updates.cashAdvance ?? p.cashAdvance),
-                  lwop: Number(updates.lwop ?? p.lwop),
-                  absentsLates: Number(updates.absentsLates ?? p.absentsLates),
-                  totalDeductions: Number(
-                    updates.totalDeductions ?? p.totalDeductions
-                  ),
-                  netPay: Number(updates.netPay ?? p.netPay),
+                  basicSalary:
+                    updates.basicSalary !== undefined
+                      ? Number(updates.basicSalary)
+                      : p.basicSalary,
+                  allowance:
+                    updates.allowance !== undefined
+                      ? Number(updates.allowance)
+                      : p.allowance,
+                  overtime:
+                    updates.overtime !== undefined
+                      ? Number(updates.overtime)
+                      : p.overtime,
+                  bonuses:
+                    updates.bonuses !== undefined
+                      ? Number(updates.bonuses)
+                      : p.bonuses,
+                  thirteenthMonth:
+                    updates.thirteenthMonth !== undefined
+                      ? Number(updates.thirteenthMonth)
+                      : p.thirteenthMonth,
+                  grossPay:
+                    updates.grossPay !== undefined
+                      ? Number(updates.grossPay)
+                      : p.grossPay,
+                  sss: updates.sss !== undefined ? Number(updates.sss) : p.sss,
+                  philHealth:
+                    updates.philHealth !== undefined
+                      ? Number(updates.philHealth)
+                      : p.philHealth,
+                  pagIbig:
+                    updates.pagIbig !== undefined
+                      ? Number(updates.pagIbig)
+                      : p.pagIbig,
+                  tax: updates.tax !== undefined ? Number(updates.tax) : p.tax,
+                  loans:
+                    updates.loans !== undefined
+                      ? Number(updates.loans)
+                      : p.loans,
+                  cashAdvance:
+                    updates.cashAdvance !== undefined
+                      ? Number(updates.cashAdvance)
+                      : p.cashAdvance,
+                  lwop:
+                    updates.lwop !== undefined ? Number(updates.lwop) : p.lwop,
+                  absentsLates:
+                    updates.absentsLates !== undefined
+                      ? Number(updates.absentsLates)
+                      : p.absentsLates,
+                  totalDeductions:
+                    updates.totalDeductions !== undefined
+                      ? Number(updates.totalDeductions)
+                      : p.totalDeductions,
+                  netPay:
+                    updates.netPay !== undefined
+                      ? Number(updates.netPay)
+                      : p.netPay,
                   bankGcash: String(updates.bankGcash ?? p.bankGcash),
                   status:
                     (updates.status as 'pending' | 'approved' | 'paid') ??
@@ -551,6 +587,83 @@ export function usePayroll() {
             : typeof normalized.error === 'string'
               ? normalized.error
               : 'Failed to generate payroll for the current period.';
+
+        const action =
+          typeof normalized.action === 'string' ? normalized.action : undefined;
+
+        // Check if this is a soft-deleted payroll conflict
+        if (
+          action === 'restore_or_hard_delete' ||
+          action === 'cleanup_soft_deleted'
+        ) {
+          const cleanupResult = await Swal.fire({
+            title: 'Deleted Payroll Found',
+            html: `
+              <p>${message}</p>
+              <p style="margin-top: 15px; color: #666;">
+                Would you like to permanently remove the deleted payroll records and generate new ones?
+              </p>
+            `,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Yes, clean up and regenerate',
+            cancelButtonText: 'Cancel',
+          });
+
+          if (cleanupResult.isConfirmed) {
+            // Extract period from response
+            const period = normalized.period as
+              | { start: string; end: string }
+              | undefined;
+            if (period?.start && period?.end) {
+              // Clean up soft-deleted records
+              await api.delete(
+                `/api/payroll/cleanup?periodStart=${period.start}&periodEnd=${period.end}`
+              );
+
+              // Try generating again
+              const retryResult = await api.post<unknown>(
+                '/api/payroll/generate'
+              );
+              const retryNormalized =
+                typeof retryResult === 'object' && retryResult !== null
+                  ? (retryResult as Record<string, unknown>)
+                  : {};
+
+              if (retryNormalized.success === false) {
+                throw new Error(
+                  typeof retryNormalized.message === 'string'
+                    ? retryNormalized.message
+                    : 'Failed to generate payroll after cleanup.'
+                );
+              }
+
+              // Success after cleanup
+              queryClient.invalidateQueries({
+                queryKey: queryKeys.payroll.lists(),
+              });
+              const count = Number(retryNormalized.count ?? 0);
+              const safeCount = Number.isFinite(count) ? count : 0;
+
+              await Swal.fire({
+                title: 'Success!',
+                text: `Successfully cleaned up deleted records and generated payroll for ${safeCount} employee${safeCount === 1 ? '' : 's'}.`,
+                icon: 'success',
+                confirmButtonColor: '#3085d6',
+                confirmButtonText: 'OK',
+              });
+
+              setIsGeneratingPayroll(false);
+              return;
+            }
+          }
+
+          setIsGeneratingPayroll(false);
+          return;
+        }
+
         throw new Error(message);
       }
 

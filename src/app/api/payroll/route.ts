@@ -417,18 +417,27 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+    const permanent = searchParams.get('permanent') === 'true';
 
     if (!id) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
 
-    // Soft delete
-    await prisma.payroll.update({
-      where: { id, deletedAt: null },
-      data: { deletedAt: new Date() },
-    });
+    if (permanent) {
+      // Permanent delete (hard delete)
+      await prisma.payroll.delete({
+        where: { id },
+      });
+      logger.info('Payroll record permanently deleted', { id });
+    } else {
+      // Soft delete
+      await prisma.payroll.update({
+        where: { id, deletedAt: null },
+        data: { deletedAt: new Date() },
+      });
+      logger.info('Payroll record soft deleted', { id });
+    }
 
-    logger.info('Payroll record soft deleted', { id });
     return NextResponse.json({ success: true });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
