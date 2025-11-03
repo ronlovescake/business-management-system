@@ -25,9 +25,10 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import type { StatCard } from '@/components/ui';
 import { TransactionsLayout } from '@/components/features/transactions';
-import type { GridColumn, Item, GridCell } from '@glideapps/glide-data-grid';
-import { GridCellKind } from '@glideapps/glide-data-grid';
-import { allCells } from '@glideapps/glide-data-grid-cells';
+import type {
+  HandsontableColumn,
+  CellData,
+} from '@/components/ui/HandsontableGrid';
 import {
   IconReceipt,
   IconCurrencyPeso,
@@ -158,23 +159,112 @@ export function TransactionsPage() {
   // ============================================================================
 
   // Define columns
-  const columns: GridColumn[] = React.useMemo(
-    () => [
-      { title: 'ORDER DATE', width: 180, id: 'orderDate' },
-      { title: 'CUSTOMERS', width: 500, id: 'customers' },
-      { title: 'PRODUCT CODE', width: 550, id: 'productCode' },
-      { title: 'QUANTITY', width: 180, id: 'quantity' },
-      { title: 'UNIT PRICE', width: 180, id: 'unitPrice' },
-      { title: 'DISCOUNT', width: 180, id: 'discount' },
-      { title: 'ADJUSTMENT', width: 180, id: 'adjustment' },
-      { title: 'LINE TOTAL', width: 200, id: 'lineTotal' },
-      { title: 'ORDER STATUS', width: 200, id: 'orderStatus' },
-      { title: 'NOTES', width: 300, grow: 1, id: 'notes' },
-      { title: 'INVOICE DATE', width: 200, id: 'invoiceDate' },
-      { title: 'PACKED DATE', width: 200, id: 'packedDate' },
-      { title: 'SHIPMENT CODE', width: 200, id: 'shipmentCode' },
-    ],
+  const statusDropdownOptions = React.useMemo(
+    // stable copy for dropdowns
+    () => Array.from(STATUS_FILTER_OPTIONS),
     []
+  );
+
+  const columns: HandsontableColumn[] = React.useMemo(
+    () => [
+      {
+        title: 'ORDER DATE',
+        width: 180,
+        id: 'orderDate',
+        align: 'center',
+      },
+      {
+        title: 'CUSTOMERS',
+        width: 500,
+        id: 'customers',
+        type: 'dropdown',
+        dropdownValues: customerNames,
+      },
+      {
+        title: 'PRODUCT CODE',
+        width: 550,
+        id: 'productCode',
+        type: 'dropdown',
+        dropdownValues: productCodes,
+      },
+      {
+        title: 'QUANTITY',
+        width: 180,
+        id: 'quantity',
+        type: 'numeric',
+        align: 'center',
+      },
+      {
+        title: 'UNIT PRICE',
+        width: 180,
+        id: 'unitPrice',
+        type: 'numeric',
+        align: 'right',
+        readOnly: true,
+        numericFormat: '0,0.00',
+      },
+      {
+        title: 'DISCOUNT',
+        width: 180,
+        id: 'discount',
+        type: 'numeric',
+        align: 'right',
+        numericFormat: '0,0.00',
+      },
+      {
+        title: 'ADJUSTMENT',
+        width: 180,
+        id: 'adjustment',
+        type: 'numeric',
+        align: 'right',
+        numericFormat: '0,0.00',
+      },
+      {
+        title: 'LINE TOTAL',
+        width: 200,
+        id: 'lineTotal',
+        type: 'numeric',
+        align: 'right',
+        readOnly: true,
+        numericFormat: '0,0.00',
+      },
+      {
+        title: 'ORDER STATUS',
+        width: 200,
+        id: 'orderStatus',
+        type: 'dropdown',
+        dropdownValues: statusDropdownOptions,
+        align: 'center',
+      },
+      {
+        title: 'NOTES',
+        width: 300,
+        id: 'notes',
+        className: 'ht-truncate',
+      },
+      {
+        title: 'INVOICE DATE',
+        width: 200,
+        id: 'invoiceDate',
+        align: 'center',
+        readOnly: true,
+      },
+      {
+        title: 'PACKED DATE',
+        width: 200,
+        id: 'packedDate',
+        align: 'center',
+        readOnly: true,
+      },
+      {
+        title: 'SHIPMENT CODE',
+        width: 200,
+        id: 'shipmentCode',
+        align: 'center',
+        readOnly: true,
+      },
+    ],
+    [customerNames, productCodes, statusDropdownOptions]
   );
 
   // Map column IDs to data keys
@@ -197,236 +287,124 @@ export function TransactionsPage() {
     []
   );
 
-  // Cell content getter
-  const getCellContent = React.useCallback(
-    (cell: Item): GridCell => {
-      const [col, row] = cell;
-      const item = filteredData[row] as TransactionData | undefined;
-      const column = columns[col];
+  // Cell content getter tailored for HandsontableGrid
+  const getCellData = React.useCallback(
+    ({
+      column,
+      rowData,
+    }: {
+      column: HandsontableColumn;
+      row: number;
+      rowData: TransactionData;
+    }): CellData => {
+      const key = idToKey[column.id as keyof ColumnIdToKey];
+      const value = key
+        ? (rowData as unknown as Record<string, unknown>)[key]
+        : undefined;
 
-      if (!item || !column) {
-        return {
-          kind: GridCellKind.Text,
-          data: '',
-          displayData: '',
-          allowOverlay: false,
-        } as GridCell;
-      }
+      const textValue = TransactionService.sanitizeValue(value);
+      const numericValue = TransactionService.sanitizeNumericValue(value);
 
-      const key = idToKey[column.id as string];
-      const value = item[key];
-
-      // Helper to sanitize values - ensures all values are strings, never undefined
-      const sanitize = (val: unknown): string => {
-        const result = TransactionService.sanitizeValue(val);
-        return result ?? ''; // Extra safety: ensure never undefined
-      };
-      const sanitizeNumeric = (val: unknown): string => {
-        const result = TransactionService.sanitizeNumericValue(val);
-        return result ?? ''; // Extra safety: ensure never undefined
-      };
-
-      // Order Date - editable
       if (column.id === 'orderDate') {
-        return {
-          kind: GridCellKind.Text,
-          data: sanitize(value),
-          displayData: sanitize(value),
-          allowOverlay: true,
-          readonly: false,
-        } as GridCell;
+        return { value: textValue };
       }
 
-      // Customers - dropdown
       if (column.id === 'customers') {
-        return {
-          kind: GridCellKind.Custom,
-          allowOverlay: true,
-          copyData: sanitize(value),
-          data: {
-            kind: 'dropdown-cell',
-            value: sanitize(value),
-            allowedValues: customerNames,
-          },
-        } as GridCell;
+        return { value: textValue };
       }
 
-      // Product Code - dropdown
       if (column.id === 'productCode') {
-        return {
-          kind: GridCellKind.Custom,
-          allowOverlay: true,
-          copyData: sanitize(value),
-          data: {
-            kind: 'dropdown-cell',
-            value: sanitize(value),
-            allowedValues: productCodes,
-          },
-        } as GridCell;
+        return { value: textValue };
       }
 
-      // Quantity - editable
       if (column.id === 'quantity') {
-        return {
-          kind: GridCellKind.Text,
-          data: sanitizeNumeric(value),
-          displayData: sanitizeNumeric(value),
-          allowOverlay: true,
-          readonly: false,
-        } as GridCell;
+        return { value: numericValue };
       }
 
-      // Discount - editable
       if (column.id === 'discount') {
-        return {
-          kind: GridCellKind.Text,
-          data: sanitizeNumeric(value),
-          displayData: sanitizeNumeric(value),
-          allowOverlay: true,
-          readonly: false,
-        } as GridCell;
+        return { value: numericValue };
       }
 
-      // Adjustment - editable
       if (column.id === 'adjustment') {
-        return {
-          kind: GridCellKind.Text,
-          data: sanitizeNumeric(value),
-          displayData: sanitizeNumeric(value),
-          allowOverlay: true,
-          readonly: false,
-        } as GridCell;
+        return { value: numericValue };
       }
 
-      // Order Status - dropdown
       if (column.id === 'orderStatus') {
-        return {
-          kind: GridCellKind.Custom,
-          allowOverlay: true,
-          copyData: sanitize(value),
-          data: {
-            kind: 'dropdown-cell',
-            value: sanitize(value),
-            allowedValues: [
-              'In Transit',
-              'Warehouse',
-              'Prepared',
-              'Ready For Dispatch',
-              'Checked Out',
-              'Lalamove',
-              'On-Hold',
-              'Pending Payment',
-              'Shipped',
-              'Cancelled',
-            ],
-          },
-        } as GridCell;
+        return { value: textValue };
       }
 
-      // Notes - editable
       if (column.id === 'notes') {
-        return {
-          kind: GridCellKind.Text,
-          data: sanitize(value),
-          displayData: sanitize(value),
-          allowOverlay: true,
-          readonly: false,
-        } as GridCell;
+        return { value: textValue };
       }
 
-      // Shipment Code - auto-populated, read-only
+      if (column.id === 'invoiceDate') {
+        return { value: textValue, readOnly: true };
+      }
+
+      if (column.id === 'packedDate') {
+        return { value: textValue, readOnly: true };
+      }
+
       if (column.id === 'shipmentCode') {
-        const currentProductCode = item['Product Code'];
-        let displayValue = sanitize(value);
+        const currentProductCode = rowData['Product Code'];
+        let displayValue = textValue;
 
         if (currentProductCode && productToShipmentMap[currentProductCode]) {
           displayValue = productToShipmentMap[currentProductCode];
         }
 
         return {
-          kind: GridCellKind.Text,
-          data: displayValue,
-          displayData: displayValue,
-          allowOverlay: false,
-          readonly: true,
-        } as GridCell;
+          value: displayValue,
+          displayValue,
+          readOnly: true,
+        };
       }
 
-      // Unit Price - calculated, read-only
       if (column.id === 'unitPrice') {
-        const displayValue =
-          typeof value === 'number' && value !== 0
-            ? value.toLocaleString()
-            : '';
-        const dataValue =
-          typeof value === 'number' && value !== 0 ? String(value) : '';
+        if (numericValue === '') {
+          return { value: '', displayValue: '', readOnly: true };
+        }
+
+        const rawNumber = Number(String(value).replace(/,/g, ''));
+        if (Number.isFinite(rawNumber) && rawNumber !== 0) {
+          return {
+            value: String(rawNumber),
+            displayValue: rawNumber.toLocaleString(),
+            readOnly: true,
+          };
+        }
 
         return {
-          kind: GridCellKind.Text,
-          data: dataValue || '',
-          displayData: displayValue || '',
-          allowOverlay: false,
-          readonly: true,
-        } as GridCell;
+          value: numericValue,
+          displayValue: numericValue,
+          readOnly: true,
+        };
       }
 
-      // Line Total - calculated, read-only
       if (column.id === 'lineTotal') {
-        const displayValue =
-          typeof value === 'number' && value !== 0
-            ? value.toLocaleString()
-            : '';
-        const dataValue =
-          typeof value === 'number' && value !== 0 ? String(value) : '';
+        if (numericValue === '') {
+          return { value: '', displayValue: '', readOnly: true };
+        }
+
+        const rawNumber = Number(String(value).replace(/,/g, ''));
+        if (Number.isFinite(rawNumber) && rawNumber !== 0) {
+          return {
+            value: String(rawNumber),
+            displayValue: rawNumber.toLocaleString(),
+            readOnly: true,
+          };
+        }
 
         return {
-          kind: GridCellKind.Text,
-          data: dataValue || '',
-          displayData: displayValue || '',
-          allowOverlay: false,
-          readonly: true,
-        } as GridCell;
+          value: numericValue,
+          displayValue: numericValue,
+          readOnly: true,
+        };
       }
 
-      // Invoice Date - system-managed, read-only
-      if (column.id === 'invoiceDate') {
-        return {
-          kind: GridCellKind.Text,
-          data: sanitize(value),
-          displayData: sanitize(value),
-          allowOverlay: false,
-          readonly: true,
-        } as GridCell;
-      }
-
-      // Numeric columns - show blank if 0
-      if (typeof value === 'number') {
-        const displayValue = value === 0 ? '' : (value.toLocaleString() ?? '');
-        const dataValue = value === 0 ? '' : (String(value) ?? '');
-
-        return {
-          kind: GridCellKind.Text,
-          data: dataValue || '', // Ensure never undefined
-          displayData: displayValue || '', // Ensure never undefined
-          allowOverlay: false,
-        } as GridCell;
-      }
-
-      return {
-        kind: GridCellKind.Text,
-        data: sanitize(value) || '', // Ensure never undefined
-        displayData: sanitize(value) || '', // Ensure never undefined
-        allowOverlay: false,
-      } as GridCell;
+      return { value: textValue };
     },
-    [
-      filteredData,
-      columns,
-      idToKey,
-      customerNames,
-      productCodes,
-      productToShipmentMap,
-    ]
+    [idToKey, productToShipmentMap]
   );
 
   // ============================================================================
@@ -567,14 +545,14 @@ export function TransactionsPage() {
         />
 
         {/* Main Transactions Layout */}
-        <TransactionsLayout
-          data={transactions as unknown as Item[]}
-          filteredData={filteredData as unknown as Item[]}
+        <TransactionsLayout<TransactionData>
+          data={transactions}
+          filteredData={filteredData}
           columns={columns}
           searchQuery={searchQuery}
           onSearch={handleSearch}
           searchPlaceholder="Search transactions by customer, product code, status, notes, or shipment code..."
-          getCellContent={getCellContent}
+          getCellData={getCellData}
           onCellEdited={handleCellEdited}
           statsCards={statsCards}
           enableCSVImport={true}
@@ -582,28 +560,13 @@ export function TransactionsPage() {
           csvFile={csvFile}
           onFileChange={setCsvFile}
           onCSVImport={handleCSVImport}
-          customRenderers={
-            allCells as unknown as readonly Record<string, unknown>[]
-          }
           onAddRows={handleAdd10Rows}
-          statusOptions={Array.from(STATUS_FILTER_OPTIONS)}
+          statusOptions={statusDropdownOptions}
           selectedStatuses={selectedStatuses}
           onStatusFilter={handleStatusFilter}
-          onGenerateInvoice={
-            prepareInvoiceGeneration as unknown as (
-              data: Item[]
-            ) => Promise<void>
-          }
-          onGeneratePackingList={
-            preparePackingListGeneration as unknown as (
-              data: Item[]
-            ) => Promise<void>
-          }
-          onGenerateDistribution={
-            prepareDistributionGeneration as unknown as (
-              data: Item[]
-            ) => Promise<void>
-          }
+          onGenerateInvoice={prepareInvoiceGeneration}
+          onGeneratePackingList={preparePackingListGeneration}
+          onGenerateDistribution={prepareDistributionGeneration}
           isGeneratingInvoice={isGeneratingInvoice}
           isGeneratingPackingList={isGeneratingPackingList}
           isGeneratingDistribution={isGeneratingDistribution}

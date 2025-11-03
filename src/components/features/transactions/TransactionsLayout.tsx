@@ -3,12 +3,17 @@ import dynamic from 'next/dynamic';
 import { Group, Button, Text, Loader, Pill } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import type { StatCard } from '@/components/ui';
-import type { GridColumn, Item, GridCell } from '@glideapps/glide-data-grid';
+import type {
+  HandsontableColumn,
+  GetCellData,
+  CellEditEvent,
+  HandsontableGridProps,
+} from '@/components/ui/HandsontableGrid';
 
 // Lazy load HandsontableGrid to reduce initial bundle size
 // This is a large dependency (handsontable library) that's only needed when viewing tables
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const HandsontableGrid: any = dynamic(
+const HandsontableGrid = dynamic(
   () =>
     import('@/components/ui/HandsontableGrid').then(
       (mod) => mod.HandsontableGrid
@@ -22,7 +27,9 @@ const HandsontableGrid: any = dynamic(
       </div>
     ),
   }
-);
+) as unknown as <T extends object>(
+  props: HandsontableGridProps<T>
+) => JSX.Element;
 
 /**
  * TransactionsLayout Component
@@ -43,7 +50,7 @@ export interface TransactionsLayoutProps<T = Record<string, unknown>> {
   // Data
   data: T[];
   filteredData: T[];
-  columns: GridColumn[];
+  columns: HandsontableColumn[];
 
   // Search
   searchQuery: string;
@@ -59,9 +66,8 @@ export interface TransactionsLayoutProps<T = Record<string, unknown>> {
   onStatusFilter?: (status: string) => void;
 
   // Grid Interaction
-  getCellContent: (cell: Item) => GridCell;
-  onCellEdited?: (cell: Item, newValue: GridCell) => void;
-  customRenderers?: readonly Record<string, unknown>[];
+  getCellData: GetCellData<T>;
+  onCellEdited?: (edit: CellEditEvent<T>) => void;
 
   // CSV Import
   enableCSVImport?: boolean;
@@ -84,9 +90,7 @@ export interface TransactionsLayoutProps<T = Record<string, unknown>> {
   enableCtrlF?: boolean;
 }
 
-export function TransactionsLayout<
-  T extends Item = Record<string, unknown> & Item,
->({
+export function TransactionsLayout<T extends object = Record<string, unknown>>({
   data,
   filteredData,
   columns,
@@ -97,7 +101,7 @@ export function TransactionsLayout<
   statusOptions = [],
   selectedStatuses = new Set(),
   onStatusFilter,
-  getCellContent,
+  getCellData,
   onCellEdited,
   enableCSVImport = false,
   csvFile,
@@ -233,15 +237,15 @@ export function TransactionsLayout<
   );
 
   return (
-    <HandsontableGrid
+    <HandsontableGrid<T>
       className="transactions-grid"
-      data={data as readonly Item[]}
-      filteredData={filteredData as readonly Item[]}
+      data={data}
+      filteredData={filteredData}
       columns={columns}
       searchQuery={searchQuery}
       onSearch={onSearch}
       searchPlaceholder={searchPlaceholder}
-      getCellContent={getCellContent}
+      getCellData={getCellData}
       onCellEdited={onCellEdited}
       statsCards={statsCards as StatCard[]}
       enableCSVImport={enableCSVImport}

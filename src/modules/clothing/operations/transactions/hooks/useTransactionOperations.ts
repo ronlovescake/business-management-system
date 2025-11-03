@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { notifications } from '@mantine/notifications';
-import type { Item } from '@glideapps/glide-data-grid';
+import type { CellEditEvent } from '@/components/ui/HandsontableGrid';
 import { TransactionService } from '../services/TransactionService';
 import { api } from '@/lib/api/client';
 import { logger } from '@/lib/logger';
@@ -40,7 +40,9 @@ interface UseTransactionOperationsProps {
 
 interface UseTransactionOperationsReturn {
   // Cell editing
-  handleCellEdited: (cell: Item, newValue: unknown) => void;
+  handleCellEdited: (
+    edit: CellEditEvent<TransactionData>
+  ) => void | Promise<void>;
 
   // Row operations
   handleAdd10Rows: () => Promise<void>;
@@ -160,39 +162,24 @@ export function useTransactionOperations(
   // ============================================================================
 
   const handleCellEdited = useCallback(
-    async (cell: Item, newValue: unknown) => {
-      const [col, row] = cell;
+    async (edit: CellEditEvent<TransactionData>) => {
+      const { columnId, row: rowIndex, value: rawValue, isBatch } = edit;
 
-      // Column IDs mapping
-      const columnIds = [
-        'orderDate',
-        'customers',
-        'productCode',
-        'quantity',
-        'unitPrice',
-        'discount',
-        'adjustment',
-        'lineTotal',
-        'orderStatus',
-        'notes',
-        'invoiceDate',
-        'packedDate',
-        'shipmentCode',
-      ];
+      if (!columnId) {
+        logger.warn('⚠️ Skipping transaction edit with unknown column', edit);
+        return;
+      }
 
-      const columnId = columnIds[col];
-      const transaction = filteredData[row];
+      const transaction = filteredData[rowIndex];
 
       if (!transaction || !transaction.id) {
         return;
       }
 
       // Check if this is part of a batch operation
-      const isBatchEdit =
-        typeof newValue === 'object' &&
-        newValue !== null &&
-        '_isBatchMode' in newValue &&
-        (newValue as { _isBatchMode?: boolean })._isBatchMode;
+      const isBatchEdit = Boolean(isBatch || isBatchModeRef.current);
+
+      const newValue = rawValue;
 
       // Helper: Update transaction (batched or immediate)
       const updateTransactionData = (data: Partial<TransactionData>) => {
@@ -249,34 +236,26 @@ export function useTransactionOperations(
       };
 
       // Extract cell value
-      const normalizeCellValue = (value: unknown): string => {
+      const getCellValue = (_unused?: unknown): string => {
         if (
-          value === null ||
-          value === undefined ||
-          (typeof value === 'string' && value.trim().toLowerCase() === 'null')
+          rawValue === null ||
+          rawValue === undefined ||
+          (typeof rawValue === 'string' &&
+            rawValue.trim().toLowerCase() === 'null')
         ) {
           return '';
         }
-        return String(value);
+        return String(rawValue);
       };
 
-      const getCellValue = (val: unknown): string => {
-        if (!val || typeof val !== 'object') {
-          return '';
+      const getNumericValue = (_unused?: unknown): number => {
+        const strVal = getCellValue();
+        const sanitizedNumeric = strVal.replace(/,/g, '').trim();
+        if (sanitizedNumeric === '') {
+          return 0;
         }
-        if ('data' in val) {
-          const data = (val as { data: unknown }).data;
-          if (typeof data === 'object' && data !== null && 'value' in data) {
-            return normalizeCellValue((data as { value: unknown }).value);
-          }
-          return normalizeCellValue(data);
-        }
-        return '';
-      };
-
-      const getNumericValue = (val: unknown): number => {
-        const strVal = getCellValue(val);
-        return Number(strVal) || 0;
+        const parsed = Number(sanitizedNumeric);
+        return Number.isFinite(parsed) ? parsed : 0;
       };
 
       // ========================================================================

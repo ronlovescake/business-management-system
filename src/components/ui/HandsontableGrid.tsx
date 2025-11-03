@@ -7,8 +7,6 @@ import { registerAllModules } from 'handsontable/registry';
 import 'handsontable/styles/handsontable.min.css';
 import 'handsontable/styles/ht-theme-horizon.min.css';
 import '@/styles/handsontable-horizon-light.css';
-import type { GridColumn, Item, GridCell } from '@glideapps/glide-data-grid';
-import { GridCellKind } from '@glideapps/glide-data-grid';
 import {
   Stack,
   Text,
@@ -26,12 +24,58 @@ import { IconUpload, IconSearch } from '@tabler/icons-react';
 import type { StatCard } from './DataTable';
 import { logger } from '@/lib/logger';
 
+export type TableColumnAlignment = 'left' | 'center' | 'right';
+export type HandsontableColumnType = 'text' | 'numeric' | 'dropdown';
+
+export interface HandsontableColumn {
+  id: string;
+  title: string;
+  width?: number;
+  align?: TableColumnAlignment;
+  type?: HandsontableColumnType;
+  dropdownValues?: string[];
+  readOnly?: boolean;
+  numericFormat?: string;
+  className?: string;
+}
+
+export interface CellData {
+  value: string | number | null | undefined;
+  displayValue?: string;
+  readOnly?: boolean;
+}
+
+export interface CellEditEvent<T> {
+  column: HandsontableColumn;
+  columnId: string;
+  columnIndex: number;
+  row: number;
+  rowData: T;
+  value: string;
+  oldValue: string | null;
+  isBatch: boolean;
+  source: string;
+}
+
+export type GetCellData<T> = (params: {
+  column: HandsontableColumn;
+  row: number;
+  rowData: T;
+}) => CellData;
+
 // Register Handsontable modules
 registerAllModules();
 
-export interface HandsontableGridProps<T extends Item> {
+export interface CellClickEvent<T> {
+  column: HandsontableColumn;
+  columnIndex: number;
+  row: number;
+  rowData: T;
+}
+
+export interface HandsontableGridProps<T extends object> {
   data: readonly T[];
-  columns: GridColumn[];
+  columns: readonly HandsontableColumn[];
   searchQuery: string;
   onSearch: (query: string) => void;
   searchPlaceholder?: string;
@@ -44,9 +88,9 @@ export interface HandsontableGridProps<T extends Item> {
   onFileChange: (file: File | null) => void;
   actionButtons?: React.ReactNode;
   searchRightButtons?: React.ReactNode;
-  onCellClick?: (cell: readonly [number, number], row: T) => void;
-  getCellContent: (cell: readonly [number, number]) => GridCell;
-  onCellEdited?: (cell: readonly [number, number], newValue: GridCell) => void;
+  onCellClick?: (event: CellClickEvent<T>) => void;
+  getCellData: GetCellData<T>;
+  onCellEdited?: (edit: CellEditEvent<T>) => void;
   showFooter?: boolean;
   footerLeft?: React.ReactNode;
   footerRight?: React.ReactNode;
@@ -54,7 +98,7 @@ export interface HandsontableGridProps<T extends Item> {
   className?: string;
 }
 
-export function HandsontableGrid<T extends Item>({
+export function HandsontableGrid<T extends object>({
   data,
   columns,
   searchQuery,
@@ -70,7 +114,7 @@ export function HandsontableGrid<T extends Item>({
   actionButtons,
   searchRightButtons,
   onCellClick,
-  getCellContent,
+  getCellData,
   onCellEdited,
   showFooter = true,
   footerLeft,
@@ -460,85 +504,34 @@ export function HandsontableGrid<T extends Item>({
   // Convert columns to Handsontable format
   const hotColumns = useMemo(() => {
     return columns.map((col, colIndex) => {
-      // Check if this column has dropdown values by examining first row
-      const firstCell =
-        filteredData.length > 0 ? getCellContent([colIndex, 0]) : null;
+      const alignmentClass =
+        col.align === 'right'
+          ? 'htRight'
+          : col.align === 'center'
+            ? 'htCenter'
+            : 'htLeft';
 
-      const hasDropdown =
-        firstCell &&
-        'data' in firstCell &&
-        typeof firstCell.data === 'object' &&
-        firstCell.data !== null &&
-        'allowedValues' in firstCell.data;
+      const columnClassName = [alignmentClass, col.className]
+        .filter(Boolean)
+        .join(' ');
 
-      // Determine alignment and type based on column ID
-      let className = 'htLeft'; // Default to left
-      let columnType: 'text' | 'numeric' | 'autocomplete' = 'text';
-      let numericFormat: { pattern: string } | undefined;
-      let readOnly = false; // Default to editable
-
-      if ('id' in col) {
-        const columnId = col.id as string;
-
-        // Set read-only columns: unitPrice, lineTotal, invoiceDate, shipmentCode
-        if (
-          ['unitPrice', 'lineTotal', 'invoiceDate', 'shipmentCode'].includes(
-            columnId
-          )
-        ) {
-          readOnly = true;
-        }
-
-        // Currency columns with numeric formatting
-        if (
-          ['unitPrice', 'discount', 'adjustment', 'lineTotal'].includes(
-            columnId
-          )
-        ) {
-          className = 'htRight';
-          columnType = 'numeric';
-          numericFormat = {
-            pattern: '0,0.00', // Thousand separator with 2 decimals
-          };
-        }
-        // CENTER alignment
-        else if (
-          [
-            'orderDate',
-            'quantity',
-            'orderStatus',
-            'invoiceDate',
-            'packedDate',
-            'shipmentCode',
-          ].includes(columnId)
-        ) {
-          className = 'htCenter';
-        }
-        // LEFT alignment (default)
-        // customers, productCode, notes
-      }
-
-      if (hasDropdown && firstCell && 'data' in firstCell) {
-        const cellData = firstCell.data as { allowedValues?: string[] };
-        const allowedValues = cellData.allowedValues || [];
-
+      if (col.type === 'dropdown') {
         return {
           data: colIndex,
           type: 'autocomplete',
-          source: allowedValues,
-          strict: true, // Only allow values from dropdown list
-          allowInvalid: false, // Reject invalid entries
+          source: col.dropdownValues ?? [],
+          strict: true,
+          allowInvalid: false,
           title: col.title,
-          width: 'width' in col && col.width ? col.width : 120,
-          className: className, // Apply alignment class
-          readOnly: readOnly, // Apply read-only property
+          width: col.width ?? 120,
+          className: columnClassName,
+          readOnly: Boolean(col.readOnly),
         };
       }
 
-      // Return column config with numeric formatting if applicable
       const columnConfig: {
         data: number;
-        type: string;
+        type: 'text' | 'numeric';
         title: string;
         width: number;
         className: string;
@@ -546,50 +539,65 @@ export function HandsontableGrid<T extends Item>({
         readOnly: boolean;
       } = {
         data: colIndex,
-        type: columnType,
+        type: col.type === 'numeric' ? 'numeric' : 'text',
         title: col.title,
-        width: 'width' in col && col.width ? col.width : 120,
-        className: className, // Apply alignment class
-        readOnly: readOnly, // Apply read-only property
+        width: col.width ?? 120,
+        className: columnClassName,
+        readOnly: Boolean(col.readOnly),
       };
 
-      // Add numeric format for currency columns
-      if (numericFormat) {
-        columnConfig.numericFormat = numericFormat;
+      if (col.type === 'numeric' && col.numericFormat) {
+        columnConfig.numericFormat = { pattern: col.numericFormat };
       }
 
       return columnConfig;
     });
-  }, [columns, filteredData, getCellContent]);
+  }, [columns]);
 
   // Convert data to 2D array format for Handsontable
   const hotData = useMemo(() => {
-    return filteredData.map((row, rowIndex) => {
-      return columns.map((col, colIndex) => {
-        const cell = getCellContent([colIndex, rowIndex]);
+    return filteredData.map((rowData, rowIndex) => {
+      return columns.map((col) => {
+        const cell = getCellData({ column: col, row: rowIndex, rowData });
 
-        // Handle dropdown cells (Custom cells with data.value)
-        if (
-          'data' in cell &&
-          typeof cell.data === 'object' &&
-          cell.data !== null &&
-          'value' in cell.data
-        ) {
-          const cellData = cell.data as { value: string };
-          return cellData.value || '';
+        if (!cell) {
+          return '';
         }
 
-        // Handle regular cells
-        if ('data' in cell) {
-          return cell.data;
+        const resolvedDisplay = cell.displayValue ?? cell.value;
+
+        if (col.type === 'numeric') {
+          if (
+            resolvedDisplay === null ||
+            resolvedDisplay === undefined ||
+            resolvedDisplay === ''
+          ) {
+            return '';
+          }
+
+          if (typeof resolvedDisplay === 'number') {
+            return resolvedDisplay;
+          }
+
+          const numericValue = Number(
+            String(resolvedDisplay).replace(/,/g, '')
+          );
+
+          if (Number.isFinite(numericValue)) {
+            return numericValue;
+          }
+
+          return String(resolvedDisplay);
         }
-        if ('displayData' in cell) {
-          return cell.displayData;
+
+        if (resolvedDisplay === null || resolvedDisplay === undefined) {
+          return '';
         }
-        return '';
+
+        return String(resolvedDisplay);
       });
     });
-  }, [filteredData, columns, getCellContent]);
+  }, [filteredData, columns, getCellData]);
 
   // CSV import handler
   const handleCSVImport = async () => {
@@ -805,26 +813,66 @@ export function HandsontableGrid<T extends Item>({
               return;
             }
 
-            // Debug: Log all change sources to understand what's happening
+            const changeSource = source ?? 'edit';
+
             logger.debug('📝 afterChange triggered:', {
-              source,
+              source: changeSource,
               changesCount: changes.length,
             });
 
-            // Detect batch operations:
-            // - Paste operations: source contains 'paste' or 'Paste'
-            // - Autofill operations: source contains 'Autofill'
-            // - Batch delete/edit: multiple changes (more than 5) with 'edit' source
             const isPaste =
-              source?.includes('paste') ||
-              source?.includes('Paste') ||
-              source?.includes('Autofill');
+              changeSource.includes('paste') ||
+              changeSource.includes('Paste') ||
+              changeSource.includes('Autofill');
 
-            const isBatchEdit = changes.length > 5 && source === 'edit';
+            const isBatchEdit = changes.length > 5 && changeSource === 'edit';
             const isBatchOperation = isPaste || isBatchEdit;
 
+            const processChange = (
+              row: number,
+              col: number,
+              oldValue: unknown,
+              newValue: unknown,
+              isBatch: boolean
+            ): boolean => {
+              if (oldValue === newValue || typeof col !== 'number') {
+                return false;
+              }
+
+              const column = columns[col];
+              const rowData = filteredData[row];
+
+              if (!column || !rowData) {
+                return false;
+              }
+
+              const normalizedNewValue =
+                newValue === null || newValue === undefined
+                  ? ''
+                  : String(newValue);
+
+              const normalizedOldValue =
+                oldValue === null || oldValue === undefined
+                  ? null
+                  : String(oldValue);
+
+              onCellEdited({
+                column,
+                columnId: column.id,
+                columnIndex: col,
+                row,
+                rowData,
+                value: normalizedNewValue,
+                oldValue: normalizedOldValue,
+                isBatch,
+                source: changeSource,
+              });
+
+              return true;
+            };
+
             logger.debug('🔍 Batch detection:', {
-              source,
+              source: changeSource,
               changesCount: changes.length,
               isPaste,
               isBatchEdit,
@@ -832,49 +880,29 @@ export function HandsontableGrid<T extends Item>({
             });
 
             if (isBatchOperation) {
-              logger.debug('🚀 BATCH OPERATION DETECTED - Starting batch mode');
-
-              // Set batch mode flag to suppress notifications
+              logger.debug('🚀 BATCH MODE: start');
               isBatchModeRef.current = true;
               batchCountRef.current = 0;
-
-              // Signal batch mode START immediately
               window.dispatchEvent(new CustomEvent('handsontable-batch-start'));
-              logger.debug('📢 Dispatched handsontable-batch-start event');
 
-              // For paste operations, batch all changes and process after a short delay
-              // This prevents the flickering caused by multiple rapid re-renders
               if (updateTimeoutRef.current) {
                 clearTimeout(updateTimeoutRef.current);
               }
 
               updateTimeoutRef.current = setTimeout(() => {
                 changes.forEach(([row, col, oldValue, newValue]) => {
-                  if (oldValue !== newValue && typeof col === 'number') {
-                    const isDropdownColumn =
-                      hotColumns[col]?.type === 'autocomplete';
-
-                    const cellData = {
-                      kind: GridCellKind.Text,
-                      data:
-                        isDropdownColumn && newValue
-                          ? { value: String(newValue) }
-                          : String(newValue),
-                      displayData: String(newValue),
-                      allowOverlay: true,
-                    } as GridCell & { _isBatchMode?: boolean };
-
-                    // Mark as batch mode
-                    (
-                      cellData as unknown as { _isBatchMode: boolean }
-                    )._isBatchMode = true;
-
-                    onCellEdited([col, row], cellData as GridCell);
+                  const processed = processChange(
+                    row,
+                    col as number,
+                    oldValue,
+                    newValue,
+                    true
+                  );
+                  if (processed) {
                     batchCountRef.current++;
                   }
                 });
 
-                // After all batch changes are done, dispatch a custom event with count
                 setTimeout(() => {
                   isBatchModeRef.current = false;
                   window.dispatchEvent(
@@ -884,36 +912,31 @@ export function HandsontableGrid<T extends Item>({
                   );
                   batchCountRef.current = 0;
                 }, 100);
-              }, 100); // 100ms delay to batch paste operations
+              }, 100);
             } else {
-              // For regular edits (typing), process immediately
               changes.forEach(([row, col, oldValue, newValue]) => {
-                if (oldValue !== newValue && typeof col === 'number') {
-                  const isDropdownColumn =
-                    hotColumns[col]?.type === 'autocomplete';
-
-                  const cellData = {
-                    kind: GridCellKind.Text,
-                    data:
-                      isDropdownColumn && newValue
-                        ? { value: String(newValue) }
-                        : String(newValue),
-                    displayData: String(newValue),
-                    allowOverlay: true,
-                  };
-
-                  onCellEdited([col, row], cellData as GridCell);
-                }
+                processChange(row, col as number, oldValue, newValue, false);
               });
             }
           }}
           afterSelectionEnd={(row, col) => {
-            if (onCellClick && row >= 0 && col >= 0) {
-              const rowData = filteredData[row];
-              if (rowData) {
-                onCellClick([col, row], rowData);
-              }
+            if (!onCellClick || row < 0 || col < 0) {
+              return;
             }
+
+            const rowData = filteredData[row];
+            const column = columns[col];
+
+            if (!rowData || !column) {
+              return;
+            }
+
+            onCellClick({
+              column,
+              columnIndex: col,
+              row,
+              rowData,
+            });
           }}
         />
       </div>

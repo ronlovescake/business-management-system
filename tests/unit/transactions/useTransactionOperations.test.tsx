@@ -1,12 +1,15 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Item } from '@glideapps/glide-data-grid';
 import { useTransactionOperations } from '@/modules/clothing/operations/transactions/hooks/useTransactionOperations';
 import type {
   PriceTier,
   TransactionData,
 } from '@/modules/clothing/operations/transactions/types/transaction.types';
 import { notifications } from '@mantine/notifications';
+import type {
+  CellEditEvent,
+  HandsontableColumn,
+} from '@/components/ui/HandsontableGrid';
 
 const priceTiers: PriceTier[] = [
   {
@@ -56,7 +59,12 @@ describe('useTransactionOperations', () => {
 
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ message: 'ok' }),
+      json: async () => ({
+        status: 'IN_STOCK',
+        message: 'Stock available',
+        availableStock: 100,
+        canFulfill: true,
+      }),
     });
 
     global.fetch = fetchMock as unknown as typeof fetch;
@@ -68,12 +76,24 @@ describe('useTransactionOperations', () => {
     const { result } = renderHook(() => useTransactionOperations(props));
 
     await act(async () => {
-      const cell: Item = [2, 0];
-      const newValue = {
-        data: { value: 'SKU-1' },
-      } as unknown;
-      result.current.handleCellEdited(cell, newValue);
-      await Promise.resolve();
+      const column: HandsontableColumn = {
+        id: 'productCode',
+        title: 'PRODUCT CODE',
+      };
+
+      const editEvent: CellEditEvent<TransactionData> = {
+        column,
+        columnId: 'productCode',
+        columnIndex: 2,
+        row: 0,
+        rowData: props.filteredData[0],
+        value: 'SKU-1',
+        oldValue: '',
+        isBatch: false,
+        source: 'edit',
+      };
+
+      await result.current.handleCellEdited(editEvent);
     });
 
     await waitFor(() => {
@@ -92,11 +112,9 @@ describe('useTransactionOperations', () => {
 
     const fetchSpy = global.fetch as unknown as ReturnType<typeof vi.fn>;
 
-    await waitFor(() => {
-      expect(fetchSpy).toHaveBeenCalledWith(
-        '/api/transactions',
-        expect.objectContaining({ method: 'PATCH' })
-      );
-    });
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/api/inventory/check-stock',
+      expect.objectContaining({ method: 'POST' })
+    );
   });
 });

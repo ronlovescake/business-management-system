@@ -5,7 +5,10 @@
  * These types maintain strict TypeScript compliance and cover all transaction operations.
  */
 
-import type { GridColumn, Item } from '@glideapps/glide-data-grid';
+import type {
+  CellEditEvent,
+  HandsontableColumn,
+} from '@/components/ui/HandsontableGrid';
 
 // ============================================================================
 // CORE TRANSACTION TYPES
@@ -275,7 +278,9 @@ export interface UseTransactionsDataReturn {
  * Return value from useTransactionOperations hook.
  */
 export interface UseTransactionOperationsReturn {
-  handleCellEdited: (cell: Item, newValue: unknown) => void;
+  handleCellEdited: (
+    edit: CellEditEvent<TransactionData>
+  ) => void | Promise<void>;
   handleAdd10Rows: () => Promise<void>;
   handleCSVImport: (file: File) => Promise<void>;
   handleGenerateInvoice: (
@@ -298,7 +303,7 @@ export interface UseTransactionOperationsReturn {
  * Column definitions for the transactions grid.
  */
 export interface TransactionsGridColumns {
-  columns: GridColumn[];
+  columns: HandsontableColumn[];
   idToKey: ColumnIdToKey;
 }
 

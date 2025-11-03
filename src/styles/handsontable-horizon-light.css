@@ -2,7 +2,7 @@
   --ht-font-size: 16px;
   --ht-line-height: 20px;
   --ht-font-weight: 400;
-  --ht-letter-spacing: 0px;
+  --ht-letter-spacing: 0;
   --ht-gap-size: 6px;
   --ht-icon-size: 16px;
   --ht-table-transition: 0.2s;
@@ -229,6 +229,12 @@
 .ht-theme-horizon .handsontable td,
 .ht-theme-horizon .handsontable th {
   vertical-align: middle;
+}
+
+.ht-theme-horizon .handsontable td.ht-truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Hide dropdown arrows for cleaner UI */
