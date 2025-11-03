@@ -1,0 +1,280 @@
+═══════════════════════════════════════════════════════════════════════════════
+                    FINAL COMPREHENSIVE MERGE SUMMARY
+═══════════════════════════════════════════════════════════════════════════════
+
+Generated: November 3, 2025
+Script: scripts/merge-customer-data.js
+
+───────────────────────────────────────────────────────────────────────────────
+OVERVIEW
+───────────────────────────────────────────────────────────────────────────────
+
+This is the FINAL comprehensive merged CSV that includes:
+  ✓ All customer data from database
+  ✓ Shopee usernames (up to 5 per customer)
+  ✓ Normalized addresses (abbreviations expanded)
+  ✓ Additional Address columns (1-5) for future addresses
+  ✓ Additional Phone columns (1-5) for future phone numbers
+
+Output File: customers-merged-2025-11-03.csv
+
+───────────────────────────────────────────────────────────────────────────────
+COLUMNS STRUCTURE (26 columns)
+───────────────────────────────────────────────────────────────────────────────
+
+Core Customer Info:
+  1. Date
+  2. Customer Name
+  3. Phone Number
+  4. Address (PRIMARY - normalized)
+  5. Facebook
+  6. Email Address
+  7. Business Name
+  8. Tax Number
+  9. Business Address
+  10. Business Contact Number
+  11. Customer Status
+
+Shopee Usernames (5 columns):
+  12. Shopee Username 1
+  13. Shopee Username 2
+  14. Shopee Username 3
+  15. Shopee Username 4
+  16. Shopee Username 5
+
+Additional Addresses (5 columns):
+  17. Additional Address 1  ← Shopee delivery address if different
+  18. Additional Address 2  ← Empty (for future use)
+  19. Additional Address 3  ← Empty (for future use)
+  20. Additional Address 4  ← Empty (for future use)
+  21. Additional Address 5  ← Empty (for future use)
+
+Additional Phone Numbers (5 columns):
+  22. Additional Phone 1    ← Empty (for future use)
+  23. Additional Phone 2    ← Empty (for future use)
+  24. Additional Phone 3    ← Empty (for future use)
+  25. Additional Phone 4    ← Empty (for future use)
+  26. Additional Phone 5    ← Empty (for future use)
+
+───────────────────────────────────────────────────────────────────────────────
+MERGE STATISTICS
+───────────────────────────────────────────────────────────────────────────────
+
+Total Customers:                1,117
+
+Breakdown:
+  ├─ Matched with Shopee:       701 (62.8%)
+  │  ├─ With new address:       541 (48.4%) ← Added to Additional Address 1
+  │  └─ Same address:           160 (14.3%)
+  ├─ Pickup only (no Shopee):   408 (36.5%)
+  └─ New from Shopee:           8 (0.7%)
+
+───────────────────────────────────────────────────────────────────────────────
+ADDRESS NORMALIZATION
+───────────────────────────────────────────────────────────────────────────────
+
+All addresses have been normalized by expanding abbreviations:
+
+Common Expansions:
+  Blk/blk     → Block
+  Ph/Phs      → Phase
+  St/st.      → Street
+  Brgy        → Barangay
+  Subd        → Subdivision
+  Ave         → Avenue
+  Bldg        → Building
+  Pkg         → Package
+
+Example:
+  BEFORE: Blk 3 Lot 24 Ph A La Terraza Subd. Brgy. San Juan
+  AFTER:  Block 3 Lot 24 Phase A La Terraza Subdivision Barangay San Juan
+
+───────────────────────────────────────────────────────────────────────────────
+ADDRESS STRATEGY
+───────────────────────────────────────────────────────────────────────────────
+
+PRIMARY ADDRESS:
+  - Original customer database address (normalized)
+  - This is the address on file in the database
+
+ADDITIONAL ADDRESS 1:
+  - Shopee delivery address (if different from primary)
+  - Normalized for consistency
+  - Only populated when Shopee address differs from database address
+
+ADDITIONAL ADDRESS 2-5:
+  - Empty (reserved for future addresses)
+  - Customer moves to new location → Add to next available column
+  - Preserves address history
+
+───────────────────────────────────────────────────────────────────────────────
+EXAMPLES
+───────────────────────────────────────────────────────────────────────────────
+
+Example 1: Customer with Different Shopee Address
+──────────────────────────────────────────────────
+Name:     ILONAH JEAN MARASIGAN
+Primary:  Block 1 LOT 38 WESTWOOD T Barangay PASONG CAMACHILE 1 GEN TRIAS
+Add. 1:   Block 1 LOT 38 WESTWOOD 5 LANCASTER, Pasong Camachile I, General Trias
+Usernames: giannasbabyclothing
+
+Example 2: Customer with Same Address
+──────────────────────────────────────
+Name:     Patricia Ordoñez
+Primary:  Block 3 Lot 24 Phase A La Terraza Subdivision Bucandala 3 Imus Cavite
+Add. 1:   (empty - same address)
+Usernames: (none - pickup only)
+
+Example 3: Customer with Multiple Usernames
+────────────────────────────────────────────
+Name:     Elora Elle Sagum
+Usernames: ohmylullabuy, ohmyramram, romelmendoza846, ly_babyclothes (4 total)
+
+Example 4: Normalized Address
+──────────────────────────────
+Name:     Mylene Obenita Libunao
+BEFORE:   B9 L47 RAIL St Westwood 1 Lancaster New City General Trias Cavite
+AFTER:    B9 L47 RAIL Street Westwood 1 Lancaster New City General Trias Cavite
+Change:   St → Street
+
+───────────────────────────────────────────────────────────────────────────────
+TOP CUSTOMERS BY SHOPEE USERNAMES
+───────────────────────────────────────────────────────────────────────────────
+
+1. Elora Elle Sagum                          - 4 usernames
+2. Jeh Aguisanda                             - 4 usernames
+3. Anne Tionson | Enna Yrrehc                - 4 usernames
+4. Jai Bulayungan | CJ Bulayungan            - 4 usernames
+5. Lyn Domingo | SIERRAS THRIFTEES           - 3 usernames
+6. Eris | Angela Candelaria                  - 3 usernames
+7. Daniela Jade Lancaon                      - 3 usernames
+8. Princess Nathalie A. Morales-Gumbao       - 3 usernames
+9. Eunice Cometa                             - 3 usernames
+10. Mike Apura | Irene Ma Kristel Llasos     - 3 usernames
+
+───────────────────────────────────────────────────────────────────────────────
+DATA QUALITY
+───────────────────────────────────────────────────────────────────────────────
+
+✓ All 1,117 customers included
+✓ No data loss (all original fields preserved)
+✓ 541 customers have updated delivery addresses
+✓ All addresses normalized (abbreviations expanded)
+✓ Ready for import with numbered columns format
+✓ Additional columns ready for future growth
+
+───────────────────────────────────────────────────────────────────────────────
+IMPORT READY
+───────────────────────────────────────────────────────────────────────────────
+
+This CSV is ready to import using the "Detailed (Numbered Columns)" format.
+
+The import process will:
+  1. Create/update Customer records (primary info)
+  2. Create AdditionalCustomerInfo records for:
+     - Shopee Username 1-5 (type: shopee_username)
+     - Additional Address 1-5 (type: address) - if populated
+     - Additional Phone 1-5 (type: phone) - if populated
+
+Data Integrity:
+  ✓ All 26 columns present in correct order
+  ✓ All fields properly escaped for CSV format
+  ✓ Normalized addresses consistent across database
+  ✓ No duplicate customer records
+
+───────────────────────────────────────────────────────────────────────────────
+USAGE SCENARIOS
+───────────────────────────────────────────────────────────────────────────────
+
+Scenario 1: Customer Updates Address
+─────────────────────────────────────
+Current:  Additional Address 1 has Shopee delivery address
+Action:   Customer moves to new house
+Solution: Add new address to Additional Address 2
+Result:   Address history preserved (old → new)
+
+Scenario 2: Customer Adds Phone Number
+───────────────────────────────────────
+Current:  Phone Number has primary phone
+Action:   Customer provides alternate/business phone
+Solution: Add to Additional Phone 1
+Result:   Can contact via multiple numbers
+
+Scenario 3: Customer Has Multiple Addresses
+────────────────────────────────────────────
+Current:  Lives in City A, works in City B, parents in City C
+Solution: Primary = City A, Add. Address 1 = City B, Add. Address 2 = City C
+Result:   Can ship to any location
+
+───────────────────────────────────────────────────────────────────────────────
+FUTURE ENHANCEMENTS
+───────────────────────────────────────────────────────────────────────────────
+
+1. Address Validation
+   - Integrate Google Maps API for geocoding
+   - Verify address accuracy
+   - Auto-complete suggestions
+
+2. Duplicate Detection
+   - Identify customers with very similar names
+   - Merge duplicate customer records
+   - Flag for manual review
+
+3. Address Scoring
+   - Rate address completeness (street, barangay, city, zip)
+   - Highlight missing information
+   - Prioritize complete addresses for shipping
+
+4. Phone Number Formatting
+   - Standardize phone number format (+63 vs 09)
+   - Validate phone numbers
+   - Add country code support
+
+───────────────────────────────────────────────────────────────────────────────
+FILES GENERATED
+───────────────────────────────────────────────────────────────────────────────
+
+Main Output:
+  ✓ customers-merged-2025-11-03.csv (1,117 customers, 26 columns)
+
+Documentation:
+  ✓ docs/CUSTOMER_EXPORT_GUIDE.md
+  ✓ docs/CUSTOMER_DATA_MERGE_GUIDE.md
+  ✓ docs/ADDRESS_NORMALIZATION_GUIDE.md
+
+Scripts:
+  ✓ scripts/merge-customer-data.js (with normalization)
+  ✓ scripts/normalize-addresses.js (standalone)
+
+Reports:
+  ✓ address-normalization-report.txt
+  ✓ normalization-examples.txt
+  ✓ FINAL-MERGE-SUMMARY.txt (this file)
+
+───────────────────────────────────────────────────────────────────────────────
+NEXT STEPS
+───────────────────────────────────────────────────────────────────────────────
+
+1. ✓ Review the merged CSV file
+2. ✓ Verify sample customers have correct data
+3. □ Import using "Detailed (Numbered Columns)" format
+4. □ Create import API endpoint
+5. □ Test import with sample data
+6. □ Full import of all 1,117 customers
+7. □ Verify AdditionalCustomerInfo records created
+8. □ Test export → modify → re-import workflow
+
+───────────────────────────────────────────────────────────────────────────────
+SUCCESS METRICS
+───────────────────────────────────────────────────────────────────────────────
+
+✓ 100% customer retention (1,109 original + 8 new = 1,117 total)
+✓ 62.8% customers have Shopee integration (701/1,117)
+✓ 48.4% customers have updated delivery address (541/1,117)
+✓ 52.5% addresses improved with normalization (587/1,117)
+✓ 0% data loss (all fields preserved)
+✓ 26 columns structured for future growth
+
+═══════════════════════════════════════════════════════════════════════════════
+                              END OF SUMMARY
+═══════════════════════════════════════════════════════════════════════════════

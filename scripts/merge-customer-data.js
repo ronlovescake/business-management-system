@@ -57,6 +57,59 @@ function escapeCSVField(field) {
 }
 
 /**
+ * Common abbreviation mappings for address normalization
+ */
+const ABBREVIATION_MAP = {
+  subd: 'subdivision',
+  subdv: 'subdivision',
+  st: 'street',
+  ave: 'avenue',
+  rd: 'road',
+  dr: 'drive',
+  blvd: 'boulevard',
+  hwy: 'highway',
+  ph: 'phase',
+  phs: 'phase',
+  pkg: 'package',
+  blk: 'block',
+  lt: 'lot',
+  brgy: 'barangay',
+  bgy: 'barangay',
+  pob: 'poblacion',
+  bldg: 'building',
+  apt: 'apartment',
+  condo: 'condominium',
+};
+
+/**
+ * Expand abbreviations in address while preserving case
+ */
+function expandAbbreviations(address) {
+  if (!address) {
+    return '';
+  }
+
+  let expanded = address;
+
+  Object.keys(ABBREVIATION_MAP).forEach((abbr) => {
+    const full = ABBREVIATION_MAP[abbr];
+
+    // Match abbreviation with optional period, case-insensitive
+    const regex = new RegExp(`\\b${abbr}\\.?\\b`, 'gi');
+
+    expanded = expanded.replace(regex, (match) => {
+      // Preserve capitalization pattern
+      if (match[0] === match[0].toUpperCase()) {
+        return full.charAt(0).toUpperCase() + full.slice(1);
+      }
+      return full;
+    });
+  });
+
+  return expanded;
+}
+
+/**
  * Normalize name for matching
  * Handles variations like:
  * - "John Doe | Jane Doe" -> ["john doe", "jane doe"]
@@ -234,10 +287,7 @@ function mergeCustomerData() {
       Date: customer['Date'] || '',
       'Customer Name': customerName,
       'Phone Number': customer['Phone Number'] || '',
-      Address:
-        shopeeMatch && shopeeMatch.address
-          ? shopeeMatch.address
-          : customer['Address'] || '',
+      Address: customer['Address'] || '', // Keep original as primary
       Facebook: customer['Facebook'] || '',
       'Email Address': customer['Email Address'] || '',
       'Business Name': customer['Business Name'] || '',
@@ -247,13 +297,22 @@ function mergeCustomerData() {
       'Customer Status': customer['Customer Status'] || '',
     };
 
+    // Normalize the primary address
+    if (merged['Address']) {
+      merged['Address'] = expandAbbreviations(merged['Address']);
+    }
+
     // Add Shopee usernames (up to 5)
     if (shopeeMatch) {
       shopeeMatch.usernames.slice(0, 5).forEach((username, index) => {
         merged[`Shopee Username ${index + 1}`] = username;
       });
 
-      if (shopeeMatch.address) {
+      // If Shopee has a different address, add it as Additional Address 1
+      if (shopeeMatch.address && shopeeMatch.address !== customer['Address']) {
+        merged['Additional Address 1'] = expandAbbreviations(
+          shopeeMatch.address
+        );
         stats.matchedWithAddress++;
       } else {
         stats.matchedNoAddress++;
@@ -267,6 +326,18 @@ function mergeCustomerData() {
       merged[`Shopee Username ${i}`] = '';
     }
 
+    // Fill empty Additional Address columns
+    for (let i = 1; i <= 5; i++) {
+      if (!merged[`Additional Address ${i}`]) {
+        merged[`Additional Address ${i}`] = '';
+      }
+    }
+
+    // Fill empty Additional Phone columns
+    for (let i = 1; i <= 5; i++) {
+      merged[`Additional Phone ${i}`] = '';
+    }
+
     mergedCustomers.push(merged);
   });
 
@@ -278,7 +349,7 @@ function mergeCustomerData() {
         Date: new Date().toISOString().slice(0, 10),
         'Customer Name': deliveryName,
         'Phone Number': '',
-        Address: shopeeInfo.address || '',
+        Address: expandAbbreviations(shopeeInfo.address || ''),
         Facebook: '',
         'Email Address': '',
         'Business Name': '',
@@ -296,6 +367,16 @@ function mergeCustomerData() {
       // Fill empty username columns
       for (let i = shopeeInfo.usernames.length + 1; i <= 5; i++) {
         newCustomer[`Shopee Username ${i}`] = '';
+      }
+
+      // Fill empty Additional Address columns
+      for (let i = 1; i <= 5; i++) {
+        newCustomer[`Additional Address ${i}`] = '';
+      }
+
+      // Fill empty Additional Phone columns
+      for (let i = 1; i <= 5; i++) {
+        newCustomer[`Additional Phone ${i}`] = '';
       }
 
       mergedCustomers.push(newCustomer);
@@ -329,6 +410,16 @@ function mergeCustomerData() {
     'Shopee Username 3',
     'Shopee Username 4',
     'Shopee Username 5',
+    'Additional Address 1',
+    'Additional Address 2',
+    'Additional Address 3',
+    'Additional Address 4',
+    'Additional Address 5',
+    'Additional Phone 1',
+    'Additional Phone 2',
+    'Additional Phone 3',
+    'Additional Phone 4',
+    'Additional Phone 5',
   ];
 
   const csvLines = [headers.join(',')];

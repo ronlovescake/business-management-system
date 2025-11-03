@@ -3,7 +3,6 @@ import type {
   CustomerFormData,
   CustomerStats,
   ValidationResult,
-  CSVImportResult,
   CustomerWithSearchIndex,
   CustomerStatusOption,
 } from '../types/customer.types';
@@ -591,56 +590,58 @@ class CustomerService {
   }
 
   /**
-   * Import customers from CSV file
+   * Import customers from CSV file (Detailed format with numbered columns)
    */
-  static async importFromCSV(file: File): Promise<CSVImportResult> {
+  static async importFromCSV(file: File): Promise<{
+    success: boolean;
+    stats?: {
+      totalRows: number;
+      customersCreated: number;
+      customersUpdated: number;
+      additionalInfoCreated: number;
+      errors: Array<{ row: number; error: string }>;
+    };
+    error?: string;
+  }> {
     try {
-      const text = await file.text();
-      const lines = text.split('\n').filter((line) => line.trim());
+      const formData = new FormData();
+      formData.append('file', file);
 
-      if (lines.length < 2) {
-        return {
-          success: false,
-          error: 'CSV file must have headers and at least one data row',
-        };
+      // Use fetch directly for FormData to avoid JSON.stringify in api.post
+      const fetchResponse = await fetch('/api/customers/import', {
+        method: 'POST',
+        body: formData,
+        // Don't set Content-Type header - browser will set it with boundary
+      });
+
+      if (!fetchResponse.ok) {
+        const errorData = await fetchResponse.json();
+        throw new Error(errorData.error || 'Failed to import customers');
       }
 
-      // Skip header row
-      this.parseCSVLine(lines[0]).map((h) => h.replace(/"/g, ''));
-      const parsedData: CustomerData[] = [];
+      const response = await fetchResponse.json();
 
-      for (let i = 1; i < lines.length; i++) {
-        const values = this.parseCSVLine(lines[i]).map((v) =>
-          v.replace(/"/g, '')
+      logger.info(
+        `Imported ${response.stats.customersCreated} new customers, updated ${response.stats.customersUpdated} customers, created ${response.stats.additionalInfoCreated} additional info records`
+      );
+
+      if (response.stats.errors.length > 0) {
+        logger.warn(
+          `${response.stats.errors.length} errors occurred during import`,
+          response.stats.errors
         );
-
-        if (values.length >= 11) {
-          const customer: CustomerData = {
-            Date: values[0] || '',
-            'Customer Name': values[1] || '',
-            'Phone Number': values[2] || '',
-            Address: values[3] || '',
-            Facebook: values[4] || '',
-            'Email Address': values[5] || '',
-            'Business Name': values[6] || '',
-            'Tax Number': values[7] || '',
-            'Business Address': values[8] || '',
-            'Business Contact Number': values[9] || '',
-            'Customer Status': values[10] || '',
-          };
-          parsedData.push(customer);
-        }
       }
 
       return {
-        success: true,
-        data: parsedData,
-        rowsImported: parsedData.length,
+        success: response.success,
+        stats: response.stats,
       };
     } catch (error) {
+      logger.error('Failed to import customers', error);
       return {
         success: false,
-        error: 'Error importing CSV file. Please check the file format.',
+        error:
+          error instanceof Error ? error.message : 'Failed to import customers',
       };
     }
   }

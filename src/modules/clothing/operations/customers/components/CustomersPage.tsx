@@ -9,6 +9,8 @@ import React, {
 } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/queryKeys';
 import {
   Stack,
   Text,
@@ -114,6 +116,7 @@ const customGridStyles = `
  */
 export function CustomersPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const lastClickRef = useRef<{ cell: Item; time: number } | null>(null);
 
@@ -126,7 +129,6 @@ export function CustomersPage() {
     isLoading,
     handleSearch,
     addCustomer,
-    replaceAllCustomers,
   } = useCustomersData();
 
   const {
@@ -200,54 +202,60 @@ export function CustomersPage() {
   );
 
   // CSV import functionality
-  const handleImportCSV = async () => {
+  const handleImportCSV = async (file: File | null) => {
     if (!file) {
       return;
     }
 
     try {
+      notifications.show({
+        id: 'import-progress',
+        title: 'Importing...',
+        message: 'Processing CSV file, please wait...',
+        color: 'blue',
+        loading: true,
+        autoClose: false,
+      });
+
       const result = await CustomerService.importFromCSV(file);
 
-      if (!result.success || !result.data) {
+      notifications.hide('import-progress');
+
+      if (result.success && result.stats) {
+        const {
+          customersCreated,
+          customersUpdated,
+          additionalInfoCreated,
+          errors,
+          totalRows,
+        } = result.stats;
+
+        notifications.show({
+          title: 'Import Successful',
+          message: `Processed ${totalRows} rows. Created ${customersCreated} new customers, updated ${customersUpdated} customers, added ${additionalInfoCreated} additional info records${errors.length > 0 ? `. ${errors.length} errors occurred.` : ''}`,
+          color: errors.length > 0 ? 'yellow' : 'green',
+          autoClose: 10000,
+        });
+
+        if (errors.length > 0) {
+          logger.warn('Import errors:', errors);
+        }
+
+        // Refresh customers list
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.customers.lists(),
+        });
+      } else {
         notifications.show({
           title: 'Import Failed',
-          message: result.error || 'Unknown error',
+          message: result.error || 'Error importing CSV file.',
           color: 'red',
-        });
-        return;
-      }
-
-      // Persist to DB and update state
-      try {
-        const importResult = await replaceAllCustomers(result.data);
-
-        // Show notification based on import results
-        if (importResult && importResult.skipped > 0) {
-          notifications.show({
-            title: 'Import Completed with Warnings',
-            message: `Imported ${importResult.created + importResult.updated} customers. ${importResult.skipped} customers were skipped due to validation errors. Check console for details.`,
-            color: 'yellow',
-            autoClose: 8000,
-          });
-        } else {
-          notifications.show({
-            title: 'Import Successful',
-            message: `Imported ${result.rowsImported} customers`,
-            color: 'green',
-          });
-        }
-      } catch (e) {
-        logger.error('Failed to persist imported CSV', e);
-        notifications.show({
-          title: 'Import saved locally only',
-          message: 'Database not reachable',
-          color: 'yellow',
         });
       }
 
       setFile(null);
-      logger.debug(`Imported ${result.rowsImported} customers`);
     } catch (error) {
+      notifications.hide('import-progress');
       logger.error('Error importing CSV:', error);
       notifications.show({
         title: 'Import Failed',
@@ -600,7 +608,7 @@ export function CustomersPage() {
               style={{ minWidth: 200 }}
             />
             <Button
-              onClick={handleImportCSV}
+              onClick={() => handleImportCSV(file)}
               disabled={!file}
               leftSection={<IconUpload size={16} />}
             >
