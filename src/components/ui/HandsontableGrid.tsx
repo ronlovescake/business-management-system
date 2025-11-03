@@ -124,10 +124,18 @@ export function HandsontableGrid<T extends object>({
 }: HandsontableGridProps<T>) {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const hotRef = useRef<HotTableClass | null>(null);
+  const columnsRef = useRef(columns);
   const [currentGridHeight, setCurrentGridHeight] = useState<number>(600);
   const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isBatchModeRef = useRef(false);
   const batchCountRef = useRef(0);
+  const dropdownEditStateRef = useRef<{
+    row: number;
+    col: number;
+    oldValue: string | number | null | undefined;
+    selectionMade: boolean;
+    cleanup?: () => void;
+  } | null>(null);
 
   // Debug: Check if theme is applied
   useEffect(() => {
@@ -144,6 +152,88 @@ export function HandsontableGrid<T extends object>({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Track mouse interactions to cancel dropdowns when clicking outside
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return undefined;
+    }
+
+    const handleMouseDown = (event: MouseEvent) => {
+      const state = dropdownEditStateRef.current;
+      if (!state) {
+        return;
+      }
+
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+
+      if (target.closest('.handsontableEditor .handsontable')) {
+        state.selectionMade = true;
+        return;
+      }
+
+      const editorContainer = document.querySelector('.handsontableEditor');
+      if (editorContainer && editorContainer.contains(target)) {
+        return;
+      }
+
+      const column = columnsRef.current[state.col];
+      if (!column || column.type !== 'dropdown') {
+        return;
+      }
+
+      const hotInstance = hotRef.current?.hotInstance;
+      const activeEditor = hotInstance?.getActiveEditor() as unknown as {
+        cancelChanges?: () => void;
+        close?: () => void;
+        isOpened?: () => boolean;
+      } | null;
+
+      try {
+        activeEditor?.cancelChanges?.();
+        if (activeEditor?.isOpened?.()) {
+          activeEditor.close?.();
+        }
+      } catch (error) {
+        logger.debug('Dropdown cancel on outside click failed', error);
+      }
+
+      dropdownEditStateRef.current?.cleanup?.();
+      dropdownEditStateRef.current = null;
+    };
+
+    document.addEventListener('mousedown', handleMouseDown, true);
+    return () =>
+      document.removeEventListener('mousedown', handleMouseDown, true);
+  }, []);
+
+  // Track Enter/Tab confirmations during dropdown editing
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return undefined;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const state = dropdownEditStateRef.current;
+      if (!state) {
+        return;
+      }
+
+      if (event.key === 'Enter' || event.key === 'Tab') {
+        state.selectionMade = true;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
+  }, []);
+
+  useEffect(() => {
+    columnsRef.current = columns;
+  }, [columns]);
 
   // Apply header height styles dynamically
   useEffect(() => {
@@ -522,6 +612,7 @@ export function HandsontableGrid<T extends object>({
           source: col.dropdownValues ?? [],
           strict: true,
           allowInvalid: false,
+          allowEmpty: true,
           title: col.title,
           width: col.width ?? 120,
           className: columnClassName,
@@ -808,8 +899,101 @@ export function HandsontableGrid<T extends object>({
           rowHeights={55} // Set fixed row height (default is ~23px)
           columnHeaderHeight={55} // Set header height to match row height
           beforeCut={() => false}
+          afterBeginEditing={(row, col) => {
+            const column = columns[col];
+
+            if (!column || column.type !== 'dropdown') {
+              dropdownEditStateRef.current?.cleanup?.();
+              dropdownEditStateRef.current = null;
+              return;
+            }
+
+            const hotInstance = hotRef.current?.hotInstance;
+            const currentValue = hotInstance?.getDataAtCell(row, col);
+
+            dropdownEditStateRef.current?.cleanup?.();
+
+            const state = {
+              row,
+              col,
+              oldValue: currentValue,
+              selectionMade: false,
+              cleanup: undefined as (() => void) | undefined,
+            };
+
+            dropdownEditStateRef.current = state;
+
+            requestAnimationFrame(() => {
+              const activeInstance = hotRef.current?.hotInstance;
+              const editor = activeInstance?.getActiveEditor() as unknown as {
+                TEXTAREA?: HTMLTextAreaElement;
+                htEditor?: {
+                  deselectCell?: () => void;
+                  selectCell?: (...coords: number[]) => void;
+                  getSelectedLast?: () => number[] | undefined;
+                };
+              } | null;
+
+              try {
+                editor?.htEditor?.deselectCell?.();
+              } catch (error) {
+                logger.debug('Dropdown deselect failed', error);
+              }
+
+              if (editor?.htEditor?.getSelectedLast?.()) {
+                try {
+                  editor.htEditor.selectCell?.(-1, -1);
+                } catch (error) {
+                  logger.debug('Dropdown fallback deselect failed', error);
+                }
+              }
+
+              const inputEl = editor?.TEXTAREA;
+              if (inputEl) {
+                const handleInput = () => {
+                  if (dropdownEditStateRef.current === state) {
+                    state.selectionMade = true;
+                  }
+                };
+
+                inputEl.addEventListener('input', handleInput);
+                state.cleanup = () => {
+                  inputEl.removeEventListener('input', handleInput);
+                };
+              }
+            });
+          }}
+          beforeChange={(changes) => {
+            if (!changes || !dropdownEditStateRef.current) {
+              return;
+            }
+
+            const state = dropdownEditStateRef.current;
+
+            if (state.selectionMade) {
+              return;
+            }
+
+            changes.forEach((change) => {
+              if (!change) {
+                return;
+              }
+
+              const [changeRow, changeCol, oldValue] = change;
+
+              if (
+                changeRow === state.row &&
+                changeCol === state.col &&
+                columns[changeCol]?.type === 'dropdown'
+              ) {
+                change[3] = oldValue;
+              }
+            });
+          }}
           afterChange={(changes, source) => {
             if (!changes || !onCellEdited) {
+              dropdownEditStateRef.current?.cleanup?.();
+              dropdownEditStateRef.current = null;
               return;
             }
 
@@ -918,6 +1102,9 @@ export function HandsontableGrid<T extends object>({
                 processChange(row, col as number, oldValue, newValue, false);
               });
             }
+
+            dropdownEditStateRef.current?.cleanup?.();
+            dropdownEditStateRef.current = null;
           }}
           afterSelectionEnd={(row, col) => {
             if (!onCellClick || row < 0 || col < 0) {
