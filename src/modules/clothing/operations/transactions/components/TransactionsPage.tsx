@@ -352,6 +352,53 @@ export function TransactionsPage() {
         } as GridCell;
       }
 
+      // Unit Price - calculated, read-only
+      if (column.id === 'unitPrice') {
+        const displayValue =
+          typeof value === 'number' && value !== 0
+            ? value.toLocaleString()
+            : '';
+        const dataValue =
+          typeof value === 'number' && value !== 0 ? String(value) : '';
+
+        return {
+          kind: GridCellKind.Text,
+          data: dataValue || '',
+          displayData: displayValue || '',
+          allowOverlay: false,
+          readonly: true,
+        } as GridCell;
+      }
+
+      // Line Total - calculated, read-only
+      if (column.id === 'lineTotal') {
+        const displayValue =
+          typeof value === 'number' && value !== 0
+            ? value.toLocaleString()
+            : '';
+        const dataValue =
+          typeof value === 'number' && value !== 0 ? String(value) : '';
+
+        return {
+          kind: GridCellKind.Text,
+          data: dataValue || '',
+          displayData: displayValue || '',
+          allowOverlay: false,
+          readonly: true,
+        } as GridCell;
+      }
+
+      // Invoice Date - system-managed, read-only
+      if (column.id === 'invoiceDate') {
+        return {
+          kind: GridCellKind.Text,
+          data: sanitize(value),
+          displayData: sanitize(value),
+          allowOverlay: false,
+          readonly: true,
+        } as GridCell;
+      }
+
       // Numeric columns - show blank if 0
       if (typeof value === 'number') {
         const displayValue = value === 0 ? '' : (value.toLocaleString() ?? '');
@@ -543,7 +590,9 @@ export function TransactionsPage() {
           selectedStatuses={selectedStatuses}
           onStatusFilter={handleStatusFilter}
           onGenerateInvoice={
-            prepareInvoiceGeneration as unknown as (data: Item[]) => Promise<void>
+            prepareInvoiceGeneration as unknown as (
+              data: Item[]
+            ) => Promise<void>
           }
           onGeneratePackingList={
             preparePackingListGeneration as unknown as (
