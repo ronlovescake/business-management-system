@@ -1,1 +1,0 @@
-export { useInventoryData } from './useInventoryData';
