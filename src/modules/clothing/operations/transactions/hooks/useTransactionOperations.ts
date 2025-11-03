@@ -433,10 +433,8 @@ export function useTransactionOperations(
                   icon: 'warning',
                   title: '🟡 Low Stock Warning',
                   text: stockInfo.message,
-                  confirmButtonText: 'Continue Anyway',
+                  confirmButtonText: 'OK',
                   confirmButtonColor: '#fab005',
-                  showCancelButton: true,
-                  cancelButtonText: 'Cancel Order',
                 });
                 logger.info(
                   `Low stock warning for ${dropdownValue}:`,
@@ -638,10 +636,8 @@ export function useTransactionOperations(
                   icon: 'warning',
                   title: '🟡 Low Stock Warning',
                   text: stockInfo.message,
-                  confirmButtonText: 'Continue Anyway',
+                  confirmButtonText: 'OK',
                   confirmButtonColor: '#fab005',
-                  showCancelButton: true,
-                  cancelButtonText: 'Cancel',
                 });
                 logger.info(
                   `Low stock warning for ${currentProductCode} (adding ${quantityChange} units):`,
