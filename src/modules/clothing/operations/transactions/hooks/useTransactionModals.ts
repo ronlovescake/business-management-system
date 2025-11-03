@@ -460,8 +460,13 @@ export function useTransactionModals(
         return status === 'Prepared' && lineTotal <= 50.0;
       });
 
-      const transformed =
-        TransactionService.transformToPackingListTransactions(eligible);
+      // Transform to the format expected by the API (with capitalized field names)
+      const transformed = eligible.map((t) => ({
+        Customers: t.Customers || '',
+        'Product Code': t['Product Code'] || '',
+        Quantity: Number(t.Quantity) || 0,
+        Notes: t.Notes || '',
+      }));
 
       // Note: Using raw fetch for blob response (API client doesn't handle blobs yet)
       const response = await fetch('/api/generate-packing-list', {
@@ -469,7 +474,7 @@ export function useTransactionModals(
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(transformed),
+        body: JSON.stringify({ transactions: transformed }),
       });
 
       if (response.ok) {
