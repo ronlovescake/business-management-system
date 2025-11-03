@@ -621,7 +621,7 @@ export function useTransactionOperations(
                 await Swal.fire({
                   icon: 'error',
                   title: '🔴 Cannot Increase Quantity',
-                  html: `<p>${stockInfo.message}</p><p><strong>You're trying to add ${quantityChange} more units.</strong></p>`,
+                  text: stockInfo.message,
                   confirmButtonText: 'OK',
                   confirmButtonColor: '#fa5252',
                 });
