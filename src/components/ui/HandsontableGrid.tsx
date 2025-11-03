@@ -465,9 +465,19 @@ export function HandsontableGrid<T extends Item>({
       let className = 'htLeft'; // Default to left
       let columnType: 'text' | 'numeric' | 'autocomplete' = 'text';
       let numericFormat: { pattern: string } | undefined;
+      let readOnly = false; // Default to editable
 
       if ('id' in col) {
         const columnId = col.id as string;
+
+        // Set read-only columns: unitPrice, lineTotal, invoiceDate, shipmentCode
+        if (
+          ['unitPrice', 'lineTotal', 'invoiceDate', 'shipmentCode'].includes(
+            columnId
+          )
+        ) {
+          readOnly = true;
+        }
 
         // Currency columns with numeric formatting
         if (
@@ -511,6 +521,7 @@ export function HandsontableGrid<T extends Item>({
           title: col.title,
           width: 'width' in col && col.width ? col.width : 120,
           className: className, // Apply alignment class
+          readOnly: readOnly, // Apply read-only property
         };
       }
 
@@ -522,12 +533,14 @@ export function HandsontableGrid<T extends Item>({
         width: number;
         className: string;
         numericFormat?: { pattern: string };
+        readOnly: boolean;
       } = {
         data: colIndex,
         type: columnType,
         title: col.title,
         width: 'width' in col && col.width ? col.width : 120,
         className: className, // Apply alignment class
+        readOnly: readOnly, // Apply read-only property
       };
 
       // Add numeric format for currency columns
