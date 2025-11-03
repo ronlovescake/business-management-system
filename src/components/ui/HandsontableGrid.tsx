@@ -144,6 +144,16 @@ export function HandsontableGrid<T extends Item>({
         height: 100% !important;
         line-height: 1 !important;
       }
+      
+      /* Remove grey background from read-only cells */
+      .ht-theme-horizon .handsontable td.htDimmed {
+        background-color: #ffffff !important;
+        color: inherit !important;
+      }
+      
+      .ht-theme-horizon .handsontable td.htDimmed.area {
+        background-color: #d9f0fc !important;
+      }
     `;
     document.head.appendChild(style);
 
