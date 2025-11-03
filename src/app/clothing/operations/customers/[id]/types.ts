@@ -67,6 +67,7 @@ export interface CustomerStats {
   cancelledOrders: number;
   completedOrders: number;
   processingOrders: number;
+  shippedOrders: number;
 }
 
 export type OrderStatus =

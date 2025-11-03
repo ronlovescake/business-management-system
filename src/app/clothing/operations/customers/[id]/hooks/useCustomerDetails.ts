@@ -237,8 +237,11 @@ export function useCustomerDetails(
     const completedOrders = orders.filter(
       (order) => order.status === 'delivered'
     ).length;
+    const shippedOrders = orders.filter(
+      (order) => order.status === 'shipped'
+    ).length;
     const processingOrders = orders.filter((order) =>
-      ['pending', 'processing', 'shipped'].includes(order.status)
+      ['pending', 'processing'].includes(order.status)
     ).length;
 
     return {
@@ -253,6 +256,7 @@ export function useCustomerDetails(
       totalOrders,
       cancelledOrders,
       completedOrders,
+      shippedOrders,
       processingOrders,
     };
   }, [transactions, orders]);
