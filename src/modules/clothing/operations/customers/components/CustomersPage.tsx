@@ -17,6 +17,7 @@ import {
   FileInput,
   TextInput,
   Card,
+  Menu,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
@@ -25,6 +26,10 @@ import {
   IconPlus,
   IconCheck,
   IconDownload,
+  IconChevronDown,
+  IconFileSpreadsheet,
+  IconTable,
+  IconChartBar,
 } from '@tabler/icons-react';
 import {
   GridCellKind,
@@ -277,6 +282,62 @@ export function CustomersPage() {
     }
   };
 
+  // CSV export with additional info (numbered columns format)
+  const handleExportDetailedCSV = async () => {
+    try {
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const filename = `customers-detailed-${timestamp}.csv`;
+
+      const result = await CustomerService.exportToCSVDetailed(filename, 5);
+
+      if (result.warning) {
+        notifications.show({
+          title: '⚠️ Export Successful (with warnings)',
+          message: result.warning,
+          color: 'yellow',
+          autoClose: 10000,
+        });
+      } else {
+        notifications.show({
+          title: 'Export Successful',
+          message:
+            'Exported customers with all additional info (Shopee usernames, addresses, phones)',
+          color: 'green',
+        });
+      }
+    } catch (error) {
+      logger.error('Error exporting detailed CSV:', error);
+      notifications.show({
+        title: 'Export Failed',
+        message: 'Error exporting detailed CSV file.',
+        color: 'red',
+      });
+    }
+  };
+
+  // CSV export with duplicate rows format (for analysis)
+  const handleExportAnalysisCSV = async () => {
+    try {
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const filename = `customers-analysis-${timestamp}.csv`;
+
+      await CustomerService.exportToCSVDuplicateRows(filename);
+
+      notifications.show({
+        title: 'Export Successful',
+        message: 'Exported customers in duplicate rows format for analysis',
+        color: 'green',
+      });
+    } catch (error) {
+      logger.error('Error exporting analysis CSV:', error);
+      notifications.show({
+        title: 'Export Failed',
+        message: 'Error exporting analysis CSV file.',
+        color: 'red',
+      });
+    }
+  };
+
   // Handle add customer submission
   const handleAddCustomer = async () => {
     const result = getValidatedCustomerData();
@@ -475,14 +536,61 @@ export function CustomersPage() {
           </Group>
 
           <Group gap="sm">
-            <Button
-              onClick={handleExportCSV}
-              leftSection={<IconDownload size={16} />}
-              variant="outline"
-              color="green"
-            >
-              Export CSV
-            </Button>
+            <Menu shadow="md" width={280} position="bottom-end">
+              <Menu.Target>
+                <Button
+                  leftSection={<IconDownload size={16} />}
+                  rightSection={<IconChevronDown size={16} />}
+                  variant="outline"
+                  color="green"
+                >
+                  Export CSV
+                </Button>
+              </Menu.Target>
+
+              <Menu.Dropdown>
+                <Menu.Label>Export Format</Menu.Label>
+                <Menu.Item
+                  leftSection={<IconFileSpreadsheet size={16} />}
+                  onClick={handleExportCSV}
+                >
+                  <div>
+                    <Text size="sm" fw={500}>
+                      Standard CSV
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      Basic customer info only
+                    </Text>
+                  </div>
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconTable size={16} />}
+                  onClick={handleExportDetailedCSV}
+                >
+                  <div>
+                    <Text size="sm" fw={500}>
+                      Detailed (Numbered Columns)
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      With Shopee usernames, addresses, phones
+                    </Text>
+                  </div>
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconChartBar size={16} />}
+                  onClick={handleExportAnalysisCSV}
+                >
+                  <div>
+                    <Text size="sm" fw={500}>
+                      For Analysis (Duplicate Rows)
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      One row per additional info item
+                    </Text>
+                  </div>
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
             <FileInput
               placeholder="Select CSV file"
               accept=".csv"

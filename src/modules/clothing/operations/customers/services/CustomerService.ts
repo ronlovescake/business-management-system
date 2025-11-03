@@ -191,7 +191,7 @@ class CustomerService {
   }
 
   /**
-   * Export customers to CSV file
+   * Export customers to CSV file (basic format - no additional info)
    */
   static exportToCSV(
     customers: CustomerData[],
@@ -264,6 +264,328 @@ class CustomerService {
       logger.info(`Exported ${customers.length} customers to ${filename}`);
     } catch (error) {
       logger.error('Failed to export customers to CSV', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Export customers with additional info using numbered columns format
+   * Example: Shopee Username 1, Shopee Username 2, ..., Additional Address 1, Additional Address 2, ...
+   *
+   * This is the recommended format for most users (90% of customers have ≤5 items per type)
+   */
+  static async exportToCSVDetailed(
+    filename = 'customers-detailed.csv',
+    maxColumns = 5
+  ): Promise<{ success: boolean; warning?: string }> {
+    try {
+      // Fetch customers with all additional info
+      const response = await api.get<{
+        success: boolean;
+        data: Array<{
+          id: number;
+          date: string;
+          customerName: string;
+          phoneNumber: string;
+          address: string;
+          facebook: string;
+          emailAddress: string;
+          businessName: string;
+          taxNumber: string;
+          businessAddress: string;
+          businessContactNumber: string;
+          customerStatus: string;
+          shopeeUsernames: string[];
+          additionalAddresses: string[];
+          additionalPhones: string[];
+        }>;
+        stats: {
+          maxShopeeUsernames: number;
+          maxAdditionalAddresses: number;
+          maxAdditionalPhones: number;
+        };
+      }>('/api/customers/export');
+
+      if (!response.success) {
+        throw new Error('Failed to fetch customers for export');
+      }
+
+      const customers = response.data;
+      const stats = response.stats;
+
+      // Check if any customer exceeds the column limit
+      const hasOverflow =
+        stats.maxShopeeUsernames > maxColumns ||
+        stats.maxAdditionalAddresses > maxColumns ||
+        stats.maxAdditionalPhones > maxColumns;
+
+      // Create headers with numbered columns
+      const baseHeaders = [
+        'ID',
+        'Date',
+        'Customer Name',
+        'Phone Number',
+        'Address',
+        'Facebook',
+        'Email Address',
+        'Business Name',
+        'Tax Number',
+        'Business Address',
+        'Business Contact Number',
+        'Customer Status',
+      ];
+
+      const shopeeHeaders = Array.from(
+        { length: maxColumns },
+        (_, i) => `Shopee Username ${i + 1}`
+      );
+      const addressHeaders = Array.from(
+        { length: maxColumns },
+        (_, i) => `Additional Address ${i + 1}`
+      );
+      const phoneHeaders = Array.from(
+        { length: maxColumns },
+        (_, i) => `Additional Phone ${i + 1}`
+      );
+
+      const headers = [
+        ...baseHeaders,
+        ...shopeeHeaders,
+        ...addressHeaders,
+        ...phoneHeaders,
+      ];
+
+      // Create CSV rows
+      const rows = customers.map((customer) => {
+        const baseFields = [
+          customer.id.toString(),
+          customer.date || '',
+          customer.customerName || '',
+          customer.phoneNumber || '',
+          customer.address || '',
+          customer.facebook || '',
+          customer.emailAddress || '',
+          customer.businessName || '',
+          customer.taxNumber || '',
+          customer.businessAddress || '',
+          customer.businessContactNumber || '',
+          customer.customerStatus || '',
+        ];
+
+        // Pad arrays to maxColumns length
+        const shopeeFields = Array.from(
+          { length: maxColumns },
+          (_, i) => customer.shopeeUsernames[i] || ''
+        );
+        const addressFields = Array.from(
+          { length: maxColumns },
+          (_, i) => customer.additionalAddresses[i] || ''
+        );
+        const phoneFields = Array.from(
+          { length: maxColumns },
+          (_, i) => customer.additionalPhones[i] || ''
+        );
+
+        return [
+          ...baseFields,
+          ...shopeeFields,
+          ...addressFields,
+          ...phoneFields,
+        ].map((field) => {
+          // Escape fields that contain commas, quotes, or newlines
+          if (
+            field.includes(',') ||
+            field.includes('"') ||
+            field.includes('\n')
+          ) {
+            return `"${field.replace(/"/g, '""')}"`;
+          }
+          return field;
+        });
+      });
+
+      // Combine header and rows
+      const csvContent = [
+        headers.join(','),
+        ...rows.map((row) => row.join(',')),
+      ].join('\n');
+
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      URL.revokeObjectURL(url);
+
+      logger.info(
+        `Exported ${customers.length} customers with additional info to ${filename}`,
+        { maxColumns, hasOverflow, stats }
+      );
+
+      return {
+        success: true,
+        warning: hasOverflow
+          ? `Some customers have more than ${maxColumns} items per type. Data will be truncated. Consider using the "For Analysis (Duplicate Rows)" export format.`
+          : undefined,
+      };
+    } catch (error) {
+      logger.error('Failed to export customers with additional info', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Export customers with additional info using duplicate rows format
+   * Each additional info item creates a new row for the same customer
+   *
+   * This format is ideal for analysis/reporting when customers have many additional items
+   */
+  static async exportToCSVDuplicateRows(
+    filename = 'customers-analysis.csv'
+  ): Promise<void> {
+    try {
+      // Fetch customers with all additional info
+      const response = await api.get<{
+        success: boolean;
+        data: Array<{
+          id: number;
+          date: string;
+          customerName: string;
+          phoneNumber: string;
+          address: string;
+          facebook: string;
+          emailAddress: string;
+          businessName: string;
+          taxNumber: string;
+          businessAddress: string;
+          businessContactNumber: string;
+          customerStatus: string;
+          shopeeUsernames: string[];
+          additionalAddresses: string[];
+          additionalPhones: string[];
+        }>;
+      }>('/api/customers/export');
+
+      if (!response.success) {
+        throw new Error('Failed to fetch customers for export');
+      }
+
+      const customers = response.data;
+
+      // Create headers
+      const headers = [
+        'ID',
+        'Date',
+        'Customer Name',
+        'Phone Number',
+        'Address',
+        'Facebook',
+        'Email Address',
+        'Business Name',
+        'Tax Number',
+        'Business Address',
+        'Business Contact Number',
+        'Customer Status',
+        'Additional Info Type',
+        'Additional Info Value',
+      ];
+
+      // Create CSV rows - one row for primary data, additional rows for each extra item
+      const rows: string[][] = [];
+
+      customers.forEach((customer) => {
+        const baseFields = [
+          customer.id.toString(),
+          customer.date || '',
+          customer.customerName || '',
+          customer.phoneNumber || '',
+          customer.address || '',
+          customer.facebook || '',
+          customer.emailAddress || '',
+          customer.businessName || '',
+          customer.taxNumber || '',
+          customer.businessAddress || '',
+          customer.businessContactNumber || '',
+          customer.customerStatus || '',
+        ];
+
+        // Primary row (no additional info)
+        if (
+          customer.shopeeUsernames.length === 0 &&
+          customer.additionalAddresses.length === 0 &&
+          customer.additionalPhones.length === 0
+        ) {
+          rows.push([...baseFields, '', '']);
+        } else {
+          // Rows for Shopee usernames
+          customer.shopeeUsernames.forEach((username) => {
+            rows.push([...baseFields, 'Shopee Username', username]);
+          });
+
+          // Rows for additional addresses
+          customer.additionalAddresses.forEach((address) => {
+            rows.push([...baseFields, 'Additional Address', address]);
+          });
+
+          // Rows for additional phones
+          customer.additionalPhones.forEach((phone) => {
+            rows.push([...baseFields, 'Additional Phone', phone]);
+          });
+        }
+      });
+
+      // Escape and format rows
+      const formattedRows = rows.map((row) =>
+        row.map((field) => {
+          // Escape fields that contain commas, quotes, or newlines
+          if (
+            field.includes(',') ||
+            field.includes('"') ||
+            field.includes('\n')
+          ) {
+            return `"${field.replace(/"/g, '""')}"`;
+          }
+          return field;
+        })
+      );
+
+      // Combine header and rows
+      const csvContent = [
+        headers.join(','),
+        ...formattedRows.map((row) => row.join(',')),
+      ].join('\n');
+
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      URL.revokeObjectURL(url);
+
+      logger.info(
+        `Exported ${customers.length} customers (${rows.length} total rows) with duplicate rows format to ${filename}`
+      );
+    } catch (error) {
+      logger.error(
+        'Failed to export customers with duplicate rows format',
+        error
+      );
       throw error;
     }
   }
