@@ -415,7 +415,7 @@ export function useTransactionOperations(
               ) {
                 await Swal.fire({
                   icon: 'error',
-                  title: '🔴 Cannot Create Order',
+                  title: '🔴 Insufficient Quantity!',
                   text: stockInfo.message,
                   confirmButtonText: 'OK',
                   confirmButtonColor: '#fa5252',
@@ -620,7 +620,7 @@ export function useTransactionOperations(
               ) {
                 await Swal.fire({
                   icon: 'error',
-                  title: '🔴 Cannot Increase Quantity',
+                  title: '🔴 Insufficient Quantity!',
                   text: stockInfo.message,
                   confirmButtonText: 'OK',
                   confirmButtonColor: '#fa5252',
