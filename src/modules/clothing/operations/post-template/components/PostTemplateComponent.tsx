@@ -6,8 +6,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Stack, TextInput, Box, ActionIcon } from '@mantine/core';
-import { IconSearch, IconCopy } from '@tabler/icons-react';
+import { Stack, Select, ActionIcon } from '@mantine/core';
+import { IconCopy } from '@tabler/icons-react';
 import { Text, Paper } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 
@@ -29,15 +29,14 @@ interface Price {
 }
 
 export function PostTemplateComponent() {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedProductCode, setSelectedProductCode] = useState<string | null>(
+    null
+  );
   const [products, setProducts] = useState<Product[]>([]);
   const [prices, setPrices] = useState<Price[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     async function fetchData() {
-      setIsLoading(true);
       try {
         const [productsRes, pricesRes] = await Promise.all([
           fetch('/api/products'),
@@ -47,30 +46,22 @@ export function PostTemplateComponent() {
           productsRes.json(),
           pricesRes.json(),
         ]);
-        setProducts(Array.isArray(productsData) ? productsData : []);
-        setPrices(Array.isArray(pricesData) ? pricesData : []);
+        const validProducts = Array.isArray(productsData) ? productsData : [];
+        const validPrices = Array.isArray(pricesData) ? pricesData : [];
+
+        setProducts(validProducts);
+        setPrices(validPrices);
       } catch {
         setProducts([]);
         setPrices([]);
-      } finally {
-        setIsLoading(false);
       }
     }
     fetchData();
   }, []);
 
-  const filtered = searchQuery.trim()
-    ? products.filter((p) =>
-        (p['Product Code'] || '')
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase())
-      )
-    : [];
-
-  const handleSelectProduct = (product: Product) => {
-    setSelectedProduct(product);
-    setSearchQuery(product['Product Code'] || '');
-  };
+  // Find selected product based on product code
+  const selectedProduct =
+    products.find((p) => p['Product Code'] === selectedProductCode) || null;
 
   // Find all matching prices for selected product (multiple price tiers)
   const matchingPrices = selectedProduct
@@ -129,7 +120,7 @@ export function PostTemplateComponent() {
 
     const canvasText = `${headerText}
 
-${selectedProduct.Product || selectedProduct['Product Code']}
+${selectedProduct['Product Code']}
 
 Age Range: ${selectedProduct['Age Range'] || 'N/A'}
 
@@ -165,15 +156,19 @@ First-time buyers must provide the following details:
 
   return (
     <Stack gap="md">
-      <TextInput
-        placeholder="Search product codes..."
-        leftSection={<IconSearch size={16} />}
-        value={searchQuery}
-        onChange={(event) => {
-          setSearchQuery(event.currentTarget.value);
-          setSelectedProduct(null);
-        }}
+      <Select
+        placeholder="Select a product..."
+        data={products.map((p) => ({
+          value: p['Product Code'],
+          label: p['Product Code'],
+        }))}
+        value={selectedProductCode}
+        onChange={(value) => setSelectedProductCode(value)}
+        searchable
+        clearable
         size="md"
+        limit={1000}
+        maxDropdownHeight={400}
         styles={{
           input: {
             '&:focus': {
@@ -181,46 +176,8 @@ First-time buyers must provide the following details:
             },
           },
         }}
+        nothingFoundMessage="No products found"
       />
-      {isLoading ? (
-        <Text size="sm" c="dimmed">
-          Loading products...
-        </Text>
-      ) : filtered.length > 0 && !selectedProduct ? (
-        <Paper withBorder p="sm">
-          <Text size="sm" fw={500} mb="xs">
-            Matches:
-          </Text>
-          <Stack gap={2}>
-            {filtered.map((p) => (
-              <Box
-                key={p.id}
-                onClick={() => handleSelectProduct(p)}
-                style={{
-                  padding: '8px 12px',
-                  cursor: 'pointer',
-                  borderRadius: '4px',
-                  transition: 'background-color 0.2s',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#f1f3f5';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }}
-              >
-                <Text size="sm" c="#495057">
-                  {p['Product Code']}
-                </Text>
-              </Box>
-            ))}
-          </Stack>
-        </Paper>
-      ) : searchQuery.trim() && !selectedProduct ? (
-        <Text size="sm" c="dimmed">
-          No matches found.
-        </Text>
-      ) : null}
 
       {selectedProduct && (
         <>
@@ -266,7 +223,7 @@ First-time buyers must provide the following details:
 
               <Stack gap="xs" align="center">
                 <Text size="lg" fw={600} ta="center">
-                  {selectedProduct.Product || selectedProduct['Product Code']}
+                  {selectedProduct['Product Code']}
                 </Text>
 
                 <Text size="md" c="dimmed" ta="center">
