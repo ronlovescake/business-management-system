@@ -13,7 +13,15 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Group, Button, Tabs, SimpleGrid, Card, Text } from '@mantine/core';
+import {
+  Group,
+  Button,
+  Tabs,
+  SimpleGrid,
+  Card,
+  Text,
+  FileButton,
+} from '@mantine/core';
 import {
   IconPackage,
   IconCurrencyPeso,
@@ -26,6 +34,7 @@ import {
   IconHandStop,
   IconCheck,
   IconPlus,
+  IconUpload,
 } from '@tabler/icons-react';
 import type { Item } from '@glideapps/glide-data-grid';
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -42,6 +51,7 @@ import {
   COLUMN_ALIGNMENTS,
   ID_TO_KEY,
 } from '../types/shipment.types';
+import { operationsActionButtonStyles } from '../../common/buttonStyles';
 
 export function ShipmentsPage() {
   // ==========================================================================
@@ -212,7 +222,11 @@ export function ShipmentsPage() {
     await updateShipment(editingShipment.id, values, editingShipment);
   };
 
-  const handleCSVImportWrapper = async (file: File): Promise<void> => {
+  const handleCSVImportWrapper = async (file?: File | null): Promise<void> => {
+    if (!file) {
+      return;
+    }
+
     await handleCSVImport(file);
   };
 
@@ -293,21 +307,48 @@ export function ShipmentsPage() {
             onSearch={handleSearch}
             searchPlaceholder="Search shipments by code, CV number, status, or notes..."
             getCellContent={cellContentGetter}
-            enableCSVImport={true}
-            csvFile={csvFile}
-            onFileChange={setCsvFile}
-            onCSVImport={handleCSVImportWrapper}
+            enableCSVImport={false}
             footerLeft={`Showing ${filteredData.length} of ${shipments.length} shipments`}
             actionButtons={
-              <Group gap="sm">
+              <>
+                <FileButton
+                  accept=".csv"
+                  onChange={(uploadedFile) => setCsvFile(uploadedFile)}
+                >
+                  {(fileButtonProps) => (
+                    <Button
+                      {...fileButtonProps}
+                      leftSection={<IconUpload size={16} />}
+                      size="sm"
+                      radius="sm"
+                      styles={operationsActionButtonStyles}
+                    >
+                      {csvFile ? 'Change CSV File' : 'Select CSV File'}
+                    </Button>
+                  )}
+                </FileButton>
+                <Button
+                  onClick={() => {
+                    void handleCSVImportWrapper(csvFile);
+                  }}
+                  disabled={!csvFile}
+                  leftSection={<IconUpload size={16} />}
+                  size="sm"
+                  radius="sm"
+                  styles={operationsActionButtonStyles}
+                >
+                  Import CSV
+                </Button>
                 <Button
                   leftSection={<IconPlus size={16} />}
                   color="green"
+                  size="sm"
+                  radius="sm"
                   onClick={handleAddShipment}
                 >
                   Add Shipment
                 </Button>
-              </Group>
+              </>
             }
             enableClickableCursor={true}
             onCellClick={(cell, shipment) => {

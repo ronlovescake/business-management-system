@@ -18,6 +18,7 @@ import {
   IconDownload,
   IconPlus,
 } from '@tabler/icons-react';
+import { actionButtonStyles } from '@/components/shared/styles/actionButtonStyles';
 
 interface ExpenseControlsProps {
   activeTab: string | null;
@@ -92,13 +93,13 @@ export const ExpenseControls = memo(function ExpenseControls({
           </Tabs.List>
 
           <Tabs.Panel value="list" pt="md">
-            <Group>
+            <Group wrap="wrap" gap="sm">
               <TextInput
                 placeholder="Search expenses..."
                 leftSection={<IconSearch size={16} />}
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
-                style={{ flex: 1 }}
+                style={{ flex: 1, minWidth: 220 }}
               />
               <Select
                 placeholder="Filter by category"
@@ -125,8 +126,9 @@ export const ExpenseControls = memo(function ExpenseControls({
                   <Button
                     {...props}
                     leftSection={<IconUpload size={16} />}
-                    variant="light"
-                    color="blue"
+                    size="sm"
+                    radius="sm"
+                    styles={actionButtonStyles}
                     loading={isImporting}
                   >
                     Import CSV
@@ -135,14 +137,18 @@ export const ExpenseControls = memo(function ExpenseControls({
               </FileButton>
               <Button
                 leftSection={<IconDownload size={16} />}
-                variant="light"
-                color="teal"
+                size="sm"
+                radius="sm"
+                styles={actionButtonStyles}
                 onClick={onExportCSV}
               >
                 Export
               </Button>
               <Button
                 leftSection={<IconPlus size={16} />}
+                size="sm"
+                radius="sm"
+                color="green"
                 onClick={onAddExpense}
               >
                 Add Expense

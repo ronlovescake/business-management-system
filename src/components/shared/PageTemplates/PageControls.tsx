@@ -16,6 +16,7 @@ import {
   IconDownload,
   IconPlus,
 } from '@tabler/icons-react';
+import { actionButtonStyles } from '@/components/shared/styles/actionButtonStyles';
 
 export interface TabConfig {
   value: string;
@@ -100,14 +101,14 @@ export function PageControls({
   children,
 }: PageControlsProps) {
   const renderControls = () => (
-    <Group>
+    <Group wrap="wrap" gap="sm">
       {onSearchChange && (
         <TextInput
           placeholder={searchPlaceholder}
           leftSection={<IconSearch size={16} />}
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          style={{ flex: 1 }}
+          style={{ flex: 1, minWidth: 220 }}
         />
       )}
       {filters.map((filter) => (
@@ -127,8 +128,9 @@ export function PageControls({
             <Button
               {...props}
               leftSection={<IconUpload size={16} />}
-              variant="light"
-              color="blue"
+              size="sm"
+              radius="sm"
+              styles={actionButtonStyles}
               loading={isImporting}
             >
               Import CSV
@@ -139,15 +141,22 @@ export function PageControls({
       {onExportCSV && (
         <Button
           leftSection={<IconDownload size={16} />}
-          variant="light"
-          color="teal"
+          size="sm"
+          radius="sm"
+          styles={actionButtonStyles}
           onClick={onExportCSV}
         >
           Export
         </Button>
       )}
       {onAdd && (
-        <Button leftSection={<IconPlus size={16} />} onClick={onAdd}>
+        <Button
+          leftSection={<IconPlus size={16} />}
+          size="sm"
+          radius="sm"
+          color="green"
+          onClick={onAdd}
+        >
           {addButtonLabel}
         </Button>
       )}

@@ -18,6 +18,7 @@ import {
   IconDownload,
   IconPlus,
 } from '@tabler/icons-react';
+import { actionButtonStyles } from '@/components/shared/styles/actionButtonStyles';
 import { CalendarBulkActions } from './CalendarBulkActions';
 import type { EmployeeSummary, RecurringRule, ShiftType } from '../types';
 
@@ -158,8 +159,9 @@ export const ScheduleControls = memo(function ScheduleControls({
                     <Button
                       {...props}
                       leftSection={<IconUpload size={16} />}
-                      variant="light"
-                      color="blue"
+                      size="sm"
+                      radius="sm"
+                      styles={actionButtonStyles}
                       loading={isImporting}
                     >
                       Import CSV
@@ -168,14 +170,18 @@ export const ScheduleControls = memo(function ScheduleControls({
                 </FileButton>
                 <Button
                   leftSection={<IconDownload size={16} />}
-                  variant="light"
-                  color="teal"
+                  size="sm"
+                  radius="sm"
+                  styles={actionButtonStyles}
                   onClick={onExportCSV}
                 >
                   Export
                 </Button>
                 <Button
                   leftSection={<IconPlus size={16} />}
+                  size="sm"
+                  radius="sm"
+                  color="green"
                   onClick={handleAddScheduleClick}
                 >
                   Add Schedule

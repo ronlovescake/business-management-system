@@ -18,7 +18,7 @@ import {
   Group,
   TextInput,
   Button,
-  FileInput,
+  FileButton,
   Card,
   Text,
 } from '@mantine/core';
@@ -45,6 +45,7 @@ import { useProductsData } from '../hooks/useProductsData';
 import { useProductForm } from '../hooks/useProductForm';
 import { ProductStatsCards } from './ProductStatsCards';
 import { ProductService } from '../services/ProductService';
+import { operationsActionButtonStyles } from '../../common/buttonStyles';
 import type {
   ProductData,
   ProductColumnKey,
@@ -52,10 +53,16 @@ import type {
 } from '../types/product.types';
 
 // Lazy load heavy modal component
-const AddProductModal = dynamic(() => import('./AddProductModal').then(mod => ({ default: mod.AddProductModal })), {
-  ssr: false,
-  loading: () => null,
-});
+const AddProductModal = dynamic(
+  () =>
+    import('./AddProductModal').then((mod) => ({
+      default: mod.AddProductModal,
+    })),
+  {
+    ssr: false,
+    loading: () => null,
+  }
+);
 
 // Custom grid styles for 20px font
 const customGridStyles = `
@@ -733,23 +740,29 @@ export function ProductsPage() {
             >
               {pasteMode ? 'Disable Paste Mode' : 'Enable Paste Mode'}
             </Button>
-            <FileInput
-              placeholder="Select CSV file"
+            <FileButton
               accept=".csv"
-              value={file}
-              onChange={setFile}
-              leftSection={<IconUpload size={16} />}
-              size="md"
-              radius="md"
-              style={{ minWidth: 200 }}
-            />
+              onChange={(uploadedFile) => setFile(uploadedFile)}
+            >
+              {(fileButtonProps) => (
+                <Button
+                  {...fileButtonProps}
+                  leftSection={<IconUpload size={16} />}
+                  size="sm"
+                  radius="sm"
+                  styles={operationsActionButtonStyles}
+                >
+                  {file ? 'Change CSV File' : 'Select CSV File'}
+                </Button>
+              )}
+            </FileButton>
             <Button
               onClick={handleCSVImport}
               disabled={!file}
               leftSection={<IconUpload size={16} />}
-              size="md"
-              radius="md"
-              color="blue"
+              size="sm"
+              radius="sm"
+              styles={operationsActionButtonStyles}
             >
               Import CSV
             </Button>
@@ -757,8 +770,8 @@ export function ProductsPage() {
               leftSection={<IconPlus size={16} />}
               variant="filled"
               color="green"
-              size="md"
-              radius="md"
+              size="sm"
+              radius="sm"
               onClick={() => {
                 productForm.resetForm();
                 setAddProductOpen(true);

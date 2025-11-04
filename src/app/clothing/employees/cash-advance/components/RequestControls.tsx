@@ -6,6 +6,7 @@ import {
   IconFileDownload,
   IconPlus,
 } from '@tabler/icons-react';
+import { actionButtonStyles } from '@/components/shared/styles/actionButtonStyles';
 
 interface RequestControlsProps {
   searchQuery: string;
@@ -61,8 +62,9 @@ export const RequestControls = memo(function RequestControls({
               <Button
                 {...props}
                 leftSection={<IconFileUpload size={16} />}
-                variant="light"
-                color="blue"
+                size="sm"
+                radius="sm"
+                styles={actionButtonStyles}
               >
                 Import CSV
               </Button>
@@ -71,8 +73,9 @@ export const RequestControls = memo(function RequestControls({
 
           <Button
             leftSection={<IconFileDownload size={16} />}
-            variant="light"
-            color="blue"
+            size="sm"
+            radius="sm"
+            styles={actionButtonStyles}
             onClick={onExportCSV}
           >
             Export CSV
@@ -81,6 +84,8 @@ export const RequestControls = memo(function RequestControls({
 
         <Button
           leftSection={<IconPlus size={16} />}
+          size="sm"
+          radius="sm"
           onClick={onAddRequest}
           style={{ backgroundColor: '#85bd3a' }}
         >

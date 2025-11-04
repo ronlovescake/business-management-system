@@ -16,7 +16,7 @@ import {
   Text,
   Button,
   Group,
-  FileInput,
+  FileButton,
   TextInput,
   Card,
   Menu,
@@ -48,6 +48,7 @@ import { CustomerService } from '../services/CustomerService';
 import { useCustomersData } from '../hooks/useCustomersData';
 import { useCustomerForm } from '../hooks/useCustomerForm';
 import { CustomerStatsCards } from './CustomerStatsCards';
+import { operationsActionButtonStyles } from '../../common/buttonStyles';
 
 // Lazy load modal component
 const AddCustomerModal = dynamic(
@@ -547,10 +548,9 @@ export function CustomersPage() {
             <Menu shadow="md" width={280} position="bottom-end">
               <Menu.Target>
                 <Button
-                  leftSection={<IconDownload size={16} />}
-                  rightSection={<IconChevronDown size={16} />}
-                  variant="outline"
-                  color="green"
+                  leftSection={<IconDownload size={16} color="#ffffff" />}
+                  rightSection={<IconChevronDown size={16} color="#ffffff" />}
+                  styles={operationsActionButtonStyles}
                 >
                   Export CSV
                 </Button>
@@ -599,18 +599,25 @@ export function CustomersPage() {
                 </Menu.Item>
               </Menu.Dropdown>
             </Menu>
-            <FileInput
-              placeholder="Select CSV file"
+            <FileButton
               accept=".csv"
-              value={file}
-              onChange={setFile}
-              leftSection={<IconUpload size={16} />}
-              style={{ minWidth: 200 }}
-            />
+              onChange={(uploadedFile) => setFile(uploadedFile)}
+            >
+              {(fileButtonProps) => (
+                <Button
+                  {...fileButtonProps}
+                  leftSection={<IconUpload size={16} color="#ffffff" />}
+                  styles={operationsActionButtonStyles}
+                >
+                  {file ? 'Change CSV File' : 'Select CSV File'}
+                </Button>
+              )}
+            </FileButton>
             <Button
               onClick={() => handleImportCSV(file)}
               disabled={!file}
-              leftSection={<IconUpload size={16} />}
+              leftSection={<IconUpload size={16} color="#ffffff" />}
+              styles={operationsActionButtonStyles}
             >
               Import CSV
             </Button>

@@ -8,7 +8,7 @@ import {
   Button,
   Card,
   Text,
-  FileInput,
+  FileButton,
 } from '@mantine/core';
 import {
   IconSearch,
@@ -34,6 +34,7 @@ import { PriceService } from '../services/PriceService';
 import { PriceStatsCards } from './PriceStatsCards';
 import { AddPriceModal } from './AddPriceModal';
 import { EditPriceModal } from './EditPriceModal';
+import { operationsActionButtonStyles } from '../../common/buttonStyles';
 
 // Custom styles for grid
 const customGridStyles = `
@@ -614,20 +615,27 @@ export function PricesPage() {
               disabled={prices.length === 0}
               style={{ minWidth: 260 }}
             />
-            <FileInput
-              placeholder="Select CSV file"
+            <FileButton
               accept=".csv"
-              value={file}
-              onChange={setFile}
-              leftSection={<IconUpload size={16} />}
-              size="sm"
-              style={{ minWidth: 200 }}
-            />
+              onChange={(uploadedFile) => setFile(uploadedFile)}
+            >
+              {(fileButtonProps) => (
+                <Button
+                  {...fileButtonProps}
+                  leftSection={<IconUpload size={16} color="#ffffff" />}
+                  styles={operationsActionButtonStyles}
+                  size="sm"
+                >
+                  {file ? 'Change CSV File' : 'Select CSV File'}
+                </Button>
+              )}
+            </FileButton>
             <Button
               onClick={handleCSVImport}
               disabled={!file}
-              leftSection={<IconUpload size={16} />}
+              leftSection={<IconUpload size={16} color="#ffffff" />}
               size="sm"
+              styles={operationsActionButtonStyles}
             >
               Import CSV
             </Button>
