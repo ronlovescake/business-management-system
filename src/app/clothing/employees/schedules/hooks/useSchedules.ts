@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import Swal from 'sweetalert2';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
 import { queryKeys } from '@/lib/queryKeys';
@@ -882,7 +883,13 @@ export function useSchedules() {
         });
       } catch (error) {
         logger.error('Error saving generated schedules:', error);
-        alert('Failed to save schedules. Please try again.');
+        await Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Failed to save schedules. Please try again.',
+          confirmButtonColor: '#228be6',
+        });
+        throw error;
       }
     }
 

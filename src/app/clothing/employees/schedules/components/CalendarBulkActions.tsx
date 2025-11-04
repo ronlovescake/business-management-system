@@ -1,10 +1,7 @@
 import { useEffect, useMemo, useState, memo } from 'react';
 import {
-  ActionIcon,
-  Badge,
   Button,
   Card,
-  Divider,
   Group,
   Modal,
   Pill,
@@ -14,8 +11,8 @@ import {
   TextInput,
   Textarea,
 } from '@mantine/core';
-import { IconTrash } from '@tabler/icons-react';
-import { getActionLabel } from '@/lib/accessibility';
+import { DateInput } from '@mantine/dates';
+import Swal from 'sweetalert2';
 import type { EmployeeSummary, RecurringRule, ShiftType } from '../types';
 
 interface CalendarBulkActionsProps {
@@ -35,9 +32,9 @@ interface RecurringRuleDraft extends Omit<RecurringRule, 'id'> {
 }
 
 export const CalendarBulkActions = memo(function CalendarBulkActions({
-  recurringRules,
+  recurringRules: _recurringRules,
   onSaveRule,
-  onDeleteRule,
+  onDeleteRule: _onDeleteRule,
   employees,
   isLoadingEmployees,
   shiftConfig,
@@ -101,13 +98,34 @@ export const CalendarBulkActions = memo(function CalendarBulkActions({
     }));
   };
 
-  const handleSaveRule = () => {
+  const handleSaveRule = async () => {
     if (
       !ruleDraft.employeeId ||
       !ruleDraft.startDate ||
       ruleDraft.daysOfWeek.length === 0
     ) {
-      alert('Employee, start date, and at least one work day are required');
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Missing Information',
+        text: 'Employee, start date, and at least one work day are required',
+        confirmButtonColor: '#228be6',
+      });
+      return;
+    }
+
+    // Show confirmation dialog before saving
+    const result = await Swal.fire({
+      icon: 'question',
+      title: 'Save Schedules?',
+      text: `This will create schedules for ${ruleDraft.employeeName} starting from ${ruleDraft.startDate}`,
+      showCancelButton: true,
+      confirmButtonColor: '#228be6',
+      cancelButtonColor: '#868e96',
+      confirmButtonText: 'Yes, save schedules',
+      cancelButtonText: 'Cancel',
+    });
+
+    if (!result.isConfirmed) {
       return;
     }
 
@@ -118,36 +136,8 @@ export const CalendarBulkActions = memo(function CalendarBulkActions({
       ),
     };
 
-    onSaveRule(normalizedRule);
-    setRuleDraft({
-      employeeId: '',
-      employeeName: '',
-      position: '',
-      department: '',
-      shiftType: 'morning',
-      daysOfWeek: [1, 2, 3, 4, 5, 6],
-      startDate: '',
-      endDate: undefined,
-      break1: '',
-      lunch: '',
-      break2: '',
-      notes: '',
-      isStayIn: false,
-      id: undefined,
-    });
-    alert('Recurring rule saved');
-  };
-
-  const handleEditRule = (rule: RecurringRule) => {
-    setRuleDraft({ ...rule });
-  };
-
-  const handleDeleteRule = (ruleId: string) => {
-    if (!confirm('Delete this recurring rule?')) {
-      return;
-    }
-    onDeleteRule(ruleId);
-    if (ruleDraft.id === ruleId) {
+    try {
+      await onSaveRule(normalizedRule);
       setRuleDraft({
         employeeId: '',
         employeeName: '',
@@ -164,6 +154,21 @@ export const CalendarBulkActions = memo(function CalendarBulkActions({
         isStayIn: false,
         id: undefined,
       });
+
+      // Close the modal
+      setRuleModalOpen(false);
+
+      // Show success message
+      await Swal.fire({
+        icon: 'success',
+        title: 'Success!',
+        text: 'Schedules saved successfully',
+        confirmButtonColor: '#228be6',
+        confirmButtonText: 'OK',
+      });
+    } catch (error) {
+      // Error is already handled by the hook with SweetAlert
+      return;
     }
   };
 
@@ -174,6 +179,7 @@ export const CalendarBulkActions = memo(function CalendarBulkActions({
         onClose={() => setRuleModalOpen(false)}
         title="Add Schedule"
         size="xl"
+        centered
       >
         <Stack gap="md">
           <Card withBorder radius="md">
@@ -310,31 +316,37 @@ export const CalendarBulkActions = memo(function CalendarBulkActions({
               </Stack>
 
               <Group grow>
-                <TextInput
+                <DateInput
                   label="Start date"
-                  type="date"
-                  value={ruleDraft.startDate}
-                  onChange={(event) =>
+                  placeholder="mm/dd/yyyy"
+                  value={
+                    ruleDraft.startDate ? new Date(ruleDraft.startDate) : null
+                  }
+                  onChange={(date) =>
                     setRuleDraft((prev) => ({
                       ...prev,
-                      startDate: event.target.value,
+                      startDate: date ? date.toISOString().split('T')[0] : '',
                     }))
                   }
                   withAsterisk
+                  valueFormat="MM/DD/YYYY"
+                  clearable
                 />
-                <TextInput
+                <DateInput
                   label="End date"
-                  type="date"
-                  value={ruleDraft.endDate || ''}
-                  onChange={(event) =>
+                  placeholder="mm/dd/yyyy"
+                  value={ruleDraft.endDate ? new Date(ruleDraft.endDate) : null}
+                  onChange={(date) =>
                     setRuleDraft((prev) => ({
                       ...prev,
-                      endDate: event.target.value
-                        ? event.target.value
+                      endDate: date
+                        ? date.toISOString().split('T')[0]
                         : undefined,
                     }))
                   }
                   description="Leave empty to build the next 3 months."
+                  valueFormat="MM/DD/YYYY"
+                  clearable
                 />
               </Group>
 
@@ -378,65 +390,6 @@ export const CalendarBulkActions = memo(function CalendarBulkActions({
               </Group>
             </Stack>
           </Card>
-
-          <Divider label="Existing rules" labelPosition="left" />
-
-          <Stack gap="sm">
-            {recurringRules.length === 0 && (
-              <Text size="sm" c="dimmed">
-                No recurring rules yet.
-              </Text>
-            )}
-
-            {recurringRules.map((rule) => (
-              <Card key={rule.id} withBorder shadow="sm">
-                <Group justify="space-between" align="flex-start">
-                  <Stack gap={4}>
-                    <Text fw={600}>{rule.employeeName}</Text>
-                    <Text size="sm" c="dimmed">
-                      {rule.position} · {rule.department}
-                    </Text>
-                    <Group gap={6}>
-                      {rule.daysOfWeek.map((day) => (
-                        <Badge key={day} variant="light">
-                          {dayLabels[day]}
-                        </Badge>
-                      ))}
-                    </Group>
-                    <Text size="sm">
-                      {rule.shiftType.toUpperCase()} · {rule.startDate}
-                      {rule.endDate ? ` → ${rule.endDate}` : ' · ongoing'}
-                    </Text>
-                    {rule.notes && (
-                      <Text size="sm" c="dimmed">
-                        Notes: {rule.notes}
-                      </Text>
-                    )}
-                  </Stack>
-                  <Group gap="xs">
-                    <Button
-                      variant="light"
-                      onClick={() => handleEditRule(rule)}
-                    >
-                      Edit
-                    </Button>
-                    <ActionIcon
-                      color="red"
-                      variant="subtle"
-                      onClick={() => handleDeleteRule(rule.id)}
-                      {...getActionLabel(
-                        'Delete',
-                        'recurring schedule rule',
-                        `${rule.employeeName} - ${rule.shiftType}`
-                      )}
-                    >
-                      <IconTrash size={16} />
-                    </ActionIcon>
-                  </Group>
-                </Group>
-              </Card>
-            ))}
-          </Stack>
         </Stack>
       </Modal>
     </>

@@ -414,7 +414,10 @@ export async function POST(request: NextRequest) {
 
     const ids = createInputs.map((input) => input.id);
 
-    await prisma.schedule.createMany({ data: createInputs });
+    await prisma.schedule.createMany({
+      data: createInputs,
+      skipDuplicates: true,
+    });
 
     const created = await scheduleDelegate.findMany({
       where: { id: { in: ids }, deletedAt: null },
