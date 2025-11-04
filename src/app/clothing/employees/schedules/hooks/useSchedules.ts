@@ -362,7 +362,11 @@ export function useSchedules() {
     }
   };
 
-  const calculateDuration = (startTime: string, endTime: string): number => {
+  const calculateDuration = (
+    startTime: string,
+    endTime: string,
+    hasLunch?: boolean
+  ): number => {
     if (!startTime || !endTime) {
       return 0;
     }
@@ -372,7 +376,12 @@ export function useSchedules() {
       return 0;
     }
 
-    return Math.max(0, (range.end - range.start) / 60);
+    const totalHours = (range.end - range.start) / 60;
+
+    // Deduct 1 hour if lunch break exists
+    const workingHours = hasLunch ? totalHours - 1 : totalHours;
+
+    return Math.max(0, workingHours);
   };
 
   const hasScheduleOverlap = (
@@ -827,6 +836,9 @@ export function useSchedules() {
             date: dateStr,
             shiftType,
             startTime: defaults.start,
+            break1: rule.break1,
+            lunch: rule.lunch,
+            break2: rule.break2,
             endTime: defaults.end,
             position: rule.position,
             department: rule.department,
@@ -844,7 +856,7 @@ export function useSchedules() {
     return schedulesForRule;
   };
 
-  const upsertRecurringRule = (
+  const upsertRecurringRule = async (
     rule: Omit<RecurringRule, 'id'> & { id?: string }
   ) => {
     const ruleId = rule.id || generateId();
@@ -858,9 +870,21 @@ export function useSchedules() {
       return [...prev, normalizedRule];
     });
 
-    // This would need to be refactored to use mutations for proper React Query integration
-    // For now, keeping the local state logic
-    queryClient.invalidateQueries({ queryKey: queryKeys.schedules.lists() });
+    // Generate schedules for this rule
+    const generatedSchedules = _generateSchedulesForRule(normalizedRule, {});
+
+    // Save schedules to database
+    if (generatedSchedules.length > 0) {
+      try {
+        await api.post('/api/schedules', generatedSchedules);
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.schedules.lists(),
+        });
+      } catch (error) {
+        logger.error('Error saving generated schedules:', error);
+        alert('Failed to save schedules. Please try again.');
+      }
+    }
 
     return ruleId;
   };

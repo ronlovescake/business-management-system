@@ -38,6 +38,30 @@ export const scheduleSchema = z.object({
     .string()
     .trim()
     .regex(timeRegex, 'Start time must be in HH:MM format'),
+  break1: z
+    .union([
+      z.string().trim().regex(timeRegex, 'Break 1 must be in HH:MM format'),
+      z.literal(''),
+    ])
+    .optional()
+    .nullable()
+    .transform((val) => (val === '' ? null : val)),
+  lunch: z
+    .union([
+      z.string().trim().regex(timeRegex, 'Lunch must be in HH:MM format'),
+      z.literal(''),
+    ])
+    .optional()
+    .nullable()
+    .transform((val) => (val === '' ? null : val)),
+  break2: z
+    .union([
+      z.string().trim().regex(timeRegex, 'Break 2 must be in HH:MM format'),
+      z.literal(''),
+    ])
+    .optional()
+    .nullable()
+    .transform((val) => (val === '' ? null : val)),
   endTime: z
     .string()
     .trim()

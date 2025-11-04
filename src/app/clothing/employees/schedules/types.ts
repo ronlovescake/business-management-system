@@ -8,6 +8,9 @@ export interface Schedule {
   date: string;
   shiftType: ShiftType;
   startTime: string;
+  break1?: string;
+  lunch?: string;
+  break2?: string;
   endTime: string;
   position: string;
   department: string;
@@ -29,6 +32,9 @@ export interface RecurringRule {
   daysOfWeek: number[]; // 0 = Sunday
   startDate: string;
   endDate?: string;
+  break1?: string;
+  lunch?: string;
+  break2?: string;
   notes?: string;
   isStayIn?: boolean;
 }

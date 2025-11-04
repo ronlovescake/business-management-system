@@ -23,6 +23,9 @@ type ScheduleCreateInput = {
   date: string;
   shiftType: string;
   startTime: string;
+  break1?: string | null;
+  lunch?: string | null;
+  break2?: string | null;
   endTime: string;
   position: string;
   department: string;
@@ -54,6 +57,9 @@ type ScheduleResponse = {
   date: string;
   shiftType: string;
   startTime: string;
+  break1?: string;
+  lunch?: string;
+  break2?: string;
   endTime: string;
   position: string;
   department: string;
@@ -129,6 +135,9 @@ const toCreateInput = (payload: SchedulePayload): ScheduleCreateInput => {
     date,
     shiftType: normalizeShiftType(payload.shiftType),
     startTime,
+    break1: parseOptionalString(payload.break1) ?? null,
+    lunch: parseOptionalString(payload.lunch) ?? null,
+    break2: parseOptionalString(payload.break2) ?? null,
     endTime,
     position,
     department,
@@ -158,6 +167,15 @@ const toUpdateInput = (payload: SchedulePayload): ScheduleUpdateInput => {
   }
   if (payload.startTime !== undefined) {
     data.startTime = parseString(payload.startTime);
+  }
+  if (payload.break1 !== undefined) {
+    data.break1 = parseOptionalString(payload.break1) ?? null;
+  }
+  if (payload.lunch !== undefined) {
+    data.lunch = parseOptionalString(payload.lunch) ?? null;
+  }
+  if (payload.break2 !== undefined) {
+    data.break2 = parseOptionalString(payload.break2) ?? null;
   }
   if (payload.endTime !== undefined) {
     data.endTime = parseString(payload.endTime);
@@ -197,6 +215,9 @@ const mapScheduleToResponse = (schedule: ScheduleEntity): ScheduleResponse => ({
   date: schedule.date,
   shiftType: schedule.shiftType,
   startTime: schedule.startTime,
+  break1: schedule.break1 ?? undefined,
+  lunch: schedule.lunch ?? undefined,
+  break2: schedule.break2 ?? undefined,
   endTime: schedule.endTime,
   position: schedule.position,
   department: schedule.department,
@@ -250,6 +271,9 @@ export async function GET() {
         date: true,
         shiftType: true,
         startTime: true,
+        break1: true,
+        lunch: true,
+        break2: true,
         endTime: true,
         position: true,
         department: true,

@@ -26,7 +26,11 @@ interface ScheduleListTableProps {
   formatTime: (time: string) => string;
   getStatusColor: (status: ScheduleStatus) => string;
   getShiftTypeColor: (shiftType: ShiftType) => string;
-  calculateDuration: (startTime: string, endTime: string) => number;
+  calculateDuration: (
+    startTime: string,
+    endTime: string,
+    hasLunch?: boolean
+  ) => number;
   getEmployeeLeaveForDate: (
     employeeId: string,
     date: string
@@ -124,6 +128,36 @@ export const ScheduleListTable = memo(function ScheduleListTable({
                     textAlign: 'center',
                   }}
                 >
+                  BREAK 1
+                </Table.Th>
+                <Table.Th
+                  style={{
+                    padding: '16px 12px',
+                    color: '#495057',
+                    backgroundColor: '#f1f3f5',
+                    textAlign: 'center',
+                  }}
+                >
+                  LUNCH
+                </Table.Th>
+                <Table.Th
+                  style={{
+                    padding: '16px 12px',
+                    color: '#495057',
+                    backgroundColor: '#f1f3f5',
+                    textAlign: 'center',
+                  }}
+                >
+                  BREAK 2
+                </Table.Th>
+                <Table.Th
+                  style={{
+                    padding: '16px 12px',
+                    color: '#495057',
+                    backgroundColor: '#f1f3f5',
+                    textAlign: 'center',
+                  }}
+                >
                   END TIME
                 </Table.Th>
                 <Table.Th
@@ -182,7 +216,7 @@ export const ScheduleListTable = memo(function ScheduleListTable({
             <Table.Tbody>
               {schedules.length === 0 ? (
                 <Table.Tr>
-                  <Table.Td colSpan={10} style={{ textAlign: 'center' }}>
+                  <Table.Td colSpan={13} style={{ textAlign: 'center' }}>
                     <Text c="dimmed" size="sm" py="xl">
                       No schedules found
                     </Text>
@@ -197,7 +231,7 @@ export const ScheduleListTable = memo(function ScheduleListTable({
 
                   return (
                     <Table.Tr key={schedule.id}>
-                      <Table.Td>
+                      <Table.Td style={{ textAlign: 'center' }}>
                         <Text size="sm" fw={500}>
                           {formatDate(schedule.date)}
                         </Text>
@@ -212,7 +246,7 @@ export const ScheduleListTable = memo(function ScheduleListTable({
                           </Text>
                         </div>
                       </Table.Td>
-                      <Table.Td>
+                      <Table.Td style={{ textAlign: 'center' }}>
                         <Badge
                           color={getShiftTypeColor(schedule.shiftType)}
                           variant="light"
@@ -222,17 +256,33 @@ export const ScheduleListTable = memo(function ScheduleListTable({
                           {schedule.shiftType.replace('-', ' ')}
                         </Badge>
                       </Table.Td>
-                      <Table.Td>
+                      <Table.Td style={{ textAlign: 'center' }}>
                         <Text size="sm">{formatTime(schedule.startTime)}</Text>
                       </Table.Td>
-                      <Table.Td>
+                      <Table.Td style={{ textAlign: 'center' }}>
+                        <Text size="sm">
+                          {schedule.break1 ? formatTime(schedule.break1) : '—'}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'center' }}>
+                        <Text size="sm">
+                          {schedule.lunch ? formatTime(schedule.lunch) : '—'}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'center' }}>
+                        <Text size="sm">
+                          {schedule.break2 ? formatTime(schedule.break2) : '—'}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'center' }}>
                         <Text size="sm">{formatTime(schedule.endTime)}</Text>
                       </Table.Td>
-                      <Table.Td>
+                      <Table.Td style={{ textAlign: 'center' }}>
                         <Text size="sm" fw={500}>
                           {calculateDuration(
                             schedule.startTime,
-                            schedule.endTime
+                            schedule.endTime,
+                            !!schedule.lunch
                           ).toFixed(1)}
                           h
                         </Text>
@@ -245,7 +295,7 @@ export const ScheduleListTable = memo(function ScheduleListTable({
                           </Text>
                         </div>
                       </Table.Td>
-                      <Table.Td>
+                      <Table.Td style={{ textAlign: 'center' }}>
                         <Stack gap={4}>
                           <Badge
                             color={getStatusColor(schedule.status)}
@@ -272,11 +322,15 @@ export const ScheduleListTable = memo(function ScheduleListTable({
                           {schedule.notes || '—'}
                         </Text>
                       </Table.Td>
-                      <Table.Td>
+                      <Table.Td style={{ textAlign: 'center' }}>
                         <Group gap={4} justify="center">
                           <Menu position="bottom-end" withinPortal>
                             <Menu.Target>
-                              <ActionIcon variant="subtle" color="gray" {...getIconButtonLabel('Schedule actions menu')}>
+                              <ActionIcon
+                                variant="subtle"
+                                color="gray"
+                                {...getIconButtonLabel('Schedule actions menu')}
+                              >
                                 <IconDots size={16} />
                               </ActionIcon>
                             </Menu.Target>

@@ -55,6 +55,9 @@ export const CalendarBulkActions = memo(function CalendarBulkActions({
     daysOfWeek: [1, 2, 3, 4, 5, 6],
     startDate: '',
     endDate: undefined,
+    break1: '',
+    lunch: '',
+    break2: '',
     notes: '',
     isStayIn: false,
   });
@@ -125,6 +128,9 @@ export const CalendarBulkActions = memo(function CalendarBulkActions({
       daysOfWeek: [1, 2, 3, 4, 5, 6],
       startDate: '',
       endDate: undefined,
+      break1: '',
+      lunch: '',
+      break2: '',
       notes: '',
       isStayIn: false,
       id: undefined,
@@ -151,6 +157,9 @@ export const CalendarBulkActions = memo(function CalendarBulkActions({
         daysOfWeek: [1, 2, 3, 4, 5, 6],
         startDate: '',
         endDate: undefined,
+        break1: '',
+        lunch: '',
+        break2: '',
         notes: '',
         isStayIn: false,
         id: undefined,
@@ -198,6 +207,45 @@ export const CalendarBulkActions = memo(function CalendarBulkActions({
                   }
                   disabled={ruleDraft.isStayIn}
                   withAsterisk
+                />
+              </Group>
+
+              <Group grow>
+                <TextInput
+                  label="Break 1"
+                  type="time"
+                  value={ruleDraft.break1 || ''}
+                  onChange={(event) =>
+                    setRuleDraft((prev) => ({
+                      ...prev,
+                      break1: event.target.value,
+                    }))
+                  }
+                  placeholder="HH:MM"
+                />
+                <TextInput
+                  label="Lunch"
+                  type="time"
+                  value={ruleDraft.lunch || ''}
+                  onChange={(event) =>
+                    setRuleDraft((prev) => ({
+                      ...prev,
+                      lunch: event.target.value,
+                    }))
+                  }
+                  placeholder="HH:MM"
+                />
+                <TextInput
+                  label="Break 2"
+                  type="time"
+                  value={ruleDraft.break2 || ''}
+                  onChange={(event) =>
+                    setRuleDraft((prev) => ({
+                      ...prev,
+                      break2: event.target.value,
+                    }))
+                  }
+                  placeholder="HH:MM"
                 />
               </Group>
 
@@ -315,6 +363,9 @@ export const CalendarBulkActions = memo(function CalendarBulkActions({
                       daysOfWeek: [1, 2, 3, 4, 5, 6],
                       startDate: '',
                       endDate: undefined,
+                      break1: '',
+                      lunch: '',
+                      break2: '',
                       notes: '',
                       isStayIn: false,
                       id: undefined,
@@ -323,7 +374,7 @@ export const CalendarBulkActions = memo(function CalendarBulkActions({
                 >
                   Reset
                 </Button>
-                <Button onClick={handleSaveRule}>Save Rule</Button>
+                <Button onClick={handleSaveRule}>ADD SCHEDULE</Button>
               </Group>
             </Stack>
           </Card>
@@ -373,7 +424,11 @@ export const CalendarBulkActions = memo(function CalendarBulkActions({
                       color="red"
                       variant="subtle"
                       onClick={() => handleDeleteRule(rule.id)}
-                      {...getActionLabel('Delete', 'recurring schedule rule', `${rule.employeeName} - ${rule.shiftType}`)}
+                      {...getActionLabel(
+                        'Delete',
+                        'recurring schedule rule',
+                        `${rule.employeeName} - ${rule.shiftType}`
+                      )}
                     >
                       <IconTrash size={16} />
                     </ActionIcon>
