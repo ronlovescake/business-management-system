@@ -19,6 +19,7 @@ import {
   IconPlus,
 } from '@tabler/icons-react';
 import { actionButtonStyles } from '@/components/shared/styles/actionButtonStyles';
+import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
 
 interface ExpenseControlsProps {
   activeTab: string | null;
@@ -56,6 +57,11 @@ export const ExpenseControls = memo(function ExpenseControls({
   onAddExpense,
   isImporting,
 }: ExpenseControlsProps) {
+  useCtrlFFocus(
+    '[data-ctrlf-target="expense-controls-search"]',
+    activeTab === 'list'
+  );
+
   return (
     <Card
       padding="lg"
@@ -100,6 +106,7 @@ export const ExpenseControls = memo(function ExpenseControls({
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
                 style={{ flex: 1, minWidth: 220 }}
+                data-ctrlf-target="expense-controls-search"
               />
               <Select
                 placeholder="Filter by category"

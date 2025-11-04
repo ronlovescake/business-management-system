@@ -21,6 +21,7 @@ import {
 import { actionButtonStyles } from '@/components/shared/styles/actionButtonStyles';
 import { CalendarBulkActions } from './CalendarBulkActions';
 import type { EmployeeSummary, RecurringRule, ShiftType } from '../types';
+import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
 
 interface ScheduleControlsProps {
   activeTab: string | null;
@@ -74,6 +75,11 @@ export const ScheduleControls = memo(function ScheduleControls({
 }: ScheduleControlsProps) {
   const [openRecurringRulesModal, setOpenRecurringRulesModal] = useState(false);
 
+  useCtrlFFocus(
+    '[data-ctrlf-target="schedule-controls-search"]',
+    activeTab === 'list'
+  );
+
   const handleAddScheduleClick = () => {
     setOpenRecurringRulesModal(true);
   };
@@ -120,6 +126,7 @@ export const ScheduleControls = memo(function ScheduleControls({
                   value={searchQuery}
                   onChange={(e) => onSearchChange(e.target.value)}
                   style={{ flex: 1, minWidth: '220px' }}
+                  data-ctrlf-target="schedule-controls-search"
                 />
                 <Select
                   placeholder="Filter by shift type"

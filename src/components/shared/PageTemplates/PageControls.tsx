@@ -17,6 +17,7 @@ import {
   IconPlus,
 } from '@tabler/icons-react';
 import { actionButtonStyles } from '@/components/shared/styles/actionButtonStyles';
+import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
 
 export interface TabConfig {
   value: string;
@@ -100,6 +101,11 @@ export function PageControls({
   isImporting = false,
   children,
 }: PageControlsProps) {
+  useCtrlFFocus(
+    '[data-ctrlf-target="page-controls-search"]',
+    Boolean(onSearchChange)
+  );
+
   const renderControls = () => (
     <Group wrap="wrap" gap="sm">
       {onSearchChange && (
@@ -109,6 +115,7 @@ export function PageControls({
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           style={{ flex: 1, minWidth: 220 }}
+          data-ctrlf-target="page-controls-search"
         />
       )}
       {filters.map((filter) => (
