@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState, useId } from 'react';
 import type { ReactNode } from 'react';
 import type { GridColumn, Item, GridCell } from '@glideapps/glide-data-grid';
 import {
@@ -20,6 +20,7 @@ import { IconUpload, IconSearch } from '@tabler/icons-react';
 import { GridView } from '../grid';
 import { throttle } from '../../lib/performance';
 import { logger } from '@/lib/logger';
+import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
 
 // Types for DrawHeader callback
 interface DrawHeaderArgs {
@@ -166,8 +167,9 @@ export function DataTable<T = Record<string, unknown>>({
   enableClickableCursor = false,
   className = '',
 }: DataTableProps<T>) {
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const [currentGridHeight, setCurrentGridHeight] = useState<number>(600);
+  const ctrlFId = useId();
+  const searchTarget = `data-table-search-${ctrlFId.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
 
   // Set grid height to 79vh by default (customized from previous 77vh)
   // 🚀 PERFORMANCE: Throttle resize events to prevent excessive re-renders
@@ -195,27 +197,7 @@ export function DataTable<T = Record<string, unknown>>({
   }, [gridHeight]);
 
   // Handle Ctrl+F to focus search bar
-  useEffect(() => {
-    if (!enableCtrlF) {
-      return;
-    }
-
-    // SSR guard: Only run in browser environment
-    if (typeof document === 'undefined') {
-      return;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
-        event.preventDefault(); // Prevent browser's find dialog
-        searchInputRef.current?.focus();
-        searchInputRef.current?.select(); // Select existing text if any
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [enableCtrlF]);
+  useCtrlFFocus(`[data-ctrlf-target="${searchTarget}"]`, enableCtrlF);
 
   // Custom header drawing function
   const drawHeader = useCallback((args: DrawHeaderArgs) => {
@@ -340,7 +322,6 @@ export function DataTable<T = Record<string, unknown>>({
         <Group justify="space-between" align="flex-end" wrap="wrap" gap="md">
           <Group gap="md" style={{ flex: 1 }}>
             <TextInput
-              ref={searchInputRef}
               placeholder={
                 enableCtrlF
                   ? `${searchPlaceholder} (Ctrl+F)`
@@ -363,6 +344,7 @@ export function DataTable<T = Record<string, unknown>>({
               }}
               size="md"
               radius="md"
+              data-ctrlf-target={searchTarget}
             />
             {searchRightButtons}
           </Group>

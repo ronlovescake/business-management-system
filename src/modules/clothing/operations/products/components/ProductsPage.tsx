@@ -51,6 +51,7 @@ import type {
   ProductColumnKey,
   GridCellWithCursor,
 } from '../types/product.types';
+import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
 
 // Lazy load heavy modal component
 const AddProductModal = dynamic(
@@ -96,7 +97,6 @@ export function ProductsPage() {
   const [file, setFile] = useState<File | null>(null);
   const [addProductOpen, setAddProductOpen] = useState(false);
   const [gridHeight, setGridHeight] = useState(600); // Default height, will update in useEffect
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const lastClickRef = useRef<{ cell: Item; time: number } | null>(null);
   const cellContentCache = useRef<Map<string, GridCellWithCursor>>(new Map());
 
@@ -616,26 +616,7 @@ export function ProductsPage() {
     };
   }, []);
 
-  /**
-   * Handle Ctrl+F to focus search bar
-   */
-  useEffect(() => {
-    // SSR guard: Only run in browser environment
-    if (typeof document === 'undefined') {
-      return;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
-        event.preventDefault();
-        searchInputRef.current?.focus();
-        searchInputRef.current?.select();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  useCtrlFFocus('[data-ctrlf-target="products-search-input"]', !isLoading);
 
   /**
    * Handle product form submission
@@ -720,7 +701,6 @@ export function ProductsPage() {
         {/* Search and controls */}
         <Group justify="space-between" align="flex-end" wrap="wrap" gap="md">
           <TextInput
-            ref={searchInputRef}
             placeholder="Search products by code, name, shipment code..."
             leftSection={<IconSearch size={16} />}
             value={searchQuery}
@@ -728,6 +708,7 @@ export function ProductsPage() {
             style={{ flex: 1, minWidth: 300 }}
             size="md"
             radius="md"
+            data-ctrlf-target="products-search-input"
           />
 
           <Group gap="sm">

@@ -28,6 +28,7 @@ import { useState, useMemo, useCallback, memo } from 'react';
 import { useDueDateData } from '../hooks/useDueDateData';
 import { DueDateService } from '../services/DueDateService';
 import type { DueDateItem } from '../types/dueDate.types';
+import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
 
 // Memoized table row component for performance
 const DueDateRow = memo(
@@ -132,6 +133,8 @@ export function DueDatesPage() {
     [filteredItems, handleCustomerDoubleClick]
   );
 
+  useCtrlFFocus('[data-ctrlf-target="due-dates-search-input"]', true);
+
   // Show loading state (IDENTICAL to original!)
   if (isLoading) {
     return (
@@ -159,6 +162,7 @@ export function DueDatesPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.currentTarget.value)}
               style={{ width: 300 }}
+              data-ctrlf-target="due-dates-search-input"
             />
             <Select
               placeholder="Filter by status"
@@ -249,7 +253,9 @@ export function DueDatesPage() {
           </Table.Thead>
           <Table.Tbody>
             {customerOrders.map((order) => (
-              <Table.Tr key={`${order['Product Code']}-${order['Order Date']}-${order['Invoice Date']}`}>
+              <Table.Tr
+                key={`${order['Product Code']}-${order['Order Date']}-${order['Invoice Date']}`}
+              >
                 <Table.Td>
                   <Text size="sm">
                     {DueDateService.formatDate(order['Order Date'] || '')}

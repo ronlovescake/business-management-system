@@ -49,6 +49,7 @@ import { useCustomersData } from '../hooks/useCustomersData';
 import { useCustomerForm } from '../hooks/useCustomerForm';
 import { CustomerStatsCards } from './CustomerStatsCards';
 import { operationsActionButtonStyles } from '../../common/buttonStyles';
+import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
 
 // Lazy load modal component
 const AddCustomerModal = dynamic(
@@ -118,7 +119,6 @@ const customGridStyles = `
 export function CustomersPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const lastClickRef = useRef<{ cell: Item; time: number } | null>(null);
 
   // Custom hooks
@@ -164,21 +164,7 @@ export function CustomersPage() {
     };
   }, []);
 
-  // Handle Ctrl+F to focus search input
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
-        event.preventDefault();
-        searchInputRef.current?.focus();
-        searchInputRef.current?.select();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, []);
+  useCtrlFFocus('[data-ctrlf-target="customers-search-input"]', true);
 
   // Customer columns
   const columns: GridColumn[] = useMemo(
@@ -523,7 +509,6 @@ export function CustomersPage() {
         <Group justify="space-between" align="flex-end" wrap="wrap" gap="md">
           <Group gap="md" style={{ flex: 1 }}>
             <TextInput
-              ref={searchInputRef}
               placeholder={'Search customers... (Ctrl+F)'}
               leftSection={<IconSearch size={16} />}
               value={searchQuery}
@@ -541,6 +526,7 @@ export function CustomersPage() {
                   },
                 },
               }}
+              data-ctrlf-target="customers-search-input"
             />
           </Group>
 

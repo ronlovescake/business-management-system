@@ -30,6 +30,10 @@ export function useCtrlFFocus(selector: string, enabled: boolean): void {
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) {
+        return;
+      }
+
       if (!(event.ctrlKey || event.metaKey)) {
         return;
       }

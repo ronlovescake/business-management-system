@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import {
   Stack,
   Card,
@@ -17,6 +17,7 @@ import {
   IconDownload,
   IconPlus,
 } from '@tabler/icons-react';
+import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
 
 /**
  * Standard table styling constants
@@ -225,6 +226,11 @@ interface StandardTableControlsProps {
    * @default ".csv,text/csv"
    */
   acceptFileTypes?: string;
+
+  /**
+   * Optional: Enable Ctrl+F focus behavior for the search input
+   */
+  enableCtrlF?: boolean;
 }
 
 export function StandardTableControls({
@@ -239,8 +245,15 @@ export function StandardTableControls({
   hideAddNew = false,
   hideSearch = false,
   acceptFileTypes = '.csv,text/csv',
+  enableCtrlF = true,
 }: StandardTableControlsProps) {
   const [searchValue, setSearchValue] = useState('');
+  const ctrlFId = useId();
+  const searchTarget = `standard-table-search-${ctrlFId.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+
+  const ctrlFFocusEnabled = enableCtrlF && !hideSearch;
+
+  useCtrlFFocus(`[data-ctrlf-target="${searchTarget}"]`, ctrlFFocusEnabled);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -252,11 +265,16 @@ export function StandardTableControls({
     <Group justify="space-between" wrap="wrap">
       {!hideSearch && (
         <TextInput
-          placeholder={searchPlaceholder}
+          placeholder={
+            ctrlFFocusEnabled
+              ? `${searchPlaceholder} (Ctrl+F)`
+              : searchPlaceholder
+          }
           leftSection={<IconSearch size={16} />}
           value={searchValue}
           onChange={handleSearchChange}
           style={{ flex: 1 }}
+          data-ctrlf-target={searchTarget}
         />
       )}
       <Group gap="sm">

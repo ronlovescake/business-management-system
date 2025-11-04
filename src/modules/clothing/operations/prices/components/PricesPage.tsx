@@ -35,6 +35,7 @@ import { PriceStatsCards } from './PriceStatsCards';
 import { AddPriceModal } from './AddPriceModal';
 import { EditPriceModal } from './EditPriceModal';
 import { operationsActionButtonStyles } from '../../common/buttonStyles';
+import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
 
 // Custom styles for grid
 const customGridStyles = `
@@ -316,7 +317,6 @@ export function PricesPage() {
   const [gridHeight, setGridHeight] = useState(
     typeof window !== 'undefined' ? window.innerHeight * 0.85 : 600
   );
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const lastClickRef = useRef<{ cell: Item; time: number } | null>(null);
 
   // Memoize columns array to prevent recreation
@@ -348,18 +348,7 @@ export function PricesPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, [handleResize]);
 
-  // Ctrl+F focus handler
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-        e.preventDefault();
-        searchInputRef.current?.focus();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  useCtrlFFocus('[data-ctrlf-target="prices-search-input"]', !isLoading);
 
   // CSV Import functionality
   const handleCSVImport = async () => {
@@ -606,7 +595,6 @@ export function PricesPage() {
         <Group justify="flex-end">
           <Group gap="sm">
             <TextInput
-              ref={searchInputRef}
               placeholder="Search products... (Ctrl+F)"
               leftSection={<IconSearch size={16} />}
               value={searchQuery}
@@ -614,6 +602,7 @@ export function PricesPage() {
               size="sm"
               disabled={prices.length === 0}
               style={{ minWidth: 260 }}
+              data-ctrlf-target="prices-search-input"
             />
             <FileButton
               accept=".csv"
