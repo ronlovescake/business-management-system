@@ -14,17 +14,81 @@ const HIRE_DATES = {
 
 const EMPLOYEE_INFO = {
   'EMP-0004': {
-    name: 'Arnel Ephraim',
+    name: 'Arnel Ephraim Subia Aliangan',
     department: 'Operations',
-    position: 'Staff',
+    position: 'Warehouse POC',
   },
   'EMP-0005': {
-    name: 'Rain Joel',
+    name: 'Rain Joel Orong Subia',
     department: 'Operations',
-    position: 'Staff',
+    position: 'Warehouse Staff',
   },
-  'EMP-0006': { name: 'Joan', department: 'Operations', position: 'Staff' },
+  'EMP-0006': {
+    name: 'Joan Tapic Lacaulan',
+    department: 'Operations',
+    position: 'Warehouse Staff',
+  },
 };
+
+function normalizeTime(time) {
+  if (!time) {
+    return '';
+  }
+
+  const trimmed = String(time).trim();
+  const parts = trimmed.split(':');
+  if (parts.length < 2) {
+    return '';
+  }
+
+  const hourNum = Number.parseInt(parts[0], 10);
+  const minuteNum = Number.parseInt(parts[1], 10);
+
+  if (Number.isNaN(hourNum) || Number.isNaN(minuteNum)) {
+    return '';
+  }
+
+  return `${String(hourNum).padStart(2, '0')}:${String(minuteNum).padStart(2, '0')}`;
+}
+
+function addMinutesToTime(time, minutesToAdd) {
+  const base = normalizeTime(time);
+  if (!base) {
+    return '';
+  }
+
+  const [hourStr, minuteStr] = base.split(':');
+  const totalMinutes =
+    Number.parseInt(hourStr, 10) * 60 +
+    Number.parseInt(minuteStr, 10) +
+    minutesToAdd;
+  const minutesInDay = 24 * 60;
+  const wrappedMinutes =
+    ((totalMinutes % minutesInDay) + minutesInDay) % minutesInDay;
+  const hours = Math.floor(wrappedMinutes / 60);
+  const minutes = wrappedMinutes % 60;
+
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
+function calculateTotalHours(start, end) {
+  const normalizedStart = normalizeTime(start);
+  const normalizedEnd = normalizeTime(end);
+
+  if (!normalizedStart || !normalizedEnd) {
+    return 0;
+  }
+
+  const [startHour, startMinute] = normalizedStart.split(':').map(Number);
+  const [endHour, endMinute] = normalizedEnd.split(':').map(Number);
+
+  let totalMinutes = endHour * 60 + endMinute - (startHour * 60 + startMinute);
+  if (totalMinutes < 0) {
+    totalMinutes += 24 * 60;
+  }
+
+  return Number.parseFloat((totalMinutes / 60).toFixed(2));
+}
 
 async function main() {
   console.log('🔍 Fetching schedules and leaves...');
@@ -92,16 +156,34 @@ async function main() {
       const empInfo = EMPLOYEE_INFO[empId];
 
       // Use actual schedule times, or -- for leave days
-      const timeIn = isOnLeave ? '--' : schedule.startTime || '4:00';
-      const timeOut = isOnLeave ? '--' : schedule.endTime || '17:00';
+      const defaultStart = '04:00';
+      const defaultEnd = '17:00';
+      const normalizedStart = normalizeTime(schedule.startTime);
+      const normalizedEnd = normalizeTime(schedule.endTime);
+      const timeIn = isOnLeave ? '--' : normalizedStart || defaultStart;
+      const timeOut = isOnLeave ? '--' : normalizedEnd || defaultEnd;
+
+      const break1Start = isOnLeave ? '--' : normalizeTime(schedule.break1);
+      const break1End = isOnLeave
+        ? '--'
+        : schedule.break1
+          ? addMinutesToTime(schedule.break1, 15)
+          : '';
+      const lunchStart = isOnLeave ? '--' : normalizeTime(schedule.lunch);
+      const lunchEnd = isOnLeave
+        ? '--'
+        : schedule.lunch
+          ? addMinutesToTime(schedule.lunch, 60)
+          : '';
+      const break2Start = isOnLeave ? '--' : normalizeTime(schedule.break2);
+      const break2End = isOnLeave
+        ? '--'
+        : schedule.break2
+          ? addMinutesToTime(schedule.break2, 15)
+          : '';
 
       // Calculate total hours
-      let totalHours = 0;
-      if (!isOnLeave && schedule.startTime && schedule.endTime) {
-        const startHour = parseFloat(schedule.startTime.replace(':', '.'));
-        const endHour = parseFloat(schedule.endTime.replace(':', '.'));
-        totalHours = endHour - startHour;
-      }
+      const totalHours = isOnLeave ? 0 : calculateTotalHours(timeIn, timeOut);
 
       attendanceRecords.push({
         employeeId: empId,
@@ -111,6 +193,12 @@ async function main() {
         date: schedule.date,
         timeIn: timeIn,
         timeOut: timeOut,
+        break1Start,
+        break1End,
+        lunchStart,
+        lunchEnd,
+        break2Start,
+        break2End,
         totalHours: totalHours,
         status: isOnLeave ? 'on-leave' : 'present',
         details: isOnLeave ? 'Approved leave' : null,

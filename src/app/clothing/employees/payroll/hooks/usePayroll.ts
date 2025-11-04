@@ -348,7 +348,13 @@ export function usePayroll() {
         );
       }
       logger.error('Error deleting payroll:', error);
-      alert('Failed to delete payroll record');
+      void Swal.fire({
+        title: 'Error',
+        text: 'Failed to delete payroll record. Please try again.',
+        icon: 'error',
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'OK',
+      });
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.payroll.lists() });
@@ -415,7 +421,13 @@ export function usePayroll() {
         );
       }
       logger.error('Error saving payroll:', error);
-      alert('Failed to save payroll record');
+      void Swal.fire({
+        title: 'Error',
+        text: 'Failed to save payroll record. Please try again.',
+        icon: 'error',
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'OK',
+      });
     },
     onSuccess: () => {
       setIsFormOpen(false);
@@ -537,7 +549,13 @@ export function usePayroll() {
         );
       }
       logger.error('Error updating payroll:', error);
-      alert('Failed to update payroll record');
+      void Swal.fire({
+        title: 'Error',
+        text: 'Failed to update payroll record. Please try again.',
+        icon: 'error',
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'OK',
+      });
     },
     onSuccess: () => {
       setIsFormOpen(false);
@@ -710,7 +728,19 @@ export function usePayroll() {
   };
 
   const handleDeletePayroll = async (id: string) => {
-    if (confirm('Are you sure you want to delete this payroll record?')) {
+    const result = await Swal.fire({
+      title: 'Delete Payroll Record?',
+      text: 'This will permanently remove the payroll entry. Continue?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Yes, delete it',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+    });
+
+    if (result.isConfirmed) {
       deleteMutation.mutate(id);
     }
   };
@@ -971,17 +1001,27 @@ export function usePayroll() {
         queryClient.invalidateQueries({ queryKey: queryKeys.payroll.lists() });
 
         if (unmatchedEmployees.size > 0) {
-          alert(
-            `Imported payroll data, but the following employees could not be matched to existing employee IDs: ${Array.from(
+          await Swal.fire({
+            title: 'Imported with Warnings',
+            text: `Some employees could not be matched: ${Array.from(
               unmatchedEmployees
             ).join(
               ', '
-            )}. Cash advance deductions will only apply to matched employees.`
-          );
+            )}. Cash advance deductions applied only to matched employees.`,
+            icon: 'warning',
+            confirmButtonColor: '#f59e0b',
+            confirmButtonText: 'OK',
+          });
         }
       } catch (err) {
         logger.error('Error importing payroll CSV:', err);
-        alert('Failed to import payroll data. Please try again.');
+        await Swal.fire({
+          title: 'Import Failed',
+          text: 'Failed to import payroll data. Please try again.',
+          icon: 'error',
+          confirmButtonColor: '#d33',
+          confirmButtonText: 'OK',
+        });
       }
     };
     reader.readAsText(file);
@@ -1083,11 +1123,19 @@ export function usePayroll() {
       return;
     }
 
-    if (
-      !confirm(
-        'This will calculate and update LWOP deductions for all payroll records based on approved unpaid leave requests. Continue?'
-      )
-    ) {
+    const confirmation = await Swal.fire({
+      title: 'Sync LWOP Deductions?',
+      text: 'This will calculate and update LWOP for all payroll records using approved unpaid leave requests.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Yes, sync now',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+    });
+
+    if (!confirmation.isConfirmed) {
       return;
     }
 
@@ -1099,9 +1147,13 @@ export function usePayroll() {
         error?: string;
       }>('/api/payroll/sync-lwop?all=true');
 
-      alert(
-        `Successfully synced LWOP!\n\nUpdated: ${result.synced} record(s)\nTotal checked: ${result.total} record(s)`
-      );
+      await Swal.fire({
+        title: 'LWOP Synced',
+        text: `Updated ${result.synced} of ${result.total} payroll record(s).`,
+        icon: 'success',
+        confirmButtonColor: '#3085d6',
+        confirmButtonText: 'OK',
+      });
 
       // Invalidate cache to refetch
       queryClient.invalidateQueries({ queryKey: queryKeys.payroll.lists() });
@@ -1109,7 +1161,13 @@ export function usePayroll() {
       logger.error('Error syncing LWOP:', error);
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error';
-      alert(`Failed to sync LWOP: ${errorMessage}`);
+      await Swal.fire({
+        title: 'Sync Failed',
+        text: `Failed to sync LWOP: ${errorMessage}`,
+        icon: 'error',
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'OK',
+      });
     } finally {
       setIsSyncingLwop(false);
     }
