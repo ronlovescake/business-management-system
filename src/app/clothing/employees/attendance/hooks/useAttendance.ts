@@ -6,6 +6,7 @@ import { notifications } from '@mantine/notifications';
 import Swal from 'sweetalert2';
 import { queryKeys } from '@/lib/queryKeys';
 import { showError, showSuccess, showDeleteConfirm } from '@/lib/alerts';
+import { formatTimeString } from '@/utils/dateFormatters';
 import type {
   AttendanceRecord,
   AttendanceStatus,
@@ -13,38 +14,7 @@ import type {
 } from '../types';
 import { getCurrentDateISO, formatDisplayDate, toDate } from '@/utils/date';
 
-const formatTime = (time: string) => {
-  // Handle empty or invalid time strings
-  if (!time || time.trim() === '') {
-    return '—';
-  }
-
-  const parts = time.split(':');
-  if (parts.length < 2) {
-    return '—';
-  }
-
-  const [hours, minutes] = parts.map(Number);
-
-  // Validate hours and minutes
-  if (
-    isNaN(hours) ||
-    isNaN(minutes) ||
-    hours < 0 ||
-    hours > 23 ||
-    minutes < 0 ||
-    minutes > 59
-  ) {
-    return '—';
-  }
-
-  const date = new Date();
-  date.setHours(hours, minutes, 0, 0);
-  return new Intl.DateTimeFormat('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(date);
-};
+const formatTime = formatTimeString;
 
 const calculateTotalHours = (timeIn: string, timeOut: string) => {
   if (!timeIn || !timeOut) {

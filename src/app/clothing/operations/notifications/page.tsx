@@ -31,6 +31,7 @@ import {
   StandardDataTable,
   StandardTableControls,
 } from '@/components/tables/StandardDataTable';
+import { formatDateParts } from '@/utils/dateFormatters';
 
 const TAB_ITEMS = [
   { value: 'transactions', label: 'Transactions' },
@@ -40,29 +41,6 @@ const TAB_ITEMS = [
 ];
 
 const TABLE_HEADERS = ['Date', 'Time', 'User', 'Changes'];
-
-const dateFormatter = new Intl.DateTimeFormat('en-US', {
-  month: 'short',
-  day: '2-digit',
-  year: 'numeric',
-});
-
-const timeFormatter = new Intl.DateTimeFormat('en-US', {
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-});
-
-function formatDateParts(isoDate: string): { date: string; time: string } {
-  const parsed = new Date(isoDate);
-  if (Number.isNaN(parsed.getTime())) {
-    return { date: '-', time: '-' };
-  }
-  return {
-    date: dateFormatter.format(parsed),
-    time: timeFormatter.format(parsed),
-  };
-}
 
 interface NotificationsPanelProps {
   category: OperationsNotificationCategory;

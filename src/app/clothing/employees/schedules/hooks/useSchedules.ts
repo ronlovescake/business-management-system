@@ -5,6 +5,7 @@ import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
 import { queryKeys } from '@/lib/queryKeys';
 import { getCurrentDateISO, toISODate } from '@/utils/date';
+import { dateFormatterShort, formatTimeString } from '@/utils/dateFormatters';
 import type {
   Schedule,
   ScheduleStatus,
@@ -315,25 +316,10 @@ export function useSchedules() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    }).format(date);
+    return dateFormatterShort.format(date);
   };
 
-  const formatTime = (time: string) => {
-    if (!time) {
-      return '';
-    }
-
-    const [hours, minutes] = time.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-
-    return `${displayHour}:${minutes} ${ampm}`;
-  };
+  const formatTime = formatTimeString;
 
   const getStatusColor = (status: ScheduleStatus): string => {
     switch (status) {
