@@ -7,7 +7,6 @@ import {
   Text,
   Group,
   ThemeIcon,
-  Badge,
   ActionIcon,
 } from '@mantine/core';
 import {
@@ -270,28 +269,24 @@ export function BreadcrumbNavigation() {
   }
 
   return (
-    <Group gap="md" w="100%" justify="space-between">
-      <Group gap="sm">
-        <ActionIcon
-          variant="light"
-          size="lg"
-          radius="md"
-          component="a"
-          href="/"
-          {...getIconButtonLabel('Go to home page')}
-        >
-          <IconHome size={18} />
-        </ActionIcon>
-        <Breadcrumbs separator="/" separatorMargin="md">
-          {breadcrumbItems}
-        </Breadcrumbs>
-      </Group>
-
-      {/* Current Page Badge */}
+    <Group gap="sm">
+      <ActionIcon
+        variant="light"
+        size="lg"
+        radius="md"
+        component="a"
+        href="/"
+        {...getIconButtonLabel('Go to home page')}
+      >
+        <IconHome size={18} />
+      </ActionIcon>
+      <Breadcrumbs separator="/" separatorMargin="md">
+        {breadcrumbItems}
+      </Breadcrumbs>
       {currentPage !== 'Home' && pathname !== '/' && (
-        <Badge variant="light" color="blue" size="md">
+        <Text size="sm" c="dimmed">
           {currentPage}
-        </Badge>
+        </Text>
       )}
     </Group>
   );

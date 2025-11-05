@@ -5,6 +5,7 @@ import type { MantineColorsTuple } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
 import Sidebar from '../navigation/Sidebar';
 import BreadcrumbNavigation from '../navigation/BreadcrumbNavigation';
+import HeaderQuickActions from '../navigation/HeaderQuickActions';
 import {
   GridAdapterProvider,
   GridLayoutProvider,
@@ -114,10 +115,13 @@ export function AppLayout({ children }: AppLayoutProps) {
                   padding: '1rem 1.5rem',
                   display: 'flex',
                   alignItems: 'center',
+                  justifyContent: 'space-between',
                   height: '100%',
+                  gap: '1.5rem',
                 }}
               >
                 <BreadcrumbNavigation />
+                <HeaderQuickActions />
               </div>
             </AppShell.Header>
 
