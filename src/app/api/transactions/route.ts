@@ -797,47 +797,170 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    // ========================================================================
+    // ⚠️ FETCH OLD VALUES - For change tracking in notifications
+    // ========================================================================
+    const oldTransaction = await prisma.transaction.findUnique({
+      where: { id },
+    });
+
+    if (!oldTransaction) {
+      return NextResponse.json(
+        { error: 'Transaction not found' },
+        { status: 404 }
+      );
+    }
+
     // Convert UI format to database format
     const dbData: Prisma.TransactionUpdateInput = {};
+    const changes: Array<{
+      field: string;
+      oldValue: string;
+      newValue: string;
+    }> = [];
 
     if ('Order Date' in updateData) {
-      dbData.orderDate = parseTrimmed(updateData['Order Date']);
+      const newValue = parseTrimmed(updateData['Order Date']);
+      dbData.orderDate = newValue;
+      if (oldTransaction.orderDate !== newValue) {
+        changes.push({
+          field: 'orderDate',
+          oldValue: oldTransaction.orderDate || 'empty',
+          newValue: newValue || 'empty',
+        });
+      }
     }
     if ('Customers' in updateData) {
-      dbData.customers = parseTrimmed(updateData['Customers']);
+      const newValue = parseTrimmed(updateData['Customers']);
+      dbData.customers = newValue;
+      if (oldTransaction.customers !== newValue) {
+        changes.push({
+          field: 'customers',
+          oldValue: oldTransaction.customers || 'empty',
+          newValue: newValue || 'empty',
+        });
+      }
     }
     if ('Product Code' in updateData) {
-      dbData.productCode = parseTrimmed(updateData['Product Code']);
+      const newValue = parseTrimmed(updateData['Product Code']);
+      dbData.productCode = newValue;
+      if (oldTransaction.productCode !== newValue) {
+        changes.push({
+          field: 'productCode',
+          oldValue: oldTransaction.productCode || 'empty',
+          newValue: newValue || 'empty',
+        });
+      }
     }
     if ('Quantity' in updateData) {
-      dbData.quantity = parseNumeric(updateData['Quantity']);
+      const newValue = parseNumeric(updateData['Quantity']);
+      dbData.quantity = newValue;
+      if (oldTransaction.quantity !== newValue) {
+        changes.push({
+          field: 'quantity',
+          oldValue: String(oldTransaction.quantity ?? 0),
+          newValue: String(newValue),
+        });
+      }
     }
     if ('Unit Price' in updateData) {
-      dbData.unitPrice = parseNumeric(updateData['Unit Price']);
+      const newValue = parseNumeric(updateData['Unit Price']);
+      dbData.unitPrice = newValue;
+      if (oldTransaction.unitPrice !== newValue) {
+        changes.push({
+          field: 'unitPrice',
+          oldValue: String(oldTransaction.unitPrice ?? 0),
+          newValue: String(newValue),
+        });
+      }
     }
     if ('Discount' in updateData) {
-      dbData.discount = parseNumeric(updateData['Discount']);
+      const newValue = parseNumeric(updateData['Discount']);
+      dbData.discount = newValue;
+      if (oldTransaction.discount !== newValue) {
+        changes.push({
+          field: 'discount',
+          oldValue: String(oldTransaction.discount ?? 0),
+          newValue: String(newValue),
+        });
+      }
     }
     if ('Adjustment' in updateData) {
-      dbData.adjustment = parseNumeric(updateData['Adjustment']);
+      const newValue = parseNumeric(updateData['Adjustment']);
+      dbData.adjustment = newValue;
+      if (oldTransaction.adjustment !== newValue) {
+        changes.push({
+          field: 'adjustment',
+          oldValue: String(oldTransaction.adjustment ?? 0),
+          newValue: String(newValue),
+        });
+      }
     }
     if ('Line Total' in updateData) {
-      dbData.lineTotal = parseNumeric(updateData['Line Total']);
+      const newValue = parseNumeric(updateData['Line Total']);
+      dbData.lineTotal = newValue;
+      if (oldTransaction.lineTotal !== newValue) {
+        changes.push({
+          field: 'lineTotal',
+          oldValue: String(oldTransaction.lineTotal ?? 0),
+          newValue: String(newValue),
+        });
+      }
     }
     if ('Order Status' in updateData) {
-      dbData.orderStatus = parseTrimmed(updateData['Order Status']);
+      const newValue = parseTrimmed(updateData['Order Status']);
+      dbData.orderStatus = newValue;
+      if (oldTransaction.orderStatus !== newValue) {
+        changes.push({
+          field: 'orderStatus',
+          oldValue: oldTransaction.orderStatus || 'empty',
+          newValue: newValue || 'empty',
+        });
+      }
     }
     if ('Notes' in updateData) {
-      dbData.notes = parseOptional(updateData['Notes']);
+      const newValue = parseOptional(updateData['Notes']);
+      dbData.notes = newValue;
+      if (oldTransaction.notes !== newValue) {
+        changes.push({
+          field: 'notes',
+          oldValue: oldTransaction.notes || 'empty',
+          newValue: newValue || 'empty',
+        });
+      }
     }
     if ('Invoice Date' in updateData) {
-      dbData.invoiceDate = parseOptional(updateData['Invoice Date']);
+      const newValue = parseOptional(updateData['Invoice Date']);
+      dbData.invoiceDate = newValue;
+      if (oldTransaction.invoiceDate !== newValue) {
+        changes.push({
+          field: 'invoiceDate',
+          oldValue: oldTransaction.invoiceDate || 'empty',
+          newValue: newValue || 'empty',
+        });
+      }
     }
     if ('Packed Date' in updateData) {
-      dbData.packedDate = parseOptional(updateData['Packed Date']);
+      const newValue = parseOptional(updateData['Packed Date']);
+      dbData.packedDate = newValue;
+      if (oldTransaction.packedDate !== newValue) {
+        changes.push({
+          field: 'packedDate',
+          oldValue: oldTransaction.packedDate || 'empty',
+          newValue: newValue || 'empty',
+        });
+      }
     }
     if ('Shipment Code' in updateData) {
-      dbData.shipmentCode = parseOptional(updateData['Shipment Code']);
+      const newValue = parseOptional(updateData['Shipment Code']);
+      dbData.shipmentCode = newValue;
+      if (oldTransaction.shipmentCode !== newValue) {
+        changes.push({
+          field: 'shipmentCode',
+          oldValue: oldTransaction.shipmentCode || 'empty',
+          newValue: newValue || 'empty',
+        });
+      }
     }
 
     const updatedTransaction = await prisma.transaction.update({
@@ -849,20 +972,30 @@ export async function PATCH(request: NextRequest) {
     // ⚠️ LOG NOTIFICATION - Track changes in operations notifications
     // ========================================================================
     try {
-      const changedFields = Object.keys(dbData);
       const customerName = updatedTransaction.customers || 'Unknown Customer';
       const productCode = updatedTransaction.productCode || 'N/A';
 
-      await logOperationNotification(
-        'transactions',
-        `Updated transaction #${id} - ${customerName} (${productCode}) - Modified: ${changedFields.join(', ')}`,
-        {
-          transactionId: id,
-          customer: customerName,
-          productCode: productCode,
-          fields: changedFields,
-        }
-      );
+      // Build detailed change message
+      let changeMessage = '';
+      if (changes.length === 0) {
+        changeMessage = `Updated transaction #${id} - ${customerName} (${productCode}) - No actual changes detected`;
+      } else if (changes.length === 1) {
+        const change = changes[0];
+        changeMessage = `Updated transaction #${id} - ${customerName} (${productCode}) - Modified: ${change.field}: ${change.oldValue} ---> ${change.newValue}`;
+      } else {
+        // Multiple changes
+        const changeDetails = changes
+          .map((c) => `${c.field}: ${c.oldValue} ---> ${c.newValue}`)
+          .join(', ');
+        changeMessage = `Updated transaction #${id} - ${customerName} (${productCode}) - Modified: ${changeDetails}`;
+      }
+
+      await logOperationNotification('transactions', changeMessage, {
+        transactionId: id,
+        customer: customerName,
+        productCode: productCode,
+        changes: changes,
+      });
     } catch (notifError) {
       // Don't fail the request if notification logging fails
       logger.warn(
