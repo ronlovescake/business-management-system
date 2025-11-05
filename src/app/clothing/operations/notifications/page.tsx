@@ -354,7 +354,25 @@ export default function OperationsNotifications() {
 
   return (
     <PageLayout size="100%" withPadding={false}>
-      <Stack px={40} py="xl">
+      <Stack px={40} py="xl" gap="xl">
+        <Tabs
+          value={activeTab}
+          onChange={(value) => setActiveTab(value || 'transactions')}
+          style={{
+            width: '100%',
+            maxWidth: 'min(1800px, 98vw)',
+            margin: '0 auto',
+          }}
+        >
+          <Tabs.List grow>
+            {TAB_ITEMS.map((tab) => (
+              <Tabs.Tab key={tab.value} value={tab.value}>
+                {tab.label}
+              </Tabs.Tab>
+            ))}
+          </Tabs.List>
+        </Tabs>
+
         <Paper
           withBorder
           radius="lg"
@@ -367,30 +385,13 @@ export default function OperationsNotifications() {
             minHeight: '90vh',
           }}
         >
-          <Stack gap="xl">
-            <Tabs
-              value={activeTab}
-              onChange={(value) => setActiveTab(value || 'transactions')}
-            >
-              <Tabs.List grow>
-                {TAB_ITEMS.map((tab) => (
-                  <Tabs.Tab key={tab.value} value={tab.value}>
-                    {tab.label}
-                  </Tabs.Tab>
-                ))}
-              </Tabs.List>
-            </Tabs>
-
-            <div style={{ marginTop: '2rem' }}>
-              <NotificationsPanel
-                category={activeTab as OperationsNotificationCategory}
-                label={
-                  TAB_ITEMS.find((tab) => tab.value === activeTab)?.label ||
-                  'Notifications'
-                }
-              />
-            </div>
-          </Stack>
+          <NotificationsPanel
+            category={activeTab as OperationsNotificationCategory}
+            label={
+              TAB_ITEMS.find((tab) => tab.value === activeTab)?.label ||
+              'Notifications'
+            }
+          />
         </Paper>
       </Stack>
     </PageLayout>
