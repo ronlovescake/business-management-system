@@ -650,6 +650,11 @@ export async function PUT(request: NextRequest) {
     // All updates succeed or all fail together
     // Prevents partial updates that could corrupt data
     // ========================================================================
+
+    // Track which fields are being updated across all transactions
+    const fieldsUpdated = new Set<string>();
+    const sampleValues = new Map<string, string[]>();
+
     const result = await prisma.$transaction(async (tx) => {
       const updates = await Promise.all(
         updateData.map(async (transaction) => {
@@ -662,43 +667,96 @@ export async function PUT(request: NextRequest) {
           const dbData: Prisma.TransactionUpdateInput = {};
 
           if ('Order Date' in transaction) {
-            dbData.orderDate = parseTrimmed(transaction['Order Date']);
+            const value = parseTrimmed(transaction['Order Date']);
+            dbData.orderDate = value;
+            fieldsUpdated.add('orderDate');
+            if (!sampleValues.has('orderDate')) {
+              sampleValues.set('orderDate', []);
+            }
+            const orderDateValues = sampleValues.get('orderDate');
+            if (orderDateValues && orderDateValues.length < 3) {
+              orderDateValues.push(value || '(empty)');
+            }
           }
           if ('Customers' in transaction) {
-            dbData.customers = parseTrimmed(transaction['Customers']);
+            const value = parseTrimmed(transaction['Customers']);
+            dbData.customers = value;
+            fieldsUpdated.add('customers');
+            if (!sampleValues.has('customers')) {
+              sampleValues.set('customers', []);
+            }
+            const customersValues = sampleValues.get('customers');
+            if (customersValues && customersValues.length < 3) {
+              customersValues.push(value || '(empty)');
+            }
           }
           if ('Product Code' in transaction) {
-            dbData.productCode = parseTrimmed(transaction['Product Code']);
+            const value = parseTrimmed(transaction['Product Code']);
+            dbData.productCode = value;
+            fieldsUpdated.add('productCode');
+            if (!sampleValues.has('productCode')) {
+              sampleValues.set('productCode', []);
+            }
+            const productCodeValues = sampleValues.get('productCode');
+            if (productCodeValues && productCodeValues.length < 3) {
+              productCodeValues.push(value || '(empty)');
+            }
           }
           if ('Quantity' in transaction) {
-            dbData.quantity = parseNumeric(transaction['Quantity']);
+            const value = parseNumeric(transaction['Quantity']);
+            dbData.quantity = value;
+            fieldsUpdated.add('quantity');
+            if (!sampleValues.has('quantity')) {
+              sampleValues.set('quantity', []);
+            }
+            const quantityValues = sampleValues.get('quantity');
+            if (quantityValues && quantityValues.length < 3) {
+              quantityValues.push(String(value));
+            }
           }
           if ('Unit Price' in transaction) {
             dbData.unitPrice = parseNumeric(transaction['Unit Price']);
+            fieldsUpdated.add('unitPrice');
           }
           if ('Discount' in transaction) {
             dbData.discount = parseNumeric(transaction['Discount']);
+            fieldsUpdated.add('discount');
           }
           if ('Adjustment' in transaction) {
             dbData.adjustment = parseNumeric(transaction['Adjustment']);
+            fieldsUpdated.add('adjustment');
           }
           if ('Line Total' in transaction) {
             dbData.lineTotal = parseNumeric(transaction['Line Total']);
+            fieldsUpdated.add('lineTotal');
           }
           if ('Order Status' in transaction) {
-            dbData.orderStatus = parseTrimmed(transaction['Order Status']);
+            const value = parseTrimmed(transaction['Order Status']);
+            dbData.orderStatus = value;
+            fieldsUpdated.add('orderStatus');
+            if (!sampleValues.has('orderStatus')) {
+              sampleValues.set('orderStatus', []);
+            }
+            const orderStatusValues = sampleValues.get('orderStatus');
+            if (orderStatusValues && orderStatusValues.length < 3) {
+              orderStatusValues.push(value || '(empty)');
+            }
           }
           if ('Notes' in transaction) {
             dbData.notes = parseOptional(transaction['Notes']);
+            fieldsUpdated.add('notes');
           }
           if ('Invoice Date' in transaction) {
             dbData.invoiceDate = parseOptional(transaction['Invoice Date']);
+            fieldsUpdated.add('invoiceDate');
           }
           if ('Packed Date' in transaction) {
             dbData.packedDate = parseOptional(transaction['Packed Date']);
+            fieldsUpdated.add('packedDate');
           }
           if ('Shipment Code' in transaction) {
             dbData.shipmentCode = parseOptional(transaction['Shipment Code']);
+            fieldsUpdated.add('shipmentCode');
           }
 
           return tx.transaction.update({
@@ -717,13 +775,44 @@ export async function PUT(request: NextRequest) {
     // ⚠️ LOG NOTIFICATION - Track changes in operations notifications
     // ========================================================================
     try {
-      await logOperationNotification(
-        'transactions',
-        `Updated ${result.length} transaction records`,
-        {
-          count: result.length,
+      // Build detailed message showing what was changed
+      const fieldsList = Array.from(fieldsUpdated);
+      let changeMessage = `Bulk updated ${result.length} transaction records`;
+
+      if (fieldsList.length > 0) {
+        changeMessage += ` - Modified fields: ${fieldsList.join(', ')}`;
+
+        // Add sample values for key fields (productCode, customers, orderDate)
+        const samples: string[] = [];
+        if (sampleValues.has('productCode')) {
+          const values = sampleValues.get('productCode');
+          if (values) {
+            samples.push(`Product: ${values.join(', ')}`);
+          }
         }
-      );
+        if (sampleValues.has('customers')) {
+          const values = sampleValues.get('customers');
+          if (values) {
+            samples.push(`Customers: ${values.join(', ')}`);
+          }
+        }
+        if (sampleValues.has('orderDate')) {
+          const values = sampleValues.get('orderDate');
+          if (values) {
+            samples.push(`Dates: ${values.join(', ')}`);
+          }
+        }
+
+        if (samples.length > 0) {
+          changeMessage += ` (${samples.join('; ')})`;
+        }
+      }
+
+      await logOperationNotification('transactions', changeMessage, {
+        count: result.length,
+        fieldsUpdated: fieldsList,
+        sampleValues: Object.fromEntries(sampleValues),
+      });
     } catch (notifError) {
       // Don't fail the request if notification logging fails
       logger.warn(
