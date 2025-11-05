@@ -6,6 +6,7 @@ import {
   Avatar,
   Badge,
   Box,
+  Button,
   Divider,
   Flex,
   Group,
@@ -239,6 +240,17 @@ export function HeaderQuickActions({
                 )}
               </Stack>
             </ScrollArea>
+
+            <Button
+              component="a"
+              href="/clothing/operations/messaging"
+              variant="light"
+              size="xs"
+              radius="md"
+              onClick={() => setMessagesOpen(false)}
+            >
+              View All in Messenger
+            </Button>
           </Stack>
         </Popover.Dropdown>
       </Popover>
