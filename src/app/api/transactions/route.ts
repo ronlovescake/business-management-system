@@ -696,9 +696,14 @@ export async function PUT(request: NextRequest) {
 
           if ('Order Date' in transaction) {
             const value = parseTrimmed(transaction['Order Date']);
-            const oldValue = existingTransaction.orderDate || 'empty';
-            if (oldValue !== value) {
-              changeDetails.push(`orderDate: ${oldValue} → ${value}`);
+            const oldValue = existingTransaction.orderDate;
+            // Only track if there's an actual change (not empty→empty)
+            const normalizedOld = oldValue || '';
+            const normalizedNew = value || '';
+            if (normalizedOld !== normalizedNew) {
+              changeDetails.push(
+                `orderDate: ${oldValue || 'empty'} → ${value || 'empty'}`
+              );
             }
             dbData.orderDate = value;
             fieldsUpdated.add('orderDate');
@@ -712,9 +717,14 @@ export async function PUT(request: NextRequest) {
           }
           if ('Customers' in transaction) {
             const value = parseTrimmed(transaction['Customers']);
-            const oldValue = existingTransaction.customers || 'empty';
-            if (oldValue !== value) {
-              changeDetails.push(`customers: ${oldValue} → ${value}`);
+            const oldValue = existingTransaction.customers;
+            // Only track if there's an actual change (not empty→empty)
+            const normalizedOld = oldValue || '';
+            const normalizedNew = value || '';
+            if (normalizedOld !== normalizedNew) {
+              changeDetails.push(
+                `customers: ${oldValue || 'empty'} → ${value || 'empty'}`
+              );
             }
             dbData.customers = value;
             fieldsUpdated.add('customers');
@@ -728,9 +738,14 @@ export async function PUT(request: NextRequest) {
           }
           if ('Product Code' in transaction) {
             const value = parseTrimmed(transaction['Product Code']);
-            const oldValue = existingTransaction.productCode || 'empty';
-            if (oldValue !== value) {
-              changeDetails.push(`productCode: ${oldValue} → ${value}`);
+            const oldValue = existingTransaction.productCode;
+            // Only track if there's an actual change (not empty→empty)
+            const normalizedOld = oldValue || '';
+            const normalizedNew = value || '';
+            if (normalizedOld !== normalizedNew) {
+              changeDetails.push(
+                `productCode: ${oldValue || 'empty'} → ${value || 'empty'}`
+              );
             }
             dbData.productCode = value;
             fieldsUpdated.add('productCode');
@@ -796,9 +811,14 @@ export async function PUT(request: NextRequest) {
           }
           if ('Order Status' in transaction) {
             const value = parseTrimmed(transaction['Order Status']);
-            const oldValue = existingTransaction.orderStatus || 'empty';
-            if (oldValue !== value) {
-              changeDetails.push(`orderStatus: ${oldValue} → ${value}`);
+            const oldValue = existingTransaction.orderStatus;
+            // Only track if there's an actual change (not empty→empty)
+            const normalizedOld = oldValue || '';
+            const normalizedNew = value || '';
+            if (normalizedOld !== normalizedNew) {
+              changeDetails.push(
+                `orderStatus: ${oldValue || 'empty'} → ${value || 'empty'}`
+              );
             }
             dbData.orderStatus = value;
             fieldsUpdated.add('orderStatus');
@@ -812,19 +832,27 @@ export async function PUT(request: NextRequest) {
           }
           if ('Notes' in transaction) {
             const value = parseOptional(transaction['Notes']);
-            const oldValue = existingTransaction.notes || 'empty';
-            if (oldValue !== value) {
-              changeDetails.push(`notes: ${oldValue} → ${value || 'empty'}`);
+            const oldValue = existingTransaction.notes;
+            // Only track if there's an actual change (not null→null or empty→empty)
+            const normalizedOld = oldValue || null;
+            const normalizedNew = value || null;
+            if (normalizedOld !== normalizedNew) {
+              changeDetails.push(
+                `notes: ${oldValue || 'empty'} → ${value || 'empty'}`
+              );
             }
             dbData.notes = value;
             fieldsUpdated.add('notes');
           }
           if ('Invoice Date' in transaction) {
             const value = parseOptional(transaction['Invoice Date']);
-            const oldValue = existingTransaction.invoiceDate || 'empty';
-            if (oldValue !== value) {
+            const oldValue = existingTransaction.invoiceDate;
+            // Only track if there's an actual change (not null→null or empty→empty)
+            const normalizedOld = oldValue || null;
+            const normalizedNew = value || null;
+            if (normalizedOld !== normalizedNew) {
               changeDetails.push(
-                `invoiceDate: ${oldValue} → ${value || 'empty'}`
+                `invoiceDate: ${oldValue || 'empty'} → ${value || 'empty'}`
               );
             }
             dbData.invoiceDate = value;
@@ -832,10 +860,13 @@ export async function PUT(request: NextRequest) {
           }
           if ('Packed Date' in transaction) {
             const value = parseOptional(transaction['Packed Date']);
-            const oldValue = existingTransaction.packedDate || 'empty';
-            if (oldValue !== value) {
+            const oldValue = existingTransaction.packedDate;
+            // Only track if there's an actual change (not null→null or empty→empty)
+            const normalizedOld = oldValue || null;
+            const normalizedNew = value || null;
+            if (normalizedOld !== normalizedNew) {
               changeDetails.push(
-                `packedDate: ${oldValue} → ${value || 'empty'}`
+                `packedDate: ${oldValue || 'empty'} → ${value || 'empty'}`
               );
             }
             dbData.packedDate = value;
@@ -843,10 +874,13 @@ export async function PUT(request: NextRequest) {
           }
           if ('Shipment Code' in transaction) {
             const value = parseOptional(transaction['Shipment Code']);
-            const oldValue = existingTransaction.shipmentCode || 'empty';
-            if (oldValue !== value) {
+            const oldValue = existingTransaction.shipmentCode;
+            // Only track if there's an actual change (not null→null or empty→empty)
+            const normalizedOld = oldValue || null;
+            const normalizedNew = value || null;
+            if (normalizedOld !== normalizedNew) {
               changeDetails.push(
-                `shipmentCode: ${oldValue} → ${value || 'empty'}`
+                `shipmentCode: ${oldValue || 'empty'} → ${value || 'empty'}`
               );
             }
             dbData.shipmentCode = value;
