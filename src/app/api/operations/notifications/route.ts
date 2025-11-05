@@ -126,10 +126,14 @@ export async function POST(request: NextRequest) {
 
     const id = randomUUID();
 
+    // Use current time in Philippine timezone
+    const now = new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' });
+    const philippineTime = new Date(now);
+
     const [created] = await prisma.$queryRaw<OperationsNotificationRecord[]>(
       Prisma.sql`
-        INSERT INTO "operations_notifications" (id, category, "user", changes, metadata)
-        VALUES (${id}, ${category}, ${user}, ${changes}, ${metadataJson})
+        INSERT INTO "operations_notifications" (id, category, "user", changes, metadata, "createdAt")
+        VALUES (${id}, ${category}, ${user}, ${changes}, ${metadataJson}, ${philippineTime})
         RETURNING id, category, "user", changes, metadata, "createdAt"
       `
     );

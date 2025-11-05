@@ -51,9 +51,13 @@ async function logOperationNotification(
     const id = randomUUID();
     const metadataJson = metadata ? JSON.stringify(metadata) : null;
 
+    // Use current time in Philippine timezone
+    const now = new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' });
+    const philippineTime = new Date(now);
+
     await prisma.$executeRaw`
-      INSERT INTO "operations_notifications" (id, category, "user", changes, metadata)
-      VALUES (${id}, ${category}, ${'Operations'}, ${changes}, ${metadataJson}::jsonb)
+      INSERT INTO "operations_notifications" (id, category, "user", changes, metadata, "createdAt")
+      VALUES (${id}, ${category}, ${'Operations'}, ${changes}, ${metadataJson}::jsonb, ${philippineTime})
     `;
   } catch (error) {
     logger.warn('Failed to log operations notification:', error);
