@@ -6,15 +6,12 @@
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 import { prisma } from '@/lib/db';
 import { getDatabaseUrl } from '@/lib/env';
 import fs from 'fs';
 import path from 'path';
 import { logger } from '@/lib/logger';
-
-const execAsync = promisify(exec);
+import * as Papa from 'papaparse';
 
 const BACKUP_DIR = path.resolve(process.cwd(), 'backups');
 
@@ -124,20 +121,82 @@ export async function POST(request: NextRequest) {
       files.push(backupFile);
     }
 
-    // SQL Backup
-    if (format === 'sql' || format === 'all') {
+    // CSV Backup - Generate individual CSV files for each table
+    if (format === 'csv' || format === 'all') {
+      logger.info('Starting CSV backup generation...');
       try {
-        const { user, password, host, port, database } = parseDatabaseUrl();
-        const sqlFile = path.join(backupDir, `backup-${timestamp}.sql`);
+        for (const { name, model } of TABLES) {
+          try {
+            logger.info(`Processing table: ${name}`);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const modelDelegate = prisma[model as keyof typeof prisma] as any;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const sampleRecord = await modelDelegate.findFirst();
+            const hasDeletedAt = sampleRecord && 'deletedAt' in sampleRecord;
 
-        const command = `PGPASSWORD="${password}" pg_dump -h ${host} -p ${port} -U ${user} -d ${database} -F p -f "${sqlFile}"`;
+            const where =
+              hasDeletedAt && !includeSoftDeleted ? { deletedAt: null } : {};
 
-        await execAsync(command);
-        files.push(sqlFile);
-        backupFile = sqlFile;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const data = await modelDelegate.findMany({ where });
+
+            logger.info(`Table ${name} has ${data.length} records`);
+
+            if (data.length > 0) {
+              const csvFile = path.join(backupDir, `${name}-${timestamp}.csv`);
+              logger.info(`Generating CSV for ${name}...`);
+
+              // Convert Prisma objects to plain objects and handle special types
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const plainData = data.map((record: any) => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const plain: Record<string, any> = {};
+                for (const key in record) {
+                  const value = record[key];
+                  // Convert Date objects to ISO strings
+                  if (value instanceof Date) {
+                    plain[key] = value.toISOString();
+                  }
+                  // Convert BigInt to string
+                  else if (typeof value === 'bigint') {
+                    plain[key] = value.toString();
+                  }
+                  // Keep null, undefined, and primitive types as is
+                  else if (
+                    value === null ||
+                    value === undefined ||
+                    typeof value === 'string' ||
+                    typeof value === 'number' ||
+                    typeof value === 'boolean'
+                  ) {
+                    plain[key] = value;
+                  }
+                  // Convert objects to JSON string
+                  else {
+                    plain[key] = JSON.stringify(value);
+                  }
+                }
+                return plain;
+              });
+
+              const csv = Papa.unparse(plainData);
+              logger.info(`CSV generated, writing to file: ${csvFile}`);
+              fs.writeFileSync(csvFile, csv);
+              files.push(csvFile);
+              backupFile = csvFile;
+              logger.info(`CSV file created successfully: ${csvFile}`);
+            } else {
+              logger.info(`Skipping ${name} - no data`);
+            }
+          } catch (error) {
+            logger.error(`CSV backup failed for table ${name}:`, error);
+            // Continue with other tables if one fails
+          }
+        }
+        logger.info(`CSV backup completed. Total files: ${files.length}`);
       } catch (error) {
-        logger.error('SQL backup failed:', error);
-        // Continue with JSON backup if SQL fails
+        logger.error('CSV backup failed:', error);
+        // Continue even if CSV fails
       }
     }
 

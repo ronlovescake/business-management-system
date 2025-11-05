@@ -2,8 +2,7 @@
 
 import React from 'react';
 import { Stack, Text, Badge, Group, Table } from '@mantine/core';
-import { PageLayout } from '../../../../components/layout/PageLayout'
-import { EmployeeLoansErrorBoundary } from './components/EmployeeLoansErrorBoundary';;
+import { PageLayout } from '../../../../components/layout/PageLayout';
 import {
   IconPigMoney,
   IconClock,
