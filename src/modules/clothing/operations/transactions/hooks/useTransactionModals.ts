@@ -326,6 +326,7 @@ export function useTransactionModals(
           month: 'long',
           day: 'numeric',
           year: 'numeric',
+          timeZone: 'Asia/Manila',
         });
 
         const processedIds = new Set(invoiceTransactions.map((t) => t.id));
@@ -506,6 +507,7 @@ export function useTransactionModals(
           month: 'long',
           day: 'numeric',
           year: 'numeric',
+          timeZone: 'Asia/Manila',
         });
 
         const processedIds = new Set(eligible.map((t) => t.id));

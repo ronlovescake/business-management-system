@@ -407,6 +407,7 @@ export function useTransactionOperations(
             month: 'short',
             day: 'numeric',
             year: 'numeric',
+            timeZone: 'Asia/Manila',
           });
         }
 
