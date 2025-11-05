@@ -22,6 +22,7 @@ import {
   NumberInput,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
+import Swal from 'sweetalert2';
 import { api } from '@/lib/api/client';
 import {
   IconDatabase,
@@ -177,7 +178,35 @@ export function BackupRestoreTab() {
   }, [autoBackupEnabled, autoBackupInterval, handleCreateBackup]);
 
   const handleDeleteBackup = async (timestamp: string) => {
-    if (!confirm('Delete this backup?')) {
+    const firstStep = await Swal.fire({
+      title: 'Delete this backup?',
+      text: 'This will permanently remove the backup files.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, delete',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#e03131',
+      cancelButtonColor: '#868e96',
+      focusCancel: true,
+    });
+
+    if (!firstStep.isConfirmed) {
+      return;
+    }
+
+    const formattedDate = formatDate(timestamp);
+    const finalStep = await Swal.fire({
+      title: 'Final confirmation',
+      html: `Backup <strong>${formattedDate}</strong> will be deleted.<br/>This action cannot be undone.`,
+      icon: 'error',
+      showCancelButton: true,
+      confirmButtonText: 'Delete backup',
+      cancelButtonText: 'Keep backup',
+      confirmButtonColor: '#c92a2a',
+      cancelButtonColor: '#228be6',
+    });
+
+    if (!finalStep.isConfirmed) {
       return;
     }
 
