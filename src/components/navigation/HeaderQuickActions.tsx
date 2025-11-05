@@ -64,6 +64,8 @@ type ChatWindowState = {
 };
 
 const STORAGE_KEY = 'bm-open-chat-windows';
+const CHAT_WINDOW_WIDTH = 340;
+const CHAT_WINDOW_GAP = 20;
 
 function formatBadgeCount(count: number | undefined): string {
   if (!count || count <= 0) {
@@ -488,9 +490,9 @@ function ChatWindow({
       radius="lg"
       style={{
         position: 'fixed',
-        right: 16 + offsetIndex * 320,
+        right: 16 + offsetIndex * (CHAT_WINDOW_WIDTH + CHAT_WINDOW_GAP),
         bottom: 16,
-        width: 300,
+        width: CHAT_WINDOW_WIDTH,
         maxHeight: '70vh',
         display: 'flex',
         flexDirection: 'column',
