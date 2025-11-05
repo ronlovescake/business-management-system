@@ -72,7 +72,7 @@ type ChatWindowState = {
 const STORAGE_KEY = 'bm-open-chat-windows';
 const CHAT_WINDOW_WIDTH = 340;
 const CHAT_WINDOW_GAP = 20;
-const CHAT_WINDOW_HEIGHT = 460;
+const CHAT_WINDOW_HEIGHT = 600;
 
 function formatBadgeCount(count: number | undefined): string {
   if (!count || count <= 0) {
