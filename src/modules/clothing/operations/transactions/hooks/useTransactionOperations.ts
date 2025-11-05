@@ -13,6 +13,7 @@
  */
 
 import { useCallback, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import type { CellEditEvent } from '@/components/ui/HandsontableGrid';
 import { TransactionService } from '../services/TransactionService';
@@ -21,6 +22,8 @@ import { logger } from '@/lib/logger';
 import { showConfirm } from '@/lib/alerts';
 import Swal from 'sweetalert2';
 import type { TransactionData, PriceTier } from '../types/transaction.types';
+import { queryKeys } from '@/lib/queryKeys';
+import { OperationsNotificationsService } from '../../notifications/services/OperationsNotificationsService';
 
 interface UseTransactionOperationsProps {
   transactions: TransactionData[];
@@ -71,6 +74,55 @@ export function useTransactionOperations(
     update,
     onCustomerWarning,
   } = props;
+
+  const queryClient = useQueryClient();
+
+  const logNotification = useCallback(
+    (message: string, metadata?: Record<string, unknown>) => {
+      OperationsNotificationsService.log({
+        category: 'transactions',
+        changes: message,
+        metadata,
+      })
+        .then(() => {
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.operationsNotifications.all,
+          });
+        })
+        .catch((error) => {
+          logger.error('Failed to log transaction notification:', error);
+        });
+    },
+    [queryClient]
+  );
+
+  const describeTransaction = useCallback((transaction: TransactionData) => {
+    const idLabel = transaction.id ? `#${transaction.id}` : 'unsaved row';
+    const customer =
+      transaction.Customers && transaction.Customers.trim() !== ''
+        ? transaction.Customers.trim()
+        : 'No customer';
+    const product =
+      transaction['Product Code'] && transaction['Product Code'].trim() !== ''
+        ? transaction['Product Code'].trim()
+        : 'No product';
+    return `${idLabel} • Customer: ${customer} • Product: ${product}`;
+  }, []);
+
+  const truncate = useCallback((value: string, max = 160) => {
+    if (value.length <= max) {
+      return value;
+    }
+    return `${value.slice(0, max - 1)}…`;
+  }, []);
+
+  const formatNumberValue = useCallback((value: number) => {
+    return TransactionService.formatNumber(value ?? 0);
+  }, []);
+
+  const formatCurrencyValue = useCallback((value: number) => {
+    return TransactionService.formatCurrency(value ?? 0);
+  }, []);
 
   // ============================================================================
   // BATCH MODE TRACKING
@@ -139,6 +191,17 @@ export function useTransactionOperations(
           message: `Saved ${batchedUpdates.length} transactions from paste`,
           color: 'green',
         });
+
+        logNotification(
+          `Batched edit applied to ${batchedUpdates.length} transactions (${customEvent.detail?.count ?? 0} cells).`,
+          {
+            type: 'batch-update',
+            transactionIds: batchedUpdates
+              .map((update) => update.id)
+              .filter((id): id is number => Number.isFinite(id)),
+            cellsEdited: customEvent.detail?.count ?? null,
+          }
+        );
       }
 
       isBatchModeRef.current = false;
@@ -155,7 +218,7 @@ export function useTransactionOperations(
         handleBatchComplete
       );
     };
-  }, [transactions, bulkUpdate]);
+  }, [transactions, bulkUpdate, logNotification]);
 
   // ============================================================================
   // CELL EDITING HANDLER
@@ -178,6 +241,8 @@ export function useTransactionOperations(
 
       // Check if this is part of a batch operation
       const isBatchEdit = Boolean(isBatch || isBatchModeRef.current);
+      const shouldLog = !isBatchEdit;
+      const transactionDescriptor = describeTransaction(transaction);
 
       const newValue = rawValue;
 
@@ -270,6 +335,25 @@ export function useTransactionOperations(
           message: 'Order Date updated successfully',
           color: 'green',
         });
+
+        if (shouldLog) {
+          const previousOrderDate =
+            transaction['Order Date'] && transaction['Order Date'].trim() !== ''
+              ? transaction['Order Date'].trim()
+              : 'blank';
+          const nextOrderDate =
+            newDate && newDate.trim() !== '' ? newDate.trim() : 'blank';
+
+          logNotification(
+            `Order Date updated from ${previousOrderDate} to ${nextOrderDate} for ${transactionDescriptor}.`,
+            {
+              column: 'Order Date',
+              transactionId: transaction.id,
+              previousValue: transaction['Order Date'] ?? '',
+              newValue: newDate,
+            }
+          );
+        }
       }
 
       // ========================================================================
@@ -344,6 +428,34 @@ export function useTransactionOperations(
                 : 'Customer cleared',
           color: 'green',
         });
+
+        if (shouldLog) {
+          const previousCustomer =
+            transaction.Customers && transaction.Customers.trim() !== ''
+              ? transaction.Customers.trim()
+              : 'No customer';
+          const nextCustomer =
+            dropdownValue && dropdownValue.trim() !== ''
+              ? dropdownValue.trim()
+              : 'No customer';
+
+          let message = `Customer updated from ${previousCustomer} to ${nextCustomer} for ${transactionDescriptor}.`;
+
+          if (
+            autoPopulatedOrderDate &&
+            autoPopulatedOrderDate !== (transaction['Order Date'] ?? '')
+          ) {
+            message += ` Order Date auto-set to ${autoPopulatedOrderDate}.`;
+          }
+
+          logNotification(message, {
+            column: 'Customers',
+            transactionId: transaction.id,
+            previousValue: transaction.Customers ?? '',
+            newValue: dropdownValue,
+            autoPopulatedOrderDate,
+          });
+        }
       }
 
       // ========================================================================
@@ -536,6 +648,71 @@ export function useTransactionOperations(
         }
 
         showNotification({ title: 'Success', message, color: 'green' });
+
+        if (shouldLog) {
+          const previousProduct =
+            transaction['Product Code'] &&
+            transaction['Product Code'].trim() !== ''
+              ? transaction['Product Code'].trim()
+              : 'No product';
+          const nextProduct =
+            dropdownValue && dropdownValue.trim() !== ''
+              ? dropdownValue.trim()
+              : 'No product';
+
+          const updates: string[] = [];
+
+          if (previousProduct !== nextProduct) {
+            updates.push(
+              `Product Code from ${previousProduct} to ${nextProduct}`
+            );
+          }
+
+          if (
+            correspondingShipmentCode &&
+            correspondingShipmentCode !== transaction['Shipment Code']
+          ) {
+            updates.push(`Shipment Code → ${correspondingShipmentCode}`);
+          }
+
+          if (
+            shouldAutoPopulateStatus &&
+            finalOrderStatus !== (transaction['Order Status'] ?? '') &&
+            finalOrderStatus
+          ) {
+            updates.push(`Order Status → ${finalOrderStatus}`);
+          }
+
+          if (unitPriceAutoPopulated) {
+            updates.push(
+              `Unit Price → ${formatCurrencyValue(autoPopulatedUnitPrice)}`
+            );
+          }
+
+          if (unitPriceCleared) {
+            updates.push('Unit Price cleared');
+          }
+
+          const updateSummary =
+            updates.length > 0
+              ? updates.join('; ')
+              : 'No dependent fields changed';
+
+          logNotification(
+            `Product details updated for ${transactionDescriptor}. ${updateSummary}.`,
+            {
+              column: 'Product Code',
+              transactionId: transaction.id,
+              previousValue: transaction['Product Code'] ?? '',
+              newValue: dropdownValue,
+              shipmentCode: correspondingShipmentCode || null,
+              orderStatus: finalOrderStatus,
+              unitPrice: unitPriceAutoPopulated
+                ? autoPopulatedUnitPrice
+                : (transaction['Unit Price'] ?? 0),
+            }
+          );
+        }
       }
 
       // ========================================================================
@@ -678,6 +855,29 @@ export function useTransactionOperations(
         }
 
         showNotification({ title: 'Success', message, color: 'green' });
+
+        if (shouldLog) {
+          const previousQuantity = transaction.Quantity ?? 0;
+          let logMessage = `Quantity updated from ${formatNumberValue(previousQuantity)} to ${formatNumberValue(newQuantity)} for ${transactionDescriptor}.`;
+
+          if (unitPriceAutoPopulated) {
+            logMessage += ` Unit Price auto-set to ${formatCurrencyValue(autoPopulatedUnitPrice)}.`;
+          } else if (unitPriceCleared) {
+            logMessage += ' Unit Price cleared.';
+          }
+
+          logMessage += ` Line Total recalculated to ${formatCurrencyValue(lineTotal)}.`;
+
+          logNotification(logMessage, {
+            column: 'Quantity',
+            transactionId: transaction.id,
+            previousValue: previousQuantity,
+            newValue: newQuantity,
+            unitPrice: autoPopulatedUnitPrice,
+            lineTotal,
+            adjustment,
+          });
+        }
       }
 
       // ========================================================================
@@ -711,6 +911,22 @@ export function useTransactionOperations(
           message: 'Unit Price updated successfully',
           color: 'green',
         });
+
+        if (shouldLog) {
+          const previousUnitPrice = transaction['Unit Price'] ?? 0;
+
+          logNotification(
+            `Unit Price updated from ${formatCurrencyValue(previousUnitPrice)} to ${formatCurrencyValue(newUnitPrice)} for ${transactionDescriptor}. Line Total recalculated to ${formatCurrencyValue(lineTotal)}.`,
+            {
+              column: 'Unit Price',
+              transactionId: transaction.id,
+              previousValue: previousUnitPrice,
+              newValue: newUnitPrice,
+              quantity,
+              lineTotal,
+            }
+          );
+        }
       }
 
       // ========================================================================
@@ -759,6 +975,26 @@ export function useTransactionOperations(
           message: 'Discount updated successfully',
           color: 'green',
         });
+
+        if (shouldLog) {
+          const previousDiscount = transaction.Discount ?? 0;
+          const previousUnitPrice = transaction['Unit Price'] ?? 0;
+          const previousLineTotal = transaction['Line Total'] ?? 0;
+
+          let logMessage = `Discount updated from ${formatNumberValue(previousDiscount)} to ${formatNumberValue(newDiscount)} for ${transactionDescriptor}.`;
+          logMessage += ` Unit Price recalculated from ${formatCurrencyValue(previousUnitPrice)} to ${formatCurrencyValue(recalculatedUnitPrice)}.`;
+          logMessage += ` Line Total updated from ${formatCurrencyValue(previousLineTotal)} to ${formatCurrencyValue(lineTotal)}.`;
+
+          logNotification(logMessage, {
+            column: 'Discount',
+            transactionId: transaction.id,
+            previousValue: previousDiscount,
+            newValue: newDiscount,
+            unitPrice: recalculatedUnitPrice,
+            lineTotal,
+            quantity: currentQuantity,
+          });
+        }
       }
 
       // ========================================================================
@@ -792,6 +1028,24 @@ export function useTransactionOperations(
           message: 'Adjustment updated successfully',
           color: 'green',
         });
+
+        if (shouldLog) {
+          const previousAdjustment = transaction.Adjustment ?? 0;
+          const previousLineTotal = transaction['Line Total'] ?? 0;
+
+          logNotification(
+            `Adjustment updated from ${formatCurrencyValue(previousAdjustment)} to ${formatCurrencyValue(newAdjustment)} for ${transactionDescriptor}. Line Total updated from ${formatCurrencyValue(previousLineTotal)} to ${formatCurrencyValue(lineTotal)}.`,
+            {
+              column: 'Adjustment',
+              transactionId: transaction.id,
+              previousValue: previousAdjustment,
+              newValue: newAdjustment,
+              lineTotal,
+              quantity,
+              unitPrice,
+            }
+          );
+        }
       }
 
       // ========================================================================
@@ -807,6 +1061,21 @@ export function useTransactionOperations(
           message: 'Order Status updated successfully',
           color: 'green',
         });
+
+        if (shouldLog) {
+          const previousStatus = transaction['Order Status'] ?? 'Unspecified';
+          const nextStatus = dropdownValue || 'Unspecified';
+
+          logNotification(
+            `Order Status changed from ${previousStatus} to ${nextStatus} for ${transactionDescriptor}.`,
+            {
+              column: 'Order Status',
+              transactionId: transaction.id,
+              previousValue: transaction['Order Status'] ?? '',
+              newValue: dropdownValue,
+            }
+          );
+        }
       }
 
       // ========================================================================
@@ -822,6 +1091,21 @@ export function useTransactionOperations(
           message: 'Notes updated successfully',
           color: 'green',
         });
+
+        if (shouldLog) {
+          const previousNotes = transaction.Notes ?? '';
+          const nextNotes = notesValue ?? '';
+
+          logNotification(
+            `Notes updated for ${transactionDescriptor}. Previous: "${truncate(previousNotes)}" • New: "${truncate(nextNotes)}"`,
+            {
+              column: 'Notes',
+              transactionId: transaction.id,
+              previousValue: previousNotes,
+              newValue: nextNotes,
+            }
+          );
+        }
       }
     },
     [
@@ -831,6 +1115,11 @@ export function useTransactionOperations(
       productToShipmentStatusMap,
       update,
       onCustomerWarning,
+      describeTransaction,
+      logNotification,
+      formatCurrencyValue,
+      formatNumberValue,
+      truncate,
     ]
   );
 
@@ -854,6 +1143,11 @@ export function useTransactionOperations(
         color: 'green',
         autoClose: 3000,
       });
+
+      logNotification('Added 10 empty transaction rows for future orders.', {
+        type: 'add-empty-rows',
+        rowsAdded: 10,
+      });
     } catch (error) {
       logger.error('Error adding empty rows:', error);
       const errorMessage =
@@ -867,7 +1161,7 @@ export function useTransactionOperations(
         autoClose: 5000,
       });
     }
-  }, [bulkUpdate]);
+  }, [bulkUpdate, logNotification]);
 
   // ============================================================================
   // CSV IMPORT
@@ -907,6 +1201,15 @@ export function useTransactionOperations(
           color: 'green',
           autoClose: 5000,
         });
+
+        logNotification(
+          `${result.count} transactions imported from ${file.name}.`,
+          {
+            type: 'csv-import',
+            rowsImported: result.count,
+            fileName: file.name,
+          }
+        );
       } catch (error) {
         logger.error('Import error:', error);
         notifications.show({
@@ -917,7 +1220,7 @@ export function useTransactionOperations(
         });
       }
     },
-    [bulkUpdate]
+    [bulkUpdate, logNotification]
   );
 
   // ============================================================================

@@ -170,6 +170,19 @@ model Transaction {
   @@map("transactions")
 }
 
+model OperationsNotification {
+  id        String   @id @default(cuid())
+  category  String   @db.VarChar(50)
+  user      String?  @db.VarChar(100)
+  changes   String   @db.VarChar(1000)
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([category, createdAt])
+  @@map("operations_notifications")
+}
+
 model SortingDistribution {
   id               Int       @id @default(autoincrement())
   createdAt        DateTime  @default(now())

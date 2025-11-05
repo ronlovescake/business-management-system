@@ -177,6 +177,13 @@ export const queryKeys = {
     detail: (recordId: string) =>
       [...queryKeys.thirteenthMonthPay.details(), recordId] as const,
   },
+
+  // Operations Notifications
+  operationsNotifications: {
+    all: ['operations-notifications'] as const,
+    list: (category: string = 'all') =>
+      [...queryKeys.operationsNotifications.all, category] as const,
+  },
 } as const;
 
 /**

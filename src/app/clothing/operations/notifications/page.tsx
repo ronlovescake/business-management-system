@@ -5,7 +5,6 @@ import {
   Alert,
   Center,
   Loader,
-  Paper,
   Stack,
   Tabs,
   Table,
@@ -28,6 +27,7 @@ import {
   type OperationsNotificationRecord,
 } from '../../../../modules/clothing/operations/notifications/services/OperationsNotificationsService';
 import { queryKeys } from '@/lib/queryKeys';
+import { StandardDataTable } from '@/components/tables/StandardDataTable';
 
 const TAB_ITEMS = [
   { value: 'transactions', label: 'Transactions' },
@@ -334,34 +334,7 @@ function NotificationsPanel({ category, label }: NotificationsPanelProps) {
   }
 
   return (
-    <div style={{ overflowX: 'auto', maxHeight: '75vh', position: 'relative' }}>
-      <Table striped highlightOnHover withColumnBorders>
-        <Table.Thead
-          style={{
-            position: 'sticky',
-            top: 0,
-            backgroundColor: '#f1f3f5',
-            zIndex: 10,
-          }}
-        >
-          <Table.Tr>
-            {TABLE_HEADERS.map((header) => (
-              <Table.Th
-                key={header}
-                style={{
-                  textAlign: 'center',
-                  backgroundColor: '#f1f3f5',
-                  fontWeight: 600,
-                }}
-              >
-                {header}
-              </Table.Th>
-            ))}
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>{tableBody}</Table.Tbody>
-      </Table>
-    </div>
+    <StandardDataTable headers={TABLE_HEADERS}>{tableBody}</StandardDataTable>
   );
 }
 
@@ -389,30 +362,13 @@ export default function OperationsNotifications() {
           </Tabs.List>
         </Tabs>
 
-        <Paper
-          withBorder
-          radius="lg"
-          shadow="md"
-          p="xl"
-          style={{
-            width: '100%',
-            maxWidth: 'min(1800px, 98vw)',
-            margin: '0 auto',
-            minHeight: '90vh',
-            maxHeight: '90vh',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          <NotificationsPanel
-            category={activeTab as OperationsNotificationCategory}
-            label={
-              TAB_ITEMS.find((tab) => tab.value === activeTab)?.label ||
-              'Notifications'
-            }
-          />
-        </Paper>
+        <NotificationsPanel
+          category={activeTab as OperationsNotificationCategory}
+          label={
+            TAB_ITEMS.find((tab) => tab.value === activeTab)?.label ||
+            'Notifications'
+          }
+        />
       </Stack>
     </PageLayout>
   );
