@@ -28,6 +28,8 @@ const TABLES = [
   { name: 'payrolls', model: 'payroll' },
   { name: 'leave_requests', model: 'leaveRequest' },
   { name: 'expenses', model: 'expense' },
+  { name: 'cash_advances', model: 'cashAdvanceRecord' },
+  { name: 'cash_advance_deductions', model: 'cashAdvanceDeduction' },
 ];
 
 function parseDatabaseUrl() {
