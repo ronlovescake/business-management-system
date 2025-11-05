@@ -14,7 +14,7 @@ const TAB_ITEMS = [
 export default function OperationsNotifications() {
   return (
     <PageLayout size="100%" withPadding={false}>
-      <Stack px="xl" py="lg">
+      <Stack px={40} py="xl">
         <Paper
           withBorder
           radius="lg"
@@ -22,9 +22,9 @@ export default function OperationsNotifications() {
           p="xl"
           style={{
             width: '100%',
-            maxWidth: 1280,
+            maxWidth: 'min(1800px, 92vw)',
             margin: '0 auto',
-            minHeight: 420,
+            minHeight: '86vh',
           }}
         >
           <Tabs defaultValue="all" keepMounted={false}>
