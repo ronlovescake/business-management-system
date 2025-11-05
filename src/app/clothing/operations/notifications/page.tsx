@@ -334,18 +334,34 @@ function NotificationsPanel({ category, label }: NotificationsPanelProps) {
   }
 
   return (
-    <Table striped highlightOnHover withColumnBorders>
-      <Table.Thead>
-        <Table.Tr>
-          {TABLE_HEADERS.map((header) => (
-            <Table.Th key={header} style={{ textAlign: 'center' }}>
-              {header}
-            </Table.Th>
-          ))}
-        </Table.Tr>
-      </Table.Thead>
-      <Table.Tbody>{tableBody}</Table.Tbody>
-    </Table>
+    <div style={{ overflowX: 'auto', maxHeight: '75vh', position: 'relative' }}>
+      <Table striped highlightOnHover withColumnBorders>
+        <Table.Thead
+          style={{
+            position: 'sticky',
+            top: 0,
+            backgroundColor: '#f1f3f5',
+            zIndex: 10,
+          }}
+        >
+          <Table.Tr>
+            {TABLE_HEADERS.map((header) => (
+              <Table.Th
+                key={header}
+                style={{
+                  textAlign: 'center',
+                  backgroundColor: '#f1f3f5',
+                  fontWeight: 600,
+                }}
+              >
+                {header}
+              </Table.Th>
+            ))}
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>{tableBody}</Table.Tbody>
+      </Table>
+    </div>
   );
 }
 
@@ -383,6 +399,10 @@ export default function OperationsNotifications() {
             maxWidth: 'min(1800px, 98vw)',
             margin: '0 auto',
             minHeight: '90vh',
+            maxHeight: '90vh',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
           }}
         >
           <NotificationsPanel
