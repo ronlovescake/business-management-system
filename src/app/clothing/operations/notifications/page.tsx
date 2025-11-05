@@ -13,29 +13,42 @@ const TAB_ITEMS = [
 
 export default function OperationsNotifications() {
   return (
-    <PageLayout>
-      <Paper withBorder radius="lg" shadow="md" p="lg">
-        <Tabs defaultValue="all" keepMounted={false}>
-          <Tabs.List grow>
-            {TAB_ITEMS.map((tab) => (
-              <Tabs.Tab key={tab.value} value={tab.value}>
-                {tab.label}
-              </Tabs.Tab>
-            ))}
-          </Tabs.List>
+    <PageLayout size="100%" withPadding={false}>
+      <Stack px="xl" py="lg">
+        <Paper
+          withBorder
+          radius="lg"
+          shadow="md"
+          p="xl"
+          style={{
+            width: '100%',
+            maxWidth: 1280,
+            margin: '0 auto',
+            minHeight: 420,
+          }}
+        >
+          <Tabs defaultValue="all" keepMounted={false}>
+            <Tabs.List grow>
+              {TAB_ITEMS.map((tab) => (
+                <Tabs.Tab key={tab.value} value={tab.value}>
+                  {tab.label}
+                </Tabs.Tab>
+              ))}
+            </Tabs.List>
 
-          {TAB_ITEMS.map((tab) => (
-            <Tabs.Panel key={tab.value} value={tab.value} pt="lg">
-              <Stack align="center" gap="xs">
-                <Text fw={600}>{tab.label}</Text>
-                <Text size="sm" c="dimmed">
-                  This section will surface {tab.label.toLowerCase()} soon.
-                </Text>
-              </Stack>
-            </Tabs.Panel>
-          ))}
-        </Tabs>
-      </Paper>
+            {TAB_ITEMS.map((tab) => (
+              <Tabs.Panel key={tab.value} value={tab.value} pt="lg">
+                <Stack align="center" gap="xs">
+                  <Text fw={600}>{tab.label}</Text>
+                  <Text size="sm" c="dimmed">
+                    This section will surface {tab.label.toLowerCase()} soon.
+                  </Text>
+                </Stack>
+              </Tabs.Panel>
+            ))}
+          </Tabs>
+        </Paper>
+      </Stack>
     </PageLayout>
   );
 }
