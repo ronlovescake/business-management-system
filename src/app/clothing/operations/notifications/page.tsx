@@ -70,6 +70,8 @@ interface NotificationsPanelProps {
 interface GroupedNotification {
   id: string;
   transactionId: string | null;
+  customerName: string | null;
+  productCode: string | null;
   latestDate: string;
   latestTime: string;
   user: string;
@@ -81,6 +83,18 @@ function extractTransactionId(changes: string): string | null {
   // Extract transaction ID from patterns like "Updated transaction #169"
   const match = changes.match(/transaction #(\d+)/i);
   return match ? match[1] : null;
+}
+
+function extractCustomerName(changes: string): string | null {
+  // Extract customer name from patterns like "Updated transaction #169 - CustomerName (ProductCode)"
+  const match = changes.match(/transaction #\d+ - ([^(]+) \(/i);
+  return match ? match[1].trim() : null;
+}
+
+function extractProductCode(changes: string): string | null {
+  // Extract product code from patterns like "Updated transaction #169 - CustomerName (ProductCode)"
+  const match = changes.match(/\(([^)]+)\) - Modified:/i);
+  return match ? match[1].trim() : null;
 }
 
 function GroupedTransactionRow({ group }: { group: GroupedNotification }) {
@@ -118,14 +132,29 @@ function GroupedTransactionRow({ group }: { group: GroupedNotification }) {
                 <IconChevronRight size={16} />
               )}
             </ActionIcon>
-            <Text size="sm" fw={500}>
-              Transaction #{group.transactionId}
-            </Text>
-            {group.count > 1 && (
-              <Badge size="sm" variant="light" color="blue">
-                {group.count} updates
-              </Badge>
-            )}
+            <Stack gap={2}>
+              <Group gap="xs">
+                <Text size="sm" fw={500}>
+                  Transaction #{group.transactionId}
+                </Text>
+                {group.count > 1 && (
+                  <Badge size="sm" variant="light" color="blue">
+                    {group.count} updates
+                  </Badge>
+                )}
+              </Group>
+              {group.customerName && (
+                <Text size="xs" c="dimmed">
+                  Customer:{' '}
+                  <Text span fw={500}>
+                    {group.customerName}
+                  </Text>
+                  {group.productCode && (
+                    <Text span> · Product: {group.productCode}</Text>
+                  )}
+                </Text>
+              )}
+            </Stack>
           </Group>
         </Table.Td>
       </Table.Tr>
@@ -208,9 +237,15 @@ function NotificationsPanel({ category, label }: NotificationsPanelProps) {
       const latest = groupRecords[0];
       const { date, time } = formatDateParts(latest.createdAt);
 
+      // Extract customer name and product code from the latest record
+      const customerName = extractCustomerName(latest.changes);
+      const productCode = extractProductCode(latest.changes);
+
       groups.push({
         id: `group-${transactionId}`,
         transactionId,
+        customerName,
+        productCode,
         latestDate: date,
         latestTime: time,
         user: latest.user ?? 'Operations',

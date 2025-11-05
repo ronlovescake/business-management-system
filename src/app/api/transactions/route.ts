@@ -850,11 +850,16 @@ export async function PATCH(request: NextRequest) {
     // ========================================================================
     try {
       const changedFields = Object.keys(dbData);
+      const customerName = updatedTransaction.customers || 'Unknown Customer';
+      const productCode = updatedTransaction.productCode || 'N/A';
+
       await logOperationNotification(
         'transactions',
-        `Updated transaction #${id} (${changedFields.join(', ')})`,
+        `Updated transaction #${id} - ${customerName} (${productCode}) - Modified: ${changedFields.join(', ')}`,
         {
           transactionId: id,
+          customer: customerName,
+          productCode: productCode,
           fields: changedFields,
         }
       );
