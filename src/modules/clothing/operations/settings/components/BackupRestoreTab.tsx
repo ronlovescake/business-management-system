@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   Stack,
   Group,
@@ -72,6 +72,26 @@ const createRowKey = (tableName: string, row: Record<string, unknown>) =>
 const createCellKey = (rowKey: string, columnKey: string) =>
   `${rowKey}-${columnKey}`;
 
+const formatCellValue = (value: unknown) => {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  }
+
+  return String(value);
+};
+
 export function BackupRestoreTab() {
   const [backups, setBackups] = useState<Backup[]>([]);
   const [loading, setLoading] = useState(false);
@@ -84,6 +104,9 @@ export function BackupRestoreTab() {
   const [previewData, setPreviewData] = useState<BackupData | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [selectedBackup, setSelectedBackup] = useState<Backup | null>(null);
+  const [selectedTableName, setSelectedTableName] = useState<string | null>(
+    null
+  );
   const autoBackupIntervalRef = useRef<NodeJS.Timeout>();
 
   const fetchBackups = useCallback(async () => {
@@ -109,6 +132,27 @@ export function BackupRestoreTab() {
   useEffect(() => {
     void fetchBackups();
   }, [fetchBackups]);
+
+  useEffect(() => {
+    if (!previewData?.tables) {
+      if (selectedTableName !== null) {
+        setSelectedTableName(null);
+      }
+      return;
+    }
+
+    const tableNames = Object.keys(previewData.tables);
+    if (!tableNames.length) {
+      if (selectedTableName !== null) {
+        setSelectedTableName(null);
+      }
+      return;
+    }
+
+    if (!selectedTableName || !previewData.tables[selectedTableName]) {
+      setSelectedTableName(tableNames[0]);
+    }
+  }, [previewData, selectedTableName]);
 
   const handleCreateBackup = useCallback(
     async (isAuto = false) => {
@@ -255,6 +299,8 @@ export function BackupRestoreTab() {
       }
       const data: BackupData = await response.json();
       setPreviewData(data);
+      const [firstTable] = Object.keys(data.tables);
+      setSelectedTableName(firstTable ?? null);
     } catch (error) {
       notifications.show({
         title: 'Preview Failed',
@@ -262,6 +308,7 @@ export function BackupRestoreTab() {
         color: 'red',
       });
       setPreviewModalOpen(false);
+      setSelectedTableName(null);
     } finally {
       setPreviewLoading(false);
     }
@@ -361,6 +408,33 @@ export function BackupRestoreTab() {
       color: 'green',
     });
   };
+
+  const selectedTableDetails = useMemo(() => {
+    if (!previewData || !selectedTableName) {
+      return null;
+    }
+
+    const table = previewData.tables[selectedTableName];
+    if (!table) {
+      return null;
+    }
+
+    const columns: string[] = [];
+    (table.data || []).forEach((row) => {
+      Object.keys(row).forEach((key) => {
+        if (!columns.includes(key)) {
+          columns.push(key);
+        }
+      });
+    });
+
+    return {
+      name: selectedTableName,
+      count: table.count,
+      data: table.data || [],
+      columns,
+    };
+  }, [previewData, selectedTableName]);
 
   const formatDate = (timestamp: string) => {
     try {
@@ -548,7 +622,15 @@ export function BackupRestoreTab() {
         opened={previewModalOpen}
         onClose={() => setPreviewModalOpen(false)}
         title="Backup Preview"
-        size="xl"
+        size="90vw"
+        styles={{
+          content: {
+            maxWidth: '90vw',
+            width: '90vw',
+            maxHeight: '80vh',
+            height: '80vh',
+          },
+        }}
       >
         {previewLoading ? (
           <Progress value={100} animated />
@@ -605,65 +687,144 @@ export function BackupRestoreTab() {
             </Tabs.Panel>
 
             <Tabs.Panel value="tables" pt="md">
-              <Stack gap="md">
-                {Object.entries(previewData.tables).map(([name, data]) => (
-                  <Card key={name} withBorder>
-                    <Group justify="space-between" mb="sm">
-                      <Title order={5}>{name}</Title>
-                      <ActionIcon
-                        size="sm"
-                        color="green"
-                        onClick={() => handleDownloadCSV(name)}
-                      >
-                        <IconFileTypeCsv size={16} />
-                      </ActionIcon>
-                    </Group>
+              <Group align="flex-start" gap="md" wrap="nowrap">
+                <ScrollArea h={360} w={220} offsetScrollbars scrollbarSize={6}>
+                  <Stack gap="xs">
+                    {Object.entries(previewData.tables).map(([name, data]) => {
+                      const isActive = name === selectedTableName;
 
-                    {data.data?.length ? (
-                      <ScrollArea h={200}>
-                        <MantineTable striped>
-                          <MantineTable.Thead>
-                            <MantineTable.Tr>
-                              {Object.keys(data.data[0])
-                                .slice(0, 5)
-                                .map((key) => (
-                                  <MantineTable.Th key={key}>
-                                    {key}
-                                  </MantineTable.Th>
-                                ))}
-                            </MantineTable.Tr>
-                          </MantineTable.Thead>
-                          <MantineTable.Tbody>
-                            {data.data.slice(0, 3).map((row) => {
-                              const rowKey = createRowKey(name, row);
+                      return (
+                        <Card
+                          key={name}
+                          withBorder
+                          padding="sm"
+                          radius="sm"
+                          shadow={isActive ? 'sm' : 'xs'}
+                          onClick={() => setSelectedTableName(name)}
+                          style={{
+                            cursor: 'pointer',
+                            backgroundColor: isActive ? '#edf2ff' : undefined,
+                            borderColor: isActive ? '#4dabf7' : undefined,
+                          }}
+                        >
+                          <Group justify="space-between" align="center">
+                            <Text
+                              size="sm"
+                              fw={isActive ? 600 : 500}
+                              tt="capitalize"
+                            >
+                              {name}
+                            </Text>
+                            <Badge color={isActive ? 'blue' : 'gray'}>
+                              {data.count}{' '}
+                              {data.count === 1 ? 'record' : 'records'}
+                            </Badge>
+                          </Group>
+                        </Card>
+                      );
+                    })}
+                  </Stack>
+                </ScrollArea>
 
-                              return (
-                                <MantineTable.Tr key={rowKey}>
-                                  {Object.entries(row)
-                                    .slice(0, 5)
-                                    .map(([colKey, val]) => (
-                                      <MantineTable.Td
-                                        key={createCellKey(rowKey, colKey)}
+                <Stack gap="md" style={{ flex: 1, minWidth: 0 }}>
+                  {selectedTableDetails ? (
+                    <>
+                      <Group justify="space-between" align="flex-start">
+                        <div>
+                          <Title order={4} tt="capitalize">
+                            {selectedTableDetails.name}
+                          </Title>
+                          <Text size="sm" c="dimmed">
+                            {selectedTableDetails.count}{' '}
+                            {selectedTableDetails.count === 1
+                              ? 'record'
+                              : 'records'}
+                          </Text>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="light"
+                          color="green"
+                          leftSection={<IconFileTypeCsv size={14} />}
+                          onClick={() =>
+                            handleDownloadCSV(selectedTableDetails.name)
+                          }
+                        >
+                          Download CSV
+                        </Button>
+                      </Group>
+
+                      {selectedTableDetails.data.length ? (
+                        <ScrollArea h={360} offsetScrollbars scrollbarSize={8}>
+                          <div
+                            style={{
+                              minWidth: Math.max(
+                                selectedTableDetails.columns.length * 160,
+                                400
+                              ),
+                            }}
+                          >
+                            <MantineTable striped highlightOnHover>
+                              <MantineTable.Thead>
+                                <MantineTable.Tr>
+                                  {selectedTableDetails.columns.map(
+                                    (column) => (
+                                      <MantineTable.Th
+                                        key={`${selectedTableDetails.name}-${column}`}
                                       >
-                                        <Text size="xs" lineClamp={1}>
-                                          {String(val ?? '')}
-                                        </Text>
-                                      </MantineTable.Td>
-                                    ))}
+                                        {column}
+                                      </MantineTable.Th>
+                                    )
+                                  )}
                                 </MantineTable.Tr>
-                              );
-                            })}
-                          </MantineTable.Tbody>
-                        </MantineTable>
-                      </ScrollArea>
-                    ) : (
-                      <Text size="sm" c="dimmed" ta="center">
-                        No data
+                              </MantineTable.Thead>
+                              <MantineTable.Tbody>
+                                {selectedTableDetails.data.map((row) => {
+                                  const rowKey = createRowKey(
+                                    selectedTableDetails.name,
+                                    row
+                                  );
+
+                                  return (
+                                    <MantineTable.Tr key={rowKey}>
+                                      {selectedTableDetails.columns.map(
+                                        (column) => (
+                                          <MantineTable.Td
+                                            key={createCellKey(rowKey, column)}
+                                          >
+                                            <Text size="sm">
+                                              {formatCellValue(row[column])}
+                                            </Text>
+                                          </MantineTable.Td>
+                                        )
+                                      )}
+                                    </MantineTable.Tr>
+                                  );
+                                })}
+                              </MantineTable.Tbody>
+                            </MantineTable>
+                          </div>
+                        </ScrollArea>
+                      ) : (
+                        <Alert
+                          icon={<IconAlertCircle size={16} />}
+                          color="gray"
+                        >
+                          <Text size="sm" c="dimmed">
+                            No data available for this table.
+                          </Text>
+                        </Alert>
+                      )}
+                    </>
+                  ) : (
+                    <Alert icon={<IconAlertCircle size={16} />} color="blue">
+                      <Text size="sm">
+                        Select a table from the list to view its full backup.
                       </Text>
-                    )}
-                  </Card>
-                ))}
-              </Stack>
+                    </Alert>
+                  )}
+                </Stack>
+              </Group>
             </Tabs.Panel>
 
             <Tabs.Panel value="download" pt="md">
