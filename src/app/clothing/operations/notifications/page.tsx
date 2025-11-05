@@ -27,7 +27,10 @@ import {
   type OperationsNotificationRecord,
 } from '../../../../modules/clothing/operations/notifications/services/OperationsNotificationsService';
 import { queryKeys } from '@/lib/queryKeys';
-import { StandardDataTable } from '@/components/tables/StandardDataTable';
+import {
+  StandardDataTable,
+  StandardTableControls,
+} from '@/components/tables/StandardDataTable';
 
 const TAB_ITEMS = [
   { value: 'transactions', label: 'Transactions' },
@@ -186,6 +189,8 @@ function GroupedTransactionRow({ group }: { group: GroupedNotification }) {
 }
 
 function NotificationsPanel({ category, label }: NotificationsPanelProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+
   const queryKey = useMemo(
     () => queryKeys.operationsNotifications.list(category),
     [category]
@@ -263,6 +268,65 @@ function NotificationsPanel({ category, label }: NotificationsPanelProps) {
     return { groups, ungroupedRecords };
   }, [records, category]);
 
+  // Filter based on search query
+  const filteredNotifications = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return groupedNotifications;
+    }
+
+    const query = searchQuery.toLowerCase();
+    const { groups, ungroupedRecords } = groupedNotifications;
+
+    // Filter grouped transactions
+    const filteredGroups = groups.filter((group) => {
+      // Check transaction ID
+      if (group.transactionId?.includes(query)) {
+        return true;
+      }
+
+      // Check customer name
+      if (group.customerName?.toLowerCase().includes(query)) {
+        return true;
+      }
+
+      // Check product code
+      if (group.productCode?.toLowerCase().includes(query)) {
+        return true;
+      }
+
+      // Check user
+      if (group.user.toLowerCase().includes(query)) {
+        return true;
+      }
+
+      // Check date or time
+      if (group.latestDate.toLowerCase().includes(query)) {
+        return true;
+      }
+      if (group.latestTime.toLowerCase().includes(query)) {
+        return true;
+      }
+
+      // Check any of the individual record changes
+      return group.records.some((record) =>
+        record.changes.toLowerCase().includes(query)
+      );
+    });
+
+    // Filter ungrouped records
+    const filteredUngrouped = ungroupedRecords.filter((record) => {
+      const { date, time } = formatDateParts(record.createdAt);
+      return (
+        record.changes.toLowerCase().includes(query) ||
+        (record.user ?? 'Operations').toLowerCase().includes(query) ||
+        date.toLowerCase().includes(query) ||
+        time.toLowerCase().includes(query)
+      );
+    });
+
+    return { groups: filteredGroups, ungroupedRecords: filteredUngrouped };
+  }, [groupedNotifications, searchQuery]);
+
   let tableBody: ReactNode;
 
   if (isLoading) {
@@ -300,41 +364,63 @@ function NotificationsPanel({ category, label }: NotificationsPanelProps) {
       </Table.Tr>
     );
   } else {
-    const { groups, ungroupedRecords } = groupedNotifications;
+    const { groups, ungroupedRecords } = filteredNotifications;
 
-    tableBody = (
-      <>
-        {/* Render grouped transactions */}
-        {groups.map((group) => (
-          <GroupedTransactionRow key={group.id} group={group} />
-        ))}
+    // Check if search returned no results
+    if (groups.length === 0 && ungroupedRecords.length === 0) {
+      tableBody = (
+        <Table.Tr>
+          <Table.Td colSpan={TABLE_HEADERS.length}>
+            <Text size="sm" c="dimmed" ta="center">
+              No notifications found matching &quot;{searchQuery}&quot;
+            </Text>
+          </Table.Td>
+        </Table.Tr>
+      );
+    } else {
+      tableBody = (
+        <>
+          {/* Render grouped transactions */}
+          {groups.map((group) => (
+            <GroupedTransactionRow key={group.id} group={group} />
+          ))}
 
-        {/* Render ungrouped records */}
-        {ungroupedRecords.map((record: OperationsNotificationRecord) => {
-          const { date, time } = formatDateParts(record.createdAt);
-          return (
-            <Table.Tr key={record.id}>
-              <Table.Td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                {date}
-              </Table.Td>
-              <Table.Td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                {time}
-              </Table.Td>
-              <Table.Td style={{ textAlign: 'center' }}>
-                {record.user ?? 'Operations'}
-              </Table.Td>
-              <Table.Td>
-                <Text size="sm">{record.changes}</Text>
-              </Table.Td>
-            </Table.Tr>
-          );
-        })}
-      </>
-    );
+          {/* Render ungrouped records */}
+          {ungroupedRecords.map((record: OperationsNotificationRecord) => {
+            const { date, time } = formatDateParts(record.createdAt);
+            return (
+              <Table.Tr key={record.id}>
+                <Table.Td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                  {date}
+                </Table.Td>
+                <Table.Td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                  {time}
+                </Table.Td>
+                <Table.Td style={{ textAlign: 'center' }}>
+                  {record.user ?? 'Operations'}
+                </Table.Td>
+                <Table.Td>
+                  <Text size="sm">{record.changes}</Text>
+                </Table.Td>
+              </Table.Tr>
+            );
+          })}
+        </>
+      );
+    }
   }
 
   return (
-    <StandardDataTable headers={TABLE_HEADERS}>{tableBody}</StandardDataTable>
+    <Stack gap="md">
+      <StandardTableControls
+        searchPlaceholder="Search notifications..."
+        onSearch={setSearchQuery}
+        hideImport
+        hideExport
+        hideAddNew
+      />
+      <StandardDataTable headers={TABLE_HEADERS}>{tableBody}</StandardDataTable>
+    </Stack>
   );
 }
 
