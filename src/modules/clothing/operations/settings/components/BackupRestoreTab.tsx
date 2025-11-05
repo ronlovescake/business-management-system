@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   Stack,
+  Box,
   Group,
   Button,
   Card,
@@ -687,46 +688,65 @@ export function BackupRestoreTab() {
             </Tabs.Panel>
 
             <Tabs.Panel value="tables" pt="md">
-              <Group align="flex-start" gap="md" wrap="nowrap">
-                <ScrollArea h={360} w={220} offsetScrollbars scrollbarSize={6}>
-                  <Stack gap="xs">
-                    {Object.entries(previewData.tables).map(([name, data]) => {
-                      const isActive = name === selectedTableName;
+              <Box
+                style={{
+                  height: 'calc(83vh - 220px)',
+                  display: 'flex',
+                  gap: 'var(--mantine-spacing-md)',
+                }}
+              >
+                <Box style={{ width: 240, height: '100%' }}>
+                  <ScrollArea
+                    style={{ height: '100%' }}
+                    offsetScrollbars
+                    scrollbarSize={6}
+                  >
+                    <Stack gap="xs">
+                      {Object.entries(previewData.tables).map(
+                        ([name, data]) => {
+                          const isActive = name === selectedTableName;
 
-                      return (
-                        <Card
-                          key={name}
-                          withBorder
-                          padding="sm"
-                          radius="sm"
-                          shadow={isActive ? 'sm' : 'xs'}
-                          onClick={() => setSelectedTableName(name)}
-                          style={{
-                            cursor: 'pointer',
-                            backgroundColor: isActive ? '#edf2ff' : undefined,
-                            borderColor: isActive ? '#4dabf7' : undefined,
-                          }}
-                        >
-                          <Group justify="space-between" align="center">
-                            <Text
-                              size="sm"
-                              fw={isActive ? 600 : 500}
-                              tt="capitalize"
+                          return (
+                            <Card
+                              key={name}
+                              withBorder
+                              padding="sm"
+                              radius="sm"
+                              shadow={isActive ? 'sm' : 'xs'}
+                              onClick={() => setSelectedTableName(name)}
+                              style={{
+                                cursor: 'pointer',
+                                backgroundColor: isActive
+                                  ? '#edf2ff'
+                                  : undefined,
+                                borderColor: isActive ? '#4dabf7' : undefined,
+                              }}
                             >
-                              {name}
-                            </Text>
-                            <Badge color={isActive ? 'blue' : 'gray'}>
-                              {data.count}{' '}
-                              {data.count === 1 ? 'record' : 'records'}
-                            </Badge>
-                          </Group>
-                        </Card>
-                      );
-                    })}
-                  </Stack>
-                </ScrollArea>
+                              <Group justify="space-between" align="center">
+                                <Text
+                                  size="sm"
+                                  fw={isActive ? 600 : 500}
+                                  tt="capitalize"
+                                >
+                                  {name}
+                                </Text>
+                                <Badge color={isActive ? 'blue' : 'gray'}>
+                                  {data.count}{' '}
+                                  {data.count === 1 ? 'record' : 'records'}
+                                </Badge>
+                              </Group>
+                            </Card>
+                          );
+                        }
+                      )}
+                    </Stack>
+                  </ScrollArea>
+                </Box>
 
-                <Stack gap="md" style={{ flex: 1, minWidth: 0 }}>
+                <Stack
+                  gap="md"
+                  style={{ flex: 1, minWidth: 0, height: '100%' }}
+                >
                   {selectedTableDetails ? (
                     <>
                       <Group justify="space-between" align="flex-start">
@@ -755,56 +775,65 @@ export function BackupRestoreTab() {
                       </Group>
 
                       {selectedTableDetails.data.length ? (
-                        <ScrollArea h={360} offsetScrollbars scrollbarSize={8}>
-                          <div
-                            style={{
-                              minWidth: Math.max(
-                                selectedTableDetails.columns.length * 160,
-                                400
-                              ),
-                            }}
+                        <Box style={{ flex: 1, minHeight: 0 }}>
+                          <ScrollArea
+                            style={{ height: '100%' }}
+                            offsetScrollbars
+                            scrollbarSize={8}
                           >
-                            <MantineTable striped highlightOnHover>
-                              <MantineTable.Thead>
-                                <MantineTable.Tr>
-                                  {selectedTableDetails.columns.map(
-                                    (column) => (
-                                      <MantineTable.Th
-                                        key={`${selectedTableDetails.name}-${column}`}
-                                      >
-                                        {column}
-                                      </MantineTable.Th>
-                                    )
-                                  )}
-                                </MantineTable.Tr>
-                              </MantineTable.Thead>
-                              <MantineTable.Tbody>
-                                {selectedTableDetails.data.map((row) => {
-                                  const rowKey = createRowKey(
-                                    selectedTableDetails.name,
-                                    row
-                                  );
+                            <div
+                              style={{
+                                minWidth: Math.max(
+                                  selectedTableDetails.columns.length * 160,
+                                  400
+                                ),
+                              }}
+                            >
+                              <MantineTable striped highlightOnHover>
+                                <MantineTable.Thead>
+                                  <MantineTable.Tr>
+                                    {selectedTableDetails.columns.map(
+                                      (column) => (
+                                        <MantineTable.Th
+                                          key={`${selectedTableDetails.name}-${column}`}
+                                        >
+                                          {column}
+                                        </MantineTable.Th>
+                                      )
+                                    )}
+                                  </MantineTable.Tr>
+                                </MantineTable.Thead>
+                                <MantineTable.Tbody>
+                                  {selectedTableDetails.data.map((row) => {
+                                    const rowKey = createRowKey(
+                                      selectedTableDetails.name,
+                                      row
+                                    );
 
-                                  return (
-                                    <MantineTable.Tr key={rowKey}>
-                                      {selectedTableDetails.columns.map(
-                                        (column) => (
-                                          <MantineTable.Td
-                                            key={createCellKey(rowKey, column)}
-                                          >
-                                            <Text size="sm">
-                                              {formatCellValue(row[column])}
-                                            </Text>
-                                          </MantineTable.Td>
-                                        )
-                                      )}
-                                    </MantineTable.Tr>
-                                  );
-                                })}
-                              </MantineTable.Tbody>
-                            </MantineTable>
-                          </div>
-                        </ScrollArea>
+                                    return (
+                                      <MantineTable.Tr key={rowKey}>
+                                        {selectedTableDetails.columns.map(
+                                          (column) => (
+                                            <MantineTable.Td
+                                              key={createCellKey(
+                                                rowKey,
+                                                column
+                                              )}
+                                            >
+                                              <Text size="sm">
+                                                {formatCellValue(row[column])}
+                                              </Text>
+                                            </MantineTable.Td>
+                                          )
+                                        )}
+                                      </MantineTable.Tr>
+                                    );
+                                  })}
+                                </MantineTable.Tbody>
+                              </MantineTable>
+                            </div>
+                          </ScrollArea>
+                        </Box>
                       ) : (
                         <Alert
                           icon={<IconAlertCircle size={16} />}
@@ -824,7 +853,7 @@ export function BackupRestoreTab() {
                     </Alert>
                   )}
                 </Stack>
-              </Group>
+              </Box>
             </Tabs.Panel>
 
             <Tabs.Panel value="download" pt="md">
