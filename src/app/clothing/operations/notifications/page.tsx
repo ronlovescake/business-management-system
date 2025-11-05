@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import {
   Alert,
   Center,
@@ -31,7 +31,6 @@ import {
   StandardDataTable,
   StandardTableControls,
 } from '@/components/tables/StandardDataTable';
-import { formatDateParts } from '@/utils/dateFormatters';
 
 const TAB_ITEMS = [
   { value: 'transactions', label: 'Transactions' },
@@ -41,20 +40,6 @@ const TAB_ITEMS = [
 ];
 
 const TABLE_HEADERS = ['Date', 'Time', 'User', 'Changes'];
-
-function getRecordDateParts(record: OperationsNotificationRecord): {
-  date: string;
-  time: string;
-} {
-  if (record.createdAtDate && record.createdAtTime) {
-    return {
-      date: record.createdAtDate,
-      time: record.createdAtTime,
-    };
-  }
-
-  return formatDateParts(record.createdAt);
-}
 
 interface NotificationsPanelProps {
   category: OperationsNotificationCategory;
@@ -91,7 +76,16 @@ function extractProductCode(changes: string): string | null {
   return match ? match[1].trim() : null;
 }
 
-function GroupedTransactionRow({ group }: { group: GroupedNotification }) {
+function GroupedTransactionRow({
+  group,
+  formatRecordDate,
+}: {
+  group: GroupedNotification;
+  formatRecordDate: (record: OperationsNotificationRecord) => {
+    date: string;
+    time: string;
+  };
+}) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -157,7 +151,7 @@ function GroupedTransactionRow({ group }: { group: GroupedNotification }) {
           <Collapse in={expanded}>
             <Stack gap={0} p="xs" pl="xl" bg="#f8f9fa">
               {group.records.map((record) => {
-                const { date, time } = getRecordDateParts(record);
+                const { date, time } = formatRecordDate(record);
                 return (
                   <Group key={record.id} gap="md" py="xs" px="md">
                     <Text size="xs" c="dimmed" style={{ minWidth: 80 }}>
@@ -181,6 +175,58 @@ function GroupedTransactionRow({ group }: { group: GroupedNotification }) {
 }
 
 function NotificationsPanel({ category, label }: NotificationsPanelProps) {
+  const timezone = useMemo(() => {
+    if (
+      typeof Intl === 'undefined' ||
+      typeof Intl.DateTimeFormat !== 'function'
+    ) {
+      return 'UTC';
+    }
+
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    } catch (error) {
+      return 'UTC';
+    }
+  }, []);
+
+  const dateFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat('en-US', {
+        month: 'short',
+        day: '2-digit',
+        year: 'numeric',
+        timeZone: timezone,
+      }),
+    [timezone]
+  );
+
+  const timeFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        timeZone: timezone,
+      }),
+    [timezone]
+  );
+
+  const getRecordDateParts = useCallback(
+    (record: OperationsNotificationRecord): { date: string; time: string } => {
+      const parsed = new Date(record.createdAt);
+      if (Number.isNaN(parsed.getTime())) {
+        return { date: '-', time: '-' };
+      }
+
+      return {
+        date: dateFormatter.format(parsed),
+        time: timeFormatter.format(parsed),
+      };
+    },
+    [dateFormatter, timeFormatter]
+  );
+
   const [searchQuery, setSearchQuery] = useState('');
 
   const queryKey = useMemo(
@@ -258,7 +304,7 @@ function NotificationsPanel({ category, label }: NotificationsPanelProps) {
     );
 
     return { groups, ungroupedRecords };
-  }, [records, category]);
+  }, [records, category, getRecordDateParts]);
 
   // Filter based on search query
   const filteredNotifications = useMemo(() => {
@@ -317,7 +363,7 @@ function NotificationsPanel({ category, label }: NotificationsPanelProps) {
     });
 
     return { groups: filteredGroups, ungroupedRecords: filteredUngrouped };
-  }, [groupedNotifications, searchQuery]);
+  }, [groupedNotifications, searchQuery, getRecordDateParts]);
 
   let tableBody: ReactNode;
 
@@ -374,7 +420,11 @@ function NotificationsPanel({ category, label }: NotificationsPanelProps) {
         <>
           {/* Render grouped transactions */}
           {groups.map((group) => (
-            <GroupedTransactionRow key={group.id} group={group} />
+            <GroupedTransactionRow
+              key={group.id}
+              group={group}
+              formatRecordDate={getRecordDateParts}
+            />
           ))}
 
           {/* Render ungrouped records */}
