@@ -41,6 +41,9 @@ const EMPTY_SHIPMENT_MARKER = '-';
 /**
  * Helper function to log operations notification directly to database
  * This is server-side only - cannot use the client-side service
+ *
+ * Creates a new notification entry for each update. The frontend groups
+ * notifications by transaction ID to show change history in a dropdown.
  */
 async function logOperationNotification(
   category: string,
@@ -663,11 +666,40 @@ export async function PUT(request: NextRequest) {
             throw new Error(`Invalid transaction ID: ${transaction.id}`);
           }
 
+          // Fetch existing transaction to track before/after changes
+          const existingTransaction = await tx.transaction.findUnique({
+            where: { id },
+            select: {
+              orderDate: true,
+              customers: true,
+              productCode: true,
+              quantity: true,
+              unitPrice: true,
+              discount: true,
+              adjustment: true,
+              lineTotal: true,
+              orderStatus: true,
+              notes: true,
+              invoiceDate: true,
+              packedDate: true,
+              shipmentCode: true,
+            },
+          });
+
+          if (!existingTransaction) {
+            throw new Error(`Transaction ${id} not found`);
+          }
+
           // Convert UI format to database format
           const dbData: Prisma.TransactionUpdateInput = {};
+          const changeDetails: string[] = [];
 
           if ('Order Date' in transaction) {
             const value = parseTrimmed(transaction['Order Date']);
+            const oldValue = existingTransaction.orderDate || 'empty';
+            if (oldValue !== value) {
+              changeDetails.push(`orderDate: ${oldValue} → ${value}`);
+            }
             dbData.orderDate = value;
             fieldsUpdated.add('orderDate');
             if (!sampleValues.has('orderDate')) {
@@ -680,6 +712,10 @@ export async function PUT(request: NextRequest) {
           }
           if ('Customers' in transaction) {
             const value = parseTrimmed(transaction['Customers']);
+            const oldValue = existingTransaction.customers || 'empty';
+            if (oldValue !== value) {
+              changeDetails.push(`customers: ${oldValue} → ${value}`);
+            }
             dbData.customers = value;
             fieldsUpdated.add('customers');
             if (!sampleValues.has('customers')) {
@@ -692,6 +728,10 @@ export async function PUT(request: NextRequest) {
           }
           if ('Product Code' in transaction) {
             const value = parseTrimmed(transaction['Product Code']);
+            const oldValue = existingTransaction.productCode || 'empty';
+            if (oldValue !== value) {
+              changeDetails.push(`productCode: ${oldValue} → ${value}`);
+            }
             dbData.productCode = value;
             fieldsUpdated.add('productCode');
             if (!sampleValues.has('productCode')) {
@@ -704,6 +744,10 @@ export async function PUT(request: NextRequest) {
           }
           if ('Quantity' in transaction) {
             const value = parseNumeric(transaction['Quantity']);
+            const oldValue = existingTransaction.quantity ?? 0;
+            if (oldValue !== value) {
+              changeDetails.push(`quantity: ${oldValue} → ${value}`);
+            }
             dbData.quantity = value;
             fieldsUpdated.add('quantity');
             if (!sampleValues.has('quantity')) {
@@ -715,23 +759,47 @@ export async function PUT(request: NextRequest) {
             }
           }
           if ('Unit Price' in transaction) {
-            dbData.unitPrice = parseNumeric(transaction['Unit Price']);
+            const value = parseNumeric(transaction['Unit Price']);
+            const oldValue = existingTransaction.unitPrice ?? 0;
+            if (oldValue !== value) {
+              changeDetails.push(`unitPrice: ${oldValue} → ${value}`);
+            }
+            dbData.unitPrice = value;
             fieldsUpdated.add('unitPrice');
           }
           if ('Discount' in transaction) {
-            dbData.discount = parseNumeric(transaction['Discount']);
+            const value = parseNumeric(transaction['Discount']);
+            const oldValue = existingTransaction.discount ?? 0;
+            if (oldValue !== value) {
+              changeDetails.push(`discount: ${oldValue} → ${value}`);
+            }
+            dbData.discount = value;
             fieldsUpdated.add('discount');
           }
           if ('Adjustment' in transaction) {
-            dbData.adjustment = parseNumeric(transaction['Adjustment']);
+            const value = parseNumeric(transaction['Adjustment']);
+            const oldValue = existingTransaction.adjustment ?? 0;
+            if (oldValue !== value) {
+              changeDetails.push(`adjustment: ${oldValue} → ${value}`);
+            }
+            dbData.adjustment = value;
             fieldsUpdated.add('adjustment');
           }
           if ('Line Total' in transaction) {
-            dbData.lineTotal = parseNumeric(transaction['Line Total']);
+            const value = parseNumeric(transaction['Line Total']);
+            const oldValue = existingTransaction.lineTotal ?? 0;
+            if (oldValue !== value) {
+              changeDetails.push(`lineTotal: ${oldValue} → ${value}`);
+            }
+            dbData.lineTotal = value;
             fieldsUpdated.add('lineTotal');
           }
           if ('Order Status' in transaction) {
             const value = parseTrimmed(transaction['Order Status']);
+            const oldValue = existingTransaction.orderStatus || 'empty';
+            if (oldValue !== value) {
+              changeDetails.push(`orderStatus: ${oldValue} → ${value}`);
+            }
             dbData.orderStatus = value;
             fieldsUpdated.add('orderStatus');
             if (!sampleValues.has('orderStatus')) {
@@ -743,26 +811,54 @@ export async function PUT(request: NextRequest) {
             }
           }
           if ('Notes' in transaction) {
-            dbData.notes = parseOptional(transaction['Notes']);
+            const value = parseOptional(transaction['Notes']);
+            const oldValue = existingTransaction.notes || 'empty';
+            if (oldValue !== value) {
+              changeDetails.push(`notes: ${oldValue} → ${value || 'empty'}`);
+            }
+            dbData.notes = value;
             fieldsUpdated.add('notes');
           }
           if ('Invoice Date' in transaction) {
-            dbData.invoiceDate = parseOptional(transaction['Invoice Date']);
+            const value = parseOptional(transaction['Invoice Date']);
+            const oldValue = existingTransaction.invoiceDate || 'empty';
+            if (oldValue !== value) {
+              changeDetails.push(
+                `invoiceDate: ${oldValue} → ${value || 'empty'}`
+              );
+            }
+            dbData.invoiceDate = value;
             fieldsUpdated.add('invoiceDate');
           }
           if ('Packed Date' in transaction) {
-            dbData.packedDate = parseOptional(transaction['Packed Date']);
+            const value = parseOptional(transaction['Packed Date']);
+            const oldValue = existingTransaction.packedDate || 'empty';
+            if (oldValue !== value) {
+              changeDetails.push(
+                `packedDate: ${oldValue} → ${value || 'empty'}`
+              );
+            }
+            dbData.packedDate = value;
             fieldsUpdated.add('packedDate');
           }
           if ('Shipment Code' in transaction) {
-            dbData.shipmentCode = parseOptional(transaction['Shipment Code']);
+            const value = parseOptional(transaction['Shipment Code']);
+            const oldValue = existingTransaction.shipmentCode || 'empty';
+            if (oldValue !== value) {
+              changeDetails.push(
+                `shipmentCode: ${oldValue} → ${value || 'empty'}`
+              );
+            }
+            dbData.shipmentCode = value;
             fieldsUpdated.add('shipmentCode');
           }
 
-          return tx.transaction.update({
+          const updated = await tx.transaction.update({
             where: { id },
             data: dbData,
           });
+
+          return { transaction: updated, changeDetails, id };
         })
       );
 
@@ -772,51 +868,80 @@ export async function PUT(request: NextRequest) {
     logger.info(`✅ Atomically updated ${result.length} transactions`);
 
     // ========================================================================
-    // ⚠️ LOG NOTIFICATION - Track changes in operations notifications
+    // ⚠️ LOG NOTIFICATIONS - One notification per unique transaction row with change details
     // ========================================================================
     try {
-      // Build detailed message showing what was changed
-      const fieldsList = Array.from(fieldsUpdated);
-      let changeMessage = `Bulk updated ${result.length} transaction records`;
+      // Group updates by transaction ID and collect all changes
+      const transactionChanges = new Map<
+        number,
+        {
+          customerName: string;
+          productCode: string;
+          changes: string[];
+        }
+      >();
 
-      if (fieldsList.length > 0) {
-        changeMessage += ` - Modified fields: ${fieldsList.join(', ')}`;
+      result.forEach((updateResult) => {
+        const transactionId = updateResult.id;
+        const transaction = updateResult.transaction;
+        const changeDetails = updateResult.changeDetails;
 
-        // Add sample values for key fields (productCode, customers, orderDate)
-        const samples: string[] = [];
-        if (sampleValues.has('productCode')) {
-          const values = sampleValues.get('productCode');
-          if (values) {
-            samples.push(`Product: ${values.join(', ')}`);
+        if (!transactionChanges.has(transactionId)) {
+          transactionChanges.set(transactionId, {
+            customerName: transaction.customers || '',
+            productCode: transaction.productCode || '',
+            changes: [...changeDetails],
+          });
+        } else {
+          // Merge changes for same transaction
+          const existing = transactionChanges.get(transactionId);
+          if (existing) {
+            existing.changes.push(...changeDetails);
+            // Update customer/product if they changed
+            if (transaction.customers) {
+              existing.customerName = transaction.customers;
+            }
+            if (transaction.productCode) {
+              existing.productCode = transaction.productCode;
+            }
           }
         }
-        if (sampleValues.has('customers')) {
-          const values = sampleValues.get('customers');
-          if (values) {
-            samples.push(`Customers: ${values.join(', ')}`);
-          }
-        }
-        if (sampleValues.has('orderDate')) {
-          const values = sampleValues.get('orderDate');
-          if (values) {
-            samples.push(`Dates: ${values.join(', ')}`);
-          }
-        }
-
-        if (samples.length > 0) {
-          changeMessage += ` (${samples.join('; ')})`;
-        }
-      }
-
-      await logOperationNotification('transactions', changeMessage, {
-        count: result.length,
-        fieldsUpdated: fieldsList,
-        sampleValues: Object.fromEntries(sampleValues),
       });
+
+      // Create one notification per unique transaction with full change history
+      const notificationPromises = Array.from(transactionChanges.entries()).map(
+        async ([transactionId, data]) => {
+          // Build notification message in the format expected by the frontend
+          // Format: "Updated transaction #123 - CustomerName (ProductCode) - Modified: field1: old → new, field2: old → new"
+          let changeMessage = `Updated transaction #${transactionId}`;
+
+          if (data.customerName && data.productCode) {
+            changeMessage += ` - ${data.customerName} (${data.productCode})`;
+          } else if (data.customerName) {
+            changeMessage += ` - ${data.customerName}`;
+          } else if (data.productCode) {
+            changeMessage += ` - (${data.productCode})`;
+          }
+
+          if (data.changes.length > 0) {
+            changeMessage += ` - Modified: ${data.changes.join(', ')}`;
+          }
+
+          await logOperationNotification('transactions', changeMessage, {
+            transactionId: transactionId,
+          });
+        }
+      );
+
+      // Execute all notifications in parallel
+      await Promise.all(notificationPromises);
+      logger.info(
+        `✅ Created ${notificationPromises.length} notifications for ${result.length} transaction updates`
+      );
     } catch (notifError) {
       // Don't fail the request if notification logging fails
       logger.warn(
-        'Failed to log notification for transaction update:',
+        'Failed to log notifications for transaction updates:',
         notifError
       );
     }

@@ -229,7 +229,8 @@ function NotificationsPanel({ category, label }: NotificationsPanelProps) {
         category,
         limit: 200,
       }),
-    staleTime: 30_000,
+    staleTime: 10_000, // Consider data stale after 10 seconds
+    refetchInterval: 10_000, // Auto-refetch every 10 seconds
   });
 
   const records = useMemo(() => data ?? [], [data]);
