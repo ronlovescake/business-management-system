@@ -428,16 +428,11 @@ export default function OperationsNotifications() {
   const [activeTab, setActiveTab] = useState<string>('transactions');
 
   return (
-    <PageLayout size="100%" withPadding={false}>
-      <Stack px={40} py="xl" gap="xl">
+    <PageLayout fluid withPadding>
+      <Stack gap="lg">
         <Tabs
           value={activeTab}
           onChange={(value) => setActiveTab(value || 'transactions')}
-          style={{
-            width: '100%',
-            maxWidth: 'min(1800px, 98vw)',
-            margin: '0 auto',
-          }}
         >
           <Tabs.List grow>
             {TAB_ITEMS.map((tab) => (
