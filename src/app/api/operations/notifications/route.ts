@@ -8,6 +8,21 @@ import { sanitizeString, sanitizeObject } from '@/lib/security/sanitize';
 
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 500;
+const MANILA_TIMEZONE = 'Asia/Manila';
+
+const MANILA_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: '2-digit',
+  year: 'numeric',
+  timeZone: MANILA_TIMEZONE,
+});
+
+const MANILA_TIME_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  timeZone: MANILA_TIMEZONE,
+});
 
 type OperationsNotificationRecord = {
   id: string;
@@ -83,14 +98,21 @@ export async function GET(request: NextRequest) {
       `
     );
 
-    const payload = notifications.map((notification) => ({
-      id: notification.id,
-      category: notification.category,
-      user: notification.user ?? 'Operations',
-      changes: notification.changes,
-      metadata: notification.metadata,
-      createdAt: notification.createdAt.toISOString(),
-    }));
+    const payload = notifications.map((notification) => {
+      const createdAt = notification.createdAt;
+      const createdAtIso = createdAt.toISOString();
+
+      return {
+        id: notification.id,
+        category: notification.category,
+        user: notification.user ?? 'Operations',
+        changes: notification.changes,
+        metadata: notification.metadata,
+        createdAt: createdAtIso,
+        createdAtDate: MANILA_DATE_FORMATTER.format(createdAt),
+        createdAtTime: MANILA_TIME_FORMATTER.format(createdAt),
+      };
+    });
 
     return NextResponse.json(payload);
   } catch (error) {
@@ -126,14 +148,10 @@ export async function POST(request: NextRequest) {
 
     const id = randomUUID();
 
-    // Use current time in Philippine timezone
-    const now = new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' });
-    const philippineTime = new Date(now);
-
     const [created] = await prisma.$queryRaw<OperationsNotificationRecord[]>(
       Prisma.sql`
-        INSERT INTO "operations_notifications" (id, category, "user", changes, metadata, "createdAt")
-        VALUES (${id}, ${category}, ${user}, ${changes}, ${metadataJson}, ${philippineTime})
+        INSERT INTO "operations_notifications" (id, category, "user", changes, metadata)
+        VALUES (${id}, ${category}, ${user}, ${changes}, ${metadataJson})
         RETURNING id, category, "user", changes, metadata, "createdAt"
       `
     );
@@ -142,13 +160,16 @@ export async function POST(request: NextRequest) {
       throw new Error('Failed to persist operations notification');
     }
 
+    const createdAt = created.createdAt;
     const responsePayload = {
       id: created.id,
       category: created.category,
       user: created.user,
       changes: created.changes,
       metadata: created.metadata,
-      createdAt: created.createdAt.toISOString(),
+      createdAt: createdAt.toISOString(),
+      createdAtDate: MANILA_DATE_FORMATTER.format(createdAt),
+      createdAtTime: MANILA_TIME_FORMATTER.format(createdAt),
     };
 
     return NextResponse.json(responsePayload, { status: 201 });

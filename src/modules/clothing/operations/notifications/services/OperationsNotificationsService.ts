@@ -16,6 +16,8 @@ export interface OperationsNotificationRecord {
   changes: string;
   metadata: Record<string, unknown> | null;
   createdAt: string;
+  createdAtDate: string;
+  createdAtTime: string;
 }
 
 export interface FetchOperationsNotificationsParams {

@@ -42,6 +42,20 @@ const TAB_ITEMS = [
 
 const TABLE_HEADERS = ['Date', 'Time', 'User', 'Changes'];
 
+function getRecordDateParts(record: OperationsNotificationRecord): {
+  date: string;
+  time: string;
+} {
+  if (record.createdAtDate && record.createdAtTime) {
+    return {
+      date: record.createdAtDate,
+      time: record.createdAtTime,
+    };
+  }
+
+  return formatDateParts(record.createdAt);
+}
+
 interface NotificationsPanelProps {
   category: OperationsNotificationCategory;
   label: string;
@@ -143,7 +157,7 @@ function GroupedTransactionRow({ group }: { group: GroupedNotification }) {
           <Collapse in={expanded}>
             <Stack gap={0} p="xs" pl="xl" bg="#f8f9fa">
               {group.records.map((record) => {
-                const { date, time } = formatDateParts(record.createdAt);
+                const { date, time } = getRecordDateParts(record);
                 return (
                   <Group key={record.id} gap="md" py="xs" px="md">
                     <Text size="xs" c="dimmed" style={{ minWidth: 80 }}>
@@ -217,7 +231,7 @@ function NotificationsPanel({ category, label }: NotificationsPanelProps) {
       );
 
       const latest = groupRecords[0];
-      const { date, time } = formatDateParts(latest.createdAt);
+      const { date, time } = getRecordDateParts(latest);
 
       // Extract customer name and product code from the latest record
       const customerName = extractCustomerName(latest.changes);
@@ -293,7 +307,7 @@ function NotificationsPanel({ category, label }: NotificationsPanelProps) {
 
     // Filter ungrouped records
     const filteredUngrouped = ungroupedRecords.filter((record) => {
-      const { date, time } = formatDateParts(record.createdAt);
+      const { date, time } = getRecordDateParts(record);
       return (
         record.changes.toLowerCase().includes(query) ||
         (record.user ?? 'Operations').toLowerCase().includes(query) ||
@@ -365,7 +379,7 @@ function NotificationsPanel({ category, label }: NotificationsPanelProps) {
 
           {/* Render ungrouped records */}
           {ungroupedRecords.map((record: OperationsNotificationRecord) => {
-            const { date, time } = formatDateParts(record.createdAt);
+            const { date, time } = getRecordDateParts(record);
             return (
               <Table.Tr key={record.id}>
                 <Table.Td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
