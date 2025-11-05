@@ -367,7 +367,7 @@ export default function OperationsNotifications() {
             minHeight: '90vh',
           }}
         >
-          <Stack gap="lg">
+          <Stack gap="xl">
             <Tabs
               value={activeTab}
               onChange={(value) => setActiveTab(value || 'transactions')}
@@ -381,13 +381,15 @@ export default function OperationsNotifications() {
               </Tabs.List>
             </Tabs>
 
-            <NotificationsPanel
-              category={activeTab as OperationsNotificationCategory}
-              label={
-                TAB_ITEMS.find((tab) => tab.value === activeTab)?.label ||
-                'Notifications'
-              }
-            />
+            <div style={{ marginTop: '2rem' }}>
+              <NotificationsPanel
+                category={activeTab as OperationsNotificationCategory}
+                label={
+                  TAB_ITEMS.find((tab) => tab.value === activeTab)?.label ||
+                  'Notifications'
+                }
+              />
+            </div>
           </Stack>
         </Paper>
       </Stack>
