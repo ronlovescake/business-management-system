@@ -1,11 +1,48 @@
-import { ActionIcon, Avatar, Group, Indicator, Tooltip } from '@mantine/core';
+'use client';
+
+import { useMemo, useState } from 'react';
+import {
+  ActionIcon,
+  Avatar,
+  Badge,
+  Box,
+  Divider,
+  Flex,
+  Group,
+  Indicator,
+  Paper,
+  Popover,
+  Portal,
+  ScrollArea,
+  Stack,
+  Text,
+  TextInput,
+  Textarea,
+  Tooltip,
+  UnstyledButton,
+} from '@mantine/core';
 import {
   IconBell,
   IconChevronDown,
+  IconDotsVertical,
+  IconEdit,
   IconGridDots,
   IconMessageCircle,
+  IconMoodSmile,
+  IconPhone,
+  IconSearch,
+  IconSend,
   IconSettings,
+  IconThumbUp,
+  IconVideo,
+  IconX,
 } from '@tabler/icons-react';
+import {
+  getConversationById,
+  getMessagesByConversationId,
+  MOCK_CONVERSATIONS,
+  type Message,
+} from '@/modules/clothing/operations/messaging/data';
 
 interface HeaderQuickActionsProps {
   unreadMessages?: number;
@@ -21,10 +58,48 @@ function formatBadgeCount(count: number | undefined): string {
 }
 
 export function HeaderQuickActions({
-  unreadMessages = 0,
+  unreadMessages = MOCK_CONVERSATIONS.reduce(
+    (sum, conversation) => sum + conversation.unread,
+    0
+  ),
   unreadNotifications = 0,
   userInitials = 'Y',
 }: HeaderQuickActionsProps) {
+  const [messagesOpen, setMessagesOpen] = useState(false);
+  const [messageSearch, setMessageSearch] = useState('');
+  const [openChatIds, setOpenChatIds] = useState<string[]>([]);
+
+  const filteredConversations = useMemo(() => {
+    const query = messageSearch.trim().toLowerCase();
+    if (!query) {
+      return MOCK_CONVERSATIONS;
+    }
+
+    return MOCK_CONVERSATIONS.filter((conversation) =>
+      [conversation.title, ...conversation.participants]
+        .join(' ')
+        .toLowerCase()
+        .includes(query)
+    );
+  }, [messageSearch]);
+
+  const handleOpenConversation = (conversationId: string) => {
+    setMessagesOpen(false);
+    setOpenChatIds((current) => {
+      const withoutDuplicate = current.filter((id) => id !== conversationId);
+      const next = [...withoutDuplicate, conversationId];
+      const MAX_WINDOWS = 3;
+      if (next.length <= MAX_WINDOWS) {
+        return next;
+      }
+      return next.slice(next.length - MAX_WINDOWS);
+    });
+  };
+
+  const handleCloseConversation = (conversationId: string) => {
+    setOpenChatIds((current) => current.filter((id) => id !== conversationId));
+  };
+
   return (
     <Group gap="sm" align="center">
       <Tooltip label="Apps" withArrow>
@@ -38,25 +113,135 @@ export function HeaderQuickActions({
         </ActionIcon>
       </Tooltip>
 
-      <Tooltip label="Messages" withArrow>
-        <Indicator
-          inline
-          label={formatBadgeCount(unreadMessages)}
-          size={16}
-          disabled={unreadMessages <= 0}
-          color="blue"
-          offset={4}
-        >
-          <ActionIcon
-            variant="subtle"
-            radius="xl"
-            size={46}
-            aria-label="Open messages"
-          >
-            <IconMessageCircle size={20} />
-          </ActionIcon>
-        </Indicator>
-      </Tooltip>
+      <Popover
+        shadow="xl"
+        radius="md"
+        width={360}
+        position="bottom-end"
+        opened={messagesOpen}
+        onChange={setMessagesOpen}
+      >
+        <Popover.Target>
+          <Tooltip label="Messages" withArrow>
+            <Indicator
+              inline
+              label={formatBadgeCount(unreadMessages)}
+              size={16}
+              disabled={unreadMessages <= 0}
+              color="blue"
+              offset={4}
+            >
+              <ActionIcon
+                variant="subtle"
+                radius="xl"
+                size={46}
+                aria-label="Open messages"
+                onClick={() => setMessagesOpen((open) => !open)}
+              >
+                <IconMessageCircle size={20} />
+              </ActionIcon>
+            </Indicator>
+          </Tooltip>
+        </Popover.Target>
+
+        <Popover.Dropdown p="sm">
+          <Stack gap="xs" w="100%">
+            <Group justify="space-between" align="flex-start">
+              <div>
+                <Text fw={600}>Messages</Text>
+                <Text size="xs" c="dimmed">
+                  {filteredConversations.length} conversation
+                  {filteredConversations.length === 1 ? '' : 's'}
+                </Text>
+              </div>
+              <Group gap={6}>
+                <ActionIcon
+                  variant="subtle"
+                  radius="xl"
+                  aria-label="Start new message"
+                >
+                  <IconEdit size={16} />
+                </ActionIcon>
+                <ActionIcon
+                  variant="subtle"
+                  radius="xl"
+                  aria-label="More message options"
+                >
+                  <IconDotsVertical size={16} />
+                </ActionIcon>
+              </Group>
+            </Group>
+
+            <TextInput
+              value={messageSearch}
+              onChange={(event) => setMessageSearch(event.currentTarget.value)}
+              placeholder="Search Messenger"
+              leftSection={<IconSearch size={14} />}
+              size="xs"
+              radius="md"
+            />
+
+            <Divider my={4} />
+
+            <ScrollArea h={320} offsetScrollbars>
+              <Stack gap="xs">
+                {filteredConversations.map((conversation) => {
+                  const initials = conversation.title
+                    .split(' ')
+                    .map((word) => word[0])
+                    .join('')
+                    .slice(0, 2)
+                    .toUpperCase();
+                  return (
+                    <UnstyledButton
+                      key={conversation.id}
+                      onClick={() => handleOpenConversation(conversation.id)}
+                      style={{
+                        borderRadius: '12px',
+                        padding: '0.5rem 0.75rem',
+                        border: '1px solid var(--mantine-color-gray-3)',
+                        backgroundColor: 'var(--mantine-color-gray-0)',
+                      }}
+                    >
+                      <Group align="flex-start" gap="sm">
+                        <Avatar radius="xl" size={36} variant="filled">
+                          {initials}
+                        </Avatar>
+                        <Box style={{ flex: 1 }}>
+                          <Group justify="space-between" align="baseline">
+                            <Text size="sm" fw={600} lineClamp={1}>
+                              {conversation.title}
+                            </Text>
+                            <Text size="xs" c="dimmed">
+                              {conversation.lastMessage.at}
+                            </Text>
+                          </Group>
+                          <Text size="xs" c="dimmed" lineClamp={1}>
+                            {conversation.lastMessage.author}:{' '}
+                            {conversation.lastMessage.preview}
+                          </Text>
+                        </Box>
+                        {conversation.unread > 0 && (
+                          <Badge color="blue" radius="xl" size="sm">
+                            {conversation.unread}
+                          </Badge>
+                        )}
+                      </Group>
+                    </UnstyledButton>
+                  );
+                })}
+                {filteredConversations.length === 0 && (
+                  <Box ta="center" py="lg">
+                    <Text size="sm" c="dimmed">
+                      No conversations found
+                    </Text>
+                  </Box>
+                )}
+              </Stack>
+            </ScrollArea>
+          </Stack>
+        </Popover.Dropdown>
+      </Popover>
 
       <Tooltip label="Notifications" withArrow>
         <Indicator
@@ -102,8 +287,207 @@ export function HeaderQuickActions({
           <IconChevronDown size={18} />
         </ActionIcon>
       </Group>
+
+      <Portal>
+        {openChatIds.map((conversationId, index) => {
+          const conversation = getConversationById(conversationId);
+          if (!conversation) {
+            return null;
+          }
+
+          return (
+            <ChatWindow
+              key={conversationId}
+              conversationId={conversationId}
+              conversationTitle={conversation.title}
+              unread={conversation.unread}
+              offsetIndex={index}
+              onClose={handleCloseConversation}
+            />
+          );
+        })}
+      </Portal>
     </Group>
   );
 }
 
 export default HeaderQuickActions;
+
+interface ChatWindowProps {
+  conversationId: string;
+  conversationTitle: string;
+  unread: number;
+  offsetIndex: number;
+  onClose: (conversationId: string) => void;
+}
+
+function ChatWindow({
+  conversationId,
+  conversationTitle,
+  unread,
+  offsetIndex,
+  onClose,
+}: ChatWindowProps) {
+  const [messages, setMessages] = useState<Message[]>(() =>
+    getMessagesByConversationId(conversationId)
+  );
+  const [draft, setDraft] = useState('');
+
+  const handleSend = () => {
+    const trimmed = draft.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    const newMessage: Message = {
+      id: `${conversationId}-${Date.now()}`,
+      author: { name: 'You', avatarInitials: 'Y' },
+      body: trimmed,
+      sentAt: 'Just now',
+      mine: true,
+    };
+
+    setMessages((current) => [...current, newMessage]);
+    setDraft('');
+  };
+
+  return (
+    <Paper
+      withBorder
+      shadow="xl"
+      radius="lg"
+      style={{
+        position: 'fixed',
+        right: 16 + offsetIndex * 320,
+        bottom: 16,
+        width: 300,
+        maxHeight: '70vh',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        zIndex: 4000,
+        backgroundColor: 'var(--mantine-color-white)',
+      }}
+    >
+      <Flex
+        align="center"
+        justify="space-between"
+        px="sm"
+        py="xs"
+        style={{
+          background: 'linear-gradient(135deg, #ffb562, #ff8a4c)',
+          color: 'white',
+        }}
+      >
+        <Stack gap={0} style={{ flex: 1 }}>
+          <Group gap={6} align="center">
+            <Avatar size={28} radius="xl" color="orange.7">
+              {conversationTitle.slice(0, 2).toUpperCase()}
+            </Avatar>
+            <Text fw={600} size="sm">
+              {conversationTitle}
+            </Text>
+          </Group>
+          <Text size="xs" c="rgba(255,255,255,0.85)">
+            {unread > 0
+              ? `${unread} new message${unread > 1 ? 's' : ''}`
+              : 'Active now'}
+          </Text>
+        </Stack>
+        <Group gap={6}>
+          <ActionIcon variant="subtle" color="white" radius="xl">
+            <IconPhone size={16} />
+          </ActionIcon>
+          <ActionIcon variant="subtle" color="white" radius="xl">
+            <IconVideo size={16} />
+          </ActionIcon>
+          <ActionIcon variant="subtle" color="white" radius="xl">
+            <IconDotsVertical size={16} />
+          </ActionIcon>
+          <ActionIcon
+            variant="subtle"
+            color="white"
+            radius="xl"
+            aria-label="Close chat"
+            onClick={() => onClose(conversationId)}
+          >
+            <IconX size={16} />
+          </ActionIcon>
+        </Group>
+      </Flex>
+
+      <ScrollArea style={{ flex: 1 }} px="sm" py="md">
+        <Stack gap="xs">
+          {messages.map((message) => (
+            <Flex
+              key={message.id}
+              justify={message.mine ? 'flex-end' : 'flex-start'}
+            >
+              <Box
+                style={{
+                  maxWidth: '80%',
+                  backgroundColor: message.mine
+                    ? 'var(--mantine-color-blue-5)'
+                    : 'var(--mantine-color-gray-1)',
+                  color: message.mine ? 'white' : 'var(--mantine-color-black)',
+                  borderRadius: 16,
+                  padding: '0.5rem 0.75rem',
+                }}
+              >
+                {!message.mine && (
+                  <Text size="xs" fw={600} c="dimmed">
+                    {message.author.name}
+                  </Text>
+                )}
+                <Text size="sm" mt={message.mine ? 0 : 4}>
+                  {message.body}
+                </Text>
+                <Text size="xs" c="dimmed" ta="right" mt={4}>
+                  {message.sentAt}
+                </Text>
+              </Box>
+            </Flex>
+          ))}
+          {messages.length === 0 && (
+            <Text size="sm" c="dimmed" ta="center">
+              No messages yet. Say hello!
+            </Text>
+          )}
+        </Stack>
+      </ScrollArea>
+
+      <Divider />
+
+      <Stack gap={6} px="sm" py="xs">
+        <Group gap={6}>
+          <ActionIcon variant="subtle" radius="xl">
+            <IconMoodSmile size={18} />
+          </ActionIcon>
+          <ActionIcon variant="subtle" radius="xl">
+            <IconThumbUp size={18} />
+          </ActionIcon>
+        </Group>
+        <Textarea
+          value={draft}
+          onChange={(event) => setDraft(event.currentTarget.value)}
+          placeholder="Aa"
+          autosize
+          minRows={1}
+          maxRows={3}
+          styles={{ input: { paddingRight: 40 } }}
+        />
+        <Group justify="flex-end">
+          <ActionIcon
+            color="blue"
+            radius="xl"
+            variant="filled"
+            aria-label="Send message"
+            onClick={handleSend}
+          >
+            <IconSend size={18} />
+          </ActionIcon>
+        </Group>
+      </Stack>
+    </Paper>
+  );
+}
