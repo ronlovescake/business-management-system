@@ -1,6 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import {
   ActionIcon,
   Avatar,
@@ -66,6 +72,7 @@ type ChatWindowState = {
 const STORAGE_KEY = 'bm-open-chat-windows';
 const CHAT_WINDOW_WIDTH = 340;
 const CHAT_WINDOW_GAP = 20;
+const CHAT_WINDOW_HEIGHT = 460;
 
 function formatBadgeCount(count: number | undefined): string {
   if (!count || count <= 0) {
@@ -465,6 +472,23 @@ function ChatWindow({
   );
   const [draft, setDraft] = useState('');
 
+  const windowStyle: CSSProperties = {
+    position: 'fixed',
+    right: 16 + offsetIndex * (CHAT_WINDOW_WIDTH + CHAT_WINDOW_GAP),
+    bottom: 16,
+    width: CHAT_WINDOW_WIDTH,
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+    zIndex: 4000,
+    backgroundColor: 'var(--mantine-color-white)',
+  };
+
+  if (!minimized) {
+    windowStyle.height = CHAT_WINDOW_HEIGHT;
+    windowStyle.maxHeight = '70vh';
+  }
+
   const handleSend = () => {
     const trimmed = draft.trim();
     if (!trimmed) {
@@ -484,23 +508,7 @@ function ChatWindow({
   };
 
   return (
-    <Paper
-      withBorder
-      shadow="xl"
-      radius="lg"
-      style={{
-        position: 'fixed',
-        right: 16 + offsetIndex * (CHAT_WINDOW_WIDTH + CHAT_WINDOW_GAP),
-        bottom: 16,
-        width: CHAT_WINDOW_WIDTH,
-        maxHeight: '70vh',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        zIndex: 4000,
-        backgroundColor: 'var(--mantine-color-white)',
-      }}
-    >
+    <Paper withBorder shadow="xl" radius="lg" style={windowStyle}>
       <Flex
         align="center"
         justify="space-between"
