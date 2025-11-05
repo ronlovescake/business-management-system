@@ -30,7 +30,6 @@ import {
 import { queryKeys } from '@/lib/queryKeys';
 
 const TAB_ITEMS = [
-  { value: 'all', label: 'All notifications' },
   { value: 'transactions', label: 'Transactions' },
   { value: 'products', label: 'Products' },
   { value: 'prices', label: 'Prices' },
@@ -366,7 +365,7 @@ export default function OperationsNotifications() {
             minHeight: '90vh',
           }}
         >
-          <Tabs defaultValue="all" keepMounted={false}>
+          <Tabs defaultValue="transactions" keepMounted={false}>
             <Tabs.List grow>
               {TAB_ITEMS.map((tab) => (
                 <Tabs.Tab key={tab.value} value={tab.value}>
