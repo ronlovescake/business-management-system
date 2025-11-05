@@ -1,11 +1,41 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { prisma } from '../../../lib/db';
 import type { ShipmentData, ShipmentDB } from '../../../types';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
 import { MAX_QUERY_LIMIT } from '@/constants/batch-sizes';
+
+/**
+ * Helper function to log operations notification directly to database
+ * This is server-side only - cannot use the client-side service
+ *
+ * Creates a new notification entry for each update. The frontend groups
+ * notifications by shipment ID to show change history in a dropdown.
+ */
+async function logOperationNotification(
+  category: string,
+  changes: string,
+  metadata?: Record<string, unknown>
+): Promise<void> {
+  try {
+    const id = randomUUID();
+    const metadataJson = metadata ? JSON.stringify(metadata) : null;
+
+    // Use current time in Philippine timezone
+    const now = new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' });
+    const philippineTime = new Date(now);
+
+    await prisma.$executeRaw`
+      INSERT INTO "operations_notifications" (id, category, "user", changes, metadata, "createdAt")
+      VALUES (${id}, ${category}, ${'Operations'}, ${changes}, ${metadataJson}::jsonb, ${philippineTime})
+    `;
+  } catch (error) {
+    logger.warn('Failed to log operations notification:', error);
+  }
+}
 
 // Helper function to convert database model to frontend interface
 function convertShipmentDBToData(shipment: ShipmentDB): ShipmentData {
@@ -142,14 +172,23 @@ export async function POST(request: NextRequest) {
       logger.debug('Converted shipments, count:', shipmentsToCreate.length);
 
       // ========================================================================
-      // ⚠️ ATOMIC BULK IMPORT - Upsert/Restore Pattern
+      // ⚠️ ATOMIC BULK IMPORT - Upsert/Restore Pattern with change tracking
       // ========================================================================
       // Use upsert to maintain stable IDs and restore soft-deleted records
+      // Track changes for: Shipment Code, CV Number, No. Of Sacks, Total CBM,
+      // Weight, Fee, Shipment Status, Date Created, Date Delivered, Notes
       // ========================================================================
       const result = await prisma.$transaction(async (tx) => {
         let created = 0;
         let updated = 0;
         let restored = 0;
+
+        const changeTracking: Array<{
+          shipmentId: number;
+          shipmentCode: string;
+          cvNumber: string | null;
+          changes: string[];
+        }> = [];
 
         for (const shipmentData of shipmentsToCreate) {
           const shipmentCode = shipmentData.shipmentCode;
@@ -164,6 +203,91 @@ export async function POST(request: NextRequest) {
           });
 
           if (existing) {
+            // Track changes for tracked fields only
+            const changeDetails: string[] = [];
+
+            // Shipment Code (shouldn't change, but track just in case)
+            const normalizedOldShipment = existing.shipmentCode || '';
+            const normalizedNewShipment = shipmentData.shipmentCode || '';
+            if (normalizedOldShipment !== normalizedNewShipment) {
+              changeDetails.push(
+                `shipmentCode: ${existing.shipmentCode || 'empty'} → ${shipmentData.shipmentCode || 'empty'}`
+              );
+            }
+
+            // CV Number
+            const normalizedOldCV = existing.cvNumber || '';
+            const normalizedNewCV = shipmentData.cvNumber || '';
+            if (normalizedOldCV !== normalizedNewCV) {
+              changeDetails.push(
+                `cvNumber: ${existing.cvNumber || 'empty'} → ${shipmentData.cvNumber || 'empty'}`
+              );
+            }
+
+            // No. Of Sacks
+            const oldSacks = existing.noOfSacks ?? 0;
+            const newSacks = shipmentData.noOfSacks ?? 0;
+            if (oldSacks !== newSacks) {
+              changeDetails.push(`noOfSacks: ${oldSacks} → ${newSacks}`);
+            }
+
+            // Total CBM
+            const oldCBM = existing.totalCBM ?? 0;
+            const newCBM = shipmentData.totalCBM ?? 0;
+            if (oldCBM !== newCBM) {
+              changeDetails.push(`totalCBM: ${oldCBM} → ${newCBM}`);
+            }
+
+            // Weight
+            const oldWeight = existing.weight ?? 0;
+            const newWeight = shipmentData.weight ?? 0;
+            if (oldWeight !== newWeight) {
+              changeDetails.push(`weight: ${oldWeight} → ${newWeight}`);
+            }
+
+            // Fee
+            const oldFee = existing.fee ?? 0;
+            const newFee = shipmentData.fee ?? 0;
+            if (oldFee !== newFee) {
+              changeDetails.push(`fee: ${oldFee} → ${newFee}`);
+            }
+
+            // Shipment Status
+            const normalizedOldStatus = existing.shipmentStatus || '';
+            const normalizedNewStatus = shipmentData.shipmentStatus || '';
+            if (normalizedOldStatus !== normalizedNewStatus) {
+              changeDetails.push(
+                `shipmentStatus: ${existing.shipmentStatus || 'empty'} → ${shipmentData.shipmentStatus || 'empty'}`
+              );
+            }
+
+            // Date Created
+            const normalizedOldCreated = existing.dateCreated || null;
+            const normalizedNewCreated = shipmentData.dateCreated || null;
+            if (normalizedOldCreated !== normalizedNewCreated) {
+              changeDetails.push(
+                `dateCreated: ${existing.dateCreated || 'empty'} → ${shipmentData.dateCreated || 'empty'}`
+              );
+            }
+
+            // Date Delivered
+            const normalizedOldDelivered = existing.dateDelivered || null;
+            const normalizedNewDelivered = shipmentData.dateDelivered || null;
+            if (normalizedOldDelivered !== normalizedNewDelivered) {
+              changeDetails.push(
+                `dateDelivered: ${existing.dateDelivered || 'empty'} → ${shipmentData.dateDelivered || 'empty'}`
+              );
+            }
+
+            // Notes
+            const normalizedOldNotes = existing.notes || null;
+            const normalizedNewNotes = shipmentData.notes || null;
+            if (normalizedOldNotes !== normalizedNewNotes) {
+              changeDetails.push(
+                `notes: ${existing.notes || 'empty'} → ${shipmentData.notes || 'empty'}`
+              );
+            }
+
             // Update existing shipment and restore if soft-deleted
             const wasDeleted = existing.deletedAt !== null;
             await tx.shipment.update({
@@ -188,6 +312,16 @@ export async function POST(request: NextRequest) {
               },
             });
 
+            // Track changes if any fields actually changed
+            if (changeDetails.length > 0) {
+              changeTracking.push({
+                shipmentId: existing.id,
+                shipmentCode: shipmentCode,
+                cvNumber: shipmentData.cvNumber,
+                changes: changeDetails,
+              });
+            }
+
             if (wasDeleted) {
               restored++;
             } else {
@@ -195,7 +329,7 @@ export async function POST(request: NextRequest) {
             }
           } else {
             // Create new shipment
-            await tx.shipment.create({
+            const newShipment = await tx.shipment.create({
               data: shipmentData,
             });
 
@@ -213,16 +347,104 @@ export async function POST(request: NextRequest) {
               },
             });
 
+            // Track new shipment creation with initial values
+            const changeDetails: string[] = [];
+            if (shipmentData.shipmentCode) {
+              changeDetails.push(
+                `shipmentCode: empty → ${shipmentData.shipmentCode}`
+              );
+            }
+            if (shipmentData.cvNumber) {
+              changeDetails.push(`cvNumber: empty → ${shipmentData.cvNumber}`);
+            }
+            if (shipmentData.noOfSacks) {
+              changeDetails.push(`noOfSacks: 0 → ${shipmentData.noOfSacks}`);
+            }
+            if (shipmentData.totalCBM) {
+              changeDetails.push(`totalCBM: 0 → ${shipmentData.totalCBM}`);
+            }
+            if (shipmentData.weight) {
+              changeDetails.push(`weight: 0 → ${shipmentData.weight}`);
+            }
+            if (shipmentData.fee) {
+              changeDetails.push(`fee: 0 → ${shipmentData.fee}`);
+            }
+            if (shipmentData.shipmentStatus) {
+              changeDetails.push(
+                `shipmentStatus: empty → ${shipmentData.shipmentStatus}`
+              );
+            }
+            if (shipmentData.dateCreated) {
+              changeDetails.push(
+                `dateCreated: empty → ${shipmentData.dateCreated}`
+              );
+            }
+            if (shipmentData.dateDelivered) {
+              changeDetails.push(
+                `dateDelivered: empty → ${shipmentData.dateDelivered}`
+              );
+            }
+            if (shipmentData.notes) {
+              changeDetails.push(`notes: empty → ${shipmentData.notes}`);
+            }
+
+            if (changeDetails.length > 0) {
+              changeTracking.push({
+                shipmentId: newShipment.id,
+                shipmentCode: shipmentCode,
+                cvNumber: shipmentData.cvNumber,
+                changes: changeDetails,
+              });
+            }
+
             created++;
           }
         }
 
-        return { created, updated, restored };
+        return { created, updated, restored, changeTracking };
       });
 
       logger.info(
         `✅ Imported shipments: ${result.created} created, ${result.updated} updated, ${result.restored} restored`
       );
+
+      // ========================================================================
+      // ⚠️ LOG NOTIFICATIONS - One notification per unique shipment with change details
+      // ========================================================================
+      try {
+        // Create notifications for all shipments with changes
+        const notificationPromises = result.changeTracking.map(
+          async (tracked) => {
+            // Build notification message
+            // Format: "Updated shipment #123 - ShipmentCode (CVNumber) - Modified: field: old → new"
+            let changeMessage = `Updated shipment #${tracked.shipmentId}`;
+
+            if (tracked.shipmentCode && tracked.cvNumber) {
+              changeMessage += ` - ${tracked.shipmentCode} (${tracked.cvNumber})`;
+            } else if (tracked.shipmentCode) {
+              changeMessage += ` - ${tracked.shipmentCode}`;
+            } else if (tracked.cvNumber) {
+              changeMessage += ` - (${tracked.cvNumber})`;
+            }
+
+            if (tracked.changes.length > 0) {
+              changeMessage += ` - Modified: ${tracked.changes.join(', ')}`;
+            }
+
+            await logOperationNotification('shipments', changeMessage, {
+              shipmentId: tracked.shipmentId,
+            });
+          }
+        );
+
+        await Promise.all(notificationPromises);
+        logger.info(
+          `✅ Created ${notificationPromises.length} shipment notifications`
+        );
+      } catch (notifError) {
+        // Don't fail the request if notification logging fails
+        logger.warn('Failed to log shipment notifications:', notifError);
+      }
 
       return NextResponse.json({
         message: 'Shipments imported successfully',
