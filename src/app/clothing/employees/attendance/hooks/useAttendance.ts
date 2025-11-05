@@ -595,6 +595,9 @@ export function useAttendance() {
           position: string;
           date: string;
           startTime: string;
+          break1?: string | null;
+          lunch?: string | null;
+          break2?: string | null;
           endTime: string;
           status: string;
           notes?: string;
@@ -716,7 +719,11 @@ export function useAttendance() {
       };
 
       // Helper function to calculate total hours
-      const calculateHours = (startTime: string, endTime: string) => {
+      const calculateHours = (
+        startTime: string,
+        endTime: string,
+        breakMinutes = 0
+      ) => {
         const [startHour, startMin] = startTime.split(':').map(Number);
         const [endHour, endMin] = endTime.split(':').map(Number);
 
@@ -729,10 +736,69 @@ export function useAttendance() {
         }
 
         const totalMinutes = endMinutes - startMinutes;
-        const workMinutes = totalMinutes - 90; // Deduct breaks (90 min)
+        const workMinutes = totalMinutes - breakMinutes;
 
         return Math.max(0, workMinutes / 60);
       };
+
+      const addMinutesToTime = (time: string, minutesToAdd: number) => {
+        if (!time) {
+          return undefined;
+        }
+
+        const [hourStr, minuteStr] = time.split(':');
+        const hours = Number(hourStr);
+        const minutes = Number(minuteStr);
+
+        if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+          return undefined;
+        }
+
+        let totalMinutes = hours * 60 + minutes + minutesToAdd;
+        totalMinutes = ((totalMinutes % 1440) + 1440) % 1440;
+
+        const nextHours = Math.floor(totalMinutes / 60);
+        const nextMinutes = totalMinutes % 60;
+
+        return `${String(nextHours).padStart(2, '0')}:${String(nextMinutes).padStart(2, '0')}`;
+      };
+
+      const resolveBreakWindow = (
+        value: string | null | undefined,
+        fallback: string,
+        durationMinutes: number
+      ) => {
+        const normalized = value?.trim() || '';
+        const start = normalized || fallback;
+
+        if (!start) {
+          return {
+            start: undefined as string | undefined,
+            end: undefined as string | undefined,
+            minutes: 0,
+          };
+        }
+
+        const end = addMinutesToTime(start, durationMinutes);
+
+        return {
+          start,
+          end,
+          minutes: end ? durationMinutes : 0,
+        };
+      };
+
+      const DEFAULT_BREAKS = {
+        break1: '09:00',
+        lunch: '12:00',
+        break2: '15:00',
+      } as const;
+
+      const BREAK_DURATIONS = {
+        break1: 15,
+        lunch: 60,
+        break2: 15,
+      } as const;
 
       // Generate attendance records
       const newAttendanceRecords = schedulesNeedingAttendance.map(
@@ -743,6 +809,9 @@ export function useAttendance() {
           position: string;
           date: string;
           startTime: string;
+          break1?: string | null;
+          lunch?: string | null;
+          break2?: string | null;
           endTime: string;
           status: string;
           notes?: string;
@@ -755,9 +824,32 @@ export function useAttendance() {
             status = 'on-leave';
           }
 
+          const break1Window = resolveBreakWindow(
+            schedule.break1,
+            DEFAULT_BREAKS.break1,
+            BREAK_DURATIONS.break1
+          );
+          const lunchWindow = resolveBreakWindow(
+            schedule.lunch,
+            DEFAULT_BREAKS.lunch,
+            BREAK_DURATIONS.lunch
+          );
+          const break2Window = resolveBreakWindow(
+            schedule.break2,
+            DEFAULT_BREAKS.break2,
+            BREAK_DURATIONS.break2
+          );
+
+          const totalBreakMinutes = [
+            break1Window,
+            lunchWindow,
+            break2Window,
+          ].reduce((sum, window) => sum + window.minutes, 0);
+
           const totalHours = calculateHours(
             schedule.startTime,
-            schedule.endTime
+            schedule.endTime,
+            totalBreakMinutes
           );
 
           return {
@@ -768,12 +860,12 @@ export function useAttendance() {
             date: schedule.date,
             timeIn: schedule.startTime,
             timeOut: schedule.endTime,
-            break1Start: '09:00',
-            break1End: '09:15',
-            lunchStart: '12:00',
-            lunchEnd: '13:00',
-            break2Start: '15:00',
-            break2End: '15:15',
+            break1Start: break1Window.start,
+            break1End: break1Window.end,
+            lunchStart: lunchWindow.start,
+            lunchEnd: lunchWindow.end,
+            break2Start: break2Window.start,
+            break2End: break2Window.end,
             totalHours: totalHours,
             status: status,
             details: leaveInfo ? `On ${leaveInfo.leaveType}` : '',
