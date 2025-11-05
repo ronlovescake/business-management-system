@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import type { Price, Transaction } from '@prisma/client';
 import { Prisma } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
@@ -36,6 +37,28 @@ type PriceTier = Pick<
 type TransactionImportRow = Record<string, unknown>;
 
 const EMPTY_SHIPMENT_MARKER = '-';
+
+/**
+ * Helper function to log operations notification directly to database
+ * This is server-side only - cannot use the client-side service
+ */
+async function logOperationNotification(
+  category: string,
+  changes: string,
+  metadata?: Record<string, unknown>
+): Promise<void> {
+  try {
+    const id = randomUUID();
+    const metadataJson = metadata ? JSON.stringify(metadata) : null;
+
+    await prisma.$executeRaw`
+      INSERT INTO "operations_notifications" (id, category, "user", changes, metadata)
+      VALUES (${id}, ${category}, ${'Operations'}, ${changes}, ${metadataJson}::jsonb)
+    `;
+  } catch (error) {
+    logger.warn('Failed to log operations notification:', error);
+  }
+}
 
 /**
  * Parse and sanitize numeric value
@@ -532,6 +555,27 @@ export async function POST(request: NextRequest) {
       data: allDataToInsert,
     });
 
+    // ========================================================================
+    // ⚠️ LOG NOTIFICATION - Track changes in operations notifications
+    // ========================================================================
+    try {
+      await logOperationNotification(
+        'transactions',
+        `Imported ${result.count} transaction records (${dataToInsert.length} with data, ${emptyRowsData.length} empty)`,
+        {
+          count: result.count,
+          withData: dataToInsert.length,
+          empty: emptyRowsData.length,
+        }
+      );
+    } catch (notifError) {
+      // Don't fail the request if notification logging fails
+      logger.warn(
+        'Failed to log notification for transaction import:',
+        notifError
+      );
+    }
+
     return NextResponse.json({
       message: `Successfully imported ${result.count} transaction records`,
       count: result.count,
@@ -665,6 +709,25 @@ export async function PUT(request: NextRequest) {
 
     logger.info(`✅ Atomically updated ${result.length} transactions`);
 
+    // ========================================================================
+    // ⚠️ LOG NOTIFICATION - Track changes in operations notifications
+    // ========================================================================
+    try {
+      await logOperationNotification(
+        'transactions',
+        `Updated ${result.length} transaction records`,
+        {
+          count: result.length,
+        }
+      );
+    } catch (notifError) {
+      // Don't fail the request if notification logging fails
+      logger.warn(
+        'Failed to log notification for transaction update:',
+        notifError
+      );
+    }
+
     return NextResponse.json({
       message: `Successfully updated ${result.length} transactions`,
       count: result.length,
@@ -782,6 +845,27 @@ export async function PATCH(request: NextRequest) {
       data: dbData,
     });
 
+    // ========================================================================
+    // ⚠️ LOG NOTIFICATION - Track changes in operations notifications
+    // ========================================================================
+    try {
+      const changedFields = Object.keys(dbData);
+      await logOperationNotification(
+        'transactions',
+        `Updated transaction #${id} (${changedFields.join(', ')})`,
+        {
+          transactionId: id,
+          fields: changedFields,
+        }
+      );
+    } catch (notifError) {
+      // Don't fail the request if notification logging fails
+      logger.warn(
+        'Failed to log notification for transaction update:',
+        notifError
+      );
+    }
+
     return NextResponse.json({
       message: 'Transaction updated successfully',
       transaction: updatedTransaction,
@@ -850,6 +934,26 @@ export async function DELETE(request: NextRequest) {
     logger.info(
       `✅ Soft deleted ${result.count} transactions (${alreadyDeleted} were already deleted)`
     );
+
+    // ========================================================================
+    // ⚠️ LOG NOTIFICATION - Track changes in operations notifications
+    // ========================================================================
+    try {
+      await logOperationNotification(
+        'transactions',
+        `Deleted ${result.count} transaction records`,
+        {
+          count: result.count,
+          alreadyDeleted,
+        }
+      );
+    } catch (notifError) {
+      // Don't fail the request if notification logging fails
+      logger.warn(
+        'Failed to log notification for transaction deletion:',
+        notifError
+      );
+    }
 
     return NextResponse.json({
       message: `Successfully deleted ${result.count} transaction records`,
