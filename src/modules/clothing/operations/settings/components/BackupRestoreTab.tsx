@@ -451,6 +451,7 @@ export function BackupRestoreTab() {
         day: '2-digit',
         hour: '2-digit',
         minute: '2-digit',
+        timeZone: 'Asia/Manila',
       });
     } catch {
       return timestamp;
@@ -661,9 +662,17 @@ export function BackupRestoreTab() {
                   <Stack gap="xs">
                     <Text size="sm">
                       Created:{' '}
-                      {new Date(
-                        previewData.metadata.createdAt
-                      ).toLocaleString()}
+                      {new Date(previewData.metadata.createdAt).toLocaleString(
+                        'en-US',
+                        {
+                          year: 'numeric',
+                          month: 'short',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          timeZone: 'Asia/Manila',
+                        }
+                      )}
                     </Text>
                     <Text size="sm">
                       Database: {previewData.metadata.database}
