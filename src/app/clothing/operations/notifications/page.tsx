@@ -350,6 +350,8 @@ function NotificationsPanel({ category, label }: NotificationsPanelProps) {
 }
 
 export default function OperationsNotifications() {
+  const [activeTab, setActiveTab] = useState<string>('transactions');
+
   return (
     <PageLayout size="100%" withPadding={false}>
       <Stack px={40} py="xl">
@@ -365,26 +367,28 @@ export default function OperationsNotifications() {
             minHeight: '90vh',
           }}
         >
-          <Tabs defaultValue="transactions" keepMounted={false}>
-            <Tabs.List grow>
-              {TAB_ITEMS.map((tab) => (
-                <Tabs.Tab key={tab.value} value={tab.value}>
-                  {tab.label}
-                </Tabs.Tab>
-              ))}
-            </Tabs.List>
+          <Stack gap="lg">
+            <Tabs
+              value={activeTab}
+              onChange={(value) => setActiveTab(value || 'transactions')}
+            >
+              <Tabs.List grow>
+                {TAB_ITEMS.map((tab) => (
+                  <Tabs.Tab key={tab.value} value={tab.value}>
+                    {tab.label}
+                  </Tabs.Tab>
+                ))}
+              </Tabs.List>
+            </Tabs>
 
-            {TAB_ITEMS.map((tab) => (
-              <Tabs.Panel key={tab.value} value={tab.value} pt="lg">
-                <Stack gap="md">
-                  <NotificationsPanel
-                    category={tab.value as OperationsNotificationCategory}
-                    label={tab.label}
-                  />
-                </Stack>
-              </Tabs.Panel>
-            ))}
-          </Tabs>
+            <NotificationsPanel
+              category={activeTab as OperationsNotificationCategory}
+              label={
+                TAB_ITEMS.find((tab) => tab.value === activeTab)?.label ||
+                'Notifications'
+              }
+            />
+          </Stack>
         </Paper>
       </Stack>
     </PageLayout>
