@@ -28,6 +28,7 @@ import {
   Textarea,
   Tooltip,
   UnstyledButton,
+  ThemeIcon,
 } from '@mantine/core';
 import {
   IconBell,
@@ -51,12 +52,20 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
+import { usePathname, useRouter } from 'next/navigation';
+import { useBusinessStore } from '@/lib/store';
 import {
   getConversationById,
   getMessagesByConversationId,
   MOCK_CONVERSATIONS,
   type Message,
 } from '@/modules/clothing/operations/messaging/data';
+import {
+  buildNavigationItems,
+  type BusinessType,
+  type WorkspaceType,
+  type NavigationItem,
+} from './navigationItems';
 
 interface HeaderQuickActionsProps {
   unreadMessages?: number;
@@ -74,6 +83,9 @@ const CHAT_WINDOW_WIDTH = 340;
 const CHAT_WINDOW_GAP = 20;
 const CHAT_WINDOW_HEIGHT = 600;
 
+const isBusiness = (value: string | null): value is BusinessType =>
+  value === 'clothing' || value === 'trucking';
+
 function formatBadgeCount(count: number | undefined): string {
   if (!count || count <= 0) {
     return '';
@@ -89,10 +101,105 @@ export function HeaderQuickActions({
   unreadNotifications = 0,
   userInitials = 'Y',
 }: HeaderQuickActionsProps) {
+  const [appsOpen, setAppsOpen] = useState(false);
   const [messagesOpen, setMessagesOpen] = useState(false);
   const [messageSearch, setMessageSearch] = useState('');
   const [openChats, setOpenChats] = useState<ChatWindowState[]>([]);
   const hasHydratedRef = useRef(false);
+  const pathname = usePathname();
+  const router = useRouter();
+  const { selectedBusiness, selectedWorkspace, initializeFromPath } =
+    useBusinessStore();
+
+  useEffect(() => {
+    if ((!selectedBusiness || !selectedWorkspace) && pathname) {
+      initializeFromPath(pathname);
+    }
+  }, [pathname, selectedBusiness, selectedWorkspace, initializeFromPath]);
+
+  const operationsNavItems = useMemo(() => {
+    if (!isBusiness(selectedBusiness)) {
+      return [];
+    }
+    return buildNavigationItems(selectedBusiness, 'operations');
+  }, [selectedBusiness]);
+
+  const employeesNavItems = useMemo(() => {
+    if (!isBusiness(selectedBusiness)) {
+      return [];
+    }
+    return buildNavigationItems(selectedBusiness, 'employees');
+  }, [selectedBusiness]);
+
+  const handleNavigate = (path: string) => {
+    setAppsOpen(false);
+    setMessagesOpen(false);
+    router.push(path);
+  };
+
+  const renderNavSection = (
+    title: string,
+    items: NavigationItem[],
+    workspace: WorkspaceType
+  ) => {
+    const accentColor = workspace === 'operations' ? 'blue' : 'green';
+
+    return (
+      <Stack key={workspace} gap="xs">
+        <Group justify="space-between" align="center">
+          <Text fw={600} size="sm">
+            {title}
+          </Text>
+          <Badge size="xs" variant="light" color={accentColor}>
+            {workspace === 'operations' ? 'Operations' : 'Employees'}
+          </Badge>
+        </Group>
+        {items.length > 0 ? (
+          <Stack gap={4}>
+            {items.map((item) => {
+              const isActive = pathname === item.path;
+              const IconComponent = item.icon;
+
+              return (
+                <UnstyledButton
+                  key={`${workspace}-${item.path}`}
+                  onClick={() => handleNavigate(item.path)}
+                  style={{
+                    borderRadius: 10,
+                    padding: '0.45rem 0.6rem',
+                    backgroundColor: isActive
+                      ? 'rgba(59, 130, 246, 0.12)'
+                      : 'transparent',
+                    border: isActive
+                      ? '1px solid rgba(59, 130, 246, 0.35)'
+                      : '1px solid transparent',
+                  }}
+                >
+                  <Group gap="sm">
+                    <ThemeIcon
+                      size="sm"
+                      radius="md"
+                      variant={isActive ? 'filled' : 'light'}
+                      color={accentColor}
+                    >
+                      <IconComponent size={18} />
+                    </ThemeIcon>
+                    <Text size="sm" fw={isActive ? 600 : 500}>
+                      {item.label}
+                    </Text>
+                  </Group>
+                </UnstyledButton>
+              );
+            })}
+          </Stack>
+        ) : (
+          <Text size="sm" c="dimmed">
+            No pages available yet.
+          </Text>
+        )}
+      </Stack>
+    );
+  };
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -224,16 +331,62 @@ export function HeaderQuickActions({
 
   return (
     <Group gap="sm" align="center">
-      <Tooltip label="Apps" withArrow>
-        <ActionIcon
-          variant="subtle"
-          radius="xl"
-          size={46}
-          aria-label="Open apps menu"
-        >
-          <IconGridDots size={20} />
-        </ActionIcon>
-      </Tooltip>
+      <Popover
+        shadow="xl"
+        radius="md"
+        width={340}
+        position="bottom-start"
+        opened={appsOpen}
+        onChange={setAppsOpen}
+      >
+        <Popover.Target>
+          <Tooltip label="Apps" withArrow>
+            <ActionIcon
+              variant="subtle"
+              radius="xl"
+              size={46}
+              aria-label="Open workspace navigator"
+              onClick={() => setAppsOpen((open) => !open)}
+            >
+              <IconGridDots size={20} />
+            </ActionIcon>
+          </Tooltip>
+        </Popover.Target>
+
+        <Popover.Dropdown p="sm">
+          {isBusiness(selectedBusiness) ? (
+            <Stack gap="sm" w="100%">
+              <Group justify="space-between" align="flex-start">
+                <div>
+                  <Text fw={600}>Workspace navigator</Text>
+                  <Text size="xs" c="dimmed">
+                    Switch between operations and employees
+                  </Text>
+                </div>
+              </Group>
+
+              <ScrollArea h={360} offsetScrollbars>
+                <Stack gap="md">
+                  {renderNavSection(
+                    'Operations workspace',
+                    operationsNavItems,
+                    'operations'
+                  )}
+                  {renderNavSection(
+                    'Employees workspace',
+                    employeesNavItems,
+                    'employees'
+                  )}
+                </Stack>
+              </ScrollArea>
+            </Stack>
+          ) : (
+            <Text size="sm" c="dimmed">
+              Navigate to a workspace to load shortcuts.
+            </Text>
+          )}
+        </Popover.Dropdown>
+      </Popover>
 
       <Popover
         shadow="xl"
