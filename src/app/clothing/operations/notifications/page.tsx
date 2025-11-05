@@ -1,6 +1,6 @@
 'use client';
 
-import { Paper, Stack, Tabs, Text } from '@mantine/core';
+import { Paper, Stack, Tabs, Table, Text } from '@mantine/core';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 
 const TAB_ITEMS = [
@@ -10,6 +10,8 @@ const TAB_ITEMS = [
   { value: 'prices', label: 'Prices' },
   { value: 'shipments', label: 'Shipments' },
 ];
+
+const TABLE_HEADERS = ['Date', 'Time', 'User', 'Changes'];
 
 export default function OperationsNotifications() {
   return (
@@ -22,9 +24,9 @@ export default function OperationsNotifications() {
           p="xl"
           style={{
             width: '100%',
-            maxWidth: 'min(1800px, 92vw)',
+            maxWidth: 'min(1800px, 98vw)',
             margin: '0 auto',
-            minHeight: '86vh',
+            minHeight: '90vh',
           }}
         >
           <Tabs defaultValue="all" keepMounted={false}>
@@ -38,11 +40,30 @@ export default function OperationsNotifications() {
 
             {TAB_ITEMS.map((tab) => (
               <Tabs.Panel key={tab.value} value={tab.value} pt="lg">
-                <Stack align="center" gap="xs">
-                  <Text fw={600}>{tab.label}</Text>
-                  <Text size="sm" c="dimmed">
-                    This section will surface {tab.label.toLowerCase()} soon.
-                  </Text>
+                <Stack gap="md">
+                  <Table striped highlightOnHover withColumnBorders>
+                    <Table.Thead>
+                      <Table.Tr>
+                        {TABLE_HEADERS.map((header) => (
+                          <Table.Th
+                            key={header}
+                            style={{ textAlign: 'center' }}
+                          >
+                            {header}
+                          </Table.Th>
+                        ))}
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      <Table.Tr>
+                        <Table.Td colSpan={TABLE_HEADERS.length}>
+                          <Text size="sm" c="dimmed" ta="center">
+                            No {tab.label.toLowerCase()} yet.
+                          </Text>
+                        </Table.Td>
+                      </Table.Tr>
+                    </Table.Tbody>
+                  </Table>
                 </Stack>
               </Tabs.Panel>
             ))}
