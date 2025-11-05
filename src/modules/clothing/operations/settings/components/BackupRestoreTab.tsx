@@ -789,13 +789,24 @@ export function BackupRestoreTab() {
                                 ),
                               }}
                             >
-                              <MantineTable striped highlightOnHover>
+                              <MantineTable
+                                striped
+                                highlightOnHover
+                                stickyHeader
+                              >
                                 <MantineTable.Thead>
                                   <MantineTable.Tr>
                                     {selectedTableDetails.columns.map(
                                       (column) => (
                                         <MantineTable.Th
                                           key={`${selectedTableDetails.name}-${column}`}
+                                          style={{
+                                            backgroundColor:
+                                              'var(--mantine-color-body)',
+                                            position: 'sticky',
+                                            top: 0,
+                                            zIndex: 1,
+                                          }}
                                         >
                                           {column}
                                         </MantineTable.Th>
