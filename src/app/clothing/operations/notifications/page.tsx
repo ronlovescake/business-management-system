@@ -175,16 +175,15 @@ function GroupedTransactionRow({
 }
 
 function NotificationsPanel({ category, label }: NotificationsPanelProps) {
-  // Force Asia/Manila timezone for Philippines
-  const timezone = 'Asia/Manila';
-
+  // Database stores Manila time but returns it with Z marker
+  // Use UTC timezone to display the timestamp as-is without conversion
   const dateFormatter = useMemo(
     () =>
       new Intl.DateTimeFormat('en-US', {
         month: 'short',
         day: '2-digit',
         year: 'numeric',
-        timeZone: timezone,
+        timeZone: 'UTC',
       }),
     []
   );
@@ -195,7 +194,8 @@ function NotificationsPanel({ category, label }: NotificationsPanelProps) {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
-        timeZone: timezone,
+        hour12: true,
+        timeZone: 'UTC',
       }),
     []
   );

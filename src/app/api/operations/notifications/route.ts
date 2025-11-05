@@ -8,20 +8,22 @@ import { sanitizeString, sanitizeObject } from '@/lib/security/sanitize';
 
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 500;
-const MANILA_TIMEZONE = 'Asia/Manila';
 
-const MANILA_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
+// Database stores Manila time but PostgreSQL returns it with Z marker
+// Use UTC timezone to display the timestamp as-is without conversion
+const DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   day: '2-digit',
   year: 'numeric',
-  timeZone: MANILA_TIMEZONE,
+  timeZone: 'UTC',
 });
 
-const MANILA_TIME_FORMATTER = new Intl.DateTimeFormat('en-US', {
+const TIME_FORMATTER = new Intl.DateTimeFormat('en-US', {
   hour: '2-digit',
   minute: '2-digit',
   second: '2-digit',
-  timeZone: MANILA_TIMEZONE,
+  hour12: true,
+  timeZone: 'UTC',
 });
 
 type OperationsNotificationRecord = {
@@ -109,8 +111,8 @@ export async function GET(request: NextRequest) {
         changes: notification.changes,
         metadata: notification.metadata,
         createdAt: createdAtIso,
-        createdAtDate: MANILA_DATE_FORMATTER.format(createdAt),
-        createdAtTime: MANILA_TIME_FORMATTER.format(createdAt),
+        createdAtDate: DATE_FORMATTER.format(createdAt),
+        createdAtTime: TIME_FORMATTER.format(createdAt),
       };
     });
 
@@ -168,8 +170,8 @@ export async function POST(request: NextRequest) {
       changes: created.changes,
       metadata: created.metadata,
       createdAt: createdAt.toISOString(),
-      createdAtDate: MANILA_DATE_FORMATTER.format(createdAt),
-      createdAtTime: MANILA_TIME_FORMATTER.format(createdAt),
+      createdAtDate: DATE_FORMATTER.format(createdAt),
+      createdAtTime: TIME_FORMATTER.format(createdAt),
     };
 
     return NextResponse.json(responsePayload, { status: 201 });
