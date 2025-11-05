@@ -175,20 +175,8 @@ function GroupedTransactionRow({
 }
 
 function NotificationsPanel({ category, label }: NotificationsPanelProps) {
-  const timezone = useMemo(() => {
-    if (
-      typeof Intl === 'undefined' ||
-      typeof Intl.DateTimeFormat !== 'function'
-    ) {
-      return 'UTC';
-    }
-
-    try {
-      return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-    } catch (error) {
-      return 'UTC';
-    }
-  }, []);
+  // Force Asia/Manila timezone for Philippines
+  const timezone = 'Asia/Manila';
 
   const dateFormatter = useMemo(
     () =>
@@ -198,7 +186,7 @@ function NotificationsPanel({ category, label }: NotificationsPanelProps) {
         year: 'numeric',
         timeZone: timezone,
       }),
-    [timezone]
+    []
   );
 
   const timeFormatter = useMemo(
@@ -209,7 +197,7 @@ function NotificationsPanel({ category, label }: NotificationsPanelProps) {
         second: '2-digit',
         timeZone: timezone,
       }),
-    [timezone]
+    []
   );
 
   const getRecordDateParts = useCallback(
