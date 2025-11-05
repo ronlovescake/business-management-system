@@ -87,8 +87,11 @@ export function HeaderQuickActions({
 
   useEffect(() => {
     if (typeof window === 'undefined') {
+      hasHydratedRef.current = true;
       return;
     }
+
+    let restoredChats: ChatWindowState[] | null = null;
 
     try {
       const stored = window.localStorage.getItem(STORAGE_KEY);
@@ -97,38 +100,35 @@ export function HeaderQuickActions({
         if (legacy) {
           const legacyParsed = JSON.parse(legacy);
           if (Array.isArray(legacyParsed)) {
-            setOpenChats(
-              legacyParsed
-                .filter((id: unknown): id is string => typeof id === 'string')
-                .map((id) => ({ id, minimized: false }))
-            );
+            restoredChats = legacyParsed
+              .filter((id: unknown): id is string => typeof id === 'string')
+              .map((id) => ({ id, minimized: false }));
           }
         }
-        return;
-      }
-
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) {
-        const restored = parsed
-          .map((item) => {
-            if (typeof item === 'string') {
-              return { id: item, minimized: false } satisfies ChatWindowState;
-            }
-            if (
-              item &&
-              typeof item === 'object' &&
-              typeof item.id === 'string'
-            ) {
-              return {
-                id: item.id,
-                minimized: Boolean((item as { minimized?: boolean }).minimized),
-              } satisfies ChatWindowState;
-            }
-            return null;
-          })
-          .filter((item): item is ChatWindowState => item !== null);
-
-        setOpenChats(restored);
+      } else {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          restoredChats = parsed
+            .map((item) => {
+              if (typeof item === 'string') {
+                return { id: item, minimized: false } satisfies ChatWindowState;
+              }
+              if (
+                item &&
+                typeof item === 'object' &&
+                typeof item.id === 'string'
+              ) {
+                return {
+                  id: item.id,
+                  minimized: Boolean(
+                    (item as { minimized?: boolean }).minimized
+                  ),
+                } satisfies ChatWindowState;
+              }
+              return null;
+            })
+            .filter((item): item is ChatWindowState => item !== null);
+        }
       }
     } catch (error) {
       notifications.show({
@@ -137,6 +137,11 @@ export function HeaderQuickActions({
         color: 'red',
       });
     }
+
+    if (Array.isArray(restoredChats) && restoredChats.length > 0) {
+      setOpenChats(restoredChats);
+    }
+
     hasHydratedRef.current = true;
   }, []);
 
