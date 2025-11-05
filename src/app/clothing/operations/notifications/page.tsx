@@ -1,3 +1,5 @@
+'use client';
+
 import { Paper, Stack, Tabs, Text } from '@mantine/core';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 
