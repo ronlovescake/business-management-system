@@ -365,7 +365,7 @@ export function HeaderQuickActions({
                 </div>
               </Group>
 
-              <ScrollArea h={360} offsetScrollbars>
+              <ScrollArea h={720} offsetScrollbars>
                 <Stack gap="md">
                   {renderNavSection(
                     'Operations workspace',
