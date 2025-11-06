@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import {
   Avatar,
   Badge,
@@ -16,52 +16,282 @@ import {
   TextInput,
   Title,
   UnstyledButton,
+  LoadingOverlay,
+  Alert,
+  Center,
+  Loader,
+  Modal,
+  MultiSelect,
 } from '@mantine/core';
-import { IconSearch, IconSend } from '@tabler/icons-react';
+import { IconSearch, IconSend, IconAlertCircle } from '@tabler/icons-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { notifications } from '@mantine/notifications';
 import { PageLayout } from '@/components/layout/PageLayout';
 import {
+  messagingService,
   type Conversation,
   type Message,
-  MOCK_CONVERSATIONS,
-  MOCK_MESSAGES,
-} from '@/modules/clothing/operations/messaging/data';
+} from '@/services/messaging.service';
+import { formatDistanceToNow } from 'date-fns';
 
 export default function MessagingPage() {
   const [searchValue, setSearchValue] = useState('');
-  const [activeConversationId, setActiveConversationId] = useState(
-    MOCK_CONVERSATIONS[0]?.id ?? ''
-  );
+  const [activeConversationId, setActiveConversationId] = useState<
+    string | null
+  >(null);
+  const [messageInput, setMessageInput] = useState('');
+  const [newMessageModalOpen, setNewMessageModalOpen] = useState(false);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [conversationTitle, setConversationTitle] = useState('');
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
 
-  const filteredConversations = useMemo<Conversation[]>(() => {
+  // Fetch conversations with polling
+  const {
+    data: conversations = [],
+    isLoading: loadingConversations,
+    error: conversationsError,
+  } = useQuery({
+    queryKey: ['conversations'],
+    queryFn: () => messagingService.getConversations(),
+    refetchInterval: 5000, // Poll every 5 seconds
+  });
+
+  // Fetch available users for new conversations
+  const { data: availableUsers = [] } = useQuery({
+    queryKey: ['users-messaging'],
+    queryFn: () => messagingService.getUsers(),
+  });
+
+  // Set active conversation when data loads
+  useEffect(() => {
+    if (conversations.length > 0 && !activeConversationId) {
+      setActiveConversationId(conversations[0].id);
+    }
+  }, [conversations, activeConversationId]);
+
+  // Fetch messages for active conversation with faster polling
+  const {
+    data: messages = [],
+    isLoading: loadingMessages,
+    error: messagesError,
+  } = useQuery({
+    queryKey: ['messages', activeConversationId],
+    queryFn: async () => {
+      if (!activeConversationId) {
+        return [];
+      }
+      return messagingService.getMessages(activeConversationId);
+    },
+    enabled: !!activeConversationId,
+    refetchInterval: 3000, // Poll every 3 seconds when chat is open
+  });
+
+  // Send message mutation
+  const sendMessageMutation = useMutation({
+    mutationFn: ({
+      conversationId,
+      body,
+    }: {
+      conversationId: string;
+      body: string;
+    }) => messagingService.sendMessage(conversationId, { body }),
+    onSuccess: (newMessage) => {
+      // Optimistically update the messages cache
+      queryClient.setQueryData(
+        ['messages', activeConversationId],
+        (oldMessages: Message[] = []) => {
+          // Check if message already exists (avoid duplicates)
+          const exists = oldMessages.some((msg) => msg.id === newMessage.id);
+          if (exists) {
+            return oldMessages;
+          }
+          return [...oldMessages, newMessage];
+        }
+      );
+
+      queryClient.invalidateQueries({
+        queryKey: ['messages', activeConversationId],
+      });
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      setMessageInput('');
+
+      // Scroll to bottom
+      setTimeout(() => {
+        if (scrollAreaRef.current) {
+          const viewport = scrollAreaRef.current.querySelector(
+            '[data-radix-scroll-area-viewport]'
+          );
+          if (viewport) {
+            viewport.scrollTop = viewport.scrollHeight;
+          }
+        }
+      }, 100);
+    },
+    onError: () => {
+      notifications.show({
+        title: 'Error',
+        message: 'Failed to send message',
+        color: 'red',
+      });
+    },
+  });
+
+  // Create conversation mutation
+  const createConversationMutation = useMutation({
+    mutationFn: (payload: {
+      participantIds: string[];
+      title?: string;
+      isGroup?: boolean;
+    }) => messagingService.createConversation(payload),
+    onSuccess: (conversation) => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      setActiveConversationId(conversation.id);
+      setNewMessageModalOpen(false);
+      setSelectedUserIds([]);
+      setConversationTitle('');
+      notifications.show({
+        title: 'Success',
+        message: 'Conversation created successfully',
+        color: 'green',
+      });
+    },
+    onError: () => {
+      notifications.show({
+        title: 'Error',
+        message: 'Failed to create conversation',
+        color: 'red',
+      });
+    },
+  });
+
+  // Mark as read when conversation is opened
+  useEffect(() => {
+    if (activeConversationId) {
+      messagingService.markAsRead(activeConversationId).catch(() => {
+        // Silently fail - not critical
+      });
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['unread-messages-global'] });
+    }
+  }, [activeConversationId, queryClient]);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (messages.length > 0 && scrollAreaRef.current) {
+      setTimeout(() => {
+        const viewport = scrollAreaRef.current?.querySelector(
+          '[data-radix-scroll-area-viewport]'
+        );
+        if (viewport) {
+          viewport.scrollTop = viewport.scrollHeight;
+        }
+      }, 100);
+    }
+  }, [messages]);
+
+  const filteredConversations = useMemo(() => {
     const query = searchValue.trim().toLowerCase();
     if (!query) {
-      return MOCK_CONVERSATIONS;
+      return conversations;
     }
 
-    return MOCK_CONVERSATIONS.filter((conversation) =>
-      [conversation.title, ...conversation.participants]
-        .join(' ')
-        .toLowerCase()
-        .includes(query)
-    );
-  }, [searchValue]);
+    return conversations.filter((conversation) => {
+      const title = conversation.title || '';
+      const participants = conversation.participants
+        .map((p) => p.user.name || p.user.email)
+        .join(' ');
+      return [title, participants].join(' ').toLowerCase().includes(query);
+    });
+  }, [conversations, searchValue]);
 
-  const activeConversation = useMemo<Conversation | null>(() => {
+  const activeConversation = useMemo(
+    () =>
+      conversations.find((conv) => conv.id === activeConversationId) || null,
+    [conversations, activeConversationId]
+  );
+
+  const handleSendMessage = () => {
+    if (!activeConversationId || !messageInput.trim()) {
+      return;
+    }
+
+    sendMessageMutation.mutate({
+      conversationId: activeConversationId,
+      body: messageInput.trim(),
+    });
+  };
+
+  const handleCreateConversation = () => {
+    if (selectedUserIds.length === 0) {
+      notifications.show({
+        title: 'Error',
+        message: 'Please select at least one recipient',
+        color: 'red',
+      });
+      return;
+    }
+
+    const isGroup = selectedUserIds.length > 1;
+    createConversationMutation.mutate({
+      participantIds: selectedUserIds,
+      title: isGroup && conversationTitle ? conversationTitle : undefined,
+      isGroup,
+    });
+  };
+
+  const getConversationTitle = (conversation: Conversation) => {
+    if (conversation.title) {
+      return conversation.title;
+    }
+    // For direct messages, show the other participant's name
+    // Get current user's ID from the session (we need to find it from participants)
+    const participants = conversation.participants;
+
+    // If there are exactly 2 participants, it's a direct message
+    if (participants.length === 2) {
+      // Find the participant that is NOT the first one (assumes first is current user)
+      const otherParticipant = participants[1];
+      return (
+        otherParticipant?.user.name || otherParticipant?.user.email || 'Unknown'
+      );
+    }
+
+    // For single participant (self-conversation) or group without title
+    if (participants.length === 1) {
+      return (
+        participants[0]?.user.name || participants[0]?.user.email || 'Unknown'
+      );
+    }
+
+    // For groups without a title, show participant names
     return (
-      MOCK_CONVERSATIONS.find(
-        (conversation) => conversation.id === activeConversationId
-      ) ??
-      filteredConversations[0] ??
-      null
+      participants
+        .slice(0, 3)
+        .map((p) => p.user.name || p.user.email)
+        .join(', ') + (participants.length > 3 ? '...' : '')
     );
-  }, [activeConversationId, filteredConversations]);
+  };
 
-  const activeMessages = useMemo<Message[]>(() => {
-    if (!activeConversation) {
-      return [];
-    }
-    return MOCK_MESSAGES[activeConversation.id] ?? [];
-  }, [activeConversation]);
+  const getConversationInitials = (conversation: Conversation) => {
+    const title = getConversationTitle(conversation);
+    return title
+      .split(' ')
+      .map((word) => word[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase();
+  };
+
+  if (conversationsError) {
+    return (
+      <PageLayout>
+        <Alert color="red" icon={<IconAlertCircle />}>
+          Failed to load conversations. Please try refreshing the page.
+        </Alert>
+      </PageLayout>
+    );
+  }
 
   return (
     <PageLayout fluid>
@@ -79,88 +309,103 @@ export default function MessagingPage() {
           <TextInput
             value={searchValue}
             onChange={(event) => setSearchValue(event.currentTarget.value)}
-            placeholder="Search people or channels"
+            placeholder="Search conversations"
             leftSection={<IconSearch size={16} />}
             mb="md"
           />
 
           <ScrollArea style={{ flex: 1 }} offsetScrollbars>
-            <Stack gap="xs">
-              {filteredConversations.map((conversation) => {
-                const isActive = conversation.id === activeConversation?.id;
-                return (
-                  <UnstyledButton
-                    key={conversation.id}
-                    onClick={() => setActiveConversationId(conversation.id)}
-                    style={{
-                      borderRadius: '12px',
-                      border: isActive
-                        ? '1px solid var(--mantine-color-blue-5)'
-                        : '1px solid var(--mantine-color-gray-3)',
-                      backgroundColor: isActive
-                        ? 'var(--mantine-color-blue-0)'
-                        : 'var(--mantine-color-white)',
-                      padding: '12px',
-                    }}
-                  >
-                    <Group align="flex-start" gap="sm" wrap="nowrap">
-                      <Avatar radius="xl" size={40}>
-                        {conversation.title
-                          .split(' ')
-                          .map((word: string) => word[0])
-                          .join('')
-                          .slice(0, 2)
-                          .toUpperCase()}
-                      </Avatar>
-                      <Stack gap={4} style={{ flex: 1 }}>
-                        <Group justify="space-between" gap="xs">
-                          <Text fw={600}>{conversation.title}</Text>
-                          <Text size="xs" c="gray.6">
-                            {conversation.lastMessage.at}
-                          </Text>
-                        </Group>
-                        <Text size="sm" c="gray.7" lineClamp={1}>
-                          {conversation.lastMessage.author}:{' '}
-                          {conversation.lastMessage.preview}
-                        </Text>
-                        <Group gap={6}>
-                          <Text size="xs" c="gray.5">
-                            {conversation.participants.join(', ')}
-                          </Text>
-                          {conversation.unread > 0 && (
-                            <Badge size="sm" radius="xl" color="blue">
-                              {conversation.unread}
-                            </Badge>
-                          )}
-                        </Group>
-                      </Stack>
-                    </Group>
-                  </UnstyledButton>
-                );
-              })}
-              {filteredConversations.length === 0 && (
-                <Box p="sm">
-                  <Text size="sm" c="gray.6">
-                    No conversations matched your search.
-                  </Text>
-                </Box>
-              )}
-            </Stack>
+            {loadingConversations ? (
+              <Center py="xl">
+                <Loader size="sm" />
+              </Center>
+            ) : filteredConversations.length === 0 ? (
+              <Box p="sm">
+                <Text size="sm" c="dimmed">
+                  {searchValue
+                    ? 'No conversations found'
+                    : 'No conversations yet'}
+                </Text>
+              </Box>
+            ) : (
+              <Stack gap="xs">
+                {filteredConversations.map((conversation) => {
+                  const isActive = conversation.id === activeConversation?.id;
+                  return (
+                    <UnstyledButton
+                      key={conversation.id}
+                      onClick={() => setActiveConversationId(conversation.id)}
+                      style={{
+                        borderRadius: '12px',
+                        border: isActive
+                          ? '1px solid var(--mantine-color-blue-5)'
+                          : '1px solid var(--mantine-color-gray-3)',
+                        backgroundColor: isActive
+                          ? 'var(--mantine-color-blue-0)'
+                          : 'var(--mantine-color-white)',
+                        padding: '12px',
+                      }}
+                    >
+                      <Group align="flex-start" gap="sm" wrap="nowrap">
+                        <Avatar radius="xl" size={40}>
+                          {getConversationInitials(conversation)}
+                        </Avatar>
+                        <Stack gap={4} style={{ flex: 1 }}>
+                          <Group justify="space-between" gap="xs">
+                            <Text fw={600} lineClamp={1}>
+                              {getConversationTitle(conversation)}
+                            </Text>
+                            {conversation.lastMessage && (
+                              <Text size="xs" c="gray.6">
+                                {formatDistanceToNow(
+                                  new Date(conversation.lastMessage.createdAt),
+                                  { addSuffix: true }
+                                )}
+                              </Text>
+                            )}
+                          </Group>
+                          <Group gap={6} justify="space-between">
+                            <Text size="sm" c="gray.7" lineClamp={1}>
+                              {conversation.lastMessage?.body ||
+                                'No messages yet'}
+                            </Text>
+                            {(conversation.unreadCount || 0) > 0 && (
+                              <Badge size="sm" radius="xl" color="blue">
+                                {conversation.unreadCount}
+                              </Badge>
+                            )}
+                          </Group>
+                        </Stack>
+                      </Group>
+                    </UnstyledButton>
+                  );
+                })}
+              </Stack>
+            )}
           </ScrollArea>
 
-          <Button mt="md" radius="xl" variant="light">
+          <Button
+            mt="md"
+            radius="xl"
+            variant="light"
+            fullWidth
+            onClick={() => setNewMessageModalOpen(true)}
+          >
             New Message
           </Button>
         </Paper>
 
+        {/* Messages Area */}
         <Paper
           withBorder
           radius="md"
           p={0}
           style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
+          pos="relative"
         >
           {activeConversation ? (
             <>
+              {/* Header */}
               <Flex
                 justify="space-between"
                 align="center"
@@ -171,85 +416,75 @@ export default function MessagingPage() {
                 }}
               >
                 <Stack gap={2}>
-                  <Text fw={600}>{activeConversation.title}</Text>
+                  <Text fw={600}>
+                    {getConversationTitle(activeConversation)}
+                  </Text>
                   <Text size="sm" c="gray.6">
-                    {activeConversation.participants.join(', ')}
+                    {activeConversation.participants.length} participants
                   </Text>
                 </Stack>
-                <Group gap="xs">
-                  <Button variant="light" radius="xl">
-                    Add People
-                  </Button>
-                  <Button variant="default" radius="xl">
-                    View Details
-                  </Button>
-                </Group>
               </Flex>
 
+              {/* Messages */}
               <ScrollArea
-                style={{ flex: 1 }}
+                ref={scrollAreaRef}
+                style={{ flex: 1, height: 0 }}
                 scrollbarSize={6}
                 offsetScrollbars
               >
                 <Stack p="lg" gap="md">
-                  {activeMessages.map((message) => (
-                    <Group
-                      key={message.id}
-                      justify={message.mine ? 'flex-end' : 'flex-start'}
-                      align="flex-end"
-                      gap="sm"
-                    >
-                      {!message.mine && (
-                        <Avatar radius="xl" size={36}>
-                          {(
-                            message.author.avatarInitials ??
-                            message.author.name.charAt(0)
-                          ).toUpperCase()}
-                        </Avatar>
-                      )}
-                      <Stack
-                        gap={6}
-                        style={{
-                          maxWidth: 440,
-                          backgroundColor: message.mine
-                            ? 'var(--mantine-color-blue-0)'
-                            : 'var(--mantine-color-white)',
-                          border: '1px solid var(--mantine-color-gray-3)',
-                          borderRadius: 16,
-                          padding: '12px 16px',
-                        }}
-                      >
-                        <Text
-                          size="sm"
-                          fw={600}
-                          ta={message.mine ? 'right' : 'left'}
-                        >
-                          {message.author.name}
-                        </Text>
-                        <Text size="sm" ta={message.mine ? 'right' : 'left'}>
-                          {message.body}
-                        </Text>
-                        <Text
-                          size="xs"
-                          c="gray.5"
-                          ta={message.mine ? 'right' : 'left'}
-                        >
-                          {message.sentAt}
-                        </Text>
-                      </Stack>
-                    </Group>
-                  ))}
-                  {activeMessages.length === 0 && (
-                    <Box py="lg">
-                      <Text size="sm" c="gray.6">
-                        No messages yet. Send the first message to start the
-                        conversation.
+                  {loadingMessages ? (
+                    <Center style={{ flex: 1 }}>
+                      <Loader size="sm" />
+                    </Center>
+                  ) : messagesError ? (
+                    <Alert color="red" icon={<IconAlertCircle />}>
+                      Failed to load messages
+                    </Alert>
+                  ) : messages.length === 0 ? (
+                    <Center style={{ flex: 1 }}>
+                      <Text size="sm" c="dimmed">
+                        No messages yet. Send the first message!
                       </Text>
-                    </Box>
+                    </Center>
+                  ) : (
+                    messages.map((message) => (
+                      <Group
+                        key={message.id}
+                        justify="flex-start"
+                        align="flex-end"
+                        gap="sm"
+                      >
+                        <Avatar radius="xl" size={36}>
+                          {(message.sender.name?.[0] || 'U').toUpperCase()}
+                        </Avatar>
+                        <Stack
+                          gap={6}
+                          style={{
+                            maxWidth: 440,
+                            backgroundColor: 'var(--mantine-color-white)',
+                            border: '1px solid var(--mantine-color-gray-3)',
+                            borderRadius: 16,
+                            padding: '12px 16px',
+                          }}
+                        >
+                          <Text size="sm" fw={600}>
+                            {message.sender.name || message.sender.email}
+                          </Text>
+                          <Text size="sm">{message.body}</Text>
+                          <Text size="xs" c="gray.5">
+                            {formatDistanceToNow(new Date(message.createdAt), {
+                              addSuffix: true,
+                            })}
+                          </Text>
+                        </Stack>
+                      </Group>
+                    ))
                   )}
                 </Stack>
               </ScrollArea>
 
+              {/* Message Input */}
               <Box
                 px="lg"
                 py="md"
@@ -257,16 +492,27 @@ export default function MessagingPage() {
               >
                 <Stack gap="sm">
                   <Textarea
+                    value={messageInput}
+                    onChange={(e) => setMessageInput(e.currentTarget.value)}
                     placeholder="Write a message…"
-                    minRows={3}
+                    minRows={2}
                     autosize
+                    maxRows={4}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
                   />
-                  <Flex justify="space-between" align="center">
-                    <Group gap="xs">
-                      <Button variant="subtle">Upload</Button>
-                      <Button variant="subtle">Templates</Button>
-                    </Group>
-                    <Button radius="xl" rightSection={<IconSend size={16} />}>
+                  <Flex justify="flex-end">
+                    <Button
+                      radius="xl"
+                      rightSection={<IconSend size={16} />}
+                      onClick={handleSendMessage}
+                      loading={sendMessageMutation.isPending}
+                      disabled={!messageInput.trim()}
+                    >
                       Send
                     </Button>
                   </Flex>
@@ -282,69 +528,76 @@ export default function MessagingPage() {
               py="xl"
             >
               <Stack align="center" gap="sm">
-                <Text fw={600}>Pick a conversation</Text>
+                <Text fw={600}>Select a conversation</Text>
                 <Text size="sm" c="gray.6" ta="center">
-                  Nothing selected yet. Choose a conversation on the left to
-                  view the thread and start messaging.
+                  Choose a conversation on the left to view messages.
                 </Text>
               </Stack>
             </Flex>
           )}
-        </Paper>
 
-        <Paper
-          withBorder
-          radius="md"
-          p="md"
-          style={{
-            width: 260,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 16,
-          }}
-        >
-          <Title order={5}>Conversation Info</Title>
-          {activeConversation ? (
-            <Stack gap="sm">
-              <Box>
-                <Text fw={600} size="sm">
-                  Members
-                </Text>
-                <Stack gap={6} mt={6}>
-                  {activeConversation.participants.map(
-                    (participant: string) => (
-                      <Group key={participant} gap="sm">
-                        <Avatar radius="xl" size={28}>
-                          {participant
-                            .split(' ')
-                            .map((word: string) => word[0])
-                            .join('')
-                            .slice(0, 2)
-                            .toUpperCase()}
-                        </Avatar>
-                        <Text size="sm">{participant}</Text>
-                      </Group>
-                    )
-                  )}
-                </Stack>
-              </Box>
-              <Box>
-                <Text fw={600} size="sm">
-                  Recent Activity
-                </Text>
-                <Text size="sm" c="gray.6" mt={6}>
-                  {activeConversation.lastMessage.author} ·{' '}
-                  {activeConversation.lastMessage.at}
-                </Text>
-              </Box>
-            </Stack>
-          ) : (
-            <Text size="sm" c="gray.6">
-              Select a conversation to view participants and details.
-            </Text>
-          )}
+          <LoadingOverlay
+            visible={sendMessageMutation.isPending}
+            overlayProps={{ blur: 1 }}
+          />
         </Paper>
       </Flex>
+
+      {/* New Message Modal */}
+      <Modal
+        opened={newMessageModalOpen}
+        onClose={() => {
+          setNewMessageModalOpen(false);
+          setSelectedUserIds([]);
+          setConversationTitle('');
+        }}
+        title="New Message"
+        size="md"
+      >
+        <Stack gap="md">
+          <MultiSelect
+            label="Recipients"
+            placeholder="Select recipients"
+            data={availableUsers.map((user) => ({
+              value: user.id,
+              label: user.name || user.email,
+            }))}
+            value={selectedUserIds}
+            onChange={setSelectedUserIds}
+            searchable
+            required
+          />
+
+          {selectedUserIds.length > 1 && (
+            <TextInput
+              label="Group Name (optional)"
+              placeholder="Enter group name"
+              value={conversationTitle}
+              onChange={(e) => setConversationTitle(e.currentTarget.value)}
+            />
+          )}
+
+          <Group justify="flex-end" mt="md">
+            <Button
+              variant="subtle"
+              onClick={() => {
+                setNewMessageModalOpen(false);
+                setSelectedUserIds([]);
+                setConversationTitle('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateConversation}
+              loading={createConversationMutation.isPending}
+              disabled={selectedUserIds.length === 0}
+            >
+              Create Conversation
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </PageLayout>
   );
 }
