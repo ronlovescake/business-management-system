@@ -26,6 +26,7 @@ import {
 import { IconSearch, IconSend, IconAlertCircle } from '@tabler/icons-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
+import { useSession } from 'next-auth/react';
 import { PageLayout } from '@/components/layout/PageLayout';
 import {
   messagingService,
@@ -36,6 +37,7 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 
 export default function MessagingPage() {
+  const { data: session } = useSession();
   const [searchValue, setSearchValue] = useState('');
   const [activeConversationId, setActiveConversationId] = useState<
     string | null
@@ -242,36 +244,33 @@ export default function MessagingPage() {
   };
 
   const getConversationTitle = (conversation: Conversation) => {
+    const currentUserId = session?.user?.id;
+    const participants = conversation.participants;
+
+    if (!participants.length) {
+      return 'Conversation';
+    }
+
+    // Filter out the current user to get other participants
+    const others = currentUserId
+      ? participants.filter(
+          (participant) => participant.userId !== currentUserId
+        )
+      : participants;
+
+    // For direct messages (not a group), show the other participant's name
+    if (!conversation.isGroup && others.length === 1) {
+      return others[0]?.user.name || others[0]?.user.email || 'Unknown';
+    }
+
+    // If there's a custom title, use it for groups
     if (conversation.title) {
       return conversation.title;
     }
-    // For direct messages, show the other participant's name
-    // Get current user's ID from the session (we need to find it from participants)
-    const participants = conversation.participants;
 
-    // If there are exactly 2 participants, it's a direct message
-    if (participants.length === 2) {
-      // Find the participant that is NOT the first one (assumes first is current user)
-      const otherParticipant = participants[1];
-      return (
-        otherParticipant?.user.name || otherParticipant?.user.email || 'Unknown'
-      );
-    }
-
-    // For single participant (self-conversation) or group without title
-    if (participants.length === 1) {
-      return (
-        participants[0]?.user.name || participants[0]?.user.email || 'Unknown'
-      );
-    }
-
-    // For groups without a title, show participant names
-    return (
-      participants
-        .slice(0, 3)
-        .map((p) => p.user.name || p.user.email)
-        .join(', ') + (participants.length > 3 ? '...' : '')
-    );
+    // For groups without a title, show participant names (excluding current user)
+    const names = others.map((p) => p.user.name || p.user.email);
+    return names.slice(0, 3).join(', ') + (names.length > 3 ? '...' : '');
   };
 
   const getConversationInitials = (conversation: Conversation) => {
