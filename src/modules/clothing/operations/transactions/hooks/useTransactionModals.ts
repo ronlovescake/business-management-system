@@ -585,7 +585,106 @@ export function useTransactionModals(
             autoClose: 8000,
           });
 
-          // Set packed dates
+          // Fetch dispatch customer names to determine order status
+          const dispatchCustomerNames: string[] = [];
+          try {
+            // Step 1: Fetch dispatch orders to get usernames
+            const dispatchResponse = await fetch('/api/dispatch/orders');
+            logger.info('Dispatch response status:', dispatchResponse.status);
+
+            if (dispatchResponse.ok) {
+              const dispatchData = (await dispatchResponse.json()) as {
+                success: boolean;
+                data: Array<{ 'Username (Buyer)'?: string | null }>;
+              };
+
+              logger.info('Dispatch data received:', {
+                success: dispatchData.success,
+                totalOrders: dispatchData.data.length,
+              });
+
+              // Extract unique usernames from dispatch orders
+              const dispatchUsernames = Array.from(
+                new Set(
+                  dispatchData.data
+                    .map((order) => order['Username (Buyer)'])
+                    .filter((username): username is string => Boolean(username))
+                )
+              );
+
+              logger.info('Dispatch usernames:', {
+                count: dispatchUsernames.length,
+                usernames: dispatchUsernames,
+              });
+
+              if (dispatchUsernames.length > 0) {
+                // Step 2: Fetch customers with Shopee usernames for matching
+                const customersResponse = await fetch(
+                  '/api/customers/with-shopee'
+                );
+                logger.info(
+                  'Customers with Shopee response status:',
+                  customersResponse.status
+                );
+
+                if (customersResponse.ok) {
+                  const customersData = (await customersResponse.json()) as {
+                    success: boolean;
+                    data: Array<{
+                      id: number;
+                      customerName: string;
+                      businessName: string;
+                      shopeeUsernames: string[];
+                    }>;
+                  };
+
+                  logger.info('Customers with Shopee data received:', {
+                    success: customersData.success,
+                    totalCustomers: customersData.data.length,
+                  });
+
+                  // Step 3: Match dispatch usernames to customer names
+                  dispatchUsernames.forEach((username) => {
+                    const normalizedUsername = username.toLowerCase().trim();
+                    const matchedCustomer = customersData.data.find(
+                      (customer) =>
+                        customer.shopeeUsernames
+                          .map((u) => u.toLowerCase().trim())
+                          .includes(normalizedUsername)
+                    );
+
+                    if (matchedCustomer) {
+                      const displayName = matchedCustomer.businessName
+                        ? `${matchedCustomer.customerName} | ${matchedCustomer.businessName}`
+                        : matchedCustomer.customerName;
+                      dispatchCustomerNames.push(displayName);
+                    }
+                  });
+
+                  logger.info('✅ Dispatch customer names matched:', {
+                    count: dispatchCustomerNames.length,
+                    names: dispatchCustomerNames,
+                  });
+                } else {
+                  logger.error(
+                    'Failed to fetch customers with Shopee:',
+                    customersResponse.statusText
+                  );
+                }
+              } else {
+                logger.warn('No usernames found in dispatch orders');
+              }
+            } else {
+              logger.error(
+                'Failed to fetch dispatch orders:',
+                dispatchResponse.statusText
+              );
+            }
+          } catch (error) {
+            logger.error('Error fetching dispatch data:', error);
+          }
+
+          // Set packed dates and order status
           const currentDate = new Date().toLocaleDateString('en-US', {
             month: 'long',
             day: 'numeric',
@@ -595,11 +694,28 @@ export function useTransactionModals(
 
           const processedIds = new Set(eligible.map((t) => t.id));
           const updated = transactions.map((t) => {
-            if (
-              processedIds.has(t.id) &&
-              (!t['Packed Date'] || t['Packed Date'].trim() === '')
-            ) {
-              return { ...t, 'Packed Date': currentDate };
+            if (processedIds.has(t.id)) {
+              const customerName = t.Customers || '';
+              const isInDispatch = dispatchCustomerNames.includes(customerName);
+              const orderStatus = isInDispatch
+                ? 'Checked Out'
+                : 'Ready For Dispatch';
+
+              logger.info(
+                `Customer "${customerName}": ${isInDispatch ? '✅ FOUND in dispatch' : '❌ NOT in dispatch'} → Status: ${orderStatus}`
+              );
+
+              // Only update Packed Date if empty
+              const packedDate =
+                !t['Packed Date'] || t['Packed Date'].trim() === ''
+                  ? currentDate
+                  : t['Packed Date'];
+
+              return {
+                ...t,
+                'Packed Date': packedDate,
+                'Order Status': orderStatus,
+              };
             }
             return t;
           });
