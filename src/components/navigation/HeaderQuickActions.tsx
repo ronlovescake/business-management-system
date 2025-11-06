@@ -107,10 +107,6 @@ const getConversationTitle = (
   conversation: Conversation,
   currentUserId?: string | null
 ) => {
-  if (conversation.title) {
-    return conversation.title;
-  }
-
   const participants = conversation.participants;
   if (!participants.length) {
     return 'Conversation';
@@ -122,6 +118,10 @@ const getConversationTitle = (
 
   if (!conversation.isGroup && others.length === 1) {
     return getParticipantLabel(others[0]);
+  }
+
+  if (conversation.title) {
+    return conversation.title;
   }
 
   const names = others.map(getParticipantLabel);
