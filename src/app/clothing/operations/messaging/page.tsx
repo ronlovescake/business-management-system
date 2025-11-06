@@ -30,6 +30,7 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import {
   messagingService,
   type Conversation,
+  type ConversationParticipant,
   type Message,
 } from '@/services/messaging.service';
 import { formatDistanceToNow } from 'date-fns';
@@ -283,6 +284,19 @@ export default function MessagingPage() {
       .toUpperCase();
   };
 
+  const getParticipantLabel = (participant: ConversationParticipant) => {
+    return participant.user.name || participant.user.email || 'Unknown';
+  };
+
+  const getInitialsFromLabel = (label: string) => {
+    return label
+      .split(' ')
+      .map((word) => word[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase();
+  };
+
   if (conversationsError) {
     return (
       <PageLayout>
@@ -423,6 +437,14 @@ export default function MessagingPage() {
                     {activeConversation.participants.length} participants
                   </Text>
                 </Stack>
+                <Group gap="xs">
+                  <Button variant="light" radius="xl" disabled>
+                    Add People
+                  </Button>
+                  <Button variant="default" radius="xl" disabled>
+                    View Details
+                  </Button>
+                </Group>
               </Flex>
 
               {/* Messages */}
@@ -505,7 +527,20 @@ export default function MessagingPage() {
                       }
                     }}
                   />
-                  <Flex justify="flex-end">
+                  <Flex
+                    justify="space-between"
+                    align="center"
+                    wrap="wrap"
+                    gap="sm"
+                  >
+                    <Group gap="xs">
+                      <Button variant="subtle" radius="xl" size="sm" disabled>
+                        Upload
+                      </Button>
+                      <Button variant="subtle" radius="xl" size="sm" disabled>
+                        Templates
+                      </Button>
+                    </Group>
                     <Button
                       radius="xl"
                       rightSection={<IconSend size={16} />}
@@ -540,6 +575,78 @@ export default function MessagingPage() {
             visible={sendMessageMutation.isPending}
             overlayProps={{ blur: 1 }}
           />
+        </Paper>
+
+        <Paper
+          withBorder
+          radius="md"
+          p="md"
+          style={{
+            width: 280,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16,
+          }}
+        >
+          <Title order={5}>Conversation Info</Title>
+          {activeConversation ? (
+            <Stack gap="md">
+              <Box>
+                <Text fw={600} size="sm">
+                  Members
+                </Text>
+                <Stack gap={6} mt={6}>
+                  {activeConversation.participants.map((participant) => {
+                    const label = getParticipantLabel(participant);
+                    return (
+                      <Group key={participant.id} gap="sm" align="center">
+                        <Avatar radius="xl" size={28}>
+                          {getInitialsFromLabel(label)}
+                        </Avatar>
+                        <Stack gap={0} style={{ minWidth: 0 }}>
+                          <Text size="sm" lineClamp={1}>
+                            {label}
+                          </Text>
+                          {participant.user.email && participant.user.name && (
+                            <Text size="xs" c="gray.6" lineClamp={1}>
+                              {participant.user.email}
+                            </Text>
+                          )}
+                        </Stack>
+                      </Group>
+                    );
+                  })}
+                </Stack>
+              </Box>
+
+              <Box>
+                <Text fw={600} size="sm">
+                  Recent Activity
+                </Text>
+                {activeConversation.lastMessage ? (
+                  <Stack gap={4} mt={6}>
+                    <Text size="sm" c="gray.7" lineClamp={3}>
+                      {activeConversation.lastMessage.body}
+                    </Text>
+                    <Text size="xs" c="gray.6">
+                      {formatDistanceToNow(
+                        new Date(activeConversation.lastMessage.createdAt),
+                        { addSuffix: true }
+                      )}
+                    </Text>
+                  </Stack>
+                ) : (
+                  <Text size="sm" c="gray.6" mt={6}>
+                    No messages yet.
+                  </Text>
+                )}
+              </Box>
+            </Stack>
+          ) : (
+            <Text size="sm" c="gray.6">
+              Select a conversation to view participants and details.
+            </Text>
+          )}
         </Paper>
       </Flex>
 
