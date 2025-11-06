@@ -47,6 +47,7 @@ import { logger } from '@/lib/logger';
 import { CustomerService } from '../services/CustomerService';
 import { useCustomersData } from '../hooks/useCustomersData';
 import { useCustomerForm } from '../hooks/useCustomerForm';
+import { useCustomerDuplicateCheck } from '../hooks/useCustomerDuplicateCheck';
 import { CustomerStatsCards } from './CustomerStatsCards';
 import { operationsActionButtonStyles } from '../../common/buttonStyles';
 import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
@@ -141,6 +142,9 @@ export function CustomersPage() {
     openModal,
     getValidatedCustomerData,
   } = useCustomerForm(customers);
+
+  // Duplicate check hook
+  const { checkForDuplicates } = useCustomerDuplicateCheck();
 
   // Local state
   const [file, setFile] = useState<File | null>(null);
@@ -347,6 +351,19 @@ export function CustomersPage() {
     }
 
     try {
+      // Check for duplicates before saving
+      const shouldProceed = await checkForDuplicates({
+        customerName: result.data['Customer Name'],
+        phoneNumber: result.data['Phone Number'],
+        address: result.data.Address,
+      });
+
+      // If user cancelled, don't proceed with save
+      if (!shouldProceed) {
+        return;
+      }
+
+      // Proceed with adding the customer
       await addCustomer(result.data);
 
       closeModal();
