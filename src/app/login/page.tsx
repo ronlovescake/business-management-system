@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type ElementType } from 'react';
+import { signIn } from 'next-auth/react';
 import Link from 'next/link';
 import {
   ActionIcon,
@@ -22,7 +23,6 @@ import {
   IconBrandGithub,
   IconBrandGoogle,
   IconBrandSlack,
-  IconCheck,
   IconLock,
   IconMail,
   IconLogin,
@@ -51,17 +51,29 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      // TODO: Replace with the actual authentication request when backend integration is ready.
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-
-      notifications.show({
-        id: 'login-demo',
-        title: 'Login action placeholder',
-        message: `Attempted to sign in as ${values.email}. Plug in the real auth call next.`,
-        color: 'blue',
-        icon: <IconCheck size={18} stroke={1.8} />,
+      const result = await signIn('credentials', {
+        email: values.email,
+        password: values.password,
+        redirect: true,
+        callbackUrl: '/clothing/operations/transactions',
       });
-    } finally {
+
+      // This code won't run if redirect is true
+      if (result?.error) {
+        notifications.show({
+          title: 'Authentication Failed',
+          message: result.error,
+          color: 'red',
+          icon: <IconLock size={18} stroke={1.8} />,
+        });
+        setIsSubmitting(false);
+      }
+    } catch (error) {
+      notifications.show({
+        title: 'Error',
+        message: 'An unexpected error occurred. Please try again.',
+        color: 'red',
+      });
       setIsSubmitting(false);
     }
   });

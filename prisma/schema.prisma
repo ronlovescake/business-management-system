@@ -588,6 +588,30 @@ enum CashAdvanceCycle {
   SECOND_HALF
 }
 
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique @db.VarChar(255)
+  name          String?   @db.VarChar(255)
+  password      String    @db.VarChar(255)
+  role          UserRole  @default(USER)
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  @@index([email])
+  @@index([role])
+  @@index([isActive])
+  @@map("users")
+}
+
 model CheckoutLink {
   id             String    @id @default(cuid())
   weight         String    @db.VarChar(50)

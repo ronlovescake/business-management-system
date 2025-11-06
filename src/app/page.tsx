@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useSession } from 'next-auth/react';
 import {
   Container,
   Text,
@@ -15,6 +16,7 @@ import {
   SimpleGrid,
   Center,
   Box,
+  Alert,
 } from '@mantine/core';
 import {
   IconBuilding,
@@ -25,11 +27,15 @@ import {
   IconShirt,
   IconArrowRight,
   IconDashboard,
+  IconUserCheck,
+  IconShieldCheck,
 } from '@tabler/icons-react';
 import { useBusinessStore } from '../lib/store';
+import { LogoutButton } from '@/components/auth/LogoutButton';
 
 export default function HomePage() {
   const { selectedBusiness, selectedWorkspace } = useBusinessStore();
+  const { data: session, status } = useSession();
 
   const businessFeatures = {
     clothing: [
@@ -100,6 +106,54 @@ export default function HomePage() {
 
   return (
     <Container size="xl" p="xl">
+      {/* Authentication Status Banner */}
+      {status === 'authenticated' && session?.user && (
+        <Alert
+          variant="light"
+          color="green"
+          title="Authentication Status"
+          icon={<IconUserCheck size={20} />}
+          mb="xl"
+          styles={{
+            root: {
+              border: '2px solid var(--mantine-color-green-3)',
+            },
+          }}
+        >
+          <Group justify="space-between" wrap="nowrap">
+            <Stack gap="xs">
+              <Text size="sm" fw={600}>
+                ✅ Logged in as: {session.user.email}
+              </Text>
+              <Group gap="xs">
+                <Badge
+                  size="sm"
+                  leftSection={<IconShieldCheck size={12} />}
+                  color={
+                    session.user.role === 'SUPER_ADMIN'
+                      ? 'red'
+                      : session.user.role === 'ADMIN'
+                        ? 'orange'
+                        : 'blue'
+                  }
+                  variant="filled"
+                >
+                  {session.user.role}
+                </Badge>
+                <Text size="xs" c="dimmed">
+                  {session.user.role === 'SUPER_ADMIN'
+                    ? 'Full access to all pages'
+                    : session.user.role === 'ADMIN'
+                      ? 'Access to Operations + Employees'
+                      : 'Access to Operations only'}
+                </Text>
+              </Group>
+            </Stack>
+            <LogoutButton />
+          </Group>
+        </Alert>
+      )}
+
       {/* Hero Section */}
       <Box mb="xl">
         <Center>

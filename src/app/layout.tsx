@@ -5,6 +5,7 @@ import { AppLayout } from '../components/layout/AppLayout';
 import { ReactQueryProvider } from '../lib/query-client';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { PerformanceMonitor } from '../components/PerformanceMonitor';
+import { AuthProvider } from '../components/auth/AuthProvider';
 
 // Initialize module registry
 import '@/modules';
@@ -25,9 +26,11 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <ErrorBoundary>
-          <ReactQueryProvider>
-            <AppLayout>{children}</AppLayout>
-          </ReactQueryProvider>
+          <AuthProvider>
+            <ReactQueryProvider>
+              <AppLayout>{children}</AppLayout>
+            </ReactQueryProvider>
+          </AuthProvider>
         </ErrorBoundary>
         {/* Portal for Glide Data Grid overlay editor */}
         <div id="portal" />

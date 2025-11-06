@@ -32,7 +32,6 @@ import {
 } from '@mantine/core';
 import {
   IconBell,
-  IconChevronDown,
   IconDotsVertical,
   IconEdit,
   IconGridDots,
@@ -50,9 +49,12 @@ import {
   IconThumbUp,
   IconVideo,
   IconX,
+  IconLogout,
+  IconUsers,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { usePathname, useRouter } from 'next/navigation';
+import { useSession, signOut } from 'next-auth/react';
 import { useBusinessStore } from '@/lib/store';
 import {
   getConversationById,
@@ -101,6 +103,8 @@ export function HeaderQuickActions({
   unreadNotifications = 0,
   userInitials = 'Y',
 }: HeaderQuickActionsProps) {
+  const { data: session } = useSession();
+  const [mounted, setMounted] = useState(false);
   const [appsOpen, setAppsOpen] = useState(false);
   const [messagesOpen, setMessagesOpen] = useState(false);
   const [messageSearch, setMessageSearch] = useState('');
@@ -110,6 +114,10 @@ export function HeaderQuickActions({
   const router = useRouter();
   const { selectedBusiness, selectedWorkspace, initializeFromPath } =
     useBusinessStore();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if ((!selectedBusiness || !selectedWorkspace) && pathname) {
@@ -560,19 +568,47 @@ export function HeaderQuickActions({
         </ActionIcon>
       </Tooltip>
 
-      <Group gap={6} align="center">
-        <Avatar radius="xl" size={40} alt="Current user">
-          {userInitials}
-        </Avatar>
-        <ActionIcon
-          variant="subtle"
-          radius="xl"
-          size={32}
-          aria-label="Open profile menu"
-        >
-          <IconChevronDown size={18} />
-        </ActionIcon>
-      </Group>
+      <Menu shadow="md" width={200} position="bottom-end">
+        <Menu.Target>
+          <UnstyledButton aria-label="Open profile menu">
+            <Avatar radius="xl" size={40} alt="Current user">
+              {session?.user?.name
+                ? session.user.name.charAt(0).toUpperCase()
+                : session?.user?.email?.charAt(0).toUpperCase() || userInitials}
+            </Avatar>
+          </UnstyledButton>
+        </Menu.Target>
+
+        <Menu.Dropdown>
+          <Menu.Label>
+            <Text size="xs" c="dimmed" lineClamp={1}>
+              {session?.user?.email || 'User'}
+            </Text>
+          </Menu.Label>
+          <Menu.Item
+            leftSection={<IconUser size={16} />}
+            onClick={() => router.push('/profile')}
+          >
+            My Profile
+          </Menu.Item>
+          {mounted && session?.user?.role === 'SUPER_ADMIN' && (
+            <Menu.Item
+              leftSection={<IconUsers size={16} />}
+              onClick={() => router.push('/clothing/users')}
+            >
+              User Management
+            </Menu.Item>
+          )}
+          <Menu.Divider />
+          <Menu.Item
+            leftSection={<IconLogout size={16} />}
+            color="red"
+            onClick={() => signOut({ callbackUrl: '/login' })}
+          >
+            Logout
+          </Menu.Item>
+        </Menu.Dropdown>
+      </Menu>
 
       <Portal>
         {openChats.map((chat, index) => {
