@@ -105,34 +105,72 @@ const getParticipantLabel = (participant: ConversationParticipant) =>
 
 const getConversationTitle = (
   conversation: Conversation,
-  currentUserId?: string | null
+  currentUserId?: string | null,
+  currentUserEmail?: string | null
 ) => {
   const participants = conversation.participants;
   if (!participants.length) {
     return 'Conversation';
   }
 
-  const others = currentUserId
-    ? participants.filter((participant) => participant.userId !== currentUserId)
-    : participants;
+  const normalizedCurrentIds = new Set<string>();
+  if (currentUserId) {
+    normalizedCurrentIds.add(currentUserId.toLowerCase());
+  }
+  if (currentUserEmail) {
+    normalizedCurrentIds.add(currentUserEmail.toLowerCase());
+  }
 
-  if (!conversation.isGroup && others.length === 1) {
+  const others = participants.filter((participant) => {
+    const participantId = participant.userId?.toLowerCase?.();
+    const participantEmail = participant.user.email?.toLowerCase?.();
+
+    if (participantId && normalizedCurrentIds.has(participantId)) {
+      return false;
+    }
+
+    if (participantEmail && normalizedCurrentIds.has(participantEmail)) {
+      return false;
+    }
+
+    return true;
+  });
+
+  if (others.length === 1) {
     return getParticipantLabel(others[0]);
   }
 
-  if (conversation.title) {
-    return conversation.title;
+  if (others.length > 1) {
+    const names = others.map(getParticipantLabel);
+    return names.slice(0, 3).join(', ') + (names.length > 3 ? '...' : '');
   }
 
-  const names = others.map(getParticipantLabel);
-  return names.slice(0, 3).join(', ') + (names.length > 3 ? '...' : '');
+  const fallback =
+    participants.find((participant) => participant.userId !== currentUserId) ||
+    participants.find(
+      (participant) =>
+        participant.user.email &&
+        participant.user.email.toLowerCase() !== currentUserEmail?.toLowerCase()
+    ) ||
+    participants[0];
+
+  if (fallback) {
+    return getParticipantLabel(fallback);
+  }
+
+  return conversation.title || 'Conversation';
 };
 
 const getConversationInitials = (
   conversation: Conversation,
-  currentUserId?: string | null
+  currentUserId?: string | null,
+  currentUserEmail?: string | null
 ) => {
-  const title = getConversationTitle(conversation, currentUserId);
+  const title = getConversationTitle(
+    conversation,
+    currentUserId,
+    currentUserEmail
+  );
   return title
     .split(/\s+/)
     .filter(Boolean)
@@ -158,6 +196,7 @@ export function HeaderQuickActions({
   const { selectedBusiness, selectedWorkspace, initializeFromPath } =
     useBusinessStore();
   const currentUserId = session?.user?.id ?? null;
+  const currentUserEmail = session?.user?.email ?? null;
 
   const {
     data: conversations = [],
@@ -362,14 +401,15 @@ export function HeaderQuickActions({
     return conversations.filter((conversation) => {
       const title = getConversationTitle(
         conversation,
-        currentUserId
+        currentUserId,
+        currentUserEmail
       ).toLowerCase();
       const participants = conversation.participants
         .map((participant) => getParticipantLabel(participant).toLowerCase())
         .join(' ');
       return `${title} ${participants}`.includes(query);
     });
-  }, [conversations, messageSearch, currentUserId]);
+  }, [conversations, messageSearch, currentUserId, currentUserEmail]);
 
   const handleOpenConversation = (conversationId: string) => {
     setMessagesOpen(false);
@@ -560,11 +600,13 @@ export function HeaderQuickActions({
                   {filteredConversations.map((conversation) => {
                     const title = getConversationTitle(
                       conversation,
-                      currentUserId
+                      currentUserId,
+                      currentUserEmail
                     );
                     const initials = getConversationInitials(
                       conversation,
-                      currentUserId
+                      currentUserId,
+                      currentUserEmail
                     );
                     const lastMessageTime = conversation.lastMessage?.createdAt
                       ? formatDistanceToNow(
@@ -746,8 +788,16 @@ export function HeaderQuickActions({
             return null;
           }
 
-          const title = getConversationTitle(conversation, currentUserId);
-          const initials = getConversationInitials(conversation, currentUserId);
+          const title = getConversationTitle(
+            conversation,
+            currentUserId,
+            currentUserEmail
+          );
+          const initials = getConversationInitials(
+            conversation,
+            currentUserId,
+            currentUserEmail
+          );
 
           return (
             <ChatWindow
@@ -758,6 +808,7 @@ export function HeaderQuickActions({
               offsetIndex={index}
               minimized={chat.minimized}
               currentUserId={currentUserId}
+              currentUserEmail={currentUserEmail}
               onClose={handleCloseConversation}
               onToggleMinimize={handleToggleMinimize}
             />
@@ -777,6 +828,7 @@ interface ChatWindowProps {
   offsetIndex: number;
   minimized: boolean;
   currentUserId?: string | null;
+  currentUserEmail?: string | null;
   onClose: (conversationId: string) => void;
   onToggleMinimize: (conversationId: string) => void;
 }
@@ -788,6 +840,7 @@ function ChatWindow({
   offsetIndex,
   minimized,
   currentUserId,
+  currentUserEmail,
   onClose,
   onToggleMinimize,
 }: ChatWindowProps) {
@@ -1007,7 +1060,17 @@ function ChatWindow({
             ) : (
               <Stack gap="xs">
                 {messages.map((message) => {
-                  const isMine = message.senderId === currentUserId;
+                  const senderId = message.senderId?.toLowerCase?.();
+                  const senderEmail = message.sender.email?.toLowerCase?.();
+                  const normalizedUserId = currentUserId?.toLowerCase?.();
+                  const normalizedUserEmail = currentUserEmail?.toLowerCase?.();
+                  const isMine =
+                    (senderId &&
+                      normalizedUserId &&
+                      senderId === normalizedUserId) ||
+                    (senderEmail &&
+                      normalizedUserEmail &&
+                      senderEmail === normalizedUserEmail);
                   const senderLabel =
                     message.sender.name || message.sender.email || 'User';
                   const timestamp = formatDistanceToNow(
