@@ -163,7 +163,7 @@ export class ProductService {
    */
   static formToProductData(
     form: ProductFormData,
-    isEditMode: boolean = false,
+    _isEditMode: boolean = false,
     existingProduct?: ProductData
   ): ProductData {
     // Calculate all financial metrics
@@ -178,11 +178,11 @@ export class ProductService {
       actualPrice: form.actualPrice,
     });
 
-    // Generate or preserve Product Code
-    const productCode =
-      isEditMode && existingProduct
-        ? existingProduct['Product Code']
-        : this.generateProductCode(form.product.trim(), form.postingDate);
+    // Always regenerate Product Code based on current Product Name and Posting Date
+    const productCode = this.generateProductCode(
+      form.product.trim(),
+      form.postingDate
+    );
 
     return {
       id: existingProduct?.id,
