@@ -32,6 +32,7 @@ export async function GET() {
         email: true,
         name: true,
         role: true,
+        photoUrl: true,
         isActive: true,
         lastLoginAt: true,
         createdAt: true,

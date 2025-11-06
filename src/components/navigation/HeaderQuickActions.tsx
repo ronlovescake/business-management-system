@@ -570,12 +570,44 @@ export function HeaderQuickActions({
 
       <Menu shadow="md" width={200} position="bottom-end">
         <Menu.Target>
-          <UnstyledButton aria-label="Open profile menu">
-            <Avatar radius="xl" size={40} alt="Current user">
-              {session?.user?.name
-                ? session.user.name.charAt(0).toUpperCase()
-                : session?.user?.email?.charAt(0).toUpperCase() || userInitials}
-            </Avatar>
+          <UnstyledButton
+            aria-label="Open profile menu"
+            style={{
+              padding: '6px 12px',
+              borderRadius: '24px',
+              transition: 'background-color 0.2s',
+            }}
+            styles={{
+              root: {
+                '&:hover': {
+                  backgroundColor: 'rgba(0, 0, 0, 0.05)',
+                },
+              },
+            }}
+          >
+            <Group gap="sm" wrap="nowrap">
+              <Avatar
+                radius="xl"
+                size={40}
+                alt="Current user"
+                src={session?.user?.photoUrl || undefined}
+              >
+                {session?.user?.name
+                  ? session.user.name.charAt(0).toUpperCase()
+                  : session?.user?.email?.charAt(0).toUpperCase() ||
+                    userInitials}
+              </Avatar>
+              {session?.user && (
+                <Stack gap={0} style={{ minWidth: 0 }}>
+                  <Text size="sm" fw={600} lineClamp={1}>
+                    {session.user.name || 'User'}
+                  </Text>
+                  <Text size="xs" c="dimmed" lineClamp={1}>
+                    {session.user.role.replace('_', ' ')}
+                  </Text>
+                </Stack>
+              )}
+            </Group>
           </UnstyledButton>
         </Menu.Target>
 

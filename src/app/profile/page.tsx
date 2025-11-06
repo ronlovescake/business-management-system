@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import {
   Container,
@@ -18,6 +18,8 @@ import {
   Box,
   Alert,
   LoadingOverlay,
+  FileButton,
+  ActionIcon,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
@@ -29,6 +31,9 @@ import {
   IconAlertCircle,
   IconShield,
   IconCalendar,
+  IconCamera,
+  IconTrash,
+  IconUpload,
 } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -37,6 +42,7 @@ interface UserProfile {
   email: string;
   name: string | null;
   role: string;
+  photoUrl: string | null;
   isActive: boolean;
   lastLoginAt: Date | null;
   createdAt: Date;
@@ -48,6 +54,8 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const resetPhotoRef = useRef<() => void>(null);
 
   const form = useForm({
     initialValues: {
@@ -180,6 +188,93 @@ export default function ProfilePage() {
     }
   });
 
+  const handlePhotoUpload = async (file: File | null) => {
+    if (!file) {
+      return;
+    }
+
+    try {
+      setUploadingPhoto(true);
+
+      const formData = new FormData();
+      formData.append('photo', file);
+
+      const response = await fetch('/api/users/profile/photo', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to upload photo');
+      }
+
+      notifications.show({
+        title: 'Success',
+        message: data.message || 'Profile photo updated successfully',
+        color: 'green',
+        icon: <IconCheck size={18} />,
+      });
+
+      // Update session and refresh profile
+      await updateSession();
+      await fetchProfile();
+
+      // Reset file input
+      if (resetPhotoRef.current) {
+        resetPhotoRef.current();
+      }
+    } catch (error) {
+      notifications.show({
+        title: 'Error',
+        message:
+          error instanceof Error ? error.message : 'Failed to upload photo',
+        color: 'red',
+        icon: <IconAlertCircle size={18} />,
+      });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handlePhotoRemove = async () => {
+    try {
+      setUploadingPhoto(true);
+
+      const response = await fetch('/api/users/profile/photo', {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to remove photo');
+      }
+
+      notifications.show({
+        title: 'Success',
+        message: data.message || 'Profile photo removed successfully',
+        color: 'green',
+        icon: <IconCheck size={18} />,
+      });
+
+      // Update session and refresh profile
+      await updateSession();
+      await fetchProfile();
+    } catch (error) {
+      notifications.show({
+        title: 'Error',
+        message:
+          error instanceof Error ? error.message : 'Failed to remove photo',
+        color: 'red',
+        icon: <IconAlertCircle size={18} />,
+      });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'SUPER_ADMIN':
@@ -209,12 +304,62 @@ export default function ProfilePage() {
           {profile && (
             <Stack gap="xl">
               {/* Profile Header */}
-              <Group>
-                <Avatar size={80} radius="xl" color="blue">
-                  {profile.name
-                    ? profile.name.charAt(0).toUpperCase()
-                    : profile.email.charAt(0).toUpperCase()}
-                </Avatar>
+              <Group align="flex-start">
+                <Box pos="relative">
+                  <Avatar
+                    size={80}
+                    radius="xl"
+                    color="blue"
+                    src={profile.photoUrl || undefined}
+                  >
+                    {!profile.photoUrl &&
+                      (profile.name
+                        ? profile.name.charAt(0).toUpperCase()
+                        : profile.email.charAt(0).toUpperCase())}
+                  </Avatar>
+                  <Group gap={4} mt="xs">
+                    <FileButton
+                      resetRef={resetPhotoRef}
+                      onChange={handlePhotoUpload}
+                      accept="image/png,image/jpeg,image/jpg,image/webp"
+                    >
+                      {(props) => (
+                        <ActionIcon
+                          {...props}
+                          size="sm"
+                          variant="light"
+                          color="blue"
+                          loading={uploadingPhoto}
+                          title="Upload photo"
+                        >
+                          <IconCamera size={16} />
+                        </ActionIcon>
+                      )}
+                    </FileButton>
+                    {profile.photoUrl && (
+                      <ActionIcon
+                        size="sm"
+                        variant="light"
+                        color="red"
+                        onClick={handlePhotoRemove}
+                        loading={uploadingPhoto}
+                        title="Remove photo"
+                      >
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    )}
+                  </Group>
+                  {!profile.photoUrl && (
+                    <Text size="xs" c="dimmed" mt={4}>
+                      Click{' '}
+                      <IconUpload
+                        size={12}
+                        style={{ display: 'inline', verticalAlign: 'middle' }}
+                      />{' '}
+                      to upload
+                    </Text>
+                  )}
+                </Box>
                 <div style={{ flex: 1 }}>
                   <Group gap="xs" mb={4}>
                     <Text size="xl" fw={600}>
