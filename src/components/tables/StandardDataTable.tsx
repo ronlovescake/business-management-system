@@ -114,7 +114,7 @@ export function StandardDataTable({
               backgroundColor: '#f1f3f5',
               position: 'sticky',
               top: -1,
-              zIndex: 1000,
+              zIndex: 100,
               boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
             }}
           >
