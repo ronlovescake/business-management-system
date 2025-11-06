@@ -439,19 +439,23 @@ export function BackupRestoreTab() {
 
   const formatDate = (timestamp: string) => {
     try {
-      const iso = timestamp.replace(/T(\d{2})-(\d{2})-(\d{2})/, 'T$1:$2:$3');
+      // Convert timestamp format from 2025-11-06T07-56-19 to 2025-11-06T07:56:19Z
+      // The Z suffix tells JavaScript to treat this as UTC (even though it's Manila time)
+      // This prevents JavaScript from treating it as local time and doing unwanted conversions
+      const iso = timestamp.replace(/T(\d{2})-(\d{2})-(\d{2})/, 'T$1:$2:$3Z');
       const date = new Date(iso);
       if (isNaN(date.getTime())) {
         return timestamp;
       }
 
+      // Timestamp is already in Manila time (UTC+8), display as-is with UTC formatter
       return date.toLocaleString('en-US', {
         year: 'numeric',
         month: 'short',
         day: '2-digit',
         hour: '2-digit',
         minute: '2-digit',
-        timeZone: 'Asia/Manila',
+        timeZone: 'UTC',
       });
     } catch {
       return timestamp;
@@ -670,7 +674,7 @@ export function BackupRestoreTab() {
                           day: '2-digit',
                           hour: '2-digit',
                           minute: '2-digit',
-                          timeZone: 'Asia/Manila',
+                          timeZone: 'UTC',
                         }
                       )}
                     </Text>

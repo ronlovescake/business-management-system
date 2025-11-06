@@ -68,7 +68,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { format = 'json', includeSoftDeleted = false } = body;
 
-    const timestamp = new Date()
+    // Generate timestamp in Manila timezone (UTC+8)
+    const now = new Date();
+    const manilaTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+    const timestamp = manilaTime
       .toISOString()
       .replace(/[:.]/g, '-')
       .slice(0, -5);
@@ -81,7 +84,7 @@ export async function POST(request: NextRequest) {
     if (format === 'json' || format === 'all') {
       const backup: Record<string, unknown> = {
         metadata: {
-          createdAt: new Date().toISOString(),
+          createdAt: manilaTime.toISOString(),
           database: parseDatabaseUrl().database,
           format: 'json',
           version: '1.0',
@@ -204,7 +207,7 @@ export async function POST(request: NextRequest) {
 
     // Create manifest
     const manifest = {
-      timestamp: new Date().toISOString(),
+      timestamp: manilaTime.toISOString(),
       database: parseDatabaseUrl().database,
       format: format,
       files: files.map((file) => ({
