@@ -51,8 +51,8 @@ import { useTransactionModals } from '../hooks/useTransactionModals';
 
 // Import modals
 import {
-  InvoiceGenerationModal,
-  PackingListGenerationModal,
+  // InvoiceGenerationModal, // No longer used - now using SweetAlert2
+  // PackingListGenerationModal, // No longer used - now using SweetAlert2
   DistributionGenerationModal,
   CustomerWarningModal,
 } from './TransactionModals';
@@ -93,20 +93,20 @@ export function TransactionsPage() {
   // MODAL HOOKS - All modal state and handlers
   // ============================================================================
   const {
-    // Invoice modal
-    showInvoiceModal,
-    invoiceData,
+    // Invoice modal (now using SweetAlert2)
+    // showInvoiceModal, // Not needed
+    // invoiceData, // Not needed
     isGeneratingInvoice,
     prepareInvoiceGeneration,
-    confirmInvoiceGeneration,
-    cancelInvoiceGeneration,
-    // Packing list modal
-    showPackingListModal,
-    packingListData,
+    // confirmInvoiceGeneration, // Not needed
+    // cancelInvoiceGeneration, // Not needed
+    // Packing list modal (now using SweetAlert2)
+    // showPackingListModal, // Not needed
+    // packingListData, // Not needed
     isGeneratingPackingList,
     preparePackingListGeneration,
-    confirmPackingListGeneration,
-    cancelPackingListGeneration,
+    // confirmPackingListGeneration, // Not needed
+    // cancelPackingListGeneration, // Not needed
     // Distribution modal
     showDistributionModal,
     distributionData,
@@ -503,7 +503,8 @@ export function TransactionsPage() {
   return (
     <Profiler id="TransactionsPage" onRender={onRenderCallback}>
       <PageLayout fluid withPadding>
-        {/* Invoice Generation Modal */}
+        {/* Invoice Generation Modal - Now handled by SweetAlert2 in hook */}
+        {/* 
         <InvoiceGenerationModal
           opened={showInvoiceModal}
           onClose={cancelInvoiceGeneration}
@@ -511,8 +512,10 @@ export function TransactionsPage() {
           data={invoiceData}
           isGenerating={isGeneratingInvoice}
         />
+        */}
 
-        {/* Packing List Generation Modal */}
+        {/* Packing List Generation Modal - Now handled by SweetAlert2 in hook */}
+        {/* 
         <PackingListGenerationModal
           opened={showPackingListModal}
           onClose={cancelPackingListGeneration}
@@ -520,6 +523,7 @@ export function TransactionsPage() {
           data={packingListData}
           isGenerating={isGeneratingPackingList}
         />
+        */}
 
         {/* Distribution Generation Modal */}
         <DistributionGenerationModal

@@ -12,6 +12,7 @@
 
 import { useState, useCallback } from 'react';
 import { notifications } from '@mantine/notifications';
+import Swal from 'sweetalert2';
 import { TransactionService } from '../services/TransactionService';
 import { api } from '@/lib/api/client';
 import { logger } from '@/lib/logger';
@@ -78,32 +79,31 @@ export function useTransactionModals(
   // INVOICE GENERATION STATE
   // ============================================================================
 
-  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
-  const [invoiceData, setInvoiceData] = useState<InvoiceConfirmationData>({
+  const [showInvoiceModal] = useState(false); // No longer used with SweetAlert
+  const [invoiceData] = useState<InvoiceConfirmationData>({
     customers: 0,
     warehouseOrders: 0,
     preparedOrders: 0,
     totalTransactions: 0,
-  });
-  const [pendingInvoiceData, setPendingInvoiceData] = useState<
+  }); // No longer used with SweetAlert
+  const [_pendingInvoiceData, _setPendingInvoiceData] = useState<
     TransactionData[] | null
-  >(null);
+  >(null); // No longer used with SweetAlert
   const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
 
   // ============================================================================
   // PACKING LIST STATE
   // ============================================================================
 
-  const [showPackingListModal, setShowPackingListModal] = useState(false);
-  const [packingListData, setPackingListData] =
-    useState<PackingListConfirmationData>({
-      eligibleTransactions: 0,
-      customers: 0,
-      totalValue: 0,
-    });
-  const [pendingPackingListData, setPendingPackingListData] = useState<
+  const [showPackingListModal] = useState(false); // No longer used with SweetAlert
+  const [packingListData] = useState<PackingListConfirmationData>({
+    eligibleTransactions: 0,
+    customers: 0,
+    totalValue: 0,
+  }); // No longer used with SweetAlert
+  const [_pendingPackingListData, _setPendingPackingListData] = useState<
     TransactionData[] | null
-  >(null);
+  >(null); // No longer used with SweetAlert
   const [isGeneratingPackingList, setIsGeneratingPackingList] = useState(false);
 
   // ============================================================================
@@ -199,18 +199,198 @@ export function useTransactionModals(
           totalPrepared += customerPrepared.length;
         });
 
-        setInvoiceData({
-          customers: customersWithWarehouse.size,
-          warehouseOrders: totalWarehouse,
-          preparedOrders: totalPrepared,
-          totalTransactions: totalWarehouse + totalPrepared,
+        const totalTransactions = totalWarehouse + totalPrepared;
+
+        // Show SweetAlert2 confirmation dialog
+        const result = await Swal.fire({
+          title: 'Invoice Generation Confirmation',
+          html: `
+            <div style="text-align: left;">
+              <div style="background-color: #fff3cd; padding: 12px; margin-bottom: 16px; border-radius: 4px; border: 1px solid #ffc107;">
+                <p style="margin: 0; color: #856404; font-weight: 500;">Important Changes Will Occur</p>
+                <p style="margin: 8px 0 0 0; font-size: 14px; color: #856404;">
+                  This action will modify your data and cannot be undone. Please review the details below.
+                </p>
+              </div>
+
+              <p style="font-weight: 500; margin-bottom: 12px;">You are about to generate invoices for:</p>
+              
+              <div style="margin-bottom: 16px;">
+                <p style="margin: 6px 0; font-size: 14px;">
+                  <strong>${customersWithWarehouse.size}</strong> customer${customersWithWarehouse.size > 1 ? 's' : ''}
+                </p>
+                <p style="margin: 6px 0; font-size: 14px;">
+                  <strong>${totalWarehouse}</strong> Warehouse order${totalWarehouse > 1 ? 's' : ''}
+                </p>
+                <p style="margin: 6px 0; font-size: 14px;">
+                  <strong>${totalPrepared}</strong> Prepared order${totalPrepared > 1 ? 's' : ''}
+                </p>
+                <p style="margin: 6px 0; font-size: 14px;">
+                  <strong>${totalTransactions}</strong> total transactions
+                </p>
+              </div>
+
+              <hr style="border: none; border-top: 1px solid #dee2e6; margin: 16px 0;">
+
+              <p style="font-weight: 500; margin-bottom: 12px;">Important Changes That Will Occur:</p>
+              <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #495057;">
+                <li>All ${totalWarehouse} Warehouse order${totalWarehouse > 1 ? 's' : ''} will be updated to "Prepared" status</li>
+                <li>Invoice dates will be set for all processed transactions</li>
+                <li>A PDF invoice will be generated and downloaded</li>
+                <li>All changes will be saved to the database</li>
+              </ul>
+
+              <hr style="border: none; border-top: 1px solid #dee2e6; margin: 16px 0;">
+
+              <p style="text-align: center; color: #868e96; font-size: 14px; margin: 0;">
+                Do you want to proceed with invoice generation?
+              </p>
+            </div>
+          `,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: 'Generate Invoices',
+          cancelButtonText: 'Cancel',
+          confirmButtonColor: '#2196F3',
+          cancelButtonColor: '#868e96',
+          width: '600px',
+          customClass: {
+            popup: 'swal-wide',
+            confirmButton: 'swal-confirm-btn',
+            cancelButton: 'swal-cancel-btn',
+          },
         });
-        setPendingInvoiceData(visibleTransactions);
-        setShowInvoiceModal(true);
+
+        if (!result.isConfirmed) {
+          notifications.show({
+            title: '✅ Invoice Generation Cancelled',
+            message: 'No changes were made.',
+            color: 'blue',
+            autoClose: 4000,
+          });
+          return;
+        }
+
+        // User confirmed, proceed with generation
+        logger.debug(
+          '📄 User confirmed - proceeding with invoice generation...'
+        );
+        setIsGeneratingInvoice(true);
+
+        const invoiceTransactions: TransactionData[] = [];
+        customersWithWarehouse.forEach((customerName) => {
+          const customerWarehouse = visibleTransactions.filter(
+            (t) =>
+              t.Customers === customerName && t['Order Status'] === 'Warehouse'
+          );
+          const customerPrepared = visibleTransactions.filter(
+            (t) =>
+              t.Customers === customerName && t['Order Status'] === 'Prepared'
+          );
+
+          invoiceTransactions.push(...customerWarehouse, ...customerPrepared);
+        });
+
+        // Fetch customers for invoice
+        let customersData: Record<string, unknown>[] = [];
+        try {
+          customersData =
+            await api.get<Record<string, unknown>[]>('/api/customers');
+        } catch {
+          // Continue without customer data if it fails
+          logger.warn('Failed to fetch customers data');
+        }
+
+        // Call invoice generation API
+        const response = await fetch('/api/generate-invoice', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            transactions: invoiceTransactions,
+            customers: customersData,
+          }),
+        });
+
+        if (response.ok) {
+          const pdfBlob = await response.blob();
+          const url = window.URL.createObjectURL(pdfBlob);
+          const link = document.createElement('a');
+          link.href = url;
+
+          const timestamp = new Date()
+            .toISOString()
+            .slice(0, 19)
+            .replace(/[:-]/g, '');
+          link.download = `invoices-${timestamp}.pdf`;
+
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+
+          const statusUpdateMessage =
+            totalWarehouse > 0
+              ? ` All ${totalWarehouse} Warehouse orders updated to Prepared status.`
+              : '';
+
+          notifications.show({
+            title: '✅ Invoices Generated & Status Updated',
+            message: `PDF with invoices for ${totalWarehouse} Warehouse + ${totalPrepared} Prepared orders from ${customersWithWarehouse.size} customers downloaded.${statusUpdateMessage}`,
+            color: 'green',
+            autoClose: 8000,
+          });
+
+          // Update transactions with invoice dates and status changes
+          const currentDate = new Date().toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+            timeZone: 'Asia/Manila',
+          });
+
+          const processedIds = new Set(invoiceTransactions.map((t) => t.id));
+
+          const updatedTransactions = transactions.map((t) => {
+            const updates: Partial<TransactionData> = {};
+            let hasUpdates = false;
+
+            if (
+              processedIds.has(t.id) &&
+              (!t['Invoice Date'] || t['Invoice Date'].trim() === '')
+            ) {
+              updates['Invoice Date'] = currentDate;
+              hasUpdates = true;
+            }
+
+            if (processedIds.has(t.id) && t['Order Status'] === 'Warehouse') {
+              updates['Order Status'] = 'Prepared';
+              hasUpdates = true;
+            }
+
+            return hasUpdates ? { ...t, ...updates } : t;
+          });
+
+          bulkUpdate(
+            TransactionService.sanitizeTransactions(updatedTransactions)
+          );
+
+          // Save to database
+          const toSave = updatedTransactions.filter((t) =>
+            processedIds.has(t.id)
+          );
+          if (toSave.length > 0) {
+            await Promise.all(toSave.map((t) => saveTransactionToDatabase(t)));
+          }
+        } else {
+          const errorData = (await response.json()) as { error?: string };
+          throw new Error(errorData.error || 'Failed to generate invoices');
+        }
       } catch (error) {
-        logger.error('Error preparing invoice generation:', error);
+        logger.error('Error preparing/generating invoices:', error);
         notifications.show({
-          title: '❌ Invoice Preparation Failed',
+          title: '❌ Invoice Generation Failed',
           message:
             error instanceof Error
               ? error.message
@@ -218,182 +398,20 @@ export function useTransactionModals(
           color: 'red',
           autoClose: 7000,
         });
+      } finally {
+        setIsGeneratingInvoice(false);
       }
     },
-    []
+    [transactions, bulkUpdate, saveTransactionToDatabase]
   );
 
+  // Dummy functions for backward compatibility (no longer used with SweetAlert)
   const confirmInvoiceGeneration = useCallback(async () => {
-    setShowInvoiceModal(false);
-
-    if (!pendingInvoiceData) {
-      notifications.show({
-        title: '❌ Error',
-        message: 'No invoice data available for processing',
-        color: 'red',
-        autoClose: 5000,
-      });
-      return;
-    }
-
-    logger.debug('📄 User confirmed - proceeding with invoice generation...');
-    setIsGeneratingInvoice(true);
-
-    try {
-      const visibleTransactions = pendingInvoiceData;
-
-      const warehouseTransactions = visibleTransactions.filter(
-        (t) => t['Order Status'] === 'Warehouse'
-      );
-
-      const customersWithWarehouse = new Set(
-        warehouseTransactions.map((t) => t.Customers).filter(Boolean)
-      );
-
-      const invoiceTransactions: TransactionData[] = [];
-      let totalWarehouse = 0;
-      let totalPrepared = 0;
-
-      customersWithWarehouse.forEach((customerName) => {
-        const customerWarehouse = visibleTransactions.filter(
-          (t) =>
-            t.Customers === customerName && t['Order Status'] === 'Warehouse'
-        );
-        const customerPrepared = visibleTransactions.filter(
-          (t) =>
-            t.Customers === customerName && t['Order Status'] === 'Prepared'
-        );
-
-        invoiceTransactions.push(...customerWarehouse, ...customerPrepared);
-        totalWarehouse += customerWarehouse.length;
-        totalPrepared += customerPrepared.length;
-      });
-
-      // Fetch customers for invoice
-      let customersData: Record<string, unknown>[] = [];
-      try {
-        customersData =
-          await api.get<Record<string, unknown>[]>('/api/customers');
-      } catch {
-        // Continue without customer data if it fails
-        logger.warn('Failed to fetch customers data');
-      }
-
-      // Call invoice generation API
-      // Note: Using raw fetch for blob response (API client doesn't handle blobs yet)
-      const response = await fetch('/api/generate-invoice', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          transactions: invoiceTransactions,
-          customers: customersData,
-        }),
-      });
-
-      if (response.ok) {
-        const pdfBlob = await response.blob();
-        const url = window.URL.createObjectURL(pdfBlob);
-        const link = document.createElement('a');
-        link.href = url;
-
-        const timestamp = new Date()
-          .toISOString()
-          .slice(0, 19)
-          .replace(/[:-]/g, '');
-        link.download = `invoices-${timestamp}.pdf`;
-
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-
-        const statusUpdateMessage =
-          totalWarehouse > 0
-            ? ` All ${totalWarehouse} Warehouse orders updated to Prepared status.`
-            : '';
-
-        notifications.show({
-          title: '✅ Invoices Generated & Status Updated',
-          message: `PDF with invoices for ${totalWarehouse} Warehouse + ${totalPrepared} Prepared orders from ${customersWithWarehouse.size} customers downloaded.${statusUpdateMessage}`,
-          color: 'green',
-          autoClose: 8000,
-        });
-
-        // Update transactions with invoice dates and status changes
-        const currentDate = new Date().toLocaleDateString('en-US', {
-          month: 'long',
-          day: 'numeric',
-          year: 'numeric',
-          timeZone: 'Asia/Manila',
-        });
-
-        const processedIds = new Set(invoiceTransactions.map((t) => t.id));
-
-        const updatedTransactions = transactions.map((t) => {
-          const updates: Partial<TransactionData> = {};
-          let hasUpdates = false;
-
-          if (
-            processedIds.has(t.id) &&
-            (!t['Invoice Date'] || t['Invoice Date'].trim() === '')
-          ) {
-            updates['Invoice Date'] = currentDate;
-            hasUpdates = true;
-          }
-
-          if (processedIds.has(t.id) && t['Order Status'] === 'Warehouse') {
-            updates['Order Status'] = 'Prepared';
-            hasUpdates = true;
-          }
-
-          return hasUpdates ? { ...t, ...updates } : t;
-        });
-
-        bulkUpdate(
-          TransactionService.sanitizeTransactions(updatedTransactions)
-        );
-
-        // Save to database
-        const toSave = updatedTransactions.filter((t) =>
-          processedIds.has(t.id)
-        );
-        if (toSave.length > 0) {
-          await Promise.all(toSave.map((t) => saveTransactionToDatabase(t)));
-        }
-      } else {
-        const errorData = (await response.json()) as { error?: string };
-        throw new Error(errorData.error || 'Failed to generate invoices');
-      }
-    } catch (error) {
-      logger.error('Error generating invoices:', error);
-      notifications.show({
-        title: '❌ Invoice Generation Failed',
-        message:
-          error instanceof Error
-            ? error.message
-            : 'An unexpected error occurred',
-        color: 'red',
-        autoClose: 7000,
-      });
-    } finally {
-      setIsGeneratingInvoice(false);
-      setPendingInvoiceData(null);
-    }
-  }, [pendingInvoiceData, transactions, bulkUpdate, saveTransactionToDatabase]);
+    // This function is no longer called - logic is now inline in prepareInvoiceGeneration
+  }, []);
 
   const cancelInvoiceGeneration = useCallback(() => {
-    setShowInvoiceModal(false);
-    setPendingInvoiceData(null);
-
-    notifications.show({
-      title: '✅ Invoice Generation Cancelled',
-      message:
-        'Invoice generation was cancelled by user. No changes were made.',
-      color: 'blue',
-      autoClose: 4000,
-    });
+    // This function is no longer called - cancellation is handled by SweetAlert
   }, []);
 
   // ============================================================================
@@ -402,12 +420,21 @@ export function useTransactionModals(
 
   const preparePackingListGeneration = useCallback(
     async (visibleTransactions: TransactionData[]) => {
+      // Count all "Prepared" orders (regardless of line total)
+      const allPrepared = visibleTransactions.filter((t) => {
+        const status = t['Order Status'];
+        return status === 'Prepared';
+      });
+
       // Filter: "Prepared" status AND line total ≤ ₱50.00
       const eligible = visibleTransactions.filter((t) => {
         const status = t['Order Status'];
         const lineTotal = Number(t['Line Total']) || 0;
         return status === 'Prepared' && lineTotal <= 50.0;
       });
+
+      // Count excluded "Prepared" orders (those > ₱50.00)
+      const excluded = allPrepared.length - eligible.length;
 
       if (eligible.length === 0) {
         notifications.show({
@@ -420,6 +447,25 @@ export function useTransactionModals(
         return;
       }
 
+      // Warn user if some "Prepared" orders will be excluded
+      if (excluded > 0) {
+        await Swal.fire({
+          title: '⚠️ Some Orders Will Be Excluded',
+          html: `
+            <div style="text-align: left;">
+              <p><strong>${excluded}</strong> "Prepared" order${excluded > 1 ? 's' : ''} with line total <strong>> ₱50.00</strong> will <strong>NOT</strong> be included in the packing list.</p>
+              <p style="margin-top: 12px;">Please review before confirming.</p>
+            </div>
+          `,
+          icon: 'warning',
+          confirmButtonText: 'I Understand',
+          confirmButtonColor: '#fd7e14',
+          customClass: {
+            popup: 'swal-wide',
+          },
+        });
+      }
+
       const uniqueCustomers = new Set(
         eligible.map((t) => t.Customers).filter(Boolean)
       );
@@ -428,141 +474,173 @@ export function useTransactionModals(
         0
       );
 
-      setPackingListData({
-        eligibleTransactions: eligible.length,
-        customers: uniqueCustomers.size,
-        totalValue,
+      // Show SweetAlert2 confirmation dialog
+      const result = await Swal.fire({
+        title: 'Packing List Generation Confirmation',
+        html: `
+          <div style="text-align: left;">
+            <div style="padding: 12px 0; margin-bottom: 16px;">
+              <p style="margin: 0; color: #212529; font-weight: 500;">Packing List Generation</p>
+              <p style="margin: 8px 0 0 0; font-size: 14px; color: #495057;">
+                This will generate packing lists for all eligible "Prepared" orders with line total ≤ ₱50.00.
+              </p>
+            </div>
+
+            <p style="font-weight: 500; margin-bottom: 12px;">You are about to generate packing lists for:</p>
+            
+            <div style="margin-bottom: 16px;">
+              <p style="margin: 6px 0; font-size: 14px;">
+                <strong>${eligible.length}</strong> eligible transactions
+              </p>
+              <p style="margin: 6px 0; font-size: 14px;">
+                <strong>${uniqueCustomers.size}</strong> customer${uniqueCustomers.size > 1 ? 's' : ''}
+              </p>
+              <p style="margin: 6px 0; font-size: 14px;">
+                Total value: <strong>₱${totalValue.toLocaleString()}</strong>
+              </p>
+            </div>
+
+            <hr style="border: none; border-top: 1px solid #dee2e6; margin: 16px 0;">
+
+            <p style="font-weight: 500; margin-bottom: 12px;">Eligibility Criteria:</p>
+            <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #495057;">
+              <li>Only transactions with "Prepared" status</li>
+              <li>Line total must be ≤ ₱50.00</li>
+              <li>PDF packing lists will be generated and downloaded</li>
+            </ul>
+
+            <hr style="border: none; border-top: 1px solid #dee2e6; margin: 16px 0;">
+
+            <p style="text-align: center; color: #868e96; font-size: 14px; margin: 0;">
+              Do you want to proceed with packing list generation?
+            </p>
+          </div>
+        `,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Generate Packing Lists',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#7950f2',
+        cancelButtonColor: '#868e96',
+        width: '600px',
+        customClass: {
+          popup: 'swal-wide',
+          confirmButton: 'swal-confirm-btn',
+          cancelButton: 'swal-cancel-btn',
+        },
       });
-      setPendingPackingListData(visibleTransactions);
-      setShowPackingListModal(true);
+
+      if (!result.isConfirmed) {
+        notifications.show({
+          title: '✅ Packing List Generation Cancelled',
+          message: 'No changes were made.',
+          color: 'blue',
+          autoClose: 4000,
+        });
+        return;
+      }
+
+      // User confirmed, proceed with generation
+      setIsGeneratingPackingList(true);
+
+      try {
+        // Transform to the format expected by the API (with capitalized field names)
+        const transformed = eligible.map((t) => ({
+          Customers: t.Customers || '',
+          'Product Code': t['Product Code'] || '',
+          Quantity: Number(t.Quantity) || 0,
+          Notes: t.Notes || '',
+        }));
+
+        // Note: Using raw fetch for blob response (API client doesn't handle blobs yet)
+        const response = await fetch('/api/generate-packing-list', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ transactions: transformed }),
+        });
+
+        if (response.ok) {
+          const pdfBlob = await response.blob();
+          const url = window.URL.createObjectURL(pdfBlob);
+          const link = document.createElement('a');
+          link.href = url;
+
+          const timestamp = new Date()
+            .toISOString()
+            .slice(0, 19)
+            .replace(/[:-]/g, '');
+          link.download = `packing-lists-${timestamp}.pdf`;
+
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+
+          notifications.show({
+            title: '✅ Packing Lists Generated',
+            message: `PDF with packing lists for ${eligible.length} transactions downloaded`,
+            color: 'green',
+            autoClose: 8000,
+          });
+
+          // Set packed dates
+          const currentDate = new Date().toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+            timeZone: 'Asia/Manila',
+          });
+
+          const processedIds = new Set(eligible.map((t) => t.id));
+          const updated = transactions.map((t) => {
+            if (
+              processedIds.has(t.id) &&
+              (!t['Packed Date'] || t['Packed Date'].trim() === '')
+            ) {
+              return { ...t, 'Packed Date': currentDate };
+            }
+            return t;
+          });
+
+          bulkUpdate(TransactionService.sanitizeTransactions(updated));
+
+          const toSave = updated.filter((t) => processedIds.has(t.id));
+          if (toSave.length > 0) {
+            await Promise.all(toSave.map((t) => saveTransactionToDatabase(t)));
+          }
+        } else {
+          const errorData = (await response.json()) as { error?: string };
+          throw new Error(
+            errorData.error || 'Failed to generate packing lists'
+          );
+        }
+      } catch (error) {
+        logger.error('Error generating packing lists:', error);
+        notifications.show({
+          title: '❌ Packing List Generation Failed',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'An unexpected error occurred',
+          color: 'red',
+          autoClose: 7000,
+        });
+      } finally {
+        setIsGeneratingPackingList(false);
+      }
     },
-    []
+    [transactions, bulkUpdate, saveTransactionToDatabase]
   );
 
+  // Dummy functions for backward compatibility (no longer used with SweetAlert)
   const confirmPackingListGeneration = useCallback(async () => {
-    setShowPackingListModal(false);
-
-    if (!pendingPackingListData) {
-      notifications.show({
-        title: '❌ Error',
-        message: 'No packing list data available',
-        color: 'red',
-        autoClose: 5000,
-      });
-      return;
-    }
-
-    setIsGeneratingPackingList(true);
-
-    try {
-      const eligible = pendingPackingListData.filter((t) => {
-        const status = t['Order Status'];
-        const lineTotal = Number(t['Line Total']) || 0;
-        return status === 'Prepared' && lineTotal <= 50.0;
-      });
-
-      // Transform to the format expected by the API (with capitalized field names)
-      const transformed = eligible.map((t) => ({
-        Customers: t.Customers || '',
-        'Product Code': t['Product Code'] || '',
-        Quantity: Number(t.Quantity) || 0,
-        Notes: t.Notes || '',
-      }));
-
-      // Note: Using raw fetch for blob response (API client doesn't handle blobs yet)
-      const response = await fetch('/api/generate-packing-list', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ transactions: transformed }),
-      });
-
-      if (response.ok) {
-        const pdfBlob = await response.blob();
-        const url = window.URL.createObjectURL(pdfBlob);
-        const link = document.createElement('a');
-        link.href = url;
-
-        const timestamp = new Date()
-          .toISOString()
-          .slice(0, 19)
-          .replace(/[:-]/g, '');
-        link.download = `packing-lists-${timestamp}.pdf`;
-
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-
-        notifications.show({
-          title: '✅ Packing Lists Generated',
-          message: `PDF with packing lists for ${eligible.length} transactions downloaded`,
-          color: 'green',
-          autoClose: 8000,
-        });
-
-        // Set packed dates
-        const currentDate = new Date().toLocaleDateString('en-US', {
-          month: 'long',
-          day: 'numeric',
-          year: 'numeric',
-          timeZone: 'Asia/Manila',
-        });
-
-        const processedIds = new Set(eligible.map((t) => t.id));
-        const updated = transactions.map((t) => {
-          if (
-            processedIds.has(t.id) &&
-            (!t['Packed Date'] || t['Packed Date'].trim() === '')
-          ) {
-            return { ...t, 'Packed Date': currentDate };
-          }
-          return t;
-        });
-
-        bulkUpdate(TransactionService.sanitizeTransactions(updated));
-
-        const toSave = updated.filter((t) => processedIds.has(t.id));
-        if (toSave.length > 0) {
-          await Promise.all(toSave.map((t) => saveTransactionToDatabase(t)));
-        }
-      } else {
-        const errorData = (await response.json()) as { error?: string };
-        throw new Error(errorData.error || 'Failed to generate packing lists');
-      }
-    } catch (error) {
-      logger.error('Error generating packing lists:', error);
-      notifications.show({
-        title: '❌ Packing List Generation Failed',
-        message:
-          error instanceof Error
-            ? error.message
-            : 'An unexpected error occurred',
-        color: 'red',
-        autoClose: 7000,
-      });
-    } finally {
-      setIsGeneratingPackingList(false);
-      setPendingPackingListData(null);
-    }
-  }, [
-    pendingPackingListData,
-    transactions,
-    bulkUpdate,
-    saveTransactionToDatabase,
-  ]);
+    // This function is no longer called - logic is now inline in preparePackingListGeneration
+  }, []);
 
   const cancelPackingListGeneration = useCallback(() => {
-    setShowPackingListModal(false);
-    setPendingPackingListData(null);
-
-    notifications.show({
-      title: '✅ Packing List Generation Cancelled',
-      message: 'Cancelled by user.',
-      color: 'blue',
-      autoClose: 4000,
-    });
+    // This function is no longer called - cancellation is handled by SweetAlert
   }, []);
 
   // ============================================================================
@@ -701,23 +779,23 @@ export function useTransactionModals(
   // ============================================================================
 
   return {
-    // Invoice
-    showInvoiceModal,
-    invoiceData,
-    pendingInvoiceData,
+    // Invoice (SweetAlert-based, modal state kept for compatibility)
+    showInvoiceModal, // Always false now
+    invoiceData, // Empty now
+    pendingInvoiceData: null, // Not used anymore
     isGeneratingInvoice,
     prepareInvoiceGeneration,
-    confirmInvoiceGeneration,
-    cancelInvoiceGeneration,
+    confirmInvoiceGeneration, // Dummy function
+    cancelInvoiceGeneration, // Dummy function
 
-    // Packing list
-    showPackingListModal,
-    packingListData,
-    pendingPackingListData,
+    // Packing list (SweetAlert-based, modal state kept for compatibility)
+    showPackingListModal, // Always false now
+    packingListData, // Empty now
+    pendingPackingListData: null, // Not used anymore
     isGeneratingPackingList,
     preparePackingListGeneration,
-    confirmPackingListGeneration,
-    cancelPackingListGeneration,
+    confirmPackingListGeneration, // Dummy function
+    cancelPackingListGeneration, // Dummy function
 
     // Distribution
     showDistributionModal,
