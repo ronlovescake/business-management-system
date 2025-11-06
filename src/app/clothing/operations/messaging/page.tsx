@@ -469,38 +469,65 @@ export default function MessagingPage() {
                       </Text>
                     </Center>
                   ) : (
-                    messages.map((message) => (
-                      <Group
-                        key={message.id}
-                        justify="flex-start"
-                        align="flex-end"
-                        gap="sm"
-                      >
-                        <Avatar radius="xl" size={36}>
-                          {(message.sender.name?.[0] || 'U').toUpperCase()}
-                        </Avatar>
-                        <Stack
-                          gap={6}
-                          style={{
-                            maxWidth: 440,
-                            backgroundColor: 'var(--mantine-color-white)',
-                            border: '1px solid var(--mantine-color-gray-3)',
-                            borderRadius: 16,
-                            padding: '12px 16px',
-                          }}
+                    messages.map((message) => {
+                      const isMyMessage =
+                        message.senderId === session?.user?.id;
+                      return (
+                        <Group
+                          key={message.id}
+                          justify={isMyMessage ? 'flex-end' : 'flex-start'}
+                          align="flex-end"
+                          gap="sm"
                         >
-                          <Text size="sm" fw={600}>
-                            {message.sender.name || message.sender.email}
-                          </Text>
-                          <Text size="sm">{message.body}</Text>
-                          <Text size="xs" c="gray.5">
-                            {formatDistanceToNow(new Date(message.createdAt), {
-                              addSuffix: true,
-                            })}
-                          </Text>
-                        </Stack>
-                      </Group>
-                    ))
+                          {!isMyMessage && (
+                            <Avatar radius="xl" size={36}>
+                              {(message.sender.name?.[0] || 'U').toUpperCase()}
+                            </Avatar>
+                          )}
+                          <Stack
+                            gap={6}
+                            style={{
+                              maxWidth: 440,
+                              backgroundColor: isMyMessage
+                                ? 'var(--mantine-color-blue-5)'
+                                : 'var(--mantine-color-white)',
+                              color: isMyMessage ? 'white' : 'inherit',
+                              border: isMyMessage
+                                ? 'none'
+                                : '1px solid var(--mantine-color-gray-3)',
+                              borderRadius: 16,
+                              padding: '12px 16px',
+                            }}
+                          >
+                            {!isMyMessage && (
+                              <Text size="sm" fw={600}>
+                                {message.sender.name || message.sender.email}
+                              </Text>
+                            )}
+                            <Text size="sm">{message.body}</Text>
+                            <Text
+                              size="xs"
+                              c={
+                                isMyMessage ? 'rgba(255,255,255,0.7)' : 'gray.5'
+                              }
+                              ta={isMyMessage ? 'right' : 'left'}
+                            >
+                              {formatDistanceToNow(
+                                new Date(message.createdAt),
+                                {
+                                  addSuffix: true,
+                                }
+                              )}
+                            </Text>
+                          </Stack>
+                          {isMyMessage && (
+                            <Avatar radius="xl" size={36}>
+                              {(session?.user?.name?.[0] || 'U').toUpperCase()}
+                            </Avatar>
+                          )}
+                        </Group>
+                      );
+                    })
                   )}
                 </Stack>
               </ScrollArea>
