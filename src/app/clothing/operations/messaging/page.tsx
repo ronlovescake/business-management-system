@@ -47,6 +47,7 @@ export default function MessagingPage() {
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [conversationTitle, setConversationTitle] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const previousMessagesRef = useRef<Message[]>([]);
   const queryClient = useQueryClient();
 
   // Fetch conversations with polling
@@ -192,6 +193,37 @@ export default function MessagingPage() {
       }, 100);
     }
   }, [messages]);
+
+  // Show toast notification for new messages
+  useEffect(() => {
+    const currentUserId = session?.user?.id;
+    if (!currentUserId || messages.length === 0) {
+      return;
+    }
+
+    // Find new messages that are not from the current user
+    const newMessages = messages.filter(
+      (message) =>
+        message.senderId !== currentUserId &&
+        !previousMessagesRef.current.some((prev) => prev.id === message.id)
+    );
+
+    // Show notification for each new message
+    newMessages.forEach((message) => {
+      const senderName =
+        message.sender.name || message.sender.email || 'Someone';
+      notifications.show({
+        title: senderName,
+        message: message.body,
+        color: 'blue',
+        position: 'top-right',
+        autoClose: 4000,
+      });
+    });
+
+    // Update the previous messages ref
+    previousMessagesRef.current = messages;
+  }, [messages, session?.user?.id]);
 
   const filteredConversations = useMemo(() => {
     const query = searchValue.trim().toLowerCase();
