@@ -846,6 +846,7 @@ function ChatWindow({
 }: ChatWindowProps) {
   const [draft, setDraft] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const messagesQueryKey = useMemo(
     () => ['header-messages', conversation.id] as const,
@@ -900,15 +901,11 @@ function ChatWindow({
     }
   }, [conversation.id, minimized, queryClient]);
 
+  // Scroll to bottom when messages change or when window is expanded
   useEffect(() => {
-    if (!messages.length) {
-      return;
-    }
-    const viewport = scrollAreaRef.current?.querySelector(
-      '[data-radix-scroll-area-viewport]'
-    ) as HTMLDivElement | null;
-    if (viewport) {
-      viewport.scrollTop = viewport.scrollHeight;
+    if (!minimized && messages.length > 0) {
+      // Use scrollIntoView on the dummy div at the bottom
+      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
     }
   }, [messages, minimized]);
 
@@ -1111,6 +1108,8 @@ function ChatWindow({
                     </Flex>
                   );
                 })}
+                {/* Dummy div for auto-scroll */}
+                <div ref={messagesEndRef} />
               </Stack>
             )}
           </ScrollArea>

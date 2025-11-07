@@ -213,19 +213,24 @@ export function MessagingClientPage() {
     };
   }, []);
 
-  // Auto-scroll to bottom when messages change
+  // Auto-scroll to bottom when messages change or conversation opens
   useEffect(() => {
     if (messages.length > 0 && scrollAreaRef.current) {
+      // Use a longer timeout to ensure content is rendered
       setTimeout(() => {
         const viewport = scrollAreaRef.current?.querySelector(
           '[data-radix-scroll-area-viewport]'
         );
         if (viewport) {
-          viewport.scrollTop = viewport.scrollHeight;
+          // Scroll to the very bottom
+          viewport.scrollTo({
+            top: viewport.scrollHeight,
+            behavior: 'smooth',
+          });
         }
-      }, 100);
+      }, 150);
     }
-  }, [messages]);
+  }, [messages, activeConversationId]);
 
   // Show toast notification for new messages
   useEffect(() => {
