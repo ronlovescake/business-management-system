@@ -55,6 +55,7 @@ export interface ToastOptions {
 const defaultSwalConfig: SweetAlertOptions = {
   confirmButtonColor: '#228be6', // Mantine blue
   cancelButtonColor: '#fa5252', // Mantine red
+  allowOutsideClick: false, // Prevent accidental dismissal
   customClass: {
     popup: 'swal-popup-custom',
     title: 'swal-title-custom',
