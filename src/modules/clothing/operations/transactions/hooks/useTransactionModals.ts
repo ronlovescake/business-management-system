@@ -430,9 +430,6 @@ export function useTransactionModals(
         return status === 'Prepared' && lineTotal <= 50.0;
       });
 
-      // Count excluded "Prepared" orders (those > ₱50.00)
-      const excluded = allPrepared.length - eligible.length;
-
       if (eligible.length === 0) {
         notifications.show({
           title: '⚠️ No Prepared Transactions',
@@ -444,19 +441,72 @@ export function useTransactionModals(
         return;
       }
 
-      // Warn user if some "Prepared" orders will be excluded
-      if (excluded > 0) {
+      // Check if any customer has SPLIT orders (some included, some excluded)
+      // Group all "Prepared" orders by customer
+      const customerOrdersMap = new Map<
+        string,
+        { eligible: number; excluded: number }
+      >();
+
+      allPrepared.forEach((t) => {
+        const customerName = t.Customers || 'Unknown';
+        const lineTotal = Number(t['Line Total']) || 0;
+        const isEligible = lineTotal <= 50.0;
+
+        if (!customerOrdersMap.has(customerName)) {
+          customerOrdersMap.set(customerName, { eligible: 0, excluded: 0 });
+        }
+
+        const counts = customerOrdersMap.get(customerName);
+        if (counts) {
+          if (isEligible) {
+            counts.eligible++;
+          } else {
+            counts.excluded++;
+          }
+        }
+      });
+
+      // Find customers with SPLIT orders (both eligible and excluded orders)
+      const customersWithSplitOrders = Array.from(customerOrdersMap.entries())
+        .filter(([_, counts]) => counts.eligible > 0 && counts.excluded > 0)
+        .map(([customerName, counts]) => ({
+          customerName,
+          ...counts,
+        }));
+
+      // Warn user if any customer has split orders
+      if (customersWithSplitOrders.length > 0) {
+        const totalExcludedFromSplits = customersWithSplitOrders.reduce(
+          (sum, c) => sum + c.excluded,
+          0
+        );
+
+        const customerList = customersWithSplitOrders
+          .map(
+            (c) =>
+              `<li><strong>${c.customerName}</strong>: ${c.eligible} order${c.eligible > 1 ? 's' : ''} will be included, but ${c.excluded} order${c.excluded > 1 ? 's' : ''} will be left behind (> ₱50.00)</li>`
+          )
+          .join('');
+
         await Swal.fire({
-          title: '⚠️ Some Orders Will Be Excluded',
+          title: '⚠️ Some Customers Have Split Orders',
           html: `
             <div style="text-align: left;">
-              <p><strong>${excluded}</strong> "Prepared" order${excluded > 1 ? 's' : ''} with line total <strong>> ₱50.00</strong> will <strong>NOT</strong> be included in the packing list.</p>
-              <p style="margin-top: 12px;">Please review before confirming.</p>
+              <p style="margin-bottom: 12px;"><strong>${customersWithSplitOrders.length}</strong> customer${customersWithSplitOrders.length > 1 ? 's have' : ' has'} orders that will be <strong>split</strong>:</p>
+              <ul style="margin: 12px 0; padding-left: 20px; font-size: 14px; color: #495057;">
+                ${customerList}
+              </ul>
+              <p style="margin-top: 16px; padding: 12px; background-color: #fff3cd; border-radius: 4px; border: 1px solid #ffc107; color: #856404; font-size: 14px;">
+                ⚠️ <strong>Warning:</strong> These customers will NOT receive all their orders in this packing list. Make sure to handle the excluded orders separately.
+              </p>
+              <p style="margin-top: 12px; font-size: 14px;">Total orders excluded from split customers: <strong>${totalExcludedFromSplits}</strong></p>
             </div>
           `,
           icon: 'warning',
           confirmButtonText: 'I Understand',
           confirmButtonColor: '#fd7e14',
+          width: '650px',
           customClass: {
             popup: 'swal-wide',
           },
