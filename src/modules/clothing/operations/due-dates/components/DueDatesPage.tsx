@@ -4,31 +4,31 @@
  * Shows customers with unpaid invoices grouped by customer.
  * Double-click customer to see all their orders.
  *
- * ✅ UI is IDENTICAL to original - only code organization changed!
+ * ✅ Updated to use StandardDataTable components!
  */
 
 'use client';
 
-import { PageLayout } from '@/components/layout/PageLayout';
-import { TableSkeleton } from '@/components/ui/TableSkeleton';
+import { useMemo, useState, useCallback, memo } from 'react';
 import {
+  Stack,
+  Text,
+  Group,
   Table,
   Badge,
-  Group,
-  Text,
-  Paper,
   ActionIcon,
   Tooltip,
-  TextInput,
-  Select,
   Modal,
 } from '@mantine/core';
-import { IconPhone, IconMail, IconSearch } from '@tabler/icons-react';
-import { useState, useMemo, useCallback, memo } from 'react';
+import { IconPhone, IconMail } from '@tabler/icons-react';
+import {
+  StandardDataTable,
+  StandardTableContainer,
+  StandardTableControls,
+} from '@/components/tables/StandardDataTable';
 import { useDueDateData } from '../hooks/useDueDateData';
 import { DueDateService } from '../services/DueDateService';
 import type { DueDateItem } from '../types/dueDate.types';
-import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
 
 // Memoized table row component for performance
 const DueDateRow = memo(
@@ -43,26 +43,28 @@ const DueDateRow = memo(
       <Table.Tr>
         <Table.Td
           onDoubleClick={() => onCustomerDoubleClick(item.customer)}
-          style={{ cursor: 'pointer' }}
+          style={{ cursor: 'pointer', textAlign: 'left' }}
         >
-          <Text fw={500} size="sm">
+          <Text fw={500} size="sm" c="#495057">
             {item.customer}
           </Text>
         </Table.Td>
-        <Table.Td style={{ textAlign: 'right' }}>
-          <Text fw={600} size="sm">
+        <Table.Td style={{ textAlign: 'center' }}>
+          <Text fw={600} size="sm" c="#495057">
             {DueDateService.formatCurrency(item.lineTotal)}
           </Text>
         </Table.Td>
         <Table.Td style={{ textAlign: 'center' }}>
-          <Text size="sm">{DueDateService.formatDate(item.invoiceDate)}</Text>
+          <Text size="sm" c="#495057">
+            {DueDateService.formatDate(item.invoiceDate)}
+          </Text>
         </Table.Td>
-        <Table.Td>
+        <Table.Td style={{ textAlign: 'center' }}>
           <Text size="sm" c="dimmed" fs="italic">
             {item.dueDate || 'Pending'}
           </Text>
         </Table.Td>
-        <Table.Td>
+        <Table.Td style={{ textAlign: 'center' }}>
           <Badge color="gray" variant="light">
             {item.dueIn === 0 ? 'Pending' : `${item.dueIn} days`}
           </Badge>
@@ -90,7 +92,6 @@ DueDateRow.displayName = 'DueDateRow';
 
 export function DueDatesPage() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string | null>('all');
   const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null);
   const [modalOpened, setModalOpened] = useState(false);
 
@@ -116,9 +117,9 @@ export function DueDatesPage() {
     return DueDateService.filterDueDateItems(
       dueDateItems,
       searchQuery,
-      statusFilter
+      null // No status filter anymore
     );
-  }, [dueDateItems, searchQuery, statusFilter]);
+  }, [dueDateItems, searchQuery]);
 
   // Render optimized rows using memoized component
   const rows = useMemo(
@@ -133,51 +134,55 @@ export function DueDatesPage() {
     [filteredItems, handleCustomerDoubleClick]
   );
 
-  useCtrlFFocus('[data-ctrlf-target="due-dates-search-input"]', true);
+  const headers = [
+    'CUSTOMER',
+    'LINE TOTAL',
+    'INVOICE DATE',
+    'DUE DATE',
+    'DUE IN',
+    'CONTACT BUYER',
+  ];
 
-  // Show loading state (IDENTICAL to original!)
+  const emptyStateMessage = searchQuery
+    ? `No due dates match "${searchQuery}".`
+    : 'No due dates found matching your criteria';
+
+  // Show loading state
   if (isLoading) {
     return (
-      <PageLayout title="Due Dates" fluid withPadding>
-        <TableSkeleton rows={10} columns={6} />
-      </PageLayout>
+      <Stack gap="md">
+        <StandardTableControls
+          searchPlaceholder="Search by customer or product code..."
+          onSearch={setSearchQuery}
+          hideImport
+          hideExport
+          hideAddNew
+        />
+        <StandardTableContainer>
+          <StandardDataTable
+            headers={headers}
+            emptyState="Loading due dates..."
+            colSpan={headers.length}
+          >
+            {[]}
+          </StandardDataTable>
+        </StandardTableContainer>
+      </Stack>
     );
   }
 
-  // ✅ MAIN UI - IDENTICAL TO ORIGINAL!
   return (
-    <PageLayout title="Due Dates" fluid withPadding={false}>
-      <Paper
-        shadow="sm"
-        p="lg"
-        radius="md"
-        withBorder
-        style={{ margin: '1rem' }}
-      >
-        <Group mb="lg" justify="space-between">
-          <Group>
-            <TextInput
-              placeholder="Search by customer or product code..."
-              leftSection={<IconSearch size={16} />}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.currentTarget.value)}
-              style={{ width: 300 }}
-              data-ctrlf-target="due-dates-search-input"
-            />
-            <Select
-              placeholder="Filter by status"
-              value={statusFilter}
-              onChange={setStatusFilter}
-              data={[
-                { value: 'all', label: 'All Status' },
-                { value: 'overdue', label: 'Overdue' },
-                { value: 'due-soon', label: 'Due Soon (≤7 days)' },
-                { value: 'on-track', label: 'On Track' },
-              ]}
-              style={{ width: 200 }}
-            />
-          </Group>
-          <Group>
+    <>
+      <Stack gap="md">
+        <Group justify="space-between" align="center" wrap="nowrap">
+          <StandardTableControls
+            searchPlaceholder="Search by customer or product code..."
+            onSearch={setSearchQuery}
+            hideImport
+            hideExport
+            hideAddNew
+          />
+          <Group gap="xs">
             <Badge color="red" variant="light">
               {stats.overdue} Overdue
             </Badge>
@@ -190,49 +195,24 @@ export function DueDatesPage() {
           </Group>
         </Group>
 
-        <div
-          style={{
-            overflowX: 'auto',
-            width: '100%',
-            height: '85vh',
-            overflowY: 'auto',
-          }}
+        <StandardTableContainer
+          summary={
+            <Text size="sm" c="dimmed">
+              Showing {filteredItems.length} of {dueDateItems.length} due dates
+            </Text>
+          }
         >
-          <Table
-            striped
-            highlightOnHover
-            withTableBorder
-            withColumnBorders
-            style={{ width: '100%', minWidth: 800 }}
-            stickyHeader
-            stickyHeaderOffset={0}
+          <StandardDataTable
+            headers={headers}
+            emptyState={emptyStateMessage}
+            colSpan={headers.length}
           >
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th style={{ textAlign: 'center' }}>Customer</Table.Th>
-                <Table.Th style={{ textAlign: 'center' }}>Line Total</Table.Th>
-                <Table.Th style={{ textAlign: 'center' }}>
-                  Invoice Date
-                </Table.Th>
-                <Table.Th style={{ textAlign: 'center' }}>Due Date</Table.Th>
-                <Table.Th style={{ textAlign: 'center' }}>Due In</Table.Th>
-                <Table.Th style={{ textAlign: 'center' }}>
-                  Contact Buyer
-                </Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>{rows}</Table.Tbody>
-          </Table>
-        </div>
+            {rows}
+          </StandardDataTable>
+        </StandardTableContainer>
+      </Stack>
 
-        {filteredItems.length === 0 && (
-          <Text ta="center" py="xl" c="dimmed">
-            No due dates found matching your criteria
-          </Text>
-        )}
-      </Paper>
-
-      {/* Customer Orders Modal - IDENTICAL! */}
+      {/* Customer Orders Modal */}
       <Modal
         opened={modalOpened}
         onClose={() => setModalOpened(false)}
@@ -297,6 +277,6 @@ export function DueDatesPage() {
           </Text>
         )}
       </Modal>
-    </PageLayout>
+    </>
   );
 }
