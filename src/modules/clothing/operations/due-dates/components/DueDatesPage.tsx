@@ -163,7 +163,7 @@ export function DueDatesPage() {
             headers={headers}
             emptyState="Loading due dates..."
             colSpan={headers.length}
-            height="87vh"
+            height="86vh"
           >
             {[]}
           </StandardDataTable>
@@ -207,7 +207,7 @@ export function DueDatesPage() {
             headers={headers}
             emptyState={emptyStateMessage}
             colSpan={headers.length}
-            height="87vh"
+            height="86vh"
           >
             {rows}
           </StandardDataTable>

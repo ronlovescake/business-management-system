@@ -8,6 +8,7 @@
  * ✅ UI is IDENTICAL - only code organization changed!
  */
 
+import { Container } from '@mantine/core';
 import { DueDatesPage } from '@/modules/clothing/operations/due-dates/components/DueDatesPage';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import {
@@ -21,7 +22,9 @@ export default async function Page() {
 
   return (
     <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
-      <DueDatesPage />
+      <Container size="xl" fluid p="md">
+        <DueDatesPage />
+      </Container>
     </PermissionGuard>
   );
 }
