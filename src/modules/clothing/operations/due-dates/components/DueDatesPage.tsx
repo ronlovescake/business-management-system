@@ -18,9 +18,14 @@ import {
   Badge,
   ActionIcon,
   Tooltip,
-  Modal,
 } from '@mantine/core';
-import { IconPhone, IconMail, IconMessageCircle } from '@tabler/icons-react';
+import {
+  IconPhone,
+  IconMail,
+  IconMessageCircle,
+  IconChevronDown,
+  IconChevronRight,
+} from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import {
   StandardDataTable,
@@ -32,89 +37,230 @@ import { DueDateService } from '../services/DueDateService';
 import type { DueDateItem } from '../types/dueDate.types';
 import { api } from '@/lib/api/client';
 
+// Transaction type (same as in DueDateService)
+interface Transaction {
+  'Invoice Date': string;
+  'Line Total': number;
+  'Order Status': string;
+  Customers: string;
+  'Product Code'?: string;
+  Quantity?: number;
+  'Unit Price'?: number;
+  'Order Date'?: string;
+}
+
 // Memoized table row component for performance
 const DueDateRow = memo(
   ({
     item,
-    onCustomerDoubleClick,
+    onToggleExpand,
+    isExpanded,
     facebookLink,
+    customerOrders,
   }: {
     item: DueDateItem;
-    onCustomerDoubleClick: (customer: string) => void;
+    onToggleExpand: (customer: string) => void;
+    isExpanded: boolean;
     facebookLink: string;
+    customerOrders: Transaction[];
   }) => {
     return (
-      <Table.Tr>
-        <Table.Td
-          onDoubleClick={() => onCustomerDoubleClick(item.customer)}
-          style={{ cursor: 'pointer', textAlign: 'left' }}
-        >
-          <Text fw={500} size="sm" c="#495057">
-            {item.customer}
-          </Text>
-        </Table.Td>
-        <Table.Td style={{ textAlign: 'center' }}>
-          <Text fw={600} size="sm" c="#495057">
-            {DueDateService.formatCurrency(item.lineTotal)}
-          </Text>
-        </Table.Td>
-        <Table.Td style={{ textAlign: 'center' }}>
-          <Text size="sm" c="#495057">
-            {DueDateService.formatDate(item.invoiceDate)}
-          </Text>
-        </Table.Td>
-        <Table.Td style={{ textAlign: 'center' }}>
-          <Text size="sm" c="#495057">
-            {item.dueDate ? DueDateService.formatDate(item.dueDate) : 'N/A'}
-          </Text>
-        </Table.Td>
-        <Table.Td style={{ textAlign: 'center' }}>
-          <Badge
-            color={
-              item.dueIn < 0 ? 'red' : item.dueIn <= 168 ? 'orange' : 'green'
-            }
-            variant="light"
+      <>
+        <Table.Tr style={{ cursor: 'pointer' }}>
+          <Table.Td
+            onClick={() => onToggleExpand(item.customer)}
+            style={{ textAlign: 'left' }}
           >
-            {item.dueIn === 0
-              ? 'Due now'
-              : `${Math.abs(item.dueIn)} ${Math.abs(item.dueIn) === 1 ? 'hour' : 'hours'}`}
-          </Badge>
-        </Table.Td>
-        <Table.Td style={{ textAlign: 'center' }}>
-          <Group gap="xs" justify="center">
-            <Tooltip
-              label={facebookLink ? 'Message customer' : 'No Facebook link'}
-            >
+            <Group gap="xs">
               <ActionIcon
-                variant="light"
-                color="blue"
-                component="a"
-                href={facebookLink || '#'}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Message customer"
-                disabled={!facebookLink}
-                style={{
-                  cursor: facebookLink ? 'pointer' : 'not-allowed',
-                  opacity: facebookLink ? 1 : 0.5,
+                variant="subtle"
+                color="gray"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleExpand(item.customer);
                 }}
               >
-                <IconMessageCircle size={16} />
+                {isExpanded ? (
+                  <IconChevronDown size={16} />
+                ) : (
+                  <IconChevronRight size={16} />
+                )}
               </ActionIcon>
-            </Tooltip>
-            <Tooltip label="Email (Coming Soon)">
-              <ActionIcon variant="light" color="gray" disabled>
-                <IconMail size={16} />
-              </ActionIcon>
-            </Tooltip>
-            <Tooltip label="Call (Coming Soon)">
-              <ActionIcon variant="light" color="gray" disabled>
-                <IconPhone size={16} />
-              </ActionIcon>
-            </Tooltip>
-          </Group>
-        </Table.Td>
-      </Table.Tr>
+              <Text fw={500} size="sm" c="#495057">
+                {item.customer}
+              </Text>
+            </Group>
+          </Table.Td>
+          <Table.Td style={{ textAlign: 'center' }}>
+            <Text fw={600} size="sm" c="#495057">
+              {DueDateService.formatCurrency(item.lineTotal)}
+            </Text>
+          </Table.Td>
+          <Table.Td style={{ textAlign: 'center' }}>
+            <Text size="sm" c="#495057">
+              {DueDateService.formatDate(item.invoiceDate)}
+            </Text>
+          </Table.Td>
+          <Table.Td style={{ textAlign: 'center' }}>
+            <Text size="sm" c="#495057">
+              {item.dueDate ? DueDateService.formatDate(item.dueDate) : 'N/A'}
+            </Text>
+          </Table.Td>
+          <Table.Td style={{ textAlign: 'center' }}>
+            <Badge
+              color={
+                item.dueIn < 0 ? 'red' : item.dueIn <= 168 ? 'orange' : 'green'
+              }
+              variant="light"
+            >
+              {item.dueIn === 0
+                ? 'Due now'
+                : `${Math.abs(item.dueIn)} ${Math.abs(item.dueIn) === 1 ? 'hour' : 'hours'}`}
+            </Badge>
+          </Table.Td>
+          <Table.Td style={{ textAlign: 'center' }}>
+            <Group gap="xs" justify="center">
+              <Tooltip
+                label={facebookLink ? 'Message customer' : 'No Facebook link'}
+              >
+                <ActionIcon
+                  variant="light"
+                  color="blue"
+                  component="a"
+                  href={facebookLink || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Message customer"
+                  disabled={!facebookLink}
+                  style={{
+                    cursor: facebookLink ? 'pointer' : 'not-allowed',
+                    opacity: facebookLink ? 1 : 0.5,
+                  }}
+                >
+                  <IconMessageCircle size={16} />
+                </ActionIcon>
+              </Tooltip>
+              <Tooltip label="Email (Coming Soon)">
+                <ActionIcon variant="light" color="gray" disabled>
+                  <IconMail size={16} />
+                </ActionIcon>
+              </Tooltip>
+              <Tooltip label="Call (Coming Soon)">
+                <ActionIcon variant="light" color="gray" disabled>
+                  <IconPhone size={16} />
+                </ActionIcon>
+              </Tooltip>
+            </Group>
+          </Table.Td>
+        </Table.Tr>
+
+        {/* Expanded row showing customer orders */}
+        {isExpanded && (
+          <Table.Tr>
+            <Table.Td
+              colSpan={6}
+              style={{ backgroundColor: '#f8f9fa', padding: '16px' }}
+            >
+              <Stack gap="xs">
+                <Text size="sm" fw={600} c="dimmed">
+                  Orders for {item.customer}
+                </Text>
+                {customerOrders.length === 0 ? (
+                  <Text size="sm" c="dimmed" ta="center" py="md">
+                    No orders found for this customer
+                  </Text>
+                ) : (
+                  <Table striped highlightOnHover withTableBorder>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Order Date</Table.Th>
+                        <Table.Th>Product Code</Table.Th>
+                        <Table.Th>Quantity</Table.Th>
+                        <Table.Th>Unit Price</Table.Th>
+                        <Table.Th>Line Total</Table.Th>
+                        <Table.Th>Invoice Date</Table.Th>
+                        <Table.Th>Due In</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {customerOrders.map((order) => {
+                        // Calculate due date and hours for this order
+                        const dueDate = DueDateService.calculateDueDate(
+                          order['Invoice Date']
+                        );
+                        const dueInHours =
+                          DueDateService.calculateHoursUntilDue(dueDate);
+
+                        return (
+                          <Table.Tr
+                            key={`${order['Product Code']}-${order['Order Date']}-${order['Invoice Date']}-${order['Line Total']}`}
+                          >
+                            <Table.Td>
+                              <Text size="sm">
+                                {DueDateService.formatDate(
+                                  order['Order Date'] || ''
+                                )}
+                              </Text>
+                            </Table.Td>
+                            <Table.Td>
+                              <Badge variant="light" color="blue">
+                                {order['Product Code']}
+                              </Badge>
+                            </Table.Td>
+                            <Table.Td>
+                              <Text size="sm">
+                                {(order.Quantity || 0).toLocaleString()}
+                              </Text>
+                            </Table.Td>
+                            <Table.Td>
+                              <Text size="sm">
+                                {DueDateService.formatCurrency(
+                                  order['Unit Price'] || 0
+                                )}
+                              </Text>
+                            </Table.Td>
+                            <Table.Td>
+                              <Text fw={600} size="sm">
+                                {DueDateService.formatCurrency(
+                                  order['Line Total']
+                                )}
+                              </Text>
+                            </Table.Td>
+                            <Table.Td>
+                              <Text size="sm">
+                                {DueDateService.formatDate(
+                                  order['Invoice Date']
+                                )}
+                              </Text>
+                            </Table.Td>
+                            <Table.Td>
+                              <Badge
+                                color={
+                                  dueInHours < 0
+                                    ? 'red'
+                                    : dueInHours <= 168
+                                      ? 'orange'
+                                      : 'green'
+                                }
+                                variant="light"
+                              >
+                                {dueInHours === 0
+                                  ? 'Due now'
+                                  : `${Math.abs(dueInHours)} ${Math.abs(dueInHours) === 1 ? 'hour' : 'hours'}`}
+                              </Badge>
+                            </Table.Td>
+                          </Table.Tr>
+                        );
+                      })}
+                    </Table.Tbody>
+                  </Table>
+                )}
+              </Stack>
+            </Table.Td>
+          </Table.Tr>
+        )}
+      </>
     );
   }
 );
@@ -123,8 +269,9 @@ DueDateRow.displayName = 'DueDateRow';
 
 export function DueDatesPage() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null);
-  const [modalOpened, setModalOpened] = useState(false);
+  const [expandedCustomers, setExpandedCustomers] = useState<Set<string>>(
+    new Set()
+  );
 
   // ✅ Use our custom hook (which uses abstraction layer!)
   const { dueDateItems, stats, isLoading, transactions } = useDueDateData();
@@ -178,19 +325,29 @@ export function DueDatesPage() {
     [customerFacebookMap]
   );
 
-  // Get all orders for selected customer
-  const customerOrders = useMemo(() => {
-    if (!selectedCustomer || !transactions) {
-      return [];
-    }
-    return DueDateService.getCustomerOrders(transactions, selectedCustomer);
-  }, [selectedCustomer, transactions]);
-
-  // Handle customer double-click
-  const handleCustomerDoubleClick = useCallback((customer: string) => {
-    setSelectedCustomer(customer);
-    setModalOpened(true);
+  // Handle customer row expansion toggle
+  const handleToggleExpand = useCallback((customer: string) => {
+    setExpandedCustomers((prev) => {
+      const next = new Set(prev);
+      if (next.has(customer)) {
+        next.delete(customer);
+      } else {
+        next.add(customer);
+      }
+      return next;
+    });
   }, []);
+
+  // Get orders for a specific customer
+  const getCustomerOrders = useCallback(
+    (customerName: string) => {
+      if (!transactions) {
+        return [];
+      }
+      return DueDateService.getCustomerOrders(transactions, customerName);
+    },
+    [transactions]
+  );
 
   // ✅ Filter items using service
   const filteredItems = useMemo(() => {
@@ -208,11 +365,19 @@ export function DueDatesPage() {
         <DueDateRow
           key={item.id}
           item={item}
-          onCustomerDoubleClick={handleCustomerDoubleClick}
+          onToggleExpand={handleToggleExpand}
+          isExpanded={expandedCustomers.has(item.customer)}
           facebookLink={getFacebookLink(item.customer)}
+          customerOrders={getCustomerOrders(item.customer)}
         />
       )),
-    [filteredItems, handleCustomerDoubleClick, getFacebookLink]
+    [
+      filteredItems,
+      handleToggleExpand,
+      expandedCustomers,
+      getFacebookLink,
+      getCustomerOrders,
+    ]
   );
 
   const headers = [
@@ -294,72 +459,6 @@ export function DueDatesPage() {
           </StandardDataTable>
         </StandardTableContainer>
       </Stack>
-
-      {/* Customer Orders Modal */}
-      <Modal
-        opened={modalOpened}
-        onClose={() => setModalOpened(false)}
-        title={`Orders for ${selectedCustomer}`}
-        size="90%"
-        centered
-      >
-        <Table striped highlightOnHover withTableBorder>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Order Date</Table.Th>
-              <Table.Th>Product Code</Table.Th>
-              <Table.Th>Quantity</Table.Th>
-              <Table.Th>Unit Price</Table.Th>
-              <Table.Th>Line Total</Table.Th>
-              <Table.Th>Invoice Date</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {customerOrders.map((order) => (
-              <Table.Tr
-                key={`${order['Product Code']}-${order['Order Date']}-${order['Invoice Date']}`}
-              >
-                <Table.Td>
-                  <Text size="sm">
-                    {DueDateService.formatDate(order['Order Date'] || '')}
-                  </Text>
-                </Table.Td>
-                <Table.Td>
-                  <Badge variant="light" color="blue">
-                    {order['Product Code']}
-                  </Badge>
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm">
-                    {(order.Quantity || 0).toLocaleString()}
-                  </Text>
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm">
-                    {DueDateService.formatCurrency(order['Unit Price'] || 0)}
-                  </Text>
-                </Table.Td>
-                <Table.Td>
-                  <Text fw={600} size="sm">
-                    {DueDateService.formatCurrency(order['Line Total'])}
-                  </Text>
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm">
-                    {DueDateService.formatDate(order['Invoice Date'])}
-                  </Text>
-                </Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-
-        {customerOrders.length === 0 && (
-          <Text ta="center" py="xl" c="dimmed">
-            No orders found for this customer
-          </Text>
-        )}
-      </Modal>
     </>
   );
 }
