@@ -233,6 +233,7 @@ export function BackupRestoreTab() {
       confirmButtonColor: '#e03131',
       cancelButtonColor: '#868e96',
       focusCancel: true,
+      allowOutsideClick: false,
     });
 
     if (!firstStep.isConfirmed) {
@@ -249,6 +250,7 @@ export function BackupRestoreTab() {
       cancelButtonText: 'Keep backup',
       confirmButtonColor: '#c92a2a',
       cancelButtonColor: '#228be6',
+      allowOutsideClick: false,
     });
 
     if (!finalStep.isConfirmed) {

@@ -511,6 +511,7 @@ export function useTransactionOperations(
                   text: stockInfo.message,
                   confirmButtonText: 'OK',
                   confirmButtonColor: '#fa5252',
+                  allowOutsideClick: false,
                 });
                 logger.warn(
                   `Stock check failed for ${dropdownValue}:`,
@@ -527,6 +528,7 @@ export function useTransactionOperations(
                   text: stockInfo.message,
                   confirmButtonText: 'OK',
                   confirmButtonColor: '#fab005',
+                  allowOutsideClick: false,
                 });
                 logger.info(
                   `Low stock warning for ${dropdownValue}:`,
@@ -779,6 +781,7 @@ export function useTransactionOperations(
                   text: stockInfo.message,
                   confirmButtonText: 'OK',
                   confirmButtonColor: '#fa5252',
+                  allowOutsideClick: false,
                 });
                 logger.warn(
                   `Stock check failed for ${currentProductCode} (adding ${quantityChange} units):`,
@@ -795,6 +798,7 @@ export function useTransactionOperations(
                   text: stockInfo.message,
                   confirmButtonText: 'OK',
                   confirmButtonColor: '#fab005',
+                  allowOutsideClick: false,
                 });
                 logger.info(
                   `Low stock warning for ${currentProductCode} (adding ${quantityChange} units):`,

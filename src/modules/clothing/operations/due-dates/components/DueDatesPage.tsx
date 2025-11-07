@@ -47,6 +47,7 @@ interface Transaction {
   Quantity?: number;
   'Unit Price'?: number;
   'Order Date'?: string;
+  Notes?: string;
 }
 
 // Memoized table row component for performance
@@ -93,6 +94,12 @@ const DueDateRow = memo(
             </Group>
           </Table.Td>
           <Table.Td style={{ textAlign: 'center' }}>
+            <Badge variant="light" color="gray">
+              {customerOrders.length}{' '}
+              {customerOrders.length === 1 ? 'item' : 'items'}
+            </Badge>
+          </Table.Td>
+          <Table.Td style={{ textAlign: 'center' }}>
             <Text fw={600} size="sm" c="#495057">
               {DueDateService.formatCurrency(item.lineTotal)}
             </Text>
@@ -118,6 +125,11 @@ const DueDateRow = memo(
                 ? 'Due now'
                 : `${Math.abs(item.dueIn)} ${Math.abs(item.dueIn) === 1 ? 'hour' : 'hours'}`}
             </Badge>
+          </Table.Td>
+          <Table.Td style={{ textAlign: 'center' }}>
+            <Text size="sm" c="dimmed" lineClamp={1}>
+              {customerOrders[0]?.Notes || '-'}
+            </Text>
           </Table.Td>
           <Table.Td style={{ textAlign: 'center' }}>
             <Group gap="xs" justify="center">
@@ -159,28 +171,61 @@ const DueDateRow = memo(
         {isExpanded && (
           <Table.Tr>
             <Table.Td
-              colSpan={6}
-              style={{ backgroundColor: '#f8f9fa', padding: '16px' }}
+              colSpan={8}
+              style={{ backgroundColor: '#f8f9fa', padding: 0 }}
             >
-              <Stack gap="xs">
-                <Text size="sm" fw={600} c="dimmed">
-                  Orders for {item.customer}
-                </Text>
+              <Stack gap="xs" p="md">
                 {customerOrders.length === 0 ? (
                   <Text size="sm" c="dimmed" ta="center" py="md">
                     No orders found for this customer
                   </Text>
                 ) : (
-                  <Table striped highlightOnHover withTableBorder>
+                  <Table
+                    striped
+                    highlightOnHover
+                    withTableBorder
+                    style={{ tableLayout: 'fixed', width: '100%' }}
+                  >
+                    <colgroup>
+                      <col style={{ width: '12.5%' }} /> {/* Customer spacer */}
+                      <col style={{ width: '12.5%' }} /> {/* Product Code */}
+                      <col style={{ width: '10%' }} /> {/* Order Date */}
+                      <col style={{ width: '10%' }} /> {/* Quantity */}
+                      <col style={{ width: '10%' }} /> {/* Unit Price */}
+                      <col style={{ width: '12.5%' }} /> {/* Line Total */}
+                      <col style={{ width: '12.5%' }} /> {/* Invoice Date */}
+                      <col style={{ width: '12.5%' }} /> {/* Due Date */}
+                      <col style={{ width: '12.5%' }} /> {/* Due In */}
+                    </colgroup>
                     <Table.Thead>
                       <Table.Tr>
-                        <Table.Th>Order Date</Table.Th>
-                        <Table.Th>Product Code</Table.Th>
-                        <Table.Th>Quantity</Table.Th>
-                        <Table.Th>Unit Price</Table.Th>
-                        <Table.Th>Line Total</Table.Th>
-                        <Table.Th>Invoice Date</Table.Th>
-                        <Table.Th>Due In</Table.Th>
+                        <Table.Th style={{ textAlign: 'center' }}>
+                          {/* Empty spacer for Customer column */}
+                        </Table.Th>
+                        <Table.Th style={{ textAlign: 'center' }}>
+                          Product Code
+                        </Table.Th>
+                        <Table.Th style={{ textAlign: 'center' }}>
+                          Order Date
+                        </Table.Th>
+                        <Table.Th style={{ textAlign: 'center' }}>
+                          Quantity
+                        </Table.Th>
+                        <Table.Th style={{ textAlign: 'center' }}>
+                          Unit Price
+                        </Table.Th>
+                        <Table.Th style={{ textAlign: 'center' }}>
+                          Line Total
+                        </Table.Th>
+                        <Table.Th style={{ textAlign: 'center' }}>
+                          Invoice Date
+                        </Table.Th>
+                        <Table.Th style={{ textAlign: 'center' }}>
+                          Due Date
+                        </Table.Th>
+                        <Table.Th style={{ textAlign: 'center' }}>
+                          Due In
+                        </Table.Th>
                       </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
@@ -196,45 +241,53 @@ const DueDateRow = memo(
                           <Table.Tr
                             key={`${order['Product Code']}-${order['Order Date']}-${order['Invoice Date']}-${order['Line Total']}`}
                           >
-                            <Table.Td>
+                            <Table.Td style={{ textAlign: 'center' }}>
+                              {/* Empty spacer for Customer column */}
+                            </Table.Td>
+                            <Table.Td style={{ textAlign: 'center' }}>
+                              <Badge variant="light" color="blue">
+                                {order['Product Code']}
+                              </Badge>
+                            </Table.Td>
+                            <Table.Td style={{ textAlign: 'center' }}>
                               <Text size="sm">
                                 {DueDateService.formatDate(
                                   order['Order Date'] || ''
                                 )}
                               </Text>
                             </Table.Td>
-                            <Table.Td>
-                              <Badge variant="light" color="blue">
-                                {order['Product Code']}
-                              </Badge>
-                            </Table.Td>
-                            <Table.Td>
+                            <Table.Td style={{ textAlign: 'center' }}>
                               <Text size="sm">
                                 {(order.Quantity || 0).toLocaleString()}
                               </Text>
                             </Table.Td>
-                            <Table.Td>
+                            <Table.Td style={{ textAlign: 'center' }}>
                               <Text size="sm">
                                 {DueDateService.formatCurrency(
                                   order['Unit Price'] || 0
                                 )}
                               </Text>
                             </Table.Td>
-                            <Table.Td>
+                            <Table.Td style={{ textAlign: 'center' }}>
                               <Text fw={600} size="sm">
                                 {DueDateService.formatCurrency(
                                   order['Line Total']
                                 )}
                               </Text>
                             </Table.Td>
-                            <Table.Td>
+                            <Table.Td style={{ textAlign: 'center' }}>
                               <Text size="sm">
                                 {DueDateService.formatDate(
                                   order['Invoice Date']
                                 )}
                               </Text>
                             </Table.Td>
-                            <Table.Td>
+                            <Table.Td style={{ textAlign: 'center' }}>
+                              <Text size="sm">
+                                {DueDateService.formatDate(dueDate)}
+                              </Text>
+                            </Table.Td>
+                            <Table.Td style={{ textAlign: 'center' }}>
                               <Badge
                                 color={
                                   dueInHours < 0
@@ -382,10 +435,12 @@ export function DueDatesPage() {
 
   const headers = [
     'CUSTOMER',
+    'PRODUCT CODE',
     'LINE TOTAL',
     'INVOICE DATE',
     'DUE DATE',
     'DUE IN',
+    'NOTES',
     'CONTACT BUYER',
   ];
 

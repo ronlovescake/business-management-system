@@ -140,6 +140,7 @@ export const AdditionalCustomerInfoCard = memo(
         cancelButtonColor: '#3085d6',
         confirmButtonText: 'Yes, delete it',
         cancelButtonText: 'Cancel',
+        allowOutsideClick: false,
       });
 
       if (result.isConfirmed) {
@@ -170,6 +171,7 @@ export const AdditionalCustomerInfoCard = memo(
         cancelButtonColor: '#3085d6',
         confirmButtonText: 'Yes, delete it',
         cancelButtonText: 'Cancel',
+        allowOutsideClick: false,
       });
 
       if (result.isConfirmed) {
@@ -203,6 +205,7 @@ export const AdditionalCustomerInfoCard = memo(
         cancelButtonColor: '#3085d6',
         confirmButtonText: 'Yes, delete it',
         cancelButtonText: 'Cancel',
+        allowOutsideClick: false,
       });
 
       if (result.isConfirmed) {

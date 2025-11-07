@@ -254,6 +254,7 @@ export function useTransactionModals(
           confirmButtonColor: '#2196F3',
           cancelButtonColor: '#868e96',
           width: '600px',
+          allowOutsideClick: false,
           customClass: {
             popup: 'swal-wide',
             confirmButton: 'swal-confirm-btn',
@@ -507,6 +508,7 @@ export function useTransactionModals(
           confirmButtonText: 'I Understand',
           confirmButtonColor: '#fd7e14',
           width: '650px',
+          allowOutsideClick: false,
           customClass: {
             popup: 'swal-wide',
           },
@@ -570,6 +572,7 @@ export function useTransactionModals(
         confirmButtonColor: '#7950f2',
         cancelButtonColor: '#868e96',
         width: '600px',
+        allowOutsideClick: false,
         customClass: {
           popup: 'swal-wide',
           confirmButton: 'swal-confirm-btn',

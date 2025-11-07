@@ -109,6 +109,7 @@ export const CalendarBulkActions = memo(function CalendarBulkActions({
         title: 'Missing Information',
         text: 'Employee, start date, and at least one work day are required',
         confirmButtonColor: '#228be6',
+        allowOutsideClick: false,
       });
       return;
     }
@@ -123,6 +124,7 @@ export const CalendarBulkActions = memo(function CalendarBulkActions({
       cancelButtonColor: '#868e96',
       confirmButtonText: 'Yes, save schedules',
       cancelButtonText: 'Cancel',
+      allowOutsideClick: false,
     });
 
     if (!result.isConfirmed) {
@@ -165,6 +167,7 @@ export const CalendarBulkActions = memo(function CalendarBulkActions({
         text: 'Schedules saved successfully',
         confirmButtonColor: '#228be6',
         confirmButtonText: 'OK',
+        allowOutsideClick: false,
       });
     } catch (error) {
       // Error is already handled by the hook with SweetAlert

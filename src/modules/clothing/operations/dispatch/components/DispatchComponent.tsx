@@ -355,6 +355,7 @@ export function DispatchComponent() {
       cancelButtonColor: '#adb5bd',
       confirmButtonText: 'Yes, link customer',
       cancelButtonText: 'Cancel',
+      allowOutsideClick: false,
     });
 
     if (result.isConfirmed) {

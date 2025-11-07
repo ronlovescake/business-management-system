@@ -874,6 +874,7 @@ export function useSchedules() {
           title: 'Error',
           text: 'Failed to save schedules. Please try again.',
           confirmButtonColor: '#228be6',
+          allowOutsideClick: false,
         });
         throw error;
       }
