@@ -33,6 +33,9 @@ export class DueDateService {
 
   /**
    * Calculate due date (Invoice Date + 3 days)
+   * Returns the exact timestamp 72 hours after invoice
+   *
+   * Handles both old format ("November 7, 2025") and new ISO timestamps
    */
   static calculateDueDate(invoiceDate: string): string {
     if (!invoiceDate || invoiceDate.trim() === '') {
@@ -40,17 +43,18 @@ export class DueDateService {
     }
 
     try {
-      const date = new Date(invoiceDate);
-      // Add 3 days
-      date.setDate(date.getDate() + 3);
-      return date.toISOString().split('T')[0];
+      const invoiceTime = new Date(invoiceDate);
+
+      // Add exactly 72 hours (3 days × 24 hours)
+      const dueTime = new Date(invoiceTime.getTime() + 72 * 60 * 60 * 1000);
+      return dueTime.toISOString();
     } catch (error) {
       return '';
     }
   }
 
   /**
-   * Calculate hours until due date
+   * Calculate hours until due date from current time
    */
   static calculateHoursUntilDue(dueDate: string): number {
     if (!dueDate || dueDate.trim() === '') {
@@ -62,8 +66,24 @@ export class DueDateService {
       const now = new Date();
 
       const diffTime = due.getTime() - now.getTime();
-      const diffHours = Math.ceil(diffTime / (1000 * 60 * 60));
+      const diffHours = Math.round(diffTime / (1000 * 60 * 60));
       return diffHours;
+    } catch (error) {
+      return 0;
+    }
+  }
+
+  /**
+   * Calculate total hours from invoice date to due date (always 72 hours for 3 days)
+   */
+  static calculateTotalHoursToDue(invoiceDate: string): number {
+    if (!invoiceDate || invoiceDate.trim() === '') {
+      return 0;
+    }
+
+    try {
+      // Since due date is always Invoice Date + 3 days, this is always 72 hours
+      return 72;
     } catch (error) {
       return 0;
     }

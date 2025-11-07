@@ -185,7 +185,7 @@ const DueDateRow = memo(
                     </Table.Thead>
                     <Table.Tbody>
                       {customerOrders.map((order) => {
-                        // Calculate due date and hours for this order
+                        // Calculate due date and remaining hours for this order
                         const dueDate = DueDateService.calculateDueDate(
                           order['Invoice Date']
                         );

@@ -338,7 +338,17 @@ export function TransactionsPage() {
       }
 
       if (column.id === 'invoiceDate') {
-        return { value: textValue, readOnly: true };
+        // Format ISO timestamp to readable date (e.g., "Nov 7, 2025")
+        const formattedDate =
+          textValue && textValue.trim() !== ''
+            ? new Date(textValue).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+                timeZone: 'Asia/Manila',
+              })
+            : '';
+        return { value: formattedDate, readOnly: true };
       }
 
       if (column.id === 'packedDate') {

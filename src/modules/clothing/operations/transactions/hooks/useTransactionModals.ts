@@ -343,12 +343,9 @@ export function useTransactionModals(
           });
 
           // Update transactions with invoice dates and status changes
-          const currentDate = new Date().toLocaleDateString('en-US', {
-            month: 'long',
-            day: 'numeric',
-            year: 'numeric',
-            timeZone: 'Asia/Manila',
-          });
+          // Store as ISO timestamp to preserve exact time
+          // JavaScript Date automatically uses the system/browser timezone (Manila in your case)
+          const currentDateISO = new Date().toISOString();
 
           const processedIds = new Set(invoiceTransactions.map((t) => t.id));
 
@@ -360,7 +357,7 @@ export function useTransactionModals(
               processedIds.has(t.id) &&
               (!t['Invoice Date'] || t['Invoice Date'].trim() === '')
             ) {
-              updates['Invoice Date'] = currentDate;
+              updates['Invoice Date'] = currentDateISO;
               hasUpdates = true;
             }
 
