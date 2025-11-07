@@ -150,6 +150,7 @@ function normalizeAddress(address: string): string {
       .replace(/\bsubd\b\.?/gi, 'subdivision')
       .replace(/\bph\b\.?/gi, 'phase')
       .replace(/\bqc\b\.?/gi, 'quezon city')
+      .replace(/\bpurok\b\.?/gi, 'purok')
       // Common typos and variations
       .replace(/mercdes/gi, 'mercedes')
       .replace(/excutive/gi, 'executive')
@@ -157,8 +158,12 @@ function normalizeAddress(address: string): string {
       .replace(/villge/gi, 'village')
       .replace(/pasig\s*city/gi, 'pasig')
       .replace(/metro\s*manila/gi, 'metromanila')
-      // Remove common filler words
-      .replace(/\b(the|of|at|in)\b/gi, '')
+      .replace(/san\s+pablo\s+city/gi, 'san pablo')
+      .replace(/south\s+luzon/gi, '')
+      // Remove common filler words and Filipino connectors
+      .replace(/\b(the|of|at|in|ang|o|ng|sa|na)\b/gi, '')
+      // Remove parenthetical content (e.g., "(katabi ng MCGI)")
+      .replace(/\([^)]*\)/g, ' ')
       // Remove punctuation but keep numbers
       .replace(/[,.;:#()\[\]]/g, ' ')
       // Standardize spacing around numbers
@@ -175,6 +180,17 @@ function normalizeAddress(address: string): string {
  */
 function extractLandmarks(address: string): Set<string> {
   const landmarks = new Set<string>();
+
+  // Extract ALL-CAPS business names (often used for prominent landmarks)
+  // Pattern: 2-5 consecutive uppercase words (e.g., "RAE BREEDING FARM")
+  const allCapsPattern = /\b([A-Z][A-Z]+(?:\s+[A-Z][A-Z]+){1,4})\b/g;
+  const allCapsMatches = Array.from(address.matchAll(allCapsPattern));
+  for (const match of allCapsMatches) {
+    const landmark = match[0].toLowerCase().trim().replace(/\s+/g, ' ');
+    if (landmark.length > 3 && landmark.split(/\s+/).length >= 2) {
+      landmarks.add(landmark);
+    }
+  }
 
   // Common landmark patterns (case-insensitive matching)
   const landmarkPatterns = [
@@ -196,8 +212,11 @@ function extractLandmarks(address: string): Set<string> {
     /\b([a-z]+\s+)?restaurant\b/gi,
     /\b([a-z]+\s+)?store\b/gi,
     /\b([a-z]+\s+)?shop\b/gi,
+    /\b([a-z]+\s+)?laundry\b/gi,
     /\b([a-z]+\s+)?market\b/gi,
     /\b([a-z]+\s+)?supermarket\b/gi,
+    /\b([a-z]+\s+)?farm\b/gi,
+    /\b([a-z]+\s+)?breeding\s+farm\b/gi,
 
     // Specific brand names (highly identifiable)
     /\bparagon\b/gi,
@@ -210,6 +229,10 @@ function extractLandmarks(address: string): Set<string> {
     /\bsm\b/gi,
     /\brobinsons\b/gi,
     /\bayala\b/gi,
+    /\bmcgi\b/gi,
+
+    // Multi-word business/landmark names (capture up to 4 words before keyword)
+    /\b([a-z]+\s+){0,4}(breeding\s+farm|laundry\s+shop|gas\s+station)\b/gi,
   ];
 
   for (const pattern of landmarkPatterns) {
@@ -367,17 +390,23 @@ function extractAddressComponents(address: string): {
     'subdivision',
     'village',
     'metromanila',
+    'south',
+    'north',
+    'east',
+    'west',
   ]);
 
   const keywords = new Set(
     normalized.split(/\s+/).filter((word) => {
       // Keep words that are:
       // - Numbers with letters (lot16b, 4a, etc.)
+      // - Pure numbers preceded by purok/block (purok 2, block 5)
       // - Words longer than 2 characters
       // - Not in stop words list
       const hasNumberAndLetter = /\d/.test(word) && /[a-z]/.test(word);
+      const isPureNumber = /^\d+$/.test(word);
       const isSignificant = word.length > 2 && !stopWords.has(word);
-      return hasNumberAndLetter || isSignificant;
+      return hasNumberAndLetter || isPureNumber || isSignificant;
     })
   );
 
