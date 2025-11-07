@@ -25,7 +25,7 @@ import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
  */
 export const STANDARD_TABLE_STYLES = {
   card: {
-    height: '86vh',
+    height: '84vh',
     padding: 0,
     overflow: 'hidden' as const,
   },
@@ -101,7 +101,7 @@ interface StandardDataTableProps {
 export function StandardDataTable({
   headers,
   children,
-  height = '86vh',
+  height = '84vh',
   emptyState,
   colSpan,
 }: StandardDataTableProps) {
