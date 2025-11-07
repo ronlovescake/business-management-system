@@ -354,6 +354,7 @@ export function usePayroll() {
         icon: 'error',
         confirmButtonColor: '#d33',
         confirmButtonText: 'OK',
+        allowOutsideClick: false,
       });
     },
     onSettled: () => {
@@ -427,6 +428,7 @@ export function usePayroll() {
         icon: 'error',
         confirmButtonColor: '#d33',
         confirmButtonText: 'OK',
+        allowOutsideClick: false,
       });
     },
     onSuccess: () => {
@@ -555,6 +557,7 @@ export function usePayroll() {
         icon: 'error',
         confirmButtonColor: '#d33',
         confirmButtonText: 'OK',
+        allowOutsideClick: false,
       });
     },
     onSuccess: () => {
@@ -582,6 +585,7 @@ export function usePayroll() {
       cancelButtonColor: '#d33',
       confirmButtonText: 'Yes, generate it!',
       cancelButtonText: 'Cancel',
+      allowOutsideClick: false,
     });
 
     if (!confirmResult.isConfirmed) {
@@ -628,6 +632,7 @@ export function usePayroll() {
             cancelButtonColor: '#6c757d',
             confirmButtonText: 'Yes, clean up and regenerate',
             cancelButtonText: 'Cancel',
+            allowOutsideClick: false,
           });
 
           if (cleanupResult.isConfirmed) {
@@ -671,6 +676,7 @@ export function usePayroll() {
                 icon: 'success',
                 confirmButtonColor: '#3085d6',
                 confirmButtonText: 'OK',
+                allowOutsideClick: false,
               });
 
               setIsGeneratingPayroll(false);
@@ -702,6 +708,7 @@ export function usePayroll() {
         icon: 'success',
         confirmButtonColor: '#3085d6',
         confirmButtonText: 'OK',
+        allowOutsideClick: false,
       });
     } catch (error) {
       const message =
@@ -716,6 +723,7 @@ export function usePayroll() {
         icon: 'error',
         confirmButtonColor: '#d33',
         confirmButtonText: 'OK',
+        allowOutsideClick: false,
       });
     } finally {
       setIsGeneratingPayroll(false);
@@ -738,6 +746,7 @@ export function usePayroll() {
       confirmButtonText: 'Yes, delete it',
       cancelButtonText: 'Cancel',
       reverseButtons: true,
+      allowOutsideClick: false,
     });
 
     if (result.isConfirmed) {
@@ -833,6 +842,7 @@ export function usePayroll() {
       confirmButtonColor: '#10b981',
       cancelButtonColor: '#6c757d',
       reverseButtons: true,
+      allowOutsideClick: false,
     });
 
     if (!result.isConfirmed) {
@@ -917,6 +927,7 @@ export function usePayroll() {
         text: 'Failed to mark payroll as paid. Please try again.',
         icon: 'error',
         confirmButtonColor: '#ef4444',
+        allowOutsideClick: false,
       });
     }
   };
@@ -1011,6 +1022,7 @@ export function usePayroll() {
             icon: 'warning',
             confirmButtonColor: '#f59e0b',
             confirmButtonText: 'OK',
+            allowOutsideClick: false,
           });
         }
       } catch (err) {
@@ -1021,6 +1033,7 @@ export function usePayroll() {
           icon: 'error',
           confirmButtonColor: '#d33',
           confirmButtonText: 'OK',
+          allowOutsideClick: false,
         });
       }
     };
@@ -1133,6 +1146,7 @@ export function usePayroll() {
       confirmButtonText: 'Yes, sync now',
       cancelButtonText: 'Cancel',
       reverseButtons: true,
+      allowOutsideClick: false,
     });
 
     if (!confirmation.isConfirmed) {
@@ -1153,6 +1167,7 @@ export function usePayroll() {
         icon: 'success',
         confirmButtonColor: '#3085d6',
         confirmButtonText: 'OK',
+        allowOutsideClick: false,
       });
 
       // Invalidate cache to refetch
@@ -1167,6 +1182,7 @@ export function usePayroll() {
         icon: 'error',
         confirmButtonColor: '#d33',
         confirmButtonText: 'OK',
+        allowOutsideClick: false,
       });
     } finally {
       setIsSyncingLwop(false);
