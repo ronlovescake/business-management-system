@@ -8,8 +8,20 @@
  * ✅ UI is IDENTICAL - only code organization changed!
  */
 
-'use client';
-
 import { DueDatesPage } from '@/modules/clothing/operations/due-dates/components/DueDatesPage';
+import { PermissionGuard } from '@/components/auth/PermissionGuard';
+import {
+  hasModuleAccess,
+  getFirstAccessibleModule,
+} from '@/lib/auth/permissions';
 
-export default DueDatesPage;
+export default async function Page() {
+  const hasAccess = await hasModuleAccess('/clothing/operations/due-dates');
+  const redirectTo = await getFirstAccessibleModule();
+
+  return (
+    <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
+      <DueDatesPage />
+    </PermissionGuard>
+  );
+}

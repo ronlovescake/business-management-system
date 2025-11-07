@@ -5,11 +5,21 @@
  */
 import { CustomersPage } from '@/modules/clothing/operations/customers/components/CustomersPage';
 import { CustomersErrorBoundary } from '@/modules/clothing/operations/customers/components/CustomersErrorBoundary';
+import { PermissionGuard } from '@/components/auth/PermissionGuard';
+import {
+  hasModuleAccess,
+  getFirstAccessibleModule,
+} from '@/lib/auth/permissions';
 
-export default function Page() {
+export default async function Page() {
+  const hasAccess = await hasModuleAccess('/clothing/operations/customers');
+  const redirectTo = await getFirstAccessibleModule();
+
   return (
-    <CustomersErrorBoundary>
-      <CustomersPage />
-    </CustomersErrorBoundary>
+    <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
+      <CustomersErrorBoundary>
+        <CustomersPage />
+      </CustomersErrorBoundary>
+    </PermissionGuard>
   );
 }

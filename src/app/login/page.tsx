@@ -55,7 +55,7 @@ export default function LoginPage() {
         email: values.email,
         password: values.password,
         redirect: true,
-        callbackUrl: '/clothing/operations/transactions',
+        callbackUrl: '/api/auth/redirect',
       });
 
       // This code won't run if redirect is true

@@ -5,11 +5,23 @@
 
 import { PageLayout } from '@/components/layout/PageLayout';
 import { CheckoutLinksComponent } from '@/modules/clothing/operations/checkout-links/components/CheckoutLinksComponent';
+import { PermissionGuard } from '@/components/auth/PermissionGuard';
+import {
+  hasModuleAccess,
+  getFirstAccessibleModule,
+} from '@/lib/auth/permissions';
 
-export default function CheckoutLinksPage() {
+export default async function CheckoutLinksPage() {
+  const hasAccess = await hasModuleAccess(
+    '/clothing/operations/checkout-links'
+  );
+  const redirectTo = await getFirstAccessibleModule();
+
   return (
-    <PageLayout fluid withPadding>
-      <CheckoutLinksComponent />
-    </PageLayout>
+    <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
+      <PageLayout fluid withPadding>
+        <CheckoutLinksComponent />
+      </PageLayout>
+    </PermissionGuard>
   );
 }

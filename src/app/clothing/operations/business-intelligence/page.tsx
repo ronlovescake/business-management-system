@@ -1,8 +1,11 @@
-'use client';
-
 import dynamic from 'next/dynamic';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import { Center, Loader } from '@mantine/core';
+import { PermissionGuard } from '@/components/auth/PermissionGuard';
+import {
+  hasModuleAccess,
+  getFirstAccessibleModule,
+} from '@/lib/auth/permissions';
 
 // Lazy load BiDashboard to reduce initial bundle size (heavy recharts dependency)
 const BiDashboard = dynamic(
@@ -48,10 +51,17 @@ const BiDashboard = dynamic(
  * - constants.ts: Shared constants (chart colors)
  */
 
-export default function BusinessIntelligencePage() {
+export default async function BusinessIntelligencePage() {
+  const hasAccess = await hasModuleAccess(
+    '/clothing/operations/business-intelligence'
+  );
+  const redirectTo = await getFirstAccessibleModule();
+
   return (
-    <PageLayout title="Business Intelligence">
-      <BiDashboard />
-    </PageLayout>
+    <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
+      <PageLayout title="Business Intelligence">
+        <BiDashboard />
+      </PageLayout>
+    </PermissionGuard>
   );
 }

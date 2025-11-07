@@ -6,13 +6,23 @@
  * Direct import path used to optimize compilation speed.
  */
 
-import { DashboardPage } from '@/modules/clothing/operations/dashboard/components/DashboardPage'
-import { DashboardErrorBoundary } from './components/DashboardErrorBoundary';;
+import { DashboardPage } from '@/modules/clothing/operations/dashboard/components/DashboardPage';
+import { DashboardErrorBoundary } from './components/DashboardErrorBoundary';
+import { PermissionGuard } from '@/components/auth/PermissionGuard';
+import {
+  hasModuleAccess,
+  getFirstAccessibleModule,
+} from '@/lib/auth/permissions';
 
-export default function DashboardRouteHandler() {
+export default async function DashboardRouteHandler() {
+  const hasAccess = await hasModuleAccess('/clothing/operations/dashboard');
+  const redirectTo = await getFirstAccessibleModule();
+
   return (
-    <DashboardErrorBoundary>
-      <DashboardPage />
-    </DashboardErrorBoundary>
-  );;
+    <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
+      <DashboardErrorBoundary>
+        <DashboardPage />
+      </DashboardErrorBoundary>
+    </PermissionGuard>
+  );
 }

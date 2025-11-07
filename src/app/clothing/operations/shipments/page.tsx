@@ -33,11 +33,21 @@
 
 import { ShipmentsPage } from '@/modules/clothing/operations/shipments/components/ShipmentsPage';
 import { ShipmentsErrorBoundary } from './components/ShipmentsErrorBoundary';
+import { PermissionGuard } from '@/components/auth/PermissionGuard';
+import {
+  hasModuleAccess,
+  getFirstAccessibleModule,
+} from '@/lib/auth/permissions';
 
-export default function Page() {
+export default async function Page() {
+  const hasAccess = await hasModuleAccess('/clothing/operations/shipments');
+  const redirectTo = await getFirstAccessibleModule();
+
   return (
-    <ShipmentsErrorBoundary>
-      <ShipmentsPage />
-    </ShipmentsErrorBoundary>
+    <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
+      <ShipmentsErrorBoundary>
+        <ShipmentsPage />
+      </ShipmentsErrorBoundary>
+    </PermissionGuard>
   );
 }

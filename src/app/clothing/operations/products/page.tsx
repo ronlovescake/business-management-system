@@ -35,11 +35,21 @@
 
 import { ProductsPage } from '@/modules/clothing/operations/products/components/ProductsPage';
 import { ProductsErrorBoundary } from '@/modules/clothing/operations/products/components/ProductsErrorBoundary';
+import { PermissionGuard } from '@/components/auth/PermissionGuard';
+import {
+  hasModuleAccess,
+  getFirstAccessibleModule,
+} from '@/lib/auth/permissions';
 
-export default function Page() {
+export default async function Page() {
+  const hasAccess = await hasModuleAccess('/clothing/operations/products');
+  const redirectTo = await getFirstAccessibleModule();
+
   return (
-    <ProductsErrorBoundary>
-      <ProductsPage />
-    </ProductsErrorBoundary>
+    <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
+      <ProductsErrorBoundary>
+        <ProductsPage />
+      </ProductsErrorBoundary>
+    </PermissionGuard>
   );
 }
