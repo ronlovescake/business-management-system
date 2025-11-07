@@ -22,8 +22,16 @@ import {
   Loader,
   Modal,
   MultiSelect,
+  Tooltip,
+  ActionIcon,
 } from '@mantine/core';
-import { IconSearch, IconSend, IconAlertCircle } from '@tabler/icons-react';
+import {
+  IconSearch,
+  IconSend,
+  IconAlertCircle,
+  IconVolume,
+  IconVolumeOff,
+} from '@tabler/icons-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import { useSession } from 'next-auth/react';
@@ -35,9 +43,12 @@ import {
   type Message,
 } from '@/services/messaging.service';
 import { formatDistanceToNow } from 'date-fns';
+import { playMessageSound } from '@/lib/notificationSound';
+import { useNotificationPreferences } from '@/hooks/useNotificationPreferences';
 
 export function MessagingClientPage() {
   const { data: session } = useSession();
+  const { preferences, setSoundEnabled } = useNotificationPreferences();
   const [searchValue, setSearchValue] = useState('');
   const [activeConversationId, setActiveConversationId] = useState<
     string | null
@@ -208,10 +219,12 @@ export function MessagingClientPage() {
         !previousMessagesRef.current.some((prev) => prev.id === message.id)
     );
 
-    // Show notification for each new message
+    // Show notification and play sound for each new message
     newMessages.forEach((message) => {
       const senderName =
         message.sender.name || message.sender.email || 'Someone';
+
+      // Show visual notification
       notifications.show({
         title: senderName,
         message: message.body,
@@ -219,11 +232,16 @@ export function MessagingClientPage() {
         position: 'top-right',
         autoClose: 4000,
       });
+
+      // Play notification sound if enabled
+      if (preferences.soundEnabled) {
+        playMessageSound();
+      }
     });
 
     // Update the previous messages ref
     previousMessagesRef.current = messages;
-  }, [messages, session?.user?.id]);
+  }, [messages, session?.user?.id, preferences.soundEnabled]);
 
   const filteredConversations = useMemo(() => {
     const query = searchValue.trim().toLowerCase();
@@ -347,9 +365,28 @@ export function MessagingClientPage() {
           p="md"
           style={{ width: 320, display: 'flex', flexDirection: 'column' }}
         >
-          <Title order={4} mb="sm">
-            Conversations
-          </Title>
+          <Group justify="space-between" mb="sm">
+            <Title order={4}>Conversations</Title>
+            <Tooltip
+              label={
+                preferences.soundEnabled
+                  ? 'Mute notifications'
+                  : 'Unmute notifications'
+              }
+            >
+              <ActionIcon
+                variant="subtle"
+                color={preferences.soundEnabled ? 'blue' : 'gray'}
+                onClick={() => setSoundEnabled(!preferences.soundEnabled)}
+              >
+                {preferences.soundEnabled ? (
+                  <IconVolume size={18} />
+                ) : (
+                  <IconVolumeOff size={18} />
+                )}
+              </ActionIcon>
+            </Tooltip>
+          </Group>
 
           <TextInput
             value={searchValue}
