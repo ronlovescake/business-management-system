@@ -20,7 +20,8 @@ import {
   Tooltip,
   Modal,
 } from '@mantine/core';
-import { IconPhone, IconMail } from '@tabler/icons-react';
+import { IconPhone, IconMail, IconMessageCircle } from '@tabler/icons-react';
+import { useQuery } from '@tanstack/react-query';
 import {
   StandardDataTable,
   StandardTableContainer,
@@ -29,15 +30,18 @@ import {
 import { useDueDateData } from '../hooks/useDueDateData';
 import { DueDateService } from '../services/DueDateService';
 import type { DueDateItem } from '../types/dueDate.types';
+import { api } from '@/lib/api/client';
 
 // Memoized table row component for performance
 const DueDateRow = memo(
   ({
     item,
     onCustomerDoubleClick,
+    facebookLink,
   }: {
     item: DueDateItem;
     onCustomerDoubleClick: (customer: string) => void;
+    facebookLink: string;
   }) => {
     return (
       <Table.Tr>
@@ -60,17 +64,44 @@ const DueDateRow = memo(
           </Text>
         </Table.Td>
         <Table.Td style={{ textAlign: 'center' }}>
-          <Text size="sm" c="dimmed" fs="italic">
-            {item.dueDate || 'Pending'}
+          <Text size="sm" c="#495057">
+            {item.dueDate ? DueDateService.formatDate(item.dueDate) : 'N/A'}
           </Text>
         </Table.Td>
         <Table.Td style={{ textAlign: 'center' }}>
-          <Badge color="gray" variant="light">
-            {item.dueIn === 0 ? 'Pending' : `${item.dueIn} days`}
+          <Badge
+            color={
+              item.dueIn < 0 ? 'red' : item.dueIn <= 168 ? 'orange' : 'green'
+            }
+            variant="light"
+          >
+            {item.dueIn === 0
+              ? 'Due now'
+              : `${Math.abs(item.dueIn)} ${Math.abs(item.dueIn) === 1 ? 'hour' : 'hours'}`}
           </Badge>
         </Table.Td>
         <Table.Td style={{ textAlign: 'center' }}>
           <Group gap="xs" justify="center">
+            <Tooltip
+              label={facebookLink ? 'Message customer' : 'No Facebook link'}
+            >
+              <ActionIcon
+                variant="light"
+                color="blue"
+                component="a"
+                href={facebookLink || '#'}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Message customer"
+                disabled={!facebookLink}
+                style={{
+                  cursor: facebookLink ? 'pointer' : 'not-allowed',
+                  opacity: facebookLink ? 1 : 0.5,
+                }}
+              >
+                <IconMessageCircle size={16} />
+              </ActionIcon>
+            </Tooltip>
             <Tooltip label="Email (Coming Soon)">
               <ActionIcon variant="light" color="gray" disabled>
                 <IconMail size={16} />
@@ -97,6 +128,55 @@ export function DueDatesPage() {
 
   // ✅ Use our custom hook (which uses abstraction layer!)
   const { dueDateItems, stats, isLoading, transactions } = useDueDateData();
+
+  // Fetch customers with Facebook links
+  const { data: customersData = [] } = useQuery({
+    queryKey: ['customers-facebook-links'],
+    queryFn: async () => {
+      const response = await api.get<
+        Array<{
+          id: number;
+          'Customer Name': string;
+          'Business Name': string;
+          Facebook: string;
+        }>
+      >('/api/customers');
+
+      // The API returns the array directly
+      return Array.isArray(response) ? response : [];
+    },
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  });
+
+  // Create a map of customer names to Facebook links
+  const customerFacebookMap = useMemo(() => {
+    const map = new Map<string, string>();
+
+    customersData.forEach((customer) => {
+      if (customer.Facebook) {
+        // Map both customerName and businessName | customerName format
+        map.set(customer['Customer Name'].toLowerCase(), customer.Facebook);
+        if (customer['Business Name']) {
+          const combinedName =
+            `${customer['Customer Name']} | ${customer['Business Name']}`.toLowerCase();
+          map.set(combinedName, customer.Facebook);
+        }
+      }
+    });
+
+    return map;
+  }, [customersData]);
+
+  // Lookup function for Facebook link
+  const getFacebookLink = useCallback(
+    (customerName: string): string => {
+      if (!customerName) {
+        return '';
+      }
+      return customerFacebookMap.get(customerName.toLowerCase()) || '';
+    },
+    [customerFacebookMap]
+  );
 
   // Get all orders for selected customer
   const customerOrders = useMemo(() => {
@@ -129,9 +209,10 @@ export function DueDatesPage() {
           key={item.id}
           item={item}
           onCustomerDoubleClick={handleCustomerDoubleClick}
+          facebookLink={getFacebookLink(item.customer)}
         />
       )),
-    [filteredItems, handleCustomerDoubleClick]
+    [filteredItems, handleCustomerDoubleClick, getFacebookLink]
   );
 
   const headers = [

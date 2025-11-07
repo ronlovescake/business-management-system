@@ -32,6 +32,44 @@ export class DueDateService {
   static formatDate = FormatterService.formatDateShort;
 
   /**
+   * Calculate due date (Invoice Date + 3 days)
+   */
+  static calculateDueDate(invoiceDate: string): string {
+    if (!invoiceDate || invoiceDate.trim() === '') {
+      return '';
+    }
+
+    try {
+      const date = new Date(invoiceDate);
+      // Add 3 days
+      date.setDate(date.getDate() + 3);
+      return date.toISOString().split('T')[0];
+    } catch (error) {
+      return '';
+    }
+  }
+
+  /**
+   * Calculate hours until due date
+   */
+  static calculateHoursUntilDue(dueDate: string): number {
+    if (!dueDate || dueDate.trim() === '') {
+      return 0;
+    }
+
+    try {
+      const due = new Date(dueDate);
+      const now = new Date();
+
+      const diffTime = due.getTime() - now.getTime();
+      const diffHours = Math.ceil(diffTime / (1000 * 60 * 60));
+      return diffHours;
+    } catch (error) {
+      return 0;
+    }
+  }
+
+  /**
    * Process transactions into due date items
    * Groups by customer and sums line totals
    */
@@ -92,18 +130,23 @@ export class DueDateService {
     });
 
     // Convert to array and sort alphabetically
-    const items = Array.from(customerMap.values()).map((data, index) => ({
-      id: `customer-${index}`,
-      customer: data.customer,
-      productCode: '',
-      quantity: 0,
-      unitPrice: 0,
-      lineTotal: data.lineTotal,
-      invoiceDate: data.invoiceDate,
-      dueDate: '', // Will be calculated later
-      dueIn: 0, // Will be calculated later
-      contactBuyer: '', // Will be added later
-    }));
+    const items = Array.from(customerMap.values()).map((data, index) => {
+      const dueDate = this.calculateDueDate(data.invoiceDate);
+      const dueIn = this.calculateHoursUntilDue(dueDate);
+
+      return {
+        id: `customer-${index}`,
+        customer: data.customer,
+        productCode: '',
+        quantity: 0,
+        unitPrice: 0,
+        lineTotal: data.lineTotal,
+        invoiceDate: data.invoiceDate,
+        dueDate: dueDate,
+        dueIn: dueIn,
+        contactBuyer: '', // Will be added later
+      };
+    });
 
     // Sort by customer name alphabetically
     return items.sort((a, b) => a.customer.localeCompare(b.customer));
@@ -130,10 +173,10 @@ export class DueDateService {
         return matchesSearch && item.dueIn < 0;
       }
       if (statusFilter === 'due-soon') {
-        return matchesSearch && item.dueIn >= 0 && item.dueIn <= 7;
+        return matchesSearch && item.dueIn >= 0 && item.dueIn <= 168; // 7 days = 168 hours
       }
       if (statusFilter === 'on-track') {
-        return matchesSearch && item.dueIn > 7;
+        return matchesSearch && item.dueIn > 168;
       }
 
       return matchesSearch;
@@ -167,8 +210,8 @@ export class DueDateService {
   static calculateStats(items: DueDateItem[]): DueDateStats {
     return {
       overdue: items.filter((i) => i.dueIn < 0).length,
-      dueSoon: items.filter((i) => i.dueIn >= 0 && i.dueIn <= 7).length,
-      onTrack: items.filter((i) => i.dueIn > 7).length,
+      dueSoon: items.filter((i) => i.dueIn >= 0 && i.dueIn <= 168).length, // 7 days = 168 hours
+      onTrack: items.filter((i) => i.dueIn > 168).length,
       total: items.length,
     };
   }
