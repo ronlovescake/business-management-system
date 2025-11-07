@@ -6,6 +6,11 @@ import { useSession } from 'next-auth/react';
 import { notifications } from '@mantine/notifications';
 import { messagingService } from '@/services/messaging.service';
 import { usePathname } from 'next/navigation';
+import {
+  playMessageSound,
+  initializeAudioContext,
+} from '@/lib/notificationSound';
+import { useNotificationPreferences } from '@/hooks/useNotificationPreferences';
 
 const STORAGE_KEY = 'seenMessageNotifications';
 
@@ -16,10 +21,33 @@ export function GlobalMessageNotifications() {
   const isMessagingPage = pathname?.startsWith(
     '/clothing/operations/messaging'
   );
+  const { preferences } = useNotificationPreferences();
 
   // Load seen message IDs from localStorage on mount
   const previousMessagesRef = useRef<Set<string>>(new Set());
   const hasInitializedRef = useRef(false);
+
+  // Initialize audio context on mount (enables auto-play notifications)
+  useEffect(() => {
+    // Initialize on any user interaction with the page
+    const handleUserInteraction = () => {
+      initializeAudioContext();
+      // Remove listeners after first interaction
+      document.removeEventListener('click', handleUserInteraction);
+      document.removeEventListener('keydown', handleUserInteraction);
+      document.removeEventListener('touchstart', handleUserInteraction);
+    };
+
+    document.addEventListener('click', handleUserInteraction);
+    document.addEventListener('keydown', handleUserInteraction);
+    document.addEventListener('touchstart', handleUserInteraction);
+
+    return () => {
+      document.removeEventListener('click', handleUserInteraction);
+      document.removeEventListener('keydown', handleUserInteraction);
+      document.removeEventListener('touchstart', handleUserInteraction);
+    };
+  }, []);
 
   useEffect(() => {
     // Load seen messages from localStorage
@@ -111,6 +139,7 @@ export function GlobalMessageNotifications() {
         const senderName = sender?.user.name || sender?.user.email || 'Someone';
         const conversationTitle = conversation.title || senderName;
 
+        // Show visual notification
         notifications.show({
           title: `${senderName} (${conversationTitle})`,
           message: lastMessage.body,
@@ -122,13 +151,18 @@ export function GlobalMessageNotifications() {
           },
           style: { cursor: 'pointer' },
         });
+
+        // Play notification sound if enabled
+        if (preferences.soundEnabled) {
+          playMessageSound();
+        }
       }
     });
 
     if (shouldPersist) {
       persistSeenMessages();
     }
-  }, [conversations, currentUserId, isMessagingPage]);
+  }, [conversations, currentUserId, isMessagingPage, preferences.soundEnabled]);
 
   return null; // This component doesn't render anything
 }

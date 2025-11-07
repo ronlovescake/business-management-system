@@ -43,7 +43,10 @@ import {
   type Message,
 } from '@/services/messaging.service';
 import { formatDistanceToNow } from 'date-fns';
-import { playMessageSound } from '@/lib/notificationSound';
+import {
+  playMessageSound,
+  initializeAudioContext,
+} from '@/lib/notificationSound';
 import { useNotificationPreferences } from '@/hooks/useNotificationPreferences';
 
 export function MessagingClientPage() {
@@ -190,6 +193,25 @@ export function MessagingClientPage() {
       queryClient.invalidateQueries({ queryKey: ['unread-messages-global'] });
     }
   }, [activeConversationId, queryClient]);
+
+  // Initialize audio context on mount (enables auto-play notifications)
+  useEffect(() => {
+    // Initialize on any user interaction with the page
+    const handleUserInteraction = () => {
+      initializeAudioContext();
+      // Remove listeners after first interaction
+      document.removeEventListener('click', handleUserInteraction);
+      document.removeEventListener('keydown', handleUserInteraction);
+    };
+
+    document.addEventListener('click', handleUserInteraction);
+    document.addEventListener('keydown', handleUserInteraction);
+
+    return () => {
+      document.removeEventListener('click', handleUserInteraction);
+      document.removeEventListener('keydown', handleUserInteraction);
+    };
+  }, []);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -367,25 +389,43 @@ export function MessagingClientPage() {
         >
           <Group justify="space-between" mb="sm">
             <Title order={4}>Conversations</Title>
-            <Tooltip
-              label={
-                preferences.soundEnabled
-                  ? 'Mute notifications'
-                  : 'Unmute notifications'
-              }
-            >
-              <ActionIcon
-                variant="subtle"
-                color={preferences.soundEnabled ? 'blue' : 'gray'}
-                onClick={() => setSoundEnabled(!preferences.soundEnabled)}
+            <Group gap="xs">
+              <Tooltip label="Test notification sound">
+                <ActionIcon
+                  variant="light"
+                  color="green"
+                  onClick={() => {
+                    playMessageSound();
+                    notifications.show({
+                      title: 'Sound Test',
+                      message: 'Did you hear the notification sound?',
+                      color: 'green',
+                    });
+                  }}
+                >
+                  🔔
+                </ActionIcon>
+              </Tooltip>
+              <Tooltip
+                label={
+                  preferences.soundEnabled
+                    ? 'Mute notifications'
+                    : 'Unmute notifications'
+                }
               >
-                {preferences.soundEnabled ? (
-                  <IconVolume size={18} />
-                ) : (
-                  <IconVolumeOff size={18} />
-                )}
-              </ActionIcon>
-            </Tooltip>
+                <ActionIcon
+                  variant="subtle"
+                  color={preferences.soundEnabled ? 'blue' : 'gray'}
+                  onClick={() => setSoundEnabled(!preferences.soundEnabled)}
+                >
+                  {preferences.soundEnabled ? (
+                    <IconVolume size={18} />
+                  ) : (
+                    <IconVolumeOff size={18} />
+                  )}
+                </ActionIcon>
+              </Tooltip>
+            </Group>
           </Group>
 
           <TextInput

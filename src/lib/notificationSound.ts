@@ -7,28 +7,106 @@
 
 import { logger } from './logger';
 
-// Base64-encoded notification sound (a simple beep)
-// This is a fallback sound that works without external files
-const DEFAULT_NOTIFICATION_SOUND = `data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBgoOFhoeJi4yOj5GSlJWXmZqcnZ+goqSlp6ipq62ur7GztLW3uLq7vb6/wcLExcbIycrMzc7Q0dLU1dbY2drb3d7g4eLk5ebn6err7e7w8fL09fb3+fr7/P3+/wAA/v38+/r5+Pf29fTz8vHw7+7t7Ovq6ejn5uXk4+Lh4N/e3dzb2tnY19bV1NPS0dDPzs3My8rJyMfGxcTDwsHAv769vLu6ubi3trW0s7KxsK+urayrqqmop6alpKOioaCfnp2cm5qZmJeWlZSTkpGQj46NjIuKiYiHhoWEg4KBAA==`;
+// Global audio context instance (reused to avoid creating multiple contexts)
+let audioContext: AudioContext | null = null;
+let isAudioContextInitialized = false;
+
+/**
+ * Initialize the audio context on first user interaction
+ * This is required due to browser auto-play policies
+ */
+export function initializeAudioContext(): void {
+  if (isAudioContextInitialized) {
+    return;
+  }
+
+  try {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext })
+          .webkitAudioContext)();
+    }
+
+    // Resume the context in case it's suspended (browser auto-play policy)
+    if (audioContext.state === 'suspended') {
+      void audioContext.resume();
+    }
+
+    isAudioContextInitialized = true;
+    logger.info('Audio context initialized successfully');
+  } catch (error) {
+    logger.error('Failed to initialize audio context:', error);
+  }
+}
+
+/**
+ * Play a notification sound using Web Audio API
+ */
+function playWebAudioNotification(volume: number = 0.7): void {
+  try {
+    // Create audio context if it doesn't exist
+    if (!audioContext) {
+      audioContext = new (window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext })
+          .webkitAudioContext)();
+    }
+
+    // Resume context if suspended (handles auto-play policy)
+    if (audioContext.state === 'suspended') {
+      void audioContext.resume();
+    }
+
+    // Create oscillator for the beep sound
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    // Configure the sound (800Hz sine wave)
+    oscillator.type = 'sine';
+    oscillator.frequency.value = 800; // 800Hz
+
+    // Set volume with envelope (fade in/out)
+    const now = audioContext.currentTime;
+    gainNode.gain.setValueAtTime(0, now);
+    gainNode.gain.linearRampToValueAtTime(volume, now + 0.01); // Fade in
+    gainNode.gain.linearRampToValueAtTime(volume, now + 0.1); // Sustain
+    gainNode.gain.linearRampToValueAtTime(0, now + 0.15); // Fade out
+
+    // Play the sound
+    oscillator.start(now);
+    oscillator.stop(now + 0.15); // 150ms duration
+
+    // Clean up
+    oscillator.onended = () => {
+      gainNode.disconnect();
+      oscillator.disconnect();
+    };
+  } catch (error) {
+    logger.error('Failed to play Web Audio notification:', error);
+  }
+}
 
 /**
  * Play a notification sound
  *
  * @param soundFile - The name of the sound file in /public/sounds/ or 'default' for built-in sound (default: 'default')
- * @param volume - Volume level from 0.0 to 1.0 (default: 0.5)
+ * @param volume - Volume level from 0.0 to 1.0 (default: 0.6)
  */
 export function playNotificationSound(
   soundFile: string = 'default',
-  volume: number = 0.5
+  volume: number = 0.6
 ): void {
   try {
-    // Use the default embedded sound or load from public directory
-    const audioSrc =
-      soundFile === 'default'
-        ? DEFAULT_NOTIFICATION_SOUND
-        : `/sounds/${soundFile}`;
+    // For default sound, use Web Audio API for better reliability
+    if (soundFile === 'default') {
+      playWebAudioNotification(volume);
+      return;
+    }
 
-    // Create audio element
+    // For custom sound files, use Audio element
+    const audioSrc = `/sounds/${soundFile}`;
     const audio = new Audio(audioSrc);
 
     // Set volume (clamp between 0 and 1)
@@ -55,10 +133,11 @@ export function playNotificationSound(
 
 /**
  * Play message received sound
- * Uses a predefined sound file for message notifications
+ * Uses Web Audio API for reliable playback
  */
 export function playMessageSound(): void {
-  playNotificationSound('default', 0.6);
+  logger.info('Playing message notification sound');
+  playNotificationSound('default', 0.7);
 }
 
 /**

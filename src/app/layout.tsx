@@ -6,6 +6,7 @@ import { ReactQueryProvider } from '../lib/query-client';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { PerformanceMonitor } from '../components/PerformanceMonitor';
 import { AuthProvider } from '../components/auth/AuthProvider';
+import { GlobalMessageNotifications } from '../components/GlobalMessageNotifications';
 
 // Initialize module registry
 import '@/modules';
@@ -29,6 +30,7 @@ export default function RootLayout({
           <AuthProvider>
             <ReactQueryProvider>
               <AppLayout>{children}</AppLayout>
+              <GlobalMessageNotifications />
             </ReactQueryProvider>
           </AuthProvider>
         </ErrorBoundary>
