@@ -55,6 +55,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
   const resetPhotoRef = useRef<() => void>(null);
 
   const form = useForm({
@@ -98,6 +99,7 @@ export default function ProfilePage() {
         newPassword: '',
         confirmPassword: '',
       });
+      setHasChanges(false);
     } catch (error) {
       notifications.show({
         title: 'Error',
@@ -114,6 +116,22 @@ export default function ProfilePage() {
     fetchProfile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Track changes to form values
+  useEffect(() => {
+    if (!profile) {
+      return;
+    }
+
+    const nameChanged = form.values.name !== (profile.name || '');
+    const hasPasswordInput = Boolean(
+      form.values.currentPassword ||
+        form.values.newPassword ||
+        form.values.confirmPassword
+    );
+
+    setHasChanges(nameChanged || hasPasswordInput);
+  }, [form.values, profile]);
 
   const handleSubmit = form.onSubmit(async (values) => {
     try {
@@ -175,6 +193,7 @@ export default function ProfilePage() {
 
       // Refresh profile
       await fetchProfile();
+      setHasChanges(false);
     } catch (error) {
       notifications.show({
         title: 'Error',
@@ -481,11 +500,17 @@ export default function ProfilePage() {
                           newPassword: '',
                           confirmPassword: '',
                         });
+                        setHasChanges(false);
                       }}
+                      disabled={!hasChanges}
                     >
                       Reset
                     </Button>
-                    <Button type="submit" loading={updating}>
+                    <Button
+                      type="submit"
+                      loading={updating}
+                      disabled={!hasChanges}
+                    >
                       Save Changes
                     </Button>
                   </Group>
