@@ -72,6 +72,16 @@ interface StandardDataTableProps {
    * Optional: Add vertical borders between columns
    */
   withColumnBorders?: boolean;
+
+  /**
+   * Optional: Remove row borders
+   */
+  withoutRowBorders?: boolean;
+
+  /**
+   * Optional: Show table border (default: true)
+   */
+  withTableBorder?: boolean;
 }
 
 /**
@@ -110,14 +120,17 @@ export function StandardDataTable({
   emptyState,
   colSpan,
   withColumnBorders = false,
+  withoutRowBorders = false,
+  withTableBorder = true,
 }: StandardDataTableProps) {
   return (
     <Card withBorder padding={0} style={{ overflow: 'hidden', height: height }}>
       <Box style={{ height: '100%', overflowY: 'auto' }}>
         <Table
           highlightOnHover
-          withTableBorder
+          withTableBorder={withTableBorder}
           withColumnBorders={withColumnBorders}
+          withRowBorders={!withoutRowBorders}
         >
           <Table.Thead
             style={{

@@ -19,7 +19,7 @@ import {
   ActionIcon,
   Tooltip,
 } from '@mantine/core';
-import { IconPhone, IconMail, IconMessageCircle } from '@tabler/icons-react';
+import { IconBrandFacebook, IconMessage } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import {
   StandardDataTable,
@@ -43,67 +43,81 @@ interface Transaction {
   Notes?: string;
 }
 
+// Memoized customer header row component
+
 // Memoized table row component for each individual order
 const DueDateOrderRow = memo(
   ({
     order,
+    isLastInGroup,
+    isFirstInGroup,
     customerName,
-    isFirstRow,
-    rowSpan,
     facebookLink,
+    rowSpan,
   }: {
     order: Transaction;
+    isLastInGroup: boolean;
+    isFirstInGroup: boolean;
     customerName: string;
-    isFirstRow: boolean;
-    rowSpan: number;
     facebookLink: string;
+    rowSpan: number;
   }) => {
     const dueDate = DueDateService.calculateDueDate(order['Invoice Date']);
     const dueInHours = DueDateService.calculateHoursUntilDue(dueDate);
 
+    const cellStyle = {
+      textAlign: 'center' as const,
+      border: 'none',
+      borderBottom: isLastInGroup ? '1px solid #dee2e6' : 'none',
+    };
+
     return (
       <Table.Tr>
-        {isFirstRow && (
+        {/* Customer name with rowspan - only on first row */}
+        {isFirstInGroup && (
           <Table.Td
             rowSpan={rowSpan}
-            style={{ textAlign: 'left', verticalAlign: 'top' }}
+            style={{
+              border: 'none',
+              borderBottom: isLastInGroup ? '1px solid #dee2e6' : 'none',
+              verticalAlign: 'top',
+              paddingTop: '12px',
+            }}
           >
-            <Text fw={500} size="sm" c="#495057">
-              {customerName}
-            </Text>
+            {customerName}
           </Table.Td>
         )}
-        <Table.Td style={{ textAlign: 'center' }}>
+        <Table.Td style={cellStyle}>
           <Text size="sm" c="#495057">
             {order['Product Code']}
           </Text>
         </Table.Td>
-        <Table.Td style={{ textAlign: 'center' }}>
+        <Table.Td style={cellStyle}>
           <Text size="sm" c="#495057">
             {(order.Quantity || 0).toLocaleString()}
           </Text>
         </Table.Td>
-        <Table.Td style={{ textAlign: 'center' }}>
+        <Table.Td style={cellStyle}>
           <Text size="sm" c="#495057">
             {DueDateService.formatCurrency(order['Unit Price'] || 0)}
           </Text>
         </Table.Td>
-        <Table.Td style={{ textAlign: 'center' }}>
+        <Table.Td style={cellStyle}>
           <Text fw={600} size="sm" c="#495057">
             {DueDateService.formatCurrency(order['Line Total'])}
           </Text>
         </Table.Td>
-        <Table.Td style={{ textAlign: 'center' }}>
+        <Table.Td style={cellStyle}>
           <Text size="sm" c="#495057">
             {DueDateService.formatDate(order['Invoice Date'])}
           </Text>
         </Table.Td>
-        <Table.Td style={{ textAlign: 'center' }}>
+        <Table.Td style={cellStyle}>
           <Text size="sm" c="#495057">
             {DueDateService.formatDate(dueDate)}
           </Text>
         </Table.Td>
-        <Table.Td style={{ textAlign: 'center' }}>
+        <Table.Td style={cellStyle}>
           <Badge
             color={
               dueInHours < 0 ? 'red' : dueInHours <= 168 ? 'orange' : 'green'
@@ -115,47 +129,49 @@ const DueDateOrderRow = memo(
               : `${Math.abs(dueInHours)} ${Math.abs(dueInHours) === 1 ? 'hour' : 'hours'}`}
           </Badge>
         </Table.Td>
-        <Table.Td style={{ textAlign: 'center' }}>
+        <Table.Td style={cellStyle}>
           <Text size="sm" c="dimmed" lineClamp={1}>
             {order.Notes || '-'}
           </Text>
         </Table.Td>
-        {isFirstRow && (
+        {/* Contact buttons with rowspan - only on first row */}
+        {isFirstInGroup && (
           <Table.Td
             rowSpan={rowSpan}
-            style={{ textAlign: 'center', verticalAlign: 'top' }}
+            style={{
+              border: 'none',
+              borderBottom: isLastInGroup ? '1px solid #dee2e6' : 'none',
+              verticalAlign: 'top',
+              paddingTop: '8px',
+            }}
           >
-            <Group gap="xs" justify="center">
-              <Tooltip
-                label={facebookLink ? 'Message customer' : 'No Facebook link'}
-              >
+            <Group gap="xs" wrap="nowrap">
+              <Tooltip label="Send Message">
                 <ActionIcon
                   variant="light"
                   color="blue"
-                  component="a"
-                  href={facebookLink || '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Message customer"
-                  disabled={!facebookLink}
-                  style={{
-                    cursor: facebookLink ? 'pointer' : 'not-allowed',
-                    opacity: facebookLink ? 1 : 0.5,
-                  }}
+                  size="sm"
+                  aria-label={`Send message to ${customerName}`}
                 >
-                  <IconMessageCircle size={16} />
+                  <IconMessage size={16} />
                 </ActionIcon>
               </Tooltip>
-              <Tooltip label="Email (Coming Soon)">
-                <ActionIcon variant="light" color="gray" disabled>
-                  <IconMail size={16} />
-                </ActionIcon>
-              </Tooltip>
-              <Tooltip label="Call (Coming Soon)">
-                <ActionIcon variant="light" color="gray" disabled>
-                  <IconPhone size={16} />
-                </ActionIcon>
-              </Tooltip>
+              {facebookLink && (
+                <Tooltip label="View Facebook Profile">
+                  <ActionIcon
+                    component="a"
+                    href={facebookLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    variant="light"
+                    color="blue"
+                    size="sm"
+                    aria-label={`View ${customerName}'s Facebook profile`}
+                  >
+                    <IconBrandFacebook size={16} />
+                  </ActionIcon>
+                </Tooltip>
+              )}
             </Group>
           </Table.Td>
         )}
@@ -245,23 +261,43 @@ export function DueDatesPage() {
   const rows = useMemo(() => {
     const allRows: JSX.Element[] = [];
 
-    filteredItems.forEach((item) => {
+    filteredItems.forEach((item, customerIndex) => {
       const customerOrders = getCustomerOrders(item.customer);
       const facebookLink = getFacebookLink(item.customer);
+      const isLastCustomerGroup = customerIndex === filteredItems.length - 1;
 
-      customerOrders.forEach((order, index) => {
+      // Add product rows with customer name on first row
+      customerOrders.forEach((order, orderIndex) => {
+        const isFirstInGroup = orderIndex === 0;
+        const isLastInGroup = orderIndex === customerOrders.length - 1;
         const uniqueKey = `${item.customer}-${order['Product Code']}-${order['Invoice Date']}-${order['Line Total']}-${order.Quantity}-${order['Order Date'] || 'no-date'}`;
         allRows.push(
           <DueDateOrderRow
             key={uniqueKey}
             order={order}
+            isLastInGroup={isLastInGroup}
+            isFirstInGroup={isFirstInGroup}
             customerName={item.customer}
-            isFirstRow={index === 0}
-            rowSpan={customerOrders.length}
             facebookLink={facebookLink}
+            rowSpan={customerOrders.length}
           />
         );
       });
+
+      // Add empty separator row between customer groups (but not after the last group)
+      if (!isLastCustomerGroup) {
+        allRows.push(
+          <Table.Tr
+            key={`separator-${item.customer}`}
+            style={{ height: '20px' }}
+          >
+            <Table.Td
+              colSpan={10}
+              style={{ border: 'none', backgroundColor: '#ffffffff' }}
+            />
+          </Table.Tr>
+        );
+      }
     });
 
     return allRows;
@@ -301,6 +337,7 @@ export function DueDatesPage() {
             emptyState="Loading due dates..."
             colSpan={headers.length}
             height="86vh"
+            withoutRowBorders
           >
             {[]}
           </StandardDataTable>
@@ -345,7 +382,8 @@ export function DueDatesPage() {
             emptyState={emptyStateMessage}
             colSpan={headers.length}
             height="86vh"
-            withColumnBorders
+            withoutRowBorders
+            withTableBorder={false}
           >
             {rows}
           </StandardDataTable>
