@@ -368,6 +368,7 @@ export function useCustomerDuplicateCheck() {
           icon: 'success',
           timer: 1500,
           showConfirmButton: false,
+          allowOutsideClick: false,
         });
         return true;
       }
@@ -391,6 +392,7 @@ export function useCustomerDuplicateCheck() {
         confirmButtonText: 'Proceed',
         cancelButtonText: 'Cancel',
         confirmButtonColor: '#ffc107',
+        allowOutsideClick: false,
       });
 
       return result.isConfirmed;

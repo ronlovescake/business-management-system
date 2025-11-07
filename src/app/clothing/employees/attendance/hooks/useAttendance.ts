@@ -422,6 +422,7 @@ export function useAttendance() {
           error instanceof Error
             ? error.message
             : 'Failed to record attendance automatically',
+        allowOutsideClick: false,
       });
     },
     onSuccess: (savedRecords, variables) => {
@@ -455,6 +456,7 @@ export function useAttendance() {
             </ul>
           </div>
         `,
+        allowOutsideClick: false,
       });
 
       notifications.show({
@@ -524,6 +526,7 @@ export function useAttendance() {
       confirmButtonColor: '#228be6',
       cancelButtonColor: '#868e96',
       reverseButtons: true,
+      allowOutsideClick: false,
     });
 
     if (result.isConfirmed) {
@@ -586,6 +589,7 @@ export function useAttendance() {
           icon: 'info',
           title: 'No Schedules Found',
           text: `No employee schedules found for today (${todayISO}) or yesterday (${yesterdayISO})`,
+          allowOutsideClick: false,
         });
         return;
       }
@@ -617,6 +621,7 @@ export function useAttendance() {
           icon: 'info',
           title: 'Already Recorded',
           text: `All employees with schedules for today and yesterday already have attendance records.`,
+          allowOutsideClick: false,
         });
         return;
       }
@@ -857,6 +862,7 @@ export function useAttendance() {
           error instanceof Error
             ? error.message
             : 'Failed to process automatic attendance recording',
+        allowOutsideClick: false,
       });
     }
   };

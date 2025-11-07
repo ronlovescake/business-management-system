@@ -697,6 +697,7 @@ export function useThirteenthMonthPay() {
         text: 'Failed to approve the record. Please try again.',
         icon: 'error',
         confirmButtonColor: '#ef4444',
+        allowOutsideClick: false,
       });
     },
     onSuccess: () => {
@@ -705,6 +706,7 @@ export function useThirteenthMonthPay() {
         text: 'The 13th month pay has been approved and locked.',
         icon: 'success',
         confirmButtonColor: '#10b981',
+        allowOutsideClick: false,
       });
     },
     onSettled: () => {
@@ -773,6 +775,7 @@ export function useThirteenthMonthPay() {
         text: 'Failed to mark as paid. Please try again.',
         icon: 'error',
         confirmButtonColor: '#ef4444',
+        allowOutsideClick: false,
       });
     },
     onSuccess: () => {
@@ -781,6 +784,7 @@ export function useThirteenthMonthPay() {
         text: 'The payment has been recorded successfully.',
         icon: 'success',
         confirmButtonColor: '#6366f1',
+        allowOutsideClick: false,
       });
     },
     onSettled: () => {
@@ -826,6 +830,7 @@ export function useThirteenthMonthPay() {
       confirmButtonColor: '#10b981',
       cancelButtonColor: '#6c757d',
       reverseButtons: true,
+      allowOutsideClick: false,
     });
 
     if (!result.isConfirmed) {
@@ -867,6 +872,7 @@ export function useThirteenthMonthPay() {
       confirmButtonColor: '#6366f1',
       cancelButtonColor: '#6c757d',
       reverseButtons: true,
+      allowOutsideClick: false,
     });
 
     if (!result.isConfirmed) {
