@@ -67,6 +67,11 @@ interface StandardDataTableProps {
    * Optional: Number of columns for empty state colspan
    */
   colSpan?: number;
+
+  /**
+   * Optional: Add vertical borders between columns
+   */
+  withColumnBorders?: boolean;
 }
 
 /**
@@ -104,11 +109,16 @@ export function StandardDataTable({
   height = '84vh',
   emptyState,
   colSpan,
+  withColumnBorders = false,
 }: StandardDataTableProps) {
   return (
     <Card withBorder padding={0} style={{ overflow: 'hidden', height: height }}>
       <Box style={{ height: '100%', overflowY: 'auto' }}>
-        <Table highlightOnHover withTableBorder>
+        <Table
+          highlightOnHover
+          withTableBorder
+          withColumnBorders={withColumnBorders}
+        >
           <Table.Thead
             style={{
               backgroundColor: '#f1f3f5',
