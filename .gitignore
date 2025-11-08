@@ -42,6 +42,9 @@ snapshots/
 *.sql
 *.backup
 
+# User settings
+settings/
+
 # Temporary files and scripts
 tmp-*.js
 tmp-*.ts

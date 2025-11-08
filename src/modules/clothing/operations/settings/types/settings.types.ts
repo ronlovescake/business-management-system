@@ -184,6 +184,7 @@ export interface ModuleDetailModalData {
  * Settings tab options
  */
 export const SETTINGS_TABS = [
+  { value: 'invoice', label: 'Invoice Settings', icon: 'file-invoice' },
   { value: 'backup', label: 'Backup & Restore', icon: 'database' },
 ] as const;
 

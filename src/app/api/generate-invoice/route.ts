@@ -74,6 +74,37 @@ interface InvoiceData {
   orderTotal: number;
 }
 
+interface InvoiceSettings {
+  format: 'pdf' | 'png';
+  pngQuality: number;
+}
+
+const SETTINGS_FILE = path.join(
+  process.cwd(),
+  'settings',
+  'invoice-settings.json'
+);
+
+const DEFAULT_SETTINGS: InvoiceSettings = {
+  format: 'png',
+  pngQuality: 8,
+};
+
+/**
+ * Read invoice settings from file
+ */
+function getInvoiceSettings(): InvoiceSettings {
+  try {
+    if (fs.existsSync(SETTINGS_FILE)) {
+      const fileContent = fs.readFileSync(SETTINGS_FILE, 'utf-8');
+      return JSON.parse(fileContent) as InvoiceSettings;
+    }
+  } catch (error) {
+    logger.error('Failed to read invoice settings, using defaults:', error);
+  }
+  return DEFAULT_SETTINGS;
+}
+
 // Register Handlebars helper for currency formatting
 Handlebars.registerHelper(
   'currency',
@@ -93,6 +124,9 @@ Handlebars.registerHelper(
 
 export async function POST(request: NextRequest) {
   try {
+    // Get invoice settings
+    const settings = getInvoiceSettings();
+
     const body = await request.json();
     const { transactions, customers } = body as {
       transactions: Transaction[];
@@ -156,7 +190,7 @@ export async function POST(request: NextRequest) {
     });
 
     const page = await browser.newPage();
-    const pdfBuffers: Buffer[] = [];
+    const imageBuffers: Buffer[] = [];
 
     // Calculate dates
     const now = new Date();
@@ -236,19 +270,43 @@ export async function POST(request: NextRequest) {
         setTimeout(resolve, LOADING_SPINNER_DELAY)
       );
 
-      // Generate PDF (817px width, auto height)
-      const pdfBuffer = await page.pdf({
-        width: '817px',
-        printBackground: true,
-        margin: { top: 0, right: 0, bottom: 0, left: 0 },
-      });
+      // Generate based on settings format
+      if (settings.format === 'png') {
+        // Set viewport for high-definition PNG output
+        await page.setViewport({
+          width: 817,
+          height: 1056, // A4 height in pixels
+          deviceScaleFactor: settings.pngQuality, // Quality from settings
+        });
 
-      pdfBuffers.push(Buffer.from(pdfBuffer));
+        // Generate high-definition PNG screenshot
+        const imageBuffer = await page.screenshot({
+          type: 'png',
+          fullPage: true,
+          omitBackground: false,
+        });
+
+        imageBuffers.push(Buffer.from(imageBuffer));
+      } else {
+        // Generate PDF
+        const pdfBuffer = await page.pdf({
+          width: '817px',
+          printBackground: true,
+          margin: { top: 0, right: 0, bottom: 0, left: 0 },
+        });
+
+        imageBuffers.push(Buffer.from(pdfBuffer));
+      }
     }
 
     await browser.close();
 
-    // Save individual PDFs and prepare file list for zip
+    // Determine file extension and content type based on settings
+    const fileExtension = settings.format === 'png' ? 'png' : 'pdf';
+    const contentType =
+      settings.format === 'png' ? 'image/png' : 'application/pdf';
+
+    // Save individual files and prepare file list for zip
     const outputDir = path.join(process.cwd(), 'pdf_output', 'invoices');
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
@@ -257,9 +315,9 @@ export async function POST(request: NextRequest) {
     const timestamp = new Date().toISOString().replace(/:/g, '-');
     const customerNames = Array.from(groupedByCustomer.keys());
 
-    // Save each PDF with customer name
+    // Save each file with customer name
     const savedFiles: { name: string; buffer: Buffer }[] = [];
-    pdfBuffers.forEach((pdfBuffer, index) => {
+    imageBuffers.forEach((imageBuffer, index) => {
       const customerName = customerNames[index] || 'Unknown Customer';
 
       // Sanitize filename: remove invalid characters but keep meaningful ones
@@ -267,28 +325,28 @@ export async function POST(request: NextRequest) {
         .replace(/[<>:"/\\|?*\x00-\x1F]/g, '') // Remove invalid file system characters
         .trim();
 
-      const filename = `${sanitizedFilename}.pdf`;
+      const filename = `${sanitizedFilename}.${fileExtension}`;
       const outputPath = path.join(
         outputDir,
-        `${timestamp}-${sanitizedFilename}.pdf`
+        `${timestamp}-${sanitizedFilename}.${fileExtension}`
       );
 
-      fs.writeFileSync(outputPath, pdfBuffer);
-      savedFiles.push({ name: filename, buffer: pdfBuffer });
+      fs.writeFileSync(outputPath, imageBuffer);
+      savedFiles.push({ name: filename, buffer: imageBuffer });
     });
 
-    // If only one customer, return single PDF
-    if (pdfBuffers.length === 1) {
+    // If only one customer, return single file
+    if (imageBuffers.length === 1) {
       const customerName = customerNames[0] || 'Unknown Customer';
       const sanitizedFilename = customerName
         .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
         .trim();
 
-      return new NextResponse(Buffer.from(pdfBuffers[0]), {
+      return new NextResponse(Buffer.from(imageBuffers[0]), {
         status: 200,
         headers: {
-          'Content-Type': 'application/pdf',
-          'Content-Disposition': `attachment; filename="${encodeURIComponent(sanitizedFilename)}.pdf"`,
+          'Content-Type': contentType,
+          'Content-Disposition': `attachment; filename="${encodeURIComponent(sanitizedFilename)}.${fileExtension}"`,
         },
       });
     }

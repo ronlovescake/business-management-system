@@ -8,12 +8,13 @@
 
 import { useState } from 'react';
 import { Container, Title, Tabs, Paper } from '@mantine/core';
-import { IconDatabase } from '@tabler/icons-react';
+import { IconDatabase, IconFileInvoice } from '@tabler/icons-react';
 import { BackupRestoreTab } from './BackupRestoreTab';
+import { InvoiceSettingsTab } from './InvoiceSettingsTab';
 import type { SettingsTab } from '../types';
 
 export function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('backup');
+  const [activeTab, setActiveTab] = useState<SettingsTab>('invoice');
 
   return (
     <Container size="xl" py="xl">
@@ -27,10 +28,20 @@ export function SettingsPage() {
           onChange={(value) => setActiveTab(value as SettingsTab)}
         >
           <Tabs.List>
+            <Tabs.Tab
+              value="invoice"
+              leftSection={<IconFileInvoice size={16} />}
+            >
+              Invoice Settings
+            </Tabs.Tab>
             <Tabs.Tab value="backup" leftSection={<IconDatabase size={16} />}>
               Backup & Restore
             </Tabs.Tab>
           </Tabs.List>
+
+          <Tabs.Panel value="invoice" pt="md">
+            <InvoiceSettingsTab />
+          </Tabs.Panel>
 
           <Tabs.Panel value="backup" pt="md">
             <BackupRestoreTab />
