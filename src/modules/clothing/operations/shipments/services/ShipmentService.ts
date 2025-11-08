@@ -156,11 +156,27 @@ export class ShipmentService {
    * @returns Formatted string: "MMM d, yyyy" (e.g., "Jan 15, 2024")
    */
   static formatDateForDisplay(date: Date): string {
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+    // Extract local date parts to avoid timezone conversion issues
+    const year = date.getFullYear();
+    const month = date.getMonth(); // 0-11
+    const day = date.getDate();
+
+    const monthNames = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    return `${monthNames[month]} ${day}, ${year}`;
   }
 
   // ==========================================================================

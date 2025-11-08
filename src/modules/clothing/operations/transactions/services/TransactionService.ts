@@ -381,11 +381,8 @@ export class TransactionService {
         return transaction;
       }
 
-      const currentShipmentStatus = statusMap[productCode];
-
-      if (!currentShipmentStatus || currentShipmentStatus === '') {
-        return transaction;
-      }
+      // Default to empty string if product not in statusMap
+      const currentShipmentStatus = statusMap[productCode] || '';
 
       const newOrderStatus = this.getOrderStatusFromShipmentStatus(
         currentShipmentStatus
@@ -394,9 +391,8 @@ export class TransactionService {
       if (currentOrderStatus !== newOrderStatus) {
         updatedCount++;
         logger.debug(
-          `Syncing transaction: ${productCode} -> ${currentOrderStatus} to ${newOrderStatus} (shipment status: ${currentShipmentStatus})`
+          `Syncing transaction: ${productCode} -> ${currentOrderStatus} to ${newOrderStatus} (shipment status: ${currentShipmentStatus || 'none'})`
         );
-
         return {
           ...transaction,
           'Order Status': newOrderStatus,

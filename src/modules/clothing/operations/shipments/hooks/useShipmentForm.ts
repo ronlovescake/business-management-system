@@ -20,6 +20,50 @@ import {
 } from '../types/shipment.types';
 
 /**
+ * Parse date string to Date object without timezone conversion
+ * Handles format: "MMM d, yyyy" (e.g., "Oct 10, 2025")
+ */
+function parseDateString(dateStr: string): Date | null {
+  if (!dateStr) {
+    return null;
+  }
+
+  const monthMap: Record<string, number> = {
+    Jan: 0,
+    Feb: 1,
+    Mar: 2,
+    Apr: 3,
+    May: 4,
+    Jun: 5,
+    Jul: 6,
+    Aug: 7,
+    Sep: 8,
+    Oct: 9,
+    Nov: 10,
+    Dec: 11,
+  };
+
+  // Parse "Oct 10, 2025" format
+  const match = dateStr.match(/^([A-Za-z]+)\s+(\d+),\s+(\d+)$/);
+  if (!match) {
+    // Fallback to standard Date parsing
+    return new Date(dateStr);
+  }
+
+  const [, monthStr, dayStr, yearStr] = match;
+  const month = monthMap[monthStr];
+  const day = parseInt(dayStr, 10);
+  const year = parseInt(yearStr, 10);
+
+  if (month === undefined || isNaN(day) || isNaN(year)) {
+    return new Date(dateStr);
+  }
+
+  // Create date in local timezone
+  return new Date(year, month, day);
+}
+
+/**
  * Hook for managing shipment forms (Add & Edit)
  */
 export function useShipmentForm() {
@@ -191,10 +235,10 @@ export function useShipmentForm() {
           : shipment['Fee'],
       shipmentStatus: shipment['Shipment Status'],
       dateCreated: shipment['Date Created']
-        ? new Date(shipment['Date Created'])
+        ? parseDateString(shipment['Date Created'])
         : null,
       dateDelivered: shipment['Date Delivered']
-        ? new Date(shipment['Date Delivered'])
+        ? parseDateString(shipment['Date Delivered'])
         : null,
       notes: shipment['Notes'],
     });
