@@ -11,6 +11,12 @@ import type {
   HandsontableColumn,
 } from '@/components/ui/HandsontableGrid';
 
+vi.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({
+    invalidateQueries: vi.fn(),
+  }),
+}));
+
 const priceTiers: PriceTier[] = [
   {
     'Product Code': 'SKU-1',
@@ -72,7 +78,6 @@ describe('useTransactionOperations', () => {
 
   it('auto-populates shipment code, status, and unit price when product code changes', async () => {
     const props = createProps();
-
     const { result } = renderHook(() => useTransactionOperations(props));
 
     await act(async () => {

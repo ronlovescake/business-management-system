@@ -11,6 +11,7 @@ import {
   CheckoutLinksQuerySchema,
   UpdateCheckoutLinksSchema,
 } from '@/modules/clothing/operations/checkout-links/api/schemas';
+import { ZodError } from 'zod';
 
 /**
  * GET /api/checkout-links
@@ -106,8 +107,19 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Error creating checkout links', error);
+
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        {
+          error: 'Validation failed',
+          details: error.issues,
+        },
+        { status: 422 }
+      );
+    }
+
     return NextResponse.json(
-      { error: 'Failed to create checkout links', details: error },
+      { error: 'Failed to create checkout links' },
       { status: 500 }
     );
   }

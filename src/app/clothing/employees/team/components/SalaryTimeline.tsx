@@ -26,7 +26,7 @@ import {
   IconTrendingUp,
 } from '@tabler/icons-react';
 import { DateInput } from '@mantine/dates';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 
 interface SalaryHistoryRecord {
   id: string;
@@ -78,7 +78,7 @@ export function SalaryTimeline({
         setSalaryHistory(data);
       }
     } catch (error) {
-      notifications.show({
+      showNotification({
         title: 'Error',
         message: 'Failed to load salary history',
         color: 'red',
@@ -110,7 +110,7 @@ export function SalaryTimeline({
 
   const handleSubmit = async () => {
     if (!effectiveDate) {
-      notifications.show({
+      showNotification({
         title: 'Validation Error',
         message: 'Please select an effective date',
         color: 'red',
@@ -119,7 +119,7 @@ export function SalaryTimeline({
     }
 
     if (!basicSalary || basicSalary === 0) {
-      notifications.show({
+      showNotification({
         title: 'Validation Error',
         message: 'Basic salary must be greater than zero',
         color: 'red',
@@ -149,7 +149,7 @@ export function SalaryTimeline({
         throw new Error('Failed to add salary record');
       }
 
-      notifications.show({
+      showNotification({
         title: 'Success',
         message: 'Salary adjustment added successfully',
         color: 'green',
@@ -166,7 +166,7 @@ export function SalaryTimeline({
       setReason('');
       setNotes('');
     } catch (error) {
-      notifications.show({
+      showNotification({
         title: 'Error',
         message: 'Failed to add salary adjustment',
         color: 'red',

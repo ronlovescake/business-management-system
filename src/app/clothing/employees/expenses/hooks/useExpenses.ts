@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { logger } from '@/lib/logger';
 import { useExpenseData } from '@/hooks/useSheetData';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import { getCurrentDateISO } from '@/utils/date';
 import { showError, showDeleteConfirm } from '@/lib/alerts';
 
@@ -330,7 +330,7 @@ export function useExpenses() {
     const confirmed = await showDeleteConfirm('this expense');
     if (confirmed) {
       deleteExpense(Number(id));
-      notifications.show({
+      showNotification({
         title: 'Success',
         message: 'Expense deleted successfully',
         color: 'green',
@@ -378,7 +378,7 @@ export function useExpenses() {
           employeeName: editingExpense.employeeName || null,
         },
       });
-      notifications.show({
+      showNotification({
         title: 'Success',
         message: 'Expense updated successfully',
         color: 'green',
@@ -394,7 +394,7 @@ export function useExpenses() {
         status: 'pending',
         employeeName: 'Current User',
       });
-      notifications.show({
+      showNotification({
         title: 'Success',
         message: 'Expense created successfully',
         color: 'green',
@@ -409,7 +409,7 @@ export function useExpenses() {
       id: Number(id),
       data: { status: 'approved' },
     });
-    notifications.show({
+    showNotification({
       title: 'Success',
       message: 'Expense approved',
       color: 'green',
@@ -421,7 +421,7 @@ export function useExpenses() {
       id: Number(id),
       data: { status: 'rejected' },
     });
-    notifications.show({
+    showNotification({
       title: 'Success',
       message: 'Expense rejected',
       color: 'red',
@@ -605,7 +605,7 @@ export function useExpenses() {
             }))
           );
 
-          notifications.show({
+          showNotification({
             title: 'Success',
             message: `${importedExpenses.length} expenses imported successfully`,
             color: 'green',

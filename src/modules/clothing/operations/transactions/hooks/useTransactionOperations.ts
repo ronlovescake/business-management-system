@@ -14,7 +14,8 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
+import type { NotificationData } from '@mantine/notifications';
 import type { CellEditEvent } from '@/components/ui/HandsontableGrid';
 import { TransactionService } from '../services/TransactionService';
 import { api } from '@/lib/api/client';
@@ -186,7 +187,7 @@ export function useTransactionOperations(
           `📤 Flushing ${batchedUpdates.length} batched updates (cells edited: ${customEvent.detail?.count ?? 0})`
         );
         bulkUpdate(batchedUpdates);
-        notifications.show({
+        showNotification({
           title: 'Success',
           message: `Saved ${batchedUpdates.length} transactions from paste`,
           color: 'green',
@@ -271,13 +272,9 @@ export function useTransactionOperations(
       };
 
       // Helper: Show notification (suppressed during batch)
-      const showNotification = (options: {
-        title: string;
-        message: string;
-        color: string;
-      }) => {
+      const notify = (options: NotificationData) => {
         if (!isBatchEdit && !isBatchModeRef.current) {
-          notifications.show(options);
+          showNotification(options);
         } else {
           logger.debug(
             '🔇 Notification suppressed (batch mode):',
@@ -330,7 +327,7 @@ export function useTransactionOperations(
         const newDate = getCellValue(newValue);
         updateTransactionData({ 'Order Date': newDate });
 
-        showNotification({
+        notify({
           title: 'Success',
           message: 'Order Date updated successfully',
           color: 'green',
@@ -371,7 +368,7 @@ export function useTransactionOperations(
                   customerName: dropdownValue,
                   warnings: validation.warnings,
                   onProceed: () => {
-                    notifications.show({
+                    notify({
                       title: '⚠️ Warning Acknowledged',
                       message: `Proceeding with customer "${dropdownValue}" despite warnings`,
                       color: 'yellow',
@@ -380,7 +377,7 @@ export function useTransactionOperations(
                   },
                   onCancel: () => {
                     updateTransactionData({ Customers: '' });
-                    notifications.show({
+                    notify({
                       title: '🚫 Customer Selection Cancelled',
                       message: `Customer "${dropdownValue}" was not selected due to warnings`,
                       color: 'orange',
@@ -416,7 +413,7 @@ export function useTransactionOperations(
           'Order Date': autoPopulatedOrderDate,
         });
 
-        showNotification({
+        notify({
           title: 'Success',
           message:
             dropdownValue &&
@@ -590,7 +587,7 @@ export function useTransactionOperations(
             });
 
             if (!shouldClear) {
-              notifications.show({
+              notify({
                 title: '✅ Action Cancelled',
                 message: `Product Code clearing cancelled. Order Status "${currentOrderStatus}" preserved.`,
                 color: 'blue',
@@ -650,7 +647,7 @@ export function useTransactionOperations(
           message += ' (Unit Price cleared)';
         }
 
-        showNotification({ title: 'Success', message, color: 'green' });
+        notify({ title: 'Success', message, color: 'green' });
 
         if (shouldLog) {
           const previousProduct =
@@ -859,7 +856,7 @@ export function useTransactionOperations(
           message = 'Quantity updated and Unit Price cleared';
         }
 
-        showNotification({ title: 'Success', message, color: 'green' });
+        notify({ title: 'Success', message, color: 'green' });
 
         if (shouldLog) {
           const previousQuantity = transaction.Quantity ?? 0;
@@ -911,7 +908,7 @@ export function useTransactionOperations(
 
         updateTransactionData(updatedFields);
 
-        showNotification({
+        notify({
           title: 'Success',
           message: 'Unit Price updated successfully',
           color: 'green',
@@ -975,7 +972,7 @@ export function useTransactionOperations(
 
         updateTransactionData(updatedFields);
 
-        showNotification({
+        notify({
           title: 'Success',
           message: 'Discount updated successfully',
           color: 'green',
@@ -1028,7 +1025,7 @@ export function useTransactionOperations(
 
         updateTransactionData(updatedFields);
 
-        showNotification({
+        notify({
           title: 'Success',
           message: 'Adjustment updated successfully',
           color: 'green',
@@ -1061,7 +1058,7 @@ export function useTransactionOperations(
 
         updateTransactionData({ 'Order Status': dropdownValue });
 
-        showNotification({
+        notify({
           title: 'Success',
           message: 'Order Status updated successfully',
           color: 'green',
@@ -1091,7 +1088,7 @@ export function useTransactionOperations(
 
         updateTransactionData({ Notes: notesValue });
 
-        showNotification({
+        notify({
           title: 'Success',
           message: 'Notes updated successfully',
           color: 'green',
@@ -1142,7 +1139,7 @@ export function useTransactionOperations(
       const data = await api.get<TransactionData[]>('/api/transactions');
       bulkUpdate(data);
 
-      notifications.show({
+      showNotification({
         title: 'Success',
         message: '10 empty rows added successfully',
         color: 'green',
@@ -1159,7 +1156,7 @@ export function useTransactionOperations(
         error instanceof Error
           ? error.message
           : 'Failed to add empty rows to database';
-      notifications.show({
+      showNotification({
         title: 'Error',
         message: errorMessage,
         color: 'red',
@@ -1180,7 +1177,7 @@ export function useTransactionOperations(
           TransactionService.transformCSVToTransactions(text);
 
         if (importedTransactions.length === 0) {
-          notifications.show({
+          showNotification({
             title: '⚠️ Import Warning',
             message: 'No valid transaction data found in the CSV file',
             color: 'yellow',
@@ -1200,7 +1197,7 @@ export function useTransactionOperations(
           await api.get<TransactionData[]>('/api/transactions');
         bulkUpdate(reloadedData);
 
-        notifications.show({
+        showNotification({
           title: '✅ Import Successful',
           message: `${result.count} transactions imported with auto-calculated Unit Price and Line Total`,
           color: 'green',
@@ -1217,7 +1214,7 @@ export function useTransactionOperations(
         );
       } catch (error) {
         logger.error('Import error:', error);
-        notifications.show({
+        showNotification({
           title: '❌ Import Failed',
           message: 'Failed to parse CSV file. Please check the file format.',
           color: 'red',

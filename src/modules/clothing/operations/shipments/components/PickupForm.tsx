@@ -9,7 +9,7 @@
 
 import { useMemo } from 'react';
 import { Stack, Card, Text, Group, Table, Title } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import {
   IconUser,
   IconBarcode,
@@ -51,7 +51,7 @@ export function PickupForm({ shipments }: PickupFormProps) {
   const copyToClipboard = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      notifications.show({
+      showNotification({
         title: 'Copied!',
         message: `${label} copied to clipboard`,
         color: 'green',
@@ -59,7 +59,7 @@ export function PickupForm({ shipments }: PickupFormProps) {
         autoClose: 2000,
       });
     } catch (err) {
-      notifications.show({
+      showNotification({
         title: 'Failed to copy',
         message: 'Please try again',
         color: 'red',

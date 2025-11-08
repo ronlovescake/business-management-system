@@ -39,7 +39,7 @@ interface ScheduleControlsProps {
   recurringRules: RecurringRule[];
   onSaveRecurringRule: (
     rule: Omit<RecurringRule, 'id'> & { id?: string }
-  ) => string;
+  ) => string | Promise<string>;
   onDeleteRecurringRule: (id: string) => void;
   employees: EmployeeSummary[];
   isLoadingEmployees: boolean;

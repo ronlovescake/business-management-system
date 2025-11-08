@@ -27,7 +27,7 @@ import {
   IconPhone,
   IconUser,
 } from '@tabler/icons-react';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -104,7 +104,7 @@ export function DispatchComponent() {
       logger.info('Orders saved to database', response.data);
       // Invalidate and refetch
       queryClient.invalidateQueries({ queryKey: ['dispatch-orders'] });
-      notifications.show({
+      showNotification({
         title: 'Success',
         message: `${response.data.created} orders saved to database (replaced ${response.data.deleted} previous orders)`,
         color: 'green',
@@ -112,7 +112,7 @@ export function DispatchComponent() {
     },
     onError: (error) => {
       logger.error('Failed to save orders to database', error);
-      notifications.show({
+      showNotification({
         title: 'Error',
         message: 'Failed to save orders to database. Please try again.',
         color: 'red',
@@ -174,7 +174,7 @@ export function DispatchComponent() {
       });
       queryClient.invalidateQueries({ queryKey: ['dispatch-orders'] });
 
-      notifications.show({
+      showNotification({
         title: 'Customer Linked',
         message: data.addressAdded
           ? `Shopee username and delivery address added successfully!`
@@ -184,7 +184,7 @@ export function DispatchComponent() {
     },
     onError: (error) => {
       logger.error('Failed to link customer', error);
-      notifications.show({
+      showNotification({
         title: 'Error',
         message: 'Failed to link customer. Please try again.',
         color: 'red',
@@ -434,7 +434,7 @@ export function DispatchComponent() {
       // Save to database (replaces previous data)
       await saveOrdersMutation.mutateAsync(jsonData);
 
-      notifications.show({
+      showNotification({
         title: 'Success',
         message: `Successfully imported and saved ${jsonData.length} rows from ${file.name}`,
         color: 'green',
@@ -454,7 +454,7 @@ export function DispatchComponent() {
           ? error.message
           : 'Failed to import XLSX file. Please ensure the file is a valid Excel file with data.';
 
-      notifications.show({
+      showNotification({
         title: 'Import Failed',
         message: errorMessage,
         color: 'red',
@@ -469,7 +469,7 @@ export function DispatchComponent() {
   const copyToClipboard = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      notifications.show({
+      showNotification({
         title: 'Copied!',
         message: `${label} copied to clipboard`,
         color: 'green',
@@ -477,7 +477,7 @@ export function DispatchComponent() {
         autoClose: 2000,
       });
     } catch (err) {
-      notifications.show({
+      showNotification({
         title: 'Failed to copy',
         message: 'Please try again',
         color: 'red',

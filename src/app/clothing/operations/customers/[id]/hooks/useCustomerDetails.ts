@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import { api } from '@/lib/api/client';
 import { queryKeys } from '@/lib/queryKeys';
 import { logger } from '@/lib/logger';
@@ -138,7 +138,7 @@ export function useCustomerDetails(
       }
 
       logger.error('Error updating customer:', error);
-      notifications.show({
+      showNotification({
         title: 'Error',
         message: 'Failed to update customer',
         color: 'red',
@@ -147,7 +147,7 @@ export function useCustomerDetails(
     onSuccess: (updatedCustomer) => {
       setEditModalOpen(false);
 
-      notifications.show({
+      showNotification({
         title: '✅ Customer Updated Successfully!',
         message: `${updatedCustomer['Customer Name'] || 'Customer'} information has been saved`,
         color: 'green',

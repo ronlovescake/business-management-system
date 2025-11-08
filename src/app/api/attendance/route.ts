@@ -23,7 +23,10 @@ export async function GET(request: NextRequest) {
 
     // Sanitize query parameters
     if (employeeId) {
-      where.employeeId = sanitizers.productCode(employeeId);
+      const normalizedEmployeeId = sanitizers.productCode(employeeId);
+      if (normalizedEmployeeId) {
+        where.employeeId = normalizedEmployeeId.toUpperCase();
+      }
     }
 
     if (status && status !== 'all') {

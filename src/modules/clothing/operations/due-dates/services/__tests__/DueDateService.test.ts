@@ -230,7 +230,9 @@ describe('DueDateService', () => {
     });
 
     it('should return empty array for null/undefined input', () => {
-      const result = DueDateService.processDueDateItems(null as unknown as Transaction[]);
+      const result = DueDateService.processDueDateItems(
+        null as unknown as Transaction[]
+      );
       expect(result).toEqual([]);
     });
 
@@ -284,7 +286,7 @@ describe('DueDateService', () => {
         lineTotal: 1000,
         invoiceDate: '2025-01-15',
         dueDate: '2025-02-14',
-        dueIn: 5, // Due soon
+        dueIn: 120, // Due soon (5 days)
         contactBuyer: '',
       },
       {
@@ -296,7 +298,7 @@ describe('DueDateService', () => {
         lineTotal: 1000,
         invoiceDate: '2025-01-10',
         dueDate: '2025-03-10',
-        dueIn: 30, // On track
+        dueIn: 200, // On track (> 168 hours)
         contactBuyer: '',
       },
     ];
@@ -307,44 +309,72 @@ describe('DueDateService', () => {
     });
 
     it('should filter by customer name (case-insensitive)', () => {
-      const result = DueDateService.filterDueDateItems(mockItems, 'apple', 'all');
+      const result = DueDateService.filterDueDateItems(
+        mockItems,
+        'apple',
+        'all'
+      );
       expect(result).toHaveLength(1);
       expect(result[0].customer).toBe('Apple Inc');
     });
 
     it('should filter by product code (case-insensitive)', () => {
-      const result = DueDateService.filterDueDateItems(mockItems, 'prod-002', 'all');
+      const result = DueDateService.filterDueDateItems(
+        mockItems,
+        'prod-002',
+        'all'
+      );
       expect(result).toHaveLength(1);
       expect(result[0].productCode).toBe('PROD-002');
     });
 
     it('should filter overdue items', () => {
-      const result = DueDateService.filterDueDateItems(mockItems, '', 'overdue');
+      const result = DueDateService.filterDueDateItems(
+        mockItems,
+        '',
+        'overdue'
+      );
       expect(result).toHaveLength(1);
       expect(result[0].dueIn).toBeLessThan(0);
     });
 
     it('should filter due-soon items (0-7 days)', () => {
-      const result = DueDateService.filterDueDateItems(mockItems, '', 'due-soon');
+      const result = DueDateService.filterDueDateItems(
+        mockItems,
+        '',
+        'due-soon'
+      );
       expect(result).toHaveLength(1);
       expect(result[0].dueIn).toBeGreaterThanOrEqual(0);
-      expect(result[0].dueIn).toBeLessThanOrEqual(7);
+      expect(result[0].dueIn).toBeLessThanOrEqual(168);
     });
 
     it('should filter on-track items (>7 days)', () => {
-      const result = DueDateService.filterDueDateItems(mockItems, '', 'on-track');
+      const result = DueDateService.filterDueDateItems(
+        mockItems,
+        '',
+        'on-track'
+      );
       expect(result).toHaveLength(1);
-      expect(result[0].dueIn).toBeGreaterThan(7);
+      expect(result[0].dueIn).toBeGreaterThan(168);
     });
 
     it('should combine search and status filter', () => {
-      const result = DueDateService.filterDueDateItems(mockItems, 'banana', 'due-soon');
+      const result = DueDateService.filterDueDateItems(
+        mockItems,
+        'banana',
+        'due-soon'
+      );
       expect(result).toHaveLength(1);
       expect(result[0].customer).toBe('Banana Corp');
     });
 
     it('should return empty array when no matches', () => {
-      const result = DueDateService.filterDueDateItems(mockItems, 'nonexistent', 'all');
+      const result = DueDateService.filterDueDateItems(
+        mockItems,
+        'nonexistent',
+        'all'
+      );
       expect(result).toEqual([]);
     });
   });
@@ -376,13 +406,19 @@ describe('DueDateService', () => {
     ];
 
     it('should get all orders for a specific customer', () => {
-      const result = DueDateService.getCustomerOrders(mockTransactions, 'Customer A');
+      const result = DueDateService.getCustomerOrders(
+        mockTransactions,
+        'Customer A'
+      );
       expect(result).toHaveLength(2);
       expect(result.every((t) => t.Customers === 'Customer A')).toBe(true);
     });
 
     it('should return empty array for nonexistent customer', () => {
-      const result = DueDateService.getCustomerOrders(mockTransactions, 'Customer Z');
+      const result = DueDateService.getCustomerOrders(
+        mockTransactions,
+        'Customer Z'
+      );
       expect(result).toEqual([]);
     });
 
@@ -402,7 +438,10 @@ describe('DueDateService', () => {
         },
       ];
 
-      const result = DueDateService.getCustomerOrders(transactions, 'Customer A');
+      const result = DueDateService.getCustomerOrders(
+        transactions,
+        'Customer A'
+      );
       expect(result).toHaveLength(1);
     });
 
@@ -422,7 +461,10 @@ describe('DueDateService', () => {
         },
       ];
 
-      const result = DueDateService.getCustomerOrders(transactions, 'Customer A');
+      const result = DueDateService.getCustomerOrders(
+        transactions,
+        'Customer A'
+      );
       expect(result).toHaveLength(1);
     });
 
@@ -442,12 +484,18 @@ describe('DueDateService', () => {
         },
       ];
 
-      const result = DueDateService.getCustomerOrders(transactions, 'Customer A');
+      const result = DueDateService.getCustomerOrders(
+        transactions,
+        'Customer A'
+      );
       expect(result).toHaveLength(1);
     });
 
     it('should return empty array for null transactions', () => {
-      const result = DueDateService.getCustomerOrders(null as unknown as Transaction[], 'Customer A');
+      const result = DueDateService.getCustomerOrders(
+        null as unknown as Transaction[],
+        'Customer A'
+      );
       expect(result).toEqual([]);
     });
 
@@ -466,10 +514,10 @@ describe('DueDateService', () => {
       const items: DueDateItem[] = [
         { id: '1', dueIn: -5 } as DueDateItem, // Overdue
         { id: '2', dueIn: -10 } as DueDateItem, // Overdue
-        { id: '3', dueIn: 3 } as DueDateItem, // Due soon
-        { id: '4', dueIn: 7 } as DueDateItem, // Due soon
-        { id: '5', dueIn: 10 } as DueDateItem, // On track
-        { id: '6', dueIn: 20 } as DueDateItem, // On track
+        { id: '3', dueIn: 24 } as DueDateItem, // Due soon (1 day)
+        { id: '4', dueIn: 168 } as DueDateItem, // Due soon (7 days)
+        { id: '5', dueIn: 200 } as DueDateItem, // On track
+        { id: '6', dueIn: 240 } as DueDateItem, // On track
       ];
 
       const result = DueDateService.calculateStats(items);
@@ -514,7 +562,7 @@ describe('DueDateService', () => {
     });
 
     it('should handle edge case: dueIn = 7 (last day of due soon)', () => {
-      const items: DueDateItem[] = [{ id: '1', dueIn: 7 } as DueDateItem];
+      const items: DueDateItem[] = [{ id: '1', dueIn: 168 } as DueDateItem];
 
       const result = DueDateService.calculateStats(items);
 
@@ -524,7 +572,7 @@ describe('DueDateService', () => {
     });
 
     it('should handle edge case: dueIn = 8 (first day of on-track)', () => {
-      const items: DueDateItem[] = [{ id: '1', dueIn: 8 } as DueDateItem];
+      const items: DueDateItem[] = [{ id: '1', dueIn: 169 } as DueDateItem];
 
       const result = DueDateService.calculateStats(items);
 

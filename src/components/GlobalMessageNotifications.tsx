@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import { messagingService } from '@/services/messaging.service';
 import { usePathname } from 'next/navigation';
 import {
@@ -140,7 +140,7 @@ export function GlobalMessageNotifications() {
         const conversationTitle = conversation.title || senderName;
 
         // Show visual notification
-        notifications.show({
+        showNotification({
           title: `${senderName} (${conversationTitle})`,
           message: lastMessage.body,
           color: 'blue',

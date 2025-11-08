@@ -17,7 +17,7 @@ import {
   Title,
   PasswordInput,
 } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import { useForm } from '@mantine/form';
 import {
   IconBrandGithub,
@@ -60,7 +60,7 @@ export default function LoginPage() {
 
       // This code won't run if redirect is true
       if (result?.error) {
-        notifications.show({
+        showNotification({
           title: 'Authentication Failed',
           message: result.error,
           color: 'red',
@@ -69,7 +69,7 @@ export default function LoginPage() {
         setIsSubmitting(false);
       }
     } catch (error) {
-      notifications.show({
+      showNotification({
         title: 'Error',
         message: 'An unexpected error occurred. Please try again.',
         color: 'red',

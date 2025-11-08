@@ -95,7 +95,9 @@ describe('SortingDistributionService', () => {
       );
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.some((e) => e.includes('Grid must have exactly'))).toBe(true);
+      expect(
+        result.errors.some((e) => e.includes('Grid must have exactly'))
+      ).toBe(true);
     });
 
     it('should return error for negative quantity', () => {
@@ -114,7 +116,9 @@ describe('SortingDistributionService', () => {
       );
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.some((e) => e.includes('cannot be negative'))).toBe(true);
+      expect(result.errors.some((e) => e.includes('cannot be negative'))).toBe(
+        true
+      );
     });
 
     it('should return error for invalid percentage range', () => {
@@ -133,7 +137,9 @@ describe('SortingDistributionService', () => {
       );
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.some((e) => e.includes('between 0 and 100'))).toBe(true);
+      expect(result.errors.some((e) => e.includes('between 0 and 100'))).toBe(
+        true
+      );
     });
   });
 
@@ -204,11 +210,41 @@ describe('SortingDistributionService', () => {
   describe('assignGroupNumbers', () => {
     it('should assign group numbers to rows with quantity > 0', () => {
       const rows: DistributionRow[] = [
-        { quantity: 10, percentage: 0, groupNumber: '', distribution: 0, checked: false },
-        { quantity: 0, percentage: 0, groupNumber: '', distribution: 0, checked: false },
-        { quantity: 20, percentage: 0, groupNumber: '', distribution: 0, checked: false },
-        { quantity: 0, percentage: 0, groupNumber: '', distribution: 0, checked: false },
-        { quantity: 5, percentage: 0, groupNumber: '', distribution: 0, checked: false },
+        {
+          quantity: 10,
+          percentage: 0,
+          groupNumber: '',
+          distribution: 0,
+          checked: false,
+        },
+        {
+          quantity: 0,
+          percentage: 0,
+          groupNumber: '',
+          distribution: 0,
+          checked: false,
+        },
+        {
+          quantity: 20,
+          percentage: 0,
+          groupNumber: '',
+          distribution: 0,
+          checked: false,
+        },
+        {
+          quantity: 0,
+          percentage: 0,
+          groupNumber: '',
+          distribution: 0,
+          checked: false,
+        },
+        {
+          quantity: 5,
+          percentage: 0,
+          groupNumber: '',
+          distribution: 0,
+          checked: false,
+        },
       ];
 
       const result = SortingDistributionService.assignGroupNumbers(rows);
@@ -238,9 +274,27 @@ describe('SortingDistributionService', () => {
   describe('calculateDerivedFields', () => {
     it('should calculate all derived fields correctly', () => {
       const rows: DistributionRow[] = [
-        { quantity: 25, percentage: 0, groupNumber: '', distribution: 0, checked: false },
-        { quantity: 75, percentage: 0, groupNumber: '', distribution: 0, checked: false },
-        { quantity: 0, percentage: 0, groupNumber: '', distribution: 0, checked: false },
+        {
+          quantity: 25,
+          percentage: 0,
+          groupNumber: '',
+          distribution: 0,
+          checked: false,
+        },
+        {
+          quantity: 75,
+          percentage: 0,
+          groupNumber: '',
+          distribution: 0,
+          checked: false,
+        },
+        {
+          quantity: 0,
+          percentage: 0,
+          groupNumber: '',
+          distribution: 0,
+          checked: false,
+        },
       ];
 
       const result = SortingDistributionService.calculateDerivedFields(
@@ -264,7 +318,13 @@ describe('SortingDistributionService', () => {
 
     it('should reset fields when quantity is 0', () => {
       const rows: DistributionRow[] = [
-        { quantity: 0, percentage: 50, groupNumber: 'Number 1', distribution: 100, checked: false },
+        {
+          quantity: 0,
+          percentage: 50,
+          groupNumber: 'Number 1',
+          distribution: 100,
+          checked: false,
+        },
       ];
 
       const result = SortingDistributionService.calculateDerivedFields(
@@ -286,9 +346,27 @@ describe('SortingDistributionService', () => {
   describe('calculateStatistics', () => {
     it('should calculate statistics correctly', () => {
       const rows: DistributionRow[] = [
-        { quantity: 25, percentage: 0, groupNumber: '', distribution: 50, checked: false },
-        { quantity: 75, percentage: 0, groupNumber: '', distribution: 150, checked: false },
-        { quantity: 0, percentage: 0, groupNumber: '', distribution: 0, checked: false },
+        {
+          quantity: 25,
+          percentage: 0,
+          groupNumber: '',
+          distribution: 50,
+          checked: false,
+        },
+        {
+          quantity: 75,
+          percentage: 0,
+          groupNumber: '',
+          distribution: 150,
+          checked: false,
+        },
+        {
+          quantity: 0,
+          percentage: 0,
+          groupNumber: '',
+          distribution: 0,
+          checked: false,
+        },
       ];
 
       const result = SortingDistributionService.calculateStatistics(
@@ -345,9 +423,21 @@ describe('SortingDistributionService', () => {
   describe('loadProducts', () => {
     it('should load and filter sorting products', async () => {
       const mockProducts: Product[] = [
-        { productCode: 'PROD-001', shipmentStatus: 'Sorting', quantity: 100 },
-        { productCode: 'PROD-002', shipmentStatus: 'Shipped', quantity: 50 },
-        { productCode: 'PROD-001', shipmentStatus: 'Sorting', quantity: 75 },
+        {
+          'Product Code': 'PROD-001',
+          'Shipment Status': 'Sorting',
+          Quantity: 100,
+        },
+        {
+          'Product Code': 'PROD-002',
+          'Shipment Status': 'Shipped',
+          Quantity: 50,
+        },
+        {
+          'Product Code': 'PROD-001',
+          'Shipment Status': 'Sorting',
+          Quantity: 75,
+        },
       ];
 
       vi.mocked(api.get).mockResolvedValue(mockProducts);
@@ -372,9 +462,21 @@ describe('SortingDistributionService', () => {
   describe('getTotalQuantityForProduct', () => {
     it('should sum quantities for matching product code', () => {
       const mockProducts: Product[] = [
-        { productCode: 'PROD-001', shipmentStatus: null, quantity: 100 },
-        { productCode: 'PROD-002', shipmentStatus: null, quantity: 50 },
-        { productCode: 'PROD-001', shipmentStatus: null, quantity: 75 },
+        {
+          'Product Code': 'PROD-001',
+          'Shipment Status': null,
+          Quantity: 100,
+        },
+        {
+          'Product Code': 'PROD-002',
+          'Shipment Status': null,
+          Quantity: 50,
+        },
+        {
+          'Product Code': 'PROD-001',
+          'Shipment Status': null,
+          Quantity: 75,
+        },
       ];
 
       const result = SortingDistributionService.getTotalQuantityForProduct(
@@ -387,7 +489,11 @@ describe('SortingDistributionService', () => {
 
     it('should return 0 for non-matching product code', () => {
       const mockProducts: Product[] = [
-        { productCode: 'PROD-001', shipmentStatus: null, quantity: 100 },
+        {
+          'Product Code': 'PROD-001',
+          'Shipment Status': null,
+          Quantity: 100,
+        },
       ];
 
       const result = SortingDistributionService.getTotalQuantityForProduct(
@@ -517,9 +623,13 @@ describe('SortingDistributionService', () => {
     });
 
     it('should return default rows when API returns empty data', async () => {
-      vi.mocked(api.get).mockResolvedValue({ data: [], selectedQuantity: null });
+      vi.mocked(api.get).mockResolvedValue({
+        data: [],
+        selectedQuantity: null,
+      });
 
-      const result = await SortingDistributionService.loadDistributionData('PROD-001');
+      const result =
+        await SortingDistributionService.loadDistributionData('PROD-001');
 
       expect(result.rows).toHaveLength(100);
       expect(result.selectedQuantity).toBeNull();
@@ -527,13 +637,31 @@ describe('SortingDistributionService', () => {
 
     it('should restore rows from API data', async () => {
       const mockData = [
-        { row_number: 1, quantity: 25, percentage: 25, group_number: 'Number 1', distribution: 50, checked: false },
-        { row_number: 2, quantity: 75, percentage: 75, group_number: 'Number 2', distribution: 150, checked: false },
+        {
+          row_number: 1,
+          quantity: 25,
+          percentage: 25,
+          group_number: 'Number 1',
+          distribution: 50,
+          checked: false,
+        },
+        {
+          row_number: 2,
+          quantity: 75,
+          percentage: 75,
+          group_number: 'Number 2',
+          distribution: 150,
+          checked: false,
+        },
       ];
 
-      vi.mocked(api.get).mockResolvedValue({ data: mockData, selectedQuantity: 200 });
+      vi.mocked(api.get).mockResolvedValue({
+        data: mockData,
+        selectedQuantity: 200,
+      });
 
-      const result = await SortingDistributionService.loadDistributionData('PROD-001');
+      const result =
+        await SortingDistributionService.loadDistributionData('PROD-001');
 
       expect(result.rows[0]).toMatchObject({
         quantity: 25,

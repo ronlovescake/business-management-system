@@ -19,7 +19,7 @@ import {
   ThemeIcon,
   Title,
 } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import { IconUpload, IconSearch } from '@tabler/icons-react';
 import type { StatCard } from './DataTable';
 import { logger } from '@/lib/logger';
@@ -700,7 +700,7 @@ export function HandsontableGrid<T extends object>({
       await onCSVImport(csvFile);
     } catch (error) {
       logger.error('CSV import error:', error);
-      notifications.show({
+      showNotification({
         title: '❌ Import Failed',
         message: 'Failed to parse CSV file. Please check the file format.',
         color: 'red',

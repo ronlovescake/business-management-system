@@ -668,7 +668,7 @@ describe('Employees API - GET /api/employees/[id]', () => {
       deletedAt: null,
     };
 
-    mockPrisma.employee.findUnique.mockResolvedValue(mockEmployee);
+    mockPrisma.employee.findFirst.mockResolvedValue(mockEmployee);
 
     const request = new NextRequest('http://localhost/api/employees/1');
     const response = await GET_BY_ID(request, { params: { id: '1' } });
@@ -677,7 +677,7 @@ describe('Employees API - GET /api/employees/[id]', () => {
     expect(response.status).toBe(200);
     expect(data.employeeId).toBe('EMP-0001');
     expect(data.name).toBe('John Doe');
-    expect(mockPrisma.employee.findUnique).toHaveBeenCalledWith({
+    expect(mockPrisma.employee.findFirst).toHaveBeenCalledWith({
       where: {
         id: 1,
         deletedAt: null,
@@ -686,7 +686,7 @@ describe('Employees API - GET /api/employees/[id]', () => {
   });
 
   it('should return 404 if employee not found', async () => {
-    mockPrisma.employee.findUnique.mockResolvedValue(null);
+    mockPrisma.employee.findFirst.mockResolvedValue(null);
 
     const request = new NextRequest('http://localhost/api/employees/999');
     const response = await GET_BY_ID(request, { params: { id: '999' } });
@@ -697,7 +697,7 @@ describe('Employees API - GET /api/employees/[id]', () => {
   });
 
   it('should handle errors', async () => {
-    mockPrisma.employee.findUnique.mockRejectedValue(
+    mockPrisma.employee.findFirst.mockRejectedValue(
       new Error('Database error')
     );
 
@@ -744,8 +744,9 @@ describe('Employees API - PUT /api/employees/[id]', () => {
       basicSalary: 60000,
     };
 
-    mockPrisma.employee.findUnique.mockResolvedValue(existingEmployee);
-    mockPrisma.employee.findFirst.mockResolvedValue(null); // No duplicates
+    mockPrisma.employee.findFirst
+      .mockResolvedValueOnce(existingEmployee)
+      .mockResolvedValue(null); // No duplicates on subsequent checks
     mockPrisma.employee.update.mockResolvedValue(updatedEmployee);
 
     const request = new NextRequest('http://localhost/api/employees/1', {
@@ -777,7 +778,7 @@ describe('Employees API - PUT /api/employees/[id]', () => {
   });
 
   it('should return 404 if employee not found', async () => {
-    mockPrisma.employee.findUnique.mockResolvedValue(null);
+    mockPrisma.employee.findFirst.mockResolvedValue(null);
 
     const request = new NextRequest('http://localhost/api/employees/999', {
       method: 'PUT',
@@ -826,8 +827,9 @@ describe('Employees API - PUT /api/employees/[id]', () => {
       deletedAt: null,
     };
 
-    mockPrisma.employee.findUnique.mockResolvedValue(existingEmployee);
-    mockPrisma.employee.findFirst.mockResolvedValue(null); // No duplicates
+    mockPrisma.employee.findFirst
+      .mockResolvedValueOnce(existingEmployee)
+      .mockResolvedValue(null);
     mockPrisma.employee.update.mockResolvedValue(existingEmployee);
 
     const request = new NextRequest('http://localhost/api/employees/1', {
@@ -887,8 +889,9 @@ describe('Employees API - PUT /api/employees/[id]', () => {
       deletedAt: null,
     };
 
-    mockPrisma.employee.findUnique.mockResolvedValue(existingEmployee);
-    mockPrisma.employee.findFirst.mockResolvedValue(null); // No duplicates
+    mockPrisma.employee.findFirst
+      .mockResolvedValueOnce(existingEmployee)
+      .mockResolvedValue(null);
     mockPrisma.employee.update.mockResolvedValue(existingEmployee);
 
     const request = new NextRequest('http://localhost/api/employees/1', {
@@ -950,7 +953,9 @@ describe('Employees API - PUT /api/employees/[id]', () => {
       deletedAt: null,
     };
 
-    mockPrisma.employee.findUnique.mockResolvedValue(existingEmployee);
+    mockPrisma.employee.findFirst
+      .mockResolvedValueOnce(existingEmployee)
+      .mockResolvedValue(null);
     mockPrisma.employee.update.mockRejectedValue(new Error('Database error'));
 
     const request = new NextRequest('http://localhost/api/employees/1', {
@@ -1004,6 +1009,7 @@ describe('Employees API - DELETE /api/employees/[id]', () => {
       deletedAt: new Date(),
     };
 
+    mockPrisma.employee.findFirst.mockResolvedValue(mockEmployee);
     mockPrisma.employee.update.mockResolvedValue(mockEmployee);
 
     const request = new NextRequest('http://localhost/api/employees/1');
@@ -1025,6 +1031,10 @@ describe('Employees API - DELETE /api/employees/[id]', () => {
   });
 
   it('should handle errors', async () => {
+    mockPrisma.employee.findFirst.mockResolvedValue({
+      id: 1,
+      deletedAt: null,
+    });
     mockPrisma.employee.update.mockRejectedValue(new Error('Database error'));
 
     const request = new NextRequest('http://localhost/api/employees/1');

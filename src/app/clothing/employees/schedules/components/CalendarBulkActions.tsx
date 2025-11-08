@@ -17,7 +17,9 @@ import type { EmployeeSummary, RecurringRule, ShiftType } from '../types';
 
 interface CalendarBulkActionsProps {
   recurringRules: RecurringRule[];
-  onSaveRule: (rule: Omit<RecurringRule, 'id'> & { id?: string }) => string;
+  onSaveRule: (
+    rule: Omit<RecurringRule, 'id'> & { id?: string }
+  ) => string | Promise<string>;
   onDeleteRule: (id: string) => void;
   employees: EmployeeSummary[];
   isLoadingEmployees: boolean;

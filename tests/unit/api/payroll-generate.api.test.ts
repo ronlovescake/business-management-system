@@ -4,7 +4,7 @@ const { mockPrisma } = vi.hoisted(() => {
   return {
     mockPrisma: {
       payroll: {
-        findFirst: vi.fn(),
+        findMany: vi.fn(),
         createMany: vi.fn(),
       },
       attendance: {
@@ -82,7 +82,7 @@ describe('Payroll Generation API', () => {
 
   describe('POST /api/payroll/generate', () => {
     it('should generate payroll successfully for current period', async () => {
-      mockPrisma.payroll.findFirst.mockResolvedValue(null);
+      mockPrisma.payroll.findMany.mockResolvedValue([]);
       mockPrisma.attendance.findMany.mockResolvedValue(mockAttendance);
       mockPrisma.employee.findMany.mockResolvedValue(mockEmployees);
       mockPrisma.thirteenthMonthPayRecord.findMany.mockResolvedValue([]);
@@ -124,7 +124,7 @@ describe('Payroll Generation API', () => {
     });
 
     it('should exclude paid 13th month pay from generated payroll', async () => {
-      mockPrisma.payroll.findFirst.mockResolvedValue(null);
+      mockPrisma.payroll.findMany.mockResolvedValue([]);
       mockPrisma.attendance.findMany.mockResolvedValue(mockAttendance);
       mockPrisma.employee.findMany.mockResolvedValue(mockEmployees);
 
@@ -169,7 +169,7 @@ describe('Payroll Generation API', () => {
     });
 
     it('should include pending 13th month pay in generated payroll', async () => {
-      mockPrisma.payroll.findFirst.mockResolvedValue(null);
+      mockPrisma.payroll.findMany.mockResolvedValue([]);
       mockPrisma.attendance.findMany.mockResolvedValue([mockAttendance[0]]);
       mockPrisma.employee.findMany.mockResolvedValue([mockEmployees[0]]);
 
@@ -199,7 +199,7 @@ describe('Payroll Generation API', () => {
     });
 
     it('should query 13th month records for correct year', async () => {
-      mockPrisma.payroll.findFirst.mockResolvedValue(null);
+      mockPrisma.payroll.findMany.mockResolvedValue([]);
       mockPrisma.attendance.findMany.mockResolvedValue(mockAttendance);
       mockPrisma.employee.findMany.mockResolvedValue(mockEmployees);
       mockPrisma.thirteenthMonthPayRecord.findMany.mockResolvedValue([]);
@@ -219,9 +219,22 @@ describe('Payroll Generation API', () => {
     });
 
     it('should return error when payroll already exists for period', async () => {
-      mockPrisma.payroll.findFirst.mockResolvedValue({
-        id: 'existing-payroll-id',
-      });
+      mockPrisma.payroll.findMany.mockResolvedValue([
+        {
+          id: 'existing-payroll-id-1',
+          deletedAt: null,
+          employeeId: 'EMP-001',
+          employeeName: 'John Doe',
+        },
+        {
+          id: 'existing-payroll-id-2',
+          deletedAt: null,
+          employeeId: 'EMP-002',
+          employeeName: 'Jane Smith',
+        },
+      ]);
+
+      mockPrisma.attendance.findMany.mockResolvedValue(mockAttendance);
 
       const response = await POST();
       const data = await response.json();
@@ -231,12 +244,13 @@ describe('Payroll Generation API', () => {
       expect(data.message).toContain('Payroll already exists for period');
       expect(data.period.label).toBe('2025-10-16 to 2025-10-31');
 
-      expect(mockPrisma.attendance.findMany).not.toHaveBeenCalled();
+      expect(mockPrisma.attendance.findMany).toHaveBeenCalled();
       expect(mockPrisma.payroll.createMany).not.toHaveBeenCalled();
+      expect(mockPrisma.employee.findMany).not.toHaveBeenCalled();
     });
 
     it('should return error when no attendance records found', async () => {
-      mockPrisma.payroll.findFirst.mockResolvedValue(null);
+      mockPrisma.payroll.findMany.mockResolvedValue([]);
       mockPrisma.attendance.findMany.mockResolvedValue([]);
 
       const response = await POST();
@@ -251,7 +265,7 @@ describe('Payroll Generation API', () => {
     });
 
     it('should handle employees with null 13th month records', async () => {
-      mockPrisma.payroll.findFirst.mockResolvedValue(null);
+      mockPrisma.payroll.findMany.mockResolvedValue([]);
       mockPrisma.attendance.findMany.mockResolvedValue(mockAttendance);
       mockPrisma.employee.findMany.mockResolvedValue(mockEmployees);
 
@@ -291,14 +305,14 @@ describe('Payroll Generation API', () => {
     });
 
     it('should calculate overtime pay correctly', async () => {
-      mockPrisma.payroll.findFirst.mockResolvedValue(null);
+      mockPrisma.payroll.findMany.mockResolvedValue([]);
 
-      // Employee worked 10 separate days with total 96 hours (16 hours overtime)
-      // Each attendance record represents one day
-      const attendanceRecords = Array.from({ length: 10 }, (_, i) => ({
+      // Employee worked 10 separate days with total 134 hours (4 hours overtime)
+      // Stay-in employees have a 13-hour standard workday per policy
+      const attendanceRecords = Array.from({ length: 10 }, (_, index) => ({
         employeeId: 'EMP-001',
         employeeName: 'John Doe',
-        totalHours: i < 8 ? 8 : 10, // 8 days with 8 hours, 2 days with 10 hours
+        totalHours: index === 9 ? 17 : 13,
       }));
 
       mockPrisma.attendance.findMany.mockResolvedValue(attendanceRecords);
@@ -315,16 +329,16 @@ describe('Payroll Generation API', () => {
       const createManyCall = mockPrisma.payroll.createMany.mock.calls[0][0];
       const payrollRecord = createManyCall.data[0];
 
-      // daysWorked = 10, standardHours = 10 * 8 = 80
-      // totalHours = (8 * 8) + (2 * 10) = 64 + 20 = 84
-      // overtimeHours = 84 - 80 = 4
+      // daysWorked = 10, standardHours = 10 * 13 = 130
+      // totalHours = (9 * 13) + 17 = 117 + 17 = 134
+      // overtimeHours = 134 - 130 = 4
       // Hourly rate = 26000 / 26 / 8 = 125
       // OT pay = 4 hours * 125 * 1.25 = 625
       expect(payrollRecord.overtime).toBeCloseTo(625, 2);
     });
 
     it('should handle database errors gracefully', async () => {
-      mockPrisma.payroll.findFirst.mockRejectedValue(
+      mockPrisma.payroll.findMany.mockRejectedValue(
         new Error('Database connection failed')
       );
 
@@ -339,7 +353,7 @@ describe('Payroll Generation API', () => {
 
     it('should use correct pay period for first half of month (Oct 16-31)', async () => {
       // Already mocked to Oct 22 in beforeEach
-      mockPrisma.payroll.findFirst.mockResolvedValue(null);
+      mockPrisma.payroll.findMany.mockResolvedValue([]);
       mockPrisma.attendance.findMany.mockResolvedValue(mockAttendance);
       mockPrisma.employee.findMany.mockResolvedValue(mockEmployees);
       mockPrisma.thirteenthMonthPayRecord.findMany.mockResolvedValue([]);
@@ -356,7 +370,7 @@ describe('Payroll Generation API', () => {
       // Change date to Oct 10 (first half)
       vi.setSystemTime(new Date('2025-10-10T08:00:00.000Z'));
 
-      mockPrisma.payroll.findFirst.mockResolvedValue(null);
+      mockPrisma.payroll.findMany.mockResolvedValue([]);
       mockPrisma.attendance.findMany.mockResolvedValue(mockAttendance);
       mockPrisma.employee.findMany.mockResolvedValue(mockEmployees);
       mockPrisma.thirteenthMonthPayRecord.findMany.mockResolvedValue([]);

@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import Swal from 'sweetalert2';
 import type {
   AttendanceRecord,
@@ -115,7 +115,7 @@ export function useAttendance() {
         setRecords(data || []);
       } catch (error) {
         logger.error('Error fetching attendance:', error);
-        notifications.show({
+        showNotification({
           color: 'red',
           title: 'Error',
           message: 'Failed to fetch attendance records',
@@ -220,14 +220,14 @@ export function useAttendance() {
 
         setRecords((prev) => prev.filter((record) => record.id !== id));
 
-        notifications.show({
+        showNotification({
           color: 'green',
           title: 'Deleted',
           message: 'Attendance record deleted successfully',
         });
       } catch (error) {
         logger.error('Error deleting attendance:', error);
-        notifications.show({
+        showNotification({
           color: 'red',
           title: 'Error',
           message: 'Failed to delete attendance record',
@@ -247,14 +247,14 @@ export function useAttendance() {
         prev.map((record) => (record.id === id ? updated : record))
       );
 
-      notifications.show({
+      showNotification({
         color: 'green',
         title: 'Updated',
         message: 'Status updated successfully',
       });
     } catch (error) {
       logger.error('Error updating status:', error);
-      notifications.show({
+      showNotification({
         color: 'red',
         title: 'Error',
         message: 'Failed to update status',
@@ -578,7 +578,7 @@ export function useAttendance() {
         `,
       });
 
-      notifications.show({
+      showNotification({
         color: 'green',
         title: 'Success',
         message: `Recorded ${newAttendanceRecords.length} attendance records`,
@@ -605,7 +605,7 @@ export function useAttendance() {
     const trimmedId = recordForm.employeeId.trim();
 
     if (!trimmedName || !trimmedId || !recordForm.date) {
-      notifications.show({
+      showNotification({
         color: 'red',
         title: 'Incomplete details',
         message: 'Employee name, employee ID, and date are required.',
@@ -664,14 +664,14 @@ export function useAttendance() {
           : recordForm.status.charAt(0).toUpperCase() +
             recordForm.status.slice(1);
 
-      notifications.show({
+      showNotification({
         color: 'green',
         title: 'Attendance recorded',
         message: `${trimmedName} marked as ${statusLabel}.`,
       });
     } catch (error) {
       logger.error('Error saving attendance:', error);
-      notifications.show({
+      showNotification({
         color: 'red',
         title: 'Error',
         message: 'Failed to save attendance record',

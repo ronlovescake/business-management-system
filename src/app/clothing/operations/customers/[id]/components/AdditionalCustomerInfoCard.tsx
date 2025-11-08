@@ -16,7 +16,7 @@ import {
   IconPhone,
   IconBrandShopee,
 } from '@tabler/icons-react';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import Swal from 'sweetalert2';
 
 // ============================================================================
@@ -63,7 +63,7 @@ export const AdditionalCustomerInfoCard = memo(
       } catch (error) {
         // eslint-disable-next-line no-console
         console.error('Error fetching additional info:', error);
-        notifications.show({
+        showNotification({
           title: 'Error',
           message: 'Failed to load additional customer information',
           color: 'red',
@@ -99,7 +99,7 @@ export const AdditionalCustomerInfoCard = memo(
         );
 
         if (response.ok) {
-          notifications.show({
+          showNotification({
             title: 'Success',
             message: 'Additional customer information saved successfully',
             color: 'green',
@@ -111,7 +111,7 @@ export const AdditionalCustomerInfoCard = memo(
       } catch (error) {
         // eslint-disable-next-line no-console
         console.error('Error saving additional info:', error);
-        notifications.show({
+        showNotification({
           title: 'Error',
           message: 'Failed to save additional customer information',
           color: 'red',

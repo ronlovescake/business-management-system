@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import Swal from 'sweetalert2';
 import { queryKeys } from '@/lib/queryKeys';
 import { showError, showSuccess, showDeleteConfirm } from '@/lib/alerts';
@@ -99,7 +99,7 @@ export function useAttendance() {
   // Log errors
   if (error) {
     logger.error('Error fetching attendance:', error);
-    notifications.show({
+    showNotification({
       color: 'red',
       title: 'Error',
       message: 'Failed to fetch attendance records',
@@ -227,14 +227,14 @@ export function useAttendance() {
         );
       }
       logger.error('Error deleting attendance:', error);
-      notifications.show({
+      showNotification({
         color: 'red',
         title: 'Error',
         message: 'Failed to delete attendance record',
       });
     },
     onSuccess: () => {
-      notifications.show({
+      showNotification({
         color: 'green',
         title: 'Deleted',
         message: 'Attendance record deleted successfully',
@@ -290,14 +290,14 @@ export function useAttendance() {
         );
       }
       logger.error('Error updating status:', error);
-      notifications.show({
+      showNotification({
         color: 'red',
         title: 'Error',
         message: 'Failed to update status',
       });
     },
     onSuccess: () => {
-      notifications.show({
+      showNotification({
         color: 'green',
         title: 'Updated',
         message: 'Status updated successfully',
@@ -347,7 +347,7 @@ export function useAttendance() {
         );
       }
       logger.error('Error saving attendance:', error);
-      notifications.show({
+      showNotification({
         color: 'red',
         title: 'Error',
         message: 'Failed to save attendance record',
@@ -363,7 +363,7 @@ export function useAttendance() {
           : variables.status.charAt(0).toUpperCase() +
             variables.status.slice(1);
 
-      notifications.show({
+      showNotification({
         color: 'green',
         title: 'Attendance recorded',
         message: `${variables.employeeName} marked as ${statusLabel}.`,
@@ -459,7 +459,7 @@ export function useAttendance() {
         allowOutsideClick: false,
       });
 
-      notifications.show({
+      showNotification({
         color: 'green',
         title: 'Success',
         message: `Recorded ${variables.length} attendance records`,
@@ -876,7 +876,7 @@ export function useAttendance() {
     const trimmedId = recordForm.employeeId.trim();
 
     if (!trimmedName || !trimmedId || !recordForm.date) {
-      notifications.show({
+      showNotification({
         color: 'red',
         title: 'Incomplete details',
         message: 'Employee name, employee ID, and date are required.',

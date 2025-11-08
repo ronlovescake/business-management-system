@@ -2,6 +2,8 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 
+export const dynamic = 'force-dynamic';
+
 // GET: Load version history from server
 export async function GET(request: NextRequest) {
   try {

@@ -28,7 +28,7 @@ import {
   ScrollArea,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import {
   IconPlus,
   IconEdit,
@@ -148,7 +148,7 @@ export default function UserManagementPage() {
       const data = await response.json();
       setModules(data);
     } catch (error) {
-      notifications.show({
+      showNotification({
         title: 'Error',
         message: 'Failed to load modules',
         color: 'red',
@@ -169,7 +169,7 @@ export default function UserManagementPage() {
       setUserPermissions((prev) => ({ ...prev, [userId]: moduleIds }));
       setOriginalPermissions((prev) => ({ ...prev, [userId]: moduleIds }));
     } catch (error) {
-      notifications.show({
+      showNotification({
         title: 'Error',
         message: 'Failed to load user permissions',
         color: 'red',
@@ -259,14 +259,14 @@ export default function UserManagementPage() {
       // Update original permissions to match current after successful save
       setOriginalPermissions((prev) => ({ ...prev, [userId]: moduleIds }));
 
-      notifications.show({
+      showNotification({
         title: 'Success',
         message: 'Permissions updated successfully',
         color: 'green',
         icon: <IconCheck size={18} />,
       });
     } catch (error) {
-      notifications.show({
+      showNotification({
         title: 'Error',
         message: 'Failed to update permissions',
         color: 'red',
@@ -374,7 +374,7 @@ export default function UserManagementPage() {
       const data = await response.json();
       setUsers(data);
     } catch (error) {
-      notifications.show({
+      showNotification({
         title: 'Error',
         message: 'Failed to load users',
         color: 'red',
@@ -399,7 +399,7 @@ export default function UserManagementPage() {
         throw new Error(data.error || 'Failed to create user');
       }
 
-      notifications.show({
+      showNotification({
         title: 'Success',
         message: data.message || 'User created successfully',
         color: 'green',
@@ -410,7 +410,7 @@ export default function UserManagementPage() {
       createForm.reset();
       fetchUsers();
     } catch (error) {
-      notifications.show({
+      showNotification({
         title: 'Error',
         message:
           error instanceof Error ? error.message : 'Failed to create user',
@@ -458,7 +458,7 @@ export default function UserManagementPage() {
         throw new Error(data.error || 'Failed to update user');
       }
 
-      notifications.show({
+      showNotification({
         title: 'Success',
         message: data.message || 'User updated successfully',
         color: 'green',
@@ -470,7 +470,7 @@ export default function UserManagementPage() {
       editForm.reset();
       fetchUsers();
     } catch (error) {
-      notifications.show({
+      showNotification({
         title: 'Error',
         message:
           error instanceof Error ? error.message : 'Failed to update user',

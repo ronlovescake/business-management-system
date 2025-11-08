@@ -11,7 +11,7 @@ import {
   SimpleGrid,
 } from '@mantine/core';
 import { IconPlus, IconCurrencyPeso, IconCheck } from '@tabler/icons-react';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import type { PriceFormData } from '../types/price.types';
 import { logger } from '@/lib/logger';
 
@@ -58,7 +58,7 @@ export const AddPriceModal = memo(function AddPriceModal({
       onReset();
       onClose();
 
-      notifications.show({
+      showNotification({
         title: '🎉 Price Added Successfully!',
         message: `${form.productCode} has been added to your pricing database`,
         color: 'green',
@@ -67,7 +67,7 @@ export const AddPriceModal = memo(function AddPriceModal({
       });
     } catch (error) {
       logger.error('Failed to add price:', error);
-      notifications.show({
+      showNotification({
         title: '❌ Failed to Add Price',
         message: 'Could not save the price to database. Please try again.',
         color: 'red',

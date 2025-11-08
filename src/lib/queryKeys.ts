@@ -183,6 +183,8 @@ export const queryKeys = {
     all: ['operations-notifications'] as const,
     list: (category: string = 'all') =>
       [...queryKeys.operationsNotifications.all, category] as const,
+    byCategory: (category: string = 'all') =>
+      queryKeys.operationsNotifications.list(category),
   },
 } as const;
 

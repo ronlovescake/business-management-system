@@ -11,7 +11,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import Swal from 'sweetalert2';
 import { TransactionService } from '../services/TransactionService';
 import { api } from '@/lib/api/client';
@@ -168,7 +168,7 @@ export function useTransactionModals(
         );
 
         if (warehouseTransactions.length === 0) {
-          notifications.show({
+          showNotification({
             title: '⚠️ No Warehouse Transactions',
             message:
               'No visible transactions with "Warehouse" status found for invoice generation.',
@@ -263,7 +263,7 @@ export function useTransactionModals(
         });
 
         if (!result.isConfirmed) {
-          notifications.show({
+          showNotification({
             title: '✅ Invoice Generation Cancelled',
             message: 'No changes were made.',
             color: 'blue',
@@ -336,7 +336,7 @@ export function useTransactionModals(
               ? ` All ${totalWarehouse} Warehouse orders updated to Prepared status.`
               : '';
 
-          notifications.show({
+          showNotification({
             title: '✅ Invoices Generated & Status Updated',
             message: `PDF with invoices for ${totalWarehouse} Warehouse + ${totalPrepared} Prepared orders from ${customersWithWarehouse.size} customers downloaded.${statusUpdateMessage}`,
             color: 'green',
@@ -387,7 +387,7 @@ export function useTransactionModals(
         }
       } catch (error) {
         logger.error('Error preparing/generating invoices:', error);
-        notifications.show({
+        showNotification({
           title: '❌ Invoice Generation Failed',
           message:
             error instanceof Error
@@ -432,7 +432,7 @@ export function useTransactionModals(
       });
 
       if (eligible.length === 0) {
-        notifications.show({
+        showNotification({
           title: '⚠️ No Prepared Transactions',
           message:
             'No visible transactions found with "Prepared" status and line total ≤ ₱50.00.',
@@ -581,7 +581,7 @@ export function useTransactionModals(
       });
 
       if (!result.isConfirmed) {
-        notifications.show({
+        showNotification({
           title: '✅ Packing List Generation Cancelled',
           message: 'No changes were made.',
           color: 'blue',
@@ -628,7 +628,7 @@ export function useTransactionModals(
           document.body.removeChild(link);
           window.URL.revokeObjectURL(url);
 
-          notifications.show({
+          showNotification({
             title: '✅ Packing Lists Generated',
             message: `PDF with packing lists for ${eligible.length} transactions downloaded`,
             color: 'green',
@@ -784,7 +784,7 @@ export function useTransactionModals(
         }
       } catch (error) {
         logger.error('Error generating packing lists:', error);
-        notifications.show({
+        showNotification({
           title: '❌ Packing List Generation Failed',
           message:
             error instanceof Error
@@ -820,7 +820,7 @@ export function useTransactionModals(
       );
 
       if (warehouse.length === 0) {
-        notifications.show({
+        showNotification({
           title: '⚠️ No Warehouse Transactions',
           message: 'No visible transactions with "Warehouse" status found.',
           color: 'yellow',
@@ -857,7 +857,7 @@ export function useTransactionModals(
     setShowDistributionModal(false);
 
     if (!pendingDistributionData) {
-      notifications.show({
+      showNotification({
         title: '❌ Error',
         message: 'No distribution data available',
         color: 'red',
@@ -899,7 +899,7 @@ export function useTransactionModals(
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
 
-        notifications.show({
+        showNotification({
           title: '✅ Distribution Slips Generated',
           message: `PDF with ${warehouse.length} distribution slips downloaded`,
           color: 'green',
@@ -913,7 +913,7 @@ export function useTransactionModals(
       }
     } catch (error) {
       logger.error('Error generating distribution slips:', error);
-      notifications.show({
+      showNotification({
         title: '❌ Distribution Generation Failed',
         message:
           error instanceof Error
@@ -932,7 +932,7 @@ export function useTransactionModals(
     setShowDistributionModal(false);
     setPendingDistributionData(null);
 
-    notifications.show({
+    showNotification({
       title: '✅ Distribution Generation Cancelled',
       message: 'Cancelled by user.',
       color: 'blue',

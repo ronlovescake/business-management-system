@@ -16,7 +16,7 @@ import {
   Anchor,
 } from '@mantine/core';
 import { IconEdit, IconTrash } from '@tabler/icons-react';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import { getActionLabel } from '@/lib/accessibility';
 import {
   StandardDataTable,
@@ -52,7 +52,7 @@ export function CheckoutLinksComponent() {
           setData(result.data);
         }
       } catch (error) {
-        notifications.show({
+        showNotification({
           title: 'Error',
           message: 'Failed to load checkout links',
           color: 'red',
@@ -101,7 +101,7 @@ export function CheckoutLinksComponent() {
 
     // Validate file type
     if (!file.name.endsWith('.csv')) {
-      notifications.show({
+      showNotification({
         title: 'Invalid File Type',
         message: 'Please upload a CSV file',
         color: 'red',
@@ -214,7 +214,7 @@ export function CheckoutLinksComponent() {
           .then((response) => response.json())
           .then((result) => {
             if (result.success) {
-              notifications.show({
+              showNotification({
                 title: 'Import Successful',
                 message:
                   result.message ||
@@ -226,7 +226,7 @@ export function CheckoutLinksComponent() {
             }
           })
           .catch((error) => {
-            notifications.show({
+            showNotification({
               title: 'Database Error',
               message:
                 error instanceof Error
@@ -239,7 +239,7 @@ export function CheckoutLinksComponent() {
             setIsImporting(false);
           });
       } catch (error) {
-        notifications.show({
+        showNotification({
           title: 'Import Failed',
           message:
             error instanceof Error ? error.message : 'Failed to parse CSV file',
@@ -250,7 +250,7 @@ export function CheckoutLinksComponent() {
     };
 
     reader.onerror = () => {
-      notifications.show({
+      showNotification({
         title: 'Import Failed',
         message: 'Failed to read file',
         color: 'red',

@@ -22,7 +22,7 @@ import {
   Card,
   Text,
 } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import {
   IconSearch,
   IconPlus,
@@ -205,7 +205,7 @@ export function ProductsPage() {
       const result = await ProductService.importFromCSV(text);
 
       if (!result.success) {
-        notifications.show({
+        showNotification({
           title: '⚠️ Import Warning',
           message: result.errors?.[0] || 'Failed to import CSV',
           color: 'yellow',
@@ -232,7 +232,7 @@ export function ProductsPage() {
       handleSearch('');
       setFile(null);
 
-      notifications.show({
+      showNotification({
         title: '🎉 Import Successful!',
         message: `Successfully imported ${saveResult.count} product records to database`,
         color: 'green',
@@ -241,7 +241,7 @@ export function ProductsPage() {
       });
     } catch (error) {
       logger.error('Import error:', error);
-      notifications.show({
+      showNotification({
         title: '❌ Import Failed',
         message: 'Failed to parse CSV file. Please check the file format.',
         color: 'red',
@@ -337,7 +337,7 @@ export function ProductsPage() {
 
       if (applied > 0) {
         bulkUpdateProducts(nextProducts);
-        notifications.show({
+        showNotification({
           title: 'Pasted into table',
           message: `Applied ${applied} cell${applied === 1 ? '' : 's'}${clipped ? ' (some data clipped)' : ''}`,
           color: 'blue',
@@ -624,7 +624,7 @@ export function ProductsPage() {
   const handleSubmitProduct = useCallback(async () => {
     const validation = productForm.validate();
     if (!validation.isValid) {
-      notifications.show({
+      showNotification({
         title: 'Validation Error',
         message: validation.errors[0],
         color: 'red',
@@ -644,7 +644,7 @@ export function ProductsPage() {
         productData
       );
       if (result.success) {
-        notifications.show({
+        showNotification({
           title: '✅ Product Updated Successfully!',
           message: `${productForm.form.product} has been updated`,
           color: 'green',
@@ -653,7 +653,7 @@ export function ProductsPage() {
         productForm.resetForm();
         setAddProductOpen(false);
       } else {
-        notifications.show({
+        showNotification({
           title: '❌ Failed to Update Product',
           message: result.error || 'An error occurred',
           color: 'red',
@@ -662,7 +662,7 @@ export function ProductsPage() {
     } else {
       const result = await addProduct(productData);
       if (result.success) {
-        notifications.show({
+        showNotification({
           title: '🎉 Product Added Successfully!',
           message: `${productForm.form.product} has been added`,
           color: 'green',
@@ -671,7 +671,7 @@ export function ProductsPage() {
         productForm.resetForm();
         setAddProductOpen(false);
       } else {
-        notifications.show({
+        showNotification({
           title: '❌ Failed to Add Product',
           message: result.error || 'An error occurred',
           color: 'red',

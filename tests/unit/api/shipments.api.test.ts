@@ -20,6 +20,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import type { Prisma } from '@prisma/client';
 import {
   GET as getShipments,
   POST as createShipments,
@@ -388,15 +389,21 @@ describe('Shipments API - /api/shipments', () => {
         },
       ];
 
-      // Mock transaction to execute the callback
+      // Mock transaction to execute the callback with shipment + product contexts
+      const txShipmentCreate = vi.fn().mockResolvedValue({ id: 1 });
+      const txContext = {
+        shipment: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          create: txShipmentCreate,
+          update: vi.fn().mockResolvedValue({ id: 1 }),
+        },
+        product: {
+          updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+        },
+      } as unknown as Prisma.TransactionClient;
+
       vi.mocked(prisma.$transaction).mockImplementation(async (callback) => {
-        return callback({
-          shipment: {
-            findFirst: vi.fn().mockResolvedValue(null),
-            create: vi.fn().mockResolvedValue({ id: 1 }),
-            update: vi.fn().mockResolvedValue({ id: 1 }),
-          },
-        } as any);
+        return callback(txContext);
       });
 
       const request = new Request('http://localhost/api/shipments', {
@@ -422,7 +429,7 @@ describe('Shipments API - /api/shipments', () => {
 
       // Mock transaction to execute the callback
       vi.mocked(prisma.$transaction).mockImplementation(async (callback) => {
-        return callback({
+        const txClient = {
           shipment: {
             findFirst: vi.fn().mockResolvedValue(null),
             create: vi.fn().mockImplementation((args) => {
@@ -433,7 +440,9 @@ describe('Shipments API - /api/shipments', () => {
             }),
             update: vi.fn().mockResolvedValue({ id: 1 }),
           },
-        } as any);
+        } as unknown as Prisma.TransactionClient;
+
+        return callback(txClient);
       });
 
       const request = new Request('http://localhost/api/shipments', {

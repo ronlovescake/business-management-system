@@ -394,6 +394,9 @@ describe('syncPayrollAttendanceDeductions', () => {
       periodEnd: '2025-11-15',
     });
 
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-10-25T08:00:00.000Z'));
+
     mocks.employeeFindMany.mockResolvedValue([
       { employeeId: 'EMP-001', basicSalary: 26000, currentSalary: 26000 },
     ]);
@@ -431,13 +434,17 @@ describe('syncPayrollAttendanceDeductions', () => {
       },
     ]);
 
-    const result = await syncPayrollAttendanceDeductions([payroll]);
+    try {
+      const result = await syncPayrollAttendanceDeductions([payroll]);
 
-    // Should not count future scheduled days as absences
-    expect(mocks.payrollUpdate).not.toHaveBeenCalled();
-    expect(mocks.transaction).not.toHaveBeenCalled();
+      // Should not count future scheduled days as absences
+      expect(mocks.payrollUpdate).not.toHaveBeenCalled();
+      expect(mocks.transaction).not.toHaveBeenCalled();
 
-    const [unchanged] = result;
-    expect(unchanged.absentsLates).toBe(0);
+      const [unchanged] = result;
+      expect(unchanged.absentsLates).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

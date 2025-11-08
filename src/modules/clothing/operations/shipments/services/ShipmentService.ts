@@ -10,7 +10,7 @@
  * - Data transformations
  */
 
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import type {
   ShipmentData,
   ShipmentFormData,
@@ -333,7 +333,7 @@ export class ShipmentService {
     );
 
     // Show success notification
-    notifications.show({
+    showNotification({
       title: '✅ Success',
       message: 'Shipment added successfully!',
       color: 'green',
@@ -386,7 +386,7 @@ export class ShipmentService {
     );
 
     // Show success notification
-    notifications.show({
+    showNotification({
       title: '✅ Success',
       message: 'Shipment updated successfully!',
       color: 'green',
@@ -441,7 +441,7 @@ export class ShipmentService {
     }
 
     if (importedShipments.length === 0) {
-      notifications.show({
+      showNotification({
         title: '⚠️ Import Warning',
         message: 'No valid shipment data found in the CSV file',
         color: 'yellow',
@@ -466,7 +466,7 @@ export class ShipmentService {
     await api.post('/api/shipments', shipments);
 
     // Show success notification
-    notifications.show({
+    showNotification({
       title: '🎉 Import Successful!',
       message: `Successfully imported ${shipments.length} shipment records`,
       color: 'green',

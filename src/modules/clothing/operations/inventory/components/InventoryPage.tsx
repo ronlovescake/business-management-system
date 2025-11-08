@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { Stack, Text, Group, Table } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import {
   StandardDataTable,
   StandardTableContainer,
@@ -103,7 +103,7 @@ export function InventoryPage() {
         setTransactions(transactionsData);
       } catch (error) {
         logger.error('Failed to load data:', error);
-        notifications.show({
+        showNotification({
           title: 'Error',
           message: 'Failed to load inventory data',
           color: 'red',

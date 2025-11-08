@@ -22,7 +22,7 @@ import {
   ActionIcon,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import {
   IconUser,
   IconMail,
@@ -101,7 +101,7 @@ export default function ProfilePage() {
       });
       setHasChanges(false);
     } catch (error) {
-      notifications.show({
+      showNotification({
         title: 'Error',
         message: 'Failed to load profile',
         color: 'red',
@@ -171,7 +171,7 @@ export default function ProfilePage() {
         throw new Error(data.error || 'Failed to update profile');
       }
 
-      notifications.show({
+      showNotification({
         title: 'Success',
         message: data.message || 'Profile updated successfully',
         color: 'green',
@@ -195,7 +195,7 @@ export default function ProfilePage() {
       await fetchProfile();
       setHasChanges(false);
     } catch (error) {
-      notifications.show({
+      showNotification({
         title: 'Error',
         message:
           error instanceof Error ? error.message : 'Failed to update profile',
@@ -229,7 +229,7 @@ export default function ProfilePage() {
         throw new Error(data.error || 'Failed to upload photo');
       }
 
-      notifications.show({
+      showNotification({
         title: 'Success',
         message: data.message || 'Profile photo updated successfully',
         color: 'green',
@@ -245,7 +245,7 @@ export default function ProfilePage() {
         resetPhotoRef.current();
       }
     } catch (error) {
-      notifications.show({
+      showNotification({
         title: 'Error',
         message:
           error instanceof Error ? error.message : 'Failed to upload photo',
@@ -271,7 +271,7 @@ export default function ProfilePage() {
         throw new Error(data.error || 'Failed to remove photo');
       }
 
-      notifications.show({
+      showNotification({
         title: 'Success',
         message: data.message || 'Profile photo removed successfully',
         color: 'green',
@@ -282,7 +282,7 @@ export default function ProfilePage() {
       await updateSession();
       await fetchProfile();
     } catch (error) {
-      notifications.show({
+      showNotification({
         title: 'Error',
         message:
           error instanceof Error ? error.message : 'Failed to remove photo',

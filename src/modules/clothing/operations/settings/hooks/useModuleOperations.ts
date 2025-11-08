@@ -7,7 +7,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import { api } from '@/lib/api/client';
 import { LOADING_SPINNER_DELAY } from '@/constants/timeouts';
 import type { ModuleOperationStatus, ModuleInstallOptions } from '../types';
@@ -68,7 +68,7 @@ export function useModuleOperations(): UseModuleOperationsReturn {
 
         updateStatus(moduleId, { status: 'success' });
 
-        notifications.show({
+        showNotification({
           title: 'Module Installed',
           message: `Successfully installed module: ${moduleId}`,
           color: 'green',
@@ -79,7 +79,7 @@ export function useModuleOperations(): UseModuleOperationsReturn {
         const error = (err as Error).message;
         updateStatus(moduleId, { status: 'error', error });
 
-        notifications.show({
+        showNotification({
           title: 'Installation Failed',
           message: error,
           color: 'red',
@@ -103,7 +103,7 @@ export function useModuleOperations(): UseModuleOperationsReturn {
 
         updateStatus(moduleId, { status: 'success' });
 
-        notifications.show({
+        showNotification({
           title: 'Module Uninstalled',
           message: `Successfully uninstalled module: ${moduleId}`,
           color: 'green',
@@ -114,7 +114,7 @@ export function useModuleOperations(): UseModuleOperationsReturn {
         const error = (err as Error).message;
         updateStatus(moduleId, { status: 'error', error });
 
-        notifications.show({
+        showNotification({
           title: 'Uninstallation Failed',
           message: error,
           color: 'red',
@@ -138,7 +138,7 @@ export function useModuleOperations(): UseModuleOperationsReturn {
 
         updateStatus(moduleId, { status: 'success' });
 
-        notifications.show({
+        showNotification({
           title: 'Module Updated',
           message: `Successfully updated module: ${moduleId}`,
           color: 'green',
@@ -149,7 +149,7 @@ export function useModuleOperations(): UseModuleOperationsReturn {
         const error = (err as Error).message;
         updateStatus(moduleId, { status: 'error', error });
 
-        notifications.show({
+        showNotification({
           title: 'Update Failed',
           message: error,
           color: 'red',
@@ -177,7 +177,7 @@ export function useModuleOperations(): UseModuleOperationsReturn {
 
         updateStatus(moduleId, { status: 'success' });
 
-        notifications.show({
+        showNotification({
           title: 'Module Enabled',
           message: `Successfully enabled module: ${moduleId}`,
           color: 'green',
@@ -188,7 +188,7 @@ export function useModuleOperations(): UseModuleOperationsReturn {
         const error = (err as Error).message;
         updateStatus(moduleId, { status: 'error', error });
 
-        notifications.show({
+        showNotification({
           title: 'Enable Failed',
           message: error,
           color: 'red',
@@ -216,7 +216,7 @@ export function useModuleOperations(): UseModuleOperationsReturn {
 
         updateStatus(moduleId, { status: 'success' });
 
-        notifications.show({
+        showNotification({
           title: 'Module Disabled',
           message: `Successfully disabled module: ${moduleId}`,
           color: 'green',
@@ -227,7 +227,7 @@ export function useModuleOperations(): UseModuleOperationsReturn {
         const error = (err as Error).message;
         updateStatus(moduleId, { status: 'error', error });
 
-        notifications.show({
+        showNotification({
           title: 'Disable Failed',
           message: error,
           color: 'red',

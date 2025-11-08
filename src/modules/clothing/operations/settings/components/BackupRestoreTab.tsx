@@ -22,7 +22,7 @@ import {
   Tabs,
   NumberInput,
 } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import Swal from 'sweetalert2';
 import { api } from '@/lib/api/client';
 import {
@@ -120,7 +120,7 @@ export function BackupRestoreTab() {
         setBackups(data.backups || []);
       }
     } catch (error) {
-      notifications.show({
+      showNotification({
         title: 'Error',
         message: 'Failed to load backups',
         color: 'red',
@@ -172,7 +172,7 @@ export function BackupRestoreTab() {
         });
 
         if (data.success && data.backup) {
-          notifications.show({
+          showNotification({
             title: isAuto ? '✅ Auto-Backup Complete' : '✅ Backup Created',
             message: `Backup saved (${(data.backup.totalSize / 1024 / 1024).toFixed(2)} MB)`,
             color: 'green',
@@ -182,7 +182,7 @@ export function BackupRestoreTab() {
           throw new Error(data.error || 'Backup failed');
         }
       } catch (error) {
-        notifications.show({
+        showNotification({
           title: '❌ Backup Failed',
           message: error instanceof Error ? error.message : 'Unknown error',
           color: 'red',
@@ -199,7 +199,7 @@ export function BackupRestoreTab() {
   useEffect(() => {
     if (autoBackupEnabled) {
       const performAutoBackup = async () => {
-        notifications.show({
+        showNotification({
           title: 'Auto-Backup',
           message: 'Starting automatic backup...',
           color: 'blue',
@@ -263,7 +263,7 @@ export function BackupRestoreTab() {
       );
 
       if (data.success) {
-        notifications.show({
+        showNotification({
           title: '✅ Deleted',
           message: 'Backup deleted',
           color: 'green',
@@ -271,7 +271,7 @@ export function BackupRestoreTab() {
         await fetchBackups();
       }
     } catch (error) {
-      notifications.show({
+      showNotification({
         title: '❌ Delete Failed',
         message: error instanceof Error ? error.message : 'Unknown error',
         color: 'red',
@@ -305,7 +305,7 @@ export function BackupRestoreTab() {
       const [firstTable] = Object.keys(data.tables);
       setSelectedTableName(firstTable ?? null);
     } catch (error) {
-      notifications.show({
+      showNotification({
         title: 'Preview Failed',
         message: error instanceof Error ? error.message : 'Unknown error',
         color: 'red',
@@ -342,7 +342,7 @@ export function BackupRestoreTab() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (error) {
-      notifications.show({
+      showNotification({
         title: 'Download Failed',
         message: error instanceof Error ? error.message : 'Unknown error',
         color: 'red',
@@ -370,13 +370,13 @@ export function BackupRestoreTab() {
       a.click();
       URL.revokeObjectURL(url);
 
-      notifications.show({
+      showNotification({
         title: 'Downloaded',
         message: `${tableName}.csv`,
         color: 'green',
       });
     } catch (error) {
-      notifications.show({
+      showNotification({
         title: 'Download Failed',
         message: error instanceof Error ? error.message : 'Unknown error',
         color: 'red',
@@ -405,7 +405,7 @@ export function BackupRestoreTab() {
       }
     }
 
-    notifications.show({
+    showNotification({
       title: 'Downloaded',
       message: `${count} CSV files`,
       color: 'green',

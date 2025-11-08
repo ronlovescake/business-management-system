@@ -15,7 +15,7 @@ import {
   IconCurrencyPeso,
   IconCheck,
 } from '@tabler/icons-react';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import type { PriceFormData } from '../types/price.types';
 import { logger } from '@/lib/logger';
 
@@ -58,7 +58,7 @@ export const EditPriceModal = memo(function EditPriceModal({
       onReset();
       onClose();
 
-      notifications.show({
+      showNotification({
         title: '🎉 Price Updated Successfully!',
         message: `${form.productCode} has been updated in your pricing database`,
         color: 'blue',
@@ -67,7 +67,7 @@ export const EditPriceModal = memo(function EditPriceModal({
       });
     } catch (error) {
       logger.error('Failed to update price:', error);
-      notifications.show({
+      showNotification({
         title: '❌ Failed to Update Price',
         message: 'Could not save the price to database. Please try again.',
         color: 'red',

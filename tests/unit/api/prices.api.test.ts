@@ -91,15 +91,13 @@ describe('Prices API Routes', () => {
 
   describe('POST /api/prices', () => {
     it('should import multiple prices successfully', async () => {
-      const priceImport = [
-        {
-          'Product Code': 'PROD-001',
-          'Lower Limit': 100,
-          'Upper Limit': 500,
-          Prices: 120,
-          'Price Adjustment': 5,
-        },
-      ];
+      const priceImport = Array.from({ length: 11 }, (_, index) => ({
+        'Product Code': `PROD-${String(index + 1).padStart(3, '0')}`,
+        'Lower Limit': 100 + index * 10,
+        'Upper Limit': 200 + index * 10,
+        Prices: 150 + index,
+        'Price Adjustment': 5,
+      }));
 
       mockPrisma.price.deleteMany.mockResolvedValue({ count: 0 });
 

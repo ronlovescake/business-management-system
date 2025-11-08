@@ -232,6 +232,12 @@ export function InfoSection({
         Swal.close();
       }
     }
+
+    return () => {
+      if (Swal.isVisible()) {
+        Swal.close();
+      }
+    };
   }, [showQuantityAdjustment, quantityAdjustmentLabel, quantityDifference]);
 
   return (

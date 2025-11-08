@@ -255,15 +255,15 @@ export class SortingDistributionService {
     transactions: Transaction[]
   ): number {
     logger.debug(`Getting reservation for product code: "${productCode}"`);
-    const matchingTransactions = transactions.filter(
-      (t) => {
-        const matches = t['Product Code'] === productCode;
-        if (!matches && t['Product Code']?.includes('Lace')) {
-          logger.debug(`Transaction code: "${t['Product Code']}" vs Product code: "${productCode}"`);
-        }
-        return matches;
+    const matchingTransactions = transactions.filter((t) => {
+      const matches = t['Product Code'] === productCode;
+      if (!matches && t['Product Code']?.includes('Lace')) {
+        logger.debug(
+          `Transaction code: "${t['Product Code']}" vs Product code: "${productCode}"`
+        );
       }
-    );
+      return matches;
+    });
     logger.debug(`Found ${matchingTransactions.length} matching transactions`);
     return matchingTransactions.reduce((sum, t) => sum + (t.Quantity || 0), 0);
   }
@@ -332,11 +332,19 @@ export class SortingDistributionService {
 
     try {
       logger.debug('Loading distribution data from API', { productCode });
-      
+
+      type SavedDistributionRow = Partial<DistributionRow> & {
+        rowNumber?: number | null;
+        row_number?: number | null;
+        group_number?: string | null;
+      };
+
       const response = await api.get<{
-        data: DistributionRow[];
+        data: SavedDistributionRow[];
         selectedQuantity: number | null;
-      }>(`/api/sorting-distribution?productCode=${encodeURIComponent(productCode)}`);
+      }>(
+        `/api/sorting-distribution?productCode=${encodeURIComponent(productCode)}`
+      );
 
       logger.debug('Loaded distribution data', {
         rowCount: response.data.length,
@@ -348,8 +356,31 @@ export class SortingDistributionService {
         // Ensure we have exactly GRID_ROW_COUNT rows
         const rows = this.createDefaultRows();
         response.data.forEach((savedRow, index) => {
-          if (index < GRID_ROW_COUNT) {
-            rows[index] = { ...savedRow };
+          const rowNumber =
+            typeof savedRow.rowNumber === 'number'
+              ? savedRow.rowNumber
+              : typeof savedRow.row_number === 'number'
+                ? savedRow.row_number
+                : index + 1;
+
+          const targetIndex = rowNumber > 0 ? rowNumber - 1 : index;
+          if (targetIndex >= 0 && targetIndex < GRID_ROW_COUNT) {
+            rows[targetIndex] = {
+              quantity:
+                typeof savedRow.quantity === 'number'
+                  ? savedRow.quantity
+                  : Number(savedRow.quantity ?? 0) || 0,
+              percentage:
+                typeof savedRow.percentage === 'number'
+                  ? savedRow.percentage
+                  : Number(savedRow.percentage ?? 0) || 0,
+              groupNumber: savedRow.groupNumber ?? savedRow.group_number ?? '',
+              distribution:
+                typeof savedRow.distribution === 'number'
+                  ? savedRow.distribution
+                  : Number(savedRow.distribution ?? 0) || 0,
+              checked: Boolean(savedRow.checked),
+            };
           }
         });
         return {

@@ -11,12 +11,7 @@ export default defineConfig({
       'src/**/__tests__/**/*.test.ts',
       'src/**/__tests__/**/*.test.tsx',
     ],
-    exclude: [
-      'tests/e2e/**/*',
-      'node_modules/**/*',
-      '.next/**/*',
-      '**/ExpensesCSV.test.ts',
-    ],
+    exclude: ['tests/e2e/**/*', 'node_modules/**/*', '.next/**/*'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

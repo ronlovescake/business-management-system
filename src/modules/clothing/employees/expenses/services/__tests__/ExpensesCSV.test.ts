@@ -13,7 +13,7 @@ describe('ExpensesCSV helpers', () => {
     const csv = [
       'Date,Amount,Description,Category,Notes,Receipt,Status,Employee Name',
       '2025-10-01,1000.50,Lunch,Meal,Client meeting,,approved,Jane',
-      '2025/10/02,₱2,000.00,Office Chair,Supplies,,receipt.pdf,pending,John',
+      '2025-10-02,"₱2,000.00",Office Chair,Fuel,,receipt.pdf,pending,John',
       'invalid-date,100,Snacks,Meal,,,approved,Jim',
       '2025-10-03,abc,Pen,Supplies,,,pending,Jill',
       '2025-10-04,100,Item,InvalidCategory,,,pending,June',
@@ -38,7 +38,7 @@ describe('ExpensesCSV helpers', () => {
     expect(e2.date).toBe('2025-10-02');
     expect(e2.amount).toBe(2000);
     expect(e2.description).toBe('Office Chair');
-    expect(e2.category).toBe('Supplies');
+    expect(e2.category).toBe('Fuel');
     expect(e2.status).toBe('pending');
   });
 

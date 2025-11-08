@@ -1,6 +1,12 @@
 'use client';
 
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useMemo,
+  useState,
+  Fragment,
+  type ReactNode,
+} from 'react';
 import {
   Alert,
   Center,
@@ -56,7 +62,7 @@ interface GroupedNotification {
 function NotificationsPanel({ category, label }: NotificationsPanelProps) {
   const { data, isLoading, error } = useQuery({
     queryKey: queryKeys.operationsNotifications.byCategory(category),
-    queryFn: () => OperationsNotificationsService.getByCategory(category),
+    queryFn: () => OperationsNotificationsService.fetchList({ category }),
     staleTime: 0,
     refetchOnMount: true,
   });
@@ -105,7 +111,7 @@ function NotificationsPanel({ category, label }: NotificationsPanelProps) {
 
     const result: GroupedNotification[] = [];
 
-    for (const [key, changes] of groups.entries()) {
+    for (const [key, changes] of Array.from(groups.entries())) {
       // Sort changes within group by time (most recent first)
       changes.sort(
         (a, b) =>
@@ -118,7 +124,7 @@ function NotificationsPanel({ category, label }: NotificationsPanelProps) {
         id: key,
         transactionId: first.transactionId,
         action: first.action,
-        createdAt: first.createdAt,
+        createdAt: new Date(first.createdAt),
         userName: first.userName,
         changes,
         isOpen: openGroups.has(key),
@@ -157,6 +163,14 @@ function NotificationsPanel({ category, label }: NotificationsPanelProps) {
       </Center>
     );
   }
+
+  const formatFieldLabel = (field?: string | null) => {
+    if (!field) {
+      return 'Unspecified Field';
+    }
+
+    return field.replace(/([A-Z])/g, ' $1').trim();
+  };
 
   // Helper function to format the date
   const formatDate = (date: Date) => {
@@ -200,20 +214,15 @@ function NotificationsPanel({ category, label }: NotificationsPanelProps) {
   return (
     <Stack gap="md">
       {/* Main table */}
-      <StandardDataTable
-        headers={TABLE_HEADERS}
-        data={groupedNotifications}
-        isLoading={isLoading}
-        error={error ? new Error('Failed to load notifications') : null}
-        emptyMessage={`No ${label.toLowerCase()} notifications found.`}
-        renderRow={(group) => {
-          const date = new Date(group.createdAt);
+      <StandardDataTable headers={TABLE_HEADERS} colSpan={TABLE_HEADERS.length}>
+        {groupedNotifications.map((group) => {
+          const date = group.createdAt;
           const isOpen = openGroups.has(group.id);
 
           return (
-            <>
+            <Fragment key={group.id}>
               {/* Main row */}
-              <Table.Tr key={group.id} style={{ cursor: 'pointer' }}>
+              <Table.Tr style={{ cursor: 'pointer' }}>
                 <Table.Td>{formatDate(date)}</Table.Td>
                 <Table.Td>{formatTime(date)}</Table.Td>
                 <Table.Td>{group.userName}</Table.Td>
@@ -262,9 +271,7 @@ function NotificationsPanel({ category, label }: NotificationsPanelProps) {
                                 </Table.Td>
                                 <Table.Td>
                                   <Text size="sm" tt="capitalize">
-                                    {change.field
-                                      .replace(/([A-Z])/g, ' $1')
-                                      .trim()}
+                                    {formatFieldLabel(change.field)}
                                   </Text>
                                 </Table.Td>
                                 <Table.Td>
@@ -286,10 +293,10 @@ function NotificationsPanel({ category, label }: NotificationsPanelProps) {
                   </Table.Td>
                 </Table.Tr>
               )}
-            </>
+            </Fragment>
           );
-        }}
-      />
+        })}
+      </StandardDataTable>
 
       {/* Display single-change details inline */}
       <Stack gap="sm">
@@ -302,7 +309,7 @@ function NotificationsPanel({ category, label }: NotificationsPanelProps) {
                 <Group justify="space-between">
                   <Stack gap={4}>
                     <Text size="sm" fw={600}>
-                      {change.field.replace(/([A-Z])/g, ' $1').trim()}
+                      {formatFieldLabel(change.field)}
                     </Text>
                     <Group gap="xs">
                       <Text size="sm" c="dimmed">

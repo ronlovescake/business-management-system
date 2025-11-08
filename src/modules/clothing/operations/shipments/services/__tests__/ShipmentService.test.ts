@@ -20,14 +20,12 @@ import type {
   ShipmentData,
   ShipmentFormData,
 } from '../../types/shipment.types';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import { api } from '@/lib/api/client';
 
 // Mock dependencies
 vi.mock('@mantine/notifications', () => ({
-  notifications: {
-    show: vi.fn(),
-  },
+  showNotification: vi.fn(),
 }));
 
 vi.mock('@/lib/api/client', () => ({
@@ -382,7 +380,7 @@ describe('ShipmentService', () => {
     it('should parse fee string with peso symbol and commas', () => {
       const fee = ShipmentService.parseFee('₱1,000.50');
 
-      expect(fee).toBe(1000.50);
+      expect(fee).toBe(1000.5);
     });
 
     it('should return 0 for invalid fee string', () => {
@@ -647,7 +645,7 @@ describe('ShipmentService', () => {
           'No. Of Sacks': 10,
         })
       );
-      expect(notifications.show).toHaveBeenCalledWith(
+      expect(showNotification).toHaveBeenCalledWith(
         expect.objectContaining({
           title: '✅ Success',
           color: 'green',
@@ -757,7 +755,7 @@ describe('ShipmentService', () => {
           'No. Of Sacks': 20,
         })
       );
-      expect(notifications.show).toHaveBeenCalledWith(
+      expect(showNotification).toHaveBeenCalledWith(
         expect.objectContaining({
           title: '✅ Success',
           color: 'green',
@@ -869,7 +867,7 @@ SHIP-002,CV-002,20,10.5,200.5,2000,Delivered,2024-01-01,2024-01-15,14,Notes 2`;
       const result = await ShipmentService.bulkImportShipments(mockShipments);
 
       expect(api.post).toHaveBeenCalledWith('/api/shipments', mockShipments);
-      expect(notifications.show).toHaveBeenCalledWith(
+      expect(showNotification).toHaveBeenCalledWith(
         expect.objectContaining({
           title: '🎉 Import Successful!',
           color: 'green',

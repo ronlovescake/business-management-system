@@ -16,7 +16,7 @@ import {
   IconUpload,
   IconCheck,
 } from '@tabler/icons-react';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import {
   DataEditor as GridView,
   type GridColumn,
@@ -361,7 +361,7 @@ export function PricesPage() {
       const result = PriceService.importFromCSV(text);
 
       if (!result.success || !result.data) {
-        notifications.show({
+        showNotification({
           title: '⚠️ Import Warning',
           message: result.error || 'No valid price data found in the CSV file',
           color: 'yellow',
@@ -374,7 +374,7 @@ export function PricesPage() {
       const count = await replaceAllPrices(result.data);
       setFile(null); // Clear the file input
 
-      notifications.show({
+      showNotification({
         title: '🎉 Import Successful!',
         message: `Successfully imported ${count} price records to database`,
         color: 'green',
@@ -383,7 +383,7 @@ export function PricesPage() {
       });
     } catch (error) {
       logger.error('CSV import error:', error);
-      notifications.show({
+      showNotification({
         title: '❌ Import Failed',
         message: 'Failed to parse CSV file. Please check the file format.',
         color: 'red',

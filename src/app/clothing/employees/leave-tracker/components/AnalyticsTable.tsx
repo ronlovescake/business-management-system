@@ -2,12 +2,7 @@ import React from 'react';
 import { DataTable } from '@/components/shared/PageTemplates';
 import type { TableColumn } from '@/components/shared/PageTemplates';
 import { Text, Badge, Progress } from '@mantine/core';
-import type { LeaveType } from '../types';
-
-interface MonthlyBreakdownItem {
-  month: string;
-  [key: string]: number | string;
-}
+import type { LeaveType, MonthlyBreakdownItem } from '../types';
 
 interface AnalyticsTableProps {
   monthlyBreakdown: MonthlyBreakdownItem[];

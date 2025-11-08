@@ -14,6 +14,12 @@ export interface OperationsNotificationRecord {
   category: string;
   user: string | null;
   changes: string;
+  action: string;
+  userName: string;
+  field: string;
+  oldValue: string | null;
+  newValue: string | null;
+  transactionId: string | null;
   metadata: Record<string, unknown> | null;
   createdAt: string;
   createdAtDate: string;

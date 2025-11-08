@@ -33,7 +33,7 @@ import {
   IconVolumeOff,
 } from '@tabler/icons-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import { useSession } from 'next-auth/react';
 import { PageLayout } from '@/components/layout/PageLayout';
 import {
@@ -147,7 +147,7 @@ export function MessagingClientPage() {
       }, 100);
     },
     onError: () => {
-      notifications.show({
+      showNotification({
         title: 'Error',
         message: 'Failed to send message',
         color: 'red',
@@ -168,14 +168,14 @@ export function MessagingClientPage() {
       setNewMessageModalOpen(false);
       setSelectedUserIds([]);
       setConversationTitle('');
-      notifications.show({
+      showNotification({
         title: 'Success',
         message: 'Conversation created successfully',
         color: 'green',
       });
     },
     onError: () => {
-      notifications.show({
+      showNotification({
         title: 'Error',
         message: 'Failed to create conversation',
         color: 'red',
@@ -252,7 +252,7 @@ export function MessagingClientPage() {
         message.sender.name || message.sender.email || 'Someone';
 
       // Show visual notification
-      notifications.show({
+      showNotification({
         title: senderName,
         message: message.body,
         color: 'blue',
@@ -304,7 +304,7 @@ export function MessagingClientPage() {
 
   const handleCreateConversation = () => {
     if (selectedUserIds.length === 0) {
-      notifications.show({
+      showNotification({
         title: 'Error',
         message: 'Please select at least one recipient',
         color: 'red',
@@ -401,7 +401,7 @@ export function MessagingClientPage() {
                   color="green"
                   onClick={() => {
                     playMessageSound();
-                    notifications.show({
+                    showNotification({
                       title: 'Sound Test',
                       message: 'Did you hear the notification sound?',
                       color: 'green',

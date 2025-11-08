@@ -8,51 +8,87 @@
  *
  * Features tested:
  * - ProductCode query parameter validation
- * - Raw SQL query execution ($queryRaw)
  * - Selected quantity tracking
  * - Row number ordering (ASC)
- * - Empty row filtering (skip rows with all zeros)
- * - Delete + Insert pattern (replace all rows)
+ * - Empty row filtering (skip rows with all zeros unless checked)
+ * - Delete + Insert pattern (replace all rows inside transaction)
  * - Percentage, groupNumber, distribution, checked fields
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { GET, POST, DELETE } from '@/app/api/sorting-distribution/route';
-import { PrismaClient } from '@prisma/client';
+import type { Mock } from 'vitest';
 
-// Mock Prisma
-vi.mock('@prisma/client', () => {
-  const mockPrismaClient = {
-    $queryRaw: vi.fn(),
-    $executeRaw: vi.fn(),
-    $use: vi.fn(), // Mock middleware method
+type MockFn<Args extends unknown[] = unknown[], Return = unknown> = Mock<
+  Args,
+  Return
+>;
+
+type TransactionClientMock = {
+  $executeRawUnsafe: MockFn<[string, string?], Promise<unknown>>;
+  sortingDistribution: {
+    createMany: MockFn<[unknown], Promise<unknown>>;
+  };
+};
+
+type PrismaMock = {
+  sortingDistribution: {
+    findMany: MockFn<[unknown], Promise<unknown[]>>;
+    createMany: MockFn<[unknown], Promise<unknown>>;
+    updateMany: MockFn<[unknown], Promise<unknown>>;
+  };
+  __tx: TransactionClientMock;
+  $transaction: MockFn<
+    [(client: TransactionClientMock) => Promise<unknown>],
+    Promise<unknown>
+  >;
+};
+
+vi.mock('@/lib/db', () => {
+  const transactionClient: TransactionClientMock = {
+    $executeRawUnsafe: vi.fn<[string, string?], Promise<unknown>>(),
+    sortingDistribution: {
+      createMany: vi.fn<[unknown], Promise<unknown>>(),
+    },
   };
 
-  return {
-    PrismaClient: vi.fn(() => mockPrismaClient),
+  const prismaMock: PrismaMock = {
+    sortingDistribution: {
+      findMany: vi.fn<[unknown], Promise<unknown[]>>(),
+      createMany: vi.fn<[unknown], Promise<unknown>>(),
+      updateMany: vi.fn<[unknown], Promise<unknown>>(),
+    },
+    __tx: transactionClient,
+    $transaction: vi.fn<
+      [(client: TransactionClientMock) => Promise<unknown>],
+      Promise<unknown>
+    >(),
   };
+
+  prismaMock.$transaction.mockImplementation(async (cb) =>
+    cb(transactionClient)
+  );
+
+  return { prisma: prismaMock };
 });
 
-// Mock logger
 vi.mock('@/lib/logger', () => ({
   logger: {
     error: vi.fn(),
     debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
   },
 }));
 
-// Get the mocked prisma instance
-const getMockPrisma = () => {
-  const PrismaConstructor = PrismaClient as any;
-  return new PrismaConstructor();
-};
+import { GET, POST, DELETE } from '@/app/api/sorting-distribution/route';
+import { prisma as prismaClient } from '@/lib/db';
+
+const prisma = prismaClient as unknown as PrismaMock;
 
 describe('Sorting Distribution API - /api/sorting-distribution', () => {
-  let mockPrisma: any;
-
   beforeEach(() => {
     vi.clearAllMocks();
-    mockPrisma = getMockPrisma();
+    prisma.$transaction.mockImplementation(async (cb) => cb(prisma.__tx));
   });
 
   describe('GET /api/sorting-distribution', () => {
@@ -60,33 +96,33 @@ describe('Sorting Distribution API - /api/sorting-distribution', () => {
       const mockData = [
         {
           id: 1,
-          product_code: 'PROD-001',
-          selected_quantity: 1000,
-          row_number: 1,
+          productCode: 'PROD-001',
+          selectedQuantity: 1000,
+          rowNumber: 0,
           quantity: 100,
           percentage: 10.0,
-          group_number: 'G1',
+          groupNumber: 'G1',
           distribution: 5,
           checked: false,
-          created_at: new Date(),
-          updated_at: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
         {
           id: 2,
-          product_code: 'PROD-001',
-          selected_quantity: 1000,
-          row_number: 2,
+          productCode: 'PROD-001',
+          selectedQuantity: 1000,
+          rowNumber: 1,
           quantity: 200,
           percentage: 20.0,
-          group_number: 'G2',
+          groupNumber: 'G2',
           distribution: 10,
           checked: true,
-          created_at: new Date(),
-          updated_at: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       ];
 
-      mockPrisma.$queryRaw.mockResolvedValue(mockData);
+      prisma.sortingDistribution.findMany.mockResolvedValue(mockData);
 
       const request = new Request(
         'http://localhost/api/sorting-distribution?productCode=PROD-001'
@@ -95,7 +131,15 @@ describe('Sorting Distribution API - /api/sorting-distribution', () => {
       const response = await GET(request);
       const data = await response.json();
 
-      expect(mockPrisma.$queryRaw).toHaveBeenCalled();
+      expect(prisma.sortingDistribution.findMany).toHaveBeenCalledWith({
+        where: {
+          productCode: 'PROD-001',
+          deletedAt: null,
+        },
+        orderBy: {
+          rowNumber: 'asc',
+        },
+      });
       expect(data.data).toHaveLength(2);
       expect(data.selectedQuantity).toBe(1000);
       expect(data.data[0].quantity).toBe(100);
@@ -103,7 +147,7 @@ describe('Sorting Distribution API - /api/sorting-distribution', () => {
     });
 
     it('should return empty data when no rows found', async () => {
-      mockPrisma.$queryRaw.mockResolvedValue([]);
+      prisma.sortingDistribution.findMany.mockResolvedValue([]);
 
       const request = new Request(
         'http://localhost/api/sorting-distribution?productCode=NONEXISTENT'
@@ -127,7 +171,9 @@ describe('Sorting Distribution API - /api/sorting-distribution', () => {
     });
 
     it('should handle database errors gracefully', async () => {
-      mockPrisma.$queryRaw.mockRejectedValue(new Error('DB Error'));
+      prisma.sortingDistribution.findMany.mockRejectedValue(
+        new Error('DB Error')
+      );
 
       const request = new Request(
         'http://localhost/api/sorting-distribution?productCode=PROD-001'
@@ -137,7 +183,7 @@ describe('Sorting Distribution API - /api/sorting-distribution', () => {
       const data = await response.json();
 
       expect(response.status).toBe(500);
-      expect(data.error).toBe('Failed to fetch sorting distribution data');
+      expect(data.error).toBe('Failed to load distribution data');
     });
   });
 
@@ -164,23 +210,49 @@ describe('Sorting Distribution API - /api/sorting-distribution', () => {
         ],
       };
 
-      mockPrisma.$executeRaw.mockResolvedValue(1);
-
       const request = new Request('http://localhost/api/sorting-distribution', {
         method: 'POST',
         body: JSON.stringify(postData),
+        headers: {
+          'content-type': 'application/json',
+        },
       });
 
       const response = await POST(request);
       const data = await response.json();
 
-      // Should delete existing rows first, then insert new rows
-      // 1 delete + 2 inserts = 3 total calls
-      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(3);
-
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(prisma.__tx.$executeRawUnsafe).toHaveBeenCalledWith(
+        `DELETE FROM sorting_distributions WHERE "productCode" = $1`,
+        'PROD-002'
+      );
+      expect(prisma.__tx.sortingDistribution.createMany).toHaveBeenCalledWith({
+        data: [
+          {
+            productCode: 'PROD-002',
+            selectedQuantity: 500,
+            rowNumber: 0,
+            quantity: 50,
+            percentage: 10,
+            groupNumber: 'A1',
+            distribution: 3,
+            checked: false,
+          },
+          {
+            productCode: 'PROD-002',
+            selectedQuantity: 500,
+            rowNumber: 1,
+            quantity: 100,
+            percentage: 20,
+            groupNumber: 'A2',
+            distribution: 5,
+            checked: true,
+          },
+        ],
+      });
       expect(data.success).toBe(true);
-      expect(data.message).toBe('Sorting distribution saved successfully');
-      expect(data.rowsSaved).toBe(2);
+      expect(data.savedCount).toBe(2);
+      expect(data.message).toBe('Saved 2 distribution rows');
     });
 
     it('should filter out empty rows (all zeros)', async () => {
@@ -196,7 +268,6 @@ describe('Sorting Distribution API - /api/sorting-distribution', () => {
             checked: false,
           },
           {
-            // Empty row - should be filtered out
             quantity: 0,
             percentage: 0,
             groupNumber: '',
@@ -213,20 +284,24 @@ describe('Sorting Distribution API - /api/sorting-distribution', () => {
         ],
       };
 
-      mockPrisma.$executeRaw.mockResolvedValue(1);
-
       const request = new Request('http://localhost/api/sorting-distribution', {
         method: 'POST',
         body: JSON.stringify(postData),
+        headers: {
+          'content-type': 'application/json',
+        },
       });
 
       const response = await POST(request);
       const data = await response.json();
 
-      // Should only save 2 rows (filtered out the empty one)
-      expect(data.rowsSaved).toBe(2);
-      // 1 delete + 2 inserts = 3 calls
-      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(3);
+      expect(data.savedCount).toBe(2);
+      expect(prisma.__tx.sortingDistribution.createMany).toHaveBeenCalledWith({
+        data: expect.arrayContaining([
+          expect.objectContaining({ quantity: 50 }),
+          expect.objectContaining({ quantity: 100 }),
+        ]),
+      });
     });
 
     it('should handle checked rows (checkbox state)', async () => {
@@ -239,23 +314,31 @@ describe('Sorting Distribution API - /api/sorting-distribution', () => {
             percentage: 0,
             groupNumber: '',
             distribution: 0,
-            checked: true, // Checked but empty - should still be saved
+            checked: true,
           },
         ],
       };
 
-      mockPrisma.$executeRaw.mockResolvedValue(1);
-
       const request = new Request('http://localhost/api/sorting-distribution', {
         method: 'POST',
         body: JSON.stringify(postData),
+        headers: {
+          'content-type': 'application/json',
+        },
       });
 
       const response = await POST(request);
       const data = await response.json();
 
-      // Checked rows should be saved even if empty
-      expect(data.rowsSaved).toBe(1);
+      expect(data.savedCount).toBe(1);
+      expect(prisma.__tx.sortingDistribution.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            checked: true,
+            quantity: 0,
+          }),
+        ],
+      });
     });
 
     it('should handle saving when all rows are empty', async () => {
@@ -280,20 +363,21 @@ describe('Sorting Distribution API - /api/sorting-distribution', () => {
         ],
       };
 
-      mockPrisma.$executeRaw.mockResolvedValue(1);
-
       const request = new Request('http://localhost/api/sorting-distribution', {
         method: 'POST',
         body: JSON.stringify(postData),
+        headers: {
+          'content-type': 'application/json',
+        },
       });
 
       const response = await POST(request);
       const data = await response.json();
 
       expect(data.success).toBe(true);
-      expect(data.rowsSaved).toBe(0);
-      // Only delete should be called, no inserts
-      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(1);
+      expect(data.savedCount).toBe(0);
+      expect(prisma.__tx.$executeRawUnsafe).toHaveBeenCalledTimes(1);
+      expect(prisma.__tx.sortingDistribution.createMany).not.toHaveBeenCalled();
     });
 
     it('should return 400 when productCode is missing', async () => {
@@ -305,17 +389,22 @@ describe('Sorting Distribution API - /api/sorting-distribution', () => {
       const request = new Request('http://localhost/api/sorting-distribution', {
         method: 'POST',
         body: JSON.stringify(postData),
+        headers: {
+          'content-type': 'application/json',
+        },
       });
 
       const response = await POST(request);
       const data = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toBe('Product code is required');
+      expect(data.error).toBe('Product code and rows are required');
     });
 
     it('should handle database errors during save', async () => {
-      mockPrisma.$executeRaw.mockRejectedValue(new Error('DB Error'));
+      prisma.$transaction.mockImplementationOnce(async () => {
+        throw new Error('DB Error');
+      });
 
       const postData = {
         productCode: 'PROD-006',
@@ -334,16 +423,19 @@ describe('Sorting Distribution API - /api/sorting-distribution', () => {
       const request = new Request('http://localhost/api/sorting-distribution', {
         method: 'POST',
         body: JSON.stringify(postData),
+        headers: {
+          'content-type': 'application/json',
+        },
       });
 
       const response = await POST(request);
       const data = await response.json();
 
       expect(response.status).toBe(500);
-      expect(data.error).toBe('Failed to save sorting distribution data');
+      expect(data.error).toBe('Failed to save distribution data');
     });
 
-    it('should maintain row_number sequence correctly', async () => {
+    it('should maintain rowNumber sequence correctly', async () => {
       const postData = {
         productCode: 'PROD-007',
         selectedQuantity: 1000,
@@ -372,24 +464,33 @@ describe('Sorting Distribution API - /api/sorting-distribution', () => {
         ],
       };
 
-      mockPrisma.$executeRaw.mockResolvedValue(1);
-
       const request = new Request('http://localhost/api/sorting-distribution', {
         method: 'POST',
         body: JSON.stringify(postData),
+        headers: {
+          'content-type': 'application/json',
+        },
       });
 
       await POST(request);
 
-      // Verify row numbers start at 1 and increment
-      // Check the INSERT calls to ensure row_number is 1, 2, 3
-      expect(mockPrisma.$executeRaw).toHaveBeenCalledTimes(4); // 1 delete + 3 inserts
+      const createManyCalls = prisma.__tx.sortingDistribution.createMany.mock
+        .calls as Array<
+        [
+          {
+            data: Array<{ rowNumber: number }>;
+          },
+        ]
+      >;
+      const createdRows = createManyCalls[0][0].data;
+
+      expect(createdRows.map((row) => row.rowNumber)).toEqual([0, 1, 2]);
     });
   });
 
   describe('DELETE /api/sorting-distribution', () => {
     it('should delete sorting distribution data for a product', async () => {
-      mockPrisma.$executeRaw.mockResolvedValue(5); // 5 rows deleted
+      prisma.sortingDistribution.updateMany.mockResolvedValue({ count: 5 });
 
       const request = new Request(
         'http://localhost/api/sorting-distribution?productCode=PROD-001',
@@ -399,9 +500,18 @@ describe('Sorting Distribution API - /api/sorting-distribution', () => {
       const response = await DELETE(request);
       const data = await response.json();
 
-      expect(mockPrisma.$executeRaw).toHaveBeenCalled();
+      expect(prisma.sortingDistribution.updateMany).toHaveBeenCalledWith({
+        where: {
+          productCode: 'PROD-001',
+          deletedAt: null,
+        },
+        data: {
+          deletedAt: expect.any(Date),
+        },
+      });
       expect(data.success).toBe(true);
-      expect(data.message).toBe('Sorting distribution deleted successfully');
+      expect(data.deletedCount).toBe(5);
+      expect(data.message).toBe('Deleted 5 distribution rows');
     });
 
     it('should return 400 when productCode is missing', async () => {
@@ -417,7 +527,9 @@ describe('Sorting Distribution API - /api/sorting-distribution', () => {
     });
 
     it('should handle database errors during delete', async () => {
-      mockPrisma.$executeRaw.mockRejectedValue(new Error('DB Error'));
+      prisma.sortingDistribution.updateMany.mockRejectedValue(
+        new Error('DB Error')
+      );
 
       const request = new Request(
         'http://localhost/api/sorting-distribution?productCode=PROD-001',
@@ -428,7 +540,7 @@ describe('Sorting Distribution API - /api/sorting-distribution', () => {
       const data = await response.json();
 
       expect(response.status).toBe(500);
-      expect(data.error).toBe('Failed to delete sorting distribution data');
+      expect(data.error).toBe('Failed to delete distribution data');
     });
   });
 });

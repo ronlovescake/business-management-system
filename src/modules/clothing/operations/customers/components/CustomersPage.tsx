@@ -21,7 +21,7 @@ import {
   Card,
   Menu,
 } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
+import { showNotification, hideNotification } from '@mantine/notifications';
 import {
   IconUpload,
   IconSearch,
@@ -199,7 +199,7 @@ export function CustomersPage() {
     }
 
     try {
-      notifications.show({
+      showNotification({
         id: 'import-progress',
         title: 'Importing...',
         message: 'Processing CSV file, please wait...',
@@ -210,7 +210,7 @@ export function CustomersPage() {
 
       const result = await CustomerService.importFromCSV(file);
 
-      notifications.hide('import-progress');
+      hideNotification('import-progress');
 
       if (result.success && result.stats) {
         const {
@@ -221,7 +221,7 @@ export function CustomersPage() {
           totalRows,
         } = result.stats;
 
-        notifications.show({
+        showNotification({
           title: 'Import Successful',
           message: `Processed ${totalRows} rows. Created ${customersCreated} new customers, updated ${customersUpdated} customers, added ${additionalInfoCreated} additional info records${errors.length > 0 ? `. ${errors.length} errors occurred.` : ''}`,
           color: errors.length > 0 ? 'yellow' : 'green',
@@ -237,7 +237,7 @@ export function CustomersPage() {
           queryKey: queryKeys.customers.lists(),
         });
       } else {
-        notifications.show({
+        showNotification({
           title: 'Import Failed',
           message: result.error || 'Error importing CSV file.',
           color: 'red',
@@ -246,9 +246,9 @@ export function CustomersPage() {
 
       setFile(null);
     } catch (error) {
-      notifications.hide('import-progress');
+      hideNotification('import-progress');
       logger.error('Error importing CSV:', error);
-      notifications.show({
+      showNotification({
         title: 'Import Failed',
         message: 'Error importing CSV file. Please check the file format.',
         color: 'red',
@@ -266,14 +266,14 @@ export function CustomersPage() {
 
       CustomerService.exportToCSV(dataToExport, filename);
 
-      notifications.show({
+      showNotification({
         title: 'Export Successful',
         message: `Exported ${dataToExport.length} customers to ${filename}`,
         color: 'green',
       });
     } catch (error) {
       logger.error('Error exporting CSV:', error);
-      notifications.show({
+      showNotification({
         title: 'Export Failed',
         message: 'Error exporting CSV file.',
         color: 'red',
@@ -290,14 +290,14 @@ export function CustomersPage() {
       const result = await CustomerService.exportToCSVDetailed(filename, 5);
 
       if (result.warning) {
-        notifications.show({
+        showNotification({
           title: '⚠️ Export Successful (with warnings)',
           message: result.warning,
           color: 'yellow',
           autoClose: 10000,
         });
       } else {
-        notifications.show({
+        showNotification({
           title: 'Export Successful',
           message:
             'Exported customers with all additional info (Shopee usernames, addresses, phones)',
@@ -306,7 +306,7 @@ export function CustomersPage() {
       }
     } catch (error) {
       logger.error('Error exporting detailed CSV:', error);
-      notifications.show({
+      showNotification({
         title: 'Export Failed',
         message: 'Error exporting detailed CSV file.',
         color: 'red',
@@ -322,14 +322,14 @@ export function CustomersPage() {
 
       await CustomerService.exportToCSVDuplicateRows(filename);
 
-      notifications.show({
+      showNotification({
         title: 'Export Successful',
         message: 'Exported customers in duplicate rows format for analysis',
         color: 'green',
       });
     } catch (error) {
       logger.error('Error exporting analysis CSV:', error);
-      notifications.show({
+      showNotification({
         title: 'Export Failed',
         message: 'Error exporting analysis CSV file.',
         color: 'red',
@@ -342,7 +342,7 @@ export function CustomersPage() {
     const result = getValidatedCustomerData();
 
     if (!result.isValid || !result.data) {
-      notifications.show({
+      showNotification({
         title: 'Validation Error',
         message: result.errors?.join(', ') || 'Please check the form',
         color: 'red',
@@ -368,7 +368,7 @@ export function CustomersPage() {
 
       closeModal();
 
-      notifications.show({
+      showNotification({
         title: '🎉 Customer Added Successfully!',
         message: `${result.data['Customer Name']} has been added to your customer database`,
         color: 'green',
@@ -377,7 +377,7 @@ export function CustomersPage() {
       });
     } catch (error) {
       logger.error('Failed to add customer', error);
-      notifications.show({
+      showNotification({
         title: 'Saved locally only',
         message: 'Database not reachable',
         color: 'yellow',

@@ -96,6 +96,30 @@ const nextConfig = {
           managedPaths: [/^(.+?[\\/]node_modules[\\/])/],
         };
       }
+
+      if (isServer) {
+        const handlebarsRequest = 'handlebars';
+        const asCommonJs = (request) => `commonjs ${request}`;
+
+        if (Array.isArray(config.externals)) {
+          config.externals.push(asCommonJs(handlebarsRequest));
+        } else if (typeof config.externals === 'function') {
+          const originalExternals = config.externals;
+          config.externals = (context, request, callback) => {
+            if (request === handlebarsRequest) {
+              return callback(null, asCommonJs(handlebarsRequest));
+            }
+            return originalExternals(context, request, callback);
+          };
+        } else if (config.externals) {
+          config.externals = [
+            ...[].concat(config.externals),
+            asCommonJs(handlebarsRequest),
+          ];
+        } else {
+          config.externals = [asCommonJs(handlebarsRequest)];
+        }
+      }
       return config;
     },
     onDemandEntries: {

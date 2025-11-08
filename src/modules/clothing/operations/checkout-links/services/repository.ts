@@ -3,12 +3,12 @@
  */
 
 import { BaseRepository } from '@/core/database';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 import type { CheckoutLinks } from '../types';
 
 class CheckoutLinksRepository extends BaseRepository<CheckoutLinks> {
   constructor() {
-    super(prisma.checkoutLinks, 'CheckoutLinks');
+    super(prisma.checkoutLink, 'CheckoutLink');
   }
 
   /**

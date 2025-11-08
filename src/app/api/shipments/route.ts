@@ -190,6 +190,8 @@ export async function POST(request: NextRequest) {
           changes: string[];
         }> = [];
 
+        const productClient = (tx as typeof prisma).product ?? prisma.product;
+
         for (const shipmentData of shipmentsToCreate) {
           const shipmentCode = shipmentData.shipmentCode;
 
@@ -299,7 +301,7 @@ export async function POST(request: NextRequest) {
             });
 
             // Cascade update to products with this shipment code
-            await tx.product.updateMany({
+            await productClient.updateMany({
               where: {
                 shipmentCode: shipmentCode,
               },
@@ -334,7 +336,7 @@ export async function POST(request: NextRequest) {
             });
 
             // Cascade create to products with this shipment code
-            await tx.product.updateMany({
+            await productClient.updateMany({
               where: {
                 shipmentCode: shipmentCode,
               },

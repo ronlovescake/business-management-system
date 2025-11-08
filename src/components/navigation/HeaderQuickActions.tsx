@@ -54,7 +54,7 @@ import {
   IconLogout,
   IconUsers,
 } from '@tabler/icons-react';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -358,7 +358,7 @@ export function HeaderQuickActions({
         }
       }
     } catch (error) {
-      notifications.show({
+      showNotification({
         title: 'Messaging state',
         message: 'Failed to restore chat windows.',
         color: 'red',
@@ -384,7 +384,7 @@ export function HeaderQuickActions({
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(openChats));
     } catch (error) {
-      notifications.show({
+      showNotification({
         title: 'Messaging state',
         message: 'Failed to save chat windows.',
         color: 'red',
@@ -886,7 +886,7 @@ function ChatWindow({
       }, 100);
     },
     onError: () => {
-      notifications.show({
+      showNotification({
         title: 'Error',
         message: 'Failed to send message',
         color: 'red',
@@ -1004,7 +1004,7 @@ function ChatWindow({
               <Menu.Item
                 leftSection={<IconUser size={16} />}
                 onClick={() =>
-                  notifications.show({
+                  showNotification({
                     title: 'Profile info',
                     message: 'Profile view is coming soon.',
                     color: 'blue',
@@ -1016,7 +1016,7 @@ function ChatWindow({
               <Menu.Item
                 leftSection={<IconBellOff size={16} />}
                 onClick={() =>
-                  notifications.show({
+                  showNotification({
                     title: 'Notifications muted',
                     message: 'You will stop receiving alerts for this chat.',
                     color: 'yellow',

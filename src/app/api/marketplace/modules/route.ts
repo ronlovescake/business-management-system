@@ -15,6 +15,8 @@ import { prisma } from '@/lib/db';
 import type { ModuleManifest, ModulePackage } from '@/core/ModuleRegistry';
 import { logger } from '@/lib/logger';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;

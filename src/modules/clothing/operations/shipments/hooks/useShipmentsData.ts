@@ -13,7 +13,7 @@
 
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import { useDataTable } from '@/hooks/useDataTable';
 import { queryKeys } from '@/lib/queryKeys';
 import { logger } from '@/lib/logger';
@@ -52,7 +52,7 @@ export function useShipmentsData() {
         return await ShipmentService.loadShipments();
       } catch (error) {
         logger.error('Failed to load shipments:', error);
-        notifications.show({
+        showNotification({
           title: 'Error',
           message: 'Failed to load shipments data',
           color: 'red',
@@ -94,14 +94,16 @@ export function useShipmentsData() {
     },
     onMutate: async (formData) => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: queryKeys.shipments.lists() });
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.shipments.lists(),
+      });
 
       // Snapshot previous value
       const previousShipments = queryClient.getQueryData<ShipmentData[]>(
         queryKeys.shipments.lists()
       );
 
-      // Create temporary shipment for optimistic update  
+      // Create temporary shipment for optimistic update
       // Note: We use a placeholder since we don't know the real ID yet
       // The real data will be fetched after successful mutation
       const tempShipment = {
@@ -138,7 +140,7 @@ export function useShipmentsData() {
         );
       }
       logger.error('Error adding shipment:', _error);
-      notifications.show({
+      showNotification({
         title: '❌ Error',
         message: 'Failed to add shipment. Please try again.',
         color: 'red',
@@ -171,7 +173,9 @@ export function useShipmentsData() {
     },
     onMutate: async ({ id, formData }) => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: queryKeys.shipments.lists() });
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.shipments.lists(),
+      });
 
       // Snapshot previous value
       const previousShipments = queryClient.getQueryData<ShipmentData[]>(
@@ -199,7 +203,7 @@ export function useShipmentsData() {
         );
       }
       logger.error('Error updating shipment:', _error);
-      notifications.show({
+      showNotification({
         title: '❌ Error',
         message: 'Failed to update shipment. Please try again.',
         color: 'red',
@@ -222,7 +226,9 @@ export function useShipmentsData() {
     },
     onMutate: async () => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: queryKeys.shipments.lists() });
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.shipments.lists(),
+      });
 
       // Snapshot previous value
       const previousShipments = queryClient.getQueryData<ShipmentData[]>(
@@ -246,7 +252,7 @@ export function useShipmentsData() {
       const errorMessage =
         _error instanceof Error ? _error.message : 'Unknown error occurred';
       logger.error('CSV import error:', _error);
-      notifications.show({
+      showNotification({
         title: '❌ Import Failed',
         message: `Failed to import CSV: ${errorMessage}`,
         color: 'red',

@@ -5,11 +5,11 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Stack, Select, ActionIcon } from '@mantine/core';
 import { IconCopy } from '@tabler/icons-react';
 import { Text, Paper } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 
 interface Product {
   id: string;
@@ -28,12 +28,37 @@ interface Price {
   ['Price Adjustment']: number;
 }
 
+const normalizeProductCode = (code: Product['Product Code']) => {
+  if (typeof code !== 'string') {
+    return null;
+  }
+
+  const trimmed = code.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
 export function PostTemplateComponent() {
   const [selectedProductCode, setSelectedProductCode] = useState<string | null>(
     null
   );
   const [products, setProducts] = useState<Product[]>([]);
   const [prices, setPrices] = useState<Price[]>([]);
+
+  const productOptions = useMemo(
+    () =>
+      // Ensure Mantine Select receives only normalized string values
+      Array.from(
+        new Set(
+          products
+            .map((product) => normalizeProductCode(product['Product Code']))
+            .filter((code): code is string => Boolean(code))
+        )
+      ).map((code) => ({
+        value: code,
+        label: code,
+      })),
+    [products]
+  );
 
   useEffect(() => {
     async function fetchData() {
@@ -61,12 +86,18 @@ export function PostTemplateComponent() {
 
   // Find selected product based on product code
   const selectedProduct =
-    products.find((p) => p['Product Code'] === selectedProductCode) || null;
+    products.find(
+      (product) =>
+        normalizeProductCode(product['Product Code']) === selectedProductCode
+    ) || null;
 
   // Find all matching prices for selected product (multiple price tiers)
   const matchingPrices = selectedProduct
     ? prices
-        .filter((p) => p['Product Code'] === selectedProduct['Product Code'])
+        .filter(
+          (price) =>
+            normalizeProductCode(price['Product Code']) === selectedProductCode
+        )
         .sort((a, b) => b['Lower Limit'] - a['Lower Limit']) // Sort by lower limit descending
     : [];
 
@@ -140,13 +171,13 @@ First-time buyers must provide the following details:
 
     try {
       await navigator.clipboard.writeText(canvasText);
-      notifications.show({
+      showNotification({
         title: 'Success',
         message: 'Canvas content copied to clipboard!',
         color: 'green',
       });
     } catch (error) {
-      notifications.show({
+      showNotification({
         title: 'Error',
         message: 'Failed to copy to clipboard',
         color: 'red',
@@ -158,10 +189,7 @@ First-time buyers must provide the following details:
     <Stack gap="md">
       <Select
         placeholder="Select a product..."
-        data={products.map((p) => ({
-          value: p['Product Code'],
-          label: p['Product Code'],
-        }))}
+        data={productOptions}
         value={selectedProductCode}
         onChange={(value) => setSelectedProductCode(value)}
         searchable
