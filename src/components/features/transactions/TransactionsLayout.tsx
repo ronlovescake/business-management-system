@@ -1,7 +1,9 @@
 import React from 'react';
 import dynamic from 'next/dynamic';
 import { Group, Button, Text, Loader, Pill } from '@mantine/core';
-import { IconPlus } from '@tabler/icons-react';
+import { IconPlus, IconFileSpreadsheet } from '@tabler/icons-react';
+import { showNotification } from '@mantine/notifications';
+import * as XLSX from 'xlsx';
 import type { StatCard } from '@/components/ui';
 import type {
   HandsontableColumn,
@@ -116,6 +118,45 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
   isGeneratingDistribution = false,
   enableCtrlF = false,
 }: TransactionsLayoutProps<T>) {
+  // Export to XLSX function
+  const handleExportToXLSX = React.useCallback(() => {
+    try {
+      // Create a new workbook
+      const wb = XLSX.utils.book_new();
+
+      // Convert filtered data to worksheet
+      const ws = XLSX.utils.json_to_sheet(filteredData);
+
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
+
+      // Generate filename with timestamp
+      const timestamp = new Date()
+        .toISOString()
+        .slice(0, 19)
+        .replace(/[:-]/g, '');
+      const filename = `transactions-${timestamp}.xlsx`;
+
+      // Write and download the file
+      XLSX.writeFile(wb, filename);
+
+      showNotification({
+        title: '✅ Export Successful',
+        message: `Downloaded ${filteredData.length} transactions to ${filename}`,
+        color: 'green',
+        autoClose: 5000,
+      });
+    } catch (error) {
+      showNotification({
+        title: '❌ Export Failed',
+        message:
+          error instanceof Error ? error.message : 'Failed to export data',
+        color: 'red',
+        autoClose: 5000,
+      });
+    }
+  }, [filteredData]);
+
   // Footer with Add Rows button and count
   const footerLeft = onAddRows ? (
     <Group gap="md" align="center">
@@ -172,6 +213,20 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
   // Action buttons for document generation
   const actionButtons = (
     <Group>
+      <Button
+        leftSection={<IconFileSpreadsheet size={16} />}
+        variant="outline"
+        onClick={handleExportToXLSX}
+        style={{
+          backgroundColor: '#10b981',
+          borderColor: '#10b981',
+          borderWidth: '1px',
+          color: '#ffffff',
+          width: '175px',
+        }}
+      >
+        Export to XLSX
+      </Button>
       {onGenerateInvoice && (
         <Button
           leftSection={

@@ -38,7 +38,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import puppeteer from 'puppeteer';
-import Handlebars from 'handlebars';
+import Handlebars from 'handlebars/dist/cjs/handlebars';
 import fs from 'fs';
 import path from 'path';
 

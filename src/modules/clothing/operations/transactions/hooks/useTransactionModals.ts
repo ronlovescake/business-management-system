@@ -848,13 +848,15 @@ export function useTransactionModals(
   const prepareDistributionGeneration = useCallback(
     async (visibleTransactions: TransactionData[]) => {
       const warehouse = visibleTransactions.filter(
-        (t) => t['Order Status'] === 'Warehouse'
+        (t) =>
+          t['Order Status'] === 'Warehouse' || t['Order Status'] === 'Prepared'
       );
 
       if (warehouse.length === 0) {
         showNotification({
-          title: '⚠️ No Warehouse Transactions',
-          message: 'No visible transactions with "Warehouse" status found.',
+          title: '⚠️ No Warehouse/Prepared Transactions',
+          message:
+            'No visible transactions with "Warehouse" or "Prepared" status found.',
           color: 'yellow',
           autoClose: 5000,
         });
@@ -902,7 +904,8 @@ export function useTransactionModals(
 
     try {
       const warehouse = pendingDistributionData.filter(
-        (t) => t['Order Status'] === 'Warehouse'
+        (t) =>
+          t['Order Status'] === 'Warehouse' || t['Order Status'] === 'Prepared'
       );
 
       // Note: Using raw fetch for blob response (API client doesn't handle blobs yet)

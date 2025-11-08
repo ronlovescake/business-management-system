@@ -190,6 +190,7 @@ class ModuleLoader {
           const importPromise = import(
             /* webpackChunkName: "[request]" */
             /* webpackMode: "lazy" */
+            /* webpackIgnore: true */
             modulePath
           );
 
