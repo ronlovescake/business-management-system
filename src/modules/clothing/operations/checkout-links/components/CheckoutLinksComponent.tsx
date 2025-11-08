@@ -60,6 +60,33 @@ interface ItemWeightData {
   bulkQuantity: string;
   bulkWeight: string;
   approxWeightPerPiece: string;
+  createdAt?: string;
+}
+
+interface ItemWeightApiResponse {
+  id: string;
+  itemName: string;
+  bulkQuantity: string;
+  bulkWeight: string;
+  approxWeightPerPiece: string;
+  createdAt: string;
+}
+
+type ItemWeightFormValues = {
+  itemName: string;
+  bulkQuantity: number | '';
+  bulkWeight: number | '';
+};
+
+function mapItemWeightResponse(item: ItemWeightApiResponse): ItemWeightData {
+  return {
+    id: item.id,
+    itemName: item.itemName,
+    bulkQuantity: item.bulkQuantity,
+    bulkWeight: item.bulkWeight,
+    approxWeightPerPiece: item.approxWeightPerPiece,
+    createdAt: item.createdAt,
+  };
 }
 
 export function CheckoutLinksComponent() {
@@ -72,32 +99,33 @@ export function CheckoutLinksComponent() {
   const [invoiceData, setInvoiceData] = useState<InvoiceData[]>([]);
   const [itemWeightData, setItemWeightData] = useState<ItemWeightData[]>([]);
   const [isItemWeightModalOpen, setIsItemWeightModalOpen] = useState(false);
+  const [isItemWeightLoading, setIsItemWeightLoading] = useState(true);
+  const [isItemWeightSubmitting, setIsItemWeightSubmitting] = useState(false);
 
   // Form for adding new item weight
-  const itemWeightForm = useForm({
+  const itemWeightForm = useForm<ItemWeightFormValues>({
     initialValues: {
       itemName: '',
       bulkQuantity: '',
       bulkWeight: '',
     },
     validate: {
-      itemName: (value) => (!value ? 'Item name is required' : null),
+      itemName: (value) =>
+        value.trim().length === 0 ? 'Item name is required' : null,
       bulkQuantity: (value) => {
-        if (!value) {
+        if (value === '' || value === null) {
           return 'Bulk quantity is required';
         }
-        const num = parseFloat(value);
-        if (isNaN(num) || num <= 0) {
+        if (typeof value !== 'number' || Number.isNaN(value) || value <= 0) {
           return 'Must be a positive number';
         }
         return null;
       },
       bulkWeight: (value) => {
-        if (!value) {
+        if (value === '' || value === null) {
           return 'Bulk weight is required';
         }
-        const num = parseFloat(value);
-        if (isNaN(num) || num <= 0) {
+        if (typeof value !== 'number' || Number.isNaN(value) || value <= 0) {
           return 'Must be a positive number';
         }
         return null;
@@ -127,6 +155,58 @@ export function CheckoutLinksComponent() {
     };
 
     loadData();
+  }, []);
+
+  // Load invoices from database on mount
+  useEffect(() => {
+    const loadInvoices = async () => {
+      try {
+        const response = await fetch('/api/invoices');
+        const result = await response.json();
+
+        if (result.data) {
+          setInvoiceData(result.data);
+        }
+      } catch (error) {
+        showNotification({
+          title: 'Error',
+          message: 'Failed to load invoices',
+          color: 'red',
+        });
+      }
+    };
+
+    loadInvoices();
+  }, []);
+
+  useEffect(() => {
+    const loadItemWeights = async () => {
+      try {
+        const response = await fetch('/api/item-weights');
+
+        if (!response.ok) {
+          throw new Error('Failed to load item weights');
+        }
+
+        const result = await response.json();
+        const items = Array.isArray(result.data) ? result.data : [];
+
+        setItemWeightData(items.map(mapItemWeightResponse));
+      } catch (error) {
+        showNotification({
+          title: 'Error',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Failed to load item weights',
+          color: 'red',
+        });
+      } finally {
+        setIsItemWeightLoading(false);
+      }
+    };
+
+    loadItemWeights();
   }, []);
 
   // Filter data based on search query
@@ -418,12 +498,29 @@ export function CheckoutLinksComponent() {
         })
       );
 
-      // Append to existing data instead of replacing
-      setInvoiceData((prevData) => [...prevData, ...syncedData]);
+      // Save to database (overwrites existing data)
+      const saveResponse = await fetch('/api/invoices', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ invoices: syncedData }),
+      });
+
+      const saveResult = await saveResponse.json();
+
+      if (!saveResponse.ok || !saveResult.success) {
+        throw new Error(
+          saveResult.error || 'Failed to save invoices to database'
+        );
+      }
+
+      // Update state with the saved data from database
+      setInvoiceData(saveResult.data);
 
       showNotification({
         title: 'Sync Successful',
-        message: `Successfully synced ${syncedData.length} files from Google Drive`,
+        message: `Successfully synced and saved ${syncedData.length} files from Google Drive`,
         color: 'green',
       });
     } catch (error) {
@@ -440,35 +537,70 @@ export function CheckoutLinksComponent() {
     }
   };
 
-  const handleAddItemWeight = (values: {
-    itemName: string;
-    bulkQuantity: string;
-    bulkWeight: string;
-  }) => {
-    const bulkQty = parseFloat(values.bulkQuantity);
-    const bulkWt = parseFloat(values.bulkWeight);
+  const handleAddItemWeight = async (values: ItemWeightFormValues) => {
+    if (
+      typeof values.bulkQuantity !== 'number' ||
+      typeof values.bulkWeight !== 'number'
+    ) {
+      showNotification({
+        title: 'Invalid input',
+        message: 'Bulk quantity and weight must be valid numbers',
+        color: 'red',
+      });
+      return;
+    }
 
-    // Calculate approximate weight per piece
-    const approxWeightPerPiece =
-      bulkQty > 0 ? (bulkWt / bulkQty).toFixed(2) : '0';
+    setIsItemWeightSubmitting(true);
 
-    const newItem: ItemWeightData = {
-      id: `item-${Date.now()}-${Math.random()}`,
-      itemName: values.itemName,
-      bulkQuantity: values.bulkQuantity,
-      bulkWeight: values.bulkWeight,
-      approxWeightPerPiece,
-    };
+    try {
+      const response = await fetch('/api/item-weights', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          itemName: values.itemName.trim(),
+          bulkQuantity: values.bulkQuantity,
+          bulkWeight: values.bulkWeight,
+        }),
+      });
 
-    setItemWeightData((prev) => [...prev, newItem]);
-    setIsItemWeightModalOpen(false);
-    itemWeightForm.reset();
+      if (!response.ok) {
+        throw new Error('Failed to save item weight');
+      }
 
-    showNotification({
-      title: 'Success',
-      message: 'Item weight added successfully',
-      color: 'green',
-    });
+      const result = await response.json();
+      const createdItem = Array.isArray(result.data)
+        ? result.data[0]
+        : result.data;
+
+      if (!createdItem) {
+        throw new Error('Invalid response from server');
+      }
+
+      setItemWeightData((prev) => [
+        mapItemWeightResponse(createdItem as ItemWeightApiResponse),
+        ...prev,
+      ]);
+
+      showNotification({
+        title: 'Success',
+        message: 'Item weight added successfully',
+        color: 'green',
+      });
+
+      setIsItemWeightModalOpen(false);
+      itemWeightForm.reset();
+    } catch (error) {
+      showNotification({
+        title: 'Error',
+        message:
+          error instanceof Error ? error.message : 'Failed to save item weight',
+        color: 'red',
+      });
+    } finally {
+      setIsItemWeightSubmitting(false);
+    }
   };
 
   return (
@@ -492,6 +624,7 @@ export function CheckoutLinksComponent() {
                 // TODO: Implement export functionality
               }}
               onAddNew={handleSyncGoogleDrive}
+              addNewLabel="Retrieve Google Drive Invoices"
               isImporting={isSyncing}
             />
 
@@ -699,7 +832,13 @@ export function CheckoutLinksComponent() {
                   'APROX. WEIGHT PER PIECE',
                   'ACTION',
                 ]}
-                emptyState="No item weights found. Click 'Add New' to get started."
+                emptyState={
+                  isItemWeightLoading
+                    ? 'Loading item weights...'
+                    : searchQuery
+                      ? 'No item weights match your search.'
+                      : "No item weights found. Click 'Add New' to get started."
+                }
                 colSpan={5}
               >
                 {filteredItemWeightData.map((row) => (
@@ -933,16 +1072,13 @@ export function CheckoutLinksComponent() {
         title="Add New Item Weight"
         size="md"
       >
-        <form
-          onSubmit={itemWeightForm.onSubmit((values) =>
-            handleAddItemWeight(values)
-          )}
-        >
+        <form onSubmit={itemWeightForm.onSubmit(handleAddItemWeight)}>
           <Stack gap="md">
             <TextInput
               label="Item Name"
               placeholder="Enter item name"
               required
+              disabled={isItemWeightSubmitting}
               {...itemWeightForm.getInputProps('itemName')}
             />
 
@@ -952,6 +1088,7 @@ export function CheckoutLinksComponent() {
               required
               min={0}
               decimalScale={2}
+              disabled={isItemWeightSubmitting}
               {...itemWeightForm.getInputProps('bulkQuantity')}
             />
 
@@ -961,6 +1098,7 @@ export function CheckoutLinksComponent() {
               required
               min={0}
               decimalScale={2}
+              disabled={isItemWeightSubmitting}
               {...itemWeightForm.getInputProps('bulkWeight')}
             />
 
@@ -971,14 +1109,18 @@ export function CheckoutLinksComponent() {
             <Group justify="flex-end" mt="md">
               <Button
                 variant="subtle"
+                type="button"
                 onClick={() => {
                   setIsItemWeightModalOpen(false);
                   itemWeightForm.reset();
                 }}
+                disabled={isItemWeightSubmitting}
               >
                 Cancel
               </Button>
-              <Button type="submit">Add Item Weight</Button>
+              <Button type="submit" loading={isItemWeightSubmitting}>
+                Add Item Weight
+              </Button>
             </Group>
           </Stack>
         </form>

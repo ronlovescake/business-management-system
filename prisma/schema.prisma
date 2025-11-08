@@ -675,6 +675,40 @@ model CheckoutLink {
   @@map("checkout_links")
 }
 
+model ItemWeight {
+  id                   String   @id @default(cuid())
+  itemName             String   @db.VarChar(255)
+  bulkQuantity         Decimal  @db.Decimal(12, 2)
+  bulkWeight           Decimal  @db.Decimal(12, 2)
+  approxWeightPerPiece Decimal  @db.Decimal(12, 2)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  deletedAt            DateTime?
+
+  @@index([itemName])
+  @@index([deletedAt])
+  @@map("item_weights")
+}
+
+model Invoice {
+  id                  String    @id @default(cuid())
+  customerName        String    @db.VarChar(255)
+  actualWeight        String?   @db.VarChar(100)
+  finalWeight         String?   @db.VarChar(100)
+  shopeeCheckoutLinks String?   @db.VarChar(500)
+  driveFiles          String?   @db.VarChar(500)
+  message             String?   @db.VarChar(1000)
+  chat                String?   @db.VarChar(500)
+  tickbox             Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
+
+  @@index([customerName])
+  @@index([deletedAt])
+  @@map("invoices")
+}
+
 model DispatchOrder {
   id                      String    @id @default(cuid())
   createdAt               DateTime  @default(now())

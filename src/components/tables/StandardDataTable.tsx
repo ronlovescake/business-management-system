@@ -232,6 +232,11 @@ interface StandardTableControlsProps {
   onAddNew?: () => void;
 
   /**
+   * Optional: Custom label for the Add New button
+   */
+  addNewLabel?: string;
+
+  /**
    * Optional: Show loading state on import button
    */
   isImporting?: boolean;
@@ -267,6 +272,7 @@ export function StandardTableControls({
   onImport,
   onExport,
   onAddNew,
+  addNewLabel = 'Add New',
   isImporting = false,
   hideImport = false,
   hideExport = false,
@@ -334,7 +340,7 @@ export function StandardTableControls({
         )}
         {!hideAddNew && (
           <Button leftSection={<IconPlus size={16} />} onClick={onAddNew}>
-            Add New
+            {addNewLabel}
           </Button>
         )}
       </Group>

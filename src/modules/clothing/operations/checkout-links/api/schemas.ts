@@ -26,6 +26,18 @@ export const CheckoutLinksQuerySchema = z.object({
   offset: z.number().int().nonnegative().optional(),
 });
 
+export const CreateItemWeightSchema = z.object({
+  itemName: z.string().min(1),
+  bulkQuantity: z.number().positive(),
+  bulkWeight: z.number().positive(),
+});
+
+export const ItemWeightsQuerySchema = z.object({
+  search: z.string().optional(),
+  limit: z.number().int().positive().optional(),
+  offset: z.number().int().nonnegative().optional(),
+});
+
 export type CreateCheckoutLinksInput = z.infer<
   typeof CreateCheckoutLinksSchema
 >;
@@ -36,3 +48,5 @@ export type UpdateCheckoutLinksInput = z.infer<
   typeof UpdateCheckoutLinksSchema
 >;
 export type CheckoutLinksQuery = z.infer<typeof CheckoutLinksQuerySchema>;
+export type CreateItemWeightInput = z.infer<typeof CreateItemWeightSchema>;
+export type ItemWeightsQuery = z.infer<typeof ItemWeightsQuerySchema>;
