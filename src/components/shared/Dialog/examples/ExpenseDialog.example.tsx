@@ -15,9 +15,15 @@ import {
   FileButton,
   Button,
 } from '@mantine/core';
+import { DateInput } from '@mantine/dates';
 import { IconReceipt } from '@tabler/icons-react';
 import { ComposedDialog } from '@/components/shared/Dialog';
 import { FormatterService } from '@/services/FormatterService';
+import {
+  COMMON_DATE_INPUT_PROPS,
+  formatDateForInput,
+  parseDateValue,
+} from '@/lib/dateInputConfig';
 
 // Example Expense type
 interface Expense {
@@ -135,13 +141,15 @@ export function ExpenseDialog({
       }}
     >
       <Stack gap="md">
-        <TextInput
+        <DateInput
           label="Date"
-          type="date"
           required
-          value={formDate}
-          onChange={(e) => setFormDate(e.target.value)}
+          value={parseDateValue(formDate)}
+          onChange={(value) => setFormDate(formatDateForInput(value))}
           description="When was this expense made?"
+          valueFormat="MM/DD/YYYY"
+          clearable
+          {...COMMON_DATE_INPUT_PROPS}
         />
 
         <NumberInput

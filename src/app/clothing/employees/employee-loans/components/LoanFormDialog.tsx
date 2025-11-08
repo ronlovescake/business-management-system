@@ -18,6 +18,7 @@ import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyl
 import { FormatterService } from '@/services/FormatterService';
 import { getCurrentDateISO, toDate, toISODate } from '@/utils/date';
 import type { EmployeeLoan, EmployeeLoanFormData } from '../types';
+import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 
 interface LoanFormDialogProps {
   opened: boolean;
@@ -231,7 +232,7 @@ export const LoanFormDialog = React.memo(function LoanFormDialog({
           <DateInput
             label="Application Date"
             valueFormat="MM/DD/YYYY"
-            firstDayOfWeek={0}
+            {...COMMON_DATE_INPUT_PROPS}
             value={toDate(form.values.applicationDate)}
             onChange={(value) =>
               form.setFieldValue('applicationDate', toISODate(value))

@@ -18,6 +18,7 @@ import {
   Button,
   Card,
 } from '@mantine/core';
+import { DateInput } from '@mantine/dates';
 import { PolishedModal } from '@/components/modals/PolishedModal';
 import {
   IconPackage,
@@ -39,6 +40,11 @@ import {
   UNIT_OPTIONS,
   PAYMENT_STATUS_OPTIONS,
 } from '../types/product.types';
+import {
+  COMMON_DATE_INPUT_PROPS,
+  formatDateForInput,
+  parseDateValue,
+} from '@/lib/dateInputConfig';
 
 interface AddProductModalProps {
   opened: boolean;
@@ -61,6 +67,11 @@ export const AddProductModal = memo(function AddProductModal({
   isEditMode,
   isSubmitting = false,
 }: AddProductModalProps) {
+  const handleDateChange =
+    (field: 'postingDate' | 'orderDate') => (value: Date | null) => {
+      updateField(field, formatDateForInput(value));
+    };
+
   return (
     <PolishedModal
       opened={opened}
@@ -144,28 +155,30 @@ export const AddProductModal = memo(function AddProductModal({
         {/* Date & Payment Information Section */}
         <div>
           <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg">
-            <TextInput
+            <DateInput
               label="Posting Date"
-              type="date"
+              placeholder="Select posting date"
               size="md"
               radius="md"
               leftSection={<IconCalendar size={16} />}
-              value={form.postingDate}
-              onChange={(e) =>
-                updateField('postingDate', e.currentTarget?.value || '')
-              }
+              value={parseDateValue(form.postingDate)}
+              onChange={handleDateChange('postingDate')}
+              valueFormat="MMMM DD, YYYY"
+              clearable
+              {...COMMON_DATE_INPUT_PROPS}
             />
 
-            <TextInput
+            <DateInput
               label="Order Date"
-              type="date"
+              placeholder="Select order date"
               size="md"
               radius="md"
               leftSection={<IconCalendar size={16} />}
-              value={form.orderDate}
-              onChange={(e) =>
-                updateField('orderDate', e.currentTarget?.value || '')
-              }
+              value={parseDateValue(form.orderDate)}
+              onChange={handleDateChange('orderDate')}
+              valueFormat="MMMM DD, YYYY"
+              clearable
+              {...COMMON_DATE_INPUT_PROPS}
             />
 
             <Select
@@ -210,9 +223,9 @@ export const AddProductModal = memo(function AddProductModal({
               label="Exchange Rate"
               size="md"
               radius="md"
-              decimalScale={4}
+              decimalScale={2}
               fixedDecimalScale
-              step={0.0001}
+              step={0.01}
               value={form.exchangeRates}
               onChange={(value) =>
                 updateField('exchangeRates', Number(value) || 1)

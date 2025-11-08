@@ -17,6 +17,7 @@ import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTh
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 import { IconUserPlus, IconUserEdit } from '@tabler/icons-react';
 import { getCurrentDateISO, toDate, toISODate } from '@/utils/date';
+import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 import type { Employee, EmployeeFormData } from '../types';
 
 interface EmployeeFormDialogProps {
@@ -324,11 +325,11 @@ export const EmployeeFormDialog = React.memo(function EmployeeFormDialog({
               <DateInput
                 label="Date of Birth"
                 valueFormat="MM-DD-YYYY"
-                firstDayOfWeek={0}
                 value={toDate(form.values.dateOfBirth)}
                 onChange={(value) =>
                   form.setFieldValue('dateOfBirth', toISODate(value))
                 }
+                {...COMMON_DATE_INPUT_PROPS}
                 {...getFieldProps('dateOfBirth').handlers}
                 styles={getFieldProps('dateOfBirth').styles}
               />
@@ -402,12 +403,12 @@ export const EmployeeFormDialog = React.memo(function EmployeeFormDialog({
               <DateInput
                 label="Hire Date"
                 valueFormat="MM-DD-YYYY"
-                firstDayOfWeek={0}
                 required
                 value={toDate(form.values.hireDate)}
                 onChange={(value) =>
                   form.setFieldValue('hireDate', toISODate(value))
                 }
+                {...COMMON_DATE_INPUT_PROPS}
                 {...getFieldProps('hireDate').handlers}
                 styles={getFieldProps('hireDate').styles}
               />

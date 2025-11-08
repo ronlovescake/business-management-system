@@ -12,6 +12,12 @@ import {
   Pill,
   Textarea,
 } from '@mantine/core';
+import { DateInput } from '@mantine/dates';
+import {
+  COMMON_DATE_INPUT_PROPS,
+  formatDateForInput,
+  parseDateValue,
+} from '@/lib/dateInputConfig';
 import type { EmployeeSummary, Schedule, ShiftType } from '../types';
 
 interface ScheduleModalProps {
@@ -200,13 +206,15 @@ export const ScheduleModal = memo(function ScheduleModal({
             )}
 
             <Group grow>
-              <TextInput
+              <DateInput
                 label="Start date"
-                type="date"
-                value={formDate}
-                onChange={(event) => setFormDate(event.target.value)}
-                placeholder="mm/dd/yyyy"
+                value={parseDateValue(formDate)}
+                onChange={(value) => setFormDate(formatDateForInput(value))}
+                placeholder="Select date"
                 withAsterisk
+                valueFormat="MM/DD/YYYY"
+                clearable
+                {...COMMON_DATE_INPUT_PROPS}
               />
               <Group grow>
                 <TextInput

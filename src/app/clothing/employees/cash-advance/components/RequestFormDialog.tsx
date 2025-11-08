@@ -19,6 +19,7 @@ import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyl
 import { getCurrentDateISO, toDate, toISODate } from '@/utils/date';
 import { FormatterService } from '@/services/FormatterService';
 import { calculateMonthlyPayment } from '../hooks/useCashAdvance';
+import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 import type { CashAdvance, CashAdvanceFormData } from '../types';
 import type { EmployeeOption } from '../hooks/useCashAdvance';
 
@@ -259,12 +260,12 @@ export const RequestFormDialog = React.memo(function RequestFormDialog({
           <DateInput
             label="Request Date"
             valueFormat="MM/DD/YYYY"
-            firstDayOfWeek={0}
             value={toDate(form.values.requestDate)}
             onChange={(value) =>
               form.setFieldValue('requestDate', toISODate(value))
             }
             required
+            {...COMMON_DATE_INPUT_PROPS}
             {...requestDateField.handlers}
             styles={withHiddenError(requestDateField.styles)}
             error={form.errors.requestDate ? ' ' : undefined}

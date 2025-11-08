@@ -35,6 +35,7 @@ import {
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
+import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 
 /**
  * Field types supported by CrudForm
@@ -225,7 +226,7 @@ export function CrudForm<T extends Record<string, unknown>>({
         return <Switch {...commonProps} />;
 
       case 'date':
-        return <DateInput {...commonProps} />;
+        return <DateInput {...COMMON_DATE_INPUT_PROPS} {...commonProps} />;
 
       default:
         return <TextInput {...commonProps} />;

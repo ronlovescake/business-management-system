@@ -16,6 +16,7 @@ import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTh
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 import type { AttendanceFormValues, AttendanceStatus } from '../types';
 import { toDate, toISODate } from '@/utils/date';
+import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 
 interface AttendanceFormDialogProps {
   opened: boolean;
@@ -159,7 +160,7 @@ export const AttendanceFormDialog = memo(function AttendanceFormDialog({
           <DateInput
             label="Date"
             valueFormat="MM/DD/YYYY"
-            firstDayOfWeek={0}
+            {...COMMON_DATE_INPUT_PROPS}
             required
             value={toDate(formValues.date)}
             onChange={(value) => onChange('date', toISODate(value))}

@@ -2,6 +2,7 @@ import React from 'react';
 import { Group, Button } from '@mantine/core';
 import { IconPlus, IconCalendar, IconDownload } from '@tabler/icons-react';
 import { DateInput } from '@mantine/dates';
+import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 import { DataTable } from '@/components/ui/DataTable';
 import type { StatCard } from '@/components/ui';
 import type { GridColumn, Item, GridCell } from '@glideapps/glide-data-grid';
@@ -107,6 +108,7 @@ export function AttendanceLayout<T = Record<string, unknown>>({
           }
           leftSection={<IconCalendar size={16} />}
           clearable
+          {...COMMON_DATE_INPUT_PROPS}
         />
         <DateInput
           placeholder="End Date"
@@ -116,6 +118,7 @@ export function AttendanceLayout<T = Record<string, unknown>>({
           }
           leftSection={<IconCalendar size={16} />}
           clearable
+          {...COMMON_DATE_INPUT_PROPS}
         />
       </Group>
     ) : undefined;

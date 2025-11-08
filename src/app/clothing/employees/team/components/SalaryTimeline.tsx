@@ -26,6 +26,7 @@ import {
   IconTrendingUp,
 } from '@tabler/icons-react';
 import { DateInput } from '@mantine/dates';
+import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 import { showNotification } from '@mantine/notifications';
 
 interface SalaryHistoryRecord {
@@ -340,6 +341,7 @@ export function SalaryTimeline({
             onChange={setEffectiveDate}
             required
             leftSection={<IconCalendar size={16} />}
+            {...COMMON_DATE_INPUT_PROPS}
           />
 
           <NumberInput

@@ -26,6 +26,7 @@ import { PolishedModal } from '@/components/modals/PolishedModal';
 import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 import { toDate, toISODate } from '@/utils/date';
+import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 
 interface Expense {
   id: string;
@@ -128,12 +129,12 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
             <DateInput
               label="Date"
               valueFormat="MM/DD/YYYY"
-              firstDayOfWeek={0}
+              required
               value={toDate(formDate)}
               onChange={(value) => setFormDate(toISODate(value))}
-              required
               {...dateField.handlers}
               styles={dateField.styles}
+              {...COMMON_DATE_INPUT_PROPS}
             />
             <Select
               label="Category"

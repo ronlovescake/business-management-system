@@ -20,6 +20,7 @@ import { IconPlus, IconCalendar } from '@tabler/icons-react';
 import type { UseFormReturnType } from '@mantine/form';
 import type { ShipmentFormData } from '../types/shipment.types';
 import { SHIPMENT_STATUS_OPTIONS } from '../types/shipment.types';
+import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 
 interface AddShipmentModalProps {
   opened: boolean;
@@ -114,12 +115,14 @@ export const AddShipmentModal = React.memo(function AddShipmentModal({
               placeholder="Select date created"
               leftSection={<IconCalendar size={16} />}
               required
+              {...COMMON_DATE_INPUT_PROPS}
               {...form.getInputProps('dateCreated')}
             />
             <DateInput
               label="Date Delivered"
               placeholder="Select date delivered"
               leftSection={<IconCalendar size={16} />}
+              {...COMMON_DATE_INPUT_PROPS}
               {...form.getInputProps('dateDelivered')}
             />
           </Group>
@@ -148,4 +151,3 @@ export const AddShipmentModal = React.memo(function AddShipmentModal({
     </Modal>
   );
 });
-

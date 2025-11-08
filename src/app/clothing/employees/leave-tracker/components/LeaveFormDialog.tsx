@@ -19,6 +19,7 @@ import {
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 import type { LeaveRequest, LeaveType } from '../types';
 import { toDate, toISODate } from '@/utils/date';
+import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 
 interface LeaveFormDialogProps {
   opened: boolean;
@@ -245,10 +246,10 @@ export const LeaveFormDialog = React.memo(function LeaveFormDialog({
           <DateInput
             label="Start Date"
             valueFormat="MM/DD/YYYY"
-            firstDayOfWeek={0}
             required
             value={toDate(formStartDate)}
             onChange={(value) => setFormStartDate(toISODate(value))}
+            {...COMMON_DATE_INPUT_PROPS}
             {...startDateField.handlers}
             styles={startDateField.styles}
           />
@@ -256,10 +257,10 @@ export const LeaveFormDialog = React.memo(function LeaveFormDialog({
           <DateInput
             label="End Date"
             valueFormat="MM/DD/YYYY"
-            firstDayOfWeek={0}
             required
             value={toDate(formEndDate)}
             onChange={(value) => setFormEndDate(toISODate(value))}
+            {...COMMON_DATE_INPUT_PROPS}
             {...endDateField.handlers}
             styles={endDateField.styles}
           />

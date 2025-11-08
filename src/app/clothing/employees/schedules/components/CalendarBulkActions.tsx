@@ -12,6 +12,7 @@ import {
   Textarea,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
+import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 import Swal from 'sweetalert2';
 import type { EmployeeSummary, RecurringRule, ShiftType } from '../types';
 
@@ -336,6 +337,7 @@ export const CalendarBulkActions = memo(function CalendarBulkActions({
                   withAsterisk
                   valueFormat="MM/DD/YYYY"
                   clearable
+                  {...COMMON_DATE_INPUT_PROPS}
                 />
                 <DateInput
                   label="End date"
@@ -352,6 +354,7 @@ export const CalendarBulkActions = memo(function CalendarBulkActions({
                   description="Leave empty to build the next 3 months."
                   valueFormat="MM/DD/YYYY"
                   clearable
+                  {...COMMON_DATE_INPUT_PROPS}
                 />
               </Group>
 

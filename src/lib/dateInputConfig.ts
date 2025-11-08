@@ -1,0 +1,65 @@
+import type { CSSProperties } from 'react';
+import type { DateInputProps } from '@mantine/dates';
+
+const highlightStyle: CSSProperties = {
+  border: '1px solid var(--mantine-color-blue-5)',
+  backgroundColor: 'var(--mantine-color-blue-0)',
+  color: 'var(--mantine-color-blue-7)',
+  borderRadius: 'var(--mantine-radius-sm)',
+  fontWeight: 600,
+};
+
+const isSameDay = (date: Date, comparison: Date): boolean => {
+  return (
+    date.getFullYear() === comparison.getFullYear() &&
+    date.getMonth() === comparison.getMonth() &&
+    date.getDate() === comparison.getDate()
+  );
+};
+
+export const COMMON_DATE_INPUT_PROPS: Pick<
+  DateInputProps,
+  'firstDayOfWeek' | 'getDayProps'
+> = {
+  firstDayOfWeek: 0,
+  getDayProps: (date) => {
+    const today = new Date();
+
+    if (!isSameDay(date, today)) {
+      return {};
+    }
+
+    return {
+      style: {
+        ...highlightStyle,
+      },
+    };
+  },
+};
+
+export const parseDateValue = (
+  value: string | Date | null | undefined
+): Date | null => {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+export const formatDateForInput = (value: Date | null | undefined): string => {
+  if (!value) {
+    return '';
+  }
+
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+};

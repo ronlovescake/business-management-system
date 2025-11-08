@@ -20,6 +20,7 @@ import {
   Progress,
   Box,
 } from '@mantine/core';
+import { DateInput } from '@mantine/dates';
 import {
   IconPlus,
   IconEdit,
@@ -34,6 +35,11 @@ import {
   IconChartPie,
 } from '@tabler/icons-react';
 import { getActionLabel } from '@/lib/accessibility';
+import {
+  COMMON_DATE_INPUT_PROPS,
+  formatDateForInput,
+  parseDateValue,
+} from '@/lib/dateInputConfig';
 
 /**
  * Expense Interface
@@ -443,7 +449,11 @@ export function ExpensesLayout({
                                     variant="light"
                                     size="sm"
                                     onClick={() => onApprove(expense.id)}
-                                    {...getActionLabel('Approve', 'expense', `${expense.employeeName || 'Unknown'} - ${expense.category}`)}
+                                    {...getActionLabel(
+                                      'Approve',
+                                      'expense',
+                                      `${expense.employeeName || 'Unknown'} - ${expense.category}`
+                                    )}
                                   >
                                     <IconCheck size={16} />
                                   </ActionIcon>
@@ -454,7 +464,11 @@ export function ExpensesLayout({
                                     variant="light"
                                     size="sm"
                                     onClick={() => onReject(expense.id)}
-                                    {...getActionLabel('Reject', 'expense', `${expense.employeeName || 'Unknown'} - ${expense.category}`)}
+                                    {...getActionLabel(
+                                      'Reject',
+                                      'expense',
+                                      `${expense.employeeName || 'Unknown'} - ${expense.category}`
+                                    )}
                                   >
                                     <IconX size={16} />
                                   </ActionIcon>
@@ -467,7 +481,11 @@ export function ExpensesLayout({
                                 variant="light"
                                 size="sm"
                                 onClick={() => onEditExpense(expense)}
-                                {...getActionLabel('Edit', 'expense', `${expense.employeeName || 'Unknown'} - ${expense.category}`)}
+                                {...getActionLabel(
+                                  'Edit',
+                                  'expense',
+                                  `${expense.employeeName || 'Unknown'} - ${expense.category}`
+                                )}
                               >
                                 <IconEdit size={16} />
                               </ActionIcon>
@@ -478,7 +496,11 @@ export function ExpensesLayout({
                                 variant="light"
                                 size="sm"
                                 onClick={() => onDeleteExpense(expense.id)}
-                                {...getActionLabel('Delete', 'expense', `${expense.employeeName || 'Unknown'} - ${expense.category}`)}
+                                {...getActionLabel(
+                                  'Delete',
+                                  'expense',
+                                  `${expense.employeeName || 'Unknown'} - ${expense.category}`
+                                )}
                               >
                                 <IconTrash size={16} />
                               </ActionIcon>
@@ -690,12 +712,14 @@ export function ExpensesLayout({
         size="lg"
       >
         <Stack gap="md">
-          <TextInput
+          <DateInput
             label="Date"
-            type="date"
             required
-            value={formDate}
-            onChange={(e) => setFormDate(e.target.value)}
+            value={parseDateValue(formDate)}
+            onChange={(value) => setFormDate(formatDateForInput(value))}
+            valueFormat="MM/DD/YYYY"
+            clearable
+            {...COMMON_DATE_INPUT_PROPS}
           />
           <NumberInput
             label="Amount"
