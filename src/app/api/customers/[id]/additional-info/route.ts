@@ -52,6 +52,18 @@ export async function GET(
           id: info.id.toString(),
           value: info.value,
         })),
+      alternateNames: additionalInfo
+        .filter((info: { type: string }) => info.type === 'alternate_name')
+        .map((info: { id: number; value: string }) => ({
+          id: info.id.toString(),
+          value: info.value,
+        })),
+      facebookAccounts: additionalInfo
+        .filter((info: { type: string }) => info.type === 'facebook')
+        .map((info: { id: number; value: string }) => ({
+          id: info.id.toString(),
+          value: info.value,
+        })),
     };
 
     return NextResponse.json(grouped);
@@ -84,7 +96,13 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { addresses, phones, shopeeUsernames } = body;
+    const {
+      addresses,
+      phones,
+      shopeeUsernames,
+      alternateNames,
+      facebookAccounts,
+    } = body;
 
     // Verify customer exists
     const customer = await prisma.customer.findUnique({
@@ -138,6 +156,30 @@ export async function POST(
             customerId,
             type: 'shopee_username',
             value: username.value.trim(),
+          });
+        }
+      }
+    }
+
+    if (alternateNames && Array.isArray(alternateNames)) {
+      for (const name of alternateNames) {
+        if (name.value && name.value.trim()) {
+          newEntries.push({
+            customerId,
+            type: 'alternate_name',
+            value: name.value.trim(),
+          });
+        }
+      }
+    }
+
+    if (facebookAccounts && Array.isArray(facebookAccounts)) {
+      for (const account of facebookAccounts) {
+        if (account.value && account.value.trim()) {
+          newEntries.push({
+            customerId,
+            type: 'facebook',
+            value: account.value.trim(),
           });
         }
       }

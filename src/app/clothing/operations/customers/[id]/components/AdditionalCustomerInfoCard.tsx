@@ -15,6 +15,8 @@ import {
   IconMapPin,
   IconPhone,
   IconBrandShopee,
+  IconUser,
+  IconBrandFacebook,
 } from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
 import Swal from 'sweetalert2';
@@ -41,6 +43,10 @@ export const AdditionalCustomerInfoCard = memo(
     const [shopeeUsernames, setShopeeUsernames] = useState<AdditionalInfo[]>(
       []
     );
+    const [alternateNames, setAlternateNames] = useState<AdditionalInfo[]>([]);
+    const [facebookAccounts, setFacebookAccounts] = useState<AdditionalInfo[]>(
+      []
+    );
     const [loading, setLoading] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
 
@@ -58,6 +64,8 @@ export const AdditionalCustomerInfoCard = memo(
           setAddresses(data.addresses || []);
           setPhones(data.phones || []);
           setShopeeUsernames(data.shopeeUsernames || []);
+          setAlternateNames(data.alternateNames || []);
+          setFacebookAccounts(data.facebookAccounts || []);
           setHasChanges(false);
         }
       } catch (error) {
@@ -94,6 +102,8 @@ export const AdditionalCustomerInfoCard = memo(
               addresses,
               phones,
               shopeeUsernames,
+              alternateNames,
+              facebookAccounts,
             }),
           }
         );
@@ -126,6 +136,14 @@ export const AdditionalCustomerInfoCard = memo(
     // ============================================================================
 
     const addAddress = () => {
+      if (addresses.length >= 5) {
+        showNotification({
+          title: 'Limit Reached',
+          message: 'Maximum of 5 additional addresses allowed',
+          color: 'orange',
+        });
+        return;
+      }
       setAddresses([...addresses, { id: Date.now().toString(), value: '' }]);
       setHasChanges(true);
     };
@@ -157,6 +175,14 @@ export const AdditionalCustomerInfoCard = memo(
     };
 
     const addPhone = () => {
+      if (phones.length >= 5) {
+        showNotification({
+          title: 'Limit Reached',
+          message: 'Maximum of 5 additional phone numbers allowed',
+          color: 'orange',
+        });
+        return;
+      }
       setPhones([...phones, { id: Date.now().toString(), value: '' }]);
       setHasChanges(true);
     };
@@ -188,6 +214,14 @@ export const AdditionalCustomerInfoCard = memo(
     };
 
     const addShopeeUsername = () => {
+      if (shopeeUsernames.length >= 5) {
+        showNotification({
+          title: 'Limit Reached',
+          message: 'Maximum of 5 Shopee usernames allowed',
+          color: 'orange',
+        });
+        return;
+      }
       setShopeeUsernames([
         ...shopeeUsernames,
         { id: Date.now().toString(), value: '' },
@@ -220,6 +254,96 @@ export const AdditionalCustomerInfoCard = memo(
       setShopeeUsernames(
         shopeeUsernames.map((username) =>
           username.id === id ? { ...username, value } : username
+        )
+      );
+      setHasChanges(true);
+    };
+
+    const addAlternateName = () => {
+      if (alternateNames.length >= 5) {
+        showNotification({
+          title: 'Limit Reached',
+          message: 'Maximum of 5 alternate customer names allowed',
+          color: 'orange',
+        });
+        return;
+      }
+      setAlternateNames([
+        ...alternateNames,
+        { id: Date.now().toString(), value: '' },
+      ]);
+      setHasChanges(true);
+    };
+
+    const removeAlternateName = async (id: string) => {
+      const result = await Swal.fire({
+        title: 'Delete Alternate Name?',
+        text: 'Are you sure you want to delete this alternate name?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, delete it',
+        cancelButtonText: 'Cancel',
+        allowOutsideClick: false,
+      });
+
+      if (result.isConfirmed) {
+        setAlternateNames(alternateNames.filter((name) => name.id !== id));
+        setHasChanges(true);
+      }
+    };
+
+    const updateAlternateName = (id: string, value: string) => {
+      setAlternateNames(
+        alternateNames.map((name) =>
+          name.id === id ? { ...name, value } : name
+        )
+      );
+      setHasChanges(true);
+    };
+
+    const addFacebookAccount = () => {
+      if (facebookAccounts.length >= 5) {
+        showNotification({
+          title: 'Limit Reached',
+          message: 'Maximum of 5 Facebook accounts allowed',
+          color: 'orange',
+        });
+        return;
+      }
+      setFacebookAccounts([
+        ...facebookAccounts,
+        { id: Date.now().toString(), value: '' },
+      ]);
+      setHasChanges(true);
+    };
+
+    const removeFacebookAccount = async (id: string) => {
+      const result = await Swal.fire({
+        title: 'Delete Facebook Account?',
+        text: 'Are you sure you want to delete this Facebook account?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, delete it',
+        cancelButtonText: 'Cancel',
+        allowOutsideClick: false,
+      });
+
+      if (result.isConfirmed) {
+        setFacebookAccounts(
+          facebookAccounts.filter((account) => account.id !== id)
+        );
+        setHasChanges(true);
+      }
+    };
+
+    const updateFacebookAccount = (id: string, value: string) => {
+      setFacebookAccounts(
+        facebookAccounts.map((account) =>
+          account.id === id ? { ...account, value } : account
         )
       );
       setHasChanges(true);
@@ -352,6 +476,92 @@ export const AdditionalCustomerInfoCard = memo(
                     variant="light"
                     color="red"
                     onClick={() => removeShopeeUsername(username.id)}
+                  >
+                    <IconTrash size={14} />
+                  </ActionIcon>
+                </Group>
+              ))}
+            </Stack>
+          </div>
+
+          {/* Alternate Customer Names */}
+          <div>
+            <Group justify="space-between" mb="xs">
+              <Group gap="xs">
+                <IconUser size={16} />
+                <Text size="sm" fw={500}>
+                  Alternate Customer Names
+                </Text>
+              </Group>
+              <ActionIcon variant="light" size="sm" onClick={addAlternateName}>
+                <IconPlus size={14} />
+              </ActionIcon>
+            </Group>
+            <Stack gap="xs">
+              {alternateNames.length === 0 && (
+                <Text size="xs" c="dimmed" fs="italic">
+                  No alternate names added
+                </Text>
+              )}
+              {alternateNames.map((name) => (
+                <Group key={name.id} gap="xs">
+                  <TextInput
+                    flex={1}
+                    placeholder="Enter alternate customer name"
+                    value={name.value}
+                    onChange={(e) =>
+                      updateAlternateName(name.id, e.target.value)
+                    }
+                  />
+                  <ActionIcon
+                    variant="light"
+                    color="red"
+                    onClick={() => removeAlternateName(name.id)}
+                  >
+                    <IconTrash size={14} />
+                  </ActionIcon>
+                </Group>
+              ))}
+            </Stack>
+          </div>
+
+          {/* Facebook Accounts */}
+          <div>
+            <Group justify="space-between" mb="xs">
+              <Group gap="xs">
+                <IconBrandFacebook size={16} />
+                <Text size="sm" fw={500}>
+                  Facebook
+                </Text>
+              </Group>
+              <ActionIcon
+                variant="light"
+                size="sm"
+                onClick={addFacebookAccount}
+              >
+                <IconPlus size={14} />
+              </ActionIcon>
+            </Group>
+            <Stack gap="xs">
+              {facebookAccounts.length === 0 && (
+                <Text size="xs" c="dimmed" fs="italic">
+                  No Facebook accounts added
+                </Text>
+              )}
+              {facebookAccounts.map((account) => (
+                <Group key={account.id} gap="xs">
+                  <TextInput
+                    flex={1}
+                    placeholder="Enter Facebook profile or page"
+                    value={account.value}
+                    onChange={(e) =>
+                      updateFacebookAccount(account.id, e.target.value)
+                    }
+                  />
+                  <ActionIcon
+                    variant="light"
+                    color="red"
+                    onClick={() => removeFacebookAccount(account.id)}
                   >
                     <IconTrash size={14} />
                   </ActionIcon>
