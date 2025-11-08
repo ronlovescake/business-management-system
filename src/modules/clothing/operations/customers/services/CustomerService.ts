@@ -297,11 +297,15 @@ class CustomerService {
           shopeeUsernames: string[];
           additionalAddresses: string[];
           additionalPhones: string[];
+          alternateNames: string[];
+          facebookAccounts: string[];
         }>;
         stats: {
           maxShopeeUsernames: number;
           maxAdditionalAddresses: number;
           maxAdditionalPhones: number;
+          maxAlternateNames: number;
+          maxFacebookAccounts: number;
         };
       }>('/api/customers/export');
 
@@ -316,7 +320,9 @@ class CustomerService {
       const hasOverflow =
         stats.maxShopeeUsernames > maxColumns ||
         stats.maxAdditionalAddresses > maxColumns ||
-        stats.maxAdditionalPhones > maxColumns;
+        stats.maxAdditionalPhones > maxColumns ||
+        stats.maxAlternateNames > maxColumns ||
+        stats.maxFacebookAccounts > maxColumns;
 
       // Create headers with numbered columns
       const baseHeaders = [
@@ -346,12 +352,22 @@ class CustomerService {
         { length: maxColumns },
         (_, i) => `Additional Phone ${i + 1}`
       );
+      const alternateNameHeaders = Array.from(
+        { length: maxColumns },
+        (_, i) => `Alternate Name ${i + 1}`
+      );
+      const facebookAccountHeaders = Array.from(
+        { length: maxColumns },
+        (_, i) => `Facebook Account ${i + 1}`
+      );
 
       const headers = [
         ...baseHeaders,
         ...shopeeHeaders,
         ...addressHeaders,
         ...phoneHeaders,
+        ...alternateNameHeaders,
+        ...facebookAccountHeaders,
       ];
 
       // Create CSV rows
@@ -384,12 +400,22 @@ class CustomerService {
           { length: maxColumns },
           (_, i) => customer.additionalPhones[i] || ''
         );
+        const alternateNameFields = Array.from(
+          { length: maxColumns },
+          (_, i) => customer.alternateNames[i] || ''
+        );
+        const facebookAccountFields = Array.from(
+          { length: maxColumns },
+          (_, i) => customer.facebookAccounts[i] || ''
+        );
 
         return [
           ...baseFields,
           ...shopeeFields,
           ...addressFields,
           ...phoneFields,
+          ...alternateNameFields,
+          ...facebookAccountFields,
         ].map((field) => {
           // Escape fields that contain commas, quotes, or newlines
           if (
@@ -470,6 +496,8 @@ class CustomerService {
           shopeeUsernames: string[];
           additionalAddresses: string[];
           additionalPhones: string[];
+          alternateNames: string[];
+          facebookAccounts: string[];
         }>;
       }>('/api/customers/export');
 
@@ -520,7 +548,9 @@ class CustomerService {
         if (
           customer.shopeeUsernames.length === 0 &&
           customer.additionalAddresses.length === 0 &&
-          customer.additionalPhones.length === 0
+          customer.additionalPhones.length === 0 &&
+          customer.alternateNames.length === 0 &&
+          customer.facebookAccounts.length === 0
         ) {
           rows.push([...baseFields, '', '']);
         } else {
@@ -537,6 +567,16 @@ class CustomerService {
           // Rows for additional phones
           customer.additionalPhones.forEach((phone) => {
             rows.push([...baseFields, 'Additional Phone', phone]);
+          });
+
+          // Rows for alternate names
+          customer.alternateNames.forEach((name) => {
+            rows.push([...baseFields, 'Alternate Name', name]);
+          });
+
+          // Rows for Facebook accounts
+          customer.facebookAccounts.forEach((facebook) => {
+            rows.push([...baseFields, 'Facebook Account', facebook]);
           });
         }
       });

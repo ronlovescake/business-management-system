@@ -300,7 +300,7 @@ export function CustomersPage() {
         showNotification({
           title: 'Export Successful',
           message:
-            'Exported customers with all additional info (Shopee usernames, addresses, phones)',
+            'Exported customers with all additional info (Shopee usernames, addresses, phones, alternate names, Facebook)',
           color: 'green',
         });
       }

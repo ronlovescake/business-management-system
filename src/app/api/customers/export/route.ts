@@ -13,6 +13,8 @@ import { logger } from '@/lib/logger';
  * - All additional Shopee usernames
  * - All additional addresses
  * - All additional phone numbers
+ * - All alternate customer names
+ * - All Facebook accounts
  *
  * The frontend can then transform this data into different export formats:
  * 1. Numbered Columns (default): Shopee Username 1-5, Additional Address 1-5, etc.
@@ -57,6 +59,14 @@ export async function GET() {
         .filter((info) => info.type === 'phone')
         .map((info) => info.value || '');
 
+      const alternateNames = customer.additionalCustomerInfo
+        .filter((info) => info.type === 'alternate_name')
+        .map((info) => info.value || '');
+
+      const facebookAccounts = customer.additionalCustomerInfo
+        .filter((info) => info.type === 'facebook')
+        .map((info) => info.value || '');
+
       return {
         id: customer.id,
         date: customer.date || '',
@@ -74,6 +84,8 @@ export async function GET() {
         shopeeUsernames,
         additionalAddresses,
         additionalPhones,
+        alternateNames,
+        facebookAccounts,
       };
     });
 
@@ -87,6 +99,10 @@ export async function GET() {
       ).length,
       withAdditionalPhones: result.filter((c) => c.additionalPhones.length > 0)
         .length,
+      withAlternateNames: result.filter((c) => c.alternateNames.length > 0)
+        .length,
+      withFacebookAccounts: result.filter((c) => c.facebookAccounts.length > 0)
+        .length,
       totalShopeeUsernames: result.reduce(
         (sum, c) => sum + c.shopeeUsernames.length,
         0
@@ -97,6 +113,14 @@ export async function GET() {
       ),
       totalAdditionalPhones: result.reduce(
         (sum, c) => sum + c.additionalPhones.length,
+        0
+      ),
+      totalAlternateNames: result.reduce(
+        (sum, c) => sum + c.alternateNames.length,
+        0
+      ),
+      totalFacebookAccounts: result.reduce(
+        (sum, c) => sum + c.facebookAccounts.length,
         0
       ),
       maxShopeeUsernames: Math.max(
@@ -110,6 +134,14 @@ export async function GET() {
       maxAdditionalPhones: Math.max(
         0,
         ...result.map((c) => c.additionalPhones.length)
+      ),
+      maxAlternateNames: Math.max(
+        0,
+        ...result.map((c) => c.alternateNames.length)
+      ),
+      maxFacebookAccounts: Math.max(
+        0,
+        ...result.map((c) => c.facebookAccounts.length)
       ),
     };
 
