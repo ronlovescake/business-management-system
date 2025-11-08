@@ -16,7 +16,12 @@ import {
   Anchor,
   Tabs,
   Checkbox,
+  Modal,
+  TextInput,
+  Button,
+  NumberInput,
 } from '@mantine/core';
+import { useForm } from '@mantine/form';
 import { IconEdit, IconTrash } from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
 import { getActionLabel } from '@/lib/accessibility';
@@ -49,6 +54,14 @@ interface InvoiceData {
   tickbox: boolean;
 }
 
+interface ItemWeightData {
+  id: string;
+  itemName: string;
+  bulkQuantity: string;
+  bulkWeight: string;
+  approxWeightPerPiece: string;
+}
+
 export function CheckoutLinksComponent() {
   const [activeTab, setActiveTab] = useState<string | null>('checkout-links');
   const [searchQuery, setSearchQuery] = useState('');
@@ -57,6 +70,40 @@ export function CheckoutLinksComponent() {
   const [isLoading, setIsLoading] = useState(true);
   const [data, setData] = useState<CheckoutLinkData[]>([]);
   const [invoiceData, setInvoiceData] = useState<InvoiceData[]>([]);
+  const [itemWeightData, setItemWeightData] = useState<ItemWeightData[]>([]);
+  const [isItemWeightModalOpen, setIsItemWeightModalOpen] = useState(false);
+
+  // Form for adding new item weight
+  const itemWeightForm = useForm({
+    initialValues: {
+      itemName: '',
+      bulkQuantity: '',
+      bulkWeight: '',
+    },
+    validate: {
+      itemName: (value) => (!value ? 'Item name is required' : null),
+      bulkQuantity: (value) => {
+        if (!value) {
+          return 'Bulk quantity is required';
+        }
+        const num = parseFloat(value);
+        if (isNaN(num) || num <= 0) {
+          return 'Must be a positive number';
+        }
+        return null;
+      },
+      bulkWeight: (value) => {
+        if (!value) {
+          return 'Bulk weight is required';
+        }
+        const num = parseFloat(value);
+        if (isNaN(num) || num <= 0) {
+          return 'Must be a positive number';
+        }
+        return null;
+      },
+    },
+  });
 
   // Load data from database on mount
   useEffect(() => {
@@ -119,6 +166,22 @@ export function CheckoutLinksComponent() {
         item.chat?.toLowerCase().includes(query)
     );
   }, [invoiceData, searchQuery]);
+
+  // Filter item weight data based on search query
+  const filteredItemWeightData = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return itemWeightData;
+    }
+
+    const query = searchQuery.toLowerCase();
+    return itemWeightData.filter(
+      (item) =>
+        item.itemName.toLowerCase().includes(query) ||
+        item.bulkQuantity.toLowerCase().includes(query) ||
+        item.bulkWeight.toLowerCase().includes(query) ||
+        item.approxWeightPerPiece.toLowerCase().includes(query)
+    );
+  }, [itemWeightData, searchQuery]);
 
   const handleEdit = (item: CheckoutLinkData) => {
     // TODO: Implement edit functionality
@@ -377,6 +440,37 @@ export function CheckoutLinksComponent() {
     }
   };
 
+  const handleAddItemWeight = (values: {
+    itemName: string;
+    bulkQuantity: string;
+    bulkWeight: string;
+  }) => {
+    const bulkQty = parseFloat(values.bulkQuantity);
+    const bulkWt = parseFloat(values.bulkWeight);
+
+    // Calculate approximate weight per piece
+    const approxWeightPerPiece =
+      bulkQty > 0 ? (bulkWt / bulkQty).toFixed(2) : '0';
+
+    const newItem: ItemWeightData = {
+      id: `item-${Date.now()}-${Math.random()}`,
+      itemName: values.itemName,
+      bulkQuantity: values.bulkQuantity,
+      bulkWeight: values.bulkWeight,
+      approxWeightPerPiece,
+    };
+
+    setItemWeightData((prev) => [...prev, newItem]);
+    setIsItemWeightModalOpen(false);
+    itemWeightForm.reset();
+
+    showNotification({
+      title: 'Success',
+      message: 'Item weight added successfully',
+      color: 'green',
+    });
+  };
+
   return (
     <Stack gap="md">
       <Tabs value={activeTab} onChange={setActiveTab}>
@@ -573,9 +667,106 @@ export function CheckoutLinksComponent() {
         </Tabs.Panel>
 
         <Tabs.Panel value="item-weight" pt="md">
-          <Text size="sm" c="dimmed">
-            Item weight functionality coming soon...
-          </Text>
+          <Stack gap="md">
+            <StandardTableControls
+              searchPlaceholder="Search item weights..."
+              onSearch={setSearchQuery}
+              onImport={() => {
+                // TODO: Implement import functionality
+              }}
+              onExport={() => {
+                // TODO: Implement export functionality
+              }}
+              onAddNew={() => setIsItemWeightModalOpen(true)}
+              isImporting={false}
+            />
+
+            <StandardTableContainer
+              summary={
+                <Group justify="space-between">
+                  <Text size="sm" c="dimmed">
+                    Showing {filteredItemWeightData.length} of{' '}
+                    {itemWeightData.length} item weights
+                  </Text>
+                </Group>
+              }
+            >
+              <StandardDataTable
+                headers={[
+                  'ITEM NAME',
+                  'BULK QUANTITY',
+                  'BULK WEIGHT',
+                  'APROX. WEIGHT PER PIECE',
+                  'ACTION',
+                ]}
+                emptyState="No item weights found. Click 'Add New' to get started."
+                colSpan={5}
+              >
+                {filteredItemWeightData.map((row) => (
+                  <Table.Tr key={row.id}>
+                    <Table.Td>
+                      <Text size="sm" c="#495057">
+                        {row.itemName}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td style={{ textAlign: 'center' }}>
+                      <Text size="sm" c="#495057">
+                        {row.bulkQuantity}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td style={{ textAlign: 'center' }}>
+                      <Text size="sm" c="#495057">
+                        {row.bulkWeight}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td style={{ textAlign: 'center' }}>
+                      <Text size="sm" c="#495057">
+                        {row.approxWeightPerPiece}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Group gap="xs" justify="center">
+                        <Tooltip label="Edit">
+                          <ActionIcon
+                            color="blue"
+                            variant="light"
+                            size="sm"
+                            onClick={() => {
+                              // TODO: Implement edit functionality
+                            }}
+                            {...getActionLabel(
+                              'Edit',
+                              'item weight',
+                              row.itemName
+                            )}
+                          >
+                            <IconEdit size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                        <Tooltip label="Delete">
+                          <ActionIcon
+                            color="red"
+                            variant="light"
+                            size="sm"
+                            onClick={() => {
+                              // TODO: Implement delete functionality
+                            }}
+                            {...getActionLabel(
+                              'Delete',
+                              'item weight',
+                              row.itemName
+                            )}
+                          >
+                            <IconTrash size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                      </Group>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </StandardDataTable>
+            </StandardTableContainer>
+          </Stack>
         </Tabs.Panel>
 
         <Tabs.Panel value="checkout-links" pt="md">
@@ -731,6 +922,67 @@ export function CheckoutLinksComponent() {
           </Stack>
         </Tabs.Panel>
       </Tabs>
+
+      {/* Add Item Weight Modal */}
+      <Modal
+        opened={isItemWeightModalOpen}
+        onClose={() => {
+          setIsItemWeightModalOpen(false);
+          itemWeightForm.reset();
+        }}
+        title="Add New Item Weight"
+        size="md"
+      >
+        <form
+          onSubmit={itemWeightForm.onSubmit((values) =>
+            handleAddItemWeight(values)
+          )}
+        >
+          <Stack gap="md">
+            <TextInput
+              label="Item Name"
+              placeholder="Enter item name"
+              required
+              {...itemWeightForm.getInputProps('itemName')}
+            />
+
+            <NumberInput
+              label="Bulk Quantity"
+              placeholder="Enter bulk quantity"
+              required
+              min={0}
+              decimalScale={2}
+              {...itemWeightForm.getInputProps('bulkQuantity')}
+            />
+
+            <NumberInput
+              label="Bulk Weight"
+              placeholder="Enter bulk weight"
+              required
+              min={0}
+              decimalScale={2}
+              {...itemWeightForm.getInputProps('bulkWeight')}
+            />
+
+            <Text size="sm" c="dimmed">
+              Approximate weight per piece will be calculated automatically.
+            </Text>
+
+            <Group justify="flex-end" mt="md">
+              <Button
+                variant="subtle"
+                onClick={() => {
+                  setIsItemWeightModalOpen(false);
+                  itemWeightForm.reset();
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit">Add Item Weight</Button>
+            </Group>
+          </Stack>
+        </form>
+      </Modal>
     </Stack>
   );
 }
