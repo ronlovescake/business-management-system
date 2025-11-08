@@ -12,6 +12,10 @@ import fs from 'fs';
 import path from 'path';
 import { logger } from '@/lib/logger';
 import * as Papa from 'papaparse';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 // Force dynamic rendering for this route due to fs operations
 export const dynamic = 'force-dynamic';
@@ -33,6 +37,8 @@ const TABLES = [
   { name: 'expenses', model: 'expense' },
   { name: 'cash_advances', model: 'cashAdvanceRecord' },
   { name: 'cash_advance_deductions', model: 'cashAdvanceDeduction' },
+  { name: 'checkout_links', model: 'checkoutLink' },
+  { name: 'item_weights', model: 'itemWeight' },
 ];
 
 function parseDatabaseUrl() {
@@ -65,11 +71,45 @@ function ensureBackupDir(timestamp: string) {
   return timestampDir;
 }
 
+async function createSqlDump(
+  timestamp: string,
+  backupDir: string
+): Promise<string | null> {
+  try {
+    const { user, password, host, port, database } = parseDatabaseUrl();
+    const sqlFile = path.join(backupDir, `backup-${timestamp}.sql`);
+
+    // Set PGPASSWORD environment variable for pg_dump
+    const env = { ...process.env, PGPASSWORD: password };
+
+    // Execute pg_dump
+    const command = `pg_dump -h ${host} -p ${port} -U ${user} -d ${database} -F p -f "${sqlFile}"`;
+
+    logger.info(
+      `Executing SQL dump: pg_dump -h ${host} -p ${port} -U ${user} -d ${database}`
+    );
+
+    await execAsync(command, { env });
+
+    if (fs.existsSync(sqlFile)) {
+      logger.info(`SQL dump created successfully: ${sqlFile}`);
+      return sqlFile;
+    }
+
+    logger.warn('SQL dump file was not created');
+    return null;
+  } catch (error) {
+    logger.error('SQL dump failed:', error);
+    // Return null instead of throwing to allow backup to continue with CSV and JSON
+    return null;
+  }
+}
+
 // POST - Create backup
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { format = 'json', includeSoftDeleted = false } = body;
+    const { format = 'all', includeSoftDeleted = false } = body;
 
     // Generate timestamp in Manila timezone (UTC+8)
     const now = new Date();
@@ -205,6 +245,19 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         logger.error('CSV backup failed:', error);
         // Continue even if CSV fails
+      }
+    }
+
+    // SQL Dump - Generate PostgreSQL dump file
+    if (format === 'sql' || format === 'all') {
+      logger.info('Starting SQL dump generation...');
+      const sqlFile = await createSqlDump(timestamp, backupDir);
+      if (sqlFile) {
+        files.push(sqlFile);
+        backupFile = sqlFile;
+        logger.info('SQL dump completed successfully');
+      } else {
+        logger.warn('SQL dump was not created');
       }
     }
 

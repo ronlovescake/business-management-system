@@ -350,6 +350,50 @@ export function BackupRestoreTab() {
     }
   };
 
+  const handleDownloadSQL = async (backup: Backup) => {
+    try {
+      const sqlFile =
+        backup.files.find(
+          (f) => f.startsWith('backup-') && f.endsWith('.sql')
+        ) || backup.files.find((f) => f.endsWith('.sql'));
+      if (!sqlFile) {
+        showNotification({
+          title: 'No SQL File',
+          message: 'This backup does not contain an SQL dump file',
+          color: 'orange',
+        });
+        return;
+      }
+
+      // Use API route to fetch the file
+      const response = await fetch(
+        `/api/backup/${backup.timestamp}/${sqlFile}`
+      );
+      if (!response.ok) {
+        throw new Error(`Failed to download: ${response.statusText}`);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = sqlFile;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      showNotification({
+        title: 'Downloaded',
+        message: sqlFile,
+        color: 'green',
+      });
+    } catch (error) {
+      showNotification({
+        title: 'Download Failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        color: 'red',
+      });
+    }
+  };
+
   const handleDownloadCSV = async (tableName: string) => {
     if (!previewData) {
       return;
@@ -482,8 +526,8 @@ export function BackupRestoreTab() {
         color="blue"
       >
         <Text size="sm">
-          Regular backups protect your data. Backups include JSON and CSV
-          formats.
+          Regular backups protect your data. Backups include JSON, CSV, and SQL
+          dump formats.
         </Text>
       </Alert>
 
@@ -498,10 +542,12 @@ export function BackupRestoreTab() {
             label="Format"
             data={[
               { value: 'json', label: 'JSON only' },
-              { value: 'all', label: 'JSON + CSV (recommended)' },
+              { value: 'csv', label: 'CSV only' },
+              { value: 'sql', label: 'SQL dump only' },
+              { value: 'all', label: 'JSON + CSV + SQL (recommended)' },
             ]}
             value={backupFormat}
-            onChange={(v) => setBackupFormat(v || 'json')}
+            onChange={(v) => setBackupFormat(v || 'all')}
           />
 
           <Switch
@@ -597,6 +643,7 @@ export function BackupRestoreTab() {
                           color="blue"
                           variant="subtle"
                           onClick={() => handlePreviewBackup(backup)}
+                          title="Preview backup"
                         >
                           <IconEye size={16} />
                         </ActionIcon>
@@ -604,8 +651,17 @@ export function BackupRestoreTab() {
                           color="green"
                           variant="subtle"
                           onClick={() => handleDownloadJSON(backup)}
+                          title="Download JSON"
                         >
                           <IconDownload size={16} />
+                        </ActionIcon>
+                        <ActionIcon
+                          color="teal"
+                          variant="subtle"
+                          onClick={() => handleDownloadSQL(backup)}
+                          title="Download SQL"
+                        >
+                          <IconDatabase size={16} />
                         </ActionIcon>
                         <ActionIcon
                           color="red"
@@ -613,6 +669,7 @@ export function BackupRestoreTab() {
                           onClick={() =>
                             void handleDeleteBackup(backup.timestamp)
                           }
+                          title="Delete backup"
                         >
                           <IconTrash size={16} />
                         </ActionIcon>
@@ -891,6 +948,15 @@ export function BackupRestoreTab() {
                   }
                 >
                   Download JSON
+                </Button>
+                <Button
+                  color="teal"
+                  leftSection={<IconDatabase size={16} />}
+                  onClick={() =>
+                    selectedBackup && handleDownloadSQL(selectedBackup)
+                  }
+                >
+                  Download SQL Dump
                 </Button>
                 <Button
                   color="green"
