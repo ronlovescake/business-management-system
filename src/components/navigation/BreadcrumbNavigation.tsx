@@ -283,11 +283,6 @@ export function BreadcrumbNavigation() {
       <Breadcrumbs separator="/" separatorMargin="md">
         {breadcrumbItems}
       </Breadcrumbs>
-      {currentPage !== 'Home' && pathname !== '/' && (
-        <Text size="sm" c="dimmed">
-          {currentPage}
-        </Text>
-      )}
     </Group>
   );
 }
