@@ -896,8 +896,8 @@ export function HandsontableGrid<T extends object>({
           // Performance: Disable features that slow down large grids
           autoRowSize={false} // Disable auto row height calculation
           autoColumnSize={false} // Disable auto column width calculation
-          rowHeights={55} // Set fixed row height (default is ~23px)
-          columnHeaderHeight={55} // Set header height to match row height
+          rowHeights={45} // Set fixed row height
+          columnHeaderHeight={45} // Set header height to match row height
           beforeCut={() => false}
           afterBeginEditing={(row, col) => {
             const column = columns[col];

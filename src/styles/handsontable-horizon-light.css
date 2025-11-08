@@ -13,7 +13,7 @@
   --ht-placeholder-color: #aeaeae;
   --ht-read-only-color: #727272;
   --ht-disabled-color: #aeaeae;
-  --ht-cell-horizontal-border-color: rgba(255, 255, 255, 0);
+  --ht-cell-horizontal-border-color: #f5f5f5;
   --ht-cell-vertical-border-color: #e7e7e9;
   --ht-wrapper-border-width: 0px;
   --ht-wrapper-border-radius: 12px;
@@ -250,13 +250,13 @@
   display: none !important;
 }
 
-/* Set header row height to 55px to match data rows */
+/* Set header row height to 45px to match data rows */
 .ht-theme-horizon .handsontable thead th,
 .ht-theme-horizon .handsontable .ht_clone_top thead th,
 .ht-theme-horizon .handsontable .ht_clone_top_left_corner thead th,
 .ht-theme-horizon .handsontable .ht_clone_left thead th {
-  height: 55px !important;
-  line-height: 55px !important;
+  height: 45px !important;
+  line-height: 45px !important;
   vertical-align: middle !important;
   display: table-cell !important;
   text-align: center !important;

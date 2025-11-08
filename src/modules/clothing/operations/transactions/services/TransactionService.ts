@@ -372,12 +372,9 @@ export class TransactionService {
       }
 
       const currentOrderStatus = transaction['Order Status'] || '';
-      const shouldAutoPopulateStatus =
-        currentOrderStatus === '' ||
-        currentOrderStatus.toLowerCase() === 'in transit' ||
-        currentOrderStatus.toLowerCase() === 'warehouse';
 
-      if (!shouldAutoPopulateStatus) {
+      // Only auto-populate if order status is blank
+      if (currentOrderStatus !== '') {
         return transaction;
       }
 
