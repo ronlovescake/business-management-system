@@ -315,16 +315,44 @@ export function useTransactionModals(
         });
 
         if (response.ok) {
-          const pdfBlob = await response.blob();
-          const url = window.URL.createObjectURL(pdfBlob);
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = url;
 
-          const timestamp = new Date()
-            .toISOString()
-            .slice(0, 19)
-            .replace(/[:-]/g, '');
-          link.download = `invoices-${timestamp}.pdf`;
+          // Get filename from Content-Disposition header or use default
+          const contentDisposition = response.headers.get(
+            'Content-Disposition'
+          );
+          let filename = 'invoices.pdf';
+
+          if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(
+              /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/
+            );
+            if (filenameMatch && filenameMatch[1]) {
+              filename = filenameMatch[1].replace(/['"]/g, '');
+              // Decode URL-encoded filename
+              filename = decodeURIComponent(filename);
+            }
+          }
+
+          // If no filename from header, determine from content type
+          if (filename === 'invoices.pdf') {
+            const contentType = response.headers.get('Content-Type');
+            const timestamp = new Date()
+              .toISOString()
+              .slice(0, 19)
+              .replace(/[:-]/g, '');
+
+            if (contentType?.includes('zip')) {
+              filename = `invoices-${timestamp}.zip`;
+            } else {
+              filename = `invoices-${timestamp}.pdf`;
+            }
+          }
+
+          link.download = filename;
 
           document.body.appendChild(link);
           link.click();
@@ -336,9 +364,13 @@ export function useTransactionModals(
               ? ` All ${totalWarehouse} Warehouse orders updated to Prepared status.`
               : '';
 
+          const fileType = filename.endsWith('.zip')
+            ? 'ZIP file with individual PDFs'
+            : 'PDF';
+
           showNotification({
             title: '✅ Invoices Generated & Status Updated',
-            message: `PDF with invoices for ${totalWarehouse} Warehouse + ${totalPrepared} Prepared orders from ${customersWithWarehouse.size} customers downloaded.${statusUpdateMessage}`,
+            message: `${fileType} for ${totalWarehouse} Warehouse + ${totalPrepared} Prepared orders from ${customersWithWarehouse.size} customer${customersWithWarehouse.size > 1 ? 's' : ''} downloaded.${statusUpdateMessage}`,
             color: 'green',
             autoClose: 8000,
           });

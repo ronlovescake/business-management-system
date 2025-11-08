@@ -31,7 +31,6 @@ import puppeteer from 'puppeteer';
 import Handlebars from 'handlebars';
 import fs from 'fs';
 import path from 'path';
-import { PDFDocument } from 'pdf-lib';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
 import { LOADING_SPINNER_DELAY } from '@/constants/timeouts';
@@ -249,34 +248,67 @@ export async function POST(request: NextRequest) {
 
     await browser.close();
 
-    // Merge all PDFs into one
-    const mergedPdf = await PDFDocument.create();
-
-    for (const pdfBuffer of pdfBuffers) {
-      const pdf = await PDFDocument.load(pdfBuffer);
-      const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
-      copiedPages.forEach((page) => mergedPdf.addPage(page));
-    }
-
-    const mergedPdfBytes = await mergedPdf.save();
-    const mergedPdfBuffer = Buffer.from(mergedPdfBytes);
-
-    // Save the merged PDF to the invoices directory
+    // Save individual PDFs and prepare file list for zip
     const outputDir = path.join(process.cwd(), 'pdf_output', 'invoices');
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
     const timestamp = new Date().toISOString().replace(/:/g, '-');
-    const outputPath = path.join(outputDir, `invoices-${timestamp}.pdf`);
-    fs.writeFileSync(outputPath, mergedPdfBuffer);
+    const customerNames = Array.from(groupedByCustomer.keys());
 
-    // Return the PDF
-    return new NextResponse(mergedPdfBuffer, {
+    // Save each PDF with customer name
+    const savedFiles: { name: string; buffer: Buffer }[] = [];
+    pdfBuffers.forEach((pdfBuffer, index) => {
+      const customerName = customerNames[index] || 'Unknown Customer';
+
+      // Sanitize filename: remove invalid characters but keep meaningful ones
+      const sanitizedFilename = customerName
+        .replace(/[<>:"/\\|?*\x00-\x1F]/g, '') // Remove invalid file system characters
+        .trim();
+
+      const filename = `${sanitizedFilename}.pdf`;
+      const outputPath = path.join(
+        outputDir,
+        `${timestamp}-${sanitizedFilename}.pdf`
+      );
+
+      fs.writeFileSync(outputPath, pdfBuffer);
+      savedFiles.push({ name: filename, buffer: pdfBuffer });
+    });
+
+    // If only one customer, return single PDF
+    if (pdfBuffers.length === 1) {
+      const customerName = customerNames[0] || 'Unknown Customer';
+      const sanitizedFilename = customerName
+        .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
+        .trim();
+
+      return new NextResponse(Buffer.from(pdfBuffers[0]), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="${encodeURIComponent(sanitizedFilename)}.pdf"`,
+        },
+      });
+    }
+
+    // If multiple customers, create a zip file using dynamic import
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
+
+    savedFiles.forEach(({ name, buffer }) => {
+      zip.file(name, buffer);
+    });
+
+    const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
+
+    // Return the zip file
+    return new NextResponse(Buffer.from(zipBuffer), {
       status: 200,
       headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': 'attachment; filename="invoices.pdf"',
+        'Content-Type': 'application/zip',
+        'Content-Disposition': `attachment; filename="invoices-${timestamp}.zip"`,
       },
     });
   } catch (error) {

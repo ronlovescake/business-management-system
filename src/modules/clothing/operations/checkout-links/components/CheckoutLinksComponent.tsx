@@ -14,6 +14,7 @@ import {
   ActionIcon,
   Tooltip,
   Anchor,
+  Tabs,
 } from '@mantine/core';
 import { IconEdit, IconTrash } from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
@@ -36,6 +37,7 @@ interface CheckoutLinkData {
 }
 
 export function CheckoutLinksComponent() {
+  const [activeTab, setActiveTab] = useState<string | null>('checkout-links');
   const [searchQuery, setSearchQuery] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -267,153 +269,178 @@ export function CheckoutLinksComponent() {
 
   return (
     <Stack gap="md">
-      <StandardTableControls
-        searchPlaceholder="Search checkout links..."
-        onSearch={setSearchQuery}
-        onImport={handleImportCSV}
-        onExport={handleExportCSV}
-        onAddNew={() => {
-          // TODO: Implement add new functionality
-        }}
-        isImporting={isImporting}
-      />
+      <Tabs value={activeTab} onChange={setActiveTab}>
+        <Tabs.List>
+          <Tabs.Tab value="invoicing">Invoicing</Tabs.Tab>
+          <Tabs.Tab value="item-weight">Item Weight</Tabs.Tab>
+          <Tabs.Tab value="checkout-links">Checkout Link</Tabs.Tab>
+        </Tabs.List>
 
-      <StandardTableContainer
-        summary={
-          <Group justify="space-between">
-            <Text size="sm" c="dimmed">
-              Showing {filteredData.length} of {data.length} checkout links
-            </Text>
-          </Group>
-        }
-      >
-        <StandardDataTable
-          headers={[
-            'WEIGHT',
-            'WIDTH',
-            'LENGTH',
-            'HEIGHT',
-            'CHECKOUT LINKS',
-            'PRODUCT PORTALS',
-            'PRODUCT NAMES',
-            'ACTION',
-          ]}
-          emptyState={
-            isLoading
-              ? 'Loading checkout links...'
-              : searchQuery
-                ? 'No checkout links match your search.'
-                : "No checkout links found. Click 'Import' to upload a CSV file or 'Add New' to get started."
-          }
-          colSpan={8}
-        >
-          {filteredData.map((row) => (
-            <Table.Tr key={row.id}>
-              <Table.Td style={{ textAlign: 'center' }}>
-                <Text size="sm" c="#495057">
-                  {row.weight}
-                </Text>
-              </Table.Td>
-              <Table.Td style={{ textAlign: 'center' }}>
-                <Text size="sm" c="#495057">
-                  {row.width}
-                </Text>
-              </Table.Td>
-              <Table.Td style={{ textAlign: 'center' }}>
-                <Text size="sm" c="#495057">
-                  {row.length}
-                </Text>
-              </Table.Td>
-              <Table.Td style={{ textAlign: 'center' }}>
-                <Text size="sm" c="#495057">
-                  {row.height}
-                </Text>
-              </Table.Td>
-              <Table.Td>
-                {row.checkoutLinks ? (
-                  <Anchor
-                    href={
-                      row.checkoutLinks.startsWith('http')
-                        ? row.checkoutLinks
-                        : `https://${row.checkoutLinks}`
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    size="sm"
-                    lineClamp={2}
-                  >
-                    {row.checkoutLinks}
-                  </Anchor>
-                ) : (
+        <Tabs.Panel value="invoicing" pt="md">
+          <Text size="sm" c="dimmed">
+            Invoicing functionality coming soon...
+          </Text>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="item-weight" pt="md">
+          <Text size="sm" c="dimmed">
+            Item weight functionality coming soon...
+          </Text>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="checkout-links" pt="md">
+          <Stack gap="md">
+            <StandardTableControls
+              searchPlaceholder="Search checkout links..."
+              onSearch={setSearchQuery}
+              onImport={handleImportCSV}
+              onExport={handleExportCSV}
+              onAddNew={() => {
+                // TODO: Implement add new functionality
+              }}
+              isImporting={isImporting}
+            />
+
+            <StandardTableContainer
+              summary={
+                <Group justify="space-between">
                   <Text size="sm" c="dimmed">
-                    -
+                    Showing {filteredData.length} of {data.length} checkout
+                    links
                   </Text>
-                )}
-              </Table.Td>
-              <Table.Td>
-                {row.productPortals ? (
-                  <Anchor
-                    href={
-                      row.productPortals.startsWith('http')
-                        ? row.productPortals
-                        : `https://${row.productPortals}`
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    size="sm"
-                    lineClamp={2}
-                  >
-                    {row.productPortals}
-                  </Anchor>
-                ) : (
-                  <Text size="sm" c="dimmed">
-                    -
-                  </Text>
-                )}
-              </Table.Td>
-              <Table.Td>
-                <Text size="sm" c="#495057" lineClamp={2}>
-                  {row.productNames || '-'}
-                </Text>
-              </Table.Td>
-              <Table.Td>
-                <Group gap="xs" justify="center">
-                  <Tooltip label="Edit">
-                    <ActionIcon
-                      color="blue"
-                      variant="light"
-                      size="sm"
-                      onClick={() => handleEdit(row)}
-                      {...getActionLabel(
-                        'Edit',
-                        'checkout link',
-                        row.productNames || 'Unknown'
-                      )}
-                    >
-                      <IconEdit size={16} />
-                    </ActionIcon>
-                  </Tooltip>
-                  <Tooltip label="Delete">
-                    <ActionIcon
-                      color="red"
-                      variant="light"
-                      size="sm"
-                      onClick={() => handleDelete(row.id)}
-                      {...getActionLabel(
-                        'Delete',
-                        'checkout link',
-                        row.productNames || 'Unknown'
-                      )}
-                    >
-                      <IconTrash size={16} />
-                    </ActionIcon>
-                  </Tooltip>
                 </Group>
-              </Table.Td>
-            </Table.Tr>
-          ))}
-        </StandardDataTable>
-      </StandardTableContainer>
+              }
+            >
+              <StandardDataTable
+                headers={[
+                  'WEIGHT',
+                  'WIDTH',
+                  'LENGTH',
+                  'HEIGHT',
+                  'CHECKOUT LINKS',
+                  'PRODUCT PORTALS',
+                  'PRODUCT NAMES',
+                  'ACTION',
+                ]}
+                emptyState={
+                  isLoading
+                    ? 'Loading checkout links...'
+                    : searchQuery
+                      ? 'No checkout links match your search.'
+                      : "No checkout links found. Click 'Import' to upload a CSV file or 'Add New' to get started."
+                }
+                colSpan={8}
+              >
+                {filteredData.map((row) => (
+                  <Table.Tr key={row.id}>
+                    <Table.Td style={{ textAlign: 'center' }}>
+                      <Text size="sm" c="#495057">
+                        {row.weight}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td style={{ textAlign: 'center' }}>
+                      <Text size="sm" c="#495057">
+                        {row.width}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td style={{ textAlign: 'center' }}>
+                      <Text size="sm" c="#495057">
+                        {row.length}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td style={{ textAlign: 'center' }}>
+                      <Text size="sm" c="#495057">
+                        {row.height}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      {row.checkoutLinks ? (
+                        <Anchor
+                          href={
+                            row.checkoutLinks.startsWith('http')
+                              ? row.checkoutLinks
+                              : `https://${row.checkoutLinks}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          size="sm"
+                          lineClamp={2}
+                        >
+                          {row.checkoutLinks}
+                        </Anchor>
+                      ) : (
+                        <Text size="sm" c="dimmed">
+                          -
+                        </Text>
+                      )}
+                    </Table.Td>
+                    <Table.Td>
+                      {row.productPortals ? (
+                        <Anchor
+                          href={
+                            row.productPortals.startsWith('http')
+                              ? row.productPortals
+                              : `https://${row.productPortals}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          size="sm"
+                          lineClamp={2}
+                        >
+                          {row.productPortals}
+                        </Anchor>
+                      ) : (
+                        <Text size="sm" c="dimmed">
+                          -
+                        </Text>
+                      )}
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="sm" c="#495057" lineClamp={2}>
+                        {row.productNames || '-'}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Group gap="xs" justify="center">
+                        <Tooltip label="Edit">
+                          <ActionIcon
+                            color="blue"
+                            variant="light"
+                            size="sm"
+                            onClick={() => handleEdit(row)}
+                            {...getActionLabel(
+                              'Edit',
+                              'checkout link',
+                              row.productNames || 'Unknown'
+                            )}
+                          >
+                            <IconEdit size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                        <Tooltip label="Delete">
+                          <ActionIcon
+                            color="red"
+                            variant="light"
+                            size="sm"
+                            onClick={() => handleDelete(row.id)}
+                            {...getActionLabel(
+                              'Delete',
+                              'checkout link',
+                              row.productNames || 'Unknown'
+                            )}
+                          >
+                            <IconTrash size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                      </Group>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </StandardDataTable>
+            </StandardTableContainer>
+          </Stack>
+        </Tabs.Panel>
+      </Tabs>
     </Stack>
   );
 }
