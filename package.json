@@ -55,6 +55,7 @@
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.18",
     "dotenv": "^17.2.2",
+    "googleapis": "^165.0.0",
     "handlebars": "^4.7.8",
     "handsontable": "^16.1.1",
     "idb": "^8.0.3",

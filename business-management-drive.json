@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "czarlie-ron-bms",
+  "private_key_id": "3b7ed4ce4f0272e243d030553c9d715af84f9662",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQC/h9VsxbOHvQU3\nqbk027c/idcqvy0/ipy4HRPK4mRYH8NKPx9Py+AryuG3rr+Kqvsm8nWdhhA7HB/8\nRY1BzJBtQIj3h78hmuxazaUssTTaL6OlX/pdNcA4wYNdPqdqqJo9jESclDA4J/X8\n5sVmF1NIsvWlX9J44mMawAa6U529LT+knImiIBB+lKCJA1EqUxDzUFc2tnr5VByz\nViaeo4qQGMeH80OWxUMaebVZdp7jypJcpmz1EO+wqaapaZc7VyuwH4QmU+KgYvIE\nMP2jegpcJcdU1oGsQq7rpFsJG2vL5hUyX/HqlE7oOkqHvkssIRxU3uKGM8SKn7HY\nR1ffXqAFAgMBAAECggEAAmrJWal8vJ8OUIzwCoJ7riMux7o+F4dH4eFIur6qLlwy\nQlQzGzZIYo0ZgFBbLaRpmIImqVcD3+xuMT3DIgbd9hRX1is3UTTWZvFMScOFFlF+\nbXZytK1FEIJNW9vP+ujcpMpfIvcSImH2DlvENye0CZ7BOmB6nxjDpZaxpGAsmrKl\n+R/51COQaMXXuoIGbXgpHGYmJ4G9FXp3uIHQ/zlp0HQ+2ZIDldEBTENBaP/+dac2\nCG4h+laawgVgc4gGG5noKHFshwuqAvmzNuCDxOp010ooh0xeB2DHbP5icNPOB1nZ\nVjL3COpsKgKPIAy3KpaIaJVW0bawlMwn6u8zPRB+0QKBgQDskaYGoQ6sDA3T54Kh\n2wPXhQd9jp4USYsdq9noQ0hHbV0UMiTMZ+lFJLjDkGlp0y3+AayK6imEe2Y4eHG6\nCVdwNMiVdxhUxgLcNQpNhbr6FZGVrgwuzLMmu6TBFXAN5gluFhKmsh+/Tr+qWLo9\noQKa851mjjE16kor7tdfCgcKVQKBgQDPQykvN6DkaFZpEBP8QN0W2WA6dnnfTprx\n4eSNEN3yG58azFFlg/MlG+K7YqEyY27krx1aBFOyGegNhSPTGN8gaAvoh4DEGuWI\nilc2NkiQ/Hl6A/0PtWVyOvEmy74V9p0rKHx5m7jCiWRmyQ1SwamIfR0K37xOxAKo\n1YOf6zhO8QKBgQC1TQJCflgyPqKyTfDtfl45Y7hT32MDBUHaoYPE3xubshLtkWhm\nRxSdawE2z4waEEBlNH85jy/2WmQCzzvJabNbSPiYo8c/4Oj8PqIAu4aKdtE2N0ca\n7sI14wTm/Tj9TdjYR45Ptp9iDEYTlSBWbvkCK8XrfPn16fKiLM9eBN9UaQKBgQCy\nLgW47vTlh4FJ3yWfRdAL9aKRgArz2+q+qTlHwMldezuD2UTcpdwg+eEowPjdjbfm\n51iva2rcgQMKpHwQ3Z/shyY9qEgdzxWnFW82TuKBqltwdv9WQtbMpjls5dkrnpCt\naqfgD+x9aYokBxHqJE1v5kdScte7Sy0SIkR+9cO5sQKBgQDUJLT4zgiFexlSDOod\nLYKcB+f7wG7BJaB5S7oqYlwyk6FN6Qb2cj/ZasPbndG4tjmN8s4CL90xXilndUAR\nDOpmyLy3HUI8MQ9nzKDz9UZqBcBGO9IUTie2L2gvuFsnQ2X7NSEnq1pkKZSJ9Yn3\nZgDIRy+YhFaarynso7cubFmIxA==\n-----END PRIVATE KEY-----\n",
+  "client_email": "business-management-drive@czarlie-ron-bms.iam.gserviceaccount.com",
+  "client_id": "115112197400783183269",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/business-management-drive%40czarlie-ron-bms.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

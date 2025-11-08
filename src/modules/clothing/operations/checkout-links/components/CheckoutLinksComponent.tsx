@@ -15,6 +15,7 @@ import {
   Tooltip,
   Anchor,
   Tabs,
+  Checkbox,
 } from '@mantine/core';
 import { IconEdit, IconTrash } from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
@@ -36,12 +37,26 @@ interface CheckoutLinkData {
   productNames: string;
 }
 
+interface InvoiceData {
+  id: string;
+  customerName: string;
+  actualWeight: string;
+  finalWeight: string;
+  shopeeCheckoutLinks: string;
+  driveFiles: string;
+  message: string;
+  chat: string;
+  tickbox: boolean;
+}
+
 export function CheckoutLinksComponent() {
   const [activeTab, setActiveTab] = useState<string | null>('checkout-links');
   const [searchQuery, setSearchQuery] = useState('');
   const [isImporting, setIsImporting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [data, setData] = useState<CheckoutLinkData[]>([]);
+  const [invoiceData, setInvoiceData] = useState<InvoiceData[]>([]);
 
   // Load data from database on mount
   useEffect(() => {
@@ -85,6 +100,25 @@ export function CheckoutLinksComponent() {
         item.productNames?.toLowerCase().includes(query)
     );
   }, [data, searchQuery]);
+
+  // Filter invoice data based on search query
+  const filteredInvoiceData = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return invoiceData;
+    }
+
+    const query = searchQuery.toLowerCase();
+    return invoiceData.filter(
+      (item) =>
+        item.customerName.toLowerCase().includes(query) ||
+        item.actualWeight.toLowerCase().includes(query) ||
+        item.finalWeight.toLowerCase().includes(query) ||
+        item.shopeeCheckoutLinks?.toLowerCase().includes(query) ||
+        item.driveFiles?.toLowerCase().includes(query) ||
+        item.message?.toLowerCase().includes(query) ||
+        item.chat?.toLowerCase().includes(query)
+    );
+  }, [invoiceData, searchQuery]);
 
   const handleEdit = (item: CheckoutLinkData) => {
     // TODO: Implement edit functionality
@@ -267,6 +301,82 @@ export function CheckoutLinksComponent() {
     // TODO: Implement CSV export functionality
   };
 
+  const handleSyncGoogleDrive = async () => {
+    setIsSyncing(true);
+
+    try {
+      const response = await fetch('/api/google-drive/sync-files');
+      const result = await response.json();
+
+      if (!result.success) {
+        // Check if it's a configuration error
+        if (result.setupInstructions) {
+          showNotification({
+            title: 'Google Drive Not Configured',
+            message:
+              result.error ||
+              'Please configure Google Drive credentials in your environment variables. Check .env.example for setup instructions.',
+            color: 'yellow',
+            autoClose: 10000,
+          });
+          return;
+        }
+
+        if (result.instructions) {
+          showNotification({
+            title: 'Package Not Installed',
+            message: result.instructions,
+            color: 'yellow',
+            autoClose: 10000,
+          });
+          return;
+        }
+
+        throw new Error(result.error || 'Failed to sync Google Drive files');
+      }
+
+      // Transform the synced data to match InvoiceData interface
+      const syncedData: InvoiceData[] = result.data.map(
+        (item: {
+          customerName: string;
+          driveFiles: string;
+          fileId: string;
+          fileName: string;
+        }) => ({
+          id: item.fileId || `temp-${Date.now()}-${Math.random()}`,
+          customerName: item.customerName,
+          actualWeight: '', // Empty by default - user can fill in
+          finalWeight: '', // Empty by default - user can fill in
+          shopeeCheckoutLinks: '', // Empty by default - user can fill in
+          driveFiles: item.driveFiles,
+          message: '', // Empty by default - user can fill in
+          chat: '', // Empty by default - user can fill in
+          tickbox: false,
+        })
+      );
+
+      // Append to existing data instead of replacing
+      setInvoiceData((prevData) => [...prevData, ...syncedData]);
+
+      showNotification({
+        title: 'Sync Successful',
+        message: `Successfully synced ${syncedData.length} files from Google Drive`,
+        color: 'green',
+      });
+    } catch (error) {
+      showNotification({
+        title: 'Sync Failed',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to sync Google Drive files',
+        color: 'red',
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <Stack gap="md">
       <Tabs value={activeTab} onChange={setActiveTab}>
@@ -277,9 +387,189 @@ export function CheckoutLinksComponent() {
         </Tabs.List>
 
         <Tabs.Panel value="invoicing" pt="md">
-          <Text size="sm" c="dimmed">
-            Invoicing functionality coming soon...
-          </Text>
+          <Stack gap="md">
+            <StandardTableControls
+              searchPlaceholder="Search invoicing records..."
+              onSearch={setSearchQuery}
+              onImport={() => {
+                // TODO: Implement import functionality
+              }}
+              onExport={() => {
+                // TODO: Implement export functionality
+              }}
+              onAddNew={handleSyncGoogleDrive}
+              isImporting={isSyncing}
+            />
+
+            <StandardTableContainer
+              summary={
+                <Group justify="space-between">
+                  <Text size="sm" c="dimmed">
+                    Showing {filteredInvoiceData.length} of {invoiceData.length}{' '}
+                    invoicing records
+                  </Text>
+                </Group>
+              }
+            >
+              <StandardDataTable
+                headers={[
+                  'CUSTOMER NAME',
+                  'ACTUAL WEIGHT',
+                  'FINAL WEIGHT',
+                  'SHOPEE CHECKOUT LINKS',
+                  'DRIVE FILES',
+                  'MESSAGE',
+                  'CHAT',
+                  'TICKBOX',
+                  'ACTION',
+                ]}
+                emptyState="No invoicing records found. Click 'Add New' to get started."
+                colSpan={9}
+              >
+                {filteredInvoiceData.map((row) => (
+                  <Table.Tr key={row.id}>
+                    <Table.Td>
+                      <Text size="sm" c="#495057">
+                        {row.customerName}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td style={{ textAlign: 'center' }}>
+                      <Text size="sm" c="#495057">
+                        {row.actualWeight}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td style={{ textAlign: 'center' }}>
+                      <Text size="sm" c="#495057">
+                        {row.finalWeight}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      {row.shopeeCheckoutLinks ? (
+                        <Anchor
+                          href={
+                            row.shopeeCheckoutLinks.startsWith('http')
+                              ? row.shopeeCheckoutLinks
+                              : `https://${row.shopeeCheckoutLinks}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          size="sm"
+                          lineClamp={2}
+                        >
+                          {row.shopeeCheckoutLinks}
+                        </Anchor>
+                      ) : (
+                        <Text size="sm" c="dimmed">
+                          -
+                        </Text>
+                      )}
+                    </Table.Td>
+                    <Table.Td>
+                      {row.driveFiles ? (
+                        <Anchor
+                          href={
+                            row.driveFiles.startsWith('http')
+                              ? row.driveFiles
+                              : `https://${row.driveFiles}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          size="sm"
+                          lineClamp={2}
+                        >
+                          {row.driveFiles}
+                        </Anchor>
+                      ) : (
+                        <Text size="sm" c="dimmed">
+                          -
+                        </Text>
+                      )}
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="sm" c="#495057" lineClamp={2}>
+                        {row.message || '-'}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      {row.chat ? (
+                        <Anchor
+                          href={
+                            row.chat.startsWith('http')
+                              ? row.chat
+                              : `https://${row.chat}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          size="sm"
+                          lineClamp={2}
+                        >
+                          Chat Link
+                        </Anchor>
+                      ) : (
+                        <Text size="sm" c="dimmed">
+                          -
+                        </Text>
+                      )}
+                    </Table.Td>
+                    <Table.Td style={{ textAlign: 'center' }}>
+                      <Checkbox
+                        checked={row.tickbox}
+                        onChange={(event) => {
+                          const newData = invoiceData.map((item) =>
+                            item.id === row.id
+                              ? {
+                                  ...item,
+                                  tickbox: event.currentTarget.checked,
+                                }
+                              : item
+                          );
+                          setInvoiceData(newData);
+                        }}
+                      />
+                    </Table.Td>
+                    <Table.Td>
+                      <Group gap="xs" justify="center">
+                        <Tooltip label="Edit">
+                          <ActionIcon
+                            color="blue"
+                            variant="light"
+                            size="sm"
+                            onClick={() => {
+                              // TODO: Implement edit functionality
+                            }}
+                            {...getActionLabel(
+                              'Edit',
+                              'invoice record',
+                              row.customerName
+                            )}
+                          >
+                            <IconEdit size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                        <Tooltip label="Delete">
+                          <ActionIcon
+                            color="red"
+                            variant="light"
+                            size="sm"
+                            onClick={() => {
+                              // TODO: Implement delete functionality
+                            }}
+                            {...getActionLabel(
+                              'Delete',
+                              'invoice record',
+                              row.customerName
+                            )}
+                          >
+                            <IconTrash size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                      </Group>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </StandardDataTable>
+            </StandardTableContainer>
+          </Stack>
         </Tabs.Panel>
 
         <Tabs.Panel value="item-weight" pt="md">
