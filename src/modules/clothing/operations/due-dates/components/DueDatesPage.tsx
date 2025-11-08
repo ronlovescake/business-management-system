@@ -330,6 +330,7 @@ export function DueDatesPage() {
           hideImport
           hideExport
           hideAddNew
+          expandSearch
         />
         <StandardTableContainer>
           <StandardDataTable
@@ -349,15 +350,23 @@ export function DueDatesPage() {
   return (
     <>
       <Stack gap="md">
-        <Group justify="space-between" align="center" wrap="nowrap">
-          <StandardTableControls
-            searchPlaceholder="Search by customer or product code..."
-            onSearch={setSearchQuery}
-            hideImport
-            hideExport
-            hideAddNew
-          />
-          <Group gap="xs">
+        <Group
+          justify="space-between"
+          align="center"
+          wrap="nowrap"
+          style={{ gap: '1rem' }}
+        >
+          <div style={{ flexGrow: 1, minWidth: 0 }}>
+            <StandardTableControls
+              searchPlaceholder="Search by customer or product code..."
+              onSearch={setSearchQuery}
+              hideImport
+              hideExport
+              hideAddNew
+              expandSearch
+            />
+          </div>
+          <Group gap="xs" style={{ flexShrink: 0 }}>
             <Badge color="red" variant="light">
               {stats.overdue} Overdue
             </Badge>

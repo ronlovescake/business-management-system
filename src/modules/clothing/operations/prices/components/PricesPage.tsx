@@ -593,17 +593,17 @@ export function PricesPage() {
         <PriceStatsCards stats={stats} />
 
         <Group justify="flex-end">
-          <Group gap="sm">
-            <TextInput
-              placeholder="Search products... (Ctrl+F)"
-              leftSection={<IconSearch size={16} />}
-              value={searchQuery}
-              onChange={(event) => handleSearchData(event.currentTarget.value)}
-              size="sm"
-              disabled={prices.length === 0}
-              style={{ minWidth: 260 }}
-              data-ctrlf-target="prices-search-input"
-            />
+          <TextInput
+            placeholder="Search products... (Ctrl+F)"
+            leftSection={<IconSearch size={16} />}
+            value={searchQuery}
+            onChange={(event) => handleSearchData(event.currentTarget.value)}
+            size="sm"
+            disabled={prices.length === 0}
+            style={{ flexGrow: 1, minWidth: 260 }}
+            data-ctrlf-target="prices-search-input"
+          />
+          <Group gap="sm" style={{ flexShrink: 0 }}>
             <FileButton
               accept=".csv"
               onChange={(uploadedFile) => setFile(uploadedFile)}

@@ -254,6 +254,11 @@ interface StandardTableControlsProps {
    * Optional: Enable Ctrl+F focus behavior for the search input
    */
   enableCtrlF?: boolean;
+
+  /**
+   * Optional: Make search input expand to full width
+   */
+  expandSearch?: boolean;
 }
 
 export function StandardTableControls({
@@ -269,6 +274,7 @@ export function StandardTableControls({
   hideSearch = false,
   acceptFileTypes = '.csv,text/csv',
   enableCtrlF = true,
+  expandSearch = false,
 }: StandardTableControlsProps) {
   const [searchValue, setSearchValue] = useState('');
   const ctrlFId = useId();
@@ -285,7 +291,11 @@ export function StandardTableControls({
   };
 
   return (
-    <Group justify="space-between" wrap="wrap">
+    <Group
+      justify={expandSearch ? 'flex-start' : 'space-between'}
+      wrap="wrap"
+      style={expandSearch ? { gap: '0.5rem', width: '100%' } : undefined}
+    >
       {!hideSearch && (
         <TextInput
           placeholder={
@@ -296,7 +306,7 @@ export function StandardTableControls({
           leftSection={<IconSearch size={16} />}
           value={searchValue}
           onChange={handleSearchChange}
-          style={{ flex: 1 }}
+          style={expandSearch ? { width: '100%' } : { flex: 1 }}
           data-ctrlf-target={searchTarget}
         />
       )}
