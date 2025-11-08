@@ -1,6 +1,9 @@
 import { redirect } from 'next/navigation';
 import { getFirstAccessibleModule } from '@/lib/auth/permissions';
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const firstModule = await getFirstAccessibleModule();
@@ -16,5 +19,3 @@ export async function GET() {
     redirect('/clothing/operations');
   }
 }
-
-export const dynamic = 'force-dynamic';
