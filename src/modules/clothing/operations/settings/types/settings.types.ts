@@ -184,10 +184,6 @@ export interface ModuleDetailModalData {
  * Settings tab options
  */
 export const SETTINGS_TABS = [
-  { value: 'marketplace', label: 'Marketplace', icon: 'store' },
-  { value: 'installed', label: 'Installed Modules', icon: 'package' },
-  { value: 'updates', label: 'Updates', icon: 'download' },
-  { value: 'dependencies', label: 'Dependencies', icon: 'git-branch' },
   { value: 'backup', label: 'Backup & Restore', icon: 'database' },
 ] as const;
 

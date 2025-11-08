@@ -90,7 +90,7 @@ function mapItemWeightResponse(item: ItemWeightApiResponse): ItemWeightData {
 }
 
 export function CheckoutLinksComponent() {
-  const [activeTab, setActiveTab] = useState<string | null>('checkout-links');
+  const [activeTab, setActiveTab] = useState<string | null>('invoicing');
   const [searchQuery, setSearchQuery] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
