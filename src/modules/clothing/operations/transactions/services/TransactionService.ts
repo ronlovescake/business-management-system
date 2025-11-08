@@ -373,17 +373,20 @@ export class TransactionService {
 
       const currentOrderStatus = transaction['Order Status'] || '';
 
-      // Only auto-populate if order status is blank
-      if (currentOrderStatus !== '') {
+      // Only auto-populate if order status is blank or "In Transit"
+      // Don't overwrite manual statuses
+      if (currentOrderStatus !== '' && currentOrderStatus !== 'In Transit') {
         return transaction;
       }
 
-      // Default to empty string if product not in statusMap
+      // Get shipment status from the map
       const currentShipmentStatus = statusMap[productCode] || '';
 
-      const newOrderStatus = this.getOrderStatusFromShipmentStatus(
-        currentShipmentStatus
-      );
+      // If shipment status is blank, set to "In Transit"
+      // Otherwise, convert shipment status to order status
+      const newOrderStatus = currentShipmentStatus
+        ? this.getOrderStatusFromShipmentStatus(currentShipmentStatus)
+        : 'In Transit';
 
       if (currentOrderStatus !== newOrderStatus) {
         updatedCount++;

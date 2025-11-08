@@ -17,6 +17,13 @@ vi.mock('@tanstack/react-query', () => ({
   }),
 }));
 
+vi.mock('@mantine/notifications', () => ({
+  notifications: {
+    show: vi.fn(),
+  },
+  showNotification: vi.fn(),
+}));
+
 const priceTiers: PriceTier[] = [
   {
     'Product Code': 'SKU-1',
