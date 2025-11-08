@@ -13,6 +13,9 @@ import path from 'path';
 import { logger } from '@/lib/logger';
 import * as Papa from 'papaparse';
 
+// Force dynamic rendering for this route due to fs operations
+export const dynamic = 'force-dynamic';
+
 const BACKUP_DIR = path.resolve(process.cwd(), 'backups');
 
 // Tables to backup
