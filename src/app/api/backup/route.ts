@@ -12,6 +12,7 @@ import fs from 'fs';
 import path from 'path';
 import { logger } from '@/lib/logger';
 import * as Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -258,6 +259,97 @@ export async function POST(request: NextRequest) {
         logger.info('SQL dump completed successfully');
       } else {
         logger.warn('SQL dump was not created');
+      }
+    }
+
+    // XLSX Backup - Generate Excel workbook with all tables
+    if (format === 'xlsx' || format === 'all') {
+      logger.info('Starting XLSX backup generation...');
+      try {
+        const wb = XLSX.utils.book_new();
+        let sheetCount = 0;
+
+        for (const { name, model } of TABLES) {
+          try {
+            logger.info(`Processing table for XLSX: ${name}`);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const modelDelegate = prisma[model as keyof typeof prisma] as any;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const sampleRecord = await modelDelegate.findFirst();
+            const hasDeletedAt = sampleRecord && 'deletedAt' in sampleRecord;
+
+            const where =
+              hasDeletedAt && !includeSoftDeleted ? { deletedAt: null } : {};
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const data = await modelDelegate.findMany({ where });
+
+            logger.info(`Table ${name} has ${data.length} records for XLSX`);
+
+            if (data.length > 0) {
+              // Convert Prisma objects to plain objects
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const plainData = data.map((record: any) => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const plain: Record<string, any> = {};
+                for (const key in record) {
+                  const value = record[key];
+                  // Convert Date objects to ISO strings
+                  if (value instanceof Date) {
+                    plain[key] = value.toISOString();
+                  }
+                  // Convert BigInt to string
+                  else if (typeof value === 'bigint') {
+                    plain[key] = value.toString();
+                  }
+                  // Keep null, undefined, and primitive types as is
+                  else if (
+                    value === null ||
+                    value === undefined ||
+                    typeof value === 'string' ||
+                    typeof value === 'number' ||
+                    typeof value === 'boolean'
+                  ) {
+                    plain[key] = value;
+                  }
+                  // Convert objects to JSON string
+                  else {
+                    plain[key] = JSON.stringify(value);
+                  }
+                }
+                return plain;
+              });
+
+              // Create worksheet from data
+              const ws = XLSX.utils.json_to_sheet(plainData);
+              // Sheet names are limited to 31 characters in Excel
+              const sheetName = name.substring(0, 31);
+              XLSX.utils.book_append_sheet(wb, ws, sheetName);
+              sheetCount++;
+              logger.info(`Added sheet ${sheetName} to workbook`);
+            } else {
+              logger.info(`Skipping ${name} for XLSX - no data`);
+            }
+          } catch (error) {
+            logger.error(`XLSX backup failed for table ${name}:`, error);
+            // Continue with other tables if one fails
+          }
+        }
+
+        if (sheetCount > 0) {
+          const xlsxFile = path.join(backupDir, `backup-${timestamp}.xlsx`);
+          XLSX.writeFile(wb, xlsxFile);
+          files.push(xlsxFile);
+          backupFile = xlsxFile;
+          logger.info(
+            `XLSX backup completed successfully with ${sheetCount} sheets: ${xlsxFile}`
+          );
+        } else {
+          logger.warn('No data to write to XLSX file');
+        }
+      } catch (error) {
+        logger.error('XLSX backup failed:', error);
+        // Continue even if XLSX fails
       }
     }
 

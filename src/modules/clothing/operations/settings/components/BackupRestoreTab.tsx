@@ -37,8 +37,10 @@ import {
   IconFile,
   IconEye,
   IconFileText,
+  IconFileSpreadsheet,
 } from '@tabler/icons-react';
 import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 
 interface Backup {
   timestamp: string;
@@ -394,6 +396,78 @@ export function BackupRestoreTab() {
     }
   };
 
+  const handleDownloadXLSX = async (tableName: string) => {
+    if (!previewData) {
+      return;
+    }
+
+    try {
+      const tableData = previewData.tables[tableName];
+      if (!tableData?.data?.length) {
+        return;
+      }
+
+      // Create worksheet from table data
+      const ws = XLSX.utils.json_to_sheet(tableData.data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, tableName);
+
+      // Generate XLSX file
+      XLSX.writeFile(wb, `${tableName}-${selectedBackup?.timestamp}.xlsx`);
+
+      showNotification({
+        title: 'Downloaded',
+        message: `${tableName}.xlsx`,
+        color: 'green',
+      });
+    } catch (error) {
+      showNotification({
+        title: 'Download Failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        color: 'red',
+      });
+    }
+  };
+
+  const handleDownloadAllXLSX = async () => {
+    if (!previewData) {
+      return;
+    }
+
+    try {
+      const wb = XLSX.utils.book_new();
+      let sheetCount = 0;
+
+      for (const [tableName, tableData] of Object.entries(previewData.tables)) {
+        if (tableData.data?.length) {
+          const ws = XLSX.utils.json_to_sheet(tableData.data);
+          // Sheet names are limited to 31 characters in Excel
+          const sheetName = tableName.substring(0, 31);
+          XLSX.utils.book_append_sheet(wb, ws, sheetName);
+          sheetCount++;
+        }
+      }
+
+      if (sheetCount > 0) {
+        XLSX.writeFile(
+          wb,
+          `backup-all-tables-${selectedBackup?.timestamp}.xlsx`
+        );
+        showNotification({
+          title: 'Downloaded',
+          message: `${sheetCount} tables in workbook`,
+          color: 'green',
+        });
+      }
+    } catch (error) {
+      showNotification({
+        title: 'Download Failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        color: 'red',
+      });
+    }
+  };
+
   const handleDownloadCSV = async (tableName: string) => {
     if (!previewData) {
       return;
@@ -526,8 +600,8 @@ export function BackupRestoreTab() {
         color="blue"
       >
         <Text size="sm">
-          Regular backups protect your data. Backups include JSON, CSV, and SQL
-          dump formats.
+          Regular backups protect your data. Backups include JSON, CSV, XLSX,
+          and SQL dump formats.
         </Text>
       </Alert>
 
@@ -543,8 +617,9 @@ export function BackupRestoreTab() {
             data={[
               { value: 'json', label: 'JSON only' },
               { value: 'csv', label: 'CSV only' },
+              { value: 'xlsx', label: 'XLSX only' },
               { value: 'sql', label: 'SQL dump only' },
-              { value: 'all', label: 'JSON + CSV + SQL (recommended)' },
+              { value: 'all', label: 'JSON + CSV + XLSX + SQL (recommended)' },
             ]}
             value={backupFormat}
             onChange={(v) => setBackupFormat(v || 'all')}
@@ -833,17 +908,30 @@ export function BackupRestoreTab() {
                               : 'records'}
                           </Text>
                         </div>
-                        <Button
-                          size="sm"
-                          variant="light"
-                          color="green"
-                          leftSection={<IconFileTypeCsv size={14} />}
-                          onClick={() =>
-                            handleDownloadCSV(selectedTableDetails.name)
-                          }
-                        >
-                          Download CSV
-                        </Button>
+                        <Group gap="xs">
+                          <Button
+                            size="sm"
+                            variant="light"
+                            color="green"
+                            leftSection={<IconFileTypeCsv size={14} />}
+                            onClick={() =>
+                              handleDownloadCSV(selectedTableDetails.name)
+                            }
+                          >
+                            CSV
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="light"
+                            color="teal"
+                            leftSection={<IconFileSpreadsheet size={14} />}
+                            onClick={() =>
+                              handleDownloadXLSX(selectedTableDetails.name)
+                            }
+                          >
+                            XLSX
+                          </Button>
+                        </Group>
                       </Group>
 
                       {selectedTableDetails.data.length ? (
@@ -965,20 +1053,38 @@ export function BackupRestoreTab() {
                 >
                   Download All CSV
                 </Button>
+                <Button
+                  color="cyan"
+                  leftSection={<IconFileSpreadsheet size={16} />}
+                  onClick={() => void handleDownloadAllXLSX()}
+                >
+                  Download All XLSX
+                </Button>
                 <Divider />
                 <Stack gap="xs">
                   {Object.entries(previewData.tables).map(([name, data]) => (
                     <Group key={name} justify="space-between">
                       <Text size="sm">{name}</Text>
-                      <Button
-                        size="xs"
-                        variant="subtle"
-                        color="green"
-                        disabled={!data.count}
-                        onClick={() => handleDownloadCSV(name)}
-                      >
-                        CSV
-                      </Button>
+                      <Group gap="xs">
+                        <Button
+                          size="xs"
+                          variant="subtle"
+                          color="green"
+                          disabled={!data.count}
+                          onClick={() => handleDownloadCSV(name)}
+                        >
+                          CSV
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="subtle"
+                          color="cyan"
+                          disabled={!data.count}
+                          onClick={() => handleDownloadXLSX(name)}
+                        >
+                          XLSX
+                        </Button>
+                      </Group>
                     </Group>
                   ))}
                 </Stack>
