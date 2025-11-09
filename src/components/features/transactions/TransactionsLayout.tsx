@@ -213,20 +213,27 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
   // Action buttons for document generation
   const actionButtons = (
     <Group>
-      <Button
-        leftSection={<IconFileSpreadsheet size={16} />}
-        variant="outline"
-        onClick={handleExportToXLSX}
-        style={{
-          backgroundColor: '#10b981',
-          borderColor: '#10b981',
-          borderWidth: '1px',
-          color: '#ffffff',
-          width: '175px',
-        }}
-      >
-        Export to XLSX
-      </Button>
+      {onGenerateDistribution && (
+        <Button
+          leftSection={
+            isGeneratingDistribution ? (
+              <Loader size={16} color="white" />
+            ) : undefined
+          }
+          variant="outline"
+          onClick={() => onGenerateDistribution(filteredData)}
+          disabled={isGeneratingDistribution}
+          style={{
+            backgroundColor: isGeneratingDistribution ? '#ef4444' : '#c8e6fd',
+            borderColor: isGeneratingDistribution ? '#ef4444' : '#c8e6fd',
+            borderWidth: '1px',
+            color: isGeneratingDistribution ? '#ffffff' : '#374151',
+            width: '175px',
+          }}
+        >
+          {isGeneratingDistribution ? 'GENERATING...' : 'Create Distribution'}
+        </Button>
+      )}
       {onGenerateInvoice && (
         <Button
           leftSection={
@@ -267,27 +274,20 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
           {isGeneratingPackingList ? 'GENERATING...' : 'Create Packing List'}
         </Button>
       )}
-      {onGenerateDistribution && (
-        <Button
-          leftSection={
-            isGeneratingDistribution ? (
-              <Loader size={16} color="white" />
-            ) : undefined
-          }
-          variant="outline"
-          onClick={() => onGenerateDistribution(filteredData)}
-          disabled={isGeneratingDistribution}
-          style={{
-            backgroundColor: isGeneratingDistribution ? '#ef4444' : '#c8e6fd',
-            borderColor: isGeneratingDistribution ? '#ef4444' : '#c8e6fd',
-            borderWidth: '1px',
-            color: isGeneratingDistribution ? '#ffffff' : '#374151',
-            width: '175px',
-          }}
-        >
-          {isGeneratingDistribution ? 'GENERATING...' : 'Create Distribution'}
-        </Button>
-      )}
+      <Button
+        leftSection={<IconFileSpreadsheet size={16} />}
+        variant="outline"
+        onClick={handleExportToXLSX}
+        style={{
+          backgroundColor: '#10b981',
+          borderColor: '#10b981',
+          borderWidth: '1px',
+          color: '#ffffff',
+          width: '175px',
+        }}
+      >
+        Export to XLSX
+      </Button>
     </Group>
   );
 
