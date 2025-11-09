@@ -7,10 +7,9 @@ import {
   Select,
   NumberInput,
   Button,
-  ThemeIcon,
   SimpleGrid,
 } from '@mantine/core';
-import { IconPlus, IconCurrencyPeso, IconCheck } from '@tabler/icons-react';
+import { IconPlus, IconCheck } from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
 import type { PriceFormData } from '../types/price.types';
 import { logger } from '@/lib/logger';
@@ -107,7 +106,7 @@ export const AddPriceModal = memo(function AddPriceModal({
       padding="xl"
       styles={{
         header: {
-          backgroundColor: 'var(--mantine-color-green-0)',
+          backgroundColor: '#ffffff',
           borderRadius: '12px 12px 0 0',
           padding: '24px 32px 16px 32px',
           borderBottom: '1px solid var(--mantine-color-gray-2)',
@@ -115,42 +114,31 @@ export const AddPriceModal = memo(function AddPriceModal({
         title: {
           fontSize: '24px',
           fontWeight: 600,
-          color: 'var(--mantine-color-green-8)',
+          color: '#1f2937',
         },
         body: {
           padding: '32px',
-          backgroundColor: 'var(--mantine-color-gray-0)',
+          backgroundColor: '#ffffff',
         },
         close: {
-          color: 'var(--mantine-color-green-6)',
+          color: '#4b5563',
           '&:hover': {
-            backgroundColor: 'var(--mantine-color-green-1)',
+            backgroundColor: 'var(--mantine-color-gray-1)',
           },
         },
       }}
       title={
         <Group gap="sm">
-          <ThemeIcon size="lg" radius="md" variant="light" color="green">
-            <IconPlus size={20} />
-          </ThemeIcon>
-          <div>
-            <Text size="xl" fw={600} c="green.8">
-              Add New Price
-            </Text>
-            <Text size="sm" c="dimmed">
-              Set pricing information for a product
-            </Text>
-          </div>
+          <Text size="xl" fw={600} c="gray.9">
+            Add New Price
+          </Text>
         </Group>
       }
     >
       <Stack gap="lg">
         <div>
           <Group mb="md">
-            <ThemeIcon size="sm" radius="md" variant="light" color="green">
-              <IconCurrencyPeso size={14} />
-            </ThemeIcon>
-            <Text size="lg" fw={500} c="green.7">
+            <Text size="lg" fw={500} c="gray.9">
               Product Pricing Information
             </Text>
           </Group>
@@ -165,10 +153,10 @@ export const AddPriceModal = memo(function AddPriceModal({
             clearable
             data={productCodeOptions}
             styles={{
-              label: { fontWeight: 500, marginBottom: 8 },
+              label: { fontWeight: 500, marginBottom: 8, color: '#374151' },
               input: {
                 borderWidth: 2,
-                '&:focus': { borderColor: 'var(--mantine-color-green-5)' },
+                '&:focus': { borderColor: '#4b5563' },
               },
             }}
             value={form.productCode}
@@ -177,7 +165,7 @@ export const AddPriceModal = memo(function AddPriceModal({
 
           {/* Pricing Tiers */}
           <div style={{ marginTop: 24 }}>
-            <Text size="lg" fw={500} c="green.7" mb="md">
+            <Text size="lg" fw={500} c="gray.9" mb="md">
               Pricing Tiers
             </Text>
 
@@ -212,18 +200,11 @@ export const AddPriceModal = memo(function AddPriceModal({
                     mb="xs"
                     c={isTierEnabled ? 'dimmed' : 'gray.5'}
                   >
-                    Tier {index + 1}{' '}
-                    {!isTierEnabled &&
-                      (index === 0
-                        ? '(Fill Product Code first)'
-                        : '(Complete previous tier first)')}
+                    Tier {index + 1}
                   </Text>
                   <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
                     <NumberInput
                       label="Lower Limit"
-                      placeholder={
-                        index === 0 ? '1' : `> ${previousLowerLimit}`
-                      }
                       size="md"
                       radius="md"
                       hideControls
@@ -234,18 +215,22 @@ export const AddPriceModal = memo(function AddPriceModal({
                           : null
                       }
                       styles={{
-                        label: { fontWeight: 500, marginBottom: 8 },
+                        label: {
+                          fontWeight: 500,
+                          marginBottom: 8,
+                          color: '#374151',
+                        },
                         input: {
                           borderWidth: 2,
                           '&:focus': {
-                            borderColor: 'var(--mantine-color-green-5)',
+                            borderColor: '#4b5563',
                           },
                           backgroundColor: !isTierEnabled
                             ? 'var(--mantine-color-gray-1)'
                             : undefined,
                           color: !isTierEnabled
                             ? 'var(--mantine-color-gray-5)'
-                            : undefined,
+                            : '#1f2937',
                         },
                       }}
                       value={
@@ -258,18 +243,21 @@ export const AddPriceModal = memo(function AddPriceModal({
 
                     <NumberInput
                       label="Upper Limit"
-                      placeholder="Auto-calculated"
                       size="md"
                       radius="md"
                       hideControls
                       readOnly
                       tabIndex={-1}
                       styles={{
-                        label: { fontWeight: 500, marginBottom: 8 },
+                        label: {
+                          fontWeight: 500,
+                          marginBottom: 8,
+                          color: '#374151',
+                        },
                         input: {
                           borderWidth: 2,
                           backgroundColor: 'var(--mantine-color-gray-1)',
-                          color: 'var(--mantine-color-gray-7)',
+                          color: '#4b5563',
                           cursor: 'not-allowed',
                         },
                       }}
@@ -280,7 +268,6 @@ export const AddPriceModal = memo(function AddPriceModal({
 
                     <NumberInput
                       label="Price"
-                      placeholder="Auto-calculated"
                       size="md"
                       radius="md"
                       prefix="₱"
@@ -288,11 +275,15 @@ export const AddPriceModal = memo(function AddPriceModal({
                       readOnly
                       tabIndex={-1}
                       styles={{
-                        label: { fontWeight: 500, marginBottom: 8 },
+                        label: {
+                          fontWeight: 500,
+                          marginBottom: 8,
+                          color: '#374151',
+                        },
                         input: {
                           borderWidth: 2,
                           backgroundColor: 'var(--mantine-color-gray-1)',
-                          color: 'var(--mantine-color-gray-7)',
+                          color: '#4b5563',
                           cursor: 'not-allowed',
                         },
                       }}
@@ -306,18 +297,16 @@ export const AddPriceModal = memo(function AddPriceModal({
 
           <NumberInput
             label="Price Adjustment"
-            placeholder="0"
             size="md"
             radius="md"
             prefix="₱"
-            description="Positive for increases, negative for decreases"
             mt="md"
             hideControls
             styles={{
-              label: { fontWeight: 500, marginBottom: 8 },
+              label: { fontWeight: 500, marginBottom: 8, color: '#374151' },
               input: {
                 borderWidth: 2,
-                '&:focus': { borderColor: 'var(--mantine-color-green-5)' },
+                '&:focus': { borderColor: '#4b5563' },
               },
             }}
             value={form.priceAdjustment}

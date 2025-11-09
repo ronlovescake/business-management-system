@@ -10,7 +10,6 @@ import {
   Stack,
   Group,
   Text,
-  ThemeIcon,
   SimpleGrid,
   TextInput,
   Select,
@@ -20,17 +19,6 @@ import {
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { PolishedModal } from '@/components/modals/PolishedModal';
-import {
-  IconPackage,
-  IconCalendar,
-  IconCreditCard,
-  IconCurrencyPeso,
-  IconTrendingUp,
-  IconTrendingDown,
-  IconPercentage,
-  IconPlus,
-  IconCheck,
-} from '@tabler/icons-react';
 import type {
   ProductFormData,
   ProductCalculationResults,
@@ -72,6 +60,10 @@ export const AddProductModal = memo(function AddProductModal({
       updateField(field, formatDateForInput(value));
     };
 
+  const displayValue = (value: number) => {
+    return value === 0 ? undefined : value;
+  };
+
   return (
     <PolishedModal
       opened={opened}
@@ -79,11 +71,8 @@ export const AddProductModal = memo(function AddProductModal({
       size="50%"
       title={
         <Group gap="sm">
-          <ThemeIcon size="lg" radius="md" variant="light" color="gray">
-            <IconPackage size={20} />
-          </ThemeIcon>
           <div>
-            <Text size="xl" fw={600} c="gray.7">
+            <Text size="xl" fw={600} c="gray.9">
               {isEditMode ? 'Edit Product' : 'Add New Product'}
             </Text>
             <Text size="sm" c="gray.6">
@@ -95,10 +84,21 @@ export const AddProductModal = memo(function AddProductModal({
         </Group>
       }
       styles={{
+        content: {
+          backgroundColor: '#ffffff',
+        },
+        header: {
+          backgroundColor: '#ffffff',
+          borderRadius: '28px 28px 0 0',
+          borderBottom: '1px solid var(--mantine-color-gray-2)',
+        },
+        title: {
+          color: '#1f2937',
+        },
         body: {
-          backgroundColor: 'var(--mantine-color-gray-0)',
+          backgroundColor: '#ffffff',
           '& input, & select, & textarea': {
-            backgroundColor: 'var(--mantine-color-white)',
+            backgroundColor: '#ffffff',
           },
         },
       }}
@@ -160,7 +160,6 @@ export const AddProductModal = memo(function AddProductModal({
               placeholder="Select posting date"
               size="md"
               radius="md"
-              leftSection={<IconCalendar size={16} />}
               value={parseDateValue(form.postingDate)}
               onChange={handleDateChange('postingDate')}
               valueFormat="MMMM DD, YYYY"
@@ -173,7 +172,6 @@ export const AddProductModal = memo(function AddProductModal({
               placeholder="Select order date"
               size="md"
               radius="md"
-              leftSection={<IconCalendar size={16} />}
               value={parseDateValue(form.orderDate)}
               onChange={handleDateChange('orderDate')}
               valueFormat="MMMM DD, YYYY"
@@ -185,7 +183,6 @@ export const AddProductModal = memo(function AddProductModal({
               label="Payment"
               size="md"
               radius="md"
-              leftSection={<IconCreditCard size={16} />}
               data={PAYMENT_STATUS_OPTIONS.map((opt) => ({ ...opt }))}
               allowDeselect
               clearable
@@ -206,7 +203,8 @@ export const AddProductModal = memo(function AddProductModal({
               decimalScale={2}
               fixedDecimalScale
               thousandSeparator=","
-              value={form.unitPrice}
+              hideControls
+              value={displayValue(form.unitPrice)}
               onChange={(value) => updateField('unitPrice', Number(value) || 0)}
             />
 
@@ -215,7 +213,8 @@ export const AddProductModal = memo(function AddProductModal({
               size="md"
               radius="md"
               min={0}
-              value={form.quantity}
+              hideControls
+              value={displayValue(form.quantity)}
               onChange={(value) => updateField('quantity', Number(value) || 0)}
             />
 
@@ -226,6 +225,7 @@ export const AddProductModal = memo(function AddProductModal({
               decimalScale={2}
               fixedDecimalScale
               step={0.01}
+              hideControls
               value={form.exchangeRates}
               onChange={(value) =>
                 updateField('exchangeRates', Number(value) || 1)
@@ -245,7 +245,8 @@ export const AddProductModal = memo(function AddProductModal({
               decimalScale={2}
               fixedDecimalScale
               thousandSeparator=","
-              value={form.alibabaShippingCost}
+              hideControls
+              value={displayValue(form.alibabaShippingCost)}
               onChange={(value) =>
                 updateField('alibabaShippingCost', Number(value) || 0)
               }
@@ -259,7 +260,8 @@ export const AddProductModal = memo(function AddProductModal({
               decimalScale={2}
               fixedDecimalScale
               thousandSeparator=","
-              value={form.forwardersFee}
+              hideControls
+              value={displayValue(form.forwardersFee)}
               onChange={(value) =>
                 updateField('forwardersFee', Number(value) || 0)
               }
@@ -273,7 +275,8 @@ export const AddProductModal = memo(function AddProductModal({
               decimalScale={2}
               fixedDecimalScale
               thousandSeparator=","
-              value={form.lalamove}
+              hideControls
+              value={displayValue(form.lalamove)}
               onChange={(value) => updateField('lalamove', Number(value) || 0)}
             />
 
@@ -285,7 +288,8 @@ export const AddProductModal = memo(function AddProductModal({
               decimalScale={2}
               fixedDecimalScale
               thousandSeparator=","
-              value={form.packagingCost}
+              hideControls
+              value={displayValue(form.packagingCost)}
               onChange={(value) =>
                 updateField('packagingCost', Number(value) || 0)
               }
@@ -299,7 +303,8 @@ export const AddProductModal = memo(function AddProductModal({
               decimalScale={2}
               fixedDecimalScale
               thousandSeparator=","
-              value={form.actualPrice}
+              hideControls
+              value={displayValue(form.actualPrice)}
               onChange={(value) =>
                 updateField('actualPrice', Number(value) || 0)
               }
@@ -310,17 +315,12 @@ export const AddProductModal = memo(function AddProductModal({
         {/* Financial Calculations Section */}
         <div>
           <Group mb="md">
-            <ThemeIcon size="sm" radius="md" variant="light" color="gray">
-              <IconCurrencyPeso size={14} />
-            </ThemeIcon>
             <Text size="lg" fw={500} c="gray.7">
               Financial Calculations & Business Intelligence
             </Text>
           </Group>
 
-          {/* First Row - Key Profit Metrics */}
           <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md" mb="xl">
-            {/* Suggested Price Calculation */}
             <Card
               withBorder
               radius="md"
@@ -330,14 +330,9 @@ export const AddProductModal = memo(function AddProductModal({
                 borderColor: 'var(--mantine-color-gray-3)',
               }}
             >
-              <Group justify="space-between" align="center" mb="md">
-                <ThemeIcon size="sm" radius="md" variant="light" color="gray">
-                  <IconCurrencyPeso size={14} />
-                </ThemeIcon>
-                <Text size="sm" fw={500} c="gray.7">
-                  Suggested Price
-                </Text>
-              </Group>
+              <Text size="sm" fw={500} c="gray.7" mb="md">
+                Suggested Price
+              </Text>
               <Text size="xl" fw={700} c="gray.8" ta="center" mb="xs">
                 ₱
                 {calculations.suggestedPrice.toLocaleString('en-US', {
@@ -350,7 +345,6 @@ export const AddProductModal = memo(function AddProductModal({
               </Text>
             </Card>
 
-            {/* Projected Sales Total */}
             <Card
               withBorder
               radius="md"
@@ -360,14 +354,9 @@ export const AddProductModal = memo(function AddProductModal({
                 borderColor: 'var(--mantine-color-gray-3)',
               }}
             >
-              <Group justify="space-between" align="center" mb="md">
-                <ThemeIcon size="sm" radius="md" variant="light" color="gray">
-                  <IconTrendingUp size={14} />
-                </ThemeIcon>
-                <Text size="sm" fw={500} c="gray.7">
-                  Projected Sales Total
-                </Text>
-              </Group>
+              <Text size="sm" fw={500} c="gray.7" mb="md">
+                Projected Sales Total
+              </Text>
               <Text size="xl" fw={700} c="gray.8" ta="center" mb="xs">
                 ₱
                 {calculations.projectedSales.toLocaleString('en-US', {
@@ -380,7 +369,6 @@ export const AddProductModal = memo(function AddProductModal({
               </Text>
             </Card>
 
-            {/* Projected Profit */}
             <Card
               withBorder
               radius="md"
@@ -390,14 +378,9 @@ export const AddProductModal = memo(function AddProductModal({
                 borderColor: 'var(--mantine-color-gray-3)',
               }}
             >
-              <Group justify="space-between" align="center" mb="md">
-                <ThemeIcon size="sm" radius="md" variant="light" color="gray">
-                  <IconTrendingUp size={14} />
-                </ThemeIcon>
-                <Text size="sm" fw={500} c="gray.7">
-                  Projected Profit
-                </Text>
-              </Group>
+              <Text size="sm" fw={500} c="gray.7" mb="md">
+                Projected Profit
+              </Text>
               <Text size="xl" fw={700} c="gray.8" ta="center" mb="xs">
                 ₱
                 {calculations.projectedProfit.toLocaleString('en-US', {
@@ -410,7 +393,6 @@ export const AddProductModal = memo(function AddProductModal({
               </Text>
             </Card>
 
-            {/* Profit Margin (Projected Profit %) */}
             <Card
               withBorder
               radius="md"
@@ -420,14 +402,9 @@ export const AddProductModal = memo(function AddProductModal({
                 borderColor: 'var(--mantine-color-gray-3)',
               }}
             >
-              <Group justify="space-between" align="center" mb="md">
-                <ThemeIcon size="sm" radius="md" variant="light" color="gray">
-                  <IconPercentage size={14} />
-                </ThemeIcon>
-                <Text size="sm" fw={500} c="gray.7">
-                  Profit Margin
-                </Text>
-              </Group>
+              <Text size="sm" fw={500} c="gray.7" mb="md">
+                Profit Margin
+              </Text>
               <Text size="xl" fw={700} c="gray.8" ta="center" mb="xs">
                 {calculations.projectedProfitPercent.toLocaleString('en-US', {
                   minimumFractionDigits: 2,
@@ -441,9 +418,7 @@ export const AddProductModal = memo(function AddProductModal({
             </Card>
           </SimpleGrid>
 
-          {/* Second Row - Cost & Markup Metrics */}
           <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
-            {/* Base Price */}
             <Card
               withBorder
               radius="md"
@@ -453,14 +428,9 @@ export const AddProductModal = memo(function AddProductModal({
                 borderColor: 'var(--mantine-color-gray-3)',
               }}
             >
-              <Group justify="space-between" align="center" mb="md">
-                <ThemeIcon size="sm" radius="md" variant="light" color="gray">
-                  <IconCurrencyPeso size={14} />
-                </ThemeIcon>
-                <Text size="sm" fw={500} c="gray.7">
-                  Base Price
-                </Text>
-              </Group>
+              <Text size="sm" fw={500} c="gray.7" mb="md">
+                Base Price
+              </Text>
               <Text size="xl" fw={700} c="gray.8" ta="center" mb="xs">
                 ₱
                 {calculations.basePrice.toLocaleString('en-US', {
@@ -473,7 +443,6 @@ export const AddProductModal = memo(function AddProductModal({
               </Text>
             </Card>
 
-            {/* COGS (Cost of Goods Sold) */}
             <Card
               withBorder
               radius="md"
@@ -483,14 +452,9 @@ export const AddProductModal = memo(function AddProductModal({
                 borderColor: 'var(--mantine-color-gray-3)',
               }}
             >
-              <Group justify="space-between" align="center" mb="md">
-                <ThemeIcon size="sm" radius="md" variant="light" color="gray">
-                  <IconTrendingDown size={14} />
-                </ThemeIcon>
-                <Text size="sm" fw={500} c="gray.7">
-                  COGS
-                </Text>
-              </Group>
+              <Text size="sm" fw={500} c="gray.7" mb="md">
+                COGS
+              </Text>
               <Text size="xl" fw={700} c="gray.8" ta="center" mb="xs">
                 ₱
                 {calculations.cogs.toLocaleString('en-US', {
@@ -503,7 +467,6 @@ export const AddProductModal = memo(function AddProductModal({
               </Text>
             </Card>
 
-            {/* Total Markup */}
             <Card
               withBorder
               radius="md"
@@ -513,14 +476,9 @@ export const AddProductModal = memo(function AddProductModal({
                 borderColor: 'var(--mantine-color-gray-3)',
               }}
             >
-              <Group justify="space-between" align="center" mb="md">
-                <ThemeIcon size="sm" radius="md" variant="light" color="gray">
-                  <IconTrendingUp size={14} />
-                </ThemeIcon>
-                <Text size="sm" fw={500} c="gray.7">
-                  Total Markup
-                </Text>
-              </Group>
+              <Text size="sm" fw={500} c="gray.7" mb="md">
+                Total Markup
+              </Text>
               <Text size="xl" fw={700} c="gray.8" ta="center" mb="xs">
                 {calculations.totalMarkup.toLocaleString('en-US', {
                   minimumFractionDigits: 2,
@@ -563,9 +521,6 @@ export const AddProductModal = memo(function AddProductModal({
             radius="md"
             gradient={{ from: 'green', to: 'green.6', deg: 45 }}
             disabled={!form.product.trim() || isSubmitting}
-            leftSection={
-              isEditMode ? <IconCheck size={18} /> : <IconPlus size={18} />
-            }
             onClick={onSubmit}
             loading={isSubmitting}
             styles={{
