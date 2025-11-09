@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import {
   Stack,
   Text,
@@ -487,6 +487,17 @@ export function DispatchComponent() {
     }
   };
 
+  const navigateToPossibleMatchTab = useCallback(() => {
+    setActiveTab('possible-match');
+    window.setTimeout(() => {
+      const tabElement = document.getElementById('dispatch-possible-match-tab');
+      if (tabElement instanceof HTMLElement) {
+        tabElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        tabElement.focus();
+      }
+    }, 0);
+  }, [setActiveTab]);
+
   const headers = [
     'ORDER STATUS',
     'SHIPPING OPTIONS',
@@ -501,7 +512,9 @@ export function DispatchComponent() {
       <Tabs value={activeTab} onChange={setActiveTab}>
         <Tabs.List>
           <Tabs.Tab value="match">Dashboard</Tabs.Tab>
-          <Tabs.Tab value="possible-match">Possible Match</Tabs.Tab>
+          <Tabs.Tab value="possible-match" id="dispatch-possible-match-tab">
+            Possible Match
+          </Tabs.Tab>
           <Tabs.Tab value="raw-data">Raw Data</Tabs.Tab>
         </Tabs.List>
 
@@ -605,7 +618,14 @@ export function DispatchComponent() {
                               Matched
                             </Badge>
                           ) : (
-                            <Badge size="xs" color="orange" variant="light">
+                            <Badge
+                              size="xs"
+                              color="orange"
+                              variant="light"
+                              onClick={navigateToPossibleMatchTab}
+                              style={{ cursor: 'pointer' }}
+                              aria-label="View possible matches"
+                            >
                               Possible Match
                             </Badge>
                           )}
