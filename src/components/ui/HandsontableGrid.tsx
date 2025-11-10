@@ -279,6 +279,29 @@ export function HandsontableGrid<T extends object>({
         line-height: 1 !important;
       }
       
+      /* Target columns 6-9: UNIT PRICE, DISCOUNT, ADJUSTMENT, LINE TOTAL (right-align) */
+      .ht-theme-horizon .handsontable thead th:nth-child(6),
+      .ht-theme-horizon .handsontable thead th:nth-child(7),
+      .ht-theme-horizon .handsontable thead th:nth-child(8),
+      .ht-theme-horizon .handsontable thead th:nth-child(9),
+      .ht-theme-horizon .handsontable .ht_clone_top thead th:nth-child(6),
+      .ht-theme-horizon .handsontable .ht_clone_top thead th:nth-child(7),
+      .ht-theme-horizon .handsontable .ht_clone_top thead th:nth-child(8),
+      .ht-theme-horizon .handsontable .ht_clone_top thead th:nth-child(9) {
+        text-align: right !important;
+      }
+      
+      .ht-theme-horizon .handsontable thead th:nth-child(6) .colHeader,
+      .ht-theme-horizon .handsontable thead th:nth-child(7) .colHeader,
+      .ht-theme-horizon .handsontable thead th:nth-child(8) .colHeader,
+      .ht-theme-horizon .handsontable thead th:nth-child(9) .colHeader,
+      .ht-theme-horizon .handsontable .ht_clone_top thead th:nth-child(6) .colHeader,
+      .ht-theme-horizon .handsontable .ht_clone_top thead th:nth-child(7) .colHeader,
+      .ht-theme-horizon .handsontable .ht_clone_top thead th:nth-child(8) .colHeader,
+      .ht-theme-horizon .handsontable .ht_clone_top thead th:nth-child(9) .colHeader {
+        justify-content: flex-end !important;
+      }
+      
       /* Remove grey background from read-only cells */
       .ht-theme-horizon .handsontable td.htDimmed {
         background-color: #ffffff !important;
