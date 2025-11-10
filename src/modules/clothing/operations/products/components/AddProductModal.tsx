@@ -64,6 +64,11 @@ export const AddProductModal = memo(function AddProductModal({
     return value === 0 ? undefined : value;
   };
 
+  const projectedProfitColor =
+    calculations.projectedProfit < 0 ? 'red.6' : 'green.6';
+  const profitMarginColor =
+    calculations.projectedProfitPercent < 0 ? 'red.6' : 'green.6';
+
   return (
     <PolishedModal
       opened={opened}
@@ -381,7 +386,13 @@ export const AddProductModal = memo(function AddProductModal({
               <Text size="sm" fw={500} c="gray.7" mb="md">
                 Projected Profit
               </Text>
-              <Text size="xl" fw={700} c="gray.8" ta="center" mb="xs">
+              <Text
+                size="xl"
+                fw={700}
+                c={projectedProfitColor}
+                ta="center"
+                mb="xs"
+              >
                 ₱
                 {calculations.projectedProfit.toLocaleString('en-US', {
                   minimumFractionDigits: 2,
@@ -405,7 +416,13 @@ export const AddProductModal = memo(function AddProductModal({
               <Text size="sm" fw={500} c="gray.7" mb="md">
                 Profit Margin
               </Text>
-              <Text size="xl" fw={700} c="gray.8" ta="center" mb="xs">
+              <Text
+                size="xl"
+                fw={700}
+                c={profitMarginColor}
+                ta="center"
+                mb="xs"
+              >
                 {calculations.projectedProfitPercent.toLocaleString('en-US', {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
