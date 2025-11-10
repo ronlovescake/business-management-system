@@ -143,9 +143,15 @@ export function ShippingFeeCalculator() {
 
   // Save data to database
   const saveData = useCallback(
-    async (currentData: ShippingFeeData[], shipmentCode: string) => {
+    async (
+      currentData: ShippingFeeData[],
+      shipmentCode: string,
+      alibaba: number | string,
+      forwarders: number | string,
+      lalamove: number | string
+    ) => {
       try {
-        await fetch(
+        const response = await fetch(
           '/api/clothing/operations/products/shipping-fee-calculator',
           {
             method: 'POST',
@@ -155,19 +161,24 @@ export function ShippingFeeCalculator() {
               rows: currentData.filter((row) => row.productCode !== ''),
               actualInputs: {
                 actualAlibabaShipping:
-                  typeof actualAlibabaShipping === 'number'
-                    ? actualAlibabaShipping
-                    : 0,
+                  typeof alibaba === 'number' ? alibaba : 0,
                 actualForwardersFee:
-                  typeof actualForwardersFee === 'number'
-                    ? actualForwardersFee
-                    : 0,
-                actualLalamove:
-                  typeof actualLalamove === 'number' ? actualLalamove : 0,
+                  typeof forwarders === 'number' ? forwarders : 0,
+                actualLalamove: typeof lalamove === 'number' ? lalamove : 0,
               },
             }),
           }
         );
+
+        if (!response.ok) {
+          throw new Error('Failed to save');
+        }
+
+        showNotification({
+          title: 'Saved',
+          message: 'Data saved successfully',
+          color: 'green',
+        });
       } catch (error) {
         showNotification({
           title: 'Error',
@@ -176,7 +187,7 @@ export function ShippingFeeCalculator() {
         });
       }
     },
-    [actualAlibabaShipping, actualForwardersFee, actualLalamove]
+    []
   );
 
   // Populate table with products when shipment code is selected
@@ -329,7 +340,13 @@ export function ShippingFeeCalculator() {
 
         // Auto-save after recalculation
         if (selectedShipmentCode) {
-          saveData(newData, selectedShipmentCode);
+          saveData(
+            newData,
+            selectedShipmentCode,
+            actualAlibabaShipping,
+            actualForwardersFee,
+            actualLalamove
+          );
         }
       }
     }
@@ -519,7 +536,13 @@ export function ShippingFeeCalculator() {
 
         // Auto-save after table edit
         if (selectedShipmentCode) {
-          saveData(newData, selectedShipmentCode);
+          saveData(
+            newData,
+            selectedShipmentCode,
+            actualAlibabaShipping,
+            actualForwardersFee,
+            actualLalamove
+          );
         }
       }
     },
