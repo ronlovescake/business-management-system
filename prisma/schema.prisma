@@ -117,6 +117,20 @@ model Product {
   @@map("products")
 }
 
+model ShippingFeeCalculatorState {
+  id                    Int       @id @default(autoincrement())
+  shipmentCode          String    @unique @db.VarChar(100)
+  actualAlibabaShipping Float     @default(0)
+  actualForwardersFee   Float     @default(0)
+  actualLalamove        Float     @default(0)
+  multipliers           Json
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  deletedAt             DateTime?
+
+  @@map("shipping_fee_calculator_states")
+}
+
 model Shipment {
   id             Int       @id @default(autoincrement())
   createdAt      DateTime  @default(now())

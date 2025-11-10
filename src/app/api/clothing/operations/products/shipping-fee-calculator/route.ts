@@ -3,17 +3,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
-interface ShippingFeeRow {
-  productCode: string;
-  actualQuantity: number | null;
-  multiplier: number | null;
-  aproxQuantity: number | null;
-  percentage: number | null;
-  alibabaShippingCost: number | null;
-  forwardersFee: number | null;
-  lalamove: number | null;
-  packaging: number | null;
-}
+type MultipliersPayload = Record<string, number>;
 
 /**
  * GET - Load shipping fee calculator data for a shipment code
@@ -30,17 +20,28 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const data = await prisma.shippingFeeCalculator.findMany({
+    const record = await prisma.shippingFeeCalculatorState.findUnique({
       where: {
         shipmentCode,
-        deletedAt: null,
-      },
-      orderBy: {
-        createdAt: 'asc',
       },
     });
 
-    return NextResponse.json({ data });
+    if (!record || record.deletedAt) {
+      return NextResponse.json({ data: null });
+    }
+
+    return NextResponse.json({
+      data: {
+        id: record.id,
+        shipmentCode: record.shipmentCode,
+        actualAlibabaShipping: record.actualAlibabaShipping,
+        actualForwardersFee: record.actualForwardersFee,
+        actualLalamove: record.actualLalamove,
+        multipliers: (record.multipliers as MultipliersPayload) || {},
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt,
+      },
+    });
   } catch (error) {
     logger.error('Error loading shipping fee calculator data:', error);
     return NextResponse.json({ error: 'Failed to load data' }, { status: 500 });
@@ -53,41 +54,66 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { shipmentCode, rows, actualInputs } = body;
+    const { shipmentCode, multipliers, actualInputs } = body ?? {};
 
-    if (!shipmentCode || !rows || !actualInputs) {
+    if (!shipmentCode || !actualInputs) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
-    // Delete existing data for this shipment code (overwrite)
-    await prisma.shippingFeeCalculator.deleteMany({
+    const trimmedShipmentCode = String(shipmentCode).trim();
+
+    if (!trimmedShipmentCode) {
+      return NextResponse.json(
+        { error: 'Shipment code is required' },
+        { status: 400 }
+      );
+    }
+
+    const toNumber = (value: unknown): number => {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        return value;
+      }
+      if (typeof value === 'string' && value.trim() !== '') {
+        const parsed = Number(value.replace(/,/g, ''));
+        return Number.isFinite(parsed) ? parsed : 0;
+      }
+      return 0;
+    };
+
+    const normalizedMultipliers = Object.entries(
+      (multipliers as Record<string, unknown>) || {}
+    ).reduce<Record<string, number>>((acc, [productCode, value]) => {
+      const code = String(productCode).trim();
+      if (!code) {
+        return acc;
+      }
+
+      const numericValue = toNumber(value);
+      if (Number.isFinite(numericValue)) {
+        acc[code] = numericValue;
+      }
+
+      return acc;
+    }, {});
+
+    const payload = {
+      shipmentCode: trimmedShipmentCode,
+      actualAlibabaShipping: toNumber(actualInputs.actualAlibabaShipping),
+      actualForwardersFee: toNumber(actualInputs.actualForwardersFee),
+      actualLalamove: toNumber(actualInputs.actualLalamove),
+      multipliers: normalizedMultipliers,
+      deletedAt: null,
+    };
+
+    await prisma.shippingFeeCalculatorState.upsert({
       where: {
-        shipmentCode,
+        shipmentCode: trimmedShipmentCode,
       },
-    });
-
-    // Create new records
-    const records = rows.map((row: ShippingFeeRow) => ({
-      shipmentCode,
-      productCode: row.productCode,
-      actualQuantity: row.actualQuantity || 0,
-      multiplier: row.multiplier || 1,
-      aproxQuantity: row.aproxQuantity || 0,
-      percentage: row.percentage || 0,
-      alibabaShippingCost: row.alibabaShippingCost || 0,
-      forwardersFee: row.forwardersFee || 0,
-      lalamove: row.lalamove || 0,
-      packaging: row.packaging || 0,
-      actualAlibabaShipping: actualInputs.actualAlibabaShipping || 0,
-      actualForwardersFee: actualInputs.actualForwardersFee || 0,
-      actualLalamove: actualInputs.actualLalamove || 0,
-    }));
-
-    await prisma.shippingFeeCalculator.createMany({
-      data: records,
+      create: payload,
+      update: payload,
     });
 
     return NextResponse.json({ success: true });

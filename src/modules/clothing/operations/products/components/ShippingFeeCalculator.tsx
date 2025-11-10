@@ -6,6 +6,9 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+
+const PERSISTED_SHIPMENT_CODE_KEY =
+  'shippingFeeCalculator:selectedShipmentCode';
 import { Stack, Card, Group, NumberInput, Title, Select } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { HotTable } from '@handsontable/react';
@@ -32,6 +35,14 @@ interface ShippingFeeData {
   packaging: number | null;
 }
 
+interface ShippingFeeStateResponse {
+  shipmentCode: string;
+  actualAlibabaShipping: number;
+  actualForwardersFee: number;
+  actualLalamove: number;
+  multipliers: Record<string, number>;
+}
+
 export function ShippingFeeCalculator() {
   // Get shipments data to extract shipment codes that are not delivered
   const { shipments } = useShipmentsData();
@@ -53,6 +64,7 @@ export function ShippingFeeCalculator() {
   ]);
   const [gridHeight, setGridHeight] = useState(600);
   const hotTableRef = useRef<HotTableClass>(null);
+  const hasRestoredShipmentCode = useRef(false);
 
   // Actual shipping fees state
   const [actualAlibabaShipping, setActualAlibabaShipping] = useState<
@@ -86,58 +98,56 @@ export function ShippingFeeCalculator() {
   }, []);
 
   // Load saved data when shipment code is selected
-  const loadSavedData = useCallback(async (shipmentCode: string) => {
+  const loadSavedState = useCallback(async (shipmentCode: string) => {
     try {
       const response = await fetch(
         `/api/clothing/operations/products/shipping-fee-calculator?shipmentCode=${encodeURIComponent(shipmentCode)}`
       );
+      if (!response.ok) {
+        throw new Error('Request failed');
+      }
+
       const result = await response.json();
 
-      if (result.data && result.data.length > 0) {
-        // Load saved data
-        const savedData: ShippingFeeData[] = result.data.map(
-          (item: {
-            productCode: string;
-            actualQuantity: number;
-            multiplier: number;
-            aproxQuantity: number;
-            percentage: number;
-            alibabaShippingCost: number;
-            forwardersFee: number;
-            lalamove: number;
-            packaging: number;
-          }) => ({
-            productCode: item.productCode,
-            actualQuantity: item.actualQuantity,
-            multiplier: item.multiplier,
-            aproxQuantity: item.aproxQuantity,
-            percentage: item.percentage,
-            alibabaShippingCost: item.alibabaShippingCost,
-            forwardersFee: item.forwardersFee,
-            lalamove: item.lalamove,
-            packaging: item.packaging,
-          })
-        );
+      if (result.data) {
+        const rawMultipliers =
+          (result.data.multipliers as Record<string, unknown>) || {};
 
-        setData(savedData);
+        const normalizedMultipliers = Object.entries(rawMultipliers).reduce<
+          Record<string, number>
+        >((acc, [key, value]) => {
+          const code = key.trim();
+          if (!code) {
+            return acc;
+          }
 
-        // Load actual input values from first record
-        if (result.data[0]) {
-          setActualAlibabaShipping(result.data[0].actualAlibabaShipping || '');
-          setActualForwardersFee(result.data[0].actualForwardersFee || '');
-          setActualLalamove(result.data[0].actualLalamove || '');
-        }
+          const numericValue = Number(value);
+          if (Number.isFinite(numericValue)) {
+            acc[code] = numericValue;
+          }
 
-        return true;
+          return acc;
+        }, {});
+
+        const savedState: ShippingFeeStateResponse = {
+          shipmentCode: result.data.shipmentCode,
+          actualAlibabaShipping: Number(result.data.actualAlibabaShipping) || 0,
+          actualForwardersFee: Number(result.data.actualForwardersFee) || 0,
+          actualLalamove: Number(result.data.actualLalamove) || 0,
+          multipliers: normalizedMultipliers,
+        };
+
+        return savedState;
       }
-      return false;
+
+      return null;
     } catch (error) {
       showNotification({
         title: 'Error',
         message: 'Failed to load saved data',
         color: 'red',
       });
-      return false;
+      return null;
     }
   }, []);
 
@@ -150,6 +160,41 @@ export function ShippingFeeCalculator() {
       forwarders: number | string,
       lalamove: number | string
     ) => {
+      if (!shipmentCode) {
+        return;
+      }
+
+      const toNumber = (value: number | string): number => {
+        if (typeof value === 'number' && Number.isFinite(value)) {
+          return value;
+        }
+        if (typeof value === 'string' && value.trim() !== '') {
+          const parsed = Number(value.replace(/,/g, ''));
+          return Number.isFinite(parsed) ? parsed : 0;
+        }
+        return 0;
+      };
+
+      const multipliersPayload = currentData.reduce<Record<string, number>>(
+        (acc, row) => {
+          if (!row.productCode || row.multiplier === null) {
+            return acc;
+          }
+
+          const numericValue =
+            typeof row.multiplier === 'number'
+              ? row.multiplier
+              : Number(row.multiplier);
+
+          if (Number.isFinite(numericValue)) {
+            acc[row.productCode] = numericValue;
+          }
+
+          return acc;
+        },
+        {}
+      );
+
       try {
         const response = await fetch(
           '/api/clothing/operations/products/shipping-fee-calculator',
@@ -158,14 +203,12 @@ export function ShippingFeeCalculator() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               shipmentCode,
-              rows: currentData.filter((row) => row.productCode !== ''),
               actualInputs: {
-                actualAlibabaShipping:
-                  typeof alibaba === 'number' ? alibaba : 0,
-                actualForwardersFee:
-                  typeof forwarders === 'number' ? forwarders : 0,
-                actualLalamove: typeof lalamove === 'number' ? lalamove : 0,
+                actualAlibabaShipping: toNumber(alibaba),
+                actualForwardersFee: toNumber(forwarders),
+                actualLalamove: toNumber(lalamove),
               },
+              multipliers: multipliersPayload,
             }),
           }
         );
@@ -190,52 +233,23 @@ export function ShippingFeeCalculator() {
     []
   );
 
+  const handleShipmentCodeChange = useCallback((value: string | null) => {
+    setSelectedShipmentCode(value);
+
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    if (value) {
+      window.localStorage.setItem(PERSISTED_SHIPMENT_CODE_KEY, value);
+    } else {
+      window.localStorage.removeItem(PERSISTED_SHIPMENT_CODE_KEY);
+    }
+  }, []);
+
   // Populate table with products when shipment code is selected
   useEffect(() => {
-    if (selectedShipmentCode) {
-      // Try to load saved data first
-      loadSavedData(selectedShipmentCode).then((hasData) => {
-        if (!hasData) {
-          // If no saved data, load from products table
-          const filteredProducts = products.filter(
-            (p) => p['Shipment Code'] === selectedShipmentCode
-          );
-
-          // Map filtered products to table data
-          const newData: ShippingFeeData[] = filteredProducts.map(
-            (product) => ({
-              productCode: product['Product Code'] || '',
-              actualQuantity: product['Quantity'] || 0,
-              multiplier: null,
-              aproxQuantity: null,
-              percentage: null,
-              alibabaShippingCost: null,
-              forwardersFee: null,
-              lalamove: null,
-              packaging: null,
-            })
-          );
-
-          // Add at least one empty row if no products found
-          if (newData.length === 0) {
-            newData.push({
-              productCode: '',
-              actualQuantity: null,
-              multiplier: null,
-              aproxQuantity: null,
-              percentage: null,
-              alibabaShippingCost: null,
-              forwardersFee: null,
-              lalamove: null,
-              packaging: null,
-            });
-          }
-
-          setData(newData);
-        }
-      });
-    } else {
-      // Reset to empty row when no shipment code selected
+    if (!selectedShipmentCode) {
       setData([
         {
           productCode: '',
@@ -252,104 +266,192 @@ export function ShippingFeeCalculator() {
       setActualAlibabaShipping('');
       setActualForwardersFee('');
       setActualLalamove('');
+      return;
     }
-  }, [selectedShipmentCode, products, loadSavedData]);
+
+    const initialize = async () => {
+      const savedState = await loadSavedState(selectedShipmentCode);
+
+      if (savedState) {
+        setActualAlibabaShipping(savedState.actualAlibabaShipping ?? 0);
+        setActualForwardersFee(savedState.actualForwardersFee ?? 0);
+        setActualLalamove(savedState.actualLalamove ?? 0);
+      } else {
+        setActualAlibabaShipping('');
+        setActualForwardersFee('');
+        setActualLalamove('');
+      }
+
+      const filteredProducts = products.filter(
+        (p) => p['Shipment Code'] === selectedShipmentCode
+      );
+
+      const multipliersMap = savedState?.multipliers || {};
+
+      const newData: ShippingFeeData[] = filteredProducts.map((product) => {
+        const productCode = product['Product Code'] || '';
+        const multiplierValue = multipliersMap[productCode];
+
+        return {
+          productCode,
+          actualQuantity: product['Quantity'] || 0,
+          multiplier:
+            typeof multiplierValue === 'number' &&
+            Number.isFinite(multiplierValue)
+              ? multiplierValue
+              : null,
+          aproxQuantity: null,
+          percentage: null,
+          alibabaShippingCost: null,
+          forwardersFee: null,
+          lalamove: null,
+          packaging: null,
+        };
+      });
+
+      if (newData.length === 0) {
+        newData.push({
+          productCode: '',
+          actualQuantity: null,
+          multiplier: null,
+          aproxQuantity: null,
+          percentage: null,
+          alibabaShippingCost: null,
+          forwardersFee: null,
+          lalamove: null,
+          packaging: null,
+        });
+      }
+
+      setData(newData);
+    };
+
+    void initialize();
+  }, [selectedShipmentCode, products, loadSavedState]);
+
+  useEffect(() => {
+    if (hasRestoredShipmentCode.current) {
+      return;
+    }
+
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    if (shipmentCodes.length === 0) {
+      return;
+    }
+
+    const storedCode = window.localStorage.getItem(PERSISTED_SHIPMENT_CODE_KEY);
+
+    if (storedCode && shipmentCodes.includes(storedCode)) {
+      setSelectedShipmentCode(storedCode);
+    } else if (storedCode) {
+      window.localStorage.removeItem(PERSISTED_SHIPMENT_CODE_KEY);
+    }
+
+    hasRestoredShipmentCode.current = true;
+  }, [shipmentCodes]);
 
   // Recalculate shipping costs when input amounts change
   useEffect(() => {
-    if (data.length > 0 && data[0].productCode !== '') {
-      // Trigger recalculation by simulating a change
-      const hot = hotTableRef.current?.hotInstance;
-      if (hot) {
-        // Get current data and recalculate
-        const updatedData = hot.getData() as unknown[][];
-
-        // First pass: Calculate APROX. QUANTITY for all rows
-        const firstPassData: ShippingFeeData[] = updatedData.map((row) => {
-          const actualQuantity = row[1] ? Number(row[1]) : null;
-          const multiplier = row[2] ? Number(row[2]) : null;
-
-          const aproxQuantity =
-            actualQuantity !== null && multiplier !== null
-              ? actualQuantity * multiplier
-              : null;
-
-          return {
-            productCode: (row[0] as string) || '',
-            actualQuantity,
-            multiplier,
-            aproxQuantity,
-            percentage: null,
-            alibabaShippingCost: null,
-            forwardersFee: null,
-            lalamove: null,
-            packaging: null,
-          };
-        });
-
-        // Calculate total APROX. QUANTITY
-        const totalAproxQuantity = firstPassData.reduce((sum, row) => {
-          return sum + (row.aproxQuantity || 0);
-        }, 0);
-
-        const alibabaShippingInput =
-          typeof actualAlibabaShipping === 'number' ? actualAlibabaShipping : 0;
-
-        const forwardersFeeInput =
-          typeof actualForwardersFee === 'number' ? actualForwardersFee : 0;
-
-        const lalamoveInput =
-          typeof actualLalamove === 'number' ? actualLalamove : 0;
-
-        // Second pass: Calculate PERCENTAGE and costs
-        const newData: ShippingFeeData[] = firstPassData.map((row) => {
-          const percentage =
-            row.aproxQuantity !== null && totalAproxQuantity > 0
-              ? row.aproxQuantity / totalAproxQuantity
-              : null;
-
-          const alibabaShippingCost =
-            percentage !== null && alibabaShippingInput > 0
-              ? alibabaShippingInput * percentage
-              : null;
-
-          const forwardersFee =
-            percentage !== null && forwardersFeeInput > 0
-              ? forwardersFeeInput * percentage
-              : null;
-
-          const lalamove =
-            percentage !== null && lalamoveInput > 0
-              ? lalamoveInput * percentage
-              : null;
-
-          // PACKAGING = same as LALAMOVE
-          const packaging = lalamove;
-
-          return {
-            ...row,
-            percentage,
-            alibabaShippingCost,
-            forwardersFee,
-            lalamove,
-            packaging,
-          };
-        });
-
-        setData(newData);
-
-        // Auto-save after recalculation
-        if (selectedShipmentCode) {
-          saveData(
-            newData,
-            selectedShipmentCode,
-            actualAlibabaShipping,
-            actualForwardersFee,
-            actualLalamove
-          );
-        }
-      }
+    if (!selectedShipmentCode) {
+      return;
     }
+
+    const hot = hotTableRef.current?.hotInstance;
+    const hasProducts = data.some((row) => row.productCode);
+
+    if (!hot || !hasProducts) {
+      saveData(
+        data,
+        selectedShipmentCode,
+        actualAlibabaShipping,
+        actualForwardersFee,
+        actualLalamove
+      );
+      return;
+    }
+
+    const updatedData = hot.getData() as unknown[][];
+
+    const firstPassData: ShippingFeeData[] = updatedData.map((row) => {
+      const actualQuantity = row[1] ? Number(row[1]) : null;
+      const multiplier = row[2] ? Number(row[2]) : null;
+
+      const aproxQuantity =
+        actualQuantity !== null && multiplier !== null
+          ? actualQuantity * multiplier
+          : null;
+
+      return {
+        productCode: (row[0] as string) || '',
+        actualQuantity,
+        multiplier,
+        aproxQuantity,
+        percentage: null,
+        alibabaShippingCost: null,
+        forwardersFee: null,
+        lalamove: null,
+        packaging: null,
+      };
+    });
+
+    const totalAproxQuantity = firstPassData.reduce((sum, row) => {
+      return sum + (row.aproxQuantity || 0);
+    }, 0);
+
+    const alibabaShippingInput =
+      typeof actualAlibabaShipping === 'number' ? actualAlibabaShipping : 0;
+
+    const forwardersFeeInput =
+      typeof actualForwardersFee === 'number' ? actualForwardersFee : 0;
+
+    const lalamoveInput =
+      typeof actualLalamove === 'number' ? actualLalamove : 0;
+
+    const newData: ShippingFeeData[] = firstPassData.map((row) => {
+      const percentage =
+        row.aproxQuantity !== null && totalAproxQuantity > 0
+          ? row.aproxQuantity / totalAproxQuantity
+          : null;
+
+      const alibabaShippingCost =
+        percentage !== null && alibabaShippingInput > 0
+          ? alibabaShippingInput * percentage
+          : null;
+
+      const forwardersFee =
+        percentage !== null && forwardersFeeInput > 0
+          ? forwardersFeeInput * percentage
+          : null;
+
+      const lalamove =
+        percentage !== null && lalamoveInput > 0
+          ? lalamoveInput * percentage
+          : null;
+
+      const packaging = lalamove;
+
+      return {
+        ...row,
+        percentage,
+        alibabaShippingCost,
+        forwardersFee,
+        lalamove,
+        packaging,
+      };
+    });
+
+    setData(newData);
+
+    saveData(
+      newData,
+      selectedShipmentCode,
+      actualAlibabaShipping,
+      actualForwardersFee,
+      actualLalamove
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actualAlibabaShipping, actualForwardersFee, actualLalamove]);
 
@@ -838,7 +940,7 @@ export function ShippingFeeCalculator() {
               placeholder="Choose a shipment code"
               data={shipmentCodes}
               value={selectedShipmentCode}
-              onChange={setSelectedShipmentCode}
+              onChange={handleShipmentCodeChange}
               searchable
               clearable
               size="md"
