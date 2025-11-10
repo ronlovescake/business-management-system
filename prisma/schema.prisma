@@ -839,29 +839,3 @@ model Message {
   @@index([deletedAt])
   @@map("messages")
 }
-
-model ShippingFeeCalculator {
-  id                    String    @id @default(cuid())
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-  deletedAt             DateTime?
-  shipmentCode          String    @db.VarChar(100)
-  productCode           String    @db.VarChar(100)
-  actualQuantity        Float     @default(0)
-  multiplier            Float     @default(1)
-  aproxQuantity         Float     @default(0)
-  percentage            Float     @default(0)
-  alibabaShippingCost   Float     @default(0)
-  forwardersFee         Float     @default(0)
-  lalamove              Float     @default(0)
-  packaging             Float     @default(0)
-  actualAlibabaShipping Float     @default(0)
-  actualForwardersFee   Float     @default(0)
-  actualLalamove        Float     @default(0)
-
-  @@unique([shipmentCode, productCode])
-  @@index([shipmentCode])
-  @@index([productCode])
-  @@index([deletedAt])
-  @@map("shipping_fee_calculator")
-}
