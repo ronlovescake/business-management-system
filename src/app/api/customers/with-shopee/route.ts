@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
+// Force dynamic rendering - never cache this route
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 /**
  * GET /api/customers/with-shopee
  *
@@ -58,14 +62,23 @@ export async function GET() {
       `Successfully fetched ${result.length} customers (${withUsernames.length} with Shopee usernames) in single query`
     );
 
-    return NextResponse.json({
-      success: true,
-      data: result,
-      stats: {
-        totalCustomers: result.length,
-        withShopeeUsernames: withUsernames.length,
+    return NextResponse.json(
+      {
+        success: true,
+        data: result,
+        stats: {
+          totalCustomers: result.length,
+          withShopeeUsernames: withUsernames.length,
+        },
       },
-    });
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          Pragma: 'no-cache',
+          Expires: '0',
+        },
+      }
+    );
   } catch (err) {
     logger.error('GET /api/customers/with-shopee error', err);
     return NextResponse.json(
