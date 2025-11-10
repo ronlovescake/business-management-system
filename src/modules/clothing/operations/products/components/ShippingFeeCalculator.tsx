@@ -9,7 +9,17 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 
 const PERSISTED_SHIPMENT_CODE_KEY =
   'shippingFeeCalculator:selectedShipmentCode';
-import { Stack, Card, Group, NumberInput, Title, Select } from '@mantine/core';
+import {
+  Stack,
+  Card,
+  NumberInput,
+  Select,
+  SimpleGrid,
+  Flex,
+  Text,
+  Paper,
+  Title,
+} from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { HotTable } from '@handsontable/react';
 import type { HotTableClass } from '@handsontable/react';
@@ -888,67 +898,85 @@ export function ShippingFeeCalculator() {
         }
       `}</style>
 
-      <Card withBorder padding="xl">
-        <Group justify="space-between" align="flex-start">
-          {/* Left side - Actual Shipping Fees inputs */}
-          <Stack gap="xs" style={{ flex: 1 }}>
+      <Paper withBorder p="xl" radius="md">
+        <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl">
+          <Stack gap="md">
             <Title order={4} c="dimmed">
               ACTUAL SHIPPING FEES
             </Title>
-            <NumberInput
-              label="Alibaba Shipping Cost"
-              placeholder="Enter amount"
-              value={actualAlibabaShipping}
-              onChange={setActualAlibabaShipping}
-              prefix="₱"
-              thousandSeparator=","
-              decimalScale={2}
-              fixedDecimalScale
-              size="md"
-            />
-            <NumberInput
-              label="Forwarder's Fee (KPC)"
-              placeholder="Enter amount"
-              value={actualForwardersFee}
-              onChange={setActualForwardersFee}
-              prefix="₱"
-              thousandSeparator=","
-              decimalScale={2}
-              fixedDecimalScale
-              size="md"
-            />
-            <NumberInput
-              label="Lalamove"
-              placeholder="Enter amount"
-              value={actualLalamove}
-              onChange={setActualLalamove}
-              prefix="₱"
-              thousandSeparator=","
-              decimalScale={2}
-              fixedDecimalScale
-              size="md"
-            />
+            <Flex gap="md" align="center">
+              <Text w={{ base: 140, md: 200 }} fw={500}>
+                Alibaba Shipping Cost
+              </Text>
+              <NumberInput
+                placeholder="Enter amount"
+                value={actualAlibabaShipping}
+                onChange={setActualAlibabaShipping}
+                prefix="₱"
+                thousandSeparator=","
+                decimalScale={2}
+                fixedDecimalScale
+                size="md"
+                style={{ flex: 1 }}
+              />
+            </Flex>
+            <Flex gap="md" align="center">
+              <Text w={{ base: 140, md: 200 }} fw={500}>
+                Forwarder&apos;s Fee (KPC)
+              </Text>
+              <NumberInput
+                placeholder="Enter amount"
+                value={actualForwardersFee}
+                onChange={setActualForwardersFee}
+                prefix="₱"
+                thousandSeparator=","
+                decimalScale={2}
+                fixedDecimalScale
+                size="md"
+                style={{ flex: 1 }}
+              />
+            </Flex>
+            <Flex gap="md" align="center">
+              <Text w={{ base: 140, md: 200 }} fw={500}>
+                Lalamove
+              </Text>
+              <NumberInput
+                placeholder="Enter amount"
+                value={actualLalamove}
+                onChange={setActualLalamove}
+                prefix="₱"
+                thousandSeparator=","
+                decimalScale={2}
+                fixedDecimalScale
+                size="md"
+                style={{ flex: 1 }}
+              />
+            </Flex>
           </Stack>
 
-          {/* Right side - Shipment Code Details */}
-          <Stack gap="xs" style={{ flex: 1 }}>
+          <Stack gap="md" justify="flex-start">
             <Title order={4} c="dimmed">
               SHIPMENT CODE DETAILS
             </Title>
-            <Select
-              label="Select Shipment Code from the dropdown"
-              placeholder="Choose a shipment code"
-              data={shipmentCodes}
-              value={selectedShipmentCode}
-              onChange={handleShipmentCodeChange}
-              searchable
-              clearable
-              size="md"
-              maxDropdownHeight={400}
-            />
+            <Flex gap="md" align="center">
+              <Text w={{ base: 140, md: 220 }} fw={500}>
+                Select Shipment Code
+              </Text>
+              <Select
+                placeholder="Choose a shipment code"
+                data={shipmentCodes}
+                value={selectedShipmentCode}
+                onChange={handleShipmentCodeChange}
+                searchable
+                clearable
+                size="md"
+                maxDropdownHeight={400}
+                style={{ flex: 1 }}
+              />
+            </Flex>
           </Stack>
-        </Group>
-      </Card>
+        </SimpleGrid>
+      </Paper>
 
       <Card
         withBorder
