@@ -668,7 +668,45 @@ export function useTransactionModals(
           });
 
           // Fetch dispatch customer names to determine order status
-          const dispatchCustomerNames: string[] = [];
+          const dispatchCustomerNames: Set<string> = new Set();
+          const normalizedDispatchCustomerNames: Set<string> = new Set();
+
+          const normalizeName = (value: string | null | undefined) =>
+            (value || '')
+              .replace(/\s*\|\s*/g, ' | ')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .toLowerCase();
+
+          const collectNameVariants = (
+            customerName: string | null | undefined,
+            businessName: string | null | undefined
+          ) => {
+            const variants = new Set<string>();
+
+            const sanitizedCustomer = (customerName || '').trim();
+            const sanitizedBusiness = (businessName || '').trim();
+
+            if (sanitizedCustomer) {
+              variants.add(sanitizedCustomer);
+            }
+
+            if (sanitizedBusiness) {
+              variants.add(sanitizedBusiness);
+            }
+
+            if (sanitizedCustomer && sanitizedBusiness) {
+              variants.add(`${sanitizedCustomer} | ${sanitizedBusiness}`);
+            }
+
+            variants.forEach((variant) => {
+              dispatchCustomerNames.add(variant);
+              const normalized = normalizeName(variant);
+              if (normalized) {
+                normalizedDispatchCustomerNames.add(normalized);
+              }
+            });
+          };
           try {
             // Step 1: Fetch dispatch orders to get usernames
             const dispatchResponse = await fetch('/api/dispatch/orders');
@@ -736,16 +774,16 @@ export function useTransactionModals(
                     );
 
                     if (matchedCustomer) {
-                      const displayName = matchedCustomer.businessName
-                        ? `${matchedCustomer.customerName} | ${matchedCustomer.businessName}`
-                        : matchedCustomer.customerName;
-                      dispatchCustomerNames.push(displayName);
+                      collectNameVariants(
+                        matchedCustomer.customerName,
+                        matchedCustomer.businessName
+                      );
                     }
                   });
 
                   logger.info('✅ Dispatch customer names matched:', {
-                    count: dispatchCustomerNames.length,
-                    names: dispatchCustomerNames,
+                    count: dispatchCustomerNames.size,
+                    names: Array.from(dispatchCustomerNames),
                   });
                 } else {
                   logger.error(
@@ -778,7 +816,27 @@ export function useTransactionModals(
           const updated = transactions.map((t) => {
             if (processedIds.has(t.id)) {
               const customerName = t.Customers || '';
-              const isInDispatch = dispatchCustomerNames.includes(customerName);
+
+              const transactionNameVariants = new Set<string>();
+              if (customerName) {
+                transactionNameVariants.add(customerName);
+                const [primary, secondary] = customerName
+                  .split('|')
+                  .map((part) => part.trim());
+                if (primary) {
+                  transactionNameVariants.add(primary);
+                }
+                if (secondary) {
+                  transactionNameVariants.add(secondary);
+                }
+              }
+
+              const isInDispatch = Array.from(transactionNameVariants).some(
+                (nameVariant) =>
+                  normalizedDispatchCustomerNames.has(
+                    normalizeName(nameVariant)
+                  )
+              );
               const orderStatus = isInDispatch
                 ? 'Checked Out'
                 : 'Ready For Dispatch';
