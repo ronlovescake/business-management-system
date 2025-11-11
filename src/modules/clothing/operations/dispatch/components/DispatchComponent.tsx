@@ -577,107 +577,119 @@ export function DispatchComponent() {
                 }
                 colSpan={headers.length}
               >
-                {filteredData.map((item) => (
-                  <Table.Tr key={item.id}>
-                    <Table.Td style={{ textAlign: 'center' }}>
-                      <Text
-                        c={
-                          item.orderStatus === 'Shipped'
-                            ? 'green'
-                            : item.orderStatus === 'Processing'
-                              ? 'blue'
-                              : 'orange'
-                        }
-                        fw={500}
-                      >
-                        {item.orderStatus}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td style={{ textAlign: 'center' }}>
-                      {item.shippingOptions}
-                    </Table.Td>
-                    <Table.Td style={{ textAlign: 'left' }}>
-                      {item.username}
-                    </Table.Td>
-                    <Table.Td style={{ textAlign: 'left' }}>
-                      {item.customerNames ? (
-                        <Group gap="xs">
-                          <Text
-                            onClick={() =>
-                              copyToClipboard(
-                                item.customerNames,
-                                'Customer name'
-                              )
-                            }
-                            style={{ cursor: 'pointer' }}
-                          >
-                            {item.customerNames}
-                          </Text>
-                          {lookupCustomerName(item.username) ? (
-                            <Badge size="xs" color="green" variant="light">
-                              Matched
-                            </Badge>
-                          ) : (
-                            <Badge
-                              size="xs"
-                              color="orange"
-                              variant="light"
-                              onClick={navigateToPossibleMatchTab}
-                              style={{ cursor: 'pointer' }}
-                              aria-label="View possible matches"
-                            >
-                              Possible Match
-                            </Badge>
-                          )}
-                        </Group>
-                      ) : (
-                        <Group gap="xs">
-                          <Text c="dimmed" fs="italic">
-                            No customer found
-                          </Text>
-                          <Badge size="xs" color="yellow" variant="light">
-                            No Match
-                          </Badge>
-                        </Group>
-                      )}
-                    </Table.Td>
-                    <Table.Td style={{ textAlign: 'left' }}>
-                      {item.messageCustomer}
-                    </Table.Td>
-                    <Table.Td style={{ textAlign: 'center' }}>
-                      <Group gap="xs" justify="center">
-                        <Tooltip
-                          label={
-                            lookupFacebookLink(item.username)
-                              ? 'Message customer'
-                              : 'No Facebook link available'
+                {filteredData.map((item) => {
+                  // Check if shipping option is NOT "J&T" to apply red background
+                  const isNotJT = item.shippingOptions !== 'J&T';
+
+                  return (
+                    <Table.Tr
+                      key={item.id}
+                      style={{
+                        backgroundColor: isNotJT
+                          ? 'rgba(255, 107, 107, 0.1)'
+                          : undefined,
+                      }}
+                    >
+                      <Table.Td style={{ textAlign: 'center' }}>
+                        <Text
+                          c={
+                            item.orderStatus === 'Shipped'
+                              ? 'green'
+                              : item.orderStatus === 'Processing'
+                                ? 'blue'
+                                : 'orange'
                           }
+                          fw={500}
                         >
-                          <ActionIcon
-                            variant="light"
-                            color="blue"
-                            component="a"
-                            href={lookupFacebookLink(item.username) || '#'}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            aria-label="Message customer"
-                            disabled={!lookupFacebookLink(item.username)}
-                            style={{
-                              cursor: lookupFacebookLink(item.username)
-                                ? 'pointer'
-                                : 'not-allowed',
-                              opacity: lookupFacebookLink(item.username)
-                                ? 1
-                                : 0.5,
-                            }}
+                          {item.orderStatus}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'center' }}>
+                        {item.shippingOptions}
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'left' }}>
+                        {item.username}
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'left' }}>
+                        {item.customerNames ? (
+                          <Group gap="xs">
+                            <Text
+                              onClick={() =>
+                                copyToClipboard(
+                                  item.customerNames,
+                                  'Customer name'
+                                )
+                              }
+                              style={{ cursor: 'pointer' }}
+                            >
+                              {item.customerNames}
+                            </Text>
+                            {lookupCustomerName(item.username) ? (
+                              <Badge size="xs" color="green" variant="light">
+                                Matched
+                              </Badge>
+                            ) : (
+                              <Badge
+                                size="xs"
+                                color="orange"
+                                variant="light"
+                                onClick={navigateToPossibleMatchTab}
+                                style={{ cursor: 'pointer' }}
+                                aria-label="View possible matches"
+                              >
+                                Possible Match
+                              </Badge>
+                            )}
+                          </Group>
+                        ) : (
+                          <Group gap="xs">
+                            <Text c="dimmed" fs="italic">
+                              No customer found
+                            </Text>
+                            <Badge size="xs" color="yellow" variant="light">
+                              No Match
+                            </Badge>
+                          </Group>
+                        )}
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'left' }}>
+                        {item.messageCustomer}
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'center' }}>
+                        <Group gap="xs" justify="center">
+                          <Tooltip
+                            label={
+                              lookupFacebookLink(item.username)
+                                ? 'Message customer'
+                                : 'No Facebook link available'
+                            }
                           >
-                            <IconMessageCircle size={16} />
-                          </ActionIcon>
-                        </Tooltip>
-                      </Group>
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
+                            <ActionIcon
+                              variant="light"
+                              color="blue"
+                              component="a"
+                              href={lookupFacebookLink(item.username) || '#'}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              aria-label="Message customer"
+                              disabled={!lookupFacebookLink(item.username)}
+                              style={{
+                                cursor: lookupFacebookLink(item.username)
+                                  ? 'pointer'
+                                  : 'not-allowed',
+                                opacity: lookupFacebookLink(item.username)
+                                  ? 1
+                                  : 0.5,
+                              }}
+                            >
+                              <IconMessageCircle size={16} />
+                            </ActionIcon>
+                          </Tooltip>
+                        </Group>
+                      </Table.Td>
+                    </Table.Tr>
+                  );
+                })}
               </StandardDataTable>
             </StandardTableContainer>
           </Stack>
