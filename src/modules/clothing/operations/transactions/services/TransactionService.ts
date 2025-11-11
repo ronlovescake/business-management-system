@@ -320,10 +320,6 @@ export class TransactionService {
       filteredData.map((t) => t.Customers).filter(Boolean)
     ).size;
 
-    const lalamoveOrders = filteredData.filter(
-      (t) => t['Order Status']?.toLowerCase() === 'lalamove'
-    ).length;
-
     const shippedOrders = filteredData.filter(
       (t) => t['Order Status']?.toLowerCase() === 'shipped'
     ).length;
@@ -340,7 +336,6 @@ export class TransactionService {
       preparedTotal,
       pendingPaymentTotal,
       uniqueCustomers,
-      lalamoveOrders,
       shippedOrders,
       deliveredOrders,
     };

@@ -135,7 +135,6 @@ export interface TransactionStatistics {
   preparedTotal: number;
   pendingPaymentTotal: number;
   uniqueCustomers: number;
-  lalamoveOrders: number;
   shippedOrders: number;
   deliveredOrders: number;
 }
@@ -160,7 +159,6 @@ export const ORDER_STATUS_OPTIONS = [
   'Prepared',
   'Ready For Dispatch',
   'Checked Out',
-  'Lalamove',
   'On-Hold',
   'Pending Payment',
   'Shipped',
@@ -189,7 +187,6 @@ export const ALL_STATUS_CONTROLLED_STATUSES: OrderStatus[] = [
   'Prepared',
   'Ready For Dispatch',
   'Checked Out',
-  'Lalamove',
   'On-Hold',
   'Pending Payment',
 ];

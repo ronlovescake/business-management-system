@@ -122,9 +122,9 @@ export function TransactionsPage() {
   } = useTransactionModals({ transactions, bulkUpdate });
 
   // ============================================================================
-  // OPERATIONS HOOKS - Cell edits, CSV import
+  // OPERATIONS HOOKS - Cell edits
   // ============================================================================
-  const { handleCellEdited, handleCSVImport } = useTransactionOperations({
+  const { handleCellEdited } = useTransactionOperations({
     transactions,
     filteredData,
     priceTiers,
@@ -149,9 +149,6 @@ export function TransactionsPage() {
       setShowCustomerWarningModal(true);
     },
   });
-
-  // CSV file state (for UI)
-  const [csvFile, setCsvFile] = React.useState<File | null>(null);
 
   // ============================================================================
   // GRID CONFIGURATION
@@ -471,13 +468,6 @@ export function TransactionsPage() {
         backgroundColor: 'rgba(255, 255, 255, 0.15)',
       },
       {
-        title: 'LALAMOVE',
-        value: statistics.lalamoveOrders,
-        icon: <IconTruck size={18} />,
-        color: 'white',
-        backgroundColor: 'rgba(255, 255, 255, 0.15)',
-      },
-      {
         title: 'Shipped',
         value: statistics.shippedOrders,
         icon: <IconTruck size={18} />,
@@ -568,11 +558,8 @@ export function TransactionsPage() {
           getCellData={getCellData}
           onCellEdited={handleCellEdited}
           statsCards={statsCards}
-          enableCSVImport={true}
+          enableCSVImport={false}
           enableCtrlF={true}
-          csvFile={csvFile}
-          onFileChange={setCsvFile}
-          onCSVImport={handleCSVImport}
           statusOptions={statusDropdownOptions}
           selectedStatuses={selectedStatuses}
           onStatusFilter={handleStatusFilter}
