@@ -24,7 +24,9 @@ import type {
   ProductCalculationResults,
 } from '../types/product.types';
 import {
-  AGE_RANGE_OPTIONS,
+  AGE_RANGE_START_OPTIONS,
+  AGE_RANGE_END_OPTIONS,
+  AGE_RANGE_UNIT_OPTIONS,
   UNIT_OPTIONS,
   PAYMENT_STATUS_OPTIONS,
 } from '../types/product.types';
@@ -133,22 +135,66 @@ export const AddProductModal = memo(function AddProductModal({
               }
             />
 
-            <Select
-              label="Age Range"
-              size="md"
-              radius="md"
-              data={AGE_RANGE_OPTIONS.map((opt) => ({ ...opt }))}
-              allowDeselect
-              clearable
-              value={form.ageRange || null}
-              onChange={(value) => updateField('ageRange', value || '')}
-            />
+            <div>
+              <Text size="sm" fw={500} mb={4}>
+                Age Range
+              </Text>
+              <Group gap="xs" align="flex-start">
+                <Select
+                  placeholder="Start"
+                  size="md"
+                  radius="md"
+                  data={AGE_RANGE_START_OPTIONS.map((opt) => ({
+                    value: opt.value,
+                    label: opt.label,
+                  }))}
+                  allowDeselect
+                  clearable
+                  value={form.ageRangeStart || null}
+                  onChange={(value) =>
+                    updateField('ageRangeStart', value || '')
+                  }
+                  style={{ flex: 1 }}
+                />
+                <Select
+                  placeholder="End"
+                  size="md"
+                  radius="md"
+                  data={AGE_RANGE_END_OPTIONS.map((opt) => ({
+                    value: opt.value,
+                    label: opt.label,
+                  }))}
+                  allowDeselect
+                  clearable
+                  value={form.ageRangeEnd || null}
+                  onChange={(value) => updateField('ageRangeEnd', value || '')}
+                  style={{ flex: 1 }}
+                />
+                <Select
+                  placeholder="Unit"
+                  size="md"
+                  radius="md"
+                  data={AGE_RANGE_UNIT_OPTIONS.map((opt) => ({
+                    value: opt.value,
+                    label: opt.label,
+                  }))}
+                  allowDeselect
+                  clearable
+                  value={form.ageRangeUnit || null}
+                  onChange={(value) => updateField('ageRangeUnit', value || '')}
+                  style={{ flex: 1 }}
+                />
+              </Group>
+            </div>
 
             <Select
               label="Unit"
               size="md"
               radius="md"
-              data={UNIT_OPTIONS.map((opt) => ({ ...opt }))}
+              data={UNIT_OPTIONS.map((opt) => ({
+                value: opt.value,
+                label: opt.label,
+              }))}
               allowDeselect
               clearable
               value={form.unit || null}

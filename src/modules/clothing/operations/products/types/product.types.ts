@@ -53,7 +53,11 @@ export interface ProductFormData {
   orderDate: string;
   payment: string;
   product: string;
+  previousProductCode: string;
   ageRange: string;
+  ageRangeStart: string; // New field for start number
+  ageRangeEnd: string; // New field for end number
+  ageRangeUnit: string; // New field for unit (months/years)
   unit: string;
   unitPrice: number;
   quantity: number;
@@ -201,15 +205,55 @@ export const TRANSACTION_FEE_RATE = 0.0299; // 2.99%
 export const SUGGESTED_PRICE_MARKUP = 1.22; // 122%
 
 /**
- * Age Range Options
+ * Age Range Options - Combined pre-formatted options
  */
 export const AGE_RANGE_OPTIONS = [
-  { label: '👶 Baby (0-2 years)', value: 'Baby' },
-  { label: '🧒 Kids (3-12 years)', value: 'Kids' },
-  { label: '👦 Teen (13-17 years)', value: 'Teen' },
-  { label: '👨 Adult (18-64 years)', value: 'Adult' },
-  { label: '👴 Senior (65+ years)', value: 'Senior' },
-  { label: '🌟 All Ages', value: 'All Ages' },
+  { label: '0-3 months', value: '0-3 months' },
+  { label: '3-6 months', value: '3-6 months' },
+  { label: '6-9 months', value: '6-9 months' },
+  { label: '9-12 months', value: '9-12 months' },
+  { label: '12-18 months', value: '12-18 months' },
+  { label: '18-24 months', value: '18-24 months' },
+  { label: '2-3 years', value: '2-3 years' },
+  { label: '3-6 years', value: '3-6 years' },
+  { label: '6-9 years', value: '6-9 years' },
+  { label: '9-12 years', value: '9-12 years' },
+] as const;
+
+/**
+ * Age Range Options - Start Numbers
+ */
+export const AGE_RANGE_START_OPTIONS = [
+  { label: '0', value: '0' },
+  { label: '3', value: '3' },
+  { label: '6', value: '6' },
+  { label: '9', value: '9' },
+  { label: '12', value: '12' },
+  { label: '18', value: '18' },
+  { label: '24', value: '24' },
+] as const;
+
+/**
+ * Age Range Options - End Numbers
+ */
+export const AGE_RANGE_END_OPTIONS = [
+  { label: '1', value: '1' },
+  { label: '2', value: '2' },
+  { label: '3', value: '3' },
+  { label: '6', value: '6' },
+  { label: '9', value: '9' },
+  { label: '12', value: '12' },
+  { label: '18', value: '18' },
+  { label: '24', value: '24' },
+  { label: '36', value: '36' },
+] as const;
+
+/**
+ * Age Range Options - Units
+ */
+export const AGE_RANGE_UNIT_OPTIONS = [
+  { label: 'months', value: 'months' },
+  { label: 'years', value: 'years' },
 ] as const;
 
 /**

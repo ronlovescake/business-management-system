@@ -184,6 +184,23 @@ export class ProductService {
       form.postingDate
     );
 
+    // Combine age range fields into a single string
+    // Supports: "0-12 months", "12 years", "0-12 years", etc.
+    let ageRange = '';
+    if (form.ageRangeStart && form.ageRangeEnd && form.ageRangeUnit) {
+      // Both start and end: "0-12 months"
+      ageRange = `${form.ageRangeStart}-${form.ageRangeEnd} ${form.ageRangeUnit}`;
+    } else if (form.ageRangeEnd && form.ageRangeUnit) {
+      // Only end and unit: "12 years"
+      ageRange = `${form.ageRangeEnd} ${form.ageRangeUnit}`;
+    } else if (form.ageRangeStart && form.ageRangeUnit) {
+      // Only start and unit: "12 years"
+      ageRange = `${form.ageRangeStart} ${form.ageRangeUnit}`;
+    } else {
+      // Fallback to old ageRange field if exists
+      ageRange = form.ageRange || '';
+    }
+
     return {
       id: existingProduct?.id,
       'Shipment Code': form.shipmentCode?.trim() || '',
@@ -197,7 +214,7 @@ export class ProductService {
       Payment: form.payment || '',
       Product: form.product?.trim() || '',
       'Product Code': productCode,
-      'Age Range': form.ageRange || '',
+      'Age Range': ageRange,
       Unit: form.unit || '',
       'Unit Price': form.unitPrice,
       Quantity: form.quantity,
@@ -231,7 +248,11 @@ export class ProductService {
       orderDate: '',
       payment: '',
       product: '',
+      previousProductCode: '',
       ageRange: '',
+      ageRangeStart: '',
+      ageRangeEnd: '',
+      ageRangeUnit: '',
       unit: '',
       unitPrice: 0,
       quantity: 0,
@@ -248,13 +269,33 @@ export class ProductService {
    * Convert ProductData to form data
    */
   static productToForm(product: ProductData): ProductFormData {
+    // Parse age range into components (e.g., "3-6 months" -> start: "3", end: "6", unit: "months")
+    const ageRange = product['Age Range'] || '';
+    let ageRangeStart = '';
+    let ageRangeEnd = '';
+    let ageRangeUnit = '';
+
+    if (ageRange) {
+      // Match pattern: "number-number unit" (e.g., "3-6 months", "2-3 years")
+      const match = ageRange.match(/^(\d+)-(\d+)\s+(.+)$/);
+      if (match) {
+        ageRangeStart = match[1];
+        ageRangeEnd = match[2];
+        ageRangeUnit = match[3];
+      }
+    }
+
     return {
       shipmentCode: product['Shipment Code'],
       postingDate: product['Posting Date'],
       orderDate: product['Order Date'],
       payment: product.Payment,
       product: product.Product,
-      ageRange: product['Age Range'],
+      previousProductCode: product['Product Code'] || '',
+      ageRange: ageRange,
+      ageRangeStart: ageRangeStart,
+      ageRangeEnd: ageRangeEnd,
+      ageRangeUnit: ageRangeUnit,
       unit: product.Unit,
       unitPrice: product['Unit Price'],
       quantity: product.Quantity,
