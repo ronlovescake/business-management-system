@@ -308,9 +308,16 @@ export function DispatchComponent() {
       );
     }
 
+    // Apply base filter for checkout-update tab - exclude To Ship (case-insensitive)
+    if (activeTab === 'checkout-update') {
+      filtered = dataSource.filter(
+        (item) => item.orderStatus.toLowerCase() !== 'to ship'
+      );
+    }
+
     // Apply status filter for checkout-update tab
     if (activeTab === 'checkout-update' && statusFilter) {
-      filtered = dataSource.filter((item) => item.orderStatus === statusFilter);
+      filtered = filtered.filter((item) => item.orderStatus === statusFilter);
     }
 
     // Apply date range filter for checkout-update tab
@@ -418,10 +425,202 @@ export function DispatchComponent() {
 
   // Add new handler
   const handleAddNew = async () => {
+    // For Shipped tab (checkout-update), trigger the order status update workflow
+    if (activeTab === 'checkout-update') {
+      await handleUpdateShippedOrders();
+      return;
+    }
+
+    // For other tabs, show the add new simulation
     await showInfo(
       'Would open form to create new dispatch order',
       'Add New Simulation'
     );
+  };
+
+  // Handle updating transaction orders to "Shipped" status
+  const handleUpdateShippedOrders = async () => {
+    try {
+      // Get current time and 24 hours ago
+      const now = new Date();
+      const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+      // Find orders updated within last 24 hours
+      const recentOrders = effectiveRawData.filter((row) => {
+        const rawShipTime = row['Ship Time'];
+        if (!rawShipTime) {
+          return false;
+        }
+
+        const shipDate = new Date(String(rawShipTime));
+        if (isNaN(shipDate.getTime())) {
+          return false;
+        }
+
+        return shipDate >= twentyFourHoursAgo;
+      });
+
+      if (recentOrders.length === 0) {
+        await Swal.fire({
+          title: 'No Recent Orders',
+          text: 'No orders were updated in the last 24 hours.',
+          icon: 'info',
+          confirmButtonColor: '#3085d6',
+        });
+        return;
+      }
+
+      // Get unique customer names from recent orders
+      const customerNames = recentOrders
+        .map((row) => {
+          const username = row['Username (Buyer)'] || '';
+          return lookupCustomerName(username);
+        })
+        .filter((name): name is string => !!name);
+
+      const uniqueCustomerNames = Array.from(new Set(customerNames));
+
+      if (uniqueCustomerNames.length === 0) {
+        await Swal.fire({
+          title: 'No Matched Customers',
+          text: 'Could not find customer names for recent orders.',
+          icon: 'warning',
+          confirmButtonColor: '#3085d6',
+        });
+        return;
+      }
+
+      // Fetch transactions for these customers
+      const transactions = (await apiClient.get('/api/transactions')) as Array<{
+        id: number;
+        Customers: string;
+        'Order Status': string;
+        'Product Code': string;
+        Quantity: number;
+      }>;
+
+      // Filter transactions: exact customer name match AND status is "Checked Out" or "Ready For Dispatch"
+      const matchingTransactions = transactions.filter((transaction) => {
+        const isCustomerMatch = uniqueCustomerNames.includes(
+          transaction.Customers
+        );
+        const isStatusMatch =
+          transaction['Order Status'] === 'Checked Out' ||
+          transaction['Order Status'] === 'Ready For Dispatch';
+        return isCustomerMatch && isStatusMatch;
+      });
+
+      if (matchingTransactions.length === 0) {
+        await Swal.fire({
+          title: 'No Transactions Found',
+          text: 'No transactions with "Checked Out" or "Ready For Dispatch" status found for these customers.',
+          icon: 'info',
+          confirmButtonColor: '#3085d6',
+        });
+        return;
+      }
+
+      // First confirmation: Show what will be updated
+      const transactionList = matchingTransactions
+        .slice(0, 10)
+        .map(
+          (t) =>
+            `<li>${t.Customers} - ${t['Product Code']} (${t['Order Status']})</li>`
+        )
+        .join('');
+      const moreCount =
+        matchingTransactions.length > 10
+          ? `<p><em>...and ${matchingTransactions.length - 10} more</em></p>`
+          : '';
+
+      const firstConfirm = await Swal.fire({
+        title: 'Update Orders to Shipped?',
+        html: `
+          <div style="text-align: left;">
+            <p><strong>Found ${matchingTransactions.length} transaction(s) to update:</strong></p>
+            <ul style="max-height: 200px; overflow-y: auto; text-align: left;">
+              ${transactionList}
+            </ul>
+            ${moreCount}
+            <p style="margin-top: 15px;"><strong>These orders will be updated to "Shipped" status.</strong></p>
+          </div>
+        `,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#adb5bd',
+        confirmButtonText: 'Continue',
+        cancelButtonText: 'Cancel',
+      });
+
+      if (!firstConfirm.isConfirmed) {
+        return;
+      }
+
+      // Second confirmation: Final confirmation
+      const secondConfirm = await Swal.fire({
+        title: 'Are you sure?',
+        html: `
+          <p>This will update <strong>${matchingTransactions.length} transaction(s)</strong> to <strong>"Shipped"</strong> status.</p>
+          <p style="color: #ff6b6b; margin-top: 10px;">This action cannot be undone easily.</p>
+        `,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#adb5bd',
+        confirmButtonText: 'Yes, update them!',
+        cancelButtonText: 'Cancel',
+      });
+
+      if (!secondConfirm.isConfirmed) {
+        return;
+      }
+
+      // Update all matching transactions
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const transaction of matchingTransactions) {
+        try {
+          await apiClient.patch('/api/transactions', {
+            id: transaction.id,
+            'Order Status': 'Shipped',
+          });
+          successCount++;
+        } catch (error) {
+          logger.error(`Failed to update transaction ${transaction.id}`, error);
+          failCount++;
+        }
+      }
+
+      // Show success notification
+      await Swal.fire({
+        title: 'Update Complete!',
+        html: `
+          <div style="text-align: left;">
+            <p><strong>Successfully updated:</strong> ${successCount} transaction(s)</p>
+            ${failCount > 0 ? `<p style="color: #ff6b6b;"><strong>Failed:</strong> ${failCount} transaction(s)</p>` : ''}
+          </div>
+        `,
+        icon: successCount > 0 ? 'success' : 'error',
+        confirmButtonColor: '#3085d6',
+        confirmButtonText: 'OK',
+      });
+
+      showNotification({
+        title: 'Orders Updated',
+        message: `${successCount} transaction(s) updated to "Shipped" status`,
+        color: 'green',
+      });
+    } catch (error) {
+      logger.error('Failed to update shipped orders', error);
+      await Swal.fire({
+        title: 'Error',
+        text: 'Failed to update orders. Please try again.',
+        icon: 'error',
+        confirmButtonColor: '#d33',
+      });
+    }
   };
 
   // Link customer to order handler
@@ -610,11 +809,11 @@ export function DispatchComponent() {
     <Stack gap="md">
       <Tabs value={activeTab} onChange={setActiveTab}>
         <Tabs.List>
-          <Tabs.Tab value="match">Dashboard</Tabs.Tab>
+          <Tabs.Tab value="match">To Ship</Tabs.Tab>
           <Tabs.Tab value="possible-match" id="dispatch-possible-match-tab">
             Possible Match
           </Tabs.Tab>
-          <Tabs.Tab value="checkout-update">Checkout Update</Tabs.Tab>
+          <Tabs.Tab value="checkout-update">Shipped</Tabs.Tab>
           <Tabs.Tab value="raw-data">Raw Data</Tabs.Tab>
         </Tabs.List>
 
@@ -1157,7 +1356,7 @@ export function DispatchComponent() {
                   leftSection={<IconPlus size={16} />}
                   onClick={handleAddNew}
                 >
-                  Add New
+                  Update Order
                 </Button>
               </Group>
             </Group>
