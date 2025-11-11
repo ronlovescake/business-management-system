@@ -238,8 +238,8 @@ export function CheckoutLinksComponent() {
     return invoiceData.filter(
       (item) =>
         item.customerName.toLowerCase().includes(query) ||
-        item.actualWeight.toLowerCase().includes(query) ||
-        item.finalWeight.toLowerCase().includes(query) ||
+        item.actualWeight?.toLowerCase().includes(query) ||
+        item.finalWeight?.toLowerCase().includes(query) ||
         item.shopeeCheckoutLinks?.toLowerCase().includes(query) ||
         item.driveFiles?.toLowerCase().includes(query) ||
         item.message?.toLowerCase().includes(query) ||
