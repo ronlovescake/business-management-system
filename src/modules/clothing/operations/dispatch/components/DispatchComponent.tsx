@@ -19,6 +19,9 @@ import {
   Button,
   Progress,
   Accordion,
+  Select,
+  TextInput,
+  FileButton,
 } from '@mantine/core';
 import {
   IconMessageCircle,
@@ -26,11 +29,16 @@ import {
   IconMapPin,
   IconPhone,
   IconUser,
+  IconSearch,
+  IconUpload,
+  IconDownload,
+  IconPlus,
 } from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { format } from 'date-fns';
 import { showInfo } from '@/lib/alerts';
 import {
   StandardDataTable,
@@ -67,6 +75,8 @@ export function DispatchComponent() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [rawDataSearch, setRawDataSearch] = useState('');
   const [isImportingRawData, setIsImportingRawData] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [dateRangeFilter, setDateRangeFilter] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -289,12 +299,99 @@ export function DispatchComponent() {
           })
         : mockData;
 
+    // Apply status filter for Dashboard tab - exclude Shipping and Delivered
+    let filtered = dataSource;
+    if (activeTab === 'match') {
+      filtered = dataSource.filter(
+        (item) =>
+          item.orderStatus !== 'Shipping' && item.orderStatus !== 'Delivered'
+      );
+    }
+
+    // Apply status filter for checkout-update tab
+    if (activeTab === 'checkout-update' && statusFilter) {
+      filtered = dataSource.filter((item) => item.orderStatus === statusFilter);
+    }
+
+    // Apply date range filter for checkout-update tab
+    if (activeTab === 'checkout-update' && dateRangeFilter) {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      filtered = filtered.filter((item) => {
+        const rawOrder = effectiveRawData.find(
+          (row) => String(row['Order ID'] || '') === item.id
+        );
+        const rawShipTime = rawOrder?.['Ship Time'];
+
+        if (!rawShipTime) {
+          return false;
+        }
+
+        const shipDate = new Date(String(rawShipTime));
+        if (isNaN(shipDate.getTime())) {
+          return false;
+        }
+
+        switch (dateRangeFilter) {
+          case 'today': {
+            const shipDay = new Date(
+              shipDate.getFullYear(),
+              shipDate.getMonth(),
+              shipDate.getDate()
+            );
+            return shipDay.getTime() === today.getTime();
+          }
+          case 'yesterday': {
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const shipDay = new Date(
+              shipDate.getFullYear(),
+              shipDate.getMonth(),
+              shipDate.getDate()
+            );
+            return shipDay.getTime() === yesterday.getTime();
+          }
+          case 'last7days': {
+            const sevenDaysAgo = new Date(today);
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            return shipDate >= sevenDaysAgo;
+          }
+          case 'last30days': {
+            const thirtyDaysAgo = new Date(today);
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            return shipDate >= thirtyDaysAgo;
+          }
+          case 'thisMonth': {
+            return (
+              shipDate.getMonth() === now.getMonth() &&
+              shipDate.getFullYear() === now.getFullYear()
+            );
+          }
+          case 'lastMonth': {
+            const lastMonth = new Date(
+              now.getFullYear(),
+              now.getMonth() - 1,
+              1
+            );
+            return (
+              shipDate.getMonth() === lastMonth.getMonth() &&
+              shipDate.getFullYear() === lastMonth.getFullYear()
+            );
+          }
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Apply search filter
     if (!searchQuery.trim()) {
-      return dataSource;
+      return filtered;
     }
 
     const query = searchQuery.toLowerCase();
-    return dataSource.filter((item) => {
+    return filtered.filter((item) => {
       return (
         item.orderStatus.toLowerCase().includes(query) ||
         item.shippingOptions.toLowerCase().includes(query) ||
@@ -310,6 +407,8 @@ export function DispatchComponent() {
     lookupCustomerName,
     activeTab,
     getMatchesForOrder,
+    statusFilter,
+    dateRangeFilter,
   ]);
 
   // CSV export handler
@@ -515,6 +614,7 @@ export function DispatchComponent() {
           <Tabs.Tab value="possible-match" id="dispatch-possible-match-tab">
             Possible Match
           </Tabs.Tab>
+          <Tabs.Tab value="checkout-update">Checkout Update</Tabs.Tab>
           <Tabs.Tab value="raw-data">Raw Data</Tabs.Tab>
         </Tabs.List>
 
@@ -990,6 +1090,218 @@ export function DispatchComponent() {
                 })}
               </Accordion>
             )}
+          </Stack>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="checkout-update" pt="md">
+          <Stack gap="md">
+            {/* Table Controls with Filter */}
+            <Group justify="space-between" wrap="wrap">
+              <Group gap="md" style={{ flex: 1 }}>
+                <TextInput
+                  placeholder="Search checkout updates..."
+                  leftSection={<IconSearch size={16} />}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{ flex: 1, minWidth: '250px' }}
+                />
+                <Select
+                  placeholder="Filter by status"
+                  clearable
+                  data={[
+                    { value: 'Shipping', label: 'Shipping' },
+                    { value: 'Delivered', label: 'Delivered' },
+                  ]}
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                  style={{ minWidth: '180px' }}
+                />
+                <Select
+                  placeholder="Filter by date"
+                  clearable
+                  data={[
+                    { value: 'today', label: 'Today' },
+                    { value: 'yesterday', label: 'Yesterday' },
+                    { value: 'last7days', label: 'Last 7 Days' },
+                    { value: 'last30days', label: 'Last 30 Days' },
+                    { value: 'thisMonth', label: 'This Month' },
+                    { value: 'lastMonth', label: 'Last Month' },
+                  ]}
+                  value={dateRangeFilter}
+                  onChange={setDateRangeFilter}
+                  style={{ minWidth: '180px' }}
+                />
+              </Group>
+              <Group gap="sm">
+                <FileButton
+                  onChange={(file) => handleXlsxImport(file)}
+                  accept=".xlsx,.xls"
+                >
+                  {(props) => (
+                    <Button
+                      {...props}
+                      leftSection={<IconUpload size={16} />}
+                      loading={isImportingRawData}
+                    >
+                      Import
+                    </Button>
+                  )}
+                </FileButton>
+                <Button
+                  leftSection={<IconDownload size={16} />}
+                  onClick={handleExportCSV}
+                >
+                  Export
+                </Button>
+                <Button
+                  leftSection={<IconPlus size={16} />}
+                  onClick={handleAddNew}
+                >
+                  Add New
+                </Button>
+              </Group>
+            </Group>
+
+            {/* Table Container */}
+            <StandardTableContainer
+              summary={
+                <Group justify="space-between">
+                  <Text size="sm" c="dimmed">
+                    Showing {filteredData.length} of{' '}
+                    {effectiveRawData.length > 0
+                      ? effectiveRawData.length
+                      : mockData.length}{' '}
+                    checkout updates
+                  </Text>
+                </Group>
+              }
+            >
+              <StandardDataTable
+                headers={[
+                  'ORDER STATUS',
+                  'UPDATE DATE',
+                  'USERNAMES',
+                  'CUSTOMER NAMES',
+                  'ACTION',
+                ]}
+                emptyState={
+                  searchQuery
+                    ? `No checkout updates found matching "${searchQuery}"`
+                    : 'No checkout updates available. Import XLSX file or click "Add New" to create one.'
+                }
+                colSpan={5}
+              >
+                {filteredData.map((item) => {
+                  // Get the raw order data to access ship time
+                  const rawOrder = effectiveRawData.find(
+                    (row) => String(row['Order ID'] || '') === item.id
+                  );
+                  const rawShipTime = rawOrder?.['Ship Time'];
+                  let shipTime = '-';
+
+                  if (rawShipTime) {
+                    try {
+                      // Parse the ship time and format it
+                      const date = new Date(String(rawShipTime));
+                      if (!isNaN(date.getTime())) {
+                        shipTime = format(date, 'MMMM d, yyyy h:mm a');
+                      }
+                    } catch (error) {
+                      // If parsing fails, use the raw value
+                      shipTime = String(rawShipTime);
+                    }
+                  }
+
+                  return (
+                    <Table.Tr key={item.id}>
+                      <Table.Td style={{ textAlign: 'center' }}>
+                        <Text
+                          c={
+                            item.orderStatus === 'Shipped'
+                              ? 'green'
+                              : item.orderStatus === 'Processing'
+                                ? 'blue'
+                                : 'orange'
+                          }
+                          fw={500}
+                        >
+                          {item.orderStatus}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'center' }}>
+                        {shipTime}
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'left' }}>
+                        {item.username}
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'left' }}>
+                        {item.customerNames ? (
+                          <Group gap="xs">
+                            <Text
+                              onClick={() =>
+                                copyToClipboard(
+                                  item.customerNames,
+                                  'Customer name'
+                                )
+                              }
+                              style={{ cursor: 'pointer' }}
+                            >
+                              {item.customerNames}
+                            </Text>
+                            {lookupCustomerName(item.username) && (
+                              <Badge size="xs" color="green" variant="light">
+                                Matched
+                              </Badge>
+                            )}
+                          </Group>
+                        ) : (
+                          <Group gap="xs">
+                            <Text c="dimmed" fs="italic">
+                              No customer found
+                            </Text>
+                            <Badge size="xs" color="yellow" variant="light">
+                              No Match
+                            </Badge>
+                          </Group>
+                        )}
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'center' }}>
+                        <Group gap="xs" justify="center">
+                          <Tooltip
+                            label={
+                              lookupFacebookLink(item.username)
+                                ? 'Message customer'
+                                : 'No Facebook link available'
+                            }
+                          >
+                            <ActionIcon
+                              variant="light"
+                              color="blue"
+                              component="a"
+                              href={lookupFacebookLink(item.username) || '#'}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              aria-label="Message customer"
+                              disabled={!lookupFacebookLink(item.username)}
+                              style={{
+                                cursor: lookupFacebookLink(item.username)
+                                  ? 'pointer'
+                                  : 'not-allowed',
+                                opacity: lookupFacebookLink(item.username)
+                                  ? 1
+                                  : 0.5,
+                              }}
+                            >
+                              <IconMessageCircle size={16} />
+                            </ActionIcon>
+                          </Tooltip>
+                        </Group>
+                      </Table.Td>
+                    </Table.Tr>
+                  );
+                })}
+              </StandardDataTable>
+            </StandardTableContainer>
           </Stack>
         </Tabs.Panel>
 
