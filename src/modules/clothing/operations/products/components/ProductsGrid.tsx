@@ -2,7 +2,7 @@
 
 /**
  * Products Grid Component
- * Main data grid for Products
+ * Main data grid for Products using Handsontable
  * - 32-column data grid
  * - Search with Ctrl+F
  * - CSV import/export
@@ -11,44 +11,30 @@
  * - Real-time statistics
  */
 
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import {
-  Stack,
-  Group,
-  TextInput,
-  Button,
-  FileButton,
-  Card,
-  Text,
-} from '@mantine/core';
+import { Stack, Group, TextInput, Button, Card, Text } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import {
   IconSearch,
   IconPlus,
-  IconUpload,
   IconCheck,
+  IconEdit,
+  IconLock,
 } from '@tabler/icons-react';
-import { GridView } from '@/components/grid/GridView';
-import {
-  type GridColumn,
-  type Item,
-  type GridCell,
-  GridCellKind,
-  type GridSelection,
-} from '@glideapps/glide-data-grid';
-import { logger } from '@/lib/logger';
-import { throttle } from '@/lib/performance';
+import { HotTable } from '@handsontable/react';
+import type { HotTableClass } from '@handsontable/react';
+import type { CellChange, ChangeSource } from 'handsontable/common';
+import { registerAllModules } from 'handsontable/registry';
+import 'handsontable/styles/handsontable.min.css';
+import 'handsontable/styles/ht-theme-horizon.min.css';
 import { useProductsData } from '../hooks/useProductsData';
 import { useProductForm } from '../hooks/useProductForm';
-import { ProductService } from '../services/ProductService';
-import { operationsActionButtonStyles } from '../../common/buttonStyles';
-import type {
-  ProductData,
-  ProductColumnKey,
-  GridCellWithCursor,
-} from '../types/product.types';
+import type { ProductData } from '../types/product.types';
 import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
+
+// Register Handsontable modules
+registerAllModules();
 
 // Lazy load heavy modal component
 const AddProductModal = dynamic(
@@ -62,16 +48,6 @@ const AddProductModal = dynamic(
   }
 );
 
-// Custom grid styles for 20px font
-const customGridStyles = `
-  .data-grid-container .dvn-scroller {
-    font-size: 20px !important;
-  }
-  .data-grid-container canvas {
-    font-size: 20px !important;
-  }
-`;
-
 export function ProductsGrid() {
   // Hooks
   const {
@@ -84,534 +60,412 @@ export function ProductsGrid() {
     addProduct,
     updateProduct,
     bulkUpdateProducts,
-    refreshProducts,
+    refreshProducts: _refreshProducts,
   } = useProductsData();
 
   const productForm = useProductForm();
 
   // Local state
-  const [pasteMode, setPasteMode] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
   const [addProductOpen, setAddProductOpen] = useState(false);
-  const [gridHeight, setGridHeight] = useState(600); // Default height, will update in useEffect
-  const lastClickRef = useRef<{ cell: Item; time: number } | null>(null);
-  const cellContentCache = useRef<Map<string, GridCellWithCursor>>(new Map());
+  const [gridHeight, setGridHeight] = useState(600);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const hotTableRef = useRef<HotTableClass>(null);
+  const lastClickRef = useRef<{
+    row: number;
+    col: number;
+    time: number;
+  } | null>(null);
 
-  // Set grid height on mount (client-side only)
+  // Set grid height on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setGridHeight(window.innerHeight * 0.83);
     }
   }, []);
 
-  // Clear cache when filtered products change
-  useEffect(() => {
-    cellContentCache.current.clear();
-  }, [filteredProducts]);
+  // Convert ProductData to row arrays for Handsontable
+  const tableData = filteredProducts.map((product) => [
+    product['Shipment Code'],
+    product['CV Number'],
+    product['No. Of Sacks'],
+    product['Total CBM'],
+    product.Weight,
+    product['Shipment Status'],
+    product['Posting Date'],
+    product['Order Date'],
+    product.Payment,
+    product.Product,
+    product['Product Code'],
+    product['Age Range'],
+    product.Unit,
+    product['Unit Price'],
+    product.Quantity,
+    product['Alibaba Shipping Cost'],
+    product['Exchange Rates'],
+    product.PHP,
+    product['Sub Total (PHP)'],
+    product['Transaction Fee'],
+    product['Grand Total'],
+    product["Forwarder's Fee"],
+    product.Lalamove,
+    product['Packaging Cost'],
+    product['Suggested Price'],
+    product['Actual Price'],
+    product['Base Price'],
+    product.COGS,
+    product['Projected Sales'],
+    product['Projected Profit'],
+    product['Projected Profit (%)'],
+    product['Total Markup'],
+  ]);
+
+  // Define columns
+  const columns = [
+    {
+      data: 0,
+      title: 'SHIPMENT CODE',
+      width: 180,
+      type: 'text',
+      readOnly: !isEditMode,
+    },
+    { data: 1, title: 'CV NUMBER', width: 180, type: 'text', readOnly: true },
+    {
+      data: 2,
+      title: 'NO. OF SACKS',
+      width: 180,
+      type: 'numeric',
+      numericFormat: { pattern: '0,0' },
+      readOnly: true,
+    },
+    {
+      data: 3,
+      title: 'TOTAL CBM',
+      width: 180,
+      type: 'numeric',
+      numericFormat: { pattern: '0,0.00' },
+      readOnly: true,
+    },
+    {
+      data: 4,
+      title: 'WEIGHT',
+      width: 180,
+      type: 'numeric',
+      numericFormat: { pattern: '0,0' },
+      readOnly: true,
+    },
+    {
+      data: 5,
+      title: 'SHIPMENT STATUS',
+      width: 180,
+      type: 'text',
+      readOnly: true,
+    },
+    {
+      data: 6,
+      title: 'POSTING DATE',
+      width: 180,
+      type: 'text',
+      readOnly: true,
+    },
+    { data: 7, title: 'ORDER DATE', width: 180, type: 'text', readOnly: true },
+    { data: 8, title: 'PAYMENT', width: 180, type: 'text', readOnly: true },
+    {
+      data: 9,
+      title: 'PRODUCT',
+      width: 500,
+      type: 'text',
+      readOnly: !isEditMode,
+      className: 'htLeft',
+    },
+    {
+      data: 10,
+      title: 'PRODUCT CODE',
+      width: 500,
+      type: 'text',
+      readOnly: true,
+      className: 'htLeft',
+    },
+    { data: 11, title: 'AGE RANGE', width: 180, type: 'text', readOnly: true },
+    { data: 12, title: 'UNIT', width: 180, type: 'text', readOnly: true },
+    {
+      data: 13,
+      title: 'UNIT PRICE',
+      width: 180,
+      type: 'numeric',
+      numericFormat: { pattern: '0,0.00' },
+      readOnly: true,
+    },
+    {
+      data: 14,
+      title: 'QUANTITY',
+      width: 180,
+      type: 'numeric',
+      numericFormat: { pattern: '0,0' },
+      readOnly: true,
+    },
+    {
+      data: 15,
+      title: 'ALIBABA SHIPPING',
+      width: 180,
+      type: 'numeric',
+      numericFormat: { pattern: '0,0.00' },
+      readOnly: !isEditMode,
+    },
+    {
+      data: 16,
+      title: 'EXCHANGE RATE',
+      width: 180,
+      type: 'numeric',
+      numericFormat: { pattern: '0,0.00' },
+      readOnly: true,
+    },
+    {
+      data: 17,
+      title: 'PHP',
+      width: 180,
+      type: 'numeric',
+      numericFormat: { pattern: '0,0.00' },
+      readOnly: true,
+    },
+    {
+      data: 18,
+      title: 'SUB TOTAL (PHP)',
+      width: 180,
+      type: 'numeric',
+      numericFormat: { pattern: '0,0.00' },
+      readOnly: true,
+    },
+    {
+      data: 19,
+      title: 'TRANSACTION FEE',
+      width: 180,
+      type: 'numeric',
+      numericFormat: { pattern: '0,0.00' },
+      readOnly: true,
+    },
+    {
+      data: 20,
+      title: 'GRAND TOTAL',
+      width: 180,
+      type: 'numeric',
+      numericFormat: { pattern: '0,0.00' },
+      readOnly: true,
+    },
+    {
+      data: 21,
+      title: "FORWARDER'S FEE",
+      width: 180,
+      type: 'numeric',
+      numericFormat: { pattern: '0,0.00' },
+      readOnly: !isEditMode,
+    },
+    {
+      data: 22,
+      title: 'LALAMOVE',
+      width: 180,
+      type: 'numeric',
+      numericFormat: { pattern: '0,0.00' },
+      readOnly: !isEditMode,
+    },
+    {
+      data: 23,
+      title: 'PACKAGING COST',
+      width: 180,
+      type: 'numeric',
+      numericFormat: { pattern: '0,0.00' },
+      readOnly: !isEditMode,
+    },
+    {
+      data: 24,
+      title: 'SUGGESTED PRICE',
+      width: 180,
+      type: 'numeric',
+      numericFormat: { pattern: '0,0.00' },
+      readOnly: true,
+    },
+    {
+      data: 25,
+      title: 'ACTUAL PRICE',
+      width: 180,
+      type: 'numeric',
+      numericFormat: { pattern: '0,0.00' },
+      readOnly: true,
+    },
+    {
+      data: 26,
+      title: 'BASE PRICE',
+      width: 180,
+      type: 'numeric',
+      numericFormat: { pattern: '0,0.00' },
+      readOnly: true,
+    },
+    {
+      data: 27,
+      title: 'COGS',
+      width: 180,
+      type: 'numeric',
+      numericFormat: { pattern: '0,0.00' },
+      readOnly: true,
+    },
+    {
+      data: 28,
+      title: 'PROJECTED SALES',
+      width: 180,
+      type: 'numeric',
+      numericFormat: { pattern: '0,0.00' },
+      readOnly: true,
+    },
+    {
+      data: 29,
+      title: 'PROJECTED PROFIT',
+      width: 180,
+      type: 'numeric',
+      numericFormat: { pattern: '0,0.00' },
+      readOnly: true,
+    },
+    {
+      data: 30,
+      title: 'PROFIT MARGIN (%)',
+      width: 180,
+      type: 'numeric',
+      numericFormat: { pattern: '0,0.00' },
+      readOnly: true,
+    },
+    {
+      data: 31,
+      title: 'TOTAL MARKUP (%)',
+      width: 180,
+      type: 'numeric',
+      numericFormat: { pattern: '0,0.00' },
+      readOnly: true,
+    },
+  ];
 
   /**
-   * Define 32 columns with auto-sizing
+   * Handle cell changes
    */
-  const columns = useMemo<GridColumn[]>(
-    () => [
-      { id: 'shipmentCode', title: 'Shipment Code', width: 180 },
-      { id: 'cvNumber', title: 'CV Number', width: 150 },
-      { id: 'noOfSacks', title: 'No. Of Sacks', width: 130 },
-      { id: 'totalCBM', title: 'Total CBM', width: 120 },
-      { id: 'weight', title: 'Weight', width: 100 },
-      { id: 'shipmentStatus', title: 'Shipment Status', width: 150 },
-      { id: 'postingDate', title: 'Posting Date', width: 140 },
-      { id: 'orderDate', title: 'Order Date', width: 140 },
-      { id: 'payment', title: 'Payment', width: 120 },
-      { id: 'product', title: 'Product', width: 400 },
-      { id: 'productCode', title: 'Product Code', width: 500 },
-      { id: 'ageRange', title: 'Age Range', width: 130 },
-      { id: 'unit', title: 'Unit', width: 100 },
-      { id: 'unitPrice', title: 'Unit Price', width: 130 },
-      { id: 'quantity', title: 'Quantity', width: 110 },
-      { id: 'alibabaShippingCost', title: 'Alibaba Shipping', width: 160 },
-      { id: 'exchangeRates', title: 'Exchange Rate', width: 140 },
-      { id: 'php', title: 'PHP', width: 120 },
-      { id: 'subTotalPHP', title: 'Sub Total (PHP)', width: 160 },
-      { id: 'transactionFee', title: 'Transaction Fee', width: 160 },
-      { id: 'grandTotal', title: 'Grand Total', width: 150 },
-      { id: 'forwardersFee', title: "Forwarder's Fee", width: 160 },
-      { id: 'lalamove', title: 'Lalamove', width: 120 },
-      { id: 'packagingCost', title: 'Packaging Cost', width: 160 },
-      { id: 'suggestedPrice', title: 'Suggested Price', width: 160 },
-      { id: 'actualPrice', title: 'Actual Price', width: 140 },
-      { id: 'basePrice', title: 'Base Price', width: 130 },
-      { id: 'cogs', title: 'COGS', width: 130 },
-      { id: 'projectedSales', title: 'Projected Sales', width: 160 },
-      { id: 'projectedProfit', title: 'Projected Profit', width: 170 },
-      { id: 'projectedProfitPercent', title: 'Profit Margin (%)', width: 170 },
-      { id: 'totalMarkup', title: 'Total Markup (%)', width: 170 },
-    ],
-    []
-  );
-
-  // Column ID to ProductData key mapping
-  const idToKey: Record<string, ProductColumnKey> = useMemo(
-    () => ({
-      shipmentCode: 'Shipment Code',
-      cvNumber: 'CV Number',
-      noOfSacks: 'No. Of Sacks',
-      totalCBM: 'Total CBM',
-      weight: 'Weight',
-      shipmentStatus: 'Shipment Status',
-      postingDate: 'Posting Date',
-      orderDate: 'Order Date',
-      payment: 'Payment',
-      product: 'Product',
-      productCode: 'Product Code',
-      ageRange: 'Age Range',
-      unit: 'Unit',
-      unitPrice: 'Unit Price',
-      quantity: 'Quantity',
-      alibabaShippingCost: 'Alibaba Shipping Cost',
-      exchangeRates: 'Exchange Rates',
-      php: 'PHP',
-      subTotalPHP: 'Sub Total (PHP)',
-      transactionFee: 'Transaction Fee',
-      grandTotal: 'Grand Total',
-      forwardersFee: "Forwarder's Fee",
-      lalamove: 'Lalamove',
-      packagingCost: 'Packaging Cost',
-      suggestedPrice: 'Suggested Price',
-      actualPrice: 'Actual Price',
-      basePrice: 'Base Price',
-      cogs: 'COGS',
-      projectedSales: 'Projected Sales',
-      projectedProfit: 'Projected Profit',
-      projectedProfitPercent: 'Projected Profit (%)',
-      totalMarkup: 'Total Markup',
-    }),
-    []
-  );
-
-  /**
-   * Handle CSV import
-   */
-  const handleCSVImport = useCallback(async () => {
-    if (!file) {
-      return;
-    }
-
-    try {
-      const text = await file.text();
-      const result = await ProductService.importFromCSV(text);
-
-      if (!result.success) {
-        showNotification({
-          title: '⚠️ Import Warning',
-          message: result.errors?.[0] || 'Failed to import CSV',
-          color: 'yellow',
-          autoClose: 4000,
-        });
+  const handleAfterChange = useCallback(
+    (changes: CellChange[] | null, source: ChangeSource) => {
+      if (!changes || source === 'loadData') {
         return;
       }
 
-      // Save to database
-      const saveResponse = await fetch('/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(result.products),
-      });
+      // Update products based on changes
+      const updatedProducts = [...products];
 
-      if (!saveResponse.ok) {
-        throw new Error('Failed to save to database');
-      }
+      changes.forEach(([row, col, _oldValue, newValue]) => {
+        if (row < filteredProducts.length) {
+          const product = filteredProducts[row];
+          const globalIndex = products.findIndex((p) => p.id === product.id);
 
-      const saveResult = await saveResponse.json();
+          if (globalIndex !== -1) {
+            const columnKeys: (keyof ProductData)[] = [
+              'Shipment Code',
+              'CV Number',
+              'No. Of Sacks',
+              'Total CBM',
+              'Weight',
+              'Shipment Status',
+              'Posting Date',
+              'Order Date',
+              'Payment',
+              'Product',
+              'Product Code',
+              'Age Range',
+              'Unit',
+              'Unit Price',
+              'Quantity',
+              'Alibaba Shipping Cost',
+              'Exchange Rates',
+              'PHP',
+              'Sub Total (PHP)',
+              'Transaction Fee',
+              'Grand Total',
+              "Forwarder's Fee",
+              'Lalamove',
+              'Packaging Cost',
+              'Suggested Price',
+              'Actual Price',
+              'Base Price',
+              'COGS',
+              'Projected Sales',
+              'Projected Profit',
+              'Projected Profit (%)',
+              'Total Markup',
+            ];
 
-      // Update local state
-      await refreshProducts();
-      handleSearch('');
-      setFile(null);
-
-      showNotification({
-        title: '🎉 Import Successful!',
-        message: `Successfully imported ${saveResult.count} product records to database`,
-        color: 'green',
-        icon: <IconCheck size={18} />,
-        autoClose: 4000,
-      });
-    } catch (error) {
-      logger.error('Import error:', error);
-      showNotification({
-        title: '❌ Import Failed',
-        message: 'Failed to parse CSV file. Please check the file format.',
-        color: 'red',
-        autoClose: 4000,
-      });
-    }
-  }, [file, refreshProducts, handleSearch]);
-
-  /**
-   * Handle paste (multi-cell)
-   */
-  const handlePaste = useCallback(
-    (target: Item, values: readonly (readonly string[])[]) => {
-      if (!pasteMode) {
-        return false;
-      }
-      const [startCol, startRow] = target;
-      let applied = 0;
-      let clipped = false;
-      const nextProducts = [...products];
-
-      const makeEmpty = (): ProductData => ({
-        'Shipment Code': '',
-        'CV Number': '',
-        'No. Of Sacks': 0,
-        'Total CBM': 0,
-        Weight: 0,
-        'Shipment Status': '',
-        'Posting Date': '',
-        'Order Date': '',
-        Payment: '',
-        Product: '',
-        'Product Code': '',
-        'Age Range': '',
-        Unit: '',
-        'Unit Price': 0,
-        Quantity: 0,
-        'Alibaba Shipping Cost': 0,
-        'Exchange Rates': 0,
-        PHP: 0,
-        'Sub Total (PHP)': 0,
-        'Transaction Fee': 0,
-        'Grand Total': 0,
-        "Forwarder's Fee": 0,
-        Lalamove: 0,
-        'Packaging Cost': 0,
-        'Suggested Price': 0,
-        'Actual Price': 0,
-        'Base Price': 0,
-        COGS: 0,
-        'Projected Sales': 0,
-        'Projected Profit': 0,
-        'Projected Profit (%)': 0,
-        'Total Markup': 0,
-      });
-
-      for (let r = 0; r < values.length; r++) {
-        const rowIdx = startRow + r;
-        const rowData = values[r] ?? [];
-
-        let globalIndex: number;
-        if (rowIdx < filteredProducts.length) {
-          const rowObj = filteredProducts[rowIdx];
-          globalIndex = nextProducts.indexOf(rowObj);
-          if (globalIndex === -1) {
-            nextProducts.push(makeEmpty());
-            globalIndex = nextProducts.length - 1;
-          }
-        } else {
-          nextProducts.push(makeEmpty());
-          globalIndex = nextProducts.length - 1;
-        }
-
-        for (let c = 0; c < rowData.length; c++) {
-          const colIdx = startCol + c;
-          if (colIdx >= columns.length) {
-            clipped = true;
-            break;
-          }
-          const v = (rowData[c] ?? '').toString();
-          const col = columns[colIdx];
-          const key = col ? idToKey[col.id ?? ''] : undefined;
-          if (key) {
-            const updated: ProductData = {
-              ...nextProducts[globalIndex],
-              [key]: v,
-            } as ProductData;
-            nextProducts[globalIndex] = updated;
-            applied++;
-          }
-        }
-      }
-
-      if (applied > 0) {
-        bulkUpdateProducts(nextProducts);
-        showNotification({
-          title: 'Pasted into table',
-          message: `Applied ${applied} cell${applied === 1 ? '' : 's'}${clipped ? ' (some data clipped)' : ''}`,
-          color: 'blue',
-        });
-        return true;
-      }
-      return false;
-    },
-    [
-      pasteMode,
-      products,
-      filteredProducts,
-      columns,
-      idToKey,
-      bulkUpdateProducts,
-    ]
-  );
-
-  /**
-   * Handle delete operations
-   */
-  const handleDelete = useCallback(
-    (selection: GridSelection) => {
-      if (!pasteMode) {
-        return false;
-      }
-
-      const range = selection.current?.range;
-      if (!range) {
-        return false;
-      }
-
-      const { x, y, width, height } = range;
-      const nextProducts = [...products];
-      let deletedCount = 0;
-
-      for (let row = y; row < y + height; row++) {
-        if (row >= filteredProducts.length) {
-          break;
-        }
-
-        const rowObj = filteredProducts[row];
-        const globalIndex = nextProducts.indexOf(rowObj);
-
-        if (globalIndex === -1) {
-          continue;
-        }
-
-        for (let col = x; col < x + width; col++) {
-          if (col >= columns.length) {
-            break;
-          }
-
-          const column = columns[col];
-
-          // Only allow deletion in Shipment Code column
-          if (column.id === 'shipmentCode') {
-            const key = idToKey[column.id];
+            const key = columnKeys[col as number];
             if (key) {
-              nextProducts[globalIndex] = {
-                ...nextProducts[globalIndex],
-                [key]: '',
-              };
-              deletedCount++;
+              // Check if Shipment Code column (0) is being cleared
+              if (col === 0 && (!newValue || newValue === '')) {
+                // Clear dependent fields when shipment code is deleted
+                updatedProducts[globalIndex] = {
+                  ...updatedProducts[globalIndex],
+                  'Shipment Code': '',
+                  'CV Number': '',
+                  'No. Of Sacks': 0,
+                  'Total CBM': 0,
+                  Weight: 0,
+                  'Shipment Status': '',
+                };
+              } else {
+                updatedProducts[globalIndex] = {
+                  ...updatedProducts[globalIndex],
+                  [key]: newValue,
+                };
+              }
             }
           }
         }
-      }
+      });
 
-      if (deletedCount > 0) {
-        bulkUpdateProducts(nextProducts);
-        return true;
-      }
-
-      return false;
+      bulkUpdateProducts(updatedProducts);
     },
-    [
-      pasteMode,
-      products,
-      filteredProducts,
-      columns,
-      idToKey,
-      bulkUpdateProducts,
-    ]
+    [products, filteredProducts, bulkUpdateProducts]
   );
 
   /**
-   * Get cell data (with caching)
+   * Handle double-click on Product Code column to edit product
    */
-  const getData = useCallback(
-    (cell: Item): GridCell => {
-      const [col, row] = cell;
+  const handleCellClick = useCallback(
+    (event: MouseEvent, coords: { row: number; col: number }) => {
+      const now = Date.now();
+      const lastClick = lastClickRef.current;
 
-      // Check cache first
-      const cacheKey = `${col}-${row}`;
-      const cached = cellContentCache.current.get(cacheKey);
-      if (cached) {
-        return cached;
-      }
+      // Check if this is a double-click (within 300ms on the same cell)
+      const isDoubleClick =
+        lastClick &&
+        lastClick.row === coords.row &&
+        lastClick.col === coords.col &&
+        now - lastClick.time < 300;
 
-      const product = filteredProducts[row];
-      const column = columns[col];
-
-      if (!product || !column) {
-        const emptyCell: GridCellWithCursor = {
-          kind: GridCellKind.Text,
-          data: '',
-          displayData: '',
-          allowOverlay: false,
-          contentAlign: 'center' as const,
-          cursor: column?.id === 'productCode' ? 'pointer' : undefined,
-        };
-        cellContentCache.current.set(cacheKey, emptyCell);
-        return emptyCell;
-      }
-
-      const key = idToKey[column.id as string];
-      const value = product[key];
-      const alignment = ProductService.getColumnAlignment(column.id as string);
-      const useTwoDecimals = ProductService.usesTwoDecimalPlaces(
-        column.id as string
-      );
-
-      let cellContent: GridCellWithCursor;
-
-      // Format date columns (postingDate, orderDate)
-      if (column.id === 'postingDate' || column.id === 'orderDate') {
-        const dateValue = value?.toString() || '';
-        let displayDate = dateValue;
-
-        // Convert from ISO format (YYYY-MM-DD) to MM-DD-YYYY
-        if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
-          const [year, month, day] = dateValue.split('-');
-          displayDate = `${month}-${day}-${year}`;
-        }
-
-        cellContent = {
-          kind: GridCellKind.Text,
-          data: dateValue,
-          displayData: displayDate,
-          allowOverlay: false,
-          contentAlign: alignment,
-        };
-      } else if (typeof value === 'number') {
-        const displayData = useTwoDecimals
-          ? value.toLocaleString('en-US', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })
-          : value.toLocaleString();
-
-        cellContent = {
-          kind: GridCellKind.Number,
-          data: value,
-          displayData: displayData,
-          allowOverlay: false,
-          contentAlign: alignment,
-          cursor: column.id === 'productCode' ? 'pointer' : undefined,
-        };
-      } else {
-        cellContent = {
-          kind: GridCellKind.Text,
-          data: value?.toString() || '',
-          displayData: value?.toString() || '',
-          allowOverlay: false,
-          contentAlign: alignment,
-          cursor: column.id === 'productCode' ? 'pointer' : undefined,
-        };
-      }
-
-      cellContentCache.current.set(cacheKey, cellContent);
-
-      // Limit cache size
-      if (cellContentCache.current.size > 10000) {
-        const keysToDelete = Array.from(cellContentCache.current.keys()).slice(
-          0,
-          1000
-        );
-        keysToDelete.forEach((key) => cellContentCache.current.delete(key));
-      }
-
-      return cellContent;
-    },
-    [filteredProducts, columns, idToKey]
-  );
-
-  /**
-   * Handle cell clicks (double-click to edit)
-   */
-  const onCellClicked = useCallback(
-    (cell: Item) => {
-      const [col, row] = cell;
-      const product = filteredProducts[row];
-      const column = columns[col];
-
-      if (!product || !column) {
-        return;
-      }
-
-      if (column.id === 'productCode') {
-        const now = Date.now();
-        const lastClick = lastClickRef.current;
-
+      if (isDoubleClick) {
+        // Double-click detected on Product Code column (column index 10)
         if (
-          lastClick &&
-          lastClick.cell[0] === col &&
-          lastClick.cell[1] === row &&
-          now - lastClick.time < 500
+          coords.col === 10 &&
+          coords.row >= 0 &&
+          coords.row < filteredProducts.length
         ) {
-          // Double-click detected
+          const product = filteredProducts[coords.row];
+
+          // Populate the form with the selected product data
           productForm.populateForm(product);
           setAddProductOpen(true);
-          lastClickRef.current = null;
-        } else {
-          lastClickRef.current = { cell, time: now };
         }
+
+        // Reset the last click
+        lastClickRef.current = null;
+      } else {
+        // Store this click for double-click detection
+        lastClickRef.current = {
+          row: coords.row,
+          col: coords.col,
+          time: now,
+        };
       }
     },
-    [filteredProducts, columns, productForm]
+    [filteredProducts, productForm]
   );
-
-  /**
-   * Custom header drawing
-   */
-  const drawHeader = useCallback(
-    (args: {
-      ctx: CanvasRenderingContext2D;
-      column: GridColumn;
-      rect: { x: number; y: number; width: number; height: number };
-      theme: {
-        bgHeader: string;
-        textHeader: string;
-        headerFontStyle: string;
-      };
-    }) => {
-      const { ctx, column, rect, theme } = args;
-      ctx.fillStyle = theme.bgHeader;
-      ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
-
-      ctx.fillStyle = theme.textHeader;
-      ctx.font = theme.headerFontStyle;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-
-      const centerX = rect.x + rect.width / 2;
-      const centerY = rect.y + rect.height / 2;
-      ctx.fillText(column.title ?? '', centerX, centerY);
-
-      return true;
-    },
-    []
-  );
-
-  /**
-   * Set grid height to 83vh
-   */
-  useEffect(() => {
-    // SSR guard: Only run in browser environment
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    const updateGridHeight = () => {
-      const vh83 = window.innerHeight * 0.83;
-      setGridHeight(vh83);
-    };
-
-    const throttledResize = throttle(updateGridHeight, 150);
-
-    updateGridHeight();
-    window.addEventListener('resize', throttledResize);
-
-    return () => {
-      window.removeEventListener('resize', throttledResize);
-      throttledResize.cancel(); // Cancel any pending throttled calls
-    };
-  }, []);
 
   useCtrlFFocus('[data-ctrlf-target="products-search-input"]', !isLoading);
 
@@ -679,7 +533,92 @@ export function ProductsGrid() {
 
   return (
     <>
-      <style dangerouslySetInnerHTML={{ __html: customGridStyles }} />
+      <style>{`
+        .ht-theme-horizon {
+          --ht-font-size: 14px;
+          --ht-line-height: 20px;
+          --ht-font-weight: 400;
+          --ht-letter-spacing: 0;
+          --ht-gap-size: 6px;
+          --ht-icon-size: 16px;
+          --ht-table-transition: 0.2s;
+          --ht-border-color: #e7e7e9;
+          --ht-accent-color: #37bc6c;
+          --ht-foreground-color: #353535;
+          --ht-background-color: #ffffff;
+          --ht-placeholder-color: #aeaeae;
+          --ht-read-only-color: #727272;
+          --ht-disabled-color: #aeaeae;
+          --ht-cell-horizontal-border-color: rgba(255, 255, 255, 0);
+          --ht-cell-vertical-border-color: #e7e7e9;
+          --ht-wrapper-border-width: 0;
+          --ht-wrapper-border-radius: 12px;
+          --ht-wrapper-border-color: #e7e7e9;
+          --ht-row-header-odd-background-color: rgba(255, 255, 255, 0);
+          --ht-row-header-even-background-color: rgba(255, 255, 255, 0);
+          --ht-row-cell-odd-background-color: rgba(255, 255, 255, 0);
+          --ht-row-cell-even-background-color: rgba(255, 255, 255, 0);
+          --ht-cell-horizontal-padding: 12px;
+          --ht-cell-vertical-padding: 8px;
+          --ht-cell-editor-border-width: 2px;
+          --ht-cell-editor-border-color: #37bc6c;
+          --ht-cell-editor-foreground-color: #070604;
+          --ht-cell-editor-background-color: #ffffff;
+          --ht-cell-editor-shadow-blur-radius: 8px;
+          --ht-cell-editor-shadow-color: #37bc6c;
+          --ht-cell-success-background-color: rgba(55, 188, 108, 0.30);
+          --ht-cell-error-background-color: rgba(250, 77, 50, 0.30);
+          --ht-cell-read-only-background-color: #ffffff;
+          --ht-cell-selection-border-color: #37bc6c;
+          --ht-cell-selection-background-color: #37bc6c;
+          --ht-cell-autofill-size: 6px;
+          --ht-cell-autofill-border-width: 1px;
+          --ht-cell-autofill-border-radius: 4px;
+          --ht-cell-autofill-border-color: #ffffff;
+          --ht-cell-autofill-background-color: #37bc6c;
+          --ht-cell-autofill-fill-border-color: #353535;
+          --ht-cell-mobile-handle-size: 12px;
+          --ht-cell-mobile-handle-border-width: 1px;
+          --ht-cell-mobile-handle-border-radius: 6px;
+          --ht-cell-mobile-handle-border-color: #37bc6c;
+          --ht-cell-mobile-handle-background-color: rgba(55, 188, 108, 0.40);
+          --ht-resize-indicator-color: #727272;
+          --ht-move-backlight-color: rgba(35, 35, 38, 0.06);
+          --ht-move-indicator-color: #37bc6c;
+          --ht-hidden-indicator-color: #727272;
+          --ht-scrollbar-border-radius: 8px;
+          --ht-scrollbar-track-color: #f7f7f9;
+          --ht-scrollbar-thumb-color: #aeaeae;
+          --ht-header-font-weight: 400;
+          --ht-header-foreground-color: #353535;
+          --ht-header-background-color: #f7f7f9;
+          --ht-header-highlighted-shadow-size: 1px;
+          --ht-header-highlighted-foreground-color: #353535;
+          --ht-header-highlighted-background-color: #ededef;
+          --ht-header-active-border-color: #232326;
+          --ht-header-active-foreground-color: #ffffff;
+          --ht-header-active-background-color: #070604;
+          --ht-header-filter-background-color: rgba(55, 188, 108, 0.30);
+          --ht-header-row-foreground-color: #353535;
+          --ht-header-row-background-color: #ffffff;
+          --ht-header-row-highlighted-foreground-color: #353535;
+          --ht-header-row-highlighted-background-color: #ededef;
+          --ht-header-row-active-foreground-color: #ffffff;
+          --ht-header-row-active-background-color: #070604;
+        }
+        
+        /* Remove zebra striping completely */
+        .ht-theme-horizon tr:nth-child(even) td,
+        .ht-theme-horizon tr:nth-child(odd) td {
+          background-color: #ffffff !important;
+        }
+        
+        .ht-theme-horizon tr:nth-child(even) th,
+        .ht-theme-horizon tr:nth-child(odd) th {
+          background-color: rgba(255, 255, 255, 0) !important;
+        }
+      `}</style>
+
       <Stack gap="md">
         {/* Search and controls */}
         <Group justify="space-between" align="flex-end" wrap="wrap" gap="md">
@@ -696,39 +635,16 @@ export function ProductsGrid() {
 
           <Group gap="sm">
             <Button
-              variant={pasteMode ? 'filled' : 'outline'}
-              color={pasteMode ? 'yellow' : 'gray'}
-              size="md"
-              radius="md"
-              onClick={() => setPasteMode((v) => !v)}
-            >
-              {pasteMode ? 'Disable Paste Mode' : 'Enable Paste Mode'}
-            </Button>
-            <FileButton
-              accept=".csv"
-              onChange={(uploadedFile) => setFile(uploadedFile)}
-            >
-              {(fileButtonProps) => (
-                <Button
-                  {...fileButtonProps}
-                  leftSection={<IconUpload size={16} />}
-                  size="sm"
-                  radius="sm"
-                  styles={operationsActionButtonStyles}
-                >
-                  {file ? 'Change CSV File' : 'Select CSV File'}
-                </Button>
-              )}
-            </FileButton>
-            <Button
-              onClick={handleCSVImport}
-              disabled={!file}
-              leftSection={<IconUpload size={16} />}
+              leftSection={
+                isEditMode ? <IconLock size={16} /> : <IconEdit size={16} />
+              }
+              variant="filled"
+              color={isEditMode ? 'red' : 'blue'}
               size="sm"
               radius="sm"
-              styles={operationsActionButtonStyles}
+              onClick={() => setIsEditMode(!isEditMode)}
             >
-              Import CSV
+              {isEditMode ? 'Disable Edit Mode' : 'Enable Edit Mode'}
             </Button>
             <Button
               leftSection={<IconPlus size={16} />}
@@ -760,7 +676,7 @@ export function ProductsGrid() {
           isEditMode={productForm.isEditMode}
         />
 
-        {/* Data Grid */}
+        {/* Handsontable Grid */}
         <Card
           withBorder
           shadow="sm"
@@ -769,65 +685,30 @@ export function ProductsGrid() {
           style={{
             height: gridHeight,
             width: '100%',
-            maxWidth: '100%',
             overflow: 'hidden',
             position: 'relative',
             background: '#fff',
-            fontSize: '18px',
           }}
-          className="data-grid-container"
         >
-          <GridView
-            getCellContent={getData}
+          <HotTable
+            ref={hotTableRef}
+            data={tableData}
             columns={columns}
-            rows={filteredProducts.length}
+            colHeaders={true}
+            rowHeaders={true}
+            width="100%"
             height={gridHeight}
-            width={'100%'}
-            overscrollX={0}
-            smoothScrollX={true}
-            smoothScrollY={true}
-            rowHeight={70}
-            headerHeight={80}
-            rowMarkers="number"
-            onCellClicked={onCellClicked}
-            onPaste={pasteMode ? handlePaste : undefined}
-            onDelete={pasteMode ? handleDelete : undefined}
-            isDraggable={false}
-            experimental={{
-              scrollbarWidthOverride: 16,
-            }}
-            drawHeader={drawHeader}
-            theme={{
-              accentColor: '#228be6',
-              accentLight: 'rgba(34, 139, 230, 0.1)',
-              textDark: '#212529',
-              textMedium: '#495057',
-              textLight: '#868e96',
-              textBubble: '#ffffff',
-              bgIconHeader: '#f8f9fa',
-              fgIconHeader: '#495057',
-              textHeader: '#343a40',
-              textHeaderSelected: '#228be6',
-              bgCell: '#ffffff',
-              bgCellMedium: '#ffffff',
-              bgHeader: '#f8f9fa',
-              bgHeaderHasFocus: '#e9ecef',
-              bgHeaderHovered: '#e9ecef',
-              bgBubble: '#228be6',
-              bgBubbleSelected: '#1c7ed6',
-              bgSearchResult: '#fff3cd',
-              borderColor: 'transparent',
-              horizontalBorderColor: 'rgba(206, 212, 218, 0.5)',
-              drilldownBorder: 'rgba(34, 139, 230, 0.4)',
-              linkColor: '#228be6',
-              headerFontStyle: 'bold 17px Inter',
-              baseFontStyle: '17px Inter',
-              editorFontSize: '20',
-              fontFamily: 'Inter',
-              cellHorizontalPadding: 12,
-              cellVerticalPadding: 8,
-            }}
-            getCellsForSelection={true}
+            licenseKey="non-commercial-and-evaluation"
+            stretchH="all"
+            contextMenu={true}
+            manualColumnResize={true}
+            manualRowResize={true}
+            filters={true}
+            dropdownMenu={false}
+            afterChange={handleAfterChange}
+            afterOnCellMouseDown={handleCellClick}
+            minSpareRows={50}
+            className="ht-theme-horizon htCenter htMiddle"
           />
         </Card>
 
