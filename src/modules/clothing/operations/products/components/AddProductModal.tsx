@@ -150,6 +150,7 @@ export const AddProductModal = memo(function AddProductModal({
                   }))}
                   allowDeselect
                   clearable
+                  searchable
                   value={form.ageRangeStart || null}
                   onChange={(value) =>
                     updateField('ageRangeStart', value || '')
@@ -166,6 +167,7 @@ export const AddProductModal = memo(function AddProductModal({
                   }))}
                   allowDeselect
                   clearable
+                  searchable
                   value={form.ageRangeEnd || null}
                   onChange={(value) => updateField('ageRangeEnd', value || '')}
                   style={{ flex: 1 }}
@@ -180,6 +182,7 @@ export const AddProductModal = memo(function AddProductModal({
                   }))}
                   allowDeselect
                   clearable
+                  searchable
                   value={form.ageRangeUnit || null}
                   onChange={(value) => updateField('ageRangeUnit', value || '')}
                   style={{ flex: 1 }}
