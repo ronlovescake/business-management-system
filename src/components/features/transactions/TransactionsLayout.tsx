@@ -1,7 +1,7 @@
 import React from 'react';
 import dynamic from 'next/dynamic';
 import { Group, Button, Text, Loader, Pill } from '@mantine/core';
-import { IconPlus, IconFileSpreadsheet } from '@tabler/icons-react';
+import { IconFileSpreadsheet } from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
 import * as XLSX from 'xlsx';
 import type { StatCard } from '@/components/ui';
@@ -78,7 +78,6 @@ export interface TransactionsLayoutProps<T = Record<string, unknown>> {
   onCSVImport?: (file: File) => Promise<void>;
 
   // Actions
-  onAddRows?: () => void;
   onGenerateInvoice?: (data: T[]) => void | Promise<void>;
   onGeneratePackingList?: (data: T[]) => void | Promise<void>;
   onGenerateDistribution?: (data: T[]) => void | Promise<void>;
@@ -109,7 +108,6 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
   csvFile,
   onFileChange,
   onCSVImport,
-  onAddRows,
   onGenerateInvoice,
   onGeneratePackingList,
   onGenerateDistribution,
@@ -157,22 +155,12 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
     }
   }, [filteredData]);
 
-  // Footer with Add Rows button and count
-  const footerLeft = onAddRows ? (
-    <Group gap="md" align="center">
-      <Button
-        variant="outline"
-        size="sm"
-        leftSection={<IconPlus size={14} />}
-        onClick={onAddRows}
-      >
-        Add 10 Rows
-      </Button>
-      <Text size="sm" c="dimmed">
-        {`Showing ${filteredData.length} of ${data.length} transactions`}
-      </Text>
-    </Group>
-  ) : undefined;
+  // Footer with row count (no Add Rows button needed - using minSpareRows instead)
+  const footerLeft = (
+    <Text size="sm" c="dimmed">
+      {`Showing ${filteredData.length} of ${data.length} transactions`}
+    </Text>
+  );
 
   // Status filter pills
   const searchRightButtons =

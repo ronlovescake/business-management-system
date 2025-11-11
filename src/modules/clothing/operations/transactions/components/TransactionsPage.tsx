@@ -122,34 +122,33 @@ export function TransactionsPage() {
   } = useTransactionModals({ transactions, bulkUpdate });
 
   // ============================================================================
-  // OPERATIONS HOOKS - Cell edits, CSV import, add rows
+  // OPERATIONS HOOKS - Cell edits, CSV import
   // ============================================================================
-  const { handleCellEdited, handleAdd10Rows, handleCSVImport } =
-    useTransactionOperations({
-      transactions,
-      filteredData,
-      priceTiers,
-      productToShipmentMap,
-      productToShipmentStatusMap,
-      bulkUpdate,
-      update,
-      onCustomerWarning: (data) => {
-        setCustomerWarningData({
-          ...data,
-          onProceed: () => {
-            data.onProceed();
-            setShowCustomerWarningModal(false);
-            setCustomerWarningData(null);
-          },
-          onCancel: () => {
-            data.onCancel();
-            setShowCustomerWarningModal(false);
-            setCustomerWarningData(null);
-          },
-        });
-        setShowCustomerWarningModal(true);
-      },
-    });
+  const { handleCellEdited, handleCSVImport } = useTransactionOperations({
+    transactions,
+    filteredData,
+    priceTiers,
+    productToShipmentMap,
+    productToShipmentStatusMap,
+    bulkUpdate,
+    update,
+    onCustomerWarning: (data) => {
+      setCustomerWarningData({
+        ...data,
+        onProceed: () => {
+          data.onProceed();
+          setShowCustomerWarningModal(false);
+          setCustomerWarningData(null);
+        },
+        onCancel: () => {
+          data.onCancel();
+          setShowCustomerWarningModal(false);
+          setCustomerWarningData(null);
+        },
+      });
+      setShowCustomerWarningModal(true);
+    },
+  });
 
   // CSV file state (for UI)
   const [csvFile, setCsvFile] = React.useState<File | null>(null);
@@ -574,7 +573,6 @@ export function TransactionsPage() {
           csvFile={csvFile}
           onFileChange={setCsvFile}
           onCSVImport={handleCSVImport}
-          onAddRows={handleAdd10Rows}
           statusOptions={statusDropdownOptions}
           selectedStatuses={selectedStatuses}
           onStatusFilter={handleStatusFilter}
