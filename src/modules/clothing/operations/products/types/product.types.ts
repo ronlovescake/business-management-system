@@ -42,6 +42,7 @@ export interface ProductData {
   'Projected Profit': number;
   'Projected Profit (%)': number;
   'Total Markup': number;
+  createdAt?: string;
 }
 
 /**

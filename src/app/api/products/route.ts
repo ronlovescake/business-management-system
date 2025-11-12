@@ -146,6 +146,7 @@ function mapDatabaseToFrontend(dbProduct: Product) {
     'Projected Profit': dbProduct.projectedProfit,
     'Projected Profit (%)': dbProduct.projectedProfitPercent,
     'Total Markup': dbProduct.totalMarkup,
+    createdAt: dbProduct.createdAt.toISOString(),
   };
 }
 

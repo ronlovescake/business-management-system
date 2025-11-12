@@ -708,27 +708,19 @@ export class ProductService {
       // Fetch products from API
       const products = await api.get<ProductData[]>('/api/products');
 
-      // Sort by ID descending (newest first)
-      const sortedProducts = products.sort((a, b) => {
-        const idA = a.id || 0;
-        const idB = b.id || 0;
-        return idB - idA; // Descending order
-      });
-
       // Fetch shipments for lookup
       let shipments: ShipmentData[] = [];
       try {
         shipments = await api.get<ShipmentData[]>('/api/shipments');
-      } catch {
+      } catch (error) {
         // Continue without shipment data if API fails
         logger.warn(
           'Failed to fetch shipments, continuing without shipment data'
         );
-        return sortedProducts;
+        return this.sortProducts(products);
       }
 
-      // Enrich products with shipment data
-      return sortedProducts.map((product) => {
+      const enrichedProducts = products.map((product) => {
         if (product['Shipment Code']) {
           const shipment = shipments.find(
             (s) => s['Shipment Code'] === product['Shipment Code']
@@ -748,10 +740,68 @@ export class ProductService {
         }
         return product;
       });
+
+      return this.sortProducts(enrichedProducts);
     } catch (error) {
       logger.error('Failed to load products:', error);
       return [];
     }
+  }
+
+  private static sortProducts(products: ProductData[]): ProductData[] {
+    const normalizedCode = (product: ProductData) =>
+      (product['Shipment Code'] || '').trim().toUpperCase();
+
+    return [...products].sort((a, b) => {
+      const codeA = normalizedCode(a);
+      const codeB = normalizedCode(b);
+      const hasCodeA = codeA.length > 0;
+      const hasCodeB = codeB.length > 0;
+
+      if (!hasCodeA && hasCodeB) {
+        return -1;
+      }
+
+      if (hasCodeA && !hasCodeB) {
+        return 1;
+      }
+
+      if (!hasCodeA && !hasCodeB) {
+        const timestampDiff =
+          this.getCreatedTimestamp(b) - this.getCreatedTimestamp(a);
+        if (timestampDiff !== 0) {
+          return timestampDiff;
+        }
+        return (b.id ?? 0) - (a.id ?? 0);
+      }
+
+      const codeComparison = codeB.localeCompare(codeA, undefined, {
+        numeric: true,
+        sensitivity: 'base',
+      });
+
+      if (codeComparison !== 0) {
+        return codeComparison;
+      }
+
+      const timestampDiff =
+        this.getCreatedTimestamp(b) - this.getCreatedTimestamp(a);
+      if (timestampDiff !== 0) {
+        return timestampDiff;
+      }
+
+      return (b.id ?? 0) - (a.id ?? 0);
+    });
+  }
+
+  private static getCreatedTimestamp(product: ProductData): number {
+    if (product.createdAt) {
+      const date = new Date(product.createdAt);
+      if (!Number.isNaN(date.getTime())) {
+        return date.getTime();
+      }
+    }
+    return product.id ?? 0;
   }
 
   /**
