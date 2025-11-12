@@ -12,7 +12,7 @@ export default async function AdminChangeLogPage() {
 
   return (
     <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
-      <PageLayout title="Change Log" fluid withPadding>
+      <PageLayout fluid withPadding>
         <ChangeLogPage />
       </PageLayout>
     </PermissionGuard>

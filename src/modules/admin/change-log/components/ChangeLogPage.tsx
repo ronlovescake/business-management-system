@@ -12,11 +12,12 @@ import {
   Tooltip,
   Loader,
   Alert,
-  Pagination,
   ActionIcon,
   Table,
   Accordion,
   Box,
+  Divider,
+  Paper,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { useDebouncedValue } from '@mantine/hooks';
@@ -24,23 +25,16 @@ import {
   IconRotateClockwise,
   IconRefresh,
   IconAlertCircle,
+  IconChevronRight,
+  IconSearch,
 } from '@tabler/icons-react';
-import {
-  StandardTableContainer,
-  StandardTableControls,
-} from '@/components/tables/StandardDataTable';
+import { StandardTableContainer } from '@/components/tables/StandardDataTable';
 import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 import {
   useChangeLogQuery,
   type ChangeLogFiltersResponse,
   type ChangeLogRecord,
 } from '../hooks/useChangeLogQuery';
-
-const ROWS_PER_PAGE_OPTIONS = [
-  { value: '25', label: '25 / page' },
-  { value: '50', label: '50 / page' },
-  { value: '100', label: '100 / page' },
-];
 
 const ACTION_COLOR_MAP: Record<string, string> = {
   create: 'green',
@@ -72,6 +66,22 @@ const PRODUCT_METADATA_KEYS = [
   'itemCode',
   'item_code',
 ];
+
+const SUMMARY_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+});
+
+const SUMMARY_TIME_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  hour: 'numeric',
+  minute: '2-digit',
+});
+
+const SUMMARY_GRID_TEMPLATE =
+  'minmax(280px, 1.8fr) 200px minmax(220px, 1.6fr) 150px';
+
+const DEFAULT_LIMIT = 250;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -220,31 +230,15 @@ export function ChangeLogPage() {
   const [userId, setUserId] = useState('');
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState('25');
-  const [controlsKey, setControlsKey] = useState(0);
+  const [limit, setLimit] = useState(DEFAULT_LIMIT.toString());
 
   const [debouncedSearch] = useDebouncedValue(search, 400);
 
   const isDateRangeValid = !startDate || !endDate || endDate >= startDate;
 
-  useEffect(() => {
-    setPage(1);
-  }, [
-    debouncedSearch,
-    entityType,
-    action,
-    source,
-    entityId,
-    userId,
-    startDate,
-    endDate,
-    limit,
-  ]);
-
   const queryParams = useMemo(
     () => ({
-      page,
+      page: 1,
       limit: Number(limit),
       search: debouncedSearch || undefined,
       entityType: entityType || undefined,
@@ -257,7 +251,6 @@ export function ChangeLogPage() {
       includeFilters: true,
     }),
     [
-      page,
       limit,
       debouncedSearch,
       entityType,
@@ -280,6 +273,7 @@ export function ChangeLogPage() {
   const filters: ChangeLogFiltersResponse | null = data?.filters ?? null;
   const logs = useMemo(() => data?.logs ?? [], [data]);
   const pagination = data?.pagination;
+  const totalRecords = pagination?.total;
 
   const entityTypeOptions = useMemo(
     () => buildSelectOptions(filters?.entityTypes),
@@ -294,11 +288,15 @@ export function ChangeLogPage() {
     [filters?.sources]
   );
 
-  const displayedPage = pagination?.page ?? page;
-  const displayedLimit = pagination?.limit ?? Number(limit);
-  const totalRecords = pagination?.total ?? 0;
-  const startIndex = logs.length ? (displayedPage - 1) * displayedLimit + 1 : 0;
-  const endIndex = logs.length ? startIndex + logs.length - 1 : 0;
+  useEffect(() => {
+    if (!totalRecords) {
+      return;
+    }
+
+    if (totalRecords !== Number(limit)) {
+      setLimit(totalRecords.toString());
+    }
+  }, [totalRecords, limit]);
 
   const emptyState = isLoading ? (
     <Group justify="center" py="lg">
@@ -317,9 +315,7 @@ export function ChangeLogPage() {
     setUserId('');
     setStartDate(null);
     setEndDate(null);
-    setLimit('25');
-    setControlsKey((value) => value + 1);
-    setPage(1);
+    setLimit(DEFAULT_LIMIT.toString());
   };
 
   const groupedLogs = useMemo(() => {
@@ -411,16 +407,88 @@ export function ChangeLogPage() {
   return (
     <Stack gap="lg">
       <Stack gap="md">
-        <Group justify="space-between" align="flex-start" wrap="wrap">
-          <StandardTableControls
-            key={controlsKey}
-            searchPlaceholder="Search logs (user, entity, field, metadata)"
-            onSearch={setSearch}
-            hideImport
-            hideExport
-            hideAddNew
-            expandSearch
-          />
+        <Group gap="sm" align="flex-end" justify="space-between" wrap="wrap">
+          <Group
+            gap="sm"
+            align="flex-end"
+            wrap="wrap"
+            style={{ flex: '1 1 720px' }}
+          >
+            <TextInput
+              label="Search"
+              placeholder="Search logs (user, entity, field, metadata)"
+              value={search}
+              onChange={(event) => setSearch(event.currentTarget.value)}
+              leftSection={<IconSearch size={16} />}
+              size="sm"
+              style={{ flex: '1 1 260px', minWidth: '220px' }}
+            />
+            <Select
+              label="Entity"
+              placeholder="All entity types"
+              data={entityTypeOptions}
+              value={entityType}
+              onChange={setEntityType}
+              clearable
+              searchable
+              size="sm"
+            />
+            <Select
+              label="Action"
+              placeholder="All actions"
+              data={actionOptions}
+              value={action}
+              onChange={setAction}
+              clearable
+              searchable
+              size="sm"
+            />
+            <Select
+              label="Source"
+              placeholder="All sources"
+              data={sourceOptions}
+              value={source}
+              onChange={setSource}
+              clearable
+              searchable
+              size="sm"
+            />
+            <TextInput
+              label="Entity ID"
+              placeholder="Filter by entity ID"
+              value={entityId}
+              onChange={(event) => setEntityId(event.currentTarget.value)}
+              size="sm"
+            />
+            <TextInput
+              label="User ID"
+              placeholder="Filter by user ID"
+              value={userId}
+              onChange={(event) => setUserId(event.currentTarget.value)}
+              size="sm"
+            />
+            <DateInput
+              label="Start date"
+              placeholder="Start"
+              value={startDate}
+              onChange={setStartDate}
+              clearable
+              size="sm"
+              valueFormat="MMM DD, YYYY"
+              {...COMMON_DATE_INPUT_PROPS}
+            />
+            <DateInput
+              label="End date"
+              placeholder="End"
+              value={endDate}
+              onChange={setEndDate}
+              clearable
+              size="sm"
+              valueFormat="MMM DD, YYYY"
+              minDate={startDate ?? undefined}
+              {...COMMON_DATE_INPUT_PROPS}
+            />
+          </Group>
           <Group gap="sm" align="center">
             {isFetching && !isLoading && <Loader size="sm" />}
             <Tooltip label="Refresh logs" withArrow>
@@ -443,74 +511,6 @@ export function ChangeLogPage() {
               Reset filters
             </Button>
           </Group>
-        </Group>
-
-        <Group gap="sm" wrap="wrap">
-          <Select
-            label="Entity"
-            placeholder="All entity types"
-            data={entityTypeOptions}
-            value={entityType}
-            onChange={setEntityType}
-            clearable
-            searchable
-            size="sm"
-          />
-          <Select
-            label="Action"
-            placeholder="All actions"
-            data={actionOptions}
-            value={action}
-            onChange={setAction}
-            clearable
-            searchable
-            size="sm"
-          />
-          <Select
-            label="Source"
-            placeholder="All sources"
-            data={sourceOptions}
-            value={source}
-            onChange={setSource}
-            clearable
-            searchable
-            size="sm"
-          />
-          <TextInput
-            label="Entity ID"
-            placeholder="Filter by entity ID"
-            value={entityId}
-            onChange={(event) => setEntityId(event.currentTarget.value)}
-            size="sm"
-          />
-          <TextInput
-            label="User ID"
-            placeholder="Filter by user ID"
-            value={userId}
-            onChange={(event) => setUserId(event.currentTarget.value)}
-            size="sm"
-          />
-          <DateInput
-            label="Start date"
-            placeholder="Start"
-            value={startDate}
-            onChange={setStartDate}
-            clearable
-            size="sm"
-            valueFormat="MMM DD, YYYY"
-            {...COMMON_DATE_INPUT_PROPS}
-          />
-          <DateInput
-            label="End date"
-            placeholder="End"
-            value={endDate}
-            onChange={setEndDate}
-            clearable
-            size="sm"
-            valueFormat="MMM DD, YYYY"
-            minDate={startDate ?? undefined}
-            {...COMMON_DATE_INPUT_PROPS}
-          />
         </Group>
       </Stack>
 
@@ -542,170 +542,232 @@ export function ChangeLogPage() {
             {emptyState}
           </Text>
         ) : (
-          <Accordion variant="separated" radius="md" multiple>
-            {groupedLogs.map((group) => (
-              <Accordion.Item key={group.key} value={group.key}>
-                <Accordion.Control>
-                  <Group justify="space-between" align="center">
-                    <Stack gap={4}>
-                      <Group gap="xs" align="center">
-                        <Text size="sm" fw={600}>
-                          {group.entityType}
-                        </Text>
-                        <Badge
-                          color="gray"
-                          variant="light"
-                          radius="sm"
-                          size="xs"
-                        >
-                          ID: {group.entityId}
-                        </Badge>
-                      </Group>
-                      {(group.customerName || group.productCode) && (
-                        <Group gap="sm" wrap="wrap">
-                          {group.customerName && (
-                            <Text size="xs" c="dimmed">
-                              Customer:{' '}
-                              <Text span inherit fw={500} c="dark">
-                                {group.customerName}
-                              </Text>
-                            </Text>
-                          )}
-                          {group.productCode && (
-                            <Text size="xs" c="dimmed">
-                              Product:{' '}
-                              <Text span inherit fw={500} c="dark">
-                                {group.productCode}
-                              </Text>
-                            </Text>
-                          )}
-                        </Group>
-                      )}
-                    </Stack>
-                    <Group gap="xs" align="center">
-                      <Text size="xs" c="dimmed">
-                        Latest: {formatTimestamp(group.latestCreatedAt)}
-                      </Text>
-                      <Badge color="blue" variant="light" radius="sm">
-                        {group.entries.length}
-                      </Badge>
-                    </Group>
-                  </Group>
-                </Accordion.Control>
-                <Accordion.Panel>
-                  <Box style={{ overflowX: 'auto' }}>
-                    <Table
-                      horizontalSpacing="md"
-                      verticalSpacing="sm"
-                      striped
-                      highlightOnHover
-                    >
-                      <Table.Thead>
-                        <Table.Tr>
-                          <Table.Th>TIMESTAMP</Table.Th>
-                          <Table.Th>USER</Table.Th>
-                          <Table.Th>SOURCE</Table.Th>
-                          <Table.Th>FIELD</Table.Th>
-                          <Table.Th>ACTION</Table.Th>
-                          <Table.Th>OLD VALUE</Table.Th>
-                          <Table.Th>NEW VALUE</Table.Th>
-                          <Table.Th>METADATA</Table.Th>
-                        </Table.Tr>
-                      </Table.Thead>
-                      <Table.Tbody>
-                        {[...group.entries]
-                          .sort(
-                            (a, b) =>
-                              new Date(b.createdAt).getTime() -
-                              new Date(a.createdAt).getTime()
-                          )
-                          .map((log) => {
-                            const actionColor =
-                              ACTION_COLOR_MAP[log.action.toLowerCase()] ??
-                              'gray';
+          <Paper
+            withBorder
+            radius="lg"
+            shadow="sm"
+            p={0}
+            style={{
+              height: '88vh',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+          >
+            <Box
+              px="lg"
+              py="sm"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: SUMMARY_GRID_TEMPLATE,
+                alignItems: 'center',
+                textTransform: 'uppercase',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                color: 'rgba(17, 24, 39, 0.6)',
+                letterSpacing: '0.05em',
+              }}
+            >
+              <Text fw={600} size="xs">
+                Details
+              </Text>
+              <Text fw={600} size="xs">
+                Date / Time
+              </Text>
+              <Text fw={600} size="xs">
+                User
+              </Text>
+              <Text fw={600} size="xs">
+                Changes
+              </Text>
+            </Box>
+            <Divider />
+            <Box style={{ flex: 1, overflowY: 'auto' }}>
+              <Accordion
+                multiple
+                radius="sm"
+                chevronPosition="right"
+                chevron={<IconChevronRight size={16} />}
+                disableChevronRotation
+                styles={(theme) => ({
+                  root: {
+                    backgroundColor: theme.white,
+                  },
+                  item: {
+                    border: 'none',
+                    borderRadius: 0,
+                    '& + &': {
+                      borderTop: `1px solid ${theme.colors.gray[3]}`,
+                    },
+                  },
+                  control: {
+                    padding: `${theme.spacing.sm} ${theme.spacing.lg}`,
+                    backgroundColor: theme.white,
+                    '&[data-active]': {
+                      backgroundColor: theme.colors.gray[0],
+                    },
+                  },
+                  chevron: {
+                    marginLeft: theme.spacing.md,
+                  },
+                  content: {
+                    padding: `${theme.spacing.sm} ${theme.spacing.lg} ${theme.spacing.lg}`,
+                    backgroundColor: theme.white,
+                  },
+                })}
+              >
+                {groupedLogs.map((group) => {
+                  const sortedEntries = [...group.entries].sort(
+                    (a, b) =>
+                      new Date(b.createdAt).getTime() -
+                      new Date(a.createdAt).getTime()
+                  );
+                  const latestDate = new Date(group.latestCreatedAt);
+                  const latestEntry = sortedEntries[0];
 
-                            return (
-                              <Table.Tr key={log.id}>
-                                <Table.Td>
-                                  <Text size="sm" fw={500} c="dark">
-                                    {formatTimestamp(log.createdAt)}
-                                  </Text>
-                                </Table.Td>
-                                <Table.Td>
-                                  <Stack gap={2}>
-                                    <Text size="sm" fw={500}>
-                                      {log.userName || 'System'}
-                                    </Text>
-                                    {log.userId && (
-                                      <Text size="xs" c="dimmed">
-                                        {log.userId}
-                                      </Text>
-                                    )}
-                                  </Stack>
-                                </Table.Td>
-                                <Table.Td>
-                                  <Text size="sm" c="dimmed">
-                                    {log.source || '—'}
-                                  </Text>
-                                </Table.Td>
-                                <Table.Td>
-                                  <Text size="sm" c="dark">
-                                    {log.field || '—'}
-                                  </Text>
-                                </Table.Td>
-                                <Table.Td>
-                                  <Badge
-                                    color={actionColor}
-                                    variant="light"
-                                    radius="sm"
-                                  >
-                                    {log.action.toUpperCase()}
-                                  </Badge>
-                                </Table.Td>
-                                <Table.Td>
-                                  <ValueCell value={log.oldValue} />
-                                </Table.Td>
-                                <Table.Td>
-                                  <ValueCell value={log.newValue} />
-                                </Table.Td>
-                                <Table.Td>
-                                  <ValueCell value={log.metadata} />
-                                </Table.Td>
+                  return (
+                    <Accordion.Item key={group.key} value={group.key}>
+                      <Accordion.Control>
+                        <Box
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: SUMMARY_GRID_TEMPLATE,
+                            alignItems: 'center',
+                            gap: 12,
+                            width: '100%',
+                          }}
+                        >
+                          <Stack gap={2}>
+                            <Text size="sm" fw={600} tt="capitalize">
+                              {group.entityType} · ID: {group.entityId}
+                            </Text>
+                            {group.customerName && (
+                              <Text size="xs" c="dimmed">
+                                Customer: {group.customerName}
+                              </Text>
+                            )}
+                            {group.productCode && (
+                              <Text size="xs" c="dimmed">
+                                Product: {group.productCode}
+                              </Text>
+                            )}
+                          </Stack>
+                          <Text fw={500}>
+                            {SUMMARY_DATE_FORMATTER.format(latestDate)} ·{' '}
+                            {SUMMARY_TIME_FORMATTER.format(latestDate)}
+                          </Text>
+                          <Stack gap={2}>
+                            <Text fw={500}>
+                              {latestEntry?.userName || 'System'}
+                            </Text>
+                            {latestEntry?.userId && (
+                              <Text size="xs" c="dimmed">
+                                {latestEntry.userId}
+                              </Text>
+                            )}
+                          </Stack>
+                          <Badge
+                            color="blue"
+                            variant="light"
+                            radius="xl"
+                            size="md"
+                            fw={600}
+                            tt="uppercase"
+                          >
+                            {group.entries.length} change
+                            {group.entries.length === 1 ? '' : 's'}
+                          </Badge>
+                        </Box>
+                      </Accordion.Control>
+                      <Accordion.Panel>
+                        <Divider mb="md" variant="dashed" />
+                        <Box style={{ overflowX: 'auto' }}>
+                          <Table
+                            horizontalSpacing="md"
+                            verticalSpacing="sm"
+                            striped
+                            highlightOnHover
+                          >
+                            <Table.Thead>
+                              <Table.Tr>
+                                <Table.Th>TIMESTAMP</Table.Th>
+                                <Table.Th>USER</Table.Th>
+                                <Table.Th>SOURCE</Table.Th>
+                                <Table.Th>FIELD</Table.Th>
+                                <Table.Th>ACTION</Table.Th>
+                                <Table.Th>OLD VALUE</Table.Th>
+                                <Table.Th>NEW VALUE</Table.Th>
+                                <Table.Th>METADATA</Table.Th>
                               </Table.Tr>
-                            );
-                          })}
-                      </Table.Tbody>
-                    </Table>
-                  </Box>
-                </Accordion.Panel>
-              </Accordion.Item>
-            ))}
-          </Accordion>
+                            </Table.Thead>
+                            <Table.Tbody>
+                              {sortedEntries.map((log) => {
+                                const actionColor =
+                                  ACTION_COLOR_MAP[log.action.toLowerCase()] ??
+                                  'gray';
+
+                                return (
+                                  <Table.Tr key={log.id}>
+                                    <Table.Td>
+                                      <Text size="sm" fw={500} c="dark">
+                                        {formatTimestamp(log.createdAt)}
+                                      </Text>
+                                    </Table.Td>
+                                    <Table.Td>
+                                      <Stack gap={2}>
+                                        <Text size="sm" fw={500}>
+                                          {log.userName || 'System'}
+                                        </Text>
+                                        {log.userId && (
+                                          <Text size="xs" c="dimmed">
+                                            {log.userId}
+                                          </Text>
+                                        )}
+                                      </Stack>
+                                    </Table.Td>
+                                    <Table.Td>
+                                      <Text size="sm" c="dimmed">
+                                        {log.source || '—'}
+                                      </Text>
+                                    </Table.Td>
+                                    <Table.Td>
+                                      <Text size="sm" c="dark">
+                                        {log.field || '—'}
+                                      </Text>
+                                    </Table.Td>
+                                    <Table.Td>
+                                      <Badge
+                                        color={actionColor}
+                                        variant="light"
+                                        radius="sm"
+                                      >
+                                        {log.action.toUpperCase()}
+                                      </Badge>
+                                    </Table.Td>
+                                    <Table.Td>
+                                      <ValueCell value={log.oldValue} />
+                                    </Table.Td>
+                                    <Table.Td>
+                                      <ValueCell value={log.newValue} />
+                                    </Table.Td>
+                                    <Table.Td>
+                                      <ValueCell value={log.metadata} />
+                                    </Table.Td>
+                                  </Table.Tr>
+                                );
+                              })}
+                            </Table.Tbody>
+                          </Table>
+                        </Box>
+                      </Accordion.Panel>
+                    </Accordion.Item>
+                  );
+                })}
+              </Accordion>
+            </Box>
+          </Paper>
         )}
       </StandardTableContainer>
-
-      <Group justify="space-between" align="center" wrap="wrap">
-        <Text size="sm" c="dimmed">
-          {totalRecords === 0
-            ? 'No records to display'
-            : `Showing ${startIndex.toLocaleString()}–${endIndex.toLocaleString()} of ${totalRecords.toLocaleString()} records`}
-        </Text>
-        <Group gap="sm" align="center">
-          <Select
-            value={limit}
-            data={ROWS_PER_PAGE_OPTIONS}
-            onChange={(value) => value && setLimit(value)}
-            size="sm"
-          />
-          <Pagination
-            value={page}
-            onChange={setPage}
-            total={Math.max(pagination?.pages ?? 1, 1)}
-            size="sm"
-            withEdges
-          />
-        </Group>
-      </Group>
     </Stack>
   );
 }
