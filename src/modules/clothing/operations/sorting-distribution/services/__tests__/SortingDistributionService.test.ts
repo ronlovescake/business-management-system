@@ -34,6 +34,7 @@ vi.mock('@/lib/logger', () => ({
   logger: {
     debug: vi.fn(),
     error: vi.fn(),
+    warn: vi.fn(),
   },
 }));
 
@@ -421,7 +422,7 @@ describe('SortingDistributionService', () => {
   // ==========================================================================
 
   describe('loadProducts', () => {
-    it('should load and filter sorting products', async () => {
+    it('should load and filter sorting products by default', async () => {
       const mockProducts: Product[] = [
         {
           'Product Code': 'PROD-001',
@@ -446,6 +447,29 @@ describe('SortingDistributionService', () => {
 
       expect(api.get).toHaveBeenCalledWith('/api/products');
       expect(result.productOptions).toEqual(['PROD-001']);
+      expect(result.allProducts).toEqual(mockProducts);
+    });
+
+    it('should include all products when includeAllProducts is true', async () => {
+      const mockProducts: Product[] = [
+        {
+          'Product Code': 'PROD-001',
+          'Shipment Status': 'Sorting',
+          Quantity: 100,
+        },
+        {
+          'Product Code': 'PROD-002',
+          'Shipment Status': 'Shipped',
+          Quantity: 50,
+        },
+      ];
+
+      vi.mocked(api.get).mockResolvedValue(mockProducts);
+
+      const result = await SortingDistributionService.loadProducts(true);
+
+      expect(api.get).toHaveBeenCalledWith('/api/products');
+      expect(result.productOptions).toEqual(['PROD-001', 'PROD-002']);
       expect(result.allProducts).toEqual(mockProducts);
     });
 

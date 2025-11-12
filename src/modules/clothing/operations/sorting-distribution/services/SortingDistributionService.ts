@@ -196,37 +196,67 @@ export class SortingDistributionService {
     allProducts: Product[];
   }> {
     try {
-      const products = await api.get<Product[]>('/api/products');
-      logger.debug('Loaded products:', products.length);
+      const rawProducts = await api.get<Product[] | Product | null | undefined>(
+        '/api/products'
+      );
+      const products = this.ensureArray<Product>(rawProducts);
 
-      // Filter products with "Sorting" shipment status unless override is enabled
+      if (products.length === 0) {
+        logger.warn('Products API returned no items');
+      } else {
+        logger.debug(
+          includeAllProducts
+            ? 'Loaded product records (all statuses):'
+            : 'Loaded product records (filtering to sorting status):',
+          products.length
+        );
+      }
+
       const filteredProducts = includeAllProducts
         ? products
         : products.filter(
-            (p) => p['Shipment Status'] === SORTING_SHIPMENT_STATUS
+            (product) => product['Shipment Status'] === SORTING_SHIPMENT_STATUS
           );
 
-      // Extract unique product codes
-      const productCodes = filteredProducts
-        .map((p) => p['Product Code'])
-        .filter((code): code is string => code !== null && code.trim() !== '');
+      const uniqueSortedProductCodes = Array.from(
+        new Set(
+          filteredProducts
+            .map((product) =>
+              typeof product['Product Code'] === 'string'
+                ? product['Product Code'].trim()
+                : ''
+            )
+            .filter((code) => code !== '')
+        )
+      ).sort((a, b) => a.localeCompare(b));
 
-      const uniqueCodes = Array.from(new Set(productCodes));
       logger.debug(
         includeAllProducts
           ? 'Unique product codes (all statuses):'
           : 'Unique sorting product codes:',
-        uniqueCodes.length
+        uniqueSortedProductCodes.length
       );
 
       return {
-        productOptions: uniqueCodes,
+        productOptions: uniqueSortedProductCodes,
         allProducts: products,
       };
     } catch (error) {
       logger.error('Error loading products:', error);
       return { productOptions: [], allProducts: [] };
     }
+  }
+
+  private static ensureArray<T>(value: unknown): T[] {
+    if (Array.isArray(value)) {
+      return value;
+    }
+
+    if (value === null || value === undefined) {
+      return [];
+    }
+
+    return [value as T];
   }
 
   /**
