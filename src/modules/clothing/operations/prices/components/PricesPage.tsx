@@ -666,7 +666,7 @@ export function PricesPage() {
             smoothScrollY={true}
             rowHeight={70}
             headerHeight={80}
-            rowMarkers="number"
+            rowMarkers="none"
             onCellClicked={onCellClicked}
             isDraggable={false}
             getCellsForSelection={true}

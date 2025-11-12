@@ -8,6 +8,56 @@ import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
 import { MAX_QUERY_LIMIT } from '@/constants/batch-sizes';
 
+const MONTH_NAMES = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+function formatDateValue(date: string | Date | null | undefined): string {
+  if (!date) {
+    return '';
+  }
+
+  if (date instanceof Date) {
+    const month = date.getUTCMonth();
+    const day = date.getUTCDate();
+    const year = date.getUTCFullYear();
+    return `${MONTH_NAMES[month]} ${day}, ${year}`;
+  }
+
+  const isoMatch = date.match(/^\d{4}-\d{2}-\d{2}$/);
+  if (isoMatch) {
+    const [year, month, day] = date.split('-');
+    const monthIndex = Number(month) - 1;
+    const dayNumber = Number(day);
+    if (
+      Number.isInteger(monthIndex) &&
+      monthIndex >= 0 &&
+      monthIndex < MONTH_NAMES.length &&
+      Number.isInteger(dayNumber)
+    ) {
+      return `${MONTH_NAMES[monthIndex]} ${dayNumber}, ${year}`;
+    }
+  }
+
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) {
+    return date;
+  }
+
+  return formatDateValue(parsed);
+}
+
 /**
  * Helper function to log operations notification directly to database
  * This is server-side only - cannot use the client-side service
@@ -48,8 +98,8 @@ function convertShipmentDBToData(shipment: ShipmentDB): ShipmentData {
     Weight: shipment.weight,
     Fee: shipment.fee,
     'Shipment Status': shipment.shipmentStatus,
-    'Date Created': shipment.dateCreated || '',
-    'Date Delivered': shipment.dateDelivered || '',
+    'Date Created': formatDateValue(shipment.dateCreated),
+    'Date Delivered': formatDateValue(shipment.dateDelivered),
     Duration: shipment.duration || '',
     Notes: shipment.notes || '',
   };

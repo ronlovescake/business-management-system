@@ -19,6 +19,8 @@
  * - Product cascade updates on shipment update
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Prisma } from '@prisma/client';
 import {
@@ -125,7 +127,7 @@ describe('Shipments API - /api/shipments', () => {
         Weight: 500.25,
         Fee: 5000,
         'Shipment Status': 'In Transit',
-        'Date Created': '2025-01-01',
+        'Date Created': 'Jan 1, 2025',
         'Date Delivered': '',
         Duration: '5 days',
         Notes: 'Test shipment',
@@ -167,7 +169,7 @@ describe('Shipments API - /api/shipments', () => {
         Weight: 350.5,
         Fee: 3500,
         'Shipment Status': 'Manila Port',
-        'Date Created': '2025-01-10',
+        'Date Created': 'Jan 10, 2025',
         'Date Delivered': '',
         Duration: '',
         Notes: 'Urgent delivery',

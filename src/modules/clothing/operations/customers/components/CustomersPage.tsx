@@ -671,7 +671,7 @@ export function CustomersPage() {
             smoothScrollY={true}
             rowHeight={70}
             headerHeight={80}
-            rowMarkers="number"
+            rowMarkers="none"
             isDraggable={false}
             onCellClicked={(cell: Item) => {
               const [col, row] = cell;

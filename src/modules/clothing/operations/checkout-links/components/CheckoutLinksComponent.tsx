@@ -24,6 +24,7 @@ import {
 import { useForm } from '@mantine/form';
 import { IconEdit, IconTrash } from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
+import Swal from 'sweetalert2';
 import { getActionLabel } from '@/lib/accessibility';
 import {
   StandardDataTable,
@@ -78,6 +79,16 @@ type ItemWeightFormValues = {
   bulkWeight: number | '';
 };
 
+type CheckoutLinkFormValues = {
+  weight: string;
+  width: string;
+  length: string;
+  height: string;
+  checkoutLinks: string;
+  productPortals: string;
+  productNames: string;
+};
+
 function mapItemWeightResponse(item: ItemWeightApiResponse): ItemWeightData {
   return {
     id: item.id,
@@ -101,6 +112,19 @@ export function CheckoutLinksComponent() {
   const [isItemWeightModalOpen, setIsItemWeightModalOpen] = useState(false);
   const [isItemWeightLoading, setIsItemWeightLoading] = useState(true);
   const [isItemWeightSubmitting, setIsItemWeightSubmitting] = useState(false);
+  const [isItemWeightEditModalOpen, setIsItemWeightEditModalOpen] =
+    useState(false);
+  const [editingItemWeight, setEditingItemWeight] =
+    useState<ItemWeightData | null>(null);
+  const [isItemWeightUpdating, setIsItemWeightUpdating] = useState(false);
+  const [pendingItemWeightDeleteId, setPendingItemWeightDeleteId] = useState<
+    string | null
+  >(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingCheckoutLink, setEditingCheckoutLink] =
+    useState<CheckoutLinkData | null>(null);
+  const [isSavingCheckoutLink, setIsSavingCheckoutLink] = useState(false);
 
   // Form for adding new item weight
   const itemWeightForm = useForm<ItemWeightFormValues>({
@@ -130,6 +154,58 @@ export function CheckoutLinksComponent() {
         }
         return null;
       },
+    },
+  });
+
+  const itemWeightEditForm = useForm<ItemWeightFormValues>({
+    initialValues: {
+      itemName: '',
+      bulkQuantity: '',
+      bulkWeight: '',
+    },
+    validate: {
+      itemName: (value) =>
+        value.trim().length === 0 ? 'Item name is required' : null,
+      bulkQuantity: (value) => {
+        if (value === '' || value === null) {
+          return 'Bulk quantity is required';
+        }
+        if (typeof value !== 'number' || Number.isNaN(value) || value <= 0) {
+          return 'Must be a positive number';
+        }
+        return null;
+      },
+      bulkWeight: (value) => {
+        if (value === '' || value === null) {
+          return 'Bulk weight is required';
+        }
+        if (typeof value !== 'number' || Number.isNaN(value) || value <= 0) {
+          return 'Must be a positive number';
+        }
+        return null;
+      },
+    },
+  });
+
+  const checkoutLinkForm = useForm<CheckoutLinkFormValues>({
+    initialValues: {
+      weight: '',
+      width: '',
+      length: '',
+      height: '',
+      checkoutLinks: '',
+      productPortals: '',
+      productNames: '',
+    },
+    validate: {
+      weight: (value) =>
+        value.trim().length === 0 ? 'Weight is required' : null,
+      width: (value) =>
+        value.trim().length === 0 ? 'Width is required' : null,
+      length: (value) =>
+        value.trim().length === 0 ? 'Length is required' : null,
+      height: (value) =>
+        value.trim().length === 0 ? 'Height is required' : null,
     },
   });
 
@@ -264,13 +340,182 @@ export function CheckoutLinksComponent() {
   }, [itemWeightData, searchQuery]);
 
   const handleEdit = (item: CheckoutLinkData) => {
-    // TODO: Implement edit functionality
-    void item;
+    setEditingCheckoutLink(item);
+    checkoutLinkForm.setValues({
+      weight: item.weight ?? '',
+      width: item.width ?? '',
+      length: item.length ?? '',
+      height: item.height ?? '',
+      checkoutLinks: item.checkoutLinks ?? '',
+      productPortals: item.productPortals ?? '',
+      productNames: item.productNames ?? '',
+    });
+    checkoutLinkForm.resetDirty();
+    setIsEditModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    // TODO: Implement delete functionality
-    void id;
+  const handleDelete = async (item: CheckoutLinkData): Promise<boolean> => {
+    const productName =
+      item.productNames || item.weight || 'this checkout link';
+
+    const firstConfirmation = await Swal.fire({
+      title: 'Delete checkout link?',
+      text: `Are you sure you want to delete ${productName}?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Continue',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#d33',
+      allowOutsideClick: false,
+    });
+
+    if (!firstConfirmation.isConfirmed) {
+      return false;
+    }
+
+    const secondConfirmation = await Swal.fire({
+      title: 'Confirm permanent deletion',
+      html: 'Type <strong>DELETE</strong> to confirm this removal.',
+      icon: 'error',
+      input: 'text',
+      inputPlaceholder: 'Type DELETE',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      confirmButtonText: 'Delete permanently',
+      cancelButtonText: 'Back',
+      allowOutsideClick: false,
+      inputValidator: (value) => {
+        if (value.trim().toUpperCase() !== 'DELETE') {
+          return 'Please type DELETE to confirm.';
+        }
+        return null;
+      },
+    });
+
+    if (!secondConfirmation.isConfirmed) {
+      return false;
+    }
+
+    setPendingDeleteId(item.id);
+    let wasDeleted = false;
+
+    try {
+      const response = await fetch(
+        `/api/checkout-links?id=${encodeURIComponent(item.id)}`,
+        { method: 'DELETE' }
+      );
+      const result: { success?: boolean; error?: string } = await response
+        .json()
+        .catch(() => ({}));
+
+      if (!response.ok || result.success !== true) {
+        throw new Error(result.error || 'Failed to delete checkout link');
+      }
+
+      setData((prev) => prev.filter((link) => link.id !== item.id));
+
+      showNotification({
+        title: 'Checkout link removed',
+        message: `${productName} was deleted successfully`,
+        color: 'green',
+      });
+      wasDeleted = true;
+    } catch (error) {
+      showNotification({
+        title: 'Deletion failed',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to delete checkout link',
+        color: 'red',
+      });
+      wasDeleted = false;
+    } finally {
+      setPendingDeleteId(null);
+    }
+
+    return wasDeleted;
+  };
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setEditingCheckoutLink(null);
+    checkoutLinkForm.reset();
+  };
+
+  const handleUpdateCheckoutLink = async (values: CheckoutLinkFormValues) => {
+    if (!editingCheckoutLink) {
+      return;
+    }
+
+    setIsSavingCheckoutLink(true);
+
+    try {
+      const payload = {
+        id: editingCheckoutLink.id,
+        weight: values.weight.trim(),
+        width: values.width.trim(),
+        length: values.length.trim(),
+        height: values.height.trim(),
+        checkoutLinks: values.checkoutLinks.trim() || null,
+        productPortals: values.productPortals.trim() || null,
+        productNames: values.productNames.trim() || null,
+      };
+
+      const response = await fetch('/api/checkout-links', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result?.success) {
+        throw new Error(
+          result?.error || 'Failed to update checkout link. Please retry.'
+        );
+      }
+
+      const updatedRecord = result.data as CheckoutLinkData;
+      const normalizedRecord: CheckoutLinkData = {
+        id: updatedRecord.id,
+        weight: updatedRecord.weight ?? '',
+        width: updatedRecord.width ?? '',
+        length: updatedRecord.length ?? '',
+        height: updatedRecord.height ?? '',
+        checkoutLinks: updatedRecord.checkoutLinks ?? '',
+        productPortals: updatedRecord.productPortals ?? '',
+        productNames: updatedRecord.productNames ?? '',
+      };
+      setData((prev) =>
+        prev.map((item) =>
+          item.id === normalizedRecord.id
+            ? { ...item, ...normalizedRecord }
+            : item
+        )
+      );
+
+      showNotification({
+        title: 'Checkout link updated',
+        message: `${normalizedRecord.productNames || normalizedRecord.weight} saved successfully`,
+        color: 'green',
+      });
+
+      closeEditModal();
+    } catch (error) {
+      showNotification({
+        title: 'Update failed',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to update checkout link',
+        color: 'red',
+      });
+    } finally {
+      setIsSavingCheckoutLink(false);
+    }
   };
 
   const handleImportCSV = (file: File | null) => {
@@ -603,6 +848,181 @@ export function CheckoutLinksComponent() {
     }
   };
 
+  const openItemWeightEditModal = (item: ItemWeightData) => {
+    setEditingItemWeight(item);
+    itemWeightEditForm.setValues({
+      itemName: item.itemName,
+      bulkQuantity: Number.parseFloat(item.bulkQuantity) || 0,
+      bulkWeight: Number.parseFloat(item.bulkWeight) || 0,
+    });
+    itemWeightEditForm.resetDirty();
+    setIsItemWeightEditModalOpen(true);
+  };
+
+  const closeItemWeightEditModal = () => {
+    setIsItemWeightEditModalOpen(false);
+    setEditingItemWeight(null);
+    itemWeightEditForm.reset();
+  };
+
+  const handleUpdateItemWeight = async (values: ItemWeightFormValues) => {
+    if (!editingItemWeight) {
+      return;
+    }
+
+    if (
+      typeof values.bulkQuantity !== 'number' ||
+      typeof values.bulkWeight !== 'number'
+    ) {
+      showNotification({
+        title: 'Invalid input',
+        message: 'Bulk quantity and weight must be valid numbers',
+        color: 'red',
+      });
+      return;
+    }
+
+    setIsItemWeightUpdating(true);
+
+    try {
+      const payload = {
+        id: editingItemWeight.id,
+        itemName: values.itemName.trim(),
+        bulkQuantity: values.bulkQuantity,
+        bulkWeight: values.bulkWeight,
+      };
+
+      const response = await fetch('/api/item-weights', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result?.data) {
+        throw new Error(
+          result?.error || 'Failed to update item weight. Please retry.'
+        );
+      }
+
+      const updatedItem = mapItemWeightResponse(
+        result.data as ItemWeightApiResponse
+      );
+
+      setItemWeightData((prev) =>
+        prev.map((item) => (item.id === updatedItem.id ? updatedItem : item))
+      );
+
+      showNotification({
+        title: 'Item weight updated',
+        message: `${updatedItem.itemName} saved successfully`,
+        color: 'green',
+      });
+
+      closeItemWeightEditModal();
+    } catch (error) {
+      showNotification({
+        title: 'Update failed',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to update item weight',
+        color: 'red',
+      });
+    } finally {
+      setIsItemWeightUpdating(false);
+    }
+  };
+
+  const handleDeleteItemWeight = async (
+    item: ItemWeightData
+  ): Promise<boolean> => {
+    const firstConfirmation = await Swal.fire({
+      title: 'Delete item weight?',
+      text: `Are you sure you want to delete ${item.itemName}?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Continue',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#d33',
+      allowOutsideClick: false,
+    });
+
+    if (!firstConfirmation.isConfirmed) {
+      return false;
+    }
+
+    const secondConfirmation = await Swal.fire({
+      title: 'Confirm permanent deletion',
+      html: 'Type <strong>DELETE</strong> to confirm this removal.',
+      icon: 'error',
+      input: 'text',
+      inputPlaceholder: 'Type DELETE',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      confirmButtonText: 'Delete permanently',
+      cancelButtonText: 'Back',
+      allowOutsideClick: false,
+      inputValidator: (value) => {
+        if (value.trim().toUpperCase() !== 'DELETE') {
+          return 'Please type DELETE to confirm.';
+        }
+        return null;
+      },
+    });
+
+    if (!secondConfirmation.isConfirmed) {
+      return false;
+    }
+
+    setPendingItemWeightDeleteId(item.id);
+    let wasDeleted = false;
+
+    try {
+      const response = await fetch(
+        `/api/item-weights?id=${encodeURIComponent(item.id)}`,
+        { method: 'DELETE' }
+      );
+      const result: { success?: boolean; error?: string } = await response
+        .json()
+        .catch(() => ({}));
+
+      if (!response.ok || result.success !== true) {
+        throw new Error(result.error || 'Failed to delete item weight');
+      }
+
+      setItemWeightData((prev) => prev.filter((entry) => entry.id !== item.id));
+
+      if (editingItemWeight?.id === item.id) {
+        closeItemWeightEditModal();
+      }
+
+      showNotification({
+        title: 'Item weight removed',
+        message: `${item.itemName} was deleted successfully`,
+        color: 'green',
+      });
+      wasDeleted = true;
+    } catch (error) {
+      showNotification({
+        title: 'Deletion failed',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to delete item weight',
+        color: 'red',
+      });
+      wasDeleted = false;
+    } finally {
+      setPendingItemWeightDeleteId(null);
+    }
+
+    return wasDeleted;
+  };
+
   return (
     <Stack gap="md">
       <Tabs value={activeTab} onChange={setActiveTab}>
@@ -773,23 +1193,6 @@ export function CheckoutLinksComponent() {
                             <IconEdit size={16} />
                           </ActionIcon>
                         </Tooltip>
-                        <Tooltip label="Delete">
-                          <ActionIcon
-                            color="red"
-                            variant="light"
-                            size="sm"
-                            onClick={() => {
-                              // TODO: Implement delete functionality
-                            }}
-                            {...getActionLabel(
-                              'Delete',
-                              'invoice record',
-                              row.customerName
-                            )}
-                          >
-                            <IconTrash size={16} />
-                          </ActionIcon>
-                        </Tooltip>
                       </Group>
                     </Table.Td>
                   </Table.Tr>
@@ -870,9 +1273,7 @@ export function CheckoutLinksComponent() {
                             color="blue"
                             variant="light"
                             size="sm"
-                            onClick={() => {
-                              // TODO: Implement edit functionality
-                            }}
+                            onClick={() => openItemWeightEditModal(row)}
                             {...getActionLabel(
                               'Edit',
                               'item weight',
@@ -888,8 +1289,9 @@ export function CheckoutLinksComponent() {
                             variant="light"
                             size="sm"
                             onClick={() => {
-                              // TODO: Implement delete functionality
+                              void handleDeleteItemWeight(row);
                             }}
+                            disabled={pendingItemWeightDeleteId === row.id}
                             {...getActionLabel(
                               'Delete',
                               'item weight',
@@ -1042,7 +1444,10 @@ export function CheckoutLinksComponent() {
                             color="red"
                             variant="light"
                             size="sm"
-                            onClick={() => handleDelete(row.id)}
+                            onClick={() => {
+                              void handleDelete(row);
+                            }}
+                            disabled={pendingDeleteId === row.id}
                             {...getActionLabel(
                               'Delete',
                               'checkout link',
@@ -1120,6 +1525,141 @@ export function CheckoutLinksComponent() {
               </Button>
               <Button type="submit" loading={isItemWeightSubmitting}>
                 Add Item Weight
+              </Button>
+            </Group>
+          </Stack>
+        </form>
+      </Modal>
+
+      <Modal
+        opened={isItemWeightEditModalOpen}
+        onClose={closeItemWeightEditModal}
+        title="Edit Item Weight"
+        centered
+      >
+        <form onSubmit={itemWeightEditForm.onSubmit(handleUpdateItemWeight)}>
+          <Stack gap="md">
+            <TextInput
+              label="Item Name"
+              placeholder="Enter item name"
+              required
+              disabled={isItemWeightUpdating}
+              {...itemWeightEditForm.getInputProps('itemName')}
+            />
+
+            <NumberInput
+              label="Bulk Quantity"
+              placeholder="Enter bulk quantity"
+              required
+              min={0}
+              decimalScale={2}
+              disabled={isItemWeightUpdating}
+              {...itemWeightEditForm.getInputProps('bulkQuantity')}
+            />
+
+            <NumberInput
+              label="Bulk Weight"
+              placeholder="Enter bulk weight"
+              required
+              min={0}
+              decimalScale={2}
+              disabled={isItemWeightUpdating}
+              {...itemWeightEditForm.getInputProps('bulkWeight')}
+            />
+
+            <Text size="sm" c="dimmed">
+              Approximate weight per piece updates automatically based on the
+              bulk values.
+            </Text>
+
+            <Group justify="flex-end" mt="md">
+              <Button
+                variant="subtle"
+                type="button"
+                onClick={closeItemWeightEditModal}
+                disabled={isItemWeightUpdating}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" loading={isItemWeightUpdating}>
+                Save changes
+              </Button>
+            </Group>
+          </Stack>
+        </form>
+      </Modal>
+
+      <Modal
+        opened={isEditModalOpen}
+        onClose={closeEditModal}
+        title="Edit Checkout Link"
+        size="lg"
+        centered
+      >
+        <form onSubmit={checkoutLinkForm.onSubmit(handleUpdateCheckoutLink)}>
+          <Stack gap="md">
+            <Group grow>
+              <TextInput
+                label="Weight"
+                placeholder="e.g. 1kg"
+                required
+                disabled={isSavingCheckoutLink}
+                {...checkoutLinkForm.getInputProps('weight')}
+              />
+              <TextInput
+                label="Width"
+                placeholder="e.g. 10cm"
+                required
+                disabled={isSavingCheckoutLink}
+                {...checkoutLinkForm.getInputProps('width')}
+              />
+            </Group>
+            <Group grow>
+              <TextInput
+                label="Length"
+                placeholder="e.g. 15cm"
+                required
+                disabled={isSavingCheckoutLink}
+                {...checkoutLinkForm.getInputProps('length')}
+              />
+              <TextInput
+                label="Height"
+                placeholder="e.g. 5cm"
+                required
+                disabled={isSavingCheckoutLink}
+                {...checkoutLinkForm.getInputProps('height')}
+              />
+            </Group>
+            <TextInput
+              label="Checkout Links"
+              placeholder="https://..."
+              disabled={isSavingCheckoutLink}
+              {...checkoutLinkForm.getInputProps('checkoutLinks')}
+            />
+            <TextInput
+              label="Product Portals"
+              placeholder="https://..."
+              disabled={isSavingCheckoutLink}
+              {...checkoutLinkForm.getInputProps('productPortals')}
+            />
+            <TextInput
+              label="Product Names"
+              placeholder="Enter product names"
+              disabled={isSavingCheckoutLink}
+              {...checkoutLinkForm.getInputProps('productNames')}
+            />
+
+            <Group justify="flex-end" mt="md">
+              <Button
+                variant="subtle"
+                type="button"
+                onClick={closeEditModal}
+                disabled={isSavingCheckoutLink}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" loading={isSavingCheckoutLink}>
+                Save changes
               </Button>
             </Group>
           </Stack>

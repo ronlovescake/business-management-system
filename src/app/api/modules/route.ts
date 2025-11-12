@@ -118,7 +118,7 @@ const APP_MODULES = [
   },
   {
     name: 'clothing-operations-checkout-links',
-    displayName: 'Checkout Links',
+    displayName: 'Invoicing',
     path: '/clothing/operations/checkout-links',
     category: 'clothing',
     icon: 'IconLink',

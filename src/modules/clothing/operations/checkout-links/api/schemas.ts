@@ -32,6 +32,16 @@ export const CreateItemWeightSchema = z.object({
   bulkWeight: z.number().positive(),
 });
 
+export const UpdateItemWeightSchema = z
+  .object({
+    itemName: z.string().min(1).optional(),
+    bulkQuantity: z.number().positive().optional(),
+    bulkWeight: z.number().positive().optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'At least one field must be provided to update',
+  });
+
 export const ItemWeightsQuerySchema = z.object({
   search: z.string().optional(),
   limit: z.number().int().positive().optional(),
@@ -49,4 +59,5 @@ export type UpdateCheckoutLinksInput = z.infer<
 >;
 export type CheckoutLinksQuery = z.infer<typeof CheckoutLinksQuerySchema>;
 export type CreateItemWeightInput = z.infer<typeof CreateItemWeightSchema>;
+export type UpdateItemWeightInput = z.infer<typeof UpdateItemWeightSchema>;
 export type ItemWeightsQuery = z.infer<typeof ItemWeightsQuerySchema>;

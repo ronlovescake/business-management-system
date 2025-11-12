@@ -67,9 +67,31 @@ export function useShipmentsData() {
   // DATA TABLE INTEGRATION
   // ==========================================================================
 
+  const sortedShipments = useMemo(() => {
+    return [...shipments].sort((a, b) => {
+      const codeA = (a['Shipment Code'] ?? '').toString();
+      const codeB = (b['Shipment Code'] ?? '').toString();
+
+      if (!codeA && !codeB) {
+        return 0;
+      }
+      if (!codeA) {
+        return 1;
+      }
+      if (!codeB) {
+        return -1;
+      }
+
+      return codeB.localeCompare(codeA, undefined, {
+        numeric: true,
+        sensitivity: 'base',
+      });
+    });
+  }, [shipments]);
+
   const { searchQuery, filteredData, handleSearch, getCellContent } =
     useDataTable({
-      data: shipments,
+      data: sortedShipments,
       searchFields: SEARCH_FIELDS,
     });
 
@@ -115,9 +137,16 @@ export function useShipmentsData() {
         Weight: formData.weight,
         Fee: formData.fee,
         'Shipment Status': formData.shipmentStatus,
-        'Date Created': formData.dateCreated?.toISOString() || '',
-        'Date Delivered': formData.dateDelivered?.toISOString() || '',
-        Duration: '', // Will be calculated after refetch
+        'Date Created': formData.dateCreated
+          ? ShipmentService.formatDateForDisplay(formData.dateCreated)
+          : '',
+        'Date Delivered': formData.dateDelivered
+          ? ShipmentService.formatDateForDisplay(formData.dateDelivered)
+          : '',
+        Duration: ShipmentService.calculateDuration(
+          formData.dateCreated,
+          formData.dateDelivered
+        ),
         Notes: formData.notes,
       } as ShipmentData;
 
@@ -186,9 +215,33 @@ export function useShipmentsData() {
       if (previousShipments) {
         queryClient.setQueryData<ShipmentData[]>(
           queryKeys.shipments.lists(),
-          previousShipments.map((s) =>
-            s.id === id ? { ...s, ...formData } : s
-          )
+          previousShipments.map((s) => {
+            if (s.id !== id) {
+              return s;
+            }
+
+            return {
+              ...s,
+              'Shipment Code': formData.shipmentCode,
+              'CV Number': formData.cvNumber,
+              'No. Of Sacks': formData.noOfSacks,
+              'Total CBM': formData.totalCBM,
+              Weight: formData.weight,
+              Fee: formData.fee,
+              'Shipment Status': formData.shipmentStatus,
+              'Date Created': formData.dateCreated
+                ? ShipmentService.formatDateForDisplay(formData.dateCreated)
+                : '',
+              'Date Delivered': formData.dateDelivered
+                ? ShipmentService.formatDateForDisplay(formData.dateDelivered)
+                : '',
+              Duration: ShipmentService.calculateDuration(
+                formData.dateCreated,
+                formData.dateDelivered
+              ),
+              Notes: formData.notes,
+            } as ShipmentData;
+          })
         );
       }
 
@@ -307,7 +360,7 @@ export function useShipmentsData() {
 
   return {
     // Data
-    shipments,
+    shipments: sortedShipments,
     filteredData,
     loading,
 

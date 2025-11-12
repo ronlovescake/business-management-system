@@ -179,6 +179,17 @@ export class ShipmentService {
     return `${monthNames[month]} ${day}, ${year}`;
   }
 
+  /**
+   * Format date for API submission (YYYY-MM-DD without timezone shifts)
+   */
+  static formatDateForApi(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+  }
+
   // ==========================================================================
   // DATA PARSING
   // ==========================================================================
@@ -343,10 +354,15 @@ export class ShipmentService {
     };
 
     // Send to API
-    const createdShipment = await api.post<ShipmentData>(
-      '/api/shipments',
-      newShipment
-    );
+    const createdShipment = await api.post<ShipmentData>('/api/shipments', {
+      ...newShipment,
+      'Date Created': formData.dateCreated
+        ? this.formatDateForApi(formData.dateCreated)
+        : '',
+      'Date Delivered': formData.dateDelivered
+        ? this.formatDateForApi(formData.dateDelivered)
+        : '',
+    });
 
     // Show success notification
     showNotification({
@@ -398,7 +414,15 @@ export class ShipmentService {
     // Send to API
     const updatedShipmentFromAPI = await api.put<ShipmentData>(
       `/api/shipments/${id}`,
-      updatedShipment
+      {
+        ...updatedShipment,
+        'Date Created': formData.dateCreated
+          ? this.formatDateForApi(formData.dateCreated)
+          : '',
+        'Date Delivered': formData.dateDelivered
+          ? this.formatDateForApi(formData.dateDelivered)
+          : '',
+      }
     );
 
     // Show success notification

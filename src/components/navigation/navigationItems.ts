@@ -65,7 +65,7 @@ export function buildNavigationItems(
         order: 10,
       },
       {
-        label: 'Checkout Links',
+        label: 'Invoicing',
         path: `${basePath}/checkout-links`,
         icon: IconLink as IconComponent,
         order: 11,
