@@ -191,7 +191,7 @@ export class SortingDistributionService {
    * Load products from API
    * Filters by shipment status "Sorting"
    */
-  static async loadProducts(): Promise<{
+  static async loadProducts(includeAllProducts = false): Promise<{
     productOptions: string[];
     allProducts: Product[];
   }> {
@@ -199,18 +199,25 @@ export class SortingDistributionService {
       const products = await api.get<Product[]>('/api/products');
       logger.debug('Loaded products:', products.length);
 
-      // Filter products with "Sorting" shipment status
-      const sortingProducts = products.filter(
-        (p) => p['Shipment Status'] === SORTING_SHIPMENT_STATUS
-      );
+      // Filter products with "Sorting" shipment status unless override is enabled
+      const filteredProducts = includeAllProducts
+        ? products
+        : products.filter(
+            (p) => p['Shipment Status'] === SORTING_SHIPMENT_STATUS
+          );
 
       // Extract unique product codes
-      const productCodes = sortingProducts
+      const productCodes = filteredProducts
         .map((p) => p['Product Code'])
         .filter((code): code is string => code !== null && code.trim() !== '');
 
       const uniqueCodes = Array.from(new Set(productCodes));
-      logger.debug('Unique sorting product codes:', uniqueCodes.length);
+      logger.debug(
+        includeAllProducts
+          ? 'Unique product codes (all statuses):'
+          : 'Unique sorting product codes:',
+        uniqueCodes.length
+      );
 
       return {
         productOptions: uniqueCodes,

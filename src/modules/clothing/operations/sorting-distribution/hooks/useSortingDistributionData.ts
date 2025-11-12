@@ -21,10 +21,7 @@ import { logger } from '@/lib/logger';
 const cloneRows = (rows: DistributionRow[]): DistributionRow[] =>
   rows.map((row) => ({ ...row }));
 
-const areRowsEqual = (
-  a: DistributionRow[],
-  b: DistributionRow[]
-): boolean => {
+const areRowsEqual = (a: DistributionRow[], b: DistributionRow[]): boolean => {
   if (a.length !== b.length) {
     return false;
   }
@@ -81,6 +78,7 @@ export interface UseSortingDistributionDataProps {
   productCode: string;
   selectedQuantity: number | null;
   onSelectedQuantityChange: (quantity: number | null) => void;
+  includeAllProducts: boolean;
 }
 
 /**
@@ -90,6 +88,7 @@ export function useSortingDistributionData({
   productCode,
   selectedQuantity,
   onSelectedQuantityChange,
+  includeAllProducts,
 }: UseSortingDistributionDataProps): UseSortingDistributionDataReturn {
   const defaultRowsRef = useRef<DistributionRow[]>(
     SortingDistributionService.createDefaultRows()
@@ -122,14 +121,14 @@ export function useSortingDistributionData({
     const loadProducts = async () => {
       setIsLoading(true);
       const { productOptions: options, allProducts: products } =
-        await SortingDistributionService.loadProducts();
+        await SortingDistributionService.loadProducts(includeAllProducts);
       setProductOptions(options);
       setAllProducts(products);
       setIsLoading(false);
     };
 
     loadProducts();
-  }, []);
+  }, [includeAllProducts]);
 
   /**
    * Load transactions on mount
@@ -154,20 +153,26 @@ export function useSortingDistributionData({
       );
       logger.debug(`Unique quantities for ${productCode}:`, quantities);
       logger.debug(`Total transactions count:`, transactions.length);
-      
+
       // Log transactions for this product
       const matchingTransactions = transactions.filter(
         (t) => t['Product Code'] === productCode
       );
-      logger.debug(`Matching transactions for ${productCode}:`, matchingTransactions.length);
+      logger.debug(
+        `Matching transactions for ${productCode}:`,
+        matchingTransactions.length
+      );
       if (matchingTransactions.length > 0) {
         logger.debug(`Sample transaction:`, matchingTransactions[0]);
       } else {
         logger.warn(`No transactions found for product: ${productCode}`);
         // Log a few sample transactions to see the data structure
-        logger.debug(`Sample transactions (first 3):`, transactions.slice(0, 3));
+        logger.debug(
+          `Sample transactions (first 3):`,
+          transactions.slice(0, 3)
+        );
       }
-      
+
       setUniqueQuantities(quantities);
     } else {
       setUniqueQuantities([]);
@@ -198,19 +203,21 @@ export function useSortingDistributionData({
       setIsLoading(true);
       const { rows: loadedRows, selectedQuantity: savedQuantity } =
         await SortingDistributionService.loadDistributionData(code);
-      
+
       lastSavedRowsRef.current = cloneRows(loadedRows);
       lastSavedSelectedQuantityRef.current = savedQuantity ?? null;
 
-      const nonEmptyRows = loadedRows.filter(r => r.quantity > 0 || r.checked);
+      const nonEmptyRows = loadedRows.filter(
+        (r) => r.quantity > 0 || r.checked
+      );
       logger.info('✅ LOADED distribution data:', {
         productCode: code,
         totalRows: loadedRows.length,
         nonEmptyRows: nonEmptyRows.length,
         selectedQuantity: savedQuantity,
-        sampleRows: nonEmptyRows.slice(0, 3)
+        sampleRows: nonEmptyRows.slice(0, 3),
       });
-      
+
       setRows(loadedRows);
       onSelectedQuantityChange(savedQuantity);
       setIsLoading(false);
@@ -231,7 +238,7 @@ export function useSortingDistributionData({
   const statistics = useMemo<SortingDistributionStatistics>(() => {
     logger.debug('Calculating statistics for product:', productCode);
     logger.debug('Transactions available:', transactions.length);
-    
+
     const totalReservation = productCode
       ? SortingDistributionService.getTotalReservation(
           productCode,

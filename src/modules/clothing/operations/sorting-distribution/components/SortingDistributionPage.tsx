@@ -330,6 +330,7 @@ export function SortingDistributionPage() {
 
   // Form state
   const [selectedQuantity, setSelectedQuantity] = useState<number | null>(null);
+  const [includeAllProducts, setIncludeAllProducts] = useState(false);
 
   // State for product selection - restore from localStorage on mount
   const [productCode, setProductCode] = useState<string>(() => {
@@ -344,6 +345,7 @@ export function SortingDistributionPage() {
     productCode,
     selectedQuantity,
     onSelectedQuantityChange: setSelectedQuantity,
+    includeAllProducts,
   });
 
   const { totalDistribution, availableStock } = dataHook.statistics;
@@ -736,6 +738,8 @@ export function SortingDistributionPage() {
           productSelectRef={productSelectRef}
           onItemChange={handleItemChange}
           customerNotes={customerNotes}
+          includeAllProducts={includeAllProducts}
+          onToggleIncludeAllProducts={setIncludeAllProducts}
         />
 
         {/* Distribution Grid with Handsontable */}

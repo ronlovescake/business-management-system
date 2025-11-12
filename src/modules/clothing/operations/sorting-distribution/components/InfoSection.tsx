@@ -15,6 +15,7 @@ import {
   Alert,
   Popover,
   Box,
+  Switch,
 } from '@mantine/core';
 import Swal from 'sweetalert2';
 import type { SortingDistributionStatistics } from '../types/sortingDistribution.types';
@@ -43,6 +44,10 @@ export interface InfoSectionProps {
 
   // Customer notes
   customerNotes: CustomerNote[];
+
+  // Controls
+  includeAllProducts: boolean;
+  onToggleIncludeAllProducts: (value: boolean) => void;
 }
 
 export interface CustomerNote {
@@ -66,6 +71,8 @@ export function InfoSection({
   productSelectRef,
   onItemChange,
   customerNotes,
+  includeAllProducts,
+  onToggleIncludeAllProducts,
 }: InfoSectionProps) {
   const SELECT_WIDTH_PX = 500;
   const ITEM_HEIGHT_PX = 36;
@@ -255,6 +262,18 @@ export function InfoSection({
           wrap="wrap"
           style={{ alignSelf: 'stretch', flex: '1 1 auto' }}
         >
+          <Switch
+            label="Show all products"
+            size="md"
+            checked={includeAllProducts}
+            onChange={(event) =>
+              onToggleIncludeAllProducts(event.currentTarget.checked)
+            }
+            style={{
+              alignSelf: 'flex-end',
+              minWidth: 'fit-content',
+            }}
+          />
           <Stack
             gap={6}
             style={{
