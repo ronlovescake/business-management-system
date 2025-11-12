@@ -33,6 +33,7 @@ import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 import {
   useChangeLogQuery,
   type ChangeLogFiltersResponse,
+  type ChangeLogRecord,
 } from '../hooks/useChangeLogQuery';
 
 const ROWS_PER_PAGE_OPTIONS = [
@@ -54,6 +55,91 @@ const TIMESTAMP_FORMATTER = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
   timeStyle: 'short',
 });
+
+const CUSTOMER_METADATA_KEYS = [
+  'customerName',
+  'customer',
+  'customerFullName',
+  'customer_full_name',
+  'customerDisplayName',
+  'customer_name',
+];
+
+const PRODUCT_METADATA_KEYS = [
+  'productCode',
+  'product_code',
+  'sku',
+  'itemCode',
+  'item_code',
+];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function normalizePrimitive(value: unknown): string | null {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  if (typeof value === 'number' || typeof value === 'bigint') {
+    return value.toString();
+  }
+
+  return null;
+}
+
+function extractFromObject(
+  record: Record<string, unknown>,
+  keys: string[],
+  depth = 0
+): string | null {
+  if (depth > 3) {
+    return null;
+  }
+
+  for (const key of keys) {
+    if (key in record) {
+      const value = record[key];
+      const normalized = normalizePrimitive(value);
+      if (normalized) {
+        return normalized;
+      }
+
+      if (isRecord(value)) {
+        const nested = extractFromObject(value, keys, depth + 1);
+        if (nested) {
+          return nested;
+        }
+      }
+    }
+  }
+
+  for (const value of Object.values(record)) {
+    if (isRecord(value)) {
+      const nested = extractFromObject(value, keys, depth + 1);
+      if (nested) {
+        return nested;
+      }
+    }
+  }
+
+  return null;
+}
+
+function resolveDetail(value: unknown, keys: string[]): string | null {
+  const direct = normalizePrimitive(value);
+  if (direct) {
+    return direct;
+  }
+
+  if (isRecord(value)) {
+    return extractFromObject(value, keys);
+  }
+
+  return null;
+}
 
 function formatTimestamp(value: string): string {
   const date = new Date(value);
@@ -243,8 +329,10 @@ export function ChangeLogPage() {
         key: string;
         entityType: string;
         entityId: string;
-        entries: typeof logs;
+        entries: ChangeLogRecord[];
         latestCreatedAt: string;
+        customerName?: string;
+        productCode?: string;
       }
     >();
 
@@ -252,21 +340,64 @@ export function ChangeLogPage() {
       const entityType = log.entityType || 'Unknown Entity';
       const entityId = log.entityId || '—';
       const key = `${entityType}::${entityId}`;
-      const existing = groups.get(key);
+      let groupRef = groups.get(key);
 
-      if (existing) {
-        existing.entries.push(log);
-        if (new Date(log.createdAt) > new Date(existing.latestCreatedAt)) {
-          existing.latestCreatedAt = log.createdAt;
+      if (groupRef) {
+        groupRef.entries.push(log);
+        if (new Date(log.createdAt) > new Date(groupRef.latestCreatedAt)) {
+          groupRef.latestCreatedAt = log.createdAt;
         }
       } else {
-        groups.set(key, {
+        groupRef = {
           key,
           entityType,
           entityId,
           entries: [log],
           latestCreatedAt: log.createdAt,
-        });
+        };
+        groups.set(key, groupRef);
+      }
+
+      if (groupRef.entityType.toLowerCase() === 'transaction') {
+        const metadataRecord = isRecord(log.metadata)
+          ? log.metadata
+          : undefined;
+        const fieldName = (log.field ?? '').toLowerCase();
+        const fieldIsCustomer = fieldName.includes('customer');
+        const fieldIsProduct =
+          fieldName.includes('product') ||
+          fieldName.includes('sku') ||
+          fieldName.includes('item');
+
+        if (!groupRef.customerName) {
+          const customerFromMetadata = metadataRecord
+            ? extractFromObject(metadataRecord, CUSTOMER_METADATA_KEYS)
+            : null;
+          const customerFromField = fieldIsCustomer
+            ? (resolveDetail(log.newValue, CUSTOMER_METADATA_KEYS) ??
+              resolveDetail(log.oldValue, CUSTOMER_METADATA_KEYS))
+            : null;
+
+          const candidate = customerFromMetadata ?? customerFromField;
+          if (candidate) {
+            groupRef.customerName = candidate;
+          }
+        }
+
+        if (!groupRef.productCode) {
+          const productFromMetadata = metadataRecord
+            ? extractFromObject(metadataRecord, PRODUCT_METADATA_KEYS)
+            : null;
+          const productFromField = fieldIsProduct
+            ? (resolveDetail(log.newValue, PRODUCT_METADATA_KEYS) ??
+              resolveDetail(log.oldValue, PRODUCT_METADATA_KEYS))
+            : null;
+
+          const candidate = productFromMetadata ?? productFromField;
+          if (candidate) {
+            groupRef.productCode = candidate;
+          }
+        }
       }
     }
 
@@ -416,13 +547,40 @@ export function ChangeLogPage() {
               <Accordion.Item key={group.key} value={group.key}>
                 <Accordion.Control>
                   <Group justify="space-between" align="center">
-                    <Stack gap={2}>
-                      <Text size="sm" fw={600}>
-                        {group.entityType}
-                      </Text>
-                      <Text size="xs" c="dimmed">
-                        ID: {group.entityId}
-                      </Text>
+                    <Stack gap={4}>
+                      <Group gap="xs" align="center">
+                        <Text size="sm" fw={600}>
+                          {group.entityType}
+                        </Text>
+                        <Badge
+                          color="gray"
+                          variant="light"
+                          radius="sm"
+                          size="xs"
+                        >
+                          ID: {group.entityId}
+                        </Badge>
+                      </Group>
+                      {(group.customerName || group.productCode) && (
+                        <Group gap="sm" wrap="wrap">
+                          {group.customerName && (
+                            <Text size="xs" c="dimmed">
+                              Customer:{' '}
+                              <Text span inherit fw={500} c="dark">
+                                {group.customerName}
+                              </Text>
+                            </Text>
+                          )}
+                          {group.productCode && (
+                            <Text size="xs" c="dimmed">
+                              Product:{' '}
+                              <Text span inherit fw={500} c="dark">
+                                {group.productCode}
+                              </Text>
+                            </Text>
+                          )}
+                        </Group>
+                      )}
                     </Stack>
                     <Group gap="xs" align="center">
                       <Text size="xs" c="dimmed">
