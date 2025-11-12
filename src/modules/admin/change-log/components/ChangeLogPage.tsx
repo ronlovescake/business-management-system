@@ -15,6 +15,8 @@ import {
   Pagination,
   ActionIcon,
   Table,
+  Accordion,
+  Box,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { useDebouncedValue } from '@mantine/hooks';
@@ -24,7 +26,6 @@ import {
   IconAlertCircle,
 } from '@tabler/icons-react';
 import {
-  StandardDataTable,
   StandardTableContainer,
   StandardTableControls,
 } from '@/components/tables/StandardDataTable';
@@ -38,18 +39,6 @@ const ROWS_PER_PAGE_OPTIONS = [
   { value: '25', label: '25 / page' },
   { value: '50', label: '50 / page' },
   { value: '100', label: '100 / page' },
-];
-
-const TABLE_HEADERS = [
-  'TIMESTAMP',
-  'USER',
-  'SOURCE',
-  'ENTITY',
-  'FIELD',
-  'ACTION',
-  'OLD VALUE',
-  'NEW VALUE',
-  'METADATA',
 ];
 
 const ACTION_COLOR_MAP: Record<string, string> = {
@@ -203,7 +192,7 @@ export function ChangeLogPage() {
   );
 
   const filters: ChangeLogFiltersResponse | null = data?.filters ?? null;
-  const logs = data?.logs ?? [];
+  const logs = useMemo(() => data?.logs ?? [], [data]);
   const pagination = data?.pagination;
 
   const entityTypeOptions = useMemo(
@@ -247,67 +236,46 @@ export function ChangeLogPage() {
     setPage(1);
   };
 
-  const rows = logs.map((log) => {
-    const actionColor = ACTION_COLOR_MAP[log.action.toLowerCase()] ?? 'gray';
+  const groupedLogs = useMemo(() => {
+    const groups = new Map<
+      string,
+      {
+        key: string;
+        entityType: string;
+        entityId: string;
+        entries: typeof logs;
+        latestCreatedAt: string;
+      }
+    >();
 
-    return (
-      <Table.Tr key={log.id}>
-        <Table.Td>
-          <Text size="sm" fw={500} c="dark">
-            {formatTimestamp(log.createdAt)}
-          </Text>
-        </Table.Td>
-        <Table.Td>
-          <Stack gap={2}>
-            <Text size="sm" fw={500}>
-              {log.userName || 'System'}
-            </Text>
-            {log.userId && (
-              <Text size="xs" c="dimmed">
-                {log.userId}
-              </Text>
-            )}
-          </Stack>
-        </Table.Td>
-        <Table.Td>
-          <Text size="sm" c="dimmed">
-            {log.source || '—'}
-          </Text>
-        </Table.Td>
-        <Table.Td>
-          <Stack gap={2}>
-            <Text size="sm" fw={500}>
-              {log.entityType}
-            </Text>
-            {log.entityId && (
-              <Text size="xs" c="dimmed">
-                {log.entityId}
-              </Text>
-            )}
-          </Stack>
-        </Table.Td>
-        <Table.Td>
-          <Text size="sm" c="dark">
-            {log.field || '—'}
-          </Text>
-        </Table.Td>
-        <Table.Td>
-          <Badge color={actionColor} variant="light" radius="sm">
-            {log.action.toUpperCase()}
-          </Badge>
-        </Table.Td>
-        <Table.Td>
-          <ValueCell value={log.oldValue} />
-        </Table.Td>
-        <Table.Td>
-          <ValueCell value={log.newValue} />
-        </Table.Td>
-        <Table.Td>
-          <ValueCell value={log.metadata} />
-        </Table.Td>
-      </Table.Tr>
+    for (const log of logs) {
+      const entityType = log.entityType || 'Unknown Entity';
+      const entityId = log.entityId || '—';
+      const key = `${entityType}::${entityId}`;
+      const existing = groups.get(key);
+
+      if (existing) {
+        existing.entries.push(log);
+        if (new Date(log.createdAt) > new Date(existing.latestCreatedAt)) {
+          existing.latestCreatedAt = log.createdAt;
+        }
+      } else {
+        groups.set(key, {
+          key,
+          entityType,
+          entityId,
+          entries: [log],
+          latestCreatedAt: log.createdAt,
+        });
+      }
+    }
+
+    return Array.from(groups.values()).sort(
+      (a, b) =>
+        new Date(b.latestCreatedAt).getTime() -
+        new Date(a.latestCreatedAt).getTime()
     );
-  });
+  }, [logs]);
 
   return (
     <Stack gap="lg">
@@ -434,13 +402,128 @@ export function ChangeLogPage() {
       )}
 
       <StandardTableContainer>
-        <StandardDataTable
-          headers={TABLE_HEADERS as unknown as string[]}
-          emptyState={emptyState}
-          colSpan={TABLE_HEADERS.length}
-        >
-          {isLoading ? null : rows}
-        </StandardDataTable>
+        {isLoading ? (
+          <Group justify="center" py="lg">
+            <Loader size="sm" />
+          </Group>
+        ) : logs.length === 0 ? (
+          <Text size="sm" c="dimmed" ta="center" py="lg">
+            {emptyState}
+          </Text>
+        ) : (
+          <Accordion variant="separated" radius="md" multiple>
+            {groupedLogs.map((group) => (
+              <Accordion.Item key={group.key} value={group.key}>
+                <Accordion.Control>
+                  <Group justify="space-between" align="center">
+                    <Stack gap={2}>
+                      <Text size="sm" fw={600}>
+                        {group.entityType}
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        ID: {group.entityId}
+                      </Text>
+                    </Stack>
+                    <Group gap="xs" align="center">
+                      <Text size="xs" c="dimmed">
+                        Latest: {formatTimestamp(group.latestCreatedAt)}
+                      </Text>
+                      <Badge color="blue" variant="light" radius="sm">
+                        {group.entries.length}
+                      </Badge>
+                    </Group>
+                  </Group>
+                </Accordion.Control>
+                <Accordion.Panel>
+                  <Box style={{ overflowX: 'auto' }}>
+                    <Table
+                      horizontalSpacing="md"
+                      verticalSpacing="sm"
+                      striped
+                      highlightOnHover
+                    >
+                      <Table.Thead>
+                        <Table.Tr>
+                          <Table.Th>TIMESTAMP</Table.Th>
+                          <Table.Th>USER</Table.Th>
+                          <Table.Th>SOURCE</Table.Th>
+                          <Table.Th>FIELD</Table.Th>
+                          <Table.Th>ACTION</Table.Th>
+                          <Table.Th>OLD VALUE</Table.Th>
+                          <Table.Th>NEW VALUE</Table.Th>
+                          <Table.Th>METADATA</Table.Th>
+                        </Table.Tr>
+                      </Table.Thead>
+                      <Table.Tbody>
+                        {[...group.entries]
+                          .sort(
+                            (a, b) =>
+                              new Date(b.createdAt).getTime() -
+                              new Date(a.createdAt).getTime()
+                          )
+                          .map((log) => {
+                            const actionColor =
+                              ACTION_COLOR_MAP[log.action.toLowerCase()] ??
+                              'gray';
+
+                            return (
+                              <Table.Tr key={log.id}>
+                                <Table.Td>
+                                  <Text size="sm" fw={500} c="dark">
+                                    {formatTimestamp(log.createdAt)}
+                                  </Text>
+                                </Table.Td>
+                                <Table.Td>
+                                  <Stack gap={2}>
+                                    <Text size="sm" fw={500}>
+                                      {log.userName || 'System'}
+                                    </Text>
+                                    {log.userId && (
+                                      <Text size="xs" c="dimmed">
+                                        {log.userId}
+                                      </Text>
+                                    )}
+                                  </Stack>
+                                </Table.Td>
+                                <Table.Td>
+                                  <Text size="sm" c="dimmed">
+                                    {log.source || '—'}
+                                  </Text>
+                                </Table.Td>
+                                <Table.Td>
+                                  <Text size="sm" c="dark">
+                                    {log.field || '—'}
+                                  </Text>
+                                </Table.Td>
+                                <Table.Td>
+                                  <Badge
+                                    color={actionColor}
+                                    variant="light"
+                                    radius="sm"
+                                  >
+                                    {log.action.toUpperCase()}
+                                  </Badge>
+                                </Table.Td>
+                                <Table.Td>
+                                  <ValueCell value={log.oldValue} />
+                                </Table.Td>
+                                <Table.Td>
+                                  <ValueCell value={log.newValue} />
+                                </Table.Td>
+                                <Table.Td>
+                                  <ValueCell value={log.metadata} />
+                                </Table.Td>
+                              </Table.Tr>
+                            );
+                          })}
+                      </Table.Tbody>
+                    </Table>
+                  </Box>
+                </Accordion.Panel>
+              </Accordion.Item>
+            ))}
+          </Accordion>
+        )}
       </StandardTableContainer>
 
       <Group justify="space-between" align="center" wrap="wrap">
