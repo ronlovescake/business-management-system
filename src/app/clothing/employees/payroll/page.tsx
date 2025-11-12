@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Stack, Text, Badge, Group, Box } from '@mantine/core';
+import { Stack, Text, Badge, Group, Box, Button } from '@mantine/core';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import {
   IconFileText,
@@ -12,6 +12,7 @@ import {
   IconTrash,
   IconCircleCheck,
   IconCash,
+  IconDownload,
 } from '@tabler/icons-react';
 import { usePayroll } from './hooks/usePayroll';
 // Direct imports for faster compilation (bypasses barrel export)
@@ -70,6 +71,8 @@ function PayrollContent() {
     totalNetPay,
     isFormOpen,
     editingPayroll,
+    isGeneratingPayroll,
+    isGeneratingPayslips,
     setSearchQuery,
     setStatusFilter,
     setPayPeriodFilter,
@@ -79,6 +82,7 @@ function PayrollContent() {
     getStatusColor,
     calculateTotals,
     handleAddPayroll,
+    handleGeneratePayslips,
     handleEditPayroll,
     handleDeletePayroll,
     handleSavePayroll,
@@ -530,6 +534,20 @@ function PayrollContent() {
           onExportCSV={handleExportCSV}
           onAdd={handleAddPayroll}
           addButtonLabel="Generate Payroll"
+          extraButtons={
+            <Button
+              leftSection={<IconDownload size={16} />}
+              size="sm"
+              radius="sm"
+              variant="outline"
+              color="blue"
+              onClick={handleGeneratePayslips}
+              loading={isGeneratingPayslips}
+              disabled={isGeneratingPayroll}
+            >
+              Generate Payslips
+            </Button>
+          }
         />
 
         {/* Payroll Table */}

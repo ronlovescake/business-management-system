@@ -51,6 +51,7 @@ interface PageControlsProps {
   onAdd?: () => void;
   addButtonLabel?: string;
   isImporting?: boolean;
+  extraButtons?: ReactNode;
   // Custom content for specific tabs
   children?: ReactNode;
 }
@@ -99,6 +100,7 @@ export function PageControls({
   onAdd,
   addButtonLabel = 'Add',
   isImporting = false,
+  extraButtons,
   children,
 }: PageControlsProps) {
   useCtrlFFocus(
@@ -167,6 +169,7 @@ export function PageControls({
           {addButtonLabel}
         </Button>
       )}
+      {extraButtons}
     </Group>
   );
 

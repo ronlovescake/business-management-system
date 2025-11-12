@@ -34,6 +34,7 @@ export function usePayroll() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingPayroll, setEditingPayroll] = useState<Payroll | null>(null);
   const [isGeneratingPayroll, setIsGeneratingPayroll] = useState(false);
+  const [isGeneratingPayslips, setIsGeneratingPayslips] = useState(false);
   const [isSyncingLwop, setIsSyncingLwop] = useState(false);
 
   // Filters for cache key
@@ -284,6 +285,32 @@ export function usePayroll() {
     }
   };
 
+  const parsePayPeriodLabel = useCallback((label: string) => {
+    if (!label) {
+      return null;
+    }
+
+    const separator = label.includes(' to ')
+      ? ' to '
+      : label.includes(' - ')
+        ? ' - '
+        : null;
+
+    if (!separator) {
+      return null;
+    }
+
+    const [startRaw, endRaw] = label.split(separator);
+    const start = startRaw?.trim();
+    const end = endRaw?.trim();
+
+    if (!start || !end) {
+      return null;
+    }
+
+    return { start, end };
+  }, []);
+
   // Calculate totals from form data
   const calculateTotals = (formData: PayrollFormData) => {
     const basicSalary = parseFloat(formData.basicSalary) || 0;
@@ -317,6 +344,107 @@ export function usePayroll() {
       netPay: Math.max(0, netPay), // Ensure net pay is not negative
     };
   };
+
+  const generatePayslipsForPeriod = useCallback(
+    async ({
+      periodStart,
+      periodEnd,
+      payPeriodLabel,
+    }: {
+      periodStart: string;
+      periodEnd: string;
+      payPeriodLabel: string;
+    }) => {
+      if (!periodStart || !periodEnd) {
+        return {
+          success: false,
+          error: 'Missing pay period details for payslip generation.',
+        } as const;
+      }
+
+      if (isGeneratingPayslips) {
+        return {
+          success: false,
+          error: 'Payslip generation is already in progress.',
+        } as const;
+      }
+
+      setIsGeneratingPayslips(true);
+
+      try {
+        const response = await fetch('/api/payroll/generate-payslips', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            periodStart,
+            periodEnd,
+            payPeriodLabel,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = (await response.json().catch(() => null)) as {
+            error?: string;
+          } | null;
+          const message = errorData?.error || 'Failed to generate payslips.';
+          return {
+            success: false,
+            error: message,
+          } as const;
+        }
+
+        if (typeof window === 'undefined') {
+          return {
+            success: false,
+            error: 'Payslip download is only available in the browser.',
+          } as const;
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const contentDisposition = response.headers.get('Content-Disposition');
+
+        let filename = `payslips-${periodEnd.replace(/[^0-9]/g, '') || 'export'}.zip`;
+
+        if (contentDisposition) {
+          const filenameMatch = contentDisposition.match(
+            /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/
+          );
+          if (filenameMatch && filenameMatch[1]) {
+            filename = decodeURIComponent(
+              filenameMatch[1].replace(/['"]/g, '')
+            );
+          }
+        }
+
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        return {
+          success: true,
+        } as const;
+      } catch (error) {
+        logger.error('Error generating payslips:', error);
+        return {
+          success: false,
+          error:
+            error instanceof Error && error.message
+              ? error.message
+              : 'Failed to download payslips. Please try again.',
+        } as const;
+      } finally {
+        setIsGeneratingPayslips(false);
+      }
+    },
+    [isGeneratingPayslips]
+  );
 
   // Delete mutation
   const deleteMutation = useMutation({
@@ -702,11 +830,44 @@ export function usePayroll() {
           ? normalized.message
           : `Successfully generated payroll for ${safeCount} employee${safeCount === 1 ? '' : 's'}.`;
 
+      let payslipResult: { success: boolean; error?: string } | null = null;
+      const periodInfo = (normalized.period ?? null) as {
+        start?: string;
+        end?: string;
+        label?: string;
+      } | null;
+
+      if (periodInfo?.start && periodInfo?.end) {
+        payslipResult = await generatePayslipsForPeriod({
+          periodStart: periodInfo.start,
+          periodEnd: periodInfo.end,
+          payPeriodLabel:
+            typeof periodInfo.label === 'string' && periodInfo.label.trim()
+              ? periodInfo.label
+              : `${periodInfo.start} to ${periodInfo.end}`,
+        });
+      }
+
+      const payslipSuccess = payslipResult?.success ?? false;
+      const infoMessage = payslipSuccess
+        ? `${message} Payslips downloaded successfully.`
+        : payslipResult
+          ? `${message} However, payslip generation failed. ${payslipResult.error ?? 'Please try again through the Generate Payslips button.'}`
+          : message;
+
       await Swal.fire({
-        title: 'Success!',
-        text: message,
-        icon: 'success',
-        confirmButtonColor: '#3085d6',
+        title: payslipSuccess
+          ? 'Success!'
+          : payslipResult
+            ? 'Payroll Generated'
+            : 'Success!',
+        text: infoMessage,
+        icon: payslipSuccess
+          ? 'success'
+          : payslipResult
+            ? 'warning'
+            : 'success',
+        confirmButtonColor: payslipSuccess ? '#3085d6' : '#f59e0b',
         confirmButtonText: 'OK',
         allowOutsideClick: false,
       });
@@ -728,6 +889,55 @@ export function usePayroll() {
     } finally {
       setIsGeneratingPayroll(false);
     }
+  };
+
+  const handleGeneratePayslips = async () => {
+    if (isGeneratingPayslips) {
+      return;
+    }
+
+    if (payPeriodFilter === 'all') {
+      await Swal.fire({
+        title: 'Select Pay Period',
+        text: 'Please choose a specific pay period filter before generating payslips.',
+        icon: 'info',
+        confirmButtonColor: '#3085d6',
+        confirmButtonText: 'OK',
+        allowOutsideClick: false,
+      });
+      return;
+    }
+
+    const parsed = parsePayPeriodLabel(payPeriodFilter);
+
+    if (!parsed) {
+      await Swal.fire({
+        title: 'Invalid Pay Period',
+        text: 'Unable to determine the selected pay period. Please try again.',
+        icon: 'error',
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'OK',
+        allowOutsideClick: false,
+      });
+      return;
+    }
+
+    const result = await generatePayslipsForPeriod({
+      periodStart: parsed.start,
+      periodEnd: parsed.end,
+      payPeriodLabel: payPeriodFilter,
+    });
+
+    await Swal.fire({
+      title: result.success ? 'Payslips Ready' : 'Failed to Generate Payslips',
+      text: result.success
+        ? `Payslips for ${payPeriodFilter} have been downloaded as a ZIP file.`
+        : (result.error ?? 'Please try again later.'),
+      icon: result.success ? 'success' : 'error',
+      confirmButtonColor: result.success ? '#3085d6' : '#d33',
+      confirmButtonText: 'OK',
+      allowOutsideClick: false,
+    });
   };
 
   const handleEditPayroll = (payroll: Payroll) => {
@@ -1220,6 +1430,7 @@ export function usePayroll() {
 
     // Event Handlers
     handleAddPayroll,
+    handleGeneratePayslips,
     handleEditPayroll,
     handleDeletePayroll,
     handleSavePayroll,
@@ -1231,6 +1442,8 @@ export function usePayroll() {
     getEmployeeMonthlyContributions,
 
     // Loading States
+    isGeneratingPayroll,
+    isGeneratingPayslips,
     isSyncingLwop,
   };
 }

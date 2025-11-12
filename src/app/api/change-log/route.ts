@@ -7,6 +7,8 @@ import {
 } from '@/core/change-log';
 import { getCurrentUser } from '@/lib/auth/session';
 
+export const dynamic = 'force-dynamic';
+
 function parseNumber(value: string | null, fallback: number): number {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) {
