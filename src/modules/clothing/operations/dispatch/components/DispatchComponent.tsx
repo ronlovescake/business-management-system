@@ -394,11 +394,39 @@ export function DispatchComponent() {
 
     // Apply search filter
     if (!searchQuery.trim()) {
+      // Sort by Ship Time descending for Recently Updated Orders tab
+      if (activeTab === 'recently-updated') {
+        return filtered.sort((a, b) => {
+          const aOrder = effectiveRawData.find(
+            (row) => String(row['Order ID'] || '') === a.id
+          );
+          const bOrder = effectiveRawData.find(
+            (row) => String(row['Order ID'] || '') === b.id
+          );
+
+          const aTime = aOrder?.['Ship Time'];
+          const bTime = bOrder?.['Ship Time'];
+
+          if (!aTime || !bTime) {
+            return 0;
+          }
+
+          const aDate = new Date(String(aTime));
+          const bDate = new Date(String(bTime));
+
+          if (isNaN(aDate.getTime()) || isNaN(bDate.getTime())) {
+            return 0;
+          }
+
+          // Descending order (newest first)
+          return bDate.getTime() - aDate.getTime();
+        });
+      }
       return filtered;
     }
 
     const query = searchQuery.toLowerCase();
-    return filtered.filter((item) => {
+    const searchFiltered = filtered.filter((item) => {
       return (
         item.orderStatus.toLowerCase().includes(query) ||
         item.shippingOptions.toLowerCase().includes(query) ||
@@ -407,6 +435,37 @@ export function DispatchComponent() {
         item.messageCustomer.toLowerCase().includes(query)
       );
     });
+
+    // Sort by Ship Time descending for Recently Updated Orders tab even after search
+    if (activeTab === 'recently-updated') {
+      return searchFiltered.sort((a, b) => {
+        const aOrder = effectiveRawData.find(
+          (row) => String(row['Order ID'] || '') === a.id
+        );
+        const bOrder = effectiveRawData.find(
+          (row) => String(row['Order ID'] || '') === b.id
+        );
+
+        const aTime = aOrder?.['Ship Time'];
+        const bTime = bOrder?.['Ship Time'];
+
+        if (!aTime || !bTime) {
+          return 0;
+        }
+
+        const aDate = new Date(String(aTime));
+        const bDate = new Date(String(bTime));
+
+        if (isNaN(aDate.getTime()) || isNaN(bDate.getTime())) {
+          return 0;
+        }
+
+        // Descending order (newest first)
+        return bDate.getTime() - aDate.getTime();
+      });
+    }
+
+    return searchFiltered;
   }, [
     mockData,
     searchQuery,
@@ -814,6 +873,7 @@ export function DispatchComponent() {
             Possible Match
           </Tabs.Tab>
           <Tabs.Tab value="checkout-update">Shipped</Tabs.Tab>
+          <Tabs.Tab value="recently-updated">Recently Updated Orders</Tabs.Tab>
           <Tabs.Tab value="raw-data">Raw Data</Tabs.Tab>
         </Tabs.List>
 
@@ -1495,6 +1555,118 @@ export function DispatchComponent() {
                             </ActionIcon>
                           </Tooltip>
                         </Group>
+                      </Table.Td>
+                    </Table.Tr>
+                  );
+                })}
+              </StandardDataTable>
+            </StandardTableContainer>
+          </Stack>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="recently-updated" pt="md">
+          <Stack gap="md">
+            {/* Table Controls */}
+            <StandardTableControls
+              searchPlaceholder="Search recently updated orders..."
+              onSearch={setSearchQuery}
+              onImport={handleXlsxImport}
+              onExport={handleExportCSV}
+              onAddNew={handleAddNew}
+              isImporting={isImportingRawData}
+              acceptFileTypes=".xlsx,.xls"
+            />
+
+            {/* Table Container */}
+            <StandardTableContainer
+              summary={
+                <Group justify="space-between">
+                  <Text size="sm" c="dimmed">
+                    Showing {filteredData.length} of{' '}
+                    {effectiveRawData.length > 0
+                      ? effectiveRawData.length
+                      : mockData.length}{' '}
+                    recently updated orders
+                  </Text>
+                </Group>
+              }
+            >
+              <StandardDataTable
+                headers={[
+                  'DATE UPDATED',
+                  'CUSTOMER NAME',
+                  'PRODUCT CODE',
+                  'QUANTITY',
+                ]}
+                emptyState={
+                  searchQuery
+                    ? `No orders found matching "${searchQuery}"`
+                    : 'No recently updated orders available. Import XLSX file or click "Add New" to create one.'
+                }
+                colSpan={4}
+              >
+                {filteredData.map((item) => {
+                  // Get the raw order data to access ship time
+                  const rawOrder = effectiveRawData.find(
+                    (row) => String(row['Order ID'] || '') === item.id
+                  );
+                  const rawShipTime = rawOrder?.['Ship Time'];
+                  let dateUpdated = '-';
+
+                  if (rawShipTime) {
+                    try {
+                      // Parse the ship time and format it
+                      const date = new Date(String(rawShipTime));
+                      if (!isNaN(date.getTime())) {
+                        dateUpdated = format(date, 'MMMM d, yyyy h:mm a');
+                      }
+                    } catch (error) {
+                      // If parsing fails, use the raw value
+                      dateUpdated = String(rawShipTime);
+                    }
+                  }
+
+                  return (
+                    <Table.Tr key={item.id}>
+                      <Table.Td style={{ textAlign: 'center' }}>
+                        {dateUpdated}
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'left' }}>
+                        {item.customerNames ? (
+                          <Group gap="xs">
+                            <Text
+                              onClick={() =>
+                                copyToClipboard(
+                                  item.customerNames,
+                                  'Customer name'
+                                )
+                              }
+                              style={{ cursor: 'pointer' }}
+                            >
+                              {item.customerNames}
+                            </Text>
+                            {lookupCustomerName(item.username) && (
+                              <Badge size="xs" color="green" variant="light">
+                                Matched
+                              </Badge>
+                            )}
+                          </Group>
+                        ) : (
+                          <Group gap="xs">
+                            <Text c="dimmed" fs="italic">
+                              No customer found
+                            </Text>
+                            <Badge size="xs" color="yellow" variant="light">
+                              No Match
+                            </Badge>
+                          </Group>
+                        )}
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'center' }}>
+                        {String(rawOrder?.['Product Code'] || '-')}
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'center' }}>
+                        {String(rawOrder?.['Quantity'] || '-')}
                       </Table.Td>
                     </Table.Tr>
                   );

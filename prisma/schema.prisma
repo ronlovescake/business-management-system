@@ -279,6 +279,26 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+model ChangeLog {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  userId     String?  @db.VarChar(100)
+  userName   String?  @db.VarChar(255)
+  entityType String   @db.VarChar(100)
+  entityId   String?  @db.VarChar(100)
+  action     String   @db.VarChar(50)
+  field      String?  @db.VarChar(255)
+  oldValue   Json?
+  newValue   Json?
+  source     String?  @db.VarChar(50)
+  metadata   Json?
+
+  @@index([createdAt])
+  @@index([entityType])
+  @@index([userId])
+  @@map("change_log")
+}
+
 model Expense {
   id           Int      @id @default(autoincrement())
   createdAt    DateTime @default(now())

@@ -9,3 +9,6 @@ export * from './api';
 
 // Database
 export * from './database';
+
+// Change Log
+export * from './change-log';

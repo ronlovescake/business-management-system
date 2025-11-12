@@ -12,6 +12,7 @@ import {
   IconBoxSeam,
   IconUsers,
   IconReceipt,
+  IconHistory,
 } from '@tabler/icons-react';
 import { moduleRegistry } from '@/modules';
 import type { IconComponent } from '@/core/ModuleRegistry';
@@ -82,6 +83,15 @@ export function buildNavigationItems(
         order: 13,
       }
     );
+  }
+
+  if (workspace === 'operations') {
+    additionalItems.push({
+      label: 'Change Log',
+      path: '/admin/change-log',
+      icon: IconHistory as IconComponent,
+      order: 13.5,
+    });
   }
 
   if (workspace === 'employees') {

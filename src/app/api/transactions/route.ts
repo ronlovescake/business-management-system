@@ -7,6 +7,12 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
 import { MAX_QUERY_LIMIT } from '@/constants/batch-sizes';
+import { getCurrentUser } from '@/lib/auth/session';
+import {
+  recordChange,
+  recordChanges,
+  type ChangeLogEntryInput,
+} from '@/core/change-log';
 
 // ==============================================================================
 // ⚠️ FINALIZED BUSINESS LOGIC - DO NOT MODIFY WITHOUT APPROVAL ⚠️
@@ -158,6 +164,27 @@ function calculateLineTotal(
   adjustment: number
 ): number {
   return quantity * unitPrice - adjustment;
+}
+
+async function resolveChangeLogContext(source: string) {
+  try {
+    const user = await getCurrentUser();
+    return {
+      userId: user?.id ?? null,
+      userName: user?.name ?? null,
+      source,
+    } as const;
+  } catch (error) {
+    logger.warn('Unable to resolve user context for change log', {
+      source,
+      error,
+    });
+    return {
+      userId: null,
+      userName: null,
+      source,
+    } as const;
+  }
 }
 
 // GET - Fetch all transactions (excluding soft-deleted)
@@ -583,6 +610,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    try {
+      const context = await resolveChangeLogContext('transactions:import');
+      await recordChange(
+        {
+          entityType: 'transaction',
+          action: 'import',
+          field: 'bulkImport',
+          oldValue: null,
+          newValue: {
+            count: result.count,
+            withData: dataToInsert.length,
+            empty: emptyRowsData.length,
+          },
+          metadata: {
+            emptyRowsSample: emptyRowsData.slice(0, 3),
+          },
+        },
+        context
+      );
+    } catch (changeLogError) {
+      logger.warn('Failed to record change log for transaction import', {
+        error: changeLogError,
+      });
+    }
+
     return NextResponse.json({
       message: `Successfully imported ${result.count} transaction records`,
       count: result.count,
@@ -647,6 +699,8 @@ export async function PUT(request: NextRequest) {
       id: unknown;
     })[];
 
+    const changeLogEntries: ChangeLogEntryInput[] = [];
+
     // ========================================================================
     // ⚠️ ATOMIC BULK UPDATES - Using prisma.$transaction
     // ========================================================================
@@ -693,6 +747,22 @@ export async function PUT(request: NextRequest) {
           // Convert UI format to database format
           const dbData: Prisma.TransactionUpdateInput = {};
           const changeDetails: string[] = [];
+          const changeEntries: ChangeLogEntryInput[] = [];
+
+          const addChangeEntry = (
+            field: string,
+            oldValue: unknown,
+            newValue: unknown
+          ) => {
+            changeEntries.push({
+              entityType: 'transaction',
+              entityId: id,
+              action: 'update',
+              field,
+              oldValue,
+              newValue,
+            });
+          };
 
           if ('Order Date' in transaction) {
             const value = parseTrimmed(transaction['Order Date']);
@@ -704,6 +774,7 @@ export async function PUT(request: NextRequest) {
               changeDetails.push(
                 `orderDate: ${oldValue || 'empty'} → ${value || 'empty'}`
               );
+              addChangeEntry('orderDate', oldValue ?? null, value ?? null);
             }
             dbData.orderDate = value;
             fieldsUpdated.add('orderDate');
@@ -725,6 +796,7 @@ export async function PUT(request: NextRequest) {
               changeDetails.push(
                 `customers: ${oldValue || 'empty'} → ${value || 'empty'}`
               );
+              addChangeEntry('customers', oldValue ?? null, value ?? null);
             }
             dbData.customers = value;
             fieldsUpdated.add('customers');
@@ -746,6 +818,7 @@ export async function PUT(request: NextRequest) {
               changeDetails.push(
                 `productCode: ${oldValue || 'empty'} → ${value || 'empty'}`
               );
+              addChangeEntry('productCode', oldValue ?? null, value ?? null);
             }
             dbData.productCode = value;
             fieldsUpdated.add('productCode');
@@ -762,6 +835,7 @@ export async function PUT(request: NextRequest) {
             const oldValue = existingTransaction.quantity ?? 0;
             if (oldValue !== value) {
               changeDetails.push(`quantity: ${oldValue} → ${value}`);
+              addChangeEntry('quantity', oldValue, value);
             }
             dbData.quantity = value;
             fieldsUpdated.add('quantity');
@@ -778,6 +852,7 @@ export async function PUT(request: NextRequest) {
             const oldValue = existingTransaction.unitPrice ?? 0;
             if (oldValue !== value) {
               changeDetails.push(`unitPrice: ${oldValue} → ${value}`);
+              addChangeEntry('unitPrice', oldValue, value);
             }
             dbData.unitPrice = value;
             fieldsUpdated.add('unitPrice');
@@ -787,6 +862,7 @@ export async function PUT(request: NextRequest) {
             const oldValue = existingTransaction.discount ?? 0;
             if (oldValue !== value) {
               changeDetails.push(`discount: ${oldValue} → ${value}`);
+              addChangeEntry('discount', oldValue, value);
             }
             dbData.discount = value;
             fieldsUpdated.add('discount');
@@ -796,6 +872,7 @@ export async function PUT(request: NextRequest) {
             const oldValue = existingTransaction.adjustment ?? 0;
             if (oldValue !== value) {
               changeDetails.push(`adjustment: ${oldValue} → ${value}`);
+              addChangeEntry('adjustment', oldValue, value);
             }
             dbData.adjustment = value;
             fieldsUpdated.add('adjustment');
@@ -805,6 +882,7 @@ export async function PUT(request: NextRequest) {
             const oldValue = existingTransaction.lineTotal ?? 0;
             if (oldValue !== value) {
               changeDetails.push(`lineTotal: ${oldValue} → ${value}`);
+              addChangeEntry('lineTotal', oldValue, value);
             }
             dbData.lineTotal = value;
             fieldsUpdated.add('lineTotal');
@@ -819,6 +897,7 @@ export async function PUT(request: NextRequest) {
               changeDetails.push(
                 `orderStatus: ${oldValue || 'empty'} → ${value || 'empty'}`
               );
+              addChangeEntry('orderStatus', oldValue ?? null, value ?? null);
             }
             dbData.orderStatus = value;
             fieldsUpdated.add('orderStatus');
@@ -840,6 +919,7 @@ export async function PUT(request: NextRequest) {
               changeDetails.push(
                 `notes: ${oldValue || 'empty'} → ${value || 'empty'}`
               );
+              addChangeEntry('notes', oldValue ?? null, value ?? null);
             }
             dbData.notes = value;
             fieldsUpdated.add('notes');
@@ -854,6 +934,7 @@ export async function PUT(request: NextRequest) {
               changeDetails.push(
                 `invoiceDate: ${oldValue || 'empty'} → ${value || 'empty'}`
               );
+              addChangeEntry('invoiceDate', oldValue ?? null, value ?? null);
             }
             dbData.invoiceDate = value;
             fieldsUpdated.add('invoiceDate');
@@ -868,6 +949,7 @@ export async function PUT(request: NextRequest) {
               changeDetails.push(
                 `packedDate: ${oldValue || 'empty'} → ${value || 'empty'}`
               );
+              addChangeEntry('packedDate', oldValue ?? null, value ?? null);
             }
             dbData.packedDate = value;
             fieldsUpdated.add('packedDate');
@@ -882,6 +964,7 @@ export async function PUT(request: NextRequest) {
               changeDetails.push(
                 `shipmentCode: ${oldValue || 'empty'} → ${value || 'empty'}`
               );
+              addChangeEntry('shipmentCode', oldValue ?? null, value ?? null);
             }
             dbData.shipmentCode = value;
             fieldsUpdated.add('shipmentCode');
@@ -891,6 +974,10 @@ export async function PUT(request: NextRequest) {
             where: { id },
             data: dbData,
           });
+
+          if (changeEntries.length > 0) {
+            changeLogEntries.push(...changeEntries);
+          }
 
           return { transaction: updated, changeDetails, id };
         })
@@ -978,6 +1065,20 @@ export async function PUT(request: NextRequest) {
         'Failed to log notifications for transaction updates:',
         notifError
       );
+    }
+
+    if (changeLogEntries.length > 0) {
+      try {
+        const context = await resolveChangeLogContext(
+          'transactions:bulk-update'
+        );
+        await recordChanges(changeLogEntries, context);
+      } catch (changeLogError) {
+        logger.warn(
+          'Failed to record change log for bulk transaction update',
+          changeLogError
+        );
+      }
     }
 
     return NextResponse.json({
@@ -1070,6 +1171,7 @@ export async function PATCH(request: NextRequest) {
       oldValue: string;
       newValue: string;
     }> = [];
+    const changeLogEntries: ChangeLogEntryInput[] = [];
 
     if ('Order Date' in updateData) {
       const newValue = parseTrimmed(updateData['Order Date']);
@@ -1079,6 +1181,14 @@ export async function PATCH(request: NextRequest) {
           field: 'orderDate',
           oldValue: oldTransaction.orderDate || 'empty',
           newValue: newValue || 'empty',
+        });
+        changeLogEntries.push({
+          entityType: 'transaction',
+          entityId: id,
+          action: 'update',
+          field: 'orderDate',
+          oldValue: oldTransaction.orderDate ?? null,
+          newValue: newValue ?? null,
         });
       }
     }
@@ -1091,6 +1201,14 @@ export async function PATCH(request: NextRequest) {
           oldValue: oldTransaction.customers || 'empty',
           newValue: newValue || 'empty',
         });
+        changeLogEntries.push({
+          entityType: 'transaction',
+          entityId: id,
+          action: 'update',
+          field: 'customers',
+          oldValue: oldTransaction.customers ?? null,
+          newValue: newValue ?? null,
+        });
       }
     }
     if ('Product Code' in updateData) {
@@ -1101,6 +1219,14 @@ export async function PATCH(request: NextRequest) {
           field: 'productCode',
           oldValue: oldTransaction.productCode || 'empty',
           newValue: newValue || 'empty',
+        });
+        changeLogEntries.push({
+          entityType: 'transaction',
+          entityId: id,
+          action: 'update',
+          field: 'productCode',
+          oldValue: oldTransaction.productCode ?? null,
+          newValue: newValue ?? null,
         });
       }
     }
@@ -1113,6 +1239,14 @@ export async function PATCH(request: NextRequest) {
           oldValue: String(oldTransaction.quantity ?? 0),
           newValue: String(newValue),
         });
+        changeLogEntries.push({
+          entityType: 'transaction',
+          entityId: id,
+          action: 'update',
+          field: 'quantity',
+          oldValue: oldTransaction.quantity ?? 0,
+          newValue,
+        });
       }
     }
     if ('Unit Price' in updateData) {
@@ -1123,6 +1257,14 @@ export async function PATCH(request: NextRequest) {
           field: 'unitPrice',
           oldValue: String(oldTransaction.unitPrice ?? 0),
           newValue: String(newValue),
+        });
+        changeLogEntries.push({
+          entityType: 'transaction',
+          entityId: id,
+          action: 'update',
+          field: 'unitPrice',
+          oldValue: oldTransaction.unitPrice ?? 0,
+          newValue,
         });
       }
     }
@@ -1135,6 +1277,14 @@ export async function PATCH(request: NextRequest) {
           oldValue: String(oldTransaction.discount ?? 0),
           newValue: String(newValue),
         });
+        changeLogEntries.push({
+          entityType: 'transaction',
+          entityId: id,
+          action: 'update',
+          field: 'discount',
+          oldValue: oldTransaction.discount ?? 0,
+          newValue,
+        });
       }
     }
     if ('Adjustment' in updateData) {
@@ -1145,6 +1295,14 @@ export async function PATCH(request: NextRequest) {
           field: 'adjustment',
           oldValue: String(oldTransaction.adjustment ?? 0),
           newValue: String(newValue),
+        });
+        changeLogEntries.push({
+          entityType: 'transaction',
+          entityId: id,
+          action: 'update',
+          field: 'adjustment',
+          oldValue: oldTransaction.adjustment ?? 0,
+          newValue,
         });
       }
     }
@@ -1157,6 +1315,14 @@ export async function PATCH(request: NextRequest) {
           oldValue: String(oldTransaction.lineTotal ?? 0),
           newValue: String(newValue),
         });
+        changeLogEntries.push({
+          entityType: 'transaction',
+          entityId: id,
+          action: 'update',
+          field: 'lineTotal',
+          oldValue: oldTransaction.lineTotal ?? 0,
+          newValue,
+        });
       }
     }
     if ('Order Status' in updateData) {
@@ -1167,6 +1333,14 @@ export async function PATCH(request: NextRequest) {
           field: 'orderStatus',
           oldValue: oldTransaction.orderStatus || 'empty',
           newValue: newValue || 'empty',
+        });
+        changeLogEntries.push({
+          entityType: 'transaction',
+          entityId: id,
+          action: 'update',
+          field: 'orderStatus',
+          oldValue: oldTransaction.orderStatus ?? null,
+          newValue: newValue ?? null,
         });
       }
     }
@@ -1179,6 +1353,14 @@ export async function PATCH(request: NextRequest) {
           oldValue: oldTransaction.notes || 'empty',
           newValue: newValue || 'empty',
         });
+        changeLogEntries.push({
+          entityType: 'transaction',
+          entityId: id,
+          action: 'update',
+          field: 'notes',
+          oldValue: oldTransaction.notes ?? null,
+          newValue: newValue ?? null,
+        });
       }
     }
     if ('Invoice Date' in updateData) {
@@ -1189,6 +1371,14 @@ export async function PATCH(request: NextRequest) {
           field: 'invoiceDate',
           oldValue: oldTransaction.invoiceDate || 'empty',
           newValue: newValue || 'empty',
+        });
+        changeLogEntries.push({
+          entityType: 'transaction',
+          entityId: id,
+          action: 'update',
+          field: 'invoiceDate',
+          oldValue: oldTransaction.invoiceDate ?? null,
+          newValue: newValue ?? null,
         });
       }
     }
@@ -1201,6 +1391,14 @@ export async function PATCH(request: NextRequest) {
           oldValue: oldTransaction.packedDate || 'empty',
           newValue: newValue || 'empty',
         });
+        changeLogEntries.push({
+          entityType: 'transaction',
+          entityId: id,
+          action: 'update',
+          field: 'packedDate',
+          oldValue: oldTransaction.packedDate ?? null,
+          newValue: newValue ?? null,
+        });
       }
     }
     if ('Shipment Code' in updateData) {
@@ -1211,6 +1409,14 @@ export async function PATCH(request: NextRequest) {
           field: 'shipmentCode',
           oldValue: oldTransaction.shipmentCode || 'empty',
           newValue: newValue || 'empty',
+        });
+        changeLogEntries.push({
+          entityType: 'transaction',
+          entityId: id,
+          action: 'update',
+          field: 'shipmentCode',
+          oldValue: oldTransaction.shipmentCode ?? null,
+          newValue: newValue ?? null,
         });
       }
     }
@@ -1254,6 +1460,18 @@ export async function PATCH(request: NextRequest) {
         'Failed to log notification for transaction update:',
         notifError
       );
+    }
+
+    if (changeLogEntries.length > 0) {
+      try {
+        const context = await resolveChangeLogContext('transactions:update');
+        await recordChanges(changeLogEntries, context);
+      } catch (changeLogError) {
+        logger.warn(
+          'Failed to record change log for transaction update',
+          changeLogError
+        );
+      }
     }
 
     return NextResponse.json({

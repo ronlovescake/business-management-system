@@ -36,7 +36,7 @@ export type PrismaModelDelegate<T extends PrismaModelName> =
 
 /**
  * Helper to get a Prisma model delegate in a type-safe way
- * 
+ *
  * @example
  * const customerDelegate = getPrismaModel(prisma, 'customer');
  * const customers = await customerDelegate.findMany();
@@ -57,6 +57,7 @@ export function isPrismaModelName(
   const validModels: PrismaModelName[] = [
     'attendance',
     'auditLog',
+    'changeLog',
     'cashAdvanceDeduction',
     'cashAdvanceRecord',
     'customer',
