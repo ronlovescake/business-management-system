@@ -2,9 +2,12 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
-// Force dynamic rendering - never cache this route
+// CRITICAL: Force dynamic rendering and disable ALL caching
 export const dynamic = 'force-dynamic';
+export const dynamicParams = true;
 export const revalidate = 0;
+export const fetchCache = 'force-no-store';
+export const runtime = 'nodejs';
 
 /**
  * GET /api/customers/with-shopee
@@ -14,8 +17,14 @@ export const revalidate = 0;
  *
  * This is much faster than fetching customers and then making individual
  * additional-info API calls for each customer.
+ *
+ * CRITICAL: This route MUST NOT be cached to ensure production gets fresh data
  */
 export async function GET() {
+  // Add random noise to prevent any proxy/CDN caching
+  const timestamp = new Date().toISOString();
+  logger.info(`[API] Fetching customers with Shopee at ${timestamp}`);
+
   try {
     // Single query with JOIN to get all customers with their Shopee usernames
     const customersWithShopee = await prisma.customer.findMany({
@@ -70,12 +79,18 @@ export async function GET() {
           totalCustomers: result.length,
           withShopeeUsernames: withUsernames.length,
         },
+        timestamp: new Date().toISOString(), // Add timestamp to prevent caching
       },
       {
+        status: 200,
         headers: {
-          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          'Cache-Control':
+            'private, no-cache, no-store, must-revalidate, max-age=0',
+          'CDN-Cache-Control': 'no-store',
+          'Vercel-CDN-Cache-Control': 'no-store',
           Pragma: 'no-cache',
           Expires: '0',
+          'Surrogate-Control': 'no-store',
         },
       }
     );

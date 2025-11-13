@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/queryKeys';
 import {
   CustomerService,
   ProductService,
@@ -37,7 +38,13 @@ export function useCustomerData() {
   const createMutation = useMutation({
     mutationFn: (newItem: Partial<CustomerDTO>) =>
       CustomerService.create(newItem),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+      // Also invalidate dispatch page customer cache
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.customers.withShopee(),
+      });
+    },
   });
 
   const updateMutation = useMutation({
@@ -48,17 +55,35 @@ export function useCustomerData() {
       id: string | number;
       data: Partial<CustomerDTO>;
     }) => CustomerService.update(id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+      // Also invalidate dispatch page customer cache
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.customers.withShopee(),
+      });
+    },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string | number) => CustomerService.deleteById(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+      // Also invalidate dispatch page customer cache
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.customers.withShopee(),
+      });
+    },
   });
 
   const bulkUpdateMutation = useMutation({
     mutationFn: (newData: CustomerDTO[]) => CustomerService.bulkUpdate(newData),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+      // Also invalidate dispatch page customer cache
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.customers.withShopee(),
+      });
+    },
   });
 
   return {

@@ -749,19 +749,16 @@ export async function PUT(request: NextRequest) {
           const changeDetails: string[] = [];
           const changeEntries: ChangeLogEntryInput[] = [];
 
+          // Track if any changes were made
+          let hasChanges = false;
+
           const addChangeEntry = (
-            field: string,
-            oldValue: unknown,
-            newValue: unknown
+            _field: string,
+            _oldValue: unknown,
+            _newValue: unknown
           ) => {
-            changeEntries.push({
-              entityType: 'transaction',
-              entityId: id,
-              action: 'update',
-              field,
-              oldValue,
-              newValue,
-            });
+            hasChanges = true;
+            // No longer logging individual fields
           };
 
           if ('Order Date' in transaction) {
@@ -975,6 +972,17 @@ export async function PUT(request: NextRequest) {
             data: dbData,
           });
 
+          // Log full record BEFORE and AFTER (only if there were changes)
+          if (hasChanges) {
+            changeEntries.push({
+              entityType: 'transaction',
+              entityId: id,
+              action: 'update',
+              oldValue: existingTransaction, // Full record BEFORE
+              newValue: updated, // Full record AFTER
+            });
+          }
+
           if (changeEntries.length > 0) {
             changeLogEntries.push(...changeEntries);
           }
@@ -1173,6 +1181,9 @@ export async function PATCH(request: NextRequest) {
     }> = [];
     const changeLogEntries: ChangeLogEntryInput[] = [];
 
+    // Track if any changes were made
+    let hasChanges = false;
+
     if ('Order Date' in updateData) {
       const newValue = parseTrimmed(updateData['Order Date']);
       dbData.orderDate = newValue;
@@ -1182,14 +1193,7 @@ export async function PATCH(request: NextRequest) {
           oldValue: oldTransaction.orderDate || 'empty',
           newValue: newValue || 'empty',
         });
-        changeLogEntries.push({
-          entityType: 'transaction',
-          entityId: id,
-          action: 'update',
-          field: 'orderDate',
-          oldValue: oldTransaction.orderDate ?? null,
-          newValue: newValue ?? null,
-        });
+        hasChanges = true;
       }
     }
     if ('Customers' in updateData) {
@@ -1201,14 +1205,7 @@ export async function PATCH(request: NextRequest) {
           oldValue: oldTransaction.customers || 'empty',
           newValue: newValue || 'empty',
         });
-        changeLogEntries.push({
-          entityType: 'transaction',
-          entityId: id,
-          action: 'update',
-          field: 'customers',
-          oldValue: oldTransaction.customers ?? null,
-          newValue: newValue ?? null,
-        });
+        hasChanges = true;
       }
     }
     if ('Product Code' in updateData) {
@@ -1220,14 +1217,7 @@ export async function PATCH(request: NextRequest) {
           oldValue: oldTransaction.productCode || 'empty',
           newValue: newValue || 'empty',
         });
-        changeLogEntries.push({
-          entityType: 'transaction',
-          entityId: id,
-          action: 'update',
-          field: 'productCode',
-          oldValue: oldTransaction.productCode ?? null,
-          newValue: newValue ?? null,
-        });
+        hasChanges = true;
       }
     }
     if ('Quantity' in updateData) {
@@ -1239,14 +1229,7 @@ export async function PATCH(request: NextRequest) {
           oldValue: String(oldTransaction.quantity ?? 0),
           newValue: String(newValue),
         });
-        changeLogEntries.push({
-          entityType: 'transaction',
-          entityId: id,
-          action: 'update',
-          field: 'quantity',
-          oldValue: oldTransaction.quantity ?? 0,
-          newValue,
-        });
+        hasChanges = true;
       }
     }
     if ('Unit Price' in updateData) {
@@ -1258,14 +1241,7 @@ export async function PATCH(request: NextRequest) {
           oldValue: String(oldTransaction.unitPrice ?? 0),
           newValue: String(newValue),
         });
-        changeLogEntries.push({
-          entityType: 'transaction',
-          entityId: id,
-          action: 'update',
-          field: 'unitPrice',
-          oldValue: oldTransaction.unitPrice ?? 0,
-          newValue,
-        });
+        hasChanges = true;
       }
     }
     if ('Discount' in updateData) {
@@ -1277,14 +1253,7 @@ export async function PATCH(request: NextRequest) {
           oldValue: String(oldTransaction.discount ?? 0),
           newValue: String(newValue),
         });
-        changeLogEntries.push({
-          entityType: 'transaction',
-          entityId: id,
-          action: 'update',
-          field: 'discount',
-          oldValue: oldTransaction.discount ?? 0,
-          newValue,
-        });
+        hasChanges = true;
       }
     }
     if ('Adjustment' in updateData) {
@@ -1296,14 +1265,7 @@ export async function PATCH(request: NextRequest) {
           oldValue: String(oldTransaction.adjustment ?? 0),
           newValue: String(newValue),
         });
-        changeLogEntries.push({
-          entityType: 'transaction',
-          entityId: id,
-          action: 'update',
-          field: 'adjustment',
-          oldValue: oldTransaction.adjustment ?? 0,
-          newValue,
-        });
+        hasChanges = true;
       }
     }
     if ('Line Total' in updateData) {
@@ -1315,14 +1277,7 @@ export async function PATCH(request: NextRequest) {
           oldValue: String(oldTransaction.lineTotal ?? 0),
           newValue: String(newValue),
         });
-        changeLogEntries.push({
-          entityType: 'transaction',
-          entityId: id,
-          action: 'update',
-          field: 'lineTotal',
-          oldValue: oldTransaction.lineTotal ?? 0,
-          newValue,
-        });
+        hasChanges = true;
       }
     }
     if ('Order Status' in updateData) {
@@ -1334,14 +1289,7 @@ export async function PATCH(request: NextRequest) {
           oldValue: oldTransaction.orderStatus || 'empty',
           newValue: newValue || 'empty',
         });
-        changeLogEntries.push({
-          entityType: 'transaction',
-          entityId: id,
-          action: 'update',
-          field: 'orderStatus',
-          oldValue: oldTransaction.orderStatus ?? null,
-          newValue: newValue ?? null,
-        });
+        hasChanges = true;
       }
     }
     if ('Notes' in updateData) {
@@ -1353,14 +1301,7 @@ export async function PATCH(request: NextRequest) {
           oldValue: oldTransaction.notes || 'empty',
           newValue: newValue || 'empty',
         });
-        changeLogEntries.push({
-          entityType: 'transaction',
-          entityId: id,
-          action: 'update',
-          field: 'notes',
-          oldValue: oldTransaction.notes ?? null,
-          newValue: newValue ?? null,
-        });
+        hasChanges = true;
       }
     }
     if ('Invoice Date' in updateData) {
@@ -1372,14 +1313,7 @@ export async function PATCH(request: NextRequest) {
           oldValue: oldTransaction.invoiceDate || 'empty',
           newValue: newValue || 'empty',
         });
-        changeLogEntries.push({
-          entityType: 'transaction',
-          entityId: id,
-          action: 'update',
-          field: 'invoiceDate',
-          oldValue: oldTransaction.invoiceDate ?? null,
-          newValue: newValue ?? null,
-        });
+        hasChanges = true;
       }
     }
     if ('Packed Date' in updateData) {
@@ -1391,14 +1325,7 @@ export async function PATCH(request: NextRequest) {
           oldValue: oldTransaction.packedDate || 'empty',
           newValue: newValue || 'empty',
         });
-        changeLogEntries.push({
-          entityType: 'transaction',
-          entityId: id,
-          action: 'update',
-          field: 'packedDate',
-          oldValue: oldTransaction.packedDate ?? null,
-          newValue: newValue ?? null,
-        });
+        hasChanges = true;
       }
     }
     if ('Shipment Code' in updateData) {
@@ -1410,14 +1337,7 @@ export async function PATCH(request: NextRequest) {
           oldValue: oldTransaction.shipmentCode || 'empty',
           newValue: newValue || 'empty',
         });
-        changeLogEntries.push({
-          entityType: 'transaction',
-          entityId: id,
-          action: 'update',
-          field: 'shipmentCode',
-          oldValue: oldTransaction.shipmentCode ?? null,
-          newValue: newValue ?? null,
-        });
+        hasChanges = true;
       }
     }
 
@@ -1425,6 +1345,17 @@ export async function PATCH(request: NextRequest) {
       where: { id },
       data: dbData,
     });
+
+    // Log full record BEFORE and AFTER (only if there were changes)
+    if (hasChanges) {
+      changeLogEntries.push({
+        entityType: 'transaction',
+        entityId: id,
+        action: 'update',
+        oldValue: oldTransaction, // Full record BEFORE
+        newValue: updatedTransaction, // Full record AFTER
+      });
+    }
 
     // ========================================================================
     // ⚠️ LOG NOTIFICATION - Track changes in operations notifications

@@ -156,7 +156,10 @@ function formatTimestamp(value: string): string {
   if (Number.isNaN(date.getTime())) {
     return value;
   }
-  return TIMESTAMP_FORMATTER.format(date);
+  // Format with date, time, and milliseconds
+  const formatted = TIMESTAMP_FORMATTER.format(date);
+  const milliseconds = date.getMilliseconds().toString().padStart(3, '0');
+  return `${formatted}.${milliseconds}`;
 }
 
 function formatLogValue(value: unknown): string {
@@ -617,6 +620,7 @@ export function ChangeLogPage() {
                 })}
               >
                 {groupedLogs.map((group) => {
+                  // Sort NEWEST first (at top), OLDEST last (at bottom) - DESCENDING order
                   const sortedEntries = [...group.entries].sort(
                     (a, b) =>
                       new Date(b.createdAt).getTime() -
@@ -691,17 +695,88 @@ export function ChangeLogPage() {
                             <Table.Thead>
                               <Table.Tr>
                                 <Table.Th>TIMESTAMP</Table.Th>
-                                <Table.Th>USER</Table.Th>
-                                <Table.Th>SOURCE</Table.Th>
-                                <Table.Th>FIELD</Table.Th>
-                                <Table.Th>ACTION</Table.Th>
-                                <Table.Th>OLD VALUE</Table.Th>
-                                <Table.Th>NEW VALUE</Table.Th>
-                                <Table.Th>METADATA</Table.Th>
+                                <Table.Th>ORDER DATE</Table.Th>
+                                <Table.Th>CUSTOMERS</Table.Th>
+                                <Table.Th>PRODUCT CODE</Table.Th>
+                                <Table.Th>QUANTITY</Table.Th>
+                                <Table.Th>UNIT PRICE</Table.Th>
+                                <Table.Th>DISCOUNT</Table.Th>
+                                <Table.Th>ADJUSTMENT</Table.Th>
+                                <Table.Th>LINE TOTAL</Table.Th>
+                                <Table.Th>ORDER STATUS</Table.Th>
+                                <Table.Th>NOTES</Table.Th>
+                                <Table.Th>INVOICE DATE</Table.Th>
+                                <Table.Th>PACKED DATE</Table.Th>
+                                <Table.Th>SHIPMENT CODE</Table.Th>
                               </Table.Tr>
                             </Table.Thead>
                             <Table.Tbody>
                               {sortedEntries.map((log) => {
+                                // Check if oldValue and newValue are transaction objects
+                                const isTransactionRecord =
+                                  log.newValue &&
+                                  typeof log.newValue === 'object' &&
+                                  'orderDate' in log.newValue;
+
+                                if (isTransactionRecord) {
+                                  // Only show the NEW values (after the change)
+                                  // Users can compare with the previous row to see what changed
+                                  const newTx = log.newValue as Record<
+                                    string,
+                                    unknown
+                                  >;
+
+                                  return (
+                                    <Table.Tr key={log.id}>
+                                      <Table.Td>
+                                        <Text size="sm" fw={500} c="dark">
+                                          {formatTimestamp(log.createdAt)}
+                                        </Text>
+                                      </Table.Td>
+                                      <Table.Td>
+                                        {String(newTx.orderDate || '—')}
+                                      </Table.Td>
+                                      <Table.Td>
+                                        {String(newTx.customers || '—')}
+                                      </Table.Td>
+                                      <Table.Td>
+                                        {String(newTx.productCode || '—')}
+                                      </Table.Td>
+                                      <Table.Td>
+                                        {String(newTx.quantity ?? '—')}
+                                      </Table.Td>
+                                      <Table.Td>
+                                        {String(newTx.unitPrice ?? '—')}
+                                      </Table.Td>
+                                      <Table.Td>
+                                        {String(newTx.discount ?? '—')}
+                                      </Table.Td>
+                                      <Table.Td>
+                                        {String(newTx.adjustment ?? '—')}
+                                      </Table.Td>
+                                      <Table.Td>
+                                        {String(newTx.lineTotal ?? '—')}
+                                      </Table.Td>
+                                      <Table.Td>
+                                        {String(newTx.orderStatus || '—')}
+                                      </Table.Td>
+                                      <Table.Td>
+                                        {String(newTx.notes || '—')}
+                                      </Table.Td>
+                                      <Table.Td>
+                                        {String(newTx.invoiceDate || '—')}
+                                      </Table.Td>
+                                      <Table.Td>
+                                        {String(newTx.packedDate || '—')}
+                                      </Table.Td>
+                                      <Table.Td>
+                                        {String(newTx.shipmentCode || '—')}
+                                      </Table.Td>
+                                    </Table.Tr>
+                                  );
+                                }
+
+                                // Fall back to old rendering for non-transaction logs
                                 const actionColor =
                                   ACTION_COLOR_MAP[log.action.toLowerCase()] ??
                                   'gray';

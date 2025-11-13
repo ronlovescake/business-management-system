@@ -68,7 +68,21 @@ interface RawOrderData {
   [key: string]: unknown; // Allow other fields
 }
 
-export function DispatchComponent() {
+interface CustomerWithShopee {
+  id: number;
+  customerName: string;
+  businessName: string;
+  facebook: string;
+  shopeeUsernames: string[];
+}
+
+interface DispatchComponentProps {
+  serverCustomersData?: CustomerWithShopee[]; // Optional now
+}
+
+export function DispatchComponent({
+  serverCustomersData,
+}: DispatchComponentProps = {}) {
   const [activeTab, setActiveTab] = useState<string | null>('match');
   const [searchQuery, setSearchQuery] = useState('');
   const [rawData, setRawData] = useState<RawOrderData[]>([]);
@@ -206,13 +220,14 @@ export function DispatchComponent() {
   const effectiveRawData =
     savedOrders && savedOrders.length > 0 ? savedOrders : rawData;
 
-  // Customer lookup hook - always enabled to lookup Shopee usernames
+  // Customer lookup hook - uses server-fetched data as source of truth
+  // Server data is ALWAYS fresh because it's fetched directly from database on page load
   const {
     lookupCustomerName,
     lookupFacebookLink,
     lookupFacebookLinkById,
     isLoading: loadingCustomers,
-  } = useDispatchCustomerLookup(true);
+  } = useDispatchCustomerLookup(true, serverCustomersData);
 
   // Sample test data - empty array, will use imported data from rawData
   const mockData: DispatchItem[] = useMemo(() => [], []);

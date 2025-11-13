@@ -162,6 +162,19 @@ export function useCustomerDetails(
       void queryClient.invalidateQueries({
         queryKey: queryKeys.customers.all,
       });
+      // Also invalidate dispatch page customer cache
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.customers.withShopee(),
+      });
+
+      // CRITICAL: Broadcast update to other tabs/pages (like dispatch page)
+      try {
+        const channel = new BroadcastChannel('customer-updates');
+        channel.postMessage('customer-updated');
+        channel.close();
+      } catch (error) {
+        // BroadcastChannel not supported in some environments, ignore
+      }
     },
   });
 

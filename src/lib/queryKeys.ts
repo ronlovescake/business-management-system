@@ -44,6 +44,7 @@ export const queryKeys = {
     details: () => [...queryKeys.customers.all, 'detail'] as const,
     detail: (id: string | number) =>
       [...queryKeys.customers.details(), id] as const,
+    withShopee: () => ['dispatch-customers-shopee'] as const, // For dispatch page
   },
 
   // Prices

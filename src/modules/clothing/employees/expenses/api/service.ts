@@ -128,7 +128,24 @@ export class ExpenseService {
       // Type assertion needed: Converted data matches database schema
       // but type system cannot verify due to BaseRepository's generic constraints
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return await expenseRepository.update(id, updateData as any);
+      const updated = await expenseRepository.update(id, updateData as any);
+
+      // Record the change in audit log - Log full record with old and new values
+      const { recordChange } = await import('@/core/change-log');
+      await recordChange(
+        {
+          entityType: 'expense',
+          entityId: id,
+          action: 'update',
+          oldValue: existing, // Full record BEFORE update
+          newValue: updated, // Full record AFTER update
+        },
+        {
+          source: 'api',
+        }
+      );
+
+      return updated;
     } catch (error) {
       logger.error('Failed to update expense', { error, id, data });
       throw error;
