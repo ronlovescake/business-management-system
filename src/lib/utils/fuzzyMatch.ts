@@ -3,6 +3,33 @@
  *
  * Provides functions for comparing addresses, names, and other text fields
  * to find potential matches between dispatch orders and customers
+ *
+ * PHILIPPINE ADDRESS STRUCTURE:
+ * Standard format:
+ *   [House No./Lot No./Building Name]
+ *   [Street Name], [Barangay]
+ *   [City or Municipality], [Province]
+ *   [ZIP Code]
+ *
+ * Additional components: Purok, Sitio (subdivisions within barangays)
+ *
+ * EXAMPLE - Urban Address:
+ *   Unit 3A, 2nd Floor, Lopez Building
+ *   123 Katipunan Avenue, Barangay Loyola Heights
+ *   Quezon City, Metro Manila
+ *   1108
+ *
+ * EXAMPLE - Rural/Informal Address:
+ *   Near the Barangay Hall
+ *   Sitio Cabugao, Barangay San Vicente
+ *   Banayoyo, Ilocos Sur
+ *   2727
+ *
+ * NAMING CONVENTIONS:
+ * - Streets: Named after heroes (Rizal, Mabini), local leaders, or numbered (1st St, 2nd Ave)
+ * - Barangays: Historical figures, natural features (Mataas na Lupa), indigenous names
+ * - Cities: Patron saints (San Fernando, Santa Rosa), Spanish geography terms
+ * - Provinces: Indigenous/geographic terms (Laguna from "lake", Benguet)
  */
 
 /**
@@ -129,6 +156,15 @@ function calculateTokenSimilarity(str1: string, str2: string): number {
 /**
  * Normalize address for comparison
  * Removes common variations and standardizes format
+ *
+ * Based on Philippine address structure:
+ * - House/Lot/Unit numbers
+ * - Street names (often named after heroes, local leaders, or geographic features)
+ * - Barangay (smallest administrative division, formerly "barrio")
+ * - City/Municipality (often with patron saint names: San/Santa)
+ * - Province (geographic or indigenous terms)
+ * - ZIP code
+ * - Purok/Sitio (smaller zones within barangays, common in rural areas)
  */
 function normalizeAddress(address: string): string {
   const normalized = address
@@ -136,7 +172,8 @@ function normalizeAddress(address: string): string {
     .trim()
     // Remove extra whitespace
     .replace(/\s+/g, ' ')
-    // Standardize "Sto/Sta" variations (before other replacements)
+    // Standardize "Sto/Sta" variations (common in Philippine place names)
+    // Must be done BEFORE "st" → "street" replacement
     .replace(/\bsto\b\.?/gi, 'santo')
     .replace(/\bsta\b\.?/gi, 'santa')
     // Standardize common abbreviations (more comprehensive)
@@ -148,25 +185,36 @@ function normalizeAddress(address: string): string {
     .replace(/\bblk\b\.?/gi, 'block')
     .replace(/\bapt\b\.?/gi, 'apartment')
     .replace(/\bunit\b\.?/gi, 'unit')
+    // Philippine-specific terms
     .replace(/\bbrgy\b\.?/gi, 'barangay')
+    .replace(/\bbgy\b\.?/gi, 'barangay')
+    .replace(/\bbarrio\b\.?/gi, 'barangay') // Old term for barangay
     .replace(/\bsubd\b\.?/gi, 'subdivision')
     .replace(/\bph\b\.?/gi, 'phase')
     .replace(/\bqc\b\.?/gi, 'quezon city')
     .replace(/\bpurok\b\.?/gi, 'purok')
+    .replace(/\bsitio\b\.?/gi, 'sitio')
     .replace(/\bpob\b\.?/gi, 'poblacion')
+    // Common city name variations
+    .replace(/pasig\s*city/gi, 'pasig')
+    .replace(/metro\s*manila/gi, 'metromanila')
+    .replace(/san\s+pablo\s+city/gi, 'san pablo')
+    .replace(/makati\s*city/gi, 'makati')
+    .replace(/quezon\s*city/gi, 'quezon city')
+    // Regional descriptors (not specific enough for matching)
+    .replace(/south\s+luzon/gi, '')
+    .replace(/north\s+luzon/gi, '')
+    .replace(/central\s+luzon/gi, '')
+    .replace(/visayas/gi, '')
+    .replace(/mindanao/gi, '')
     // Common typos and variations
     .replace(/mercdes/gi, 'mercedes')
     .replace(/excutive/gi, 'executive')
     .replace(/vilige/gi, 'village')
     .replace(/villge/gi, 'village')
-    .replace(/pasig\s*city/gi, 'pasig')
-    .replace(/metro\s*manila/gi, 'metromanila')
-    .replace(/san\s+pablo\s+city/gi, 'san pablo')
-    .replace(/south\s+luzon/gi, '')
-    .replace(/north\s+luzon/gi, '')
     // Remove common filler words and Filipino connectors
-    .replace(/\b(the|of|at|in|ang|o|ng|sa|na)\b/gi, '')
-    // Remove parenthetical content (e.g., "(katabi ng MCGI)")
+    .replace(/\b(the|of|at|in|ang|o|ng|sa|na|near|across|beside)\b/gi, '')
+    // Remove parenthetical content (e.g., "(katabi ng MCGI)", "(Near chapel)")
     .replace(/\([^)]*\)/g, ' ')
     // Remove punctuation but keep numbers
     .replace(/[,.;:#()\[\]]/g, ' ')
@@ -177,13 +225,15 @@ function normalizeAddress(address: string): string {
     .trim();
 
   // Remove duplicate consecutive words (e.g., "angat angat" -> "angat")
-  // This handles cases where location names appear multiple times
+  // This handles cases where location names appear multiple times in verbose addresses
+  // Common in Philippine addresses where city/province names are repeated
   const words = normalized.split(/\s+/);
   const deduplicated: string[] = [];
   const seen = new Set<string>();
 
   for (const word of words) {
     // Keep the word if it hasn't been seen yet, or if it's a number/street marker
+    // Numbers and markers can legitimately repeat (e.g., "Lot 5, Block 5")
     const isNumberOrMarker = /^\d+$/.test(word) || /^\d+[a-z]/.test(word);
     if (!seen.has(word) || isNumberOrMarker) {
       deduplicated.push(word);
@@ -197,6 +247,12 @@ function normalizeAddress(address: string): string {
 /**
  * Extract landmark identifiers (business names, buildings, etc.)
  * These are highly specific and should be weighted heavily
+ *
+ * In Philippine addresses, landmarks often include:
+ * - Business establishments (stores, restaurants, gas stations)
+ * - Public buildings (barangay hall, chapel, plaza)
+ * - Natural features or geographic markers
+ * - Well-known structures or branded locations
  */
 function extractLandmarks(address: string): Set<string> {
   const landmarks = new Set<string>();
