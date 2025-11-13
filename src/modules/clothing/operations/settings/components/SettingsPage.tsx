@@ -8,9 +8,14 @@
 
 import { useState } from 'react';
 import { Container, Title, Tabs, Paper } from '@mantine/core';
-import { IconDatabase, IconFileInvoice } from '@tabler/icons-react';
+import {
+  IconDatabase,
+  IconFileInvoice,
+  IconMessage,
+} from '@tabler/icons-react';
 import { BackupRestoreTab } from './BackupRestoreTab';
 import { InvoiceSettingsTab } from './InvoiceSettingsTab';
+import InvoiceMessageTab from './InvoiceMessageTab';
 import type { SettingsTab } from '../types';
 
 export function SettingsPage() {
@@ -34,6 +39,9 @@ export function SettingsPage() {
             >
               Invoice Settings
             </Tabs.Tab>
+            <Tabs.Tab value="message" leftSection={<IconMessage size={16} />}>
+              Invoice Message
+            </Tabs.Tab>
             <Tabs.Tab value="backup" leftSection={<IconDatabase size={16} />}>
               Backup & Restore
             </Tabs.Tab>
@@ -41,6 +49,10 @@ export function SettingsPage() {
 
           <Tabs.Panel value="invoice" pt="md">
             <InvoiceSettingsTab />
+          </Tabs.Panel>
+
+          <Tabs.Panel value="message" pt="md">
+            <InvoiceMessageTab />
           </Tabs.Panel>
 
           <Tabs.Panel value="backup" pt="md">

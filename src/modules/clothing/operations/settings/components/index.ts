@@ -10,3 +10,4 @@ export { UpdatesTab } from './UpdatesTab';
 export { DependenciesTab } from './DependenciesTab';
 export { BackupRestoreTab } from './BackupRestoreTab';
 export { InvoiceSettingsTab } from './InvoiceSettingsTab';
+export { default as InvoiceMessageTab } from './InvoiceMessageTab';

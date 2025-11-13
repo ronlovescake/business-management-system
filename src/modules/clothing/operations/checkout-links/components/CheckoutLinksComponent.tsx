@@ -31,6 +31,12 @@ import {
   StandardTableContainer,
   StandardTableControls,
 } from '@/components/tables/StandardDataTable';
+import { calculateFinalWeight } from '../utils/finalWeightCalculator';
+import { findCheckoutLinkByWeight } from '../utils/checkoutLinkMatcher';
+import { generateInvoiceMessage } from '../utils/messageGenerator';
+import { useInvoiceCustomerLookup } from '../hooks/useInvoiceCustomerLookup';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api/client';
 
 interface CheckoutLinkData {
   id: string;
@@ -125,6 +131,25 @@ export function CheckoutLinksComponent() {
   const [editingCheckoutLink, setEditingCheckoutLink] =
     useState<CheckoutLinkData | null>(null);
   const [isSavingCheckoutLink, setIsSavingCheckoutLink] = useState(false);
+
+  // Customer lookup hook for Facebook Messenger links
+  const { lookupFacebookLink, hasFacebookLink } = useInvoiceCustomerLookup();
+
+  // Fetch invoice settings for message template
+  const { data: invoiceSettings } = useQuery({
+    queryKey: ['invoice-settings'],
+    queryFn: async () => {
+      const response = await api.get<{
+        success: boolean;
+        data: {
+          messageTemplate: string;
+          paymentChannelsUrl: string;
+        };
+      }>('/api/invoice-settings');
+      return response.data;
+    },
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  });
 
   // Form for adding new item weight
   const itemWeightForm = useForm<ItemWeightFormValues>({
@@ -233,7 +258,7 @@ export function CheckoutLinksComponent() {
     loadData();
   }, []);
 
-  // Load invoices from database on mount
+  // Load invoices from database on mount and calculate weights
   useEffect(() => {
     const loadInvoices = async () => {
       try {
@@ -242,6 +267,11 @@ export function CheckoutLinksComponent() {
 
         if (result.data) {
           setInvoiceData(result.data);
+
+          // Automatically calculate weights after loading invoices
+          if (result.data.length > 0) {
+            void handleCalculateWeights();
+          }
         }
       } catch (error) {
         showNotification({
@@ -253,6 +283,7 @@ export function CheckoutLinksComponent() {
     };
 
     loadInvoices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -768,6 +799,9 @@ export function CheckoutLinksComponent() {
         message: `Successfully synced and saved ${syncedData.length} files from Google Drive`,
         color: 'green',
       });
+
+      // Automatically calculate weights after syncing
+      void handleCalculateWeights();
     } catch (error) {
       showNotification({
         title: 'Sync Failed',
@@ -1023,6 +1057,153 @@ export function CheckoutLinksComponent() {
     return wasDeleted;
   };
 
+  /**
+   * Update invoice tickbox in database
+   */
+  const updateInvoiceTickbox = async (invoiceId: string, tickbox: boolean) => {
+    try {
+      const response = await fetch(`/api/invoices/${invoiceId}/tickbox`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ tickbox }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update tickbox');
+      }
+
+      return true;
+    } catch (error) {
+      showNotification({
+        title: 'Error',
+        message: 'Failed to update message sent status',
+        color: 'red',
+      });
+      return false;
+    }
+  };
+
+  /**
+   * Handle customer name click: copy message, open Facebook Messenger, tick checkbox
+   */
+  const handleCustomerNameClick = async (invoice: InvoiceData) => {
+    const facebookLink = lookupFacebookLink(invoice.customerName);
+
+    if (!facebookLink) {
+      showNotification({
+        title: 'No Facebook Link',
+        message: `No Facebook Messenger link found for ${invoice.customerName}`,
+        color: 'yellow',
+      });
+      return;
+    }
+
+    // Generate message with placeholders
+    if (!invoiceSettings) {
+      showNotification({
+        title: 'Settings Not Loaded',
+        message: 'Invoice message template is loading...',
+        color: 'yellow',
+      });
+      return;
+    }
+
+    const finalWeight = calculateFinalWeight(invoice.actualWeight);
+    const shopeeCheckoutLink =
+      findCheckoutLinkByWeight(finalWeight, data) || '';
+
+    const message = generateInvoiceMessage(invoiceSettings.messageTemplate, {
+      driveFilesUrl: invoice.driveFiles || '',
+      shopeeCheckoutLink,
+      paymentChannelsUrl: invoiceSettings.paymentChannelsUrl,
+    });
+
+    // Copy message to clipboard
+    try {
+      await navigator.clipboard.writeText(message);
+
+      showNotification({
+        title: 'Message Copied!',
+        message: `Invoice message copied to clipboard. Opening Facebook Messenger...`,
+        color: 'green',
+      });
+    } catch (error) {
+      showNotification({
+        title: 'Copy Failed',
+        message: 'Could not copy message to clipboard',
+        color: 'red',
+      });
+      return;
+    }
+
+    // Open Facebook Messenger in new window
+    const messengerUrl = facebookLink.startsWith('http')
+      ? facebookLink
+      : `https://${facebookLink}`;
+    window.open(messengerUrl, '_blank');
+
+    // Update tickbox to true and persist to database
+    const updated = await updateInvoiceTickbox(invoice.id, true);
+    if (updated) {
+      setInvoiceData((prev) =>
+        prev.map((item) =>
+          item.id === invoice.id ? { ...item, tickbox: true } : item
+        )
+      );
+    }
+  };
+
+  const handleCalculateWeights = async () => {
+    try {
+      const response = await fetch('/api/invoices/calculate-weights', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error || 'Failed to calculate weights. Please retry.'
+        );
+      }
+
+      // Update the invoice data with the calculated weights
+      setInvoiceData(result.invoices);
+
+      // Show success notification with details
+      const { results } = result;
+      const totalCalculated = results.length;
+      const withUnmatched = results.filter(
+        (r: { unmatchedProducts: string[] }) => r.unmatchedProducts.length > 0
+      ).length;
+
+      let message = `Successfully calculated weights for ${totalCalculated} invoice(s)`;
+      if (withUnmatched > 0) {
+        message += `. ${withUnmatched} invoice(s) have products without weight data.`;
+      }
+
+      showNotification({
+        title: 'Weight Calculation Complete',
+        message,
+        color: 'green',
+      });
+    } catch (error) {
+      showNotification({
+        title: 'Calculation Failed',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to calculate weights',
+        color: 'red',
+      });
+    }
+  };
+
   return (
     <Stack gap="md">
       <Tabs value={activeTab} onChange={setActiveTab}>
@@ -1076,9 +1257,23 @@ export function CheckoutLinksComponent() {
                 {filteredInvoiceData.map((row) => (
                   <Table.Tr key={row.id}>
                     <Table.Td>
-                      <Text size="sm" c="#495057">
-                        {row.customerName}
-                      </Text>
+                      {hasFacebookLink(row.customerName) ? (
+                        <Anchor
+                          size="sm"
+                          c="blue"
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => {
+                            void handleCustomerNameClick(row);
+                          }}
+                          title="Click to copy message and open Facebook Messenger"
+                        >
+                          {row.customerName}
+                        </Anchor>
+                      ) : (
+                        <Text size="sm" c="#495057">
+                          {row.customerName}
+                        </Text>
+                      )}
                     </Table.Td>
                     <Table.Td style={{ textAlign: 'center' }}>
                       <Text size="sm" c="#495057">
@@ -1087,29 +1282,39 @@ export function CheckoutLinksComponent() {
                     </Table.Td>
                     <Table.Td style={{ textAlign: 'center' }}>
                       <Text size="sm" c="#495057">
-                        {row.finalWeight}
+                        {calculateFinalWeight(row.actualWeight)}
                       </Text>
                     </Table.Td>
                     <Table.Td>
-                      {row.shopeeCheckoutLinks ? (
-                        <Anchor
-                          href={
-                            row.shopeeCheckoutLinks.startsWith('http')
-                              ? row.shopeeCheckoutLinks
-                              : `https://${row.shopeeCheckoutLinks}`
-                          }
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          size="sm"
-                          lineClamp={2}
-                        >
-                          {row.shopeeCheckoutLinks}
-                        </Anchor>
-                      ) : (
-                        <Text size="sm" c="dimmed">
-                          -
-                        </Text>
-                      )}
+                      {(() => {
+                        const finalWeight = calculateFinalWeight(
+                          row.actualWeight
+                        );
+                        const checkoutLink = findCheckoutLinkByWeight(
+                          finalWeight,
+                          data
+                        );
+
+                        return checkoutLink ? (
+                          <Anchor
+                            href={
+                              checkoutLink.startsWith('http')
+                                ? checkoutLink
+                                : `https://${checkoutLink}`
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            size="sm"
+                            lineClamp={2}
+                          >
+                            {checkoutLink}
+                          </Anchor>
+                        ) : (
+                          <Text size="sm" c="dimmed">
+                            -
+                          </Text>
+                        );
+                      })()}
                     </Table.Td>
                     <Table.Td>
                       {row.driveFiles ? (
@@ -1161,16 +1366,27 @@ export function CheckoutLinksComponent() {
                     <Table.Td style={{ textAlign: 'center' }}>
                       <Checkbox
                         checked={row.tickbox}
-                        onChange={(event) => {
+                        onChange={async (event) => {
+                          const newValue = event.currentTarget.checked;
+
+                          // Optimistically update UI
                           const newData = invoiceData.map((item) =>
                             item.id === row.id
-                              ? {
-                                  ...item,
-                                  tickbox: event.currentTarget.checked,
-                                }
+                              ? { ...item, tickbox: newValue }
                               : item
                           );
                           setInvoiceData(newData);
+
+                          // Persist to database
+                          const success = await updateInvoiceTickbox(
+                            row.id,
+                            newValue
+                          );
+
+                          // Revert if failed
+                          if (!success) {
+                            setInvoiceData(invoiceData);
+                          }
                         }}
                       />
                     </Table.Td>

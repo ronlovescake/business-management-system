@@ -873,3 +873,13 @@ model Message {
   @@index([deletedAt])
   @@map("messages")
 }
+
+model InvoiceSettings {
+  id                    String   @id @default(cuid())
+  messageTemplate       String   @db.Text
+  paymentChannelsUrl    String   @db.VarChar(500)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@map("invoice_settings")
+}
