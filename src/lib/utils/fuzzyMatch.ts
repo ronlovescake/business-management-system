@@ -214,7 +214,11 @@ function normalizeAddress(address: string): string {
     .replace(/villge/gi, 'village')
     // Remove common filler words and Filipino connectors
     .replace(/\b(the|of|at|in|ang|o|ng|sa|na|near|across|beside)\b/gi, '')
-    // Remove parenthetical content (e.g., "(katabi ng MCGI)", "(Near chapel)")
+    // Extract and preserve Poblacion from parentheses, then remove other parenthetical content
+    // Poblacion (Pob.) is an official administrative subdivision - should be preserved
+    .replace(/\(pob\.?\)/gi, ' poblacion ')
+    .replace(/\(poblacion\)/gi, ' poblacion ')
+    // Remove remaining parenthetical content (e.g., "(katabi ng MCGI)", "(Near chapel)")
     .replace(/\([^)]*\)/g, ' ')
     // Remove punctuation but keep numbers
     .replace(/[,.;:#()\[\]]/g, ' ')
