@@ -554,11 +554,21 @@ export function useTransactionOperations(
 
         let finalOrderStatus = currentOrderStatus;
 
-        if (shouldAutoPopulateStatus && correspondingShipmentStatus !== '') {
-          finalOrderStatus =
-            TransactionService.getOrderStatusFromShipmentStatus(
-              correspondingShipmentStatus
-            );
+        if (
+          shouldAutoPopulateStatus &&
+          dropdownValue &&
+          dropdownValue.trim() !== ''
+        ) {
+          if (correspondingShipmentStatus !== '') {
+            // Has shipment status - map to order status
+            finalOrderStatus =
+              TransactionService.getOrderStatusFromShipmentStatus(
+                correspondingShipmentStatus
+              );
+          } else {
+            // No shipment status yet - default to "In Transit"
+            finalOrderStatus = 'In Transit';
+          }
         }
 
         // Handle clearing Product Code
@@ -633,7 +643,10 @@ export function useTransactionOperations(
         if (correspondingShipmentCode) {
           autopopulated.push('Shipment Code');
         }
-        if (shouldAutoPopulateStatus && correspondingShipmentStatus) {
+        if (
+          shouldAutoPopulateStatus &&
+          finalOrderStatus !== currentOrderStatus
+        ) {
           autopopulated.push('Order Status');
         }
         if (unitPriceAutoPopulated) {
