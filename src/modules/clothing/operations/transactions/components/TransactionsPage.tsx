@@ -20,7 +20,7 @@
 
 'use client';
 
-import React, { Profiler } from 'react';
+import React, { Profiler, useEffect, useState } from 'react';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import type { StatCard } from '@/components/ui';
@@ -43,6 +43,7 @@ import {
 
 // Import performance tracking
 import { onRenderCallback } from '@/lib/performance/monitoring';
+import { logger } from '@/lib/logger';
 
 // Import hooks
 import { useTransactionsData } from '../hooks/useTransactionsData';
@@ -68,6 +69,29 @@ import type {
 import { STATUS_FILTER_OPTIONS } from '../types/transaction.types';
 
 export function TransactionsPage() {
+  // ============================================================================
+  // SETTINGS STATE - Fetch scroll behavior setting
+  // ============================================================================
+  const [scrollToLastNonEmptyRows, setScrollToLastNonEmptyRows] =
+    useState<number>(1);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const response = await fetch('/api/settings/transactions');
+        if (response.ok) {
+          const data = await response.json();
+          setScrollToLastNonEmptyRows(data.scrollToLastNonEmptyRows || 1);
+        }
+      } catch (error) {
+        logger.error('Error fetching transactions settings:', error);
+        // Use default value of 1 if fetch fails
+      }
+    };
+
+    fetchSettings();
+  }, []);
+
   // ============================================================================
   // DATA HOOKS - All data fetching and filtering
   // ============================================================================
@@ -569,6 +593,7 @@ export function TransactionsPage() {
           isGeneratingInvoice={isGeneratingInvoice}
           isGeneratingPackingList={isGeneratingPackingList}
           isGeneratingDistribution={isGeneratingDistribution}
+          scrollToLastNonEmptyRows={scrollToLastNonEmptyRows}
         />
       </PageLayout>
     </Profiler>

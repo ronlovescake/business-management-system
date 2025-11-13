@@ -23,6 +23,7 @@ import {
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { IconInfoCircle, IconCheck, IconX } from '@tabler/icons-react';
+import Swal from 'sweetalert2';
 import { MESSAGE_PLACEHOLDERS } from '../../checkout-links/utils/messageGenerator';
 import { logger } from '@/lib/logger';
 
@@ -37,6 +38,10 @@ interface InvoiceSettings {
 export default function InvoiceMessageTab() {
   const [loading, setLoading] = useState(false);
   const [fetchingSettings, setFetchingSettings] = useState(true);
+  const [originalValues, setOriginalValues] = useState({
+    messageTemplate: '',
+    paymentChannelsUrl: '',
+  });
 
   const form = useForm({
     initialValues: {
@@ -91,6 +96,12 @@ export default function InvoiceMessageTab() {
         messageTemplate: settings.messageTemplate,
         paymentChannelsUrl: settings.paymentChannelsUrl,
       });
+      
+      // Store original values for comparison
+      setOriginalValues({
+        messageTemplate: settings.messageTemplate,
+        paymentChannelsUrl: settings.paymentChannelsUrl,
+      });
     } catch (error) {
       notifications.show({
         title: 'Error',
@@ -127,6 +138,12 @@ export default function InvoiceMessageTab() {
         color: 'green',
         icon: <IconCheck size={16} />,
       });
+
+      // Update original values after successful save
+      setOriginalValues({
+        messageTemplate: values.messageTemplate,
+        paymentChannelsUrl: values.paymentChannelsUrl,
+      });
     } catch (error) {
       notifications.show({
         title: 'Error',
@@ -142,11 +159,46 @@ export default function InvoiceMessageTab() {
   };
 
   const handleReset = async () => {
-    if (
-      !confirm(
-        'Are you sure you want to reset the message template to default?'
-      )
-    ) {
+    // First confirmation - Warning
+    const firstConfirm = await Swal.fire({
+      title: 'Reset to Default?',
+      text: 'This will replace your current message template with the default template.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, continue',
+      cancelButtonText: 'Cancel',
+      focusCancel: true,
+    });
+
+    if (!firstConfirm.isConfirmed) {
+      return;
+    }
+
+    // Second confirmation - Final warning
+    const secondConfirm = await Swal.fire({
+      title: 'Are you absolutely sure?',
+      html: `
+        <div style="text-align: left; margin-top: 1rem;">
+          <p style="margin-bottom: 0.5rem;"><strong>This action will:</strong></p>
+          <ul style="margin-left: 1.5rem; color: #ef4444;">
+            <li>Delete your current message template</li>
+            <li>Restore the original default message</li>
+            <li>This cannot be undone</li>
+          </ul>
+        </div>
+      `,
+      icon: 'error',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, reset it!',
+      cancelButtonText: 'No, keep my template',
+      focusCancel: true,
+    });
+
+    if (!secondConfirm.isConfirmed) {
       return;
     }
 
@@ -169,18 +221,25 @@ export default function InvoiceMessageTab() {
         paymentChannelsUrl: settings.paymentChannelsUrl,
       });
 
-      notifications.show({
-        title: 'Success',
-        message: result.message || 'Settings reset to default',
-        color: 'blue',
-        icon: <IconCheck size={16} />,
+      // Update original values after reset
+      setOriginalValues({
+        messageTemplate: settings.messageTemplate,
+        paymentChannelsUrl: settings.paymentChannelsUrl,
+      });
+
+      await Swal.fire({
+        title: 'Reset Complete!',
+        text: 'Your message template has been reset to default.',
+        icon: 'success',
+        confirmButtonColor: '#10b981',
+        timer: 3000,
       });
     } catch (error) {
-      notifications.show({
-        title: 'Error',
-        message: 'Failed to reset settings',
-        color: 'red',
-        icon: <IconX size={16} />,
+      await Swal.fire({
+        title: 'Error!',
+        text: 'Failed to reset settings. Please try again.',
+        icon: 'error',
+        confirmButtonColor: '#ef4444',
       });
       logger.error('Error resetting invoice settings', error);
     } finally {
@@ -195,6 +254,11 @@ export default function InvoiceMessageTab() {
       </Paper>
     );
   }
+
+  // Check if values have changed
+  const hasChanges =
+    form.values.messageTemplate !== originalValues.messageTemplate ||
+    form.values.paymentChannelsUrl !== originalValues.paymentChannelsUrl;
 
   return (
     <Paper p="md">
@@ -237,9 +301,16 @@ export default function InvoiceMessageTab() {
               label="Message Template"
               description="Enter your invoice message template with placeholders"
               placeholder="Enter message template..."
-              minRows={12}
-              maxRows={20}
+              minRows={45}
+              maxRows={68}
+              autosize
               required
+              styles={{
+                input: {
+                  fontSize: '14px',
+                  lineHeight: '1.6',
+                },
+              }}
               {...form.getInputProps('messageTemplate')}
             />
 
@@ -267,11 +338,15 @@ export default function InvoiceMessageTab() {
                 <Button
                   variant="default"
                   onClick={() => fetchSettings()}
-                  disabled={loading}
+                  disabled={loading || !hasChanges}
                 >
                   Cancel
                 </Button>
-                <Button type="submit" loading={loading}>
+                <Button 
+                  type="submit" 
+                  loading={loading}
+                  disabled={!hasChanges}
+                >
                   Save Template
                 </Button>
               </Group>

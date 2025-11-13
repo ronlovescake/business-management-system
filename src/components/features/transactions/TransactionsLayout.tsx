@@ -89,6 +89,9 @@ export interface TransactionsLayoutProps<T = Record<string, unknown>> {
 
   // Other Options
   enableCtrlF?: boolean;
+
+  // Scroll Behavior
+  scrollToLastNonEmptyRows?: number;
 }
 
 export function TransactionsLayout<T extends object = Record<string, unknown>>({
@@ -115,6 +118,7 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
   isGeneratingPackingList = false,
   isGeneratingDistribution = false,
   enableCtrlF = false,
+  scrollToLastNonEmptyRows = 1,
 }: TransactionsLayoutProps<T>) {
   // Export to XLSX function
   const handleExportToXLSX = React.useCallback(() => {
@@ -299,6 +303,7 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
       footerLeft={footerLeft}
       searchRightButtons={searchRightButtons}
       actionButtons={actionButtons}
+      scrollToLastNonEmptyRows={scrollToLastNonEmptyRows}
     />
   );
 }

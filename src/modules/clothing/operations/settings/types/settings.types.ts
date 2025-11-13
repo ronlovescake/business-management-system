@@ -186,6 +186,7 @@ export interface ModuleDetailModalData {
 export const SETTINGS_TABS = [
   { value: 'invoice', label: 'Invoice Settings', icon: 'file-invoice' },
   { value: 'message', label: 'Invoice Message', icon: 'message' },
+  { value: 'transactions', label: 'Transactions', icon: 'table' },
   { value: 'backup', label: 'Backup & Restore', icon: 'database' },
 ] as const;
 
