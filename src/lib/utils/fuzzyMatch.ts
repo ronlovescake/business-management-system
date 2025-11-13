@@ -131,47 +131,67 @@ function calculateTokenSimilarity(str1: string, str2: string): number {
  * Removes common variations and standardizes format
  */
 function normalizeAddress(address: string): string {
-  return (
-    address
-      .toLowerCase()
-      .trim()
-      // Remove extra whitespace
-      .replace(/\s+/g, ' ')
-      // Standardize common abbreviations (more comprehensive)
-      .replace(/\bst\b\.?/gi, 'street')
-      .replace(/\bave\b\.?/gi, 'avenue')
-      .replace(/\bavenue\b\.?/gi, 'avenue')
-      .replace(/\brd\b\.?/gi, 'road')
-      .replace(/\bblvd\b\.?/gi, 'boulevard')
-      .replace(/\bblk\b\.?/gi, 'block')
-      .replace(/\bapt\b\.?/gi, 'apartment')
-      .replace(/\bunit\b\.?/gi, 'unit')
-      .replace(/\bbrgy\b\.?/gi, 'barangay')
-      .replace(/\bsubd\b\.?/gi, 'subdivision')
-      .replace(/\bph\b\.?/gi, 'phase')
-      .replace(/\bqc\b\.?/gi, 'quezon city')
-      .replace(/\bpurok\b\.?/gi, 'purok')
-      // Common typos and variations
-      .replace(/mercdes/gi, 'mercedes')
-      .replace(/excutive/gi, 'executive')
-      .replace(/vilige/gi, 'village')
-      .replace(/villge/gi, 'village')
-      .replace(/pasig\s*city/gi, 'pasig')
-      .replace(/metro\s*manila/gi, 'metromanila')
-      .replace(/san\s+pablo\s+city/gi, 'san pablo')
-      .replace(/south\s+luzon/gi, '')
-      // Remove common filler words and Filipino connectors
-      .replace(/\b(the|of|at|in|ang|o|ng|sa|na)\b/gi, '')
-      // Remove parenthetical content (e.g., "(katabi ng MCGI)")
-      .replace(/\([^)]*\)/g, ' ')
-      // Remove punctuation but keep numbers
-      .replace(/[,.;:#()\[\]]/g, ' ')
-      // Standardize spacing around numbers
-      .replace(/(\d+)\s*-\s*(\d+)/g, '$1-$2')
-      // Remove extra spaces again after replacements
-      .replace(/\s+/g, ' ')
-      .trim()
-  );
+  const normalized = address
+    .toLowerCase()
+    .trim()
+    // Remove extra whitespace
+    .replace(/\s+/g, ' ')
+    // Standardize "Sto/Sta" variations (before other replacements)
+    .replace(/\bsto\b\.?/gi, 'santo')
+    .replace(/\bsta\b\.?/gi, 'santa')
+    // Standardize common abbreviations (more comprehensive)
+    .replace(/\bst\b\.?/gi, 'street')
+    .replace(/\bave\b\.?/gi, 'avenue')
+    .replace(/\bavenue\b\.?/gi, 'avenue')
+    .replace(/\brd\b\.?/gi, 'road')
+    .replace(/\bblvd\b\.?/gi, 'boulevard')
+    .replace(/\bblk\b\.?/gi, 'block')
+    .replace(/\bapt\b\.?/gi, 'apartment')
+    .replace(/\bunit\b\.?/gi, 'unit')
+    .replace(/\bbrgy\b\.?/gi, 'barangay')
+    .replace(/\bsubd\b\.?/gi, 'subdivision')
+    .replace(/\bph\b\.?/gi, 'phase')
+    .replace(/\bqc\b\.?/gi, 'quezon city')
+    .replace(/\bpurok\b\.?/gi, 'purok')
+    .replace(/\bpob\b\.?/gi, 'poblacion')
+    // Common typos and variations
+    .replace(/mercdes/gi, 'mercedes')
+    .replace(/excutive/gi, 'executive')
+    .replace(/vilige/gi, 'village')
+    .replace(/villge/gi, 'village')
+    .replace(/pasig\s*city/gi, 'pasig')
+    .replace(/metro\s*manila/gi, 'metromanila')
+    .replace(/san\s+pablo\s+city/gi, 'san pablo')
+    .replace(/south\s+luzon/gi, '')
+    .replace(/north\s+luzon/gi, '')
+    // Remove common filler words and Filipino connectors
+    .replace(/\b(the|of|at|in|ang|o|ng|sa|na)\b/gi, '')
+    // Remove parenthetical content (e.g., "(katabi ng MCGI)")
+    .replace(/\([^)]*\)/g, ' ')
+    // Remove punctuation but keep numbers
+    .replace(/[,.;:#()\[\]]/g, ' ')
+    // Standardize spacing around numbers
+    .replace(/(\d+)\s*-\s*(\d+)/g, '$1-$2')
+    // Remove extra spaces again after replacements
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // Remove duplicate consecutive words (e.g., "angat angat" -> "angat")
+  // This handles cases where location names appear multiple times
+  const words = normalized.split(/\s+/);
+  const deduplicated: string[] = [];
+  const seen = new Set<string>();
+
+  for (const word of words) {
+    // Keep the word if it hasn't been seen yet, or if it's a number/street marker
+    const isNumberOrMarker = /^\d+$/.test(word) || /^\d+[a-z]/.test(word);
+    if (!seen.has(word) || isNumberOrMarker) {
+      deduplicated.push(word);
+      seen.add(word);
+    }
+  }
+
+  return deduplicated.join(' ');
 }
 
 /**
