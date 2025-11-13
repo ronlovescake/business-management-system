@@ -79,7 +79,7 @@ const SUMMARY_TIME_FORMATTER = new Intl.DateTimeFormat(undefined, {
 });
 
 const SUMMARY_GRID_TEMPLATE =
-  'minmax(280px, 1.8fr) 200px minmax(220px, 1.6fr) 150px';
+  'minmax(200px, 1fr) minmax(180px, 1fr) minmax(180px, 1fr) 120px 200px minmax(180px, 1fr) 120px';
 
 const DEFAULT_LIMIT = 250;
 
@@ -332,6 +332,7 @@ export function ChangeLogPage() {
         latestCreatedAt: string;
         customerName?: string;
         productCode?: string;
+        quantity?: number;
       }
     >();
 
@@ -356,49 +357,103 @@ export function ChangeLogPage() {
         };
         groups.set(key, groupRef);
       }
+    }
 
+    // After grouping, extract customer, product, and quantity from the LATEST entry
+    Array.from(groups.values()).forEach((groupRef) => {
       if (groupRef.entityType.toLowerCase() === 'transaction') {
-        const metadataRecord = isRecord(log.metadata)
-          ? log.metadata
-          : undefined;
-        const fieldName = (log.field ?? '').toLowerCase();
-        const fieldIsCustomer = fieldName.includes('customer');
-        const fieldIsProduct =
-          fieldName.includes('product') ||
-          fieldName.includes('sku') ||
-          fieldName.includes('item');
+        // Sort entries by createdAt descending (newest first)
+        const sortedEntries = [...groupRef.entries].sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
 
-        if (!groupRef.customerName) {
+        // Get the latest entry
+        const latestEntry = sortedEntries[0];
+
+        if (latestEntry) {
+          const metadataRecord = isRecord(latestEntry.metadata)
+            ? latestEntry.metadata
+            : undefined;
+          const fieldName = (latestEntry.field ?? '').toLowerCase();
+          const fieldIsCustomer = fieldName.includes('customer');
+          const fieldIsProduct =
+            fieldName.includes('product') ||
+            fieldName.includes('sku') ||
+            fieldName.includes('item');
+
+          // Extract customer from latest entry
           const customerFromMetadata = metadataRecord
             ? extractFromObject(metadataRecord, CUSTOMER_METADATA_KEYS)
             : null;
           const customerFromField = fieldIsCustomer
-            ? (resolveDetail(log.newValue, CUSTOMER_METADATA_KEYS) ??
-              resolveDetail(log.oldValue, CUSTOMER_METADATA_KEYS))
+            ? (resolveDetail(latestEntry.newValue, CUSTOMER_METADATA_KEYS) ??
+              resolveDetail(latestEntry.oldValue, CUSTOMER_METADATA_KEYS))
             : null;
 
-          const candidate = customerFromMetadata ?? customerFromField;
-          if (candidate) {
-            groupRef.customerName = candidate;
+          // Try to extract from newValue if it's a transaction object
+          let customerFromTransaction = null;
+          if (
+            latestEntry.newValue &&
+            typeof latestEntry.newValue === 'object'
+          ) {
+            const newTx = latestEntry.newValue as Record<string, unknown>;
+            if ('customers' in newTx) {
+              customerFromTransaction = String(newTx.customers || '');
+            }
           }
-        }
 
-        if (!groupRef.productCode) {
+          const customerCandidate =
+            customerFromTransaction ||
+            customerFromMetadata ||
+            customerFromField;
+          if (customerCandidate) {
+            groupRef.customerName = customerCandidate;
+          }
+
+          // Extract product code from latest entry
           const productFromMetadata = metadataRecord
             ? extractFromObject(metadataRecord, PRODUCT_METADATA_KEYS)
             : null;
           const productFromField = fieldIsProduct
-            ? (resolveDetail(log.newValue, PRODUCT_METADATA_KEYS) ??
-              resolveDetail(log.oldValue, PRODUCT_METADATA_KEYS))
+            ? (resolveDetail(latestEntry.newValue, PRODUCT_METADATA_KEYS) ??
+              resolveDetail(latestEntry.oldValue, PRODUCT_METADATA_KEYS))
             : null;
 
-          const candidate = productFromMetadata ?? productFromField;
-          if (candidate) {
-            groupRef.productCode = candidate;
+          // Try to extract from newValue if it's a transaction object
+          let productFromTransaction = null;
+          if (
+            latestEntry.newValue &&
+            typeof latestEntry.newValue === 'object'
+          ) {
+            const newTx = latestEntry.newValue as Record<string, unknown>;
+            if ('productCode' in newTx) {
+              productFromTransaction = String(newTx.productCode || '');
+            }
+          }
+
+          const productCandidate =
+            productFromTransaction || productFromMetadata || productFromField;
+          if (productCandidate) {
+            groupRef.productCode = productCandidate;
+          }
+
+          // Extract quantity from latest entry
+          if (
+            latestEntry.newValue &&
+            typeof latestEntry.newValue === 'object'
+          ) {
+            const newTx = latestEntry.newValue as Record<string, unknown>;
+            if ('quantity' in newTx) {
+              const qty = newTx.quantity;
+              if (typeof qty === 'number') {
+                groupRef.quantity = qty;
+              }
+            }
           }
         }
       }
-    }
+    });
 
     return Array.from(groups.values()).sort(
       (a, b) =>
@@ -575,6 +630,15 @@ export function ChangeLogPage() {
                 Details
               </Text>
               <Text fw={600} size="xs">
+                Customer
+              </Text>
+              <Text fw={600} size="xs">
+                Product Code
+              </Text>
+              <Text fw={600} size="xs">
+                Quantity
+              </Text>
+              <Text fw={600} size="xs">
                 Date / Time
               </Text>
               <Text fw={600} size="xs">
@@ -645,23 +709,22 @@ export function ChangeLogPage() {
                             <Text size="sm" fw={600} tt="capitalize">
                               {group.entityType} · ID: {group.entityId}
                             </Text>
-                            {group.customerName && (
-                              <Text size="xs" c="dimmed">
-                                Customer: {group.customerName}
-                              </Text>
-                            )}
-                            {group.productCode && (
-                              <Text size="xs" c="dimmed">
-                                Product: {group.productCode}
-                              </Text>
-                            )}
                           </Stack>
-                          <Text fw={500}>
+                          <Text size="sm" fw={500}>
+                            {group.customerName || ''}
+                          </Text>
+                          <Text size="sm" fw={500}>
+                            {group.productCode || ''}
+                          </Text>
+                          <Text size="sm" fw={500}>
+                            {group.quantity !== undefined ? group.quantity : ''}
+                          </Text>
+                          <Text size="sm" fw={500}>
                             {SUMMARY_DATE_FORMATTER.format(latestDate)} ·{' '}
                             {SUMMARY_TIME_FORMATTER.format(latestDate)}
                           </Text>
                           <Stack gap={2}>
-                            <Text fw={500}>
+                            <Text size="sm" fw={500}>
                               {latestEntry?.userName || 'System'}
                             </Text>
                             {latestEntry?.userId && (
@@ -726,6 +789,22 @@ export function ChangeLogPage() {
                                     unknown
                                   >;
 
+                                  // Helper to format cell values: show blank for 0, empty, null, or undefined
+                                  const formatCell = (
+                                    value: unknown
+                                  ): string => {
+                                    if (
+                                      value === null ||
+                                      value === undefined ||
+                                      value === '' ||
+                                      value === 0 ||
+                                      value === '0'
+                                    ) {
+                                      return '';
+                                    }
+                                    return String(value);
+                                  };
+
                                   return (
                                     <Table.Tr key={log.id}>
                                       <Table.Td>
@@ -734,43 +813,43 @@ export function ChangeLogPage() {
                                         </Text>
                                       </Table.Td>
                                       <Table.Td>
-                                        {String(newTx.orderDate || '—')}
+                                        {formatCell(newTx.orderDate)}
                                       </Table.Td>
                                       <Table.Td>
-                                        {String(newTx.customers || '—')}
+                                        {formatCell(newTx.customers)}
                                       </Table.Td>
                                       <Table.Td>
-                                        {String(newTx.productCode || '—')}
+                                        {formatCell(newTx.productCode)}
                                       </Table.Td>
                                       <Table.Td>
-                                        {String(newTx.quantity ?? '—')}
+                                        {formatCell(newTx.quantity)}
                                       </Table.Td>
                                       <Table.Td>
-                                        {String(newTx.unitPrice ?? '—')}
+                                        {formatCell(newTx.unitPrice)}
                                       </Table.Td>
                                       <Table.Td>
-                                        {String(newTx.discount ?? '—')}
+                                        {formatCell(newTx.discount)}
                                       </Table.Td>
                                       <Table.Td>
-                                        {String(newTx.adjustment ?? '—')}
+                                        {formatCell(newTx.adjustment)}
                                       </Table.Td>
                                       <Table.Td>
-                                        {String(newTx.lineTotal ?? '—')}
+                                        {formatCell(newTx.lineTotal)}
                                       </Table.Td>
                                       <Table.Td>
-                                        {String(newTx.orderStatus || '—')}
+                                        {formatCell(newTx.orderStatus)}
                                       </Table.Td>
                                       <Table.Td>
-                                        {String(newTx.notes || '—')}
+                                        {formatCell(newTx.notes)}
                                       </Table.Td>
                                       <Table.Td>
-                                        {String(newTx.invoiceDate || '—')}
+                                        {formatCell(newTx.invoiceDate)}
                                       </Table.Td>
                                       <Table.Td>
-                                        {String(newTx.packedDate || '—')}
+                                        {formatCell(newTx.packedDate)}
                                       </Table.Td>
                                       <Table.Td>
-                                        {String(newTx.shipmentCode || '—')}
+                                        {formatCell(newTx.shipmentCode)}
                                       </Table.Td>
                                     </Table.Tr>
                                   );
