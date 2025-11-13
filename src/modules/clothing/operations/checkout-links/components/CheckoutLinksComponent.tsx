@@ -1246,18 +1246,21 @@ export function CheckoutLinksComponent() {
                   'FINAL WEIGHT',
                   'SHOPEE CHECKOUT LINKS',
                   'DRIVE FILES',
-                  'MESSAGE',
-                  'CHAT',
                   'TICKBOX',
-                  'ACTION',
                 ]}
                 emptyState="No invoicing records found. Click 'Add New' to get started."
-                colSpan={9}
+                colSpan={6}
               >
                 {filteredInvoiceData.map((row) => (
-                  <Table.Tr key={row.id}>
+                  <Table.Tr
+                    key={row.id}
+                    style={{
+                      opacity: row.tickbox ? 0.5 : 1,
+                      transition: 'opacity 0.2s ease',
+                    }}
+                  >
                     <Table.Td>
-                      {hasFacebookLink(row.customerName) ? (
+                      {hasFacebookLink(row.customerName) && !row.tickbox ? (
                         <Anchor
                           size="sm"
                           c="blue"
@@ -1337,32 +1340,6 @@ export function CheckoutLinksComponent() {
                         </Text>
                       )}
                     </Table.Td>
-                    <Table.Td>
-                      <Text size="sm" c="#495057" lineClamp={2}>
-                        {row.message || '-'}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      {row.chat ? (
-                        <Anchor
-                          href={
-                            row.chat.startsWith('http')
-                              ? row.chat
-                              : `https://${row.chat}`
-                          }
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          size="sm"
-                          lineClamp={2}
-                        >
-                          Chat Link
-                        </Anchor>
-                      ) : (
-                        <Text size="sm" c="dimmed">
-                          -
-                        </Text>
-                      )}
-                    </Table.Td>
                     <Table.Td style={{ textAlign: 'center' }}>
                       <Checkbox
                         checked={row.tickbox}
@@ -1389,27 +1366,6 @@ export function CheckoutLinksComponent() {
                           }
                         }}
                       />
-                    </Table.Td>
-                    <Table.Td>
-                      <Group gap="xs" justify="center">
-                        <Tooltip label="Edit">
-                          <ActionIcon
-                            color="blue"
-                            variant="light"
-                            size="sm"
-                            onClick={() => {
-                              // TODO: Implement edit functionality
-                            }}
-                            {...getActionLabel(
-                              'Edit',
-                              'invoice record',
-                              row.customerName
-                            )}
-                          >
-                            <IconEdit size={16} />
-                          </ActionIcon>
-                        </Tooltip>
-                      </Group>
                     </Table.Td>
                   </Table.Tr>
                 ))}
