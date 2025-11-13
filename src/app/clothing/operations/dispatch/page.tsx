@@ -17,6 +17,11 @@ export const metadata: Metadata = {
   description: 'Manage dispatch operations and order tracking',
 };
 
+// Force dynamic rendering to always fetch fresh customer data
+// This ensures customer name updates are immediately reflected in production
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function DispatchPage() {
   const hasAccess = await hasModuleAccess('/clothing/operations/dispatch');
   const redirectTo = await getFirstAccessibleModule();

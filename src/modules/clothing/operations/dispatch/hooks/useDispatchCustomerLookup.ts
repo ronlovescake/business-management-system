@@ -68,10 +68,10 @@ export function useDispatchCustomerLookup(enabled = true) {
   const { data: customersWithShopee = [], isLoading } = useQuery({
     queryKey: ['dispatch-customers-shopee'],
     queryFn: fetchCustomersWithShopee,
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
+    staleTime: 30 * 1000, // 30 seconds - short enough to catch updates quickly
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+    refetchOnWindowFocus: true, // Refetch when user returns to tab (catches updates)
+    refetchOnMount: true, // Refetch when component mounts (catches updates)
     enabled,
   });
 

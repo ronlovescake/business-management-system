@@ -188,7 +188,9 @@ export function usePossibleMatches(
   const { data: customers = [], isLoading: loadingCustomers } = useQuery({
     queryKey: ['possible-match-customers-with-addresses'],
     queryFn: fetchCustomersWithAllAddresses,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 30 * 1000, // 30 seconds - catch customer updates quickly
+    refetchOnWindowFocus: true, // Refetch when user returns to tab
+    refetchOnMount: true, // Refetch when component mounts
     enabled, // Only fetch when enabled
   });
 
