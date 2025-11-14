@@ -52,8 +52,12 @@ const clientSchema = z.object({
   // Application base URL (for absolute URLs in emails, API calls, etc.)
   NEXT_PUBLIC_APP_URL: z.string().url().optional(),
 
-  // Sentry DSN for error tracking
-  NEXT_PUBLIC_SENTRY_DSN: z.string().url().optional(),
+  // Sentry DSN for error tracking (empty string allowed for test environments)
+  NEXT_PUBLIC_SENTRY_DSN: z
+    .string()
+    .transform((val) => val || undefined)
+    .pipe(z.string().url().optional())
+    .optional(),
 
   // Add more client-side vars as needed with NEXT_PUBLIC_ prefix
   // NEXT_PUBLIC_API_URL: z.string().url().optional(),
