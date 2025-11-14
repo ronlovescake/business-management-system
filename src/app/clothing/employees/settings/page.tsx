@@ -204,7 +204,7 @@ export default function EmployeeSettings() {
   };
 
   return (
-    <PageLayout title="Settings">
+    <PageLayout>
       <form onSubmit={handleSubmit}>
         <Card
           withBorder

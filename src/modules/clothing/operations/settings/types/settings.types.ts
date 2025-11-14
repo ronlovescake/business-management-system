@@ -188,6 +188,7 @@ export const SETTINGS_TABS = [
   { value: 'message', label: 'Invoice Message', icon: 'message' },
   { value: 'transactions', label: 'Transactions', icon: 'table' },
   { value: 'backup', label: 'Backup & Restore', icon: 'database' },
+  { value: 'change-log', label: 'Change Log', icon: 'history' },
 ] as const;
 
 export type SettingsTab = (typeof SETTINGS_TABS)[number]['value'];
