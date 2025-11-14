@@ -1,7 +1,15 @@
 import { test, expect } from '@playwright/test';
 import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url:
+        process.env.DATABASE_URL ||
+        'postgresql://test:test@localhost:5433/business_management_test',
+    },
+  },
+});
 
 test.describe('Data integrity sweep', () => {
   test.afterAll(async () => {

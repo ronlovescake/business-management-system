@@ -1,8 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
+import * as dotenv from 'dotenv';
 
 const storageState = 'tests/e2e/.auth/clothing-operations.json';
 const isCI = !!process.env.CI;
 const playwrightEnvFile = process.env.PLAYWRIGHT_ENV_FILE || '.env.test';
+
+// Load test environment variables for Prisma clients in tests
+dotenv.config({ path: playwrightEnvFile, override: true });
 
 export default defineConfig({
   testDir: './tests/e2e',
