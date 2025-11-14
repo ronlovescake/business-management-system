@@ -35,7 +35,7 @@
     "generate:module": "node scripts/generate-module.js"
   },
   "dependencies": {
-    "@asteasolutions/zod-to-openapi": "^8.1.0",
+    "@asteasolutions/zod-to-openapi": "^7.1.0",
     "@glideapps/glide-data-grid": "^6.0.3",
     "@glideapps/glide-data-grid-cells": "^6.0.3",
     "@handsontable/react": "^16.1.1",
@@ -43,7 +43,7 @@
     "@mantine/dates": "^7.17.8",
     "@mantine/form": "^7.0.0",
     "@mantine/hooks": "^7.0.0",
-    "@mantine/modals": "^8.3.6",
+    "@mantine/modals": "^7.17.8",
     "@mantine/notifications": "^7.0.0",
     "@prisma/client": "^5.22.0",
     "@sentry/nextjs": "^10.22.0",
@@ -61,7 +61,7 @@
     "idb": "^8.0.3",
     "isomorphic-dompurify": "^2.30.1",
     "jszip": "^3.10.1",
-    "marked": "^16.4.1",
+    "marked": "^4.3.0",
     "next": "^14.0.0",
     "next-auth": "^4.24.13",
     "openapi3-ts": "^4.5.0",
