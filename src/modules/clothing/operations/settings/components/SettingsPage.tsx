@@ -18,7 +18,7 @@ import {
   IconTable,
 } from '@tabler/icons-react';
 import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
-import { ChangeLogPage } from '@/modules/admin/change-log/components/ChangeLogPage';
+import { ChangeLogPage } from '@/modules/clothing/operations/settings/change-log';
 import { BackupRestoreTab } from './BackupRestoreTab';
 import { InvoiceSettingsTab } from './InvoiceSettingsTab';
 import InvoiceMessageTab from './InvoiceMessageTab';
@@ -38,7 +38,7 @@ const QUICK_ACTION_BUTTONS: Array<{
 ];
 
 export function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('invoice');
+  const [activeTab, setActiveTab] = useState<SettingsTab>('change-log');
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
@@ -107,16 +107,10 @@ export function SettingsPage() {
           </Group>
         </Paper>
 
-        <Paper
-          shadow="sm"
-          p="md"
-          radius="md"
-          style={{ height: '86vh', overflow: 'auto' }}
+        <Tabs
+          value={activeTab}
+          onChange={(value) => setActiveTab(value as SettingsTab)}
         >
-          <Tabs
-            value={activeTab}
-            onChange={(value) => setActiveTab(value as SettingsTab)}
-          >
             <Tabs.List style={{ display: 'none' }} aria-hidden="true">
               <Tabs.Tab
                 value="invoice"
@@ -158,10 +152,9 @@ export function SettingsPage() {
             </Tabs.Panel>
 
             <Tabs.Panel value="change-log" pt="md">
-              <ChangeLogPage />
+              <ChangeLogPage hideFilters externalSearch={searchQuery} />
             </Tabs.Panel>
           </Tabs>
-        </Paper>
       </Stack>
     </Container>
   );
