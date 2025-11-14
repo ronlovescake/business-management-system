@@ -24,7 +24,7 @@
 //    - Page Size: A6 Landscape (148mm x 105mm)
 //    - One page per customer (grouped transactions)
 //    - Table: Line #, Quantity, Product Code (12 rows fixed)
-//    - Saves to: pdf_output/packing_list/ directory with timestamp
+//    - Streams PDF response to client without persisting on server
 //    - Template: templates/packinglist.hbs
 //    - Groups multiple transactions by customer
 //
@@ -182,21 +182,10 @@ export async function POST(request: NextRequest) {
 
     const mergedPdfBytes = await mergedPdf.save();
 
-    // Save the PDF to the pdf_output/packing_list directory
-    const outputDir = path.join(process.cwd(), 'pdf_output', 'packing_list');
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
-    }
-
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = `packing-list-${timestamp}.pdf`;
-    const outputPath = path.join(outputDir, filename);
 
-    fs.writeFileSync(outputPath, mergedPdfBytes);
-    // eslint-disable-next-line no-console
-    console.log(`✅ Packing List PDF saved to: ${outputPath}`);
-
-    // Return the PDF
+    // Return the PDF directly without saving to disk
     return new NextResponse(Buffer.from(mergedPdfBytes), {
       status: 200,
       headers: {

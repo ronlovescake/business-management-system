@@ -16,7 +16,6 @@ const LOGO_PATH = path.join(
   'images',
   'payslip-logo.png'
 );
-const OUTPUT_DIR = path.join(process.cwd(), 'pdf_output', 'payslips');
 
 let templateCache: HandlebarsTemplateDelegate | null = null;
 let logoBase64Cache: string | null = null;
@@ -263,10 +262,6 @@ export async function POST(request: NextRequest) {
 
     const template = getTemplate();
 
-    if (!fs.existsSync(OUTPUT_DIR)) {
-      fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-    }
-
     const generationTimestamp = new Date().toISOString().replace(/:/g, '-');
 
     const browser = await puppeteer.launch({
@@ -302,12 +297,6 @@ export async function POST(request: NextRequest) {
       const pdfBuffer = Buffer.from(pdfArray);
 
       const filename = sanitizeFilename(record.employeeName);
-      const outputPath = path.join(
-        OUTPUT_DIR,
-        `${generationTimestamp}-${filename}`
-      );
-      fs.writeFileSync(outputPath, pdfBuffer);
-
       files.push({ name: filename, buffer: pdfBuffer });
     }
 

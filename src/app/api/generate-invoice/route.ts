@@ -306,47 +306,33 @@ export async function POST(request: NextRequest) {
     const contentType =
       settings.format === 'png' ? 'image/png' : 'application/pdf';
 
-    // Save individual files and prepare file list for zip
-    const outputDir = path.join(process.cwd(), 'pdf_output', 'invoices');
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
-    }
-
     const timestamp = new Date().toISOString().replace(/:/g, '-');
     const customerNames = Array.from(groupedByCustomer.keys());
 
-    // Save each file with customer name
-    const savedFiles: { name: string; buffer: Buffer }[] = [];
-    imageBuffers.forEach((imageBuffer, index) => {
+    const generatedFiles = imageBuffers.map((imageBuffer, index) => {
       const customerName = customerNames[index] || 'Unknown Customer';
-
-      // Sanitize filename: remove invalid characters but keep meaningful ones
-      const sanitizedFilename = customerName
-        .replace(/[<>:"/\\|?*\x00-\x1F]/g, '') // Remove invalid file system characters
+      const sanitizedBase = customerName
+        .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
         .trim();
+      const safeBase =
+        sanitizedBase.length > 0 ? sanitizedBase : `customer-${index + 1}`;
 
-      const filename = `${sanitizedFilename}.${fileExtension}`;
-      const outputPath = path.join(
-        outputDir,
-        `${timestamp}-${sanitizedFilename}.${fileExtension}`
-      );
-
-      fs.writeFileSync(outputPath, imageBuffer);
-      savedFiles.push({ name: filename, buffer: imageBuffer });
+      return {
+        name: `${safeBase}.${fileExtension}`,
+        buffer: imageBuffer,
+      };
     });
 
     // If only one customer, return single file
-    if (imageBuffers.length === 1) {
-      const customerName = customerNames[0] || 'Unknown Customer';
-      const sanitizedFilename = customerName
-        .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
-        .trim();
+    if (generatedFiles.length === 1) {
+      const [{ name, buffer }] = generatedFiles;
+      const encodedName = encodeURIComponent(name);
 
-      return new NextResponse(Buffer.from(imageBuffers[0]), {
+      return new NextResponse(Buffer.from(buffer), {
         status: 200,
         headers: {
           'Content-Type': contentType,
-          'Content-Disposition': `attachment; filename="${encodeURIComponent(sanitizedFilename)}.${fileExtension}"`,
+          'Content-Disposition': `attachment; filename="${encodedName}"`,
         },
       });
     }
@@ -355,7 +341,7 @@ export async function POST(request: NextRequest) {
     const JSZip = (await import('jszip')).default;
     const zip = new JSZip();
 
-    savedFiles.forEach(({ name, buffer }) => {
+    generatedFiles.forEach(({ name, buffer }) => {
       zip.file(name, buffer);
     });
 
