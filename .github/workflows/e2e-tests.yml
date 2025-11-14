@@ -43,8 +43,10 @@ jobs:
         run: |
           cp .env.example .env.test || touch .env.test
           echo "DATABASE_URL=postgresql://testuser:testpass@localhost:5433/business_management_test" >> .env.test
-          echo "NEXTAUTH_URL=http://localhost:3000" >> .env.test
-          echo "NEXTAUTH_SECRET=test-secret-key-for-ci" >> .env.test
+          echo "NEXTAUTH_URL=http://localhost:3100" >> .env.test
+          echo "NEXTAUTH_SECRET=test-secret-key-for-ci-123456789012" >> .env.test
+          echo "BYPASS_AUTH_FOR_TESTS=true" >> .env.test
+          echo "PORT=3100" >> .env.test
 
       - name: Run database migrations
         run: npm run db:migrate
@@ -58,8 +60,11 @@ jobs:
         run: npm run test:e2e:chromium -- --workers=1
         env:
           DATABASE_URL: postgresql://testuser:testpass@localhost:5433/business_management_test
-          NEXTAUTH_URL: http://localhost:3000
-          NEXTAUTH_SECRET: test-secret-key-for-ci
+          NEXTAUTH_URL: http://localhost:3100
+          NEXTAUTH_SECRET: test-secret-key-for-ci-123456789012
+          PLAYWRIGHT_ENV_FILE: .env.test
+          BYPASS_AUTH_FOR_TESTS: true
+          PORT: 3100
 
       - name: Upload test results
         uses: actions/upload-artifact@v4

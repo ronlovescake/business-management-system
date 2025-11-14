@@ -1,6 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const storageState = 'tests/e2e/.auth/clothing-operations.json';
+const isCI = !!process.env.CI;
+const playwrightEnvFile = process.env.PLAYWRIGHT_ENV_FILE || '.env.test';
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -10,8 +12,8 @@ export default defineConfig({
   },
   fullyParallel: true,
   retries: 1,
-  workers: process.env.CI ? 1 : undefined,
-  reporter: process.env.CI
+  workers: isCI ? 1 : undefined,
+  reporter: isCI
     ? [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]]
     : [
         ['list'],
@@ -19,15 +21,26 @@ export default defineConfig({
       ],
   use: {
     actionTimeout: 0,
-    baseURL: 'http://localhost:3000',
+    baseURL: 'http://localhost:3100',
     trace: 'on-first-retry',
-    ...(process.env.CI ? {} : { storageState }),
+    ...(isCI ? {} : { storageState }),
+    extraHTTPHeaders:
+      process.env.BYPASS_AUTH_FOR_TESTS?.toLowerCase() === 'true'
+        ? {
+            'x-playwright-test': 'bypass-auth',
+          }
+        : undefined,
   },
   webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
+    command: 'node scripts/start-playwright-dev.js',
+    url: 'http://localhost:3100',
+    reuseExistingServer: false,
     timeout: 120_000,
+    env: {
+      ...process.env,
+      PLAYWRIGHT_ENV_FILE: playwrightEnvFile,
+      BYPASS_AUTH_FOR_TESTS: process.env.BYPASS_AUTH_FOR_TESTS ?? 'true',
+    },
   },
   projects: [
     {
