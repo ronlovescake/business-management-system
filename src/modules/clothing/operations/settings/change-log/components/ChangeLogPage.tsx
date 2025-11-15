@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Stack, Group, Text, Badge, Tooltip, Loader, Alert, Table, Accordion, Box, Divider, Paper } from '@mantine/core';
 import { IconAlertCircle, IconChevronRight } from '@tabler/icons-react';
 import { StandardTableContainer } from '@/components/tables/StandardDataTable';
@@ -50,6 +50,31 @@ const SUMMARY_TIME_FORMATTER = new Intl.DateTimeFormat(undefined, {
 
 const SUMMARY_GRID_TEMPLATE =
   'minmax(280px, 2fr) 200px minmax(180px, 1fr) 120px';
+
+const TRANSACTION_FIELD_KEYS = [
+  'orderDate',
+  'customers',
+  'productCode',
+  'quantity',
+  'unitPrice',
+  'discount',
+  'adjustment',
+  'lineTotal',
+  'orderStatus',
+  'notes',
+  'invoiceDate',
+  'packedDate',
+  'shipmentCode',
+] as const;
+
+type TransactionFieldKey = (typeof TRANSACTION_FIELD_KEYS)[number];
+
+const CHANGED_CELL_STYLE: CSSProperties = {
+  backgroundColor: 'rgba(59, 130, 246, 0.12)',
+  boxShadow: 'inset 0 0 0 1px rgba(37, 99, 235, 0.35)',
+  borderRadius: 6,
+  transition: 'background-color 120ms ease, box-shadow 120ms ease',
+};
 
 const DEFAULT_LIMIT = 250;
 
@@ -161,6 +186,58 @@ function truncateValue(value: string, maxLength = 120): string {
     return value;
   }
   return `${value.slice(0, maxLength)}…`;
+}
+
+function normalizeComparisonValue(value: unknown): string {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (
+    typeof value === 'number' ||
+    typeof value === 'boolean' ||
+    typeof value === 'bigint'
+  ) {
+    return String(value);
+  }
+
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch (error) {
+    return String(value);
+  }
+}
+
+function getChangedTransactionFields(
+  newRecord: Record<string, unknown>,
+  previousValue: unknown
+): Set<TransactionFieldKey> {
+  const changed = new Set<TransactionFieldKey>();
+  const previousRecord = isRecord(previousValue)
+    ? (previousValue as Record<string, unknown>)
+    : null;
+
+  for (const field of TRANSACTION_FIELD_KEYS) {
+    const nextValue = normalizeComparisonValue(newRecord[field]);
+    if (previousRecord) {
+      const prevValue = normalizeComparisonValue(previousRecord[field]);
+      if (prevValue !== nextValue) {
+        changed.add(field);
+      }
+    } else if (nextValue !== '') {
+      changed.add(field);
+    }
+  }
+
+  return changed;
 }
 
 interface ValueCellProps {
@@ -581,6 +658,17 @@ export function ChangeLogPage({
                                     string,
                                     unknown
                                   >;
+                                  const changedFields = getChangedTransactionFields(
+                                    newTx,
+                                    log.oldValue
+                                  );
+
+                                  const highlightCell = (
+                                    field: TransactionFieldKey
+                                  ) =>
+                                    changedFields.has(field)
+                                      ? CHANGED_CELL_STYLE
+                                      : undefined;
 
                                   // Helper to format cell values: show blank for 0, empty, null, or undefined
                                   const formatCell = (
@@ -617,43 +705,43 @@ export function ChangeLogPage({
                                           )}
                                         </Stack>
                                       </Table.Td>
-                                      <Table.Td>
+                                      <Table.Td style={highlightCell('orderDate')}>
                                         {formatCell(newTx.orderDate)}
                                       </Table.Td>
-                                      <Table.Td>
+                                      <Table.Td style={highlightCell('customers')}>
                                         {formatCell(newTx.customers)}
                                       </Table.Td>
-                                      <Table.Td>
+                                      <Table.Td style={highlightCell('productCode')}>
                                         {formatCell(newTx.productCode)}
                                       </Table.Td>
-                                      <Table.Td>
+                                      <Table.Td style={highlightCell('quantity')}>
                                         {formatCell(newTx.quantity)}
                                       </Table.Td>
-                                      <Table.Td>
+                                      <Table.Td style={highlightCell('unitPrice')}>
                                         {formatCell(newTx.unitPrice)}
                                       </Table.Td>
-                                      <Table.Td>
+                                      <Table.Td style={highlightCell('discount')}>
                                         {formatCell(newTx.discount)}
                                       </Table.Td>
-                                      <Table.Td>
+                                      <Table.Td style={highlightCell('adjustment')}>
                                         {formatCell(newTx.adjustment)}
                                       </Table.Td>
-                                      <Table.Td>
+                                      <Table.Td style={highlightCell('lineTotal')}>
                                         {formatCell(newTx.lineTotal)}
                                       </Table.Td>
-                                      <Table.Td>
+                                      <Table.Td style={highlightCell('orderStatus')}>
                                         {formatCell(newTx.orderStatus)}
                                       </Table.Td>
-                                      <Table.Td>
+                                      <Table.Td style={highlightCell('notes')}>
                                         {formatCell(newTx.notes)}
                                       </Table.Td>
-                                      <Table.Td>
+                                      <Table.Td style={highlightCell('invoiceDate')}>
                                         {formatCell(newTx.invoiceDate)}
                                       </Table.Td>
-                                      <Table.Td>
+                                      <Table.Td style={highlightCell('packedDate')}>
                                         {formatCell(newTx.packedDate)}
                                       </Table.Td>
-                                      <Table.Td>
+                                      <Table.Td style={highlightCell('shipmentCode')}>
                                         {formatCell(newTx.shipmentCode)}
                                       </Table.Td>
                                     </Table.Tr>
