@@ -49,7 +49,7 @@ const SUMMARY_TIME_FORMATTER = new Intl.DateTimeFormat(undefined, {
 });
 
 const SUMMARY_GRID_TEMPLATE =
-  'minmax(280px, 2fr) 120px 200px minmax(180px, 1fr) 120px';
+  'minmax(280px, 2fr) 200px minmax(180px, 1fr) 120px';
 
 const DEFAULT_LIMIT = 250;
 
@@ -430,9 +430,6 @@ export function ChangeLogPage({
                 Details
               </Text>
               <Text fw={600} size="xs">
-                Quantity
-              </Text>
-              <Text fw={600} size="xs">
                 Date / Time
               </Text>
               <Text fw={600} size="xs">
@@ -515,9 +512,6 @@ export function ChangeLogPage({
                             )}
                           </Stack>
                           <Text size="sm" fw={500}>
-                            {group.quantity !== undefined ? group.quantity : ''}
-                          </Text>
-                          <Text size="sm" fw={500}>
                             {SUMMARY_DATE_FORMATTER.format(latestDate)} ·{' '}
                             {SUMMARY_TIME_FORMATTER.format(latestDate)}
                           </Text>
@@ -556,6 +550,7 @@ export function ChangeLogPage({
                             <Table.Thead>
                               <Table.Tr>
                                 <Table.Th>TIMESTAMP</Table.Th>
+                                <Table.Th>USER</Table.Th>
                                 <Table.Th>ORDER DATE</Table.Th>
                                 <Table.Th>CUSTOMERS</Table.Th>
                                 <Table.Th>PRODUCT CODE</Table.Th>
@@ -609,6 +604,18 @@ export function ChangeLogPage({
                                         <Text size="sm" fw={500} c="dark">
                                           {formatTimestamp(log.createdAt)}
                                         </Text>
+                                      </Table.Td>
+                                      <Table.Td>
+                                        <Stack gap={2}>
+                                          <Text size="sm" fw={500}>
+                                            {log.userName || 'System'}
+                                          </Text>
+                                          {log.userId && (
+                                            <Text size="xs" c="dimmed">
+                                              {log.userId}
+                                            </Text>
+                                          )}
+                                        </Stack>
                                       </Table.Td>
                                       <Table.Td>
                                         {formatCell(newTx.orderDate)}
