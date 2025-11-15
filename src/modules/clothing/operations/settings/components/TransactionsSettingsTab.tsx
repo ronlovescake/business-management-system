@@ -370,7 +370,12 @@ export function TransactionsSettingsTab() {
 
           <Divider
             label="Read-Only Columns"
-            labelProps={{ style: { fontWeight: 600, color: '#1e293b' } }}
+            styles={{
+              label: {
+                fontWeight: 600,
+                color: '#1e293b',
+              },
+            }}
           />
 
           <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">

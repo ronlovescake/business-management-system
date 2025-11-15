@@ -21,7 +21,7 @@ import {
   List,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import { notifications } from '@mantine/notifications';
+import { showNotification } from '@mantine/notifications';
 import { IconInfoCircle, IconCheck, IconX } from '@tabler/icons-react';
 import Swal from 'sweetalert2';
 import { MESSAGE_PLACEHOLDERS } from '../../checkout-links/utils/messageGenerator';
@@ -103,7 +103,7 @@ export default function InvoiceMessageTab() {
         paymentChannelsUrl: settings.paymentChannelsUrl,
       });
     } catch (error) {
-      notifications.show({
+      showNotification({
         title: 'Error',
         message: 'Failed to load invoice settings',
         color: 'red',
@@ -132,7 +132,7 @@ export default function InvoiceMessageTab() {
         throw new Error(error.error || 'Failed to save settings');
       }
 
-      notifications.show({
+      showNotification({
         title: 'Success',
         message: 'Invoice message template saved successfully',
         color: 'green',
@@ -145,7 +145,7 @@ export default function InvoiceMessageTab() {
         paymentChannelsUrl: values.paymentChannelsUrl,
       });
     } catch (error) {
-      notifications.show({
+      showNotification({
         title: 'Error',
         message:
           error instanceof Error ? error.message : 'Failed to save settings',
