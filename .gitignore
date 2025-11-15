@@ -47,6 +47,8 @@ pdf_output/
 
 # User settings
 settings/
+!src/modules/clothing/operations/settings/
+!src/modules/clothing/operations/settings/**
 
 # Temporary files and scripts
 tmp-*.js
