@@ -20,6 +20,16 @@ async function safeReload(page: Page) {
   });
 }
 
+async function waitForTransactionsContent(page: Page, timeout = 30000) {
+  await page
+    .locator('text=/Showing \\d+ of \\d+ transactions/i')
+    .first()
+    .waitFor({ state: 'visible', timeout })
+    .catch(() => {
+      /* footer may remain hidden if no data yet; callers will fall back */
+    });
+}
+
 test.describe('Invoice Generation Flow', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
@@ -364,6 +374,7 @@ test.describe('Invoice Generation - Multi-Customer Support', () => {
 test.describe('Packing List Generation', () => {
   test('should display Create Packing List button', async ({ page }) => {
     await gotoTransactions(page, 2000);
+    await waitForTransactionsContent(page);
 
     // Wait for grid to load with data
     await page.waitForTimeout(2000);
@@ -372,11 +383,12 @@ test.describe('Packing List Generation', () => {
     const packingListButton = page.getByRole('button', {
       name: /create packing list/i,
     });
-    await expect(packingListButton).toBeVisible();
+    await expect(packingListButton).toBeVisible({ timeout: 20000 });
   });
 
   test('should show packing list confirmation modal', async ({ page }) => {
     await gotoTransactions(page, 2000);
+    await waitForTransactionsContent(page);
 
     // Wait for grid to load with data
     await page.waitForTimeout(2000);
@@ -414,6 +426,7 @@ test.describe('Packing List Generation', () => {
 
   test('should handle packing list generation request', async ({ page }) => {
     await gotoTransactions(page, 2000);
+    await waitForTransactionsContent(page);
 
     // Wait for grid to load with data
     await page.waitForTimeout(2000);
@@ -465,6 +478,7 @@ test.describe('Packing List Generation', () => {
     page,
   }) => {
     await gotoTransactions(page, 2000);
+    await waitForTransactionsContent(page);
 
     // Wait for grid to load with data
     await page.waitForTimeout(2000);
@@ -500,6 +514,7 @@ test.describe('Packing List Generation', () => {
 test.describe('Distribution Slip Generation', () => {
   test('should display Create Distribution button', async ({ page }) => {
     await gotoTransactions(page, 2000);
+    await waitForTransactionsContent(page);
 
     // Wait for grid to load with data
     await page.waitForTimeout(2000);
@@ -513,6 +528,7 @@ test.describe('Distribution Slip Generation', () => {
 
   test('should show distribution confirmation modal', async ({ page }) => {
     await gotoTransactions(page, 2000);
+    await waitForTransactionsContent(page);
 
     // Wait for grid to load with data
     await page.waitForTimeout(2000);
@@ -548,6 +564,7 @@ test.describe('Distribution Slip Generation', () => {
 
   test('should handle distribution generation request', async ({ page }) => {
     await gotoTransactions(page, 2000);
+    await waitForTransactionsContent(page);
 
     // Wait for grid to load with data
     await page.waitForTimeout(2000);
@@ -599,6 +616,7 @@ test.describe('Distribution Slip Generation', () => {
     page,
   }) => {
     await gotoTransactions(page, 2000);
+    await waitForTransactionsContent(page);
 
     // Wait for grid to load with data
     await page.waitForTimeout(2000);

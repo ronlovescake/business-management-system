@@ -18,9 +18,12 @@ const env = {
   NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'http://localhost:3100',
 };
 
+const devScript = process.env.PLAYWRIGHT_DEV_SCRIPT || 'dev';
+console.log(`▶ Starting Next.js via npm run ${devScript}`);
+
 const child = spawn(
   process.platform === 'win32' ? 'npm.cmd' : 'npm',
-  ['run', 'dev', '--'],
+  ['run', devScript, '--'],
   {
     stdio: 'inherit',
     env,

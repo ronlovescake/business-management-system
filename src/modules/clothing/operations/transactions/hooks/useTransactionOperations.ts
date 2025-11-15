@@ -1064,6 +1064,49 @@ export function useTransactionOperations(
       }
 
       // ========================================================================
+      // LINE TOTAL HANDLER
+      // ⚠️ FINALIZED COMPUTATION LOGIC
+      // ========================================================================
+      if (columnId === 'lineTotal') {
+        const newLineTotal = getNumericValue(newValue);
+
+        const currentTransaction = getCurrentTransaction();
+        const quantity = currentTransaction.Quantity || 0;
+        const unitPrice = currentTransaction['Unit Price'] || 0;
+        const recalculatedAdjustment = quantity * unitPrice - newLineTotal;
+
+        const updatedFields = {
+          'Line Total': newLineTotal,
+          Adjustment: recalculatedAdjustment,
+        };
+
+        updateTransactionData(updatedFields);
+
+        notify({
+          title: 'Success',
+          message: 'Line Total updated successfully',
+          color: 'green',
+        });
+
+        if (shouldLog) {
+          const previousLineTotal = transaction['Line Total'] ?? 0;
+
+          logNotification(
+            `Line Total updated from ${formatCurrencyValue(previousLineTotal)} to ${formatCurrencyValue(newLineTotal)} for ${transactionDescriptor}. Adjustment recalculated to ${formatCurrencyValue(recalculatedAdjustment)}.`,
+            {
+              column: 'Line Total',
+              transactionId: transaction.id,
+              previousValue: previousLineTotal,
+              newValue: newLineTotal,
+              adjustment: recalculatedAdjustment,
+              quantity,
+              unitPrice,
+            }
+          );
+        }
+      }
+
+      // ========================================================================
       // ORDER STATUS HANDLER
       // ========================================================================
       if (columnId === 'orderStatus') {
@@ -1118,6 +1161,84 @@ export function useTransactionOperations(
               transactionId: transaction.id,
               previousValue: previousNotes,
               newValue: nextNotes,
+            }
+          );
+        }
+      }
+
+      // ========================================================================
+      // INVOICE DATE HANDLER
+      // ========================================================================
+      if (columnId === 'invoiceDate') {
+        const invoiceDateValue = getCellValue(newValue).trim();
+
+        updateTransactionData({ 'Invoice Date': invoiceDateValue });
+
+        notify({
+          title: 'Success',
+          message: 'Invoice Date updated successfully',
+          color: 'green',
+        });
+
+        if (shouldLog) {
+          logNotification(
+            `Invoice Date updated for ${transactionDescriptor}.`,
+            {
+              column: 'Invoice Date',
+              transactionId: transaction.id,
+              previousValue: transaction['Invoice Date'] ?? '',
+              newValue: invoiceDateValue,
+            }
+          );
+        }
+      }
+
+      // ========================================================================
+      // PACKED DATE HANDLER
+      // ========================================================================
+      if (columnId === 'packedDate') {
+        const packedDateValue = getCellValue(newValue).trim();
+
+        updateTransactionData({ 'Packed Date': packedDateValue });
+
+        notify({
+          title: 'Success',
+          message: 'Packed Date updated successfully',
+          color: 'green',
+        });
+
+        if (shouldLog) {
+          logNotification(`Packed Date updated for ${transactionDescriptor}.`, {
+            column: 'Packed Date',
+            transactionId: transaction.id,
+            previousValue: transaction['Packed Date'] ?? '',
+            newValue: packedDateValue,
+          });
+        }
+      }
+
+      // ========================================================================
+      // SHIPMENT CODE HANDLER
+      // ========================================================================
+      if (columnId === 'shipmentCode') {
+        const shipmentCodeValue = getCellValue(newValue).trim();
+
+        updateTransactionData({ 'Shipment Code': shipmentCodeValue });
+
+        notify({
+          title: 'Success',
+          message: 'Shipment Code updated successfully',
+          color: 'green',
+        });
+
+        if (shouldLog) {
+          logNotification(
+            `Shipment Code updated for ${transactionDescriptor}.`,
+            {
+              column: 'Shipment Code',
+              transactionId: transaction.id,
+              previousValue: transaction['Shipment Code'] ?? '',
+              newValue: shipmentCodeValue,
             }
           );
         }

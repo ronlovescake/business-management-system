@@ -887,6 +887,11 @@ model InvoiceSettings {
 model TransactionsSettings {
   id                         String   @id @default(cuid())
   scrollToLastNonEmptyRows   Int      @default(1) // 1 = last row, 10 = last 10 rows, etc.
+  unitPriceReadOnly          Boolean  @default(true)
+  lineTotalReadOnly          Boolean  @default(true)
+  invoiceDateReadOnly        Boolean  @default(true)
+  packedDateReadOnly         Boolean  @default(true)
+  shipmentCodeReadOnly       Boolean  @default(true)
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
 

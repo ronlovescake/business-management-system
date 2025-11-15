@@ -68,12 +68,25 @@ import type {
 } from '../types/transaction.types';
 import { STATUS_FILTER_OPTIONS } from '../types/transaction.types';
 
+const DEFAULT_READ_ONLY_COLUMNS = {
+  unitPrice: true,
+  lineTotal: true,
+  invoiceDate: true,
+  packedDate: true,
+  shipmentCode: true,
+};
+
+type ReadOnlyColumnFlags = typeof DEFAULT_READ_ONLY_COLUMNS;
+
 export function TransactionsPage() {
   // ============================================================================
   // SETTINGS STATE - Fetch scroll behavior setting
   // ============================================================================
   const [scrollToLastNonEmptyRows, setScrollToLastNonEmptyRows] =
     useState<number>(1);
+  const [readOnlyColumns, setReadOnlyColumns] = useState<ReadOnlyColumnFlags>(
+    DEFAULT_READ_ONLY_COLUMNS
+  );
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -82,6 +95,19 @@ export function TransactionsPage() {
         if (response.ok) {
           const data = await response.json();
           setScrollToLastNonEmptyRows(data.scrollToLastNonEmptyRows || 1);
+          setReadOnlyColumns({
+            unitPrice:
+              data.unitPriceReadOnly ?? DEFAULT_READ_ONLY_COLUMNS.unitPrice,
+            lineTotal:
+              data.lineTotalReadOnly ?? DEFAULT_READ_ONLY_COLUMNS.lineTotal,
+            invoiceDate:
+              data.invoiceDateReadOnly ?? DEFAULT_READ_ONLY_COLUMNS.invoiceDate,
+            packedDate:
+              data.packedDateReadOnly ?? DEFAULT_READ_ONLY_COLUMNS.packedDate,
+            shipmentCode:
+              data.shipmentCodeReadOnly ??
+              DEFAULT_READ_ONLY_COLUMNS.shipmentCode,
+          });
         }
       } catch (error) {
         logger.error('Error fetching transactions settings:', error);
@@ -220,7 +246,7 @@ export function TransactionsPage() {
         id: 'unitPrice',
         type: 'numeric',
         align: 'right',
-        readOnly: true,
+        readOnly: readOnlyColumns.unitPrice,
         numericFormat: '0,0.00',
       },
       {
@@ -245,7 +271,7 @@ export function TransactionsPage() {
         id: 'lineTotal',
         type: 'numeric',
         align: 'right',
-        readOnly: true,
+        readOnly: readOnlyColumns.lineTotal,
         numericFormat: '0,0.00',
       },
       {
@@ -267,24 +293,33 @@ export function TransactionsPage() {
         width: 200,
         id: 'invoiceDate',
         align: 'center',
-        readOnly: true,
+        readOnly: readOnlyColumns.invoiceDate,
       },
       {
         title: 'PACKED DATE',
         width: 200,
         id: 'packedDate',
         align: 'center',
-        readOnly: true,
+        readOnly: readOnlyColumns.packedDate,
       },
       {
         title: 'SHIPMENT CODE',
         width: 200,
         id: 'shipmentCode',
         align: 'center',
-        readOnly: true,
+        readOnly: readOnlyColumns.shipmentCode,
       },
     ],
-    [customerNames, productCodes, statusDropdownOptions]
+    [
+      customerNames,
+      productCodes,
+      statusDropdownOptions,
+      readOnlyColumns.invoiceDate,
+      readOnlyColumns.lineTotal,
+      readOnlyColumns.packedDate,
+      readOnlyColumns.shipmentCode,
+      readOnlyColumns.unitPrice,
+    ]
   );
 
   // Map column IDs to data keys
@@ -358,41 +393,51 @@ export function TransactionsPage() {
       }
 
       if (column.id === 'invoiceDate') {
-        // Format ISO timestamp to readable date (e.g., "Nov 7, 2025")
-        const formattedDate =
-          textValue && textValue.trim() !== ''
-            ? new Date(textValue).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-                timeZone: 'Asia/Manila',
-              })
-            : '';
-        return { value: formattedDate, readOnly: true };
+        if (readOnlyColumns.invoiceDate) {
+          const formattedDate =
+            textValue && textValue.trim() !== ''
+              ? new Date(textValue).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                  timeZone: 'Asia/Manila',
+                })
+              : '';
+          return { value: formattedDate, readOnly: true };
+        }
+        return { value: textValue };
       }
 
       if (column.id === 'packedDate') {
-        return { value: textValue, readOnly: true };
+        return { value: textValue, readOnly: readOnlyColumns.packedDate };
       }
 
       if (column.id === 'shipmentCode') {
         const currentProductCode = rowData['Product Code'];
         let displayValue = textValue;
 
-        if (currentProductCode && productToShipmentMap[currentProductCode]) {
+        if (
+          readOnlyColumns.shipmentCode &&
+          currentProductCode &&
+          productToShipmentMap[currentProductCode]
+        ) {
           displayValue = productToShipmentMap[currentProductCode];
         }
 
         return {
           value: displayValue,
           displayValue,
-          readOnly: true,
+          readOnly: readOnlyColumns.shipmentCode,
         };
       }
 
       if (column.id === 'unitPrice') {
         if (numericValue === '') {
-          return { value: '', displayValue: '', readOnly: true };
+          return {
+            value: '',
+            displayValue: '',
+            readOnly: readOnlyColumns.unitPrice,
+          };
         }
 
         const rawNumber = Number(String(value).replace(/,/g, ''));
@@ -400,20 +445,24 @@ export function TransactionsPage() {
           return {
             value: String(rawNumber),
             displayValue: rawNumber.toLocaleString(),
-            readOnly: true,
+            readOnly: readOnlyColumns.unitPrice,
           };
         }
 
         return {
           value: numericValue,
           displayValue: numericValue,
-          readOnly: true,
+          readOnly: readOnlyColumns.unitPrice,
         };
       }
 
       if (column.id === 'lineTotal') {
         if (numericValue === '') {
-          return { value: '', displayValue: '', readOnly: true };
+          return {
+            value: '',
+            displayValue: '',
+            readOnly: readOnlyColumns.lineTotal,
+          };
         }
 
         const rawNumber = Number(String(value).replace(/,/g, ''));
@@ -421,20 +470,20 @@ export function TransactionsPage() {
           return {
             value: String(rawNumber),
             displayValue: rawNumber.toLocaleString(),
-            readOnly: true,
+            readOnly: readOnlyColumns.lineTotal,
           };
         }
 
         return {
           value: numericValue,
           displayValue: numericValue,
-          readOnly: true,
+          readOnly: readOnlyColumns.lineTotal,
         };
       }
 
       return { value: textValue };
     },
-    [idToKey, productToShipmentMap]
+    [idToKey, productToShipmentMap, readOnlyColumns]
   );
 
   // ============================================================================

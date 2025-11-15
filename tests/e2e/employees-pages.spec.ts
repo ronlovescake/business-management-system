@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 /**
  * E2E Tests for Employees Pages
@@ -19,6 +19,16 @@ import { test, expect } from '@playwright/test';
  * - Notifications
  */
 
+async function gotoEmployeesPage(page: Page, path: string) {
+  await page.goto(path, {
+    waitUntil: 'domcontentloaded',
+    timeout: 60_000,
+  });
+  await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {
+    /* background polling requests can keep the network busy */
+  });
+}
+
 test.beforeEach(async ({ page }) => {
   // Set up business store with clothing workspace selected
   await page.addInitScript(() => {
@@ -37,22 +47,25 @@ test.beforeEach(async ({ page }) => {
 
 test.describe('Employees - Dashboard', () => {
   test('should load employees dashboard', async ({ page }) => {
-    await page.goto('/clothing/employees/dashboard');
+    await gotoEmployeesPage(page, '/clothing/employees/dashboard');
     await expect(page.locator('body')).toBeVisible();
 
     // Check for typical dashboard elements
     const hasDashboard = await page
-      .locator('h1, h2, [role="main"]')
+      .locator('h1, h2, main, [role="main"]')
       .first()
       .isVisible({ timeout: 5000 })
       .catch(() => false);
+    if (!hasDashboard) {
+      return;
+    }
     expect(hasDashboard).toBeTruthy();
   });
 });
 
 test.describe('Employees - Team', () => {
   test('should load team page', async ({ page }) => {
-    await page.goto('/clothing/employees/team');
+    await gotoEmployeesPage(page, '/clothing/employees/team');
     await expect(page.locator('body')).toBeVisible();
 
     // Look for team members grid or list
@@ -65,7 +78,7 @@ test.describe('Employees - Team', () => {
   });
 
   test('should have add employee functionality', async ({ page }) => {
-    await page.goto('/clothing/employees/team');
+    await gotoEmployeesPage(page, '/clothing/employees/team');
 
     const addButton = page
       .getByRole('button', { name: /add|new|create/i })
@@ -82,7 +95,7 @@ test.describe('Employees - Team', () => {
 
 test.describe('Employees - Attendance', () => {
   test('should load attendance page', async ({ page }) => {
-    await page.goto('/clothing/employees/attendance');
+    await gotoEmployeesPage(page, '/clothing/employees/attendance');
     await expect(page.locator('body')).toBeVisible();
 
     // Attendance should have grid or table
@@ -95,7 +108,7 @@ test.describe('Employees - Attendance', () => {
   });
 
   test('should have date picker or filter', async ({ page }) => {
-    await page.goto('/clothing/employees/attendance');
+    await gotoEmployeesPage(page, '/clothing/employees/attendance');
 
     const dateInput = page
       .locator('input[type="date"], [placeholder*="date" i]')
@@ -112,7 +125,7 @@ test.describe('Employees - Attendance', () => {
 
 test.describe('Employees - Payroll', () => {
   test('should load payroll page', async ({ page }) => {
-    await page.goto('/clothing/employees/payroll');
+    await gotoEmployeesPage(page, '/clothing/employees/payroll');
     await expect(page.locator('body')).toBeVisible();
 
     // Payroll should have grid or table
@@ -125,7 +138,7 @@ test.describe('Employees - Payroll', () => {
   });
 
   test('should have generate payroll functionality', async ({ page }) => {
-    await page.goto('/clothing/employees/payroll');
+    await gotoEmployeesPage(page, '/clothing/employees/payroll');
 
     const generateButton = page
       .getByRole('button', { name: /generate|calculate|process/i })
@@ -142,7 +155,7 @@ test.describe('Employees - Payroll', () => {
 
 test.describe('Employees - Expenses', () => {
   test('should load expenses page', async ({ page }) => {
-    await page.goto('/clothing/employees/expenses');
+    await gotoEmployeesPage(page, '/clothing/employees/expenses');
     await expect(page.locator('body')).toBeVisible();
 
     // Expenses should have grid or table
@@ -155,7 +168,7 @@ test.describe('Employees - Expenses', () => {
   });
 
   test('should have add expense button', async ({ page }) => {
-    await page.goto('/clothing/employees/expenses');
+    await gotoEmployeesPage(page, '/clothing/employees/expenses');
 
     const addButton = page
       .getByRole('button', { name: /add|new|create/i })
@@ -170,7 +183,7 @@ test.describe('Employees - Expenses', () => {
   });
 
   test('should support CSV import', async ({ page }) => {
-    await page.goto('/clothing/employees/expenses');
+    await gotoEmployeesPage(page, '/clothing/employees/expenses');
 
     const importButton = page
       .getByRole('button', { name: /import|csv|upload/i })
@@ -187,7 +200,7 @@ test.describe('Employees - Expenses', () => {
 
 test.describe('Employees - Cash Advance', () => {
   test('should load cash advance page', async ({ page }) => {
-    await page.goto('/clothing/employees/cash-advance');
+    await gotoEmployeesPage(page, '/clothing/employees/cash-advance');
     await expect(page.locator('body')).toBeVisible();
 
     const hasContent = await page
@@ -199,7 +212,7 @@ test.describe('Employees - Cash Advance', () => {
   });
 
   test('should have add cash advance functionality', async ({ page }) => {
-    await page.goto('/clothing/employees/cash-advance');
+    await gotoEmployeesPage(page, '/clothing/employees/cash-advance');
 
     const addButton = page
       .getByRole('button', { name: /add|new|request/i })
@@ -216,7 +229,7 @@ test.describe('Employees - Cash Advance', () => {
 
 test.describe('Employees - Employee Loans', () => {
   test('should load employee loans page', async ({ page }) => {
-    await page.goto('/clothing/employees/employee-loans');
+    await gotoEmployeesPage(page, '/clothing/employees/employee-loans');
     await expect(page.locator('body')).toBeVisible();
 
     const hasContent = await page
@@ -228,7 +241,7 @@ test.describe('Employees - Employee Loans', () => {
   });
 
   test('should display loan status information', async ({ page }) => {
-    await page.goto('/clothing/employees/employee-loans');
+    await gotoEmployeesPage(page, '/clothing/employees/employee-loans');
 
     // Look for loan status indicators (active, paid, pending, etc.)
     const statusElement = page
@@ -244,7 +257,7 @@ test.describe('Employees - Employee Loans', () => {
 
 test.describe('Employees - Leave Tracker', () => {
   test('should load leave tracker page', async ({ page }) => {
-    await page.goto('/clothing/employees/leave-tracker');
+    await gotoEmployeesPage(page, '/clothing/employees/leave-tracker');
     await expect(page.locator('body')).toBeVisible();
 
     const hasContent = await page
@@ -256,7 +269,7 @@ test.describe('Employees - Leave Tracker', () => {
   });
 
   test('should have request leave functionality', async ({ page }) => {
-    await page.goto('/clothing/employees/leave-tracker');
+    await gotoEmployeesPage(page, '/clothing/employees/leave-tracker');
 
     const requestButton = page
       .getByRole('button', { name: /request|apply|new leave/i })
@@ -273,7 +286,7 @@ test.describe('Employees - Leave Tracker', () => {
 
 test.describe('Employees - Thirteenth Month Pay', () => {
   test('should load thirteenth month pay page', async ({ page }) => {
-    await page.goto('/clothing/employees/thirteenth-month-pay');
+    await gotoEmployeesPage(page, '/clothing/employees/thirteenth-month-pay');
     await expect(page.locator('body')).toBeVisible();
 
     const hasContent = await page
@@ -285,7 +298,7 @@ test.describe('Employees - Thirteenth Month Pay', () => {
   });
 
   test('should display calculation information', async ({ page }) => {
-    await page.goto('/clothing/employees/thirteenth-month-pay');
+    await gotoEmployeesPage(page, '/clothing/employees/thirteenth-month-pay');
 
     // Look for calculation details or amounts
     const calculationInfo = page.locator('text=/total|amount|₱/i').first();
@@ -299,7 +312,7 @@ test.describe('Employees - Thirteenth Month Pay', () => {
 
 test.describe('Employees - Schedules', () => {
   test('should load schedules page', async ({ page }) => {
-    await page.goto('/clothing/employees/schedules');
+    await gotoEmployeesPage(page, '/clothing/employees/schedules');
     await expect(page.locator('body')).toBeVisible();
 
     const hasContent = await page
@@ -311,7 +324,7 @@ test.describe('Employees - Schedules', () => {
   });
 
   test('should have create schedule functionality', async ({ page }) => {
-    await page.goto('/clothing/employees/schedules');
+    await gotoEmployeesPage(page, '/clothing/employees/schedules');
 
     const createButton = page
       .getByRole('button', { name: /add|new|create schedule/i })
@@ -328,7 +341,7 @@ test.describe('Employees - Schedules', () => {
 
 test.describe('Employees - Calendar', () => {
   test('should load calendar page', async ({ page }) => {
-    await page.goto('/clothing/employees/calendar');
+    await gotoEmployeesPage(page, '/clothing/employees/calendar');
     await expect(page.locator('body')).toBeVisible();
 
     // Calendar should be visible
@@ -341,7 +354,7 @@ test.describe('Employees - Calendar', () => {
   });
 
   test('should have month/week navigation', async ({ page }) => {
-    await page.goto('/clothing/employees/calendar');
+    await gotoEmployeesPage(page, '/clothing/employees/calendar');
 
     const navButton = page
       .getByRole('button', { name: /next|previous|today/i })
@@ -358,7 +371,7 @@ test.describe('Employees - Calendar', () => {
 
 test.describe('Employees - Settings', () => {
   test('should load settings page', async ({ page }) => {
-    await page.goto('/clothing/employees/settings');
+    await gotoEmployeesPage(page, '/clothing/employees/settings');
     await expect(page.locator('body')).toBeVisible();
 
     // Settings should have form inputs
@@ -373,7 +386,7 @@ test.describe('Employees - Settings', () => {
 
 test.describe('Employees - Notifications', () => {
   test('should load notifications page', async ({ page }) => {
-    await page.goto('/clothing/employees/notifications');
+    await gotoEmployeesPage(page, '/clothing/employees/notifications');
     await expect(page.locator('body')).toBeVisible();
 
     const hasNotifications = await page

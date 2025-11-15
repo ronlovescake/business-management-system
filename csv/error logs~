@@ -1,0 +1,150 @@
+Run npm run test:e2e:chromium -- --workers=1
+  npm run test:e2e:chromium -- --workers=1
+  shell: /usr/bin/bash -e {0}
+  env:
+    DATABASE_URL: ***localhost:5433/business_management_test
+    NEXTAUTH_URL: http://localhost:3100
+    NEXTAUTH_SECRET: test-secret-key-for-ci-123456789012
+    PLAYWRIGHT_ENV_FILE: .env.test
+    BYPASS_AUTH_FOR_TESTS: true
+    PORT: 3100
+
+> business-management@1.0.0 test:e2e:chromium
+> playwright test --project=chromium --workers=1
+
+[dotenv@17.2.3] injecting env (14) from .env.test -- tip: ⚙️  override existing env vars with { override: true }
+[WebServer] [@sentry/nextjs] WARNING: You are using the Sentry SDK with Turbopack. The Sentry SDK is compatible with Turbopack on Next.js version 15.4.1 or later. You are currently on 14.2.33. Please upgrade to a newer Next.js version to use the Sentry SDK with Turbopack.
+[WebServer] [@sentry/nextjs] WARNING: You are using the Sentry SDK with Turbopack. The Sentry SDK is compatible with Turbopack on Next.js version 15.4.1 or later. You are currently on 14.2.33. Please upgrade to a newer Next.js version to use the Sentry SDK with Turbopack.
+[WebServer]  ⚠ Webpack is configured while Turbopack is not, which may cause problems.
+[WebServer]  ⚠ See instructions if you need to configure Turbopack:
+[WebServer]   https://nextjs.org/docs/app/api-reference/next-config-js/turbo
+[WebServer] 
+[WebServer]  ⨯ ./src/modules/clothing/operations/settings/components/SettingsPage.tsx:21:1
+[WebServer] Module not found: Can't resolve '@/modules/clothing/operations/settings/change-log'
+[WebServer]   19 | } from '@tabler/icons-react';
+[WebServer]   20 | import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
+[WebServer] > 21 | import { ChangeLogPage } from '@/modules/clothing/operations/settings/change-log';
+[WebServer]      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[WebServer]   22 | import { BackupRestoreTab } from './BackupRestoreTab';
+[WebServer]   23 | import { InvoiceSettingsTab } from './InvoiceSettingsTab';
+[WebServer]   24 | import InvoiceMessageTab from './InvoiceMessageTab';
+[WebServer] 
+[WebServer] Import map: aliased to relative "./src/modules/clothing/operations/settings/change-log" inside of [project]/
+[WebServer] 
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] 
+[WebServer]  ⨯ ./src/modules/clothing/operations/settings/components/SettingsPage.tsx:21:1
+[WebServer] Module not found: Can't resolve '@/modules/clothing/operations/settings/change-log'
+[WebServer]   19 | } from '@tabler/icons-react';
+[WebServer]   20 | import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
+[WebServer] > 21 | import { ChangeLogPage } from '@/modules/clothing/operations/settings/change-log';
+[WebServer]      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[WebServer]   22 | import { BackupRestoreTab } from './BackupRestoreTab';
+[WebServer]   23 | import { InvoiceSettingsTab } from './InvoiceSettingsTab';
+[WebServer]   24 | import InvoiceMessageTab from './InvoiceMessageTab';
+[WebServer] 
+[WebServer] Import map: aliased to relative "./src/modules/clothing/operations/settings/change-log" inside of [project]/
+[WebServer] 
+[WebServer]     at async Server.requestListener (/home/runner/work/business-management-system/business-management-system/node_modules/next/dist/server/lib/start-server.js:141:13)
+[WebServer]  ⨯ ./src/modules/clothing/operations/settings/components/SettingsPage.tsx:21:1
+[WebServer] Module not found: Can't resolve '@/modules/clothing/operations/settings/change-log'
+[WebServer]   19 | } from '@tabler/icons-react';
+[WebServer]   20 | import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
+[WebServer] > 21 | import { ChangeLogPage } from '@/modules/clothing/operations/settings/change-log';
+[WebServer]      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[WebServer]   22 | import { BackupRestoreTab } from './BackupRestoreTab';
+[WebServer]   23 | import { InvoiceSettingsTab } from './InvoiceSettingsTab';
+[WebServer]   24 | import InvoiceMessageTab from './InvoiceMessageTab';
+[WebServer] 
+[WebServer] Import map: aliased to relative "./src/modules/clothing/operations/settings/change-log" inside of [project]/
+[WebServer] 
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] 
+[WebServer]  ⨯ ./src/modules/clothing/operations/settings/components/SettingsPage.tsx:21:1
+[WebServer] Module not found: Can't resolve '@/modules/clothing/operations/settings/change-log'
+[WebServer]   19 | } from '@tabler/icons-react';
+[WebServer]   20 | import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
+[WebServer] > 21 | import { ChangeLogPage } from '@/modules/clothing/operations/settings/change-log';
+[WebServer]      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[WebServer]   22 | import { BackupRestoreTab } from './BackupRestoreTab';
+[WebServer]   23 | import { InvoiceSettingsTab } from './InvoiceSettingsTab';
+[WebServer]   24 | import InvoiceMessageTab from './InvoiceMessageTab';
+[WebServer] 
+[WebServer] Import map: aliased to relative "./src/modules/clothing/operations/settings/change-log" inside of [project]/
+[WebServer] 
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] 
+[WebServer]  ⨯ ./src/modules/clothing/operations/settings/components/SettingsPage.tsx:21:1
+[WebServer] Module not found: Can't resolve '@/modules/clothing/operations/settings/change-log'
+[WebServer]   19 | } from '@tabler/icons-react';
+[WebServer]   20 | import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
+[WebServer] > 21 | import { ChangeLogPage } from '@/modules/clothing/operations/settings/change-log';
+[WebServer]      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[WebServer]   22 | import { BackupRestoreTab } from './BackupRestoreTab';
+[WebServer]   23 | import { InvoiceSettingsTab } from './InvoiceSettingsTab';
+[WebServer]   24 | import InvoiceMessageTab from './InvoiceMessageTab';
+[WebServer] 
+[WebServer] Import map: aliased to relative "./src/modules/clothing/operations/settings/change-log" inside of [project]/
+[WebServer] 
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] 
+[WebServer]  ⨯ ./src/modules/clothing/operations/settings/components/SettingsPage.tsx:21:1
+[WebServer] Module not found: Can't resolve '@/modules/clothing/operations/settings/change-log'
+[WebServer]   19 | } from '@tabler/icons-react';
+[WebServer]   20 | import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
+[WebServer] > 21 | import { ChangeLogPage } from '@/modules/clothing/operations/settings/change-log';
+[WebServer]      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[WebServer]   22 | import { BackupRestoreTab } from './BackupRestoreTab';
+[WebServer]   23 | import { InvoiceSettingsTab } from './InvoiceSettingsTab';
+[WebServer]   24 | import InvoiceMessageTab from './InvoiceMessageTab';
+[WebServer] 
+[WebServer] Import map: aliased to relative "./src/modules/clothing/operations/settings/change-log" inside of [project]/
+[WebServer] 
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] 
+[WebServer]  ⨯ ModuleBuildError: ./src/modules/clothing/operations/settings/components/SettingsPage.tsx:21:1
+[WebServer] Module not found: Can't resolve '@/modules/clothing/operations/settings/change-log'
+[WebServer]   19 | } from '@tabler/icons-react';
+[WebServer]   20 | import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
+[WebServer] > 21 | import { ChangeLogPage } from '@/modules/clothing/operations/settings/change-log';
+[WebServer]      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[WebServer]   22 | import { BackupRestoreTab } from './BackupRestoreTab';
+[WebServer]   23 | import { InvoiceSettingsTab } from './InvoiceSettingsTab';
+[WebServer]   24 | import InvoiceMessageTab from './InvoiceMessageTab';
+[WebServer] 
+[WebServer] Import map: aliased to relative "./src/modules/clothing/operations/settings/change-log" inside of [project]/
+[WebServer] 
+[WebServer] 
+[WebServer] https://nextjs.org/docs/messages/module-not-found
+[WebServer] 
+[WebServer] 
+[WebServer]     at processIssues (/home/runner/work/business-management-system/business-management-system/node_modules/next/dist/server/dev/turbopack-utils.js:229:15)
+[WebServer]     at handleRouteType (/home/runner/work/business-management-system/business-management-system/node_modules/next/dist/server/dev/turbopack-utils.js:386:17)
+[WebServer]     at async Object.ensurePage (/home/runner/work/business-management-system/business-management-system/node_modules/next/dist/server/dev/hot-reloader-turbopack.js:651:17)
+[WebServer]     at async DevBundlerService.ensurePage (/home/runner/work/business-management-system/business-management-system/node_modules/next/dist/server/lib/dev-bundler-service.js:18:20)
+[WebServer]     at async DevServer.ensurePage (/home/runner/work/business-management-system/business-management-system/node_modules/next/dist/server/dev/next-dev-server.js:551:9)
+[WebServer]     at async Object.ensure (/home/runner/work/business-management-system/business-management-system/node_modules/next/dist/server/dev/next-dev-server.js:169:17)
+[WebServer]     at async DevRouteMatcherManager.matchAll (/home/runner/work/business-management-system/business-management-system/node_modules/next/dist/server/future/route-matcher-managers/dev-route-matcher-manager.js:96:13)
+[WebServer]     at async DevRouteMatcherManager.match (/home/runner/work/business-management-system/business-management-system/node_modules/next/dist/server/future/route-matcher-managers/default-route-matcher-manager.js:155:26)
+[WebServer]     at async NextNodeServer.handleCatchallRenderRequest (/home/runner/work/business-management-system/business-management-system/node_modules/next/dist/server/next-server.js:228:31)
+[WebServer]     at async DevServer.handleRequestImpl (/home/runner/work/business-management-system/business-management-system/node_modules/next/dist/server/base-server.js:818:17)
+[WebServer]     at async /home/runner/work/business-management-system/business-management-system/node_modules/next/dist/server/dev/next-dev-server.js:339:20
+[WebServer]     at async Span.traceAsyncFn (/home/runner/work/business-management-system/business-management-system/node_modules/next/dist/trace/trace.js:154:20)
+[WebServer]     at async DevServer.handleRequest (/home/runner/work/business-management-system/business-management-system/node_modules/next/dist/server/dev/next-dev-server.js:336:24)
+[WebServer]     at async invokeRender (/home/runner/work/business-management-system/business-management-system/node_modules/next/dist/server/lib/router-server.js:179:21)
+[WebServer]     at async handleRequest (/home/runner/work/business-management-system/business-management-system/node_modules/next/dist/server/lib/router-server.js:359:24)
+[WebServer]     at async requestHandlerImpl (/home/runner/work/business-management-system/business-management-system/node_modules/next/dist/server/lib/router-server.js:383:13)
+[WebServer]     at async Server.requestListener (/home/runner/work/business-management-system/business-management-system/node_modules/next/dist/server/lib/start-server.js:141:13)
+Error: Timed out waiting 120000ms from config.webServer.
+
+Error: Process completed with exit code 1.
