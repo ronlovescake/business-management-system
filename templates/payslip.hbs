@@ -183,7 +183,13 @@
         grid-area: status;
       }
 
+      .employee-summary-item.employee-id,
       .employee-summary-item.bank {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        text-align: right;
+      }
         grid-area: bank;
       }
 
@@ -212,8 +218,16 @@
         color: #111827;
       }
 
+      .employee-summary-item.period .value,
+      .employee-summary-item.employee-id .value,
+      .employee-summary-item.bank .value {
+        font-size: calc(11px * var(--font-scale));
+        color: rgba(17, 24, 39, 0.75);
+      }
+
       .employee-summary-item.name .value {
         white-space: nowrap;
+        text-transform: uppercase;
       }
 
       .info-card {
@@ -286,6 +300,10 @@
         color: rgba(30, 41, 59, 0.55);
         padding: calc(6px * var(--space-scale)) calc(4px * var(--space-scale));
         border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+      }
+
+      .table thead th.amount {
+        text-align: right;
       }
 
       .section.compact .table thead th {
@@ -472,7 +490,7 @@
             <thead>
               <tr>
                 <th>Description</th>
-                <th>Amount</th>
+                <th class="amount">Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -510,7 +528,7 @@
             <thead>
               <tr>
                 <th>Description</th>
-                <th>Amount</th>
+                <th class="amount">Amount</th>
               </tr>
             </thead>
             <tbody>
