@@ -419,6 +419,25 @@ export default function useLeaveTracker() {
     [employeeScheduleIndex]
   );
 
+  const isEmployeeScheduledOnDate = useCallback(
+    (employeeId: string | undefined, date: string | Date): boolean | null => {
+      if (!employeeId) {
+        return null;
+      }
+
+      const normalizedEmployeeId = employeeId.trim();
+      const scheduleSet = employeeScheduleIndex[normalizedEmployeeId];
+
+      if (!scheduleSet || scheduleSet.size === 0) {
+        return null;
+      }
+
+      const targetDate = dayjs(date).tz(TIMEZONE).format('YYYY-MM-DD');
+      return scheduleSet.has(targetDate);
+    },
+    [employeeScheduleIndex]
+  );
+
   const calculateRemainingLeaveAllocation = useMemo(() => {
     return (employeeId: string): number => {
       const ANNUAL_LEAVE_ENTITLEMENT = 7; // days per year
@@ -545,7 +564,7 @@ export default function useLeaveTracker() {
   const monthlyBreakdown = useMemo<MonthlyBreakdownItem[]>(() => {
     // Group by leave type (rows) with month columns
     const breakdown: Record<string, MonthlyBreakdownItem> = {};
-    
+
     // Initialize breakdown for each leave type
     leaveTypes.forEach((type) => {
       breakdown[type] = {
@@ -571,11 +590,14 @@ export default function useLeaveTracker() {
     filteredRequests.forEach((request: LeaveRequest) => {
       const monthName = dayjs(request.startDate).format('MMMM');
       const leaveType = request.leaveType;
-      
+
       if (breakdown[leaveType]) {
-        const currentMonthValue = (breakdown[leaveType][monthName] as number) || 0;
-        breakdown[leaveType][monthName] = currentMonthValue + request.numberOfDays;
-        breakdown[leaveType].total = (breakdown[leaveType].total as number) + request.numberOfDays;
+        const currentMonthValue =
+          (breakdown[leaveType][monthName] as number) || 0;
+        breakdown[leaveType][monthName] =
+          currentMonthValue + request.numberOfDays;
+        breakdown[leaveType].total =
+          (breakdown[leaveType].total as number) + request.numberOfDays;
       }
     });
 
@@ -585,9 +607,10 @@ export default function useLeaveTracker() {
     );
 
     result.forEach((item) => {
-      item.percentage = totalDaysRequested > 0 
-        ? ((item.total as number) / totalDaysRequested) * 100 
-        : 0;
+      item.percentage =
+        totalDaysRequested > 0
+          ? ((item.total as number) / totalDaysRequested) * 100
+          : 0;
     });
 
     return result;
@@ -1267,6 +1290,7 @@ export default function useLeaveTracker() {
     getLeaveTypeColor,
     getPaymentStatusColor,
     calculateDays,
+    isEmployeeScheduledOnDate,
 
     // Event handlers
     handleAddRequest,

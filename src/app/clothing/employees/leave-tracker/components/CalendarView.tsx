@@ -17,6 +17,10 @@ interface CalendarViewProps {
   leaveRequests: LeaveRequest[];
   formatDate: (date: string) => string;
   getLeaveTypeColor: (leaveType: LeaveType) => string;
+  isEmployeeScheduledOnDate: (
+    employeeId: string,
+    date: Date | string
+  ) => boolean | null;
 }
 
 interface MonthCalendarProps {
@@ -273,6 +277,7 @@ export const CalendarView = React.memo(function CalendarView({
   leaveRequests,
   formatDate,
   getLeaveTypeColor,
+  isEmployeeScheduledOnDate,
 }: CalendarViewProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
@@ -296,7 +301,17 @@ export const CalendarView = React.memo(function CalendarView({
         return false;
       }
 
-      return current >= start && current <= end;
+      if (current < start || current > end) {
+        return false;
+      }
+
+      const scheduled = isEmployeeScheduledOnDate(request.employeeId, current);
+
+      if (scheduled === false) {
+        return false;
+      }
+
+      return true;
     });
   };
 

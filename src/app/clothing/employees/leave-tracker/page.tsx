@@ -81,6 +81,7 @@ export default function LeaveTracker() {
     getLeaveTypeColor,
     getPaymentStatusColor,
     calculateDays,
+    isEmployeeScheduledOnDate,
 
     // Event handlers
     handleAddRequest,
@@ -150,6 +151,7 @@ export default function LeaveTracker() {
             leaveRequests={leaveRequests}
             formatDate={formatDate}
             getLeaveTypeColor={getLeaveTypeColor}
+            isEmployeeScheduledOnDate={isEmployeeScheduledOnDate}
           />
         )}
       </Stack>
