@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useEffect, useMemo, useState, useRef } from 'react';
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+  useCallback,
+} from 'react';
 import { HotTable } from '@handsontable/react';
 import type { HotTableClass } from '@handsontable/react';
 import { registerAllModules } from 'handsontable/registry';
@@ -97,6 +103,7 @@ export interface HandsontableGridProps<T extends object> {
   gridHeight?: number;
   className?: string;
   scrollToLastNonEmptyRows?: number; // New prop: how many last non-empty rows to show
+  stretchColumnId?: string;
 }
 
 export function HandsontableGrid<T extends object>({
@@ -123,6 +130,7 @@ export function HandsontableGrid<T extends object>({
   gridHeight,
   className = '',
   scrollToLastNonEmptyRows = 1, // Default: scroll to last 1 row
+  stretchColumnId,
 }: HandsontableGridProps<T>) {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const hotRef = useRef<HotTableClass | null>(null);
@@ -236,6 +244,26 @@ export function HandsontableGrid<T extends object>({
   useEffect(() => {
     columnsRef.current = columns;
   }, [columns]);
+
+  const handleBeforeStretch = useCallback(
+    (stretchedWidth: number, column: number) => {
+      if (!stretchColumnId) {
+        return stretchedWidth;
+      }
+
+      const columnDef = columnsRef.current[column];
+      if (!columnDef) {
+        return stretchedWidth;
+      }
+
+      if (columnDef.id === stretchColumnId) {
+        return stretchedWidth;
+      }
+
+      return columnDef.width ?? stretchedWidth;
+    },
+    [stretchColumnId]
+  );
 
   // Apply header height styles dynamically
   useEffect(() => {
@@ -841,7 +869,7 @@ export function HandsontableGrid<T extends object>({
               <Card
                 key={cardKey}
                 padding="md"
-                radius="xl"
+                radius="md"
                 withBorder={false}
                 style={{
                   cursor: 'default',
@@ -852,6 +880,7 @@ export function HandsontableGrid<T extends object>({
                   border: '1px solid rgba(255, 255, 255, 0.2)',
                   boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
                   transition: 'all 0.3s ease',
+                  borderRadius: '10px',
                   '&:hover': {
                     transform: 'translateY(-2px)',
                     boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
@@ -888,7 +917,7 @@ export function HandsontableGrid<T extends object>({
                     variant="filled"
                     color="white"
                     size="lg"
-                    radius="md"
+                    radius="sm"
                     style={{
                       backgroundColor: 'rgba(255, 255, 255, 0.2)',
                       color: 'white',
@@ -977,7 +1006,7 @@ export function HandsontableGrid<T extends object>({
           backgroundColor: 'rgba(255, 255, 255, 0.1)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          borderRadius: '20px',
+          borderRadius: '10px',
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
           border: '1px solid rgba(255, 255, 255, 0.2)',
         }}
@@ -998,7 +1027,8 @@ export function HandsontableGrid<T extends object>({
           viewportRowRenderingOffset={30} // Render 30 extra rows above/below viewport
           viewportColumnRenderingOffset={5} // Render 5 extra columns left/right
           // Styling
-          stretchH="all"
+          stretchH={stretchColumnId ? 'all' : 'none'}
+          beforeStretchingColumnWidth={handleBeforeStretch}
           autoWrapRow={false}
           autoWrapCol={false}
           // Features

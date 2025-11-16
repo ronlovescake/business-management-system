@@ -215,7 +215,7 @@ export function TransactionsPage() {
     () => [
       {
         title: 'ORDER DATE',
-        width: 180,
+        width: 140,
         id: 'orderDate',
         align: 'center',
       },
@@ -235,14 +235,14 @@ export function TransactionsPage() {
       },
       {
         title: 'QUANTITY',
-        width: 180,
+        width: 140,
         id: 'quantity',
         type: 'numeric',
         align: 'center',
       },
       {
         title: 'UNIT PRICE',
-        width: 180,
+        width: 140,
         id: 'unitPrice',
         type: 'numeric',
         align: 'right',
@@ -251,7 +251,7 @@ export function TransactionsPage() {
       },
       {
         title: 'DISCOUNT',
-        width: 180,
+        width: 140,
         id: 'discount',
         type: 'numeric',
         align: 'right',
@@ -259,7 +259,7 @@ export function TransactionsPage() {
       },
       {
         title: 'ADJUSTMENT',
-        width: 180,
+        width: 140,
         id: 'adjustment',
         type: 'numeric',
         align: 'right',
@@ -267,7 +267,7 @@ export function TransactionsPage() {
       },
       {
         title: 'LINE TOTAL',
-        width: 200,
+        width: 140,
         id: 'lineTotal',
         type: 'numeric',
         align: 'right',
@@ -276,7 +276,7 @@ export function TransactionsPage() {
       },
       {
         title: 'ORDER STATUS',
-        width: 200,
+        width: 160,
         id: 'orderStatus',
         type: 'dropdown',
         dropdownValues: statusDropdownOptions,
@@ -290,21 +290,21 @@ export function TransactionsPage() {
       },
       {
         title: 'INVOICE DATE',
-        width: 200,
+        width: 160,
         id: 'invoiceDate',
         align: 'center',
         readOnly: readOnlyColumns.invoiceDate,
       },
       {
         title: 'PACKED DATE',
-        width: 200,
+        width: 160,
         id: 'packedDate',
         align: 'center',
         readOnly: readOnlyColumns.packedDate,
       },
       {
         title: 'SHIPMENT CODE',
-        width: 200,
+        width: 160,
         id: 'shipmentCode',
         align: 'center',
         readOnly: readOnlyColumns.shipmentCode,
@@ -643,6 +643,7 @@ export function TransactionsPage() {
           isGeneratingPackingList={isGeneratingPackingList}
           isGeneratingDistribution={isGeneratingDistribution}
           scrollToLastNonEmptyRows={scrollToLastNonEmptyRows}
+          stretchColumnId="notes"
         />
       </PageLayout>
     </Profiler>

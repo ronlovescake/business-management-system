@@ -92,6 +92,7 @@ export interface TransactionsLayoutProps<T = Record<string, unknown>> {
 
   // Scroll Behavior
   scrollToLastNonEmptyRows?: number;
+  stretchColumnId?: string;
 }
 
 export function TransactionsLayout<T extends object = Record<string, unknown>>({
@@ -119,6 +120,7 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
   isGeneratingDistribution = false,
   enableCtrlF = false,
   scrollToLastNonEmptyRows = 1,
+  stretchColumnId,
 }: TransactionsLayoutProps<T>) {
   // Export to XLSX function
   const handleExportToXLSX = React.useCallback(() => {
@@ -304,6 +306,7 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
       searchRightButtons={searchRightButtons}
       actionButtons={actionButtons}
       scrollToLastNonEmptyRows={scrollToLastNonEmptyRows}
+      stretchColumnId={stretchColumnId}
     />
   );
 }
