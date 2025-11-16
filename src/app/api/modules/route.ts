@@ -455,6 +455,71 @@ const APP_MODULES = [
   },
 ];
 
+const moduleInclude = {
+  children: {
+    where: { isActive: true },
+    orderBy: [{ sortOrder: 'asc' }],
+    include: {
+      children: {
+        where: { isActive: true },
+        orderBy: [{ sortOrder: 'asc' }],
+      },
+    },
+  },
+} as const;
+
+const fetchActiveModules = () => {
+  return prisma.module.findMany({
+    where: { isActive: true },
+    orderBy: [{ sortOrder: 'asc' }, { displayName: 'asc' }],
+    include: moduleInclude,
+  });
+};
+
+const syncModulesFromDefinitions = async () => {
+  const moduleIdMap = new Map<string, string>();
+
+  for (const moduleData of APP_MODULES) {
+    const moduleRecord = await prisma.module.upsert({
+      where: { path: moduleData.path },
+      update: {
+        displayName: moduleData.displayName,
+        icon: moduleData.icon,
+        description: moduleData.description,
+        category: moduleData.category,
+        sortOrder: moduleData.sortOrder,
+        isActive: true,
+      },
+      create: {
+        name: moduleData.name,
+        displayName: moduleData.displayName,
+        path: moduleData.path,
+        category: moduleData.category,
+        icon: moduleData.icon,
+        description: moduleData.description,
+        sortOrder: moduleData.sortOrder,
+        isActive: true,
+      },
+    });
+
+    moduleIdMap.set(moduleData.name, moduleRecord.id);
+  }
+
+  for (const moduleData of APP_MODULES) {
+    if (moduleData.parentName) {
+      const parentId = moduleIdMap.get(moduleData.parentName);
+      if (parentId) {
+        await prisma.module.update({
+          where: { path: moduleData.path },
+          data: { parentId },
+        });
+      }
+    }
+  }
+
+  return fetchActiveModules();
+};
+
 // GET - Fetch all modules
 export async function GET(_request: NextRequest) {
   try {
@@ -463,22 +528,11 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const modules = await prisma.module.findMany({
-      where: { isActive: true },
-      orderBy: [{ sortOrder: 'asc' }, { displayName: 'asc' }],
-      include: {
-        children: {
-          where: { isActive: true },
-          orderBy: [{ sortOrder: 'asc' }],
-          include: {
-            children: {
-              where: { isActive: true },
-              orderBy: [{ sortOrder: 'asc' }],
-            },
-          },
-        },
-      },
-    });
+    let modules = await fetchActiveModules();
+
+    if (modules.length === 0) {
+      modules = await syncModulesFromDefinitions();
+    }
 
     return NextResponse.json(modules);
   } catch (error) {
@@ -497,59 +551,7 @@ export async function POST(_request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Create a map to store module IDs by name
-    const moduleIdMap = new Map<string, string>();
-
-    // First pass: Create all modules without parent relationships
-    for (const moduleData of APP_MODULES) {
-      const moduleRecord = await prisma.module.upsert({
-        where: { path: moduleData.path },
-        update: {
-          displayName: moduleData.displayName,
-          icon: moduleData.icon,
-          description: moduleData.description,
-          category: moduleData.category,
-          sortOrder: moduleData.sortOrder,
-          isActive: true,
-        },
-        create: {
-          name: moduleData.name,
-          displayName: moduleData.displayName,
-          path: moduleData.path,
-          category: moduleData.category,
-          icon: moduleData.icon,
-          description: moduleData.description,
-          sortOrder: moduleData.sortOrder,
-          isActive: true,
-        },
-      });
-
-      moduleIdMap.set(moduleData.name, moduleRecord.id);
-    }
-
-    // Second pass: Update parent relationships
-    for (const moduleData of APP_MODULES) {
-      if (moduleData.parentName) {
-        const parentId = moduleIdMap.get(moduleData.parentName);
-        if (parentId) {
-          await prisma.module.update({
-            where: { path: moduleData.path },
-            data: { parentId },
-          });
-        }
-      }
-    }
-
-    const modules = await prisma.module.findMany({
-      where: { isActive: true },
-      orderBy: [{ sortOrder: 'asc' }],
-      include: {
-        children: {
-          where: { isActive: true },
-          orderBy: [{ sortOrder: 'asc' }],
-        },
-      },
-    });
+    const modules = await syncModulesFromDefinitions();
 
     return NextResponse.json({
       message: 'Modules synced successfully',
