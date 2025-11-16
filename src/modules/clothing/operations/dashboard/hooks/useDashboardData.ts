@@ -85,6 +85,10 @@ export function useDashboardData() {
     todayActivity: dashboardData?.todayActivity,
     monthlyGoal: dashboardData?.monthlyGoal,
     recentActivities: dashboardData?.recentActivities || [],
+    salesTrends: dashboardData?.salesTrends || [],
+    orderFunnel: dashboardData?.orderFunnel || [],
+    inventoryAlerts: dashboardData?.inventoryAlerts || [],
+    shipmentUpdates: dashboardData?.shipmentUpdates || [],
 
     // Status
     isLoading,

@@ -36,6 +36,56 @@ export interface DashboardMetrics {
 }
 
 // ============================================================================
+// TREND DATA
+// ============================================================================
+
+export type TrendRange = '7d' | '30d' | '90d';
+
+export interface SalesTrendPoint {
+  dateLabel: string;
+  revenue: number;
+  orders: number;
+  fulfillmentRate: number;
+}
+
+export interface SalesTrendDataset {
+  range: TrendRange;
+  points: SalesTrendPoint[];
+}
+
+// ============================================================================
+// ORDER PIPELINE & INVENTORY
+// ============================================================================
+
+export interface OrderFunnelStage {
+  label: string;
+  value: number;
+  delta: number;
+  status: 'positive' | 'neutral' | 'negative';
+}
+
+export interface InventoryAlert {
+  productCode: string;
+  description: string;
+  severity: 'low' | 'medium' | 'high';
+  stockLevel: number;
+  reorderPoint: number;
+  etaDays?: number;
+}
+
+// ============================================================================
+// SHIPMENT TRACKING
+// ============================================================================
+
+export interface ShipmentUpdate {
+  shipmentCode: string;
+  status: 'Pending' | 'In Transit' | 'Delivered';
+  location: string;
+  timestamp: string;
+  progress: number;
+}
+
+// ============================================================================
 // ACTIVITY & GOALS
 // ============================================================================
 
@@ -67,4 +117,8 @@ export interface DashboardData {
   todayActivity: TodayActivity;
   monthlyGoal: MonthlyGoal;
   recentActivities: RecentActivity[];
+  salesTrends: SalesTrendDataset[];
+  orderFunnel: OrderFunnelStage[];
+  inventoryAlerts: InventoryAlert[];
+  shipmentUpdates: ShipmentUpdate[];
 }

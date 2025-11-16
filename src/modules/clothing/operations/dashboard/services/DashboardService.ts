@@ -19,6 +19,11 @@ import type {
   MonthlyGoal,
   RecentActivity,
   IconComponent,
+  SalesTrendDataset,
+  OrderFunnelStage,
+  InventoryAlert,
+  ShipmentUpdate,
+  TrendRange,
 } from '../types/dashboard.types';
 import {
   IconCurrencyDollar,
@@ -31,6 +36,101 @@ export class DashboardService {
   // =========================================================================
   // INITIALIZATION
   // =========================================================================
+
+  private salesTrendSamples: Record<TrendRange, SalesTrendDataset['points']> = {
+    '7d': [
+      { dateLabel: 'Mon', revenue: 6100, orders: 48, fulfillmentRate: 94 },
+      { dateLabel: 'Tue', revenue: 7200, orders: 51, fulfillmentRate: 92 },
+      { dateLabel: 'Wed', revenue: 6800, orders: 47, fulfillmentRate: 90 },
+      { dateLabel: 'Thu', revenue: 7500, orders: 55, fulfillmentRate: 95 },
+      { dateLabel: 'Fri', revenue: 8100, orders: 59, fulfillmentRate: 96 },
+      { dateLabel: 'Sat', revenue: 5400, orders: 39, fulfillmentRate: 88 },
+      { dateLabel: 'Sun', revenue: 4300, orders: 33, fulfillmentRate: 85 },
+    ],
+    '30d': [
+      { dateLabel: 'Week 1', revenue: 21500, orders: 205, fulfillmentRate: 90 },
+      { dateLabel: 'Week 2', revenue: 24800, orders: 223, fulfillmentRate: 91 },
+      { dateLabel: 'Week 3', revenue: 23100, orders: 214, fulfillmentRate: 93 },
+      { dateLabel: 'Week 4', revenue: 26200, orders: 238, fulfillmentRate: 95 },
+    ],
+    '90d': [
+      { dateLabel: 'Jan', revenue: 70500, orders: 640, fulfillmentRate: 89 },
+      { dateLabel: 'Feb', revenue: 74200, orders: 665, fulfillmentRate: 91 },
+      { dateLabel: 'Mar', revenue: 80300, orders: 702, fulfillmentRate: 93 },
+    ],
+  };
+
+  private orderFunnelStages: OrderFunnelStage[] = [
+    { label: 'Prepared', value: 312, delta: 6.2, status: 'positive' },
+    { label: 'Packed', value: 268, delta: 2.3, status: 'neutral' },
+    { label: 'Shipped', value: 221, delta: -1.2, status: 'negative' },
+    { label: 'Delivered', value: 198, delta: 4.5, status: 'positive' },
+  ];
+
+  private inventoryAlertsData: InventoryAlert[] = [
+    {
+      productCode: 'BL-ATH-210',
+      description: 'Athleisure set almost depleted in Cebu warehouse',
+      severity: 'high',
+      stockLevel: 34,
+      reorderPoint: 80,
+      etaDays: 5,
+    },
+    {
+      productCode: 'TSH-CLASSIC-04',
+      description: 'Classic tees seeing unusual sales spike',
+      severity: 'medium',
+      stockLevel: 140,
+      reorderPoint: 120,
+      etaDays: 9,
+    },
+    {
+      productCode: 'DRS-EVENING-12',
+      description: 'Evening gowns reserved for trunk show',
+      severity: 'medium',
+      stockLevel: 62,
+      reorderPoint: 60,
+    },
+    {
+      productCode: 'ACC-BELT-09',
+      description: 'Belts delayed at customs, monitor shipments',
+      severity: 'low',
+      stockLevel: 220,
+      reorderPoint: 150,
+      etaDays: 14,
+    },
+  ];
+
+  private shipmentUpdatesData: ShipmentUpdate[] = [
+    {
+      shipmentCode: 'SHIP-9381',
+      status: 'In Transit',
+      location: 'Manila Port',
+      timestamp: 'Today • 09:45 AM',
+      progress: 68,
+    },
+    {
+      shipmentCode: 'SHIP-9364',
+      status: 'Pending',
+      location: 'Awaiting pickup • Laguna',
+      timestamp: 'Today • 07:20 AM',
+      progress: 25,
+    },
+    {
+      shipmentCode: 'SHIP-9348',
+      status: 'Delivered',
+      location: 'Cebu Fulfillment Center',
+      timestamp: 'Yesterday • 05:10 PM',
+      progress: 100,
+    },
+    {
+      shipmentCode: 'SHIP-9329',
+      status: 'In Transit',
+      location: 'Subic Hub',
+      timestamp: 'Yesterday • 11:30 AM',
+      progress: 82,
+    },
+  ];
 
   constructor() {}
 
@@ -188,6 +288,13 @@ export class DashboardService {
       todayActivity,
       monthlyGoal,
       recentActivities,
+      salesTrends: (['7d', '30d', '90d'] as TrendRange[]).map((range) => ({
+        range,
+        points: this.salesTrendSamples[range],
+      })),
+      orderFunnel: this.orderFunnelStages,
+      inventoryAlerts: this.inventoryAlertsData,
+      shipmentUpdates: this.shipmentUpdatesData,
     };
   }
 }
