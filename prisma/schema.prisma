@@ -643,11 +643,30 @@ model User {
   permissions   UserPermission[]
   conversations ConversationParticipant[]
   messages      Message[]
+  passwordResetTokens PasswordResetToken[]
 
   @@index([email])
   @@index([role])
   @@index([isActive])
   @@map("users")
+}
+
+model PasswordResetToken {
+  id         String   @id @default(cuid())
+  tokenHash  String   @db.VarChar(255)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  requestIp  String?  @db.VarChar(100)
+  userAgent  String?  @db.VarChar(500)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([tokenHash])
+  @@map("password_reset_tokens")
 }
 
 model Module {

@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Czarlie & Ron - Payslip</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --font-scale: 1.30;
+        --space-scale: 1.30;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      @page {
+        size: A4;
+        margin: 0;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        font-family: 'Inter', sans-serif;
+        background: #ffffff;
+        color: #1f2933;
+        margin: 0;
+      }
+
+      .page-wrapper {
+        width: 100%;
+        min-height: 297mm;
+        padding: calc(6.5mm * var(--space-scale)) calc(4.5mm * var(--space-scale));
+        box-sizing: border-box;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+      }
+
+      .payslip-card {
+        background: #ffffff;
+        border-radius: calc(12px * var(--space-scale));
+        box-shadow: 0 14px 40px rgba(15, 23, 42, 0.08);
+        padding: calc(12px * var(--space-scale)) calc(18px * var(--space-scale));
+        display: flex;
+        flex-direction: column;
+        gap: calc(8px * var(--space-scale));
+        min-height: 0;
+        width: 100%;
+        max-width: 190mm;
+      }
+
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+        padding-bottom: calc(7px * var(--space-scale));
+      }
+
+      .header-left {
+        display: flex;
+        align-items: center;
+        gap: calc(14px * var(--space-scale));
+      }
+
+      .logo {
+        width: calc(72px * var(--space-scale));
+        height: calc(72px * var(--space-scale));
+        border-radius: calc(10px * var(--space-scale));
+        background: rgba(248, 212, 96, 0.18);
+        padding: calc(8px * var(--space-scale));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(248, 191, 55, 0.35);
+      }
+
+      .logo img {
+        max-width: 100%;
+        max-height: 100%;
+      }
+
+      .brand h1 {
+        font-family: 'Cinzel', serif;
+        font-size: calc(23px * var(--font-scale));
+        letter-spacing: calc(1.1px * var(--space-scale));
+        color: #1f2933;
+      }
+
+      .brand p {
+        color: rgba(30, 41, 59, 0.65);
+        font-size: calc(9px * var(--font-scale));
+        margin-top: calc(2px * var(--space-scale));
+      }
+
+      .header-right {
+        text-align: right;
+      }
+
+      .header-right .title {
+        font-size: calc(19px * var(--font-scale));
+        font-weight: 700;
+        color: #1f2933;
+        text-transform: uppercase;
+        letter-spacing: calc(3px * var(--space-scale));
+      }
+
+      .header-right .generated {
+        margin-top: 6px;
+        color: rgba(30, 41, 59, 0.55);
+        font-size: calc(8px * var(--font-scale));
+        margin-top: calc(6px * var(--space-scale));
+      }
+
+      .section {
+        background: rgba(248, 250, 252, 0.8);
+        border-radius: calc(10px * var(--space-scale));
+        padding: calc(9px * var(--space-scale)) calc(13px * var(--space-scale));
+        border: 1px solid rgba(15, 23, 42, 0.08);
+      }
+
+      .section.compact {
+        padding: calc(8px * var(--space-scale)) calc(11px * var(--space-scale));
+      }
+
+      .section + .section {
+        margin-top: calc(2px * var(--space-scale));
+      }
+
+      .section-title {
+        font-size: calc(12px * var(--font-scale));
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: calc(2px * var(--space-scale));
+        color: rgba(30, 41, 59, 0.6);
+        margin-bottom: calc(4px * var(--space-scale));
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: calc(6px * var(--space-scale)) calc(14px * var(--space-scale));
+      }
+
+      .section.compact .grid {
+        gap: calc(4px * var(--space-scale)) calc(11px * var(--space-scale));
+      }
+
+      .employee-summary-grid {
+        display: grid;
+        grid-template-columns: 2.2fr 1fr 1.2fr;
+        grid-template-areas:
+          'name name employee-id'
+          'period status bank';
+        column-gap: calc(32px * var(--space-scale));
+        row-gap: calc(12px * var(--space-scale));
+        padding: calc(4px * var(--space-scale)) 0;
+      }
+
+      .employee-summary-item.name {
+        grid-area: name;
+      }
+
+      .employee-summary-item.employee-id {
+        grid-area: employee-id;
+      }
+
+      .employee-summary-item.period {
+        grid-area: period;
+      }
+
+      .employee-summary-item.status {
+        grid-area: status;
+      }
+
+      .employee-summary-item.employee-id,
+      .employee-summary-item.bank {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        text-align: right;
+      }
+        grid-area: bank;
+      }
+
+      @media (max-width: 720px) {
+        .employee-summary-grid {
+          grid-template-columns: repeat(2, minmax(160px, 1fr));
+          grid-template-areas:
+            'name name'
+            'employee-id employee-id'
+            'period period'
+            'status bank';
+        }
+      }
+
+      .employee-summary-item .label {
+        font-size: calc(10px * var(--font-scale));
+        text-transform: uppercase;
+        letter-spacing: calc(1.4px * var(--space-scale));
+        color: rgba(15, 23, 42, 0.6);
+        margin-bottom: calc(2px * var(--space-scale));
+      }
+
+      .employee-summary-item .value {
+        font-size: calc(13px * var(--font-scale));
+        font-weight: 600;
+        color: #111827;
+      }
+
+      .employee-summary-item.period .value,
+      .employee-summary-item.employee-id .value,
+      .employee-summary-item.bank .value {
+        font-size: calc(11px * var(--font-scale));
+        color: rgba(17, 24, 39, 0.75);
+      }
+
+      .employee-summary-item.name .value {
+        white-space: nowrap;
+        text-transform: uppercase;
+      }
+
+      .info-card {
+        background: #fff;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: calc(9px * var(--space-scale));
+        padding: calc(7px * var(--space-scale)) calc(9px * var(--space-scale));
+        box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.16);
+      }
+
+      .section.compact .info-card {
+        padding: calc(6px * var(--space-scale)) calc(8px * var(--space-scale));
+      }
+
+      .info-card .label {
+        font-size: calc(8px * var(--font-scale));
+        text-transform: uppercase;
+        letter-spacing: calc(1.3px * var(--space-scale));
+        color: rgba(30, 41, 59, 0.5);
+        margin-bottom: calc(3px * var(--space-scale));
+      }
+
+      .section.compact .info-card .label {
+        margin-bottom: calc(2px * var(--space-scale));
+      }
+
+      .info-card .value {
+        font-size: calc(11px * var(--font-scale));
+        font-weight: 600;
+        color: #111827;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: calc(4px * var(--space-scale)) calc(12px * var(--space-scale));
+        border-radius: 999px;
+        font-size: calc(11px * var(--font-scale));
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: calc(1.2px * var(--space-scale));
+      }
+
+      .badge.pending {
+        background: rgba(251, 191, 36, 0.15);
+        color: #b45309;
+      }
+
+      .badge.approved {
+        background: rgba(34, 197, 94, 0.15);
+        color: #047857;
+      }
+
+      .badge.paid {
+        background: rgba(34, 197, 94, 0.18);
+        color: #047857;
+      }
+
+      .table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+      }
+
+      .table thead th {
+        text-align: left;
+        font-size: calc(9px * var(--font-scale));
+        text-transform: uppercase;
+        letter-spacing: calc(1.2px * var(--space-scale));
+        color: rgba(30, 41, 59, 0.55);
+        padding: calc(6px * var(--space-scale)) calc(4px * var(--space-scale));
+        border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+      }
+
+      .table thead th.amount {
+        text-align: right;
+      }
+
+      .section.compact .table thead th {
+        padding: calc(5px * var(--space-scale)) calc(3px * var(--space-scale));
+      }
+
+      .table tbody td {
+        padding: calc(4px * var(--space-scale)) calc(6px * var(--space-scale));
+        font-size: calc(10px * var(--font-scale));
+        border-bottom: 1px dashed rgba(148, 163, 184, 0.25);
+      }
+
+      .section.compact .table tbody td {
+        padding: calc(3px * var(--space-scale)) calc(5px * var(--space-scale));
+      }
+
+      .table tbody tr:last-child td {
+        border-bottom: none;
+      }
+
+      .table tbody td.amount {
+        text-align: right;
+        font-weight: 600;
+        color: #0f172a;
+      }
+
+      .earnings .table tbody td.amount {
+        color: #0b8a51;
+      }
+
+      .earnings .table tbody tr:last-child td {
+        color: #0b8a51;
+      }
+
+      .deductions .table tbody td.amount,
+      .deductions .table tbody tr:last-child td {
+        color: #b91c1c;
+      }
+
+      .table tbody td.amount.negative {
+        color: #b91c1c;
+      }
+
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: calc(8px * var(--space-scale));
+      }
+
+      .summary-card {
+        background: #fff;
+        border-radius: calc(12px * var(--space-scale));
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        padding: calc(8px * var(--space-scale)) calc(10px * var(--space-scale));
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .summary-card::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.06), rgba(14, 165, 233, 0.05));
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+
+      .summary-card:hover::after {
+        opacity: 1;
+      }
+
+      .summary-card .label {
+        font-size: calc(11px * var(--font-scale));
+        text-transform: uppercase;
+        letter-spacing: calc(1.2px * var(--space-scale));
+        color: rgba(30, 41, 59, 0.55);
+      }
+
+      .summary-card .value {
+        font-size: calc(14px * var(--font-scale));
+        font-weight: 700;
+        margin-top: calc(2px * var(--space-scale));
+        color: #0f172a;
+      }
+
+      .summary-card.highlight {
+        border-color: rgba(34, 197, 94, 0.45);
+      }
+
+      .summary-card.highlight .value {
+        color: #0b8a51;
+      }
+
+      .summary-card.alert {
+        border-color: rgba(239, 68, 68, 0.45);
+      }
+
+      .summary-card.alert .value {
+        color: #dc2626;
+      }
+
+      .footer {
+        margin-top: auto;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        border-top: 1px solid rgba(15, 23, 42, 0.08);
+        padding-top: calc(6px * var(--space-scale));
+      }
+
+      .footer .note {
+        font-size: calc(7.5px * var(--font-scale));
+        color: rgba(30, 41, 59, 0.5);
+        max-width: 55%;
+        line-height: calc(1.4 * var(--space-scale));
+      }
+
+      .signature {
+        text-align: right;
+      }
+
+      .signature-line {
+        margin-top: calc(20px * var(--space-scale));
+        border-top: 1px solid rgba(15, 23, 42, 0.35);
+        width: calc(220px * var(--space-scale));
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-wrapper">
+      <div class="payslip-card">
+        <header class="header">
+          <div class="header-left">
+            <div class="logo">
+              <img src="data:image/png;base64,{{logoData}}" alt="Company Logo" />
+            </div>
+            <div class="brand">
+              <h1>{{companyName}}</h1>
+              <p>Official Employee Payslip</p>
+            </div>
+          </div>
+          <div class="header-right">
+            <div class="title">Payslip</div>
+            <div class="generated">Generated on {{generatedAt}}</div>
+          </div>
+        </header>
+
+        <section class="section employee-summary">
+          <div class="section-title">Employee Summary</div>
+          <div class="employee-summary-grid">
+            <div class="employee-summary-item name">
+              <div class="label">Employee Name</div>
+              <div class="value">{{employeeName}}</div>
+            </div>
+            {{#if employeeId}}
+              <div class="employee-summary-item employee-id">
+                <div class="label">Employee ID</div>
+                <div class="value">{{employeeId}}</div>
+              </div>
+            {{/if}}
+            <div class="employee-summary-item period">
+              <div class="label">Pay Period</div>
+              <div class="value">{{periodRange}}</div>
+            </div>
+            <div class="employee-summary-item status">
+              <div class="label">Status</div>
+              <div class="value" style="display: inline-flex; align-items: center; gap: calc(6px * var(--space-scale));">
+                <span class="badge {{statusClass}}" style="font-size: calc(10px * var(--font-scale)); padding: calc(3px * var(--space-scale)) calc(10px * var(--space-scale));">
+                  {{statusLabel}}
+                </span>
+              </div>
+            </div>
+            <div class="employee-summary-item bank">
+              <div class="label">Bank / GCash</div>
+              <div class="value">{{bankGcash}}</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section compact earnings">
+          <div class="section-title">Earnings</div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th class="amount">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Basic Salary</td>
+                <td class="amount">{{currency basicSalary}}</td>
+              </tr>
+              <tr>
+                <td>Allowance</td>
+                <td class="amount">{{currency allowance}}</td>
+              </tr>
+              <tr>
+                <td>Overtime</td>
+                <td class="amount">{{currency overtime}}</td>
+              </tr>
+              <tr>
+                <td>Bonuses</td>
+                <td class="amount">{{currency bonuses}}</td>
+              </tr>
+              <tr>
+                <td>13th Month</td>
+                <td class="amount">{{currency thirteenthMonth}}</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600;">Gross Pay</td>
+                <td class="amount">{{currency grossPay}}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="section compact deductions">
+          <div class="section-title">Deductions</div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th class="amount">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>SSS</td>
+                <td class="amount negative">{{currency sss}}</td>
+              </tr>
+              <tr>
+                <td>PhilHealth</td>
+                <td class="amount negative">{{currency philHealth}}</td>
+              </tr>
+              <tr>
+                <td>Pag-IBIG</td>
+                <td class="amount negative">{{currency pagIbig}}</td>
+              </tr>
+              <tr>
+                <td>Tax</td>
+                <td class="amount negative">{{currency tax}}</td>
+              </tr>
+              <tr>
+                <td>Loans</td>
+                <td class="amount negative">{{currency loans}}</td>
+              </tr>
+              <tr>
+                <td>Cash Advance</td>
+                <td class="amount negative">{{currency cashAdvance}}</td>
+              </tr>
+              <tr>
+                <td>Leave Without Pay</td>
+                <td class="amount negative">{{currency lwop}}</td>
+              </tr>
+              <tr>
+                <td>Absences / Lates</td>
+                <td class="amount negative">{{currency absentsLates}}</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600;">Total Deductions</td>
+                <td class="amount negative">{{currency totalDeductions}}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="section">
+          <div class="section-title">Summary</div>
+          <div class="summary-grid">
+            <div class="summary-card">
+              <div class="label">Gross Pay</div>
+              <div class="value">{{currency grossPay}}</div>
+            </div>
+            <div class="summary-card alert">
+              <div class="label">Total Deductions</div>
+              <div class="value">{{currency totalDeductions}}</div>
+            </div>
+            <div class="summary-card highlight">
+              <div class="label">Net Pay</div>
+              <div class="value">{{currency netPay}}</div>
+            </div>
+          </div>
+        </section>
+
+        <div class="footer">
+          <div class="note">
+            This payslip is generated electronically and is valid without a signature.
+            For any concerns, kindly coordinate with the HR & Payroll department within 5 working days.
+          </div>
+          <div class="signature">
+            <div class="signature-line"></div>
+            <div style="margin-top: calc(6px * var(--space-scale)); font-size: calc(10px * var(--font-scale)); color: rgba(30, 41, 59, 0.6);">
+              Czarlie & Ron · Payroll Manager
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

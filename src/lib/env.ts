@@ -37,6 +37,15 @@ const serverSchema = z.object({
   NEXTAUTH_URL: z.string().url().optional(),
   NEXTAUTH_SECRET: z.string().min(32).optional(),
 
+  // Email / SMTP configuration (optional locally, required for password reset emails)
+  SMTP_HOST: z.string().min(1).optional(),
+  SMTP_PORT: z
+    .preprocess((val) => (val ? Number(val) : undefined), z.number().int())
+    .optional(),
+  SMTP_USER: z.string().min(1).optional(),
+  SMTP_PASS: z.string().min(1).optional(),
+  EMAIL_FROM: z.string().min(1).optional(),
+
   // Query logging (optional)
   LOG_ALL_QUERIES: z
     .enum(['true', 'false'])

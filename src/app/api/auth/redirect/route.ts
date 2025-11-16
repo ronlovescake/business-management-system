@@ -12,10 +12,10 @@ export async function GET() {
       redirect(firstModule);
     }
 
-    // Fallback
-    redirect('/clothing/operations');
+    // Fallback to workspace picker
+    redirect('/workspaces');
   } catch (error) {
     // Handle redirect during build
-    redirect('/clothing/operations');
+    redirect('/workspaces');
   }
 }
