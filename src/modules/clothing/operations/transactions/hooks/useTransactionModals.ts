@@ -184,6 +184,7 @@ export function useTransactionModals(
 
         let totalWarehouse = 0;
         let totalPrepared = 0;
+        let totalOnHold = 0;
 
         customersWithWarehouse.forEach((customerName) => {
           const customerWarehouse = visibleTransactions.filter(
@@ -194,12 +195,17 @@ export function useTransactionModals(
             (t) =>
               t.Customers === customerName && t['Order Status'] === 'Prepared'
           );
+          const customerOnHold = visibleTransactions.filter(
+            (t) =>
+              t.Customers === customerName && t['Order Status'] === 'On-Hold'
+          );
 
           totalWarehouse += customerWarehouse.length;
           totalPrepared += customerPrepared.length;
+          totalOnHold += customerOnHold.length;
         });
 
-        const totalTransactions = totalWarehouse + totalPrepared;
+        const totalTransactions = totalWarehouse + totalPrepared + totalOnHold;
 
         // Show SweetAlert2 confirmation dialog
         const result = await Swal.fire({
@@ -224,6 +230,9 @@ export function useTransactionModals(
                 </p>
                 <p style="margin: 6px 0; font-size: 14px;">
                   <strong>${totalPrepared}</strong> Prepared order${totalPrepared > 1 ? 's' : ''}
+                </p>
+                <p style="margin: 6px 0; font-size: 14px;">
+                  <strong>${totalOnHold}</strong> On-Hold order${totalOnHold > 1 ? 's' : ''}
                 </p>
                 <p style="margin: 6px 0; font-size: 14px;">
                   <strong>${totalTransactions}</strong> total transactions
@@ -288,8 +297,16 @@ export function useTransactionModals(
             (t) =>
               t.Customers === customerName && t['Order Status'] === 'Prepared'
           );
+          const customerOnHold = visibleTransactions.filter(
+            (t) =>
+              t.Customers === customerName && t['Order Status'] === 'On-Hold'
+          );
 
-          invoiceTransactions.push(...customerWarehouse, ...customerPrepared);
+          invoiceTransactions.push(
+            ...customerWarehouse,
+            ...customerPrepared,
+            ...customerOnHold
+          );
         });
 
         // Fetch customers for invoice
@@ -364,13 +381,15 @@ export function useTransactionModals(
               ? ` All ${totalWarehouse} Warehouse orders updated to Prepared status.`
               : '';
 
+          const statusSummary = `${totalWarehouse} Warehouse + ${totalPrepared} Prepared + ${totalOnHold} On-Hold`;
+
           const fileType = filename.endsWith('.zip')
             ? 'ZIP file with individual PDFs'
             : 'PDF';
 
           showNotification({
             title: '✅ Invoices Generated & Status Updated',
-            message: `${fileType} for ${totalWarehouse} Warehouse + ${totalPrepared} Prepared orders from ${customersWithWarehouse.size} customer${customersWithWarehouse.size > 1 ? 's' : ''} downloaded.${statusUpdateMessage}`,
+            message: `${fileType} for ${statusSummary} orders from ${customersWithWarehouse.size} customer${customersWithWarehouse.size > 1 ? 's' : ''} downloaded.${statusUpdateMessage}`,
             color: 'green',
             autoClose: 8000,
           });
@@ -456,11 +475,32 @@ export function useTransactionModals(
         return status === 'Prepared';
       });
 
-      // Filter: "Prepared" status AND line total ≤ ₱50.00
+      // Filter: customers that have at least one Prepared order
+      const customersWithPrepared = new Set(
+        allPrepared.map((t) => t.Customers).filter(Boolean)
+      );
+
+      // Final eligible set: Prepared ≤ ₱50.00 plus On-Hold for customers who also have Prepared
       const eligible = visibleTransactions.filter((t) => {
         const status = t['Order Status'];
+        const customerName = t.Customers;
         const lineTotal = Number(t['Line Total']) || 0;
-        return status === 'Prepared' && lineTotal <= 50.0;
+
+        // Always apply original Prepared ≤ ₱50 rule
+        if (status === 'Prepared' && lineTotal <= 50.0) {
+          return true;
+        }
+
+        // Include On-Hold only if this customer has at least one Prepared order
+        if (
+          status === 'On-Hold' &&
+          customerName &&
+          customersWithPrepared.has(customerName)
+        ) {
+          return true;
+        }
+
+        return false;
       });
 
       if (eligible.length === 0) {
@@ -475,7 +515,7 @@ export function useTransactionModals(
       }
 
       // Check if any customer has SPLIT orders (some included, some excluded)
-      // Group all "Prepared" orders by customer
+      // Group all "Prepared" orders by customer (split logic still based on Prepared only)
       const customerOrdersMap = new Map<
         string,
         { eligible: number; excluded: number }
@@ -563,7 +603,7 @@ export function useTransactionModals(
             <div style="padding: 12px 0; margin-bottom: 16px;">
               <p style="margin: 0; color: #212529; font-weight: 500;">Packing List Generation</p>
               <p style="margin: 8px 0 0 0; font-size: 14px; color: #495057;">
-                This will generate packing lists for all eligible "Prepared" orders with line total ≤ ₱50.00.
+                This will generate packing lists for all eligible "Prepared" orders with line total ≤ ₱50.00, plus On-Hold orders for those same customers.
               </p>
             </div>
 
@@ -585,8 +625,8 @@ export function useTransactionModals(
 
             <p style="font-weight: 500; margin-bottom: 12px;">Eligibility Criteria:</p>
             <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #495057;">
-              <li>Only transactions with "Prepared" status</li>
-              <li>Line total must be ≤ ₱50.00</li>
+              <li>Prepared transactions with line total ≤ ₱50.00</li>
+              <li>On-Hold transactions are included only for customers that also have Prepared orders</li>
               <li>PDF packing lists will be generated and downloaded</li>
             </ul>
 
