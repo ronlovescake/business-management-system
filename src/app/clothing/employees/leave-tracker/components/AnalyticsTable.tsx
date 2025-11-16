@@ -66,62 +66,62 @@ export const AnalyticsTable = React.memo(function AnalyticsTable({
     {
       key: 'January',
       label: 'JAN',
-      render: (item) => <Text size="sm">{item.January || '—'}</Text>,
+      render: (item) => <Text size="sm">{item.January || ''}</Text>,
     },
     {
       key: 'February',
       label: 'FEB',
-      render: (item) => <Text size="sm">{item.February || '—'}</Text>,
+      render: (item) => <Text size="sm">{item.February || ''}</Text>,
     },
     {
       key: 'March',
       label: 'MAR',
-      render: (item) => <Text size="sm">{item.March || '—'}</Text>,
+      render: (item) => <Text size="sm">{item.March || ''}</Text>,
     },
     {
       key: 'April',
       label: 'APR',
-      render: (item) => <Text size="sm">{item.April || '—'}</Text>,
+      render: (item) => <Text size="sm">{item.April || ''}</Text>,
     },
     {
       key: 'May',
       label: 'MAY',
-      render: (item) => <Text size="sm">{item.May || '—'}</Text>,
+      render: (item) => <Text size="sm">{item.May || ''}</Text>,
     },
     {
       key: 'June',
       label: 'JUN',
-      render: (item) => <Text size="sm">{item.June || '—'}</Text>,
+      render: (item) => <Text size="sm">{item.June || ''}</Text>,
     },
     {
       key: 'July',
       label: 'JUL',
-      render: (item) => <Text size="sm">{item.July || '—'}</Text>,
+      render: (item) => <Text size="sm">{item.July || ''}</Text>,
     },
     {
       key: 'August',
       label: 'AUG',
-      render: (item) => <Text size="sm">{item.August || '—'}</Text>,
+      render: (item) => <Text size="sm">{item.August || ''}</Text>,
     },
     {
       key: 'September',
       label: 'SEP',
-      render: (item) => <Text size="sm">{item.September || '—'}</Text>,
+      render: (item) => <Text size="sm">{item.September || ''}</Text>,
     },
     {
       key: 'October',
       label: 'OCT',
-      render: (item) => <Text size="sm">{item.October || '—'}</Text>,
+      render: (item) => <Text size="sm">{item.October || ''}</Text>,
     },
     {
       key: 'November',
       label: 'NOV',
-      render: (item) => <Text size="sm">{item.November || '—'}</Text>,
+      render: (item) => <Text size="sm">{item.November || ''}</Text>,
     },
     {
       key: 'December',
       label: 'DEC',
-      render: (item) => <Text size="sm">{item.December || '—'}</Text>,
+      render: (item) => <Text size="sm">{item.December || ''}</Text>,
     },
   ];
 
