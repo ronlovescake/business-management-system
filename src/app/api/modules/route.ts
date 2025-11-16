@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth/session';
 
@@ -455,7 +456,7 @@ const APP_MODULES = [
   },
 ];
 
-const moduleInclude = {
+const moduleInclude: Prisma.ModuleInclude = {
   children: {
     where: { isActive: true },
     orderBy: [{ sortOrder: 'asc' }],
@@ -466,7 +467,7 @@ const moduleInclude = {
       },
     },
   },
-} as const;
+};
 
 const fetchActiveModules = () => {
   return prisma.module.findMany({

@@ -12,18 +12,7 @@ import {
   IconUsers,
 } from '@tabler/icons-react';
 import { closeAlert, showCustomAlert } from '@/lib/alerts';
-
-type WorkspaceIconKey = 'settings' | 'users' | 'truck';
-
-export interface WorkspaceOption {
-  id: string;
-  title: string;
-  subtitle: string;
-  badge: string;
-  highlights: string[];
-  href: string;
-  icon: WorkspaceIconKey;
-}
+import type { WorkspaceIconKey, WorkspaceOption } from './workspaces.types';
 
 interface WorkspaceModalProps {
   userName: string;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
@@ -17,7 +17,7 @@ import { useForm } from '@mantine/form';
 import { showNotification } from '@mantine/notifications';
 import { IconArrowLeft, IconLock, IconCheck } from '@tabler/icons-react';
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -227,5 +227,32 @@ export default function ResetPasswordPage() {
         </Stack>
       </Box>
     </Box>
+  );
+}
+
+function ResetPasswordFallback() {
+  return (
+    <Box
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #1d4ed8, #1e293b)',
+        padding: '2rem',
+      }}
+    >
+      <Text size="lg" fw={600} c="white">
+        Loading secure reset experience…
+      </Text>
+    </Box>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<ResetPasswordFallback />}>
+      <ResetPasswordContent />
+    </Suspense>
   );
 }

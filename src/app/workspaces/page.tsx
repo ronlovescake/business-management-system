@@ -2,8 +2,9 @@ import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth/session';
 import { getAccessibleModules } from '@/lib/auth/permissions';
 import WorkspaceModal from './WorkspaceModal';
+import type { WorkspaceDefinition, WorkspaceOption } from './workspaces.types';
 
-const workspaceCatalog = [
+const workspaceCatalog: WorkspaceDefinition[] = [
   {
     id: 'clothing-operations',
     title: 'Clothing Operations',
@@ -45,7 +46,9 @@ function resolveWorkspaces(accessiblePaths: string[], role: string) {
   }
 
   return workspaceCatalog.filter((workspace) =>
-    workspace.requiredPaths.some((path) => accessiblePaths.includes(path))
+    workspace.requiredPaths.some((path: string) =>
+      accessiblePaths.includes(path)
+    )
   );
 }
 
@@ -62,15 +65,9 @@ export default async function WorkspacesPage() {
     user.role || 'USER'
   );
 
-  const serializedWorkspaces = availableWorkspaces.map((workspace) => ({
-    id: workspace.id,
-    title: workspace.title,
-    subtitle: workspace.subtitle,
-    badge: workspace.badge,
-    highlights: workspace.highlights,
-    href: workspace.href,
-    icon: workspace.icon,
-  }));
+  const serializedWorkspaces: WorkspaceOption[] = availableWorkspaces.map(
+    ({ requiredPaths: _requiredPaths, ...workspace }) => workspace
+  );
 
   return (
     <>

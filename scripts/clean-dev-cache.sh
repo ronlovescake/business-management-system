@@ -5,10 +5,13 @@
 
 echo "🧹 Cleaning Next.js development cache..."
 
+# Use absolute rm to avoid interactive shell aliases
+RM_BIN="$(command -v rm)"
+
 # Remove .next directory
 if [ -d ".next" ]; then
     echo "📁 Removing .next directory..."
-    rm -rf .next
+    "$RM_BIN" -rf .next
     echo "✅ .next directory removed"
 else
     echo "ℹ️  .next directory not found"
@@ -17,14 +20,14 @@ fi
 # Remove node_modules/.cache if it exists
 if [ -d "node_modules/.cache" ]; then
     echo "📁 Removing node_modules/.cache..."
-    rm -rf node_modules/.cache
+    "$RM_BIN" -rf node_modules/.cache
     echo "✅ node_modules/.cache removed"
 fi
 
 # Remove TypeScript build info
 if [ -f "tsconfig.tsbuildinfo" ]; then
     echo "📁 Removing tsconfig.tsbuildinfo..."
-    rm -f tsconfig.tsbuildinfo
+    "$RM_BIN" -f tsconfig.tsbuildinfo
     echo "✅ tsconfig.tsbuildinfo removed"
 fi
 

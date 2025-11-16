@@ -906,6 +906,7 @@ model InvoiceSettings {
 model TransactionsSettings {
   id                         String   @id @default(cuid())
   scrollToLastNonEmptyRows   Int      @default(1) // 1 = last row, 10 = last 10 rows, etc.
+  minSpareRows               Int      @default(50) // Number of empty rows to keep visible
   unitPriceReadOnly          Boolean  @default(true)
   lineTotalReadOnly          Boolean  @default(true)
   invoiceDateReadOnly        Boolean  @default(true)
