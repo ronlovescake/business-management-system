@@ -595,6 +595,14 @@ export function useTransactionModals(
         0
       );
 
+      // Counts by status for clearer confirmation messaging
+      const preparedCount = eligible.filter(
+        (t) => t['Order Status'] === 'Prepared'
+      ).length;
+      const onHoldCount = eligible.filter(
+        (t) => t['Order Status'] === 'On-Hold'
+      ).length;
+
       // Show SweetAlert2 confirmation dialog
       const result = await Swal.fire({
         title: 'Packing List Generation Confirmation',
@@ -615,6 +623,9 @@ export function useTransactionModals(
               </p>
               <p style="margin: 6px 0; font-size: 14px;">
                 <strong>${uniqueCustomers.size}</strong> customer${uniqueCustomers.size > 1 ? 's' : ''}
+              </p>
+              <p style="margin: 6px 0; font-size: 14px;">
+                <strong>${preparedCount}</strong> Prepared order${preparedCount !== 1 ? 's' : ''} and <strong>${onHoldCount}</strong> On-Hold order${onHoldCount !== 1 ? 's' : ''}
               </p>
               <p style="margin: 6px 0; font-size: 14px;">
                 Total value: <strong>₱${totalValue.toLocaleString()}</strong>
