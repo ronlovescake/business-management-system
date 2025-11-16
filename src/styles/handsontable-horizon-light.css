@@ -13,7 +13,7 @@
   --ht-placeholder-color: #aeaeae;
   --ht-read-only-color: #727272;
   --ht-disabled-color: #aeaeae;
-  --ht-cell-horizontal-border-color: rgba(255, 255, 255, 0);
+  --ht-cell-horizontal-border-color: rgba(148, 163, 184, 0.35);
   --ht-cell-vertical-border-color: #f5f5f5;
   --ht-wrapper-border-width: 0px;
   --ht-wrapper-border-radius: 12px;
@@ -499,4 +499,17 @@
 
 .transactions-grid .ht-theme-horizon .handsontable td.htDimmed {
   color: #727272 !important;
+}
+
+.transactions-grid .handsontable tbody tr td {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12) !important;
+  border-right: none !important;
+}
+
+.transactions-grid .handsontable tbody tr:last-child td {
+  border-bottom-color: rgba(148, 163, 184, 0.08) !important;
+}
+
+.transactions-grid .handsontable colgroup col {
+  border-right: none !important;
 }
