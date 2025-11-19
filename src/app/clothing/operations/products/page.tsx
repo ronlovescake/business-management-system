@@ -20,7 +20,7 @@
  * New: 12 lines (99.6% reduction)
  *
  * Features Preserved:
- * ✓ 32-column data grid
+ * ✓ 36-column data grid
  * ✓ Product Code auto-generation
  * ✓ Financial calculations (COGS, Profit, Markup)
  * ✓ Shipment integration

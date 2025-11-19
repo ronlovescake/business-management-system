@@ -3,7 +3,7 @@
 /**
  * Products Grid Component
  * Main data grid for Products using Handsontable
- * - 32-column data grid
+ * - 36-column data grid
  * - Search with Ctrl+F
  * - CSV import/export
  * - Multi-cell paste
@@ -117,6 +117,10 @@ export function ProductsGrid() {
     product['Projected Profit'],
     product['Projected Profit (%)'],
     product['Total Markup'],
+    product['Link To Post'] ?? '',
+    product['Bulk Quantity'] ?? null,
+    product['Bulk Weight'] ?? null,
+    product['Weight Per Piece'] ?? null,
   ]);
 
   // Define columns
@@ -339,6 +343,38 @@ export function ProductsGrid() {
       numericFormat: { pattern: '0,0.00' },
       readOnly: true,
     },
+    {
+      data: 32,
+      title: 'LINK TO POST',
+      width: 220,
+      type: 'text',
+      readOnly: true,
+      className: 'htLeft',
+    },
+    {
+      data: 33,
+      title: 'BULK QUANTITY',
+      width: 180,
+      type: 'numeric',
+      numericFormat: { pattern: '0,0' },
+      readOnly: true,
+    },
+    {
+      data: 34,
+      title: 'BULK WEIGHT',
+      width: 180,
+      type: 'numeric',
+      numericFormat: { pattern: '0,0.00' },
+      readOnly: true,
+    },
+    {
+      data: 35,
+      title: 'WEIGHT PER PIECE',
+      width: 180,
+      type: 'numeric',
+      numericFormat: { pattern: '0,0.00' },
+      readOnly: true,
+    },
   ];
 
   /**
@@ -392,6 +428,10 @@ export function ProductsGrid() {
               'Projected Profit',
               'Projected Profit (%)',
               'Total Markup',
+              'Link To Post',
+              'Bulk Quantity',
+              'Bulk Weight',
+              'Weight Per Piece',
             ];
 
             const key = columnKeys[col as number];

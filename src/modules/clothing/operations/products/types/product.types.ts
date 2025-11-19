@@ -6,7 +6,7 @@
 import type { GridCell } from '@glideapps/glide-data-grid';
 
 /**
- * Core Product Data Structure (32 fields)
+ * Core Product Data Structure (36 fields)
  */
 export interface ProductData {
   id?: number;
@@ -42,6 +42,10 @@ export interface ProductData {
   'Projected Profit': number;
   'Projected Profit (%)': number;
   'Total Markup': number;
+  'Link To Post'?: string;
+  'Bulk Quantity'?: number;
+  'Bulk Weight'?: number;
+  'Weight Per Piece'?: number;
   createdAt?: string;
 }
 

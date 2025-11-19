@@ -366,6 +366,63 @@ export const AddProductModal = memo(function AddProductModal({
           </SimpleGrid>
         </div>
 
+        {/* Bulk & Logistics (Placeholder Fields) */}
+        <div>
+          <Group mb="sm">
+            <div>
+              <Text size="lg" fw={500} c="gray.7">
+                Bulk & Posting Details
+              </Text>
+              <Text size="xs" c="gray.5">
+                Coming soon – fields are visible but intentionally disabled for
+                now.
+              </Text>
+            </div>
+          </Group>
+
+          <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="lg">
+            <TextInput
+              label="Link to Post"
+              size="md"
+              radius="md"
+              placeholder="https://example.com/post"
+              disabled
+            />
+
+            <NumberInput
+              label="Bulk Quantity"
+              size="md"
+              radius="md"
+              min={0}
+              hideControls
+              placeholder="0"
+              disabled
+            />
+
+            <NumberInput
+              label="Bulk Weight"
+              size="md"
+              radius="md"
+              decimalScale={2}
+              fixedDecimalScale
+              hideControls
+              placeholder="0.00"
+              disabled
+            />
+
+            <NumberInput
+              label="Weight Per Piece"
+              size="md"
+              radius="md"
+              decimalScale={2}
+              fixedDecimalScale
+              hideControls
+              placeholder="0.00"
+              disabled
+            />
+          </SimpleGrid>
+        </div>
+
         {/* Financial Calculations Section */}
         <div>
           <Group mb="md">
