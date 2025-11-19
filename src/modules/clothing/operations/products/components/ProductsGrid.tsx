@@ -48,6 +48,14 @@ const AddProductModal = dynamic(
   }
 );
 
+const displayOptionalNumber = (value?: number | null) => {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return value === 0 ? '' : value;
+};
+
 export function ProductsGrid() {
   // Hooks
   const {
@@ -118,9 +126,9 @@ export function ProductsGrid() {
     product['Projected Profit (%)'],
     product['Total Markup'],
     product['Link To Post'] || '',
-    product['Bulk Quantity'] ?? 0,
-    product['Bulk Weight'] ?? 0,
-    product['Weight Per Piece'] ?? 0,
+    displayOptionalNumber(product['Bulk Quantity']),
+    displayOptionalNumber(product['Bulk Weight']),
+    displayOptionalNumber(product['Weight Per Piece']),
   ]);
 
   // Define columns
