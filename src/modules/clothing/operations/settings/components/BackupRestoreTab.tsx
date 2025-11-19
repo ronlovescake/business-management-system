@@ -21,6 +21,7 @@ import {
   ScrollArea,
   Tabs,
   NumberInput,
+  Checkbox,
 } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import Swal from 'sweetalert2';
@@ -38,6 +39,7 @@ import {
   IconEye,
   IconFileText,
   IconFileSpreadsheet,
+  IconHistory,
 } from '@tabler/icons-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -95,6 +97,18 @@ const formatCellValue = (value: unknown) => {
   return String(value);
 };
 
+type RestoreResults = Record<
+  string,
+  {
+    count: number;
+    error?: string;
+    beforeCount?: number;
+    afterCount?: number;
+    attempted?: number;
+    skipped?: number;
+  }
+>;
+
 export function BackupRestoreTab() {
   const [backups, setBackups] = useState<Backup[]>([]);
   const [loading, setLoading] = useState(false);
@@ -108,6 +122,13 @@ export function BackupRestoreTab() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [selectedBackup, setSelectedBackup] = useState<Backup | null>(null);
   const [selectedTableName, setSelectedTableName] = useState<string | null>(
+    null
+  );
+  const [previewJsonFile, setPreviewJsonFile] = useState<string | null>(null);
+  const [restoreSelection, setRestoreSelection] = useState<string[]>([]);
+  const [forceOverwrite, setForceOverwrite] = useState(false);
+  const [restoreLoading, setRestoreLoading] = useState(false);
+  const [restoreResults, setRestoreResults] = useState<RestoreResults | null>(
     null
   );
   const autoBackupIntervalRef = useRef<NodeJS.Timeout>();
@@ -285,6 +306,7 @@ export function BackupRestoreTab() {
     setSelectedBackup(backup);
     setPreviewModalOpen(true);
     setPreviewLoading(true);
+    setRestoreResults(null);
 
     try {
       const jsonFile =
@@ -306,6 +328,9 @@ export function BackupRestoreTab() {
       setPreviewData(data);
       const [firstTable] = Object.keys(data.tables);
       setSelectedTableName(firstTable ?? null);
+      setRestoreSelection([]);
+      setForceOverwrite(false);
+      setPreviewJsonFile(jsonFile);
     } catch (error) {
       showNotification({
         title: 'Preview Failed',
@@ -314,6 +339,7 @@ export function BackupRestoreTab() {
       });
       setPreviewModalOpen(false);
       setSelectedTableName(null);
+      setPreviewJsonFile(null);
     } finally {
       setPreviewLoading(false);
     }
@@ -530,6 +556,154 @@ export function BackupRestoreTab() {
     });
   };
 
+  const handleSelectAllTables = () => {
+    if (!previewData) {
+      return;
+    }
+    setRestoreSelection(Object.keys(previewData.tables));
+  };
+
+  const handleClearSelectedTables = () => {
+    setRestoreSelection([]);
+  };
+
+  const toggleTableSelection = (table: string, checked: boolean) => {
+    setRestoreSelection((prev) => {
+      if (checked) {
+        if (prev.includes(table)) {
+          return prev;
+        }
+        return [...prev, table];
+      }
+      return prev.filter((t) => t !== table);
+    });
+  };
+
+  const handleRestore = useCallback(async () => {
+    if (!selectedBackup || !previewJsonFile || !previewData) {
+      showNotification({
+        title: 'Restore unavailable',
+        message: 'Open a backup preview before restoring.',
+        color: 'red',
+      });
+      return;
+    }
+
+    const tablesForConfirm = restoreSelection;
+
+    if (!tablesForConfirm.length) {
+      showNotification({
+        title: 'Select tables',
+        message: 'Choose at least one table to restore.',
+        color: 'red',
+      });
+      return;
+    }
+
+    const formattedDate = formatDate(selectedBackup.timestamp);
+    const listHtml = tablesForConfirm
+      .map(
+        (table) =>
+          `<li><strong>${table}</strong> (${previewData.tables[table]?.count ?? 0} rows)</li>`
+      )
+      .join('');
+
+    const confirmation = await Swal.fire({
+      title: 'Restore backup?',
+      html: `
+        <div style="text-align: left;">
+          <p>This will restore data from backup <strong>${formattedDate}</strong>.</p>
+          <p><strong>Tables:</strong></p>
+          <ul>${listHtml}</ul>
+          <p style="margin-top: 10px; color: ${
+            forceOverwrite ? '#c92a2a' : '#495057'
+          };">
+            ${forceOverwrite ? 'Existing data will be overwritten.' : 'Existing data will be preserved when duplicates exist.'}
+          </p>
+        </div>
+      `,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Restore now',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#228be6',
+      cancelButtonColor: '#868e96',
+      allowOutsideClick: false,
+    });
+
+    if (!confirmation.isConfirmed) {
+      return;
+    }
+
+    const secondary = await Swal.fire({
+      title: 'Type "RESTORE" to confirm',
+      input: 'text',
+      inputAttributes: {
+        autocapitalize: 'off',
+      },
+      inputPlaceholder: 'RESTORE',
+      confirmButtonText: 'Yes, restore',
+      confirmButtonColor: '#c92a2a',
+      showCancelButton: true,
+      cancelButtonColor: '#868e96',
+      allowOutsideClick: false,
+      preConfirm: (value) => {
+        if (value?.trim().toUpperCase() !== 'RESTORE') {
+          Swal.showValidationMessage('Please type RESTORE to continue.');
+          return false;
+        }
+        return true;
+      },
+    });
+
+    if (!secondary.isConfirmed) {
+      return;
+    }
+
+    setRestoreLoading(true);
+
+    try {
+      const response = await api.post<{
+        success: boolean;
+        results?: RestoreResults;
+        error?: string;
+        message?: string;
+      }>('/api/restore', {
+        timestamp: selectedBackup.timestamp,
+        file: previewJsonFile,
+        tables: tablesForConfirm,
+        forceOverwrite,
+      });
+
+      if (!response.success || !response.results) {
+        throw new Error(response.error || 'Restore failed');
+      }
+
+      setRestoreResults(response.results);
+      showNotification({
+        title: 'Restore complete',
+        message: `Restored ${tablesForConfirm.length} table${
+          tablesForConfirm.length === 1 ? '' : 's'
+        }.`,
+        color: 'green',
+      });
+    } catch (error) {
+      showNotification({
+        title: 'Restore failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        color: 'red',
+      });
+    } finally {
+      setRestoreLoading(false);
+    }
+  }, [
+    selectedBackup,
+    previewJsonFile,
+    previewData,
+    restoreSelection,
+    forceOverwrite,
+  ]);
+
   const selectedTableDetails = useMemo(() => {
     if (!previewData || !selectedTableName) {
       return null;
@@ -556,6 +730,16 @@ export function BackupRestoreTab() {
       columns,
     };
   }, [previewData, selectedTableName]);
+
+  const availableTables = previewData ? Object.keys(previewData.tables) : [];
+  const restoreDisabled =
+    restoreLoading ||
+    !selectedBackup ||
+    !previewJsonFile ||
+    restoreSelection.length === 0;
+  const restoreSummaryEntries = restoreResults
+    ? Object.entries(restoreResults)
+    : [];
 
   const formatDate = (timestamp: string) => {
     try {
@@ -791,6 +975,9 @@ export function BackupRestoreTab() {
                 leftSection={<IconDownload size={16} />}
               >
                 Download
+              </Tabs.Tab>
+              <Tabs.Tab value="restore" leftSection={<IconHistory size={16} />}>
+                Restore
               </Tabs.Tab>
             </Tabs.List>
 
@@ -1089,6 +1276,189 @@ export function BackupRestoreTab() {
                   ))}
                 </Stack>
               </Stack>
+            </Tabs.Panel>
+
+            <Tabs.Panel
+              value="restore"
+              pt="md"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                maxHeight: 'calc(85vh - 80px)',
+              }}
+            >
+              <Stack gap="md" style={{ flex: 1, minHeight: 0 }}>
+                <Alert
+                  icon={<IconAlertCircle size={16} />}
+                  color="yellow"
+                  title="Caution"
+                >
+                  Restoring data will insert records from this backup. Select
+                  the specific tables you want to bring back—anything unchecked
+                  stays as-is.
+                </Alert>
+
+                <Box style={{ flex: 1, minHeight: 0 }}>
+                  <ScrollArea style={{ height: '100%' }} offsetScrollbars>
+                    <Stack gap="md">
+                      <Stack gap="sm">
+                        <Group justify="space-between">
+                          <Text size="sm" fw={600}>
+                            Tables in backup ({availableTables.length})
+                          </Text>
+                          <Group gap="xs">
+                            <Button
+                              size="xs"
+                              variant="light"
+                              onClick={handleSelectAllTables}
+                            >
+                              Select all
+                            </Button>
+                            <Button
+                              size="xs"
+                              variant="light"
+                              color="gray"
+                              onClick={handleClearSelectedTables}
+                            >
+                              Clear
+                            </Button>
+                          </Group>
+                        </Group>
+
+                        <Stack gap="sm">
+                          {availableTables.map((table) => {
+                            const count = previewData.tables[table]?.count ?? 0;
+                            const checked = restoreSelection.includes(table);
+                            return (
+                              <Box
+                                key={table}
+                                p="sm"
+                                style={{
+                                  borderRadius: 12,
+                                  border: `1px solid ${
+                                    checked
+                                      ? 'var(--mantine-color-blue-5)'
+                                      : 'var(--mantine-color-gray-3)'
+                                  }`,
+                                  backgroundColor: checked
+                                    ? 'var(--mantine-color-blue-0)'
+                                    : 'var(--mantine-color-white)',
+                                  transition:
+                                    'border-color 120ms ease, background-color 120ms ease',
+                                }}
+                              >
+                                <Checkbox
+                                  size="lg"
+                                  checked={checked}
+                                  onChange={(event) =>
+                                    toggleTableSelection(
+                                      table,
+                                      event.currentTarget.checked
+                                    )
+                                  }
+                                  styles={{
+                                    body: { alignItems: 'flex-start' },
+                                    label: { width: '100%' },
+                                    inner: { marginTop: 4, marginRight: 14 },
+                                  }}
+                                  label={
+                                    <Group justify="space-between" gap="sm">
+                                      <Text fw={600} size="lg" tt="capitalize">
+                                        {table}
+                                      </Text>
+                                      <Text size="sm" c="dimmed">
+                                        {count} {count === 1 ? 'row' : 'rows'}
+                                      </Text>
+                                    </Group>
+                                  }
+                                />
+                              </Box>
+                            );
+                          })}
+                        </Stack>
+                      </Stack>
+
+                      {restoreSummaryEntries.length > 0 && (
+                        <Card withBorder padding="md" radius="md">
+                          <Stack gap="sm">
+                            <Group justify="space-between">
+                              <Text fw={600}>Last restore summary</Text>
+                              <Badge color="green">Completed</Badge>
+                            </Group>
+                            <MantineTable striped highlightOnHover>
+                              <MantineTable.Thead>
+                                <MantineTable.Tr>
+                                  <MantineTable.Th>Table</MantineTable.Th>
+                                  <MantineTable.Th>Inserted</MantineTable.Th>
+                                  <MantineTable.Th>Attempted</MantineTable.Th>
+                                  <MantineTable.Th>Skipped</MantineTable.Th>
+                                  <MantineTable.Th>
+                                    Before → After
+                                  </MantineTable.Th>
+                                  <MantineTable.Th>Notes</MantineTable.Th>
+                                </MantineTable.Tr>
+                              </MantineTable.Thead>
+                              <MantineTable.Tbody>
+                                {restoreSummaryEntries.map(
+                                  ([table, result]) => (
+                                    <MantineTable.Tr key={table}>
+                                      <MantineTable.Td>{table}</MantineTable.Td>
+                                      <MantineTable.Td>
+                                        {result.count}
+                                      </MantineTable.Td>
+                                      <MantineTable.Td>
+                                        {result.attempted ?? '—'}
+                                      </MantineTable.Td>
+                                      <MantineTable.Td>
+                                        {result.skipped ?? '—'}
+                                      </MantineTable.Td>
+                                      <MantineTable.Td>
+                                        {result.beforeCount ?? '—'} →{' '}
+                                        {result.afterCount ?? '—'}
+                                      </MantineTable.Td>
+                                      <MantineTable.Td>
+                                        {result.error ? (
+                                          <Text c="red" size="sm">
+                                            {result.error}
+                                          </Text>
+                                        ) : (
+                                          <Text c="green" size="sm">
+                                            OK
+                                          </Text>
+                                        )}
+                                      </MantineTable.Td>
+                                    </MantineTable.Tr>
+                                  )
+                                )}
+                              </MantineTable.Tbody>
+                            </MantineTable>
+                          </Stack>
+                        </Card>
+                      )}
+                    </Stack>
+                  </ScrollArea>
+                </Box>
+
+                <Switch
+                  label="Force overwrite existing data"
+                  description="Deletes existing records in the selected tables before restoring."
+                  checked={forceOverwrite}
+                  onChange={(event) =>
+                    setForceOverwrite(event.currentTarget.checked)
+                  }
+                />
+              </Stack>
+
+              <Group justify="flex-end" mt="md">
+                <Button
+                  leftSection={<IconHistory size={16} />}
+                  loading={restoreLoading}
+                  disabled={restoreDisabled}
+                  onClick={() => void handleRestore()}
+                >
+                  {restoreLoading ? 'Restoring…' : 'Restore Backup'}
+                </Button>
+              </Group>
             </Tabs.Panel>
           </Tabs>
         ) : (
