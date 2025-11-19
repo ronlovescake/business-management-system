@@ -62,6 +62,18 @@ export class ProductService {
       errors.push('Exchange rate must be greater than 0');
     }
 
+    if (form.bulkQuantity < 0) {
+      errors.push('Bulk quantity cannot be negative');
+    }
+
+    if (form.bulkWeight < 0) {
+      errors.push('Bulk weight cannot be negative');
+    }
+
+    if (form.weightPerPiece < 0) {
+      errors.push('Weight per piece cannot be negative');
+    }
+
     return {
       isValid: errors.length === 0,
       errors,
@@ -176,6 +188,8 @@ export class ProductService {
       lalamove: form.lalamove,
       packagingCost: form.packagingCost,
       actualPrice: form.actualPrice,
+      bulkWeight: form.bulkWeight,
+      bulkQuantity: form.bulkQuantity,
     });
 
     // Always regenerate Product Code based on current Product Name and Posting Date
@@ -235,6 +249,10 @@ export class ProductService {
       'Projected Profit': calculations.projectedProfit,
       'Projected Profit (%)': calculations.projectedProfitPercent,
       'Total Markup': calculations.totalMarkup,
+      'Link To Post': form.linkToPost?.trim() || '',
+      'Bulk Quantity': form.bulkQuantity,
+      'Bulk Weight': form.bulkWeight,
+      'Weight Per Piece': calculations.weightPerPiece,
     };
   }
 
@@ -262,6 +280,10 @@ export class ProductService {
       lalamove: 0,
       packagingCost: 0,
       actualPrice: 0,
+      linkToPost: '',
+      bulkQuantity: 0,
+      bulkWeight: 0,
+      weightPerPiece: 0,
     };
   }
 
@@ -305,6 +327,10 @@ export class ProductService {
       lalamove: product.Lalamove,
       packagingCost: product['Packaging Cost'],
       actualPrice: product['Actual Price'],
+      linkToPost: product['Link To Post'] || '',
+      bulkQuantity: product['Bulk Quantity'] ?? 0,
+      bulkWeight: product['Bulk Weight'] ?? 0,
+      weightPerPiece: product['Weight Per Piece'] ?? 0,
     };
   }
 
@@ -420,7 +446,7 @@ export class ProductService {
 
   /**
    * Import products from CSV
-   * Handles 32+ columns with quoted fields
+   * Handles 36 columns with quoted fields
    */
   static async importFromCSV(csvText: string): Promise<CSVImportResult> {
     try {
@@ -446,7 +472,7 @@ export class ProductService {
           const values = this.parseCSVLine(line);
 
           // Pad array with empty strings to handle missing columns
-          while (values.length < 32) {
+          while (values.length < 36) {
             values.push('');
           }
 
@@ -593,6 +619,10 @@ export class ProductService {
                     (parseNumeric(values[13]) * parseNumeric(values[16]))) *
                   100
                 : 0,
+            'Link To Post': this.toSafeString(values[32]),
+            'Bulk Quantity': parseNumeric(values[33]),
+            'Bulk Weight': parseNumeric(values[34]),
+            'Weight Per Piece': parseNumeric(values[35]),
           };
 
           // Only add if we have essential data
@@ -645,6 +675,7 @@ export class ProductService {
       product['Shipment Status'],
       product['Age Range'],
       product.Unit,
+      product['Link To Post'],
     ]
       .filter(Boolean)
       .join(' ')

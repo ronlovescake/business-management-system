@@ -57,6 +57,10 @@ export interface ProductDTO {
   'Projected Profit': number;
   'Projected Profit (%)': number;
   'Shipment Status': string;
+  'Link To Post'?: string;
+  'Bulk Quantity'?: number;
+  'Bulk Weight'?: number;
+  'Weight Per Piece'?: number;
   [key: string]: string | number | undefined;
 }
 

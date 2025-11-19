@@ -52,6 +52,10 @@ const createProduct = (overrides: Partial<ProductData> = {}): ProductData => ({
   'Projected Profit': overrides['Projected Profit'] ?? 0,
   'Projected Profit (%)': overrides['Projected Profit (%)'] ?? 0,
   'Total Markup': overrides['Total Markup'] ?? 0,
+  'Link To Post': overrides['Link To Post'] ?? '',
+  'Bulk Quantity': overrides['Bulk Quantity'] ?? 0,
+  'Bulk Weight': overrides['Bulk Weight'] ?? 0,
+  'Weight Per Piece': overrides['Weight Per Piece'] ?? 0,
   createdAt: overrides.createdAt,
 });
 

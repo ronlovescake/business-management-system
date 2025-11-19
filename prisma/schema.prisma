@@ -107,6 +107,10 @@ model Product {
   projectedProfit        Float     @default(0)
   projectedProfitPercent Float     @default(0)
   totalMarkup            Float     @default(0)
+  linkToPost             String?   @db.VarChar(1000)
+  bulkQuantity           Float     @default(0)
+  bulkWeight             Float     @default(0)
+  weightPerPiece         Float     @default(0)
   deletedAt              DateTime?
 
   @@index([productCode])

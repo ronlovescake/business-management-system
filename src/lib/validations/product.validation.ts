@@ -96,6 +96,10 @@ export const productDataSchema = z.object({
   'Projected Profit': nonNegativeNumberSchema,
   'Projected Profit (%)': nonNegativeNumberSchema,
   'Total Markup': nonNegativeNumberSchema,
+  'Link To Post': nullableStringSchema,
+  'Bulk Quantity': nonNegativeNumberSchema,
+  'Bulk Weight': nonNegativeNumberSchema,
+  'Weight Per Piece': nonNegativeNumberSchema,
 });
 
 /**
@@ -138,6 +142,10 @@ export const productDbSchema = z.object({
   projectedProfit: nonNegativeNumberSchema,
   projectedProfitPercent: nonNegativeNumberSchema,
   totalMarkup: nonNegativeNumberSchema,
+  linkToPost: nullableStringSchema,
+  bulkQuantity: nonNegativeNumberSchema,
+  bulkWeight: nonNegativeNumberSchema,
+  weightPerPiece: nonNegativeNumberSchema,
 });
 
 /**

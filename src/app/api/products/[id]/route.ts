@@ -36,6 +36,7 @@ export async function PUT(
         unit: sanitizers.name(productData['Unit']) || null,
         shipmentStatus: sanitizers.name(productData['Shipment Status']) || null,
         payment: sanitizers.name(productData['Payment']) || null,
+        linkToPost: sanitizers.url(productData['Link To Post']) || null,
 
         // Sanitize date fields
         postingDate: sanitizers.date(productData['Posting Date']) || null,
@@ -134,6 +135,21 @@ export async function PUT(
           }) || 0,
         totalMarkup:
           sanitizers.number(productData['Total Markup'], { decimals: 2 }) || 0,
+        bulkQuantity:
+          sanitizers.number(productData['Bulk Quantity'], {
+            min: 0,
+            decimals: 2,
+          }) || 0,
+        bulkWeight:
+          sanitizers.number(productData['Bulk Weight'], {
+            min: 0,
+            decimals: 2,
+          }) || 0,
+        weightPerPiece:
+          sanitizers.number(productData['Weight Per Piece'], {
+            min: 0,
+            decimals: 2,
+          }) || 0,
       },
     });
 

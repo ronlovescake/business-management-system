@@ -366,16 +366,12 @@ export const AddProductModal = memo(function AddProductModal({
           </SimpleGrid>
         </div>
 
-        {/* Bulk & Logistics (Placeholder Fields) */}
+        {/* Bulk & Posting Details */}
         <div>
           <Group mb="sm">
             <div>
               <Text size="lg" fw={500} c="gray.7">
                 Bulk & Posting Details
-              </Text>
-              <Text size="xs" c="gray.5">
-                Coming soon – fields are visible but intentionally disabled for
-                now.
               </Text>
             </div>
           </Group>
@@ -386,7 +382,10 @@ export const AddProductModal = memo(function AddProductModal({
               size="md"
               radius="md"
               placeholder="https://example.com/post"
-              disabled
+              value={form.linkToPost ?? ''}
+              onChange={(e) =>
+                updateField('linkToPost', e.currentTarget?.value || '')
+              }
             />
 
             <NumberInput
@@ -396,7 +395,10 @@ export const AddProductModal = memo(function AddProductModal({
               min={0}
               hideControls
               placeholder="0"
-              disabled
+              value={displayValue(form.bulkQuantity)}
+              onChange={(value) =>
+                updateField('bulkQuantity', Number(value) || 0)
+              }
             />
 
             <NumberInput
@@ -407,7 +409,10 @@ export const AddProductModal = memo(function AddProductModal({
               fixedDecimalScale
               hideControls
               placeholder="0.00"
-              disabled
+              value={displayValue(form.bulkWeight)}
+              onChange={(value) =>
+                updateField('bulkWeight', Number(value) || 0)
+              }
             />
 
             <NumberInput
@@ -418,7 +423,14 @@ export const AddProductModal = memo(function AddProductModal({
               fixedDecimalScale
               hideControls
               placeholder="0.00"
+              value={displayValue(calculations.weightPerPiece)}
               disabled
+              styles={{
+                input: {
+                  backgroundColor: '#f8f9fa',
+                  color: '#495057',
+                },
+              }}
             />
           </SimpleGrid>
         </div>

@@ -68,6 +68,8 @@ export function useProductForm(initialProduct?: ProductData) {
       lalamove: form.lalamove,
       packagingCost: form.packagingCost,
       actualPrice: form.actualPrice,
+      bulkWeight: form.bulkWeight,
+      bulkQuantity: form.bulkQuantity,
     });
   }, [form]);
 

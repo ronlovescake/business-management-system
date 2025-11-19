@@ -72,6 +72,10 @@ export interface ProductFormData {
   lalamove: number;
   packagingCost: number;
   actualPrice: number;
+  linkToPost: string;
+  bulkQuantity: number;
+  bulkWeight: number;
+  weightPerPiece: number;
 }
 
 /**
@@ -150,6 +154,8 @@ export interface ProductCalculationInputs {
   lalamove: number;
   packagingCost: number;
   actualPrice: number;
+  bulkWeight?: number;
+  bulkQuantity?: number;
 }
 
 /**
@@ -171,6 +177,7 @@ export interface ProductCalculationResults {
   projectedProfit: number;
   projectedProfitPercent: number;
   totalMarkup: number;
+  weightPerPiece: number;
 }
 
 /**
@@ -327,6 +334,8 @@ export const TWO_DECIMAL_COLUMNS = [
   'projectedProfit',
   'projectedProfitPercent',
   'totalMarkup',
+  'bulkWeight',
+  'weightPerPiece',
 ] as const;
 
 /**
@@ -353,6 +362,7 @@ export const LEFT_ALIGN_COLUMNS = [
   'ageRange',
   'unit',
   'quantity',
+  'linkToPost',
 ] as const;
 
 /**
@@ -377,4 +387,7 @@ export const RIGHT_ALIGN_COLUMNS = [
   'projectedProfit',
   'projectedProfitPercent',
   'totalMarkup',
+  'bulkQuantity',
+  'bulkWeight',
+  'weightPerPiece',
 ] as const;

@@ -117,10 +117,10 @@ export function ProductsGrid() {
     product['Projected Profit'],
     product['Projected Profit (%)'],
     product['Total Markup'],
-    product['Link To Post'] ?? '',
-    product['Bulk Quantity'] ?? null,
-    product['Bulk Weight'] ?? null,
-    product['Weight Per Piece'] ?? null,
+    product['Link To Post'] || '',
+    product['Bulk Quantity'] ?? 0,
+    product['Bulk Weight'] ?? 0,
+    product['Weight Per Piece'] ?? 0,
   ]);
 
   // Define columns

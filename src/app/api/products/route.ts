@@ -80,6 +80,7 @@ function mapImportRow(record: ProductImportRow): Prisma.ProductCreateManyInput {
     unit: getStringField(record, 'Unit'),
     shipmentStatus: getStringField(record, 'Shipment Status'),
     payment: getStringField(record, 'Payment'),
+    linkToPost: sanitizers.url(record['Link To Post']) || null,
 
     // Sanitize date fields
     postingDate: sanitizers.date(record['Posting Date']) || null,
@@ -108,6 +109,9 @@ function mapImportRow(record: ProductImportRow): Prisma.ProductCreateManyInput {
     projectedProfit: getNumberField(record, 'Projected Profit'),
     projectedProfitPercent: getNumberField(record, 'Projected Profit (%)'),
     totalMarkup: getNumberField(record, 'Total Markup'),
+    bulkQuantity: getNumberField(record, 'Bulk Quantity'),
+    bulkWeight: getNumberField(record, 'Bulk Weight'),
+    weightPerPiece: getNumberField(record, 'Weight Per Piece'),
   };
 }
 
@@ -146,6 +150,10 @@ function mapDatabaseToFrontend(dbProduct: Product) {
     'Projected Profit': dbProduct.projectedProfit,
     'Projected Profit (%)': dbProduct.projectedProfitPercent,
     'Total Markup': dbProduct.totalMarkup,
+    'Link To Post': dbProduct.linkToPost || '',
+    'Bulk Quantity': dbProduct.bulkQuantity ?? 0,
+    'Bulk Weight': dbProduct.bulkWeight ?? 0,
+    'Weight Per Piece': dbProduct.weightPerPiece ?? 0,
     createdAt: dbProduct.createdAt.toISOString(),
   };
 }
