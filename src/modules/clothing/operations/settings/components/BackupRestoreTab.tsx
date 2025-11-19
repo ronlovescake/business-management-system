@@ -610,11 +610,12 @@ export function BackupRestoreTab() {
 
     const confirmation = await Swal.fire({
       title: 'Restore backup?',
+      width: 520,
       html: `
-        <div style="text-align: left;">
-          <p>This will restore data from backup <strong>${formattedDate}</strong>.</p>
-          <p><strong>Tables:</strong></p>
-          <ul>${listHtml}</ul>
+        <div style="text-align: left; font-size: 15px; line-height: 1.5;">
+          <p style="font-weight: 600; color: #c92a2a;">You are about to restore these datasets:</p>
+          <ul style="margin: 8px 0 18px 20px;">${listHtml}</ul>
+          <p>This data comes from backup <strong>${formattedDate}</strong>.</p>
           <p style="margin-top: 10px; color: ${
             forceOverwrite ? '#c92a2a' : '#495057'
           };">
