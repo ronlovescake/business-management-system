@@ -48,12 +48,59 @@ const AddProductModal = dynamic(
   }
 );
 
+type HandsontableGlobal = typeof window & {
+  Handsontable?: {
+    renderers?: {
+      TextRenderer?: (
+        instance: unknown,
+        td: HTMLTableCellElement,
+        row: number,
+        col: number,
+        prop: string | number,
+        value: unknown,
+        cellProperties: unknown
+      ) => void;
+    };
+  };
+};
+
 const displayOptionalNumber = (value?: number | null) => {
   if (value === null || value === undefined) {
     return '';
   }
 
   return value === 0 ? '' : value;
+};
+
+const getHandsontableTextRenderer = () => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  return (
+    (window as HandsontableGlobal).Handsontable?.renderers?.TextRenderer ?? null
+  );
+};
+
+const clippedTextRenderer = (
+  instance: unknown,
+  td: HTMLTableCellElement,
+  row: number,
+  col: number,
+  prop: string | number,
+  value: unknown,
+  cellProperties: unknown
+) => {
+  const textRenderer = getHandsontableTextRenderer();
+  if (textRenderer) {
+    textRenderer(instance, td, row, col, prop, value, cellProperties);
+  } else {
+    td.textContent = value !== null && value !== undefined ? String(value) : '';
+  }
+
+  td.style.whiteSpace = 'nowrap';
+  td.style.textOverflow = 'ellipsis';
+  td.style.overflow = 'hidden';
 };
 
 export function ProductsGrid() {
@@ -358,6 +405,8 @@ export function ProductsGrid() {
       type: 'text',
       readOnly: true,
       className: 'htLeft',
+      renderer: clippedTextRenderer,
+      wordWrap: false,
     },
     {
       data: 33,
