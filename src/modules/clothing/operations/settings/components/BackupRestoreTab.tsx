@@ -877,9 +877,16 @@ export function BackupRestoreTab() {
             No backups found
           </Text>
         ) : (
-          <ScrollArea h={400}>
-            <MantineTable>
-              <MantineTable.Thead>
+          <ScrollArea h="55vh" scrollbarSize={10} offsetScrollbars>
+            <MantineTable striped highlightOnHover>
+              <MantineTable.Thead
+                style={{
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 2,
+                  background: 'var(--mantine-color-white)',
+                }}
+              >
                 <MantineTable.Tr>
                   <MantineTable.Th>Date</MantineTable.Th>
                   <MantineTable.Th>Files</MantineTable.Th>
