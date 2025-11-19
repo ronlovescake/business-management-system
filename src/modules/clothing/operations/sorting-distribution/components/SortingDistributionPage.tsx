@@ -501,6 +501,16 @@ export function SortingDistributionPage() {
     allProducts: dataHook.allProducts,
   });
 
+  const selectedProduct = useMemo(
+    () =>
+      form.item
+        ? (dataHook.allProducts.find(
+            (product) => product['Product Code'] === form.item
+          ) ?? null)
+        : null,
+    [dataHook.allProducts, form.item]
+  );
+
   const customerNotes = useMemo<CustomerNote[]>(() => {
     if (!form.item) {
       return [];
@@ -740,6 +750,7 @@ export function SortingDistributionPage() {
           customerNotes={customerNotes}
           includeAllProducts={includeAllProducts}
           onToggleIncludeAllProducts={setIncludeAllProducts}
+          productPhotoLink={selectedProduct?.['Link To Post'] ?? null}
         />
 
         {/* Distribution Grid with Handsontable */}

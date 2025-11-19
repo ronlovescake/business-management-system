@@ -48,6 +48,9 @@ export interface InfoSectionProps {
   // Controls
   includeAllProducts: boolean;
   onToggleIncludeAllProducts: (value: boolean) => void;
+
+  // Product metadata
+  productPhotoLink?: string | null;
 }
 
 export interface CustomerNote {
@@ -55,6 +58,20 @@ export interface CustomerNote {
   customer: string;
   note: string;
 }
+
+const extractGoogleDriveFileId = (url: string): string | null => {
+  const directMatch = url.match(/\/file\/d\/([^/]+)/);
+  if (directMatch && directMatch[1]) {
+    return directMatch[1];
+  }
+
+  const queryMatch = url.match(/[?&]id=([^&]+)/);
+  if (queryMatch && queryMatch[1]) {
+    return queryMatch[1];
+  }
+
+  return null;
+};
 
 /**
  * Info Section Component
@@ -73,6 +90,7 @@ export function InfoSection({
   customerNotes,
   includeAllProducts,
   onToggleIncludeAllProducts,
+  productPhotoLink,
 }: InfoSectionProps) {
   const SELECT_WIDTH_PX = 500;
   const ITEM_HEIGHT_PX = 36;
@@ -122,6 +140,23 @@ export function InfoSection({
   );
 
   const [notesOpened, setNotesOpened] = React.useState(false);
+
+  const resolvedPhotoLink = React.useMemo(() => {
+    if (!productPhotoLink) {
+      return null;
+    }
+
+    const trimmedLink = productPhotoLink.trim();
+    const driveFileId = extractGoogleDriveFileId(trimmedLink);
+
+    if (driveFileId) {
+      return `https://drive.google.com/file/d/${driveFileId}/preview`;
+    }
+
+    return trimmedLink;
+  }, [productPhotoLink]);
+
+  const hasPhotoLink = Boolean(resolvedPhotoLink);
 
   const toggleNotes = () => {
     setNotesOpened((prev) => !prev);
@@ -248,172 +283,230 @@ export function InfoSection({
   }, [showQuantityAdjustment, quantityAdjustmentLabel, quantityDifference]);
 
   return (
-    <Card shadow="sm" padding="md" radius="md" withBorder>
-      <Flex
-        gap="xl"
-        justify="space-between"
-        align="flex-end"
-        wrap="wrap"
-        style={{ rowGap: '0.75rem' }}
-      >
-        <Group
-          gap="lg"
+    <>
+      <Card shadow="sm" padding="md" radius="md" withBorder>
+        <Flex
+          gap="xl"
+          justify="space-between"
           align="flex-end"
           wrap="wrap"
-          style={{ alignSelf: 'stretch', flex: '1 1 auto' }}
+          style={{ rowGap: '0.75rem' }}
         >
-          <Switch
-            label="Show all products"
-            size="md"
-            checked={includeAllProducts}
-            onChange={(event) =>
-              onToggleIncludeAllProducts(event.currentTarget.checked)
-            }
-            style={{
-              alignSelf: 'flex-end',
-              minWidth: 'fit-content',
-            }}
-          />
-          <Stack
-            gap={6}
-            style={{
-              minWidth: '260px',
-              maxWidth: `${SELECT_WIDTH_PX}px`,
-              width: '100%',
-              flex: '0 0 auto',
-            }}
+          <Group
+            gap="lg"
+            align="flex-end"
+            wrap="wrap"
+            style={{ alignSelf: 'stretch', flex: '1 1 auto' }}
           >
-            <Text size="xs" c="dimmed" fw={600} tt="uppercase" lh={1.2}>
-              Product Code
-            </Text>
-            <Select
-              value={item}
-              onChange={(value) => onItemChange(value || '')}
-              data={productOptions}
-              placeholder="Select a product..."
-              searchable
-              clearable
-              style={{ width: '100%' }}
-              maxDropdownHeight={dropdownHeight}
-              ref={productSelectRef}
-              comboboxProps={{
-                withinPortal: true,
-                styles: {
-                  dropdown: {
-                    width: `${SELECT_WIDTH_PX}px`,
-                    maxHeight: dropdownHeight ? `${dropdownHeight}px` : 'none',
-                    boxShadow: '0 12px 30px rgba(15, 23, 42, 0.25)',
-                  },
-                },
+            <Switch
+              label="Show all products"
+              size="md"
+              checked={includeAllProducts}
+              onChange={(event) =>
+                onToggleIncludeAllProducts(event.currentTarget.checked)
+              }
+              style={{
+                alignSelf: 'flex-end',
+                minWidth: 'fit-content',
               }}
             />
-          </Stack>
-
-          {uniqueQuantities.length > 0 && (
-            <Group gap="xs" wrap="wrap" style={{ alignSelf: 'flex-end' }}>
-              <QuantityPillButtons
-                uniqueQuantities={uniqueQuantities}
-                selectedQuantity={selectedQuantity}
-                onSelectQuantity={onSelectQuantity}
+            <Stack
+              gap={6}
+              style={{
+                minWidth: '260px',
+                maxWidth: `${SELECT_WIDTH_PX}px`,
+                width: '100%',
+                flex: '0 0 auto',
+              }}
+            >
+              <Text size="xs" c="dimmed" fw={600} tt="uppercase" lh={1.2}>
+                Product Code
+              </Text>
+              <Select
+                value={item}
+                onChange={(value) => onItemChange(value || '')}
+                data={productOptions}
+                placeholder="Select a product..."
+                searchable
+                clearable
+                style={{ width: '100%' }}
+                maxDropdownHeight={dropdownHeight}
+                ref={productSelectRef}
+                comboboxProps={{
+                  withinPortal: true,
+                  styles: {
+                    dropdown: {
+                      width: `${SELECT_WIDTH_PX}px`,
+                      maxHeight: dropdownHeight
+                        ? `${dropdownHeight}px`
+                        : 'none',
+                      boxShadow: '0 12px 30px rgba(15, 23, 42, 0.25)',
+                    },
+                  },
+                }}
               />
-            </Group>
-          )}
-        </Group>
+            </Stack>
 
-        <Flex
-          align="center"
-          gap="md"
-          style={{ flex: '1 1 320px', minHeight: '44px', width: '100%' }}
-        >
-          <Box
+            {uniqueQuantities.length > 0 && (
+              <Group gap="xs" wrap="wrap" style={{ alignSelf: 'flex-end' }}>
+                <QuantityPillButtons
+                  uniqueQuantities={uniqueQuantities}
+                  selectedQuantity={selectedQuantity}
+                  onSelectQuantity={onSelectQuantity}
+                />
+              </Group>
+            )}
+          </Group>
+
+          <Flex
+            align="center"
+            gap="md"
+            style={{ flex: '1 1 320px', minHeight: '44px', width: '100%' }}
+          >
+            <Box
+              style={{
+                display: 'flex',
+                flex: '1 1 auto',
+                justifyContent: 'flex-end',
+                marginLeft: 'auto',
+                gap: '0.75rem',
+              }}
+            >
+              {customerNotes.length > 0 && (
+                <Popover
+                  width={360}
+                  trapFocus={false}
+                  position="bottom"
+                  shadow="lg"
+                  radius="md"
+                  opened={notesOpened}
+                  onClose={closeNotes}
+                >
+                  <Popover.Target>
+                    <Alert
+                      color="yellow"
+                      variant="outline"
+                      radius="md"
+                      className={classes.notesAlert}
+                      onClick={toggleNotes}
+                      onKeyDown={handleNotesKeyDown}
+                      style={{ cursor: 'pointer' }}
+                      tabIndex={0}
+                    >
+                      <Text
+                        fw={600}
+                        tt="uppercase"
+                        size="sm"
+                        color="yellow.7"
+                        component="span"
+                        mr={6}
+                      >
+                        Notes / Request:
+                      </Text>
+                      <Text
+                        size="sm"
+                        fw={500}
+                        component="span"
+                        style={{ textDecoration: 'underline' }}
+                      >
+                        Click here to view
+                      </Text>
+                    </Alert>
+                  </Popover.Target>
+                  <Popover.Dropdown>
+                    <Stack gap="sm" maw={320}>
+                      <Text fw={600} size="sm">
+                        Customer notes ({customerNotes.length})
+                      </Text>
+                      {customerNotes.map((noteEntry, noteIndex) => (
+                        <Stack gap={4} key={noteEntry.id}>
+                          <Text fw={600} size="sm">
+                            {noteIndex + 1}. {noteEntry.customer}
+                          </Text>
+                          <Text size="sm" c="dimmed">
+                            {noteEntry.note}
+                          </Text>
+                        </Stack>
+                      ))}
+                    </Stack>
+                  </Popover.Dropdown>
+                </Popover>
+              )}
+
+              <Alert
+                color={hasPhotoLink ? 'orange' : 'gray'}
+                variant="outline"
+                radius="md"
+                className={classes.notesAlert}
+                style={{
+                  cursor: hasPhotoLink ? 'pointer' : 'not-allowed',
+                  minWidth: '160px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  opacity: hasPhotoLink ? 1 : 0.7,
+                }}
+                onClick={() => {
+                  if (hasPhotoLink && resolvedPhotoLink) {
+                    window.open(
+                      resolvedPhotoLink,
+                      '_blank',
+                      'noopener,noreferrer'
+                    );
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (!hasPhotoLink || !resolvedPhotoLink) {
+                    return;
+                  }
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    window.open(
+                      resolvedPhotoLink,
+                      '_blank',
+                      'noopener,noreferrer'
+                    );
+                  }
+                }}
+                role="button"
+                tabIndex={hasPhotoLink ? 0 : -1}
+                aria-disabled={!hasPhotoLink}
+              >
+                <Text
+                  fw={600}
+                  tt="uppercase"
+                  size="sm"
+                  c={hasPhotoLink ? 'orange.7' : 'gray.5'}
+                >
+                  View Photo
+                </Text>
+              </Alert>
+            </Box>
+          </Flex>
+
+          <Group
+            gap="lg"
+            align="flex-end"
+            justify="flex-end"
+            wrap="wrap"
             style={{
-              display: 'flex',
               flex: '1 1 auto',
-              justifyContent: 'flex-end',
-              marginLeft: 'auto',
+              columnGap: '1.75rem',
+              rowGap: '0.75rem',
             }}
           >
-            {customerNotes.length > 0 && (
-              <Popover
-                width={360}
-                trapFocus={false}
-                position="bottom"
-                shadow="lg"
-                radius="md"
-                opened={notesOpened}
-                onClose={closeNotes}
-              >
-                <Popover.Target>
-                  <Alert
-                    color="yellow"
-                    variant="outline"
-                    radius="md"
-                    className={classes.notesAlert}
-                    onClick={toggleNotes}
-                    onKeyDown={handleNotesKeyDown}
-                    style={{ cursor: 'pointer' }}
-                    tabIndex={0}
-                  >
-                    <Text
-                      fw={600}
-                      tt="uppercase"
-                      size="sm"
-                      color="yellow.7"
-                      component="span"
-                      mr={6}
-                    >
-                      Notes / Request:
-                    </Text>
-                    <Text
-                      size="sm"
-                      fw={500}
-                      component="span"
-                      style={{ textDecoration: 'underline' }}
-                    >
-                      Click here to view
-                    </Text>
-                  </Alert>
-                </Popover.Target>
-                <Popover.Dropdown>
-                  <Stack gap="sm" maw={320}>
-                    <Text fw={600} size="sm">
-                      Customer notes ({customerNotes.length})
-                    </Text>
-                    {customerNotes.map((noteEntry, noteIndex) => (
-                      <Stack gap={4} key={noteEntry.id}>
-                        <Text fw={600} size="sm">
-                          {noteIndex + 1}. {noteEntry.customer}
-                        </Text>
-                        <Text size="sm" c="dimmed">
-                          {noteEntry.note}
-                        </Text>
-                      </Stack>
-                    ))}
-                  </Stack>
-                </Popover.Dropdown>
-              </Popover>
-            )}
-          </Box>
+            <Stat label="Ordered" value={(ordered || '0').toString()} />
+            <Stat
+              label="Total Customers"
+              value={statistics.totalCustomers.toLocaleString()}
+            />
+            <Stat
+              label="Customer w/ Order Qty"
+              value={statistics.customerWithOrderQty.toLocaleString()}
+            />
+          </Group>
         </Flex>
-
-        <Group
-          gap="lg"
-          align="flex-end"
-          justify="flex-end"
-          wrap="wrap"
-          style={{ flex: '1 1 auto', columnGap: '1.75rem', rowGap: '0.75rem' }}
-        >
-          <Stat label="Ordered" value={(ordered || '0').toString()} />
-          <Stat
-            label="Total Customers"
-            value={statistics.totalCustomers.toLocaleString()}
-          />
-          <Stat
-            label="Customer w/ Order Qty"
-            value={statistics.customerWithOrderQty.toLocaleString()}
-          />
-        </Group>
-      </Flex>
-    </Card>
+      </Card>
+    </>
   );
 }

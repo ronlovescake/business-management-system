@@ -25,6 +25,7 @@ export interface Product {
   'Product Code': string | null;
   'Shipment Status': string | null;
   Quantity: number;
+  'Link To Post'?: string | null;
 }
 
 /**
