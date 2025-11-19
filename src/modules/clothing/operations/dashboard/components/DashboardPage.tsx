@@ -99,15 +99,23 @@ function TrendTooltip({
   active,
   payload,
   label,
-}: TooltipProps<ValueType, NameType>) {
+}: TooltipProps<ValueType, NameType> & {
+  payload?: Array<{ dataKey?: string; value?: number }>;
+  label?: string;
+}) {
   if (!active || !payload || payload.length === 0) {
     return null;
   }
 
-  const revenuePoint = payload.find((point) => point.dataKey === 'revenue');
-  const ordersPoint = payload.find((point) => point.dataKey === 'orders');
+  const revenuePoint = payload.find(
+    (point: { dataKey?: string; value?: number }) => point.dataKey === 'revenue'
+  );
+  const ordersPoint = payload.find(
+    (point: { dataKey?: string; value?: number }) => point.dataKey === 'orders'
+  );
   const fulfillmentPoint = payload.find(
-    (point) => point.dataKey === 'fulfillmentRate'
+    (point: { dataKey?: string; value?: number }) =>
+      point.dataKey === 'fulfillmentRate'
   );
 
   return (
