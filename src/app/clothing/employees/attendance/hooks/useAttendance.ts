@@ -15,6 +15,13 @@ import type {
 import { getCurrentDateISO, formatDisplayDate, toDate } from '@/utils/date';
 
 const formatTime = formatTimeString;
+const AUTO_RECORD_LOOKBACK_DAYS = 6;
+const getAutoRecordDateRange = () =>
+  Array.from({ length: AUTO_RECORD_LOOKBACK_DAYS }, (_, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() - index);
+    return date.toISOString().split('T')[0];
+  });
 
 const calculateTotalHours = (timeIn: string, timeOut: string) => {
   if (!timeIn || !timeOut) {
@@ -426,10 +433,9 @@ export function useAttendance() {
       });
     },
     onSuccess: (savedRecords, variables) => {
-      const todayISO = new Date().toISOString().split('T')[0];
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayISO = yesterday.toISOString().split('T')[0];
+      const dateRange = getAutoRecordDateRange();
+      const todayISO = dateRange[0];
+      const oldestDateISO = dateRange[dateRange.length - 1];
 
       const presentCount = variables.filter(
         (r) => r.status === 'present'
@@ -438,10 +444,22 @@ export function useAttendance() {
         (r) => r.status === 'on-leave'
       ).length;
 
-      const todayRecords = variables.filter((r) => r.date === todayISO).length;
-      const yesterdayRecords = variables.filter(
-        (r) => r.date === yesterdayISO
-      ).length;
+      const dateSummaries = dateRange
+        .map((date) => ({
+          date,
+          count: variables.filter((r) => r.date === date).length,
+        }))
+        .filter((entry) => entry.count > 0);
+
+      const summaryList =
+        dateSummaries.length > 0
+          ? dateSummaries
+              .map(
+                ({ date, count }) =>
+                  `<li><strong>${date}:</strong> ${count} record${count === 1 ? '' : 's'}</li>`
+              )
+              .join('')
+          : '<li>No new records were created.</li>';
 
       Swal.fire({
         icon: 'success',
@@ -449,10 +467,10 @@ export function useAttendance() {
         html: `
           <div style="text-align: left;">
             <p><strong>Successfully recorded ${variables.length} attendance records</strong></p>
+            <p style="margin: 10px 0;"><strong>Coverage:</strong> ${oldestDateISO} → ${todayISO}</p>
             <ul style="margin-top: 10px;">
-              <li><strong>Today (${todayISO}):</strong> ${todayRecords} records</li>
-              ${yesterdayRecords > 0 ? `<li><strong>Yesterday (${yesterdayISO}):</strong> ${yesterdayRecords} records (catch-up)</li>` : ''}
-              <li><strong>Status:</strong> ${presentCount} present, ${onLeaveCount} on leave</li>
+              ${summaryList}
+              <li><strong>Status totals:</strong> ${presentCount} present, ${onLeaveCount} on leave</li>
             </ul>
           </div>
         `,
@@ -506,14 +524,19 @@ export function useAttendance() {
 
   const handleAddRecord = async () => {
     // Show confirmation dialog
+    const lookbackDescription =
+      AUTO_RECORD_LOOKBACK_DAYS === 1
+        ? 'today only'
+        : `today plus the previous ${AUTO_RECORD_LOOKBACK_DAYS - 1} days`;
+
     const result = await Swal.fire({
       title: 'Record Attendance',
       html: `
         <div style="text-align: left;">
           <p>Do you want to automatically record attendance based on schedules?</p>
           <ul style="margin-top: 10px;">
-            <li><strong>Primary:</strong> Record attendance for today</li>
-            <li><strong>Catch-up:</strong> Also record yesterday if missing</li>
+            <li><strong>Coverage:</strong> Record attendance for ${lookbackDescription}</li>
+            <li><strong>Catch-up:</strong> Fills in any missing days in that window</li>
             <li>Check for approved leave requests</li>
             <li>Use schedule times for time-in/time-out</li>
           </ul>
@@ -551,13 +574,11 @@ export function useAttendance() {
         },
       });
 
-      // Get today's and yesterday's dates
-      const today = new Date();
-      const todayISO = today.toISOString().split('T')[0];
-
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayISO = yesterday.toISOString().split('T')[0];
+      // Build the rolling window of dates (today + previous days)
+      const dateRange = getAutoRecordDateRange();
+      const todayISO = dateRange[0];
+      const oldestDateISO = dateRange[dateRange.length - 1];
+      const recentDateSet = new Set(dateRange);
 
       // Fetch all schedules
       const allSchedules = await api.get<
@@ -577,27 +598,26 @@ export function useAttendance() {
         }>
       >('/api/schedules');
 
-      // Filter schedules for today and yesterday that are not cancelled
+      // Filter schedules for the rolling window that are not cancelled
       const relevantSchedules = allSchedules.filter(
         (schedule: { date: string; status: string }) =>
-          (schedule.date === todayISO || schedule.date === yesterdayISO) &&
-          schedule.status !== 'cancelled'
+          recentDateSet.has(schedule.date) && schedule.status !== 'cancelled'
       );
 
       if (relevantSchedules.length === 0) {
         Swal.fire({
           icon: 'info',
           title: 'No Schedules Found',
-          text: `No employee schedules found for today (${todayISO}) or yesterday (${yesterdayISO})`,
+          text: `No employee schedules found from ${oldestDateISO} through ${todayISO}`,
           allowOutsideClick: false,
         });
         return;
       }
 
-      // Fetch existing attendance for today and yesterday
+      // Fetch existing attendance for the entire lookback window
       const existingAttendance = await api.get<
         Array<{ employeeId: string; date: string }>
-      >(`/api/attendance?startDate=${yesterdayISO}&endDate=${todayISO}`);
+      >(`/api/attendance?startDate=${oldestDateISO}&endDate=${todayISO}`);
 
       // Create a map of existing attendance by employeeId and date
       const existingAttendanceMap = new Map<string, Set<string>>();
@@ -620,7 +640,7 @@ export function useAttendance() {
         Swal.fire({
           icon: 'info',
           title: 'Already Recorded',
-          text: `All employees with schedules for today and yesterday already have attendance records.`,
+          text: `All employees with schedules between ${oldestDateISO} and ${todayISO} already have attendance records.`,
           allowOutsideClick: false,
         });
         return;
