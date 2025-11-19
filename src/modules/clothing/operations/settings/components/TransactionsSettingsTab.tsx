@@ -12,9 +12,7 @@ import {
   Stack,
   Title,
   Text,
-  NumberInput,
   Button,
-  Alert,
   Paper,
   Group,
   Loader,
@@ -22,14 +20,13 @@ import {
   SimpleGrid,
   Divider,
 } from '@mantine/core';
-import { IconInfoCircle, IconDeviceFloppy } from '@tabler/icons-react';
+import { IconDeviceFloppy } from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
 import { logger } from '@/lib/logger';
 import Swal from 'sweetalert2';
 
 interface TransactionsSettings {
   id: string;
-  scrollToLastNonEmptyRows: number;
   unitPriceReadOnly: boolean;
   lineTotalReadOnly: boolean;
   invoiceDateReadOnly: boolean;
@@ -58,9 +55,10 @@ const defaultReadOnlySettings: ReadOnlySettings = {
 
 export function TransactionsSettingsTab() {
   const [settings, setSettings] = useState<TransactionsSettings | null>(null);
-  const [scrollToRows, setScrollToRows] = useState<number>(1);
-  const [readOnlyColumns, setReadOnlyColumns] =
-    useState<ReadOnlySettings>(defaultReadOnlySettings);
+  // scrollToRows removed
+  const [readOnlyColumns, setReadOnlyColumns] = useState<ReadOnlySettings>(
+    defaultReadOnlySettings
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -87,7 +85,7 @@ export function TransactionsSettingsTab() {
         }
         const data = await response.json();
         setSettings(data);
-        setScrollToRows(data.scrollToLastNonEmptyRows);
+        // setScrollToRows removed
         setReadOnlyColumns(extractReadOnlySettings(data));
       } catch (error) {
         logger.error('Error fetching transactions settings:', error);
@@ -107,15 +105,7 @@ export function TransactionsSettingsTab() {
 
   // Save settings
   const handleSave = async () => {
-    if (!scrollToRows || scrollToRows < 1 || scrollToRows > 100) {
-      showNotification({
-        title: '⚠️ Invalid Value',
-        message: 'Please enter a number between 1 and 100',
-        color: 'orange',
-        autoClose: 4000,
-      });
-      return;
-    }
+    // scrollToRows validation removed
 
     setIsSaving(true);
     try {
@@ -123,7 +113,7 @@ export function TransactionsSettingsTab() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          scrollToLastNonEmptyRows: scrollToRows,
+          // scrollToLastNonEmptyRows removed
           ...readOnlyColumns,
         }),
       });
@@ -170,14 +160,12 @@ export function TransactionsSettingsTab() {
       return true;
     }
 
-    const scrollChanged =
-      scrollToRows !== (settings.scrollToLastNonEmptyRows ?? 1);
     const readOnlyChanged = Object.entries(readOnlyColumns).some(
       ([key, value]) =>
         value !== (settings[key as keyof ReadOnlySettings] ?? true)
     );
 
-    return scrollChanged || readOnlyChanged;
+    return readOnlyChanged;
   })();
 
   const isSaveDisabled = isSaving || !hasChanges;
@@ -282,7 +270,7 @@ export function TransactionsSettingsTab() {
   return (
     <Stack gap="lg">
       <div>
-        <Title 
+        <Title
           order={3}
           style={{
             color: '#1e293b',
@@ -296,50 +284,8 @@ export function TransactionsSettingsTab() {
         </Text>
       </div>
 
-      <Alert
-        icon={<IconInfoCircle size={16} />}
-        title="About Scroll Behavior"
-        color="blue"
-        variant="light"
-        styles={{
-          root: {
-            background: '#eff6ff',
-            border: '1px solid #bfdbfe',
-            borderRadius: '8px',
-          },
-        }}
-      >
-        <Stack gap="xs">
-          <Text size="sm">
-            When you open the transactions page, it will automatically scroll to
-            show the last N non-empty rows. This helps you quickly see the most
-            recent transactions.
-          </Text>
-          <Text size="sm">
-            <strong>Examples:</strong>
-          </Text>
-          <ul style={{ margin: 0, paddingLeft: '1.5rem' }}>
-            <li>
-              <Text size="sm" span>
-                <strong>1</strong> = Scroll to the very last non-empty row
-              </Text>
-            </li>
-            <li>
-              <Text size="sm" span>
-                <strong>10</strong> = Show the last 10 non-empty rows
-              </Text>
-            </li>
-            <li>
-              <Text size="sm" span>
-                <strong>30</strong> = Show the last 30 non-empty rows
-              </Text>
-            </li>
-          </ul>
-        </Stack>
-      </Alert>
-
-      <Paper 
-        p="lg" 
+      <Paper
+        p="lg"
         withBorder
         radius="md"
         shadow="xs"
@@ -350,24 +296,6 @@ export function TransactionsSettingsTab() {
         }}
       >
         <Stack gap="md">
-          <NumberInput
-            label="Scroll to Last N Non-Empty Rows"
-            description="Enter how many of the last non-empty rows you want to see when opening the transactions page"
-            placeholder="Enter a number (1-100)"
-            value={scrollToRows}
-            onChange={(value) => setScrollToRows(Number(value) || 1)}
-            min={1}
-            max={100}
-            required
-            size="md"
-            styles={{
-              input: {
-                fontSize: '1.1rem',
-                fontWeight: 600,
-              },
-            }}
-          />
-
           <Divider
             label="Read-Only Columns"
             styles={{

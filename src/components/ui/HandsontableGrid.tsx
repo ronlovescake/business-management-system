@@ -102,7 +102,7 @@ export interface HandsontableGridProps<T extends object> {
   footerRight?: React.ReactNode;
   gridHeight?: number;
   className?: string;
-  scrollToLastNonEmptyRows?: number; // New prop: how many last non-empty rows to show
+  // scrollToLastNonEmptyRows removed
   stretchColumnId?: string;
 }
 
@@ -129,7 +129,7 @@ export function HandsontableGrid<T extends object>({
   footerRight,
   gridHeight,
   className = '',
-  scrollToLastNonEmptyRows = 1, // Default: scroll to last 1 row
+  // scrollToLastNonEmptyRows removed
   stretchColumnId,
 }: HandsontableGridProps<T>) {
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -743,96 +743,7 @@ export function HandsontableGrid<T extends object>({
     });
   }, [filteredData, columns, getCellData]);
 
-  // Auto-scroll to last non-empty row on mount/data change
-  useEffect(() => {
-    if (!hotRef.current || filteredData.length === 0) {
-      return;
-    }
-
-    const hotInstance = hotRef.current.hotInstance;
-    if (!hotInstance) {
-      return;
-    }
-
-    // Find all non-empty rows (rows with at least one non-empty cell)
-    const nonEmptyRows: number[] = [];
-
-    for (let i = 0; i < filteredData.length; i++) {
-      const rowData = filteredData[i];
-
-      // Check if this row has at least one non-empty cell
-      const hasData = columns.some((col) => {
-        const cellData = getCellData({ column: col, row: i, rowData });
-        const value = cellData.value;
-
-        // Check if value is truly non-empty
-        if (value === null || value === undefined || value === '') {
-          return false;
-        }
-
-        // For numeric columns, allow 0 as a valid value
-        if (col.type === 'numeric' && value === 0) {
-          return true; // 0 is valid for numeric columns
-        }
-
-        // If it's a string, check if it's not just whitespace or placeholder characters
-        if (typeof value === 'string') {
-          const trimmed = value.trim();
-          if (
-            trimmed === '' ||
-            trimmed === '-' ||
-            trimmed === '—' ||
-            trimmed === 'null'
-          ) {
-            return false;
-          }
-        }
-
-        return true;
-      });
-
-      if (hasData) {
-        nonEmptyRows.push(i);
-      }
-    }
-
-    if (nonEmptyRows.length === 0) {
-      logger.debug('No non-empty rows found');
-      return;
-    }
-
-    // Calculate which row to scroll to based on scrollToLastNonEmptyRows setting
-    const targetRowIndex = Math.max(
-      0,
-      nonEmptyRows.length - scrollToLastNonEmptyRows
-    );
-    const scrollToRow = nonEmptyRows[targetRowIndex];
-
-    logger.debug(`Found ${nonEmptyRows.length} non-empty rows`);
-    logger.debug(
-      `Scrolling to show last ${scrollToLastNonEmptyRows} non-empty row(s)`
-    );
-    logger.debug(`Target row index: ${scrollToRow}`);
-
-    // Scroll to the target row after a short delay to ensure table is rendered
-    const timeoutId = setTimeout(() => {
-      if (
-        hotRef.current?.hotInstance &&
-        !hotRef.current.hotInstance.isDestroyed &&
-        scrollToRow >= 0
-      ) {
-        try {
-          logger.debug(`Scrolling to row: ${scrollToRow}`);
-          hotRef.current.hotInstance.scrollViewportTo(scrollToRow, 0);
-        } catch (error) {
-          // Silently ignore if instance was destroyed
-          logger.debug('Could not scroll to target row:', error);
-        }
-      }
-    }, 100);
-
-    return () => clearTimeout(timeoutId);
-  }, [filteredData, columns, getCellData, scrollToLastNonEmptyRows]); // CSV import handler
+  // Auto-scroll to last non-empty row feature removed
   const handleCSVImport = async () => {
     if (!csvFile || !onCSVImport) {
       return;

@@ -119,7 +119,7 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
   isGeneratingPackingList = false,
   isGeneratingDistribution = false,
   enableCtrlF = false,
-  scrollToLastNonEmptyRows = 1,
+  // scrollToLastNonEmptyRows removed with feature
   stretchColumnId,
 }: TransactionsLayoutProps<T>) {
   // Export to XLSX function
@@ -305,7 +305,7 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
       footerLeft={footerLeft}
       searchRightButtons={searchRightButtons}
       actionButtons={actionButtons}
-      scrollToLastNonEmptyRows={scrollToLastNonEmptyRows}
+      // scrollToLastNonEmptyRows removed
       stretchColumnId={stretchColumnId}
     />
   );

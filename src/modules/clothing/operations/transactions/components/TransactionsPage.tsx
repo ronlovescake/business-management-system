@@ -80,10 +80,8 @@ type ReadOnlyColumnFlags = typeof DEFAULT_READ_ONLY_COLUMNS;
 
 export function TransactionsPage() {
   // ============================================================================
-  // SETTINGS STATE - Fetch scroll behavior setting
+  // SETTINGS STATE - Fetch read-only columns only
   // ============================================================================
-  const [scrollToLastNonEmptyRows, setScrollToLastNonEmptyRows] =
-    useState<number>(1);
   const [readOnlyColumns, setReadOnlyColumns] = useState<ReadOnlyColumnFlags>(
     DEFAULT_READ_ONLY_COLUMNS
   );
@@ -94,7 +92,6 @@ export function TransactionsPage() {
         const response = await fetch('/api/settings/transactions');
         if (response.ok) {
           const data = await response.json();
-          setScrollToLastNonEmptyRows(data.scrollToLastNonEmptyRows || 1);
           setReadOnlyColumns({
             unitPrice:
               data.unitPriceReadOnly ?? DEFAULT_READ_ONLY_COLUMNS.unitPrice,
@@ -111,10 +108,8 @@ export function TransactionsPage() {
         }
       } catch (error) {
         logger.error('Error fetching transactions settings:', error);
-        // Use default value of 1 if fetch fails
       }
     };
-
     fetchSettings();
   }, []);
 
@@ -642,7 +637,7 @@ export function TransactionsPage() {
           isGeneratingInvoice={isGeneratingInvoice}
           isGeneratingPackingList={isGeneratingPackingList}
           isGeneratingDistribution={isGeneratingDistribution}
-          scrollToLastNonEmptyRows={scrollToLastNonEmptyRows}
+          // scrollToLastNonEmptyRows removed
           stretchColumnId="notes"
         />
       </PageLayout>
