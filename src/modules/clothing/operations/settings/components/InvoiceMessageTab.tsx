@@ -49,6 +49,7 @@ export default function InvoiceMessageTab() {
     paymentChannelsUrl: '',
   });
   const [templateTab, setTemplateTab] = useState<TemplateSubTab>('invoice');
+  const [editingEnabled, setEditingEnabled] = useState(false);
   const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
     () =>
       DEFAULT_MESSAGE_TEMPLATES.map((template) => ({
@@ -116,6 +117,7 @@ export default function InvoiceMessageTab() {
         messageTemplate: settings.messageTemplate,
         paymentChannelsUrl: settings.paymentChannelsUrl,
       });
+      setEditingEnabled(false);
     } catch (error) {
       showNotification({
         title: 'Error',
@@ -130,6 +132,9 @@ export default function InvoiceMessageTab() {
   };
 
   const handleSubmit = async (values: typeof form.values) => {
+    if (!editingEnabled) {
+      return;
+    }
     try {
       setLoading(true);
 
@@ -158,6 +163,7 @@ export default function InvoiceMessageTab() {
         messageTemplate: values.messageTemplate,
         paymentChannelsUrl: values.paymentChannelsUrl,
       });
+      setEditingEnabled(false);
     } catch (error) {
       showNotification({
         title: 'Error',
@@ -274,6 +280,32 @@ export default function InvoiceMessageTab() {
     form.values.messageTemplate !== originalValues.messageTemplate ||
     form.values.paymentChannelsUrl !== originalValues.paymentChannelsUrl;
 
+  const handleEnableEditing = async () => {
+    const confirmation = await Swal.fire({
+      title: 'Edit invoice template?',
+      text: 'You are about to enable editing. Any changes you save will update the shared template.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#2563eb',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Enable editing',
+      cancelButtonText: 'Cancel',
+      focusCancel: true,
+    });
+
+    if (confirmation.isConfirmed) {
+      setEditingEnabled(true);
+    }
+  };
+
+  const handleCancelEditing = () => {
+    if (!editingEnabled) {
+      return;
+    }
+    setEditingEnabled(false);
+    fetchSettings();
+  };
+
   return (
     <Paper p="md">
       <Tabs
@@ -332,10 +364,12 @@ export default function InvoiceMessageTab() {
                   maxRows={68}
                   autosize
                   required
+                  readOnly={!editingEnabled}
                   styles={{
                     input: {
                       fontSize: '14px',
                       lineHeight: '1.6',
+                      backgroundColor: !editingEnabled ? '#f8fafc' : undefined,
                     },
                   }}
                   {...form.getInputProps('messageTemplate')}
@@ -346,6 +380,7 @@ export default function InvoiceMessageTab() {
                   description="URL to your payment channels documentation"
                   placeholder="drive.google.com/..."
                   required
+                  disabled={!editingEnabled}
                   {...form.getInputProps('paymentChannelsUrl')}
                 />
 
@@ -357,22 +392,30 @@ export default function InvoiceMessageTab() {
                     color="red"
                     onClick={handleReset}
                     loading={loading}
+                    disabled={!editingEnabled}
                   >
                     Reset to Default
                   </Button>
 
                   <Group>
                     <Button
+                      variant="light"
+                      onClick={handleEnableEditing}
+                      disabled={editingEnabled}
+                    >
+                      Edit Template
+                    </Button>
+                    <Button
                       variant="default"
-                      onClick={() => fetchSettings()}
-                      disabled={loading || !hasChanges}
+                      onClick={handleCancelEditing}
+                      disabled={!editingEnabled || loading}
                     >
                       Cancel
                     </Button>
                     <Button
                       type="submit"
                       loading={loading}
-                      disabled={!hasChanges}
+                      disabled={!editingEnabled || !hasChanges}
                     >
                       Save Template
                     </Button>
@@ -398,6 +441,7 @@ export default function InvoiceMessageTab() {
               templates={messageTemplates}
               allowEditing
               onTemplatesChange={setMessageTemplates}
+              showCopy={false}
             />
           </Stack>
         </Tabs.Panel>

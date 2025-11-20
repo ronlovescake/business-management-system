@@ -23,17 +23,20 @@ import {
 } from '@tabler/icons-react';
 import { useClipboard } from '@mantine/hooks';
 import type { MessageTemplate } from '@/modules/clothing/operations/message-templates/types';
+import Swal from 'sweetalert2';
 
 interface MessageTemplatesBoardProps {
   templates: MessageTemplate[];
   allowEditing?: boolean;
   onTemplatesChange?: (templates: MessageTemplate[]) => void;
+  showCopy?: boolean;
 }
 
 export function MessageTemplatesBoard({
   templates,
   allowEditing = false,
   onTemplatesChange,
+  showCopy = true,
 }: MessageTemplatesBoardProps) {
   const clipboard = useClipboard({ timeout: 2000 });
   const [copiedTemplateId, setCopiedTemplateId] = useState<string | null>(null);
@@ -50,6 +53,11 @@ export function MessageTemplatesBoard({
     null
   );
   const [editValues, setEditValues] = useState({
+    title: '',
+    badge: '',
+    body: '',
+  });
+  const [editingSnapshot, setEditingSnapshot] = useState({
     title: '',
     badge: '',
     body: '',
@@ -71,12 +79,46 @@ export function MessageTemplatesBoard({
     setCopiedTemplateId(template.id);
   };
 
-  const openEditor = (template: MessageTemplate) => {
+  const openEditor = async (template: MessageTemplate) => {
     if (!editingEnabled) {
       return;
     }
+
+    const confirmation = await Swal.fire({
+      title: `Edit ${template.title} template?`,
+      html: `
+        <div style="text-align: left;">
+          <p style="margin-bottom: 0.5rem;">
+            You are about to edit the <strong>${template.title}</strong> template.
+          </p>
+          <p style="margin-top: 0.75rem; color: #ef4444;">
+            Any changes you save will be visible to everyone.
+          </p>
+        </div>
+      `,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#2563eb',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Continue editing',
+      cancelButtonText: 'Cancel',
+      focusCancel: true,
+      customClass: {
+        popup: 'template-edit-warning',
+      },
+    });
+
+    if (!confirmation.isConfirmed) {
+      return;
+    }
+
     setEditingTemplateId(template.id);
     setEditValues({
+      title: template.title,
+      badge: template.badge,
+      body: template.paragraphs.join('\n\n'),
+    });
+    setEditingSnapshot({
       title: template.title,
       badge: template.badge,
       body: template.paragraphs.join('\n\n'),
@@ -85,10 +127,36 @@ export function MessageTemplatesBoard({
 
   const closeEditor = () => {
     setEditingTemplateId(null);
+    setEditingSnapshot({ title: '', badge: '', body: '' });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (editingTemplateId === null) {
+      return;
+    }
+
+    const hasChanges =
+      editValues.title.trim() !== editingSnapshot.title.trim() ||
+      editValues.badge.trim() !== editingSnapshot.badge.trim() ||
+      editValues.body.trim() !== editingSnapshot.body.trim();
+
+    if (!hasChanges) {
+      return;
+    }
+
+    const confirmation = await Swal.fire({
+      title: 'Save template edits?',
+      text: 'These changes update the shared template for everyone copying it.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#2563eb',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, save',
+      cancelButtonText: 'Cancel',
+      focusCancel: true,
+    });
+
+    if (!confirmation.isConfirmed) {
       return;
     }
 
@@ -121,6 +189,12 @@ export function MessageTemplatesBoard({
     const unique = new Set([...defaults, ...templateList.map((t) => t.badge)]);
     return Array.from(unique);
   }, [templateList]);
+
+  const hasTemplateChanges =
+    editingTemplateId !== null &&
+    (editValues.title.trim() !== editingSnapshot.title.trim() ||
+      editValues.badge.trim() !== editingSnapshot.badge.trim() ||
+      editValues.body.trim() !== editingSnapshot.body.trim());
 
   return (
     <Stack gap="xl">
@@ -185,29 +259,33 @@ export function MessageTemplatesBoard({
                       </ActionIcon>
                     </Tooltip>
                   )}
-                  <Tooltip
-                    label={
-                      copiedTemplateId === template.id
-                        ? 'Copied!'
-                        : 'Copy message'
-                    }
-                    withArrow
-                    fz="xs"
-                  >
-                    <ActionIcon
-                      aria-label="Copy message template"
-                      variant="subtle"
-                      radius="xl"
-                      color={copiedTemplateId === template.id ? 'teal' : 'gray'}
-                      onClick={() => handleCopy(template)}
+                  {showCopy && (
+                    <Tooltip
+                      label={
+                        copiedTemplateId === template.id
+                          ? 'Copied!'
+                          : 'Copy message'
+                      }
+                      withArrow
+                      fz="xs"
                     >
-                      {copiedTemplateId === template.id ? (
-                        <IconCheck size={18} />
-                      ) : (
-                        <IconCopy size={18} />
-                      )}
-                    </ActionIcon>
-                  </Tooltip>
+                      <ActionIcon
+                        aria-label="Copy message template"
+                        variant="subtle"
+                        radius="xl"
+                        color={
+                          copiedTemplateId === template.id ? 'teal' : 'gray'
+                        }
+                        onClick={() => handleCopy(template)}
+                      >
+                        {copiedTemplateId === template.id ? (
+                          <IconCheck size={18} />
+                        ) : (
+                          <IconCopy size={18} />
+                        )}
+                      </ActionIcon>
+                    </Tooltip>
+                  )}
                 </Group>
               </Group>
 
@@ -230,6 +308,7 @@ export function MessageTemplatesBoard({
           title="Edit Template"
           size="lg"
           radius="md"
+          centered
         >
           <Stack gap="md">
             <TextInput
@@ -267,7 +346,9 @@ export function MessageTemplatesBoard({
               <Button variant="default" onClick={closeEditor}>
                 Cancel
               </Button>
-              <Button onClick={handleSave}>Save Changes</Button>
+              <Button onClick={handleSave} disabled={!hasTemplateChanges}>
+                Save Changes
+              </Button>
             </Group>
           </Stack>
         </Modal>
