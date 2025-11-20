@@ -30,6 +30,9 @@ interface MessageTemplatesBoardProps {
   allowEditing?: boolean;
   onTemplatesChange?: (templates: MessageTemplate[]) => void;
   showCopy?: boolean;
+  onTemplateSave?: (
+    template: MessageTemplate
+  ) => Promise<MessageTemplate | void>;
 }
 
 export function MessageTemplatesBoard({
@@ -37,6 +40,7 @@ export function MessageTemplatesBoard({
   allowEditing = false,
   onTemplatesChange,
   showCopy = true,
+  onTemplateSave,
 }: MessageTemplatesBoardProps) {
   const clipboard = useClipboard({ timeout: 2000 });
   const [copiedTemplateId, setCopiedTemplateId] = useState<string | null>(null);
@@ -45,6 +49,11 @@ export function MessageTemplatesBoard({
       ...template,
       paragraphs: [...template.paragraphs],
     }));
+  const parseBodyToParagraphs = (body: string) =>
+    body
+      .split(/\n{2,}/)
+      .map((paragraph) => paragraph.trim())
+      .filter(Boolean);
 
   const [templateList, setTemplateList] = useState<MessageTemplate[]>(() =>
     cloneTemplates(templates)
@@ -62,6 +71,7 @@ export function MessageTemplatesBoard({
     badge: '',
     body: '',
   });
+  const [savingTemplate, setSavingTemplate] = useState(false);
   const editingEnabled = allowEditing;
 
   useEffect(() => {
@@ -160,28 +170,59 @@ export function MessageTemplatesBoard({
       return;
     }
 
-    const paragraphs = editValues.body
-      .split(/\n{2,}/)
-      .map((paragraph) => paragraph.trim())
-      .filter(Boolean);
+    const paragraphs = parseBodyToParagraphs(editValues.body);
+    const fallbackParagraphs = parseBodyToParagraphs(editingSnapshot.body);
 
-    setTemplateList((prev) => {
-      const updatedList = prev.map((template) =>
-        template.id === editingTemplateId
-          ? {
-              id: template.id,
-              title: editValues.title.trim(),
-              badge: editValues.badge.trim() || template.badge,
-              paragraphs: paragraphs.length ? paragraphs : template.paragraphs,
-            }
-          : template
-      );
+    const pendingTemplate: MessageTemplate = {
+      id: editingTemplateId,
+      title: editValues.title.trim(),
+      badge: editValues.badge.trim() || editingSnapshot.badge,
+      paragraphs: paragraphs.length > 0 ? paragraphs : fallbackParagraphs,
+    };
 
-      onTemplatesChange?.(updatedList);
-      return updatedList;
-    });
+    if (pendingTemplate.paragraphs.length === 0) {
+      await Swal.fire({
+        title: 'Cannot save template',
+        text: 'Template must include at least one paragraph.',
+        icon: 'error',
+        confirmButtonColor: '#ef4444',
+      });
+      return;
+    }
 
-    closeEditor();
+    try {
+      setSavingTemplate(true);
+      const persistedTemplate =
+        (await onTemplateSave?.(pendingTemplate)) ?? pendingTemplate;
+      const normalizedTemplate: MessageTemplate = {
+        ...persistedTemplate,
+        paragraphs: [...persistedTemplate.paragraphs],
+      };
+
+      setTemplateList((prev) => {
+        const updatedList = prev.map((template) =>
+          template.id === editingTemplateId ? normalizedTemplate : template
+        );
+
+        onTemplatesChange?.(updatedList);
+        return updatedList;
+      });
+
+      closeEditor();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Failed to save template. Please try again.';
+      await Swal.fire({
+        title: 'Save failed',
+        text: message,
+        icon: 'error',
+        confirmButtonColor: '#ef4444',
+      });
+    } finally {
+      setSavingTemplate(false);
+    }
   };
 
   const badgeOptions = useMemo(() => {
@@ -346,7 +387,11 @@ export function MessageTemplatesBoard({
               <Button variant="default" onClick={closeEditor}>
                 Cancel
               </Button>
-              <Button onClick={handleSave} disabled={!hasTemplateChanges}>
+              <Button
+                onClick={handleSave}
+                disabled={!hasTemplateChanges || savingTemplate}
+                loading={savingTemplate}
+              >
                 Save Changes
               </Button>
             </Group>

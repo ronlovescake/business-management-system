@@ -50,13 +50,16 @@ export default function InvoiceMessageTab() {
   });
   const [templateTab, setTemplateTab] = useState<TemplateSubTab>('invoice');
   const [editingEnabled, setEditingEnabled] = useState(false);
+  const cloneTemplateList = (templates: MessageTemplate[]) =>
+    templates.map((template) => ({
+      ...template,
+      paragraphs: [...template.paragraphs],
+    }));
+
   const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
-    () =>
-      DEFAULT_MESSAGE_TEMPLATES.map((template) => ({
-        ...template,
-        paragraphs: [...template.paragraphs],
-      }))
+    () => cloneTemplateList(DEFAULT_MESSAGE_TEMPLATES)
   );
+  const [loadingMessageTemplates, setLoadingMessageTemplates] = useState(true);
 
   const form = useForm({
     initialValues: {
@@ -92,8 +95,67 @@ export default function InvoiceMessageTab() {
   // Fetch current settings on mount
   useEffect(() => {
     fetchSettings();
+    fetchMessageTemplates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const fetchMessageTemplates = async () => {
+    try {
+      setLoadingMessageTemplates(true);
+      const response = await fetch('/api/message-templates');
+
+      if (!response.ok) {
+        throw new Error('Failed to load message templates');
+      }
+
+      const result = await response.json();
+      const templates = Array.isArray(result.data)
+        ? result.data
+        : DEFAULT_MESSAGE_TEMPLATES;
+
+      setMessageTemplates(cloneTemplateList(templates));
+    } catch (error) {
+      logger.error('Error fetching message templates', error);
+      showNotification({
+        title: 'Error',
+        message: 'Failed to load message templates. Showing defaults.',
+        color: 'red',
+        icon: <IconX size={16} />,
+      });
+      setMessageTemplates(cloneTemplateList(DEFAULT_MESSAGE_TEMPLATES));
+    } finally {
+      setLoadingMessageTemplates(false);
+    }
+  };
+
+  const handleTemplateSave = async (
+    template: MessageTemplate
+  ): Promise<MessageTemplate> => {
+    const response = await fetch('/api/message-templates', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(template),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || 'Failed to save template');
+    }
+
+    const result = await response.json();
+    const savedTemplate = result.data as MessageTemplate;
+
+    showNotification({
+      title: 'Template saved',
+      message: `${savedTemplate.title} updated successfully`,
+      color: 'green',
+      icon: <IconCheck size={16} />,
+    });
+
+    return savedTemplate;
+  };
 
   const fetchSettings = async () => {
     try {
@@ -437,12 +499,19 @@ export default function InvoiceMessageTab() {
               </Text>
             </div>
 
-            <MessageTemplatesBoard
-              templates={messageTemplates}
-              allowEditing
-              onTemplatesChange={setMessageTemplates}
-              showCopy={false}
-            />
+            {loadingMessageTemplates ? (
+              <Paper withBorder p="md">
+                <Text size="sm">Loading message templates...</Text>
+              </Paper>
+            ) : (
+              <MessageTemplatesBoard
+                templates={messageTemplates}
+                allowEditing
+                onTemplatesChange={setMessageTemplates}
+                onTemplateSave={handleTemplateSave}
+                showCopy={false}
+              />
+            )}
           </Stack>
         </Tabs.Panel>
         <Tabs.Panel value="post-templates" pt="md" />

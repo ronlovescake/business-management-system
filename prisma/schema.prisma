@@ -907,6 +907,18 @@ model InvoiceSettings {
   @@map("invoice_settings")
 }
 
+model MessageTemplate {
+  id         String   @id @default(cuid())
+  slug       String   @unique @db.VarChar(100)
+  title      String   @db.VarChar(255)
+  badge      String   @db.VarChar(100)
+  paragraphs Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("message_templates")
+}
+
 model TransactionsSettings {
   id                         String   @id @default(cuid())
   minSpareRows               Int      @default(50) // Number of empty rows to keep visible
