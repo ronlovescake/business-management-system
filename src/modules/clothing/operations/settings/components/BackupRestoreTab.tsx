@@ -223,6 +223,7 @@ export function BackupRestoreTab() {
   const [restorePreviewSelectedRow, setRestorePreviewSelectedRow] = useState<
     string | null
   >(null);
+  const [pageTab, setPageTab] = useState<'backup' | 'restore'>('backup');
   const autoBackupIntervalRef = useRef<NodeJS.Timeout>();
 
   const fetchBackups = useCallback(async () => {
@@ -1188,6 +1189,106 @@ export function BackupRestoreTab() {
     );
   };
 
+  const renderBackupsCard = ({
+    title = `Backups (${backups.length})`,
+    subtitle,
+  }: { title?: string; subtitle?: string } = {}) => (
+    <Card shadow="sm" padding="lg" radius="md" withBorder>
+      <Group justify="space-between" mb="md">
+        <div>
+          <Title order={3}>{title}</Title>
+          {subtitle ? (
+            <Text size="sm" c="dimmed">
+              {subtitle}
+            </Text>
+          ) : null}
+        </div>
+        <ActionIcon onClick={() => void fetchBackups()} loading={loading}>
+          <IconRefresh size={18} />
+        </ActionIcon>
+      </Group>
+
+      {loading ? (
+        <Progress value={100} animated />
+      ) : backups.length === 0 ? (
+        <Text c="dimmed" ta="center" py="xl">
+          No backups found
+        </Text>
+      ) : (
+        <ScrollArea h="55vh" scrollbarSize={10} offsetScrollbars>
+          <MantineTable striped highlightOnHover>
+            <MantineTable.Thead
+              style={{
+                position: 'sticky',
+                top: 0,
+                zIndex: 2,
+                background: 'var(--mantine-color-white)',
+              }}
+            >
+              <MantineTable.Tr>
+                <MantineTable.Th>Date</MantineTable.Th>
+                <MantineTable.Th>Files</MantineTable.Th>
+                <MantineTable.Th>Size</MantineTable.Th>
+                <MantineTable.Th>Actions</MantineTable.Th>
+              </MantineTable.Tr>
+            </MantineTable.Thead>
+            <MantineTable.Tbody>
+              {backups.map((backup) => (
+                <MantineTable.Tr key={backup.timestamp}>
+                  <MantineTable.Td>
+                    <Text size="sm">{formatDate(backup.timestamp)}</Text>
+                  </MantineTable.Td>
+                  <MantineTable.Td>{backup.files.length}</MantineTable.Td>
+                  <MantineTable.Td>
+                    {formatFileSize(backup.totalSize)}
+                  </MantineTable.Td>
+                  <MantineTable.Td>
+                    <Group gap="xs">
+                      <ActionIcon
+                        color="blue"
+                        variant="subtle"
+                        onClick={() => handlePreviewBackup(backup)}
+                        title="Preview backup"
+                      >
+                        <IconEye size={16} />
+                      </ActionIcon>
+                      <ActionIcon
+                        color="green"
+                        variant="subtle"
+                        onClick={() => handleDownloadJSON(backup)}
+                        title="Download JSON"
+                      >
+                        <IconDownload size={16} />
+                      </ActionIcon>
+                      <ActionIcon
+                        color="teal"
+                        variant="subtle"
+                        onClick={() => handleDownloadSQL(backup)}
+                        title="Download SQL"
+                      >
+                        <IconDatabase size={16} />
+                      </ActionIcon>
+                      <ActionIcon
+                        color="red"
+                        variant="subtle"
+                        onClick={() =>
+                          void handleDeleteBackup(backup.timestamp)
+                        }
+                        title="Delete backup"
+                      >
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    </Group>
+                  </MantineTable.Td>
+                </MantineTable.Tr>
+              ))}
+            </MantineTable.Tbody>
+          </MantineTable>
+        </ScrollArea>
+      )}
+    </Card>
+  );
+
   return (
     <Stack gap="lg">
       <Alert
@@ -1201,165 +1302,134 @@ export function BackupRestoreTab() {
         </Text>
       </Alert>
 
-      <Card shadow="sm" padding="lg" radius="md" withBorder>
-        <Group justify="space-between" mb="md">
-          <Title order={3}>Create Backup</Title>
-          <Badge color="blue">Manual</Badge>
-        </Group>
+      <Tabs
+        value={pageTab}
+        onChange={(value) =>
+          setPageTab((value as 'backup' | 'restore') ?? 'backup')
+        }
+        radius="md"
+      >
+        <Tabs.List>
+          <Tabs.Tab value="backup">Backup</Tabs.Tab>
+          <Tabs.Tab value="restore">Restore</Tabs.Tab>
+        </Tabs.List>
 
-        <Stack gap="md">
-          <Select
-            label="Format"
-            data={[
-              { value: 'json', label: 'JSON only' },
-              { value: 'csv', label: 'CSV only' },
-              { value: 'xlsx', label: 'XLSX only' },
-              { value: 'sql', label: 'SQL dump only' },
-              { value: 'all', label: 'JSON + CSV + XLSX + SQL (recommended)' },
-            ]}
-            value={backupFormat}
-            onChange={(v) => setBackupFormat(v || 'all')}
-          />
+        <Tabs.Panel value="backup" pt="md">
+          <Stack gap="lg">
+            <Card shadow="sm" padding="lg" radius="md" withBorder>
+              <Group justify="space-between" mb="md">
+                <Title order={3}>Create Backup</Title>
+                <Badge color="blue">Manual</Badge>
+              </Group>
 
-          <Switch
-            label="Include deleted records"
-            checked={includeSoftDeleted}
-            onChange={(e) => setIncludeSoftDeleted(e.currentTarget.checked)}
-          />
+              <Stack gap="md">
+                <Select
+                  label="Format"
+                  data={[
+                    { value: 'json', label: 'JSON only' },
+                    { value: 'csv', label: 'CSV only' },
+                    { value: 'xlsx', label: 'XLSX only' },
+                    { value: 'sql', label: 'SQL dump only' },
+                    {
+                      value: 'all',
+                      label: 'JSON + CSV + XLSX + SQL (recommended)',
+                    },
+                  ]}
+                  value={backupFormat}
+                  onChange={(v) => setBackupFormat(v || 'all')}
+                />
 
-          <Button
-            leftSection={<IconDatabase size={16} />}
-            onClick={() => void handleCreateBackup(false)}
-            loading={creating}
-            fullWidth
-          >
-            {creating ? 'Creating...' : 'Create Backup Now'}
-          </Button>
-        </Stack>
-      </Card>
+                <Switch
+                  label="Include deleted records"
+                  checked={includeSoftDeleted}
+                  onChange={(e) =>
+                    setIncludeSoftDeleted(e.currentTarget.checked)
+                  }
+                />
 
-      <Card shadow="sm" padding="lg" radius="md" withBorder>
-        <Group justify="space-between" mb="md">
-          <Title order={3}>Auto-Backup</Title>
-          <Badge color={autoBackupEnabled ? 'green' : 'gray'}>
-            {autoBackupEnabled ? 'ON' : 'OFF'}
-          </Badge>
-        </Group>
+                <Button
+                  leftSection={<IconDatabase size={16} />}
+                  onClick={() => void handleCreateBackup(false)}
+                  loading={creating}
+                  fullWidth
+                >
+                  {creating ? 'Creating...' : 'Create Backup Now'}
+                </Button>
+              </Stack>
+            </Card>
 
-        <Stack gap="md">
-          <Switch
-            label="Enable automatic backups"
-            checked={autoBackupEnabled}
-            onChange={(e) => setAutoBackupEnabled(e.currentTarget.checked)}
-          />
+            <Card shadow="sm" padding="lg" radius="md" withBorder>
+              <Group justify="space-between" mb="md">
+                <Title order={3}>Auto-Backup</Title>
+                <Badge color={autoBackupEnabled ? 'green' : 'gray'}>
+                  {autoBackupEnabled ? 'ON' : 'OFF'}
+                </Badge>
+              </Group>
 
-          {autoBackupEnabled && (
-            <>
-              <NumberInput
-                label="Interval (minutes)"
-                value={autoBackupInterval}
-                onChange={(v) => setAutoBackupInterval(Number(v) || 30)}
-                min={5}
-                max={1440}
-              />
+              <Stack gap="md">
+                <Switch
+                  label="Enable automatic backups"
+                  checked={autoBackupEnabled}
+                  onChange={(e) =>
+                    setAutoBackupEnabled(e.currentTarget.checked)
+                  }
+                />
 
-              <Alert icon={<IconClock size={16} />} color="green">
-                Backups every {autoBackupInterval} minutes while page is open
-              </Alert>
-            </>
-          )}
-        </Stack>
-      </Card>
+                {autoBackupEnabled && (
+                  <>
+                    <NumberInput
+                      label="Interval (minutes)"
+                      value={autoBackupInterval}
+                      onChange={(v) => setAutoBackupInterval(Number(v) || 30)}
+                      min={5}
+                      max={1440}
+                    />
 
-      <Divider />
+                    <Alert icon={<IconClock size={16} />} color="green">
+                      Backups every {autoBackupInterval} minutes while page is
+                      open
+                    </Alert>
+                  </>
+                )}
+              </Stack>
+            </Card>
 
-      <Card shadow="sm" padding="lg" radius="md" withBorder>
-        <Group justify="space-between" mb="md">
-          <Title order={3}>Backups ({backups.length})</Title>
-          <ActionIcon onClick={() => void fetchBackups()} loading={loading}>
-            <IconRefresh size={18} />
-          </ActionIcon>
-        </Group>
+            <Divider />
 
-        {loading ? (
-          <Progress value={100} animated />
-        ) : backups.length === 0 ? (
-          <Text c="dimmed" ta="center" py="xl">
-            No backups found
-          </Text>
-        ) : (
-          <ScrollArea h="55vh" scrollbarSize={10} offsetScrollbars>
-            <MantineTable striped highlightOnHover>
-              <MantineTable.Thead
-                style={{
-                  position: 'sticky',
-                  top: 0,
-                  zIndex: 2,
-                  background: 'var(--mantine-color-white)',
-                }}
-              >
-                <MantineTable.Tr>
-                  <MantineTable.Th>Date</MantineTable.Th>
-                  <MantineTable.Th>Files</MantineTable.Th>
-                  <MantineTable.Th>Size</MantineTable.Th>
-                  <MantineTable.Th>Actions</MantineTable.Th>
-                </MantineTable.Tr>
-              </MantineTable.Thead>
-              <MantineTable.Tbody>
-                {backups.map((backup) => (
-                  <MantineTable.Tr key={backup.timestamp}>
-                    <MantineTable.Td>
-                      <Text size="sm">{formatDate(backup.timestamp)}</Text>
-                    </MantineTable.Td>
-                    <MantineTable.Td>{backup.files.length}</MantineTable.Td>
-                    <MantineTable.Td>
-                      {formatFileSize(backup.totalSize)}
-                    </MantineTable.Td>
-                    <MantineTable.Td>
-                      <Group gap="xs">
-                        <ActionIcon
-                          color="blue"
-                          variant="subtle"
-                          onClick={() => handlePreviewBackup(backup)}
-                          title="Preview backup"
-                        >
-                          <IconEye size={16} />
-                        </ActionIcon>
-                        <ActionIcon
-                          color="green"
-                          variant="subtle"
-                          onClick={() => handleDownloadJSON(backup)}
-                          title="Download JSON"
-                        >
-                          <IconDownload size={16} />
-                        </ActionIcon>
-                        <ActionIcon
-                          color="teal"
-                          variant="subtle"
-                          onClick={() => handleDownloadSQL(backup)}
-                          title="Download SQL"
-                        >
-                          <IconDatabase size={16} />
-                        </ActionIcon>
-                        <ActionIcon
-                          color="red"
-                          variant="subtle"
-                          onClick={() =>
-                            void handleDeleteBackup(backup.timestamp)
-                          }
-                          title="Delete backup"
-                        >
-                          <IconTrash size={16} />
-                        </ActionIcon>
-                      </Group>
-                    </MantineTable.Td>
-                  </MantineTable.Tr>
-                ))}
-              </MantineTable.Tbody>
-            </MantineTable>
-          </ScrollArea>
-        )}
-      </Card>
+            {renderBackupsCard()}
+          </Stack>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="restore" pt="md">
+          <Stack gap="lg">
+            <Card shadow="sm" padding="lg" radius="md" withBorder>
+              <Group justify="space-between" mb="sm">
+                <Title order={3}>Restore Workflow</Title>
+                <Badge color="indigo">Step-by-step</Badge>
+              </Group>
+              <Text size="sm" c="dimmed" mb="sm">
+                Use the steps below to bring data back safely. Restore controls
+                live in the backup preview dialog.
+              </Text>
+              <Stack gap={6}>
+                <Text size="sm">1. Preview a backup from the list.</Text>
+                <Text size="sm">
+                  2. Select the tables you want to restore and review the change
+                  summary.
+                </Text>
+                <Text size="sm">
+                  3. Confirm the restore and monitor the results summary.
+                </Text>
+              </Stack>
+            </Card>
+
+            {renderBackupsCard({
+              title: `Available Backups (${backups.length})`,
+              subtitle: 'Preview a backup to open the Restore controls.',
+            })}
+          </Stack>
+        </Tabs.Panel>
+      </Tabs>
 
       <Modal
         opened={previewModalOpen}
