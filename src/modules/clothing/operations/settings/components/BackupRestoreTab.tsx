@@ -243,74 +243,6 @@ export function BackupRestoreTab() {
     } finally {
       setLoading(false);
     }
-
-    setRestoreLoading(true);
-
-    let previewPayload: RestorePreviewResults | null = null;
-    try {
-      const previewResponse = await api.post<{
-        success: boolean;
-        preview?: RestorePreviewResults;
-        error?: string;
-      }>('/api/restore', {
-        timestamp: selectedBackup.timestamp,
-        file: previewJsonFile,
-        tables: tablesForConfirm,
-        forceOverwrite,
-        previewOnly: true,
-      });
-
-      if (!previewResponse.success || !previewResponse.preview) {
-        throw new Error(previewResponse.error || 'Failed to build preview.');
-      }
-
-      previewPayload = previewResponse.preview;
-    } catch (error) {
-      setRestoreLoading(false);
-      showNotification({
-        title: 'Preview unavailable',
-        message: error instanceof Error ? error.message : 'Unknown error',
-        color: 'red',
-      });
-      return;
-    }
-
-    setRestoreLoading(false);
-
-    if (!previewPayload) {
-      showNotification({
-        title: 'Preview unavailable',
-        message: 'Could not generate restore preview.',
-        color: 'red',
-      });
-      return;
-    }
-
-    if (!previewHasChanges(previewPayload, tablesForConfirm, forceOverwrite)) {
-      showNotification({
-        title: 'Up to date',
-        message: 'Selected tables already match this backup.',
-        color: 'blue',
-      });
-      return;
-    }
-
-    const previewDialog = await Swal.fire({
-      title: 'Review changes',
-      width: 720,
-      html: buildPreviewHtml(previewPayload, tablesForConfirm, forceOverwrite),
-      showCancelButton: true,
-      confirmButtonText: 'Continue',
-      cancelButtonText: 'Cancel',
-      confirmButtonColor: '#228be6',
-      cancelButtonColor: '#868e96',
-      allowOutsideClick: false,
-      focusConfirm: false,
-    });
-
-    if (!previewDialog.isConfirmed) {
-      return;
-    }
   }, []);
 
   useEffect(() => {
@@ -805,7 +737,11 @@ export function BackupRestoreTab() {
 
       const initialTable =
         tablesForConfirm.find((table) =>
-          hasTableChanges(previewResponse.preview, table, forceOverwrite)
+          hasTableChanges(
+            previewResponse.preview ?? null,
+            table,
+            forceOverwrite
+          )
         ) ??
         tablesForConfirm[0] ??
         null;
@@ -1979,7 +1915,6 @@ export function BackupRestoreTab() {
             value={restorePreviewSelectedTable}
             onChange={(value) => setRestorePreviewSelectedTable(value)}
             searchable
-            nothingFound="No tables"
           />
 
           <Group align="flex-end" gap="md">
@@ -2012,7 +1947,6 @@ export function BackupRestoreTab() {
               value={restorePreviewSelectedRow}
               onChange={(value) => setRestorePreviewSelectedRow(value)}
               searchable
-              nothingFound="No rows"
               disabled={!restorePreviewRowOptions.length}
             />
           </Group>
