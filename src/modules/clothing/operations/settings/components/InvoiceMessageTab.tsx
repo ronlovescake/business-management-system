@@ -19,6 +19,7 @@ import {
   Divider,
   Code,
   List,
+  Tabs,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { showNotification } from '@mantine/notifications';
@@ -26,6 +27,9 @@ import { IconInfoCircle, IconCheck, IconX } from '@tabler/icons-react';
 import Swal from 'sweetalert2';
 import { MESSAGE_PLACEHOLDERS } from '../../checkout-links/utils/messageGenerator';
 import { logger } from '@/lib/logger';
+import { MessageTemplatesBoard } from '@/app/clothing/operations/message-templates/MessageTemplatesBoard';
+import { DEFAULT_MESSAGE_TEMPLATES } from '@/modules/clothing/operations/message-templates/templates.data';
+import type { MessageTemplate } from '@/modules/clothing/operations/message-templates/types';
 
 interface InvoiceSettings {
   id: string;
@@ -35,6 +39,8 @@ interface InvoiceSettings {
   updatedAt: string;
 }
 
+type TemplateSubTab = 'invoice' | 'message-templates' | 'post-templates';
+
 export default function InvoiceMessageTab() {
   const [loading, setLoading] = useState(false);
   const [fetchingSettings, setFetchingSettings] = useState(true);
@@ -42,6 +48,14 @@ export default function InvoiceMessageTab() {
     messageTemplate: '',
     paymentChannelsUrl: '',
   });
+  const [templateTab, setTemplateTab] = useState<TemplateSubTab>('invoice');
+  const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
+    () =>
+      DEFAULT_MESSAGE_TEMPLATES.map((template) => ({
+        ...template,
+        paragraphs: [...template.paragraphs],
+      }))
+  );
 
   const form = useForm({
     initialValues: {
@@ -96,7 +110,7 @@ export default function InvoiceMessageTab() {
         messageTemplate: settings.messageTemplate,
         paymentChannelsUrl: settings.paymentChannelsUrl,
       });
-      
+
       // Store original values for comparison
       setOriginalValues({
         messageTemplate: settings.messageTemplate,
@@ -262,98 +276,133 @@ export default function InvoiceMessageTab() {
 
   return (
     <Paper p="md">
-      <Stack gap="md">
-        <div>
-          <Title order={3}>Invoice Message Template</Title>
-          <Text size="sm" c="dimmed" mt="xs">
-            Configure the message template sent to customers with their
-            invoices. Use placeholders to insert dynamic content.
-          </Text>
-        </div>
+      <Tabs
+        value={templateTab}
+        onChange={(value) =>
+          setTemplateTab((value as TemplateSubTab) ?? 'invoice')
+        }
+      >
+        <Tabs.List>
+          <Tabs.Tab value="invoice">Invoice Message</Tabs.Tab>
+          <Tabs.Tab value="message-templates">Message Templates</Tabs.Tab>
+          <Tabs.Tab value="post-templates">Post Templates</Tabs.Tab>
+        </Tabs.List>
 
-        <Alert icon={<IconInfoCircle size={16} />} color="blue">
-          <Text size="sm" fw={500} mb="xs">
-            Available Placeholders:
-          </Text>
-          <List size="sm" spacing="xs">
-            <List.Item>
-              <Code>{MESSAGE_PLACEHOLDERS.GREETING}</Code> - Time-based greeting
-              (Good Morning/Day/Afternoon/Evening)
-            </List.Item>
-            <List.Item>
-              <Code>{MESSAGE_PLACEHOLDERS.DRIVE_FILES}</Code> - Customer&apos;s
-              Google Drive invoice link (required)
-            </List.Item>
-            <List.Item>
-              <Code>{MESSAGE_PLACEHOLDERS.SHOPEE_LINK}</Code> - Shopee checkout
-              link based on weight (required)
-            </List.Item>
-            <List.Item>
-              <Code>{MESSAGE_PLACEHOLDERS.PAYMENT_CHANNELS_URL}</Code> - Payment
-              channels URL
-            </List.Item>
-          </List>
-        </Alert>
-
-        <form onSubmit={form.onSubmit(handleSubmit)}>
+        <Tabs.Panel value="invoice" pt="md">
           <Stack gap="md">
-            <Textarea
-              label="Message Template"
-              description="Enter your invoice message template with placeholders"
-              placeholder="Enter message template..."
-              minRows={45}
-              maxRows={68}
-              autosize
-              required
-              styles={{
-                input: {
-                  fontSize: '14px',
-                  lineHeight: '1.6',
-                },
-              }}
-              {...form.getInputProps('messageTemplate')}
-            />
+            <div>
+              <Title order={3}>Invoice Message Template</Title>
+              <Text size="sm" c="dimmed" mt="xs">
+                Configure the message template sent to customers with their
+                invoices. Use placeholders to insert dynamic content.
+              </Text>
+            </div>
 
-            <TextInput
-              label="Payment Channels URL"
-              description="URL to your payment channels documentation"
-              placeholder="drive.google.com/..."
-              required
-              {...form.getInputProps('paymentChannelsUrl')}
-            />
+            <Alert icon={<IconInfoCircle size={16} />} color="blue">
+              <Text size="sm" fw={500} mb="xs">
+                Available Placeholders:
+              </Text>
+              <List size="sm" spacing="xs">
+                <List.Item>
+                  <Code>{MESSAGE_PLACEHOLDERS.GREETING}</Code> - Time-based
+                  greeting (Good Morning/Day/Afternoon/Evening)
+                </List.Item>
+                <List.Item>
+                  <Code>{MESSAGE_PLACEHOLDERS.DRIVE_FILES}</Code> -
+                  Customer&apos;s Google Drive invoice link (required)
+                </List.Item>
+                <List.Item>
+                  <Code>{MESSAGE_PLACEHOLDERS.SHOPEE_LINK}</Code> - Shopee
+                  checkout link based on weight (required)
+                </List.Item>
+                <List.Item>
+                  <Code>{MESSAGE_PLACEHOLDERS.PAYMENT_CHANNELS_URL}</Code> -
+                  Payment channels URL
+                </List.Item>
+              </List>
+            </Alert>
 
-            <Divider />
+            <form onSubmit={form.onSubmit(handleSubmit)}>
+              <Stack gap="md">
+                <Textarea
+                  label="Message Template"
+                  description="Enter your invoice message template with placeholders"
+                  placeholder="Enter message template..."
+                  minRows={45}
+                  maxRows={68}
+                  autosize
+                  required
+                  styles={{
+                    input: {
+                      fontSize: '14px',
+                      lineHeight: '1.6',
+                    },
+                  }}
+                  {...form.getInputProps('messageTemplate')}
+                />
 
-            <Group justify="space-between">
-              <Button
-                variant="outline"
-                color="red"
-                onClick={handleReset}
-                loading={loading}
-              >
-                Reset to Default
-              </Button>
+                <TextInput
+                  label="Payment Channels URL"
+                  description="URL to your payment channels documentation"
+                  placeholder="drive.google.com/..."
+                  required
+                  {...form.getInputProps('paymentChannelsUrl')}
+                />
 
-              <Group>
-                <Button
-                  variant="default"
-                  onClick={() => fetchSettings()}
-                  disabled={loading || !hasChanges}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  type="submit" 
-                  loading={loading}
-                  disabled={!hasChanges}
-                >
-                  Save Template
-                </Button>
-              </Group>
-            </Group>
+                <Divider />
+
+                <Group justify="space-between">
+                  <Button
+                    variant="outline"
+                    color="red"
+                    onClick={handleReset}
+                    loading={loading}
+                  >
+                    Reset to Default
+                  </Button>
+
+                  <Group>
+                    <Button
+                      variant="default"
+                      onClick={() => fetchSettings()}
+                      disabled={loading || !hasChanges}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      loading={loading}
+                      disabled={!hasChanges}
+                    >
+                      Save Template
+                    </Button>
+                  </Group>
+                </Group>
+              </Stack>
+            </form>
           </Stack>
-        </form>
-      </Stack>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="message-templates" pt="md">
+          <Stack gap="md">
+            <div>
+              <Title order={4}>Message Templates</Title>
+              <Text size="sm" c="dimmed">
+                Update the templates shown on the operations Message Templates
+                page. Changes here apply immediately for everyone copying from
+                that page.
+              </Text>
+            </div>
+
+            <MessageTemplatesBoard
+              templates={messageTemplates}
+              allowEditing
+              onTemplatesChange={setMessageTemplates}
+            />
+          </Stack>
+        </Tabs.Panel>
+        <Tabs.Panel value="post-templates" pt="md" />
+      </Tabs>
     </Paper>
   );
 }

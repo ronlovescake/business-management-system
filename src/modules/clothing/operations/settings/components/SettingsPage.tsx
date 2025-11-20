@@ -7,7 +7,15 @@
  */
 
 import { useState } from 'react';
-import { Button, Container, Group, Paper, Stack, Tabs, TextInput } from '@mantine/core';
+import {
+  Button,
+  Container,
+  Group,
+  Paper,
+  Stack,
+  Tabs,
+  TextInput,
+} from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import {
   IconDatabase,
@@ -32,7 +40,7 @@ const QUICK_ACTION_BUTTONS: Array<{
 }> = [
   { id: 'change-log', label: 'Change Log', tab: 'change-log' },
   { id: 'invoice-settings', label: 'Invoice Settings', tab: 'invoice' },
-  { id: 'invoice-message', label: 'Invoice Message', tab: 'message' },
+  { id: 'invoice-message', label: 'Templates', tab: 'message' },
   { id: 'transactions', label: 'Transactions', tab: 'transactions' },
   { id: 'backup-restore', label: 'Backup & Restore', tab: 'backup' },
 ];
@@ -67,7 +75,9 @@ export function SettingsPage() {
                 placeholder="Start date"
                 aria-label="Filter start date"
                 {...COMMON_DATE_INPUT_PROPS}
-                error={isDateRangeValid ? undefined : 'Start must be before end'}
+                error={
+                  isDateRangeValid ? undefined : 'Start must be before end'
+                }
               />
               <DateInput
                 value={endDate}
@@ -111,50 +121,53 @@ export function SettingsPage() {
           value={activeTab}
           onChange={(value) => setActiveTab(value as SettingsTab)}
         >
-            <Tabs.List style={{ display: 'none' }} aria-hidden="true">
-              <Tabs.Tab
-                value="invoice"
-                leftSection={<IconFileInvoice size={16} />}
-              >
-                Invoice Settings
-              </Tabs.Tab>
-              <Tabs.Tab value="message" leftSection={<IconMessage size={16} />}>
-                Invoice Message
-              </Tabs.Tab>
-              <Tabs.Tab
-                value="transactions"
-                leftSection={<IconTable size={16} />}
-              >
-                Transactions
-              </Tabs.Tab>
-              <Tabs.Tab value="backup" leftSection={<IconDatabase size={16} />}>
-                Backup & Restore
-              </Tabs.Tab>
-              <Tabs.Tab value="change-log" leftSection={<IconHistory size={16} />}>
-                Change Log
-              </Tabs.Tab>
-            </Tabs.List>
+          <Tabs.List style={{ display: 'none' }} aria-hidden="true">
+            <Tabs.Tab
+              value="invoice"
+              leftSection={<IconFileInvoice size={16} />}
+            >
+              Invoice Settings
+            </Tabs.Tab>
+            <Tabs.Tab value="message" leftSection={<IconMessage size={16} />}>
+              Templates
+            </Tabs.Tab>
+            <Tabs.Tab
+              value="transactions"
+              leftSection={<IconTable size={16} />}
+            >
+              Transactions
+            </Tabs.Tab>
+            <Tabs.Tab value="backup" leftSection={<IconDatabase size={16} />}>
+              Backup & Restore
+            </Tabs.Tab>
+            <Tabs.Tab
+              value="change-log"
+              leftSection={<IconHistory size={16} />}
+            >
+              Change Log
+            </Tabs.Tab>
+          </Tabs.List>
 
-            <Tabs.Panel value="invoice" pt="md">
-              <InvoiceSettingsTab />
-            </Tabs.Panel>
+          <Tabs.Panel value="invoice" pt="md">
+            <InvoiceSettingsTab />
+          </Tabs.Panel>
 
-            <Tabs.Panel value="message" pt="md">
-              <InvoiceMessageTab />
-            </Tabs.Panel>
+          <Tabs.Panel value="message" pt="md">
+            <InvoiceMessageTab />
+          </Tabs.Panel>
 
-            <Tabs.Panel value="transactions" pt="md">
-              <TransactionsSettingsTab />
-            </Tabs.Panel>
+          <Tabs.Panel value="transactions" pt="md">
+            <TransactionsSettingsTab />
+          </Tabs.Panel>
 
-            <Tabs.Panel value="backup" pt="md">
-              <BackupRestoreTab />
-            </Tabs.Panel>
+          <Tabs.Panel value="backup" pt="md">
+            <BackupRestoreTab />
+          </Tabs.Panel>
 
-            <Tabs.Panel value="change-log" pt="md">
-              <ChangeLogPage hideFilters externalSearch={searchQuery} />
-            </Tabs.Panel>
-          </Tabs>
+          <Tabs.Panel value="change-log" pt="md">
+            <ChangeLogPage hideFilters externalSearch={searchQuery} />
+          </Tabs.Panel>
+        </Tabs>
       </Stack>
     </Container>
   );
