@@ -17,6 +17,22 @@ type RowRecord = Record<string, unknown>;
 
 const FIELDS_TO_IGNORE_IN_COMPARISON = new Set(['id', 'updatedAt']);
 
+type PreviewChange = {
+  id: number | string | null;
+  changes: Record<string, { before: unknown; after: unknown }>;
+  incoming: RowRecord;
+  existing?: RowRecord;
+};
+
+type PreviewTableResult = {
+  attempted: number;
+  inserts: RowRecord[];
+  updates: PreviewChange[];
+  skipped: number;
+  notice?: string;
+  deletedCount?: number;
+};
+
 const normalizeValue = (value: unknown): unknown => {
   if (value === null || value === undefined) {
     return null;
@@ -78,11 +94,200 @@ const recordsMatch = (
   );
 };
 
+const getChangedFields = (
+  existing: RowRecord,
+  incoming: RowRecord,
+  ignoreFields = FIELDS_TO_IGNORE_IN_COMPARISON
+) => {
+  const keysToCompare = Object.keys(incoming).filter(
+    (key) => !ignoreFields.has(key)
+  );
+
+  return Object.fromEntries(
+    keysToCompare
+      .map((key) => {
+        if (
+          isDeepStrictEqual(existing[key], incoming[key]) ||
+          (existing[key] === undefined && incoming[key] === undefined)
+        ) {
+          return null;
+        }
+        return [
+          key,
+          {
+            before: existing[key] ?? null,
+            after: incoming[key] ?? null,
+          },
+        ];
+      })
+      .filter(Boolean) as Array<[string, { before: unknown; after: unknown }]>
+  );
+};
+
+const processTablePreview = async (
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  modelDelegate: any,
+  tableData: { data: RowRecord[] },
+  forceOverwrite: boolean
+): Promise<PreviewTableResult> => {
+  if (forceOverwrite) {
+    const beforeCount = await modelDelegate.count();
+    return {
+      attempted: tableData.data.length,
+      inserts: tableData.data.map((row) => normalizeRecord(row)),
+      updates: [],
+      skipped: 0,
+      notice:
+        'Force overwrite is enabled. Existing records will be deleted before applying this backup.',
+      deletedCount: beforeCount,
+    };
+  }
+
+  const preview: PreviewTableResult = {
+    attempted: tableData.data.length,
+    inserts: [],
+    updates: [],
+    skipped: 0,
+  };
+
+  for (const rawRecord of tableData.data as RowRecord[]) {
+    const record = normalizeRecord(rawRecord);
+    const recordId = record.id as number | string | null | undefined;
+
+    if (recordId === null || recordId === undefined) {
+      preview.inserts.push(record);
+      continue;
+    }
+
+    const existing = await modelDelegate.findUnique({
+      where: { id: recordId },
+    });
+
+    if (!existing) {
+      preview.inserts.push(record);
+      continue;
+    }
+
+    const normalizedExisting = normalizeRecord(existing as RowRecord);
+
+    if (recordsMatch(normalizedExisting, record)) {
+      preview.skipped++;
+      continue;
+    }
+
+    preview.updates.push({
+      id: recordId,
+      changes: getChangedFields(normalizedExisting, record),
+      incoming: record,
+      existing: normalizedExisting,
+    });
+  }
+
+  return preview;
+};
+
+const processTableRestore = async (
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  modelDelegate: any,
+  modelName: string,
+  tableData: { data: RowRecord[] },
+  forceOverwrite: boolean
+) => {
+  const beforeCount = await modelDelegate.count();
+
+  if (forceOverwrite) {
+    await modelDelegate.deleteMany({});
+    const createdResult = await modelDelegate.createMany({
+      data: tableData.data,
+      skipDuplicates: false,
+    });
+    const afterCount = await modelDelegate.count();
+
+    return {
+      count: createdResult.count,
+      updated: 0,
+      beforeCount,
+      afterCount,
+      attempted: tableData.data.length,
+      skipped: 0,
+    };
+  }
+
+  const { created, updated, skipped } = await prisma.$transaction(
+    async (tx) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const transactionalDelegate = (tx as any)[modelName];
+      let createdCount = 0;
+      let updatedCount = 0;
+      let skippedCount = 0;
+
+      for (const rawRecord of tableData.data as RowRecord[]) {
+        const record = { ...rawRecord };
+        const recordId = record.id as number | string | null | undefined;
+
+        if (recordId === null || recordId === undefined) {
+          await transactionalDelegate.create({ data: record });
+          createdCount++;
+          continue;
+        }
+
+        const existing = await transactionalDelegate.findUnique({
+          where: { id: recordId },
+        });
+
+        if (!existing) {
+          await transactionalDelegate.create({ data: record });
+          createdCount++;
+          continue;
+        }
+
+        if (recordsMatch(existing as RowRecord, record)) {
+          skippedCount++;
+          continue;
+        }
+
+        const dataToUpdate = { ...record };
+        delete dataToUpdate.id;
+        delete dataToUpdate.updatedAt;
+
+        await transactionalDelegate.update({
+          where: { id: recordId },
+          data: dataToUpdate,
+        });
+        updatedCount++;
+      }
+
+      return {
+        created: createdCount,
+        updated: updatedCount,
+        skipped: skippedCount,
+      };
+    }
+  );
+
+  const afterCount = await modelDelegate.count();
+
+  return {
+    count: created,
+    updated,
+    beforeCount,
+    afterCount,
+    attempted: tableData.data.length,
+    skipped,
+  };
+};
+
 // POST - Restore from backup
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { timestamp, file, tables, forceOverwrite = false } = body;
+    const {
+      timestamp,
+      file,
+      tables,
+      forceOverwrite = false,
+      previewOnly = false,
+    } = body;
 
     if (!timestamp || !file) {
       return NextResponse.json(
@@ -146,6 +351,7 @@ export async function POST(request: NextRequest) {
         skipped?: number;
       }
     > = {};
+    const previewResults: Record<string, PreviewTableResult> = {};
     const tablesToRestore = tables || Object.keys(backupData.tables);
 
     for (const tableName of tablesToRestore) {
@@ -168,95 +374,47 @@ export async function POST(request: NextRequest) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const modelDelegate = (prisma as any)[modelName];
 
-        const beforeCount = await modelDelegate.count();
-
-        if (forceOverwrite) {
-          await modelDelegate.deleteMany({});
-          const createdResult = await modelDelegate.createMany({
-            data: tableData.data,
-            skipDuplicates: false,
-          });
-          const afterCount = await modelDelegate.count();
-
-          results[tableName] = {
-            count: createdResult.count,
-            updated: 0,
-            beforeCount,
-            afterCount,
-            attempted: tableData.data.length,
-            skipped: 0,
-          };
+        if (previewOnly) {
+          previewResults[tableName] = await processTablePreview(
+            modelDelegate,
+            tableData,
+            forceOverwrite
+          );
           continue;
         }
 
-        const { created, updated, skipped } = await prisma.$transaction(
-          async (tx) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const transactionalDelegate = (tx as any)[modelName];
-            let createdCount = 0;
-            let updatedCount = 0;
-            let skippedCount = 0;
-
-            for (const rawRecord of tableData.data as RowRecord[]) {
-              const record = { ...rawRecord };
-              const recordId = record.id as number | string | null | undefined;
-
-              if (recordId === null || recordId === undefined) {
-                await transactionalDelegate.create({ data: record });
-                createdCount++;
-                continue;
-              }
-
-              const existing = await transactionalDelegate.findUnique({
-                where: { id: recordId },
-              });
-
-              if (!existing) {
-                await transactionalDelegate.create({ data: record });
-                createdCount++;
-                continue;
-              }
-
-              if (recordsMatch(existing as RowRecord, record)) {
-                skippedCount++;
-                continue;
-              }
-
-              const dataToUpdate = { ...record };
-              delete dataToUpdate.id;
-              delete dataToUpdate.updatedAt;
-
-              await transactionalDelegate.update({
-                where: { id: recordId },
-                data: dataToUpdate,
-              });
-              updatedCount++;
-            }
-
-            return {
-              created: createdCount,
-              updated: updatedCount,
-              skipped: skippedCount,
-            };
-          }
+        results[tableName] = await processTableRestore(
+          modelDelegate,
+          modelName,
+          tableData,
+          forceOverwrite
         );
-
-        const afterCount = await modelDelegate.count();
-
-        results[tableName] = {
-          count: created,
-          updated,
-          beforeCount,
-          afterCount,
-          attempted: tableData.data.length,
-          skipped,
-        };
       } catch (error) {
-        results[tableName] = {
-          count: 0,
-          error: error instanceof Error ? error.message : String(error),
-        };
+        if (previewOnly) {
+          previewResults[tableName] = {
+            attempted: tableData.data.length,
+            inserts: [],
+            updates: [],
+            skipped: 0,
+            notice:
+              error instanceof Error
+                ? error.message
+                : 'Failed to generate preview',
+          };
+        } else {
+          results[tableName] = {
+            count: 0,
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
       }
+    }
+
+    if (previewOnly) {
+      return NextResponse.json({
+        success: true,
+        preview: previewResults,
+      });
     }
 
     return NextResponse.json({

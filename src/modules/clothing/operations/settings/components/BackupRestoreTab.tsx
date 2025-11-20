@@ -110,6 +110,81 @@ type RestoreResults = Record<
   }
 >;
 
+type RestorePreviewResults = Record<
+  string,
+  {
+    attempted: number;
+    inserts: Array<Record<string, unknown>>;
+    updates: Array<{
+      id: number | string | null;
+      changes: Record<string, { before: unknown; after: unknown }>;
+      incoming: Record<string, unknown>;
+      existing?: Record<string, unknown>;
+    }>;
+    skipped: number;
+    notice?: string;
+    deletedCount?: number;
+  }
+>;
+
+const PREVIEW_FIELD_HINTS = [
+  'customers',
+  'name',
+  'productCode',
+  'orderDate',
+  'notes',
+  'description',
+  'title',
+  'email',
+  'reference',
+  'shipmentCode',
+];
+
+const guessRowLabel = (
+  row: Record<string, unknown>,
+  fallback: string
+): string => {
+  const label = PREVIEW_FIELD_HINTS.find((field) => {
+    const raw = row[field];
+    return typeof raw === 'string' && raw.trim().length > 0;
+  });
+
+  if (label) {
+    const value = row[label];
+    return `${String(value)}${row.id ? ` (ID ${row.id})` : ''}`;
+  }
+
+  if (row.id !== null && row.id !== undefined) {
+    return `ID ${row.id}`;
+  }
+
+  return fallback;
+};
+
+const hasTableChanges = (
+  preview: RestorePreviewResults | null,
+  table: string,
+  forceOverwrite: boolean
+) => {
+  if (!preview) {
+    return false;
+  }
+  const entry = preview[table];
+  if (!entry) {
+    return false;
+  }
+  if (forceOverwrite) {
+    return entry.inserts.length > 0 || (entry.deletedCount ?? 0) > 0;
+  }
+  return entry.inserts.length > 0 || entry.updates.length > 0;
+};
+
+const previewHasChanges = (
+  preview: RestorePreviewResults | null,
+  tables: string[],
+  forceOverwrite: boolean
+) => tables.some((table) => hasTableChanges(preview, table, forceOverwrite));
+
 export function BackupRestoreTab() {
   const [backups, setBackups] = useState<Backup[]>([]);
   const [loading, setLoading] = useState(false);
@@ -132,6 +207,22 @@ export function BackupRestoreTab() {
   const [restoreResults, setRestoreResults] = useState<RestoreResults | null>(
     null
   );
+  const [restorePreviewData, setRestorePreviewData] =
+    useState<RestorePreviewResults | null>(null);
+  const [restorePreviewModalOpen, setRestorePreviewModalOpen] = useState(false);
+  const [restorePreviewTables, setRestorePreviewTables] = useState<string[]>(
+    []
+  );
+  const [restorePreviewForceOverwrite, setRestorePreviewForceOverwrite] =
+    useState(false);
+  const [restorePreviewSelectedTable, setRestorePreviewSelectedTable] =
+    useState<string | null>(null);
+  const [restorePreviewChangeType, setRestorePreviewChangeType] = useState<
+    'insert' | 'update'
+  >('insert');
+  const [restorePreviewSelectedRow, setRestorePreviewSelectedRow] = useState<
+    string | null
+  >(null);
   const autoBackupIntervalRef = useRef<NodeJS.Timeout>();
 
   const fetchBackups = useCallback(async () => {
@@ -151,6 +242,74 @@ export function BackupRestoreTab() {
       });
     } finally {
       setLoading(false);
+    }
+
+    setRestoreLoading(true);
+
+    let previewPayload: RestorePreviewResults | null = null;
+    try {
+      const previewResponse = await api.post<{
+        success: boolean;
+        preview?: RestorePreviewResults;
+        error?: string;
+      }>('/api/restore', {
+        timestamp: selectedBackup.timestamp,
+        file: previewJsonFile,
+        tables: tablesForConfirm,
+        forceOverwrite,
+        previewOnly: true,
+      });
+
+      if (!previewResponse.success || !previewResponse.preview) {
+        throw new Error(previewResponse.error || 'Failed to build preview.');
+      }
+
+      previewPayload = previewResponse.preview;
+    } catch (error) {
+      setRestoreLoading(false);
+      showNotification({
+        title: 'Preview unavailable',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        color: 'red',
+      });
+      return;
+    }
+
+    setRestoreLoading(false);
+
+    if (!previewPayload) {
+      showNotification({
+        title: 'Preview unavailable',
+        message: 'Could not generate restore preview.',
+        color: 'red',
+      });
+      return;
+    }
+
+    if (!previewHasChanges(previewPayload, tablesForConfirm, forceOverwrite)) {
+      showNotification({
+        title: 'Up to date',
+        message: 'Selected tables already match this backup.',
+        color: 'blue',
+      });
+      return;
+    }
+
+    const previewDialog = await Swal.fire({
+      title: 'Review changes',
+      width: 720,
+      html: buildPreviewHtml(previewPayload, tablesForConfirm, forceOverwrite),
+      showCancelButton: true,
+      confirmButtonText: 'Continue',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#228be6',
+      cancelButtonColor: '#868e96',
+      allowOutsideClick: false,
+      focusConfirm: false,
+    });
+
+    if (!previewDialog.isConfirmed) {
+      return;
     }
   }, []);
 
@@ -601,6 +760,109 @@ export function BackupRestoreTab() {
       return;
     }
 
+    setRestorePreviewData(null);
+    setRestorePreviewTables([]);
+    setRestorePreviewSelectedTable(null);
+    setRestorePreviewSelectedRow(null);
+
+    setRestoreLoading(true);
+
+    try {
+      const previewResponse = await api.post<{
+        success: boolean;
+        preview?: RestorePreviewResults;
+        error?: string;
+      }>('/api/restore', {
+        timestamp: selectedBackup.timestamp,
+        file: previewJsonFile,
+        tables: tablesForConfirm,
+        forceOverwrite,
+        previewOnly: true,
+      });
+
+      if (!previewResponse.success || !previewResponse.preview) {
+        throw new Error(previewResponse.error || 'Failed to build preview.');
+      }
+
+      if (
+        !previewHasChanges(
+          previewResponse.preview,
+          tablesForConfirm,
+          forceOverwrite
+        )
+      ) {
+        showNotification({
+          title: 'Up to date',
+          message: 'Selected tables already match this backup.',
+          color: 'blue',
+        });
+        return;
+      }
+
+      setRestorePreviewData(previewResponse.preview);
+      setRestorePreviewTables(tablesForConfirm);
+      setRestorePreviewForceOverwrite(forceOverwrite);
+
+      const initialTable =
+        tablesForConfirm.find((table) =>
+          hasTableChanges(previewResponse.preview, table, forceOverwrite)
+        ) ??
+        tablesForConfirm[0] ??
+        null;
+
+      setRestorePreviewSelectedTable(initialTable ?? null);
+
+      if (initialTable && previewResponse.preview[initialTable]) {
+        const entry = previewResponse.preview[initialTable];
+        const defaultChangeType =
+          entry.inserts.length > 0
+            ? 'insert'
+            : !forceOverwrite && entry.updates.length > 0
+              ? 'update'
+              : 'insert';
+        setRestorePreviewChangeType(defaultChangeType);
+        const rows =
+          defaultChangeType === 'insert' ? entry.inserts : entry.updates;
+        setRestorePreviewSelectedRow(rows.length ? '0' : null);
+      } else {
+        setRestorePreviewChangeType('insert');
+        setRestorePreviewSelectedRow(null);
+      }
+
+      setRestorePreviewModalOpen(true);
+    } catch (error) {
+      showNotification({
+        title: 'Preview unavailable',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        color: 'red',
+      });
+    } finally {
+      setRestoreLoading(false);
+    }
+  }, [
+    selectedBackup,
+    previewJsonFile,
+    previewData,
+    restoreSelection,
+    forceOverwrite,
+  ]);
+
+  const handleConfirmRestore = useCallback(async () => {
+    if (
+      !selectedBackup ||
+      !previewJsonFile ||
+      !previewData ||
+      restorePreviewTables.length === 0
+    ) {
+      showNotification({
+        title: 'Restore unavailable',
+        message: 'Preview data is missing. Try running the restore again.',
+        color: 'red',
+      });
+      return;
+    }
+
+    const tablesForConfirm = restorePreviewTables;
     const formattedDate = formatDate(selectedBackup.timestamp);
     const listHtml = tablesForConfirm
       .map(
@@ -618,9 +880,13 @@ export function BackupRestoreTab() {
           <ul style="margin: 8px 0 18px 20px;">${listHtml}</ul>
           <p>This data comes from backup <strong>${formattedDate}</strong>.</p>
           <p style="margin-top: 10px; color: ${
-            forceOverwrite ? '#c92a2a' : '#495057'
+            restorePreviewForceOverwrite ? '#c92a2a' : '#495057'
           };">
-            ${forceOverwrite ? 'Existing data will be overwritten.' : 'Existing data will be preserved when duplicates exist.'}
+            ${
+              restorePreviewForceOverwrite
+                ? 'Existing data will be overwritten.'
+                : 'Existing data will be preserved when duplicates exist.'
+            }
           </p>
         </div>
       `,
@@ -662,6 +928,7 @@ export function BackupRestoreTab() {
       return;
     }
 
+    setRestorePreviewModalOpen(false);
     setRestoreLoading(true);
 
     try {
@@ -674,7 +941,7 @@ export function BackupRestoreTab() {
         timestamp: selectedBackup.timestamp,
         file: previewJsonFile,
         tables: tablesForConfirm,
-        forceOverwrite,
+        forceOverwrite: restorePreviewForceOverwrite,
       });
 
       if (!response.success || !response.results) {
@@ -689,6 +956,10 @@ export function BackupRestoreTab() {
         }.`,
         color: 'green',
       });
+      setRestorePreviewData(null);
+      setRestorePreviewTables([]);
+      setRestorePreviewSelectedTable(null);
+      setRestorePreviewSelectedRow(null);
     } catch (error) {
       showNotification({
         title: 'Restore failed',
@@ -702,8 +973,71 @@ export function BackupRestoreTab() {
     selectedBackup,
     previewJsonFile,
     previewData,
-    restoreSelection,
-    forceOverwrite,
+    restorePreviewTables,
+    restorePreviewForceOverwrite,
+  ]);
+
+  const handleCloseRestorePreviewModal = useCallback(() => {
+    if (restoreLoading) {
+      return;
+    }
+    setRestorePreviewModalOpen(false);
+    setRestorePreviewData(null);
+    setRestorePreviewTables([]);
+    setRestorePreviewSelectedTable(null);
+    setRestorePreviewSelectedRow(null);
+    setRestorePreviewChangeType('insert');
+  }, [restoreLoading]);
+
+  useEffect(() => {
+    if (
+      !restorePreviewModalOpen ||
+      !restorePreviewData ||
+      !restorePreviewSelectedTable
+    ) {
+      return;
+    }
+
+    const entry = restorePreviewData[restorePreviewSelectedTable];
+    if (!entry) {
+      setRestorePreviewSelectedRow(null);
+      return;
+    }
+
+    const hasInserts = entry.inserts.length > 0;
+    const hasUpdates =
+      !restorePreviewForceOverwrite && entry.updates.length > 0;
+
+    if (restorePreviewChangeType === 'insert' && !hasInserts && hasUpdates) {
+      setRestorePreviewChangeType('update');
+      return;
+    }
+
+    if (restorePreviewChangeType === 'update' && !hasUpdates && hasInserts) {
+      setRestorePreviewChangeType('insert');
+      return;
+    }
+
+    if (!hasInserts && !hasUpdates) {
+      setRestorePreviewSelectedRow(null);
+      return;
+    }
+
+    const rows =
+      restorePreviewChangeType === 'insert' ? entry.inserts : entry.updates;
+
+    setRestorePreviewSelectedRow((current) => {
+      if (current === null || Number(current) >= rows.length) {
+        return '0';
+      }
+      return current;
+    });
+  }, [
+    restorePreviewModalOpen,
+    restorePreviewData,
+    restorePreviewSelectedTable,
+    restorePreviewChangeType,
+    restorePreviewForceOverwrite,
   ]);
 
   const selectedTableDetails = useMemo(() => {
@@ -732,6 +1066,114 @@ export function BackupRestoreTab() {
       columns,
     };
   }, [previewData, selectedTableName]);
+
+  const restorePreviewEntry = useMemo(() => {
+    if (!restorePreviewSelectedTable || !restorePreviewData) {
+      return null;
+    }
+    return restorePreviewData[restorePreviewSelectedTable] ?? null;
+  }, [restorePreviewSelectedTable, restorePreviewData]);
+
+  const restorePreviewTableOptions = useMemo(() => {
+    if (!restorePreviewData || !restorePreviewTables.length) {
+      return [];
+    }
+
+    return restorePreviewTables
+      .filter((table) => restorePreviewData[table])
+      .map((table) => {
+        const entry = restorePreviewData[table];
+        const insertCount = entry?.inserts.length ?? 0;
+        const updateCount = restorePreviewForceOverwrite
+          ? 0
+          : (entry?.updates.length ?? 0);
+        const labels: string[] = [];
+        if (insertCount) {
+          labels.push(`${insertCount} insert${insertCount === 1 ? '' : 's'}`);
+        }
+        if (updateCount) {
+          labels.push(`${updateCount} update${updateCount === 1 ? '' : 's'}`);
+        }
+        if (!labels.length) {
+          labels.push('no changes');
+        }
+        return {
+          value: table,
+          label: `${table} — ${labels.join(', ')}`,
+        };
+      });
+  }, [restorePreviewData, restorePreviewTables, restorePreviewForceOverwrite]);
+
+  const restorePreviewChangeTypeOptions = useMemo(() => {
+    if (!restorePreviewEntry) {
+      return [];
+    }
+    const options: Array<{ value: 'insert' | 'update'; label: string }> = [];
+    if (restorePreviewEntry.inserts.length > 0) {
+      options.push({
+        value: 'insert',
+        label: `New rows (${restorePreviewEntry.inserts.length})`,
+      });
+    }
+    if (
+      !restorePreviewForceOverwrite &&
+      restorePreviewEntry.updates.length > 0
+    ) {
+      options.push({
+        value: 'update',
+        label: `Updates (${restorePreviewEntry.updates.length})`,
+      });
+    }
+    if (!options.length) {
+      options.push({ value: 'insert', label: 'No changes detected' });
+    }
+    return options;
+  }, [restorePreviewEntry, restorePreviewForceOverwrite]);
+
+  const restorePreviewRowOptions = useMemo(() => {
+    if (!restorePreviewEntry) {
+      return [];
+    }
+    if (restorePreviewChangeType === 'insert' || restorePreviewForceOverwrite) {
+      return restorePreviewEntry.inserts.map((row, index) => ({
+        value: String(index),
+        label: guessRowLabel(row, `Row ${index + 1}`),
+      }));
+    }
+    return restorePreviewEntry.updates.map((row, index) => ({
+      value: String(index),
+      label: guessRowLabel(row.incoming, `Row ${index + 1}`),
+    }));
+  }, [
+    restorePreviewEntry,
+    restorePreviewChangeType,
+    restorePreviewForceOverwrite,
+  ]);
+
+  const restorePreviewSelectedRowData = useMemo(() => {
+    if (!restorePreviewEntry || restorePreviewSelectedRow === null) {
+      return null;
+    }
+    const index = Number(restorePreviewSelectedRow);
+    if (Number.isNaN(index)) {
+      return null;
+    }
+    if (restorePreviewChangeType === 'insert' || restorePreviewForceOverwrite) {
+      return {
+        type: 'insert' as const,
+        row: restorePreviewEntry.inserts[index] ?? null,
+      };
+    }
+    return {
+      type: 'update' as const,
+      row: restorePreviewEntry.updates[index] ?? null,
+    };
+  }, [
+    restorePreviewEntry,
+    restorePreviewSelectedRow,
+    restorePreviewChangeType,
+    restorePreviewForceOverwrite,
+  ]);
 
   const availableTables = previewData ? Object.keys(previewData.tables) : [];
   const restoreDisabled =
@@ -776,6 +1218,38 @@ export function BackupRestoreTab() {
       return `${(bytes / 1024).toFixed(2)} KB`;
     }
     return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+  };
+
+  const renderPreviewValue = (value: unknown) => {
+    if (value === null || value === undefined || value === '') {
+      return (
+        <Text size="sm" c="dimmed" fs="italic">
+          blank
+        </Text>
+      );
+    }
+
+    if (typeof value === 'object') {
+      try {
+        return (
+          <Text size="sm" ff="monospace">
+            {JSON.stringify(value)}
+          </Text>
+        );
+      } catch {
+        return (
+          <Text size="sm" ff="monospace">
+            [object]
+          </Text>
+        );
+      }
+    }
+
+    return (
+      <Text size="sm" ff="monospace">
+        {String(value)}
+      </Text>
+    );
   };
 
   return (
@@ -1481,6 +1955,222 @@ export function BackupRestoreTab() {
             </Text>
           </Alert>
         )}
+      </Modal>
+
+      <Modal
+        opened={restorePreviewModalOpen}
+        onClose={handleCloseRestorePreviewModal}
+        title="Review rows before restoring"
+        size="xl"
+        radius="md"
+        trapFocus={false}
+      >
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">
+            Use the cascading selectors below to inspect the exact rows and
+            columns that will be restored before continuing to the confirmation
+            dialog.
+          </Text>
+
+          <Select
+            label="1. Table"
+            placeholder="Select a table"
+            data={restorePreviewTableOptions}
+            value={restorePreviewSelectedTable}
+            onChange={(value) => setRestorePreviewSelectedTable(value)}
+            searchable
+            nothingFound="No tables"
+          />
+
+          <Group align="flex-end" gap="md">
+            <Select
+              flex={1}
+              label="2. Change type"
+              placeholder="Select change type"
+              data={restorePreviewChangeTypeOptions}
+              value={restorePreviewChangeType}
+              onChange={(value) =>
+                setRestorePreviewChangeType(
+                  (value as 'insert' | 'update') || 'insert'
+                )
+              }
+              disabled={
+                restorePreviewForceOverwrite ||
+                restorePreviewChangeTypeOptions.length <= 1
+              }
+            />
+
+            <Select
+              flex={1}
+              label="3. Row"
+              placeholder={
+                restorePreviewRowOptions.length
+                  ? 'Select a row'
+                  : 'No rows to preview'
+              }
+              data={restorePreviewRowOptions}
+              value={restorePreviewSelectedRow}
+              onChange={(value) => setRestorePreviewSelectedRow(value)}
+              searchable
+              nothingFound="No rows"
+              disabled={!restorePreviewRowOptions.length}
+            />
+          </Group>
+
+          {restorePreviewEntry && (
+            <Stack gap="xs">
+              <Group gap="xs">
+                <Badge color="blue">
+                  {restorePreviewEntry.inserts.length} new
+                </Badge>
+                {!restorePreviewForceOverwrite && (
+                  <Badge color="orange">
+                    {restorePreviewEntry.updates.length} updated
+                  </Badge>
+                )}
+                <Badge color="gray">
+                  {restorePreviewEntry.skipped ?? 0} skipped
+                </Badge>
+                <Badge color="teal">
+                  {restorePreviewEntry.attempted ?? 0} attempted
+                </Badge>
+              </Group>
+              {restorePreviewEntry.notice && (
+                <Alert color="yellow" icon={<IconAlertCircle size={16} />}>
+                  {restorePreviewEntry.notice}
+                </Alert>
+              )}
+              {restorePreviewForceOverwrite &&
+                !!restorePreviewEntry.deletedCount && (
+                  <Alert color="red" icon={<IconAlertCircle size={16} />}>
+                    {restorePreviewEntry.deletedCount}{' '}
+                    {restorePreviewEntry.deletedCount === 1 ? 'row' : 'rows'}{' '}
+                    will be deleted before reinserting this backup because force
+                    overwrite is enabled.
+                  </Alert>
+                )}
+            </Stack>
+          )}
+
+          <Card withBorder padding="md" radius="md">
+            {restorePreviewSelectedRowData?.row ? (
+              <Stack gap="sm">
+                <Group justify="space-between" align="center">
+                  <div>
+                    <Text fw={600}>
+                      {restorePreviewSelectedRowData.type === 'insert'
+                        ? 'New row preview'
+                        : 'Updated row preview'}
+                    </Text>
+                    {restorePreviewSelectedRowData.type === 'update' &&
+                      (restorePreviewSelectedRowData.row?.id ||
+                        restorePreviewSelectedRowData.row?.incoming) && (
+                        <Text size="sm" c="dimmed">
+                          {guessRowLabel(
+                            restorePreviewSelectedRowData.row?.incoming ?? {},
+                            'Selected row'
+                          )}
+                        </Text>
+                      )}
+                  </div>
+                  {restorePreviewSelectedRowData.type === 'update' &&
+                    restorePreviewSelectedRowData.row?.id !== null &&
+                    restorePreviewSelectedRowData.row?.id !== undefined && (
+                      <Badge color="gray">
+                        ID {String(restorePreviewSelectedRowData.row.id)}
+                      </Badge>
+                    )}
+                </Group>
+
+                <ScrollArea h={320} offsetScrollbars scrollbarSize={6}>
+                  {restorePreviewSelectedRowData.type === 'insert' ? (
+                    <MantineTable striped highlightOnHover>
+                      <MantineTable.Thead>
+                        <MantineTable.Tr>
+                          <MantineTable.Th>Column</MantineTable.Th>
+                          <MantineTable.Th>Value</MantineTable.Th>
+                        </MantineTable.Tr>
+                      </MantineTable.Thead>
+                      <MantineTable.Tbody>
+                        {Object.entries(
+                          restorePreviewSelectedRowData.row ?? {}
+                        ).map(([column, value]) => (
+                          <MantineTable.Tr key={column}>
+                            <MantineTable.Td>
+                              <Text size="sm" fw={600}>
+                                {column}
+                              </Text>
+                            </MantineTable.Td>
+                            <MantineTable.Td>
+                              {renderPreviewValue(value)}
+                            </MantineTable.Td>
+                          </MantineTable.Tr>
+                        ))}
+                      </MantineTable.Tbody>
+                    </MantineTable>
+                  ) : (
+                    <MantineTable striped highlightOnHover>
+                      <MantineTable.Thead>
+                        <MantineTable.Tr>
+                          <MantineTable.Th>Column</MantineTable.Th>
+                          <MantineTable.Th>Before</MantineTable.Th>
+                          <MantineTable.Th>After</MantineTable.Th>
+                        </MantineTable.Tr>
+                      </MantineTable.Thead>
+                      <MantineTable.Tbody>
+                        {Object.entries(
+                          restorePreviewSelectedRowData.row?.changes ?? {}
+                        ).map(([column, diff]) => (
+                          <MantineTable.Tr key={column}>
+                            <MantineTable.Td>
+                              <Text size="sm" fw={600}>
+                                {column}
+                              </Text>
+                            </MantineTable.Td>
+                            <MantineTable.Td>
+                              {renderPreviewValue(diff.before)}
+                            </MantineTable.Td>
+                            <MantineTable.Td>
+                              {renderPreviewValue(diff.after)}
+                            </MantineTable.Td>
+                          </MantineTable.Tr>
+                        ))}
+                      </MantineTable.Tbody>
+                    </MantineTable>
+                  )}
+                </ScrollArea>
+              </Stack>
+            ) : (
+              <Text size="sm" c="dimmed">
+                Select a table, change type, and row to preview what will be
+                restored.
+              </Text>
+            )}
+          </Card>
+
+          <Group justify="space-between">
+            <Text size="sm" c="dimmed">
+              Only the rows listed above will be changed. Unchecked tables
+              remain untouched.
+            </Text>
+            <Group>
+              <Button
+                variant="default"
+                onClick={handleCloseRestorePreviewModal}
+                disabled={restoreLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                leftSection={<IconHistory size={16} />}
+                onClick={() => void handleConfirmRestore()}
+                loading={restoreLoading}
+              >
+                Continue to confirmation
+              </Button>
+            </Group>
+          </Group>
+        </Stack>
       </Modal>
     </Stack>
   );
