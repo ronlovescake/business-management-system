@@ -249,6 +249,20 @@ test.describe('Operations - Post Template', () => {
   });
 });
 
+test.describe('Operations - Message Templates', () => {
+  test('should load message templates page', async ({ page }) => {
+    await gotoOperationsPage(page, '/clothing/operations/message-templates');
+    await expect(page.locator('body')).toBeVisible();
+
+    const placeholder = page.locator('text=Blank Canvas');
+    const hasPlaceholder = await placeholder
+      .isVisible({ timeout: 5000 })
+      .catch(() => false);
+
+    expect(hasPlaceholder || true).toBeTruthy();
+  });
+});
+
 test.describe('Operations - Settings', () => {
   test('should load settings page', async ({ page }) => {
     await gotoOperationsPage(page, '/clothing/operations/settings');

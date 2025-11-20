@@ -163,6 +163,15 @@ const APP_MODULES = [
     sortOrder: 14,
   },
   {
+    name: 'clothing-operations-message-templates',
+    displayName: 'Message Templates',
+    path: '/clothing/operations/message-templates',
+    category: 'clothing',
+    icon: 'IconMessage',
+    parentName: 'clothing-operations',
+    sortOrder: 14.5,
+  },
+  {
     name: 'clothing-operations-settings',
     displayName: 'Settings',
     path: '/clothing/operations/settings',

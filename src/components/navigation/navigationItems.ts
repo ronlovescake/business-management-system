@@ -12,6 +12,7 @@ import {
   IconBoxSeam,
   IconUsers,
   IconReceipt,
+  IconMessage,
 } from '@tabler/icons-react';
 import { moduleRegistry } from '@/modules';
 import type { IconComponent } from '@/core/ModuleRegistry';
@@ -62,6 +63,12 @@ export function buildNavigationItems(
         path: `${basePath}/post-template`,
         icon: IconGift as IconComponent,
         order: 10,
+      },
+      {
+        label: 'Message Templates',
+        path: `${basePath}/message-templates`,
+        icon: IconMessage as IconComponent,
+        order: 10.5,
       },
       {
         label: 'Invoicing',
