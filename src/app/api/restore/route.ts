@@ -6,11 +6,77 @@
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { isDeepStrictEqual } from 'util';
 import { prisma } from '@/lib/db';
 import fs from 'fs';
 import path from 'path';
 import { logger } from '@/lib/logger';
 const BACKUP_DIR = path.resolve(process.cwd(), 'backups');
+
+type RowRecord = Record<string, unknown>;
+
+const FIELDS_TO_IGNORE_IN_COMPARISON = new Set(['id', 'updatedAt']);
+
+const normalizeValue = (value: unknown): unknown => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (typeof value === 'bigint') {
+    return Number(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeValue(item));
+  }
+
+  if (typeof value === 'object') {
+    const serializable = value as { toJSON?: () => unknown };
+    if (typeof serializable.toJSON === 'function') {
+      return serializable.toJSON();
+    }
+
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, val]) => [
+        key,
+        normalizeValue(val),
+      ])
+    );
+  }
+
+  return value;
+};
+
+const normalizeRecord = (record: RowRecord): RowRecord =>
+  Object.fromEntries(
+    Object.entries(record).map(([key, value]) => [key, normalizeValue(value)])
+  );
+
+const recordsMatch = (
+  existing: RowRecord,
+  incoming: RowRecord,
+  ignoreFields = FIELDS_TO_IGNORE_IN_COMPARISON
+) => {
+  const keysToCompare = Object.keys(incoming).filter(
+    (key) => !ignoreFields.has(key)
+  );
+
+  const existingSubset = Object.fromEntries(
+    keysToCompare.map((key) => [key, existing[key]])
+  );
+  const incomingSubset = Object.fromEntries(
+    keysToCompare.map((key) => [key, incoming[key]])
+  );
+
+  return isDeepStrictEqual(
+    normalizeRecord(existingSubset),
+    normalizeRecord(incomingSubset)
+  );
+};
 
 // POST - Restore from backup
 export async function POST(request: NextRequest) {
@@ -59,7 +125,7 @@ export async function POST(request: NextRequest) {
       customers: 'customer',
       products: 'product',
       prices: 'price',
-  shipments: 'shipment',
+      shipments: 'shipment',
       employees: 'employee',
       schedules: 'schedule',
       attendance: 'attendance',
@@ -72,6 +138,7 @@ export async function POST(request: NextRequest) {
       string,
       {
         count: number;
+        updated?: number;
         error?: string;
         beforeCount?: number;
         afterCount?: number;
@@ -101,29 +168,88 @@ export async function POST(request: NextRequest) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const modelDelegate = (prisma as any)[modelName];
 
-        // If force overwrite, delete existing records first
-        if (forceOverwrite) {
-          await modelDelegate.deleteMany({});
-        }
-
-        // Get current count
         const beforeCount = await modelDelegate.count();
 
-        // Try to create records (skipDuplicates will ignore existing IDs)
-        const result = await modelDelegate.createMany({
-          data: tableData.data,
-          skipDuplicates: !forceOverwrite, // Don't skip if force overwrite
-        });
+        if (forceOverwrite) {
+          await modelDelegate.deleteMany({});
+          const createdResult = await modelDelegate.createMany({
+            data: tableData.data,
+            skipDuplicates: false,
+          });
+          const afterCount = await modelDelegate.count();
 
-        // Get count after
+          results[tableName] = {
+            count: createdResult.count,
+            updated: 0,
+            beforeCount,
+            afterCount,
+            attempted: tableData.data.length,
+            skipped: 0,
+          };
+          continue;
+        }
+
+        const { created, updated, skipped } = await prisma.$transaction(
+          async (tx) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const transactionalDelegate = (tx as any)[modelName];
+            let createdCount = 0;
+            let updatedCount = 0;
+            let skippedCount = 0;
+
+            for (const rawRecord of tableData.data as RowRecord[]) {
+              const record = { ...rawRecord };
+              const recordId = record.id as number | string | null | undefined;
+
+              if (recordId === null || recordId === undefined) {
+                await transactionalDelegate.create({ data: record });
+                createdCount++;
+                continue;
+              }
+
+              const existing = await transactionalDelegate.findUnique({
+                where: { id: recordId },
+              });
+
+              if (!existing) {
+                await transactionalDelegate.create({ data: record });
+                createdCount++;
+                continue;
+              }
+
+              if (recordsMatch(existing as RowRecord, record)) {
+                skippedCount++;
+                continue;
+              }
+
+              const dataToUpdate = { ...record };
+              delete dataToUpdate.id;
+              delete dataToUpdate.updatedAt;
+
+              await transactionalDelegate.update({
+                where: { id: recordId },
+                data: dataToUpdate,
+              });
+              updatedCount++;
+            }
+
+            return {
+              created: createdCount,
+              updated: updatedCount,
+              skipped: skippedCount,
+            };
+          }
+        );
+
         const afterCount = await modelDelegate.count();
 
         results[tableName] = {
-          count: result.count,
+          count: created,
+          updated,
           beforeCount,
           afterCount,
           attempted: tableData.data.length,
-          skipped: tableData.data.length - result.count,
+          skipped,
         };
       } catch (error) {
         results[tableName] = {
@@ -243,7 +369,7 @@ export async function PATCH(request: NextRequest) {
       customers: 'customer',
       products: 'product',
       prices: 'price',
-  shipments: 'shipment',
+      shipments: 'shipment',
       employees: 'employee',
       schedules: 'schedule',
       attendance: 'attendance',

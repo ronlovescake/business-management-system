@@ -101,6 +101,7 @@ type RestoreResults = Record<
   string,
   {
     count: number;
+    updated?: number;
     error?: string;
     beforeCount?: number;
     afterCount?: number;
@@ -1398,6 +1399,7 @@ export function BackupRestoreTab() {
                                 <MantineTable.Tr>
                                   <MantineTable.Th>Table</MantineTable.Th>
                                   <MantineTable.Th>Inserted</MantineTable.Th>
+                                  <MantineTable.Th>Updated</MantineTable.Th>
                                   <MantineTable.Th>Attempted</MantineTable.Th>
                                   <MantineTable.Th>Skipped</MantineTable.Th>
                                   <MantineTable.Th>
@@ -1413,6 +1415,9 @@ export function BackupRestoreTab() {
                                       <MantineTable.Td>{table}</MantineTable.Td>
                                       <MantineTable.Td>
                                         {result.count}
+                                      </MantineTable.Td>
+                                      <MantineTable.Td>
+                                        {result.updated ?? '—'}
                                       </MantineTable.Td>
                                       <MantineTable.Td>
                                         {result.attempted ?? '—'}
