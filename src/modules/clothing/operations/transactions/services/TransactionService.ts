@@ -288,7 +288,10 @@ export class TransactionService {
   static calculateStatistics(
     filteredData: TransactionData[]
   ): TransactionStatistics {
-    const totalTransactions = filteredData.length;
+    // Only count rows with actual transaction data (has customer or product code)
+    const totalTransactions = filteredData.filter(
+      (t) => t.Customers || t['Product Code']
+    ).length;
 
     // Exclude cancelled orders from revenue
     const activeTransactions = filteredData.filter(
