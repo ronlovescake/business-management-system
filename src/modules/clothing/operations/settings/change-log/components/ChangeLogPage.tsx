@@ -1,10 +1,26 @@
 'use client';
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { Stack, Group, Text, Badge, Tooltip, Loader, Alert, Table, Accordion, Box, Divider, Paper } from '@mantine/core';
+import {
+  Stack,
+  Group,
+  Text,
+  Badge,
+  Tooltip,
+  Loader,
+  Alert,
+  Table,
+  Accordion,
+  Box,
+  Divider,
+  Paper,
+} from '@mantine/core';
 import { IconAlertCircle, IconChevronRight } from '@tabler/icons-react';
 import { StandardTableContainer } from '@/components/tables/StandardDataTable';
-import { useChangeLogQuery, type ChangeLogRecord } from '../hooks/useChangeLogQuery';
+import {
+  useChangeLogQuery,
+  type ChangeLogRecord,
+} from '../hooks/useChangeLogQuery';
 
 const ACTION_COLOR_MAP: Record<string, string> = {
   create: 'green',
@@ -538,9 +554,6 @@ export function ChangeLogPage({
                   control: {
                     padding: `${theme.spacing.sm} ${theme.spacing.lg}`,
                     backgroundColor: theme.white,
-                    '&[data-active]': {
-                      backgroundColor: theme.colors.gray[0],
-                    },
                   },
                   chevron: {
                     marginLeft: theme.spacing.md,
@@ -658,10 +671,11 @@ export function ChangeLogPage({
                                     string,
                                     unknown
                                   >;
-                                  const changedFields = getChangedTransactionFields(
-                                    newTx,
-                                    log.oldValue
-                                  );
+                                  const changedFields =
+                                    getChangedTransactionFields(
+                                      newTx,
+                                      log.oldValue
+                                    );
 
                                   const highlightCell = (
                                     field: TransactionFieldKey
@@ -705,43 +719,67 @@ export function ChangeLogPage({
                                           )}
                                         </Stack>
                                       </Table.Td>
-                                      <Table.Td style={highlightCell('orderDate')}>
+                                      <Table.Td
+                                        style={highlightCell('orderDate')}
+                                      >
                                         {formatCell(newTx.orderDate)}
                                       </Table.Td>
-                                      <Table.Td style={highlightCell('customers')}>
+                                      <Table.Td
+                                        style={highlightCell('customers')}
+                                      >
                                         {formatCell(newTx.customers)}
                                       </Table.Td>
-                                      <Table.Td style={highlightCell('productCode')}>
+                                      <Table.Td
+                                        style={highlightCell('productCode')}
+                                      >
                                         {formatCell(newTx.productCode)}
                                       </Table.Td>
-                                      <Table.Td style={highlightCell('quantity')}>
+                                      <Table.Td
+                                        style={highlightCell('quantity')}
+                                      >
                                         {formatCell(newTx.quantity)}
                                       </Table.Td>
-                                      <Table.Td style={highlightCell('unitPrice')}>
+                                      <Table.Td
+                                        style={highlightCell('unitPrice')}
+                                      >
                                         {formatCell(newTx.unitPrice)}
                                       </Table.Td>
-                                      <Table.Td style={highlightCell('discount')}>
+                                      <Table.Td
+                                        style={highlightCell('discount')}
+                                      >
                                         {formatCell(newTx.discount)}
                                       </Table.Td>
-                                      <Table.Td style={highlightCell('adjustment')}>
+                                      <Table.Td
+                                        style={highlightCell('adjustment')}
+                                      >
                                         {formatCell(newTx.adjustment)}
                                       </Table.Td>
-                                      <Table.Td style={highlightCell('lineTotal')}>
+                                      <Table.Td
+                                        style={highlightCell('lineTotal')}
+                                      >
                                         {formatCell(newTx.lineTotal)}
                                       </Table.Td>
-                                      <Table.Td style={highlightCell('orderStatus')}>
+                                      <Table.Td
+                                        style={highlightCell('orderStatus')}
+                                      >
                                         {formatCell(newTx.orderStatus)}
                                       </Table.Td>
                                       <Table.Td style={highlightCell('notes')}>
                                         {formatCell(newTx.notes)}
                                       </Table.Td>
-                                      <Table.Td style={highlightCell('invoiceDate')}>
+                                      <Table.Td
+                                        style={highlightCell('invoiceDate')}
+                                      >
                                         {formatCell(newTx.invoiceDate)}
                                       </Table.Td>
-                                      <Table.Td style={highlightCell('packedDate')}>
+                                      <Table.Td
+                                        style={highlightCell('packedDate')}
+                                      >
                                         {formatCell(newTx.packedDate)}
                                       </Table.Td>
-                                      <Table.Td style={highlightCell('shipmentCode')}>
+                                      <Table.Td
+                                        style={highlightCell('shipmentCode')}
+                                      >
                                         {formatCell(newTx.shipmentCode)}
                                       </Table.Td>
                                     </Table.Tr>

@@ -6,10 +6,22 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Stack, Select, ActionIcon } from '@mantine/core';
-import { IconCopy } from '@tabler/icons-react';
-import { Text, Paper } from '@mantine/core';
+import {
+  Stack,
+  Select,
+  ActionIcon,
+  Text,
+  Paper,
+  Modal,
+  Textarea,
+  Button,
+  Group,
+} from '@mantine/core';
+import { IconCopy, IconPencil } from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
+import Swal from 'sweetalert2';
+import { DEFAULT_POST_TEMPLATE_NOTICE } from '@/modules/clothing/operations/post-template/notice.data';
+import type { PostTemplateNotice } from '@/modules/clothing/operations/post-template/notice.types';
 
 interface Product {
   id: string;
@@ -43,6 +55,25 @@ export function PostTemplateComponent() {
   );
   const [products, setProducts] = useState<Product[]>([]);
   const [prices, setPrices] = useState<Price[]>([]);
+  const cloneNotice = (notice: PostTemplateNotice): PostTemplateNotice => ({
+    ...notice,
+    introParagraphs: [...notice.introParagraphs],
+    bulletPoints: [...notice.bulletPoints],
+  });
+  const [notice, setNotice] = useState<PostTemplateNotice>(() =>
+    cloneNotice(DEFAULT_POST_TEMPLATE_NOTICE)
+  );
+  const [loadingNotice, setLoadingNotice] = useState(true);
+  const [noticeModalOpen, setNoticeModalOpen] = useState(false);
+  const [noticeEditValues, setNoticeEditValues] = useState({
+    paragraphs: '',
+    bullets: '',
+  });
+  const [noticeSnapshot, setNoticeSnapshot] = useState({
+    paragraphs: '',
+    bullets: '',
+  });
+  const [savingNotice, setSavingNotice] = useState(false);
 
   const productOptions = useMemo(
     () =>
@@ -63,22 +94,35 @@ export function PostTemplateComponent() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const [productsRes, pricesRes] = await Promise.all([
+        const [productsRes, pricesRes, noticeRes] = await Promise.all([
           fetch('/api/products'),
           fetch('/api/prices'),
+          fetch('/api/post-template-notice'),
         ]);
-        const [productsData, pricesData] = await Promise.all([
+        const [productsData, pricesData, noticeData] = await Promise.all([
           productsRes.json(),
           pricesRes.json(),
+          noticeRes.json().catch(() => ({})),
         ]);
         const validProducts = Array.isArray(productsData) ? productsData : [];
         const validPrices = Array.isArray(pricesData) ? pricesData : [];
+        const fetchedNotice = noticeData?.data as
+          | PostTemplateNotice
+          | undefined;
 
         setProducts(validProducts);
         setPrices(validPrices);
+        if (fetchedNotice) {
+          setNotice(cloneNotice(fetchedNotice));
+        } else {
+          setNotice(cloneNotice(DEFAULT_POST_TEMPLATE_NOTICE));
+        }
       } catch {
         setProducts([]);
         setPrices([]);
+        setNotice(cloneNotice(DEFAULT_POST_TEMPLATE_NOTICE));
+      } finally {
+        setLoadingNotice(false);
       }
     }
     fetchData();
@@ -149,6 +193,11 @@ export function PostTemplateComponent() {
     const arrivesInText = getArrivesInText();
     const headerText = getHeaderText();
 
+    const introParagraphs = notice.introParagraphs.join('\n\n');
+    const bulletList = notice.bulletPoints
+      .map((item, index) => `${index + 1}. ${item}`)
+      .join('\n');
+
     const canvasText = `${headerText}
 
 ${selectedProduct['Product Code']}
@@ -159,15 +208,10 @@ ${priceLines}
 
 Arrives In: ${arrivesInText}
 
-"Please be aware that the specified 'age range', such as 0-24 months, may not include all subcategories (0-3, 3-6, 6-9, 9-12, 12-18, and 18-24 months). It's common for one or more of these specific size ranges to be missing from the assortment.
+  ${introParagraphs}
 
-Therefore, we refer to these as 'broken sizes.'
-
-First-time buyers must provide the following details:
-1. Shopee Delivery Name
-2. Contact Number
-3. Shipping Address
-4. Email Address`;
+  First-time buyers must provide the following details:
+  ${bulletList}`;
 
     try {
       await navigator.clipboard.writeText(canvasText);
@@ -182,6 +226,111 @@ First-time buyers must provide the following details:
         message: 'Failed to copy to clipboard',
         color: 'red',
       });
+    }
+  };
+
+  const parseParagraphs = (value: string) =>
+    value
+      .split(/\n{2,}/)
+      .map((paragraph) => paragraph.trim())
+      .filter(Boolean);
+
+  const parseBullets = (value: string) =>
+    value
+      .split(/\n+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+  const openNoticeEditor = async () => {
+    const confirmation = await Swal.fire({
+      title: 'Edit notice copy?',
+      text: 'Changes update the shared block on the Post Template canvas.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#2563eb',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Continue editing',
+      cancelButtonText: 'Cancel',
+      focusCancel: true,
+    });
+
+    if (!confirmation.isConfirmed) {
+      return;
+    }
+
+    setNoticeEditValues({
+      paragraphs: notice.introParagraphs.join('\n\n'),
+      bullets: notice.bulletPoints.join('\n'),
+    });
+    setNoticeSnapshot({
+      paragraphs: notice.introParagraphs.join('\n\n'),
+      bullets: notice.bulletPoints.join('\n'),
+    });
+    setNoticeModalOpen(true);
+  };
+
+  const closeNoticeEditor = () => {
+    setNoticeModalOpen(false);
+    setNoticeSnapshot({ paragraphs: '', bullets: '' });
+  };
+
+  const hasNoticeChanges =
+    noticeEditValues.paragraphs.trim() !== noticeSnapshot.paragraphs.trim() ||
+    noticeEditValues.bullets.trim() !== noticeSnapshot.bullets.trim();
+
+  const handleSaveNotice = async () => {
+    const introParagraphs = parseParagraphs(noticeEditValues.paragraphs);
+    const bulletPoints = parseBullets(noticeEditValues.bullets);
+
+    if (introParagraphs.length === 0) {
+      showNotification({
+        title: 'Validation error',
+        message: 'Add at least one intro paragraph.',
+        color: 'red',
+      });
+      return;
+    }
+
+    if (bulletPoints.length === 0) {
+      showNotification({
+        title: 'Validation error',
+        message: 'Add at least one bullet point.',
+        color: 'red',
+      });
+      return;
+    }
+
+    try {
+      setSavingNotice(true);
+      const response = await fetch('/api/post-template-notice', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ introParagraphs, bulletPoints }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'Failed to update notice');
+      }
+
+      const result = await response.json();
+      const updatedNotice = result.data as PostTemplateNotice;
+      setNotice(cloneNotice(updatedNotice));
+      showNotification({
+        title: 'Notice updated',
+        message: 'Post Template notice updated successfully.',
+        color: 'green',
+      });
+      closeNoticeEditor();
+    } catch (error) {
+      showNotification({
+        title: 'Save failed',
+        message:
+          error instanceof Error ? error.message : 'Failed to update notice',
+        color: 'red',
+      });
+    } finally {
+      setSavingNotice(false);
     }
   };
 
@@ -243,6 +392,20 @@ First-time buyers must provide the following details:
             >
               <IconCopy size={20} />
             </ActionIcon>
+            <ActionIcon
+              variant="subtle"
+              color="blue"
+              size="lg"
+              onClick={openNoticeEditor}
+              style={{
+                position: 'absolute',
+                top: '10px',
+                right: '50px',
+              }}
+              title="Edit notice copy"
+            >
+              <IconPencil size={20} />
+            </ActionIcon>
 
             <Stack gap="lg" align="center">
               <Text size="xl" fw={700} c="red" style={{ letterSpacing: '1px' }}>
@@ -279,35 +442,91 @@ First-time buyers must provide the following details:
                   <Text size="md" fw={600}>
                     Arrives In: {getArrivesInText()}
                   </Text>
+                  {loadingNotice ? (
+                    <Text size="sm" c="dimmed">
+                      Loading notice content...
+                    </Text>
+                  ) : (
+                    <>
+                      {notice.introParagraphs.map((paragraph, index) => (
+                        <Text
+                          key={`${paragraph}-${index}`}
+                          size="sm"
+                          style={{ lineHeight: 1.6 }}
+                        >
+                          {paragraph}
+                        </Text>
+                      ))}
 
-                  <Text size="sm" style={{ lineHeight: 1.6 }}>
-                    &ldquo;Please be aware that the specified &lsquo;age
-                    range&rsquo;, such as 0-24 months, may not include all
-                    subcategories (0-3, 3-6, 6-9, 9-12, 12-18, and 18-24
-                    months). It&rsquo;s common for one or more of these specific
-                    size ranges to be missing from the assortment.
-                  </Text>
+                      <Text size="md" fw={600} mt="md">
+                        First-time buyers must provide the following details:
+                      </Text>
 
-                  <Text size="sm" style={{ lineHeight: 1.6 }}>
-                    Therefore, we refer to these as &lsquo;broken sizes.&rsquo;
-                  </Text>
-
-                  <Text size="md" fw={600} mt="md">
-                    First-time buyers must provide the following details:
-                  </Text>
-
-                  <Stack gap="xs" style={{ paddingLeft: '20px' }}>
-                    <Text size="sm">1. Shopee Delivery Name</Text>
-                    <Text size="sm">2. Contact Number</Text>
-                    <Text size="sm">3. Shipping Address</Text>
-                    <Text size="sm">4. Email Address</Text>
-                  </Stack>
+                      <Stack gap="xs" style={{ paddingLeft: '20px' }}>
+                        {notice.bulletPoints.map((item, index) => (
+                          <Text key={`${item}-${index}`} size="sm">
+                            {index + 1}. {item}
+                          </Text>
+                        ))}
+                      </Stack>
+                    </>
+                  )}
                 </Stack>
               </Stack>
             </Stack>
           </Paper>
         </>
       )}
+
+      <Modal
+        opened={noticeModalOpen}
+        onClose={closeNoticeEditor}
+        title="Edit notice copy"
+        size="lg"
+        centered
+      >
+        <Stack gap="md">
+          <Textarea
+            label="Intro paragraphs"
+            description="Separate paragraphs with a blank line"
+            minRows={8}
+            autosize
+            value={noticeEditValues.paragraphs}
+            onChange={(event) =>
+              setNoticeEditValues((prev) => ({
+                ...prev,
+                paragraphs: event.currentTarget.value,
+              }))
+            }
+          />
+          <Textarea
+            label="Bullet points"
+            description="Enter one bullet per line"
+            minRows={6}
+            autosize
+            value={noticeEditValues.bullets}
+            onChange={(event) =>
+              setNoticeEditValues((prev) => ({
+                ...prev,
+                bullets: event.currentTarget.value,
+              }))
+            }
+          />
+
+          <Group justify="flex-end">
+            <Button variant="default" onClick={closeNoticeEditor}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveNotice}
+              disabled={!hasNoticeChanges || savingNotice}
+              loading={savingNotice}
+            >
+              Save Changes
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   );
 }

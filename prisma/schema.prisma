@@ -919,6 +919,17 @@ model MessageTemplate {
   @@map("message_templates")
 }
 
+model PostTemplateNotice {
+  id               String   @id @default(cuid())
+  slug             String   @unique @db.VarChar(100)
+  introParagraphs  Json
+  bulletPoints     Json
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("post_template_notice")
+}
+
 model TransactionsSettings {
   id                         String   @id @default(cuid())
   minSpareRows               Int      @default(50) // Number of empty rows to keep visible

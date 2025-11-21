@@ -30,6 +30,7 @@ import { logger } from '@/lib/logger';
 import { MessageTemplatesBoard } from '@/app/clothing/operations/message-templates/MessageTemplatesBoard';
 import { DEFAULT_MESSAGE_TEMPLATES } from '@/modules/clothing/operations/message-templates/templates.data';
 import type { MessageTemplate } from '@/modules/clothing/operations/message-templates/types';
+import { PostTemplatesTab } from './PostTemplatesTab';
 
 interface InvoiceSettings {
   id: string;
@@ -514,7 +515,9 @@ export default function InvoiceMessageTab() {
             )}
           </Stack>
         </Tabs.Panel>
-        <Tabs.Panel value="post-templates" pt="md" />
+        <Tabs.Panel value="post-templates" pt="md">
+          <PostTemplatesTab />
+        </Tabs.Panel>
       </Tabs>
     </Paper>
   );
