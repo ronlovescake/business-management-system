@@ -213,8 +213,8 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
           radius="sm"
           style={{
             backgroundColor: isGeneratingDistribution ? '#ef4444' : '#c8e6fd',
-            borderColor: isGeneratingDistribution ? '#ef4444' : '#c8e6fd',
-            borderWidth: '1px',
+            borderColor: isGeneratingDistribution ? '#dc2626' : '#7dd3fc',
+            borderWidth: '1.5px',
             color: isGeneratingDistribution ? '#ffffff' : '#374151',
             width: '175px',
           }}
@@ -233,8 +233,8 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
           radius="sm"
           style={{
             backgroundColor: isGeneratingInvoice ? '#ef4444' : '#c8e6fd',
-            borderColor: isGeneratingInvoice ? '#ef4444' : '#c8e6fd',
-            borderWidth: '1px',
+            borderColor: isGeneratingInvoice ? '#dc2626' : '#7dd3fc',
+            borderWidth: '1.5px',
             color: isGeneratingInvoice ? '#ffffff' : '#374151',
             width: '175px',
           }}
@@ -255,8 +255,8 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
           radius="sm"
           style={{
             backgroundColor: isGeneratingPackingList ? '#ef4444' : '#c8e6fd',
-            borderColor: isGeneratingPackingList ? '#ef4444' : '#c8e6fd',
-            borderWidth: '1px',
+            borderColor: isGeneratingPackingList ? '#dc2626' : '#7dd3fc',
+            borderWidth: '1.5px',
             color: isGeneratingPackingList ? '#ffffff' : '#374151',
             width: '175px',
           }}
@@ -271,8 +271,8 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
         radius="sm"
         style={{
           backgroundColor: '#10b981',
-          borderColor: '#10b981',
-          borderWidth: '1px',
+          borderColor: '#059669',
+          borderWidth: '1.5px',
           color: '#ffffff',
           width: '175px',
         }}

@@ -11,7 +11,6 @@ import {
 } from '@mantine/core';
 import {
   IconChevronDown,
-  IconBuilding,
   IconUsers,
   IconSettings,
   IconHome,
@@ -88,7 +87,6 @@ export function BreadcrumbNavigation() {
   const otherWorkspaces = workspaces.filter(
     (w) => w.value !== selectedWorkspace
   );
-  const CurrentWorkspaceIcon = currentWorkspace?.icon || IconSettings;
 
   const breadcrumbItems = [
     // Business Level
@@ -97,24 +95,6 @@ export function BreadcrumbNavigation() {
         <Button
           variant="light"
           rightSection={<IconChevronDown size={14} />}
-          leftSection={
-            currentBusiness ? (
-              <ThemeIcon
-                size="sm"
-                radius="sm"
-                variant="light"
-                color={currentBusiness.value === 'clothing' ? 'pink' : 'blue'}
-              >
-                {currentBusiness.value === 'clothing' ? (
-                  <IconShirt size={14} />
-                ) : (
-                  <IconTruck size={14} />
-                )}
-              </ThemeIcon>
-            ) : (
-              <IconBuilding size={16} />
-            )
-          }
           size="md"
           radius="md"
           fw={500}
@@ -183,18 +163,6 @@ export function BreadcrumbNavigation() {
           <Button
             variant="light"
             rightSection={<IconChevronDown size={14} />}
-            leftSection={
-              <ThemeIcon
-                size="sm"
-                radius="sm"
-                variant="light"
-                color={
-                  currentWorkspace?.value === 'operations' ? 'blue' : 'green'
-                }
-              >
-                <CurrentWorkspaceIcon size={14} />
-              </ThemeIcon>
-            }
             size="md"
             radius="md"
             fw={500}

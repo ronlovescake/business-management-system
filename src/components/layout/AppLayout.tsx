@@ -102,11 +102,9 @@ export function AppLayout({ children }: AppLayoutProps) {
               <AppShell.Header
                 style={{
                   border: 'none',
-                  backgroundColor: 'rgba(255, 255, 255, 0.7)',
-                  backdropFilter: 'blur(12px)',
-                  WebkitBackdropFilter: 'blur(12px)',
-                  borderBottom: '1px solid rgba(226, 232, 240, 0.6)',
-                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.03)',
+                  backgroundColor: '#ffffff',
+                  borderBottom: '1px solid #e2e8f0',
+                  boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.05)',
                 }}
               >
                 <div
@@ -127,12 +125,10 @@ export function AppLayout({ children }: AppLayoutProps) {
               <AppShell.Navbar
                 p="lg"
                 style={{
-                  backgroundColor: 'rgba(248, 250, 252, 0.9)',
-                  backdropFilter: 'blur(12px)',
-                  WebkitBackdropFilter: 'blur(12px)',
-                  border: '1px solid rgba(226, 232, 240, 0.6)',
-                  borderRight: 'none',
-                  boxShadow: '4px 0 24px rgba(0, 0, 0, 0.02)',
+                  backgroundColor: '#ffffff',
+                  border: 'none',
+                  borderRight: '1px solid #e2e8f0',
+                  boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
                 }}
               >
                 <Sidebar />
