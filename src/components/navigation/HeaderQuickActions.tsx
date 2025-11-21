@@ -734,13 +734,30 @@ export function HeaderQuickActions({
                     userInitials}
               </Avatar>
               {session?.user && (
-                <Stack gap={0} style={{ minWidth: 0 }}>
+                <Stack gap={4} style={{ minWidth: 0 }}>
                   <Text size="sm" fw={600} lineClamp={1}>
                     {session.user.name || 'User'}
                   </Text>
-                  <Text size="xs" c="dimmed" lineClamp={1}>
-                    {session.user.role.replace('_', ' ')}
-                  </Text>
+                  {session.user.role === 'SUPER_ADMIN' ? (
+                    <Badge
+                      variant="filled"
+                      color="red"
+                      size="sm"
+                      styles={{
+                        root: {
+                          textTransform: 'uppercase',
+                          fontWeight: 700,
+                          letterSpacing: '0.5px',
+                        },
+                      }}
+                    >
+                      SUPER ADMIN
+                    </Badge>
+                  ) : (
+                    <Text size="xs" c="dimmed" lineClamp={1}>
+                      {session.user.role.replace('_', ' ')}
+                    </Text>
+                  )}
                 </Stack>
               )}
             </Group>
