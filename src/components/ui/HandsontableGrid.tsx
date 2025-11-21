@@ -136,9 +136,7 @@ export function HandsontableGrid<T extends object>({
   const hotRef = useRef<HotTableClass | null>(null);
   const columnsRef = useRef(columns);
   const [currentGridHeight, setCurrentGridHeight] = useState<number>(600);
-  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isBatchModeRef = useRef(false);
-  const batchCountRef = useRef(0);
   const dropdownEditStateRef = useRef<{
     row: number;
     col: number;
@@ -1037,16 +1035,16 @@ export function HandsontableGrid<T extends object>({
               oldValue: unknown,
               newValue: unknown,
               isBatch: boolean
-            ): boolean => {
+            ): Promise<boolean> => {
               if (oldValue === newValue || typeof col !== 'number') {
-                return false;
+                return Promise.resolve(false);
               }
 
               const column = columns[col];
               const rowData = filteredData[row];
 
               if (!column || !rowData) {
-                return false;
+                return Promise.resolve(false);
               }
 
               const normalizedNewValue =
@@ -1059,19 +1057,40 @@ export function HandsontableGrid<T extends object>({
                   ? null
                   : String(oldValue);
 
-              onCellEdited({
-                column,
-                columnId: column.id,
-                columnIndex: col,
-                row,
-                rowData,
-                value: normalizedNewValue,
-                oldValue: normalizedOldValue,
-                isBatch,
-                source: changeSource,
-              });
+              try {
+                const result = onCellEdited({
+                  column,
+                  columnId: column.id,
+                  columnIndex: col,
+                  row,
+                  rowData,
+                  value: normalizedNewValue,
+                  oldValue: normalizedOldValue,
+                  isBatch,
+                  source: changeSource,
+                });
 
-              return true;
+                const maybePromise = result as Promise<unknown> | undefined;
+                if (maybePromise && typeof maybePromise.then === 'function') {
+                  return maybePromise
+                    .then(() => true)
+                    .catch((error) => {
+                      logger.error(
+                        'Cell edit failed during batch operation',
+                        error
+                      );
+                      return false;
+                    });
+                }
+
+                return Promise.resolve(true);
+              } catch (error) {
+                logger.error(
+                  'Cell edit threw synchronously during batch operation',
+                  error
+                );
+                return Promise.resolve(false);
+              }
             };
 
             logger.debug('🔍 Batch detection:', {
@@ -1085,40 +1104,42 @@ export function HandsontableGrid<T extends object>({
             if (isBatchOperation) {
               logger.debug('🚀 BATCH MODE: start');
               isBatchModeRef.current = true;
-              batchCountRef.current = 0;
               window.dispatchEvent(new CustomEvent('handsontable-batch-start'));
 
-              if (updateTimeoutRef.current) {
-                clearTimeout(updateTimeoutRef.current);
-              }
+              const changePromises = changes.map(
+                ([row, col, oldValue, newValue]) =>
+                  processChange(row, col as number, oldValue, newValue, true)
+              );
 
-              updateTimeoutRef.current = setTimeout(() => {
-                changes.forEach(([row, col, oldValue, newValue]) => {
-                  const processed = processChange(
-                    row,
-                    col as number,
-                    oldValue,
-                    newValue,
-                    true
-                  );
-                  if (processed) {
-                    batchCountRef.current++;
-                  }
-                });
-
-                setTimeout(() => {
-                  isBatchModeRef.current = false;
+              Promise.all(changePromises)
+                .then((results) => {
+                  const processedCells = results.filter(Boolean).length;
                   window.dispatchEvent(
                     new CustomEvent('handsontable-batch-complete', {
-                      detail: { count: batchCountRef.current },
+                      detail: { count: processedCells },
                     })
                   );
-                  batchCountRef.current = 0;
-                }, 100);
-              }, 100);
+                })
+                .catch((error) => {
+                  logger.error('Batch processing encountered an error', error);
+                  window.dispatchEvent(
+                    new CustomEvent('handsontable-batch-complete', {
+                      detail: { count: 0 },
+                    })
+                  );
+                })
+                .finally(() => {
+                  isBatchModeRef.current = false;
+                });
             } else {
               changes.forEach(([row, col, oldValue, newValue]) => {
-                processChange(row, col as number, oldValue, newValue, false);
+                void processChange(
+                  row,
+                  col as number,
+                  oldValue,
+                  newValue,
+                  false
+                );
               });
             }
 

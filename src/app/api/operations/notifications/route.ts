@@ -146,21 +146,19 @@ export async function POST(request: NextRequest) {
     const user = resolveUserName(body.user);
     const metadata = sanitizeMetadata(body.metadata);
 
-    const metadataJson = metadata ? JSON.stringify(metadata) : null;
-
     const id = randomUUID();
 
-    const [created] = await prisma.$queryRaw<OperationsNotificationRecord[]>(
-      Prisma.sql`
-        INSERT INTO "operations_notifications" (id, category, "user", changes, metadata)
-        VALUES (${id}, ${category}, ${user}, ${changes}, ${metadataJson})
-        RETURNING id, category, "user", changes, metadata, "createdAt"
-      `
-    );
-
-    if (!created) {
-      throw new Error('Failed to persist operations notification');
-    }
+    const created = await prisma.operationsNotification.create({
+      data: {
+        id,
+        category,
+        user,
+        changes,
+        ...(metadata
+          ? { metadata: metadata as Prisma.InputJsonValue }
+          : undefined),
+      },
+    });
 
     const createdAt = created.createdAt;
     const responsePayload = {

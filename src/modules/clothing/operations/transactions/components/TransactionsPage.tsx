@@ -536,7 +536,7 @@ export function TransactionsPage() {
         backgroundColor: '#fd7e14',
       },
       {
-        title: 'Shipped',
+        title: 'Adjustment',
         value: statistics.shippedOrders,
         icon: <IconTruck size={18} />,
         color: 'purple',

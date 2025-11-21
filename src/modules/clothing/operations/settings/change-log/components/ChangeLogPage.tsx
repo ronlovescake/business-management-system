@@ -14,6 +14,7 @@ import {
   Box,
   Divider,
   Paper,
+  Tabs,
 } from '@mantine/core';
 import { IconAlertCircle, IconChevronRight } from '@tabler/icons-react';
 import { StandardTableContainer } from '@/components/tables/StandardDataTable';
@@ -299,6 +300,7 @@ export function ChangeLogPage({
   externalSearch,
 }: ChangeLogPageProps) {
   const [limit, setLimit] = useState(DEFAULT_LIMIT.toString());
+  const [activeTab, setActiveTab] = useState<string | null>('transactions');
 
   const queryParams = useMemo(
     () => ({
@@ -473,6 +475,16 @@ export function ChangeLogPage({
     );
   }, [logs]);
 
+  const filteredGroupedLogs = useMemo(() => {
+    if (!activeTab) {
+      return groupedLogs;
+    }
+    return groupedLogs.filter((group) => {
+      const isTransaction = group.entityType.toLowerCase() === 'transaction';
+      return activeTab === 'transactions' ? isTransaction : !isTransaction;
+    });
+  }, [groupedLogs, activeTab]);
+
   return (
     <Stack gap="lg">
       {error && (
@@ -482,6 +494,13 @@ export function ChangeLogPage({
             : 'Unable to load change logs'}
         </Alert>
       )}
+
+      <Tabs value={activeTab} onChange={setActiveTab}>
+        <Tabs.List>
+          <Tabs.Tab value="transactions">TRANSACTIONS</Tabs.Tab>
+          <Tabs.Tab value="system">SYSTEM</Tabs.Tab>
+        </Tabs.List>
+      </Tabs>
 
       <StandardTableContainer>
         {isLoading ? (
@@ -564,7 +583,7 @@ export function ChangeLogPage({
                   },
                 })}
               >
-                {groupedLogs.map((group) => {
+                {filteredGroupedLogs.map((group) => {
                   // Sort NEWEST first (at top), OLDEST last (at bottom) - DESCENDING order
                   const sortedEntries = [...group.entries].sort(
                     (a, b) =>

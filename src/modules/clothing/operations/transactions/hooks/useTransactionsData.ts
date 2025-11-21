@@ -7,7 +7,7 @@
  * Handles data fetching, filtering, and statistics calculation.
  */
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { useTransactionData } from '@/hooks/useSheetData';
 import { useDataTable } from '@/components/ui';
@@ -21,6 +21,9 @@ import type {
   PriceTier,
   TransactionStatistics,
 } from '../types/transaction.types';
+
+const MIN_EMPTY_TRANSACTION_ROWS = 120;
+const MAX_ROWS_PER_ALLOCATION = 25;
 
 /**
  * Hook return type
@@ -99,7 +102,79 @@ export function useTransactionsData(): UseTransactionsDataReturn {
     isLoading: transactionsLoading,
     bulkUpdate: bulkUpdateTransactions,
     update: updateTransaction,
+    refetch: refetchTransactions,
   } = useTransactionData();
+
+  const ensuringEmptyRowsRef = useRef(false);
+  const refetchTransactionsRef = useRef(refetchTransactions);
+
+  useEffect(() => {
+    refetchTransactionsRef.current = refetchTransactions;
+  }, [refetchTransactions]);
+
+  useEffect(() => {
+    if (!transactions || transactions.length === 0) {
+      return;
+    }
+
+    const emptyRowCount = transactions.filter((transaction) => {
+      const hasCustomer = Boolean(transaction.Customers?.trim());
+      const hasProduct = Boolean(transaction['Product Code']?.trim());
+      const hasOrderDate = Boolean(transaction['Order Date']?.trim());
+      const hasShipmentCode = Boolean(
+        transaction['Shipment Code'] &&
+          transaction['Shipment Code']?.trim() !== '' &&
+          transaction['Shipment Code'] !== '-'
+      );
+      const hasQuantity = Boolean(
+        transaction.Quantity && transaction.Quantity > 0
+      );
+      const hasNotes = Boolean(transaction.Notes?.trim());
+
+      return (
+        !hasCustomer &&
+        !hasProduct &&
+        !hasOrderDate &&
+        !hasShipmentCode &&
+        !hasQuantity &&
+        !hasNotes
+      );
+    }).length;
+
+    const missingRows = MIN_EMPTY_TRANSACTION_ROWS - emptyRowCount;
+
+    if (missingRows <= 0 || ensuringEmptyRowsRef.current) {
+      return;
+    }
+
+    ensuringEmptyRowsRef.current = true;
+
+    const allocateEmptyRows = async () => {
+      try {
+        let remaining = missingRows;
+        while (remaining > 0) {
+          const batchSize = Math.min(remaining, MAX_ROWS_PER_ALLOCATION);
+          const payload = TransactionService.generateEmptyRows(batchSize);
+          await api.post('/api/transactions', payload);
+          remaining -= batchSize;
+        }
+
+        const refresh = refetchTransactionsRef.current;
+        if (refresh) {
+          await refresh();
+        }
+        logger.info(
+          `Auto-provisioned ${missingRows} empty transaction rows to keep bulk paste capacity available.`
+        );
+      } catch (error) {
+        logger.error('Failed to auto-provision empty transaction rows:', error);
+      } finally {
+        ensuringEmptyRowsRef.current = false;
+      }
+    };
+
+    void allocateEmptyRows();
+  }, [transactions]);
 
   // logger.debug(`Loaded ${transactions.length} transactions from service layer`);
 
@@ -179,19 +254,27 @@ export function useTransactionsData(): UseTransactionsDataReturn {
   });
 
   // Destructure query results to avoid complex dependencies
-  const [
-    customersQuery,
-    pricesQuery,
-    productsQuery,
-    shipmentsQuery,
-  ] = lookupQueries;
+  const [customersQuery, pricesQuery, productsQuery, shipmentsQuery] =
+    lookupQueries;
 
   // Extract data with proper memoization
-  const customersQueryData = useMemo(() => customersQuery.data || [], [customersQuery.data]);
-  const pricesQueryData = useMemo(() => pricesQuery.data || [], [pricesQuery.data]);
-  const productsQueryData = useMemo(() => productsQuery.data || [], [productsQuery.data]);
-  const shipmentsQueryData = useMemo(() => shipmentsQuery.data || [], [shipmentsQuery.data]);
-  
+  const customersQueryData = useMemo(
+    () => customersQuery.data || [],
+    [customersQuery.data]
+  );
+  const pricesQueryData = useMemo(
+    () => pricesQuery.data || [],
+    [pricesQuery.data]
+  );
+  const productsQueryData = useMemo(
+    () => productsQuery.data || [],
+    [productsQuery.data]
+  );
+  const shipmentsQueryData = useMemo(
+    () => shipmentsQuery.data || [],
+    [shipmentsQuery.data]
+  );
+
   // Compute customer names from API + transactions
   const customerNames = useMemo(() => {
     // Extract unique customer names from imported transactions
