@@ -56,6 +56,12 @@ export async function middleware(req: NextRequest) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
 
   if (!token) {
+    if (pathname.startsWith('/api/')) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { 'content-type': 'application/json' } }
+      );
+    }
     return NextResponse.redirect(new URL('/login', req.url));
   }
 
@@ -66,6 +72,12 @@ export async function middleware(req: NextRequest) {
   for (const [route, allowedRoles] of Object.entries(routePermissions)) {
     if (pathname.startsWith(route) && !allowedRoles.includes('*')) {
       if (!allowedRoles.includes(userRole)) {
+        if (pathname.startsWith('/api/')) {
+          return new NextResponse(
+            JSON.stringify({ error: 'Insufficient permissions' }),
+            { status: 403, headers: { 'content-type': 'application/json' } }
+          );
+        }
         // Redirect to unauthorized page or home
         return NextResponse.redirect(new URL('/clothing/operations', req.url));
       }

@@ -6,6 +6,10 @@ import {
   upsertMessageTemplate,
 } from '@/modules/clothing/operations/message-templates/messageTemplates.service';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'default-no-store';
+
 export async function GET() {
   try {
     const templates = await getMessageTemplatesFromDb();
