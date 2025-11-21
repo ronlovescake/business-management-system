@@ -361,7 +361,7 @@ export function HandsontableGrid<T extends object>({
     }
 
     const updateGridHeight = () => {
-      const targetHeight = gridHeight || window.innerHeight * 0.84;
+      const targetHeight = gridHeight || window.innerHeight * 0.86;
       setCurrentGridHeight(targetHeight);
     };
 

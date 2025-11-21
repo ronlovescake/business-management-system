@@ -161,13 +161,6 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
     }
   }, [filteredData]);
 
-  // Footer with row count (no Add Rows button needed - using minSpareRows instead)
-  const footerLeft = (
-    <Text size="sm" c="dimmed">
-      {`Showing ${filteredData.length} of ${data.length} transactions`}
-    </Text>
-  );
-
   // Status filter pills
   const searchRightButtons =
     statusOptions.length > 0 && onStatusFilter ? (
@@ -302,9 +295,9 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
       csvFile={csvFile || null}
       onFileChange={onFileChange || (() => {})}
       onCSVImport={onCSVImport}
-      footerLeft={footerLeft}
       searchRightButtons={searchRightButtons}
       actionButtons={actionButtons}
+      showFooter={false}
       // scrollToLastNonEmptyRows removed
       stretchColumnId={stretchColumnId}
     />
