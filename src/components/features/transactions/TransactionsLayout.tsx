@@ -210,6 +210,7 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
           variant="outline"
           onClick={() => onGenerateDistribution(filteredData)}
           disabled={isGeneratingDistribution}
+          radius="sm"
           style={{
             backgroundColor: isGeneratingDistribution ? '#ef4444' : '#c8e6fd',
             borderColor: isGeneratingDistribution ? '#ef4444' : '#c8e6fd',
@@ -229,6 +230,7 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
           variant="outline"
           onClick={() => onGenerateInvoice(filteredData)}
           disabled={isGeneratingInvoice}
+          radius="sm"
           style={{
             backgroundColor: isGeneratingInvoice ? '#ef4444' : '#c8e6fd',
             borderColor: isGeneratingInvoice ? '#ef4444' : '#c8e6fd',
@@ -250,6 +252,7 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
           variant="outline"
           onClick={() => onGeneratePackingList(filteredData)}
           disabled={isGeneratingPackingList}
+          radius="sm"
           style={{
             backgroundColor: isGeneratingPackingList ? '#ef4444' : '#c8e6fd',
             borderColor: isGeneratingPackingList ? '#ef4444' : '#c8e6fd',
@@ -265,6 +268,7 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
         leftSection={<IconFileSpreadsheet size={16} />}
         variant="outline"
         onClick={handleExportToXLSX}
+        radius="sm"
         style={{
           backgroundColor: '#10b981',
           borderColor: '#10b981',

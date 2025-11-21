@@ -95,8 +95,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               padding="md"
               style={{
                 '--mantine-color-body': 'var(--background)',
-                background:
-                  'radial-gradient(circle at top left, #f0f4ff, #f8fafc, #ffffff)',
+                background: '#f1f5f9',
                 minHeight: '100vh',
               }}
             >
@@ -128,7 +127,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               <AppShell.Navbar
                 p="lg"
                 style={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                  backgroundColor: 'rgba(248, 250, 252, 0.9)',
                   backdropFilter: 'blur(12px)',
                   WebkitBackdropFilter: 'blur(12px)',
                   border: '1px solid rgba(226, 232, 240, 0.6)',
