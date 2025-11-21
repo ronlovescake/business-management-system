@@ -1291,17 +1291,6 @@ export function BackupRestoreTab() {
 
   return (
     <Stack gap="lg">
-      <Alert
-        icon={<IconAlertCircle size={16} />}
-        title="Data Protection"
-        color="blue"
-      >
-        <Text size="sm">
-          Regular backups protect your data. Backups include JSON, CSV, XLSX,
-          and SQL dump formats.
-        </Text>
-      </Alert>
-
       <Tabs
         value={pageTab}
         onChange={(value) =>

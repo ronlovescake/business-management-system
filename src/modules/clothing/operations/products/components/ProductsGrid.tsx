@@ -13,7 +13,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { Stack, Group, TextInput, Button, Card, Text } from '@mantine/core';
+import { Stack, Group, TextInput, Button, Text } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import {
   IconSearch,
@@ -134,7 +134,7 @@ export function ProductsGrid() {
   // Set grid height on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      setGridHeight(window.innerHeight * 0.83);
+      setGridHeight(window.innerHeight * 0.8);
     }
   }, []);
 
@@ -774,17 +774,12 @@ export function ProductsGrid() {
         />
 
         {/* Handsontable Grid */}
-        <Card
-          withBorder
-          shadow="sm"
-          radius="md"
-          padding={0}
+        <div
           style={{
             height: gridHeight,
             width: '100%',
             overflow: 'hidden',
             position: 'relative',
-            background: '#fff',
           }}
         >
           <HotTable
@@ -807,7 +802,7 @@ export function ProductsGrid() {
             minSpareRows={50}
             className="ht-theme-horizon htCenter htMiddle"
           />
-        </Card>
+        </div>
 
         {/* Footer info */}
         <Group
