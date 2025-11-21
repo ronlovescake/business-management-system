@@ -779,62 +779,31 @@ export function HandsontableGrid<T extends object>({
             return (
               <Card
                 key={cardKey}
+                shadow="sm"
                 padding="md"
                 radius="md"
                 withBorder={false}
                 style={{
                   cursor: 'default',
                   background:
-                    stat.backgroundColor || 'rgba(255, 255, 255, 0.1)',
-                  backdropFilter: 'blur(20px)',
-                  WebkitBackdropFilter: 'blur(20px)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-                  transition: 'all 0.3s ease',
-                  borderRadius: '10px',
-                  '&:hover': {
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)',
-                  },
+                    stat.backgroundColor || 'var(--mantine-color-blue-6)',
+                  color: 'white',
                 }}
               >
-                <Group justify="space-between" wrap="nowrap">
+                <Group justify="space-between" align="flex-start" wrap="nowrap">
                   <div>
-                    <Text
-                      size="xs"
-                      c="dark"
-                      fw={600}
-                      tt="uppercase"
-                      style={{
-                        opacity: 0.8,
-                        textShadow: '0 1px 2px rgba(255, 255, 255, 0.3)',
-                      }}
-                    >
+                    <Text c="white" size="xs" style={{ opacity: 0.85 }}>
                       {stat.title}
                     </Text>
-                    <Title
-                      order={3}
-                      mt={4}
-                      c="dark"
-                      style={{
-                        textShadow: '0 1px 2px rgba(255, 255, 255, 0.3)',
-                        fontWeight: 700,
-                      }}
-                    >
+                    <Title order={3} c="white">
                       {stat.value}
                     </Title>
                   </div>
                   <ThemeIcon
-                    variant="filled"
-                    color="white"
+                    variant="white"
+                    color={stat.color}
                     size="lg"
-                    radius="sm"
-                    style={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                      color: 'white',
-                      backdropFilter: 'blur(10px)',
-                      border: '1px solid rgba(255, 255, 255, 0.3)',
-                    }}
+                    radius="md"
                   >
                     {stat.icon}
                   </ThemeIcon>
