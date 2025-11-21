@@ -11,50 +11,50 @@
 /* Modern Design System Variables */
 :root {
   /* Light theme colors */
-  --background: #fafbfc;
-  --foreground: #1a202c;
+  --background: #f8fafc;
+  --foreground: #1e293b;
   --card-background: #ffffff;
   --border-color: #e2e8f0;
   --shadow-light:
-    0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
   --shadow-medium:
-    0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
   --shadow-large:
-    0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
 
   /* Brand colors */
-  --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  --accent-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  --primary-gradient: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  --secondary-gradient: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+  --accent-gradient: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
 
   /* Surface colors */
   --surface-1: #ffffff;
-  --surface-2: #f7fafc;
-  --surface-3: #edf2f7;
+  --surface-2: #f1f5f9;
+  --surface-3: #e2e8f0;
 
   /* Text colors */
-  --text-primary: #2d3748;
-  --text-secondary: #4a5568;
-  --text-muted: #718096;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0f1419;
-    --foreground: #e2e8f0;
-    --card-background: #1a202c;
-    --border-color: #2d3748;
+    --background: #0f172a;
+    --foreground: #f1f5f9;
+    --card-background: #1e293b;
+    --border-color: #334155;
     --shadow-light: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
     --shadow-medium: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
     --shadow-large: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
 
-    --surface-1: #1a202c;
-    --surface-2: #2d3748;
-    --surface-3: #4a5568;
+    --surface-1: #1e293b;
+    --surface-2: #334155;
+    --surface-3: #475569;
 
-    --text-primary: #f7fafc;
-    --text-secondary: #e2e8f0;
-    --text-muted: #a0aec0;
+    --text-primary: #f8fafc;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
   }
 }
 
@@ -96,16 +96,20 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--surface-2);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
   background: var(--text-muted);
-  border-radius: 4px;
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 
 /* Modern link styles */
@@ -120,12 +124,12 @@ button,
 input,
 select,
 textarea {
-  transition: all 0.2s ease-in-out;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Modern focus styles */
 :focus-visible {
-  outline: 2px solid #667eea;
+  outline: 2px solid #6366f1;
   outline-offset: 2px;
 }
 
@@ -138,22 +142,24 @@ textarea {
 }
 
 .glass-effect {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
 }
 
 .modern-card {
   background: var(--card-background);
-  border-radius: 12px;
+  border-radius: 16px;
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-light);
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .modern-card:hover {
   box-shadow: var(--shadow-medium);
   transform: translateY(-2px);
+  border-color: #cbd5e1;
 }
 
 /* Animation keyframes */

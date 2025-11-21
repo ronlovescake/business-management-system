@@ -18,43 +18,44 @@ interface AppLayoutProps {
 }
 
 const primaryColor: MantineColorsTuple = [
-  '#eff6ff',
-  '#dbeafe',
-  '#bfdbfe',
-  '#93c5fd',
-  '#60a5fa',
-  '#3b82f6',
-  '#2563eb',
-  '#1d4ed8',
-  '#1e40af',
-  '#1e3a8a',
+  '#eef2ff',
+  '#e0e7ff',
+  '#c7d2fe',
+  '#a5b4fc',
+  '#818cf8',
+  '#6366f1',
+  '#4f46e5',
+  '#4338ca',
+  '#3730a3',
+  '#312e81',
 ];
 
 const theme = createTheme({
-  primaryColor: 'blue',
+  primaryColor: 'indigo',
   colors: {
-    blue: primaryColor,
+    indigo: primaryColor,
   },
-  fontFamily: 'Roboto, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
+  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
   headings: {
     fontFamily:
-      'Roboto, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
-    fontWeight: '600',
+      'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
+    fontWeight: '700',
   },
   radius: {
-    xs: '4px',
-    sm: '6px',
-    md: '8px',
-    lg: '12px',
-    xl: '16px',
+    xs: '6px',
+    sm: '8px',
+    md: '12px',
+    lg: '16px',
+    xl: '24px',
   },
   shadows: {
     xs: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-    sm: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
-    md: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-    lg: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-    xl: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+    sm: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)',
+    md: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1)',
+    lg: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)',
+    xl: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
   },
+  defaultRadius: 'md',
 });
 
 export function AppLayout({ children }: AppLayoutProps) {
@@ -94,22 +95,19 @@ export function AppLayout({ children }: AppLayoutProps) {
               padding="md"
               style={{
                 '--mantine-color-body': 'var(--background)',
-                background: 'url(/backgrounds/orange-waves.jpg)',
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat',
-                backgroundAttachment: 'fixed',
+                background:
+                  'radial-gradient(circle at top left, #f0f4ff, #f8fafc, #ffffff)',
                 minHeight: '100vh',
               }}
             >
               <AppShell.Header
                 style={{
                   border: 'none',
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                  backdropFilter: 'blur(20px)',
-                  WebkitBackdropFilter: 'blur(20px)',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
-                  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)',
+                  backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                  borderBottom: '1px solid rgba(226, 232, 240, 0.6)',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.03)',
                 }}
               >
                 <div
@@ -130,12 +128,12 @@ export function AppLayout({ children }: AppLayoutProps) {
               <AppShell.Navbar
                 p="lg"
                 style={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                  backdropFilter: 'blur(20px)',
-                  WebkitBackdropFilter: 'blur(20px)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(226, 232, 240, 0.6)',
                   borderRight: 'none',
-                  boxShadow: '4px 0 16px rgba(0, 0, 0, 0.1)',
+                  boxShadow: '4px 0 24px rgba(0, 0, 0, 0.02)',
                 }}
               >
                 <Sidebar />
