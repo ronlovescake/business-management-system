@@ -25,11 +25,12 @@ import {
   IconSearch,
   IconTable,
 } from '@tabler/icons-react';
+import { useSearchParams } from 'next/navigation';
 import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 import { ChangeLogPage } from '@/modules/clothing/operations/settings/change-log';
 import { BackupRestoreTab } from './BackupRestoreTab';
 import { InvoiceSettingsTab } from './InvoiceSettingsTab';
-import InvoiceMessageTab from './InvoiceMessageTab';
+import InvoiceMessageTab, { type TemplateSubTab } from './InvoiceMessageTab';
 import { TransactionsSettingsTab } from './TransactionsSettingsTab';
 import type { SettingsTab } from '../types';
 
@@ -46,10 +47,40 @@ const QUICK_ACTION_BUTTONS: Array<{
 ];
 
 export function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('change-log');
+  const searchParams = useSearchParams();
+  const getInitialTab = () => {
+    const param = searchParams.get('tab');
+    const validTabs: SettingsTab[] = [
+      'invoice',
+      'message',
+      'transactions',
+      'backup',
+      'change-log',
+    ];
+
+    return validTabs.includes(param as SettingsTab)
+      ? (param as SettingsTab)
+      : 'change-log';
+  };
+
+  const [activeTab, setActiveTab] = useState<SettingsTab>(() =>
+    getInitialTab()
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
+
+  const templateSubTabParam = searchParams.get('subTab');
+  const templateSubTabs: TemplateSubTab[] = [
+    'invoice',
+    'message-templates',
+    'post-templates',
+  ];
+  const initialTemplateSubTab = templateSubTabs.includes(
+    templateSubTabParam as TemplateSubTab
+  )
+    ? (templateSubTabParam as TemplateSubTab)
+    : 'invoice';
 
   const isDateRangeValid = !startDate || !endDate || endDate >= startDate;
 
@@ -153,7 +184,7 @@ export function SettingsPage() {
           </Tabs.Panel>
 
           <Tabs.Panel value="message" pt="md">
-            <InvoiceMessageTab />
+            <InvoiceMessageTab initialSubTab={initialTemplateSubTab} />
           </Tabs.Panel>
 
           <Tabs.Panel value="transactions" pt="md">

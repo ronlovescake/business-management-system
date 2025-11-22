@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActionIcon,
@@ -20,6 +21,7 @@ import {
   IconCopy,
   IconMessageDots,
   IconPencil,
+  IconPlus,
 } from '@tabler/icons-react';
 import { useClipboard } from '@mantine/hooks';
 import type { MessageTemplate } from '@/modules/clothing/operations/message-templates/types';
@@ -33,6 +35,11 @@ interface MessageTemplatesBoardProps {
   onTemplateSave?: (
     template: MessageTemplate
   ) => Promise<MessageTemplate | void>;
+  onTemplateCreate?: (
+    template: Omit<MessageTemplate, 'id'>
+  ) => Promise<MessageTemplate>;
+  addTemplateCtaHref?: string;
+  addTemplateCtaLabel?: string;
 }
 
 export function MessageTemplatesBoard({
@@ -41,6 +48,9 @@ export function MessageTemplatesBoard({
   onTemplatesChange,
   showCopy = true,
   onTemplateSave,
+  onTemplateCreate,
+  addTemplateCtaHref,
+  addTemplateCtaLabel = 'Add New Template',
 }: MessageTemplatesBoardProps) {
   const clipboard = useClipboard({ timeout: 2000 });
   const [copiedTemplateId, setCopiedTemplateId] = useState<string | null>(null);
@@ -72,6 +82,13 @@ export function MessageTemplatesBoard({
     body: '',
   });
   const [savingTemplate, setSavingTemplate] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createValues, setCreateValues] = useState({
+    title: '',
+    badge: '',
+    body: '',
+  });
+  const [creatingTemplate, setCreatingTemplate] = useState(false);
   const editingEnabled = allowEditing;
 
   useEffect(() => {
@@ -138,6 +155,86 @@ export function MessageTemplatesBoard({
   const closeEditor = () => {
     setEditingTemplateId(null);
     setEditingSnapshot({ title: '', badge: '', body: '' });
+  };
+
+  const resetCreateForm = () => {
+    setCreateValues({ title: '', badge: '', body: '' });
+  };
+
+  const handleCreateTemplate = async () => {
+    if (!onTemplateCreate) {
+      return;
+    }
+
+    const title = createValues.title.trim();
+    const badge = createValues.badge.trim();
+    const paragraphs = parseBodyToParagraphs(createValues.body);
+
+    if (!title) {
+      await Swal.fire({
+        title: 'Title required',
+        text: 'Please provide a template title.',
+        icon: 'warning',
+        confirmButtonColor: '#2563eb',
+      });
+      return;
+    }
+
+    if (!badge) {
+      await Swal.fire({
+        title: 'Badge required',
+        text: 'Please provide a badge label.',
+        icon: 'warning',
+        confirmButtonColor: '#2563eb',
+      });
+      return;
+    }
+
+    if (paragraphs.length === 0) {
+      await Swal.fire({
+        title: 'Content required',
+        text: 'Add at least one paragraph to the template.',
+        icon: 'warning',
+        confirmButtonColor: '#2563eb',
+      });
+      return;
+    }
+
+    try {
+      setCreatingTemplate(true);
+      const persistedTemplate = await onTemplateCreate({
+        title,
+        badge,
+        paragraphs,
+      });
+
+      const normalizedTemplate: MessageTemplate = {
+        ...persistedTemplate,
+        paragraphs: [...persistedTemplate.paragraphs],
+      };
+
+      setTemplateList((prev) => {
+        const updated = [...prev, normalizedTemplate];
+        onTemplatesChange?.(updated);
+        return updated;
+      });
+
+      resetCreateForm();
+      setCreateModalOpen(false);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Failed to create template. Please try again.';
+      await Swal.fire({
+        title: 'Create failed',
+        text: message,
+        icon: 'error',
+        confirmButtonColor: '#ef4444',
+      });
+    } finally {
+      setCreatingTemplate(false);
+    }
   };
 
   const handleSave = async () => {
@@ -259,6 +356,29 @@ export function MessageTemplatesBoard({
         </Stack>
       </Paper>
 
+      {((editingEnabled && onTemplateCreate) || addTemplateCtaHref) && (
+        <Group justify="flex-end">
+          {editingEnabled && onTemplateCreate ? (
+            <Button
+              leftSection={<IconPlus size={16} />}
+              onClick={() => setCreateModalOpen(true)}
+            >
+              Add New Template
+            </Button>
+          ) : (
+            addTemplateCtaHref && (
+              <Button
+                component={Link}
+                href={addTemplateCtaHref}
+                leftSection={<IconPlus size={16} />}
+              >
+                {addTemplateCtaLabel}
+              </Button>
+            )
+          )}
+        </Group>
+      )}
+
       <Stack gap="lg">
         {templateList.map((template) => (
           <Paper key={template.id} withBorder radius="lg" p="xl">
@@ -343,60 +463,125 @@ export function MessageTemplatesBoard({
       </Stack>
 
       {editingEnabled && (
-        <Modal
-          opened={editingTemplateId !== null}
-          onClose={closeEditor}
-          title="Edit Template"
-          size="lg"
-          radius="md"
-          centered
-        >
-          <Stack gap="md">
-            <TextInput
-              label="Template title"
-              value={editValues.title}
-              onChange={(event) => {
-                const { value } = event.currentTarget;
-                setEditValues((prev) => ({ ...prev, title: value }));
-              }}
-              withAsterisk
-            />
-            <TextInput
-              label="Badge label"
-              description={`Suggestions: ${badgeOptions.join(', ')}`}
-              value={editValues.badge}
-              onChange={(event) => {
-                const { value } = event.currentTarget;
-                setEditValues((prev) => ({ ...prev, badge: value }));
-              }}
-              withAsterisk
-            />
-            <Textarea
-              label="Message body"
-              description="Separate paragraphs with a blank line"
-              minRows={12}
-              autosize
-              value={editValues.body}
-              onChange={(event) => {
-                const { value } = event.currentTarget;
-                setEditValues((prev) => ({ ...prev, body: value }));
-              }}
-            />
+        <>
+          <Modal
+            opened={createModalOpen}
+            onClose={() => {
+              setCreateModalOpen(false);
+              resetCreateForm();
+            }}
+            title="Add New Template"
+            size="lg"
+            radius="md"
+            centered
+          >
+            <Stack gap="md">
+              <TextInput
+                label="Template title"
+                value={createValues.title}
+                onChange={(event) => {
+                  const { value } = event.currentTarget;
+                  setCreateValues((prev) => ({ ...prev, title: value }));
+                }}
+                withAsterisk
+              />
+              <TextInput
+                label="Badge label"
+                description={`Suggestions: ${badgeOptions.join(', ')}`}
+                value={createValues.badge}
+                onChange={(event) => {
+                  const { value } = event.currentTarget;
+                  setCreateValues((prev) => ({ ...prev, badge: value }));
+                }}
+                withAsterisk
+              />
+              <Textarea
+                label="Message body"
+                description="Separate paragraphs with a blank line"
+                minRows={12}
+                autosize
+                value={createValues.body}
+                onChange={(event) => {
+                  const { value } = event.currentTarget;
+                  setCreateValues((prev) => ({ ...prev, body: value }));
+                }}
+              />
 
-            <Group justify="flex-end" gap="sm">
-              <Button variant="default" onClick={closeEditor}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSave}
-                disabled={!hasTemplateChanges || savingTemplate}
-                loading={savingTemplate}
-              >
-                Save Changes
-              </Button>
-            </Group>
-          </Stack>
-        </Modal>
+              <Group justify="flex-end" gap="sm">
+                <Button
+                  variant="default"
+                  onClick={() => {
+                    setCreateModalOpen(false);
+                    resetCreateForm();
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCreateTemplate}
+                  loading={creatingTemplate}
+                >
+                  Create Template
+                </Button>
+              </Group>
+            </Stack>
+          </Modal>
+
+          <Modal
+            opened={editingTemplateId !== null}
+            onClose={closeEditor}
+            title="Edit Template"
+            size="lg"
+            radius="md"
+            centered
+          >
+            <Stack gap="md">
+              <TextInput
+                label="Template title"
+                value={editValues.title}
+                onChange={(event) => {
+                  const { value } = event.currentTarget;
+                  setEditValues((prev) => ({ ...prev, title: value }));
+                }}
+                withAsterisk
+              />
+              <TextInput
+                label="Badge label"
+                description={`Suggestions: ${badgeOptions.join(', ')}`}
+                value={editValues.badge}
+                onChange={(event) => {
+                  const { value } = event.currentTarget;
+                  setEditValues((prev) => ({ ...prev, badge: value }));
+                }}
+                withAsterisk
+              />
+              <Textarea
+                label="Message body"
+                description="Separate paragraphs with a blank line"
+                minRows={12}
+                autosize
+                value={editValues.body}
+                onChange={(event) => {
+                  const { value } = event.currentTarget;
+                  setEditValues((prev) => ({ ...prev, body: value }));
+                }}
+              />
+
+              <Group justify="flex-end" gap="sm">
+                <Button variant="default" onClick={closeEditor}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSave}
+                  disabled={!hasTemplateChanges || savingTemplate}
+                  loading={savingTemplate}
+                >
+                  Save Changes
+                </Button>
+              </Group>
+            </Stack>
+          </Modal>
+        </>
       )}
     </Stack>
   );

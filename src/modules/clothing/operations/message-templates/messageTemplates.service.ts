@@ -60,3 +60,54 @@ export async function upsertMessageTemplate(payload: MessageTemplate) {
 
   return mapRecordToTemplate(record);
 }
+
+const FALLBACK_SLUG = 'message-template';
+
+function slugifyTitle(input: string): string {
+  const normalized = input
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+
+  return normalized.length > 0 ? normalized : FALLBACK_SLUG;
+}
+
+async function generateUniqueSlug(base: string): Promise<string> {
+  let attempt = 0;
+  let candidate = base;
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const existing = await prisma.messageTemplate.findUnique({
+      where: { slug: candidate },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return candidate;
+    }
+
+    attempt += 1;
+    candidate = `${base}-${attempt}`;
+  }
+}
+
+export async function createMessageTemplate(
+  payload: Omit<MessageTemplate, 'id'>
+): Promise<MessageTemplate> {
+  const baseSlug = slugifyTitle(payload.title);
+  const slug = await generateUniqueSlug(baseSlug);
+
+  const record = await prisma.messageTemplate.create({
+    data: {
+      slug,
+      title: payload.title,
+      badge: payload.badge,
+      paragraphs: payload.paragraphs,
+    },
+  });
+
+  return mapRecordToTemplate(record);
+}

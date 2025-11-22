@@ -40,16 +40,22 @@ interface InvoiceSettings {
   updatedAt: string;
 }
 
-type TemplateSubTab = 'invoice' | 'message-templates' | 'post-templates';
+export type TemplateSubTab = 'invoice' | 'message-templates' | 'post-templates';
 
-export default function InvoiceMessageTab() {
+interface InvoiceMessageTabProps {
+  initialSubTab?: TemplateSubTab;
+}
+
+export default function InvoiceMessageTab({
+  initialSubTab = 'invoice',
+}: InvoiceMessageTabProps) {
   const [loading, setLoading] = useState(false);
   const [fetchingSettings, setFetchingSettings] = useState(true);
   const [originalValues, setOriginalValues] = useState({
     messageTemplate: '',
     paymentChannelsUrl: '',
   });
-  const [templateTab, setTemplateTab] = useState<TemplateSubTab>('invoice');
+  const [templateTab, setTemplateTab] = useState<TemplateSubTab>(initialSubTab);
   const [editingEnabled, setEditingEnabled] = useState(false);
   const cloneTemplateList = (templates: MessageTemplate[]) =>
     templates.map((template) => ({
@@ -99,6 +105,12 @@ export default function InvoiceMessageTab() {
     fetchMessageTemplates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    setTemplateTab((previous) =>
+      previous === initialSubTab ? previous : initialSubTab
+    );
+  }, [initialSubTab]);
 
   const fetchMessageTemplates = async () => {
     try {
@@ -156,6 +168,35 @@ export default function InvoiceMessageTab() {
     });
 
     return savedTemplate;
+  };
+
+  const handleTemplateCreate = async (
+    template: Omit<MessageTemplate, 'id'>
+  ): Promise<MessageTemplate> => {
+    const response = await fetch('/api/message-templates', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(template),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.error || 'Failed to create template');
+    }
+
+    const result = await response.json();
+    const createdTemplate = result.data as MessageTemplate;
+
+    showNotification({
+      title: 'Template created',
+      message: `${createdTemplate.title} added successfully`,
+      color: 'green',
+      icon: <IconCheck size={16} />,
+    });
+
+    return createdTemplate;
   };
 
   const fetchSettings = async () => {
@@ -510,6 +551,7 @@ export default function InvoiceMessageTab() {
                 allowEditing
                 onTemplatesChange={setMessageTemplates}
                 onTemplateSave={handleTemplateSave}
+                onTemplateCreate={handleTemplateCreate}
                 showCopy={false}
               />
             )}
