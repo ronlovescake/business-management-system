@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActionIcon,
   Button,
@@ -25,6 +25,7 @@ import {
 } from '@tabler/icons-react';
 import { useClipboard } from '@mantine/hooks';
 import type { MessageTemplate } from '@/modules/clothing/operations/message-templates/types';
+import { MESSAGE_TEMPLATE_TITLE_ORDER } from '@/modules/clothing/operations/message-templates/templates.data';
 import Swal from 'sweetalert2';
 
 interface MessageTemplatesBoardProps {
@@ -65,8 +66,47 @@ export function MessageTemplatesBoard({
       .map((paragraph) => paragraph.trim())
       .filter(Boolean);
 
+  const templateOrderLookup = useMemo(
+    () =>
+      new Map<string, number>(
+        MESSAGE_TEMPLATE_TITLE_ORDER.map((title, index) => [
+          title.toLowerCase(),
+          index,
+        ])
+      ),
+    []
+  );
+
+  const sortTemplatesByOrder = useCallback(
+    (templatesToSort: MessageTemplate[]) => {
+      if (templateOrderLookup.size === 0) {
+        return [...templatesToSort];
+      }
+
+      return [...templatesToSort].sort((a, b) => {
+        const aOrder = templateOrderLookup.get(a.title.toLowerCase());
+        const bOrder = templateOrderLookup.get(b.title.toLowerCase());
+
+        if (aOrder !== undefined && bOrder !== undefined) {
+          return aOrder - bOrder;
+        }
+
+        if (aOrder !== undefined) {
+          return -1;
+        }
+
+        if (bOrder !== undefined) {
+          return 1;
+        }
+
+        return a.title.localeCompare(b.title);
+      });
+    },
+    [templateOrderLookup]
+  );
+
   const [templateList, setTemplateList] = useState<MessageTemplate[]>(() =>
-    cloneTemplates(templates)
+    sortTemplatesByOrder(cloneTemplates(templates))
   );
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(
     null
@@ -98,8 +138,8 @@ export function MessageTemplatesBoard({
   }, [clipboard.copied]);
 
   useEffect(() => {
-    setTemplateList(cloneTemplates(templates));
-  }, [templates]);
+    setTemplateList(sortTemplatesByOrder(cloneTemplates(templates)));
+  }, [templates, sortTemplatesByOrder]);
 
   const handleCopy = (template: MessageTemplate) => {
     clipboard.copy(template.paragraphs.join('\n\n'));
@@ -215,8 +255,9 @@ export function MessageTemplatesBoard({
 
       setTemplateList((prev) => {
         const updated = [...prev, normalizedTemplate];
-        onTemplatesChange?.(updated);
-        return updated;
+        const sorted = sortTemplatesByOrder(updated);
+        onTemplatesChange?.(sorted);
+        return sorted;
       });
 
       resetCreateForm();
@@ -300,9 +341,10 @@ export function MessageTemplatesBoard({
         const updatedList = prev.map((template) =>
           template.id === editingTemplateId ? normalizedTemplate : template
         );
+        const sortedList = sortTemplatesByOrder(updatedList);
 
-        onTemplatesChange?.(updatedList);
-        return updatedList;
+        onTemplatesChange?.(sortedList);
+        return sortedList;
       });
 
       closeEditor();

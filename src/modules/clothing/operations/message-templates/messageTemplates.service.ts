@@ -1,6 +1,43 @@
 import { prisma } from '@/lib/db';
-import { DEFAULT_MESSAGE_TEMPLATES } from './templates.data';
+import {
+  DEFAULT_MESSAGE_TEMPLATES,
+  MESSAGE_TEMPLATE_TITLE_ORDER,
+} from './templates.data';
 import type { MessageTemplate } from './types';
+
+const TEMPLATE_TITLE_ORDER_LOOKUP = new Map<string, number>(
+  MESSAGE_TEMPLATE_TITLE_ORDER.map((title, index) => [
+    title.toLowerCase(),
+    index,
+  ])
+);
+
+function sortTemplatesByPreferredOrder(
+  templates: MessageTemplate[]
+): MessageTemplate[] {
+  if (TEMPLATE_TITLE_ORDER_LOOKUP.size === 0) {
+    return templates;
+  }
+
+  return [...templates].sort((a, b) => {
+    const aOrder = TEMPLATE_TITLE_ORDER_LOOKUP.get(a.title.toLowerCase());
+    const bOrder = TEMPLATE_TITLE_ORDER_LOOKUP.get(b.title.toLowerCase());
+
+    if (aOrder !== undefined && bOrder !== undefined) {
+      return aOrder - bOrder;
+    }
+
+    if (aOrder !== undefined) {
+      return -1;
+    }
+
+    if (bOrder !== undefined) {
+      return 1;
+    }
+
+    return a.title.localeCompare(b.title);
+  });
+}
 
 function mapRecordToTemplate(record: {
   slug: string;
@@ -26,7 +63,7 @@ export async function getMessageTemplatesFromDb(): Promise<MessageTemplate[]> {
   });
 
   if (records.length > 0) {
-    return records.map(mapRecordToTemplate);
+    return sortTemplatesByPreferredOrder(records.map(mapRecordToTemplate));
   }
 
   // Seed defaults when table is empty
@@ -39,7 +76,7 @@ export async function getMessageTemplatesFromDb(): Promise<MessageTemplate[]> {
     })),
   });
 
-  return DEFAULT_MESSAGE_TEMPLATES;
+  return sortTemplatesByPreferredOrder(DEFAULT_MESSAGE_TEMPLATES);
 }
 
 export async function upsertMessageTemplate(payload: MessageTemplate) {

@@ -1,5 +1,13 @@
 import type { MessageTemplate } from './types';
 
+export const MESSAGE_TEMPLATE_TITLE_ORDER: string[] = [
+  '10% Reservation Fee',
+  'Reservation Fee - PAID',
+  'Payment Reminders',
+  'Cancellation: Without Reservation Fee',
+  'Cancellation: With Reservation Fee',
+];
+
 export const DEFAULT_MESSAGE_TEMPLATES: MessageTemplate[] = [
   {
     id: 'payment-reminders',
