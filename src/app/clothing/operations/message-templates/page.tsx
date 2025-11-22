@@ -25,9 +25,10 @@ export default async function MessageTemplatesPage() {
 
   return (
     <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
-      <PageLayout title="Message Templates" size="xl">
+      <PageLayout size="xl">
         <MessageTemplatesBoard
           templates={templates}
+          showHeader={false}
           addTemplateCtaHref="/clothing/operations/settings?tab=message&subTab=message-templates"
         />
       </PageLayout>

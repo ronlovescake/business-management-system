@@ -33,6 +33,7 @@ interface MessageTemplatesBoardProps {
   allowEditing?: boolean;
   onTemplatesChange?: (templates: MessageTemplate[]) => void;
   showCopy?: boolean;
+  showHeader?: boolean;
   onTemplateSave?: (
     template: MessageTemplate
   ) => Promise<MessageTemplate | void>;
@@ -48,6 +49,7 @@ export function MessageTemplatesBoard({
   allowEditing = false,
   onTemplatesChange,
   showCopy = true,
+  showHeader = true,
   onTemplateSave,
   onTemplateCreate,
   addTemplateCtaHref,
@@ -378,25 +380,27 @@ export function MessageTemplatesBoard({
 
   return (
     <Stack gap="xl">
-      <Paper
-        withBorder
-        radius="lg"
-        p="xl"
-        style={{
-          background:
-            'linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,249,250,0.8))',
-        }}
-      >
-        <Stack gap="sm" align="center">
-          <IconMessageDots size={42} stroke={1.2} color="#4dabf7" />
-          <Title order={3}>Ready-to-send templates</Title>
-          <Text size="sm" c="dimmed" ta="center" maw={520}>
-            Copy any message below and personalize it before sending. These
-            drafts keep tone and timing consistent for every customer
-            touchpoint.
-          </Text>
-        </Stack>
-      </Paper>
+      {showHeader && (
+        <Paper
+          withBorder
+          radius="lg"
+          p="xl"
+          style={{
+            background:
+              'linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,249,250,0.8))',
+          }}
+        >
+          <Stack gap="sm" align="center">
+            <IconMessageDots size={42} stroke={1.2} color="#4dabf7" />
+            <Title order={3}>Ready-to-send templates</Title>
+            <Text size="sm" c="dimmed" ta="center" maw={520}>
+              Copy any message below and personalize it before sending. These
+              drafts keep tone and timing consistent for every customer
+              touchpoint.
+            </Text>
+          </Stack>
+        </Paper>
+      )}
 
       {((editingEnabled && onTemplateCreate) || addTemplateCtaHref) && (
         <Group justify="flex-end">
