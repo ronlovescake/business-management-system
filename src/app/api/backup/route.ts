@@ -22,6 +22,14 @@ const execAsync = promisify(exec);
 export const dynamic = 'force-dynamic';
 
 const BACKUP_DIR = path.resolve(process.cwd(), 'backups');
+function writeWorkbookToFile(workbook: XLSX.WorkBook, filePath: string) {
+  const buffer = XLSX.write(workbook, {
+    bookType: 'xlsx',
+    type: 'buffer',
+    compression: true,
+  });
+  fs.writeFileSync(filePath, buffer);
+}
 
 // Tables to backup
 const TABLES = [
@@ -338,7 +346,7 @@ export async function POST(request: NextRequest) {
 
         if (sheetCount > 0) {
           const xlsxFile = path.join(backupDir, `backup-${timestamp}.xlsx`);
-          XLSX.writeFile(wb, xlsxFile);
+          writeWorkbookToFile(wb, xlsxFile);
           files.push(xlsxFile);
           backupFile = xlsxFile;
           logger.info(

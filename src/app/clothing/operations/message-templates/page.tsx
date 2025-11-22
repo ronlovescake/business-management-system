@@ -29,6 +29,7 @@ export default async function MessageTemplatesPage() {
         <MessageTemplatesBoard
           templates={templates}
           showHeader={false}
+          showUsageHint={false}
           addTemplateCtaHref="/clothing/operations/settings?tab=message&subTab=message-templates"
         />
       </PageLayout>

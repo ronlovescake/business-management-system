@@ -34,6 +34,7 @@ interface MessageTemplatesBoardProps {
   onTemplatesChange?: (templates: MessageTemplate[]) => void;
   showCopy?: boolean;
   showHeader?: boolean;
+  showUsageHint?: boolean;
   onTemplateSave?: (
     template: MessageTemplate
   ) => Promise<MessageTemplate | void>;
@@ -50,6 +51,7 @@ export function MessageTemplatesBoard({
   onTemplatesChange,
   showCopy = true,
   showHeader = true,
+  showUsageHint = true,
   onTemplateSave,
   onTemplateCreate,
   addTemplateCtaHref,
@@ -448,9 +450,11 @@ export function MessageTemplatesBoard({
                       {template.badge}
                     </Badge>
                   </Group>
-                  <Text size="sm" c="dimmed">
-                    Use as-is or tweak the wording to match your channel.
-                  </Text>
+                  {showUsageHint && (
+                    <Text size="sm" c="dimmed">
+                      Use as-is or tweak the wording to match your channel.
+                    </Text>
+                  )}
                 </Stack>
                 <Group gap="xs">
                   {editingEnabled && (
