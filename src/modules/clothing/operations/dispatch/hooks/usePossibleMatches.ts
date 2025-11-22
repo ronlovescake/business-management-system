@@ -8,14 +8,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
 import { logger } from '@/lib/logger';
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import {
   calculateAddressSimilarity,
   calculatePhoneSimilarity,
   calculateNameSimilarity,
 } from '@/lib/utils/fuzzyMatch';
 
-interface CustomerData {
+export interface DispatchCustomerWithAddresses {
   id: number;
   customerName: string;
   businessName: string;
@@ -25,7 +25,7 @@ interface CustomerData {
 }
 
 interface PossibleMatch {
-  customer: CustomerData;
+  customer: DispatchCustomerWithAddresses;
   similarityScore: number;
   matchedField: 'address' | 'phone' | 'name' | 'multiple';
   addressScore: number;
@@ -49,7 +49,9 @@ interface UnmatchedOrder {
  * Fetch all customers with ALL their addresses in a single optimized query
  * This prevents the N+1 query problem of fetching addresses individually
  */
-async function fetchCustomersWithAllAddresses(): Promise<CustomerData[]> {
+async function fetchCustomersWithAllAddresses(): Promise<
+  DispatchCustomerWithAddresses[]
+> {
   try {
     const response = await api.get<{
       success: boolean;
@@ -91,7 +93,7 @@ async function fetchCustomersWithAllAddresses(): Promise<CustomerData[]> {
  */
 async function findPossibleMatches(
   order: UnmatchedOrder,
-  customers: CustomerData[]
+  customers: DispatchCustomerWithAddresses[]
 ): Promise<PossibleMatch[]> {
   const matches: PossibleMatch[] = [];
 
@@ -182,23 +184,87 @@ async function findPossibleMatches(
  */
 export function usePossibleMatches(
   unmatchedOrders: UnmatchedOrder[],
-  enabled = false
+  enabled = false,
+  serverCustomersWithAddresses?: DispatchCustomerWithAddresses[]
 ) {
+  const shouldFetchCustomers = enabled && !serverCustomersWithAddresses;
+
   // Fetch all customers WITH all their addresses in ONE query (no N+1 problem!)
-  const { data: customers = [], isLoading: loadingCustomers } = useQuery({
+  const {
+    data: customers = [],
+    isLoading: loadingCustomers,
+    refetch: refetchCustomers,
+  } = useQuery({
     queryKey: ['possible-match-customers-with-addresses'],
     queryFn: fetchCustomersWithAllAddresses,
     staleTime: 30 * 1000, // 30 seconds - catch customer updates quickly
     refetchOnWindowFocus: true, // Refetch when user returns to tab
     refetchOnMount: true, // Refetch when component mounts
-    enabled, // Only fetch when enabled
+    enabled: shouldFetchCustomers, // Only fetch when enabled and no server data
   });
+
+  const combinedCustomers =
+    serverCustomersWithAddresses && serverCustomersWithAddresses.length > 0
+      ? serverCustomersWithAddresses
+      : customers;
+
+  const loadingCustomersState = serverCustomersWithAddresses
+    ? false
+    : loadingCustomers;
+
+  // Listen for customer updates from other pages via BroadcastChannel
+  useEffect(() => {
+    if (!shouldFetchCustomers) {
+      return undefined;
+    }
+
+    const channel = new BroadcastChannel('customer-updates');
+
+    channel.onmessage = (event) => {
+      if (event.data === 'customer-updated') {
+        logger.info(
+          '[usePossibleMatches] Customer update detected - refetching customers with addresses'
+        );
+        // eslint-disable-next-line no-console
+        console.log(
+          '🔴 [POSSIBLE MATCHES] Customer update broadcast received - refetching'
+        );
+        void refetchCustomers();
+      }
+    };
+
+    return () => {
+      channel.close();
+    };
+  }, [shouldFetchCustomers, refetchCustomers]);
+
+  const customersKey = useMemo(() => {
+    if (combinedCustomers.length === 0) {
+      return 'none';
+    }
+
+    return combinedCustomers
+      .map((customer) =>
+        [
+          customer.id,
+          customer.address,
+          customer.phoneNumber,
+          customer.customerName,
+          customer.businessName,
+          customer.additionalAddresses?.join('|') || 'no-additional',
+        ].join('::')
+      )
+      .join('||');
+  }, [combinedCustomers]);
+
+  const matchesEnabled =
+    enabled && unmatchedOrders.length > 0 && combinedCustomers.length > 0;
 
   // Find matches for all unmatched orders
   const { data: matchesData, isLoading: loadingMatches } = useQuery({
-    queryKey: ['possible-matches', unmatchedOrders.length, customers.length],
+    queryKey: ['possible-matches', unmatchedOrders.length, customersKey],
     queryFn: async () => {
-      if (unmatchedOrders.length === 0 || customers.length === 0) {
+      if (unmatchedOrders.length === 0 || combinedCustomers.length === 0) {
         return new Map<string, PossibleMatch[]>();
       }
 
@@ -207,7 +273,7 @@ export function usePossibleMatches(
       // Process all orders - now FAST because all addresses are pre-loaded!
       for (const order of unmatchedOrders) {
         try {
-          const matches = await findPossibleMatches(order, customers);
+          const matches = await findPossibleMatches(order, combinedCustomers);
           matchesMap.set(order.orderId, matches);
         } catch (error) {
           logger.error(
@@ -220,7 +286,7 @@ export function usePossibleMatches(
 
       return matchesMap;
     },
-    enabled: enabled && unmatchedOrders.length > 0 && customers.length > 0, // Only run when explicitly enabled
+    enabled: matchesEnabled, // Only run when explicitly enabled
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
@@ -266,6 +332,6 @@ export function usePossibleMatches(
     matches,
     getMatchesForOrder,
     stats,
-    isLoading: loadingCustomers || loadingMatches,
+    isLoading: loadingCustomersState || loadingMatches,
   };
 }

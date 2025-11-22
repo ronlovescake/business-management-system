@@ -46,6 +46,7 @@ import {
   StandardTableControls,
 } from '@/components/tables/StandardDataTable';
 import { useDispatchCustomerLookup, usePossibleMatches } from '../hooks';
+import type { DispatchCustomerWithAddresses } from '../hooks';
 import { apiClient } from '@/lib/api/client';
 import { logger } from '@/lib/logger';
 
@@ -68,16 +69,19 @@ interface RawOrderData {
   [key: string]: unknown; // Allow other fields
 }
 
-interface CustomerWithShopee {
+interface ServerCustomerData {
   id: number;
   customerName: string;
   businessName: string;
   facebook: string;
   shopeeUsernames: string[];
+  address: string;
+  phoneNumber: string;
+  additionalAddresses: string[];
 }
 
 interface DispatchComponentProps {
-  serverCustomersData?: CustomerWithShopee[]; // Optional now
+  serverCustomersData?: ServerCustomerData[]; // Optional now
 }
 
 export function DispatchComponent({
@@ -252,6 +256,23 @@ export function DispatchComponent({
       }));
   }, [effectiveRawData, lookupCustomerName]);
 
+  const possibleMatchesSource = useMemo<
+    DispatchCustomerWithAddresses[] | undefined
+  >(() => {
+    if (!serverCustomersData || serverCustomersData.length === 0) {
+      return undefined;
+    }
+
+    return serverCustomersData.map((customer) => ({
+      id: customer.id,
+      customerName: customer.customerName,
+      businessName: customer.businessName,
+      phoneNumber: customer.phoneNumber,
+      address: customer.address,
+      additionalAddresses: customer.additionalAddresses,
+    }));
+  }, [serverCustomersData]);
+
   // Possible matches hook - enabled when either Dashboard or Possible Match tab is active
   const {
     getMatchesForOrder,
@@ -259,7 +280,8 @@ export function DispatchComponent({
     isLoading: loadingMatches,
   } = usePossibleMatches(
     unmatchedOrders,
-    activeTab === 'possible-match' || activeTab === 'match'
+    activeTab === 'possible-match' || activeTab === 'match',
+    possibleMatchesSource
   );
 
   // Helper function to extract carrier name from shipping option
