@@ -542,8 +542,8 @@ export function TransactionsPage() {
         backgroundColor: '#9775fa',
       },
       {
-        title: 'Delivered',
-        value: statistics.deliveredOrders,
+        title: 'Line Total',
+        value: `₱${statistics.lineTotalExcludingCancelled.toLocaleString()}`,
         icon: <IconCheck size={18} />,
         color: 'blue',
         backgroundColor: 'var(--mantine-color-blue-6)',

@@ -137,7 +137,7 @@ export interface TransactionStatistics {
   uniqueCustomers: number;
   adjustmentTotal: number;
   shippedOrders: number;
-  deliveredOrders: number;
+  lineTotalExcludingCancelled: number;
 }
 
 // ============================================================================

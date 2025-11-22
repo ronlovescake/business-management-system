@@ -332,9 +332,9 @@ export class TransactionService {
       (t) => t['Order Status']?.toLowerCase() === 'shipped'
     ).length;
 
-    const deliveredOrders = filteredData.filter(
-      (t) => t['Order Status']?.toLowerCase() === 'delivered'
-    ).length;
+    const lineTotalExcludingCancelled = filteredData
+      .filter((t) => t['Order Status']?.toLowerCase() !== 'cancelled')
+      .reduce((sum, t) => sum + (t['Line Total'] || 0), 0);
 
     return {
       totalTransactions,
@@ -346,7 +346,7 @@ export class TransactionService {
       uniqueCustomers,
       adjustmentTotal,
       shippedOrders,
-      deliveredOrders,
+      lineTotalExcludingCancelled,
     };
   }
 
