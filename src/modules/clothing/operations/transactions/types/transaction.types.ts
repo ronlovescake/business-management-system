@@ -135,6 +135,7 @@ export interface TransactionStatistics {
   preparedTotal: number;
   pendingPaymentTotal: number;
   uniqueCustomers: number;
+  adjustmentTotal: number;
   shippedOrders: number;
   deliveredOrders: number;
 }

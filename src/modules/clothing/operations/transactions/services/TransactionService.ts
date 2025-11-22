@@ -323,6 +323,11 @@ export class TransactionService {
       filteredData.map((t) => t.Customers).filter(Boolean)
     ).size;
 
+    const adjustmentTotal = filteredData.reduce(
+      (sum, t) => sum + (t['Adjustment'] || 0),
+      0
+    );
+
     const shippedOrders = filteredData.filter(
       (t) => t['Order Status']?.toLowerCase() === 'shipped'
     ).length;
@@ -339,6 +344,7 @@ export class TransactionService {
       preparedTotal,
       pendingPaymentTotal,
       uniqueCustomers,
+      adjustmentTotal,
       shippedOrders,
       deliveredOrders,
     };

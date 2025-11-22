@@ -33,7 +33,6 @@ import {
   IconReceipt,
   IconCurrencyPeso,
   IconPackage,
-  IconTruck,
   IconShoppingCart,
   IconAdjustments,
   IconPercentage,
@@ -537,8 +536,8 @@ export function TransactionsPage() {
       },
       {
         title: 'Adjustment',
-        value: statistics.shippedOrders,
-        icon: <IconTruck size={18} />,
+        value: `₱${statistics.adjustmentTotal.toLocaleString()}`,
+        icon: <IconAdjustments size={18} />,
         color: 'purple',
         backgroundColor: '#9775fa',
       },
