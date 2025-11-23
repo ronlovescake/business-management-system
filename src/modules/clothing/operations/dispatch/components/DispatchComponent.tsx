@@ -22,6 +22,7 @@ import {
   Select,
   TextInput,
   FileButton,
+  Checkbox,
 } from '@mantine/core';
 import {
   IconMessageCircle,
@@ -95,6 +96,9 @@ export function DispatchComponent({
   const [isImportingRawData, setIsImportingRawData] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [dateRangeFilter, setDateRangeFilter] = useState<string | null>(null);
+  const [completedOrders, setCompletedOrders] = useState<
+    Record<string, boolean>
+  >({});
 
   const queryClient = useQueryClient();
 
@@ -921,6 +925,30 @@ export function DispatchComponent({
     }
   };
 
+  const handleCustomerNameClick = async (
+    item: DispatchItem,
+    facebookLink?: string
+  ) => {
+    const nameToCopy = item.customerNames || item.username;
+    await copyToClipboard(nameToCopy, 'Customer name');
+
+    if (!facebookLink) {
+      showNotification({
+        title: 'No Facebook Link',
+        message: 'No Facebook profile found for this customer yet.',
+        color: 'yellow',
+      });
+      return;
+    }
+
+    const normalizedLink = facebookLink.startsWith('http')
+      ? facebookLink
+      : `https://${facebookLink}`;
+
+    window.open(normalizedLink, '_blank', 'noopener,noreferrer');
+    updateOrderCompletion(item.id, true);
+  };
+
   const navigateToPossibleMatchTab = useCallback(() => {
     setActiveTab('possible-match');
     window.setTimeout(() => {
@@ -932,6 +960,21 @@ export function DispatchComponent({
     }, 0);
   }, [setActiveTab]);
 
+  const updateOrderCompletion = useCallback(
+    (orderId: string, checked: boolean) => {
+      setCompletedOrders((prev) => {
+        const next = { ...prev };
+        if (checked) {
+          next[orderId] = true;
+        } else {
+          delete next[orderId];
+        }
+        return next;
+      });
+    },
+    []
+  );
+
   const headers = [
     'ORDER STATUS',
     'SHIPPING OPTIONS',
@@ -939,6 +982,7 @@ export function DispatchComponent({
     'CUSTOMER NAMES',
     'CUSTOMER MESSAGE',
     'ACTION',
+    'DONE',
   ];
 
   return (
@@ -1014,8 +1058,9 @@ export function DispatchComponent({
                 colSpan={headers.length}
               >
                 {filteredData.map((item) => {
-                  // Check if shipping option is NOT "J&T" to apply red background
                   const isNotJT = item.shippingOptions !== 'J&T';
+                  const facebookLink = lookupFacebookLink(item.username);
+                  const isCompleted = !!completedOrders[item.id];
 
                   return (
                     <Table.Tr
@@ -1024,6 +1069,7 @@ export function DispatchComponent({
                         backgroundColor: isNotJT
                           ? 'rgba(255, 107, 107, 0.1)'
                           : undefined,
+                        opacity: isCompleted ? 0.5 : 1,
                       }}
                     >
                       <Table.Td style={{ textAlign: 'center' }}>
@@ -1050,13 +1096,25 @@ export function DispatchComponent({
                         {item.customerNames ? (
                           <Group gap="xs">
                             <Text
-                              onClick={() =>
-                                copyToClipboard(
-                                  item.customerNames,
-                                  'Customer name'
-                                )
-                              }
-                              style={{ cursor: 'pointer' }}
+                              onClick={() => {
+                                if (facebookLink) {
+                                  void handleCustomerNameClick(
+                                    item,
+                                    facebookLink
+                                  );
+                                } else {
+                                  void copyToClipboard(
+                                    item.customerNames,
+                                    'Customer name'
+                                  );
+                                }
+                              }}
+                              style={{
+                                cursor: facebookLink ? 'pointer' : 'copy',
+                                textDecoration: facebookLink
+                                  ? 'underline'
+                                  : 'none',
+                              }}
                             >
                               {item.customerNames}
                             </Text>
@@ -1095,7 +1153,7 @@ export function DispatchComponent({
                         <Group gap="xs" justify="center">
                           <Tooltip
                             label={
-                              lookupFacebookLink(item.username)
+                              facebookLink
                                 ? 'Message customer'
                                 : 'No Facebook link available'
                             }
@@ -1104,24 +1162,34 @@ export function DispatchComponent({
                               variant="light"
                               color="blue"
                               component="a"
-                              href={lookupFacebookLink(item.username) || '#'}
+                              href={facebookLink || '#'}
                               target="_blank"
                               rel="noopener noreferrer"
                               aria-label="Message customer"
-                              disabled={!lookupFacebookLink(item.username)}
+                              disabled={!facebookLink}
                               style={{
-                                cursor: lookupFacebookLink(item.username)
+                                cursor: facebookLink
                                   ? 'pointer'
                                   : 'not-allowed',
-                                opacity: lookupFacebookLink(item.username)
-                                  ? 1
-                                  : 0.5,
+                                opacity: facebookLink ? 1 : 0.5,
                               }}
                             >
                               <IconMessageCircle size={16} />
                             </ActionIcon>
                           </Tooltip>
                         </Group>
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'center' }}>
+                        <Checkbox
+                          checked={isCompleted}
+                          onChange={(event) =>
+                            updateOrderCompletion(
+                              item.id,
+                              event.currentTarget.checked
+                            )
+                          }
+                          aria-label="Mark order handled"
+                        />
                       </Table.Td>
                     </Table.Tr>
                   );
