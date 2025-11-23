@@ -23,6 +23,7 @@ import {
   TextInput,
   FileButton,
   Checkbox,
+  Radio,
 } from '@mantine/core';
 import {
   IconMessageCircle,
@@ -99,6 +100,7 @@ export function DispatchComponent({
   const [completedOrders, setCompletedOrders] = useState<
     Record<string, boolean>
   >({});
+  const [actionLinksEnabled, setActionLinksEnabled] = useState(true);
 
   const queryClient = useQueryClient();
 
@@ -927,7 +929,7 @@ export function DispatchComponent({
 
   const handleCustomerNameClick = async (
     item: DispatchItem,
-    facebookLink?: string
+    facebookLink: string | undefined
   ) => {
     const nameToCopy = item.customerNames || item.username;
     await copyToClipboard(nameToCopy, 'Customer name');
@@ -975,13 +977,44 @@ export function DispatchComponent({
     []
   );
 
+  const toggleActionLinks = useCallback(() => {
+    setActionLinksEnabled((prev) => !prev);
+  }, []);
+
   const headers = [
     'ORDER STATUS',
     'SHIPPING OPTIONS',
     'USERNAME (BUYER)',
     'CUSTOMER NAMES',
     'CUSTOMER MESSAGE',
-    'ACTION',
+    {
+      key: 'action-toggle',
+      content: (
+        <Tooltip
+          label={
+            actionLinksEnabled
+              ? 'Click to disable Facebook links'
+              : 'Click to enable Facebook links'
+          }
+        >
+          <Radio
+            checked={actionLinksEnabled}
+            onChange={() => {
+              /* Controlled via onClick */
+            }}
+            onClick={(event) => {
+              event.preventDefault();
+              toggleActionLinks();
+            }}
+            aria-label={
+              actionLinksEnabled
+                ? 'Disable Facebook links'
+                : 'Enable Facebook links'
+            }
+          />
+        </Tooltip>
+      ),
+    },
     'DONE',
   ];
 
@@ -1061,6 +1094,25 @@ export function DispatchComponent({
                   const isNotJT = item.shippingOptions !== 'J&T';
                   const facebookLink = lookupFacebookLink(item.username);
                   const isCompleted = !!completedOrders[item.id];
+                  const normalizedFacebookLink = facebookLink
+                    ? facebookLink.startsWith('http')
+                      ? facebookLink
+                      : `https://${facebookLink}`
+                    : undefined;
+                  const canOpenFacebook =
+                    !!facebookLink && actionLinksEnabled && !isCompleted;
+                  const nameCursor = facebookLink
+                    ? canOpenFacebook
+                      ? 'pointer'
+                      : 'default'
+                    : 'copy';
+                  const actionTooltipLabel = !actionLinksEnabled
+                    ? 'Facebook links disabled'
+                    : isCompleted
+                      ? 'Already contacted'
+                      : facebookLink
+                        ? 'Message customer'
+                        : 'No Facebook link available';
 
                   return (
                     <Table.Tr
@@ -1097,23 +1149,27 @@ export function DispatchComponent({
                           <Group gap="xs">
                             <Text
                               onClick={() => {
-                                if (facebookLink) {
-                                  void handleCustomerNameClick(
-                                    item,
-                                    facebookLink
-                                  );
-                                } else {
+                                if (!facebookLink) {
                                   void copyToClipboard(
                                     item.customerNames,
                                     'Customer name'
                                   );
+                                  return;
+                                }
+
+                                if (canOpenFacebook) {
+                                  void handleCustomerNameClick(
+                                    item,
+                                    facebookLink
+                                  );
                                 }
                               }}
                               style={{
-                                cursor: facebookLink ? 'pointer' : 'copy',
-                                textDecoration: facebookLink
-                                  ? 'underline'
-                                  : 'none',
+                                cursor: nameCursor,
+                                textDecoration:
+                                  facebookLink && canOpenFacebook
+                                    ? 'underline'
+                                    : 'none',
                               }}
                             >
                               {item.customerNames}
@@ -1151,27 +1207,32 @@ export function DispatchComponent({
                       </Table.Td>
                       <Table.Td style={{ textAlign: 'center' }}>
                         <Group gap="xs" justify="center">
-                          <Tooltip
-                            label={
-                              facebookLink
-                                ? 'Message customer'
-                                : 'No Facebook link available'
-                            }
-                          >
+                          <Tooltip label={actionTooltipLabel}>
                             <ActionIcon
                               variant="light"
                               color="blue"
-                              component="a"
-                              href={facebookLink || '#'}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                              component="button"
+                              type="button"
                               aria-label="Message customer"
-                              disabled={!facebookLink}
+                              disabled={!canOpenFacebook}
+                              onClick={() => {
+                                if (
+                                  !canOpenFacebook ||
+                                  !normalizedFacebookLink
+                                ) {
+                                  return;
+                                }
+                                window.open(
+                                  normalizedFacebookLink,
+                                  '_blank',
+                                  'noopener,noreferrer'
+                                );
+                              }}
                               style={{
-                                cursor: facebookLink
-                                  ? 'pointer'
-                                  : 'not-allowed',
-                                opacity: facebookLink ? 1 : 0.5,
+                                cursor: !canOpenFacebook
+                                  ? 'not-allowed'
+                                  : 'pointer',
+                                opacity: !canOpenFacebook ? 0.5 : 1,
                               }}
                             >
                               <IconMessageCircle size={16} />

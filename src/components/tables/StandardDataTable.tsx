@@ -42,11 +42,13 @@ export const STANDARD_TABLE_STYLES = {
   headerBackground: '#f1f3f5',
 } as const;
 
+type HeaderItem = string | { key: string; content: ReactNode };
+
 interface StandardDataTableProps {
   /**
    * Table headers - array of column names
    */
-  headers: string[];
+  headers: HeaderItem[];
 
   /**
    * Table body content - render prop for flexibility
@@ -142,21 +144,27 @@ export function StandardDataTable({
             }}
           >
             <Table.Tr style={{ backgroundColor: '#f1f3f5' }}>
-              {headers.map((header) => (
-                <Table.Th
-                  key={header}
-                  style={{
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'center',
-                    borderBottom: '2px solid #dee2e6',
-                    borderTop: '1px solid #f1f3f5',
-                  }}
-                >
-                  {header}
-                </Table.Th>
-              ))}
+              {headers.map((header, index) => {
+                const key = typeof header === 'string' ? header : header.key;
+                const content =
+                  typeof header === 'string' ? header : header.content;
+
+                return (
+                  <Table.Th
+                    key={key || `header-${index}`}
+                    style={{
+                      padding: '16px 12px',
+                      color: '#495057',
+                      backgroundColor: '#f1f3f5',
+                      textAlign: 'center',
+                      borderBottom: '2px solid #dee2e6',
+                      borderTop: '1px solid #f1f3f5',
+                    }}
+                  >
+                    {content}
+                  </Table.Th>
+                );
+              })}
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
