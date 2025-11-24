@@ -40,6 +40,7 @@ import {
   IconFileText,
   IconFileSpreadsheet,
   IconHistory,
+  IconTable,
 } from '@tabler/icons-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -223,7 +224,9 @@ export function BackupRestoreTab() {
   const [restorePreviewSelectedRow, setRestorePreviewSelectedRow] = useState<
     string | null
   >(null);
-  const [pageTab, setPageTab] = useState<'backup' | 'restore'>('backup');
+  const [pageTab, setPageTab] = useState<'backup' | 'restore' | 'tables'>(
+    'backup'
+  );
   const autoBackupIntervalRef = useRef<NodeJS.Timeout>();
 
   const fetchBackups = useCallback(async () => {
@@ -397,7 +400,8 @@ export function BackupRestoreTab() {
 
   const handlePreviewBackup = async (backup: Backup) => {
     setSelectedBackup(backup);
-    setPreviewModalOpen(true);
+    const shouldOpenModal = pageTab !== 'tables';
+    setPreviewModalOpen(shouldOpenModal);
     setPreviewLoading(true);
     setRestoreResults(null);
 
@@ -1289,18 +1293,168 @@ export function BackupRestoreTab() {
     </Card>
   );
 
+  const renderTablesBrowser = (height = 'calc(83vh - 220px)') => {
+    if (!previewData) {
+      return (
+        <Alert icon={<IconAlertCircle size={16} />} color="yellow">
+          Preview a backup to explore its tables.
+        </Alert>
+      );
+    }
+
+    const tableEntries = Object.entries(previewData.tables ?? {});
+    if (!tableEntries.length) {
+      return (
+        <Alert icon={<IconAlertCircle size={16} />} color="yellow">
+          This backup did not include table data.
+        </Alert>
+      );
+    }
+
+    return (
+      <Box
+        style={{
+          height,
+          display: 'flex',
+          gap: 'var(--mantine-spacing-md)',
+        }}
+      >
+        <Box style={{ width: 240, height: '100%' }}>
+          <ScrollArea
+            style={{ height: '100%' }}
+            offsetScrollbars
+            scrollbarSize={6}
+          >
+            <Stack gap="xs">
+              {tableEntries.map(([name, data]) => {
+                const isActive = name === selectedTableName;
+
+                return (
+                  <Card
+                    key={name}
+                    withBorder
+                    padding="sm"
+                    radius="sm"
+                    shadow={isActive ? 'sm' : 'xs'}
+                    onClick={() => setSelectedTableName(name)}
+                    style={{
+                      cursor: 'pointer',
+                      backgroundColor: isActive ? '#edf2ff' : undefined,
+                      borderColor: isActive ? '#4dabf7' : undefined,
+                    }}
+                  >
+                    <Group justify="space-between" align="center">
+                      <Text size="sm" fw={isActive ? 600 : 500} tt="capitalize">
+                        {name}
+                      </Text>
+                      <Badge color={isActive ? 'blue' : 'gray'}>
+                        {data.count} {data.count === 1 ? 'record' : 'records'}
+                      </Badge>
+                    </Group>
+                  </Card>
+                );
+              })}
+            </Stack>
+          </ScrollArea>
+        </Box>
+
+        <Stack gap="md" style={{ flex: 1, minWidth: 0, height: '100%' }}>
+          {selectedTableDetails ? (
+            <>
+              {selectedTableDetails.data.length ? (
+                <Box style={{ flex: 1, minHeight: 0 }}>
+                  <ScrollArea
+                    style={{ height: '100%' }}
+                    offsetScrollbars
+                    scrollbarSize={8}
+                  >
+                    <div
+                      style={{
+                        minWidth: Math.max(
+                          selectedTableDetails.columns.length * 160,
+                          400
+                        ),
+                      }}
+                    >
+                      <MantineTable striped highlightOnHover stickyHeader>
+                        <MantineTable.Thead>
+                          <MantineTable.Tr>
+                            {selectedTableDetails.columns.map((column) => (
+                              <MantineTable.Th
+                                key={`${selectedTableDetails.name}-${column}`}
+                                style={{
+                                  backgroundColor: 'var(--mantine-color-body)',
+                                  position: 'sticky',
+                                  top: 0,
+                                  zIndex: 1,
+                                }}
+                              >
+                                {column}
+                              </MantineTable.Th>
+                            ))}
+                          </MantineTable.Tr>
+                        </MantineTable.Thead>
+                        <MantineTable.Tbody>
+                          {selectedTableDetails.data.map((row) => {
+                            const rowKey = createRowKey(
+                              selectedTableDetails.name,
+                              row
+                            );
+
+                            return (
+                              <MantineTable.Tr key={rowKey}>
+                                {selectedTableDetails.columns.map((column) => (
+                                  <MantineTable.Td
+                                    key={createCellKey(rowKey, column)}
+                                  >
+                                    <Text size="sm">
+                                      {formatCellValue(row[column])}
+                                    </Text>
+                                  </MantineTable.Td>
+                                ))}
+                              </MantineTable.Tr>
+                            );
+                          })}
+                        </MantineTable.Tbody>
+                      </MantineTable>
+                    </div>
+                  </ScrollArea>
+                </Box>
+              ) : (
+                <Alert icon={<IconAlertCircle size={16} />} color="gray">
+                  <Text size="sm" c="dimmed">
+                    No data available for this table.
+                  </Text>
+                </Alert>
+              )}
+            </>
+          ) : (
+            <Alert icon={<IconAlertCircle size={16} />} color="blue">
+              <Text size="sm">
+                Select a table from the list to view its full backup.
+              </Text>
+            </Alert>
+          )}
+        </Stack>
+      </Box>
+    );
+  };
+
   return (
     <Stack gap="lg">
       <Tabs
         value={pageTab}
         onChange={(value) =>
-          setPageTab((value as 'backup' | 'restore') ?? 'backup')
+          setPageTab((value as 'backup' | 'restore' | 'tables') ?? 'backup')
         }
         radius="md"
       >
         <Tabs.List>
           <Tabs.Tab value="backup">Backup</Tabs.Tab>
           <Tabs.Tab value="restore">Restore</Tabs.Tab>
+          <Tabs.Tab value="tables" leftSection={<IconTable size={16} />}>
+            Tables
+          </Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="backup" pt="md">
@@ -1418,6 +1572,70 @@ export function BackupRestoreTab() {
             })}
           </Stack>
         </Tabs.Panel>
+
+        <Tabs.Panel value="tables" pt="md">
+          <Stack gap="lg">
+            <Card shadow="sm" padding="lg" radius="md" withBorder>
+              <Group justify="space-between" align="flex-start">
+                <div>
+                  <Title order={3}>Tables Explorer</Title>
+                  <Text size="sm" c="dimmed">
+                    {selectedBackup && previewData
+                      ? `Viewing ${formatDate(selectedBackup.timestamp)}`
+                      : 'Select a backup below and click Preview to load its tables.'}
+                  </Text>
+                </div>
+                <Badge color={previewData ? 'indigo' : 'gray'}>
+                  {previewData ? 'Preview loaded' : 'Waiting for preview'}
+                </Badge>
+              </Group>
+
+              <Group gap="sm" mt="md" wrap="wrap">
+                <Button
+                  leftSection={<IconFileTypeCsv size={16} />}
+                  variant="light"
+                  color="green"
+                  onClick={() => void handleDownloadAllCSV()}
+                  disabled={!previewData}
+                >
+                  Download all CSV
+                </Button>
+                <Button
+                  leftSection={<IconFileSpreadsheet size={16} />}
+                  variant="light"
+                  color="teal"
+                  onClick={() => void handleDownloadAllXLSX()}
+                  disabled={!previewData}
+                >
+                  Download all XLSX
+                </Button>
+                <Button
+                  leftSection={<IconEye size={16} />}
+                  variant="outline"
+                  onClick={() => previewData && setPreviewModalOpen(true)}
+                  disabled={!previewData}
+                >
+                  Open preview modal
+                </Button>
+              </Group>
+            </Card>
+
+            {previewLoading ? (
+              <Progress value={100} animated />
+            ) : previewData ? (
+              renderTablesBrowser('65vh')
+            ) : (
+              <Alert icon={<IconAlertCircle size={16} />} color="yellow">
+                Preview any backup from the list below to see its tables here.
+              </Alert>
+            )}
+
+            {renderBackupsCard({
+              title: `Available Backups (${backups.length})`,
+              subtitle: 'Use Preview to load tables into the explorer.',
+            })}
+          </Stack>
+        </Tabs.Panel>
       </Tabs>
 
       <Modal
@@ -1500,196 +1718,7 @@ export function BackupRestoreTab() {
             </Tabs.Panel>
 
             <Tabs.Panel value="tables" pt="md">
-              <Box
-                style={{
-                  height: 'calc(83vh - 220px)',
-                  display: 'flex',
-                  gap: 'var(--mantine-spacing-md)',
-                }}
-              >
-                <Box style={{ width: 240, height: '100%' }}>
-                  <ScrollArea
-                    style={{ height: '100%' }}
-                    offsetScrollbars
-                    scrollbarSize={6}
-                  >
-                    <Stack gap="xs">
-                      {Object.entries(previewData.tables).map(
-                        ([name, data]) => {
-                          const isActive = name === selectedTableName;
-
-                          return (
-                            <Card
-                              key={name}
-                              withBorder
-                              padding="sm"
-                              radius="sm"
-                              shadow={isActive ? 'sm' : 'xs'}
-                              onClick={() => setSelectedTableName(name)}
-                              style={{
-                                cursor: 'pointer',
-                                backgroundColor: isActive
-                                  ? '#edf2ff'
-                                  : undefined,
-                                borderColor: isActive ? '#4dabf7' : undefined,
-                              }}
-                            >
-                              <Group justify="space-between" align="center">
-                                <Text
-                                  size="sm"
-                                  fw={isActive ? 600 : 500}
-                                  tt="capitalize"
-                                >
-                                  {name}
-                                </Text>
-                                <Badge color={isActive ? 'blue' : 'gray'}>
-                                  {data.count}{' '}
-                                  {data.count === 1 ? 'record' : 'records'}
-                                </Badge>
-                              </Group>
-                            </Card>
-                          );
-                        }
-                      )}
-                    </Stack>
-                  </ScrollArea>
-                </Box>
-
-                <Stack
-                  gap="md"
-                  style={{ flex: 1, minWidth: 0, height: '100%' }}
-                >
-                  {selectedTableDetails ? (
-                    <>
-                      <Group justify="space-between" align="flex-start">
-                        <div>
-                          <Title order={4} tt="capitalize">
-                            {selectedTableDetails.name}
-                          </Title>
-                          <Text size="sm" c="dimmed">
-                            {selectedTableDetails.count}{' '}
-                            {selectedTableDetails.count === 1
-                              ? 'record'
-                              : 'records'}
-                          </Text>
-                        </div>
-                        <Group gap="xs">
-                          <Button
-                            size="sm"
-                            variant="light"
-                            color="green"
-                            leftSection={<IconFileTypeCsv size={14} />}
-                            onClick={() =>
-                              handleDownloadCSV(selectedTableDetails.name)
-                            }
-                          >
-                            CSV
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="light"
-                            color="teal"
-                            leftSection={<IconFileSpreadsheet size={14} />}
-                            onClick={() =>
-                              handleDownloadXLSX(selectedTableDetails.name)
-                            }
-                          >
-                            XLSX
-                          </Button>
-                        </Group>
-                      </Group>
-
-                      {selectedTableDetails.data.length ? (
-                        <Box style={{ flex: 1, minHeight: 0 }}>
-                          <ScrollArea
-                            style={{ height: '100%' }}
-                            offsetScrollbars
-                            scrollbarSize={8}
-                          >
-                            <div
-                              style={{
-                                minWidth: Math.max(
-                                  selectedTableDetails.columns.length * 160,
-                                  400
-                                ),
-                              }}
-                            >
-                              <MantineTable
-                                striped
-                                highlightOnHover
-                                stickyHeader
-                              >
-                                <MantineTable.Thead>
-                                  <MantineTable.Tr>
-                                    {selectedTableDetails.columns.map(
-                                      (column) => (
-                                        <MantineTable.Th
-                                          key={`${selectedTableDetails.name}-${column}`}
-                                          style={{
-                                            backgroundColor:
-                                              'var(--mantine-color-body)',
-                                            position: 'sticky',
-                                            top: 0,
-                                            zIndex: 1,
-                                          }}
-                                        >
-                                          {column}
-                                        </MantineTable.Th>
-                                      )
-                                    )}
-                                  </MantineTable.Tr>
-                                </MantineTable.Thead>
-                                <MantineTable.Tbody>
-                                  {selectedTableDetails.data.map((row) => {
-                                    const rowKey = createRowKey(
-                                      selectedTableDetails.name,
-                                      row
-                                    );
-
-                                    return (
-                                      <MantineTable.Tr key={rowKey}>
-                                        {selectedTableDetails.columns.map(
-                                          (column) => (
-                                            <MantineTable.Td
-                                              key={createCellKey(
-                                                rowKey,
-                                                column
-                                              )}
-                                            >
-                                              <Text size="sm">
-                                                {formatCellValue(row[column])}
-                                              </Text>
-                                            </MantineTable.Td>
-                                          )
-                                        )}
-                                      </MantineTable.Tr>
-                                    );
-                                  })}
-                                </MantineTable.Tbody>
-                              </MantineTable>
-                            </div>
-                          </ScrollArea>
-                        </Box>
-                      ) : (
-                        <Alert
-                          icon={<IconAlertCircle size={16} />}
-                          color="gray"
-                        >
-                          <Text size="sm" c="dimmed">
-                            No data available for this table.
-                          </Text>
-                        </Alert>
-                      )}
-                    </>
-                  ) : (
-                    <Alert icon={<IconAlertCircle size={16} />} color="blue">
-                      <Text size="sm">
-                        Select a table from the list to view its full backup.
-                      </Text>
-                    </Alert>
-                  )}
-                </Stack>
-              </Box>
+              {renderTablesBrowser()}
             </Tabs.Panel>
 
             <Tabs.Panel value="download" pt="md">
