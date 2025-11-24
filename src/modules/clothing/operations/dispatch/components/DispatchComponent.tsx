@@ -101,6 +101,9 @@ export function DispatchComponent({
     Record<string, boolean>
   >({});
   const [actionLinksEnabled, setActionLinksEnabled] = useState(true);
+  const [hoveredCustomerId, setHoveredCustomerId] = useState<string | null>(
+    null
+  );
 
   const queryClient = useQueryClient();
 
@@ -1106,6 +1109,7 @@ export function DispatchComponent({
                       ? 'pointer'
                       : 'default'
                     : 'copy';
+                  const isHovered = hoveredCustomerId === item.id;
                   const actionTooltipLabel = !actionLinksEnabled
                     ? 'Facebook links disabled'
                     : isCompleted
@@ -1147,33 +1151,59 @@ export function DispatchComponent({
                       <Table.Td style={{ textAlign: 'left' }}>
                         {item.customerNames ? (
                           <Group gap="xs">
-                            <Text
-                              onClick={() => {
-                                if (!facebookLink) {
-                                  void copyToClipboard(
+                            {facebookLink ? (
+                              <Tooltip
+                                label="Click to copy customer name and open Facebook Messenger"
+                                disabled={!canOpenFacebook}
+                              >
+                                <Text
+                                  onClick={() => {
+                                    if (!facebookLink) {
+                                      void copyToClipboard(
+                                        item.customerNames,
+                                        'Customer name'
+                                      );
+                                      return;
+                                    }
+
+                                    if (canOpenFacebook) {
+                                      void handleCustomerNameClick(
+                                        item,
+                                        facebookLink
+                                      );
+                                    }
+                                  }}
+                                  onMouseEnter={() =>
+                                    setHoveredCustomerId(item.id)
+                                  }
+                                  onMouseLeave={() =>
+                                    setHoveredCustomerId(null)
+                                  }
+                                  style={{
+                                    cursor: nameCursor,
+                                    textDecoration:
+                                      canOpenFacebook && isHovered
+                                        ? 'underline'
+                                        : 'none',
+                                    color: '#1c7ed6',
+                                  }}
+                                >
+                                  {item.customerNames}
+                                </Text>
+                              </Tooltip>
+                            ) : (
+                              <Text
+                                onClick={() =>
+                                  copyToClipboard(
                                     item.customerNames,
                                     'Customer name'
-                                  );
-                                  return;
+                                  )
                                 }
-
-                                if (canOpenFacebook) {
-                                  void handleCustomerNameClick(
-                                    item,
-                                    facebookLink
-                                  );
-                                }
-                              }}
-                              style={{
-                                cursor: nameCursor,
-                                textDecoration:
-                                  facebookLink && canOpenFacebook
-                                    ? 'underline'
-                                    : 'none',
-                              }}
-                            >
-                              {item.customerNames}
-                            </Text>
+                                style={{ cursor: 'copy' }}
+                              >
+                                {item.customerNames}
+                              </Text>
+                            )}
                             {lookupCustomerName(item.username) ? (
                               <Badge size="xs" color="green" variant="light">
                                 Matched

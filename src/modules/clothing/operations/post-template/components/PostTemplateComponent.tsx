@@ -278,6 +278,31 @@ Arrives In: ${arrivesInText}
     noticeEditValues.paragraphs.trim() !== noticeSnapshot.paragraphs.trim() ||
     noticeEditValues.bullets.trim() !== noticeSnapshot.bullets.trim();
 
+  const introParagraphEntries = useMemo(() => {
+    const occurrences = new Map<string, number>();
+    return notice.introParagraphs.map((paragraph) => {
+      const occurrenceIndex = occurrences.get(paragraph) ?? 0;
+      occurrences.set(paragraph, occurrenceIndex + 1);
+      return {
+        paragraph,
+        key: `${paragraph}-${occurrenceIndex}`,
+      };
+    });
+  }, [notice.introParagraphs]);
+
+  const bulletPointEntries = useMemo(() => {
+    const occurrences = new Map<string, number>();
+    return notice.bulletPoints.map((item, index) => {
+      const occurrenceIndex = occurrences.get(item) ?? 0;
+      occurrences.set(item, occurrenceIndex + 1);
+      return {
+        key: `${item}-${occurrenceIndex}`,
+        label: item,
+        order: index + 1,
+      };
+    });
+  }, [notice.bulletPoints]);
+
   const handleSaveNotice = async () => {
     const introParagraphs = parseParagraphs(noticeEditValues.paragraphs);
     const bulletPoints = parseBullets(noticeEditValues.bullets);
@@ -448,12 +473,8 @@ Arrives In: ${arrivesInText}
                     </Text>
                   ) : (
                     <>
-                      {notice.introParagraphs.map((paragraph, index) => (
-                        <Text
-                          key={`${paragraph}-${index}`}
-                          size="sm"
-                          style={{ lineHeight: 1.6 }}
-                        >
+                      {introParagraphEntries.map(({ paragraph, key }) => (
+                        <Text key={key} size="sm" style={{ lineHeight: 1.6 }}>
                           {paragraph}
                         </Text>
                       ))}
@@ -463,9 +484,9 @@ Arrives In: ${arrivesInText}
                       </Text>
 
                       <Stack gap="xs" style={{ paddingLeft: '20px' }}>
-                        {notice.bulletPoints.map((item, index) => (
-                          <Text key={`${item}-${index}`} size="sm">
-                            {index + 1}. {item}
+                        {bulletPointEntries.map(({ key, label, order }) => (
+                          <Text key={key} size="sm">
+                            {order}. {label}
                           </Text>
                         ))}
                       </Stack>

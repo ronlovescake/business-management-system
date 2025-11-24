@@ -70,9 +70,8 @@ export function escapeHtml(text: string): string {
   const map: Record<string, string> = {
     '<': '&lt;',
     '>': '&gt;',
-    '"': '&quot;',
   };
-  return text.replace(/[<>"]/g, (char) => map[char] || char);
+  return text.replace(/[<>]/g, (char) => map[char] || char);
 }
 
 /**

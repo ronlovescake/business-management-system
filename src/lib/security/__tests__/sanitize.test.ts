@@ -24,7 +24,7 @@ describe('Server-Side Sanitization Security Tests', () => {
         const result = sanitizers.name(xss);
         // HTML is escaped to prevent execution
         expect(result).toContain('&lt;');
-        expect(result).toContain('&quot;');
+        expect(result).toContain('"');
         expect(result).not.toContain('<div');
       });
 
