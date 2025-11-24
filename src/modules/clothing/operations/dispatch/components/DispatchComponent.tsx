@@ -1158,13 +1158,10 @@ export function DispatchComponent({
                               >
                                 <Text
                                   onClick={() => {
-                                    if (!facebookLink) {
-                                      void copyToClipboard(
-                                        item.customerNames,
-                                        'Customer name'
-                                      );
-                                      return;
-                                    }
+                                    void copyToClipboard(
+                                      item.customerNames,
+                                      'Customer name'
+                                    );
 
                                     if (canOpenFacebook) {
                                       void handleCustomerNameClick(
