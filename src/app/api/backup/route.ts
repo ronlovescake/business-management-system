@@ -22,6 +22,42 @@ const execAsync = promisify(exec);
 export const dynamic = 'force-dynamic';
 
 const BACKUP_DIR = path.resolve(process.cwd(), 'backups');
+const TIMESTAMP_FOLDER_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}$/;
+
+type BackupStrategy = 'full' | 'differential' | 'log';
+
+interface BackupManifestFile {
+  timestamp: string;
+  database: string;
+  format: string;
+  strategy?: BackupStrategy;
+  includeSoftDeleted?: boolean;
+  baseTimestamp?: string | null;
+  baseFolder?: string | null;
+  changeWindow?: {
+    since: string | null;
+    until: string;
+  } | null;
+  files: Array<{
+    name: string;
+    size: number;
+    path: string;
+  }>;
+  recordCounts?: Record<string, number>;
+  differentialFallbackTables?: string[];
+  logStats?: Record<string, number>;
+}
+
+interface BackupLookup {
+  folder: string;
+  manifest: BackupManifestFile;
+}
+
+const LOG_TABLES = [
+  { name: 'change_log', model: 'changeLog', dateField: 'createdAt' },
+  { name: 'audit_logs', model: 'auditLog', dateField: 'timestamp' },
+];
+
 function writeWorkbookToFile(workbook: XLSX.WorkBook, filePath: string) {
   const buffer = XLSX.write(workbook, {
     bookType: 'xlsx',
@@ -29,6 +65,69 @@ function writeWorkbookToFile(workbook: XLSX.WorkBook, filePath: string) {
     compression: true,
   });
   fs.writeFileSync(filePath, buffer);
+}
+
+function isValidStrategy(value: unknown): value is BackupStrategy {
+  return value === 'full' || value === 'differential' || value === 'log';
+}
+
+function sanitizeTimestamp(timestamp: string) {
+  if (TIMESTAMP_FOLDER_REGEX.test(timestamp)) {
+    return timestamp.replace(/T(\d{2})-(\d{2})-(\d{2})$/, 'T$1:$2:$3Z');
+  }
+  return timestamp;
+}
+
+function parseTimestampToDate(timestamp?: string | null) {
+  if (!timestamp) {
+    return null;
+  }
+  const normalized = sanitizeTimestamp(timestamp);
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function listBackupFoldersDescending() {
+  if (!fs.existsSync(BACKUP_DIR)) {
+    return [];
+  }
+
+  return fs
+    .readdirSync(BACKUP_DIR)
+    .filter((name) => {
+      const fullPath = path.join(BACKUP_DIR, name);
+      return fs.statSync(fullPath).isDirectory();
+    })
+    .sort()
+    .reverse();
+}
+
+function readManifest(folder: string): BackupManifestFile | null {
+  const manifestPath = path.join(BACKUP_DIR, folder, 'MANIFEST.json');
+  if (!fs.existsSync(manifestPath)) {
+    return null;
+  }
+  try {
+    return JSON.parse(
+      fs.readFileSync(manifestPath, 'utf8')
+    ) as BackupManifestFile;
+  } catch (error) {
+    logger.warn('Failed to parse manifest', { folder, error });
+    return null;
+  }
+}
+
+function findLatestBackupByStrategy(
+  strategy: BackupStrategy
+): BackupLookup | null {
+  const folders = listBackupFoldersDescending();
+  for (const folder of folders) {
+    const manifest = readManifest(folder);
+    if (manifest?.strategy === strategy) {
+      return { folder, manifest };
+    }
+  }
+  return null;
 }
 
 // Tables to backup
@@ -49,6 +148,38 @@ const TABLES = [
   { name: 'checkout_links', model: 'checkoutLink' },
   { name: 'item_weights', model: 'itemWeight' },
 ];
+
+function buildTableQueryOptions(
+  sampleRecord: Record<string, unknown> | null,
+  {
+    includeSoftDeleted,
+    strategy,
+    differentialSince,
+  }: {
+    includeSoftDeleted: boolean;
+    strategy: BackupStrategy;
+    differentialSince: Date | null;
+  }
+) {
+  const where: Record<string, unknown> = {};
+  const hasDeletedAt = !!(sampleRecord && 'deletedAt' in sampleRecord);
+  const hasUpdatedAt = !!(sampleRecord && 'updatedAt' in sampleRecord);
+  let differentialUnsupported = false;
+
+  if (hasDeletedAt && !includeSoftDeleted) {
+    where.deletedAt = null;
+  }
+
+  if (strategy === 'differential' && differentialSince) {
+    if (hasUpdatedAt) {
+      where.updatedAt = { gte: differentialSince };
+    } else {
+      differentialUnsupported = true;
+    }
+  }
+
+  return { where, hasDeletedAt, hasUpdatedAt, differentialUnsupported };
+}
 
 function parseDatabaseUrl() {
   const dbUrl = getDatabaseUrl();
@@ -117,8 +248,16 @@ async function createSqlDump(
 // POST - Create backup
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body = (await request.json()) as {
+      format?: string;
+      includeSoftDeleted?: boolean;
+      strategy?: BackupStrategy;
+    };
     const { format = 'all', includeSoftDeleted = false } = body;
+    let strategy: BackupStrategy = isValidStrategy(body.strategy)
+      ? body.strategy
+      : 'full';
+    const requestedFormat = strategy === 'log' ? 'json' : format;
 
     // Generate timestamp in Manila timezone (UTC+8)
     const now = new Date();
@@ -131,55 +270,153 @@ export async function POST(request: NextRequest) {
 
     let backupFile = '';
     const files: string[] = [];
+    const recordCounts: Record<string, number> = {};
+    const differentialFallbackTables: string[] = [];
 
-    // JSON Backup
-    if (format === 'json' || format === 'all') {
-      const backup: Record<string, unknown> = {
-        metadata: {
-          createdAt: manilaTime.toISOString(),
-          database: parseDatabaseUrl().database,
-          format: 'json',
-          version: '1.0',
-          includeSoftDeleted,
-        },
-        tables: {},
+    let baseReference: BackupLookup | null = null;
+    let changeWindowStart: Date | null = null;
+
+    if (strategy === 'differential') {
+      baseReference = findLatestBackupByStrategy('full');
+      if (!baseReference) {
+        logger.warn(
+          'Differential backup requested but no full backup exists. Falling back to full backup.'
+        );
+        strategy = 'full';
+      } else {
+        changeWindowStart = parseTimestampToDate(
+          baseReference.manifest.timestamp
+        );
+      }
+    } else if (strategy === 'log') {
+      baseReference = findLatestBackupByStrategy('log');
+      changeWindowStart = parseTimestampToDate(
+        baseReference?.manifest.changeWindow?.until ??
+          baseReference?.manifest.timestamp ??
+          null
+      );
+    }
+
+    const differentialSince =
+      strategy === 'differential' ? changeWindowStart : null;
+    const logSince = strategy === 'log' ? changeWindowStart : null;
+    const changeWindow =
+      strategy === 'full'
+        ? null
+        : {
+            since:
+              differentialSince?.toISOString() ??
+              logSince?.toISOString() ??
+              null,
+            until: manilaTime.toISOString(),
+          };
+
+    // JSON or Log Backup
+    if (requestedFormat === 'json' || requestedFormat === 'all') {
+      const metadata = {
+        createdAt: manilaTime.toISOString(),
+        database: parseDatabaseUrl().database,
+        format: 'json',
+        version: '1.1',
+        includeSoftDeleted,
+        strategy,
+        baseTimestamp: baseReference?.manifest.timestamp ?? null,
+        baseFolder: baseReference?.folder ?? null,
+        changeWindow,
       };
 
-      for (const { name, model } of TABLES) {
-        try {
-          // Dynamic model access requires 'any' type due to Prisma's runtime model resolution
-          // The model name is validated against TABLES array above
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const modelDelegate = prisma[model as keyof typeof prisma] as any;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const sampleRecord = await modelDelegate.findFirst();
-          const hasDeletedAt = sampleRecord && 'deletedAt' in sampleRecord;
+      const tables: Record<string, unknown> = {};
 
-          const where =
-            hasDeletedAt && !includeSoftDeleted ? { deletedAt: null } : {};
+      if (strategy === 'log') {
+        for (const logTable of LOG_TABLES) {
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const delegate = prisma[
+              logTable.model as keyof typeof prisma
+            ] as any;
+            const where: Record<string, unknown> = {};
+            if (logSince && logTable.dateField) {
+              where[logTable.dateField] = { gt: logSince };
+            }
 
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const data = await modelDelegate.findMany({ where });
+            const orderBy = logTable.dateField
+              ? { [logTable.dateField]: 'asc' }
+              : undefined;
 
-          (backup.tables as Record<string, unknown>)[name] = {
-            count: data.length,
-            data: data,
-          };
-        } catch (error) {
-          (backup.tables as Record<string, unknown>)[name] = {
-            count: 0,
-            error: error instanceof Error ? error.message : String(error),
-          };
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const data = await delegate.findMany({ where, orderBy });
+            tables[logTable.name] = {
+              count: data.length,
+              data,
+              since: logSince?.toISOString() ?? null,
+            };
+            recordCounts[logTable.name] = data.length;
+          } catch (error) {
+            tables[logTable.name] = {
+              count: 0,
+              error: error instanceof Error ? error.message : String(error),
+            };
+          }
+        }
+      } else {
+        for (const { name, model } of TABLES) {
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const modelDelegate = prisma[model as keyof typeof prisma] as any;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const sampleRecord = await modelDelegate.findFirst();
+            const { where, differentialUnsupported } = buildTableQueryOptions(
+              sampleRecord,
+              {
+                includeSoftDeleted,
+                strategy,
+                differentialSince,
+              }
+            );
+
+            if (differentialUnsupported) {
+              differentialFallbackTables.push(name);
+            }
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const data = await modelDelegate.findMany({ where });
+            tables[name] = {
+              count: data.length,
+              data,
+            };
+            recordCounts[name] = data.length;
+          } catch (error) {
+            tables[name] = {
+              count: 0,
+              error: error instanceof Error ? error.message : String(error),
+            };
+          }
         }
       }
 
-      backupFile = path.join(backupDir, `backup-${timestamp}.json`);
-      fs.writeFileSync(backupFile, JSON.stringify(backup, null, 2));
+      const jsonFileName =
+        strategy === 'log'
+          ? `log-backup-${timestamp}.json`
+          : `backup-${timestamp}.json`;
+      backupFile = path.join(backupDir, jsonFileName);
+      fs.writeFileSync(
+        backupFile,
+        JSON.stringify(
+          {
+            metadata,
+            tables,
+          },
+          null,
+          2
+        )
+      );
       files.push(backupFile);
     }
 
-    // CSV Backup - Generate individual CSV files for each table
-    if (format === 'csv' || format === 'all') {
+    if (
+      strategy !== 'log' &&
+      (requestedFormat === 'csv' || requestedFormat === 'all')
+    ) {
       logger.info('Starting CSV backup generation...');
       try {
         for (const { name, model } of TABLES) {
@@ -189,13 +426,15 @@ export async function POST(request: NextRequest) {
             const modelDelegate = prisma[model as keyof typeof prisma] as any;
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const sampleRecord = await modelDelegate.findFirst();
-            const hasDeletedAt = sampleRecord && 'deletedAt' in sampleRecord;
-
-            const where =
-              hasDeletedAt && !includeSoftDeleted ? { deletedAt: null } : {};
+            const { where } = buildTableQueryOptions(sampleRecord, {
+              includeSoftDeleted,
+              strategy,
+              differentialSince,
+            });
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const data = await modelDelegate.findMany({ where });
+            recordCounts[name] = recordCounts[name] ?? data.length;
 
             logger.info(`Table ${name} has ${data.length} records`);
 
@@ -210,16 +449,11 @@ export async function POST(request: NextRequest) {
                 const plain: Record<string, any> = {};
                 for (const key in record) {
                   const value = record[key];
-                  // Convert Date objects to ISO strings
                   if (value instanceof Date) {
                     plain[key] = value.toISOString();
-                  }
-                  // Convert BigInt to string
-                  else if (typeof value === 'bigint') {
+                  } else if (typeof value === 'bigint') {
                     plain[key] = value.toString();
-                  }
-                  // Keep null, undefined, and primitive types as is
-                  else if (
+                  } else if (
                     value === null ||
                     value === undefined ||
                     typeof value === 'string' ||
@@ -227,9 +461,7 @@ export async function POST(request: NextRequest) {
                     typeof value === 'boolean'
                   ) {
                     plain[key] = value;
-                  }
-                  // Convert objects to JSON string
-                  else {
+                  } else {
                     plain[key] = JSON.stringify(value);
                   }
                 }
@@ -247,18 +479,18 @@ export async function POST(request: NextRequest) {
             }
           } catch (error) {
             logger.error(`CSV backup failed for table ${name}:`, error);
-            // Continue with other tables if one fails
           }
         }
         logger.info(`CSV backup completed. Total files: ${files.length}`);
       } catch (error) {
         logger.error('CSV backup failed:', error);
-        // Continue even if CSV fails
       }
     }
 
-    // SQL Dump - Generate PostgreSQL dump file
-    if (format === 'sql' || format === 'all') {
+    if (
+      strategy !== 'log' &&
+      (requestedFormat === 'sql' || requestedFormat === 'all')
+    ) {
       logger.info('Starting SQL dump generation...');
       const sqlFile = await createSqlDump(timestamp, backupDir);
       if (sqlFile) {
@@ -270,8 +502,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // XLSX Backup - Generate Excel workbook with all tables
-    if (format === 'xlsx' || format === 'all') {
+    if (
+      strategy !== 'log' &&
+      (requestedFormat === 'xlsx' || requestedFormat === 'all')
+    ) {
       logger.info('Starting XLSX backup generation...');
       try {
         const wb = XLSX.utils.book_new();
@@ -284,34 +518,30 @@ export async function POST(request: NextRequest) {
             const modelDelegate = prisma[model as keyof typeof prisma] as any;
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const sampleRecord = await modelDelegate.findFirst();
-            const hasDeletedAt = sampleRecord && 'deletedAt' in sampleRecord;
-
-            const where =
-              hasDeletedAt && !includeSoftDeleted ? { deletedAt: null } : {};
+            const { where } = buildTableQueryOptions(sampleRecord, {
+              includeSoftDeleted,
+              strategy,
+              differentialSince,
+            });
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const data = await modelDelegate.findMany({ where });
+            recordCounts[name] = recordCounts[name] ?? data.length;
 
             logger.info(`Table ${name} has ${data.length} records for XLSX`);
 
             if (data.length > 0) {
-              // Convert Prisma objects to plain objects
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const plainData = data.map((record: any) => {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const plain: Record<string, any> = {};
                 for (const key in record) {
                   const value = record[key];
-                  // Convert Date objects to ISO strings
                   if (value instanceof Date) {
                     plain[key] = value.toISOString();
-                  }
-                  // Convert BigInt to string
-                  else if (typeof value === 'bigint') {
+                  } else if (typeof value === 'bigint') {
                     plain[key] = value.toString();
-                  }
-                  // Keep null, undefined, and primitive types as is
-                  else if (
+                  } else if (
                     value === null ||
                     value === undefined ||
                     typeof value === 'string' ||
@@ -319,18 +549,14 @@ export async function POST(request: NextRequest) {
                     typeof value === 'boolean'
                   ) {
                     plain[key] = value;
-                  }
-                  // Convert objects to JSON string
-                  else {
+                  } else {
                     plain[key] = JSON.stringify(value);
                   }
                 }
                 return plain;
               });
 
-              // Create worksheet from data
               const ws = XLSX.utils.json_to_sheet(plainData);
-              // Sheet names are limited to 31 characters in Excel
               const sheetName = name.substring(0, 31);
               XLSX.utils.book_append_sheet(wb, ws, sheetName);
               sheetCount++;
@@ -340,7 +566,6 @@ export async function POST(request: NextRequest) {
             }
           } catch (error) {
             logger.error(`XLSX backup failed for table ${name}:`, error);
-            // Continue with other tables if one fails
           }
         }
 
@@ -357,20 +582,28 @@ export async function POST(request: NextRequest) {
         }
       } catch (error) {
         logger.error('XLSX backup failed:', error);
-        // Continue even if XLSX fails
       }
     }
 
-    // Create manifest
-    const manifest = {
+    const manifest: BackupManifestFile = {
       timestamp: manilaTime.toISOString(),
       database: parseDatabaseUrl().database,
-      format: format,
+      format: requestedFormat,
+      strategy,
+      includeSoftDeleted,
+      baseTimestamp: baseReference?.manifest.timestamp ?? null,
+      baseFolder: baseReference?.folder ?? null,
+      changeWindow,
       files: files.map((file) => ({
         name: path.basename(file),
         size: fs.statSync(file).size,
         path: path.relative(BACKUP_DIR, file),
       })),
+      recordCounts,
+      differentialFallbackTables:
+        strategy === 'differential' && differentialFallbackTables.length
+          ? differentialFallbackTables
+          : undefined,
     };
 
     const manifestFile = path.join(backupDir, 'MANIFEST.json');
@@ -388,7 +621,8 @@ export async function POST(request: NextRequest) {
         path: backupDir,
         files: files.map((f) => path.basename(f)),
         totalSize,
-        format,
+        format: requestedFormat,
+        strategy,
       },
     });
   } catch (error) {
@@ -447,6 +681,7 @@ export async function GET() {
         files: files,
         totalSize,
         manifest,
+        strategy: manifest?.strategy,
       };
     });
 

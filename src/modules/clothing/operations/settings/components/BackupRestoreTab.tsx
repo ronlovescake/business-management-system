@@ -45,11 +45,37 @@ import {
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 
+type BackupStrategy = 'full' | 'differential' | 'log';
+
+interface BackupManifest {
+  timestamp?: string;
+  database?: string;
+  format?: string;
+  version?: string;
+  strategy?: BackupStrategy;
+  includeSoftDeleted?: boolean;
+  baseTimestamp?: string | null;
+  baseFolder?: string | null;
+  changeWindow?: {
+    since: string | null;
+    until: string;
+  } | null;
+  files?: Array<{
+    name: string;
+    size: number;
+    path: string;
+  }>;
+  recordCounts?: Record<string, number>;
+  differentialFallbackTables?: string[];
+}
+
 interface Backup {
   timestamp: string;
   path: string;
   files: string[];
   totalSize: number;
+  manifest?: BackupManifest | null;
+  strategy?: BackupStrategy;
 }
 
 interface BackupData {
@@ -58,6 +84,14 @@ interface BackupData {
     database: string;
     format: string;
     version: string;
+    strategy?: BackupStrategy;
+    baseTimestamp?: string | null;
+    baseFolder?: string | null;
+    changeWindow?: {
+      since: string | null;
+      until: string;
+    } | null;
+    includeSoftDeleted?: boolean;
   };
   tables: Record<
     string,
@@ -77,6 +111,68 @@ const createRowKey = (tableName: string, row: Record<string, unknown>) =>
 
 const createCellKey = (rowKey: string, columnKey: string) =>
   `${rowKey}-${columnKey}`;
+
+const STRATEGY_META: Record<
+  BackupStrategy,
+  { label: string; color: string; cadence: string }
+> = {
+  full: { label: 'Full', color: 'indigo', cadence: 'Weekly baseline' },
+  differential: {
+    label: 'Differential',
+    color: 'grape',
+    cadence: 'Daily changes since last full',
+  },
+  log: {
+    label: 'Log',
+    color: 'cyan',
+    cadence: 'Continuous change stream',
+  },
+};
+
+const STRATEGY_SEQUENCE: BackupStrategy[] = ['full', 'differential', 'log'];
+
+const TIMESTAMP_FOLDER_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}$/;
+
+const normalizeTimestamp = (timestamp: string) => {
+  if (TIMESTAMP_FOLDER_REGEX.test(timestamp)) {
+    return timestamp.replace(/T(\d{2})-(\d{2})-(\d{2})$/, 'T$1:$2:$3Z');
+  }
+  return timestamp;
+};
+
+const parseTimestamp = (timestamp?: string | null) => {
+  if (!timestamp) {
+    return null;
+  }
+  const normalized = normalizeTimestamp(timestamp);
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const relativeFormatter = new Intl.RelativeTimeFormat('en', {
+  numeric: 'auto',
+});
+
+const formatRelativeTime = (date: Date | null) => {
+  if (!date) {
+    return 'Never';
+  }
+
+  const diffMs = Date.now() - date.getTime();
+  const minutes = Math.round(diffMs / (60 * 1000));
+
+  if (Math.abs(minutes) < 60) {
+    return relativeFormatter.format(-minutes, 'minute');
+  }
+
+  const hours = Math.round(minutes / 60);
+  if (Math.abs(hours) < 24) {
+    return relativeFormatter.format(-hours, 'hour');
+  }
+
+  const days = Math.round(hours / 24);
+  return relativeFormatter.format(-days, 'day');
+};
 
 const formatCellValue = (value: unknown) => {
   if (value === null || value === undefined) {
@@ -191,6 +287,7 @@ export function BackupRestoreTab() {
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [backupFormat, setBackupFormat] = useState<string>('all');
+  const [backupStrategy, setBackupStrategy] = useState<BackupStrategy>('full');
   const [includeSoftDeleted, setIncludeSoftDeleted] = useState(false);
   const [autoBackupEnabled, setAutoBackupEnabled] = useState(false);
   const [autoBackupInterval, setAutoBackupInterval] = useState(30);
@@ -228,6 +325,15 @@ export function BackupRestoreTab() {
     'backup'
   );
   const autoBackupIntervalRef = useRef<NodeJS.Timeout>();
+  const strategyOptions = useMemo(
+    () =>
+      (Object.keys(STRATEGY_META) as BackupStrategy[]).map((key) => ({
+        value: key,
+        label: `${STRATEGY_META[key].label} — ${STRATEGY_META[key].cadence}`,
+      })),
+    []
+  );
+  const isLogStrategy = backupStrategy === 'log';
 
   const fetchBackups = useCallback(async () => {
     setLoading(true);
@@ -275,25 +381,40 @@ export function BackupRestoreTab() {
   }, [previewData, selectedTableName]);
 
   const handleCreateBackup = useCallback(
-    async (isAuto = false) => {
+    async ({
+      isAuto = false,
+      strategy: strategyOverride,
+    }: { isAuto?: boolean; strategy?: BackupStrategy } = {}) => {
       if (!isAuto) {
         setCreating(true);
       }
 
+      const strategyToUse = strategyOverride ?? backupStrategy;
+      const formatToUse = strategyToUse === 'log' ? 'json' : backupFormat;
+
       try {
         const data = await api.post<{
           success: boolean;
-          backup?: { totalSize: number; timestamp: string; files: string[] };
+          backup?: {
+            totalSize: number;
+            timestamp: string;
+            files: string[];
+            strategy?: BackupStrategy;
+          };
           error?: string;
         }>('/api/backup', {
-          format: backupFormat,
+          format: formatToUse,
           includeSoftDeleted,
+          strategy: strategyToUse,
         });
 
         if (data.success && data.backup) {
+          const strategyMeta = STRATEGY_META[strategyToUse];
           showNotification({
-            title: isAuto ? '✅ Auto-Backup Complete' : '✅ Backup Created',
-            message: `Backup saved (${(data.backup.totalSize / 1024 / 1024).toFixed(2)} MB)`,
+            title: isAuto
+              ? `✅ ${strategyMeta.label} Auto-Backup Complete`
+              : `✅ ${strategyMeta.label} Backup Created`,
+            message: `${strategyMeta.label} backup saved (${(data.backup.totalSize / 1024 / 1024).toFixed(2)} MB)`,
             color: 'green',
           });
           await fetchBackups();
@@ -312,7 +433,7 @@ export function BackupRestoreTab() {
         }
       }
     },
-    [backupFormat, includeSoftDeleted, fetchBackups]
+    [backupFormat, backupStrategy, includeSoftDeleted, fetchBackups]
   );
 
   useEffect(() => {
@@ -324,7 +445,7 @@ export function BackupRestoreTab() {
           color: 'blue',
           autoClose: 3000,
         });
-        await handleCreateBackup(true);
+        await handleCreateBackup({ isAuto: true });
       };
 
       void performAutoBackup();
@@ -1128,16 +1249,10 @@ export function BackupRestoreTab() {
 
   const formatDate = (timestamp: string) => {
     try {
-      // Convert timestamp format from 2025-11-06T07-56-19 to 2025-11-06T07:56:19Z
-      // The Z suffix tells JavaScript to treat this as UTC (even though it's Manila time)
-      // This prevents JavaScript from treating it as local time and doing unwanted conversions
-      const iso = timestamp.replace(/T(\d{2})-(\d{2})-(\d{2})/, 'T$1:$2:$3Z');
-      const date = new Date(iso);
-      if (isNaN(date.getTime())) {
+      const date = parseTimestamp(timestamp);
+      if (!date) {
         return timestamp;
       }
-
-      // Timestamp is already in Manila time (UTC+8), display as-is with UTC formatter
       return date.toLocaleString('en-US', {
         year: 'numeric',
         month: 'short',
@@ -1159,6 +1274,27 @@ export function BackupRestoreTab() {
       return `${(bytes / 1024).toFixed(2)} KB`;
     }
     return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+  };
+
+  const resolveBackupStrategy = (backup: Backup): BackupStrategy => {
+    const manifestStrategy = backup.manifest?.strategy;
+    if (
+      manifestStrategy === 'differential' ||
+      manifestStrategy === 'log' ||
+      manifestStrategy === 'full'
+    ) {
+      return manifestStrategy;
+    }
+
+    if (
+      backup.strategy === 'differential' ||
+      backup.strategy === 'log' ||
+      backup.strategy === 'full'
+    ) {
+      return backup.strategy;
+    }
+
+    return 'full';
   };
 
   const renderPreviewValue = (value: unknown) => {
@@ -1192,6 +1328,67 @@ export function BackupRestoreTab() {
       </Text>
     );
   };
+
+  const strategyHistory = useMemo(() => {
+    const latest: Partial<
+      Record<BackupStrategy, { backup: Backup; date: Date }>
+    > = {};
+
+    backups.forEach((backup) => {
+      const strategy = resolveBackupStrategy(backup);
+      const referenceTimestamp =
+        backup.manifest?.changeWindow?.until ??
+        backup.manifest?.timestamp ??
+        backup.timestamp;
+      const date = parseTimestamp(referenceTimestamp);
+      if (!date) {
+        return;
+      }
+
+      const existing = latest[strategy];
+      if (!existing || date > existing.date) {
+        latest[strategy] = { backup, date };
+      }
+    });
+
+    return latest;
+  }, [backups]);
+
+  const nextDueLookup = useMemo(() => {
+    const next: Partial<Record<BackupStrategy, Date | null>> = {};
+
+    STRATEGY_SEQUENCE.forEach((key) => {
+      const lastRun = strategyHistory[key]?.date ?? null;
+      if (!lastRun) {
+        next[key] = null;
+        return;
+      }
+
+      const clone = new Date(lastRun.getTime());
+      if (key === 'full') {
+        clone.setDate(clone.getDate() + 7);
+        next[key] = clone;
+      } else if (key === 'differential') {
+        clone.setDate(clone.getDate() + 1);
+        next[key] = clone;
+      } else {
+        next[key] = null;
+      }
+    });
+
+    return next;
+  }, [strategyHistory]);
+
+  const strategySchedule = useMemo(
+    () =>
+      STRATEGY_SEQUENCE.map((key) => ({
+        key,
+        meta: STRATEGY_META[key],
+        last: strategyHistory[key]?.date ?? null,
+        next: nextDueLookup[key] ?? null,
+      })),
+    [nextDueLookup, strategyHistory]
+  );
 
   const renderBackupsCard = ({
     title = `Backups (${backups.length})`,
@@ -1467,6 +1664,15 @@ export function BackupRestoreTab() {
 
               <Stack gap="md">
                 <Select
+                  label="Backup strategy"
+                  data={strategyOptions}
+                  value={backupStrategy}
+                  onChange={(value) =>
+                    setBackupStrategy((value as BackupStrategy) ?? 'full')
+                  }
+                  description="Full weekly baseline, daily differential, or log stream"
+                />
+                <Select
                   label="Format"
                   data={[
                     { value: 'json', label: 'JSON only' },
@@ -1478,9 +1684,20 @@ export function BackupRestoreTab() {
                       label: 'JSON + CSV + XLSX + SQL (recommended)',
                     },
                   ]}
-                  value={backupFormat}
-                  onChange={(v) => setBackupFormat(v || 'all')}
+                  value={isLogStrategy ? 'json' : backupFormat}
+                  onChange={(v) =>
+                    !isLogStrategy && setBackupFormat(v || 'all')
+                  }
+                  disabled={isLogStrategy}
                 />
+                {isLogStrategy ? (
+                  <Alert icon={<IconHistory size={16} />} color="blue">
+                    <Text size="sm">
+                      Log captures always export JSON change events so you can
+                      replay them during restore.
+                    </Text>
+                  </Alert>
+                ) : null}
 
                 <Switch
                   label="Include deleted records"
@@ -1492,12 +1709,80 @@ export function BackupRestoreTab() {
 
                 <Button
                   leftSection={<IconDatabase size={16} />}
-                  onClick={() => void handleCreateBackup(false)}
+                  onClick={() => void handleCreateBackup()}
                   loading={creating}
                   fullWidth
                 >
                   {creating ? 'Creating...' : 'Create Backup Now'}
                 </Button>
+              </Stack>
+            </Card>
+
+            <Card shadow="sm" padding="lg" radius="md" withBorder>
+              <Group justify="space-between" mb="md" align="flex-start">
+                <div>
+                  <Title order={3}>Strategy Schedule</Title>
+                  <Text size="sm" c="dimmed">
+                    Weekly full baseline, daily differential snapshots, and
+                    continuous log capture.
+                  </Text>
+                </div>
+                <Badge color="teal">Planner</Badge>
+              </Group>
+
+              <Stack gap="sm">
+                {strategySchedule.map(({ key, meta, last, next }) => (
+                  <Card key={key} withBorder padding="sm" radius="md">
+                    <Group
+                      justify="space-between"
+                      align="center"
+                      gap="md"
+                      wrap="wrap"
+                    >
+                      <Group gap="sm" align="center">
+                        <Badge color={meta.color}>{meta.label}</Badge>
+                        <Text size="sm" c="dimmed">
+                          {meta.cadence}
+                        </Text>
+                      </Group>
+                      <Group gap="lg" align="center" wrap="wrap">
+                        <div>
+                          <Text size="xs" fw={600} c="dimmed">
+                            Last run
+                          </Text>
+                          <Text size="sm">
+                            {last
+                              ? `${formatDate(last.toISOString())} (${formatRelativeTime(last)})`
+                              : 'Never'}
+                          </Text>
+                        </div>
+                        <div>
+                          <Text size="xs" fw={600} c="dimmed">
+                            Next due
+                          </Text>
+                          <Text size="sm">
+                            {key === 'log'
+                              ? 'Streaming'
+                              : next
+                                ? formatDate(next.toISOString())
+                                : 'Ready now'}
+                          </Text>
+                        </div>
+                        <Button
+                          size="xs"
+                          variant="light"
+                          leftSection={<IconHistory size={14} />}
+                          onClick={() =>
+                            void handleCreateBackup({ strategy: key })
+                          }
+                          loading={creating}
+                        >
+                          Run {meta.label}
+                        </Button>
+                      </Group>
+                    </Group>
+                  </Card>
+                ))}
               </Stack>
             </Card>
 
