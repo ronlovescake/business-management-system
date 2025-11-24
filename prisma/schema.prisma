@@ -621,6 +621,335 @@ model ThirteenthMonthPayRecord {
   @@map("thirteenth_month_pay_records")
 }
 
+// ===========================================================================
+// TRUCKING BUSINESS TABLES
+// ===========================================================================
+
+model TruckingEmployee {
+  id                            Int       @id @default(autoincrement())
+  createdAt                     DateTime  @default(now())
+  updatedAt                     DateTime  @updatedAt
+  deletedAt                     DateTime?
+  employeeId                    String    @unique @db.VarChar(50)
+  firstName                     String    @db.VarChar(100)
+  lastName                      String    @db.VarChar(100)
+  middleName                    String?   @db.VarChar(100)
+  name                          String    @db.VarChar(255)
+  email                         String?   @db.VarChar(255)
+  phone                         String?   @db.VarChar(50)
+  contact                       String    @db.VarChar(50)
+  address                       String?
+  emergencyContactPerson        String?   @db.VarChar(255)
+  emergencyContactNumber        String?   @db.VarChar(50)
+  emergencyContact              String?   @db.VarChar(50)
+  department                    String    @db.VarChar(100)
+  position                      String    @db.VarChar(100)
+  jobTitle                      String    @db.VarChar(100)
+  status                        String    @db.VarChar(20)
+  employmentStatus              String?   @db.VarChar(50)
+  employeeType                  String?   @db.VarChar(50)
+  office                        String?   @db.VarChar(255)
+  hiringSource                  String?   @db.VarChar(100)
+  hireDate                      String    @db.VarChar(50)
+  basicSalary                   Float
+  currentSalary                 Float?
+  allowance                     Float?
+  paymentSchedule               String?   @db.VarChar(50)
+  bankAccount                   String?   @db.VarChar(100)
+  gcashAccount                  String?   @db.VarChar(50)
+  sssNumber                     String?   @db.VarChar(50)
+  philHealthNumber              String?   @db.VarChar(50)
+  hdmfNumber                    String?   @db.VarChar(50)
+  tinNumber                     String?   @db.VarChar(50)
+  gender                        String?   @db.VarChar(20)
+  dateOfBirth                   String?   @db.VarChar(50)
+  maritalStatus                 String?   @db.VarChar(20)
+  numberOfKids                  Int?
+  education                     String?   @db.VarChar(255)
+  drivingLicense                String?   @db.VarChar(100)
+  profilePhoto                  String?
+  pagibigMonthlyContribution    Float?
+  philHealthMonthlyContribution Float?
+  sssMonthlyContribution        Float?
+  taxMonthlyContribution        Float?
+
+  @@index([employeeId])
+  @@index([department])
+  @@index([status])
+  @@index([firstName, lastName])
+  @@index([deletedAt])
+  @@index([deletedAt, employeeId])
+  @@index([status, deletedAt])
+  @@index([department, deletedAt])
+  @@map("trucking_employees")
+}
+
+model TruckingLeaveRequest {
+  id            Int      @id @default(autoincrement())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  employeeId    String?  @db.VarChar(50)
+  employeeName  String   @db.VarChar(255)
+  leaveType     String   @db.VarChar(50)
+  startDate     String   @db.VarChar(50)
+  endDate       String   @db.VarChar(50)
+  numberOfDays  Int
+  reason        String
+  status        String   @db.VarChar(20)
+  appliedDate   String   @db.VarChar(50)
+  approvedBy    String?  @db.VarChar(255)
+  notes         String?
+  paymentStatus String   @default("unpaid") @db.VarChar(20)
+
+  @@index([employeeId])
+  @@index([employeeName])
+  @@index([leaveType])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([startDate])
+  @@index([appliedDate])
+  @@index([status, paymentStatus])
+  @@index([employeeId, status])
+  @@index([status, startDate])
+  @@map("trucking_leave_requests")
+}
+
+model TruckingCashAdvanceRecord {
+  id                String                        @id @default(cuid())
+  createdAt         DateTime                      @default(now())
+  updatedAt         DateTime                      @updatedAt
+  employeeId        String                        @db.VarChar(50)
+  employeeName      String                        @db.VarChar(255)
+  amount            Decimal                       @db.Decimal(12, 2)
+  termsMonths       Int?
+  monthlyPayment    Decimal?                      @db.Decimal(12, 2)
+  settledAmount     Decimal?                      @db.Decimal(12, 2)
+  remainingBalance  Decimal?                      @db.Decimal(12, 2)
+  purpose           String?                       @db.VarChar(255)
+  notes             String?
+  requestDate       DateTime?
+  status            String                        @default("pending") @db.VarChar(20)
+  approvedBy        String?                       @db.VarChar(255)
+  approvedDate      DateTime?
+  rejectedBy        String?                       @db.VarChar(255)
+  rejectedDate      DateTime?
+  rejectionReason   String?
+  deductionCycle    CashAdvanceCycle?
+  lastDeductedDate  DateTime?
+  nextDeductionDate DateTime?
+  deductions        TruckingCashAdvanceDeduction[]
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([requestDate])
+  @@index([employeeId, status])
+  @@index([status, requestDate])
+  @@map("trucking_cash_advances")
+}
+
+model TruckingCashAdvanceDeduction {
+  id            String                       @id @default(cuid())
+  cashAdvanceId String
+  employeeId    String                       @db.VarChar(50)
+  payrollId     String?
+  payPeriod     String?                      @db.VarChar(100)
+  deductionDate DateTime
+  amount        Decimal                      @db.Decimal(12, 2)
+  createdAt     DateTime                     @default(now())
+  cashAdvance   TruckingCashAdvanceRecord    @relation(fields: [cashAdvanceId], references: [id], onDelete: Cascade)
+
+  @@index([cashAdvanceId])
+  @@index([employeeId])
+  @@map("trucking_cash_advance_deductions")
+}
+
+model TruckingSchedule {
+  id           String    @id @default(cuid())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+  employeeId   String    @db.VarChar(50)
+  employeeName String    @db.VarChar(255)
+  date         String    @db.VarChar(50)
+  shiftType    String    @db.VarChar(20)
+  startTime    String    @db.VarChar(10)
+  break1       String?   @db.VarChar(10)
+  lunch        String?   @db.VarChar(10)
+  break2       String?   @db.VarChar(10)
+  endTime      String    @db.VarChar(10)
+  position     String    @db.VarChar(100)
+  department   String    @db.VarChar(100)
+  status       String    @default("scheduled") @db.VarChar(20)
+  notes        String?
+  source       String    @default("manual") @db.VarChar(20)
+  templateId   String?   @db.VarChar(50)
+  recurrenceId String?   @db.VarChar(50)
+  isOverride   Boolean   @default(false)
+
+  @@index([employeeId])
+  @@index([employeeName])
+  @@index([date])
+  @@index([shiftType])
+  @@index([status])
+  @@index([department])
+  @@index([deletedAt])
+  @@index([employeeId, date, deletedAt])
+  @@index([date, status, deletedAt])
+  @@index([department, date, deletedAt])
+  @@map("trucking_schedules")
+}
+
+model TruckingAttendance {
+  id           String    @id @default(cuid())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+  employeeId   String    @db.VarChar(50)
+  employeeName String    @db.VarChar(255)
+  department   String    @db.VarChar(100)
+  position     String    @db.VarChar(100)
+  date         String    @db.VarChar(50)
+  timeIn       String    @db.VarChar(10)
+  timeOut      String    @db.VarChar(10)
+  break1Start  String?   @db.VarChar(10)
+  break1End    String?   @db.VarChar(10)
+  lunchStart   String?   @db.VarChar(10)
+  lunchEnd     String?   @db.VarChar(10)
+  break2Start  String?   @db.VarChar(10)
+  break2End    String?   @db.VarChar(10)
+  totalHours   Float
+  status       String    @db.VarChar(20)
+  details      String?   @db.VarChar(500)
+  notes        String?
+
+  @@index([employeeId])
+  @@index([employeeName])
+  @@index([date])
+  @@index([status])
+  @@index([department])
+  @@index([deletedAt])
+  @@index([status, date, deletedAt])
+  @@index([employeeId, date, deletedAt])
+  @@index([deletedAt, employeeId])
+  @@map("trucking_attendance")
+}
+
+model TruckingPayroll {
+  id              String   @id @default(cuid())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+  employeeId      String   @db.VarChar(50)
+  employeeName    String   @db.VarChar(255)
+  payPeriod       String   @db.VarChar(50)
+  periodStart     String   @db.VarChar(50)
+  periodEnd       String   @db.VarChar(50)
+  basicSalary     Float    @default(0)
+  allowance       Float    @default(0)
+  overtime        Float    @default(0)
+  bonuses         Float    @default(0)
+  grossPay        Float    @default(0)
+  sss             Float    @default(0)
+  philHealth      Float    @default(0)
+  pagIbig         Float    @default(0)
+  tax             Float    @default(0)
+  loans           Float    @default(0)
+  lwop            Float    @default(0) @map("others")
+  totalDeductions Float    @default(0)
+  netPay          Float    @default(0)
+  status          String   @default("pending") @db.VarChar(20)
+  bankGcash       String   @db.VarChar(255)
+  approvedBy      String?  @db.VarChar(255)
+  approvedDate    String?  @db.VarChar(50)
+  paidDate        String?  @db.VarChar(50)
+  unpaidDays      Int      @default(0)
+  dailyRate       Float    @default(0)
+  deduction       Float    @default(0)
+  notes           String?
+  absentsLates    Float    @default(0)
+  cashAdvance     Float    @default(0)
+  thirteenthMonth Float    @default(0)
+
+  @@index([employeeId])
+  @@index([employeeName])
+  @@index([payPeriod])
+  @@index([periodStart])
+  @@index([status])
+  @@index([deletedAt])
+  @@index([periodStart, periodEnd, deletedAt])
+  @@index([employeeId, periodStart, deletedAt])
+  @@index([status, deletedAt])
+  @@map("trucking_payrolls")
+}
+
+model TruckingThirteenthMonthPayRecord {
+  id                 String   @id @default(cuid())
+  recordId           String   @unique @db.VarChar(150)
+  employeeId         String?  @db.VarChar(50)
+  employeeName       String   @db.VarChar(255)
+  year               Int
+  status             String   @default("calculated") @db.VarChar(20)
+  totalBasicSalary   Decimal  @default(0) @db.Decimal(14, 2)
+  totalLwop          Decimal  @default(0) @db.Decimal(14, 2)
+  totalAbsencesLates Decimal  @default(0) @db.Decimal(14, 2)
+  netBasicSalary     Decimal  @default(0) @db.Decimal(14, 2)
+  monthsWorked       Int      @default(1)
+  thirteenthMonthPay Decimal  @default(0) @db.Decimal(14, 2)
+  notes              String?
+  calculatedDate     String?  @db.VarChar(50)
+  approvedDate       String?  @db.VarChar(50)
+  paidDate           String?  @db.VarChar(50)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([year])
+  @@index([status])
+  @@map("trucking_thirteenth_month_pay_records")
+}
+
+model TruckingExpense {
+  id           Int      @id @default(autoincrement())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  date         String   @db.VarChar(50)
+  amount       Float
+  description  String   @db.VarChar(500)
+  category     String   @db.VarChar(100)
+  notes        String?
+  receipt      String?  @db.VarChar(500)
+  status       String   @db.VarChar(20)
+  employeeName String?  @db.VarChar(255)
+
+  @@index([date])
+  @@index([category])
+  @@index([status])
+  @@index([employeeName])
+  @@index([status, date])
+  @@index([employeeName, status])
+  @@index([category, status])
+  @@map("trucking_expenses")
+}
+
+model TruckingSalaryHistory {
+  id            String    @id @default(cuid())
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  employeeId    String    @db.VarChar(50)
+  employeeName  String    @db.VarChar(255)
+  effectiveDate String    @db.VarChar(50)
+  basicSalary   Float
+  allowance     Float     @default(0)
+  totalSalary   Float
+  reason        String?   @db.VarChar(255)
+  notes         String?   @db.VarChar(500)
+  createdBy     String?   @db.VarChar(100)
+
+  @@index([employeeId])
+  @@index([effectiveDate])
+  @@map("trucking_salary_history")
+}
+
 enum CashAdvanceCycle {
   FIRST_HALF
   SECOND_HALF
