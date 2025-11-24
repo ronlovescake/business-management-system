@@ -626,36 +626,67 @@ export function DispatchComponent({
       }
 
       // First confirmation: Show what will be updated
-      const transactionList = matchingTransactions
-        .slice(0, 10)
-        .map(
-          (t) =>
-            `<li>${t.Customers} - ${t['Product Code']} (${t['Order Status']})</li>`
-        )
+      // Group transactions by customer
+      const groupedByCustomer = matchingTransactions.reduce(
+        (acc, t) => {
+          const customer = t.Customers;
+          if (!acc[customer]) {
+            acc[customer] = [];
+          }
+          acc[customer].push(t);
+          return acc;
+        },
+        {} as Record<string, typeof matchingTransactions>
+      );
+
+      const transactionList = Object.entries(groupedByCustomer)
+        .map(([customer, transactions]) => {
+          const productsList = transactions
+            .map(
+              (t) =>
+                `<div style="padding: 8px 12px; margin: 4px 0; background: rgba(255, 255, 255, 0.6); border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-size: 13px; color: #2d3748;">${t['Product Code']}</span>
+                  <span style="background: rgba(102, 126, 234, 0.15); padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 500; color: #5a67d8;">
+                    ${t['Order Status']}
+                  </span>
+                </div>`
+            )
+            .join('');
+
+          return `<div style="padding: 14px; margin: 10px 0; background: linear-gradient(135deg, #a8b5ff 0%, #b8a3d9 100%); border-radius: 10px; box-shadow: 0 2px 8px rgba(168, 181, 255, 0.3);">
+            <div style="font-weight: 600; font-size: 15px; margin-bottom: 10px; color: #2d3748;">${customer}</div>
+            <div>${productsList}</div>
+          </div>`;
+        })
         .join('');
-      const moreCount =
-        matchingTransactions.length > 10
-          ? `<p><em>...and ${matchingTransactions.length - 10} more</em></p>`
-          : '';
 
       const firstConfirm = await Swal.fire({
         title: 'Update Orders to Shipped?',
         html: `
-          <div style="text-align: left;">
-            <p><strong>Found ${matchingTransactions.length} transaction(s) to update:</strong></p>
-            <ul style="max-height: 200px; overflow-y: auto; text-align: left;">
+          <div style="text-align: left; padding: 10px;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);">
+              <div style="font-size: 16px; font-weight: 600;">Found ${matchingTransactions.length} transaction(s) from ${Object.keys(groupedByCustomer).length} customer(s) to update</div>
+              <div style="font-size: 13px; opacity: 0.9; margin-top: 4px;">Review the orders below before proceeding</div>
+            </div>
+            <div style="max-height: 450px; overflow-y: auto; padding: 0 4px;">
               ${transactionList}
-            </ul>
-            ${moreCount}
-            <p style="margin-top: 15px;"><strong>These orders will be updated to "Shipped" status.</strong></p>
+            </div>
+            <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 16px 20px; border-radius: 12px; margin-top: 20px; text-align: center; box-shadow: 0 4px 12px rgba(245, 87, 108, 0.3);">
+              <div style="font-weight: 600; font-size: 15px;">These orders will be updated to "Shipped" status</div>
+            </div>
           </div>
         `,
         icon: 'question',
         showCancelButton: true,
-        confirmButtonColor: '#3085d6',
+        confirmButtonColor: '#667eea',
         cancelButtonColor: '#adb5bd',
         confirmButtonText: 'Continue',
         cancelButtonText: 'Cancel',
+        width: '800px',
+        customClass: {
+          popup: 'swal-wide-popup',
+          htmlContainer: 'swal-html-container',
+        },
       });
 
       if (!firstConfirm.isConfirmed) {
