@@ -1,11 +1,9 @@
 import { PageLayout } from '../../../../components/layout/PageLayout';
 
-export default function TruckingNotifications() {
+export default function EmployeeNotifications() {
   return (
     <PageLayout title="Notifications">
-      <div>
-        {/* Empty shell - content will be added later */}
-      </div>
+      <div>{/* Empty shell - content will be added later */}</div>
     </PageLayout>
   );
 }

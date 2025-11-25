@@ -41,7 +41,9 @@ export const polishedLabelStyles = {
 
 export const polishedInputBaseStyles = {
   backgroundColor: '#f5f5f5',
-  border: '1px solid #e5e7ed',
+  borderWidth: 1,
+  borderStyle: 'solid',
+  borderColor: '#e5e7ed',
   borderRadius: 8,
   padding: '0.65rem 0.95rem',
   fontSize: '1.05rem',
@@ -49,18 +51,6 @@ export const polishedInputBaseStyles = {
   transition: 'border-color 120ms ease, box-shadow 120ms ease',
   minHeight: 48,
   '&::placeholder': {
-    color: 'transparent',
-  },
-  '&::-webkit-input-placeholder': {
-    color: 'transparent',
-  },
-  '&::-moz-placeholder': {
-    color: 'transparent',
-  },
-  '&:-ms-input-placeholder': {
-    color: 'transparent',
-  },
-  '&:-moz-placeholder': {
     color: 'transparent',
   },
 };
