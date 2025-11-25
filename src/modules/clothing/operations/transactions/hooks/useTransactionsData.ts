@@ -24,6 +24,7 @@ import type {
 
 const MIN_EMPTY_TRANSACTION_ROWS = 120;
 const MAX_ROWS_PER_ALLOCATION = 25;
+const SEARCH_STORAGE_KEY = 'transactions-search-query';
 
 /**
  * Safely parse an order date string and return the timestamp for comparisons.
@@ -90,6 +91,18 @@ const loadSavedFilterState = (): Set<string> => {
   const defaultSet = new Set(['All Status']);
   ALL_STATUS_CONTROLLED_STATUSES.forEach((status) => defaultSet.add(status));
   return defaultSet;
+};
+
+const loadSavedSearchQuery = (): string => {
+  try {
+    if (typeof window === 'undefined') {
+      return '';
+    }
+    return localStorage.getItem(SEARCH_STORAGE_KEY) ?? '';
+  } catch (error) {
+    logger.error('Error loading search query:', error);
+    return '';
+  }
 };
 
 /**
@@ -424,6 +437,11 @@ export function useTransactionsData(): UseTransactionsDataReturn {
   // SEARCH FILTERING
   // ============================================================================
 
+  const searchQueryInitialRef = useRef<string | null>(null);
+  if (searchQueryInitialRef.current === null) {
+    searchQueryInitialRef.current = loadSavedSearchQuery();
+  }
+
   const {
     searchQuery,
     filteredData: searchFilteredData,
@@ -437,7 +455,25 @@ export function useTransactionsData(): UseTransactionsDataReturn {
       'Notes',
       'Shipment Code',
     ],
+    initialSearchQuery: searchQueryInitialRef.current ?? '',
   });
+
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') {
+        return;
+      }
+
+      if (!searchQuery || searchQuery.trim() === '') {
+        localStorage.removeItem(SEARCH_STORAGE_KEY);
+        return;
+      }
+
+      localStorage.setItem(SEARCH_STORAGE_KEY, searchQuery);
+    } catch (error) {
+      logger.error('Error saving search query:', error);
+    }
+  }, [searchQuery]);
 
   // ============================================================================
   // COMBINED FILTERING - Search + Status
