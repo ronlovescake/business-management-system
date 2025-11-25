@@ -28,16 +28,6 @@ const MAX_ROWS_PER_ALLOCATION = 25;
 /**
  * Safely parse an order date string and return the timestamp for comparisons.
  */
-const getOrderDateTimestamp = (dateString?: string | null): number | null => {
-  if (!dateString || dateString.trim() === '') {
-    return null;
-  }
-
-  const parsedDate = new Date(dateString);
-  const timestamp = parsedDate.getTime();
-  return Number.isNaN(timestamp) ? null : timestamp;
-};
-
 /**
  * Hook return type
  */
@@ -478,40 +468,6 @@ export function useTransactionsData(): UseTransactionsDataReturn {
       });
     }
 
-    // If there's an active search, append empty rows
-    const sortedFiltered = [...filtered].sort((a, b) => {
-      const dateA = getOrderDateTimestamp(a['Order Date']);
-      const dateB = getOrderDateTimestamp(b['Order Date']);
-
-      if (dateA !== null && dateB !== null) {
-        return dateA - dateB;
-      }
-
-      if (dateA !== null) {
-        return -1;
-      }
-
-      if (dateB !== null) {
-        return 1;
-      }
-
-      const customerCompare = (a.Customers || '').localeCompare(
-        b.Customers || ''
-      );
-      if (customerCompare !== 0) {
-        return customerCompare;
-      }
-
-      const productCompare = (a['Product Code'] || '').localeCompare(
-        b['Product Code'] || ''
-      );
-      if (productCompare !== 0) {
-        return productCompare;
-      }
-
-      return (a.id ?? 0) - (b.id ?? 0);
-    });
-
     if (searchQuery && searchQuery.trim() !== '') {
       const emptyRows = transactions.filter((transaction) => {
         const hasCustomer =
@@ -522,10 +478,10 @@ export function useTransactionsData(): UseTransactionsDataReturn {
         return !hasCustomer && !hasProductCode;
       });
 
-      return [...sortedFiltered, ...emptyRows];
+      return [...filtered, ...emptyRows];
     }
 
-    return sortedFiltered;
+    return filtered;
   }, [searchFilteredData, selectedStatuses, searchQuery, transactions]);
 
   // ============================================================================

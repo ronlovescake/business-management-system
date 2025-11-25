@@ -17,4 +17,4 @@ export * from './expenses';
 export * from './cash-advance/api';
 
 // Thirteenth Month Pay Module
-export * from './thirteenth-month-pay';
+export * from './thirteenth-month-pay/api';
