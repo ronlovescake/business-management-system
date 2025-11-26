@@ -56,7 +56,7 @@ interface BackupLookup {
 const LOG_TABLES = [
   { name: 'change_log', model: 'changeLog', dateField: 'createdAt' },
   { name: 'audit_logs', model: 'auditLog', dateField: 'timestamp' },
-];
+] as const;
 
 function writeWorkbookToFile(workbook: XLSX.WorkBook, filePath: string) {
   const buffer = XLSX.write(workbook, {
@@ -147,7 +147,49 @@ const TABLES = [
   { name: 'cash_advance_deductions', model: 'cashAdvanceDeduction' },
   { name: 'checkout_links', model: 'checkoutLink' },
   { name: 'item_weights', model: 'itemWeight' },
-];
+] as const;
+
+type GenericRecord = Record<string, unknown>;
+
+interface PrismaFindManyDelegate<
+  TRecord extends GenericRecord = GenericRecord,
+> {
+  findMany: (args?: Record<string, unknown>) => Promise<TRecord[]>;
+}
+
+interface PrismaQueryDelegate<TRecord extends GenericRecord = GenericRecord>
+  extends PrismaFindManyDelegate<TRecord> {
+  findFirst: (args?: Record<string, unknown>) => Promise<TRecord | null>;
+}
+
+function getFindManyDelegate(
+  model: (typeof TABLES)[number]['model'] | (typeof LOG_TABLES)[number]['model']
+): PrismaFindManyDelegate {
+  const delegate = prisma[model as keyof typeof prisma];
+  if (
+    !delegate ||
+    typeof delegate !== 'object' ||
+    typeof (delegate as { findMany?: unknown }).findMany !== 'function'
+  ) {
+    throw new Error(`Model ${model} does not support findMany operations`);
+  }
+  return delegate as PrismaFindManyDelegate;
+}
+
+function getQueryDelegate(
+  model: (typeof TABLES)[number]['model']
+): PrismaQueryDelegate {
+  const delegate = prisma[model as keyof typeof prisma];
+  if (
+    !delegate ||
+    typeof delegate !== 'object' ||
+    typeof (delegate as { findMany?: unknown }).findMany !== 'function' ||
+    typeof (delegate as { findFirst?: unknown }).findFirst !== 'function'
+  ) {
+    throw new Error(`Model ${model} does not support expected Prisma queries`);
+  }
+  return delegate as PrismaQueryDelegate;
+}
 
 function buildTableQueryOptions(
   sampleRecord: Record<string, unknown> | null,
@@ -330,10 +372,7 @@ export async function POST(request: NextRequest) {
       if (strategy === 'log') {
         for (const logTable of LOG_TABLES) {
           try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const delegate = prisma[
-              logTable.model as keyof typeof prisma
-            ] as any;
+            const delegate = getFindManyDelegate(logTable.model);
             const where: Record<string, unknown> = {};
             if (logSince && logTable.dateField) {
               where[logTable.dateField] = { gt: logSince };
@@ -343,7 +382,6 @@ export async function POST(request: NextRequest) {
               ? { [logTable.dateField]: 'asc' }
               : undefined;
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const data = await delegate.findMany({ where, orderBy });
             tables[logTable.name] = {
               count: data.length,
@@ -361,9 +399,7 @@ export async function POST(request: NextRequest) {
       } else {
         for (const { name, model } of TABLES) {
           try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const modelDelegate = prisma[model as keyof typeof prisma] as any;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const modelDelegate = getQueryDelegate(model);
             const sampleRecord = await modelDelegate.findFirst();
             const { where, differentialUnsupported } = buildTableQueryOptions(
               sampleRecord,
@@ -378,7 +414,6 @@ export async function POST(request: NextRequest) {
               differentialFallbackTables.push(name);
             }
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const data = await modelDelegate.findMany({ where });
             tables[name] = {
               count: data.length,
