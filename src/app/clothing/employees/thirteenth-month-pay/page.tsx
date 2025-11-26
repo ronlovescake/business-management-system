@@ -4,12 +4,12 @@ import { useMemo, useState } from 'react';
 import { Stack, Badge } from '@mantine/core';
 // Direct imports for faster compilation (bypasses barrel export)
 import { StatsCardGrid, type StatCard } from '@/components/ui';
-import { PageControls } from '@/components/shared/PageTemplates/PageControls';
 import { DataTable } from '@/components/shared/PageTemplates/DataTable';
 import type {
   TableColumn,
   TableAction,
 } from '@/components/shared/PageTemplates/DataTable';
+import { PageLayout } from '../../../../components/layout/PageLayout';
 import { useThirteenthMonthPay } from './hooks/useThirteenthMonthPay';
 import type { ThirteenthMonthPay, ThirteenthMonthPayFormData } from './types';
 import { ThirteenthMonthPayFormDialog } from './components/ThirteenthMonthPayFormDialog';
@@ -21,6 +21,7 @@ import {
   IconCircleCheck,
   IconWallet,
 } from '@tabler/icons-react';
+import { ThirteenthMonthPayControls } from './components/ThirteenthMonthPayControls';
 
 export default function ThirteenthMonthPayPage() {
   const {
@@ -228,76 +229,57 @@ export default function ThirteenthMonthPayPage() {
   };
 
   return (
-    <Stack
-      gap="lg"
-      style={{
-        padding: '24px',
-        minHeight: '100vh',
-        backgroundColor: 'rgba(0, 0, 0, 0.02)',
-      }}
-    >
-      <StatsCardGrid
-        cards={stats}
-        variant="vibrant"
-        minCardWidth={220}
-        spacing="md"
-      />
+    <PageLayout fluid withPadding>
+      <Stack gap="lg">
+        <StatsCardGrid
+          cards={stats}
+          variant="vibrant"
+          minCardWidth={220}
+          spacing="md"
+        />
 
-      <PageControls
-        title="13th Month Pay Records"
-        searchPlaceholder="Search by employee or year..."
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        filters={[
-          {
-            placeholder: 'Filter by status',
-            data: ['All', 'pending', 'calculated', 'approved', 'paid'],
-            value: statusFilter,
-            onChange: (value: string | null) =>
-              setStatusFilter(value === 'All' || !value ? 'all' : value),
-          },
-          {
-            placeholder: 'Filter by year',
-            data: yearFilterOptions,
-            value: yearFilter,
-            onChange: (value: string | null) =>
-              setYearFilter(value === 'All' || !value ? 'all' : value),
-          },
-        ]}
-        onImportCSV={(file: File | null) => file && importFromCSV(file)}
-        onExportCSV={exportToCSV}
-        onAdd={() => setDialogOpened(true)}
-        addButtonLabel="Add Record"
-      />
+        <ThirteenthMonthPayControls
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+          yearFilter={yearFilter}
+          onYearFilterChange={setYearFilter}
+          yearOptions={yearFilterOptions}
+          onImportCSV={(file) => file && importFromCSV(file)}
+          onExportCSV={exportToCSV}
+          onAddRecord={() => setDialogOpened(true)}
+        />
 
-      <DataTable
-        data={records}
-        columns={columns}
-        actions={actions}
-        emptyMessage={
-          isLoading
-            ? 'Loading 13th month pay records...'
-            : 'No 13th month pay records found'
-        }
-        showSummary
-        summaryLeft={
-          <span style={{ fontSize: '14px', color: '#868e96' }}>
-            Showing {records.length} of {statsData.total} records
-          </span>
-        }
-        summaryRight={
-          <span style={{ fontSize: '14px', fontWeight: 600 }}>
-            Total Amount: {formatCurrency(statsData.totalAmount)}
-          </span>
-        }
-      />
+        <DataTable
+          data={records}
+          columns={columns}
+          actions={actions}
+          emptyMessage={
+            isLoading
+              ? 'Loading 13th month pay records...'
+              : 'No 13th month pay records found'
+          }
+          showSummary
+          summaryLeft={
+            <span style={{ fontSize: '14px', color: '#868e96' }}>
+              Showing {records.length} of {statsData.total} records
+            </span>
+          }
+          summaryRight={
+            <span style={{ fontSize: '14px', fontWeight: 600 }}>
+              Total Amount: {formatCurrency(statsData.totalAmount)}
+            </span>
+          }
+        />
 
-      <ThirteenthMonthPayFormDialog
-        opened={dialogOpened}
-        editingRecord={editingRecord}
-        onClose={handleDialogClose}
-        onSave={handleSave}
-      />
-    </Stack>
+        <ThirteenthMonthPayFormDialog
+          opened={dialogOpened}
+          editingRecord={editingRecord}
+          onClose={handleDialogClose}
+          onSave={handleSave}
+        />
+      </Stack>
+    </PageLayout>
   );
 }
