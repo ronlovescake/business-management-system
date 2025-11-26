@@ -494,7 +494,7 @@ export function TransactionsPage() {
       },
       {
         title: 'Total Transactions',
-        value: statistics.totalTransactions.toString(),
+        value: statistics.totalTransactions,
         icon: <IconReceipt size={18} />,
         color: 'green',
         backgroundColor: 'var(--mantine-color-green-6)',

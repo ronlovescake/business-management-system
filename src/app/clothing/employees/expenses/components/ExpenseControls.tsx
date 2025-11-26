@@ -78,7 +78,7 @@ export const ExpenseControls = memo(function ExpenseControls({
         <Title
           order={3}
           style={{
-            color: 'rgba(255, 255, 255, 0.95)',
+            color: '#6b7280',
             textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
           }}
         >

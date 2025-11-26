@@ -5,7 +5,8 @@
  * Displays 4 key metrics: Total Products, Total Value, Average Value, Total Profit
  */
 
-import { Card, Group, Text, Title, ThemeIcon, SimpleGrid } from '@mantine/core';
+import React from 'react';
+import { StatsCardGrid, type StatCard } from '@/components/ui';
 import {
   IconCurrencyPeso,
   IconTrendingUp,
@@ -18,101 +19,46 @@ interface ProductStatsCardsProps {
 }
 
 export function ProductStatsCards({ statistics }: ProductStatsCardsProps) {
+  const cards = React.useMemo<StatCard[]>(
+    () => [
+      {
+        title: 'Total Products',
+        value: statistics.total,
+        icon: <IconCurrencyPeso size={20} stroke={1.6} />,
+        color: 'blue',
+        backgroundColor: 'var(--mantine-color-blue-6)',
+      },
+      {
+        title: 'Total Value',
+        value: `₱${statistics.totalValue.toLocaleString()}`,
+        icon: <IconTrendingUp size={20} stroke={1.6} />,
+        color: 'green',
+        backgroundColor: 'var(--mantine-color-green-6)',
+      },
+      {
+        title: 'Average Value',
+        value: `₱${statistics.avgValue.toLocaleString()}`,
+        icon: <IconAdjustments size={20} stroke={1.6} />,
+        color: 'orange',
+        backgroundColor: '#fd7e14',
+      },
+      {
+        title: 'Total Profit',
+        value: `₱${statistics.totalProfit.toLocaleString()}`,
+        icon: <IconTrendingUp size={20} stroke={1.6} />,
+        color: 'purple',
+        backgroundColor: '#9775fa',
+      },
+    ],
+    [statistics]
+  );
+
   return (
-    <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
-      {/* Total Products Card */}
-      <Card
-        shadow="sm"
-        padding="md"
-        radius="md"
-        style={{
-          background: 'var(--mantine-color-blue-6)',
-          color: 'white',
-        }}
-      >
-        <Group justify="space-between" align="flex-start">
-          <div>
-            <Text c="white" size="xs" style={{ opacity: 0.85 }}>
-              Total Products
-            </Text>
-            <Title order={3} c="white">
-              {statistics.total}
-            </Title>
-          </div>
-          <ThemeIcon variant="white" color="blue" size="lg" radius="md">
-            <IconCurrencyPeso size={18} />
-          </ThemeIcon>
-        </Group>
-      </Card>
-
-      {/* Total Value Card */}
-      <Card
-        shadow="sm"
-        padding="md"
-        radius="md"
-        style={{
-          background: 'var(--mantine-color-green-6)',
-          color: 'white',
-        }}
-      >
-        <Group justify="space-between" align="flex-start">
-          <div>
-            <Text c="white" size="xs" style={{ opacity: 0.85 }}>
-              Total Value
-            </Text>
-            <Title order={3} c="white">
-              ₱{statistics.totalValue.toLocaleString()}
-            </Title>
-          </div>
-          <ThemeIcon variant="white" color="green" size="lg" radius="md">
-            <IconTrendingUp size={18} />
-          </ThemeIcon>
-        </Group>
-      </Card>
-
-      {/* Average Value Card */}
-      <Card
-        shadow="sm"
-        padding="md"
-        radius="md"
-        style={{ background: '#fd7e14', color: 'white' }}
-      >
-        <Group justify="space-between" align="flex-start">
-          <div>
-            <Text c="white" size="xs" style={{ opacity: 0.85 }}>
-              Average Value
-            </Text>
-            <Title order={3} c="white">
-              ₱{statistics.avgValue.toLocaleString()}
-            </Title>
-          </div>
-          <ThemeIcon variant="white" color="orange" size="lg" radius="md">
-            <IconAdjustments size={18} />
-          </ThemeIcon>
-        </Group>
-      </Card>
-
-      {/* Total Profit Card */}
-      <Card
-        shadow="sm"
-        padding="md"
-        radius="md"
-        style={{ background: '#9775fa', color: 'white' }}
-      >
-        <Group justify="space-between" align="flex-start">
-          <div>
-            <Text c="white" size="xs" style={{ opacity: 0.85 }}>
-              Total Profit
-            </Text>
-            <Title order={3} c="white">
-              ₱{statistics.totalProfit.toLocaleString()}
-            </Title>
-          </div>
-          <ThemeIcon variant="white" color="purple" size="lg" radius="md">
-            <IconTrendingUp size={18} />
-          </ThemeIcon>
-        </Group>
-      </Card>
-    </SimpleGrid>
+    <StatsCardGrid
+      cards={cards}
+      variant="vibrant"
+      minCardWidth={220}
+      spacing="md"
+    />
   );
 }

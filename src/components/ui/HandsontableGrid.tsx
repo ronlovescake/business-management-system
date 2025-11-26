@@ -764,7 +764,12 @@ export function HandsontableGrid<T extends object>({
     >
       {/* Stats cards */}
       {statsCards && statsCards.length > 0 && (
-        <StatsCardGrid cards={statsCards} variant="vibrant" />
+        <StatsCardGrid
+          cards={statsCards}
+          variant="vibrant"
+          minCardWidth={220}
+          spacing="md"
+        />
       )}
 
       {/* Search and controls */}

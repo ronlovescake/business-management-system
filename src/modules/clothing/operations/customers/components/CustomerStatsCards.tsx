@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Card, Group, Text, Title, ThemeIcon, SimpleGrid } from '@mantine/core';
+import { StatsCardGrid, type StatCard } from '@/components/ui';
 import {
   IconUsers,
   IconFilter,
@@ -19,115 +19,46 @@ interface CustomerStatsCardsProps {
  * Displays 4 stat cards: Total, Filtered, Unique Businesses, Contactable
  */
 export function CustomerStatsCards({ stats }: CustomerStatsCardsProps) {
+  const cards = React.useMemo<StatCard[]>(
+    () => [
+      {
+        title: 'Total customers',
+        value: stats.total,
+        icon: <IconUsers size={20} stroke={1.6} />,
+        color: 'blue',
+        backgroundColor: 'var(--mantine-color-blue-6)',
+      },
+      {
+        title: 'In current view',
+        value: stats.filtered,
+        icon: <IconFilter size={20} stroke={1.6} />,
+        color: 'grape',
+        backgroundColor: 'var(--mantine-color-grape-6)',
+      },
+      {
+        title: 'Unique businesses',
+        value: stats.uniqueBusinesses,
+        icon: <IconBuildingStore size={20} stroke={1.6} />,
+        color: 'teal',
+        backgroundColor: 'var(--mantine-color-teal-6)',
+      },
+      {
+        title: 'Contactable',
+        value: `${stats.contactable} (${stats.contactablePct}%)`,
+        icon: <IconPhone size={20} stroke={1.6} />,
+        color: 'green',
+        backgroundColor: 'var(--mantine-color-green-6)',
+      },
+    ],
+    [stats]
+  );
+
   return (
-    <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
-      {/* Total Customers */}
-      <Card
-        shadow="sm"
-        padding="md"
-        radius="md"
-        style={{
-          background: 'var(--mantine-color-blue-6)',
-          color: 'white',
-        }}
-      >
-        <Group justify="space-between" align="flex-start">
-          <div>
-            <Text c="white" size="xs" style={{ opacity: 0.85 }}>
-              Total customers
-            </Text>
-            <Title order={3} c="white">
-              {stats.total}
-            </Title>
-          </div>
-          <ThemeIcon variant="white" color="blue" size="lg" radius="md">
-            <IconUsers size={18} />
-          </ThemeIcon>
-        </Group>
-      </Card>
-
-      {/* In Current View */}
-      <Card
-        shadow="sm"
-        padding="md"
-        radius="md"
-        style={{
-          background: 'var(--mantine-color-grape-6)',
-          color: 'white',
-        }}
-      >
-        <Group justify="space-between" align="flex-start">
-          <div>
-            <Text c="white" size="xs" style={{ opacity: 0.85 }}>
-              In current view
-            </Text>
-            <Title order={3} c="white">
-              {stats.filtered}
-            </Title>
-          </div>
-          <ThemeIcon variant="white" color="grape" size="lg" radius="md">
-            <IconFilter size={18} />
-          </ThemeIcon>
-        </Group>
-      </Card>
-
-      {/* Unique Businesses */}
-      <Card
-        shadow="sm"
-        padding="md"
-        radius="md"
-        style={{
-          background: 'var(--mantine-color-teal-6)',
-          color: 'white',
-        }}
-      >
-        <Group justify="space-between" align="flex-start">
-          <div>
-            <Text c="white" size="xs" style={{ opacity: 0.85 }}>
-              Unique businesses
-            </Text>
-            <Title order={3} c="white">
-              {stats.uniqueBusinesses}
-            </Title>
-          </div>
-          <ThemeIcon variant="white" color="teal" size="lg" radius="md">
-            <IconBuildingStore size={18} />
-          </ThemeIcon>
-        </Group>
-      </Card>
-
-      {/* Contactable */}
-      <Card
-        shadow="sm"
-        padding="md"
-        radius="md"
-        style={{
-          background: 'var(--mantine-color-green-6)',
-          color: 'white',
-        }}
-      >
-        <Group justify="space-between" align="flex-start">
-          <div>
-            <Text c="white" size="xs" style={{ opacity: 0.85 }}>
-              Contactable
-            </Text>
-            <Title order={3} c="white">
-              {stats.contactable}{' '}
-              <Text
-                component="span"
-                size="sm"
-                c="white"
-                style={{ opacity: 0.85 }}
-              >
-                ({stats.contactablePct}%)
-              </Text>
-            </Title>
-          </div>
-          <ThemeIcon variant="white" color="green" size="lg" radius="md">
-            <IconPhone size={18} />
-          </ThemeIcon>
-        </Group>
-      </Card>
-    </SimpleGrid>
+    <StatsCardGrid
+      cards={cards}
+      variant="vibrant"
+      minCardWidth={220}
+      spacing="md"
+    />
   );
 }

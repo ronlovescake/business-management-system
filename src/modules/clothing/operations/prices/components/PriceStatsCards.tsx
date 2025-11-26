@@ -1,4 +1,5 @@
-import { Card, Group, Text, Title, ThemeIcon, SimpleGrid } from '@mantine/core';
+import React from 'react';
+import { StatsCardGrid, type StatCard } from '@/components/ui';
 import {
   IconCurrencyPeso,
   IconTrendingUp,
@@ -14,107 +15,46 @@ interface PriceStatsCardsProps {
  * Display price statistics cards
  */
 export function PriceStatsCards({ stats }: PriceStatsCardsProps) {
+  const cards = React.useMemo<StatCard[]>(
+    () => [
+      {
+        title: 'Total Products',
+        value: stats.total,
+        icon: <IconCurrencyPeso size={20} stroke={1.6} />,
+        color: 'blue',
+        backgroundColor: 'var(--mantine-color-blue-6)',
+      },
+      {
+        title: 'Average Price',
+        value: `₱${stats.avgPrice.toLocaleString()}`,
+        icon: <IconTrendingUp size={20} stroke={1.6} />,
+        color: 'green',
+        backgroundColor: 'var(--mantine-color-green-6)',
+      },
+      {
+        title: 'Price Increases',
+        value: stats.priceIncreases,
+        icon: <IconTrendingUp size={20} stroke={1.6} />,
+        color: 'orange',
+        backgroundColor: 'var(--mantine-color-orange-6)',
+      },
+      {
+        title: 'Price Decreases',
+        value: stats.priceDecreases,
+        icon: <IconTrendingDown size={20} stroke={1.6} />,
+        color: 'red',
+        backgroundColor: 'var(--mantine-color-red-6)',
+      },
+    ],
+    [stats]
+  );
+
   return (
-    <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
-      {/* Total Products */}
-      <Card
-        shadow="sm"
-        padding="md"
-        radius="md"
-        style={{
-          background: 'var(--mantine-color-blue-6)',
-          color: 'white',
-        }}
-      >
-        <Group justify="space-between" align="flex-start">
-          <div>
-            <Text c="white" size="xs" style={{ opacity: 0.85 }}>
-              Total Products
-            </Text>
-            <Title order={3} c="white">
-              {stats.total}
-            </Title>
-          </div>
-          <ThemeIcon variant="white" color="blue" size="lg" radius="md">
-            <IconCurrencyPeso size={18} />
-          </ThemeIcon>
-        </Group>
-      </Card>
-
-      {/* Average Price */}
-      <Card
-        shadow="sm"
-        padding="md"
-        radius="md"
-        style={{
-          background: 'var(--mantine-color-green-6)',
-          color: 'white',
-        }}
-      >
-        <Group justify="space-between" align="flex-start">
-          <div>
-            <Text c="white" size="xs" style={{ opacity: 0.85 }}>
-              Average Price
-            </Text>
-            <Title order={3} c="white">
-              ₱{stats.avgPrice.toLocaleString()}
-            </Title>
-          </div>
-          <ThemeIcon variant="white" color="green" size="lg" radius="md">
-            <IconTrendingUp size={18} />
-          </ThemeIcon>
-        </Group>
-      </Card>
-
-      {/* Price Increases */}
-      <Card
-        shadow="sm"
-        padding="md"
-        radius="md"
-        style={{
-          background: 'var(--mantine-color-orange-6)',
-          color: 'white',
-        }}
-      >
-        <Group justify="space-between" align="flex-start">
-          <div>
-            <Text c="white" size="xs" style={{ opacity: 0.85 }}>
-              Price Increases
-            </Text>
-            <Title order={3} c="white">
-              {stats.priceIncreases}
-            </Title>
-          </div>
-          <ThemeIcon variant="white" color="orange" size="lg" radius="md">
-            <IconTrendingUp size={18} />
-          </ThemeIcon>
-        </Group>
-      </Card>
-
-      {/* Price Decreases */}
-      <Card
-        shadow="sm"
-        padding="md"
-        radius="md"
-        style={{
-          background: 'var(--mantine-color-red-6)',
-          color: 'white',
-        }}
-      >
-        <Group justify="space-between" align="flex-start">
-          <div>
-            <Text c="white" size="xs" style={{ opacity: 0.85 }}>
-              Price Decreases
-            </Text>
-            <Title order={3} c="white">
-              {stats.priceDecreases}
-            </Title>
-          </div>
-          <ThemeIcon variant="white" color="red" size="lg" radius="md">
-            <IconTrendingDown size={18} />
-          </ThemeIcon>
-        </Group>
-      </Card>
-    </SimpleGrid>
+    <StatsCardGrid
+      cards={cards}
+      variant="vibrant"
+      minCardWidth={220}
+      spacing="md"
+    />
   );
 }

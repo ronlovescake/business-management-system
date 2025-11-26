@@ -13,15 +13,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import {
-  Group,
-  Button,
-  Tabs,
-  SimpleGrid,
-  Card,
-  Text,
-  FileButton,
-} from '@mantine/core';
+import { Button, Tabs, FileButton } from '@mantine/core';
 import {
   IconPackage,
   IconCurrencyPeso,
@@ -38,7 +30,7 @@ import {
 } from '@tabler/icons-react';
 import type { Item } from '@glideapps/glide-data-grid';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { DataTable, type StatCard } from '@/components/ui';
+import { DataTable, StatsCardGrid, type StatCard } from '@/components/ui';
 import { useShipmentsData } from '../hooks/useShipmentsData';
 import { useShipmentForm } from '../hooks/useShipmentForm';
 import { AddShipmentModal } from './AddShipmentModal';
@@ -99,7 +91,7 @@ export function ShipmentsPage() {
     () => [
       {
         title: 'Total Shipments',
-        value: statistics.totalShipments.toString(),
+        value: statistics.totalShipments,
         icon: <IconPackage size={18} />,
         color: 'blue',
         backgroundColor: 'var(--mantine-color-blue-6)',
@@ -113,7 +105,7 @@ export function ShipmentsPage() {
       },
       {
         title: 'Total Sacks',
-        value: statistics.totalSacks.toLocaleString(),
+        value: statistics.totalSacks,
         icon: <IconPackage size={18} />,
         color: 'orange',
         backgroundColor: '#fd7e14',
@@ -259,31 +251,12 @@ export function ShipmentsPage() {
     <PageLayout fluid withPadding>
       {/* Statistics Cards */}
       {statsCards && statsCards.length > 0 && (
-        <SimpleGrid cols={statsCards.length} spacing="md" mb="md">
-          {statsCards.map((stat) => (
-            <Card
-              key={stat.title}
-              p="md"
-              radius="md"
-              withBorder
-              style={{
-                backgroundColor: stat.backgroundColor,
-                color: 'white',
-                cursor: 'default',
-              }}
-            >
-              <Group justify="space-between" mb="xs">
-                <Text size="sm" fw={500}>
-                  {stat.title}
-                </Text>
-                {stat.icon}
-              </Group>
-              <Text size="xl" fw={700}>
-                {stat.value}
-              </Text>
-            </Card>
-          ))}
-        </SimpleGrid>
+        <StatsCardGrid
+          cards={statsCards}
+          variant="vibrant"
+          minCardWidth={220}
+          spacing="md"
+        />
       )}
 
       {/* Navigation Tabs */}
