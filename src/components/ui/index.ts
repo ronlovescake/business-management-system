@@ -18,7 +18,15 @@ export {
 export { DataGrid } from './DataGrid';
 
 // Export the main DataTable component and related interfaces
-export { DataTable, type StatCard, type DataTableProps } from './DataTable';
+export { DataTable, type DataTableProps } from './DataTable';
+
+// Reusable stats card grid
+export {
+  StatsCardGrid,
+  type StatCard,
+  type StatsCardGridProps,
+  type StatsCardVariant,
+} from './StatsCardGrid';
 
 // Export the hook for easier data management
 export { useDataTable, type UseDataTableProps } from '../../hooks/useDataTable';

@@ -1,0 +1,247 @@
+body.clothing-employees-theme {
+  --clothing-body-bg:
+    radial-gradient(
+      circle at 20% 25%,
+      rgba(148, 163, 184, 0.25),
+      transparent 55%
+    ),
+    radial-gradient(
+      circle at 80% 0%,
+      rgba(148, 163, 184, 0.18),
+      transparent 50%
+    ),
+    linear-gradient(135deg, #f6f7fb 0%, #e3e6ef 45%, #d3d8e4 100%);
+  --clothing-card-bg: rgba(39, 44, 58, 0.96);
+  --clothing-card-border: rgba(255, 255, 255, 0.08);
+  --clothing-card-border-strong: rgba(226, 232, 240, 0.45);
+  --clothing-card-shadow: 0 25px 65px rgba(18, 22, 33, 0.38);
+  --clothing-card-shadow-hover: 0 30px 80px rgba(17, 24, 39, 0.55);
+  --clothing-shell-panel: rgba(33, 38, 52, 0.94);
+  --clothing-shell-panel-light: rgba(46, 51, 67, 0.8);
+  --clothing-shell-panel-border: rgba(148, 163, 184, 0.28);
+  --clothing-shell-panel-shadow: 0 22px 45px rgba(15, 23, 42, 0.45);
+  --clothing-card-text-strong: #f8fafc;
+  --clothing-card-text-muted: rgba(203, 213, 225, 0.78);
+  --clothing-accent: #a5b4fc;
+  --clothing-accent-strong: #818cf8;
+  --clothing-surface-muted: rgba(45, 51, 67, 0.65);
+  --clothing-border-muted: rgba(100, 116, 139, 0.28);
+  --clothing-table-header-bg: rgba(56, 62, 78, 0.9);
+  --clothing-table-header-text: rgba(248, 250, 252, 1);
+  --clothing-table-row-hover: rgba(148, 163, 184, 0.18);
+  --clothing-table-row-border: rgba(148, 163, 184, 0.28);
+  --clothing-scrollbar-thumb: rgba(148, 163, 184, 0.6);
+  --clothing-scrollbar-track: rgba(28, 32, 44, 0.8);
+  --clothing-input-bg: rgba(29, 34, 46, 0.85);
+  --clothing-input-border: rgba(148, 163, 184, 0.4);
+  --clothing-input-placeholder: rgba(203, 213, 225, 0.85);
+  --app-shell-background: var(--clothing-body-bg);
+  --app-header-bg: linear-gradient(
+    135deg,
+    rgba(46, 52, 68, 0.95),
+    rgba(35, 40, 53, 0.9)
+  );
+  --app-header-border: 1px solid rgba(148, 163, 184, 0.3);
+  --app-header-shadow: 0 18px 35px rgba(15, 23, 42, 0.45);
+  --app-header-radius: 26px;
+  --app-header-margin: 1rem 1.5rem 0;
+  --app-header-padding: 0;
+  --app-header-inner-padding: 1.2rem 2rem;
+  --app-header-backdrop: blur(16px);
+  --app-navbar-bg: linear-gradient(
+    155deg,
+    rgba(33, 38, 52, 0.96),
+    rgba(42, 48, 63, 0.88)
+  );
+  --app-navbar-border: 1px solid rgba(148, 163, 184, 0.25);
+  --app-navbar-shadow: 0 28px 55px rgba(17, 24, 39, 0.5);
+  --app-navbar-radius: 24px;
+  --app-navbar-margin: 1rem;
+  --app-navbar-padding: 2rem 1.4rem;
+  --app-navbar-backdrop: blur(14px);
+  background: var(--clothing-body-bg);
+  background-attachment: fixed;
+  min-height: 100vh;
+  color: var(--clothing-card-text-strong);
+}
+
+body.clothing-employees-theme .mantine-Container-root {
+  background: transparent;
+}
+
+body.clothing-employees-theme .mantine-Card-root {
+  background: var(--clothing-card-bg);
+  border: 1px solid var(--clothing-card-border);
+  box-shadow: var(--clothing-card-shadow);
+  transition:
+    border-color 0.3s ease,
+    transform 0.3s ease;
+}
+
+body.clothing-employees-theme .mantine-Card-root:hover {
+  border-color: var(--clothing-card-border-strong);
+}
+
+body.clothing-employees-theme .mantine-Title-root,
+body.clothing-employees-theme .mantine-Text-root {
+  color: var(--clothing-card-text-strong);
+}
+
+body.clothing-employees-theme .mantine-Text-root[data-variant='dimmed'] {
+  color: var(--clothing-card-text-muted);
+}
+
+body.clothing-employees-theme .mantine-Group-root,
+body.clothing-employees-theme .mantine-Stack-root {
+  color: inherit;
+}
+
+body.clothing-employees-theme .mantine-TextInput-input,
+body.clothing-employees-theme .mantine-Select-input,
+body.clothing-employees-theme .mantine-Select-dropdown,
+body.clothing-employees-theme .mantine-TextInput-root input,
+body.clothing-employees-theme .mantine-Select-root input {
+  background-color: var(--clothing-input-bg);
+  border-color: var(--clothing-input-border);
+  color: var(--clothing-card-text-strong);
+}
+
+body.clothing-employees-theme .mantine-TextInput-input::placeholder,
+body.clothing-employees-theme .mantine-Select-input::placeholder {
+  color: var(--clothing-input-placeholder);
+}
+
+body.clothing-employees-theme .mantine-Tabs-tab {
+  color: var(--clothing-card-text-muted);
+}
+
+body.clothing-employees-theme .mantine-Tabs-tab[data-active='true'] {
+  color: var(--clothing-card-text-strong);
+  border-color: var(--clothing-accent);
+}
+
+body.clothing-employees-theme table {
+  color: var(--clothing-card-text-strong);
+}
+
+body.clothing-employees-theme .mantine-Table-th {
+  background: var(--clothing-table-header-bg) !important;
+  color: var(--clothing-table-header-text) !important;
+  border-bottom: 1px solid var(--clothing-card-border);
+}
+
+body.clothing-employees-theme .mantine-Table-tr:hover {
+  background-color: var(--clothing-table-row-hover);
+}
+
+body.clothing-employees-theme .mantine-Table-td {
+  border-bottom: 1px solid var(--clothing-table-row-border);
+}
+
+body.clothing-employees-theme ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+body.clothing-employees-theme ::-webkit-scrollbar-track {
+  background: var(--clothing-scrollbar-track);
+}
+
+body.clothing-employees-theme ::-webkit-scrollbar-thumb {
+  background-color: var(--clothing-scrollbar-thumb);
+  border-radius: 999px;
+}
+
+body.clothing-employees-theme .mantine-AppShell-header {
+  color: var(--clothing-card-text-strong);
+}
+
+body.clothing-employees-theme .mantine-AppShell-header .mantine-Text-root,
+body.clothing-employees-theme .mantine-AppShell-header .mantine-Anchor-root,
+body.clothing-employees-theme .mantine-AppShell-header .mantine-Button-root {
+  color: var(--clothing-card-text-strong);
+}
+
+body.clothing-employees-theme .mantine-AppShell-header .mantine-Button-root {
+  background: rgba(58, 64, 80, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.4);
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+body.clothing-employees-theme
+  .mantine-AppShell-header
+  .mantine-Button-root:hover {
+  background: rgba(148, 163, 184, 0.25);
+  border-color: rgba(148, 163, 184, 0.5);
+}
+
+body.clothing-employees-theme
+  .mantine-AppShell-header
+  .mantine-ActionIcon-root {
+  background: rgba(52, 58, 74, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: var(--clothing-card-text-strong);
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+body.clothing-employees-theme
+  .mantine-AppShell-header
+  .mantine-ActionIcon-root:hover {
+  background: rgba(148, 163, 184, 0.28);
+  border-color: rgba(148, 163, 184, 0.5);
+}
+
+body.clothing-employees-theme .mantine-AppShell-navbar {
+  color: var(--clothing-card-text-strong);
+}
+
+body.clothing-employees-theme .mantine-AppShell-navbar .mantine-Divider-root {
+  border-color: rgba(148, 163, 184, 0.25);
+}
+
+body.clothing-employees-theme .mantine-AppShell-navbar .mantine-Text-root,
+body.clothing-employees-theme .mantine-AppShell-navbar .mantine-Badge-root {
+  color: var(--clothing-card-text-strong);
+}
+
+body.clothing-employees-theme .mantine-AppShell-navbar .mantine-NavLink-root {
+  background: transparent;
+  color: var(--clothing-card-text-muted);
+  border-radius: 12px;
+  transition:
+    background-color 0.25s ease,
+    border-color 0.25s ease;
+}
+
+body.clothing-employees-theme
+  .mantine-AppShell-navbar
+  .mantine-NavLink-root:hover {
+  background: rgba(148, 163, 184, 0.15);
+}
+
+body.clothing-employees-theme
+  .mantine-AppShell-navbar
+  .mantine-NavLink-root[data-active='true'] {
+  background: rgba(148, 163, 184, 0.22) !important;
+  border: 1px solid rgba(148, 163, 184, 0.45) !important;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.45);
+  color: var(--clothing-card-text-strong) !important;
+}
+
+body.clothing-employees-theme .mantine-AppShell-navbar .mantine-ThemeIcon-root {
+  background: rgba(52, 58, 74, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: var(--clothing-card-text-strong);
+}
+
+body.clothing-employees-theme
+  .mantine-AppShell-navbar
+  .mantine-ThemeIcon-root
+  svg {
+  stroke: var(--clothing-card-text-strong);
+}

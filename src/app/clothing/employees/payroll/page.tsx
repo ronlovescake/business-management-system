@@ -16,8 +16,7 @@ import {
 } from '@tabler/icons-react';
 import { usePayroll } from './hooks/usePayroll';
 // Direct imports for faster compilation (bypasses barrel export)
-import { StatsCardGroup } from '@/components/shared/PageTemplates/StatsCardGroup';
-import type { StatCard } from '@/components/shared/PageTemplates/StatsCardGroup';
+import { StatsCardGrid, type StatCard } from '@/components/ui';
 import { PageControls } from '@/components/shared/PageTemplates/PageControls';
 import { DataTable } from '@/components/shared/PageTemplates/DataTable';
 import type {
@@ -170,28 +169,45 @@ function PayrollContent() {
   );
 
   // Stats Configuration
-  const stats: StatCard[] = [
-    {
-      title: 'Total Records',
-      value: totalPayrolls.toString(),
-      icon: <IconFileText size={32} stroke={1.5} />,
-    },
-    {
-      title: 'Pending',
-      value: pendingPayrolls.toString(),
-      icon: <IconClock size={32} stroke={1.5} />,
-    },
-    {
-      title: 'Approved',
-      value: approvedPayrolls.toString(),
-      icon: <IconCheck size={32} stroke={1.5} />,
-    },
-    {
-      title: 'Total Paid',
-      value: formatCurrency(totalNetPay),
-      icon: <IconCurrencyPeso size={32} stroke={1.5} />,
-    },
-  ];
+  const stats: StatCard[] = React.useMemo(
+    () => [
+      {
+        title: 'Total Records',
+        value: totalPayrolls,
+        icon: <IconFileText size={20} stroke={1.6} />,
+        color: 'blue',
+        backgroundColor: 'var(--mantine-color-blue-6)',
+      },
+      {
+        title: 'Pending',
+        value: pendingPayrolls,
+        icon: <IconClock size={20} stroke={1.6} />,
+        color: 'orange',
+        backgroundColor: 'var(--mantine-color-orange-6)',
+      },
+      {
+        title: 'Approved',
+        value: approvedPayrolls,
+        icon: <IconCheck size={20} stroke={1.6} />,
+        color: 'green',
+        backgroundColor: 'var(--mantine-color-green-6)',
+      },
+      {
+        title: 'Total Paid',
+        value: formatCurrency(totalNetPay),
+        icon: <IconCurrencyPeso size={20} stroke={1.6} />,
+        color: 'indigo',
+        backgroundColor: 'var(--mantine-color-indigo-6)',
+      },
+    ],
+    [
+      approvedPayrolls,
+      formatCurrency,
+      pendingPayrolls,
+      totalNetPay,
+      totalPayrolls,
+    ]
+  );
 
   // Table Columns Configuration
   const columns: TableColumn<PayrollType>[] = React.useMemo(
@@ -506,7 +522,12 @@ function PayrollContent() {
     <PageLayout fluid withPadding>
       <Stack gap="lg">
         {/* Stats Cards */}
-        <StatsCardGroup stats={stats} />
+        <StatsCardGrid
+          cards={stats}
+          variant="vibrant"
+          minCardWidth={220}
+          spacing="md"
+        />
 
         {/* Controls */}
         <PageControls

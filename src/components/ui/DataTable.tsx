@@ -11,9 +11,6 @@ import {
   FileInput,
   TextInput,
   Card,
-  SimpleGrid,
-  ThemeIcon,
-  Title,
 } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { IconUpload, IconSearch } from '@tabler/icons-react';
@@ -21,6 +18,7 @@ import { GridView } from '../grid';
 import { throttle } from '../../lib/performance';
 import { logger } from '@/lib/logger';
 import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
+import { StatsCardGrid, type StatCard } from './StatsCardGrid';
 
 // Types for DrawHeader callback
 interface DrawHeaderArgs {
@@ -84,15 +82,6 @@ const customGridStyles = `
     cursor: default;
   }
 `;
-
-// Stats card interface
-export interface StatCard {
-  title: string;
-  value: string | number;
-  icon: ReactNode;
-  color: string;
-  backgroundColor?: string;
-}
 
 // Table configuration interface
 export interface DataTableProps<T = Record<string, unknown>> {
@@ -279,43 +268,7 @@ export function DataTable<T = Record<string, unknown>>({
       >
         {/* Stats cards */}
         {statsCards && statsCards.length > 0 && (
-          <SimpleGrid cols={statsCards.length} spacing="md">
-            {statsCards.map((stat) => (
-              <Card
-                key={stat.title}
-                shadow="xs"
-                padding="md"
-                radius="md"
-                withBorder
-                bg={stat.backgroundColor || '#ffffff'}
-                style={{
-                  borderColor: '#6b7280',
-                  borderWidth: '1px',
-                }}
-              >
-                <Group justify="space-between" align="flex-start">
-                  <div>
-                    <Text c="gray.5" size="xs" fw={500}>
-                      {stat.title}
-                    </Text>
-                    <Title order={3} style={{ color: '#374151' }} mt="xs">
-                      {typeof stat.value === 'number'
-                        ? stat.value.toLocaleString()
-                        : stat.value}
-                    </Title>
-                  </div>
-                  <ThemeIcon
-                    variant="light"
-                    color={stat.color}
-                    size="lg"
-                    radius="md"
-                  >
-                    {stat.icon}
-                  </ThemeIcon>
-                </Group>
-              </Card>
-            ))}
-          </SimpleGrid>
+          <StatsCardGrid cards={statsCards} variant="subtle" />
         )}
 
         {/* Search and controls */}

@@ -20,14 +20,10 @@ import {
   Group,
   FileInput,
   TextInput,
-  Card,
-  SimpleGrid,
-  ThemeIcon,
-  Title,
 } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { IconUpload, IconSearch } from '@tabler/icons-react';
-import type { StatCard } from './DataTable';
+import { StatsCardGrid, type StatCard } from './StatsCardGrid';
 import { logger } from '@/lib/logger';
 
 export type TableColumnAlignment = 'left' | 'center' | 'right';
@@ -768,48 +764,7 @@ export function HandsontableGrid<T extends object>({
     >
       {/* Stats cards */}
       {statsCards && statsCards.length > 0 && (
-        <SimpleGrid cols={statsCards.length} spacing="md">
-          {statsCards.map((stat, index) => {
-            const cardKey = stat.title
-              ? `stat-${stat.title}-${index}`
-              : `stat-${index}`;
-
-            return (
-              <Card
-                key={cardKey}
-                shadow="sm"
-                padding="md"
-                radius="md"
-                withBorder={false}
-                style={{
-                  cursor: 'default',
-                  background:
-                    stat.backgroundColor || 'var(--mantine-color-blue-6)',
-                  color: 'white',
-                }}
-              >
-                <Group justify="space-between" align="flex-start" wrap="nowrap">
-                  <div>
-                    <Text c="white" size="xs" style={{ opacity: 0.85 }}>
-                      {stat.title}
-                    </Text>
-                    <Title order={3} c="white">
-                      {stat.value}
-                    </Title>
-                  </div>
-                  <ThemeIcon
-                    variant="white"
-                    color={stat.color}
-                    size="lg"
-                    radius="md"
-                  >
-                    {stat.icon}
-                  </ThemeIcon>
-                </Group>
-              </Card>
-            );
-          })}
-        </SimpleGrid>
+        <StatsCardGrid cards={statsCards} variant="vibrant" />
       )}
 
       {/* Search and controls */}

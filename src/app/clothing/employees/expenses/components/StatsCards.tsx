@@ -1,11 +1,11 @@
-import { memo } from 'react';
-import { Paper, Group, Text, Grid } from '@mantine/core';
+import { memo, useMemo } from 'react';
 import {
   IconReceipt,
   IconX,
   IconCheck,
   IconDownload,
 } from '@tabler/icons-react';
+import { StatsCardGrid, type StatCard } from '@/components/ui';
 
 interface StatsCardsProps {
   totalExpenses: number;
@@ -31,96 +31,56 @@ export const StatsCards = memo(function StatsCards({
   thisMonthExpenses,
   formatCurrency,
 }: StatsCardsProps) {
-  const stats = [
-    {
-      title: 'Total Expenses',
-      value: formatCurrency(totalExpenses),
-      icon: <IconReceipt size={32} stroke={1.5} />,
-      color: 'blue',
-    },
-    {
-      title: 'Pending Approval',
-      value: pendingExpenses.toString(),
-      icon: <IconX size={32} stroke={1.5} />,
-      color: 'red',
-    },
-    {
-      title: 'Approved Total',
-      value: formatCurrency(approvedExpenses),
-      icon: <IconCheck size={32} stroke={1.5} />,
-      color: 'green',
-    },
-    {
-      title: 'This Month',
-      value: formatCurrency(thisMonthExpenses),
-      icon: <IconDownload size={32} stroke={1.5} />,
-      color: 'teal',
-    },
-  ];
+  const cards: StatCard[] = useMemo(
+    () => [
+      {
+        title: 'Total Expenses',
+        value: formatCurrency(totalExpenses),
+        icon: <IconReceipt size={24} stroke={1.6} />,
+        color: 'blue',
+        backgroundColor:
+          'linear-gradient(135deg, rgba(60, 99, 255, 0.95), rgba(99, 102, 241, 0.95))',
+      },
+      {
+        title: 'Pending Approval',
+        value: pendingExpenses.toString(),
+        icon: <IconX size={24} stroke={1.6} />,
+        color: 'red',
+        backgroundColor:
+          'linear-gradient(135deg, rgba(248, 113, 113, 0.95), rgba(239, 68, 68, 0.95))',
+      },
+      {
+        title: 'Approved Total',
+        value: formatCurrency(approvedExpenses),
+        icon: <IconCheck size={24} stroke={1.6} />,
+        color: 'green',
+        backgroundColor:
+          'linear-gradient(135deg, rgba(16, 185, 129, 0.95), rgba(5, 150, 105, 0.95))',
+      },
+      {
+        title: 'This Month',
+        value: formatCurrency(thisMonthExpenses),
+        icon: <IconDownload size={24} stroke={1.6} />,
+        color: 'teal',
+        backgroundColor:
+          'linear-gradient(135deg, rgba(45, 212, 191, 0.95), rgba(13, 148, 136, 0.95))',
+      },
+    ],
+    [
+      approvedExpenses,
+      formatCurrency,
+      pendingExpenses,
+      thisMonthExpenses,
+      totalExpenses,
+    ]
+  );
 
   return (
-    <Grid>
-      {stats.map((stat) => (
-        <Grid.Col key={stat.title} span={{ base: 12, sm: 6, md: 3 }}>
-          <Paper
-            p="lg"
-            radius="xl"
-            style={{
-              background: 'rgba(255, 255, 255, 0.25)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255, 255, 255, 0.18)',
-              boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
-              transition: 'all 0.3s ease',
-              cursor: 'pointer',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-5px)';
-              e.currentTarget.style.boxShadow =
-                '0 12px 40px 0 rgba(31, 38, 135, 0.5)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0px)';
-              e.currentTarget.style.boxShadow =
-                '0 8px 32px 0 rgba(31, 38, 135, 0.37)';
-            }}
-          >
-            <Group justify="space-between">
-              <div>
-                <Text
-                  size="xs"
-                  tt="uppercase"
-                  fw={700}
-                  style={{
-                    color: 'rgba(255, 255, 255, 0.8)',
-                    letterSpacing: '0.5px',
-                  }}
-                >
-                  {stat.title}
-                </Text>
-                <Text
-                  size="xl"
-                  fw={700}
-                  mt={4}
-                  style={{
-                    color: 'rgba(255, 255, 255, 0.95)',
-                    textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                  }}
-                >
-                  {stat.value}
-                </Text>
-              </div>
-              <div
-                style={{
-                  opacity: 0.8,
-                  filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1))',
-                }}
-              >
-                {stat.icon}
-              </div>
-            </Group>
-          </Paper>
-        </Grid.Col>
-      ))}
-    </Grid>
+    <StatsCardGrid
+      cards={cards}
+      variant="vibrant"
+      minCardWidth={240}
+      spacing="md"
+    />
   );
 });

@@ -15,8 +15,7 @@ import {
 } from '@tabler/icons-react';
 import { useEmployeeLoans } from './hooks/useEmployeeLoans';
 // Direct imports for faster compilation (bypasses barrel export)
-import { StatsCardGroup } from '@/components/shared/PageTemplates/StatsCardGroup';
-import type { StatCard } from '@/components/shared/PageTemplates/StatsCardGroup';
+import { StatsCardGrid, type StatCard } from '@/components/ui';
 import { PageControls } from '@/components/shared/PageTemplates/PageControls';
 import { DataTable } from '@/components/shared/PageTemplates/DataTable';
 import type {
@@ -71,23 +70,31 @@ export default function EmployeeLoans() {
   const stats: StatCard[] = [
     {
       title: 'Total Loans',
-      value: totalLoans.toString(),
-      icon: <IconPigMoney size={32} stroke={1.5} />,
+      value: totalLoans,
+      icon: <IconPigMoney size={20} stroke={1.6} />,
+      color: 'blue',
+      backgroundColor: 'var(--mantine-color-blue-6)',
     },
     {
       title: 'Pending',
-      value: pendingLoans.toString(),
-      icon: <IconClock size={32} stroke={1.5} />,
+      value: pendingLoans,
+      icon: <IconClock size={20} stroke={1.6} />,
+      color: 'orange',
+      backgroundColor: 'var(--mantine-color-orange-6)',
     },
     {
       title: 'Active',
-      value: activeLoans.toString(),
-      icon: <IconCheck size={32} stroke={1.5} />,
+      value: activeLoans,
+      icon: <IconCheck size={20} stroke={1.6} />,
+      color: 'green',
+      backgroundColor: 'var(--mantine-color-green-6)',
     },
     {
       title: 'Outstanding',
       value: formatCurrency(totalOutstanding),
-      icon: <IconCurrencyPeso size={32} stroke={1.5} />,
+      icon: <IconCurrencyPeso size={20} stroke={1.6} />,
+      color: 'teal',
+      backgroundColor: 'var(--mantine-color-teal-6)',
     },
   ];
 
@@ -228,7 +235,12 @@ export default function EmployeeLoans() {
     <PageLayout fluid withPadding>
       <Stack gap="lg">
         {/* Stats Cards */}
-        <StatsCardGroup stats={stats} />
+        <StatsCardGrid
+          cards={stats}
+          variant="vibrant"
+          minCardWidth={220}
+          spacing="md"
+        />
 
         {/* Controls */}
         <PageControls

@@ -3,8 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Stack, Badge } from '@mantine/core';
 // Direct imports for faster compilation (bypasses barrel export)
-import { StatsCardGroup } from '@/components/shared/PageTemplates/StatsCardGroup';
-import type { StatCard } from '@/components/shared/PageTemplates/StatsCardGroup';
+import { StatsCardGrid, type StatCard } from '@/components/ui';
 import { PageControls } from '@/components/shared/PageTemplates/PageControls';
 import { DataTable } from '@/components/shared/PageTemplates/DataTable';
 import type {
@@ -60,28 +59,45 @@ export default function ThirteenthMonthPayPage() {
   }, [records]);
 
   // Stats cards configuration
-  const stats: StatCard[] = [
-    {
-      title: 'Total Records',
-      value: statsData.total.toString(),
-      icon: <IconFileText size={32} stroke={1.5} />,
-    },
-    {
-      title: 'Calculated',
-      value: statsData.calculated.toString(),
-      icon: <IconCalculator size={32} stroke={1.5} />,
-    },
-    {
-      title: 'Approved',
-      value: statsData.approved.toString(),
-      icon: <IconCircleCheck size={32} stroke={1.5} />,
-    },
-    {
-      title: 'Total Amount',
-      value: formatCurrency(statsData.totalAmount),
-      icon: <IconWallet size={32} stroke={1.5} />,
-    },
-  ];
+  const stats: StatCard[] = useMemo(
+    () => [
+      {
+        title: 'Total Records',
+        value: statsData.total,
+        icon: <IconFileText size={20} stroke={1.6} />,
+        color: 'blue',
+        backgroundColor: 'var(--mantine-color-blue-6)',
+      },
+      {
+        title: 'Calculated',
+        value: statsData.calculated,
+        icon: <IconCalculator size={20} stroke={1.6} />,
+        color: 'grape',
+        backgroundColor: 'var(--mantine-color-grape-6)',
+      },
+      {
+        title: 'Approved',
+        value: statsData.approved,
+        icon: <IconCircleCheck size={20} stroke={1.6} />,
+        color: 'green',
+        backgroundColor: 'var(--mantine-color-green-6)',
+      },
+      {
+        title: 'Total Amount',
+        value: formatCurrency(statsData.totalAmount),
+        icon: <IconWallet size={20} stroke={1.6} />,
+        color: 'teal',
+        backgroundColor: 'var(--mantine-color-teal-6)',
+      },
+    ],
+    [
+      formatCurrency,
+      statsData.approved,
+      statsData.calculated,
+      statsData.total,
+      statsData.totalAmount,
+    ]
+  );
 
   // Table columns configuration
   const columns: TableColumn<ThirteenthMonthPay>[] = [
@@ -220,7 +236,12 @@ export default function ThirteenthMonthPayPage() {
         backgroundColor: 'rgba(0, 0, 0, 0.02)',
       }}
     >
-      <StatsCardGroup stats={stats} />
+      <StatsCardGrid
+        cards={stats}
+        variant="vibrant"
+        minCardWidth={220}
+        spacing="md"
+      />
 
       <PageControls
         title="13th Month Pay Records"
