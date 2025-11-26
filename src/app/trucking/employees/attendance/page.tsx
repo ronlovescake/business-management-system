@@ -14,8 +14,7 @@ import {
   IconTrash,
 } from '@tabler/icons-react';
 // Direct imports for faster compilation (bypasses barrel export)
-import { StatsCardGroup } from '@/components/shared/PageTemplates/StatsCardGroup';
-import type { StatCard } from '@/components/shared/PageTemplates/StatsCardGroup';
+import { StatsCardGrid, type StatCard } from '@/components/ui';
 import { PageControls } from '@/components/shared/PageTemplates/PageControls';
 import { DataTable } from '@/components/shared/PageTemplates/DataTable';
 import type {
@@ -65,23 +64,31 @@ function AttendanceContent() {
   const stats: StatCard[] = [
     {
       title: 'Total Records Today',
-      value: totalRecords.toString(),
-      icon: <IconUsers size={32} stroke={1.5} />,
+      value: totalRecords,
+      icon: <IconUsers size={18} stroke={1.7} />,
+      color: 'blue',
+      backgroundColor: 'var(--mantine-color-blue-6)',
     },
     {
       title: 'Present',
-      value: presentCount.toString(),
-      icon: <IconUserCheck size={32} stroke={1.5} />,
+      value: presentCount,
+      icon: <IconUserCheck size={18} stroke={1.7} />,
+      color: 'green',
+      backgroundColor: 'var(--mantine-color-green-6)',
     },
     {
       title: 'Late',
-      value: lateCount.toString(),
-      icon: <IconAlertTriangle size={32} stroke={1.5} />,
+      value: lateCount,
+      icon: <IconAlertTriangle size={18} stroke={1.7} />,
+      color: 'orange',
+      backgroundColor: '#fd7e14',
     },
     {
       title: 'Absent',
-      value: absentCount.toString(),
-      icon: <IconUserX size={32} stroke={1.5} />,
+      value: absentCount,
+      icon: <IconUserX size={18} stroke={1.7} />,
+      color: 'red',
+      backgroundColor: '#f87171',
     },
   ];
 
@@ -217,7 +224,7 @@ function AttendanceContent() {
   return (
     <PageLayout fluid withPadding>
       <Stack gap="lg">
-        <StatsCardGroup stats={stats} />
+        <StatsCardGrid cards={stats} variant="vibrant" />
 
         <PageControls
           title="Attendance Records"

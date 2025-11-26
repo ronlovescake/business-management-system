@@ -14,8 +14,7 @@ import {
 } from '@tabler/icons-react';
 import { useCashAdvance } from './hooks/useCashAdvance';
 // Direct imports for faster compilation (bypasses barrel export)
-import { StatsCardGroup } from '@/components/shared/PageTemplates/StatsCardGroup';
-import type { StatCard } from '@/components/shared/PageTemplates/StatsCardGroup';
+import { StatsCardGrid, type StatCard } from '@/components/ui';
 import { PageControls } from '@/components/shared/PageTemplates/PageControls';
 import { DataTable } from '@/components/shared/PageTemplates/DataTable';
 import type {
@@ -90,23 +89,31 @@ function CashAdvance() {
   const stats: StatCard[] = [
     {
       title: 'Total Requests',
-      value: totalRequests.toString(),
-      icon: <IconCash size={32} stroke={1.5} />,
+      value: totalRequests,
+      icon: <IconCash size={20} stroke={1.6} />,
+      color: 'blue',
+      backgroundColor: 'var(--mantine-color-blue-6)',
     },
     {
       title: 'Pending',
-      value: pendingRequests.toString(),
-      icon: <IconClock size={32} stroke={1.5} />,
+      value: pendingRequests,
+      icon: <IconClock size={20} stroke={1.6} />,
+      color: 'orange',
+      backgroundColor: 'var(--mantine-color-orange-6)',
     },
     {
       title: 'Approved',
-      value: approvedRequests.toString(),
-      icon: <IconCheck size={32} stroke={1.5} />,
+      value: approvedRequests,
+      icon: <IconCheck size={20} stroke={1.6} />,
+      color: 'green',
+      backgroundColor: 'var(--mantine-color-green-6)',
     },
     {
       title: 'Total Amount',
       value: formatCurrency(totalAmount),
-      icon: <IconCurrencyPeso size={32} stroke={1.5} />,
+      icon: <IconCurrencyPeso size={20} stroke={1.6} />,
+      color: 'teal',
+      backgroundColor: 'var(--mantine-color-teal-6)',
     },
   ];
 
@@ -256,7 +263,12 @@ function CashAdvance() {
     <PageLayout fluid withPadding>
       <Stack gap="lg">
         {/* Stats Cards */}
-        <StatsCardGroup stats={stats} />
+        <StatsCardGrid
+          cards={stats}
+          variant="vibrant"
+          minCardWidth={220}
+          spacing="md"
+        />
 
         {/* Controls */}
         <PageControls

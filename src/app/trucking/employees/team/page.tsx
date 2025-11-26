@@ -16,8 +16,7 @@ import {
 } from '@tabler/icons-react';
 import { useTeam } from './hooks/useTeam';
 // Direct imports for faster compilation (bypasses barrel export)
-import { StatsCardGroup } from '@/components/shared/PageTemplates/StatsCardGroup';
-import type { StatCard } from '@/components/shared/PageTemplates/StatsCardGroup';
+import { StatsCardGrid, type StatCard } from '@/components/ui';
 import { PageControls } from '@/components/shared/PageTemplates/PageControls';
 import { DataTable } from '@/components/shared/PageTemplates/DataTable';
 import type {
@@ -76,28 +75,45 @@ export default function Team() {
   };
 
   // Stats Configuration
-  const stats: StatCard[] = [
-    {
-      title: 'Total Employees',
-      value: totalEmployees.toString(),
-      icon: <IconUsers size={32} stroke={1.5} />,
-    },
-    {
-      title: 'Active',
-      value: activeEmployees.toString(),
-      icon: <IconUserCheck size={32} stroke={1.5} />,
-    },
-    {
-      title: 'On Leave',
-      value: onLeaveEmployees.toString(),
-      icon: <IconUserPause size={32} stroke={1.5} />,
-    },
-    {
-      title: 'Total Salary',
-      value: formatCurrency(totalSalary),
-      icon: <IconCurrencyPeso size={32} stroke={1.5} />,
-    },
-  ];
+  const stats: StatCard[] = React.useMemo(
+    () => [
+      {
+        title: 'Total Employees',
+        value: totalEmployees,
+        icon: <IconUsers size={20} stroke={1.6} />,
+        color: 'indigo',
+        backgroundColor: 'var(--mantine-color-indigo-6)',
+      },
+      {
+        title: 'Active',
+        value: activeEmployees,
+        icon: <IconUserCheck size={20} stroke={1.6} />,
+        color: 'green',
+        backgroundColor: 'var(--mantine-color-green-6)',
+      },
+      {
+        title: 'On Leave',
+        value: onLeaveEmployees,
+        icon: <IconUserPause size={20} stroke={1.6} />,
+        color: 'orange',
+        backgroundColor: 'var(--mantine-color-orange-6)',
+      },
+      {
+        title: 'Total Salary',
+        value: formatCurrency(totalSalary),
+        icon: <IconCurrencyPeso size={20} stroke={1.6} />,
+        color: 'teal',
+        backgroundColor: 'var(--mantine-color-teal-6)',
+      },
+    ],
+    [
+      activeEmployees,
+      formatCurrency,
+      onLeaveEmployees,
+      totalEmployees,
+      totalSalary,
+    ]
+  );
 
   // Table Columns Configuration
   const columns: TableColumn<EmployeeType>[] = [
@@ -215,7 +231,12 @@ export default function Team() {
     <PageLayout fluid withPadding>
       <Stack gap="lg">
         {/* Stats Cards */}
-        <StatsCardGroup stats={stats} />
+        <StatsCardGrid
+          cards={stats}
+          variant="vibrant"
+          minCardWidth={220}
+          spacing="md"
+        />
 
         {/* Controls */}
         <PageControls
