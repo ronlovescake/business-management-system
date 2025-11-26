@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Stack, Text, Badge, Group, Box, Button } from '@mantine/core';
+import { Stack, Text, Badge, Group, Box } from '@mantine/core';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import {
   IconFileText,
@@ -12,12 +12,11 @@ import {
   IconTrash,
   IconCircleCheck,
   IconCash,
-  IconDownload,
 } from '@tabler/icons-react';
 import { usePayroll } from './hooks/usePayroll';
 // Direct imports for faster compilation (bypasses barrel export)
 import { StatsCardGrid, type StatCard } from '@/components/ui';
-import { PageControls } from '@/components/shared/PageTemplates/PageControls';
+import { PayrollControls } from './components/PayrollControls';
 import { DataTable } from '@/components/shared/PageTemplates/DataTable';
 import type {
   TableColumn,
@@ -530,45 +529,21 @@ function PayrollContent() {
         />
 
         {/* Controls */}
-        <PageControls
-          title="Payroll Records"
-          searchPlaceholder="Search by employee, pay period, or bank..."
+        <PayrollControls
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
-          filters={[
-            {
-              placeholder: 'Filter by status',
-              data: ['All', 'pending', 'approved', 'paid'],
-              value: statusFilter,
-              onChange: (value: string | null) =>
-                setStatusFilter(value === 'All' || !value ? 'all' : value),
-            },
-            {
-              placeholder: 'Filter by pay period',
-              data: payPeriods.map((p) => (p === 'all' ? 'All' : p)),
-              value: payPeriodFilter,
-              onChange: (value: string | null) =>
-                setPayPeriodFilter(value === 'All' || !value ? 'all' : value),
-            },
-          ]}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+          payPeriodFilter={payPeriodFilter}
+          onPayPeriodFilterChange={setPayPeriodFilter}
+          payPeriods={payPeriods}
           onImportCSV={handleImportCSV}
           onExportCSV={handleExportCSV}
-          onAdd={handleAddPayroll}
+          onAddPayroll={handleAddPayroll}
           addButtonLabel="Generate Payroll"
-          extraButtons={
-            <Button
-              leftSection={<IconDownload size={16} />}
-              size="sm"
-              radius="sm"
-              variant="outline"
-              color="blue"
-              onClick={handleGeneratePayslips}
-              loading={isGeneratingPayslips}
-              disabled={isGeneratingPayroll}
-            >
-              Generate Payslips
-            </Button>
-          }
+          onGeneratePayslips={handleGeneratePayslips}
+          isGeneratingPayroll={isGeneratingPayroll}
+          isGeneratingPayslips={isGeneratingPayslips}
         />
 
         {/* Payroll Table */}

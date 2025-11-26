@@ -2,8 +2,6 @@ import React, { memo } from 'react';
 import { Group, TextInput, Select, FileButton, Button } from '@mantine/core';
 import {
   IconList,
-  IconChartPie,
-  IconCalendar,
   IconSearch,
   IconUpload,
   IconDownload,
@@ -14,76 +12,74 @@ import {
   type ControlPanelTabConfig,
 } from '@/components/ui/ControlPanelCard';
 import { actionButtonStyles } from '@/components/shared/styles/actionButtonStyles';
-import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
-import type { LeaveType } from '../types';
 
-interface LeaveControlsProps {
-  activeTab: string | null;
-  onTabChange: (tab: string | null) => void;
+interface PayrollControlsProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  filterLeaveType: string | null;
-  onLeaveTypeFilterChange: (leaveType: string | null) => void;
-  filterStatus: string | null;
-  onStatusFilterChange: (status: string | null) => void;
-  leaveTypes: LeaveType[];
+  statusFilter: string;
+  onStatusFilterChange: (status: string) => void;
+  payPeriodFilter: string;
+  onPayPeriodFilterChange: (period: string) => void;
+  payPeriods: string[];
   onImportCSV: (file: File | null) => void;
   onExportCSV: () => void;
-  onAddRequest: () => void;
-  isImporting: boolean;
+  onAddPayroll: () => void;
+  addButtonLabel?: string;
+  onGeneratePayslips: () => void;
+  isGeneratingPayroll: boolean;
+  isGeneratingPayslips: boolean;
+  isImporting?: boolean;
 }
 
-export const LeaveControls = memo(function LeaveControls({
-  activeTab,
-  onTabChange,
+export const PayrollControls = memo(function PayrollControls({
   searchQuery,
   onSearchChange,
-  filterLeaveType,
-  onLeaveTypeFilterChange,
-  filterStatus,
+  statusFilter,
   onStatusFilterChange,
-  leaveTypes,
+  payPeriodFilter,
+  onPayPeriodFilterChange,
+  payPeriods,
   onImportCSV,
   onExportCSV,
-  onAddRequest,
+  onAddPayroll,
+  addButtonLabel = 'Generate Payroll',
+  onGeneratePayslips,
+  isGeneratingPayroll,
+  isGeneratingPayslips,
   isImporting,
-}: LeaveControlsProps) {
-  useCtrlFFocus(
-    '[data-ctrlf-target="leave-controls-search"]',
-    activeTab === 'list'
-  );
-
+}: PayrollControlsProps) {
   const tabs: ControlPanelTabConfig[] = [
     {
       value: 'list',
-      label: 'Leave Requests',
+      label: 'Payroll List',
       leftSection: <IconList size={16} />,
       panel: (
         <Group wrap="wrap" gap="sm">
           <TextInput
-            placeholder="Search leave requests..."
+            placeholder="Search payroll records..."
             leftSection={<IconSearch size={16} />}
             value={searchQuery}
             onChange={(event) => onSearchChange(event.currentTarget.value)}
             style={{ flex: 1, minWidth: 220 }}
-            data-ctrlf-target="leave-controls-search"
-          />
-          <Select
-            placeholder="Filter by leave type"
-            data={['All', ...leaveTypes]}
-            value={filterLeaveType === null ? 'All' : filterLeaveType}
-            onChange={(value) =>
-              onLeaveTypeFilterChange(value === 'All' ? null : value)
-            }
-            clearable
-            style={{ width: 220 }}
           />
           <Select
             placeholder="Filter by status"
-            data={['All', 'pending', 'approved', 'rejected']}
-            value={filterStatus === null ? 'All' : filterStatus}
+            data={['All', 'pending', 'approved', 'paid']}
+            value={statusFilter === 'all' ? 'All' : statusFilter}
             onChange={(value) =>
-              onStatusFilterChange(value === 'All' ? null : value)
+              onStatusFilterChange(!value || value === 'All' ? 'all' : value)
+            }
+            clearable
+            style={{ width: 200 }}
+          />
+          <Select
+            placeholder="Filter by pay period"
+            data={payPeriods.map((period) =>
+              period === 'all' ? 'All' : period
+            )}
+            value={payPeriodFilter === 'all' ? 'All' : payPeriodFilter}
+            onChange={(value) =>
+              onPayPeriodFilterChange(!value || value === 'All' ? 'all' : value)
             }
             clearable
             style={{ width: 220 }}
@@ -116,33 +112,35 @@ export const LeaveControls = memo(function LeaveControls({
             size="sm"
             radius="sm"
             color="green"
-            onClick={onAddRequest}
+            onClick={onAddPayroll}
+            loading={isGeneratingPayroll}
+            disabled={isGeneratingPayslips}
           >
-            Add Leave Request
+            {addButtonLabel}
+          </Button>
+          <Button
+            leftSection={<IconDownload size={16} />}
+            size="sm"
+            radius="sm"
+            variant="outline"
+            color="blue"
+            onClick={onGeneratePayslips}
+            loading={isGeneratingPayslips}
+            disabled={isGeneratingPayroll}
+          >
+            Generate Payslips
           </Button>
         </Group>
       ),
-    },
-    {
-      value: 'analytics',
-      label: 'Analytics by Type',
-      leftSection: <IconChartPie size={16} />,
-      panel: null,
-    },
-    {
-      value: 'calendar',
-      label: 'Calendar View',
-      leftSection: <IconCalendar size={16} />,
-      panel: null,
     },
   ];
 
   return (
     <ControlPanelCard
-      title="Leave Tracker"
+      title="Payroll Records"
       tabs={tabs}
-      activeTab={activeTab}
-      onTabChange={onTabChange}
+      activeTab="list"
+      onTabChange={() => {}}
     />
   );
 });

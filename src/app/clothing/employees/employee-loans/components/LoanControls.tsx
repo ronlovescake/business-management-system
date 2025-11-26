@@ -2,8 +2,6 @@ import React, { memo } from 'react';
 import { Group, TextInput, Select, FileButton, Button } from '@mantine/core';
 import {
   IconList,
-  IconChartPie,
-  IconCalendar,
   IconSearch,
   IconUpload,
   IconDownload,
@@ -15,75 +13,79 @@ import {
 } from '@/components/ui/ControlPanelCard';
 import { actionButtonStyles } from '@/components/shared/styles/actionButtonStyles';
 import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
-import type { LeaveType } from '../types';
 
-interface LeaveControlsProps {
-  activeTab: string | null;
-  onTabChange: (tab: string | null) => void;
+interface LoanControlsProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  filterLeaveType: string | null;
-  onLeaveTypeFilterChange: (leaveType: string | null) => void;
-  filterStatus: string | null;
-  onStatusFilterChange: (status: string | null) => void;
-  leaveTypes: LeaveType[];
+  statusFilter: string;
+  onStatusFilterChange: (status: string) => void;
+  loanTypeFilter: string | null;
+  onLoanTypeFilterChange: (type: string | null) => void;
   onImportCSV: (file: File | null) => void;
   onExportCSV: () => void;
-  onAddRequest: () => void;
-  isImporting: boolean;
+  onAddLoan: () => void;
+  isImporting?: boolean;
 }
 
-export const LeaveControls = memo(function LeaveControls({
-  activeTab,
-  onTabChange,
+export const LoanControls = memo(function LoanControls({
   searchQuery,
   onSearchChange,
-  filterLeaveType,
-  onLeaveTypeFilterChange,
-  filterStatus,
+  statusFilter,
   onStatusFilterChange,
-  leaveTypes,
+  loanTypeFilter,
+  onLoanTypeFilterChange,
   onImportCSV,
   onExportCSV,
-  onAddRequest,
+  onAddLoan,
   isImporting,
-}: LeaveControlsProps) {
-  useCtrlFFocus(
-    '[data-ctrlf-target="leave-controls-search"]',
-    activeTab === 'list'
-  );
+}: LoanControlsProps) {
+  useCtrlFFocus('[data-ctrlf-target="loan-controls-search"]', true);
 
   const tabs: ControlPanelTabConfig[] = [
     {
       value: 'list',
-      label: 'Leave Requests',
+      label: 'Employee Loans',
       leftSection: <IconList size={16} />,
       panel: (
         <Group wrap="wrap" gap="sm">
           <TextInput
-            placeholder="Search leave requests..."
+            placeholder="Search by employee, purpose, or loan type..."
             leftSection={<IconSearch size={16} />}
             value={searchQuery}
             onChange={(event) => onSearchChange(event.currentTarget.value)}
             style={{ flex: 1, minWidth: 220 }}
-            data-ctrlf-target="leave-controls-search"
+            data-ctrlf-target="loan-controls-search"
           />
           <Select
-            placeholder="Filter by leave type"
-            data={['All', ...leaveTypes]}
-            value={filterLeaveType === null ? 'All' : filterLeaveType}
+            placeholder="Filter by type"
+            data={[
+              'All',
+              'personal',
+              'emergency',
+              'educational',
+              'housing',
+              'vehicle',
+            ]}
+            value={loanTypeFilter === null ? 'All' : loanTypeFilter}
             onChange={(value) =>
-              onLeaveTypeFilterChange(value === 'All' ? null : value)
+              onLoanTypeFilterChange(value === 'All' ? null : value)
             }
             clearable
-            style={{ width: 220 }}
+            style={{ width: 200 }}
           />
           <Select
             placeholder="Filter by status"
-            data={['All', 'pending', 'approved', 'rejected']}
-            value={filterStatus === null ? 'All' : filterStatus}
+            data={[
+              'All',
+              'pending',
+              'approved',
+              'active',
+              'completed',
+              'rejected',
+            ]}
+            value={statusFilter === 'all' ? 'All' : statusFilter}
             onChange={(value) =>
-              onStatusFilterChange(value === 'All' ? null : value)
+              onStatusFilterChange(!value || value === 'All' ? 'all' : value)
             }
             clearable
             style={{ width: 220 }}
@@ -116,33 +118,21 @@ export const LeaveControls = memo(function LeaveControls({
             size="sm"
             radius="sm"
             color="green"
-            onClick={onAddRequest}
+            onClick={onAddLoan}
           >
-            Add Leave Request
+            Add Loan
           </Button>
         </Group>
       ),
-    },
-    {
-      value: 'analytics',
-      label: 'Analytics by Type',
-      leftSection: <IconChartPie size={16} />,
-      panel: null,
-    },
-    {
-      value: 'calendar',
-      label: 'Calendar View',
-      leftSection: <IconCalendar size={16} />,
-      panel: null,
     },
   ];
 
   return (
     <ControlPanelCard
-      title="Leave Tracker"
+      title="Employee Loan Records"
       tabs={tabs}
-      activeTab={activeTab}
-      onTabChange={onTabChange}
+      activeTab="list"
+      onTabChange={() => {}}
     />
   );
 });

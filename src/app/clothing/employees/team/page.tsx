@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { Stack, Text, Badge, Tabs, Paper, Group, Avatar } from '@mantine/core';
+import { Stack, Text, Badge, Paper, Group, Avatar } from '@mantine/core';
 import { PageLayout } from '../../../../components/layout/PageLayout';
 import {
   IconUsers,
@@ -11,13 +11,12 @@ import {
   IconCurrencyPeso,
   IconEdit,
   IconTrash,
-  IconList,
   IconChartBar,
 } from '@tabler/icons-react';
 import { useTeam } from './hooks/useTeam';
 // Direct imports for faster compilation (bypasses barrel export)
 import { StatsCardGrid, type StatCard } from '@/components/ui';
-import { PageControls } from '@/components/shared/PageTemplates/PageControls';
+import { TeamControls } from './components/TeamControls';
 import { DataTable } from '@/components/shared/PageTemplates/DataTable';
 import type {
   TableColumn,
@@ -230,84 +229,53 @@ export default function Team() {
         />
 
         {/* Controls */}
-        <PageControls
-          title="Team Management"
-          searchPlaceholder="Search by name, ID, department, or contact..."
+        <TeamControls
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
-          filters={[
-            {
-              placeholder: 'Filter by department',
-              data: departments.map((d) => (d === 'all' ? 'All' : d)),
-              value: departmentFilter,
-              onChange: (value: string | null) =>
-                setDepartmentFilter(value === 'All' || !value ? 'all' : value),
-            },
-            {
-              placeholder: 'Filter by status',
-              data: ['All', 'active', 'inactive', 'on-leave'],
-              value: statusFilter,
-              onChange: (value: string | null) =>
-                setStatusFilter(value === 'All' || !value ? 'all' : value),
-            },
-          ]}
+          departments={departments}
+          departmentFilter={departmentFilter}
+          onDepartmentFilterChange={setDepartmentFilter}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
           onImportCSV={handleImportCSV}
           onExportCSV={handleExportCSV}
-          onAdd={handleAddEmployee}
-          addButtonLabel="Add Employee"
+          onAddEmployee={handleAddEmployee}
         />
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onChange={setActiveTab}>
-          <Tabs.List>
-            <Tabs.Tab value="employees" leftSection={<IconList size={16} />}>
-              Employees
-            </Tabs.Tab>
-            <Tabs.Tab
-              value="analytics"
-              leftSection={<IconChartBar size={16} />}
-            >
-              Analytics
-            </Tabs.Tab>
-          </Tabs.List>
-
-          <Tabs.Panel value="employees" pt="lg">
-            {/* Employee Table */}
-            <DataTable
-              data={employees}
-              columns={columns}
-              actions={actions}
-              emptyMessage="No employees found"
-              onRowDoubleClick={handleRowDoubleClick}
-            />
-          </Tabs.Panel>
-
-          <Tabs.Panel value="analytics" pt="lg">
-            {/* Analytics Placeholder */}
-            <Paper
-              p="xl"
-              withBorder
-              style={{
-                textAlign: 'center',
-                backgroundColor: '#f8f9fa',
-                minHeight: '400px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <div>
-                <IconChartBar size={64} stroke={1.5} color="#adb5bd" />
-                <Text size="xl" fw={600} c="dimmed" mt="md">
-                  Analytics Coming Soon
-                </Text>
-                <Text size="sm" c="dimmed" mt="xs">
-                  Employee analytics and insights will be displayed here
-                </Text>
-              </div>
-            </Paper>
-          </Tabs.Panel>
-        </Tabs>
+        {activeTab === 'analytics' ? (
+          <Paper
+            p="xl"
+            withBorder
+            style={{
+              textAlign: 'center',
+              backgroundColor: '#f8f9fa',
+              minHeight: '400px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <div>
+              <IconChartBar size={64} stroke={1.5} color="#adb5bd" />
+              <Text size="xl" fw={600} c="dimmed" mt="md">
+                Analytics Coming Soon
+              </Text>
+              <Text size="sm" c="dimmed" mt="xs">
+                Employee analytics and insights will be displayed here
+              </Text>
+            </div>
+          </Paper>
+        ) : (
+          <DataTable
+            data={employees}
+            columns={columns}
+            actions={actions}
+            emptyMessage="No employees found"
+            onRowDoubleClick={handleRowDoubleClick}
+          />
+        )}
       </Stack>
 
       {/* Form Dialog */}

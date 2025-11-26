@@ -38,3 +38,16 @@ Reusable frosted-glass control surface that centralizes the header + tabs + tool
 - `tabProps` and `panelProps` on each tab allow per-tab tweaks (e.g., disabling a tab, changing padding, or injecting additional accessibility props).
 
 Leverage this component anywhere you need a search/filter/action toolbar with tabs—operations dashboards, import/export hubs, or analytics views—while maintaining the same interaction surface users already recognize.
+
+## Current Implementations
+
+- ExpenseControls (clothing employees expenses)
+- AttendanceControls (clothing employees attendance)
+- PayrollControls (clothing employees payroll)
+- ScheduleControls (clothing employees schedules)
+- LeaveControls (clothing employees leave tracker)
+- CashAdvanceControls (clothing employees cash advance)
+- LoanControls (clothing employees employee loans)
+- TeamControls (clothing employees team management)
+
+Browse these files for concrete patterns on wiring filters, upload buttons, and tab-driven view switches before building another control surface.

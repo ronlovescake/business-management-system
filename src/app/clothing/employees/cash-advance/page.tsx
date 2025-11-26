@@ -15,7 +15,7 @@ import {
 import { useCashAdvance } from './hooks/useCashAdvance';
 // Direct imports for faster compilation (bypasses barrel export)
 import { StatsCardGrid, type StatCard } from '@/components/ui';
-import { PageControls } from '@/components/shared/PageTemplates/PageControls';
+import { CashAdvanceControls } from './components/CashAdvanceControls';
 import { DataTable } from '@/components/shared/PageTemplates/DataTable';
 import type {
   TableColumn,
@@ -271,24 +271,14 @@ function CashAdvance() {
         />
 
         {/* Controls */}
-        <PageControls
-          title="Cash Advance Records"
-          searchPlaceholder="Search by employee, purpose, or terms..."
+        <CashAdvanceControls
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
-          filters={[
-            {
-              placeholder: 'Filter by status',
-              data: ['All', 'pending', 'approved', 'rejected', 'paid'],
-              value: statusFilter,
-              onChange: (value: string | null) =>
-                setStatusFilter(value === 'All' || !value ? 'all' : value),
-            },
-          ]}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
           onImportCSV={handleImportCSV}
           onExportCSV={handleExportCSV}
-          onAdd={handleAddRequest}
-          addButtonLabel="Add Request"
+          onAddRequest={handleAddRequest}
         />
 
         {/* Request List Table */}

@@ -2,8 +2,7 @@ import React, { memo } from 'react';
 import { Group, TextInput, Select, FileButton, Button } from '@mantine/core';
 import {
   IconList,
-  IconChartPie,
-  IconCalendar,
+  IconChartBar,
   IconSearch,
   IconUpload,
   IconDownload,
@@ -15,75 +14,76 @@ import {
 } from '@/components/ui/ControlPanelCard';
 import { actionButtonStyles } from '@/components/shared/styles/actionButtonStyles';
 import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
-import type { LeaveType } from '../types';
 
-interface LeaveControlsProps {
+interface TeamControlsProps {
   activeTab: string | null;
   onTabChange: (tab: string | null) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  filterLeaveType: string | null;
-  onLeaveTypeFilterChange: (leaveType: string | null) => void;
-  filterStatus: string | null;
-  onStatusFilterChange: (status: string | null) => void;
-  leaveTypes: LeaveType[];
+  departments: string[];
+  departmentFilter: string;
+  onDepartmentFilterChange: (department: string) => void;
+  statusFilter: string;
+  onStatusFilterChange: (status: string) => void;
   onImportCSV: (file: File | null) => void;
   onExportCSV: () => void;
-  onAddRequest: () => void;
-  isImporting: boolean;
+  onAddEmployee: () => void;
+  isImporting?: boolean;
 }
 
-export const LeaveControls = memo(function LeaveControls({
+export const TeamControls = memo(function TeamControls({
   activeTab,
   onTabChange,
   searchQuery,
   onSearchChange,
-  filterLeaveType,
-  onLeaveTypeFilterChange,
-  filterStatus,
+  departments,
+  departmentFilter,
+  onDepartmentFilterChange,
+  statusFilter,
   onStatusFilterChange,
-  leaveTypes,
   onImportCSV,
   onExportCSV,
-  onAddRequest,
+  onAddEmployee,
   isImporting,
-}: LeaveControlsProps) {
+}: TeamControlsProps) {
   useCtrlFFocus(
-    '[data-ctrlf-target="leave-controls-search"]',
-    activeTab === 'list'
+    '[data-ctrlf-target="team-controls-search"]',
+    activeTab === 'employees'
   );
 
   const tabs: ControlPanelTabConfig[] = [
     {
-      value: 'list',
-      label: 'Leave Requests',
+      value: 'employees',
+      label: 'Employees',
       leftSection: <IconList size={16} />,
       panel: (
         <Group wrap="wrap" gap="sm">
           <TextInput
-            placeholder="Search leave requests..."
+            placeholder="Search by name, ID, department, or contact..."
             leftSection={<IconSearch size={16} />}
             value={searchQuery}
             onChange={(event) => onSearchChange(event.currentTarget.value)}
             style={{ flex: 1, minWidth: 220 }}
-            data-ctrlf-target="leave-controls-search"
+            data-ctrlf-target="team-controls-search"
           />
           <Select
-            placeholder="Filter by leave type"
-            data={['All', ...leaveTypes]}
-            value={filterLeaveType === null ? 'All' : filterLeaveType}
+            placeholder="Filter by department"
+            data={departments.map((dept) => (dept === 'all' ? 'All' : dept))}
+            value={departmentFilter === 'all' ? 'All' : departmentFilter}
             onChange={(value) =>
-              onLeaveTypeFilterChange(value === 'All' ? null : value)
+              onDepartmentFilterChange(
+                !value || value === 'All' ? 'all' : value
+              )
             }
             clearable
             style={{ width: 220 }}
           />
           <Select
             placeholder="Filter by status"
-            data={['All', 'pending', 'approved', 'rejected']}
-            value={filterStatus === null ? 'All' : filterStatus}
+            data={['All', 'active', 'inactive', 'on-leave']}
+            value={statusFilter === 'all' ? 'All' : statusFilter}
             onChange={(value) =>
-              onStatusFilterChange(value === 'All' ? null : value)
+              onStatusFilterChange(!value || value === 'All' ? 'all' : value)
             }
             clearable
             style={{ width: 220 }}
@@ -116,30 +116,24 @@ export const LeaveControls = memo(function LeaveControls({
             size="sm"
             radius="sm"
             color="green"
-            onClick={onAddRequest}
+            onClick={onAddEmployee}
           >
-            Add Leave Request
+            Add Employee
           </Button>
         </Group>
       ),
     },
     {
       value: 'analytics',
-      label: 'Analytics by Type',
-      leftSection: <IconChartPie size={16} />,
-      panel: null,
-    },
-    {
-      value: 'calendar',
-      label: 'Calendar View',
-      leftSection: <IconCalendar size={16} />,
+      label: 'Analytics',
+      leftSection: <IconChartBar size={16} />,
       panel: null,
     },
   ];
 
   return (
     <ControlPanelCard
-      title="Leave Tracker"
+      title="Team Management"
       tabs={tabs}
       activeTab={activeTab}
       onTabChange={onTabChange}

@@ -2,8 +2,6 @@ import React, { memo } from 'react';
 import { Group, TextInput, Select, FileButton, Button } from '@mantine/core';
 import {
   IconList,
-  IconChartPie,
-  IconCalendar,
   IconSearch,
   IconUpload,
   IconDownload,
@@ -15,78 +13,59 @@ import {
 } from '@/components/ui/ControlPanelCard';
 import { actionButtonStyles } from '@/components/shared/styles/actionButtonStyles';
 import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
-import type { LeaveType } from '../types';
+import type { AttendanceRecord } from '../types';
 
-interface LeaveControlsProps {
-  activeTab: string | null;
-  onTabChange: (tab: string | null) => void;
+interface AttendanceControlsProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  filterLeaveType: string | null;
-  onLeaveTypeFilterChange: (leaveType: string | null) => void;
-  filterStatus: string | null;
-  onStatusFilterChange: (status: string | null) => void;
-  leaveTypes: LeaveType[];
+  statusFilter: AttendanceRecord['status'] | 'all';
+  onStatusFilterChange: (status: AttendanceRecord['status'] | 'all') => void;
   onImportCSV: (file: File | null) => void;
   onExportCSV: () => void;
-  onAddRequest: () => void;
-  isImporting: boolean;
+  onAddRecord: () => void;
+  isImporting?: boolean;
 }
 
-export const LeaveControls = memo(function LeaveControls({
-  activeTab,
-  onTabChange,
+export const AttendanceControls = memo(function AttendanceControls({
   searchQuery,
   onSearchChange,
-  filterLeaveType,
-  onLeaveTypeFilterChange,
-  filterStatus,
+  statusFilter,
   onStatusFilterChange,
-  leaveTypes,
   onImportCSV,
   onExportCSV,
-  onAddRequest,
+  onAddRecord,
   isImporting,
-}: LeaveControlsProps) {
-  useCtrlFFocus(
-    '[data-ctrlf-target="leave-controls-search"]',
-    activeTab === 'list'
-  );
+}: AttendanceControlsProps) {
+  useCtrlFFocus('[data-ctrlf-target="attendance-controls-search"]', true);
 
   const tabs: ControlPanelTabConfig[] = [
     {
       value: 'list',
-      label: 'Leave Requests',
+      label: 'Attendance List',
       leftSection: <IconList size={16} />,
       panel: (
         <Group wrap="wrap" gap="sm">
           <TextInput
-            placeholder="Search leave requests..."
+            placeholder="Search attendance records..."
             leftSection={<IconSearch size={16} />}
             value={searchQuery}
             onChange={(event) => onSearchChange(event.currentTarget.value)}
             style={{ flex: 1, minWidth: 220 }}
-            data-ctrlf-target="leave-controls-search"
-          />
-          <Select
-            placeholder="Filter by leave type"
-            data={['All', ...leaveTypes]}
-            value={filterLeaveType === null ? 'All' : filterLeaveType}
-            onChange={(value) =>
-              onLeaveTypeFilterChange(value === 'All' ? null : value)
-            }
-            clearable
-            style={{ width: 220 }}
+            data-ctrlf-target="attendance-controls-search"
           />
           <Select
             placeholder="Filter by status"
-            data={['All', 'pending', 'approved', 'rejected']}
-            value={filterStatus === null ? 'All' : filterStatus}
+            data={['All', 'present', 'late', 'absent', 'on-leave']}
+            value={statusFilter === 'all' ? 'All' : statusFilter}
             onChange={(value) =>
-              onStatusFilterChange(value === 'All' ? null : value)
+              onStatusFilterChange(
+                !value || value === 'All'
+                  ? 'all'
+                  : (value as AttendanceRecord['status'])
+              )
             }
             clearable
-            style={{ width: 220 }}
+            style={{ width: 200 }}
           />
           <FileButton onChange={onImportCSV} accept=".csv,text/csv">
             {(props) => (
@@ -116,33 +95,21 @@ export const LeaveControls = memo(function LeaveControls({
             size="sm"
             radius="sm"
             color="green"
-            onClick={onAddRequest}
+            onClick={onAddRecord}
           >
-            Add Leave Request
+            Record Attendance
           </Button>
         </Group>
       ),
-    },
-    {
-      value: 'analytics',
-      label: 'Analytics by Type',
-      leftSection: <IconChartPie size={16} />,
-      panel: null,
-    },
-    {
-      value: 'calendar',
-      label: 'Calendar View',
-      leftSection: <IconCalendar size={16} />,
-      panel: null,
     },
   ];
 
   return (
     <ControlPanelCard
-      title="Leave Tracker"
+      title="Attendance Records"
       tabs={tabs}
-      activeTab={activeTab}
-      onTabChange={onTabChange}
+      activeTab="list"
+      onTabChange={() => {}}
     />
   );
 });
