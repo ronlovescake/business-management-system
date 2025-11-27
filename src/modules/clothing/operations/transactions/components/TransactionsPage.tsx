@@ -730,7 +730,10 @@ export function TransactionsPage() {
   );
 
   const recentlyUpdatedColumns: HandsontableColumn[] = React.useMemo(() => {
-    const clonedColumns = columns.map((column) => ({ ...column }));
+    const clonedColumns = columns.map((column) => ({
+      ...column,
+      readOnly: true,
+    }));
     const shipmentIndex = clonedColumns.findIndex(
       (column) => column.id === 'shipmentCode'
     );
@@ -1026,7 +1029,11 @@ export function TransactionsPage() {
         };
       }
 
-      return getCellData({ column, row, rowData });
+      const cellData = getCellData({ column, row, rowData });
+      return {
+        ...cellData,
+        readOnly: true,
+      };
     },
     [getCellData, getTransactionUpdatedLabel]
   );
@@ -1183,6 +1190,7 @@ export function TransactionsPage() {
               onCellEdited={handleCellEdited}
               enableCSVImport={false}
               enableCtrlF={true}
+              showActionButtons={false}
               statusOptions={statusDropdownOptions}
               selectedStatuses={selectedStatuses}
               onStatusFilter={handleStatusFilter}
