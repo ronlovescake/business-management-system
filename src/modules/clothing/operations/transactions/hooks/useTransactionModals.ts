@@ -579,7 +579,7 @@ export function useTransactionModals(
           icon: 'warning',
           confirmButtonText: 'I Understand',
           confirmButtonColor: '#fd7e14',
-          width: '650px',
+          width: '813px',
           allowOutsideClick: false,
           customClass: {
             popup: 'swal-wide',
