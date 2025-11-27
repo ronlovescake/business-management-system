@@ -475,9 +475,16 @@ export function useTransactionModals(
         return status === 'Prepared';
       });
 
-      // Filter: customers that have at least one Prepared order
-      const customersWithPrepared = new Set(
-        allPrepared.map((t) => t.Customers).filter(Boolean)
+      // Customers with at least one Prepared order ≤ ₱50.00
+      const customersWithEligiblePrepared = new Set(
+        visibleTransactions
+          .filter((t) => {
+            const status = t['Order Status'];
+            const lineTotal = Number(t['Line Total']) || 0;
+            return status === 'Prepared' && lineTotal <= 50.0;
+          })
+          .map((t) => t.Customers)
+          .filter(Boolean)
       );
 
       // Final eligible set: Prepared ≤ ₱50.00 plus On-Hold for customers who also have Prepared
@@ -491,11 +498,11 @@ export function useTransactionModals(
           return true;
         }
 
-        // Include On-Hold only if this customer has at least one Prepared order
+        // Include On-Hold only if this customer has at least one Prepared order ≤ ₱50.00
         if (
           status === 'On-Hold' &&
           customerName &&
-          customersWithPrepared.has(customerName)
+          customersWithEligiblePrepared.has(customerName)
         ) {
           return true;
         }
