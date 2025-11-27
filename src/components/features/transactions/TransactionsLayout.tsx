@@ -81,6 +81,7 @@ export interface TransactionsLayoutProps<T = Record<string, unknown>> {
   onGenerateInvoice?: (data: T[]) => void | Promise<void>;
   onGeneratePackingList?: (data: T[]) => void | Promise<void>;
   onGenerateDistribution?: (data: T[]) => void | Promise<void>;
+  showActionButtons?: boolean;
 
   // Loading States
   isGeneratingInvoice?: boolean;
@@ -115,6 +116,7 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
   onGenerateInvoice,
   onGeneratePackingList,
   onGenerateDistribution,
+  showActionButtons = true,
   isGeneratingInvoice = false,
   isGeneratingPackingList = false,
   isGeneratingDistribution = false,
@@ -198,7 +200,7 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
     ) : undefined;
 
   // Action buttons for document generation
-  const actionButtons = (
+  const actionButtons = showActionButtons ? (
     <Group>
       {onGenerateDistribution && (
         <Button
@@ -280,7 +282,7 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
         Export to XLSX
       </Button>
     </Group>
-  );
+  ) : null;
 
   return (
     <HandsontableGrid<T>

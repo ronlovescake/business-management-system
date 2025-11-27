@@ -810,30 +810,32 @@ export function HandsontableGrid<T extends object>({
           {searchRightButtons}
         </Group>
 
-        <Group gap="sm">
-          {enableCSVImport && (
-            <>
-              <FileInput
-                placeholder="Select CSV file"
-                leftSection={<IconUpload size={16} />}
-                value={csvFile}
-                onChange={onFileChange}
-                accept=".csv"
-                size="md"
-                radius="md"
-              />
-              <Button
-                onClick={handleCSVImport}
-                disabled={!csvFile}
-                size="md"
-                radius="md"
-              >
-                Import
-              </Button>
-            </>
-          )}
-          {actionButtons}
-        </Group>
+        {(enableCSVImport || actionButtons) && (
+          <Group gap="sm">
+            {enableCSVImport && (
+              <>
+                <FileInput
+                  placeholder="Select CSV file"
+                  leftSection={<IconUpload size={16} />}
+                  value={csvFile}
+                  onChange={onFileChange}
+                  accept=".csv"
+                  size="md"
+                  radius="md"
+                />
+                <Button
+                  onClick={handleCSVImport}
+                  disabled={!csvFile}
+                  size="md"
+                  radius="md"
+                >
+                  Import
+                </Button>
+              </>
+            )}
+            {actionButtons}
+          </Group>
+        )}
       </Group>
 
       {/* Handsontable Grid */}

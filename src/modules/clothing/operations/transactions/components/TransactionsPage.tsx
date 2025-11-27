@@ -21,8 +21,7 @@
 'use client';
 
 import React, { Profiler, useEffect, useState } from 'react';
-import { Tabs, Center, Text, TextInput, Stack } from '@mantine/core';
-import { IconSearch } from '@tabler/icons-react';
+import { Tabs } from '@mantine/core';
 import { StatsCardGrid } from '@/components/ui/StatsCardGrid';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
@@ -564,6 +563,55 @@ export function TransactionsPage() {
     [statistics]
   );
 
+  const packingListEligibleData = React.useMemo(() => {
+    const customersWithEligiblePrepared = new Set(
+      filteredData
+        .filter((transaction) => {
+          const status = transaction['Order Status'];
+          const lineTotal = Number(transaction['Line Total']) || 0;
+          return status === 'Prepared' && lineTotal <= 50;
+        })
+        .map((transaction) => transaction.Customers)
+        .filter(Boolean)
+    );
+
+    return filteredData
+      .filter((transaction) => {
+        const status = transaction['Order Status'];
+        const lineTotal = Number(transaction['Line Total']) || 0;
+        const customerName = transaction.Customers;
+
+        if (status === 'Prepared' && lineTotal <= 50) {
+          return true;
+        }
+
+        if (
+          status === 'On-Hold' &&
+          customerName &&
+          customersWithEligiblePrepared.has(customerName)
+        ) {
+          return true;
+        }
+
+        return false;
+      })
+      .slice()
+      .sort((a, b) => {
+        const nameA = (a.Customers || '').toLowerCase();
+        const nameB = (b.Customers || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+  }, [filteredData]);
+
+  const packingListColumns = React.useMemo(
+    () =>
+      columns.map((column) => ({
+        ...column,
+        readOnly: true,
+      })),
+    [columns]
+  );
+
   // ============================================================================
   // LOADING STATE
   // ============================================================================
@@ -669,46 +717,20 @@ export function TransactionsPage() {
           </Tabs.Panel>
 
           <Tabs.Panel value="packing-list" pt="md">
-            <Stack gap="md">
-              <TextInput
-                placeholder="Search transactions by customer, product code, status, notes, or shipment code..."
-                leftSection={<IconSearch size={16} />}
-                value={searchQuery}
-                onChange={(e) => handleSearch(e.currentTarget.value)}
-                size="md"
-                radius="md"
-                styles={{
-                  input: {
-                    backgroundColor: '#ffffff',
-                    borderColor: 'rgba(255, 255, 255, 0.5)',
-                    borderWidth: '1px',
-                    borderStyle: 'solid',
-                    color: '#333333',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-                    '&::placeholder': {
-                      color: '#999999',
-                    },
-                    '&:focus': {
-                      borderColor: '#667eea',
-                      boxShadow: '0 4px 16px rgba(102, 126, 234, 0.2)',
-                    },
-                  },
-                }}
-              />
-
-              <Center
-                style={{
-                  border: '1px dashed #ced4da',
-                  borderRadius: '8px',
-                  minHeight: '420px',
-                  backgroundColor: '#f8f9fa',
-                }}
-              >
-                <Text c="dimmed" size="lg">
-                  Packing List workspace coming soon.
-                </Text>
-              </Center>
-            </Stack>
+            <TransactionsLayout<TransactionData>
+              data={packingListEligibleData}
+              filteredData={packingListEligibleData}
+              columns={packingListColumns}
+              searchQuery={searchQuery}
+              onSearch={handleSearch}
+              searchPlaceholder="Search packing list eligible transactions..."
+              getCellData={getCellData}
+              enableCSVImport={false}
+              enableCtrlF={true}
+              statusOptions={[]}
+              showActionButtons={false}
+              stretchColumnId="notes"
+            />
           </Tabs.Panel>
         </Tabs>
       </PageLayout>
