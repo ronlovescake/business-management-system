@@ -21,7 +21,7 @@
 'use client';
 
 import React, { Profiler, useEffect, useState } from 'react';
-import { Tabs } from '@mantine/core';
+import { Tabs, Center, Text } from '@mantine/core';
 import { StatsCardGrid } from '@/components/ui/StatsCardGrid';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
@@ -687,6 +687,7 @@ export function TransactionsPage() {
           <Tabs.List mt="sm">
             <Tabs.Tab value="main">Main Transactions</Tabs.Tab>
             <Tabs.Tab value="packing-list">Packing List</Tabs.Tab>
+            <Tabs.Tab value="due-dates">Due Dates</Tabs.Tab>
           </Tabs.List>
 
           <Tabs.Panel value="main" pt="md">
@@ -731,6 +732,21 @@ export function TransactionsPage() {
               showActionButtons={false}
               stretchColumnId="notes"
             />
+          </Tabs.Panel>
+
+          <Tabs.Panel value="due-dates" pt="md">
+            <Center
+              style={{
+                border: '1px dashed #ced4da',
+                borderRadius: '8px',
+                minHeight: '420px',
+                backgroundColor: '#f8f9fa',
+              }}
+            >
+              <Text c="dimmed" size="lg">
+                Due Dates workspace coming soon.
+              </Text>
+            </Center>
           </Tabs.Panel>
         </Tabs>
       </PageLayout>
