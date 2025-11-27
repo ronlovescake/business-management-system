@@ -20,7 +20,7 @@
 
 'use client';
 
-import React, { Profiler, useEffect, useState } from 'react';
+import React, { Profiler, useEffect, useMemo, useState } from 'react';
 import { Tabs } from '@mantine/core';
 import { StatsCardGrid } from '@/components/ui/StatsCardGrid';
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -62,6 +62,7 @@ import {
 // Import service
 import { TransactionService } from '../services/TransactionService';
 import { DueDateService } from '../../due-dates/services/DueDateService';
+import { useChangeLogQuery } from '../../settings/change-log/hooks/useChangeLogQuery';
 
 // Import types
 import type {
@@ -728,6 +729,30 @@ export function TransactionsPage() {
     []
   );
 
+  const recentlyUpdatedColumns: HandsontableColumn[] = React.useMemo(() => {
+    const clonedColumns = columns.map((column) => ({ ...column }));
+    const shipmentIndex = clonedColumns.findIndex(
+      (column) => column.id === 'shipmentCode'
+    );
+    const updatedColumn: HandsontableColumn = {
+      title: 'DATE/TIME UPDATED',
+      width: 220,
+      id: 'updatedAt',
+      align: 'center',
+      readOnly: true,
+    };
+
+    if (shipmentIndex === -1) {
+      return [...clonedColumns, updatedColumn];
+    }
+
+    return [
+      ...clonedColumns.slice(0, shipmentIndex + 1),
+      updatedColumn,
+      ...clonedColumns.slice(shipmentIndex + 1),
+    ];
+  }, [columns]);
+
   const dueDatesData = React.useMemo<DueDateGridRow[]>(() => {
     return filteredData
       .filter((transaction) => {
@@ -817,49 +842,194 @@ export function TransactionsPage() {
     []
   );
 
-  const getTransactionTimestamp = React.useCallback(
-    (transaction: TransactionData) => {
-      const parseDateToTimestamp = (value: string) => {
-        if (!value || value.trim() === '') {
-          return 0;
-        }
+  const { data: changeLogResponse } = useChangeLogQuery(
+    {
+      page: 1,
+      limit: 200,
+      entityType: 'transaction',
+      includeFilters: false,
+    },
+    {
+      enabled: true,
+    }
+  );
 
-        const timestamp = Date.parse(value);
-        return Number.isNaN(timestamp) ? 0 : timestamp;
-      };
+  const transactionUpdateMap = useMemo(() => {
+    const map = new Map<number, number>();
+    if (!changeLogResponse?.logs?.length) {
+      return map;
+    }
 
-      const invoiceTimestamp = parseDateToTimestamp(
-        transaction['Invoice Date']
-      );
-      const packedTimestamp = parseDateToTimestamp(transaction['Packed Date']);
-      const orderTimestamp = parseDateToTimestamp(transaction['Order Date']);
-
-      if (invoiceTimestamp) {
-        return invoiceTimestamp;
+    changeLogResponse.logs.forEach((log) => {
+      const entityIdNumber = Number(log.entityId);
+      if (!Number.isFinite(entityIdNumber)) {
+        return;
       }
 
-      if (packedTimestamp) {
-        return packedTimestamp;
+      const timestamp = Date.parse(log.createdAt);
+      if (Number.isNaN(timestamp)) {
+        return;
       }
 
-      if (orderTimestamp) {
-        return orderTimestamp;
+      const existingTimestamp = map.get(entityIdNumber);
+      if (!existingTimestamp || timestamp > existingTimestamp) {
+        map.set(entityIdNumber, timestamp);
       }
+    });
 
-      if (typeof transaction.id === 'number') {
-        return transaction.id;
-      }
+    return map;
+  }, [changeLogResponse]);
 
+  const parseDateToTimestamp = React.useCallback((value: string) => {
+    if (!value || value.trim() === '') {
       return 0;
+    }
+
+    const trimmedValue = value.trim();
+
+    const attempts = [trimmedValue];
+
+    if (!/[zZ]|GMT|UTC|[+-]\d{2}:?\d{2}/.test(trimmedValue)) {
+      attempts.push(`${trimmedValue} GMT+0800`);
+
+      if (!/[0-9]{1,2}:[0-9]{2}/.test(trimmedValue)) {
+        attempts.push(`${trimmedValue}T00:00:00+08:00`);
+      }
+    }
+
+    for (const candidate of attempts) {
+      const timestamp = Date.parse(candidate);
+      if (!Number.isNaN(timestamp)) {
+        return timestamp;
+      }
+    }
+
+    return 0;
+  }, []);
+
+  const getLatestTransactionTimestamp = React.useCallback(
+    (transaction: TransactionData) => {
+      const transactionId =
+        typeof transaction.id === 'number' ? transaction.id : 0;
+      const changeLogTimestamp =
+        (transactionId && transactionUpdateMap.get(transactionId)) || 0;
+
+      if (changeLogTimestamp) {
+        return changeLogTimestamp;
+      }
+
+      const timestamps = [
+        parseDateToTimestamp(transaction['Invoice Date']),
+        parseDateToTimestamp(transaction['Packed Date']),
+        parseDateToTimestamp(transaction['Order Date']),
+      ].filter((value): value is number => Boolean(value));
+
+      if (timestamps.length === 0) {
+        return transactionId;
+      }
+
+      return Math.max(...timestamps);
+    },
+    [parseDateToTimestamp, transactionUpdateMap]
+  );
+
+  const getTransactionUpdatedLabel = React.useCallback(
+    (transaction: TransactionData) => {
+      const timestamp = getLatestTransactionTimestamp(transaction);
+      if (!timestamp) {
+        return '';
+      }
+
+      return new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Manila',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      }).format(new Date(timestamp));
+    },
+    [getLatestTransactionTimestamp]
+  );
+
+  const isMeaningfulTransaction = React.useCallback(
+    (transaction: TransactionData) => {
+      const hasCustomer = Boolean(transaction.Customers?.trim());
+      const hasProduct = Boolean(transaction['Product Code']?.trim());
+      const hasOrderDate = Boolean(transaction['Order Date']?.trim());
+      const hasShipmentCode = Boolean(
+        transaction['Shipment Code'] &&
+          transaction['Shipment Code']?.trim() !== '' &&
+          transaction['Shipment Code'] !== '-'
+      );
+      const hasQuantity = Boolean(
+        transaction.Quantity && transaction.Quantity > 0
+      );
+      const hasNotes = Boolean(transaction.Notes?.trim());
+
+      return (
+        hasCustomer ||
+        hasProduct ||
+        hasOrderDate ||
+        hasShipmentCode ||
+        hasQuantity ||
+        hasNotes
+      );
     },
     []
   );
 
+  const meaningfulTransactions = React.useMemo(
+    () => filteredData.filter(isMeaningfulTransaction),
+    [filteredData, isMeaningfulTransaction]
+  );
+
+  const MAX_PLACEHOLDER_ROWS = 20;
+  const cappedFilteredTransactions = React.useMemo(() => {
+    let placeholdersShown = 0;
+    return filteredData.filter((transaction) => {
+      if (isMeaningfulTransaction(transaction)) {
+        return true;
+      }
+      if (placeholdersShown < MAX_PLACEHOLDER_ROWS) {
+        placeholdersShown += 1;
+        return true;
+      }
+      return false;
+    });
+  }, [filteredData, isMeaningfulTransaction]);
+
   const recentlyUpdatedData = React.useMemo(() => {
-    return filteredData
+    return meaningfulTransactions
       .slice()
-      .sort((a, b) => getTransactionTimestamp(b) - getTransactionTimestamp(a));
-  }, [filteredData, getTransactionTimestamp]);
+      .sort(
+        (a, b) =>
+          getLatestTransactionTimestamp(b) - getLatestTransactionTimestamp(a)
+      );
+  }, [meaningfulTransactions, getLatestTransactionTimestamp]);
+
+  const getRecentlyUpdatedCellData = React.useCallback(
+    ({
+      column,
+      rowData,
+      row,
+    }: {
+      column: HandsontableColumn;
+      rowData: TransactionData;
+      row: number;
+    }): CellData => {
+      if (column.id === 'updatedAt') {
+        return {
+          value: getTransactionUpdatedLabel(rowData),
+          readOnly: true,
+        };
+      }
+
+      return getCellData({ column, row, rowData });
+    },
+    [getCellData, getTransactionUpdatedLabel]
+  );
 
   // ============================================================================
   // LOADING STATE
@@ -944,7 +1114,7 @@ export function TransactionsPage() {
             {/* Main Transactions Layout */}
             <TransactionsLayout<TransactionData>
               data={transactions}
-              filteredData={filteredData}
+              filteredData={cappedFilteredTransactions}
               columns={columns}
               searchQuery={searchQuery}
               onSearch={handleSearch}
@@ -1003,13 +1173,13 @@ export function TransactionsPage() {
 
           <Tabs.Panel value="recently-updated" pt="md">
             <TransactionsLayout<TransactionData>
-              data={transactions}
+              data={meaningfulTransactions}
               filteredData={recentlyUpdatedData}
-              columns={columns}
+              columns={recentlyUpdatedColumns}
               searchQuery={searchQuery}
               onSearch={handleSearch}
               searchPlaceholder="Search recently updated transactions..."
-              getCellData={getCellData}
+              getCellData={getRecentlyUpdatedCellData}
               onCellEdited={handleCellEdited}
               enableCSVImport={false}
               enableCtrlF={true}

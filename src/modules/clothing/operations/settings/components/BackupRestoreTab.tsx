@@ -1102,6 +1102,55 @@ export function BackupRestoreTab() {
     restorePreviewForceOverwrite,
   ]);
 
+  const parseSortValue = (value: unknown) => {
+    if (typeof value === 'number') {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const numeric = Number(value);
+      if (!Number.isNaN(numeric) && value.trim() !== '') {
+        return numeric;
+      }
+      const date = Date.parse(value);
+      if (!Number.isNaN(date)) {
+        return date;
+      }
+      return value.toLowerCase();
+    }
+    if (value instanceof Date) {
+      return value.getTime();
+    }
+    return value ?? 0;
+  };
+
+  const sortTableRows = (rows: Array<Record<string, unknown>>) => {
+    if (!rows.length) {
+      return rows;
+    }
+
+    const preferredKeys = ['createdAt', 'updatedAt', 'orderDate', 'id'];
+    const sortKey = preferredKeys.find((key) =>
+      rows.some((row) => row[key] !== undefined)
+    );
+
+    if (!sortKey) {
+      return rows;
+    }
+
+    return [...rows].sort((a, b) => {
+      const aValue = parseSortValue(a[sortKey]);
+      const bValue = parseSortValue(b[sortKey]);
+
+      if (aValue < bValue) {
+        return -1;
+      }
+      if (aValue > bValue) {
+        return 1;
+      }
+      return 0;
+    });
+  };
+
   const selectedTableDetails = useMemo(() => {
     if (!previewData || !selectedTableName) {
       return null;
@@ -1124,7 +1173,7 @@ export function BackupRestoreTab() {
     return {
       name: selectedTableName,
       count: table.count,
-      data: table.data || [],
+      data: sortTableRows(table.data || []),
       columns,
     };
   }, [previewData, selectedTableName]);

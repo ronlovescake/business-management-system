@@ -34,6 +34,7 @@
     "db:test": "node scripts/test-db.js",
     "db:reset:test": "node scripts/reset-test-db.js --seed",
     "db:snapshot": "node scripts/db-snapshot.js",
+    "db:cleanup-placeholders": "node scripts/remove-placeholder-transactions.js",
     "generate:module": "node scripts/generate-module.js"
   },
   "dependencies": {

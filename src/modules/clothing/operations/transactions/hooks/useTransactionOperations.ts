@@ -578,7 +578,11 @@ export function useTransactionOperations(
             currentOrderStatus.toLowerCase() === 'warehouse'
           ) {
             finalOrderStatus = '';
-          } else if (currentOrderStatus && currentOrderStatus.trim() !== '') {
+          } else if (
+            currentOrderStatus &&
+            currentOrderStatus.trim() !== '' &&
+            currentOrderStatus.toLowerCase() !== 'prepared'
+          ) {
             // Show confirmation for important statuses
             const shouldClear = await showConfirm({
               title: '⚠️ CONFIRMATION REQUIRED',

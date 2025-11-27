@@ -876,7 +876,7 @@ export function HandsontableGrid<T extends object>({
           autoColumnSize={false} // Disable auto column width calculation
           rowHeights={45} // Set fixed row height
           columnHeaderHeight={45} // Set header height to match row height
-          minSpareRows={50} // Always maintain 50 empty rows for data entry
+          minSpareRows={20} // Keep 20 empty rows available for fast entry
           beforeCut={() => false}
           afterBeginEditing={(row, col) => {
             const column = columns[col];
