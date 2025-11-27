@@ -21,7 +21,7 @@
 'use client';
 
 import React, { Profiler, useEffect, useState } from 'react';
-import { Tabs, Center, Text } from '@mantine/core';
+import { Tabs } from '@mantine/core';
 import { StatsCardGrid } from '@/components/ui/StatsCardGrid';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
@@ -61,6 +61,7 @@ import {
 
 // Import service
 import { TransactionService } from '../services/TransactionService';
+import { DueDateService } from '../../due-dates/services/DueDateService';
 
 // Import types
 import type {
@@ -79,6 +80,38 @@ const DEFAULT_READ_ONLY_COLUMNS = {
 
 type ReadOnlyColumnFlags = typeof DEFAULT_READ_ONLY_COLUMNS;
 
+interface DueDateGridRow {
+  id: string;
+  customer: string;
+  productCode: string;
+  quantity: number | string | null;
+  unitPrice: number | string | null;
+  lineTotal: number | string | null;
+  invoiceDate: string;
+  dueDate: string;
+  dueIn: string;
+  notes: string;
+  done: string;
+}
+
+const formatDueInLabel = (hours: number): string => {
+  if (!Number.isFinite(hours)) {
+    return '';
+  }
+  if (hours === 0) {
+    return 'Due now';
+  }
+
+  const absHours = Math.abs(hours);
+  const hourLabel = absHours === 1 ? 'hour' : 'hours';
+
+  if (hours < 0) {
+    return `${absHours} ${hourLabel} overdue`;
+  }
+
+  return `in ${absHours} ${hourLabel}`;
+};
+
 export function TransactionsPage() {
   // ============================================================================
   // SETTINGS STATE - Fetch read-only columns only
@@ -86,14 +119,20 @@ export function TransactionsPage() {
   const [readOnlyColumns, setReadOnlyColumns] = useState<ReadOnlyColumnFlags>(
     DEFAULT_READ_ONLY_COLUMNS
   );
-  const [activeTab, setActiveTab] = useState<'main' | 'packing-list'>('main');
+  const [activeTab, setActiveTab] = useState<
+    'main' | 'packing-list' | 'due-dates' | 'recently-updated'
+  >('main');
 
   const handleTabChange = (value: string | null) => {
     if (value === 'packing-list') {
       setActiveTab('packing-list');
-      return;
+    } else if (value === 'due-dates') {
+      setActiveTab('due-dates');
+    } else if (value === 'recently-updated') {
+      setActiveTab('recently-updated');
+    } else {
+      setActiveTab('main');
     }
-    setActiveTab('main');
   };
 
   useEffect(() => {
@@ -612,6 +651,216 @@ export function TransactionsPage() {
     [columns]
   );
 
+  const dueDateColumns: HandsontableColumn[] = React.useMemo(
+    () => [
+      {
+        title: 'CUSTOMER',
+        width: 380,
+        id: 'customer',
+        readOnly: true,
+      },
+      {
+        title: 'PRODUCT CODE',
+        width: 420,
+        id: 'productCode',
+        readOnly: true,
+      },
+      {
+        title: 'QUANTITY',
+        width: 120,
+        id: 'quantity',
+        type: 'numeric',
+        align: 'center',
+        readOnly: true,
+      },
+      {
+        title: 'UNIT PRICE',
+        width: 140,
+        id: 'unitPrice',
+        type: 'numeric',
+        align: 'right',
+        readOnly: true,
+      },
+      {
+        title: 'LINE TOTAL',
+        width: 160,
+        id: 'lineTotal',
+        type: 'numeric',
+        align: 'right',
+        readOnly: true,
+      },
+      {
+        title: 'INVOICE DATE',
+        width: 160,
+        id: 'invoiceDate',
+        align: 'center',
+        readOnly: true,
+      },
+      {
+        title: 'DUE DATE',
+        width: 160,
+        id: 'dueDate',
+        align: 'center',
+        readOnly: true,
+      },
+      {
+        title: 'DUE IN',
+        width: 140,
+        id: 'dueIn',
+        align: 'center',
+        readOnly: true,
+      },
+      {
+        title: 'NOTES',
+        width: 360,
+        id: 'notes',
+        className: 'ht-truncate',
+        readOnly: true,
+      },
+      {
+        title: 'DONE',
+        width: 120,
+        id: 'done',
+        align: 'center',
+        readOnly: true,
+      },
+    ],
+    []
+  );
+
+  const dueDatesData = React.useMemo<DueDateGridRow[]>(() => {
+    return filteredData
+      .filter((transaction) => {
+        const invoiceDate = transaction['Invoice Date'];
+        const lineTotal = Number(transaction['Line Total']) || 0;
+        const status = transaction['Order Status'];
+
+        return (
+          Boolean(invoiceDate && invoiceDate.trim()) &&
+          lineTotal > 0 &&
+          status === 'Prepared'
+        );
+      })
+      .map((transaction, index) => {
+        const invoiceDate = transaction['Invoice Date'] || '';
+        const dueDateRaw = DueDateService.calculateDueDate(invoiceDate);
+        const dueInHours = dueDateRaw
+          ? DueDateService.calculateHoursUntilDue(dueDateRaw)
+          : 0;
+
+        return {
+          id: transaction.id ? `due-${transaction.id}` : `due-${index}`,
+          customer: transaction.Customers || '',
+          productCode: transaction['Product Code'] || '',
+          quantity: transaction.Quantity ?? null,
+          unitPrice: transaction['Unit Price'] ?? null,
+          lineTotal: transaction['Line Total'] ?? null,
+          invoiceDate: invoiceDate
+            ? DueDateService.formatDate(invoiceDate)
+            : '',
+          dueDate: dueDateRaw ? DueDateService.formatDate(dueDateRaw) : '',
+          dueIn: formatDueInLabel(dueInHours),
+          notes: transaction.Notes || '',
+          done: 'No',
+        };
+      })
+      .sort((a, b) => a.customer.localeCompare(b.customer));
+  }, [filteredData]);
+
+  const getDueDateCellData = React.useCallback(
+    ({
+      column,
+      rowData,
+    }: {
+      column: HandsontableColumn;
+      rowData: DueDateGridRow;
+    }): CellData => {
+      if (column.id === 'quantity') {
+        return { value: rowData.quantity ?? '', readOnly: true };
+      }
+
+      if (column.id === 'unitPrice' || column.id === 'lineTotal') {
+        const rawValue = rowData[column.id as 'unitPrice' | 'lineTotal'];
+
+        if (rawValue === null || rawValue === undefined) {
+          return { value: '', displayValue: '', readOnly: true };
+        }
+
+        const sanitizedValue = String(rawValue).trim();
+        if (sanitizedValue === '') {
+          return { value: '', displayValue: '', readOnly: true };
+        }
+
+        const numeric = Number(sanitizedValue.replace(/,/g, ''));
+        if (Number.isFinite(numeric) && numeric !== 0) {
+          return {
+            value: String(numeric),
+            displayValue: numeric.toLocaleString(),
+            readOnly: true,
+          };
+        }
+
+        return {
+          value: sanitizedValue,
+          displayValue: sanitizedValue,
+          readOnly: true,
+        };
+      }
+
+      const fallbackValue = rowData[column.id as keyof DueDateGridRow] ?? '';
+
+      return {
+        value: fallbackValue,
+        readOnly: true,
+      };
+    },
+    []
+  );
+
+  const getTransactionTimestamp = React.useCallback(
+    (transaction: TransactionData) => {
+      const parseDateToTimestamp = (value: string) => {
+        if (!value || value.trim() === '') {
+          return 0;
+        }
+
+        const timestamp = Date.parse(value);
+        return Number.isNaN(timestamp) ? 0 : timestamp;
+      };
+
+      const invoiceTimestamp = parseDateToTimestamp(
+        transaction['Invoice Date']
+      );
+      const packedTimestamp = parseDateToTimestamp(transaction['Packed Date']);
+      const orderTimestamp = parseDateToTimestamp(transaction['Order Date']);
+
+      if (invoiceTimestamp) {
+        return invoiceTimestamp;
+      }
+
+      if (packedTimestamp) {
+        return packedTimestamp;
+      }
+
+      if (orderTimestamp) {
+        return orderTimestamp;
+      }
+
+      if (typeof transaction.id === 'number') {
+        return transaction.id;
+      }
+
+      return 0;
+    },
+    []
+  );
+
+  const recentlyUpdatedData = React.useMemo(() => {
+    return filteredData
+      .slice()
+      .sort((a, b) => getTransactionTimestamp(b) - getTransactionTimestamp(a));
+  }, [filteredData, getTransactionTimestamp]);
+
   // ============================================================================
   // LOADING STATE
   // ============================================================================
@@ -688,6 +937,7 @@ export function TransactionsPage() {
             <Tabs.Tab value="main">Main Transactions</Tabs.Tab>
             <Tabs.Tab value="packing-list">Packing List</Tabs.Tab>
             <Tabs.Tab value="due-dates">Due Dates</Tabs.Tab>
+            <Tabs.Tab value="recently-updated">Recently Updated</Tabs.Tab>
           </Tabs.List>
 
           <Tabs.Panel value="main" pt="md">
@@ -735,18 +985,45 @@ export function TransactionsPage() {
           </Tabs.Panel>
 
           <Tabs.Panel value="due-dates" pt="md">
-            <Center
-              style={{
-                border: '1px dashed #ced4da',
-                borderRadius: '8px',
-                minHeight: '420px',
-                backgroundColor: '#f8f9fa',
-              }}
-            >
-              <Text c="dimmed" size="lg">
-                Due Dates workspace coming soon.
-              </Text>
-            </Center>
+            <TransactionsLayout<DueDateGridRow>
+              data={dueDatesData}
+              filteredData={dueDatesData}
+              columns={dueDateColumns}
+              searchQuery={searchQuery}
+              onSearch={handleSearch}
+              searchPlaceholder="Search due dates by customer or product code..."
+              getCellData={getDueDateCellData}
+              enableCSVImport={false}
+              enableCtrlF={true}
+              statusOptions={[]}
+              showActionButtons={false}
+              stretchColumnId="notes"
+            />
+          </Tabs.Panel>
+
+          <Tabs.Panel value="recently-updated" pt="md">
+            <TransactionsLayout<TransactionData>
+              data={transactions}
+              filteredData={recentlyUpdatedData}
+              columns={columns}
+              searchQuery={searchQuery}
+              onSearch={handleSearch}
+              searchPlaceholder="Search recently updated transactions..."
+              getCellData={getCellData}
+              onCellEdited={handleCellEdited}
+              enableCSVImport={false}
+              enableCtrlF={true}
+              statusOptions={statusDropdownOptions}
+              selectedStatuses={selectedStatuses}
+              onStatusFilter={handleStatusFilter}
+              onGenerateInvoice={prepareInvoiceGeneration}
+              onGeneratePackingList={preparePackingListGeneration}
+              onGenerateDistribution={prepareDistributionGeneration}
+              isGeneratingInvoice={isGeneratingInvoice}
+              isGeneratingPackingList={isGeneratingPackingList}
+              isGeneratingDistribution={isGeneratingDistribution}
+              stretchColumnId="notes"
+            />
           </Tabs.Panel>
         </Tabs>
       </PageLayout>
