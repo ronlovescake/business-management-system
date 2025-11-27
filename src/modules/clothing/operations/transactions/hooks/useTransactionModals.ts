@@ -577,8 +577,14 @@ export function useTransactionModals(
             </div>
           `,
           icon: 'warning',
-          confirmButtonText: 'I Understand',
-          confirmButtonColor: '#fd7e14',
+          showDenyButton: true,
+          showCancelButton: true,
+          confirmButtonText: 'Proceed',
+          denyButtonText: 'Skip These Customers',
+          cancelButtonText: 'Cancel',
+          confirmButtonColor: '#60bd52ff',
+          denyButtonColor: '#5198dfff',
+          cancelButtonColor: '#ff7171ff',
           width: '813px',
           allowOutsideClick: false,
           customClass: {
