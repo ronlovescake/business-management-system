@@ -21,6 +21,9 @@
 'use client';
 
 import React, { Profiler, useEffect, useState } from 'react';
+import { Tabs, Center, Text, TextInput, Stack } from '@mantine/core';
+import { IconSearch } from '@tabler/icons-react';
+import { StatsCardGrid } from '@/components/ui/StatsCardGrid';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import type { StatCard } from '@/components/ui';
@@ -84,6 +87,15 @@ export function TransactionsPage() {
   const [readOnlyColumns, setReadOnlyColumns] = useState<ReadOnlyColumnFlags>(
     DEFAULT_READ_ONLY_COLUMNS
   );
+  const [activeTab, setActiveTab] = useState<'main' | 'packing-list'>('main');
+
+  const handleTabChange = (value: string | null) => {
+    if (value === 'packing-list') {
+      setActiveTab('packing-list');
+      return;
+    }
+    setActiveTab('main');
+  };
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -614,31 +626,91 @@ export function TransactionsPage() {
           data={customerWarningData}
         />
 
-        {/* Main Transactions Layout */}
-        <TransactionsLayout<TransactionData>
-          data={transactions}
-          filteredData={filteredData}
-          columns={columns}
-          searchQuery={searchQuery}
-          onSearch={handleSearch}
-          searchPlaceholder="Search transactions by customer, product code, status, notes, or shipment code..."
-          getCellData={getCellData}
-          onCellEdited={handleCellEdited}
-          statsCards={statsCards}
-          enableCSVImport={false}
-          enableCtrlF={true}
-          statusOptions={statusDropdownOptions}
-          selectedStatuses={selectedStatuses}
-          onStatusFilter={handleStatusFilter}
-          onGenerateInvoice={prepareInvoiceGeneration}
-          onGeneratePackingList={preparePackingListGeneration}
-          onGenerateDistribution={prepareDistributionGeneration}
-          isGeneratingInvoice={isGeneratingInvoice}
-          isGeneratingPackingList={isGeneratingPackingList}
-          isGeneratingDistribution={isGeneratingDistribution}
-          // scrollToLastNonEmptyRows removed
-          stretchColumnId="notes"
-        />
+        <Tabs value={activeTab} onChange={handleTabChange} defaultValue="main">
+          {statsCards.length > 0 && (
+            <StatsCardGrid
+              cards={statsCards}
+              variant="vibrant"
+              minCardWidth={220}
+              spacing="md"
+            />
+          )}
+
+          <Tabs.List mt="sm">
+            <Tabs.Tab value="main">Main Transactions</Tabs.Tab>
+            <Tabs.Tab value="packing-list">Packing List</Tabs.Tab>
+          </Tabs.List>
+
+          <Tabs.Panel value="main" pt="md">
+            {/* Main Transactions Layout */}
+            <TransactionsLayout<TransactionData>
+              data={transactions}
+              filteredData={filteredData}
+              columns={columns}
+              searchQuery={searchQuery}
+              onSearch={handleSearch}
+              searchPlaceholder="Search transactions by customer, product code, status, notes, or shipment code..."
+              getCellData={getCellData}
+              onCellEdited={handleCellEdited}
+              enableCSVImport={false}
+              enableCtrlF={true}
+              statusOptions={statusDropdownOptions}
+              selectedStatuses={selectedStatuses}
+              onStatusFilter={handleStatusFilter}
+              onGenerateInvoice={prepareInvoiceGeneration}
+              onGeneratePackingList={preparePackingListGeneration}
+              onGenerateDistribution={prepareDistributionGeneration}
+              isGeneratingInvoice={isGeneratingInvoice}
+              isGeneratingPackingList={isGeneratingPackingList}
+              isGeneratingDistribution={isGeneratingDistribution}
+              // scrollToLastNonEmptyRows removed
+              stretchColumnId="notes"
+            />
+          </Tabs.Panel>
+
+          <Tabs.Panel value="packing-list" pt="md">
+            <Stack gap="md">
+              <TextInput
+                placeholder="Search transactions by customer, product code, status, notes, or shipment code..."
+                leftSection={<IconSearch size={16} />}
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.currentTarget.value)}
+                size="md"
+                radius="md"
+                styles={{
+                  input: {
+                    backgroundColor: '#ffffff',
+                    borderColor: 'rgba(255, 255, 255, 0.5)',
+                    borderWidth: '1px',
+                    borderStyle: 'solid',
+                    color: '#333333',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                    '&::placeholder': {
+                      color: '#999999',
+                    },
+                    '&:focus': {
+                      borderColor: '#667eea',
+                      boxShadow: '0 4px 16px rgba(102, 126, 234, 0.2)',
+                    },
+                  },
+                }}
+              />
+
+              <Center
+                style={{
+                  border: '1px dashed #ced4da',
+                  borderRadius: '8px',
+                  minHeight: '420px',
+                  backgroundColor: '#f8f9fa',
+                }}
+              >
+                <Text c="dimmed" size="lg">
+                  Packing List workspace coming soon.
+                </Text>
+              </Center>
+            </Stack>
+          </Tabs.Panel>
+        </Tabs>
       </PageLayout>
     </Profiler>
   );
