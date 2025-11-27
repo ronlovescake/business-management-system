@@ -503,6 +503,8 @@ export function useTransactionModals(
         return false;
       });
 
+      let filteredEligible = eligible;
+
       if (eligible.length === 0) {
         showNotification({
           title: '⚠️ No Prepared Transactions',
@@ -562,7 +564,7 @@ export function useTransactionModals(
           )
           .join('');
 
-        await Swal.fire({
+        const splitWarningResult = await Swal.fire({
           title: '⚠️ Some Customers Have Split Orders',
           html: `
             <div style="text-align: left;">
@@ -591,21 +593,62 @@ export function useTransactionModals(
             popup: 'swal-wide',
           },
         });
+
+        if (splitWarningResult.isDenied) {
+          const splitCustomerNames = new Set(
+            customersWithSplitOrders.map((c) => c.customerName)
+          );
+
+          filteredEligible = filteredEligible.filter((t) => {
+            const customerKey = t.Customers || 'Unknown';
+            return !splitCustomerNames.has(customerKey);
+          });
+
+          if (filteredEligible.length === 0) {
+            showNotification({
+              title: '⚠️ No Eligible Transactions',
+              message:
+                'All split-order customers were skipped. No transactions left to process.',
+              color: 'yellow',
+              autoClose: 5000,
+            });
+            return;
+          }
+
+          showNotification({
+            title: 'ℹ️ Split Customers Skipped',
+            message:
+              'Customers with split orders were excluded from this packing list.',
+            color: 'blue',
+            autoClose: 5000,
+          });
+        } else if (
+          splitWarningResult.dismiss === Swal.DismissReason.cancel ||
+          splitWarningResult.dismiss === Swal.DismissReason.close
+        ) {
+          showNotification({
+            title: '✅ Packing List Generation Cancelled',
+            message: 'No changes were made.',
+            color: 'blue',
+            autoClose: 4000,
+          });
+          return;
+        }
       }
 
       const uniqueCustomers = new Set(
-        eligible.map((t) => t.Customers).filter(Boolean)
+        filteredEligible.map((t) => t.Customers).filter(Boolean)
       );
-      const totalValue = eligible.reduce(
+      const totalValue = filteredEligible.reduce(
         (sum, t) => sum + (Number(t['Line Total']) || 0),
         0
       );
 
       // Counts by status for clearer confirmation messaging
-      const preparedCount = eligible.filter(
+      const preparedCount = filteredEligible.filter(
         (t) => t['Order Status'] === 'Prepared'
       ).length;
-      const onHoldCount = eligible.filter(
+      const onHoldCount = filteredEligible.filter(
         (t) => t['Order Status'] === 'On-Hold'
       ).length;
 
@@ -625,7 +668,7 @@ export function useTransactionModals(
             
             <div style="margin-bottom: 16px;">
               <p style="margin: 6px 0; font-size: 14px;">
-                <strong>${eligible.length}</strong> eligible transactions
+                <strong>${filteredEligible.length}</strong> eligible transactions
               </p>
               <p style="margin: 6px 0; font-size: 14px;">
                 <strong>${uniqueCustomers.size}</strong> customer${uniqueCustomers.size > 1 ? 's' : ''}
@@ -684,7 +727,7 @@ export function useTransactionModals(
 
       try {
         // Transform to the format expected by the API (with capitalized field names)
-        const transformed = eligible.map((t) => ({
+        const transformed = filteredEligible.map((t) => ({
           Customers: t.Customers || '',
           'Product Code': t['Product Code'] || '',
           Quantity: Number(t.Quantity) || 0,
@@ -719,7 +762,7 @@ export function useTransactionModals(
 
           showNotification({
             title: '✅ Packing Lists Generated',
-            message: `PDF with packing lists for ${eligible.length} transactions downloaded`,
+            message: `PDF with packing lists for ${filteredEligible.length} transactions downloaded`,
             color: 'green',
             autoClose: 8000,
           });
@@ -869,7 +912,7 @@ export function useTransactionModals(
             timeZone: 'Asia/Manila',
           });
 
-          const processedIds = new Set(eligible.map((t) => t.id));
+          const processedIds = new Set(filteredEligible.map((t) => t.id));
           const updated = transactions.map((t) => {
             if (processedIds.has(t.id)) {
               const customerName = t.Customers || '';
