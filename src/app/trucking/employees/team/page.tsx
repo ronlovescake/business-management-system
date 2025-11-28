@@ -17,13 +17,13 @@ import {
 import { useTeam } from './hooks/useTeam';
 // Direct imports for faster compilation (bypasses barrel export)
 import { StatsCardGrid, type StatCard } from '@/components/ui';
-import { PageControls } from '@/components/shared/PageTemplates/PageControls';
 import { DataTable } from '@/components/shared/PageTemplates/DataTable';
 import type {
   TableColumn,
   TableAction,
 } from '@/components/shared/PageTemplates/DataTable';
 import { EmployeeFormDialog } from './components/EmployeeFormDialog';
+import { TeamControls } from './components/TeamControls';
 import type { Employee as EmployeeType } from './types';
 
 export default function Team() {
@@ -239,31 +239,19 @@ export default function Team() {
         />
 
         {/* Controls */}
-        <PageControls
-          title="Team Management"
-          searchPlaceholder="Search by name, ID, department, or contact..."
+        <TeamControls
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
-          filters={[
-            {
-              placeholder: 'Filter by department',
-              data: departments.map((d) => (d === 'all' ? 'All' : d)),
-              value: departmentFilter,
-              onChange: (value: string | null) =>
-                setDepartmentFilter(value === 'All' || !value ? 'all' : value),
-            },
-            {
-              placeholder: 'Filter by status',
-              data: ['All', 'active', 'inactive', 'on-leave'],
-              value: statusFilter,
-              onChange: (value: string | null) =>
-                setStatusFilter(value === 'All' || !value ? 'all' : value),
-            },
-          ]}
+          departments={departments}
+          departmentFilter={departmentFilter}
+          onDepartmentFilterChange={setDepartmentFilter}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
           onImportCSV={handleImportCSV}
           onExportCSV={handleExportCSV}
-          onAdd={handleAddEmployee}
-          addButtonLabel="Add Employee"
+          onAddEmployee={handleAddEmployee}
         />
 
         {/* Tabs */}
