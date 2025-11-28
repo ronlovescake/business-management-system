@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
@@ -88,7 +89,7 @@ export async function GET(request: NextRequest) {
       },
     } as const;
 
-    const cashAdvanceWhere = {
+    const cashAdvanceWhere: Prisma.CashAdvanceRecordWhereInput = {
       OR: [
         {
           requestDate: {
@@ -103,7 +104,7 @@ export async function GET(request: NextRequest) {
           },
         },
       ],
-    } as const;
+    };
 
     const startYear = dayjs(range.from).tz().year();
     const endYear = dayjs(range.to).tz().year();

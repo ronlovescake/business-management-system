@@ -53,7 +53,7 @@
   --ht-scrollbar-border-radius: 8px;
   --ht-scrollbar-track-color: #f7f7f9;
   --ht-scrollbar-thumb-color: #aeaeae;
-  --ht-header-font-weight: 400;
+  --ht-header-font-weight: 600;
   --ht-header-foreground-color: #353535;
   --ht-header-background-color: #ffffff;
   --ht-header-highlighted-shadow-size: 1px;
@@ -320,9 +320,9 @@
   --ht-scrollbar-border-radius: 8px;
   --ht-scrollbar-track-color: #f7f7f9;
   --ht-scrollbar-thumb-color: #aeaeae;
-  --ht-header-font-weight: 400;
+  --ht-header-font-weight: 700;
   --ht-header-foreground-color: #353535;
-  --ht-header-background-color: #f7f7f9;
+  --ht-header-background-color: #e6e6e6;
   --ht-header-highlighted-shadow-size: 1px;
   --ht-header-highlighted-foreground-color: #353535;
   --ht-header-highlighted-background-color: #ededef;
