@@ -163,6 +163,44 @@ export function useTransactionModals(
       );
 
       try {
+        // Always ask user to pick the invoice type before running any logic
+        const typeSelection = await Swal.fire({
+          title: 'Select Invoice Type',
+          html: `
+            <p style="margin-bottom: 20px; color: #495057;">Please choose the type of invoice you want to generate:</p>
+          `,
+          icon: 'question',
+          showDenyButton: true,
+          showCancelButton: true,
+          confirmButtonText: 'In Transit',
+          denyButtonText: 'Onhand',
+          cancelButtonText: 'Cancel',
+          confirmButtonColor: '#2196F3',
+          denyButtonColor: '#60bd52',
+          cancelButtonColor: '#868e96',
+          width: '500px',
+          allowOutsideClick: false,
+          customClass: {
+            popup: 'swal-wide',
+            confirmButton: 'swal-confirm-btn',
+            denyButton: 'swal-deny-btn',
+            cancelButton: 'swal-cancel-btn',
+          },
+        });
+
+        if (typeSelection.isDismissed) {
+          showNotification({
+            title: '✅ Invoice Generation Cancelled',
+            message: 'No changes were made.',
+            color: 'blue',
+            autoClose: 4000,
+          });
+          return;
+        }
+
+        const invoiceType = typeSelection.isConfirmed ? 'In Transit' : 'Onhand';
+        logger.debug(`📄 Invoice type selected: ${invoiceType}`);
+
         const warehouseTransactions = visibleTransactions.filter(
           (t) => t['Order Status'] === 'Warehouse'
         );
@@ -328,6 +366,7 @@ export function useTransactionModals(
           body: JSON.stringify({
             transactions: invoiceTransactions,
             customers: customersData,
+            invoiceType,
           }),
         });
 
@@ -389,7 +428,7 @@ export function useTransactionModals(
 
           showNotification({
             title: '✅ Invoices Generated & Status Updated',
-            message: `${fileType} for ${statusSummary} orders from ${customersWithWarehouse.size} customer${customersWithWarehouse.size > 1 ? 's' : ''} downloaded.${statusUpdateMessage}`,
+            message: `${fileType} for ${statusSummary} orders from ${customersWithWarehouse.size} customer${customersWithWarehouse.size > 1 ? 's' : ''} downloaded as ${invoiceType} invoices.${statusUpdateMessage}`,
             color: 'green',
             autoClose: 8000,
           });
