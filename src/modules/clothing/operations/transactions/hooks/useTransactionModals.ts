@@ -152,6 +152,192 @@ export function useTransactionModals(
     []
   );
 
+  const handleInTransitInvoiceGeneration = useCallback(
+    async (visibleTransactions: TransactionData[]) => {
+      logger.debug('🚚 Preparing In Transit invoice generation...');
+
+      const inTransitTransactions = visibleTransactions.filter(
+        (t) => t['Order Status'] === 'In Transit'
+      );
+
+      if (inTransitTransactions.length === 0) {
+        showNotification({
+          title: '⚠️ No In Transit Transactions',
+          message:
+            'No visible transactions with "In Transit" status found for invoice generation.',
+          color: 'yellow',
+          autoClose: 5000,
+        });
+        return;
+      }
+
+      const customersWithInTransit = new Set(
+        inTransitTransactions.map((t) => t.Customers).filter(Boolean)
+      );
+
+      const totalValue = inTransitTransactions.reduce(
+        (sum, t) => sum + (Number(t['Line Total']) || 0),
+        0
+      );
+
+      const result = await Swal.fire({
+        title: 'In Transit Invoice Confirmation',
+        html: `
+          <div style="text-align: left;">
+            <p style="margin-bottom: 12px; font-weight: 500;">You are about to generate In Transit invoices for:</p>
+            <div style="margin-bottom: 16px;">
+              <p style="margin: 6px 0; font-size: 14px;">
+                <strong>${customersWithInTransit.size}</strong> customer${customersWithInTransit.size === 1 ? '' : 's'}
+              </p>
+              <p style="margin: 6px 0; font-size: 14px;">
+                <strong>${inTransitTransactions.length}</strong> In Transit order${inTransitTransactions.length === 1 ? '' : 's'}
+              </p>
+              <p style="margin: 6px 0; font-size: 14px;">
+                Total value: <strong>₱${totalValue.toLocaleString()}</strong>
+              </p>
+            </div>
+
+            <hr style="border: none; border-top: 1px solid #dee2e6; margin: 16px 0;">
+
+            <p style="margin-bottom: 12px; font-weight: 500;">Important Details:</p>
+            <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #495057;">
+              <li>Only transactions with "In Transit" status will be included</li>
+              <li>Due date inside the invoice will show <strong>"NOT YET ONHAND"</strong></li>
+              <li>No status or invoice date changes will be applied to these orders</li>
+            </ul>
+
+            <hr style="border: none; border-top: 1px solid #dee2e6; margin: 16px 0;">
+
+            <p style="text-align: center; color: #868e96; font-size: 14px; margin: 0;">
+              Do you want to proceed with In Transit invoice generation?
+            </p>
+          </div>
+        `,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Generate In Transit Invoices',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#2196F3',
+        cancelButtonColor: '#868e96',
+        width: '600px',
+        allowOutsideClick: false,
+        customClass: {
+          popup: 'swal-wide',
+          confirmButton: 'swal-confirm-btn',
+          cancelButton: 'swal-cancel-btn',
+        },
+      });
+
+      if (!result.isConfirmed) {
+        showNotification({
+          title: '✅ Invoice Generation Cancelled',
+          message: 'No changes were made.',
+          color: 'blue',
+          autoClose: 4000,
+        });
+        return;
+      }
+
+      setIsGeneratingInvoice(true);
+
+      try {
+        let customersData: Record<string, unknown>[] = [];
+        try {
+          customersData =
+            await api.get<Record<string, unknown>[]>('/api/customers');
+        } catch {
+          logger.warn('Failed to fetch customers data for In Transit invoices');
+        }
+
+        const response = await fetch('/api/generate-in-transit-invoice', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            transactions: inTransitTransactions,
+            customers: customersData,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = (await response.json()) as { error?: string };
+          throw new Error(
+            errorData.error || 'Failed to generate In Transit invoices'
+          );
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = 'in-transit-invoices.pdf';
+
+        if (contentDisposition) {
+          const filenameMatch = contentDisposition.match(
+            /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/
+          );
+          if (filenameMatch && filenameMatch[1]) {
+            filename = decodeURIComponent(
+              filenameMatch[1].replace(/['"]/g, '')
+            );
+          }
+        }
+
+        if (filename === 'in-transit-invoices.pdf') {
+          const contentType = response.headers.get('Content-Type');
+          const timestamp = new Date()
+            .toISOString()
+            .slice(0, 19)
+            .replace(/[:-]/g, '');
+
+          if (contentType?.includes('zip')) {
+            filename = `in-transit-invoices-${timestamp}.zip`;
+          } else if (contentType?.includes('png')) {
+            filename = `in-transit-invoices-${timestamp}.png`;
+          } else {
+            filename = `in-transit-invoices-${timestamp}.pdf`;
+          }
+        }
+
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        const fileType = filename.endsWith('.zip')
+          ? 'ZIP file with individual invoices'
+          : filename.endsWith('.png')
+            ? 'PNG invoice'
+            : 'PDF invoice';
+
+        showNotification({
+          title: '✅ In Transit Invoices Generated',
+          message: `${fileType} for ${inTransitTransactions.length} In Transit order${inTransitTransactions.length === 1 ? '' : 's'} across ${customersWithInTransit.size} customer${customersWithInTransit.size === 1 ? '' : 's'} downloaded. Due date set to "NOT YET ONHAND" inside each invoice.`,
+          color: 'green',
+          autoClose: 8000,
+        });
+      } catch (error) {
+        logger.error('Error generating In Transit invoices:', error);
+        showNotification({
+          title: '❌ In Transit Invoice Generation Failed',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'An unexpected error occurred',
+          color: 'red',
+          autoClose: 7000,
+        });
+      } finally {
+        setIsGeneratingInvoice(false);
+      }
+    },
+    []
+  );
+
   // ============================================================================
   // INVOICE GENERATION
   // ============================================================================
@@ -200,6 +386,11 @@ export function useTransactionModals(
 
         const invoiceType = typeSelection.isConfirmed ? 'In Transit' : 'Onhand';
         logger.debug(`📄 Invoice type selected: ${invoiceType}`);
+
+        if (invoiceType === 'In Transit') {
+          await handleInTransitInvoiceGeneration(visibleTransactions);
+          return;
+        }
 
         const warehouseTransactions = visibleTransactions.filter(
           (t) => t['Order Status'] === 'Warehouse'
@@ -490,7 +681,12 @@ export function useTransactionModals(
         setIsGeneratingInvoice(false);
       }
     },
-    [transactions, bulkUpdate, saveTransactionToDatabase]
+    [
+      transactions,
+      bulkUpdate,
+      saveTransactionToDatabase,
+      handleInTransitInvoiceGeneration,
+    ]
   );
 
   // Dummy functions for backward compatibility (no longer used with SweetAlert)
