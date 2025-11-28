@@ -438,56 +438,50 @@ export function useTransactionModals(
 
         // Show SweetAlert2 confirmation dialog
         const result = await Swal.fire({
-          title: 'Invoice Generation Confirmation',
+          title: 'Onhand Invoice Confirmation',
           html: `
             <div style="text-align: left;">
-              <div style="background-color: #fff3cd; padding: 12px; margin-bottom: 16px; border-radius: 4px; border: 1px solid #ffc107;">
-                <p style="margin: 0; color: #856404; font-weight: 500;">Important Changes Will Occur</p>
-                <p style="margin: 8px 0 0 0; font-size: 14px; color: #856404;">
-                  This action will modify your data and cannot be undone. Please review the details below.
-                </p>
-              </div>
-
-              <p style="font-weight: 500; margin-bottom: 12px;">You are about to generate invoices for:</p>
-              
+              <p style="margin-bottom: 12px; font-weight: 500;">
+                You are about to generate Onhand invoices for:
+              </p>
               <div style="margin-bottom: 16px;">
                 <p style="margin: 6px 0; font-size: 14px;">
-                  <strong>${customersWithWarehouse.size}</strong> customer${customersWithWarehouse.size > 1 ? 's' : ''}
+                  <strong>${customersWithWarehouse.size}</strong> customer${customersWithWarehouse.size === 1 ? '' : 's'}
                 </p>
                 <p style="margin: 6px 0; font-size: 14px;">
-                  <strong>${totalWarehouse}</strong> Warehouse order${totalWarehouse > 1 ? 's' : ''}
+                  <strong>${totalWarehouse}</strong> Warehouse order${totalWarehouse === 1 ? '' : 's'}
                 </p>
                 <p style="margin: 6px 0; font-size: 14px;">
-                  <strong>${totalPrepared}</strong> Prepared order${totalPrepared > 1 ? 's' : ''}
+                  <strong>${totalPrepared}</strong> Prepared order${totalPrepared === 1 ? '' : 's'}
                 </p>
                 <p style="margin: 6px 0; font-size: 14px;">
-                  <strong>${totalOnHold}</strong> On-Hold order${totalOnHold > 1 ? 's' : ''}
+                  <strong>${totalOnHold}</strong> On-Hold order${totalOnHold === 1 ? '' : 's'}
                 </p>
                 <p style="margin: 6px 0; font-size: 14px;">
-                  <strong>${totalTransactions}</strong> total transactions
+                  Total transactions: <strong>${totalTransactions}</strong>
                 </p>
               </div>
 
               <hr style="border: none; border-top: 1px solid #dee2e6; margin: 16px 0;">
 
-              <p style="font-weight: 500; margin-bottom: 12px;">Important Changes That Will Occur:</p>
+              <p style="margin-bottom: 12px; font-weight: 500;">Important Details:</p>
               <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #495057;">
-                <li>All ${totalWarehouse} Warehouse order${totalWarehouse > 1 ? 's' : ''} will be updated to "Prepared" status</li>
-                <li>Invoice dates will be set for all processed transactions</li>
-                <li>A PDF invoice will be generated and downloaded</li>
-                <li>All changes will be saved to the database</li>
+                <li>Only customers with Warehouse orders are included in this run</li>
+                <li>${totalWarehouse} Warehouse order${totalWarehouse === 1 ? ' will' : 's will'} be upgraded to <strong>Prepared</strong></li>
+                <li>New invoice dates will be assigned where missing</li>
+                <li>A consolidated invoice file will download automatically</li>
               </ul>
 
               <hr style="border: none; border-top: 1px solid #dee2e6; margin: 16px 0;">
 
               <p style="text-align: center; color: #868e96; font-size: 14px; margin: 0;">
-                Do you want to proceed with invoice generation?
+                Do you want to proceed with Onhand invoice generation?
               </p>
             </div>
           `,
-          icon: 'warning',
+          icon: 'question',
           showCancelButton: true,
-          confirmButtonText: 'Generate Invoices',
+          confirmButtonText: 'Generate Onhand Invoices',
           cancelButtonText: 'Cancel',
           confirmButtonColor: '#2196F3',
           cancelButtonColor: '#868e96',
