@@ -14,15 +14,14 @@ import {
   IconCheckbox,
 } from '@tabler/icons-react';
 import { useEmployeeLoans } from './hooks/useEmployeeLoans';
-// Direct imports for faster compilation (bypasses barrel export)
 import { StatsCardGrid, type StatCard } from '@/components/ui';
-import { PageControls } from '@/components/shared/PageTemplates/PageControls';
 import { DataTable } from '@/components/shared/PageTemplates/DataTable';
 import type {
   TableColumn,
   TableAction,
 } from '@/components/shared/PageTemplates/DataTable';
 import { LoanFormDialog } from './components/LoanFormDialog';
+import { LoanControls } from './components/LoanControls';
 import type { EmployeeLoan } from './types';
 
 export default function EmployeeLoans() {
@@ -243,44 +242,16 @@ export default function EmployeeLoans() {
         />
 
         {/* Controls */}
-        <PageControls
-          title="Employee Loan Records"
-          searchPlaceholder="Search by employee, purpose, or loan type..."
+        <LoanControls
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
-          filters={[
-            {
-              placeholder: 'Filter by type',
-              data: [
-                'All',
-                'personal',
-                'emergency',
-                'educational',
-                'housing',
-                'vehicle',
-              ],
-              value: loanTypeFilter,
-              onChange: setLoanTypeFilter,
-            },
-            {
-              placeholder: 'Filter by status',
-              data: [
-                'All',
-                'pending',
-                'approved',
-                'active',
-                'completed',
-                'rejected',
-              ],
-              value: statusFilter,
-              onChange: (value: string | null) =>
-                setStatusFilter(value === 'All' || !value ? 'all' : value),
-            },
-          ]}
+          loanTypeFilter={loanTypeFilter}
+          onLoanTypeFilterChange={(value) => setLoanTypeFilter(value)}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
           onImportCSV={handleImportCSV}
           onExportCSV={handleExportCSV}
-          onAdd={handleAddLoan}
-          addButtonLabel="Add Loan"
+          onAddLoan={handleAddLoan}
         />
 
         {/* Loan List Table */}

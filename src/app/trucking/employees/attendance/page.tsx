@@ -15,7 +15,6 @@ import {
 } from '@tabler/icons-react';
 // Direct imports for faster compilation (bypasses barrel export)
 import { StatsCardGrid, type StatCard } from '@/components/ui';
-import { PageControls } from '@/components/shared/PageTemplates/PageControls';
 import { DataTable } from '@/components/shared/PageTemplates/DataTable';
 import type {
   TableColumn,
@@ -25,6 +24,7 @@ import { useAttendance } from './hooks/useAttendance';
 import type { AttendanceRecord } from './types';
 import { AttendanceFormDialog } from './components/AttendanceFormDialog';
 import { AttendanceErrorBoundary } from './components/AttendanceErrorBoundary';
+import { AttendanceControls } from './components/AttendanceControls';
 
 function AttendanceContent() {
   const {
@@ -226,28 +226,14 @@ function AttendanceContent() {
       <Stack gap="lg">
         <StatsCardGrid cards={stats} variant="vibrant" />
 
-        <PageControls
-          title="Attendance Records"
-          searchPlaceholder="Search by employee, department, or details..."
+        <AttendanceControls
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
-          filters={[
-            {
-              placeholder: 'Filter by status',
-              data: ['All', 'present', 'late', 'absent', 'on-leave'],
-              value: statusFilter === 'all' ? 'All' : statusFilter,
-              onChange: (value: string | null) =>
-                setStatusFilter(
-                  !value || value === 'All'
-                    ? 'all'
-                    : (value as AttendanceRecord['status'])
-                ),
-            },
-          ]}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
           onImportCSV={handleImportCSV}
           onExportCSV={handleExportCSV}
-          onAdd={handleAddRecord}
-          addButtonLabel="Record Attendance"
+          onAddRecord={handleAddRecord}
         />
 
         <DataTable
