@@ -1,11 +1,12 @@
-import { memo } from 'react';
-import { SimpleGrid, Card, Text, Group } from '@mantine/core';
+import { memo, useMemo } from 'react';
 import {
   IconCalendarEvent,
   IconCheck,
-  IconX,
   IconClock,
+  IconX,
 } from '@tabler/icons-react';
+
+import { StatsCardGrid, type StatCard } from '@/components/ui';
 
 interface StatsCardsProps {
   totalSchedules: number;
@@ -14,91 +15,65 @@ interface StatsCardsProps {
   cancelledCount: number;
 }
 
+const buildStatsCards = ({
+  totalSchedules,
+  scheduledCount,
+  completedCount,
+  cancelledCount,
+}: StatsCardsProps): StatCard[] => [
+  {
+    title: 'Total Schedules',
+    value: totalSchedules,
+    icon: <IconCalendarEvent size={18} />,
+    color: 'blue',
+    backgroundColor: 'var(--mantine-color-blue-6)',
+  },
+  {
+    title: 'Scheduled',
+    value: scheduledCount,
+    icon: <IconClock size={18} />,
+    color: 'cyan',
+    backgroundColor: 'var(--mantine-color-cyan-6)',
+  },
+  {
+    title: 'Completed',
+    value: completedCount,
+    icon: <IconCheck size={18} />,
+    color: 'green',
+    backgroundColor: 'var(--mantine-color-green-6)',
+  },
+  {
+    title: 'Cancelled',
+    value: cancelledCount,
+    icon: <IconX size={18} />,
+    color: 'red',
+    backgroundColor: 'var(--mantine-color-red-6)',
+  },
+];
+
 /**
  * StatsCards Component
  *
  * Shows overview statistics for schedules
  */
-export const StatsCards = memo(function StatsCards({
-  totalSchedules,
-  scheduledCount,
-  completedCount,
-  cancelledCount,
-}: StatsCardsProps) {
-  const stats = [
-    {
-      label: 'Total Schedules',
-      value: totalSchedules,
-      icon: IconCalendarEvent,
-      color: 'blue',
-    },
-    {
-      label: 'Scheduled',
-      value: scheduledCount,
-      icon: IconClock,
-      color: 'cyan',
-    },
-    {
-      label: 'Completed',
-      value: completedCount,
-      icon: IconCheck,
-      color: 'green',
-    },
-    {
-      label: 'Cancelled',
-      value: cancelledCount,
-      icon: IconX,
-      color: 'red',
-    },
-  ];
+export const StatsCards = memo(function StatsCards(props: StatsCardsProps) {
+  const cards = useMemo(
+    () => buildStatsCards(props),
+    [
+      props.totalSchedules,
+      props.scheduledCount,
+      props.completedCount,
+      props.cancelledCount,
+    ]
+  );
 
   return (
-    <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
-      {stats.map((stat) => (
-        <Card
-          key={stat.label}
-          padding="lg"
-          radius="xl"
-          withBorder
-          style={{
-            background: 'rgba(255, 255, 255, 0.15)',
-            backdropFilter: 'blur(15px)',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-            boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.2)',
-            transition: 'all 0.3s ease',
-          }}
-        >
-          <Group>
-            <stat.icon
-              size={32}
-              color={`var(--mantine-color-${stat.color}-6)`}
-            />
-            <div>
-              <Text
-                size="xs"
-                c="dimmed"
-                style={{
-                  color: 'rgba(255, 255, 255, 0.7)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                }}
-              >
-                {stat.label}
-              </Text>
-              <Text
-                fw={700}
-                size="xl"
-                style={{
-                  color: 'rgba(255, 255, 255, 0.95)',
-                  textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                }}
-              >
-                {stat.value}
-              </Text>
-            </div>
-          </Group>
-        </Card>
-      ))}
-    </SimpleGrid>
+    <StatsCardGrid
+      cards={cards}
+      spacing="md"
+      radius="md"
+      variant="vibrant"
+      minCardWidth={220}
+    />
   );
 });
