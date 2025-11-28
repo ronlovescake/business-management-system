@@ -19,7 +19,6 @@
 // Re-export only the module configs for workspace registration
 export { customersModule } from './customers/module.config';
 export { dashboardModule } from './dashboard/module.config';
-export { dueDatesModule } from './due-dates/module.config';
 export { pricesModule } from './prices/module.config';
 export { productsModule } from './products/module.config';
 export { settingsModule } from './settings/module.config';

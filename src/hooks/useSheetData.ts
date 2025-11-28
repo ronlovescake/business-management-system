@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { QueryKey } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
 import {
   CustomerService,
@@ -7,6 +8,7 @@ import {
   ShipmentService,
   PriceService,
   ExpenseService,
+  TruckingExpenseService,
 } from '../services';
 import type {
   CustomerDTO,
@@ -320,8 +322,20 @@ export function usePriceData() {
  * Expense Data Hook
  */
 export function useExpenseData() {
+  return useExpenseDataFactory(ExpenseService, ['expenses']);
+}
+
+export function useTruckingExpenseData() {
+  return useExpenseDataFactory(TruckingExpenseService, ['trucking-expenses']);
+}
+
+type ExpenseServiceClass = typeof ExpenseService;
+
+function useExpenseDataFactory(
+  service: ExpenseServiceClass,
+  queryKey: QueryKey
+) {
   const queryClient = useQueryClient();
-  const queryKey = ['expenses'];
 
   const {
     data = [],
@@ -330,13 +344,12 @@ export function useExpenseData() {
     refetch,
   } = useQuery({
     queryKey,
-    queryFn: () => ExpenseService.getAll(),
+    queryFn: () => service.getAll(),
     staleTime: 5 * 60 * 1000,
   });
 
   const createMutation = useMutation({
-    mutationFn: (newItem: Partial<ExpenseDTO>) =>
-      ExpenseService.create(newItem),
+    mutationFn: (newItem: Partial<ExpenseDTO>) => service.create(newItem),
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
   });
 
@@ -347,23 +360,22 @@ export function useExpenseData() {
     }: {
       id: string | number;
       data: Partial<ExpenseDTO>;
-    }) => ExpenseService.update(id, data),
+    }) => service.update(id, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string | number) => ExpenseService.deleteById(id),
+    mutationFn: (id: string | number) => service.deleteById(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
   });
 
   const bulkUpdateMutation = useMutation({
-    mutationFn: (newData: ExpenseDTO[]) => ExpenseService.bulkUpdate(newData),
+    mutationFn: (newData: ExpenseDTO[]) => service.bulkUpdate(newData),
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
   });
 
   const bulkCreateMutation = useMutation({
-    mutationFn: (newData: Partial<ExpenseDTO>[]) =>
-      ExpenseService.bulkCreate(newData),
+    mutationFn: (newData: Partial<ExpenseDTO>[]) => service.bulkCreate(newData),
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
   });
 

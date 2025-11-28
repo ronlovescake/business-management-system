@@ -20,7 +20,7 @@ export interface ExpenseDTO {
  * Handles all expense-related API operations
  */
 export class ExpenseService extends BaseService {
-  private static endpoint = '/expenses';
+  protected static endpoint = '/expenses';
 
   static async getAll(): Promise<ExpenseDTO[]> {
     return this.get<ExpenseDTO[]>(this.endpoint);
@@ -89,4 +89,8 @@ export class ExpenseService extends BaseService {
       `${this.endpoint}?employee=${encodeURIComponent(employeeName)}`
     );
   }
+}
+
+export class TruckingExpenseService extends ExpenseService {
+  protected static override endpoint = '/trucking/expenses';
 }

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { logger } from '@/lib/logger';
-import { useExpenseData } from '@/hooks/useSheetData';
+import { useTruckingExpenseData } from '@/hooks/useSheetData';
 import { showNotification } from '@mantine/notifications';
 import { getCurrentDateISO } from '@/utils/date';
 import { showError, showDeleteConfirm } from '@/lib/alerts';
@@ -68,7 +68,7 @@ export function useExpenses() {
     delete: deleteExpense,
     bulkUpdate: _bulkUpdateExpenses,
     bulkCreate: bulkCreateExpenses,
-  } = useExpenseData();
+  } = useTruckingExpenseData();
 
   // Convert from database format to UI format
   const expenses = useMemo(() => {

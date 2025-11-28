@@ -1,4 +1,4 @@
-const VALID_EXPENSE_CATEGORIES = [
+const EXPENSE_CATEGORY_OPTIONS = [
   'Driver Pay',
   'Fuel',
   'Helper Pay',
@@ -13,7 +13,8 @@ const VALID_EXPENSE_CATEGORIES = [
   'Vehicle Purchase',
 ] as const;
 
-export const validExpenseCategories = [...VALID_EXPENSE_CATEGORIES];
+export const expenseCategoryOptions = EXPENSE_CATEGORY_OPTIONS;
+export const validExpenseCategories = [...EXPENSE_CATEGORY_OPTIONS];
 
 /**
  * Validate whether the provided category is part of the supported expense categories.
@@ -24,7 +25,7 @@ export function isValidCategory(category: string): boolean {
   }
 
   const normalized = category.trim().toLowerCase();
-  return VALID_EXPENSE_CATEGORIES.some(
+  return EXPENSE_CATEGORY_OPTIONS.some(
     (validCategory) => validCategory.toLowerCase() === normalized
   );
 }

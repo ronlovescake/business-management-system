@@ -172,20 +172,6 @@ test.describe('Operations - Sorting Distribution', () => {
   });
 });
 
-test.describe('Operations - Due Dates', () => {
-  test('should load due dates page', async ({ page }) => {
-    await gotoOperationsPage(page, '/clothing/operations/due-dates');
-    await expect(page.locator('body')).toBeVisible();
-
-    const hasContent = await page
-      .locator('[role="grid"], table, calendar')
-      .first()
-      .isVisible({ timeout: 10000 })
-      .catch(() => false);
-    expect(hasContent || true).toBeTruthy();
-  });
-});
-
 test.describe('Operations - Business Intelligence', () => {
   test('should load business intelligence dashboard', async ({ page }) => {
     await gotoOperationsPage(

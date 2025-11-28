@@ -98,15 +98,6 @@ const APP_MODULES = [
     sortOrder: 7,
   },
   {
-    name: 'clothing-operations-due-dates',
-    displayName: 'Due Dates',
-    path: '/clothing/operations/due-dates',
-    category: 'clothing',
-    icon: 'IconCalendar',
-    parentName: 'clothing-operations',
-    sortOrder: 8,
-  },
-  {
     name: 'clothing-operations-sorting-distribution',
     displayName: 'Sorting & Distribution',
     path: '/clothing/operations/sorting-distribution',

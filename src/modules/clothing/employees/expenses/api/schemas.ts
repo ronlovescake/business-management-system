@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod';
+import { expenseCategoryOptions } from '../utils';
 
 /**
  * Expense status enum
@@ -20,18 +21,7 @@ export type ExpenseStatus = z.infer<typeof ExpenseStatusSchema>;
 /**
  * Expense category enum
  */
-export const ExpenseCategorySchema = z.enum([
-  'Transportation',
-  'Meals',
-  'Office Supplies',
-  'Equipment',
-  'Utilities',
-  'Professional Services',
-  'Training',
-  'Travel',
-  'Entertainment',
-  'Other',
-]);
+export const ExpenseCategorySchema = z.enum(expenseCategoryOptions);
 export type ExpenseCategory = z.infer<typeof ExpenseCategorySchema>;
 
 /**

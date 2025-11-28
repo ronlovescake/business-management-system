@@ -1102,7 +1102,7 @@ export function BackupRestoreTab() {
     restorePreviewForceOverwrite,
   ]);
 
-  const parseSortValue = (value: unknown) => {
+  const parseSortValue = useCallback((value: unknown) => {
     if (typeof value === 'number') {
       return value;
     }
@@ -1121,35 +1121,38 @@ export function BackupRestoreTab() {
       return value.getTime();
     }
     return value ?? 0;
-  };
+  }, []);
 
-  const sortTableRows = (rows: Array<Record<string, unknown>>) => {
-    if (!rows.length) {
-      return rows;
-    }
-
-    const preferredKeys = ['createdAt', 'updatedAt', 'orderDate', 'id'];
-    const sortKey = preferredKeys.find((key) =>
-      rows.some((row) => row[key] !== undefined)
-    );
-
-    if (!sortKey) {
-      return rows;
-    }
-
-    return [...rows].sort((a, b) => {
-      const aValue = parseSortValue(a[sortKey]);
-      const bValue = parseSortValue(b[sortKey]);
-
-      if (aValue < bValue) {
-        return -1;
+  const sortTableRows = useCallback(
+    (rows: Array<Record<string, unknown>>) => {
+      if (!rows.length) {
+        return rows;
       }
-      if (aValue > bValue) {
-        return 1;
+
+      const preferredKeys = ['createdAt', 'updatedAt', 'orderDate', 'id'];
+      const sortKey = preferredKeys.find((key) =>
+        rows.some((row) => row[key] !== undefined)
+      );
+
+      if (!sortKey) {
+        return rows;
       }
-      return 0;
-    });
-  };
+
+      return [...rows].sort((a, b) => {
+        const aValue = parseSortValue(a[sortKey]);
+        const bValue = parseSortValue(b[sortKey]);
+
+        if (aValue < bValue) {
+          return -1;
+        }
+        if (aValue > bValue) {
+          return 1;
+        }
+        return 0;
+      });
+    },
+    [parseSortValue]
+  );
 
   const selectedTableDetails = useMemo(() => {
     if (!previewData || !selectedTableName) {
@@ -1176,7 +1179,7 @@ export function BackupRestoreTab() {
       data: sortTableRows(table.data || []),
       columns,
     };
-  }, [previewData, selectedTableName]);
+  }, [previewData, selectedTableName, sortTableRows]);
 
   const restorePreviewEntry = useMemo(() => {
     if (!restorePreviewSelectedTable || !restorePreviewData) {
