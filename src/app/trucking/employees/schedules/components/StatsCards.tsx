@@ -57,14 +57,18 @@ const buildStatsCards = ({
  * Shows overview statistics for schedules
  */
 export const StatsCards = memo(function StatsCards(props: StatsCardsProps) {
+  const { totalSchedules, scheduledCount, completedCount, cancelledCount } =
+    props;
+
   const cards = useMemo(
-    () => buildStatsCards(props),
-    [
-      props.totalSchedules,
-      props.scheduledCount,
-      props.completedCount,
-      props.cancelledCount,
-    ]
+    () =>
+      buildStatsCards({
+        totalSchedules,
+        scheduledCount,
+        completedCount,
+        cancelledCount,
+      }),
+    [totalSchedules, scheduledCount, completedCount, cancelledCount]
   );
 
   return (
