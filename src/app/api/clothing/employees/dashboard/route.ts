@@ -6,6 +6,9 @@ import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
 import { dayjs } from '@/utils/date';
 
+// Force dynamic rendering - API routes should not be statically generated
+export const dynamic = 'force-dynamic';
+
 const DATE_FORMAT = 'YYYY-MM-DD';
 
 type StatusCount<T extends string> = Record<T, number>;
