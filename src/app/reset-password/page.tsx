@@ -23,7 +23,12 @@ function ResetPasswordContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const token = useMemo(() => searchParams.get('token') ?? '', [searchParams]);
+  const token = useMemo(() => {
+    if (!searchParams) {
+      return '';
+    }
+    return searchParams.get('token') ?? '';
+  }, [searchParams]);
 
   const form = useForm({
     initialValues: {

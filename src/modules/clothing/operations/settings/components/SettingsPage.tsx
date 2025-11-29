@@ -49,7 +49,7 @@ const QUICK_ACTION_BUTTONS: Array<{
 export function SettingsPage() {
   const searchParams = useSearchParams();
   const getInitialTab = () => {
-    const param = searchParams.get('tab');
+    const param = searchParams?.get('tab');
     const validTabs: SettingsTab[] = [
       'invoice',
       'message',
@@ -70,7 +70,7 @@ export function SettingsPage() {
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
 
-  const templateSubTabParam = searchParams.get('subTab');
+  const templateSubTabParam = searchParams?.get('subTab');
   const templateSubTabs: TemplateSubTab[] = [
     'invoice',
     'message-templates',

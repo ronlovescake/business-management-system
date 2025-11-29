@@ -43,7 +43,12 @@ import { getIconButtonLabel } from '@/lib/accessibility';
 export default function EmployeeDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const employeeId = params.id as string;
+
+  if (!params || !params.id) {
+    throw new Error('Employee id is required for EmployeeDetailPage');
+  }
+
+  const employeeId = Array.isArray(params.id) ? params.id[0] : params.id;
 
   const {
     employee,

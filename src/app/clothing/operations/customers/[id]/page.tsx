@@ -41,7 +41,12 @@ import { CustomerDetailsView } from './components/CustomerDetailsView';
 
 export default function CustomerDetailsPage() {
   const params = useParams();
-  const customerId = params.id as string;
+
+  if (!params || !params.id) {
+    throw new Error('Customer id is required for CustomerDetailsPage');
+  }
+
+  const customerId = Array.isArray(params.id) ? params.id[0] : params.id;
 
   return (
     <PageLayout fluid withPadding>

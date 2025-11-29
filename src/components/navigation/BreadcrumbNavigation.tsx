@@ -63,7 +63,7 @@ export function BreadcrumbNavigation() {
   };
 
   const getCurrentPageName = () => {
-    if (pathname === '/') {
+    if (!pathname || pathname === '/') {
       return 'Home';
     }
 
