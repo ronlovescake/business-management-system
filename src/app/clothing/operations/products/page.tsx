@@ -33,6 +33,7 @@
  * Note: Direct import path used to optimize compilation speed
  */
 
+import type { Metadata } from 'next';
 import { ProductsPage } from '@/modules/clothing/operations/products/components/ProductsPage';
 import { ProductsErrorBoundary } from '@/modules/clothing/operations/products/components/ProductsErrorBoundary';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
@@ -40,6 +41,10 @@ import {
   hasModuleAccess,
   getFirstAccessibleModule,
 } from '@/lib/auth/permissions';
+
+export const metadata: Metadata = {
+  title: 'Products',
+};
 
 export default async function Page() {
   const hasAccess = await hasModuleAccess('/clothing/operations/products');

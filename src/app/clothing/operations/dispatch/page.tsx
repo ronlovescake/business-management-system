@@ -18,7 +18,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
 export const metadata: Metadata = {
-  title: 'Dispatch - Business Management',
+  title: 'Dispatch',
   description: 'Manage dispatch operations and order tracking',
 };
 

@@ -12,6 +12,7 @@ import {
   GridLayoutProvider,
   glideGridAdapter,
 } from '../grid';
+import { DynamicDocumentTitle } from '../seo/DynamicDocumentTitle';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -61,6 +62,7 @@ const theme = createTheme({
 export function AppLayout({ children }: AppLayoutProps) {
   return (
     <MantineProvider theme={theme}>
+      <DynamicDocumentTitle />
       <ModalsProvider>
         <GridAdapterProvider adapter={glideGridAdapter}>
           <GridLayoutProvider>

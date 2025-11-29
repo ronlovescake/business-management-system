@@ -15,6 +15,7 @@
  * Note: Direct import path used to optimize compilation speed
  */
 
+import type { Metadata } from 'next';
 import { TransactionsPage } from '@/modules/clothing/operations/transactions/components/TransactionsPage';
 import { TransactionsErrorBoundary } from '@/modules/clothing/operations/transactions/components/TransactionsErrorBoundary';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
@@ -22,6 +23,10 @@ import {
   hasModuleAccess,
   getFirstAccessibleModule,
 } from '@/lib/auth/permissions';
+
+export const metadata: Metadata = {
+  title: 'Transactions',
+};
 
 export default async function TransactionsRoute() {
   const hasAccess = await hasModuleAccess('/clothing/operations/transactions');
