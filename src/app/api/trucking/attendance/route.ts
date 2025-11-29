@@ -6,6 +6,7 @@ import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
 import {
   validateAttendance,
+  validateAttendanceUpdate,
   formatValidationErrors,
 } from '@/lib/validations/attendance.validation';
 
@@ -271,7 +272,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const validation = validateAttendance(updateData);
+    const validation = validateAttendanceUpdate(updateData);
     if (!validation.success) {
       return NextResponse.json(
         {
@@ -292,7 +293,7 @@ export async function PATCH(request: NextRequest) {
 
     const attendance = await attendanceModel.update({
       where: { id },
-      data: validation.data,
+      data: updateData,
     });
 
     logger.info('Trucking attendance record updated', { id: attendance.id });

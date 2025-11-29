@@ -6,6 +6,7 @@ import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
 import {
   validateAttendance,
+  validateAttendanceUpdate,
   formatValidationErrors,
 } from '@/lib/validations/attendance.validation';
 
@@ -285,8 +286,8 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Validate update data
-    const validation = validateAttendance(updateData);
+    // Validate update data - use partial schema for PATCH
+    const validation = validateAttendanceUpdate(updateData);
     if (!validation.success) {
       return NextResponse.json(
         {
@@ -299,7 +300,7 @@ export async function PATCH(request: NextRequest) {
 
     const attendance = await prisma.attendance.update({
       where: { id, deletedAt: null },
-      data: validation.data,
+      data: updateData,
     });
 
     logger.info('Attendance record updated', { id: attendance.id });
