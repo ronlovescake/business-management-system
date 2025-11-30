@@ -121,12 +121,14 @@ export function TransactionsPage() {
     DEFAULT_READ_ONLY_COLUMNS
   );
   const [activeTab, setActiveTab] = useState<
-    'main' | 'packing-list' | 'due-dates' | 'recently-updated'
+    'main' | 'packing-list' | 'packed' | 'due-dates' | 'recently-updated'
   >('main');
 
   const handleTabChange = (value: string | null) => {
     if (value === 'packing-list') {
       setActiveTab('packing-list');
+    } else if (value === 'packed') {
+      setActiveTab('packed');
     } else if (value === 'due-dates') {
       setActiveTab('due-dates');
     } else if (value === 'recently-updated') {
@@ -652,6 +654,20 @@ export function TransactionsPage() {
     [columns]
   );
 
+  const packedTransactionsData = React.useMemo(() => {
+    return filteredData
+      .filter((transaction) => {
+        const packedDate = transaction['Packed Date'];
+        return packedDate && packedDate.trim() !== '';
+      })
+      .slice()
+      .sort((a, b) => {
+        const dateA = a['Packed Date'] || '';
+        const dateB = b['Packed Date'] || '';
+        return dateB.localeCompare(dateA); // Most recent first
+      });
+  }, [filteredData]);
+
   const dueDateColumns: HandsontableColumn[] = React.useMemo(
     () => [
       {
@@ -1113,6 +1129,7 @@ export function TransactionsPage() {
           <Tabs.List mt="sm">
             <Tabs.Tab value="main">Main Transactions</Tabs.Tab>
             <Tabs.Tab value="packing-list">Packing List</Tabs.Tab>
+            <Tabs.Tab value="packed">Packed</Tabs.Tab>
             <Tabs.Tab value="due-dates">Due Dates</Tabs.Tab>
             <Tabs.Tab value="recently-updated">Recently Updated</Tabs.Tab>
           </Tabs.List>
@@ -1152,6 +1169,23 @@ export function TransactionsPage() {
               searchQuery={searchQuery}
               onSearch={handleSearch}
               searchPlaceholder="Search packing list eligible transactions..."
+              getCellData={getCellData}
+              enableCSVImport={false}
+              enableCtrlF={true}
+              statusOptions={[]}
+              showActionButtons={false}
+              stretchColumnId="notes"
+            />
+          </Tabs.Panel>
+
+          <Tabs.Panel value="packed" pt="md">
+            <TransactionsLayout<TransactionData>
+              data={packedTransactionsData}
+              filteredData={packedTransactionsData}
+              columns={packingListColumns}
+              searchQuery={searchQuery}
+              onSearch={handleSearch}
+              searchPlaceholder="Search packed transactions..."
               getCellData={getCellData}
               enableCSVImport={false}
               enableCtrlF={true}
