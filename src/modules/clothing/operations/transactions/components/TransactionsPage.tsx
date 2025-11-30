@@ -21,7 +21,7 @@
 'use client';
 
 import React, { Profiler, useEffect, useMemo, useState } from 'react';
-import { Tabs } from '@mantine/core';
+import { Group, Tabs, Text } from '@mantine/core';
 import { StatsCardGrid } from '@/components/ui/StatsCardGrid';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
@@ -1158,6 +1158,13 @@ export function TransactionsPage() {
               isGeneratingDistribution={isGeneratingDistribution}
               // scrollToLastNonEmptyRows removed
               stretchColumnId="notes"
+              summary={
+                <Group justify="space-between">
+                  <Text size="sm" c="dimmed">
+                    Summary bar placeholder
+                  </Text>
+                </Group>
+              }
             />
           </Tabs.Panel>
 
