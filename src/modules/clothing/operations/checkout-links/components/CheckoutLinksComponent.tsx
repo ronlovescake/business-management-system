@@ -19,7 +19,6 @@ import {
   Modal,
   TextInput,
   Button,
-  NumberInput,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { IconEdit, IconTrash } from '@tabler/icons-react';
@@ -37,6 +36,7 @@ import { generateInvoiceMessage } from '../utils/messageGenerator';
 import { useInvoiceCustomerLookup } from '../hooks/useInvoiceCustomerLookup';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
+import type { ProductData } from '../../products/types/product.types';
 
 interface CheckoutLinkData {
   id: string;
@@ -64,26 +64,11 @@ interface InvoiceData {
 interface ItemWeightData {
   id: string;
   itemName: string;
+  productCode?: string;
   bulkQuantity: string;
   bulkWeight: string;
   approxWeightPerPiece: string;
-  createdAt?: string;
 }
-
-interface ItemWeightApiResponse {
-  id: string;
-  itemName: string;
-  bulkQuantity: string;
-  bulkWeight: string;
-  approxWeightPerPiece: string;
-  createdAt: string;
-}
-
-type ItemWeightFormValues = {
-  itemName: string;
-  bulkQuantity: number | '';
-  bulkWeight: number | '';
-};
 
 type CheckoutLinkFormValues = {
   weight: string;
@@ -93,6 +78,46 @@ type CheckoutLinkFormValues = {
   checkoutLinks: string;
   productPortals: string;
   productNames: string;
+};
+
+const formatWeightValue = (value: number | undefined | null): string => {
+  const numeric =
+    typeof value === 'number' && Number.isFinite(value) ? value : 0;
+  return numeric.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
+const hasWeightData = (product: ProductData): boolean => {
+  const bulkQuantity = product['Bulk Quantity'] ?? 0;
+  const bulkWeight = product['Bulk Weight'] ?? 0;
+  const weightPerPiece = product['Weight Per Piece'] ?? 0;
+  return bulkQuantity > 0 || bulkWeight > 0 || weightPerPiece > 0;
+};
+
+const mapProductToItemWeight = (product: ProductData): ItemWeightData => {
+  const bulkQuantity = product['Bulk Quantity'] ?? 0;
+  const bulkWeight = product['Bulk Weight'] ?? 0;
+  const weightPerPiece =
+    product['Weight Per Piece'] ??
+    (bulkQuantity > 0 ? bulkWeight / bulkQuantity : 0);
+
+  const productNameRaw = (product.Product ?? '').trim();
+  const productName =
+    productNameRaw.length > 0 ? productNameRaw : 'Unnamed Product';
+  const productCode = product['Product Code']?.trim();
+
+  return {
+    id: product.id
+      ? String(product.id)
+      : `${productCode ?? 'unknown'}-${productName}`,
+    itemName: productCode ? `${productName} (${productCode})` : productName,
+    productCode,
+    bulkQuantity: formatWeightValue(bulkQuantity),
+    bulkWeight: formatWeightValue(bulkWeight),
+    approxWeightPerPiece: formatWeightValue(weightPerPiece),
+  };
 };
 
 const copyTextToClipboard = async (text: string): Promise<boolean> => {
@@ -130,17 +155,6 @@ const copyTextToClipboard = async (text: string): Promise<boolean> => {
   return successful;
 };
 
-function mapItemWeightResponse(item: ItemWeightApiResponse): ItemWeightData {
-  return {
-    id: item.id,
-    itemName: item.itemName,
-    bulkQuantity: item.bulkQuantity,
-    bulkWeight: item.bulkWeight,
-    approxWeightPerPiece: item.approxWeightPerPiece,
-    createdAt: item.createdAt,
-  };
-}
-
 export function CheckoutLinksComponent() {
   const [activeTab, setActiveTab] = useState<string | null>('invoicing');
   const [searchQuery, setSearchQuery] = useState('');
@@ -150,17 +164,8 @@ export function CheckoutLinksComponent() {
   const [data, setData] = useState<CheckoutLinkData[]>([]);
   const [invoiceData, setInvoiceData] = useState<InvoiceData[]>([]);
   const [itemWeightData, setItemWeightData] = useState<ItemWeightData[]>([]);
-  const [isItemWeightModalOpen, setIsItemWeightModalOpen] = useState(false);
   const [isItemWeightLoading, setIsItemWeightLoading] = useState(true);
-  const [isItemWeightSubmitting, setIsItemWeightSubmitting] = useState(false);
-  const [isItemWeightEditModalOpen, setIsItemWeightEditModalOpen] =
-    useState(false);
-  const [editingItemWeight, setEditingItemWeight] =
-    useState<ItemWeightData | null>(null);
-  const [isItemWeightUpdating, setIsItemWeightUpdating] = useState(false);
-  const [pendingItemWeightDeleteId, setPendingItemWeightDeleteId] = useState<
-    string | null
-  >(null);
+  const [itemWeightError, setItemWeightError] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingCheckoutLink, setEditingCheckoutLink] =
@@ -184,67 +189,6 @@ export function CheckoutLinksComponent() {
       return response.data;
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
-  });
-
-  // Form for adding new item weight
-  const itemWeightForm = useForm<ItemWeightFormValues>({
-    initialValues: {
-      itemName: '',
-      bulkQuantity: '',
-      bulkWeight: '',
-    },
-    validate: {
-      itemName: (value) =>
-        value.trim().length === 0 ? 'Item name is required' : null,
-      bulkQuantity: (value) => {
-        if (value === '' || value === null) {
-          return 'Bulk quantity is required';
-        }
-        if (typeof value !== 'number' || Number.isNaN(value) || value <= 0) {
-          return 'Must be a positive number';
-        }
-        return null;
-      },
-      bulkWeight: (value) => {
-        if (value === '' || value === null) {
-          return 'Bulk weight is required';
-        }
-        if (typeof value !== 'number' || Number.isNaN(value) || value <= 0) {
-          return 'Must be a positive number';
-        }
-        return null;
-      },
-    },
-  });
-
-  const itemWeightEditForm = useForm<ItemWeightFormValues>({
-    initialValues: {
-      itemName: '',
-      bulkQuantity: '',
-      bulkWeight: '',
-    },
-    validate: {
-      itemName: (value) =>
-        value.trim().length === 0 ? 'Item name is required' : null,
-      bulkQuantity: (value) => {
-        if (value === '' || value === null) {
-          return 'Bulk quantity is required';
-        }
-        if (typeof value !== 'number' || Number.isNaN(value) || value <= 0) {
-          return 'Must be a positive number';
-        }
-        return null;
-      },
-      bulkWeight: (value) => {
-        if (value === '' || value === null) {
-          return 'Bulk weight is required';
-        }
-        if (typeof value !== 'number' || Number.isNaN(value) || value <= 0) {
-          return 'Must be a positive number';
-        }
-        return null;
-      },
-    },
   });
 
   const checkoutLinkForm = useForm<CheckoutLinkFormValues>({
@@ -322,25 +266,31 @@ export function CheckoutLinksComponent() {
   }, []);
 
   useEffect(() => {
-    const loadItemWeights = async () => {
+    const loadProductWeights = async () => {
+      setIsItemWeightLoading(true);
+      setItemWeightError(null);
+
       try {
-        const response = await fetch('/api/item-weights');
+        const response = await fetch('/api/products');
 
         if (!response.ok) {
-          throw new Error('Failed to load item weights');
+          throw new Error('Failed to load product weights');
         }
 
-        const result = await response.json();
-        const items = Array.isArray(result.data) ? result.data : [];
+        const result = (await response.json()) as ProductData[];
+        const productsWithWeight = result.filter(hasWeightData);
 
-        setItemWeightData(items.map(mapItemWeightResponse));
+        setItemWeightData(productsWithWeight.map(mapProductToItemWeight));
       } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Failed to load product weights';
+        setItemWeightError(message);
+        setItemWeightData([]);
         showNotification({
           title: 'Error',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Failed to load item weights',
+          message,
           color: 'red',
         });
       } finally {
@@ -348,7 +298,7 @@ export function CheckoutLinksComponent() {
       }
     };
 
-    loadItemWeights();
+    void loadProductWeights();
   }, []);
 
   // Filter data based on search query
@@ -399,6 +349,7 @@ export function CheckoutLinksComponent() {
     return itemWeightData.filter(
       (item) =>
         item.itemName.toLowerCase().includes(query) ||
+        (item.productCode?.toLowerCase().includes(query) ?? false) ||
         item.bulkQuantity.toLowerCase().includes(query) ||
         item.bulkWeight.toLowerCase().includes(query) ||
         item.approxWeightPerPiece.toLowerCase().includes(query)
@@ -851,245 +802,10 @@ export function CheckoutLinksComponent() {
     }
   };
 
-  const handleAddItemWeight = async (values: ItemWeightFormValues) => {
-    if (
-      typeof values.bulkQuantity !== 'number' ||
-      typeof values.bulkWeight !== 'number'
-    ) {
-      showNotification({
-        title: 'Invalid input',
-        message: 'Bulk quantity and weight must be valid numbers',
-        color: 'red',
-      });
-      return;
+  const handleOpenProductsModule = () => {
+    if (typeof window !== 'undefined') {
+      window.open('/clothing/operations/products', '_blank');
     }
-
-    setIsItemWeightSubmitting(true);
-
-    try {
-      const response = await fetch('/api/item-weights', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          itemName: values.itemName.trim(),
-          bulkQuantity: values.bulkQuantity,
-          bulkWeight: values.bulkWeight,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save item weight');
-      }
-
-      const result = await response.json();
-      const createdItem = Array.isArray(result.data)
-        ? result.data[0]
-        : result.data;
-
-      if (!createdItem) {
-        throw new Error('Invalid response from server');
-      }
-
-      setItemWeightData((prev) => [
-        mapItemWeightResponse(createdItem as ItemWeightApiResponse),
-        ...prev,
-      ]);
-
-      showNotification({
-        title: 'Success',
-        message: 'Item weight added successfully',
-        color: 'green',
-      });
-
-      setIsItemWeightModalOpen(false);
-      itemWeightForm.reset();
-    } catch (error) {
-      showNotification({
-        title: 'Error',
-        message:
-          error instanceof Error ? error.message : 'Failed to save item weight',
-        color: 'red',
-      });
-    } finally {
-      setIsItemWeightSubmitting(false);
-    }
-  };
-
-  const openItemWeightEditModal = (item: ItemWeightData) => {
-    setEditingItemWeight(item);
-    itemWeightEditForm.setValues({
-      itemName: item.itemName,
-      bulkQuantity: Number.parseFloat(item.bulkQuantity) || 0,
-      bulkWeight: Number.parseFloat(item.bulkWeight) || 0,
-    });
-    itemWeightEditForm.resetDirty();
-    setIsItemWeightEditModalOpen(true);
-  };
-
-  const closeItemWeightEditModal = () => {
-    setIsItemWeightEditModalOpen(false);
-    setEditingItemWeight(null);
-    itemWeightEditForm.reset();
-  };
-
-  const handleUpdateItemWeight = async (values: ItemWeightFormValues) => {
-    if (!editingItemWeight) {
-      return;
-    }
-
-    if (
-      typeof values.bulkQuantity !== 'number' ||
-      typeof values.bulkWeight !== 'number'
-    ) {
-      showNotification({
-        title: 'Invalid input',
-        message: 'Bulk quantity and weight must be valid numbers',
-        color: 'red',
-      });
-      return;
-    }
-
-    setIsItemWeightUpdating(true);
-
-    try {
-      const payload = {
-        id: editingItemWeight.id,
-        itemName: values.itemName.trim(),
-        bulkQuantity: values.bulkQuantity,
-        bulkWeight: values.bulkWeight,
-      };
-
-      const response = await fetch('/api/item-weights', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || !result?.data) {
-        throw new Error(
-          result?.error || 'Failed to update item weight. Please retry.'
-        );
-      }
-
-      const updatedItem = mapItemWeightResponse(
-        result.data as ItemWeightApiResponse
-      );
-
-      setItemWeightData((prev) =>
-        prev.map((item) => (item.id === updatedItem.id ? updatedItem : item))
-      );
-
-      showNotification({
-        title: 'Item weight updated',
-        message: `${updatedItem.itemName} saved successfully`,
-        color: 'green',
-      });
-
-      closeItemWeightEditModal();
-    } catch (error) {
-      showNotification({
-        title: 'Update failed',
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to update item weight',
-        color: 'red',
-      });
-    } finally {
-      setIsItemWeightUpdating(false);
-    }
-  };
-
-  const handleDeleteItemWeight = async (
-    item: ItemWeightData
-  ): Promise<boolean> => {
-    const firstConfirmation = await Swal.fire({
-      title: 'Delete item weight?',
-      text: `Are you sure you want to delete ${item.itemName}?`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Continue',
-      cancelButtonText: 'Cancel',
-      confirmButtonColor: '#d33',
-      allowOutsideClick: false,
-    });
-
-    if (!firstConfirmation.isConfirmed) {
-      return false;
-    }
-
-    const secondConfirmation = await Swal.fire({
-      title: 'Confirm permanent deletion',
-      html: 'Type <strong>DELETE</strong> to confirm this removal.',
-      icon: 'error',
-      input: 'text',
-      inputPlaceholder: 'Type DELETE',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      confirmButtonText: 'Delete permanently',
-      cancelButtonText: 'Back',
-      allowOutsideClick: false,
-      inputValidator: (value) => {
-        if (value.trim().toUpperCase() !== 'DELETE') {
-          return 'Please type DELETE to confirm.';
-        }
-        return null;
-      },
-    });
-
-    if (!secondConfirmation.isConfirmed) {
-      return false;
-    }
-
-    setPendingItemWeightDeleteId(item.id);
-    let wasDeleted = false;
-
-    try {
-      const response = await fetch(
-        `/api/item-weights?id=${encodeURIComponent(item.id)}`,
-        { method: 'DELETE' }
-      );
-      const result: { success?: boolean; error?: string } = await response
-        .json()
-        .catch(() => ({}));
-
-      if (!response.ok || result.success !== true) {
-        throw new Error(result.error || 'Failed to delete item weight');
-      }
-
-      setItemWeightData((prev) => prev.filter((entry) => entry.id !== item.id));
-
-      if (editingItemWeight?.id === item.id) {
-        closeItemWeightEditModal();
-      }
-
-      showNotification({
-        title: 'Item weight removed',
-        message: `${item.itemName} was deleted successfully`,
-        color: 'green',
-      });
-      wasDeleted = true;
-    } catch (error) {
-      showNotification({
-        title: 'Deletion failed',
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to delete item weight',
-        color: 'red',
-      });
-      wasDeleted = false;
-    } finally {
-      setPendingItemWeightDeleteId(null);
-    }
-
-    return wasDeleted;
   };
 
   /**
@@ -1410,16 +1126,12 @@ export function CheckoutLinksComponent() {
         <Tabs.Panel value="item-weight" pt="md">
           <Stack gap="md">
             <StandardTableControls
-              searchPlaceholder="Search item weights..."
+              searchPlaceholder="Search product weights..."
               onSearch={setSearchQuery}
-              onImport={() => {
-                // TODO: Implement import functionality
-              }}
-              onExport={() => {
-                // TODO: Implement export functionality
-              }}
-              onAddNew={() => setIsItemWeightModalOpen(true)}
-              isImporting={false}
+              hideImport
+              hideExport
+              onAddNew={handleOpenProductsModule}
+              addNewLabel="Open Products"
             />
 
             <StandardTableContainer
@@ -1429,31 +1141,35 @@ export function CheckoutLinksComponent() {
                     Showing {filteredItemWeightData.length} of{' '}
                     {itemWeightData.length} item weights
                   </Text>
+                  <Text size="sm" c="dimmed">
+                    Manage weights in the Products module.
+                  </Text>
                 </Group>
               }
             >
               <StandardDataTable
                 headers={[
-                  'ITEM NAME',
+                  'PRODUCT CODE',
                   'BULK QUANTITY',
                   'BULK WEIGHT',
-                  'APROX. WEIGHT PER PIECE',
-                  'ACTION',
+                  'WEIGHT PER PIECE',
                 ]}
                 emptyState={
                   isItemWeightLoading
-                    ? 'Loading item weights...'
-                    : searchQuery
-                      ? 'No item weights match your search.'
-                      : "No item weights found. Click 'Add New' to get started."
+                    ? 'Loading product weights...'
+                    : itemWeightError
+                      ? itemWeightError
+                      : searchQuery
+                        ? 'No product weights match your search.'
+                        : 'No weight data yet. Update weights in the Products module.'
                 }
-                colSpan={5}
+                colSpan={4}
               >
                 {filteredItemWeightData.map((row) => (
                   <Table.Tr key={row.id}>
-                    <Table.Td>
+                    <Table.Td style={{ textAlign: 'center' }}>
                       <Text size="sm" c="#495057">
-                        {row.itemName}
+                        {row.productCode || '-'}
                       </Text>
                     </Table.Td>
                     <Table.Td style={{ textAlign: 'center' }}>
@@ -1470,43 +1186,6 @@ export function CheckoutLinksComponent() {
                       <Text size="sm" c="#495057">
                         {row.approxWeightPerPiece}
                       </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Group gap="xs" justify="center">
-                        <Tooltip label="Edit">
-                          <ActionIcon
-                            color="blue"
-                            variant="light"
-                            size="sm"
-                            onClick={() => openItemWeightEditModal(row)}
-                            {...getActionLabel(
-                              'Edit',
-                              'item weight',
-                              row.itemName
-                            )}
-                          >
-                            <IconEdit size={16} />
-                          </ActionIcon>
-                        </Tooltip>
-                        <Tooltip label="Delete">
-                          <ActionIcon
-                            color="red"
-                            variant="light"
-                            size="sm"
-                            onClick={() => {
-                              void handleDeleteItemWeight(row);
-                            }}
-                            disabled={pendingItemWeightDeleteId === row.id}
-                            {...getActionLabel(
-                              'Delete',
-                              'item weight',
-                              row.itemName
-                            )}
-                          >
-                            <IconTrash size={16} />
-                          </ActionIcon>
-                        </Tooltip>
-                      </Group>
                     </Table.Td>
                   </Table.Tr>
                 ))}
@@ -1671,128 +1350,6 @@ export function CheckoutLinksComponent() {
           </Stack>
         </Tabs.Panel>
       </Tabs>
-
-      {/* Add Item Weight Modal */}
-      <Modal
-        opened={isItemWeightModalOpen}
-        onClose={() => {
-          setIsItemWeightModalOpen(false);
-          itemWeightForm.reset();
-        }}
-        title="Add New Item Weight"
-        size="md"
-      >
-        <form onSubmit={itemWeightForm.onSubmit(handleAddItemWeight)}>
-          <Stack gap="md">
-            <TextInput
-              label="Item Name"
-              placeholder="Enter item name"
-              required
-              disabled={isItemWeightSubmitting}
-              {...itemWeightForm.getInputProps('itemName')}
-            />
-
-            <NumberInput
-              label="Bulk Quantity"
-              placeholder="Enter bulk quantity"
-              required
-              min={0}
-              decimalScale={2}
-              disabled={isItemWeightSubmitting}
-              {...itemWeightForm.getInputProps('bulkQuantity')}
-            />
-
-            <NumberInput
-              label="Bulk Weight"
-              placeholder="Enter bulk weight"
-              required
-              min={0}
-              decimalScale={2}
-              disabled={isItemWeightSubmitting}
-              {...itemWeightForm.getInputProps('bulkWeight')}
-            />
-
-            <Text size="sm" c="dimmed">
-              Approximate weight per piece will be calculated automatically.
-            </Text>
-
-            <Group justify="flex-end" mt="md">
-              <Button
-                variant="subtle"
-                type="button"
-                onClick={() => {
-                  setIsItemWeightModalOpen(false);
-                  itemWeightForm.reset();
-                }}
-                disabled={isItemWeightSubmitting}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" loading={isItemWeightSubmitting}>
-                Add Item Weight
-              </Button>
-            </Group>
-          </Stack>
-        </form>
-      </Modal>
-
-      <Modal
-        opened={isItemWeightEditModalOpen}
-        onClose={closeItemWeightEditModal}
-        title="Edit Item Weight"
-        centered
-      >
-        <form onSubmit={itemWeightEditForm.onSubmit(handleUpdateItemWeight)}>
-          <Stack gap="md">
-            <TextInput
-              label="Item Name"
-              placeholder="Enter item name"
-              required
-              disabled={isItemWeightUpdating}
-              {...itemWeightEditForm.getInputProps('itemName')}
-            />
-
-            <NumberInput
-              label="Bulk Quantity"
-              placeholder="Enter bulk quantity"
-              required
-              min={0}
-              decimalScale={2}
-              disabled={isItemWeightUpdating}
-              {...itemWeightEditForm.getInputProps('bulkQuantity')}
-            />
-
-            <NumberInput
-              label="Bulk Weight"
-              placeholder="Enter bulk weight"
-              required
-              min={0}
-              decimalScale={2}
-              disabled={isItemWeightUpdating}
-              {...itemWeightEditForm.getInputProps('bulkWeight')}
-            />
-
-            <Text size="sm" c="dimmed">
-              Approximate weight per piece updates automatically based on the
-              bulk values.
-            </Text>
-
-            <Group justify="flex-end" mt="md">
-              <Button
-                variant="subtle"
-                type="button"
-                onClick={closeItemWeightEditModal}
-                disabled={isItemWeightUpdating}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" loading={isItemWeightUpdating}>
-                Save changes
-              </Button>
-            </Group>
-          </Stack>
-        </form>
-      </Modal>
 
       <Modal
         opened={isEditModalOpen}
