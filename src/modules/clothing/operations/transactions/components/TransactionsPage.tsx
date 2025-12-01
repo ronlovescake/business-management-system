@@ -825,8 +825,12 @@ export function TransactionsPage() {
   }, [filteredData]);
 
   const filteredDueDatesData = React.useMemo(() => {
-    if (dueDateFilters.size === 0 || dueDateFilters.has('Show All')) {
+    if (dueDateFilters.has('Show All')) {
       return dueDatesData;
+    }
+
+    if (dueDateFilters.size === 0) {
+      return [];
     }
 
     return dueDatesData.filter((row) => {
