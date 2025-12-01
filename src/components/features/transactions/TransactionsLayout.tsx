@@ -1,6 +1,6 @@
 import React from 'react';
 import dynamic from 'next/dynamic';
-import { Group, Button, Text, Loader, Pill, Stack, Card } from '@mantine/core';
+import { Group, Button, Text, Loader, Pill } from '@mantine/core';
 import { IconFileSpreadsheet } from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
 import * as XLSX from 'xlsx';
@@ -10,7 +10,6 @@ import type {
   GetCellData,
   CellEditEvent,
   HandsontableGridProps,
-  SelectionSummary,
 } from '@/components/ui/HandsontableGrid';
 
 // Lazy load HandsontableGrid to reduce initial bundle size
@@ -71,7 +70,6 @@ export interface TransactionsLayoutProps<T = Record<string, unknown>> {
   // Grid Interaction
   getCellData: GetCellData<T>;
   onCellEdited?: (edit: CellEditEvent<T>) => void;
-  onSelectionSummaryChange?: (summary: SelectionSummary | null) => void;
 
   // CSV Import
   enableCSVImport?: boolean;
@@ -93,9 +91,6 @@ export interface TransactionsLayoutProps<T = Record<string, unknown>> {
   // Other Options
   enableCtrlF?: boolean;
 
-  // Summary bar
-  summary?: React.ReactNode;
-
   // Scroll Behavior
   scrollToLastNonEmptyRows?: number;
   stretchColumnId?: string;
@@ -114,7 +109,6 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
   onStatusFilter,
   getCellData,
   onCellEdited,
-  onSelectionSummaryChange,
   enableCSVImport = false,
   csvFile,
   onFileChange,
@@ -127,7 +121,6 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
   isGeneratingPackingList = false,
   isGeneratingDistribution = false,
   enableCtrlF = false,
-  summary,
   // scrollToLastNonEmptyRows removed with feature
   stretchColumnId,
 }: TransactionsLayoutProps<T>) {
@@ -292,35 +285,27 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
   ) : null;
 
   return (
-    <Stack gap="md">
-      <HandsontableGrid<T>
-        className="transactions-grid"
-        data={data}
-        filteredData={filteredData}
-        columns={columns}
-        searchQuery={searchQuery}
-        onSearch={onSearch}
-        searchPlaceholder={searchPlaceholder}
-        getCellData={getCellData}
-        onCellEdited={onCellEdited}
-        onSelectionSummaryChange={onSelectionSummaryChange}
-        statsCards={statsCards as StatCard[]}
-        enableCSVImport={enableCSVImport}
-        enableCtrlF={enableCtrlF}
-        csvFile={csvFile || null}
-        onFileChange={onFileChange || (() => {})}
-        onCSVImport={onCSVImport}
-        searchRightButtons={searchRightButtons}
-        actionButtons={actionButtons}
-        showFooter={false}
-        // scrollToLastNonEmptyRows removed
-        stretchColumnId={stretchColumnId}
-      />
-      {summary && (
-        <Card withBorder padding="md">
-          {summary}
-        </Card>
-      )}
-    </Stack>
+    <HandsontableGrid<T>
+      className="transactions-grid"
+      data={data}
+      filteredData={filteredData}
+      columns={columns}
+      searchQuery={searchQuery}
+      onSearch={onSearch}
+      searchPlaceholder={searchPlaceholder}
+      getCellData={getCellData}
+      onCellEdited={onCellEdited}
+      statsCards={statsCards as StatCard[]}
+      enableCSVImport={enableCSVImport}
+      enableCtrlF={enableCtrlF}
+      csvFile={csvFile || null}
+      onFileChange={onFileChange || (() => {})}
+      onCSVImport={onCSVImport}
+      searchRightButtons={searchRightButtons}
+      actionButtons={actionButtons}
+      showFooter={false}
+      // scrollToLastNonEmptyRows removed
+      stretchColumnId={stretchColumnId}
+    />
   );
 }
