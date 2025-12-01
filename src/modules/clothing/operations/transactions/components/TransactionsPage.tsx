@@ -1206,7 +1206,12 @@ export function TransactionsPage() {
               getCellData={getDueDateCellData}
               enableCSVImport={false}
               enableCtrlF={true}
-              statusOptions={[]}
+              statusOptions={[
+                'Due in 2 days',
+                'Due in 1 day',
+                'Due today',
+                'Past due',
+              ]}
               showActionButtons={false}
               stretchColumnId="notes"
             />
