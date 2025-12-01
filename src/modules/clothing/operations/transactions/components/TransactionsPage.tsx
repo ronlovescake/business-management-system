@@ -1212,6 +1212,8 @@ export function TransactionsPage() {
                 'Due today',
                 'Past due',
               ]}
+              selectedStatuses={selectedStatuses}
+              onStatusFilter={handleStatusFilter}
               showActionButtons={false}
               stretchColumnId="notes"
             />
