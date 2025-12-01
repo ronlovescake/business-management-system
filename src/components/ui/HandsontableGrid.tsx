@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { HotTable } from '@handsontable/react';
 import type { HotTableClass } from '@handsontable/react';
+import Handsontable from 'handsontable';
 import { registerAllModules } from 'handsontable/registry';
 import 'handsontable/styles/handsontable.min.css';
 import 'handsontable/styles/ht-theme-horizon.min.css';
@@ -45,6 +46,7 @@ export interface CellData {
   value: string | number | null | undefined;
   displayValue?: string;
   readOnly?: boolean;
+  className?: string;
 }
 
 export interface CellEditEvent<T> {
@@ -141,6 +143,7 @@ export function HandsontableGrid<T extends object>({
   const hotRef = useRef<HotTableClass | null>(null);
   const columnsRef = useRef(columns);
   const [currentGridHeight, setCurrentGridHeight] = useState<number>(600);
+  const cellClassMapRef = useRef(new Map<string, string>());
   const isBatchModeRef = useRef(false);
   const dropdownEditStateRef = useRef<{
     row: number;
@@ -827,9 +830,15 @@ export function HandsontableGrid<T extends object>({
 
   // Convert data to 2D array format for Handsontable
   const hotData = useMemo(() => {
-    return filteredData.map((rowData, rowIndex) => {
-      return columns.map((col) => {
+    const classMap = new Map<string, string>();
+
+    const dataMatrix = filteredData.map((rowData, rowIndex) => {
+      return columns.map((col, colIndex) => {
         const cell = getCellData({ column: col, row: rowIndex, rowData });
+
+        if (cell?.className) {
+          classMap.set(`${rowIndex}-${colIndex}`, cell.className);
+        }
 
         if (!cell) {
           return '';
@@ -868,6 +877,9 @@ export function HandsontableGrid<T extends object>({
         return String(resolvedDisplay);
       });
     });
+
+    cellClassMapRef.current = classMap;
+    return dataMatrix;
   }, [filteredData, columns, getCellData]);
 
   // Auto-scroll to last non-empty row feature removed
@@ -1010,6 +1022,79 @@ export function HandsontableGrid<T extends object>({
           rowHeights={45} // Set fixed row height
           columnHeaderHeight={45} // Set header height to match row height
           minSpareRows={20} // Keep 20 empty rows available for fast entry
+          cells={(_row, _col) => {
+            return {
+              renderer: (
+                instance,
+                td,
+                rowIndex,
+                colIndex,
+                prop,
+                value,
+                cellProperties
+              ) => {
+                const rendererType =
+                  typeof cellProperties?.type === 'string'
+                    ? cellProperties.type
+                    : 'text';
+                const baseRenderer =
+                  Handsontable.renderers.getRenderer(rendererType);
+
+                baseRenderer(
+                  instance,
+                  td,
+                  rowIndex,
+                  colIndex,
+                  prop,
+                  value,
+                  cellProperties
+                );
+
+                const setStyle = (property: string, value?: string) => {
+                  if (value) {
+                    td.style.setProperty(property, value, 'important');
+                  } else {
+                    td.style.removeProperty(property);
+                  }
+                };
+
+                td.classList.remove(
+                  'ht-due-status-today',
+                  'ht-due-status-past'
+                );
+
+                if (rowIndex >= 0 && colIndex >= 0) {
+                  const className = cellClassMapRef.current.get(
+                    `${rowIndex}-${colIndex}`
+                  );
+                  if (className) {
+                    td.classList.add(className);
+                    if (className === 'ht-due-status-today') {
+                      setStyle('background-color', 'rgba(251, 146, 60, 0.14)');
+                      setStyle('color', '#b45309');
+                      td.style.fontWeight = '600';
+                    } else if (className === 'ht-due-status-past') {
+                      setStyle('background-color', 'rgba(248, 113, 113, 0.14)');
+                      setStyle('color', '#b91c1c');
+                      td.style.fontWeight = '600';
+                    } else {
+                      setStyle('background-color');
+                      setStyle('color');
+                      td.style.fontWeight = '';
+                    }
+                  } else {
+                    setStyle('background-color');
+                    setStyle('color');
+                    td.style.fontWeight = '';
+                  }
+                } else {
+                  setStyle('background-color');
+                  setStyle('color');
+                  td.style.fontWeight = '';
+                }
+              },
+            };
+          }}
           beforeCut={() => false}
           afterBeginEditing={(row, col) => {
             const column = columns[col];

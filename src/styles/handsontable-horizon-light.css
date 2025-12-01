@@ -2,6 +2,16 @@
   --ht-font-size: 16px;
   --ht-line-height: 20px;
   --ht-font-weight: 400;
+  .transactions-grid .handsontable .ht-due-status-today {
+    color: #b45309 !important;
+    background-color: rgba(251, 146, 60, 0.14) !important;
+    font-weight: 600;
+  }
+  .transactions-grid .handsontable .ht-due-status-past {
+    color: #b91c1c !important;
+    background-color: rgba(248, 113, 113, 0.14) !important;
+    font-weight: 600;
+  }
   --ht-letter-spacing: 0;
   --ht-gap-size: 6px;
   --ht-icon-size: 16px;

@@ -80,6 +80,7 @@ const DEFAULT_READ_ONLY_COLUMNS = {
 };
 
 type ReadOnlyColumnFlags = typeof DEFAULT_READ_ONLY_COLUMNS;
+type DueStatus = 'due-today' | 'past-due' | null;
 
 interface DueDateGridRow {
   id: string;
@@ -92,6 +93,7 @@ interface DueDateGridRow {
   dueDate: string;
   dueIn: string;
   dueInHours: number;
+  dueStatus: DueStatus;
   notes: string;
   done: string;
 }
@@ -120,6 +122,22 @@ const formatDueInLabel = (hours: number): string => {
   }
 
   return `in ${absHours} ${hourLabel}`;
+};
+
+const getDueStatusFromHours = (hours: number): DueStatus => {
+  if (!Number.isFinite(hours)) {
+    return null;
+  }
+
+  if (hours < -24) {
+    return 'past-due';
+  }
+
+  if (hours <= 0 && hours >= -24) {
+    return 'due-today';
+  }
+
+  return null;
 };
 
 export function TransactionsPage() {
@@ -684,13 +702,13 @@ export function TransactionsPage() {
     () => [
       {
         title: 'CUSTOMER',
-        width: 380,
+        width: 500,
         id: 'customer',
         readOnly: true,
       },
       {
         title: 'PRODUCT CODE',
-        width: 420,
+        width: 500,
         id: 'productCode',
         readOnly: true,
       },
@@ -734,7 +752,7 @@ export function TransactionsPage() {
       },
       {
         title: 'DUE IN',
-        width: 140,
+        width: 200,
         id: 'dueIn',
         align: 'center',
         readOnly: true,
@@ -803,6 +821,7 @@ export function TransactionsPage() {
         const dueInHours = dueDateRaw
           ? DueDateService.calculateHoursUntilDue(dueDateRaw)
           : 0;
+        const dueStatus = getDueStatusFromHours(dueInHours);
 
         return {
           id: transaction.id ? `due-${transaction.id}` : `due-${index}`,
@@ -817,6 +836,7 @@ export function TransactionsPage() {
           dueDate: dueDateRaw ? DueDateService.formatDate(dueDateRaw) : '',
           dueIn: formatDueInLabel(dueInHours),
           dueInHours,
+          dueStatus,
           notes: transaction.Notes || '',
           done: 'No',
         };
@@ -915,6 +935,21 @@ export function TransactionsPage() {
           value: sanitizedValue,
           displayValue: sanitizedValue,
           readOnly: true,
+        };
+      }
+
+      if (column.id === 'dueIn') {
+        const className =
+          rowData.dueStatus === 'past-due'
+            ? 'ht-due-status-past'
+            : rowData.dueStatus === 'due-today'
+              ? 'ht-due-status-today'
+              : undefined;
+
+        return {
+          value: rowData.dueIn,
+          readOnly: true,
+          className,
         };
       }
 
