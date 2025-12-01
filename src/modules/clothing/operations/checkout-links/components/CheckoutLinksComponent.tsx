@@ -95,6 +95,41 @@ type CheckoutLinkFormValues = {
   productNames: string;
 };
 
+const copyTextToClipboard = async (text: string): Promise<boolean> => {
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (error) {
+      // fall back to legacy approach below
+    }
+  }
+
+  if (typeof document === 'undefined') {
+    return false;
+  }
+
+  const textArea = document.createElement('textarea');
+  textArea.value = text;
+  textArea.style.position = 'fixed';
+  textArea.style.opacity = '0';
+  textArea.style.left = '-9999px';
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+
+  let successful = false;
+  try {
+    successful = document.execCommand('copy');
+  } catch (error) {
+    successful = false;
+  } finally {
+    document.body.removeChild(textArea);
+  }
+
+  return successful;
+};
+
 function mapItemWeightResponse(item: ItemWeightApiResponse): ItemWeightData {
   return {
     id: item.id,
@@ -1120,16 +1155,8 @@ export function CheckoutLinksComponent() {
       paymentChannelsUrl: invoiceSettings.paymentChannelsUrl,
     });
 
-    // Copy message to clipboard
-    try {
-      await navigator.clipboard.writeText(message);
-
-      showNotification({
-        title: 'Message Copied!',
-        message: `Invoice message copied to clipboard. Opening Facebook Messenger...`,
-        color: 'green',
-      });
-    } catch (error) {
+    const copied = await copyTextToClipboard(message);
+    if (!copied) {
       showNotification({
         title: 'Copy Failed',
         message: 'Could not copy message to clipboard',
@@ -1137,6 +1164,12 @@ export function CheckoutLinksComponent() {
       });
       return;
     }
+
+    showNotification({
+      title: 'Message Copied!',
+      message: `Invoice message copied to clipboard. Opening Facebook Messenger...`,
+      color: 'green',
+    });
 
     // Open Facebook Messenger in new window
     const messengerUrl = facebookLink.startsWith('http')
