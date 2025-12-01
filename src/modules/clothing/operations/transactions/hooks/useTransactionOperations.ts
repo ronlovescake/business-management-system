@@ -615,6 +615,7 @@ export function useTransactionOperations(
         // ⚠️ FINALIZED: Unit Price auto-population
         const currentQuantity = transaction.Quantity || 0;
         const currentDiscount = transaction.Discount || 0;
+        const currentAdjustment = transaction.Adjustment || 0;
         let autoPopulatedUnitPrice = 0;
         let unitPriceAutoPopulated = false;
         let unitPriceCleared = false;
@@ -631,12 +632,20 @@ export function useTransactionOperations(
           unitPriceAutoPopulated = autoPopulatedUnitPrice > 0;
         }
 
+        // Always recalculate line total so field order (qty first, product later) stays consistent
+        const recalculatedLineTotal = TransactionService.calculateLineTotal(
+          currentQuantity,
+          autoPopulatedUnitPrice,
+          currentAdjustment
+        );
+
         const updatedTransaction = {
           ...transaction,
           'Product Code': dropdownValue,
           'Shipment Code': correspondingShipmentCode,
           'Order Status': finalOrderStatus,
           'Unit Price': autoPopulatedUnitPrice,
+          'Line Total': recalculatedLineTotal,
         };
 
         updateTransactionData(updatedTransaction);
@@ -655,6 +664,9 @@ export function useTransactionOperations(
         }
         if (unitPriceAutoPopulated) {
           autopopulated.push('Unit Price');
+        }
+        if (recalculatedLineTotal !== (transaction['Line Total'] ?? 0)) {
+          autopopulated.push('Line Total');
         }
 
         if (autopopulated.length > 0) {
@@ -708,6 +720,12 @@ export function useTransactionOperations(
 
           if (unitPriceCleared) {
             updates.push('Unit Price cleared');
+          }
+
+          if (recalculatedLineTotal !== (transaction['Line Total'] ?? 0)) {
+            updates.push(
+              `Line Total → ${formatCurrencyValue(recalculatedLineTotal)}`
+            );
           }
 
           const updateSummary =
