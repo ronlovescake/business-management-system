@@ -10,6 +10,7 @@ import type {
   GetCellData,
   CellEditEvent,
   HandsontableGridProps,
+  SelectionSummary,
 } from '@/components/ui/HandsontableGrid';
 
 // Lazy load HandsontableGrid to reduce initial bundle size
@@ -70,6 +71,7 @@ export interface TransactionsLayoutProps<T = Record<string, unknown>> {
   // Grid Interaction
   getCellData: GetCellData<T>;
   onCellEdited?: (edit: CellEditEvent<T>) => void;
+  onSelectionSummaryChange?: (summary: SelectionSummary | null) => void;
 
   // CSV Import
   enableCSVImport?: boolean;
@@ -112,6 +114,7 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
   onStatusFilter,
   getCellData,
   onCellEdited,
+  onSelectionSummaryChange,
   enableCSVImport = false,
   csvFile,
   onFileChange,
@@ -300,6 +303,7 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
         searchPlaceholder={searchPlaceholder}
         getCellData={getCellData}
         onCellEdited={onCellEdited}
+        onSelectionSummaryChange={onSelectionSummaryChange}
         statsCards={statsCards as StatCard[]}
         enableCSVImport={enableCSVImport}
         enableCtrlF={enableCtrlF}

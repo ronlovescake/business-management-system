@@ -30,6 +30,7 @@ import { TransactionsLayout } from '@/components/features/transactions';
 import type {
   HandsontableColumn,
   CellData,
+  SelectionSummary,
 } from '@/components/ui/HandsontableGrid';
 import {
   IconReceipt,
@@ -123,6 +124,16 @@ export function TransactionsPage() {
   const [activeTab, setActiveTab] = useState<
     'main' | 'packing-list' | 'packed' | 'due-dates' | 'recently-updated'
   >('main');
+  const [selectionSummary, setSelectionSummary] =
+    useState<SelectionSummary | null>(null);
+  const numberFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat('en-US', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      }),
+    []
+  );
 
   const handleTabChange = (value: string | null) => {
     if (value === 'packing-list') {
@@ -136,6 +147,15 @@ export function TransactionsPage() {
     } else {
       setActiveTab('main');
     }
+  };
+
+  useEffect(() => {
+    setSelectionSummary(null);
+  }, [activeTab]);
+
+  // Dummy handler for Due Dates filter pills (not wired up yet)
+  const handleDueDateFilter = () => {
+    // Placeholder - not implemented yet
   };
 
   useEffect(() => {
@@ -1054,6 +1074,47 @@ export function TransactionsPage() {
     [getCellData, getTransactionUpdatedLabel]
   );
 
+  const selectionSummaryContent = selectionSummary ? (
+    <Group gap="xl" wrap="wrap">
+      <Group gap={6} align="center">
+        <Text size="xs" c="dimmed" fw={600} tt="uppercase">
+          Sum
+        </Text>
+        <Text size="sm" fw={600}>
+          {numberFormatter.format(selectionSummary.numericSum)}
+        </Text>
+      </Group>
+      <Group gap={6} align="center">
+        <Text size="xs" c="dimmed" fw={600} tt="uppercase">
+          Number cells
+        </Text>
+        <Text size="sm" fw={600}>
+          {selectionSummary.numericCount}
+        </Text>
+      </Group>
+      <Group gap={6} align="center">
+        <Text size="xs" c="dimmed" fw={600} tt="uppercase">
+          String cells
+        </Text>
+        <Text size="sm" fw={600}>
+          {selectionSummary.textCount}
+        </Text>
+      </Group>
+      <Group gap={6} align="center">
+        <Text size="xs" c="dimmed" fw={600} tt="uppercase">
+          Non-empty cells
+        </Text>
+        <Text size="sm" fw={600}>
+          {selectionSummary.cellCount}
+        </Text>
+      </Group>
+    </Group>
+  ) : (
+    <Text size="sm" c="dimmed">
+      Select any set of cells to instantly view summed numbers and text counts.
+    </Text>
+  );
+
   // ============================================================================
   // LOADING STATE
   // ============================================================================
@@ -1158,13 +1219,8 @@ export function TransactionsPage() {
               isGeneratingDistribution={isGeneratingDistribution}
               // scrollToLastNonEmptyRows removed
               stretchColumnId="notes"
-              summary={
-                <Group justify="space-between">
-                  <Text size="sm" c="dimmed">
-                    Summary bar placeholder
-                  </Text>
-                </Group>
-              }
+              summary={selectionSummaryContent}
+              onSelectionSummaryChange={setSelectionSummary}
             />
           </Tabs.Panel>
 
@@ -1182,6 +1238,8 @@ export function TransactionsPage() {
               statusOptions={[]}
               showActionButtons={false}
               stretchColumnId="notes"
+              summary={selectionSummaryContent}
+              onSelectionSummaryChange={setSelectionSummary}
             />
           </Tabs.Panel>
 
@@ -1199,6 +1257,8 @@ export function TransactionsPage() {
               statusOptions={[]}
               showActionButtons={false}
               stretchColumnId="notes"
+              summary={selectionSummaryContent}
+              onSelectionSummaryChange={setSelectionSummary}
             />
           </Tabs.Panel>
 
@@ -1213,9 +1273,17 @@ export function TransactionsPage() {
               getCellData={getDueDateCellData}
               enableCSVImport={false}
               enableCtrlF={true}
-              statusOptions={[]}
+              statusOptions={[
+                'Due in 2 days',
+                'Due in 1 day',
+                'Due today',
+                'Past due',
+              ]}
+              onStatusFilter={handleDueDateFilter}
               showActionButtons={false}
               stretchColumnId="notes"
+              summary={selectionSummaryContent}
+              onSelectionSummaryChange={setSelectionSummary}
             />
           </Tabs.Panel>
 
@@ -1242,6 +1310,8 @@ export function TransactionsPage() {
               isGeneratingPackingList={isGeneratingPackingList}
               isGeneratingDistribution={isGeneratingDistribution}
               stretchColumnId="notes"
+              summary={selectionSummaryContent}
+              onSelectionSummaryChange={setSelectionSummary}
             />
           </Tabs.Panel>
         </Tabs>

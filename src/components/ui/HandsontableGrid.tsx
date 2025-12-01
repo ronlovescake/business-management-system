@@ -75,6 +75,13 @@ export interface CellClickEvent<T> {
   rowData: T;
 }
 
+export interface SelectionSummary {
+  numericCount: number;
+  numericSum: number;
+  textCount: number;
+  cellCount: number;
+}
+
 export interface HandsontableGridProps<T extends object> {
   data: readonly T[];
   columns: readonly HandsontableColumn[];
@@ -93,6 +100,7 @@ export interface HandsontableGridProps<T extends object> {
   onCellClick?: (event: CellClickEvent<T>) => void;
   getCellData: GetCellData<T>;
   onCellEdited?: (edit: CellEditEvent<T>) => void;
+  onSelectionSummaryChange?: (summary: SelectionSummary | null) => void;
   showFooter?: boolean;
   footerLeft?: React.ReactNode;
   footerRight?: React.ReactNode;
@@ -120,6 +128,7 @@ export function HandsontableGrid<T extends object>({
   onCellClick,
   getCellData,
   onCellEdited,
+  onSelectionSummaryChange,
   showFooter = true,
   footerLeft,
   footerRight,
@@ -140,6 +149,7 @@ export function HandsontableGrid<T extends object>({
     selectionMade: boolean;
     cleanup?: () => void;
   } | null>(null);
+  const lastSelectionSummaryRef = useRef<SelectionSummary | null>(null);
 
   // Debug: Check if theme is applied
   useEffect(() => {
@@ -238,6 +248,129 @@ export function HandsontableGrid<T extends object>({
   useEffect(() => {
     columnsRef.current = columns;
   }, [columns]);
+
+  const handleSelectionSummary = useCallback(
+    (row: number, col: number, row2?: number, col2?: number) => {
+      if (!onSelectionSummaryChange) {
+        return;
+      }
+
+      if (
+        typeof row !== 'number' ||
+        typeof col !== 'number' ||
+        row < 0 ||
+        col < 0
+      ) {
+        if (lastSelectionSummaryRef.current) {
+          lastSelectionSummaryRef.current = null;
+          onSelectionSummaryChange(null);
+        }
+        return;
+      }
+
+      const hotInstance = hotRef.current?.hotInstance;
+      if (!hotInstance) {
+        if (lastSelectionSummaryRef.current) {
+          lastSelectionSummaryRef.current = null;
+          onSelectionSummaryChange(null);
+        }
+        return;
+      }
+
+      const startRow = Math.min(row, row2 ?? row);
+      const endRow = Math.max(row, row2 ?? row);
+      const startCol = Math.min(col, col2 ?? col);
+      const endCol = Math.max(col, col2 ?? col);
+
+      let numericCount = 0;
+      let numericSum = 0;
+      let textCount = 0;
+      let cellCount = 0;
+
+      for (let r = startRow; r <= endRow; r += 1) {
+        for (let c = startCol; c <= endCol; c += 1) {
+          const cellValue = hotInstance.getDataAtCell(r, c);
+
+          if (cellValue === null || cellValue === undefined) {
+            continue;
+          }
+
+          if (typeof cellValue === 'number') {
+            if (!Number.isNaN(cellValue)) {
+              cellCount += 1;
+              numericCount += 1;
+              numericSum += cellValue;
+            }
+            continue;
+          }
+
+          if (typeof cellValue === 'string') {
+            const trimmed = cellValue.trim();
+            if (!trimmed) {
+              continue;
+            }
+
+            const normalized = Number(trimmed.replace(/,/g, ''));
+            cellCount += 1;
+
+            if (!Number.isNaN(normalized)) {
+              numericCount += 1;
+              numericSum += normalized;
+            } else {
+              textCount += 1;
+            }
+            continue;
+          }
+
+          if (typeof cellValue === 'boolean') {
+            cellCount += 1;
+            textCount += 1;
+            continue;
+          }
+
+          const fallbackValue = String(cellValue).trim();
+          if (fallbackValue) {
+            cellCount += 1;
+            textCount += 1;
+          }
+        }
+      }
+
+      const summary: SelectionSummary = {
+        numericCount,
+        numericSum,
+        textCount,
+        cellCount,
+      };
+
+      const previous = lastSelectionSummaryRef.current;
+      const hasChanged =
+        !previous ||
+        previous.numericCount !== summary.numericCount ||
+        previous.numericSum !== summary.numericSum ||
+        previous.textCount !== summary.textCount ||
+        previous.cellCount !== summary.cellCount;
+
+      if (!hasChanged) {
+        return;
+      }
+
+      lastSelectionSummaryRef.current = summary;
+      onSelectionSummaryChange(summary);
+    },
+    [onSelectionSummaryChange]
+  );
+
+  const handleDeselect = useCallback(() => {
+    if (!onSelectionSummaryChange) {
+      return;
+    }
+
+    if (lastSelectionSummaryRef.current) {
+      lastSelectionSummaryRef.current = null;
+      onSelectionSummaryChange(null);
+    }
+  }, [onSelectionSummaryChange]);
 
   const handleBeforeStretch = useCallback(
     (stretchedWidth: number, column: number) => {
@@ -1108,13 +1241,29 @@ export function HandsontableGrid<T extends object>({
             dropdownEditStateRef.current?.cleanup?.();
             dropdownEditStateRef.current = null;
           }}
-          afterSelectionEnd={(row, col) => {
-            if (!onCellClick || row < 0 || col < 0) {
+          afterSelection={(row, col, row2, col2) => {
+            handleSelectionSummary(row, col, row2, col2);
+          }}
+          afterSelectionEnd={(row, col, row2, col2) => {
+            handleSelectionSummary(row, col, row2, col2);
+
+            if (!onCellClick) {
               return;
             }
 
-            const rowData = filteredData[row];
-            const column = columns[col];
+            const targetRow = typeof row2 === 'number' ? row2 : row;
+            const targetCol = typeof col2 === 'number' ? col2 : col;
+
+            if (targetRow === undefined || targetCol === undefined) {
+              return;
+            }
+
+            if (targetRow < 0 || targetCol < 0) {
+              return;
+            }
+
+            const rowData = filteredData[targetRow];
+            const column = columns[targetCol];
 
             if (!rowData || !column) {
               return;
@@ -1122,11 +1271,12 @@ export function HandsontableGrid<T extends object>({
 
             onCellClick({
               column,
-              columnIndex: col,
-              row,
+              columnIndex: targetCol,
+              row: targetRow,
               rowData,
             });
           }}
+          afterDeselect={handleDeselect}
         />
       </div>
 
