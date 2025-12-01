@@ -91,9 +91,18 @@ interface DueDateGridRow {
   invoiceDate: string;
   dueDate: string;
   dueIn: string;
+  dueInHours: number;
   notes: string;
   done: string;
 }
+
+const DUE_DATE_FILTER_OPTIONS = [
+  'Show All',
+  'Due in 2 days',
+  'Due in 1 day',
+  'Due today',
+  'Past due',
+] as const;
 
 const formatDueInLabel = (hours: number): string => {
   if (!Number.isFinite(hours)) {
@@ -123,6 +132,9 @@ export function TransactionsPage() {
   const [activeTab, setActiveTab] = useState<
     'main' | 'packing-list' | 'packed' | 'due-dates' | 'recently-updated'
   >('main');
+  const [dueDateFilters, setDueDateFilters] = useState<Set<string>>(
+    () => new Set(DUE_DATE_FILTER_OPTIONS)
+  );
 
   const handleTabChange = (value: string | null) => {
     if (value === 'packing-list') {
@@ -804,12 +816,63 @@ export function TransactionsPage() {
             : '',
           dueDate: dueDateRaw ? DueDateService.formatDate(dueDateRaw) : '',
           dueIn: formatDueInLabel(dueInHours),
+          dueInHours,
           notes: transaction.Notes || '',
           done: 'No',
         };
       })
       .sort((a, b) => a.customer.localeCompare(b.customer));
   }, [filteredData]);
+
+  const filteredDueDatesData = React.useMemo(() => {
+    if (dueDateFilters.size === 0 || dueDateFilters.has('Show All')) {
+      return dueDatesData;
+    }
+
+    return dueDatesData.filter((row) => {
+      const hours = row.dueInHours;
+
+      const matchesTwoDays =
+        dueDateFilters.has('Due in 2 days') && hours > 24 && hours <= 48;
+      const matchesOneDay =
+        dueDateFilters.has('Due in 1 day') && hours > 0 && hours <= 24;
+      const matchesToday =
+        dueDateFilters.has('Due today') && hours <= 0 && hours >= -24;
+      const matchesPastDue = dueDateFilters.has('Past due') && hours < -24;
+
+      return matchesTwoDays || matchesOneDay || matchesToday || matchesPastDue;
+    });
+  }, [dueDateFilters, dueDatesData]);
+
+  const handleDueDateFilter = React.useCallback((filter: string) => {
+    setDueDateFilters((prev) => {
+      const next = new Set(prev);
+
+      if (filter === 'Show All') {
+        if (next.has('Show All')) {
+          return new Set();
+        }
+        return new Set(DUE_DATE_FILTER_OPTIONS);
+      }
+
+      next.delete('Show All');
+      if (next.has(filter)) {
+        next.delete(filter);
+      } else {
+        next.add(filter);
+      }
+
+      const areAllIndividualSelected = DUE_DATE_FILTER_OPTIONS.slice(1).every(
+        (option) => next.has(option)
+      );
+
+      if (areAllIndividualSelected) {
+        return new Set(DUE_DATE_FILTER_OPTIONS);
+      }
+
+      return next;
+    });
+  }, []);
 
   const getDueDateCellData = React.useCallback(
     ({
@@ -1198,7 +1261,7 @@ export function TransactionsPage() {
           <Tabs.Panel value="due-dates" pt="md">
             <TransactionsLayout<DueDateGridRow>
               data={dueDatesData}
-              filteredData={dueDatesData}
+              filteredData={filteredDueDatesData}
               columns={dueDateColumns}
               searchQuery={searchQuery}
               onSearch={handleSearch}
@@ -1206,14 +1269,9 @@ export function TransactionsPage() {
               getCellData={getDueDateCellData}
               enableCSVImport={false}
               enableCtrlF={true}
-              statusOptions={[
-                'Due in 2 days',
-                'Due in 1 day',
-                'Due today',
-                'Past due',
-              ]}
-              selectedStatuses={selectedStatuses}
-              onStatusFilter={handleStatusFilter}
+              statusOptions={Array.from(DUE_DATE_FILTER_OPTIONS)}
+              selectedStatuses={dueDateFilters}
+              onStatusFilter={handleDueDateFilter}
               showActionButtons={false}
               stretchColumnId="notes"
             />
