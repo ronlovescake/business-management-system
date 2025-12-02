@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useId, useState } from 'react';
+import { memo, useCallback, useId, useState } from 'react';
 import {
   Stack,
   Card,
@@ -274,7 +274,7 @@ interface StandardTableControlsProps {
   expandSearch?: boolean;
 }
 
-export function StandardTableControls({
+export const StandardTableControls = memo(function StandardTableControls({
   searchPlaceholder = 'Search...',
   onSearch,
   onImport,
@@ -298,11 +298,29 @@ export function StandardTableControls({
 
   useCtrlFFocus(`[data-ctrlf-target="${searchTarget}"]`, ctrlFFocusEnabled);
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchValue(value);
-    onSearch?.(value);
-  };
+  const handleSearchChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const value = event.target.value;
+      setSearchValue(value);
+      onSearch?.(value);
+    },
+    [onSearch]
+  );
+
+  const handleImportChange = useCallback(
+    (file: File | null) => {
+      onImport?.(file);
+    },
+    [onImport]
+  );
+
+  const handleExportClick = useCallback(() => {
+    onExport?.();
+  }, [onExport]);
+
+  const handleAddNewClick = useCallback(() => {
+    onAddNew?.();
+  }, [onAddNew]);
 
   return (
     <Group
@@ -326,10 +344,7 @@ export function StandardTableControls({
       )}
       <Group gap="sm">
         {!hideImport && (
-          <FileButton
-            onChange={(file) => onImport?.(file)}
-            accept={acceptFileTypes}
-          >
+          <FileButton onChange={handleImportChange} accept={acceptFileTypes}>
             {(props) => (
               <Button
                 {...props}
@@ -342,19 +357,27 @@ export function StandardTableControls({
           </FileButton>
         )}
         {!hideExport && (
-          <Button leftSection={<IconDownload size={16} />} onClick={onExport}>
+          <Button
+            leftSection={<IconDownload size={16} />}
+            onClick={handleExportClick}
+          >
             Export
           </Button>
         )}
         {!hideAddNew && (
-          <Button leftSection={<IconPlus size={16} />} onClick={onAddNew}>
+          <Button
+            leftSection={<IconPlus size={16} />}
+            onClick={handleAddNewClick}
+          >
             {addNewLabel}
           </Button>
         )}
       </Group>
     </Group>
   );
-}
+});
+
+StandardTableControls.displayName = 'StandardTableControls';
 
 /**
  * StandardTableContainer Component

@@ -157,13 +157,13 @@
 
 **Tasks:**
 
-- [ ] Refactor `HeaderQuickActions.tsx` (900+ lines)
-  - [ ] Split into smaller memoized components (AppsMenu, MessagesMenu, NotificationsMenu)
-  - [ ] Apply React.memo to each component
-- [ ] Add memoization to `StandardTableControls`
-- [ ] Optimize `DueDatesPage` render performance
-- [ ] Add memoization to `LeaveListTable`
-- [ ] Document memoization patterns for team
+- [x] Refactor `HeaderQuickActions.tsx` (900+ lines)
+  - [x] Split into smaller memoized components (AppsMenu, MessagesMenu, NotificationsMenu, Settings, Profile, Chat Windows)
+  - [x] Apply React.memo to each component and extract `useChatWindows` hook for stable localStorage sync
+- [x] Add memoization to `StandardTableControls`
+- [x] Optimize `DueDatesPage` render performance (memoized stats badges + derived header data)
+- [x] Add memoization to `LeaveListTable` (memoized column/action defs + summary counters)
+- [x] Document memoization patterns for team (notes captured in this TODO plus HeaderQuickActions inline comments)
 
 **Benefits:**
 

@@ -9,9 +9,9 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
 import {
-  priceDataSchema,
-  type PriceDataInput,
-} from '@/lib/validations/price.validation';
+  priceRecordSchema,
+  type PriceRecordInput,
+} from '@/modules/prices/api/schemas';
 import { HTTP_STATUS } from '@/shared/constants/api';
 
 type PriceDTO = {
@@ -77,7 +77,7 @@ function normalizeBoolean(value: unknown): boolean {
   return true;
 }
 
-function sanitizePriceRecord(record: PriceRecord): PriceDataInput {
+function sanitizePriceRecord(record: PriceRecord): PriceRecordInput {
   const parseNumericField = (value: unknown): number =>
     sanitizers.number(value, { min: 0, decimals: 2 }) ?? 0;
 
@@ -94,7 +94,7 @@ function sanitizePriceRecord(record: PriceRecord): PriceDataInput {
     description: sanitizeOptionalDescription(record.description),
     category: sanitizeOptionalCategory(record.category),
     isActive: normalizeBoolean(record.isActive),
-  } satisfies PriceDataInput;
+  } satisfies PriceRecordInput;
 }
 
 function buildValidationErrors(error: ZodError): Record<string, string> {
@@ -106,10 +106,10 @@ function buildValidationErrors(error: ZodError): Record<string, string> {
 }
 
 function validatePriceRecords(payload: unknown[]): {
-  valid: PriceDataInput[];
+  valid: PriceRecordInput[];
   invalid: PriceValidationIssue[];
 } {
-  const valid: PriceDataInput[] = [];
+  const valid: PriceRecordInput[] = [];
   const invalid: PriceValidationIssue[] = [];
 
   payload.forEach((entry, index) => {
@@ -119,7 +119,7 @@ function validatePriceRecords(payload: unknown[]): {
     }
 
     const sanitized = sanitizePriceRecord(entry as PriceRecord);
-    const result = priceDataSchema.safeParse(sanitized);
+    const result = priceRecordSchema.safeParse(sanitized);
 
     if (result.success) {
       valid.push(result.data);
@@ -131,7 +131,7 @@ function validatePriceRecords(payload: unknown[]): {
   return { valid, invalid };
 }
 
-function convertPriceDataToDb(price: PriceDataInput): PriceDbPayload {
+function convertPriceDataToDb(price: PriceRecordInput): PriceDbPayload {
   return {
     productCode: price['Product Code'],
     lowerLimit: toCents(price['Lower Limit']),
@@ -145,7 +145,7 @@ function convertPriceDataToDb(price: PriceDataInput): PriceDbPayload {
 }
 
 async function handleBulkPriceImport(
-  records: PriceDataInput[],
+  records: PriceRecordInput[],
   options: { isCsvImport: boolean }
 ) {
   const pricePayloads = records.map(convertPriceDataToDb);
@@ -199,7 +199,7 @@ async function handleBulkPriceImport(
 
 async function replaceProductTiers(
   productCode: string,
-  records: PriceDataInput[]
+  records: PriceRecordInput[]
 ) {
   const payloads = records.map(convertPriceDataToDb);
 

@@ -28,6 +28,7 @@ import {
 } from '@/components/tables/StandardDataTable';
 import { useDueDateData } from '../hooks/useDueDateData';
 import { DueDateService } from '../services/DueDateService';
+import type { DueDateStats } from '../types/dueDate.types';
 import { api } from '@/lib/api/client';
 
 // Transaction type (same as in DueDateService)
@@ -303,22 +304,27 @@ export function DueDatesPage() {
     return allRows;
   }, [filteredItems, getCustomerOrders, getFacebookLink]);
 
-  const headers = [
-    'CUSTOMER',
-    'PRODUCT CODE',
-    'QUANTITY',
-    'UNIT PRICE',
-    'LINE TOTAL',
-    'INVOICE DATE',
-    'DUE DATE',
-    'DUE IN',
-    'NOTES',
-    'CONTACT BUYER',
-  ];
+  const headers = useMemo(
+    () => [
+      'CUSTOMER',
+      'PRODUCT CODE',
+      'QUANTITY',
+      'UNIT PRICE',
+      'LINE TOTAL',
+      'INVOICE DATE',
+      'DUE DATE',
+      'DUE IN',
+      'NOTES',
+      'CONTACT BUYER',
+    ],
+    []
+  );
 
-  const emptyStateMessage = searchQuery
-    ? `No due dates match "${searchQuery}".`
-    : 'No due dates found matching your criteria';
+  const emptyStateMessage = useMemo(() => {
+    return searchQuery
+      ? `No due dates match "${searchQuery}".`
+      : 'No due dates found matching your criteria';
+  }, [searchQuery]);
 
   // Show loading state
   if (isLoading) {
@@ -366,17 +372,7 @@ export function DueDatesPage() {
               expandSearch
             />
           </div>
-          <Group gap="xs" style={{ flexShrink: 0 }}>
-            <Badge color="red" variant="light">
-              {stats.overdue} Overdue
-            </Badge>
-            <Badge color="orange" variant="light">
-              {stats.dueSoon} Due Soon
-            </Badge>
-            <Badge color="green" variant="light">
-              {stats.onTrack} On Track
-            </Badge>
-          </Group>
+          <DueDateStatsBadges stats={stats} />
         </Group>
 
         <StandardTableContainer
@@ -401,3 +397,25 @@ export function DueDatesPage() {
     </>
   );
 }
+
+interface DueDateStatsBadgesProps {
+  stats: DueDateStats;
+}
+
+const DueDateStatsBadges = memo(function DueDateStatsBadges({
+  stats,
+}: DueDateStatsBadgesProps) {
+  return (
+    <Group gap="xs" style={{ flexShrink: 0 }}>
+      <Badge color="red" variant="light">
+        {stats.overdue} Overdue
+      </Badge>
+      <Badge color="orange" variant="light">
+        {stats.dueSoon} Due Soon
+      </Badge>
+      <Badge color="green" variant="light">
+        {stats.onTrack} On Track
+      </Badge>
+    </Group>
+  );
+});

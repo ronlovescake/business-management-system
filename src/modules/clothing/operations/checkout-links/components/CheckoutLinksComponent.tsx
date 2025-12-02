@@ -180,14 +180,15 @@ export function CheckoutLinksComponent() {
     queryKey: ['invoice-settings'],
     queryFn: async () => {
       const response = await api.get<{
-        success: boolean;
-        data: {
-          messageTemplate: string;
-          paymentChannelsUrl: string;
-        };
+        messageTemplate: string;
+        paymentChannelsUrl: string;
       }>('/api/invoice-settings');
-      return response.data;
+      return response;
     },
+    placeholderData: () => ({
+      messageTemplate: '',
+      paymentChannelsUrl: '',
+    }),
     staleTime: 10 * 60 * 1000, // 10 minutes
   });
 

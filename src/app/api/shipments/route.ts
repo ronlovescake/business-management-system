@@ -8,9 +8,9 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
 import {
-  shipmentDataSchema,
-  type ShipmentDataInput,
-} from '@/lib/validations/shipment.validation';
+  shipmentRecordSchema,
+  type ShipmentRecordInput,
+} from '@/modules/shipments/api/schemas';
 import { HTTP_STATUS } from '@/shared/constants/api';
 import type { ShipmentData, ShipmentDB } from '@/types';
 import type { ZodError } from 'zod';
@@ -102,7 +102,7 @@ function convertShipmentDBToData(shipment: ShipmentDB): ShipmentData {
 }
 
 function convertShipmentDataToDB(
-  data: Partial<ShipmentData> | ShipmentDataInput
+  data: Partial<ShipmentData> | ShipmentRecordInput
 ) {
   const cleanNumber = (value: unknown, decimals = 2): number => {
     return sanitizers.number(value, { min: 0, decimals }) ?? 0;
@@ -148,7 +148,7 @@ function sanitizeNotes(value: unknown): string | null {
   return sanitized ? sanitized : null;
 }
 
-function sanitizeShipmentRecord(record: ShipmentRecord): ShipmentDataInput {
+function sanitizeShipmentRecord(record: ShipmentRecord): ShipmentRecordInput {
   const numberOrZero = (value: unknown, decimals = 2): number =>
     sanitizers.number(value, { min: 0, decimals }) ?? 0;
 
@@ -177,7 +177,7 @@ function sanitizeShipmentRecord(record: ShipmentRecord): ShipmentDataInput {
     'Date Delivered': sanitizeDateField(record['Date Delivered']) ?? undefined,
     Duration: duration ?? undefined,
     Notes: notes ?? undefined,
-  } satisfies ShipmentDataInput;
+  } satisfies ShipmentRecordInput;
 }
 
 function buildValidationErrors(error: ZodError): Record<string, string> {
@@ -189,7 +189,7 @@ function buildValidationErrors(error: ZodError): Record<string, string> {
 }
 
 function validateSingleShipment(payload: unknown):
-  | { success: true; shipment: ShipmentDataInput }
+  | { success: true; shipment: ShipmentRecordInput }
   | {
       success: false;
       errors: Record<string, string>;
@@ -202,7 +202,7 @@ function validateSingleShipment(payload: unknown):
   }
 
   const sanitized = sanitizeShipmentRecord(payload as ShipmentRecord);
-  const validation = shipmentDataSchema.safeParse(sanitized);
+  const validation = shipmentRecordSchema.safeParse(sanitized);
 
   if (!validation.success) {
     return {
@@ -215,10 +215,10 @@ function validateSingleShipment(payload: unknown):
 }
 
 function validateShipmentRecords(payload: unknown[]): {
-  valid: ShipmentDataInput[];
+  valid: ShipmentRecordInput[];
   invalid: Array<{ index: number; issues: Record<string, string> }>;
 } {
-  const valid: ShipmentDataInput[] = [];
+  const valid: ShipmentRecordInput[] = [];
   const invalid: Array<{ index: number; issues: Record<string, string> }> = [];
 
   payload.forEach((entry, index) => {
@@ -228,7 +228,7 @@ function validateShipmentRecords(payload: unknown[]): {
     }
 
     const sanitized = sanitizeShipmentRecord(entry as ShipmentRecord);
-    const result = shipmentDataSchema.safeParse(sanitized);
+    const result = shipmentRecordSchema.safeParse(sanitized);
 
     if (result.success) {
       valid.push(result.data);
@@ -395,7 +395,7 @@ async function logOperationNotification(
 }
 
 async function handleSingleShipmentCreation(
-  shipment: ShipmentDataInput
+  shipment: ShipmentRecordInput
 ): Promise<ShipmentData> {
   const shipmentData = convertShipmentDataToDB(shipment);
   const createdShipment = await prisma.shipment.create({
@@ -413,7 +413,9 @@ async function handleSingleShipmentCreation(
   return convertShipmentDBToData(createdShipment as ShipmentDB);
 }
 
-async function handleBulkShipmentImport(shipmentPayloads: ShipmentDataInput[]) {
+async function handleBulkShipmentImport(
+  shipmentPayloads: ShipmentRecordInput[]
+) {
   const shipmentsToPersist = shipmentPayloads.map(convertShipmentDataToDB);
 
   const result = await prisma.$transaction(async (tx) => {

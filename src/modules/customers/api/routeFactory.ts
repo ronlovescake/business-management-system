@@ -5,10 +5,7 @@ import { withErrorHandler } from '@/core/api/middleware';
 import { HTTP_STATUS } from '@/shared/constants/api';
 import { logger } from '@/lib/logger';
 import { MAX_QUERY_LIMIT } from '@/constants/batch-sizes';
-import {
-  customerDataSchema,
-  formatValidationErrors,
-} from '@/lib/validations/customer.validation';
+import { customerRecordSchema, mapCustomerValidationErrors } from './schemas';
 import { getDatabaseUrl } from '@/lib/env';
 import type { CustomerService } from './service';
 import type { CustomerDTO } from './dto';
@@ -89,11 +86,11 @@ export function createCustomerRoutes(config: CustomerRouteConfig) {
       }> = [];
 
       normalizedPayload.forEach((record, index) => {
-        const result = customerDataSchema.safeParse(record);
+        const result = customerRecordSchema.safeParse(record);
         if (result.success) {
           validCustomers.push(result.data as CustomerDTO);
         } else {
-          const issues = formatValidationErrors(result.error);
+          const issues = mapCustomerValidationErrors(result.error);
           invalidCustomers.push({ index, issues });
           logger.warn(`Customer #${index + 1} skipped - validation failed`, {
             customerName: record['Customer Name'] || '(no name)',
@@ -170,7 +167,7 @@ export function createCustomerRoutes(config: CustomerRouteConfig) {
     try {
       const body = await request.json();
       const sanitized = sanitizeCustomerRecord(body);
-      const validation = customerDataSchema.safeParse(sanitized);
+      const validation = customerRecordSchema.safeParse(sanitized);
 
       if (!validation.success) {
         logger.warn(`[${loggerScope}] Customer validation failed`, {
@@ -178,7 +175,7 @@ export function createCustomerRoutes(config: CustomerRouteConfig) {
         });
         return ApiResponse.badRequest(
           'Validation failed',
-          formatValidationErrors(validation.error)
+          mapCustomerValidationErrors(validation.error)
         );
       }
 

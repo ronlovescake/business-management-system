@@ -63,6 +63,23 @@ const percentFormatter = new Intl.NumberFormat('en-PH', {
   maximumFractionDigits: 2,
 });
 
+function extractApiData<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) {
+    return payload as T[];
+  }
+
+  if (
+    payload &&
+    typeof payload === 'object' &&
+    'data' in payload &&
+    Array.isArray((payload as { data?: unknown }).data)
+  ) {
+    return (payload as { data: T[] }).data;
+  }
+
+  return [];
+}
+
 export function InventoryPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isImporting, setIsImporting] = useState(false);
@@ -94,13 +111,27 @@ export function InventoryPage() {
           );
         }
 
-        const [productsData, transactionsData] = await Promise.all([
+        const [productsPayload, transactionsPayload] = await Promise.all([
           productsResponse.json(),
           transactionsResponse.json(),
         ]);
 
-        setProducts(productsData);
-        setTransactions(transactionsData);
+        const parsedProducts = extractApiData<ProductFromAPI>(productsPayload);
+        const parsedTransactions =
+          extractApiData<TransactionFromAPI>(transactionsPayload);
+
+        if (parsedProducts.length === 0) {
+          logger.warn('InventoryPage: products API returned no data payload');
+        }
+
+        if (parsedTransactions.length === 0) {
+          logger.warn(
+            'InventoryPage: transactions API returned no data payload'
+          );
+        }
+
+        setProducts(parsedProducts);
+        setTransactions(parsedTransactions);
       } catch (error) {
         logger.error('Failed to load data:', error);
         showNotification({
