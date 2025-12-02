@@ -23,13 +23,13 @@
 **Tasks:**
 
 - [ ] Create Zod validation schemas for each resource (2h)
-- [ ] Refactor API routes using existing factory pattern (3h)
+- [x] Refactor API routes using existing factory pattern (3h)
   - [x] `src/app/api/customers/route.ts`
   - [x] `src/app/api/products/route.ts`
   - [x] `src/app/api/transactions/route.ts`
   - [x] `src/app/api/shipments/route.ts`
   - [x] `src/app/api/prices/route.ts`
-  - [ ] Remaining targeted routes
+  - [x] Remaining targeted routes
     - [x] `src/app/api/customers/export/route.ts`
     - [x] `src/app/api/customers/with-shopee/route.ts`
     - [x] `src/app/api/customers/with-all-addresses/route.ts`
