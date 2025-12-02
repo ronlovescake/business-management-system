@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import type { Price, Prisma } from '@prisma/client';
+import { ApiResponse } from '@/core/api';
+import { withErrorHandler } from '@/core/api/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
@@ -48,66 +49,82 @@ function mapToDTO(price: Price) {
     'Price Adjustment': Math.round(price.priceAdjustment / 100),
   };
 }
+type RouteContext = { params: { id: string } };
 
-// PUT - Update a single price by ID
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const priceData = (await request.json()) as PriceUpdatePayload;
-    const priceId = parseInt(params.id);
-
-    if (isNaN(priceId)) {
-      return NextResponse.json({ error: 'Invalid price ID' }, { status: 400 });
+export const PUT = withErrorHandler<RouteContext>(
+  async (request: NextRequest, context) => {
+    const idResult = parsePriceId(context);
+    if ('error' in idResult) {
+      return idResult.error;
     }
 
-    // Convert UI format to database format
+    const priceData = (await request.json()) as PriceUpdatePayload;
+    const updatePayload = mapToUpdateInput(priceData);
+
+    const existingPrice = await prisma.price.findUnique({
+      where: { id: idResult.id },
+    });
+
+    if (!existingPrice) {
+      return ApiResponse.notFound('Price');
+    }
+
     const updatedPrice = await prisma.price.update({
-      where: { id: priceId },
-      data: mapToUpdateInput(priceData),
+      where: { id: idResult.id },
+      data: updatePayload,
     });
 
-    // Convert back to UI format
     const formattedPrice = mapToDTO(updatedPrice);
-
-    return NextResponse.json({
-      message: 'Price updated successfully',
-      price: formattedPrice,
+    logger.info('Price updated', {
+      id: idResult.id,
+      productCode: formattedPrice['Product Code'],
     });
-  } catch (error) {
-    logger.error('Failed to update price:', error);
-    return NextResponse.json(
-      { error: 'Failed to update price' },
-      { status: 500 }
-    );
+
+    return ApiResponse.success(formattedPrice, 'Price updated successfully');
   }
-}
+);
 
-// DELETE - Delete a single price by ID
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const priceId = parseInt(params.id);
+export const DELETE = withErrorHandler<RouteContext>(
+  async (_request: NextRequest, context) => {
+    const idResult = parsePriceId(context);
+    if ('error' in idResult) {
+      return idResult.error;
+    }
 
-    if (isNaN(priceId)) {
-      return NextResponse.json({ error: 'Invalid price ID' }, { status: 400 });
+    const existingPrice = await prisma.price.findUnique({
+      where: { id: idResult.id },
+    });
+
+    if (!existingPrice) {
+      return ApiResponse.notFound('Price');
     }
 
     await prisma.price.delete({
-      where: { id: priceId },
+      where: { id: idResult.id },
     });
 
-    return NextResponse.json({
-      message: 'Price deleted successfully',
-    });
-  } catch (error) {
-    logger.error('Failed to delete price:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete price' },
-      { status: 500 }
+    logger.info('Price deleted', { id: idResult.id });
+
+    return ApiResponse.success(
+      { id: idResult.id },
+      'Price deleted successfully'
     );
   }
+);
+
+function parsePriceId(
+  context?: RouteContext
+): { id: number } | { error: ReturnType<typeof ApiResponse.badRequest> } {
+  const idParam = context?.params?.id ?? '';
+  const priceId = Number(idParam);
+
+  if (!idParam || Number.isNaN(priceId)) {
+    return {
+      error: ApiResponse.badRequest('Invalid price ID', {
+        id: 'Provide a numeric price ID in the URL path.',
+      }),
+    };
+  }
+
+  return { id: priceId };
 }

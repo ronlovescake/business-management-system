@@ -106,22 +106,6 @@ export const shipmentDataSchema = z
       message: 'Date Delivered must be after Date Created',
       path: ['Date Delivered'],
     }
-  )
-  .refine(
-    (data) => {
-      const status = data['Shipment Status'];
-      const delivered = data['Date Delivered'];
-
-      // If status is Delivered, must have delivery date
-      if (status === 'Delivered' && !delivered) {
-        return false;
-      }
-      return true;
-    },
-    {
-      message: 'Delivered shipments must have a delivery date',
-      path: ['Date Delivered'],
-    }
   );
 
 /**

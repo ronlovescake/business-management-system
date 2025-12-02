@@ -87,12 +87,13 @@ describe('Employees API - GET /api/employees', () => {
 
     const request = new NextRequest('http://localhost/api/employees');
     const response = await GET(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data).toHaveLength(2);
-    expect(data[0].employeeId).toBe('EMP-0001');
-    expect(data[1].employeeId).toBe('EMP-0002');
+    expect(payload.success).toBe(true);
+    expect(payload.data).toHaveLength(2);
+    expect(payload.data[0].employeeId).toBe('EMP-0001');
+    expect(payload.data[1].employeeId).toBe('EMP-0002');
     // Verify query was called with soft-delete filter and ordering
     expect(mockPrisma.employee.findMany).toHaveBeenCalled();
     const callArgs = mockPrisma.employee.findMany.mock.calls[0][0];
@@ -129,11 +130,12 @@ describe('Employees API - GET /api/employees', () => {
       'http://localhost/api/employees?department=Operations'
     );
     const response = await GET(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data).toHaveLength(1);
-    expect(data[0].department).toBe('Operations');
+    expect(payload.success).toBe(true);
+    expect(payload.data).toHaveLength(1);
+    expect(payload.data[0].department).toBe('Operations');
     // Verify query was called with department filter
     expect(mockPrisma.employee.findMany).toHaveBeenCalled();
     const callArgs = mockPrisma.employee.findMany.mock.calls[0][0];
@@ -172,11 +174,12 @@ describe('Employees API - GET /api/employees', () => {
       'http://localhost/api/employees?status=active'
     );
     const response = await GET(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data).toHaveLength(1);
-    expect(data[0].status).toBe('active');
+    expect(payload.success).toBe(true);
+    expect(payload.data).toHaveLength(1);
+    expect(payload.data[0].status).toBe('active');
     // Verify query was called with status filter
     expect(mockPrisma.employee.findMany).toHaveBeenCalled();
     const callArgs = mockPrisma.employee.findMany.mock.calls[0][0];
@@ -215,10 +218,11 @@ describe('Employees API - GET /api/employees', () => {
       'http://localhost/api/employees?search=John'
     );
     const response = await GET(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data).toHaveLength(1);
+    expect(payload.success).toBe(true);
+    expect(payload.data).toHaveLength(1);
     // Verify query was called with search OR conditions
     expect(mockPrisma.employee.findMany).toHaveBeenCalled();
     const callArgs = mockPrisma.employee.findMany.mock.calls[0][0];
@@ -272,10 +276,11 @@ describe('Employees API - GET /api/employees', () => {
 
     const request = new NextRequest('http://localhost/api/employees');
     const response = await GET(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe('Failed to fetch employees');
+    expect(payload.success).toBe(false);
+    expect(payload.error).toBe('Failed to fetch employees');
   });
 });
 
@@ -385,11 +390,12 @@ describe('Employees API - POST /api/employees', () => {
     });
 
     const response = await POST(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(201);
-    expect(data.employeeId).toBe('EMP-0001');
-    expect(data.name).toBe('John Doe');
+    expect(payload.success).toBe(true);
+    expect(payload.data.employeeId).toBe('EMP-0001');
+    expect(payload.data.name).toBe('John Doe');
     expect(mockPrisma.employee.create).toHaveBeenCalled();
   });
 
@@ -636,10 +642,11 @@ describe('Employees API - POST /api/employees', () => {
     });
 
     const response = await POST(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe('Failed to create employee');
+    expect(payload.success).toBe(false);
+    expect(payload.error).toBe('Failed to create employee');
   });
 });
 
@@ -672,11 +679,12 @@ describe('Employees API - GET /api/employees/[id]', () => {
 
     const request = new NextRequest('http://localhost/api/employees/1');
     const response = await GET_BY_ID(request, { params: { id: '1' } });
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.employeeId).toBe('EMP-0001');
-    expect(data.name).toBe('John Doe');
+    expect(payload.success).toBe(true);
+    expect(payload.data.employeeId).toBe('EMP-0001');
+    expect(payload.data.name).toBe('John Doe');
     expect(mockPrisma.employee.findFirst).toHaveBeenCalledWith({
       where: {
         id: 1,
@@ -690,10 +698,11 @@ describe('Employees API - GET /api/employees/[id]', () => {
 
     const request = new NextRequest('http://localhost/api/employees/999');
     const response = await GET_BY_ID(request, { params: { id: '999' } });
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(404);
-    expect(data.error).toBe('Employee not found or has been deleted');
+    expect(payload.success).toBe(false);
+    expect(payload.error).toBe('Employee not found or has been deleted');
   });
 
   it('should handle errors', async () => {
@@ -703,10 +712,11 @@ describe('Employees API - GET /api/employees/[id]', () => {
 
     const request = new NextRequest('http://localhost/api/employees/1');
     const response = await GET_BY_ID(request, { params: { id: '1' } });
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe('Failed to fetch employee');
+    expect(payload.success).toBe(false);
+    expect(payload.error).toBe('Failed to fetch employee');
   });
 });
 
@@ -768,12 +778,13 @@ describe('Employees API - PUT /api/employees/[id]', () => {
     });
 
     const response = await PUT(request, { params: { id: '1' } });
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.department).toBe('IT');
-    expect(data.position).toBe('Senior Manager');
-    expect(data.basicSalary).toBe(60000);
+    expect(payload.success).toBe(true);
+    expect(payload.data.department).toBe('IT');
+    expect(payload.data.position).toBe('Senior Manager');
+    expect(payload.data.basicSalary).toBe(60000);
     expect(mockPrisma.employee.update).toHaveBeenCalled();
   });
 
@@ -799,10 +810,11 @@ describe('Employees API - PUT /api/employees/[id]', () => {
     });
 
     const response = await PUT(request, { params: { id: '999' } });
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(404);
-    expect(data.error).toBe('Employee not found or has been deleted');
+    expect(payload.success).toBe(false);
+    expect(payload.error).toBe('Employee not found or has been deleted');
   });
 
   it('should parse numeric string fields', async () => {
@@ -977,10 +989,11 @@ describe('Employees API - PUT /api/employees/[id]', () => {
     });
 
     const response = await PUT(request, { params: { id: '1' } });
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe('Failed to update employee');
+    expect(payload.success).toBe(false);
+    expect(payload.error).toBe('Failed to update employee');
   });
 });
 
@@ -1014,11 +1027,11 @@ describe('Employees API - DELETE /api/employees/[id]', () => {
 
     const request = new NextRequest('http://localhost/api/employees/1');
     const response = await DELETE(request, { params: { id: '1' } });
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.success).toBe(true);
-    expect(data.employee.deletedAt).toBeTruthy();
+    expect(payload.success).toBe(true);
+    expect(payload.data.employee.deletedAt).toBeTruthy();
     expect(mockPrisma.employee.update).toHaveBeenCalledWith({
       where: {
         id: 1,
@@ -1039,9 +1052,10 @@ describe('Employees API - DELETE /api/employees/[id]', () => {
 
     const request = new NextRequest('http://localhost/api/employees/1');
     const response = await DELETE(request, { params: { id: '1' } });
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe('Failed to delete employee');
+    expect(payload.success).toBe(false);
+    expect(payload.error).toBe('Failed to delete employee');
   });
 });

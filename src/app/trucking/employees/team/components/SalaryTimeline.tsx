@@ -28,6 +28,7 @@ import {
 import { DateInput } from '@mantine/dates';
 import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 import { showNotification } from '@mantine/notifications';
+import type { ApiResponse } from '@/types/api';
 
 interface SalaryHistoryRecord {
   id: string;
@@ -74,14 +75,22 @@ export function SalaryTimeline({
       const response = await fetch(
         `/api/trucking/employees/${employeeId}/salary-history`
       );
-      if (response.ok) {
-        const data = await response.json();
-        setSalaryHistory(data);
+      const result = (await response.json()) as ApiResponse<
+        SalaryHistoryRecord[]
+      >;
+
+      if (response.ok && result.success && Array.isArray(result.data)) {
+        setSalaryHistory(result.data);
+      } else {
+        throw new Error(result.error || 'Failed to load salary history');
       }
     } catch (error) {
       showNotification({
         title: 'Error',
-        message: 'Failed to load salary history',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to load salary history',
         color: 'red',
       });
     } finally {
@@ -145,9 +154,11 @@ export function SalaryTimeline({
           }),
         }
       );
+      const result =
+        (await response.json()) as ApiResponse<SalaryHistoryRecord>;
 
-      if (!response.ok) {
-        throw new Error('Failed to add salary record');
+      if (!response.ok || !result.success || !result.data) {
+        throw new Error(result.error || 'Failed to add salary record');
       }
 
       showNotification({
@@ -169,7 +180,10 @@ export function SalaryTimeline({
     } catch (error) {
       showNotification({
         title: 'Error',
-        message: 'Failed to add salary adjustment',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to add salary adjustment',
         color: 'red',
       });
     } finally {

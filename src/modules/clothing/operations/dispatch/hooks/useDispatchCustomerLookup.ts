@@ -39,14 +39,17 @@ export function useDispatchCustomerLookup(
   // Log server data usage
   useEffect(() => {
     if (serverData && serverData.length > 0) {
-      // eslint-disable-next-line no-console
-      console.log(
-        `🟢 [DISPATCH] Using ${serverData.length} customers from SERVER (database)`
+      logger.debug(
+        'DispatchCustomerLookup',
+        `Using ${serverData.length} customers from SERVER (database)`
       );
       const sample = serverData.find((c) => c.id === 1192);
       if (sample) {
-        // eslint-disable-next-line no-console
-        console.log('🟢 [DISPATCH] Customer 1192 from SERVER:', sample);
+        logger.debug(
+          'DispatchCustomerLookup',
+          'Customer 1192 from SERVER:',
+          sample
+        );
       }
       logger.info(
         `[useDispatchCustomerLookup] Using server data: ${serverData.length} customers`
@@ -65,9 +68,8 @@ export function useDispatchCustomerLookup(
 
     try {
       setIsLoading(true);
-      // eslint-disable-next-line no-console
-      console.log(
-        '🔴 [DISPATCH] Starting CLIENT fetch (no server data provided)'
+      logger.info(
+        '[useDispatchCustomerLookup] Starting client fetch (no server data provided)'
       );
 
       // Aggressive cache-busting: timestamp + random + performance.now()
@@ -76,8 +78,7 @@ export function useDispatchCustomerLookup(
       const perfNow = Math.floor(performance.now());
       const url = `/api/customers/with-shopee?nocache=${timestamp}-${random}-${perfNow}&t=${new Date().toISOString()}`;
 
-      // eslint-disable-next-line no-console
-      console.log('🔴 [DISPATCH] Fetching URL:', url);
+      logger.debug('DispatchCustomerLookup', 'Fetching URL:', url);
 
       const response = await fetch(url, {
         method: 'GET',
@@ -96,21 +97,39 @@ export function useDispatchCustomerLookup(
       }
 
       const jsonResponse = await response.json();
-      // eslint-disable-next-line no-console
-      console.log('🟢 [DISPATCH] Raw API response:', jsonResponse);
+      logger.debug('DispatchCustomerLookup', 'Raw API response:', jsonResponse);
 
-      // Extract the data array from the API response
-      if (!jsonResponse.success || !Array.isArray(jsonResponse.data)) {
+      // Extract the customer array from the API response
+      if (!jsonResponse.success || !jsonResponse.data) {
         throw new Error('Invalid API response format');
       }
 
-      const data = jsonResponse.data;
-      // eslint-disable-next-line no-console
-      console.log('🟢 [DISPATCH] Received data:', data.length, 'customers');
+      const payload = Array.isArray(jsonResponse.data)
+        ? jsonResponse.data
+        : Array.isArray(jsonResponse.data.customers)
+          ? jsonResponse.data.customers
+          : null;
+
+      if (!Array.isArray(payload)) {
+        throw new Error('Missing customers payload');
+      }
+
+      const data = payload as CustomerWithShopee[];
+      logger.debug(
+        'DispatchCustomerLookup',
+        'Received data:',
+        data.length,
+        'customers'
+      );
 
       const sample = data.find((c: CustomerWithShopee) => c.id === 1192);
-      // eslint-disable-next-line no-console
-      console.log('🟢 [DISPATCH] Customer 1192:', sample);
+      if (sample) {
+        logger.debug(
+          'DispatchCustomerLookup',
+          'Customer 1192 from client fetch:',
+          sample
+        );
+      }
 
       setCustomersData(data);
       setHasFetched(true);
@@ -119,8 +138,6 @@ export function useDispatchCustomerLookup(
       );
     } catch (error) {
       logger.error('[useDispatchCustomerLookup] Manual fetch failed:', error);
-      // eslint-disable-next-line no-console
-      console.error('🔴 [DISPATCH] Fetch error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -129,16 +146,17 @@ export function useDispatchCustomerLookup(
   // Fetch on mount
   useEffect(() => {
     if (!hasFetched && enabled) {
-      // eslint-disable-next-line no-console
-      console.log('🔴 [DISPATCH] Component mounted, triggering fetch');
+      logger.debug(
+        'DispatchCustomerLookup',
+        'Component mounted, triggering fetch'
+      );
       void fetchData();
     }
   }, [hasFetched, enabled, fetchData]);
 
   // Dummy refetch function for compatibility
   const refetch = useCallback(() => {
-    // eslint-disable-next-line no-console
-    console.log('🔴 [DISPATCH] Refetch called');
+    logger.debug('DispatchCustomerLookup', 'Refetch called');
     setHasFetched(false);
     return fetchData();
   }, [fetchData]);
@@ -146,15 +164,14 @@ export function useDispatchCustomerLookup(
   // Use server data if available, otherwise use fetched data
   const customersWithShopee = useMemo(() => {
     const data = serverData || customersData;
-    // eslint-disable-next-line no-console
-    console.log(
-      `🔵 [DISPATCH HOOK] Using ${data.length} customers (source: ${serverData ? 'SERVER' : 'MANUAL FETCH'})`
+    logger.debug(
+      'DispatchCustomerLookup',
+      `Using ${data.length} customers (source: ${serverData ? 'SERVER' : 'MANUAL FETCH'})`
     );
-    // eslint-disable-next-line no-console
-    console.log(
-      '🔵 [DISPATCH HOOK] Sample customer 1192:',
-      data.find((c: CustomerWithShopee) => c.id === 1192)
-    );
+    const sample = data.find((c: CustomerWithShopee) => c.id === 1192);
+    if (sample) {
+      logger.debug('DispatchCustomerLookup', 'Sample customer 1192:', sample);
+    }
     logger.info(
       `[useDispatchCustomerLookup] Using ${data.length} customers (source: ${serverData ? 'SERVER' : 'MANUAL FETCH'})`
     );
@@ -170,8 +187,6 @@ export function useDispatchCustomerLookup(
         logger.info(
           '[DispatchCustomerLookup] Customer update detected - refetching data'
         );
-        // eslint-disable-next-line no-console
-        console.log('🔴 [DISPATCH] Customer update broadcast received');
         void refetch();
       }
     };

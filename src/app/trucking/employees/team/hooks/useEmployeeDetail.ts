@@ -2,12 +2,14 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
+import { getApiDataOrThrow } from '@/lib/api/response';
 import { queryKeys } from '@/lib/queryKeys';
 import type { AttendanceRecord } from '@/app/trucking/employees/attendance/types';
 import type { LeaveRequest } from '@/app/trucking/employees/leave-tracker/types';
 import type { CashAdvance } from '@/app/trucking/employees/cash-advance/types';
 import type { Schedule } from '@/app/trucking/employees/schedules/types';
 import type { Employee, EmployeeFormData } from '../types';
+import type { ApiResponse } from '@/types/api';
 
 /**
  * Custom hook for employee detail page - React Query version
@@ -293,64 +295,68 @@ export function useEmployeeDetail(employeeId: string) {
       }),
       queryFn: async () => {
         const query = encodeURIComponent(normalizedEmployeeId);
-        const cashAdvanceJson = await api.get<
-          Array<CashAdvance & { employeeName?: string }>
+        const response = await api.get<
+          ApiResponse<Array<CashAdvance & { employeeName?: string }>>
         >(`/api/trucking/cash-advances?employeeId=${query}`);
+        const cashAdvanceJson = getApiDataOrThrow(
+          response,
+          'Failed to fetch cash advances'
+        );
 
-        const cashAdvanceData: CashAdvance[] = Array.isArray(cashAdvanceJson)
-          ? cashAdvanceJson
-              .filter((record) =>
-                record && typeof record === 'object'
-                  ? String(record.employeeId || '').trim() ===
-                    normalizedEmployeeId
-                  : false
-              )
-              .map((record) => {
-                const amount = parseNumber(record.amount);
-                const settledAmount = parseNumber(record.settledAmount);
-                const remainingBalance =
-                  record.remainingBalance !== undefined
-                    ? parseNumber(record.remainingBalance)
-                    : Math.max(amount - settledAmount, 0);
-                const status = allowedCashAdvanceStatuses.has(record.status)
-                  ? (record.status as CashAdvance['status'])
-                  : 'pending';
+        if (!Array.isArray(cashAdvanceJson)) {
+          throw new Error('Cash advance response was not an array');
+        }
 
-                return {
-                  id: String(record.id ?? ''),
-                  employeeId: String(record.employeeId ?? ''),
-                  employee: String(record.employeeName ?? ''),
-                  amount,
-                  purpose: record.purpose ?? '',
-                  terms:
-                    record.termsMonths !== null &&
-                    record.termsMonths !== undefined
-                      ? String(record.termsMonths)
-                      : '',
-                  termsMonths: record.termsMonths ?? null,
-                  requestDate: record.requestDate ?? '',
-                  status,
-                  notes: record.notes ?? undefined,
-                  approvedBy: record.approvedBy ?? undefined,
-                  approvedDate: record.approvedDate ?? undefined,
-                  rejectedBy: record.rejectedBy ?? undefined,
-                  rejectedDate: record.rejectedDate ?? undefined,
-                  rejectionReason: record.rejectionReason ?? undefined,
-                  monthlyPayment:
-                    record.monthlyPayment !== null &&
-                    record.monthlyPayment !== undefined
-                      ? parseNumber(record.monthlyPayment)
-                      : undefined,
-                  remainingBalance,
-                  settledAmount,
-                  createdAt: record.createdAt ?? undefined,
-                  updatedAt: record.updatedAt ?? undefined,
-                  deductionCycle: record.deductionCycle ?? undefined,
-                  nextDeductionDate: record.nextDeductionDate ?? undefined,
-                  lastDeductedDate: record.lastDeductedDate ?? undefined,
-                } satisfies CashAdvance;
-              })
-          : [];
+        const cashAdvanceData: CashAdvance[] = cashAdvanceJson
+          .filter((record) =>
+            record && typeof record === 'object'
+              ? String(record.employeeId || '').trim() === normalizedEmployeeId
+              : false
+          )
+          .map((record) => {
+            const amount = parseNumber(record.amount);
+            const settledAmount = parseNumber(record.settledAmount);
+            const remainingBalance =
+              record.remainingBalance !== undefined
+                ? parseNumber(record.remainingBalance)
+                : Math.max(amount - settledAmount, 0);
+            const status = allowedCashAdvanceStatuses.has(record.status)
+              ? (record.status as CashAdvance['status'])
+              : 'pending';
+
+            return {
+              id: String(record.id ?? ''),
+              employeeId: String(record.employeeId ?? ''),
+              employee: String(record.employeeName ?? ''),
+              amount,
+              purpose: record.purpose ?? '',
+              terms:
+                record.termsMonths !== null && record.termsMonths !== undefined
+                  ? String(record.termsMonths)
+                  : '',
+              termsMonths: record.termsMonths ?? null,
+              requestDate: record.requestDate ?? '',
+              status,
+              notes: record.notes ?? undefined,
+              approvedBy: record.approvedBy ?? undefined,
+              approvedDate: record.approvedDate ?? undefined,
+              rejectedBy: record.rejectedBy ?? undefined,
+              rejectedDate: record.rejectedDate ?? undefined,
+              rejectionReason: record.rejectionReason ?? undefined,
+              monthlyPayment:
+                record.monthlyPayment !== null &&
+                record.monthlyPayment !== undefined
+                  ? parseNumber(record.monthlyPayment)
+                  : undefined,
+              remainingBalance,
+              settledAmount,
+              createdAt: record.createdAt ?? undefined,
+              updatedAt: record.updatedAt ?? undefined,
+              deductionCycle: record.deductionCycle ?? undefined,
+              nextDeductionDate: record.nextDeductionDate ?? undefined,
+              lastDeductedDate: record.lastDeductedDate ?? undefined,
+            } satisfies CashAdvance;
+          });
 
         return cashAdvanceData;
       },

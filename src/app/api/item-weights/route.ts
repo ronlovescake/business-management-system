@@ -3,50 +3,41 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
-import { ZodError } from 'zod';
+import type { ZodError } from 'zod';
+import { ApiResponse } from '@/core/api';
+import { withErrorHandler } from '@/core/api/middleware';
+import { HTTP_STATUS } from '@/shared/constants/api';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import {
   CreateItemWeightSchema,
   ItemWeightsQuerySchema,
   UpdateItemWeightSchema,
+  type CreateItemWeightInput,
+  type ItemWeightsQuery,
+  type UpdateItemWeightInput,
 } from '@/modules/clothing/operations/checkout-links/api/schemas';
 
 const DEFAULT_LIMIT = 100;
 
-type ItemWeightEntity = {
-  id: string;
-  itemName: string;
-  bulkQuantity: Prisma.Decimal;
-  bulkWeight: Prisma.Decimal;
-  approxWeightPerPiece: Prisma.Decimal;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt: Date | null;
-};
+const itemWeightSelect = {
+  id: true,
+  itemName: true,
+  bulkQuantity: true,
+  bulkWeight: true,
+  approxWeightPerPiece: true,
+  createdAt: true,
+  deletedAt: true,
+} as const;
 
-const getItemWeightClient = () =>
-  (
-    prisma as unknown as {
-      itemWeight: {
-        findMany: (
-          args: Prisma.ItemWeightFindManyArgs
-        ) => Promise<ItemWeightEntity[]>;
-        count: (args: Prisma.ItemWeightCountArgs) => Promise<number>;
-        create: (
-          args: Prisma.ItemWeightCreateArgs
-        ) => Promise<ItemWeightEntity>;
-        findUnique: (
-          args: Prisma.ItemWeightFindUniqueArgs
-        ) => Promise<ItemWeightEntity | null>;
-        update: (
-          args: Prisma.ItemWeightUpdateArgs
-        ) => Promise<ItemWeightEntity>;
-      };
-    }
-  ).itemWeight;
+type ItemWeightEntity = Prisma.ItemWeightGetPayload<{
+  select: typeof itemWeightSelect;
+}>;
+
+type ItemWeightClient = typeof prisma.itemWeight;
+
+const getItemWeightClient = (): ItemWeightClient => prisma.itemWeight;
 
 const serializeItemWeight = (item: ItemWeightEntity) => ({
   id: item.id,
@@ -57,256 +48,277 @@ const serializeItemWeight = (item: ItemWeightEntity) => ({
   createdAt: item.createdAt.toISOString(),
 });
 
-const toDecimal = (value: number, precision = 2) =>
-  new Prisma.Decimal(value).toDecimalPlaces(precision);
+const toDecimal = (value: number | Prisma.Decimal, precision = 2) =>
+  value instanceof Prisma.Decimal
+    ? value.toDecimalPlaces(precision)
+    : new Prisma.Decimal(value).toDecimalPlaces(precision);
 
-/**
- * GET /api/item-weights
- *
- * Fetch all item weights with optional search and pagination
- */
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const search = searchParams.get('search') ?? undefined;
-    const limitParam = searchParams.get('limit');
-    const offsetParam = searchParams.get('offset');
+const calculateApproxWeightPerPiece = (
+  bulkWeight: Prisma.Decimal,
+  bulkQuantity: Prisma.Decimal
+) => bulkWeight.div(bulkQuantity).toDecimalPlaces(2);
 
-    const limitParsed = limitParam
-      ? Number.parseInt(limitParam, 10)
-      : undefined;
-    const offsetParsed = offsetParam
-      ? Number.parseInt(offsetParam, 10)
-      : undefined;
+const formatZodErrors = (error: ZodError) =>
+  error.errors.reduce<Record<string, string>>((acc, issue) => {
+    const key = issue.path.join('.') || 'root';
+    acc[key] = issue.message;
+    return acc;
+  }, {});
 
-    const query = ItemWeightsQuerySchema.parse({
-      search,
-      limit: limitParsed,
-      offset: offsetParsed,
-    });
+const validationFailedResponse = (error: ZodError) =>
+  ApiResponse.error(
+    'Validation failed',
+    HTTP_STATUS.UNPROCESSABLE_ENTITY,
+    undefined,
+    {
+      validationErrors: formatZodErrors(error),
+    }
+  );
 
-    const take = query.limit ?? DEFAULT_LIMIT;
-    const skip = query.offset ?? 0;
+const ensurePositiveQuantity = (quantity: Prisma.Decimal) => {
+  if (quantity.isZero()) {
+    return ApiResponse.error(
+      'Bulk quantity must be greater than zero',
+      HTTP_STATUS.UNPROCESSABLE_ENTITY
+    );
+  }
+  return null;
+};
 
-    const where = query.search
-      ? {
-          deletedAt: null,
-          itemName: {
-            contains: query.search,
-            mode: 'insensitive' as const,
-          },
-        }
-      : { deletedAt: null };
+const buildWhereClause = (query: ItemWeightsQuery) => {
+  if (!query.search) {
+    return { deletedAt: null };
+  }
 
-    const itemWeightClient = getItemWeightClient();
+  return {
+    deletedAt: null,
+    itemName: {
+      contains: query.search,
+      mode: 'insensitive' as const,
+    },
+  };
+};
 
-    const [items, total] = await Promise.all([
-      itemWeightClient.findMany({
-        where,
-        take,
-        skip,
-        orderBy: { createdAt: 'desc' },
-      }),
-      itemWeightClient.count({ where }),
-    ]);
+const handlePrismaError = (error: unknown, context: string) => {
+  logger.error(context, { error });
+  return ApiResponse.error('Failed to process item weight request');
+};
 
-    return NextResponse.json({
+const parseQuery = (request: NextRequest) => {
+  const { searchParams } = new URL(request.url);
+  const limitParam = searchParams.get('limit');
+  const offsetParam = searchParams.get('offset');
+
+  return ItemWeightsQuerySchema.safeParse({
+    search: searchParams.get('search') ?? undefined,
+    limit: limitParam ? Number.parseInt(limitParam, 10) : undefined,
+    offset: offsetParam ? Number.parseInt(offsetParam, 10) : undefined,
+  });
+};
+
+const parseBody = <T>(
+  body: unknown,
+  schema: typeof CreateItemWeightSchema | typeof UpdateItemWeightSchema
+): { success: true; data: T } | { success: false; error: ZodError } => {
+  const result = schema.safeParse(body);
+  return result.success
+    ? { success: true, data: result.data as T }
+    : { success: false, error: result.error };
+};
+
+const computeUpdatePayload = (
+  validated: UpdateItemWeightInput,
+  existing: ItemWeightEntity
+) => {
+  const bulkQuantityDecimal =
+    validated.bulkQuantity !== undefined
+      ? toDecimal(validated.bulkQuantity)
+      : toDecimal(existing.bulkQuantity);
+
+  const bulkWeightDecimal =
+    validated.bulkWeight !== undefined
+      ? toDecimal(validated.bulkWeight)
+      : toDecimal(existing.bulkWeight);
+
+  const quantityError = ensurePositiveQuantity(bulkQuantityDecimal);
+  if (quantityError) {
+    return { error: quantityError } as const;
+  }
+
+  const approxWeightPerPiece = calculateApproxWeightPerPiece(
+    bulkWeightDecimal,
+    bulkQuantityDecimal
+  );
+
+  return {
+    data: {
+      itemName:
+        validated.itemName !== undefined
+          ? validated.itemName.trim()
+          : existing.itemName,
+      bulkQuantity: bulkQuantityDecimal,
+      bulkWeight: bulkWeightDecimal,
+      approxWeightPerPiece,
+    },
+  } as const;
+};
+
+export const GET = withErrorHandler(async (request: NextRequest) => {
+  const parsedQuery = parseQuery(request);
+  if (!parsedQuery.success) {
+    return validationFailedResponse(parsedQuery.error);
+  }
+
+  const { limit = DEFAULT_LIMIT, offset = 0 } = parsedQuery.data;
+  const where = buildWhereClause(parsedQuery.data);
+  const itemWeightClient = getItemWeightClient();
+
+  const [items, total] = await Promise.all([
+    itemWeightClient.findMany({
+      where,
+      take: limit,
+      skip: offset,
+      orderBy: { createdAt: 'desc' },
+      select: itemWeightSelect,
+    }),
+    itemWeightClient.count({ where }),
+  ]);
+
+  return ApiResponse.success(
+    {
       data: items.map(serializeItemWeight),
       total,
-    });
-  } catch (error) {
-    logger.error('Error fetching item weights', error);
+      limit,
+      offset,
+    },
+    'Item weights fetched'
+  );
+});
 
-    if (error instanceof ZodError) {
-      return NextResponse.json(
-        {
-          error: 'Validation failed',
-          details: error.issues,
-        },
-        { status: 422 }
-      );
-    }
+export const POST = withErrorHandler(async (request: NextRequest) => {
+  const body = await request.json();
+  const parsedBody = parseBody<CreateItemWeightInput>(
+    body,
+    CreateItemWeightSchema
+  );
 
-    return NextResponse.json(
-      { error: 'Failed to fetch item weights' },
-      { status: 500 }
-    );
+  if (!parsedBody.success) {
+    return validationFailedResponse(parsedBody.error);
   }
-}
 
-/**
- * POST /api/item-weights
- *
- * Create a new item weight record
- */
-export async function POST(request: NextRequest) {
+  const itemWeightClient = getItemWeightClient();
+  const bulkQuantityDecimal = toDecimal(parsedBody.data.bulkQuantity);
+  const quantityError = ensurePositiveQuantity(bulkQuantityDecimal);
+  if (quantityError) {
+    return quantityError;
+  }
+
+  const bulkWeightDecimal = toDecimal(parsedBody.data.bulkWeight);
+  const approxWeightPerPiece = calculateApproxWeightPerPiece(
+    bulkWeightDecimal,
+    bulkQuantityDecimal
+  );
+
   try {
-    const body = await request.json();
-    const validated = CreateItemWeightSchema.parse(body);
-
-    const bulkQuantityDecimal = toDecimal(validated.bulkQuantity);
-    const bulkWeightDecimal = toDecimal(validated.bulkWeight);
-
-    if (bulkQuantityDecimal.isZero()) {
-      return NextResponse.json(
-        { error: 'Bulk quantity must be greater than zero' },
-        { status: 422 }
-      );
-    }
-
-    const approxWeightPerPiece = bulkWeightDecimal
-      .div(bulkQuantityDecimal)
-      .toDecimalPlaces(2);
-
-    const itemWeightClient = getItemWeightClient();
-
     const created = await itemWeightClient.create({
       data: {
-        itemName: validated.itemName.trim(),
+        itemName: parsedBody.data.itemName.trim(),
         bulkQuantity: bulkQuantityDecimal,
         bulkWeight: bulkWeightDecimal,
         approxWeightPerPiece,
       },
+      select: itemWeightSelect,
     });
 
-    return NextResponse.json(
-      { data: serializeItemWeight(created) },
-      { status: 201 }
+    return ApiResponse.success(
+      serializeItemWeight(created),
+      'Item weight created',
+      HTTP_STATUS.CREATED
     );
   } catch (error) {
-    logger.error('Error creating item weight', error);
-
-    if (error instanceof ZodError) {
-      return NextResponse.json(
-        {
-          error: 'Validation failed',
-          details: error.issues,
-        },
-        { status: 422 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: 'Failed to create item weight' },
-      { status: 500 }
-    );
+    return handlePrismaError(error, 'Failed to create item weight');
   }
-}
+});
 
-/**
- * PUT /api/item-weights
- *
- * Update an existing item weight record
- */
-export async function PUT(request: NextRequest) {
+export const PUT = withErrorHandler(async (request: NextRequest) => {
+  const body = await request.json();
+  const { id, ...payload } = (body ?? {}) as { id?: unknown } & Record<
+    string,
+    unknown
+  >;
+
+  if (!id || typeof id !== 'string') {
+    return ApiResponse.badRequest('Item weight ID is required');
+  }
+
+  const parsedBody = parseBody<UpdateItemWeightInput>(
+    payload,
+    UpdateItemWeightSchema
+  );
+
+  if (!parsedBody.success) {
+    return validationFailedResponse(parsedBody.error);
+  }
+
+  const itemWeightClient = getItemWeightClient();
+  const existing = await itemWeightClient.findUnique({
+    where: { id },
+    select: itemWeightSelect,
+  });
+
+  if (!existing || existing.deletedAt) {
+    return ApiResponse.notFound('Item weight');
+  }
+
+  const updatePayload = computeUpdatePayload(parsedBody.data, existing);
+  if ('error' in updatePayload) {
+    return updatePayload.error;
+  }
+
   try {
-    const body = await request.json();
-    const { id, ...rest } = body ?? {};
-
-    if (!id || typeof id !== 'string') {
-      return NextResponse.json(
-        { error: 'ID is required for updating item weight' },
-        { status: 400 }
-      );
-    }
-
-    const validated = UpdateItemWeightSchema.parse(rest);
-
-    const itemWeightClient = getItemWeightClient();
-
-    const existing = await itemWeightClient.findUnique({
-      where: { id },
-    });
-
-    if (!existing || existing.deletedAt) {
-      return NextResponse.json(
-        { error: 'Item weight not found' },
-        { status: 404 }
-      );
-    }
-
-    const bulkQuantityDecimal =
-      validated.bulkQuantity !== undefined
-        ? toDecimal(validated.bulkQuantity)
-        : existing.bulkQuantity;
-
-    if (bulkQuantityDecimal.isZero()) {
-      return NextResponse.json(
-        { error: 'Bulk quantity must be greater than zero' },
-        { status: 422 }
-      );
-    }
-
-    const bulkWeightDecimal =
-      validated.bulkWeight !== undefined
-        ? toDecimal(validated.bulkWeight)
-        : existing.bulkWeight;
-
-    const approxWeightPerPiece = bulkWeightDecimal
-      .div(bulkQuantityDecimal)
-      .toDecimalPlaces(2);
-
     const updated = await itemWeightClient.update({
       where: { id },
-      data: {
-        itemName:
-          validated.itemName !== undefined
-            ? validated.itemName.trim()
-            : existing.itemName,
-        bulkQuantity: bulkQuantityDecimal,
-        bulkWeight: bulkWeightDecimal,
-        approxWeightPerPiece,
-      },
+      data: updatePayload.data,
+      select: itemWeightSelect,
     });
 
-    return NextResponse.json({ data: serializeItemWeight(updated) });
-  } catch (error) {
-    logger.error('Error updating item weight', error);
-
-    if (error instanceof ZodError) {
-      return NextResponse.json(
-        {
-          error: 'Validation failed',
-          details: error.issues,
-        },
-        { status: 422 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: 'Failed to update item weight' },
-      { status: 500 }
+    return ApiResponse.success(
+      serializeItemWeight(updated),
+      'Item weight updated'
     );
-  }
-}
-
-/**
- * DELETE /api/item-weights?id=ITEM_ID
- *
- * Soft delete an item weight record
- */
-export async function DELETE(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-
-    if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2025') {
+        return ApiResponse.notFound('Item weight');
+      }
     }
+    return handlePrismaError(error, 'Failed to update item weight');
+  }
+});
 
-    const itemWeightClient = getItemWeightClient();
+export const DELETE = withErrorHandler(async (request: NextRequest) => {
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get('id');
 
+  if (!id) {
+    return ApiResponse.badRequest('Item weight ID is required');
+  }
+
+  const itemWeightClient = getItemWeightClient();
+
+  try {
     await itemWeightClient.update({
       where: { id },
       data: { deletedAt: new Date() },
     });
 
-    return NextResponse.json({ success: true });
+    return ApiResponse.success({ success: true }, 'Item weight deleted');
   } catch (error) {
-    logger.error('Error deleting item weight', error);
-    return NextResponse.json(
-      { error: 'Failed to delete item weight' },
-      { status: 500 }
-    );
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2025') {
+        return ApiResponse.notFound('Item weight');
+      }
+    }
+    return handlePrismaError(error, 'Failed to delete item weight');
   }
-}
+});

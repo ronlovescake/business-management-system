@@ -1084,29 +1084,34 @@ export function useTransactionModals(
                 );
 
                 if (customersResponse.ok) {
+                  type CustomerRecord = {
+                    id: number;
+                    customerName: string;
+                    businessName: string;
+                    shopeeUsernames: string[];
+                  };
+
                   const customersData = (await customersResponse.json()) as {
                     success: boolean;
-                    data: Array<{
-                      id: number;
-                      customerName: string;
-                      businessName: string;
-                      shopeeUsernames: string[];
-                    }>;
+                    data: CustomerRecord[] | { customers: CustomerRecord[] };
                   };
+
+                  const customersPayload = Array.isArray(customersData.data)
+                    ? customersData.data
+                    : customersData.data.customers;
 
                   logger.info('Customers with Shopee data received:', {
                     success: customersData.success,
-                    totalCustomers: customersData.data.length,
+                    totalCustomers: customersPayload.length,
                   });
 
                   // Step 3: Match dispatch usernames to customer names
                   dispatchUsernames.forEach((username) => {
                     const normalizedUsername = username.toLowerCase().trim();
-                    const matchedCustomer = customersData.data.find(
-                      (customer) =>
-                        customer.shopeeUsernames
-                          .map((u) => u.toLowerCase().trim())
-                          .includes(normalizedUsername)
+                    const matchedCustomer = customersPayload.find((customer) =>
+                      customer.shopeeUsernames
+                        .map((u) => u.toLowerCase().trim())
+                        .includes(normalizedUsername)
                     );
 
                     if (matchedCustomer) {

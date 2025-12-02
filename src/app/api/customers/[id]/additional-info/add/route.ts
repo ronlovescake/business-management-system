@@ -1,110 +1,187 @@
 import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import type { AdditionalCustomerInfo } from '@prisma/client';
+import { ApiResponse } from '@/core/api';
+import { withErrorHandler } from '@/core/api/middleware';
+import { prisma } from '@/lib/db';
+import { logger } from '@/lib/logger';
+import { sanitizeString, sanitizers } from '@/lib/security/sanitize';
+import {
+  customerAdditionalInfoAddSchema,
+  type CustomerAdditionalInfoAddInput,
+  formatValidationErrors,
+} from '@/lib/validations/customer.validation';
 
-const prisma = new PrismaClient();
+type RouteContext = { params: { id: string } };
 
-/**
- * POST /api/customers/:id/additional-info/add
- *
- * Add a single additional info item without deleting existing ones
- * Used for linking customers to Shopee usernames and addresses
- */
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const customerId = parseInt(params.id);
+const TYPE_CONFIG = {
+  address: {
+    label: 'address',
+    sanitize: (value: unknown) => sanitizers.address(value),
+  },
+  phone: {
+    label: 'phone number',
+    sanitize: (value: unknown) => sanitizers.phone(value),
+  },
+  shopee_username: {
+    label: 'Shopee username',
+    sanitize: (value: unknown) =>
+      sanitizeString(value, { maxLength: 255 })?.toLowerCase(),
+  },
+} as const;
 
-    if (isNaN(customerId)) {
-      return NextResponse.json(
-        { error: 'Invalid customer ID' },
-        { status: 400 }
-      );
+type AdditionalInfoType = keyof typeof TYPE_CONFIG;
+
+export const POST = withErrorHandler<RouteContext>(
+  async (request: NextRequest, context) => {
+    const idResult = parseCustomerId(context);
+    if ('error' in idResult) {
+      return idResult.error;
     }
 
     const body = await request.json();
-    const { type, value } = body;
-
-    // Validate input
-    if (!type || !value) {
-      return NextResponse.json(
-        { error: 'Type and value are required' },
-        { status: 400 }
+    const validation = customerAdditionalInfoAddSchema.safeParse(body);
+    if (!validation.success) {
+      logger.warn('Customer additional info add validation failed', {
+        customerId: idResult.id,
+        issues: validation.error.issues,
+      });
+      return ApiResponse.badRequest(
+        'Validation failed',
+        formatValidationErrors(validation.error)
       );
     }
 
-    const validTypes = ['address', 'phone', 'shopee_username'];
-    if (!validTypes.includes(type)) {
-      return NextResponse.json(
-        { error: `Type must be one of: ${validTypes.join(', ')}` },
-        { status: 400 }
-      );
-    }
-
-    // Verify customer exists
     const customer = await prisma.customer.findUnique({
-      where: { id: customerId },
+      where: { id: idResult.id },
+      select: { id: true },
     });
 
     if (!customer) {
-      return NextResponse.json(
-        { error: 'Customer not found' },
-        { status: 404 }
+      return ApiResponse.notFound('Customer');
+    }
+
+    const sanitized = sanitizePayload(validation.data);
+    if ('error' in sanitized) {
+      return sanitized.error;
+    }
+
+    const existing = await findExistingEntry(
+      idResult.id,
+      sanitized.type,
+      sanitized.value
+    );
+
+    if (existing) {
+      logger.info('Additional info already exists', {
+        customerId: idResult.id,
+        type: sanitized.type,
+      });
+      return ApiResponse.success(
+        buildResponsePayload(true, sanitized.type, existing),
+        `${TYPE_CONFIG[sanitized.type].label} already exists`
       );
     }
 
-    // Check if this exact value already exists (case-insensitive for usernames)
-    const trimmedValue = value.trim();
-    const normalizedValue =
-      type === 'shopee_username' ? trimmedValue.toLowerCase() : trimmedValue;
+    const created = await prisma.additionalCustomerInfo.create({
+      data: {
+        customerId: idResult.id,
+        type: sanitized.type,
+        value: sanitized.value,
+      },
+    });
 
-    const existing = await prisma.additionalCustomerInfo.findFirst({
+    logger.info('Additional customer info added', {
+      customerId: idResult.id,
+      type: sanitized.type,
+    });
+
+    return ApiResponse.success(
+      buildResponsePayload(false, sanitized.type, created),
+      `${TYPE_CONFIG[sanitized.type].label} added successfully`,
+      201
+    );
+  }
+);
+
+function parseCustomerId(
+  context?: RouteContext
+): { id: number } | { error: ReturnType<typeof ApiResponse.badRequest> } {
+  const idParam = context?.params?.id ?? '';
+  const customerId = Number(idParam);
+
+  if (!idParam || Number.isNaN(customerId)) {
+    return {
+      error: ApiResponse.badRequest('Invalid customer ID', {
+        id: 'Provide a numeric customer ID in the URL path.',
+      }),
+    };
+  }
+
+  return { id: customerId };
+}
+
+function sanitizePayload(
+  payload: CustomerAdditionalInfoAddInput
+):
+  | { type: AdditionalInfoType; value: string }
+  | { error: ReturnType<typeof ApiResponse.badRequest> } {
+  const config = TYPE_CONFIG[payload.type];
+  const sanitizedValue = config.sanitize(payload.value);
+
+  if (!sanitizedValue) {
+    return {
+      error: ApiResponse.badRequest('Invalid value provided', {
+        value: `Unable to parse ${config.label}. Please provide a valid value.`,
+      }),
+    };
+  }
+
+  return { type: payload.type, value: sanitizedValue };
+}
+
+async function findExistingEntry(
+  customerId: number,
+  type: AdditionalInfoType,
+  value: string
+) {
+  if (type === 'shopee_username') {
+    return prisma.additionalCustomerInfo.findFirst({
       where: {
         customerId,
         type,
-        value:
-          type === 'shopee_username'
-            ? { equals: normalizedValue, mode: 'insensitive' }
-            : normalizedValue,
+        value: { equals: value, mode: 'insensitive' },
         deletedAt: null,
       },
     });
-
-    if (existing) {
-      return NextResponse.json(
-        {
-          message: `This ${type.replace('_', ' ')} already exists for this customer`,
-          alreadyExists: true,
-        },
-        { status: 200 }
-      );
-    }
-
-    // Create new entry
-    const newInfo = await prisma.additionalCustomerInfo.create({
-      data: {
-        customerId,
-        type,
-        value: normalizedValue,
-      },
-    });
-
-    return NextResponse.json(
-      {
-        message: `${type.replace('_', ' ')} added successfully`,
-        data: newInfo,
-        alreadyExists: false,
-      },
-      { status: 201 }
-    );
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('Error adding additional customer info:', error);
-    return NextResponse.json(
-      { error: 'Failed to add additional customer info' },
-      { status: 500 }
-    );
   }
+
+  return prisma.additionalCustomerInfo.findFirst({
+    where: {
+      customerId,
+      type,
+      value,
+      deletedAt: null,
+    },
+  });
+}
+
+function buildResponsePayload(
+  alreadyExists: boolean,
+  type: AdditionalInfoType,
+  info: AdditionalCustomerInfo | null
+) {
+  return {
+    alreadyExists,
+    message: alreadyExists
+      ? `This ${TYPE_CONFIG[type].label} already exists for this customer`
+      : `${TYPE_CONFIG[type].label} added successfully`,
+    info: info
+      ? {
+          id: info.id,
+          customerId: info.customerId,
+          type: info.type,
+          value: info.value,
+        }
+      : undefined,
+  };
 }

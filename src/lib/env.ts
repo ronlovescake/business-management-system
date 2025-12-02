@@ -16,6 +16,7 @@
  */
 
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 /**
  * Schema for server-side environment variables
@@ -91,10 +92,8 @@ function validateEnv(): Env {
   try {
     const parsed = envSchema.parse(process.env);
 
-    // Use console directly to avoid circular dependency with logger
     if (process.env.NODE_ENV === 'development') {
-      // eslint-disable-next-line no-console
-      console.log('✅ Environment variables validated successfully');
+      logger.success('Environment variables validated successfully');
     }
 
     return parsed;
@@ -107,10 +106,7 @@ function validateEnv(): Env {
         .join('\n');
 
       const errorMessage = `❌ Invalid environment variables:\n${issues}`;
-
-      // Use console directly to avoid circular dependency with logger
-      // eslint-disable-next-line no-console
-      console.error(errorMessage);
+      logger.error(errorMessage);
 
       throw new Error(errorMessage);
     }

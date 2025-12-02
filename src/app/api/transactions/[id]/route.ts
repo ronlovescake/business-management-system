@@ -1,141 +1,125 @@
 import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
+import { ApiResponse } from '@/core/api';
+import { withErrorHandler } from '@/core/api/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+
+type RouteContext = {
+  params: {
+    id: string;
+  };
+};
+
+const RESTORE_ACTION = 'restore';
+
+const TRANSACTION_SELECT = {
+  id: true,
+  deletedAt: true,
+  customers: true,
+  productCode: true,
+} as const;
 
 /**
  * DELETE /api/transactions/[id]
  * Soft-delete a single transaction by ID
  */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const id = Number(params.id);
-
-    if (!Number.isFinite(id)) {
-      return NextResponse.json(
-        { error: 'Invalid transaction ID' },
-        { status: 400 }
-      );
+export const DELETE = withErrorHandler(
+  async (_request: NextRequest, { params }: RouteContext) => {
+    const id = parseTransactionId(params.id);
+    if (id === null) {
+      return ApiResponse.badRequest('Invalid transaction ID');
     }
 
-    // Check if transaction exists
-    const existing = await prisma.transaction.findUnique({
+    const transaction = await prisma.transaction.findUnique({
       where: { id },
-      select: { id: true, deletedAt: true, customers: true, productCode: true },
+      select: TRANSACTION_SELECT,
     });
 
-    if (!existing) {
-      return NextResponse.json(
-        { error: 'Transaction not found' },
-        { status: 404 }
-      );
+    if (!transaction) {
+      return ApiResponse.notFound('Transaction');
     }
 
-    if (existing.deletedAt) {
-      return NextResponse.json(
-        { error: 'Transaction already deleted' },
-        { status: 400 }
-      );
+    if (transaction.deletedAt) {
+      return ApiResponse.badRequest('Transaction already deleted');
     }
 
-    // Soft delete
     await prisma.transaction.update({
       where: { id },
       data: { deletedAt: new Date() },
     });
 
-    logger.info(
-      `✅ Soft deleted transaction ${id} (${existing.customers} - ${existing.productCode})`
-    );
-
-    return NextResponse.json({
-      success: true,
-      message: 'Transaction deleted successfully',
-      id,
+    logger.info('Transaction soft deleted', {
+      transactionId: id,
+      customer: transaction.customers,
+      productCode: transaction.productCode,
     });
-  } catch (error) {
-    logger.error('Failed to delete transaction:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete transaction' },
-      { status: 500 }
+
+    return ApiResponse.success(
+      {
+        id,
+      },
+      'Transaction deleted successfully'
     );
   }
-}
+);
 
 /**
  * PUT /api/transactions/[id]/restore
  * Restore a soft-deleted transaction
  */
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
+export const PUT = withErrorHandler(
+  async (request: NextRequest, { params }: RouteContext) => {
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
 
-    if (action !== 'restore') {
-      return NextResponse.json(
-        {
-          error:
-            'Invalid action. Use ?action=restore to restore a deleted transaction',
-        },
-        { status: 400 }
+    if (action !== RESTORE_ACTION) {
+      return ApiResponse.badRequest(
+        'Invalid action. Use ?action=restore to restore a deleted transaction'
       );
     }
 
-    const id = Number(params.id);
-
-    if (!Number.isFinite(id)) {
-      return NextResponse.json(
-        { error: 'Invalid transaction ID' },
-        { status: 400 }
-      );
+    const id = parseTransactionId(params.id);
+    if (id === null) {
+      return ApiResponse.badRequest('Invalid transaction ID');
     }
 
-    // Check if transaction exists and is deleted
-    const existing = await prisma.transaction.findUnique({
+    const transaction = await prisma.transaction.findUnique({
       where: { id },
-      select: { id: true, deletedAt: true, customers: true, productCode: true },
+      select: TRANSACTION_SELECT,
     });
 
-    if (!existing) {
-      return NextResponse.json(
-        { error: 'Transaction not found' },
-        { status: 404 }
-      );
+    if (!transaction) {
+      return ApiResponse.notFound('Transaction');
     }
 
-    if (!existing.deletedAt) {
-      return NextResponse.json(
-        { error: 'Transaction is not deleted' },
-        { status: 400 }
-      );
+    if (!transaction.deletedAt) {
+      return ApiResponse.badRequest('Transaction is not deleted');
     }
 
-    // Restore by setting deletedAt to null
     await prisma.transaction.update({
       where: { id },
       data: { deletedAt: null },
     });
 
-    logger.info(
-      `✅ Restored transaction ${id} (${existing.customers} - ${existing.productCode})`
-    );
-
-    return NextResponse.json({
-      success: true,
-      message: 'Transaction restored successfully',
-      id,
+    logger.info('Transaction restored', {
+      transactionId: id,
+      customer: transaction.customers,
+      productCode: transaction.productCode,
     });
-  } catch (error) {
-    logger.error('Failed to restore transaction:', error);
-    return NextResponse.json(
-      { error: 'Failed to restore transaction' },
-      { status: 500 }
+
+    return ApiResponse.success(
+      {
+        id,
+      },
+      'Transaction restored successfully'
     );
   }
+);
+
+function parseTransactionId(value: string): number | null {
+  const id = Number(value);
+  if (!Number.isFinite(id) || id <= 0) {
+    return null;
+  }
+  return id;
 }

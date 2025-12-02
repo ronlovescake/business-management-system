@@ -2,16 +2,25 @@
 
 /**
  * API Documentation Page - Swagger UI
- * 
+ *
  * Interactive API documentation using Swagger UI React.
  * Displays all available endpoints with request/response schemas.
- * 
+ *
  * Access at: http://localhost:3000/api/docs
  */
 
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
-import { Container, Title, Paper, Loader, Center, Text, Stack } from '@mantine/core';
+import {
+  Container,
+  Title,
+  Paper,
+  Loader,
+  Center,
+  Text,
+  Stack,
+} from '@mantine/core';
+import { logger } from '@/lib/logger';
 import 'swagger-ui-react/swagger-ui.css';
 
 // Dynamically import SwaggerUI to avoid SSR issues
@@ -48,9 +57,12 @@ export default function ApiDocsPage() {
         setLoading(false);
       })
       .catch((err) => {
-        // eslint-disable-next-line no-console
-        console.error('Error loading API spec:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load API documentation');
+        logger.error('Error loading API spec:', err);
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Failed to load API documentation'
+        );
         setLoading(false);
       });
   }, []);
@@ -80,7 +92,8 @@ export default function ApiDocsPage() {
             </Title>
             <Text c="dimmed">{error}</Text>
             <Text size="sm" c="dimmed">
-              Please ensure the API server is running and try refreshing the page.
+              Please ensure the API server is running and try refreshing the
+              page.
             </Text>
           </Stack>
         </Paper>
@@ -99,17 +112,25 @@ export default function ApiDocsPage() {
         <Paper withBorder>
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           {spec && (
-            <SwaggerUI {...({
-              spec,
-              docExpansion: "list",
-              defaultModelsExpandDepth: -1,
-              filter: true,
-              tryItOutEnabled: true,
-              persistAuthorization: true,
-              displayRequestDuration: true,
-              deepLinking: true,
-              supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch'],
-            } as Record<string, unknown>)} />
+            <SwaggerUI
+              {...({
+                spec,
+                docExpansion: 'list',
+                defaultModelsExpandDepth: -1,
+                filter: true,
+                tryItOutEnabled: true,
+                persistAuthorization: true,
+                displayRequestDuration: true,
+                deepLinking: true,
+                supportedSubmitMethods: [
+                  'get',
+                  'post',
+                  'put',
+                  'delete',
+                  'patch',
+                ],
+              } as Record<string, unknown>)}
+            />
           )}
         </Paper>
       </Stack>

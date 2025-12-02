@@ -1,128 +1,275 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NextRequest } from 'next/server';
-import { POST } from '@/app/api/transactions/route';
-import { prisma } from '@/lib/db';
+import { getTestApiUrl } from '@/core/testing/test-helpers';
 
-vi.mock('@/lib/db', () => {
-  const priceFindMany = vi.fn();
-  const transactionCreateMany = vi.fn();
-
-  return {
-    prisma: {
-      price: {
-        findMany: priceFindMany,
-      },
-      transaction: {
-        createMany: transactionCreateMany,
-        findMany: vi.fn(),
-        update: vi.fn(),
-        deleteMany: vi.fn(),
-      },
-      customer: {
-        findMany: vi.fn(),
-      },
-      product: {
-        findMany: vi.fn(),
-      },
-      shipment: {
-        findMany: vi.fn(),
-      },
-    },
-  };
-});
-
-vi.mock('@/lib/logger', () => ({
-  logger: {
-    error: vi.fn(),
-    warn: vi.fn(),
-    info: vi.fn(),
-    debug: vi.fn(),
-    success: vi.fn(),
+const {
+  mockTransactionService,
+  MockReferenceError,
+  MockValidationError,
+  MockNotFoundError,
+} = vi.hoisted(() => ({
+  mockTransactionService: {
+    findActive: vi.fn(),
+    importTransactions: vi.fn(),
+    bulkUpdateTransactions: vi.fn(),
+    updateTransaction: vi.fn(),
+    softDeleteAll: vi.fn(),
   },
+  MockReferenceError: class extends Error {
+    constructor(public details: unknown) {
+      super('Reference integrity violation');
+    }
+  },
+  MockValidationError: class extends Error {},
+  MockNotFoundError: class extends Error {},
 }));
 
-type PrismaMock = {
-  price: {
-    findMany: ReturnType<typeof vi.fn>;
-  };
-  transaction: {
-    createMany: ReturnType<typeof vi.fn>;
-    findMany: ReturnType<typeof vi.fn>;
-    update: ReturnType<typeof vi.fn>;
-    deleteMany: ReturnType<typeof vi.fn>;
-  };
-  customer: {
-    findMany: ReturnType<typeof vi.fn>;
-  };
-  product: {
-    findMany: ReturnType<typeof vi.fn>;
-  };
-  shipment: {
-    findMany: ReturnType<typeof vi.fn>;
-  };
-};
+vi.mock('@/modules/transactions/api/service', () => ({
+  transactionService: mockTransactionService,
+  TransactionReferenceError: MockReferenceError,
+  TransactionValidationError: MockValidationError,
+  TransactionNotFoundError: MockNotFoundError,
+}));
 
-const prismaMock = prisma as unknown as PrismaMock;
+import {
+  TransactionReferenceError,
+  TransactionNotFoundError,
+} from '@/modules/transactions/api/service';
+import { GET, POST, PUT, PATCH, DELETE } from '@/app/api/transactions/route';
 
-describe('POST /api/transactions', () => {
+describe('Transactions API Routes', () => {
   beforeEach(() => {
-    prismaMock.price.findMany.mockResolvedValue([
-      {
-        productCode: 'SKU-1',
-        lowerLimit: 100,
-        upperLimit: 1000,
-        currentPrice: 25000,
-      },
-    ]);
-
-    prismaMock.customer.findMany.mockResolvedValue([
-      { customerName: 'Acme Corp' },
-    ]);
-
-    prismaMock.product.findMany.mockResolvedValue([{ productCode: 'SKU-1' }]);
-
-    prismaMock.shipment.findMany.mockResolvedValue([
-      { shipmentCode: 'SHIP-001' },
-    ]);
-
-    prismaMock.transaction.createMany.mockResolvedValue({ count: 1 });
+    vi.clearAllMocks();
   });
 
-  it('calculates unit price and line total before inserting', async () => {
-    const payload = [
-      {
-        'Order Date': 'Jan 15, 2025',
-        Customers: 'Acme Corp',
-        'Product Code': 'SKU-1',
-        Quantity: '5',
-        Discount: '10',
-        Adjustment: '0',
-        'Shipment Code': 'SHIP-001',
-      },
-    ];
+  describe('GET /api/transactions', () => {
+    it('returns transactions successfully', async () => {
+      mockTransactionService.findActive.mockResolvedValue([
+        {
+          id: 1,
+          'Order Date': '2024-01-01',
+          Customers: 'John Doe',
+          'Product Code': 'PRD-1',
+          Quantity: 1,
+          'Unit Price': 10,
+          Discount: 0,
+          Adjustment: 0,
+          'Line Total': 10,
+          'Order Status': 'Prepared',
+          Notes: null,
+          'Invoice Date': null,
+          'Packed Date': null,
+          'Shipment Code': null,
+        },
+      ]);
 
-    const request = new NextRequest('http://localhost/api/transactions', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      const response = await GET();
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.success).toBe(true);
+      expect(body.data[0]['Product Code']).toBe('PRD-1');
     });
 
-    const response = await POST(request);
-    const body = (await response.json()) as { count: number };
+    it('handles service errors', async () => {
+      mockTransactionService.findActive.mockRejectedValue(new Error('boom'));
 
-    expect(body.count).toBe(1);
+      const response = await GET();
+      const body = await response.json();
 
-    expect(prismaMock.transaction.createMany).toHaveBeenCalledWith({
-      data: expect.arrayContaining([
-        expect.objectContaining({
-          productCode: 'SKU-1',
-          quantity: 5,
-          unitPrice: 240,
-          lineTotal: 1200,
+      expect(response.status).toBe(500);
+      expect(body.success).toBe(false);
+      expect(body.error).toBe('Failed to fetch transactions');
+    });
+  });
+
+  describe('POST /api/transactions', () => {
+    it('validates payload as array', async () => {
+      const request = new NextRequest(getTestApiUrl('/api/transactions'), {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+
+      const response = await POST(request);
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(body.error).toBe('Invalid data format');
+    });
+
+    it('imports transactions successfully', async () => {
+      mockTransactionService.importTransactions.mockResolvedValue({
+        count: 2,
+        withData: 2,
+        empty: 0,
+      });
+
+      const request = new NextRequest(getTestApiUrl('/api/transactions'), {
+        method: 'POST',
+        body: JSON.stringify([{}]),
+      });
+
+      const response = await POST(request);
+      const body = await response.json();
+
+      expect(response.status).toBe(201);
+      expect(body.data.count).toBe(2);
+      expect(mockTransactionService.importTransactions).toHaveBeenCalled();
+    });
+
+    it('returns conflict when references are missing', async () => {
+      mockTransactionService.importTransactions.mockRejectedValue(
+        new TransactionReferenceError({
+          missing: { customers: [], products: [], shipments: [] },
+        })
+      );
+
+      const request = new NextRequest(getTestApiUrl('/api/transactions'), {
+        method: 'POST',
+        body: JSON.stringify([{}]),
+      });
+
+      const response = await POST(request);
+      const body = await response.json();
+
+      expect(response.status).toBe(409);
+      expect(body.success).toBe(false);
+      expect(body.error).toBe('Reference integrity violation');
+    });
+  });
+
+  describe('PUT /api/transactions', () => {
+    it('requires array payload', async () => {
+      const request = new NextRequest(getTestApiUrl('/api/transactions'), {
+        method: 'PUT',
+        body: JSON.stringify({}),
+      });
+
+      const response = await PUT(request);
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(body.error).toBe('Invalid data format');
+    });
+
+    it('updates transactions successfully', async () => {
+      mockTransactionService.bulkUpdateTransactions.mockResolvedValue({
+        count: 3,
+      });
+
+      const request = new NextRequest(getTestApiUrl('/api/transactions'), {
+        method: 'PUT',
+        body: JSON.stringify([{}]),
+      });
+
+      const response = await PUT(request);
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.data.count).toBe(3);
+    });
+
+    it('returns not found when service throws TransactionNotFoundError', async () => {
+      mockTransactionService.bulkUpdateTransactions.mockRejectedValue(
+        new TransactionNotFoundError('Transaction not found')
+      );
+
+      const request = new NextRequest(getTestApiUrl('/api/transactions'), {
+        method: 'PUT',
+        body: JSON.stringify([{}]),
+      });
+
+      const response = await PUT(request);
+      const body = await response.json();
+
+      expect(response.status).toBe(404);
+      expect(body.error).toBe('Transaction not found');
+    });
+  });
+
+  describe('PATCH /api/transactions', () => {
+    it('updates single transaction successfully', async () => {
+      mockTransactionService.updateTransaction.mockResolvedValue({
+        transaction: {
+          id: 1,
+          'Order Date': '2024-01-01',
+          Customers: 'John Doe',
+          'Product Code': 'PRD-1',
+          Quantity: 1,
+          'Unit Price': 10,
+          Discount: 0,
+          Adjustment: 0,
+          'Line Total': 10,
+          'Order Status': 'Prepared',
+          Notes: null,
+          'Invoice Date': null,
+          'Packed Date': null,
+          'Shipment Code': null,
+        },
+      });
+
+      const request = new NextRequest(getTestApiUrl('/api/transactions'), {
+        method: 'PATCH',
+        body: JSON.stringify({ id: 1 }),
+      });
+
+      const response = await PATCH(request);
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.data.id).toBe(1);
+    });
+
+    it('returns 404 when transaction is missing', async () => {
+      mockTransactionService.updateTransaction.mockRejectedValue(
+        new TransactionNotFoundError('Transaction not found')
+      );
+
+      const request = new NextRequest(getTestApiUrl('/api/transactions'), {
+        method: 'PATCH',
+        body: JSON.stringify({ id: 99 }),
+      });
+
+      const response = await PATCH(request);
+      const body = await response.json();
+
+      expect(response.status).toBe(404);
+      expect(body.error).toBe('Transaction not found');
+    });
+  });
+
+  describe('DELETE /api/transactions', () => {
+    it('protects against accidental deletion', async () => {
+      const request = new NextRequest(getTestApiUrl('/api/transactions'), {
+        method: 'DELETE',
+      });
+
+      const response = await DELETE(request);
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(body.error).toBe('Mass deletion protection');
+    });
+
+    it('soft deletes transactions when confirmed', async () => {
+      mockTransactionService.softDeleteAll.mockResolvedValue({
+        deleted: 5,
+        alreadyDeleted: 1,
+      });
+
+      const request = new NextRequest(
+        getTestApiUrl('/api/transactions', {
+          confirm: 'DELETE_ALL_TRANSACTIONS',
         }),
-      ]),
+        { method: 'DELETE' }
+      );
+
+      const response = await DELETE(request);
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.data.deleted).toBe(5);
+      expect(mockTransactionService.softDeleteAll).toHaveBeenCalled();
     });
   });
 });

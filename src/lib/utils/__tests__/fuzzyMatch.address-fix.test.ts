@@ -10,6 +10,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { calculateAddressSimilarity } from '../fuzzyMatch';
+import { logger } from '@/lib/logger';
 
 describe('Address Matching Bug Fix - RAE BREEDING FARM Case', () => {
   it('should match dispatch address with customer database address', () => {
@@ -21,8 +22,7 @@ describe('Address Matching Bug Fix - RAE BREEDING FARM Case', () => {
 
     const score = calculateAddressSimilarity(dispatchAddress, customerAddress);
 
-    // eslint-disable-next-line no-console
-    console.log('✅ Address Match Score:', score, '%');
+    logger.success(`Address Match Score: ${score}%`);
 
     // Should be at least 60% match (ideally 70%+)
     expect(score).toBeGreaterThanOrEqual(60);

@@ -1,6 +1,6 @@
 /**
  * Performance Monitoring Utilities
- * 
+ *
  * Tracks Web Vitals and custom performance metrics
  * for monitoring application performance.
  */
@@ -88,16 +88,21 @@ function getRating(
 
 /**
  * Send Web Vitals metric to analytics
- * 
+ *
  * In production, you would send this to your analytics service (Google Analytics, Sentry, etc.)
  * For now, we log to console in development and can send to Sentry in production
  */
 export function sendToAnalytics(metric: PerformanceMetric) {
   // Log in development
   if (process.env.NODE_ENV === 'development') {
-    const emoji = metric.rating === 'good' ? '✅' : metric.rating === 'needs-improvement' ? '⚠️' : '❌';
-    // eslint-disable-next-line no-console
-    console.log(
+    const emoji =
+      metric.rating === 'good'
+        ? '✅'
+        : metric.rating === 'needs-improvement'
+          ? '⚠️'
+          : '❌';
+    logger.debug(
+      'PerformanceMetrics',
       `${emoji} ${metric.name}: ${Math.round(metric.value)}${metric.name === 'CLS' ? '' : 'ms'} (${metric.rating})`
     );
   }
@@ -120,7 +125,7 @@ export function sendToAnalytics(metric: PerformanceMetric) {
 
 /**
  * Track all Core Web Vitals using the web-vitals library
- * 
+ *
  * This should be called in _app.tsx or layout.tsx
  */
 export async function trackWebVitals() {
@@ -275,7 +280,10 @@ export const PERFORMANCE_BUDGET = {
 /**
  * Check if a metric exceeds the performance budget
  */
-export function exceedsBudget(metricName: keyof typeof PERFORMANCE_BUDGET, value: number): boolean {
+export function exceedsBudget(
+  metricName: keyof typeof PERFORMANCE_BUDGET,
+  value: number
+): boolean {
   const budget = PERFORMANCE_BUDGET[metricName];
   return value > budget;
 }
@@ -295,12 +303,12 @@ export interface ProfilerData {
 
 /**
  * React Profiler callback to track component render performance
- * 
+ *
  * Usage:
  * ```tsx
  * import { Profiler } from 'react';
  * import { onRenderCallback } from '@/lib/performance/monitoring';
- * 
+ *
  * <Profiler id="MyComponent" onRender={onRenderCallback}>
  *   <MyComponent />
  * </Profiler>
@@ -325,8 +333,11 @@ export function onRenderCallback(
 
   // Track slow renders
   if (actualDuration > PERFORMANCE_BUDGET.componentRenderTime) {
-    logger.warn(`Slow ${phase} detected in ${id}: ${actualDuration.toFixed(2)}ms`, data);
-    
+    logger.warn(
+      `Slow ${phase} detected in ${id}: ${actualDuration.toFixed(2)}ms`,
+      data
+    );
+
     trackMetric(`component.${id}.${phase}`, actualDuration, 'ms', {
       baseDuration,
       exceeded: true,
@@ -344,7 +355,7 @@ export function onRenderCallback(
 
 /**
  * Measure API endpoint execution time
- * 
+ *
  * Usage:
  * ```ts
  * const timer = startApiTimer('GET /api/customers');
@@ -361,7 +372,9 @@ export function startApiTimer(endpoint: string) {
       trackMetric(`api.${endpoint}`, duration, 'ms');
 
       if (exceedsBudget('apiResponseTime', duration)) {
-        logger.warn(`Slow API endpoint: ${endpoint} took ${duration.toFixed(2)}ms`);
+        logger.warn(
+          `Slow API endpoint: ${endpoint} took ${duration.toFixed(2)}ms`
+        );
       }
 
       return duration;
@@ -377,15 +390,22 @@ export function startApiTimer(endpoint: string) {
  * Get current memory usage (browser only)
  */
 export function getMemoryUsage() {
-  if (typeof window === 'undefined' || !(performance as unknown as { memory?: unknown }).memory) {
+  if (
+    typeof window === 'undefined' ||
+    !(performance as unknown as { memory?: unknown }).memory
+  ) {
     return null;
   }
 
-  const memory = (performance as unknown as { memory: {
-    usedJSHeapSize: number;
-    totalJSHeapSize: number;
-    jsHeapSizeLimit: number;
-  } }).memory;
+  const memory = (
+    performance as unknown as {
+      memory: {
+        usedJSHeapSize: number;
+        totalJSHeapSize: number;
+        jsHeapSizeLimit: number;
+      };
+    }
+  ).memory;
   return {
     usedJSHeapSize: memory.usedJSHeapSize,
     totalJSHeapSize: memory.totalJSHeapSize,

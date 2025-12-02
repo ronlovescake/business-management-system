@@ -53,27 +53,33 @@ async function fetchCustomersWithAllAddresses(): Promise<
   DispatchCustomerWithAddresses[]
 > {
   try {
+    type CustomerRecord = {
+      id: number;
+      customerName: string;
+      businessName: string;
+      phoneNumber: string;
+      address: string;
+      additionalAddresses: string[];
+    };
+
     const response = await api.get<{
       success: boolean;
-      data: Array<{
-        id: number;
-        customerName: string;
-        businessName: string;
-        phoneNumber: string;
-        address: string;
-        additionalAddresses: string[];
-      }>;
-    }>('/api/customers/with-all-addresses');
+      data?: {
+        customers: CustomerRecord[];
+      };
+    }>('/api/customers/with-all-addresses', { unwrapApiResponse: false });
 
     if (!response.success || !response.data) {
       throw new Error('Invalid response from API');
     }
 
+    const customers = response.data.customers ?? [];
+
     logger.info(
-      `Fetched ${response.data.length} customers with all addresses in single query`
+      `Fetched ${customers.length} customers with all addresses in single query`
     );
 
-    return response.data.map((c) => ({
+    return customers.map((c) => ({
       id: c.id,
       customerName: c.customerName || '',
       businessName: c.businessName || '',
@@ -224,10 +230,6 @@ export function usePossibleMatches(
       if (event.data === 'customer-updated') {
         logger.info(
           '[usePossibleMatches] Customer update detected - refetching customers with addresses'
-        );
-        // eslint-disable-next-line no-console
-        console.log(
-          '🔴 [POSSIBLE MATCHES] Customer update broadcast received - refetching'
         );
         void refetchCustomers();
       }

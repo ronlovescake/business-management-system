@@ -7,6 +7,7 @@ const { mockPrisma } = vi.hoisted(() => {
       price: {
         findMany: vi.fn(),
         findFirst: vi.fn(),
+        findUnique: vi.fn(),
         createMany: vi.fn(),
         upsert: vi.fn(),
         update: vi.fn(),
@@ -69,23 +70,25 @@ describe('Prices API Routes', () => {
       mockPrisma.price.findMany.mockResolvedValue(mockPrices);
 
       const response = await GET();
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(200);
-      expect(Array.isArray(data)).toBe(true);
-      expect(data.length).toBe(1);
-      expect(data[0]['Product Code']).toBe('PROD-001');
+      expect(payload.success).toBe(true);
+      expect(Array.isArray(payload.data)).toBe(true);
+      expect(payload.data.length).toBe(1);
+      expect(payload.data[0]['Product Code']).toBe('PROD-001');
     });
 
     it('should return empty array when no prices exist', async () => {
       mockPrisma.price.findMany.mockResolvedValue([]);
 
       const response = await GET();
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(200);
-      expect(Array.isArray(data)).toBe(true);
-      expect(data.length).toBe(0);
+      expect(payload.success).toBe(true);
+      expect(Array.isArray(payload.data)).toBe(true);
+      expect(payload.data.length).toBe(0);
     });
   });
 
@@ -114,9 +117,12 @@ describe('Prices API Routes', () => {
       });
 
       const response = await POST(request);
+      const payload = await response.json();
 
-      expect(response.status).toBe(200);
-      expect(mockPrisma.price.deleteMany).toHaveBeenCalled();
+      expect(response.status).toBe(201);
+      expect(payload.success).toBe(true);
+      expect(payload.message).toBe('Prices imported successfully');
+      expect(payload.data.created).toBe(1);
       expect(mockPrisma.$transaction).toHaveBeenCalled();
     });
 
@@ -131,10 +137,11 @@ describe('Prices API Routes', () => {
       });
 
       const response = await POST(request);
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toContain('Invalid data format');
+      expect(payload.success).toBe(false);
+      expect(payload.error).toContain('Invalid data format');
     });
   });
 
@@ -160,6 +167,7 @@ describe('Prices API Routes', () => {
         updatedAt: new Date(),
       };
 
+      mockPrisma.price.findUnique.mockResolvedValue(updatedPrice);
       mockPrisma.price.update.mockResolvedValue(updatedPrice);
 
       const request = new NextRequest(getTestApiUrl('/api/prices/1'), {
@@ -168,10 +176,12 @@ describe('Prices API Routes', () => {
       });
 
       const response = await PUT(request, { params: { id: '1' } });
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data.message).toBe('Price updated successfully');
+      expect(payload.success).toBe(true);
+      expect(payload.message).toBe('Price updated successfully');
+      expect(payload.data['Product Code']).toBe('PROD-001');
     });
 
     it('should return 400 for invalid price ID', async () => {
@@ -192,13 +202,39 @@ describe('Prices API Routes', () => {
       const data = await response.json();
 
       expect(response.status).toBe(400);
+      expect(data.success).toBe(false);
       expect(data.error).toBe('Invalid price ID');
+      expect(mockPrisma.price.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('should return 404 when price is not found', async () => {
+      mockPrisma.price.findUnique.mockResolvedValue(null);
+      const priceUpdate = {
+        'Product Code': 'PROD-999',
+        'Lower Limit': 100,
+        'Upper Limit': 200,
+        Prices: 150,
+        'Price Adjustment': 10,
+      };
+
+      const request = new NextRequest(getTestApiUrl('/api/prices/999'), {
+        method: 'PUT',
+        body: JSON.stringify(priceUpdate),
+      });
+
+      const response = await PUT(request, { params: { id: '999' } });
+      const payload = await response.json();
+
+      expect(response.status).toBe(404);
+      expect(payload.success).toBe(false);
+      expect(payload.error).toBe('Price not found');
+      expect(mockPrisma.price.update).not.toHaveBeenCalled();
     });
   });
 
   describe('DELETE /api/prices/[id]', () => {
     it('should delete price successfully', async () => {
-      mockPrisma.price.delete.mockResolvedValue({
+      const mockPrice = {
         id: 1,
         productCode: 'PROD-001',
         lowerLimit: 10000,
@@ -208,14 +244,19 @@ describe('Prices API Routes', () => {
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
-      });
+      };
+
+      mockPrisma.price.findUnique.mockResolvedValue(mockPrice);
+      mockPrisma.price.delete.mockResolvedValue(mockPrice);
 
       const request = new NextRequest(getTestApiUrl('/api/prices/1'));
       const response = await DELETE_BY_ID(request, { params: { id: '1' } });
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data.message).toBe('Price deleted successfully');
+      expect(payload.success).toBe(true);
+      expect(payload.message).toBe('Price deleted successfully');
+      expect(payload.data.id).toBe(1);
     });
 
     it('should return 400 for invalid price ID', async () => {
@@ -226,7 +267,22 @@ describe('Prices API Routes', () => {
       const data = await response.json();
 
       expect(response.status).toBe(400);
+      expect(data.success).toBe(false);
       expect(data.error).toBe('Invalid price ID');
+      expect(mockPrisma.price.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('should return 404 when deleting non-existent price', async () => {
+      mockPrisma.price.findUnique.mockResolvedValue(null);
+
+      const request = new NextRequest(getTestApiUrl('/api/prices/123'));
+      const response = await DELETE_BY_ID(request, { params: { id: '123' } });
+      const payload = await response.json();
+
+      expect(response.status).toBe(404);
+      expect(payload.success).toBe(false);
+      expect(payload.error).toBe('Price not found');
+      expect(mockPrisma.price.delete).not.toHaveBeenCalled();
     });
   });
 
@@ -242,10 +298,12 @@ describe('Prices API Routes', () => {
         }
       );
       const response = await DELETE(request);
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data.count).toBe(15);
+      expect(payload.success).toBe(true);
+      expect(payload.message).toBe('Prices soft deleted');
+      expect(payload.data.deleted).toBe(15);
     });
 
     it('should return 400 without confirmation parameter', async () => {
@@ -253,10 +311,11 @@ describe('Prices API Routes', () => {
         method: 'DELETE',
       });
       const response = await DELETE(request);
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toBe('Mass deletion protection');
+      expect(payload.success).toBe(false);
+      expect(payload.error).toBe('Mass deletion protection');
     });
   });
 });

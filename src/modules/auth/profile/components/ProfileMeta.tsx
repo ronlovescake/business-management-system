@@ -1,0 +1,43 @@
+import { memo } from 'react';
+import { Box, Divider, Group, Stack, Text } from '@mantine/core';
+import { IconCalendar, IconShield } from '@tabler/icons-react';
+import { formatDistanceToNow } from 'date-fns';
+import type { UserProfile } from '../types';
+
+interface ProfileMetaProps {
+  profile: UserProfile;
+}
+
+function ProfileMetaComponent({ profile }: ProfileMetaProps) {
+  return (
+    <Stack gap="md">
+      <Box>
+        <Text size="sm" fw={500} mb="xs">
+          Account Information
+        </Text>
+        <Stack gap="xs">
+          <Group gap="xs">
+            <IconCalendar size={16} />
+            <Text size="sm" c="dimmed">
+              Member since {new Date(profile.createdAt).toLocaleDateString()}
+            </Text>
+          </Group>
+          {profile.lastLoginAt && (
+            <Group gap="xs">
+              <IconShield size={16} />
+              <Text size="sm" c="dimmed">
+                Last login{' '}
+                {formatDistanceToNow(new Date(profile.lastLoginAt), {
+                  addSuffix: true,
+                })}
+              </Text>
+            </Group>
+          )}
+        </Stack>
+      </Box>
+      <Divider />
+    </Stack>
+  );
+}
+
+export const ProfileMeta = memo(ProfileMetaComponent);

@@ -14,6 +14,7 @@ const { mockPrisma, mockSyncPayrollDeductions } = vi.hoisted(() => {
         findFirst: vi.fn(),
         findMany: vi.fn(),
       },
+      $transaction: vi.fn(),
     },
     mockSyncPayrollDeductions: vi.fn(),
   };
@@ -33,6 +34,12 @@ import { getTestApiUrl } from '@/core/testing/test-helpers';
 describe('Payroll API', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation(async (callback) =>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      callback({
+        payroll: mockPrisma.payroll,
+      } as any)
+    );
   });
 
   const mockPayrolls = [
@@ -108,9 +115,12 @@ describe('Payroll API', () => {
     url: string = getTestApiUrl('/api/payroll'),
     options: { method?: string; body?: unknown } = {}
   ): NextRequest => {
+    const parsedUrl = new URL(url);
     return {
       url,
       method: options.method || 'GET',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      nextUrl: parsedUrl as any,
       json: async () => options.body,
     } as NextRequest;
   };
@@ -125,11 +135,12 @@ describe('Payroll API', () => {
       );
 
       const response = await GET(request);
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(200);
-      expect(Array.isArray(data)).toBe(true);
-      expect(data).toHaveLength(2);
+      expect(payload.success).toBe(true);
+      expect(Array.isArray(payload.data)).toBe(true);
+      expect(payload.data).toHaveLength(2);
 
       // Verify only pending payroll was synced (not paid)
       expect(mockSyncPayrollDeductions).toHaveBeenCalledWith([mockPayrolls[0]]);
@@ -147,11 +158,12 @@ describe('Payroll API', () => {
       );
 
       const response = await GET(request);
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data).toHaveLength(1);
-      expect(data[0].employeeId).toBe('EMP-001');
+      expect(payload.success).toBe(true);
+      expect(payload.data).toHaveLength(1);
+      expect(payload.data[0].employeeId).toBe('EMP-001');
 
       expect(mockPrisma.payroll.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -175,12 +187,12 @@ describe('Payroll API', () => {
       );
 
       const response = await GET(request);
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(200);
       // Should be sorted by date descending (Oct 16 before Oct 01)
-      expect(data[0].periodStart).toBe('2025-10-16');
-      expect(data[1].periodStart).toBe('2025-10-01');
+      expect(payload.data[0].periodStart).toBe('2025-10-16');
+      expect(payload.data[1].periodStart).toBe('2025-10-01');
     });
 
     it('should not sync paid payrolls', async () => {
@@ -196,13 +208,13 @@ describe('Payroll API', () => {
       );
 
       const response = await GET(request);
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data).toHaveLength(2);
+      expect(payload.data).toHaveLength(2);
 
       // Should not sync any payrolls (all are paid)
-      expect(mockSyncPayrollDeductions).toHaveBeenCalledWith([]);
+      expect(mockSyncPayrollDeductions).not.toHaveBeenCalled();
     });
 
     it('should sync approved payrolls', async () => {
@@ -227,10 +239,11 @@ describe('Payroll API', () => {
       );
 
       const response = await GET(request);
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(500);
-      expect(data.error).toBe('Failed to fetch payrolls');
+      expect(payload.error).toBe('An unexpected error occurred');
+      expect(payload.details).toBe('Database connection failed');
     });
   });
 
@@ -268,10 +281,13 @@ describe('Payroll API', () => {
       });
 
       // Mock employee existence check
-      mockPrisma.employee.findFirst.mockResolvedValue({
-        employeeId: 'EMP-003',
-        employeeName: 'Bob Johnson',
-      } as any);
+      mockPrisma.employee.findMany.mockResolvedValue([
+        {
+          employeeId: 'EMP-003',
+          employeeName: 'Bob Johnson',
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ] as any);
 
       mockPrisma.payroll.create.mockResolvedValue({
         id: 'payroll-3',
@@ -286,12 +302,13 @@ describe('Payroll API', () => {
       });
 
       const response = await POST(request);
-      const data = await response.json();
+      const payload = await response.json();
 
-      expect(response.status).toBe(200);
-      expect(data.id).toBe('payroll-3');
-      expect(data.employeeId).toBe('EMP-003');
-      expect(data.employeeName).toBe('Bob Johnson');
+      expect(response.status).toBe(201);
+      expect(payload.success).toBe(true);
+      expect(payload.data.id).toBe('payroll-3');
+      expect(payload.data.employeeId).toBe('EMP-003');
+      expect(payload.data.employeeName).toBe('Bob Johnson');
     });
 
     it('should handle bulk payroll creation', async () => {
@@ -329,6 +346,7 @@ describe('Payroll API', () => {
       mockPrisma.employee.findMany.mockResolvedValue([
         { employeeId: 'EMP-004' },
         { employeeId: 'EMP-005' },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ] as any);
 
       mockPrisma.payroll.create
@@ -384,12 +402,13 @@ describe('Payroll API', () => {
         });
 
       const response = await POST(request);
-      const data = await response.json();
+      const payload = await response.json();
 
-      expect(response.status).toBe(200);
-      expect(data.success).toBe(true);
-      expect(data.count).toBe(2);
-      expect(data.records).toHaveLength(2);
+      expect(response.status).toBe(201);
+      expect(payload.success).toBe(true);
+      expect(payload.data.count).toBe(2);
+      expect(payload.data.records).toHaveLength(2);
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
     });
 
     it('should convert string numbers to actual numbers', async () => {
@@ -411,10 +430,13 @@ describe('Payroll API', () => {
       });
 
       // Mock employee existence check
-      mockPrisma.employee.findFirst.mockResolvedValue({
-        employeeId: 'EMP-006',
-        employeeName: 'Test Employee',
-      } as any);
+      mockPrisma.employee.findMany.mockResolvedValue([
+        {
+          employeeId: 'EMP-006',
+          employeeName: 'Test Employee',
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ] as any);
 
       mockPrisma.payroll.create.mockResolvedValue({
         id: 'payroll-6',
@@ -451,9 +473,10 @@ describe('Payroll API', () => {
       });
 
       const response = await POST(request);
-      await response.json();
+      const payload = await response.json();
 
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(201);
+      expect(payload.success).toBe(true);
       expect(mockPrisma.payroll.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -485,9 +508,12 @@ describe('Payroll API', () => {
       });
 
       // Mock employee check succeeds
-      mockPrisma.employee.findFirst.mockResolvedValue({
-        employeeId: 'EMP-007',
-      } as any);
+      mockPrisma.employee.findMany.mockResolvedValue([
+        {
+          employeeId: 'EMP-007',
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ] as any);
 
       // But create fails
       mockPrisma.payroll.create.mockRejectedValue(
@@ -495,10 +521,10 @@ describe('Payroll API', () => {
       );
 
       const response = await POST(request);
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(500);
-      expect(data.error).toBe('Failed to create payroll');
+      expect(payload.error).toBe('Failed to process payroll request');
     });
   });
 
@@ -523,11 +549,12 @@ describe('Payroll API', () => {
       });
 
       const response = await PUT(request);
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data.status).toBe('approved');
-      expect(data.notes).toBe('Approved by manager');
+      expect(payload.success).toBe(true);
+      expect(payload.data.status).toBe('approved');
+      expect(payload.data.notes).toBe('Approved by manager');
     });
 
     it('should sync deductions when status changes to paid', async () => {
@@ -551,11 +578,11 @@ describe('Payroll API', () => {
       ]);
 
       const response = await PUT(request);
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(200);
       expect(mockSyncPayrollDeductions).toHaveBeenCalledWith([paidPayroll]);
-      expect(data.status).toBe('paid');
+      expect(payload.data.status).toBe('paid');
     });
 
     it('should not sync deductions when status changes to approved', async () => {
@@ -576,9 +603,10 @@ describe('Payroll API', () => {
       });
 
       const response = await PUT(request);
-      await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(200);
+      expect(payload.success).toBe(true);
       expect(mockSyncPayrollDeductions).not.toHaveBeenCalled();
     });
 
@@ -600,9 +628,10 @@ describe('Payroll API', () => {
       });
 
       const response = await PUT(request);
-      await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(200);
+      expect(payload.success).toBe(true);
       expect(mockSyncPayrollDeductions).not.toHaveBeenCalled();
     });
 
@@ -615,10 +644,10 @@ describe('Payroll API', () => {
       mockPrisma.payroll.findUnique.mockResolvedValue(null);
 
       const response = await PUT(request);
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(404);
-      expect(data.error).toBe('Payroll not found');
+      expect(payload.error).toBe('Payroll record not found');
     });
 
     it('should convert string numbers to actual numbers', async () => {
@@ -643,9 +672,10 @@ describe('Payroll API', () => {
       });
 
       const response = await PUT(request);
-      await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(200);
+      expect(payload.success).toBe(true);
       expect(mockPrisma.payroll.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -669,10 +699,10 @@ describe('Payroll API', () => {
       );
 
       const response = await PUT(request);
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(500);
-      expect(data.error).toBe('Failed to update payroll');
+      expect(payload.error).toBe('Failed to process payroll request');
     });
   });
 
@@ -689,14 +719,15 @@ describe('Payroll API', () => {
       });
 
       const response = await DELETE(request);
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data.success).toBe(true);
+      expect(payload.success).toBe(true);
+      expect(payload.data.success).toBe(true);
 
       expect(mockPrisma.payroll.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: 'payroll-1', deletedAt: null },
+          where: { id: 'payroll-1' },
           data: expect.objectContaining({
             deletedAt: expect.any(Date),
           }),
@@ -710,10 +741,10 @@ describe('Payroll API', () => {
       });
 
       const response = await DELETE(request);
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toBe('ID is required');
+      expect(payload.error).toBe('Payroll ID is required');
     });
 
     it('should handle database errors gracefully', async () => {
@@ -727,10 +758,10 @@ describe('Payroll API', () => {
       );
 
       const response = await DELETE(request);
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(500);
-      expect(data.error).toBe('Failed to delete payroll');
+      expect(payload.error).toBe('Failed to process payroll request');
     });
   });
 });

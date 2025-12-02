@@ -1,7 +1,8 @@
-/* eslint-disable no-console */
 import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
+import { ApiResponse } from '@/core/api';
+import { withErrorHandler } from '@/core/api/middleware';
+import { HTTP_STATUS } from '@/shared/constants/api';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
@@ -32,7 +33,7 @@ function dbNotConfigured(): string | null {
  * GET /api/employees
  * Fetch all employees (excluding soft-deleted)
  */
-export async function GET(request: NextRequest) {
+export const GET = withErrorHandler(async (request: NextRequest) => {
   try {
     const { searchParams } = new URL(request.url);
     const department = searchParams.get('department');
@@ -43,7 +44,6 @@ export async function GET(request: NextRequest) {
       deletedAt: null,
     };
 
-    // Sanitize filter parameters
     if (department && department !== 'all') {
       where.department = sanitizers.name(department);
     }
@@ -53,7 +53,6 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      // Sanitize search query to prevent injection
       const sanitizedSearch = sanitizers.name(search);
       where.OR = [
         { name: { contains: sanitizedSearch, mode: 'insensitive' } },
@@ -66,11 +65,6 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    // ========================================================================
-    // ⚠️ QUERY OPTIMIZATION - Use select to fetch only needed fields
-    // ========================================================================
-    // Exclude heavy fields like profilePhoto in list view to reduce data transfer
-    // ========================================================================
     const employees = await prisma.employee.findMany({
       where,
       select: {
@@ -92,163 +86,141 @@ export async function GET(request: NextRequest) {
         basicSalary: true,
         currentSalary: true,
         allowance: true,
-        // Exclude heavy fields for list view:
-        // - profilePhoto (can be large base64 string)
-        // - address, notes (text fields not needed in list)
-        // Client can fetch full details via /api/employees/[id] if needed
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    logger.info(`✅ Fetched ${employees.length} employees`);
-    return NextResponse.json(employees);
+    logger.info('Employees fetched', { total: employees.length });
+    return ApiResponse.success(employees, 'Employees fetched');
   } catch (error) {
-    logger.error('Error fetching employees:', error);
-    return NextResponse.json(
-      {
-        error: 'Failed to fetch employees',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
+    logger.error('Error fetching employees', { error });
+    return ApiResponse.error(
+      'Failed to fetch employees',
+      HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      error instanceof Error ? error.message : undefined
     );
   }
-}
+});
 
 /**
  * POST /api/employees
  * Create a new employee
  */
-export async function POST(request: NextRequest) {
+export const POST = withErrorHandler(async (request: NextRequest) => {
+  logger.info('🔵 [API] POST /api/employees - Request received');
+
+  const misconfig = dbNotConfigured();
+  if (misconfig) {
+    return ApiResponse.error(
+      `Database not configured: ${misconfig}`,
+      HTTP_STATUS.SERVICE_UNAVAILABLE
+    );
+  }
+
+  const body = await request.json();
+  logger.debug('📥 [API] Received employee data:', body);
+
+  const validation = validateEmployee(body);
+  if (!validation.success) {
+    logger.warn('❌ [API] Employee validation failed:', validation.error);
+    return ApiResponse.badRequest(
+      'Validation failed',
+      formatValidationErrors(validation.error)
+    );
+  }
+
+  const validatedData = validation.data;
+
+  const employeeData = {
+    employeeId: validatedData.employeeId,
+    firstName: validatedData.firstName,
+    lastName: validatedData.lastName,
+    middleName: validatedData.middleName || null,
+    name: validatedData.name,
+    phone: validatedData.phone || validatedData.contact,
+    contact: validatedData.contact,
+    email: validatedData.email || null,
+    department: validatedData.department,
+    position: validatedData.position,
+    jobTitle: validatedData.jobTitle,
+    basicSalary: validatedData.basicSalary,
+    currentSalary: validatedData.currentSalary || validatedData.basicSalary,
+    hireDate: validatedData.hireDate,
+    status: validatedData.status,
+    employmentStatus: validatedData.employmentStatus || null,
+    employeeType: validatedData.employeeType || null,
+    office: validatedData.office || null,
+    hiringSource: validatedData.hiringSource || null,
+    sssNumber: validatedData.sssNumber || null,
+    philHealthNumber: validatedData.philHealthNumber || null,
+    hdmfNumber: validatedData.hdmfNumber || null,
+    tinNumber: validatedData.tinNumber || null,
+    gender: validatedData.gender || null,
+    education: validatedData.education || null,
+    dateOfBirth: validatedData.dateOfBirth || null,
+    maritalStatus: validatedData.maritalStatus || null,
+    numberOfKids: validatedData.numberOfKids || null,
+    drivingLicense: validatedData.drivingLicense || null,
+    address: validatedData.address || null,
+    emergencyContactPerson: validatedData.emergencyContactPerson || null,
+    emergencyContactNumber: validatedData.emergencyContactNumber || null,
+    emergencyContact:
+      validatedData.emergencyContact ||
+      validatedData.emergencyContactNumber ||
+      null,
+    bankAccount: validatedData.bankAccount || null,
+    gcashAccount: validatedData.gcashAccount || null,
+    allowance: validatedData.allowance || null,
+    paymentSchedule: validatedData.paymentSchedule || null,
+    sssMonthlyContribution: validatedData.sssMonthlyContribution || null,
+    philHealthMonthlyContribution:
+      validatedData.philHealthMonthlyContribution || null,
+    pagibigMonthlyContribution:
+      validatedData.pagibigMonthlyContribution || null,
+    taxMonthlyContribution: validatedData.taxMonthlyContribution || null,
+    profilePhoto: validatedData.profilePhoto || null,
+  };
+
+  logger.debug('💾 [API] Creating employee with validated data');
+
   try {
-    logger.info('🔵 [API] POST /api/employees - Request received');
-
-    // ========================================================================
-    // ⚠️ DATABASE CONFIGURATION CHECK
-    // ========================================================================
-    const misconfig = dbNotConfigured();
-    if (misconfig) {
-      return NextResponse.json(
-        { error: `Database not configured: ${misconfig}` },
-        { status: 503 }
-      );
-    }
-
-    const body = await request.json();
-    logger.debug('📥 [API] Received employee data:', body);
-
-    // ========================================================================
-    // ⚠️ DATA VALIDATION - Zod Schema
-    // ========================================================================
-    const validation = validateEmployee(body);
-    if (!validation.success) {
-      logger.warn('❌ [API] Employee validation failed:', validation.error);
-      return NextResponse.json(
-        {
-          error: 'Validation failed',
-          details: formatValidationErrors(validation.error),
-        },
-        { status: 400 }
-      );
-    }
-
-    const validatedData = validation.data;
-
-    // Prepare data with proper type conversions
-    const employeeData = {
-      employeeId: validatedData.employeeId,
-      firstName: validatedData.firstName,
-      lastName: validatedData.lastName,
-      middleName: validatedData.middleName || null,
-      name: validatedData.name,
-      phone: validatedData.phone || validatedData.contact,
-      contact: validatedData.contact,
-      email: validatedData.email || null,
-      department: validatedData.department,
-      position: validatedData.position,
-      jobTitle: validatedData.jobTitle,
-      basicSalary: validatedData.basicSalary,
-      currentSalary: validatedData.currentSalary || validatedData.basicSalary,
-      hireDate: validatedData.hireDate,
-      status: validatedData.status,
-      employmentStatus: validatedData.employmentStatus || null,
-      employeeType: validatedData.employeeType || null,
-      office: validatedData.office || null,
-      hiringSource: validatedData.hiringSource || null,
-      sssNumber: validatedData.sssNumber || null,
-      philHealthNumber: validatedData.philHealthNumber || null,
-      hdmfNumber: validatedData.hdmfNumber || null,
-      tinNumber: validatedData.tinNumber || null,
-      gender: validatedData.gender || null,
-      education: validatedData.education || null,
-      dateOfBirth: validatedData.dateOfBirth || null,
-      maritalStatus: validatedData.maritalStatus || null,
-      numberOfKids: validatedData.numberOfKids || null,
-      drivingLicense: validatedData.drivingLicense || null,
-      address: validatedData.address || null,
-      emergencyContactPerson: validatedData.emergencyContactPerson || null,
-      emergencyContactNumber: validatedData.emergencyContactNumber || null,
-      emergencyContact:
-        validatedData.emergencyContact ||
-        validatedData.emergencyContactNumber ||
-        null,
-      bankAccount: validatedData.bankAccount || null,
-      gcashAccount: validatedData.gcashAccount || null,
-      allowance: validatedData.allowance || null,
-      paymentSchedule: validatedData.paymentSchedule || null,
-      sssMonthlyContribution: validatedData.sssMonthlyContribution || null,
-      philHealthMonthlyContribution:
-        validatedData.philHealthMonthlyContribution || null,
-      pagibigMonthlyContribution:
-        validatedData.pagibigMonthlyContribution || null,
-      taxMonthlyContribution: validatedData.taxMonthlyContribution || null,
-      profilePhoto: validatedData.profilePhoto || null,
-    };
-
-    logger.debug('💾 [API] Creating employee with validated data');
-
     const employee = await prisma.employee.create({
       data: employeeData,
     });
 
     logger.success('✅ [API] Employee created successfully:', employee.id);
-    return NextResponse.json(employee, { status: 201 });
+    return ApiResponse.success(
+      employee,
+      'Employee created successfully',
+      HTTP_STATUS.CREATED
+    );
   } catch (error) {
     logger.error('❌ [API] Error creating employee:', error);
 
-    // ========================================================================
-    // ⚠️ ENHANCED ERROR HANDLING - Prisma Error Codes
-    // ========================================================================
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      // P2002 = Unique constraint failed
       if (error.code === 'P2002') {
-        return NextResponse.json(
-          {
-            error: 'Duplicate employee',
-            details: 'An employee with this employee ID already exists',
-            code: error.code,
-          },
-          { status: 409 }
+        return ApiResponse.conflict(
+          'Duplicate employee',
+          'An employee with this employee ID already exists',
+          'employeeId'
         );
       }
     }
 
-    const msg = error instanceof Error ? error.message.toLowerCase() : '';
-    if (msg.includes('authentication failed')) {
-      return NextResponse.json(
-        {
-          error:
-            'Database authentication failed. Check DATABASE_URL credentials.',
-        },
-        { status: 503 }
-      );
+    if (error instanceof Error) {
+      const message = error.message.toLowerCase();
+      if (message.includes('authentication failed')) {
+        return ApiResponse.error(
+          'Database authentication failed. Check DATABASE_URL credentials.',
+          HTTP_STATUS.SERVICE_UNAVAILABLE
+        );
+      }
     }
 
-    return NextResponse.json(
-      {
-        error: 'Failed to create employee',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
+    return ApiResponse.error(
+      'Failed to create employee',
+      HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      error instanceof Error ? error.message : undefined
     );
   }
-}
+});

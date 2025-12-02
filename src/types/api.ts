@@ -69,6 +69,7 @@ export interface ApiErrorResponse {
   field?: string;
   validationErrors?: Record<string, string>;
   suggestion?: string;
+  meta?: Record<string, unknown>;
 }
 
 /**

@@ -15,7 +15,7 @@
 
 /* eslint-disable no-console */
 
-import { isDevelopment } from '@/lib/env';
+const isDevelopment = process.env.NODE_ENV === 'development';
 
 export const logger = {
   /**

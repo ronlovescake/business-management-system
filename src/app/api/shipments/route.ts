@@ -1,12 +1,19 @@
 import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
-import { prisma } from '../../../lib/db';
-import type { ShipmentData, ShipmentDB } from '../../../types';
+import { ApiResponse } from '@/core/api';
+import { withErrorHandler } from '@/core/api/middleware';
+import { MAX_QUERY_LIMIT } from '@/constants/batch-sizes';
+import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
-import { MAX_QUERY_LIMIT } from '@/constants/batch-sizes';
+import {
+  shipmentDataSchema,
+  type ShipmentDataInput,
+} from '@/lib/validations/shipment.validation';
+import { HTTP_STATUS } from '@/shared/constants/api';
+import type { ShipmentData, ShipmentDB } from '@/types';
+import type { ZodError } from 'zod';
 
 const MONTH_NAMES = [
   'Jan',
@@ -22,6 +29,17 @@ const MONTH_NAMES = [
   'Nov',
   'Dec',
 ];
+
+const MASS_DELETE_CONFIRM_TOKEN = 'DELETE_ALL_SHIPMENTS';
+
+interface ShipmentChangeTracking {
+  shipmentId: number;
+  shipmentCode: string;
+  cvNumber: string | null | undefined;
+  changes: string[];
+}
+
+type ShipmentRecord = Record<string, unknown>;
 
 function formatDateValue(date: string | Date | null | undefined): string {
   if (!date) {
@@ -65,28 +83,6 @@ function formatDateValue(date: string | Date | null | undefined): string {
  * Creates a new notification entry for each update. The frontend groups
  * notifications by shipment ID to show change history in a dropdown.
  */
-async function logOperationNotification(
-  category: string,
-  changes: string,
-  metadata?: Record<string, unknown>
-): Promise<void> {
-  try {
-    const id = randomUUID();
-    const metadataJson = metadata ? JSON.stringify(metadata) : null;
-
-    // Use current time in Philippine timezone
-    const now = new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' });
-    const philippineTime = new Date(now);
-
-    await prisma.$executeRaw`
-      INSERT INTO "operations_notifications" (id, category, "user", changes, metadata, "createdAt")
-      VALUES (${id}, ${category}, ${'Operations'}, ${changes}, ${metadataJson}::jsonb, ${philippineTime})
-    `;
-  } catch (error) {
-    logger.warn('Failed to log operations notification:', error);
-  }
-}
-
 // Helper function to convert database model to frontend interface
 function convertShipmentDBToData(shipment: ShipmentDB): ShipmentData {
   return {
@@ -105,25 +101,20 @@ function convertShipmentDBToData(shipment: ShipmentDB): ShipmentData {
   };
 }
 
-// Helper function to convert frontend interface to database model
-function convertShipmentDataToDB(data: Partial<ShipmentData>) {
-  // Use sanitizers for numeric cleaning
-  const cleanNumber = (value: unknown): number => {
-    return sanitizers.number(value, { min: 0, decimals: 2 }) ?? 0;
-  };
-
-  // Use sanitizers for fee value - handles peso symbol and commas
-  const cleanFee = (feeValue: unknown): number => {
-    return sanitizers.number(feeValue, { min: 0, decimals: 2 }) ?? 0;
+function convertShipmentDataToDB(
+  data: Partial<ShipmentData> | ShipmentDataInput
+) {
+  const cleanNumber = (value: unknown, decimals = 2): number => {
+    return sanitizers.number(value, { min: 0, decimals }) ?? 0;
   };
 
   return {
     shipmentCode: sanitizers.productCode(data['Shipment Code']) || '',
     cvNumber: sanitizers.name(data['CV Number']) || null,
-    noOfSacks: Math.round(cleanNumber(data['No. Of Sacks'])), // Must be Int
+    noOfSacks: Math.round(cleanNumber(data['No. Of Sacks'], 0)),
     totalCBM: cleanNumber(data['Total CBM']),
     weight: cleanNumber(data['Weight']),
-    fee: cleanFee(data['Fee']),
+    fee: cleanNumber(data['Fee']),
     shipmentStatus: sanitizers.name(data['Shipment Status']) || '',
     dateCreated: sanitizers.date(data['Date Created']) || null,
     dateDelivered: sanitizers.date(data['Date Delivered']) || null,
@@ -132,12 +123,381 @@ function convertShipmentDataToDB(data: Partial<ShipmentData>) {
   };
 }
 
-// GET /api/shipments - Get all shipments (excluding soft-deleted)
-export async function GET() {
+type ShipmentDbPayload = ReturnType<typeof convertShipmentDataToDB>;
+
+function sanitizeDateField(value: unknown): string | null {
+  const sanitized = sanitizers.date(value);
+  return sanitized || null;
+}
+
+function sanitizeOptionalString(value: unknown): string | null {
+  const sanitized = sanitizers.name(value);
+  return sanitized ? sanitized : null;
+}
+
+function sanitizeDuration(value: unknown): string | null {
+  const sanitized = sanitizers.name(value);
+  if (!sanitized) {
+    return null;
+  }
+  return sanitized.length > 20 ? sanitized.slice(0, 20) : sanitized;
+}
+
+function sanitizeNotes(value: unknown): string | null {
+  const sanitized = sanitizers.notes(value);
+  return sanitized ? sanitized : null;
+}
+
+function sanitizeShipmentRecord(record: ShipmentRecord): ShipmentDataInput {
+  const numberOrZero = (value: unknown, decimals = 2): number =>
+    sanitizers.number(value, { min: 0, decimals }) ?? 0;
+
+  const sacks = numberOrZero(record['No. Of Sacks'], 0);
+  const totalCBM = numberOrZero(record['Total CBM']);
+  const weight = numberOrZero(record['Weight']);
+  const fee = numberOrZero(record['Fee']);
+
+  const status = sanitizeOptionalString(record['Shipment Status']);
+  const duration = sanitizeDuration(record['Duration']);
+  const notes = sanitizeNotes(record['Notes']);
+
+  return {
+    id:
+      typeof record.id === 'number' && Number.isFinite(record.id)
+        ? record.id
+        : undefined,
+    'Shipment Code': sanitizers.productCode(record['Shipment Code']) || '',
+    'CV Number': sanitizeOptionalString(record['CV Number']) ?? undefined,
+    'No. Of Sacks': Math.round(sacks),
+    'Total CBM': totalCBM,
+    Weight: weight,
+    Fee: fee,
+    'Shipment Status': status ?? undefined,
+    'Date Created': sanitizeDateField(record['Date Created']) ?? undefined,
+    'Date Delivered': sanitizeDateField(record['Date Delivered']) ?? undefined,
+    Duration: duration ?? undefined,
+    Notes: notes ?? undefined,
+  } satisfies ShipmentDataInput;
+}
+
+function buildValidationErrors(error: ZodError): Record<string, string> {
+  return error.errors.reduce<Record<string, string>>((acc, issue) => {
+    const key = issue.path.join('.') || 'root';
+    acc[key] = issue.message;
+    return acc;
+  }, {});
+}
+
+function validateSingleShipment(payload: unknown):
+  | { success: true; shipment: ShipmentDataInput }
+  | {
+      success: false;
+      errors: Record<string, string>;
+    } {
+  if (!payload || typeof payload !== 'object') {
+    return {
+      success: false,
+      errors: { payload: 'Invalid shipment payload' },
+    };
+  }
+
+  const sanitized = sanitizeShipmentRecord(payload as ShipmentRecord);
+  const validation = shipmentDataSchema.safeParse(sanitized);
+
+  if (!validation.success) {
+    return {
+      success: false,
+      errors: buildValidationErrors(validation.error),
+    };
+  }
+
+  return { success: true, shipment: validation.data };
+}
+
+function validateShipmentRecords(payload: unknown[]): {
+  valid: ShipmentDataInput[];
+  invalid: Array<{ index: number; issues: Record<string, string> }>;
+} {
+  const valid: ShipmentDataInput[] = [];
+  const invalid: Array<{ index: number; issues: Record<string, string> }> = [];
+
+  payload.forEach((entry, index) => {
+    if (!entry || typeof entry !== 'object') {
+      invalid.push({ index, issues: { payload: 'Invalid shipment entry' } });
+      return;
+    }
+
+    const sanitized = sanitizeShipmentRecord(entry as ShipmentRecord);
+    const result = shipmentDataSchema.safeParse(sanitized);
+
+    if (result.success) {
+      valid.push(result.data);
+    } else {
+      invalid.push({ index, issues: buildValidationErrors(result.error) });
+    }
+  });
+
+  return { valid, invalid };
+}
+
+function compareValues(
+  label: string,
+  previous: string | number | null,
+  next: string | number | null
+): string | null {
+  const normalize = (value: string | number | null) => {
+    if (value === null || value === undefined || value === '') {
+      return 'empty';
+    }
+    return value;
+  };
+
+  const oldValue = normalize(previous);
+  const newValue = normalize(next);
+
+  if (oldValue === newValue) {
+    return null;
+  }
+
+  return `${label}: ${oldValue} → ${newValue}`;
+}
+
+function buildUpdateChangeDetails(
+  existing: ShipmentDB,
+  incoming: ShipmentDbPayload
+): string[] {
+  const changes: string[] = [];
+
+  const comparisons: Array<
+    [string, string | number | null, string | number | null]
+  > = [
+    ['shipmentCode', existing.shipmentCode, incoming.shipmentCode],
+    ['cvNumber', existing.cvNumber, incoming.cvNumber],
+    ['noOfSacks', existing.noOfSacks, incoming.noOfSacks],
+    ['totalCBM', existing.totalCBM, incoming.totalCBM],
+    ['weight', existing.weight, incoming.weight],
+    ['fee', existing.fee, incoming.fee],
+    ['shipmentStatus', existing.shipmentStatus, incoming.shipmentStatus],
+    ['dateCreated', existing.dateCreated, incoming.dateCreated],
+    ['dateDelivered', existing.dateDelivered, incoming.dateDelivered],
+    ['notes', existing.notes, incoming.notes],
+  ];
+
+  comparisons.forEach(([label, prev, next]) => {
+    const diff = compareValues(label, prev, next);
+    if (diff) {
+      changes.push(diff);
+    }
+  });
+
+  return changes;
+}
+
+function buildCreationChangeDetails(incoming: ShipmentDbPayload): string[] {
+  const changes: string[] = [];
+
+  const fields: Array<[string, string | number | null]> = [
+    ['shipmentCode', incoming.shipmentCode],
+    ['cvNumber', incoming.cvNumber],
+    ['noOfSacks', incoming.noOfSacks],
+    ['totalCBM', incoming.totalCBM],
+    ['weight', incoming.weight],
+    ['fee', incoming.fee],
+    ['shipmentStatus', incoming.shipmentStatus],
+    ['dateCreated', incoming.dateCreated],
+    ['dateDelivered', incoming.dateDelivered],
+    ['notes', incoming.notes],
+  ];
+
+  fields.forEach(([label, value]) => {
+    if (value !== null && value !== undefined && value !== '' && value !== 0) {
+      changes.push(`${label}: empty → ${value}`);
+    }
+  });
+
+  return changes;
+}
+
+async function cascadeShipmentDataToProducts(
+  client: Prisma.TransactionClient | typeof prisma,
+  shipmentCode: string,
+  shipmentData: ShipmentDbPayload
+): Promise<void> {
+  if (!shipmentCode) {
+    return;
+  }
+
+  await client.product.updateMany({
+    where: {
+      shipmentCode,
+    },
+    data: {
+      cvNumber: shipmentData.cvNumber,
+      noOfSacks: shipmentData.noOfSacks,
+      totalCBM: shipmentData.totalCBM,
+      weight: shipmentData.weight,
+      shipmentStatus: shipmentData.shipmentStatus,
+    },
+  });
+}
+
+async function createShipmentNotifications(
+  changeTracking: ShipmentChangeTracking[]
+): Promise<void> {
+  if (changeTracking.length === 0) {
+    return;
+  }
+
+  const notificationPromises = changeTracking.map(async (tracked) => {
+    let changeMessage = `Updated shipment #${tracked.shipmentId}`;
+
+    if (tracked.shipmentCode && tracked.cvNumber) {
+      changeMessage += ` - ${tracked.shipmentCode} (${tracked.cvNumber})`;
+    } else if (tracked.shipmentCode) {
+      changeMessage += ` - ${tracked.shipmentCode}`;
+    } else if (tracked.cvNumber) {
+      changeMessage += ` - (${tracked.cvNumber})`;
+    }
+
+    if (tracked.changes.length > 0) {
+      changeMessage += ` - Modified: ${tracked.changes.join(', ')}`;
+    }
+
+    await logOperationNotification('shipments', changeMessage, {
+      shipmentId: tracked.shipmentId,
+    });
+  });
+
+  await Promise.all(notificationPromises);
+  logger.info(
+    `✅ Created ${notificationPromises.length} shipment notifications`
+  );
+}
+
+async function logOperationNotification(
+  category: string,
+  changes: string,
+  metadata?: Record<string, unknown>
+): Promise<void> {
   try {
-    // ========================================================================
-    // ⚠️ SOFT DELETE FILTER
-    // ========================================================================
+    const id = randomUUID();
+    const metadataJson = metadata ? JSON.stringify(metadata) : null;
+    const now = new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' });
+    const philippineTime = new Date(now);
+
+    await prisma.$executeRaw`
+      INSERT INTO "operations_notifications" (id, category, "user", changes, metadata, "createdAt")
+      VALUES (${id}, ${category}, ${'Operations'}, ${changes}, ${metadataJson}::jsonb, ${philippineTime})
+    `;
+  } catch (error) {
+    logger.warn('Failed to log operations notification:', error);
+  }
+}
+
+async function handleSingleShipmentCreation(
+  shipment: ShipmentDataInput
+): Promise<ShipmentData> {
+  const shipmentData = convertShipmentDataToDB(shipment);
+  const createdShipment = await prisma.shipment.create({
+    data: shipmentData,
+  });
+
+  if (shipmentData.shipmentCode) {
+    await cascadeShipmentDataToProducts(
+      prisma,
+      shipmentData.shipmentCode,
+      shipmentData
+    );
+  }
+
+  return convertShipmentDBToData(createdShipment as ShipmentDB);
+}
+
+async function handleBulkShipmentImport(shipmentPayloads: ShipmentDataInput[]) {
+  const shipmentsToPersist = shipmentPayloads.map(convertShipmentDataToDB);
+
+  const result = await prisma.$transaction(async (tx) => {
+    let created = 0;
+    let updated = 0;
+    let restored = 0;
+    const changeTracking: ShipmentChangeTracking[] = [];
+
+    for (const shipmentData of shipmentsToPersist) {
+      if (!shipmentData.shipmentCode) {
+        continue;
+      }
+
+      const existing = await tx.shipment.findFirst({
+        where: { shipmentCode: shipmentData.shipmentCode },
+      });
+
+      if (existing) {
+        const wasDeleted = existing.deletedAt !== null;
+        const changeDetails = buildUpdateChangeDetails(existing, shipmentData);
+
+        await tx.shipment.update({
+          where: { id: existing.id },
+          data: {
+            ...shipmentData,
+            deletedAt: null,
+          },
+        });
+
+        await cascadeShipmentDataToProducts(
+          tx,
+          shipmentData.shipmentCode,
+          shipmentData
+        );
+
+        if (changeDetails.length > 0) {
+          changeTracking.push({
+            shipmentId: existing.id,
+            shipmentCode: shipmentData.shipmentCode,
+            cvNumber: shipmentData.cvNumber,
+            changes: changeDetails,
+          });
+        }
+
+        if (wasDeleted) {
+          restored++;
+        } else {
+          updated++;
+        }
+
+        continue;
+      }
+
+      const newShipment = await tx.shipment.create({ data: shipmentData });
+
+      await cascadeShipmentDataToProducts(
+        tx,
+        shipmentData.shipmentCode,
+        shipmentData
+      );
+
+      const creationChanges = buildCreationChangeDetails(shipmentData);
+      if (creationChanges.length > 0) {
+        changeTracking.push({
+          shipmentId: newShipment.id,
+          shipmentCode: shipmentData.shipmentCode,
+          cvNumber: shipmentData.cvNumber,
+          changes: creationChanges,
+        });
+      }
+
+      created++;
+    }
+
+    return { created, updated, restored, changeTracking };
+  });
+
+  await createShipmentNotifications(result.changeTracking);
+
+  return result;
+}
+
+export const GET = withErrorHandler(async () => {
+  try {
     const shipments = await prisma.shipment.findMany({
       where: {
         deletedAt: null,
@@ -146,486 +506,149 @@ export async function GET() {
     });
 
     const convertedShipments = shipments.map(convertShipmentDBToData);
-
-    return NextResponse.json(convertedShipments);
+    logger.info('Shipments fetched', { count: convertedShipments.length });
+    return ApiResponse.success(convertedShipments, 'Shipments fetched');
   } catch (error) {
-    logger.error('Error fetching shipments:', error);
-    return NextResponse.json(
-      {
-        error: 'Failed to fetch shipments',
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    );
+    logger.error('Error fetching shipments', { error });
+    return ApiResponse.error('Failed to fetch shipments');
   }
-}
+});
 
-// POST /api/shipments - Create new shipment or bulk import
-export async function POST(request: NextRequest) {
+export const POST = withErrorHandler(async (request: NextRequest) => {
   try {
     const body = await request.json();
+    const payloadSize = Array.isArray(body) ? body.length : 1;
+    logger.debug('Received shipment payload', { count: payloadSize });
 
-    logger.debug(
-      'Received shipment data, count:',
-      Array.isArray(body) ? body.length : 1
-    );
-
-    // ========================================================================
-    // ⚠️ DATA VALIDATION - Format Check
-    // ========================================================================
-    if (!Array.isArray(body) && typeof body !== 'object') {
-      return NextResponse.json(
-        {
-          error: 'Invalid data format',
-          details: 'Expected an object or array of shipments',
-        },
-        { status: 400 }
-      );
+    if (!Array.isArray(body) && (typeof body !== 'object' || body === null)) {
+      return ApiResponse.badRequest('Invalid data format', {
+        payload: 'Expected an object or array of shipments',
+      });
     }
 
-    // Check if it's a single shipment or bulk import
     if (Array.isArray(body)) {
-      // ========================================================================
-      // ⚠️ BATCH SIZE LIMIT - Maximum records per import
-      // ========================================================================
+      if (body.length === 0) {
+        return ApiResponse.badRequest('Invalid data format', {
+          payload: 'Shipment array cannot be empty',
+        });
+      }
+
       if (body.length > MAX_QUERY_LIMIT) {
         logger.warn(
           `Batch size limit exceeded: ${body.length} records (max ${MAX_QUERY_LIMIT})`
         );
-        return NextResponse.json(
-          {
-            error: 'Batch size limit exceeded',
-            details: `You are trying to import ${body.length} records. Maximum is ${MAX_QUERY_LIMIT.toLocaleString()} records per import.`,
-            suggestion: `Please split your import into smaller batches of ${MAX_QUERY_LIMIT.toLocaleString()} records or less.`,
-          },
-          { status: 413 } // Payload Too Large
-        );
+        return ApiResponse.payloadTooLarge(body.length, MAX_QUERY_LIMIT);
       }
 
-      // ========================================================================
-      // ⚠️ BULK IMPORT - Clear existing and insert new (legacy behavior)
-      // ========================================================================
-      const shipmentsToCreate = body.map((item, index) => {
-        try {
-          return convertShipmentDataToDB(item);
-        } catch (err) {
-          logger.error(
-            `Error converting shipment at index ${index}:`,
-            err,
-            'Data:',
-            item
-          );
-          throw err;
-        }
-      });
+      const { valid, invalid } = validateShipmentRecords(body);
 
-      logger.debug('Converted shipments, count:', shipmentsToCreate.length);
-
-      // ========================================================================
-      // ⚠️ ATOMIC BULK IMPORT - Upsert/Restore Pattern with change tracking
-      // ========================================================================
-      // Use upsert to maintain stable IDs and restore soft-deleted records
-      // Track changes for: Shipment Code, CV Number, No. Of Sacks, Total CBM,
-      // Weight, Fee, Shipment Status, Date Created, Date Delivered, Notes
-      // ========================================================================
-      const result = await prisma.$transaction(async (tx) => {
-        let created = 0;
-        let updated = 0;
-        let restored = 0;
-
-        const changeTracking: Array<{
-          shipmentId: number;
-          shipmentCode: string;
-          cvNumber: string | null;
-          changes: string[];
-        }> = [];
-
-        const productClient = (tx as typeof prisma).product ?? prisma.product;
-
-        for (const shipmentData of shipmentsToCreate) {
-          const shipmentCode = shipmentData.shipmentCode;
-
-          if (!shipmentCode) {
-            continue; // Skip records without shipment code
-          }
-
-          // Check if shipment exists (including soft-deleted)
-          const existing = await tx.shipment.findFirst({
-            where: { shipmentCode },
-          });
-
-          if (existing) {
-            // Track changes for tracked fields only
-            const changeDetails: string[] = [];
-
-            // Shipment Code (shouldn't change, but track just in case)
-            const normalizedOldShipment = existing.shipmentCode || '';
-            const normalizedNewShipment = shipmentData.shipmentCode || '';
-            if (normalizedOldShipment !== normalizedNewShipment) {
-              changeDetails.push(
-                `shipmentCode: ${existing.shipmentCode || 'empty'} → ${shipmentData.shipmentCode || 'empty'}`
-              );
-            }
-
-            // CV Number
-            const normalizedOldCV = existing.cvNumber || '';
-            const normalizedNewCV = shipmentData.cvNumber || '';
-            if (normalizedOldCV !== normalizedNewCV) {
-              changeDetails.push(
-                `cvNumber: ${existing.cvNumber || 'empty'} → ${shipmentData.cvNumber || 'empty'}`
-              );
-            }
-
-            // No. Of Sacks
-            const oldSacks = existing.noOfSacks ?? 0;
-            const newSacks = shipmentData.noOfSacks ?? 0;
-            if (oldSacks !== newSacks) {
-              changeDetails.push(`noOfSacks: ${oldSacks} → ${newSacks}`);
-            }
-
-            // Total CBM
-            const oldCBM = existing.totalCBM ?? 0;
-            const newCBM = shipmentData.totalCBM ?? 0;
-            if (oldCBM !== newCBM) {
-              changeDetails.push(`totalCBM: ${oldCBM} → ${newCBM}`);
-            }
-
-            // Weight
-            const oldWeight = existing.weight ?? 0;
-            const newWeight = shipmentData.weight ?? 0;
-            if (oldWeight !== newWeight) {
-              changeDetails.push(`weight: ${oldWeight} → ${newWeight}`);
-            }
-
-            // Fee
-            const oldFee = existing.fee ?? 0;
-            const newFee = shipmentData.fee ?? 0;
-            if (oldFee !== newFee) {
-              changeDetails.push(`fee: ${oldFee} → ${newFee}`);
-            }
-
-            // Shipment Status
-            const normalizedOldStatus = existing.shipmentStatus || '';
-            const normalizedNewStatus = shipmentData.shipmentStatus || '';
-            if (normalizedOldStatus !== normalizedNewStatus) {
-              changeDetails.push(
-                `shipmentStatus: ${existing.shipmentStatus || 'empty'} → ${shipmentData.shipmentStatus || 'empty'}`
-              );
-            }
-
-            // Date Created
-            const normalizedOldCreated = existing.dateCreated || null;
-            const normalizedNewCreated = shipmentData.dateCreated || null;
-            if (normalizedOldCreated !== normalizedNewCreated) {
-              changeDetails.push(
-                `dateCreated: ${existing.dateCreated || 'empty'} → ${shipmentData.dateCreated || 'empty'}`
-              );
-            }
-
-            // Date Delivered
-            const normalizedOldDelivered = existing.dateDelivered || null;
-            const normalizedNewDelivered = shipmentData.dateDelivered || null;
-            if (normalizedOldDelivered !== normalizedNewDelivered) {
-              changeDetails.push(
-                `dateDelivered: ${existing.dateDelivered || 'empty'} → ${shipmentData.dateDelivered || 'empty'}`
-              );
-            }
-
-            // Notes
-            const normalizedOldNotes = existing.notes || null;
-            const normalizedNewNotes = shipmentData.notes || null;
-            if (normalizedOldNotes !== normalizedNewNotes) {
-              changeDetails.push(
-                `notes: ${existing.notes || 'empty'} → ${shipmentData.notes || 'empty'}`
-              );
-            }
-
-            // Update existing shipment and restore if soft-deleted
-            const wasDeleted = existing.deletedAt !== null;
-            await tx.shipment.update({
-              where: { id: existing.id },
-              data: {
-                ...shipmentData,
-                deletedAt: null, // Auto-restore if previously soft-deleted
-              },
-            });
-
-            // Cascade update to products with this shipment code
-            await productClient.updateMany({
-              where: {
-                shipmentCode: shipmentCode,
-              },
-              data: {
-                cvNumber: shipmentData.cvNumber,
-                noOfSacks: shipmentData.noOfSacks,
-                totalCBM: shipmentData.totalCBM,
-                weight: shipmentData.weight,
-                shipmentStatus: shipmentData.shipmentStatus,
-              },
-            });
-
-            // Track changes if any fields actually changed
-            if (changeDetails.length > 0) {
-              changeTracking.push({
-                shipmentId: existing.id,
-                shipmentCode: shipmentCode,
-                cvNumber: shipmentData.cvNumber,
-                changes: changeDetails,
-              });
-            }
-
-            if (wasDeleted) {
-              restored++;
-            } else {
-              updated++;
-            }
-          } else {
-            // Create new shipment
-            const newShipment = await tx.shipment.create({
-              data: shipmentData,
-            });
-
-            // Cascade create to products with this shipment code
-            await productClient.updateMany({
-              where: {
-                shipmentCode: shipmentCode,
-              },
-              data: {
-                cvNumber: shipmentData.cvNumber,
-                noOfSacks: shipmentData.noOfSacks,
-                totalCBM: shipmentData.totalCBM,
-                weight: shipmentData.weight,
-                shipmentStatus: shipmentData.shipmentStatus,
-              },
-            });
-
-            // Track new shipment creation with initial values
-            const changeDetails: string[] = [];
-            if (shipmentData.shipmentCode) {
-              changeDetails.push(
-                `shipmentCode: empty → ${shipmentData.shipmentCode}`
-              );
-            }
-            if (shipmentData.cvNumber) {
-              changeDetails.push(`cvNumber: empty → ${shipmentData.cvNumber}`);
-            }
-            if (shipmentData.noOfSacks) {
-              changeDetails.push(`noOfSacks: 0 → ${shipmentData.noOfSacks}`);
-            }
-            if (shipmentData.totalCBM) {
-              changeDetails.push(`totalCBM: 0 → ${shipmentData.totalCBM}`);
-            }
-            if (shipmentData.weight) {
-              changeDetails.push(`weight: 0 → ${shipmentData.weight}`);
-            }
-            if (shipmentData.fee) {
-              changeDetails.push(`fee: 0 → ${shipmentData.fee}`);
-            }
-            if (shipmentData.shipmentStatus) {
-              changeDetails.push(
-                `shipmentStatus: empty → ${shipmentData.shipmentStatus}`
-              );
-            }
-            if (shipmentData.dateCreated) {
-              changeDetails.push(
-                `dateCreated: empty → ${shipmentData.dateCreated}`
-              );
-            }
-            if (shipmentData.dateDelivered) {
-              changeDetails.push(
-                `dateDelivered: empty → ${shipmentData.dateDelivered}`
-              );
-            }
-            if (shipmentData.notes) {
-              changeDetails.push(`notes: empty → ${shipmentData.notes}`);
-            }
-
-            if (changeDetails.length > 0) {
-              changeTracking.push({
-                shipmentId: newShipment.id,
-                shipmentCode: shipmentCode,
-                cvNumber: shipmentData.cvNumber,
-                changes: changeDetails,
-              });
-            }
-
-            created++;
-          }
-        }
-
-        return { created, updated, restored, changeTracking };
-      });
-
-      logger.info(
-        `✅ Imported shipments: ${result.created} created, ${result.updated} updated, ${result.restored} restored`
-      );
-
-      // ========================================================================
-      // ⚠️ LOG NOTIFICATIONS - One notification per unique shipment with change details
-      // ========================================================================
-      try {
-        // Create notifications for all shipments with changes
-        const notificationPromises = result.changeTracking.map(
-          async (tracked) => {
-            // Build notification message
-            // Format: "Updated shipment #123 - ShipmentCode (CVNumber) - Modified: field: old → new"
-            let changeMessage = `Updated shipment #${tracked.shipmentId}`;
-
-            if (tracked.shipmentCode && tracked.cvNumber) {
-              changeMessage += ` - ${tracked.shipmentCode} (${tracked.cvNumber})`;
-            } else if (tracked.shipmentCode) {
-              changeMessage += ` - ${tracked.shipmentCode}`;
-            } else if (tracked.cvNumber) {
-              changeMessage += ` - (${tracked.cvNumber})`;
-            }
-
-            if (tracked.changes.length > 0) {
-              changeMessage += ` - Modified: ${tracked.changes.join(', ')}`;
-            }
-
-            await logOperationNotification('shipments', changeMessage, {
-              shipmentId: tracked.shipmentId,
-            });
-          }
-        );
-
-        await Promise.all(notificationPromises);
-        logger.info(
-          `✅ Created ${notificationPromises.length} shipment notifications`
-        );
-      } catch (notifError) {
-        // Don't fail the request if notification logging fails
-        logger.warn('Failed to log shipment notifications:', notifError);
-      }
-
-      return NextResponse.json({
-        message: 'Shipments imported successfully',
-        created: result.created,
-        updated: result.updated,
-        restored: result.restored,
-        total: result.created + result.updated + result.restored,
-      });
-    } else {
-      // Single shipment creation
-      const shipmentData = convertShipmentDataToDB(body);
-      const createdShipment = await prisma.shipment.create({
-        data: shipmentData,
-      });
-
-      // Cascade update to products with this shipment code
-      if (shipmentData.shipmentCode) {
-        await prisma.product.updateMany({
-          where: {
-            shipmentCode: shipmentData.shipmentCode,
-          },
-          data: {
-            cvNumber: shipmentData.cvNumber,
-            noOfSacks: shipmentData.noOfSacks,
-            totalCBM: shipmentData.totalCBM,
-            weight: shipmentData.weight,
-            shipmentStatus: shipmentData.shipmentStatus,
-          },
+      if (valid.length === 0) {
+        return ApiResponse.badRequest('Validation failed', {
+          shipments:
+            'All rows failed validation. Please review and fix the import file.',
         });
-
-        logger.debug(
-          `Cascaded shipment data to products with code: ${shipmentData.shipmentCode}`
-        );
       }
 
-      const convertedShipment = convertShipmentDBToData(
-        createdShipment as ShipmentDB
+      const summary = await handleBulkShipmentImport(valid);
+
+      const { created, updated, restored } = summary;
+
+      logger.info('Shipments import completed', {
+        created,
+        updated,
+        restored,
+        skipped: invalid.length,
+      });
+
+      return ApiResponse.success(
+        {
+          created,
+          updated,
+          restored,
+          skipped: invalid.length,
+          skippedDetails: invalid,
+          total: created + updated + restored,
+        },
+        'Shipments imported successfully'
       );
-
-      logger.info('✅ Created single shipment');
-
-      return NextResponse.json(convertedShipment, { status: 201 });
     }
-  } catch (error) {
-    logger.error('Error creating shipment(s):', error);
 
-    // Enhanced error handling
+    const validation = validateSingleShipment(body);
+    if (!validation.success) {
+      return ApiResponse.badRequest('Validation failed', validation.errors);
+    }
+
+    const shipment = await handleSingleShipmentCreation(validation.shipment);
+    logger.info('Created single shipment', {
+      shipmentCode: validation.shipment['Shipment Code'],
+    });
+
+    return ApiResponse.success(
+      shipment,
+      'Shipment created',
+      HTTP_STATUS.CREATED
+    );
+  } catch (error) {
+    logger.error('Error creating shipment(s)', { error });
+
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === 'P2002') {
-        return NextResponse.json(
-          {
-            error: 'Duplicate shipment',
-            details: 'A shipment with this code already exists',
-            code: error.code,
-          },
-          { status: 409 }
+        return ApiResponse.conflict(
+          'Duplicate shipment',
+          'A shipment with this code already exists',
+          'Shipment Code'
         );
       }
     }
 
-    return NextResponse.json(
-      {
-        error: 'Failed to create shipment(s)',
-        details: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    );
+    return ApiResponse.error('Failed to create shipment(s)');
   }
-}
+});
 
-// DELETE - Delete all shipments (with safety protection)
-export async function DELETE(request: NextRequest) {
+export const DELETE = withErrorHandler(async (request: NextRequest) => {
   try {
-    // ========================================================================
-    // ⚠️ MASS DELETION PROTECTION
-    // ========================================================================
     const { searchParams } = new URL(request.url);
     const confirmParam = searchParams.get('confirm');
 
-    if (confirmParam !== 'DELETE_ALL_SHIPMENTS') {
-      return NextResponse.json(
-        {
-          error: 'Mass deletion protection',
-          details:
-            'You must provide confirmation query parameter to delete all shipments',
-          required: '?confirm=DELETE_ALL_SHIPMENTS',
-          example: '/api/shipments?confirm=DELETE_ALL_SHIPMENTS',
-          suggestion:
-            'This safety measure prevents accidental deletion of all records.',
-        },
-        { status: 400 } // Bad Request
-      );
+    if (confirmParam !== MASS_DELETE_CONFIRM_TOKEN) {
+      return ApiResponse.badRequest('Mass deletion protection', {
+        confirm: `Provide ?confirm=${MASS_DELETE_CONFIRM_TOKEN} to acknowledge the operation`,
+      });
     }
 
-    logger.warn('⚠️ Mass deletion requested with confirmation');
+    logger.warn('Mass deletion requested for shipments');
 
-    // ========================================================================
-    // ⚠️ SOFT DELETE - Mark as deleted instead of hard delete
-    // ========================================================================
-
-    // Check how many are already soft-deleted for observability
     const alreadyDeleted = await prisma.shipment.count({
       where: { deletedAt: { not: null } },
     });
 
     const result = await prisma.shipment.updateMany({
-      where: { deletedAt: null }, // Only soft-delete active records
+      where: { deletedAt: null },
       data: {
         deletedAt: new Date(),
       },
     });
 
-    logger.info(
-      `✅ Soft deleted ${result.count} shipments (${alreadyDeleted} were already deleted)`
-    );
-
-    return NextResponse.json({
-      message: `Successfully deleted ${result.count} shipment records`,
-      count: result.count,
-      note: 'Records are soft-deleted and can be recovered if needed',
+    logger.info('Shipments soft deleted', {
+      deleted: result.count,
+      previouslyDeleted: alreadyDeleted,
     });
-  } catch (error) {
-    logger.error('Failed to delete shipments:', error);
-    return NextResponse.json(
+
+    return ApiResponse.success(
       {
-        error: 'Failed to delete shipments',
-        details: error instanceof Error ? error.message : String(error),
+        deleted: result.count,
+        note: 'Records are soft-deleted and can be recovered if needed',
       },
-      { status: 500 }
+      'Shipments soft deleted'
     );
+  } catch (error) {
+    logger.error('Failed to delete shipments', { error });
+    return ApiResponse.error('Failed to delete shipments');
   }
-}
+});
+
+export {
+  sanitizeShipmentRecord,
+  validateShipmentRecords,
+  validateSingleShipment,
+};

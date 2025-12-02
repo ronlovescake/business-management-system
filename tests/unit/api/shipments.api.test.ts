@@ -111,8 +111,10 @@ describe('Shipments API - /api/shipments', () => {
       );
 
       const response = await getShipments();
-      const data = await response.json();
+      const payload = await response.json();
+      const data = payload.data;
 
+      expect(payload.success).toBe(true);
       expect(prisma.shipment.findMany).toHaveBeenCalledWith({
         where: { deletedAt: null },
         orderBy: { id: 'asc' },
@@ -138,9 +140,10 @@ describe('Shipments API - /api/shipments', () => {
       vi.mocked(prisma.shipment.findMany).mockResolvedValue([]);
 
       const response = await getShipments();
-      const data = await response.json();
+      const payload = await response.json();
 
-      expect(data).toEqual([]);
+      expect(payload.success).toBe(true);
+      expect(payload.data).toEqual([]);
     });
 
     it('should handle database errors gracefully', async () => {
@@ -149,13 +152,11 @@ describe('Shipments API - /api/shipments', () => {
       );
 
       const response = await getShipments();
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(500);
-      expect(data).toEqual({
-        error: 'Failed to fetch shipments',
-        details: 'DB Error',
-      });
+      expect(payload.success).toBe(false);
+      expect(payload.error).toBe('Failed to fetch shipments');
     });
   });
 
@@ -168,7 +169,7 @@ describe('Shipments API - /api/shipments', () => {
         'Total CBM': 12.3,
         Weight: 350.5,
         Fee: 3500,
-        'Shipment Status': 'Manila Port',
+        'Shipment Status': 'In Transit',
         'Date Created': 'Jan 10, 2025',
         'Date Delivered': '',
         Duration: '',
@@ -183,7 +184,7 @@ describe('Shipments API - /api/shipments', () => {
         totalCBM: 12.3,
         weight: 350.5,
         fee: 3500,
-        shipmentStatus: 'Manila Port',
+        shipmentStatus: 'In Transit',
         dateCreated: '2025-01-10',
         dateDelivered: null,
         duration: null,
@@ -200,12 +201,14 @@ describe('Shipments API - /api/shipments', () => {
       });
 
       const response = await createShipments(request as any);
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(201);
-      expect(data['Shipment Code']).toBe('SH-003');
-      expect(data['CV Number']).toBe('CV-99999');
-      expect(data['No. Of Sacks']).toBe(75);
+      expect(payload.success).toBe(true);
+      expect(payload.message).toBe('Shipment created');
+      expect(payload.data['Shipment Code']).toBe('SH-003');
+      expect(payload.data['CV Number']).toBe('CV-99999');
+      expect(payload.data['No. Of Sacks']).toBe(75);
     });
 
     it('should handle currency symbols in Fee field (₱)', async () => {
@@ -414,10 +417,11 @@ describe('Shipments API - /api/shipments', () => {
       });
 
       const response = await createShipments(request as any);
-      const data = await response.json();
+      const payload = await response.json();
 
-      expect(data.message).toBe('Shipments imported successfully');
-      expect(data.total).toBe(2);
+      expect(payload.success).toBe(true);
+      expect(payload.message).toBe('Shipments imported successfully');
+      expect(payload.data.total).toBe(2);
     });
 
     it('should handle bulk import with currency and comma cleaning', async () => {
@@ -471,10 +475,11 @@ describe('Shipments API - /api/shipments', () => {
       ) as any;
 
       const response = await deleteAllShipments(request);
-      const data = await response.json();
+      const payload = await response.json();
 
-      expect(data.message).toBe('Successfully deleted 10 shipment records');
-      expect(data.count).toBe(10);
+      expect(payload.success).toBe(true);
+      expect(payload.message).toBe('Shipments soft deleted');
+      expect(payload.data.deleted).toBe(10);
     });
 
     it('should handle deleting when no shipments exist', async () => {
@@ -491,9 +496,10 @@ describe('Shipments API - /api/shipments', () => {
       ) as any;
 
       const response = await deleteAllShipments(request);
-      const data = await response.json();
+      const payload = await response.json();
 
-      expect(data.count).toBe(0);
+      expect(payload.success).toBe(true);
+      expect(payload.data.deleted).toBe(0);
     });
   });
 });
@@ -526,13 +532,14 @@ describe('Shipments API - /api/shipments/[id]', () => {
 
       const request = new Request('http://localhost/api/shipments/1') as any;
       const response = await getShipmentById(request, { params: { id: '1' } });
-      const data = await response.json();
+      const payload = await response.json();
 
+      expect(payload.success).toBe(true);
       expect(prisma.shipment.findUnique).toHaveBeenCalledWith({
         where: { id: 1 },
       });
-      expect(data['Shipment Code']).toBe('SH-001');
-      expect(data['CV Number']).toBe('CV-12345');
+      expect(payload.data['Shipment Code']).toBe('SH-001');
+      expect(payload.data['CV Number']).toBe('CV-12345');
     });
 
     it('should return 404 when shipment not found', async () => {
@@ -542,10 +549,11 @@ describe('Shipments API - /api/shipments/[id]', () => {
       const response = await getShipmentById(request, {
         params: { id: '999' },
       });
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(404);
-      expect(data.error).toBe('Shipment not found');
+      expect(payload.success).toBe(false);
+      expect(payload.error).toBe('Shipment not found');
     });
 
     it('should return 400 for invalid ID format', async () => {
@@ -553,10 +561,11 @@ describe('Shipments API - /api/shipments/[id]', () => {
       const response = await getShipmentById(request, {
         params: { id: 'abc' },
       });
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toBe('Invalid shipment ID');
+      expect(payload.success).toBe(false);
+      expect(payload.error).toBe('Invalid shipment ID');
     });
   });
 
@@ -614,7 +623,7 @@ describe('Shipments API - /api/shipments/[id]', () => {
       }) as any;
 
       const response = await updateShipment(request, { params: { id: '1' } });
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(prisma.shipment.update).toHaveBeenCalledWith({
         where: { id: 1 },
@@ -635,7 +644,9 @@ describe('Shipments API - /api/shipments/[id]', () => {
         }),
       });
 
-      expect(data['CV Number']).toBe('CV-NEW');
+      expect(payload.success).toBe(true);
+      expect(payload.message).toBe('Shipment updated');
+      expect(payload.data['CV Number']).toBe('CV-NEW');
     });
 
     it('should return 404 when updating non-existent shipment', async () => {
@@ -647,10 +658,11 @@ describe('Shipments API - /api/shipments/[id]', () => {
       }) as any;
 
       const response = await updateShipment(request, { params: { id: '999' } });
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(404);
-      expect(data.error).toBe('Shipment not found');
+      expect(payload.success).toBe(false);
+      expect(payload.error).toBe('Shipment not found');
     });
   });
 
@@ -660,21 +672,24 @@ describe('Shipments API - /api/shipments/[id]', () => {
 
       const request = new Request('http://localhost/api/shipments/1') as any;
       const response = await deleteShipment(request, { params: { id: '1' } });
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(prisma.shipment.delete).toHaveBeenCalledWith({
         where: { id: 1 },
       });
-      expect(data.message).toBe('Shipment deleted successfully');
+      expect(payload.success).toBe(true);
+      expect(payload.message).toBe('Shipment deleted successfully');
+      expect(payload.data.id).toBe(1);
     });
 
     it('should return 400 for invalid ID', async () => {
       const request = new Request('http://localhost/api/shipments/xyz') as any;
       const response = await deleteShipment(request, { params: { id: 'xyz' } });
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toBe('Invalid shipment ID');
+      expect(payload.success).toBe(false);
+      expect(payload.error).toBe('Invalid shipment ID');
     });
   });
 });

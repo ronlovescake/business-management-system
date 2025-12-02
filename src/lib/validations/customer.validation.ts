@@ -154,6 +154,73 @@ export const customerQuerySchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).optional(),
 });
 
+const MAX_ADDITIONAL_INFO_ENTRIES = 5;
+const additionalInfoTypeEnum = z.enum(['address', 'phone', 'shopee_username']);
+
+function createAdditionalInfoEntrySchema(options: {
+  field: string;
+  maxLength: number;
+}) {
+  return z.object({
+    id: z.string().optional(),
+    value: z
+      .string()
+      .trim()
+      .min(1, `${options.field} is required`)
+      .max(
+        options.maxLength,
+        `${options.field} must not exceed ${options.maxLength} characters`
+      ),
+  });
+}
+
+const addressEntrySchema = createAdditionalInfoEntrySchema({
+  field: 'Address',
+  maxLength: 500,
+});
+
+const phoneEntrySchema = createAdditionalInfoEntrySchema({
+  field: 'Phone number',
+  maxLength: 50,
+});
+
+const genericEntrySchema = createAdditionalInfoEntrySchema({
+  field: 'Value',
+  maxLength: 255,
+});
+
+export const customerAdditionalInfoSchema = z.object({
+  addresses: z
+    .array(addressEntrySchema)
+    .max(MAX_ADDITIONAL_INFO_ENTRIES, 'Maximum of 5 addresses allowed')
+    .optional(),
+  phones: z
+    .array(phoneEntrySchema)
+    .max(MAX_ADDITIONAL_INFO_ENTRIES, 'Maximum of 5 phone numbers allowed')
+    .optional(),
+  shopeeUsernames: z
+    .array(genericEntrySchema)
+    .max(MAX_ADDITIONAL_INFO_ENTRIES, 'Maximum of 5 Shopee usernames allowed')
+    .optional(),
+  alternateNames: z
+    .array(genericEntrySchema)
+    .max(MAX_ADDITIONAL_INFO_ENTRIES, 'Maximum of 5 alternate names allowed')
+    .optional(),
+  facebookAccounts: z
+    .array(genericEntrySchema)
+    .max(MAX_ADDITIONAL_INFO_ENTRIES, 'Maximum of 5 Facebook accounts allowed')
+    .optional(),
+});
+
+export const customerAdditionalInfoAddSchema = z.object({
+  type: additionalInfoTypeEnum,
+  value: z
+    .string()
+    .trim()
+    .min(1, 'Value is required')
+    .max(500, 'Value must not exceed 500 characters'),
+});
+
 /**
  * Type inference from schemas
  */
@@ -164,6 +231,12 @@ export type PartialCustomerDataInput = z.infer<
 >;
 export type BulkCustomerInput = z.infer<typeof bulkCustomerSchema>;
 export type CustomerQueryInput = z.infer<typeof customerQuerySchema>;
+export type CustomerAdditionalInfoInput = z.infer<
+  typeof customerAdditionalInfoSchema
+>;
+export type CustomerAdditionalInfoAddInput = z.infer<
+  typeof customerAdditionalInfoAddSchema
+>;
 
 /**
  * Validation helper functions

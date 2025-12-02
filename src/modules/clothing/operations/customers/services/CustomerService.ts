@@ -6,8 +6,66 @@ import type {
   CustomerWithSearchIndex,
   CustomerStatusOption,
 } from '../types/customer.types';
+import type { ApiResponse } from '@/types/api';
 import { api } from '@/lib/api/client';
+import { ensureArray } from '@/lib/api/normalize';
 import { logger } from '@/lib/logger';
+
+type CustomerExportApiCustomer = {
+  id: number;
+  date: string;
+  customerName: string;
+  phoneNumber: string;
+  address: string;
+  facebook: string;
+  emailAddress: string;
+  businessName: string;
+  taxNumber: string;
+  businessAddress: string;
+  businessContactNumber: string;
+  customerStatus: string;
+  shopeeUsernames: string[];
+  additionalAddresses: string[];
+  additionalPhones: string[];
+  alternateNames: string[];
+  facebookAccounts: string[];
+};
+
+type CustomerExportApiStats = {
+  totalCustomers: number;
+  withShopeeUsernames: number;
+  withAdditionalAddresses: number;
+  withAdditionalPhones: number;
+  withAlternateNames: number;
+  withFacebookAccounts: number;
+  totalShopeeUsernames: number;
+  totalAdditionalAddresses: number;
+  totalAdditionalPhones: number;
+  totalAlternateNames: number;
+  totalFacebookAccounts: number;
+  maxShopeeUsernames: number;
+  maxAdditionalAddresses: number;
+  maxAdditionalPhones: number;
+  maxAlternateNames: number;
+  maxFacebookAccounts: number;
+};
+
+type CustomerExportApiResponse = ApiResponse<{
+  customers: CustomerExportApiCustomer[];
+  stats: CustomerExportApiStats;
+}>;
+
+type CustomerImportStats = {
+  totalRows: number;
+  customersCreated: number;
+  customersUpdated: number;
+  additionalInfoCreated: number;
+  errors: Array<{ row: number; error: string }>;
+};
+
+type CustomerImportApiResponse = ApiResponse<{
+  stats: CustomerImportStats;
+}>;
 
 /**
  * Customer Service
@@ -279,42 +337,16 @@ class CustomerService {
   ): Promise<{ success: boolean; warning?: string }> {
     try {
       // Fetch customers with all additional info
-      const response = await api.get<{
-        success: boolean;
-        data: Array<{
-          id: number;
-          date: string;
-          customerName: string;
-          phoneNumber: string;
-          address: string;
-          facebook: string;
-          emailAddress: string;
-          businessName: string;
-          taxNumber: string;
-          businessAddress: string;
-          businessContactNumber: string;
-          customerStatus: string;
-          shopeeUsernames: string[];
-          additionalAddresses: string[];
-          additionalPhones: string[];
-          alternateNames: string[];
-          facebookAccounts: string[];
-        }>;
-        stats: {
-          maxShopeeUsernames: number;
-          maxAdditionalAddresses: number;
-          maxAdditionalPhones: number;
-          maxAlternateNames: number;
-          maxFacebookAccounts: number;
-        };
-      }>('/api/customers/export');
+      const response = await api.get<CustomerExportApiResponse>(
+        '/api/customers/export',
+        { unwrapApiResponse: false }
+      );
 
-      if (!response.success) {
+      if (!response.success || !response.data) {
         throw new Error('Failed to fetch customers for export');
       }
 
-      const customers = response.data;
-      const stats = response.stats;
+      const { customers, stats } = response.data;
 
       // Check if any customer exceeds the column limit
       const hasOverflow =
@@ -478,34 +510,17 @@ class CustomerService {
   ): Promise<void> {
     try {
       // Fetch customers with all additional info
-      const response = await api.get<{
-        success: boolean;
-        data: Array<{
-          id: number;
-          date: string;
-          customerName: string;
-          phoneNumber: string;
-          address: string;
-          facebook: string;
-          emailAddress: string;
-          businessName: string;
-          taxNumber: string;
-          businessAddress: string;
-          businessContactNumber: string;
-          customerStatus: string;
-          shopeeUsernames: string[];
-          additionalAddresses: string[];
-          additionalPhones: string[];
-          alternateNames: string[];
-          facebookAccounts: string[];
-        }>;
-      }>('/api/customers/export');
 
-      if (!response.success) {
+      const response = await api.get<CustomerExportApiResponse>(
+        '/api/customers/export',
+        { unwrapApiResponse: false }
+      );
+
+      if (!response.success || !response.data) {
         throw new Error('Failed to fetch customers for export');
       }
 
-      const customers = response.data;
+      const { customers } = response.data;
 
       // Create headers
       const headers = [
@@ -634,13 +649,7 @@ class CustomerService {
    */
   static async importFromCSV(file: File): Promise<{
     success: boolean;
-    stats?: {
-      totalRows: number;
-      customersCreated: number;
-      customersUpdated: number;
-      additionalInfoCreated: number;
-      errors: Array<{ row: number; error: string }>;
-    };
+    stats?: CustomerImportStats;
     error?: string;
   }> {
     try {
@@ -659,22 +668,29 @@ class CustomerService {
         throw new Error(errorData.error || 'Failed to import customers');
       }
 
-      const response = await fetchResponse.json();
+      const apiResponse =
+        (await fetchResponse.json()) as CustomerImportApiResponse;
+
+      if (!apiResponse.success || !apiResponse.data?.stats) {
+        throw new Error(apiResponse.error || 'Failed to import customers');
+      }
+
+      const { stats } = apiResponse.data;
 
       logger.info(
-        `Imported ${response.stats.customersCreated} new customers, updated ${response.stats.customersUpdated} customers, created ${response.stats.additionalInfoCreated} additional info records`
+        `Imported ${stats.customersCreated} new customers, updated ${stats.customersUpdated} customers, created ${stats.additionalInfoCreated} additional info records`
       );
 
-      if (response.stats.errors.length > 0) {
+      if (stats.errors.length > 0) {
         logger.warn(
-          `${response.stats.errors.length} errors occurred during import`,
-          response.stats.errors
+          `${stats.errors.length} errors occurred during import`,
+          stats.errors
         );
       }
 
       return {
-        success: response.success,
-        stats: response.stats,
+        success: true,
+        stats,
       };
     } catch (error) {
       logger.error('Failed to import customers', error);
@@ -744,7 +760,10 @@ class CustomerService {
    */
   static async loadCustomers(): Promise<CustomerData[]> {
     try {
-      return await api.get<CustomerData[]>('/api/customers');
+      const response = await api.get<
+        CustomerData[] | ApiResponse<CustomerData[]>
+      >('/api/customers');
+      return ensureArray<CustomerData>(response);
     } catch (error) {
       logger.error('Failed to load customers', error);
       throw error;

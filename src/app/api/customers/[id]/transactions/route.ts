@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { ApiResponse } from '@/core/api';
+import { withErrorHandler } from '@/core/api/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
@@ -22,28 +23,25 @@ export interface Transaction {
   updatedAt: Date;
 }
 
-// GET all transactions for a customer
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const customerId = params.id;
+type RouteContext = { params: { id: string } };
 
-    // First, get the customer name
+// GET all transactions for a customer
+export const GET = withErrorHandler<RouteContext>(
+  async (_request: NextRequest, context) => {
+    const idResult = parseCustomerId(context);
+    if ('error' in idResult) {
+      return idResult.error;
+    }
+
     const customer = await prisma.customer.findUnique({
-      where: { id: parseInt(customerId) },
+      where: { id: idResult.id },
       select: { customerName: true },
     });
 
     if (!customer) {
-      return NextResponse.json(
-        { error: 'Customer not found' },
-        { status: 404 }
-      );
+      return ApiResponse.notFound('Customer');
     }
 
-    // Fetch all transactions for this customer by name
     const transactions = await prisma.transaction.findMany({
       where: {
         customers: customer.customerName,
@@ -53,12 +51,28 @@ export async function GET(
       },
     });
 
-    return NextResponse.json(transactions);
-  } catch (err) {
-    logger.error('GET /api/customers/[id]/transactions error', err);
-    return NextResponse.json(
-      { error: 'Failed to fetch transactions' },
-      { status: 500 }
-    );
+    logger.info('Customer transactions fetched', {
+      customerId: idResult.id,
+      count: transactions.length,
+    });
+
+    return ApiResponse.success(transactions, 'Customer transactions fetched');
   }
+);
+
+function parseCustomerId(
+  context?: RouteContext
+): { id: number } | { error: ReturnType<typeof ApiResponse.badRequest> } {
+  const idParam = context?.params?.id ?? '';
+  const id = Number(idParam);
+
+  if (!idParam || Number.isNaN(id)) {
+    return {
+      error: ApiResponse.badRequest('Invalid customer ID', {
+        id: 'Provide a numeric customer ID in the URL path.',
+      }),
+    };
+  }
+
+  return { id };
 }

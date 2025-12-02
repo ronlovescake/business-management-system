@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
 import type { Customer, Prisma } from '@prisma/client';
+import { ApiResponse } from '@/core/api';
+import { withErrorHandler } from '@/core/api/middleware';
 import { prisma } from '@/lib/db';
 import { sanitizers } from '@/lib/security/sanitize';
 import {
@@ -58,112 +59,108 @@ function mapFromDTO(d: CustomerDTO): Prisma.CustomerUpdateInput {
   };
 }
 
-// GET single customer by ID
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const customerId = Number.parseInt(params.id);
-    if (Number.isNaN(customerId)) {
-      return NextResponse.json(
-        { error: 'Invalid customer ID' },
-        { status: 400 }
-      );
+type RouteContext = { params: { id: string } };
+
+export const GET = withErrorHandler<RouteContext>(
+  async (_request: NextRequest, context) => {
+    const idResult = parseCustomerId(context);
+    if ('error' in idResult) {
+      return idResult.error;
     }
 
     const customer = await prisma.customer.findUnique({
-      where: { id: customerId },
+      where: { id: idResult.id },
     });
 
     if (!customer) {
-      return NextResponse.json(
-        { error: 'Customer not found' },
-        { status: 404 }
-      );
+      return ApiResponse.notFound('Customer');
     }
 
-    return NextResponse.json(mapToDTO(customer));
-  } catch (err) {
-    logger.error('GET /api/customers/[id] error', err);
-    return NextResponse.json(
-      { error: 'Failed to fetch customer' },
-      { status: 500 }
-    );
+    logger.info('Customer fetched', { id: idResult.id });
+    return ApiResponse.success(mapToDTO(customer), 'Customer fetched');
   }
-}
+);
 
-// PUT update single customer by ID
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const customerId = Number.parseInt(params.id);
-    if (Number.isNaN(customerId)) {
-      return NextResponse.json(
-        { error: 'Invalid customer ID' },
-        { status: 400 }
-      );
+export const PUT = withErrorHandler<RouteContext>(
+  async (request: NextRequest, context) => {
+    const idResult = parseCustomerId(context);
+    if ('error' in idResult) {
+      return idResult.error;
     }
 
     const body = await request.json();
-
-    // Validate with Zod (partial schema for updates)
     const validation = partialCustomerDataSchema.safeParse(body);
     if (!validation.success) {
       logger.warn(
-        `Customer ${customerId} update validation failed:`,
+        `Customer ${idResult.id} update validation failed`,
         validation.error
       );
-      return NextResponse.json(
-        {
-          error: 'Validation failed',
-          details: formatValidationErrors(validation.error),
-        },
-        { status: 400 }
-      );
+      return ApiResponse.badRequest('Validation failed', {
+        ...formatValidationErrors(validation.error),
+      });
+    }
+
+    const existingCustomer = await prisma.customer.findUnique({
+      where: { id: idResult.id },
+    });
+
+    if (!existingCustomer) {
+      return ApiResponse.notFound('Customer');
     }
 
     const updated = await prisma.customer.update({
-      where: { id: customerId },
+      where: { id: idResult.id },
       data: mapFromDTO(validation.data as CustomerDTO),
     });
 
-    return NextResponse.json(mapToDTO(updated));
-  } catch (err) {
-    logger.error('PUT /api/customers/[id] error', err);
-    return NextResponse.json(
-      { error: 'Failed to update customer' },
-      { status: 500 }
+    logger.info('Customer updated', { id: idResult.id });
+    return ApiResponse.success(
+      mapToDTO(updated),
+      'Customer updated successfully'
     );
   }
-}
+);
 
-// DELETE single customer by ID
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const customerId = Number.parseInt(params.id);
-    if (Number.isNaN(customerId)) {
-      return NextResponse.json(
-        { error: 'Invalid customer ID' },
-        { status: 400 }
-      );
+export const DELETE = withErrorHandler<RouteContext>(
+  async (_request: NextRequest, context) => {
+    const idResult = parseCustomerId(context);
+    if ('error' in idResult) {
+      return idResult.error;
+    }
+
+    const existingCustomer = await prisma.customer.findUnique({
+      where: { id: idResult.id },
+    });
+
+    if (!existingCustomer) {
+      return ApiResponse.notFound('Customer');
     }
 
     await prisma.customer.delete({
-      where: { id: customerId },
+      where: { id: idResult.id },
     });
 
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    logger.error('DELETE /api/customers/[id] error', err);
-    return NextResponse.json(
-      { error: 'Failed to delete customer' },
-      { status: 500 }
+    logger.info('Customer deleted', { id: idResult.id });
+    return ApiResponse.success(
+      { id: idResult.id },
+      'Customer deleted successfully'
     );
   }
+);
+
+function parseCustomerId(
+  context?: RouteContext
+): { id: number } | { error: ReturnType<typeof ApiResponse.badRequest> } {
+  const idParam = context?.params?.id ?? '';
+  const customerId = Number(idParam);
+
+  if (!idParam || Number.isNaN(customerId)) {
+    return {
+      error: ApiResponse.badRequest('Invalid customer ID', {
+        id: 'Provide a numeric customer ID in the URL path.',
+      }),
+    };
+  }
+
+  return { id: customerId };
 }

@@ -1,6 +1,9 @@
-import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { ApiResponse } from '@/core/api';
+import { withErrorHandler } from '@/core/api/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { sanitizeString } from '@/lib/security/sanitize';
 
 /**
  * GET /api/customers/with-all-addresses
@@ -15,74 +18,121 @@ import { logger } from '@/lib/logger';
  * Before: 1000+ individual API calls (50-300ms each) = 50-300 seconds total
  * After: 1 API call (~500ms) = instant!
  */
-export async function GET() {
-  try {
-    // Single query with JOIN to get all customers with their addresses
-    const customersWithAddresses = await prisma.customer.findMany({
-      where: {
-        deletedAt: null, // Exclude soft-deleted customers
-      },
-      select: {
-        id: true,
-        customerName: true,
-        businessName: true,
-        address: true,
-        phoneNumber: true,
-        additionalCustomerInfo: {
-          where: {
-            type: 'address', // Get additional addresses
-            deletedAt: null, // Exclude soft-deleted info
-          },
-          select: {
-            value: true,
-          },
+type CustomerWithAddresses = {
+  id: number;
+  customerName: string;
+  businessName: string;
+  phoneNumber: string;
+  address: string;
+  additionalAddresses: string[];
+};
+
+type CustomerWithAddressesStats = {
+  totalCustomers: number;
+  totalAdditionalAddresses: number;
+  averageAddressesPerCustomer: number;
+  withAdditionalAddresses: number;
+  maxAdditionalAddresses: number;
+};
+
+type CustomerWithAddressesPayload = {
+  customers: CustomerWithAddresses[];
+  stats: CustomerWithAddressesStats;
+};
+
+const sanitizeField = (value: unknown, maxLength = 500) =>
+  sanitizeString(value ?? '', {
+    maxLength,
+    allowSpecialChars: true,
+  });
+
+export const GET = withErrorHandler(async (_request: NextRequest) => {
+  const customersWithAddresses = await prisma.customer.findMany({
+    where: {
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      customerName: true,
+      businessName: true,
+      address: true,
+      phoneNumber: true,
+      additionalCustomerInfo: {
+        where: {
+          type: 'address',
+          deletedAt: null,
+        },
+        select: {
+          value: true,
+        },
+        orderBy: {
+          createdAt: 'asc',
         },
       },
-      orderBy: { id: 'asc' },
-    });
+    },
+    orderBy: { id: 'asc' },
+  });
 
-    // Transform to a flat structure for easier consumption
-    const result = customersWithAddresses.map((customer) => ({
+  const customers = customersWithAddresses.map<CustomerWithAddresses>(
+    (customer) => ({
       id: customer.id,
-      customerName: customer.customerName || '',
-      businessName: customer.businessName || '',
-      phoneNumber: customer.phoneNumber || '',
-      address: customer.address || '', // Primary address
-      additionalAddresses: customer.additionalCustomerInfo.map(
-        (info) => info.value || ''
-      ),
-    }));
+      customerName: sanitizeField(customer.customerName),
+      businessName: sanitizeField(customer.businessName),
+      phoneNumber: sanitizeField(customer.phoneNumber, 50),
+      address: sanitizeField(customer.address),
+      additionalAddresses: customer.additionalCustomerInfo
+        .map((info) => sanitizeField(info.value))
+        .filter((value) => value.length > 0),
+    })
+  );
 
-    const totalAdditionalAddresses = result.reduce(
-      (sum, c) => sum + c.additionalAddresses.length,
-      0
-    );
+  const stats = calculateStats(customers);
 
-    logger.info(
-      `Successfully fetched ${result.length} customers with ${totalAdditionalAddresses} additional addresses in single query`
-    );
+  logger.info('Customers with addresses fetched', {
+    totalCustomers: stats.totalCustomers,
+    totalAdditionalAddresses: stats.totalAdditionalAddresses,
+  });
 
-    return NextResponse.json({
-      success: true,
-      data: result,
-      stats: {
-        totalCustomers: result.length,
-        totalAdditionalAddresses,
-        averageAddressesPerCustomer:
-          result.length > 0
-            ? Math.round((totalAdditionalAddresses / result.length) * 10) / 10
-            : 0,
-      },
-    });
-  } catch (err) {
-    logger.error('GET /api/customers/with-all-addresses error', err);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to fetch customers with addresses',
-        details: err instanceof Error ? err.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
-  }
+  return ApiResponse.success<CustomerWithAddressesPayload>(
+    {
+      customers,
+      stats,
+    },
+    'Customers with addresses fetched'
+  );
+});
+
+function calculateStats(
+  customers: CustomerWithAddresses[]
+): CustomerWithAddressesStats {
+  const stats = customers.reduce<CustomerWithAddressesStats>(
+    (acc, customer) => {
+      acc.totalCustomers += 1;
+
+      if (customer.additionalAddresses.length > 0) {
+        acc.withAdditionalAddresses += 1;
+        acc.totalAdditionalAddresses += customer.additionalAddresses.length;
+        acc.maxAdditionalAddresses = Math.max(
+          acc.maxAdditionalAddresses,
+          customer.additionalAddresses.length
+        );
+      }
+
+      return acc;
+    },
+    {
+      totalCustomers: 0,
+      totalAdditionalAddresses: 0,
+      averageAddressesPerCustomer: 0,
+      withAdditionalAddresses: 0,
+      maxAdditionalAddresses: 0,
+    }
+  );
+
+  stats.averageAddressesPerCustomer = stats.totalCustomers
+    ? Math.round((stats.totalAdditionalAddresses / stats.totalCustomers) * 10) /
+      10
+    : 0;
+
+  return stats;
 }

@@ -1,4 +1,5 @@
 import { logger } from '@/lib/logger';
+import { unwrapApiData } from '@/lib/api/normalize';
 
 /**
  * Custom API Error Class
@@ -187,7 +188,10 @@ export class BaseService {
 
           // Don't retry client errors (except 408 Request Timeout and 429 Too Many Requests)
           if (apiError.isClientError() && !apiError.isRetryable()) {
-            logger.error(`API Error [${method} ${endpoint}]:`, apiError.toJSON());
+            logger.error(
+              `API Error [${method} ${endpoint}]:`,
+              apiError.toJSON()
+            );
             throw apiError;
           }
 
@@ -211,14 +215,16 @@ export class BaseService {
         }
 
         // Success - parse and return response
-        return await response.json();
+        const payload = await response.json();
+        return unwrapApiData<T>(payload) as T;
       } catch (error) {
         // Handle network errors or JSON parsing errors
         if (error instanceof APIError) {
           throw error;
         }
 
-        const networkError = error instanceof Error ? error : new Error(String(error));
+        const networkError =
+          error instanceof Error ? error : new Error(String(error));
 
         // Retry network errors
         if (attempt < config.maxRetries) {
@@ -241,7 +247,10 @@ export class BaseService {
     }
 
     // Should never reach here, but TypeScript needs it
-    throw lastError || new Error(`Request failed after ${config.maxRetries} retries`);
+    throw (
+      lastError ||
+      new Error(`Request failed after ${config.maxRetries} retries`)
+    );
   }
 
   /**

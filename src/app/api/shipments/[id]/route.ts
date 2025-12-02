@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { ApiResponse } from '@/core/api';
+import { withErrorHandler } from '@/core/api/middleware';
 import { prisma } from '../../../../lib/db';
 import type { ShipmentData, ShipmentDB } from '../../../../types';
 import { logger } from '@/lib/logger';
@@ -94,81 +95,51 @@ function convertShipmentDataToDB(data: Partial<ShipmentData>) {
   };
 }
 
-// GET /api/shipments/[id] - Get specific shipment
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const id = parseInt(params.id);
+type RouteContext = { params: { id: string } };
 
-    if (isNaN(id)) {
-      return NextResponse.json(
-        { error: 'Invalid shipment ID' },
-        { status: 400 }
-      );
+export const GET = withErrorHandler<RouteContext>(
+  async (_request: NextRequest, context) => {
+    const idResult = parseShipmentId(context);
+    if ('error' in idResult) {
+      return idResult.error;
     }
 
     const shipment = await prisma.shipment.findUnique({
-      where: { id },
+      where: { id: idResult.id },
     });
 
     if (!shipment) {
-      return NextResponse.json(
-        { error: 'Shipment not found' },
-        { status: 404 }
-      );
+      return ApiResponse.notFound('Shipment');
     }
 
     const convertedShipment = convertShipmentDBToData(shipment as ShipmentDB);
-    return NextResponse.json(convertedShipment);
-  } catch (error) {
-    logger.error('Error fetching shipment:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch shipment' },
-      { status: 500 }
-    );
+    return ApiResponse.success(convertedShipment, 'Shipment fetched');
   }
-}
+);
 
-// PUT /api/shipments/[id] - Update specific shipment
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const id = parseInt(params.id);
-
-    if (isNaN(id)) {
-      return NextResponse.json(
-        { error: 'Invalid shipment ID' },
-        { status: 400 }
-      );
+export const PUT = withErrorHandler<RouteContext>(
+  async (request: NextRequest, context) => {
+    const idResult = parseShipmentId(context);
+    if ('error' in idResult) {
+      return idResult.error;
     }
 
     const body = await request.json();
     const shipmentData = convertShipmentDataToDB(body);
 
-    // Get the current shipment to access the shipmentCode
     const currentShipment = await prisma.shipment.findUnique({
-      where: { id },
+      where: { id: idResult.id },
     });
 
     if (!currentShipment) {
-      return NextResponse.json(
-        { error: 'Shipment not found' },
-        { status: 404 }
-      );
+      return ApiResponse.notFound('Shipment');
     }
 
-    // Update the shipment
     const updatedShipment = await prisma.shipment.update({
-      where: { id },
+      where: { id: idResult.id },
       data: shipmentData,
     });
 
-    // Update all products that belong to this shipment
-    // Match products by shipmentCode and update their shipment-related fields
     if (currentShipment.shipmentCode) {
       await prisma.product.updateMany({
         where: {
@@ -192,41 +163,41 @@ export async function PUT(
     const convertedShipment = convertShipmentDBToData(
       updatedShipment as ShipmentDB
     );
-    return NextResponse.json(convertedShipment);
-  } catch (error) {
-    logger.error('Error updating shipment:', error);
-    return NextResponse.json(
-      { error: 'Failed to update shipment' },
-      { status: 500 }
-    );
+    return ApiResponse.success(convertedShipment, 'Shipment updated');
   }
-}
+);
 
-// DELETE /api/shipments/[id] - Delete specific shipment
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const id = parseInt(params.id);
-
-    if (isNaN(id)) {
-      return NextResponse.json(
-        { error: 'Invalid shipment ID' },
-        { status: 400 }
-      );
+export const DELETE = withErrorHandler<RouteContext>(
+  async (_request: NextRequest, context) => {
+    const idResult = parseShipmentId(context);
+    if ('error' in idResult) {
+      return idResult.error;
     }
 
     await prisma.shipment.delete({
-      where: { id },
+      where: { id: idResult.id },
     });
 
-    return NextResponse.json({ message: 'Shipment deleted successfully' });
-  } catch (error) {
-    logger.error('Error deleting shipment:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete shipment' },
-      { status: 500 }
+    return ApiResponse.success(
+      { id: idResult.id },
+      'Shipment deleted successfully'
     );
   }
+);
+
+function parseShipmentId(
+  context?: RouteContext
+): { id: number } | { error: ReturnType<typeof ApiResponse.badRequest> } {
+  const idParam = context?.params?.id ?? '';
+  const id = Number(idParam);
+
+  if (!idParam || Number.isNaN(id)) {
+    return {
+      error: ApiResponse.badRequest('Invalid shipment ID', {
+        id: 'Provide a numeric shipment ID in the URL path.',
+      }),
+    };
+  }
+
+  return { id };
 }

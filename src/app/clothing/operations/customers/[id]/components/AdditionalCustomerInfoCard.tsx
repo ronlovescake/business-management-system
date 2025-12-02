@@ -20,6 +20,7 @@ import {
 } from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
 import Swal from 'sweetalert2';
+import { logger } from '@/lib/logger';
 
 // ============================================================================
 // ADDITIONAL CUSTOMER INFO CARD
@@ -69,8 +70,7 @@ export const AdditionalCustomerInfoCard = memo(
           setHasChanges(false);
         }
       } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('Error fetching additional info:', error);
+        logger.error('Error fetching additional info:', error);
         showNotification({
           title: 'Error',
           message: 'Failed to load additional customer information',
@@ -119,8 +119,7 @@ export const AdditionalCustomerInfoCard = memo(
           throw new Error('Failed to save');
         }
       } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('Error saving additional info:', error);
+        logger.error('Error saving additional info:', error);
         showNotification({
           title: 'Error',
           message: 'Failed to save additional customer information',

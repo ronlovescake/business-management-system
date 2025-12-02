@@ -4,7 +4,7 @@
  * useTransactionsData Hook
  *
  * Main data hook for Transactions module.
- * Handles data fetching, filtering, and statistics calculation.
+            return await fetchArray<Record<string, unknown>>('/api/customers');
  */
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -15,22 +15,29 @@ import { TransactionService } from '../services/TransactionService';
 import { ALL_STATUS_CONTROLLED_STATUSES } from '../types/transaction.types';
 import { queryKeys } from '@/lib/queryKeys';
 import { api } from '@/lib/api/client';
+import { ensureArray } from '@/lib/api/normalize';
 import { logger } from '@/lib/logger';
 import type {
   TransactionData,
   PriceTier,
   TransactionStatistics,
 } from '../types/transaction.types';
+import type { ApiResponse } from '@/types/api';
 
 const MIN_EMPTY_TRANSACTION_ROWS = 120;
 const MAX_ROWS_PER_ALLOCATION = 25;
 const SEARCH_STORAGE_KEY = 'transactions-search-query';
 
+async function fetchArray<T>(url: string): Promise<T[]> {
+  const response = await api.get<T[] | ApiResponse<T[]>>(url);
+  return ensureArray<T>(response);
+}
+
 /**
  * Safely parse an order date string and return the timestamp for comparisons.
  */
 /**
- * Hook return type
+            return await fetchArray<PriceTier>('/api/prices');
  */
 interface UseTransactionsDataReturn {
   // Core data
@@ -245,7 +252,7 @@ export function useTransactionsData(): UseTransactionsDataReturn {
         queryKey: queryKeys.products.lists(),
         queryFn: async () => {
           try {
-            return await api.get<Record<string, unknown>[]>('/api/products');
+            return await fetchArray<Record<string, unknown>>('/api/products');
           } catch (error) {
             logger.error('Error loading products:', error);
             return [];
@@ -258,7 +265,7 @@ export function useTransactionsData(): UseTransactionsDataReturn {
         queryKey: queryKeys.shipments.lists(),
         queryFn: async () => {
           try {
-            return await api.get<Record<string, unknown>[]>('/api/shipments');
+            return await fetchArray<Record<string, unknown>>('/api/shipments');
           } catch (error) {
             logger.error('Error loading shipments:', error);
             return [];

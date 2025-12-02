@@ -3,6 +3,7 @@
 import React from 'react';
 import { Container, Title, Text, Button, Stack, Paper } from '@mantine/core';
 import { IconAlertCircle, IconRefresh } from '@tabler/icons-react';
+import { logger } from '@/lib/logger';
 
 interface Props {
   children: React.ReactNode;
@@ -25,8 +26,7 @@ export class CashAdvanceErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     // Log to error reporting service in production
-    // eslint-disable-next-line no-console
-    console.error(
+    logger.error(
       'Cash Advance Error Boundary caught an error:',
       error,
       errorInfo

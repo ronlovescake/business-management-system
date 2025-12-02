@@ -1,6 +1,9 @@
-import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { ApiResponse } from '@/core/api';
+import { withErrorHandler } from '@/core/api/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { sanitizeString } from '@/lib/security/sanitize';
 
 // CRITICAL: Force dynamic rendering and disable ALL caching
 export const dynamic = 'force-dynamic';
@@ -20,89 +23,137 @@ export const runtime = 'nodejs';
  *
  * CRITICAL: This route MUST NOT be cached to ensure production gets fresh data
  */
-export async function GET() {
-  // Add random noise to prevent any proxy/CDN caching
+type CustomerWithShopee = {
+  id: number;
+  customerName: string;
+  businessName: string;
+  facebook: string;
+  address: string;
+  phoneNumber: string;
+  shopeeUsernames: string[];
+};
+
+type CustomerWithShopeeStats = {
+  totalCustomers: number;
+  withShopeeUsernames: number;
+  totalShopeeUsernames: number;
+  maxShopeeUsernames: number;
+};
+
+type CustomerWithShopeePayload = {
+  customers: CustomerWithShopee[];
+  stats: CustomerWithShopeeStats;
+  timestamp: string;
+};
+
+const NO_CACHE_HEADERS = {
+  'Cache-Control': 'private, no-cache, no-store, must-revalidate, max-age=0',
+  'CDN-Cache-Control': 'no-store',
+  'Vercel-CDN-Cache-Control': 'no-store',
+  Pragma: 'no-cache',
+  Expires: '0',
+  'Surrogate-Control': 'no-store',
+} as const;
+
+const sanitizeField = (value: unknown, maxLength = 255) =>
+  sanitizeString(value ?? '', {
+    maxLength,
+    allowSpecialChars: true,
+    allowHtml: true,
+  });
+
+const sanitizeShopeeUsername = (value: unknown) =>
+  sanitizeField(value, 150).toLowerCase().trim();
+
+export const GET = withErrorHandler(async (_request: NextRequest) => {
   const timestamp = new Date().toISOString();
-  logger.info(`[API] Fetching customers with Shopee at ${timestamp}`);
+  logger.info('[API] Fetching customers with Shopee', { timestamp });
 
-  try {
-    // Single query with JOIN to get all customers with their Shopee usernames
-    const customersWithShopee = await prisma.customer.findMany({
-      where: {
-        deletedAt: null, // Exclude soft-deleted customers
-      },
-      select: {
-        id: true,
-        customerName: true,
-        businessName: true,
-        facebook: true,
-        address: true,
-        phoneNumber: true,
-        additionalCustomerInfo: {
-          where: {
-            type: 'shopee_username', // Note: uses underscore, not camelCase
-            deletedAt: null, // Exclude soft-deleted info
-          },
-          select: {
-            value: true,
-          },
+  const customersWithShopee = await prisma.customer.findMany({
+    where: {
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      customerName: true,
+      businessName: true,
+      facebook: true,
+      address: true,
+      phoneNumber: true,
+      additionalCustomerInfo: {
+        where: {
+          type: 'shopee_username',
+          deletedAt: null,
+        },
+        select: {
+          value: true,
+        },
+        orderBy: {
+          createdAt: 'asc',
         },
       },
-      orderBy: { id: 'asc' },
-    });
+    },
+    orderBy: { id: 'asc' },
+  });
 
-    // Transform to a flat structure for easier consumption
-    const result = customersWithShopee.map((customer) => ({
-      id: customer.id,
-      customerName: customer.customerName || '',
-      businessName: customer.businessName || '',
-      facebook: customer.facebook || '',
-      address: customer.address || '',
-      phoneNumber: customer.phoneNumber || '',
-      shopeeUsernames: customer.additionalCustomerInfo.map((info) =>
-        (info.value || '').toLowerCase().trim()
-      ),
-    }));
+  const customers = customersWithShopee.map<CustomerWithShopee>((customer) => ({
+    id: customer.id,
+    customerName: sanitizeField(customer.customerName),
+    businessName: sanitizeField(customer.businessName),
+    facebook: sanitizeField(customer.facebook, 500),
+    address: sanitizeField(customer.address, 500),
+    phoneNumber: sanitizeField(customer.phoneNumber, 50),
+    shopeeUsernames: customer.additionalCustomerInfo
+      .map((info) => sanitizeShopeeUsername(info.value))
+      .filter((username) => username.length > 0),
+  }));
 
-    // Filter to only include customers with at least one Shopee username
-    const withUsernames = result.filter((c) => c.shopeeUsernames.length > 0);
+  const stats = calculateStats(customers);
 
-    logger.info(
-      `Successfully fetched ${result.length} customers (${withUsernames.length} with Shopee usernames) in single query`
-    );
+  logger.info('Customers with Shopee fetched', {
+    totalCustomers: stats.totalCustomers,
+    withShopeeUsernames: stats.withShopeeUsernames,
+  });
 
-    return NextResponse.json(
-      {
-        success: true,
-        data: result,
-        stats: {
-          totalCustomers: result.length,
-          withShopeeUsernames: withUsernames.length,
-        },
-        timestamp: new Date().toISOString(), // Add timestamp to prevent caching
-      },
-      {
-        status: 200,
-        headers: {
-          'Cache-Control':
-            'private, no-cache, no-store, must-revalidate, max-age=0',
-          'CDN-Cache-Control': 'no-store',
-          'Vercel-CDN-Cache-Control': 'no-store',
-          Pragma: 'no-cache',
-          Expires: '0',
-          'Surrogate-Control': 'no-store',
-        },
+  const response = ApiResponse.success<CustomerWithShopeePayload>(
+    {
+      customers,
+      stats,
+      timestamp,
+    },
+    'Customers with Shopee usernames fetched'
+  );
+
+  Object.entries(NO_CACHE_HEADERS).forEach(([key, value]) => {
+    response.headers.set(key, value);
+  });
+
+  return response;
+});
+
+function calculateStats(
+  customers: CustomerWithShopee[]
+): CustomerWithShopeeStats {
+  return customers.reduce<CustomerWithShopeeStats>(
+    (acc, customer) => {
+      acc.totalCustomers += 1;
+
+      if (customer.shopeeUsernames.length > 0) {
+        acc.withShopeeUsernames += 1;
+        acc.totalShopeeUsernames += customer.shopeeUsernames.length;
+        acc.maxShopeeUsernames = Math.max(
+          acc.maxShopeeUsernames,
+          customer.shopeeUsernames.length
+        );
       }
-    );
-  } catch (err) {
-    logger.error('GET /api/customers/with-shopee error', err);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to fetch customers with Shopee usernames',
-        details: err instanceof Error ? err.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
-  }
+
+      return acc;
+    },
+    {
+      totalCustomers: 0,
+      withShopeeUsernames: 0,
+      totalShopeeUsernames: 0,
+      maxShopeeUsernames: 0,
+    }
+  );
 }

@@ -1,5 +1,6 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
+import { unwrapApiData } from '@/lib/api/normalize';
 import { logger } from '@/lib/logger';
 import type { ApiResponse } from '@/types/api';
 
@@ -49,6 +50,15 @@ export interface ChangeLogQueryParams {
   includeFilters?: boolean;
 }
 
+function isApiResponse<T>(payload: unknown): payload is ApiResponse<T> {
+  return (
+    !!payload &&
+    typeof payload === 'object' &&
+    !Array.isArray(payload) &&
+    'success' in payload
+  );
+}
+
 async function fetchChangeLogs(
   params: ChangeLogQueryParams
 ): Promise<ChangeLogQueryResponse> {
@@ -85,14 +95,13 @@ async function fetchChangeLogs(
     query.set('includeFilters', 'false');
   }
 
-  const response = await api.get<ApiResponse<ChangeLogQueryResponse>>(
-    `/api/clothing/operations/settings/change-log?${query.toString()}`
-  );
+  const payload = await api.get<
+    ApiResponse<ChangeLogQueryResponse> | ChangeLogQueryResponse
+  >(`/api/clothing/operations/settings/change-log?${query.toString()}`);
 
-  if (!response?.success || !response.data) {
+  if (isApiResponse<ChangeLogQueryResponse>(payload) && !payload.success) {
     const errorMessage =
-      (response && 'error' in response && response.error) ||
-      'Failed to fetch change log entries';
+      payload.error || payload.message || 'Failed to fetch change log entries';
     logger.error('Change log API request failed', {
       params,
       error: errorMessage,
@@ -100,7 +109,18 @@ async function fetchChangeLogs(
     throw new Error(errorMessage);
   }
 
-  return response.data;
+  const data = unwrapApiData<ChangeLogQueryResponse>(payload);
+
+  if (!data) {
+    const errorMessage = 'Change log API returned an empty payload';
+    logger.error('Change log API request failed', {
+      params,
+      error: errorMessage,
+    });
+    throw new Error(errorMessage);
+  }
+
+  return data;
 }
 
 export function useChangeLogQuery(

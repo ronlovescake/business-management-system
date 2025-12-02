@@ -24,6 +24,22 @@ interface CustomerData {
   additionalAddresses?: string[];
 }
 
+type CustomerWithAddressesRecord = {
+  id: number;
+  customerName: string;
+  businessName: string;
+  phoneNumber: string;
+  address: string;
+  additionalAddresses: string[];
+};
+
+type CustomerWithAddressesApiResponse = {
+  success: boolean;
+  data?: {
+    customers: CustomerWithAddressesRecord[];
+  };
+};
+
 interface PossibleDuplicate {
   customer: CustomerData;
   similarityScore: number;
@@ -45,23 +61,18 @@ interface NewCustomerData {
  */
 async function fetchCustomersForDuplicateCheck(): Promise<CustomerData[]> {
   try {
-    const response = await api.get<{
-      success: boolean;
-      data: Array<{
-        id: number;
-        customerName: string;
-        businessName: string;
-        phoneNumber: string;
-        address: string;
-        additionalAddresses: string[];
-      }>;
-    }>('/api/customers/with-all-addresses');
+    const response = await api.get<CustomerWithAddressesApiResponse>(
+      '/api/customers/with-all-addresses',
+      { unwrapApiResponse: false }
+    );
 
     if (!response.success || !response.data) {
       throw new Error('Invalid response from API');
     }
 
-    return response.data.map((c) => ({
+    const customers = response.data.customers ?? [];
+
+    return customers.map((c) => ({
       id: c.id,
       customerName: c.customerName || '',
       businessName: c.businessName || '',

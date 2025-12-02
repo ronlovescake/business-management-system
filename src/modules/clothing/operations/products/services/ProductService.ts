@@ -33,7 +33,9 @@ import {
 
 import { calculateProductFinancials } from '@/lib/productCalculations';
 import { api } from '@/lib/api/client';
+import { ensureArray } from '@/lib/api/normalize';
 import { logger } from '@/lib/logger';
+import type { ApiResponse } from '@/types/api';
 
 /**
  * Product Service Class
@@ -737,12 +739,18 @@ export class ProductService {
   static async loadProducts(): Promise<ProductData[]> {
     try {
       // Fetch products from API
-      const products = await api.get<ProductData[]>('/api/products');
+      const productResponse = await api.get<
+        ProductData[] | ApiResponse<ProductData[]>
+      >('/api/products');
+      const products = ensureArray<ProductData>(productResponse);
 
       // Fetch shipments for lookup
       let shipments: ShipmentData[] = [];
       try {
-        shipments = await api.get<ShipmentData[]>('/api/shipments');
+        const shipmentResponse = await api.get<
+          ShipmentData[] | ApiResponse<ShipmentData[]>
+        >('/api/shipments');
+        shipments = ensureArray<ShipmentData>(shipmentResponse);
       } catch (error) {
         // Continue without shipment data if API fails
         logger.warn(

@@ -41,6 +41,7 @@ import puppeteer from 'puppeteer';
 import Handlebars from 'handlebars/dist/cjs/handlebars';
 import fs from 'fs';
 import path from 'path';
+import { logger } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -147,8 +148,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('Error generating distribution PDF:', error);
+    logger.error('Error generating distribution PDF:', error);
     return NextResponse.json(
       {
         error: 'Failed to generate distribution PDF',

@@ -89,6 +89,8 @@ export interface RequestOptions extends RequestInit {
   skipAuth?: boolean;
   /** Additional context for logging */
   context?: Record<string, unknown>;
+  /** Automatically unwrap ApiResponse envelopes when possible (default: true) */
+  unwrapApiResponse?: boolean;
 }
 
 /**
@@ -230,6 +232,51 @@ export class ApiClient {
   }
 
   /**
+   * Identify ApiResponse envelopes that only contain success/data/message
+   */
+  private isBasicApiResponse(payload: unknown): payload is {
+    success: boolean;
+    data?: unknown;
+    message?: string;
+  } {
+    if (
+      !payload ||
+      typeof payload !== 'object' ||
+      Array.isArray(payload) ||
+      !('success' in payload)
+    ) {
+      return false;
+    }
+
+    if (!('data' in payload)) {
+      return false;
+    }
+
+    const { data } = payload as { data?: unknown };
+    if (typeof data === 'undefined') {
+      return false;
+    }
+
+    const allowedKeys = new Set(['success', 'data', 'message']);
+    return Object.keys(payload as Record<string, unknown>).every((key) =>
+      allowedKeys.has(key)
+    );
+  }
+
+  /**
+   * Optionally unwrap ApiResponse envelopes
+   */
+  private unwrapApiResponse<T>(payload: unknown, options: RequestOptions): T {
+    const shouldUnwrap = options.unwrapApiResponse ?? true;
+
+    if (shouldUnwrap && this.isBasicApiResponse(payload)) {
+      return (payload.data as T) ?? (undefined as T);
+    }
+
+    return payload as T;
+  }
+
+  /**
    * Execute single request
    */
   private async executeRequest<T>(
@@ -304,7 +351,8 @@ export class ApiClient {
       // Handle different content types
       const contentType = response.headers.get('content-type');
       if (contentType?.includes('application/json')) {
-        return response.json();
+        const payload = await response.json();
+        return this.unwrapApiResponse<T>(payload, interceptedOptions);
       } else if (contentType?.includes('text/')) {
         return response.text() as T;
       } else if (

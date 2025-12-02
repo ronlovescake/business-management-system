@@ -7,6 +7,10 @@ import Handlebars from 'handlebars/dist/handlebars.js';
 import puppeteer from 'puppeteer';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { ApiResponse } from '@/core/api';
+import { withErrorHandler } from '@/core/api/middleware';
+import { HTTP_STATUS } from '@/shared/constants/api';
+import { sanitizers } from '@/lib/security/sanitize';
 
 const COMPANY_NAME = 'Czarlie & Ron';
 const TEMPLATE_PATH = path.join(process.cwd(), 'templates', 'payslip.hbs');
@@ -207,67 +211,114 @@ async function buildPayslipContext(
   };
 }
 
-export async function POST(request: NextRequest) {
+function validateRequestBody(body: GeneratePayslipRequest) {
+  const periodStart = sanitizers.date(body.periodStart);
+  const periodEnd = sanitizers.date(body.periodEnd);
+
+  if (!periodStart || !periodEnd) {
+    return {
+      valid: false as const,
+      response: ApiResponse.badRequest('Validation failed', {
+        periodStart: 'periodStart is required and must be a valid date',
+        periodEnd: 'periodEnd is required and must be a valid date',
+      }),
+    };
+  }
+
+  return {
+    valid: true as const,
+    data: {
+      periodStart,
+      periodEnd,
+      payPeriodLabel:
+        typeof body.payPeriodLabel === 'string'
+          ? body.payPeriodLabel.trim()
+          : undefined,
+      payrollIds: (body.payrollIds ?? [])
+        .map((id) => id?.trim())
+        .filter((id): id is string => Boolean(id)),
+    },
+  };
+}
+
+async function createZipFromFiles(files: { name: string; buffer: Buffer }[]) {
+  const JSZip = (await import('jszip')).default;
+  const zip = new JSZip();
+
+  for (const file of files) {
+    zip.file(file.name, file.buffer);
+  }
+
+  return zip.generateAsync({ type: 'nodebuffer' });
+}
+
+function buildZipFilename(label?: string) {
+  if (label && label.length > 0) {
+    const sanitized = label
+      .replace(/[^a-zA-Z0-9]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .toLowerCase();
+
+    if (sanitized.length > 0) {
+      return `payslips-${sanitized}.zip`;
+    }
+  }
+
+  return `payslips-${new Date().toISOString().replace(/:/g, '-')}.zip`;
+}
+
+export const POST = withErrorHandler(async (request: NextRequest) => {
   ensureHelpersRegistered();
 
   let body: GeneratePayslipRequest = {};
   try {
     body = (await request.json()) as GeneratePayslipRequest;
   } catch (error) {
-    logger.warn('Failed to parse payslip request body, using defaults.', error);
+    logger.warn('Failed to parse payslip request body', { error });
+    return ApiResponse.badRequest('Invalid request body');
   }
 
-  const { periodStart, periodEnd, payrollIds } = body;
+  const validation = validateRequestBody(body);
+  if (!validation.valid) {
+    return validation.response;
+  }
 
-  if (!periodStart || !periodEnd) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'periodStart and periodEnd are required to generate payslips.',
-        code: 'missing_period',
-      },
-      { status: 400 }
+  const { periodStart, periodEnd, payrollIds, payPeriodLabel } =
+    validation.data;
+
+  const payrolls = await prisma.payroll.findMany({
+    where: {
+      deletedAt: null,
+      periodStart,
+      periodEnd,
+      ...(payrollIds.length
+        ? {
+            id: {
+              in: payrollIds,
+            },
+          }
+        : {}),
+    },
+    orderBy: {
+      employeeName: 'asc',
+    },
+  });
+
+  if (payrolls.length === 0) {
+    return ApiResponse.error(
+      'No payroll records found',
+      HTTP_STATUS.NOT_FOUND,
+      `No payroll records found for ${periodStart} to ${periodEnd}.`
     );
   }
 
+  const template = getTemplate();
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  });
   try {
-    const payrolls = await prisma.payroll.findMany({
-      where: {
-        deletedAt: null,
-        periodStart,
-        periodEnd,
-        ...(payrollIds && payrollIds.length > 0
-          ? {
-              id: {
-                in: payrollIds,
-              },
-            }
-          : {}),
-      },
-      orderBy: {
-        employeeName: 'asc',
-      },
-    });
-
-    if (payrolls.length === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `No payroll records found for ${periodStart} to ${periodEnd}.`,
-          code: 'no_records',
-        },
-        { status: 404 }
-      );
-    }
-
-    const template = getTemplate();
-
-    const generationTimestamp = new Date().toISOString().replace(/:/g, '-');
-
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
     const page = await browser.newPage();
     await page.emulateMediaType('screen');
 
@@ -283,62 +334,37 @@ export async function POST(request: NextRequest) {
       });
       await new Promise((resolve) => setTimeout(resolve, 200));
 
-      const pdfArray = await page.pdf({
-        format: 'A4',
-        printBackground: true,
-        margin: {
-          top: '0mm',
-          right: '0mm',
-          bottom: '0mm',
-          left: '0mm',
-        },
-      });
-
-      const pdfBuffer = Buffer.from(pdfArray);
+      const pdfBuffer = Buffer.from(
+        await page.pdf({
+          format: 'A4',
+          printBackground: true,
+          margin: {
+            top: '0mm',
+            right: '0mm',
+            bottom: '0mm',
+            left: '0mm',
+          },
+        })
+      );
 
       const filename = sanitizeFilename(record.employeeName);
       files.push({ name: filename, buffer: pdfBuffer });
     }
 
-    await browser.close();
-
-    const JSZip = (await import('jszip')).default;
-    const zip = new JSZip();
-
-    for (const file of files) {
-      zip.file(file.name, file.buffer);
-    }
-
-    const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
-
-    const sanitizedLabel =
-      typeof body.payPeriodLabel === 'string' &&
-      body.payPeriodLabel.trim().length > 0
-        ? body.payPeriodLabel
-            .replace(/[^a-zA-Z0-9]+/g, '-')
-            .replace(/-+/g, '-')
-            .replace(/^-|-$/g, '')
-            .toLowerCase()
-        : null;
-
-    const zipFilename = `${sanitizedLabel ? `payslips-${sanitizedLabel}` : `payslips-${generationTimestamp}`}.zip`;
+    const zipBuffer = await createZipFromFiles(files);
+    const zipFilename = buildZipFilename(payPeriodLabel);
 
     return new NextResponse(Buffer.from(zipBuffer), {
-      status: 200,
+      status: HTTP_STATUS.OK,
       headers: {
         'Content-Type': 'application/zip',
         'Content-Disposition': `attachment; filename="${zipFilename}"`,
       },
     });
   } catch (error) {
-    logger.error('Error generating payslips:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to generate payslips.',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
+    logger.error('Error generating payslips', { error });
+    throw error;
+  } finally {
+    await browser.close();
   }
-}
+});

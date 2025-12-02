@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import type { NextRequest } from 'next/server';
 
 const { mockPrisma } = vi.hoisted(() => {
   return {
@@ -25,6 +26,16 @@ vi.mock('@/lib/db', () => ({
 }));
 
 import { POST } from '@/app/api/payroll/generate/route';
+
+const createMockRequest = (): NextRequest => {
+  const url = 'https://test.local/api/payroll/generate';
+  return {
+    method: 'POST',
+    url,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    nextUrl: new URL(url) as any,
+  } as NextRequest;
+};
 
 describe('Payroll Generation API', () => {
   beforeEach(() => {
@@ -88,16 +99,16 @@ describe('Payroll Generation API', () => {
       mockPrisma.thirteenthMonthPayRecord.findMany.mockResolvedValue([]);
       mockPrisma.payroll.createMany.mockResolvedValue({ count: 2 });
 
-      const response = await POST();
+      const response = await POST(createMockRequest());
       const data = await response.json();
 
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(201);
       expect(data.success).toBe(true);
-      expect(data.count).toBe(2);
+      expect(data.data.count).toBe(2);
       expect(data.message).toContain(
         'Successfully generated payroll for 2 employees'
       );
-      expect(data.period).toEqual({
+      expect(data.data.period).toEqual({
         start: '2025-10-16',
         end: '2025-10-31',
         label: '2025-10-16 to 2025-10-31',
@@ -146,10 +157,10 @@ describe('Payroll Generation API', () => {
 
       mockPrisma.payroll.createMany.mockResolvedValue({ count: 2 });
 
-      const response = await POST();
+      const response = await POST(createMockRequest());
       const data = await response.json();
 
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(201);
       expect(data.success).toBe(true);
 
       const createManyCall = mockPrisma.payroll.createMany.mock.calls[0][0];
@@ -185,10 +196,10 @@ describe('Payroll Generation API', () => {
 
       mockPrisma.payroll.createMany.mockResolvedValue({ count: 1 });
 
-      const response = await POST();
+      const response = await POST(createMockRequest());
       const data = await response.json();
 
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(201);
       expect(data.success).toBe(true);
 
       const createManyCall = mockPrisma.payroll.createMany.mock.calls[0][0];
@@ -205,7 +216,7 @@ describe('Payroll Generation API', () => {
       mockPrisma.thirteenthMonthPayRecord.findMany.mockResolvedValue([]);
       mockPrisma.payroll.createMany.mockResolvedValue({ count: 2 });
 
-      await POST();
+      await POST(createMockRequest());
 
       // Should query for year 2025 (from period end date)
       expect(mockPrisma.thirteenthMonthPayRecord.findMany).toHaveBeenCalledWith(
@@ -236,13 +247,14 @@ describe('Payroll Generation API', () => {
 
       mockPrisma.attendance.findMany.mockResolvedValue(mockAttendance);
 
-      const response = await POST();
+      const response = await POST(createMockRequest());
       const data = await response.json();
 
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(409);
       expect(data.success).toBe(false);
-      expect(data.message).toContain('Payroll already exists for period');
-      expect(data.period.label).toBe('2025-10-16 to 2025-10-31');
+      expect(data.error).toContain('Payroll already exists');
+      expect(data.details).toContain('Payroll already exists for period');
+      expect(data.meta?.period?.label).toBe('2025-10-16 to 2025-10-31');
 
       expect(mockPrisma.attendance.findMany).toHaveBeenCalled();
       expect(mockPrisma.payroll.createMany).not.toHaveBeenCalled();
@@ -253,12 +265,14 @@ describe('Payroll Generation API', () => {
       mockPrisma.payroll.findMany.mockResolvedValue([]);
       mockPrisma.attendance.findMany.mockResolvedValue([]);
 
-      const response = await POST();
+      const response = await POST(createMockRequest());
       const data = await response.json();
 
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(404);
       expect(data.success).toBe(false);
-      expect(data.message).toContain('No attendance records found');
+      expect(data.error).toBe('No attendance records found');
+      expect(data.details).toContain('No attendance records found');
+      expect(data.meta?.period).toBeDefined();
 
       expect(mockPrisma.employee.findMany).not.toHaveBeenCalled();
       expect(mockPrisma.payroll.createMany).not.toHaveBeenCalled();
@@ -282,10 +296,10 @@ describe('Payroll Generation API', () => {
 
       mockPrisma.payroll.createMany.mockResolvedValue({ count: 2 });
 
-      const response = await POST();
+      const response = await POST(createMockRequest());
       const data = await response.json();
 
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(201);
       expect(data.success).toBe(true);
 
       const createManyCall = mockPrisma.payroll.createMany.mock.calls[0][0];
@@ -320,10 +334,10 @@ describe('Payroll Generation API', () => {
       mockPrisma.thirteenthMonthPayRecord.findMany.mockResolvedValue([]);
       mockPrisma.payroll.createMany.mockResolvedValue({ count: 1 });
 
-      const response = await POST();
+      const response = await POST(createMockRequest());
       const data = await response.json();
 
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(201);
       expect(data.success).toBe(true);
 
       const createManyCall = mockPrisma.payroll.createMany.mock.calls[0][0];
@@ -342,7 +356,7 @@ describe('Payroll Generation API', () => {
         new Error('Database connection failed')
       );
 
-      const response = await POST();
+      const response = await POST(createMockRequest());
       const data = await response.json();
 
       expect(response.status).toBe(500);
@@ -359,11 +373,12 @@ describe('Payroll Generation API', () => {
       mockPrisma.thirteenthMonthPayRecord.findMany.mockResolvedValue([]);
       mockPrisma.payroll.createMany.mockResolvedValue({ count: 2 });
 
-      const response = await POST();
+      const response = await POST(createMockRequest());
       const data = await response.json();
 
-      expect(data.period.start).toBe('2025-10-16');
-      expect(data.period.end).toBe('2025-10-31');
+      expect(response.status).toBe(201);
+      expect(data.data.period.start).toBe('2025-10-16');
+      expect(data.data.period.end).toBe('2025-10-31');
     });
 
     it('should use correct pay period for second half of month (Oct 1-15)', async () => {
@@ -376,11 +391,12 @@ describe('Payroll Generation API', () => {
       mockPrisma.thirteenthMonthPayRecord.findMany.mockResolvedValue([]);
       mockPrisma.payroll.createMany.mockResolvedValue({ count: 2 });
 
-      const response = await POST();
+      const response = await POST(createMockRequest());
       const data = await response.json();
 
-      expect(data.period.start).toBe('2025-10-01');
-      expect(data.period.end).toBe('2025-10-15');
+      expect(response.status).toBe(201);
+      expect(data.data.period.start).toBe('2025-10-01');
+      expect(data.data.period.end).toBe('2025-10-15');
     });
   });
 });

@@ -56,10 +56,12 @@ describe('Customers By ID API Routes', () => {
 
       const request = new NextRequest(getTestApiUrl('/api/customers/1'));
       const response = await GET(request, { params: { id: '1' } });
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data['Customer Name']).toBe('John Doe');
+      expect(payload.success).toBe(true);
+      expect(payload.data['Customer Name']).toBe('John Doe');
+      expect(payload.message).toBe('Customer fetched');
     });
 
     it('should return 404 when customer not found', async () => {
@@ -67,19 +69,21 @@ describe('Customers By ID API Routes', () => {
 
       const request = new NextRequest(getTestApiUrl('/api/customers/999'));
       const response = await GET(request, { params: { id: '999' } });
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(404);
-      expect(data.error).toBe('Customer not found');
+      expect(payload.success).toBe(false);
+      expect(payload.error).toBe('Customer not found');
     });
 
     it('should return 400 for invalid customer ID', async () => {
       const request = new NextRequest(getTestApiUrl('/api/customers/invalid'));
       const response = await GET(request, { params: { id: 'invalid' } });
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toBe('Invalid customer ID');
+      expect(payload.success).toBe(false);
+      expect(payload.error).toBe('Invalid customer ID');
     });
   });
 
@@ -91,6 +95,23 @@ describe('Customers By ID API Routes', () => {
         Address: 'New Address',
         Status: 'Inactive',
       };
+
+      mockPrisma.customer.findUnique.mockResolvedValue({
+        id: 1,
+        date: '2024-01-01',
+        customerName: 'John Doe',
+        phoneNumber: '123-456-7890',
+        address: '123 Main St',
+        facebook: '',
+        emailAddress: '',
+        businessName: '',
+        taxNumber: '',
+        businessAddress: '',
+        businessContactNumber: '',
+        customerStatus: 'Active',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
       const updatedCustomer = {
         id: 1,
@@ -117,11 +138,13 @@ describe('Customers By ID API Routes', () => {
       });
 
       const response = await PUT(request, { params: { id: '1' } });
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data['Customer Name']).toBe('John Updated');
-      expect(data['Phone Number']).toBe('999-999-9999');
+      expect(payload.success).toBe(true);
+      expect(payload.data['Customer Name']).toBe('John Updated');
+      expect(payload.data['Phone Number']).toBe('999-999-9999');
+      expect(payload.message).toBe('Customer updated successfully');
     });
 
     it('should return 400 for invalid customer ID', async () => {
@@ -138,16 +161,17 @@ describe('Customers By ID API Routes', () => {
       });
 
       const response = await PUT(request, { params: { id: 'invalid' } });
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toBe('Invalid customer ID');
+      expect(payload.success).toBe(false);
+      expect(payload.error).toBe('Invalid customer ID');
     });
   });
 
   describe('DELETE /api/customers/[id]', () => {
     it('should delete customer successfully', async () => {
-      mockPrisma.customer.delete.mockResolvedValue({
+      mockPrisma.customer.findUnique.mockResolvedValue({
         id: 1,
         date: '2024-01-01',
         customerName: 'John Doe',
@@ -164,21 +188,26 @@ describe('Customers By ID API Routes', () => {
         updatedAt: new Date(),
       });
 
+      mockPrisma.customer.delete.mockResolvedValue({ id: 1 });
+
       const request = new NextRequest(getTestApiUrl('/api/customers/1'));
       const response = await DELETE(request, { params: { id: '1' } });
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data.success).toBe(true);
+      expect(payload.success).toBe(true);
+      expect(payload.data.id).toBe(1);
+      expect(payload.message).toBe('Customer deleted successfully');
     });
 
     it('should return 400 for invalid customer ID', async () => {
       const request = new NextRequest(getTestApiUrl('/api/customers/invalid'));
       const response = await DELETE(request, { params: { id: 'invalid' } });
-      const data = await response.json();
+      const payload = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toBe('Invalid customer ID');
+      expect(payload.success).toBe(false);
+      expect(payload.error).toBe('Invalid customer ID');
     });
   });
 });

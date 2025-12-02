@@ -86,14 +86,15 @@ describe('Cash Advances API - GET', () => {
 
     const request = new NextRequest('http://localhost/api/cash-advances');
     const response = await GET(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data).toHaveLength(1);
-    expect(data[0].amount).toBe('5000');
-    expect(data[0].monthlyPayment).toBe('1666.67');
-    expect(data[0].settledAmount).toBe('1666.67');
-    expect(data[0].remainingBalance).toBe('3333.33');
+    expect(payload.success).toBe(true);
+    expect(payload.data).toHaveLength(1);
+    expect(payload.data?.[0].amount).toBe('5000');
+    expect(payload.data?.[0].monthlyPayment).toBe('1666.67');
+    expect(payload.data?.[0].settledAmount).toBe('1666.67');
+    expect(payload.data?.[0].remainingBalance).toBe('3333.33');
   });
 
   it('should filter by status', async () => {
@@ -167,10 +168,11 @@ describe('Cash Advances API - GET', () => {
 
     const request = new NextRequest('http://localhost/api/cash-advances');
     const response = await GET(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data[0].remainingBalance).toBe('7000'); // Decimal serialized to string
+    expect(payload.success).toBe(true);
+    expect(payload.data?.[0].remainingBalance).toBe('7000');
   });
 
   it('should handle errors', async () => {
@@ -180,10 +182,11 @@ describe('Cash Advances API - GET', () => {
 
     const request = new NextRequest('http://localhost/api/cash-advances');
     const response = await GET(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe('Failed to fetch cash advances');
+    expect(payload.success).toBe(false);
+    expect(payload.error).toBe('Failed to fetch cash advances');
   });
 });
 
@@ -234,11 +237,12 @@ describe('Cash Advances API - POST', () => {
     });
 
     const response = await POST(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(201);
-    expect(data.status).toBe('pending');
-    expect(data.amount).toBe('5000');
+    expect(payload.success).toBe(true);
+    expect(payload.data?.status).toBe('pending');
+    expect(payload.data?.amount).toBe('5000');
     expect(mockCashAdvanceService.create).toHaveBeenCalledWith(
       expect.objectContaining({
         employeeId: 'emp1',
@@ -295,10 +299,11 @@ describe('Cash Advances API - POST', () => {
     });
 
     const response = await POST(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(201);
-    expect(data.status).toBe('approved');
+    expect(payload.success).toBe(true);
+    expect(payload.data?.status).toBe('approved');
     expect(mockCashAdvanceService.create).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'approved',
@@ -350,10 +355,11 @@ describe('Cash Advances API - POST', () => {
     });
 
     const response = await POST(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(201);
-    expect(data.approvedDate).toBeTruthy();
+    expect(payload.success).toBe(true);
+    expect(payload.data?.approvedDate).toBeTruthy();
   });
 
   it('should handle employee name from "employee" field', async () => {
@@ -395,7 +401,10 @@ describe('Cash Advances API - POST', () => {
 
     const response = await POST(request);
 
+    const payload = await response.json();
+
     expect(response.status).toBe(201);
+    expect(payload.success).toBe(true);
     expect(mockCashAdvanceService.create).toHaveBeenCalledWith(
       expect.objectContaining({
         employeeName: 'John Doe',
@@ -418,10 +427,11 @@ describe('Cash Advances API - POST', () => {
     });
 
     const response = await POST(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe('Failed to create cash advance');
+    expect(payload.success).toBe(false);
+    expect(payload.error).toBe('Failed to create cash advance');
   });
 });
 
@@ -439,10 +449,11 @@ describe('Cash Advances API - PUT', () => {
     });
 
     const response = await PUT(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.error).toBe('Cash advance ID is required');
+    expect(payload.success).toBe(false);
+    expect(payload.error).toBe('Cash advance ID is required');
   });
 
   it('should return 404 if record not found', async () => {
@@ -459,10 +470,11 @@ describe('Cash Advances API - PUT', () => {
     });
 
     const response = await PUT(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(404);
-    expect(data.error).toContain('not found');
+    expect(payload.success).toBe(false);
+    expect(payload.error).toContain('not found');
   });
 
   it('should update cash advance fields', async () => {
@@ -510,11 +522,12 @@ describe('Cash Advances API - PUT', () => {
     });
 
     const response = await PUT(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.amount).toBe('6000');
-    expect(data.notes).toBe('Updated notes');
+    expect(payload.success).toBe(true);
+    expect(payload.data?.amount).toBe('6000');
+    expect(payload.data?.notes).toBe('Updated notes');
   });
 
   it('should auto-set approvedDate when status changes to approved', async () => {
@@ -565,10 +578,11 @@ describe('Cash Advances API - PUT', () => {
     });
 
     const response = await PUT(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.status).toBe('approved');
+    expect(payload.success).toBe(true);
+    expect(payload.data?.status).toBe('approved');
     expect(mockCashAdvanceService.update).toHaveBeenCalledWith(
       'clfhj3k8n0000xyz000000001',
       expect.objectContaining({
@@ -741,11 +755,12 @@ describe('Cash Advances API - PUT', () => {
     });
 
     const response = await PUT(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.status).toBe('paid');
-    expect(data.remainingBalance).toBe('0');
+    expect(payload.success).toBe(true);
+    expect(payload.data?.status).toBe('paid');
+    expect(payload.data?.remainingBalance).toBe('0');
     expect(mockCashAdvanceService.update).toHaveBeenCalledWith(
       'clfhj3k8n0000xyz000000001',
       expect.objectContaining({
@@ -799,10 +814,11 @@ describe('Cash Advances API - PUT', () => {
     });
 
     const response = await PUT(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.deductionCycle).toBe('SECOND_HALF');
+    expect(payload.success).toBe(true);
+    expect(payload.data?.deductionCycle).toBe('SECOND_HALF');
   });
 
   it('should handle errors', async () => {
@@ -819,10 +835,11 @@ describe('Cash Advances API - PUT', () => {
     });
 
     const response = await PUT(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe('Failed to update cash advance');
+    expect(payload.success).toBe(false);
+    expect(payload.error).toBe('Failed to update cash advance');
   });
 });
 
@@ -834,10 +851,11 @@ describe('Cash Advances API - DELETE', () => {
   it('should return 400 if ID is missing', async () => {
     const request = new NextRequest('http://localhost/api/cash-advances');
     const response = await DELETE(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.error).toBe('Cash advance ID is required');
+    expect(payload.success).toBe(false);
+    expect(payload.error).toBe('Cash advance ID is required');
   });
 
   it('should delete cash advance', async () => {
@@ -849,10 +867,10 @@ describe('Cash Advances API - DELETE', () => {
       'http://localhost/api/cash-advances?id=clfhj3k8n0000xyz000000001'
     );
     const response = await DELETE(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.success).toBe(true);
+    expect(payload.success).toBe(true);
     expect(mockCashAdvanceService.delete).toHaveBeenCalledWith(
       'clfhj3k8n0000xyz000000001'
     );
@@ -867,9 +885,10 @@ describe('Cash Advances API - DELETE', () => {
       'http://localhost/api/cash-advances?id=clfhj3k8n0000xyz000000001'
     );
     const response = await DELETE(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe('Failed to delete cash advance');
+    expect(payload.success).toBe(false);
+    expect(payload.error).toBe('Failed to delete cash advance');
   });
 });

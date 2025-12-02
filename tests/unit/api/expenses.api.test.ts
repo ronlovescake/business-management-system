@@ -11,32 +11,48 @@ const mockExpenseService = vi.hoisted(() => ({
   deleteAll: vi.fn(),
 }));
 
+const mockExpenseQuerySchema = vi.hoisted(() => ({
+  parse: vi.fn((data) => data),
+  safeParse: vi.fn((data) => ({ success: true, data })),
+}));
+
+const mockExpenseBatchCreateSchema = vi.hoisted(() => {
+  const transform = (data: unknown) => {
+    if (!Array.isArray(data)) {
+      return [];
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return data.map((item: any) => ({
+      ...item,
+      date: typeof item.date === 'string' ? new Date(item.date) : item.date,
+      amount:
+        typeof item.amount === 'string'
+          ? parseFloat(item.amount.replace(/[₱$€£¥¢₹₽₩₪₦₴₵₸₺₻₼₾₿\s,]/g, ''))
+          : item.amount,
+      status: item.status || 'pending',
+      notes: item.notes === '' ? null : item.notes,
+      receipt: item.receipt === '' ? null : item.receipt,
+      employeeName: item.employeeName === '' ? null : item.employeeName,
+    }));
+  };
+
+  return {
+    parse: vi.fn(transform),
+    safeParse: vi.fn((data) => ({
+      success: true,
+      data: transform(data),
+    })),
+  };
+});
+
 // Mock mass deletion safety check
 const mockValidateMassDeleteConfirmation = vi.hoisted(() => vi.fn(() => null));
 
 vi.mock('@/modules/clothing/employees/expenses/api', () => ({
   expenseService: mockExpenseService,
-  ExpenseQuerySchema: {
-    parse: vi.fn((data) => data),
-  },
-  ExpenseBatchCreateSchema: {
-    parse: vi.fn((data) => {
-      // Simulate Zod schema transformations
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return data.map((item: any) => ({
-        ...item,
-        date: typeof item.date === 'string' ? new Date(item.date) : item.date,
-        amount:
-          typeof item.amount === 'string'
-            ? parseFloat(item.amount.replace(/[₱$€£¥¢₹₽₩₪₦₴₵₸₺₻₼₾₿\s,]/g, ''))
-            : item.amount,
-        status: item.status || 'pending',
-        notes: item.notes === '' ? null : item.notes,
-        receipt: item.receipt === '' ? null : item.receipt,
-        employeeName: item.employeeName === '' ? null : item.employeeName,
-      }));
-    }),
-  },
+  ExpenseQuerySchema: mockExpenseQuerySchema,
+  ExpenseBatchCreateSchema: mockExpenseBatchCreateSchema,
 }));
 
 // Mock Prisma (may still be used by service in other tests)
@@ -127,14 +143,15 @@ describe('Expenses API - GET', () => {
 
     const request = mockNextRequest() as unknown as NextRequest;
     const response = await GET(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data).toHaveLength(2);
-    expect(data[0].id).toBe(1);
-    expect(data[0].amount).toBe(500.0);
-    expect(data[0].notes).toBe('Pens and paper');
-    expect(data[1].notes).toBeNull(); // null stays null
+    expect(payload.success).toBe(true);
+    expect(payload.data).toHaveLength(2);
+    expect(payload.data[0].id).toBe(1);
+    expect(payload.data[0].amount).toBe(500.0);
+    expect(payload.data[0].notes).toBe('Pens and paper');
+    expect(payload.data[1].notes).toBeNull(); // null stays null
     expect(mockExpenseService.findAll).toHaveBeenCalled();
   });
 
@@ -157,11 +174,11 @@ describe('Expenses API - GET', () => {
 
     const request = mockNextRequest() as unknown as NextRequest;
     const response = await GET(request);
-    const data = await response.json();
+    const payload = await response.json();
 
-    expect(data[0].notes).toBeNull(); // null stays null
-    expect(data[0].receipt).toBeNull(); // null receipt stays null
-    expect(data[0].employeeName).toBeNull(); // null employeeName stays null
+    expect(payload.data[0].notes).toBeNull(); // null stays null
+    expect(payload.data[0].receipt).toBeNull(); // null receipt stays null
+    expect(payload.data[0].employeeName).toBeNull(); // null employeeName stays null
   });
 
   it('should handle errors', async () => {
@@ -169,10 +186,11 @@ describe('Expenses API - GET', () => {
 
     const request = mockNextRequest() as unknown as NextRequest;
     const response = await GET(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe('Failed to fetch expenses');
+    expect(payload.success).toBe(false);
+    expect(payload.error).toBe('Failed to fetch expenses');
   });
 });
 
@@ -211,11 +229,12 @@ describe('Expenses API - POST', () => {
     });
 
     const response = await POST(request);
-    const data = await response.json();
+    const payload = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(data.count).toBe(2);
-    expect(data.message).toContain('2 expense records');
+    expect(response.status).toBe(201);
+    expect(payload.success).toBe(true);
+    expect(payload.data.count).toBe(2);
+    expect(payload.message).toContain('2 expense records');
 
     // Verify the service was called with transformed data
     const callArgs = mockExpenseService.createMany.mock.calls[0][0];
@@ -358,11 +377,11 @@ describe('Expenses API - POST', () => {
     });
 
     const response = await POST(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     // Route converts single object to array, so it succeeds
-    expect(response.status).toBe(200);
-    expect(data.count).toBe(1);
+    expect(response.status).toBe(201);
+    expect(payload.data.count).toBe(1);
   });
 
   it('should return 400 for empty array', async () => {
@@ -372,10 +391,12 @@ describe('Expenses API - POST', () => {
     });
 
     const response = await POST(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.error).toContain('one or more expenses');
+    expect(payload.success).toBe(false);
+    expect(payload.error).toContain('one or more expenses');
+    expect(payload.validationErrors?.expenses).toBeDefined();
   });
 
   it('should handle errors', async () => {
@@ -396,10 +417,11 @@ describe('Expenses API - POST', () => {
     });
 
     const response = await POST(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe('Failed to import expenses');
+    expect(payload.success).toBe(false);
+    expect(payload.error).toBe('Failed to import expenses');
   });
 });
 
@@ -417,10 +439,11 @@ describe('Expenses API - PATCH', () => {
     });
 
     const response = await PATCH(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.error).toBe('Expense ID is required');
+    expect(payload.success).toBe(false);
+    expect(payload.error).toBe('Expense ID is required');
   });
 
   it('should return 400 if ID is not a number', async () => {
@@ -433,10 +456,11 @@ describe('Expenses API - PATCH', () => {
     });
 
     const response = await PATCH(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.error).toBe('Expense ID must be a number');
+    expect(payload.success).toBe(false);
+    expect(payload.error).toBe('Expense ID must be a number');
   });
 
   it('should update expense fields', async () => {
@@ -466,11 +490,12 @@ describe('Expenses API - PATCH', () => {
     });
 
     const response = await PATCH(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.message).toBe('Expense updated successfully');
-    expect(data.expense.amount).toBe(600.0);
+    expect(payload.success).toBe(true);
+    expect(payload.message).toBe('Expense updated successfully');
+    expect(payload.data.amount).toBe(600.0);
     expect(mockExpenseService.update).toHaveBeenCalledWith(1, {
       amount: 600,
       description: 'Office supplies - updated',
@@ -523,10 +548,11 @@ describe('Expenses API - PATCH', () => {
     });
 
     const response = await PATCH(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe('Failed to update expense');
+    expect(payload.success).toBe(false);
+    expect(payload.error).toBe('Failed to update expense');
   });
 });
 
@@ -580,11 +606,12 @@ describe('Expenses API - PUT', () => {
     });
 
     const response = await PUT(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.count).toBe(2);
-    expect(data.message).toContain('2 expenses');
+    expect(payload.success).toBe(true);
+    expect(payload.data.count).toBe(2);
+    expect(payload.message).toContain('2 expenses');
     expect(mockExpenseService.update).toHaveBeenCalledTimes(2);
   });
 
@@ -598,10 +625,11 @@ describe('Expenses API - PUT', () => {
     });
 
     const response = await PUT(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.error).toBe('Expected array of expenses to update');
+    expect(payload.success).toBe(false);
+    expect(payload.error).toBe('Expected array of expenses to update');
   });
 
   it('should return 400 for empty array', async () => {
@@ -611,10 +639,11 @@ describe('Expenses API - PUT', () => {
     });
 
     const response = await PUT(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.error).toBe('Expected array of expenses to update');
+    expect(payload.success).toBe(false);
+    expect(payload.error).toBe('Expected array of expenses to update');
   });
 
   it('should return 500 for invalid ID', async () => {
@@ -629,11 +658,12 @@ describe('Expenses API - PUT', () => {
     });
 
     const response = await PUT(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe('Failed to bulk update expenses');
-    expect(data.details).toContain('Invalid expense ID');
+    expect(payload.success).toBe(false);
+    expect(payload.error).toBe('Failed to bulk update expenses');
+    expect(payload.details).toContain('Invalid expense ID');
   });
 
   it('should handle errors', async () => {
@@ -650,10 +680,11 @@ describe('Expenses API - PUT', () => {
     });
 
     const response = await PUT(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe('Failed to bulk update expenses');
+    expect(payload.success).toBe(false);
+    expect(payload.error).toBe('Failed to bulk update expenses');
   });
 });
 
@@ -669,11 +700,12 @@ describe('Expenses API - DELETE', () => {
       method: 'DELETE',
     }) as unknown as NextRequest;
     const response = await DELETE(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.count).toBe(10);
-    expect(data.message).toContain('10 expense records');
+    expect(payload.success).toBe(true);
+    expect(payload.data.count).toBe(10);
+    expect(payload.message).toContain('10 expense records');
     expect(mockExpenseService.deleteAll).toHaveBeenCalled();
   });
 
@@ -684,9 +716,10 @@ describe('Expenses API - DELETE', () => {
       method: 'DELETE',
     }) as unknown as NextRequest;
     const response = await DELETE(request);
-    const data = await response.json();
+    const payload = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data.error).toBe('Failed to delete expenses');
+    expect(payload.success).toBe(false);
+    expect(payload.error).toBe('Failed to delete expenses');
   });
 });

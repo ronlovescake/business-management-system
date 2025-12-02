@@ -1,6 +1,9 @@
-import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { ApiResponse } from '@/core/api';
+import { withErrorHandler } from '@/core/api/middleware';
+import { HTTP_STATUS } from '@/shared/constants/api';
 
 const normalizeKey = (value?: string | null): string =>
   (value ?? '').trim().toLowerCase();
@@ -73,7 +76,7 @@ function buildAttendanceSummary(
   return Array.from(grouped.values());
 }
 
-export async function POST() {
+export const POST = withErrorHandler(async (_request: NextRequest) => {
   try {
     const currentPeriod = getCurrentPayPeriod(new Date());
 
@@ -137,20 +140,22 @@ export async function POST() {
     });
 
     if (attendance.length === 0) {
-      return NextResponse.json({
-        success: false,
-        message: `No attendance records found for ${currentPeriod.label}`,
-        period: currentPeriod,
-      });
+      return ApiResponse.error(
+        'No attendance records found',
+        HTTP_STATUS.NOT_FOUND,
+        `No attendance records found for ${currentPeriod.label}`,
+        { meta: { period: currentPeriod } }
+      );
     }
 
     const attendanceSummaries = buildAttendanceSummary(attendance);
     if (attendanceSummaries.length === 0) {
-      return NextResponse.json({
-        success: false,
-        message: `No eligible employees with attendance found for ${currentPeriod.label}`,
-        period: currentPeriod,
-      });
+      return ApiResponse.error(
+        'No eligible employees found',
+        HTTP_STATUS.NOT_FOUND,
+        `No eligible employees with attendance found for ${currentPeriod.label}`,
+        { meta: { period: currentPeriod } }
+      );
     }
 
     const eligibleSummaries = attendanceSummaries.filter((summary) => {
@@ -167,11 +172,12 @@ export async function POST() {
     });
 
     if (eligibleSummaries.length === 0) {
-      return NextResponse.json({
-        success: false,
-        message: `Payroll already exists for period ${currentPeriod.label}`,
-        period: currentPeriod,
-      });
+      return ApiResponse.error(
+        'Payroll already exists for this period',
+        HTTP_STATUS.CONFLICT,
+        `Payroll already exists for period ${currentPeriod.label}`,
+        { meta: { period: currentPeriod } }
+      );
     }
 
     const softConflictSummaries = eligibleSummaries.filter((summary) => {
@@ -187,20 +193,29 @@ export async function POST() {
     });
 
     if (softConflictSummaries.length > 0) {
-      return NextResponse.json({
-        success: false,
-        message: `Deleted payroll exists for ${softConflictSummaries.length} employee${softConflictSummaries.length === 1 ? '' : 's'} in period ${currentPeriod.label}. Please clean up the deleted records before generating new payroll.`,
-        period: currentPeriod,
-        action: 'cleanup_soft_deleted',
-        conflicts: softConflictSummaries.map((summary) => ({
-          employeeId: summary.employeeId,
-          employeeName: summary.employeeName,
-        })),
-      });
+      return ApiResponse.error(
+        'Soft-deleted payroll records detected',
+        HTTP_STATUS.CONFLICT,
+        `Deleted payroll exists for ${softConflictSummaries.length} employee${softConflictSummaries.length === 1 ? '' : 's'} in period ${currentPeriod.label}. Please clean up the deleted records before generating new payroll.`,
+        {
+          meta: {
+            period: currentPeriod,
+            action: 'cleanup_soft_deleted',
+            conflicts: softConflictSummaries.map((summary) => ({
+              employeeId: summary.employeeId,
+              employeeName: summary.employeeName,
+            })),
+          },
+        }
+      );
     }
 
     const employeeIds = Array.from(
-      new Set(eligibleSummaries.map((summary) => summary.employeeId))
+      new Set(
+        eligibleSummaries
+          .map((summary) => summary.employeeId)
+          .filter((id): id is string => Boolean(id))
+      )
     );
     const employees = await prisma.employee.findMany({
       where: {
@@ -342,21 +357,22 @@ export async function POST() {
 
     const created = await prisma.payroll.createMany({ data: payrollRecords });
 
-    return NextResponse.json({
-      success: true,
-      message: `Successfully generated payroll for ${created.count} employees`,
-      period: currentPeriod,
-      count: created.count,
-    });
-  } catch (error) {
-    logger.error('Error generating payroll:', error);
-    return NextResponse.json(
+    return ApiResponse.success(
       {
-        success: false,
-        error: 'Failed to generate payroll',
-        details: error instanceof Error ? error.message : 'Unknown error',
+        period: currentPeriod,
+        count: created.count,
       },
-      { status: 500 }
+      `Successfully generated payroll for ${created.count} employees`,
+      HTTP_STATUS.CREATED
+    );
+  } catch (error) {
+    logger.error('Error generating payroll', {
+      error: error instanceof Error ? error.message : error,
+    });
+    return ApiResponse.error(
+      'Failed to generate payroll',
+      HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      error instanceof Error ? error.message : 'Unknown error'
     );
   }
-}
+});

@@ -1,53 +1,75 @@
 import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { ApiResponse } from '@/core/api';
+import { withErrorHandler } from '@/core/api/middleware';
 
-/**
- * DELETE /api/payroll/cleanup
- * Permanently deletes soft-deleted payroll records for a specific period
- */
-export async function DELETE(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const periodStart = searchParams.get('periodStart');
-    const periodEnd = searchParams.get('periodEnd');
+type CleanupFilters = {
+  periodStart?: string;
+  periodEnd?: string;
+};
 
-    if (!periodStart || !periodEnd) {
-      return NextResponse.json(
-        { error: 'periodStart and periodEnd are required' },
-        { status: 400 }
-      );
-    }
+export const DELETE = withErrorHandler(async (request: NextRequest) => {
+  const { searchParams } = new URL(request.url);
+  const filters = parseCleanupFilters(searchParams);
 
-    // Permanently delete soft-deleted payroll records for this period
-    const result = await prisma.payroll.deleteMany({
-      where: {
-        periodStart,
-        periodEnd,
-        deletedAt: { not: null },
-      },
-    });
-
-    logger.info('Soft-deleted payroll records permanently removed', {
-      periodStart,
-      periodEnd,
-      count: result.count,
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: `${result.count} soft-deleted payroll record(s) permanently removed`,
-      count: result.count,
-    });
-  } catch (error) {
-    logger.error('Failed to cleanup soft-deleted payroll records', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-
-    return NextResponse.json(
-      { error: 'Failed to cleanup payroll records' },
-      { status: 500 }
+  const validationErrors = getCleanupValidationErrors(filters);
+  if (validationErrors) {
+    return ApiResponse.badRequest(
+      'Missing payroll cleanup filters',
+      validationErrors
     );
   }
+
+  const { periodStart, periodEnd } = filters as Required<CleanupFilters>;
+
+  const result = await prisma.payroll.deleteMany({
+    where: {
+      periodStart,
+      periodEnd,
+      deletedAt: { not: null },
+    },
+  });
+
+  logger.info('Soft-deleted payroll records permanently removed', {
+    periodStart,
+    periodEnd,
+    count: result.count,
+  });
+
+  return ApiResponse.success(
+    {
+      filters: { periodStart, periodEnd },
+      count: result.count,
+    },
+    `${result.count} soft-deleted payroll record(s) permanently removed`
+  );
+});
+
+function sanitizeQueryValue(value: string | null): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : undefined;
+}
+
+function parseCleanupFilters(searchParams: URLSearchParams): CleanupFilters {
+  return {
+    periodStart: sanitizeQueryValue(searchParams.get('periodStart')),
+    periodEnd: sanitizeQueryValue(searchParams.get('periodEnd')),
+  };
+}
+
+function getCleanupValidationErrors(
+  filters: CleanupFilters
+): Record<string, string> | undefined {
+  const errors: Record<string, string> = {};
+
+  if (!filters.periodStart) {
+    errors.periodStart = 'Provide periodStart query parameter (YYYY-MM-DD).';
+  }
+
+  if (!filters.periodEnd) {
+    errors.periodEnd = 'Provide periodEnd query parameter (YYYY-MM-DD).';
+  }
+
+  return Object.keys(errors).length > 0 ? errors : undefined;
 }

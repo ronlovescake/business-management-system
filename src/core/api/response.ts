@@ -60,6 +60,7 @@ export class ApiResponseUtil {
       field?: string;
       validationErrors?: Record<string, string>;
       suggestion?: string;
+      meta?: Record<string, unknown>;
     }
   ): NextResponse<ApiErrorResponse> {
     return NextResponse.json(

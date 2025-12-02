@@ -2,25 +2,27 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { getTestApiUrl } from '@/core/testing/test-helpers';
 
-// Hoist mocks to avoid initialization issues
-const { mockPrisma } = vi.hoisted(() => {
+const { mockCustomerService, mockPrisma } = vi.hoisted(() => {
   return {
+    mockCustomerService: {
+      findActive: vi.fn(),
+      bulkSync: vi.fn(),
+      create: vi.fn(),
+      softDeleteAll: vi.fn(),
+    },
     mockPrisma: {
       customer: {
-        findMany: vi.fn(),
-        create: vi.fn(),
-        createMany: vi.fn(),
-        deleteMany: vi.fn(),
-        updateMany: vi.fn(),
-        count: vi.fn(),
-        upsert: vi.fn(),
-        findFirst: vi.fn(),
+        findUnique: vi.fn(),
         update: vi.fn(),
+        delete: vi.fn(),
       },
-      $transaction: vi.fn(),
     },
   };
 });
+
+vi.mock('@/modules/customers/api/service', () => ({
+  customerService: mockCustomerService,
+}));
 
 vi.mock('@/lib/db', () => ({
   prisma: mockPrisma,
@@ -37,13 +39,19 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 import { GET, POST, PUT, DELETE } from '@/app/api/customers/route';
+import {
+  GET as GET_BY_ID,
+  PUT as PUT_BY_ID,
+  DELETE as DELETE_BY_ID,
+} from '@/app/api/customers/[id]/route';
 
 describe('Customers API Routes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Ensure DATABASE_URL is set for tests
     process.env.DATABASE_URL =
       'postgresql://testuser:testpass@localhost:5432/testdb';
+    Object.values(mockCustomerService).forEach((fn) => fn.mockReset());
+    Object.values(mockPrisma.customer).forEach((fn) => fn.mockReset());
   });
 
   describe('GET /api/customers', () => {
@@ -67,19 +75,35 @@ describe('Customers API Routes', () => {
         },
       ];
 
-      mockPrisma.customer.findMany.mockResolvedValue(mockCustomers);
+      mockCustomerService.findActive.mockResolvedValue(
+        mockCustomers.map((customer) => ({
+          id: customer.id,
+          Date: customer.date,
+          'Customer Name': customer.customerName,
+          'Phone Number': customer.phoneNumber,
+          Address: customer.address,
+          Facebook: customer.facebook,
+          'Email Address': customer.emailAddress,
+          'Business Name': customer.businessName,
+          'Tax Number': customer.taxNumber,
+          'Business Address': customer.businessAddress,
+          'Business Contact Number': customer.businessContactNumber,
+          'Customer Status': customer.customerStatus,
+        }))
+      );
 
       const response = await GET();
       const data = await response.json();
 
       expect(response.status).toBe(200);
-      expect(Array.isArray(data)).toBe(true);
-      expect(data.length).toBe(1);
-      expect(data[0]['Customer Name']).toBe('John Doe');
+      expect(data.success).toBe(true);
+      expect(Array.isArray(data.data)).toBe(true);
+      expect(data.data.length).toBe(1);
+      expect(data.data[0]['Customer Name']).toBe('John Doe');
     });
 
     it('should return error response on database failure', async () => {
-      mockPrisma.customer.findMany.mockRejectedValue(
+      mockCustomerService.findActive.mockRejectedValue(
         new Error('Database connection failed')
       );
 
@@ -87,8 +111,8 @@ describe('Customers API Routes', () => {
       const data = await response.json();
 
       expect(response.status).toBe(500);
+      expect(data.success).toBe(false);
       expect(data.error).toBe('Failed to fetch customers');
-      expect(data.details).toBe('Database connection failed');
     });
   });
 
@@ -110,22 +134,20 @@ describe('Customers API Routes', () => {
 
       const createdCustomer = {
         id: 3,
-        date: '2024-01-01',
-        customerName: 'Jane Smith',
-        phoneNumber: '987-654-3210',
-        address: '456 Oak Ave',
-        facebook: '',
-        emailAddress: '',
-        businessName: '',
-        taxNumber: '',
-        businessAddress: '',
-        businessContactNumber: '',
-        customerStatus: 'Active',
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        Date: '2024-01-01',
+        'Customer Name': 'Jane Smith',
+        'Phone Number': '987-654-3210',
+        Address: '456 Oak Ave',
+        Facebook: '',
+        'Email Address': '',
+        'Business Name': '',
+        'Tax Number': '',
+        'Business Address': '',
+        'Business Contact Number': '',
+        'Customer Status': 'Active',
       };
 
-      mockPrisma.customer.create.mockResolvedValue(createdCustomer);
+      mockCustomerService.create.mockResolvedValue(createdCustomer);
 
       const request = new NextRequest(getTestApiUrl('/api/customers'), {
         method: 'POST',
@@ -135,8 +157,10 @@ describe('Customers API Routes', () => {
       const response = await POST(request);
       const data = await response.json();
 
-      expect(response.status).toBe(200);
-      expect(data.id).toBe(3);
+      expect(response.status).toBe(201);
+      expect(data.success).toBe(true);
+      expect(data.data.id).toBe(3);
+      expect(mockCustomerService.create).toHaveBeenCalled();
     });
 
     it('should normalize invalid status to Active and create customer', async () => {
@@ -149,22 +173,20 @@ describe('Customers API Routes', () => {
 
       const mockCreatedCustomer = {
         id: 3,
-        date: '',
-        customerName: 'Test Customer',
-        phoneNumber: '123-456-7890',
-        address: '123 Main St',
-        facebook: '',
-        emailAddress: '',
-        businessName: '',
-        taxNumber: '',
-        businessAddress: '',
-        businessContactNumber: '',
-        customerStatus: 'Active', // Normalized
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        Date: '',
+        'Customer Name': 'Test Customer',
+        'Phone Number': '123-456-7890',
+        Address: '123 Main St',
+        Facebook: '',
+        'Email Address': '',
+        'Business Name': '',
+        'Tax Number': '',
+        'Business Address': '',
+        'Business Contact Number': '',
+        'Customer Status': 'Active',
       };
 
-      mockPrisma.customer.create.mockResolvedValue(mockCreatedCustomer);
+      mockCustomerService.create.mockResolvedValue(mockCreatedCustomer);
 
       const request = new NextRequest(getTestApiUrl('/api/customers'), {
         method: 'POST',
@@ -174,8 +196,12 @@ describe('Customers API Routes', () => {
       const response = await POST(request);
       const data = await response.json();
 
-      expect(response.status).toBe(200);
-      expect(data['Customer Status']).toBe('Active');
+      expect(response.status).toBe(201);
+      expect(data.success).toBe(true);
+      expect(data.data['Customer Status']).toBe('Active');
+      expect(mockCustomerService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ 'Customer Status': 'Active' })
+      );
     });
   });
 
@@ -197,20 +223,9 @@ describe('Customers API Routes', () => {
         },
       ];
 
-      const upsert = vi.fn();
-      const findFirst = vi.fn().mockResolvedValue(null);
-      const update = vi.fn();
-      const create = vi.fn().mockResolvedValue({ id: 1 });
-
-      mockPrisma.$transaction.mockImplementation(async (callback) => {
-        return callback({
-          customer: {
-            upsert,
-            findFirst,
-            update,
-            create,
-          },
-        });
+      mockCustomerService.bulkSync.mockResolvedValue({
+        created: 1,
+        updated: 0,
       });
 
       const request = new NextRequest(getTestApiUrl('/api/customers'), {
@@ -222,15 +237,13 @@ describe('Customers API Routes', () => {
       const data = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data.ok).toBe(true);
-      expect(data.created).toBe(1);
-      expect(data.updated).toBe(0);
-      expect(data.skipped).toBe(0);
-      expect(Array.isArray(data.errors)).toBe(true);
-      expect(data.errors.length).toBe(0);
-      expect(findFirst).toHaveBeenCalledTimes(1);
-      expect(create).toHaveBeenCalledTimes(1);
-      expect(upsert).not.toHaveBeenCalled();
+      expect(data.success).toBe(true);
+      expect(data.data.created).toBe(1);
+      expect(data.data.updated).toBe(0);
+      expect(data.data.skipped).toBe(0);
+      expect(Array.isArray(data.data.skippedDetails)).toBe(true);
+      expect(data.data.skippedDetails.length).toBe(0);
+      expect(mockCustomerService.bulkSync).toHaveBeenCalledWith(bulkCustomers);
     });
 
     it('should return 400 when all rows are invalid', async () => {
@@ -250,15 +263,9 @@ describe('Customers API Routes', () => {
         },
       ];
 
-      mockPrisma.$transaction.mockImplementation(async (callback) => {
-        return callback({
-          customer: {
-            upsert: vi.fn(),
-            findFirst: vi.fn(),
-            update: vi.fn(),
-            create: vi.fn(),
-          },
-        });
+      mockCustomerService.bulkSync.mockResolvedValue({
+        created: 0,
+        updated: 0,
       });
 
       const request = new NextRequest(getTestApiUrl('/api/customers'), {
@@ -270,16 +277,20 @@ describe('Customers API Routes', () => {
       const data = await response.json();
 
       expect(response.status).toBe(400);
+      expect(data.success).toBe(false);
       expect(data.error).toBe('Validation failed');
-      expect(Array.isArray(data.details)).toBe(true);
-      expect(data.details.length).toBe(1);
+      expect(data.validationErrors?.customers).toContain(
+        'All rows failed validation'
+      );
     });
   });
 
   describe('DELETE /api/customers', () => {
     it('should delete all customers successfully', async () => {
-      mockPrisma.customer.count.mockResolvedValue(0);
-      mockPrisma.customer.updateMany.mockResolvedValue({ count: 5 });
+      mockCustomerService.softDeleteAll.mockResolvedValue({
+        deleted: 5,
+        alreadyDeleted: 0,
+      });
 
       const request = new NextRequest(
         getTestApiUrl('/api/customers', { confirm: 'DELETE_ALL_CUSTOMERS' }),
@@ -292,7 +303,188 @@ describe('Customers API Routes', () => {
       const data = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data.count).toBe(5);
+      expect(data.success).toBe(true);
+      expect(data.data.deleted).toBe(5);
+    });
+  });
+
+  describe('Customers API - /api/customers/[id]', () => {
+    const baseCustomer = {
+      id: 1,
+      date: '2024-01-01',
+      customerName: 'John Doe',
+      phoneNumber: '1234567890',
+      address: '123 Main St',
+      facebook: '',
+      emailAddress: 'john@example.com',
+      businessName: 'Acme Inc',
+      taxNumber: 'ABC-12345',
+      businessAddress: '123 Main St',
+      businessContactNumber: '1234567890',
+      customerStatus: 'Active',
+    };
+
+    it('should fetch customer by ID', async () => {
+      mockPrisma.customer.findUnique.mockResolvedValue(baseCustomer);
+
+      const response = await GET_BY_ID(
+        new NextRequest(getTestApiUrl('/api/customers/1')),
+        { params: { id: '1' } }
+      );
+      const payload = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(payload.success).toBe(true);
+      expect(payload.data['Customer Name']).toBe('John Doe');
+      expect(payload.message).toBe('Customer fetched');
+    });
+
+    it('should return 400 for invalid customer ID on GET', async () => {
+      const response = await GET_BY_ID(
+        new NextRequest(getTestApiUrl('/api/customers/invalid')),
+        { params: { id: 'invalid' } }
+      );
+      const payload = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(payload.success).toBe(false);
+      expect(payload.error).toBe('Invalid customer ID');
+      expect(mockPrisma.customer.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('should return 404 when customer not found', async () => {
+      mockPrisma.customer.findUnique.mockResolvedValue(null);
+
+      const response = await GET_BY_ID(
+        new NextRequest(getTestApiUrl('/api/customers/999')),
+        { params: { id: '999' } }
+      );
+      const payload = await response.json();
+
+      expect(response.status).toBe(404);
+      expect(payload.success).toBe(false);
+      expect(payload.error).toBe('Customer not found');
+    });
+
+    it('should update customer successfully', async () => {
+      const updatePayload = {
+        'Customer Name': 'Jane Doe',
+        'Customer Status': 'VIP',
+      };
+
+      mockPrisma.customer.findUnique.mockResolvedValue(baseCustomer);
+      mockPrisma.customer.update.mockResolvedValue({
+        ...baseCustomer,
+        customerName: 'Jane Doe',
+        customerStatus: 'VIP',
+      });
+
+      const response = await PUT_BY_ID(
+        new NextRequest(getTestApiUrl('/api/customers/1'), {
+          method: 'PUT',
+          body: JSON.stringify(updatePayload),
+        }),
+        { params: { id: '1' } }
+      );
+      const payload = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(payload.success).toBe(true);
+      expect(payload.message).toBe('Customer updated successfully');
+      expect(payload.data['Customer Name']).toBe('Jane Doe');
+      expect(mockPrisma.customer.update).toHaveBeenCalled();
+    });
+
+    it('should return 400 when update validation fails', async () => {
+      const invalidPayload = {
+        'Customer Name': '',
+      };
+
+      const response = await PUT_BY_ID(
+        new NextRequest(getTestApiUrl('/api/customers/1'), {
+          method: 'PUT',
+          body: JSON.stringify(invalidPayload),
+        }),
+        { params: { id: '1' } }
+      );
+      const payload = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(payload.success).toBe(false);
+      expect(payload.error).toBe('Validation failed');
+      expect(payload.validationErrors).toBeDefined();
+      expect(mockPrisma.customer.update).not.toHaveBeenCalled();
+    });
+
+    it('should return 404 when updating non-existent customer', async () => {
+      mockPrisma.customer.findUnique.mockResolvedValue(null);
+
+      const response = await PUT_BY_ID(
+        new NextRequest(getTestApiUrl('/api/customers/999'), {
+          method: 'PUT',
+          body: JSON.stringify({ 'Customer Name': 'Ghost' }),
+        }),
+        { params: { id: '999' } }
+      );
+      const payload = await response.json();
+
+      expect(response.status).toBe(404);
+      expect(payload.success).toBe(false);
+      expect(payload.error).toBe('Customer not found');
+      expect(mockPrisma.customer.update).not.toHaveBeenCalled();
+    });
+
+    it('should delete customer successfully', async () => {
+      mockPrisma.customer.findUnique.mockResolvedValue(baseCustomer);
+      mockPrisma.customer.delete.mockResolvedValue(baseCustomer);
+
+      const response = await DELETE_BY_ID(
+        new NextRequest(getTestApiUrl('/api/customers/1'), {
+          method: 'DELETE',
+        }),
+        { params: { id: '1' } }
+      );
+      const payload = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(payload.success).toBe(true);
+      expect(payload.data.id).toBe(1);
+      expect(payload.message).toBe('Customer deleted successfully');
+      expect(mockPrisma.customer.delete).toHaveBeenCalledWith({
+        where: { id: 1 },
+      });
+    });
+
+    it('should return 400 for invalid ID on delete', async () => {
+      const response = await DELETE_BY_ID(
+        new NextRequest(getTestApiUrl('/api/customers/not-a-number'), {
+          method: 'DELETE',
+        }),
+        { params: { id: 'not-a-number' } }
+      );
+      const payload = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(payload.success).toBe(false);
+      expect(payload.error).toBe('Invalid customer ID');
+      expect(mockPrisma.customer.delete).not.toHaveBeenCalled();
+    });
+
+    it('should return 404 when deleting non-existent customer', async () => {
+      mockPrisma.customer.findUnique.mockResolvedValue(null);
+
+      const response = await DELETE_BY_ID(
+        new NextRequest(getTestApiUrl('/api/customers/404'), {
+          method: 'DELETE',
+        }),
+        { params: { id: '404' } }
+      );
+      const payload = await response.json();
+
+      expect(response.status).toBe(404);
+      expect(payload.success).toBe(false);
+      expect(payload.error).toBe('Customer not found');
+      expect(mockPrisma.customer.delete).not.toHaveBeenCalled();
     });
   });
 });
