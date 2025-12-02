@@ -22,7 +22,8 @@
 
 **Tasks:**
 
-- [ ] Create Zod validation schemas for each resource (2h)
+- [x] Create Zod validation schemas for each resource (2h)
+  - Customers, prices, and shipments now import shared schemas from `src/modules/*/api/schemas.ts`, completing the remaining API standardization work.
 - [x] Refactor API routes using existing factory pattern (3h)
   - [x] `src/app/api/customers/route.ts`
   - [x] `src/app/api/products/route.ts`
@@ -128,17 +129,20 @@
 
 **Tasks:**
 
-- [ ] Remove console.log from `src/modules/clothing/operations/dispatch/hooks/useDispatchCustomerLookup.ts`
-- [ ] Remove console.log from `src/modules/clothing/operations/dispatch/hooks/usePossibleMatches.ts`
-- [ ] Remove console.log from `src/lib/performance/monitoring.ts`
-- [ ] Replace with proper logger service where needed
-- [ ] Add ESLint rule to prevent future console.log
-- [ ] Run full codebase audit for remaining instances
+- [x] Remove console.log from `src/modules/clothing/operations/dispatch/hooks/useDispatchCustomerLookup.ts`
+- [x] Remove console.log from `src/modules/clothing/operations/dispatch/hooks/usePossibleMatches.ts`
+- [x] Remove console.log from `src/lib/performance/monitoring.ts`
+- [x] Replace with proper logger service where needed
+- [x] Add ESLint rule to prevent future console.log
+- [x] Enforce `npm run lint` in CI (`.github/workflows/e2e-tests.yml`) so console regressions fail builds (Dec 3, 2025)
+- [x] Run full codebase audit for remaining instances
+  - ✅ `npm run lint` + repo-wide search (Dec 3, 2025) confirm only the logger utility/shell scripts access console APIs.
 
 **Benefits:**
 
 - ✅ Cleaner production logs
 - ✅ Better debugging with structured logging
+- ✅ Lint now enforced in CI for every push/PR
 - ✅ Improved code professionalism
 
 ---
@@ -558,8 +562,8 @@
 **Priority:** P0  
 **Tasks:**
 
-- [ ] Remove all console.log statements
-- [ ] Add ESLint rule to prevent future occurrences
+- [x] Remove all console.log statements
+- [x] Add ESLint rule to prevent future occurrences
 
 ---
 
