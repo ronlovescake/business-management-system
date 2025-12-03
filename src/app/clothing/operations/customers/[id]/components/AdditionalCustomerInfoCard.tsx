@@ -35,6 +35,29 @@ interface AdditionalCustomerInfoCardProps {
   customerId: string;
 }
 
+interface AdditionalInfoState {
+  addresses: AdditionalInfo[];
+  phones: AdditionalInfo[];
+  shopeeUsernames: AdditionalInfo[];
+  alternateNames: AdditionalInfo[];
+  facebookAccounts: AdditionalInfo[];
+}
+
+const normalizeAdditionalInfo = (payload: unknown): AdditionalInfoState => {
+  const root =
+    payload && typeof payload === 'object' && 'data' in payload
+      ? ((payload as { data?: Partial<AdditionalInfoState> }).data ?? {})
+      : ((payload as Partial<AdditionalInfoState>) ?? {});
+
+  return {
+    addresses: root.addresses ?? [],
+    phones: root.phones ?? [],
+    shopeeUsernames: root.shopeeUsernames ?? [],
+    alternateNames: root.alternateNames ?? [],
+    facebookAccounts: root.facebookAccounts ?? [],
+  } satisfies AdditionalInfoState;
+};
+
 export const AdditionalCustomerInfoCard = memo(
   function AdditionalCustomerInfoCard({
     customerId,
@@ -51,6 +74,15 @@ export const AdditionalCustomerInfoCard = memo(
     const [loading, setLoading] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
 
+    const syncInfoState = (next: AdditionalInfoState) => {
+      setAddresses(next.addresses);
+      setPhones(next.phones);
+      setShopeeUsernames(next.shopeeUsernames);
+      setAlternateNames(next.alternateNames);
+      setFacebookAccounts(next.facebookAccounts);
+      setHasChanges(false);
+    };
+
     // ============================================================================
     // FETCH DATA
     // ============================================================================
@@ -61,14 +93,16 @@ export const AdditionalCustomerInfoCard = memo(
           `/api/customers/${customerId}/additional-info`
         );
         if (response.ok) {
-          const data = await response.json();
-          setAddresses(data.addresses || []);
-          setPhones(data.phones || []);
-          setShopeeUsernames(data.shopeeUsernames || []);
-          setAlternateNames(data.alternateNames || []);
-          setFacebookAccounts(data.facebookAccounts || []);
-          setHasChanges(false);
+          const payload = await response.json();
+          syncInfoState(normalizeAdditionalInfo(payload));
+          return;
         }
+
+        showNotification({
+          title: 'Error',
+          message: 'Failed to load additional customer information',
+          color: 'red',
+        });
       } catch (error) {
         logger.error('Error fetching additional info:', error);
         showNotification({
@@ -108,16 +142,21 @@ export const AdditionalCustomerInfoCard = memo(
           }
         );
 
-        if (response.ok) {
-          showNotification({
-            title: 'Success',
-            message: 'Additional customer information saved successfully',
-            color: 'green',
-          });
-          setHasChanges(false);
-        } else {
-          throw new Error('Failed to save');
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(payload?.error || 'Failed to save');
         }
+
+        syncInfoState(normalizeAdditionalInfo(payload));
+
+        showNotification({
+          title: 'Success',
+          message:
+            payload?.message ??
+            'Additional customer information saved successfully',
+          color: 'green',
+        });
       } catch (error) {
         logger.error('Error saving additional info:', error);
         showNotification({
