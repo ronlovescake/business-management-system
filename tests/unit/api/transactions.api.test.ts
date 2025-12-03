@@ -16,8 +16,19 @@ const {
     softDeleteAll: vi.fn(),
   },
   MockReferenceError: class extends Error {
-    constructor(public details: unknown) {
-      super('Reference integrity violation');
+    constructor(
+      message: string,
+      public details: {
+        missing: {
+          customers: string[];
+          products: string[];
+          shipments: string[];
+        };
+        counts: { customers: number; products: number; shipments: number };
+        suggestion: string;
+      }
+    ) {
+      super(message);
     }
   },
   MockValidationError: class extends Error {},
@@ -36,6 +47,11 @@ import {
   TransactionNotFoundError,
 } from '@/modules/transactions/api/service';
 import { GET, POST, PUT, PATCH, DELETE } from '@/app/api/transactions/route';
+
+type NextRequestInit = ConstructorParameters<typeof NextRequest>[1];
+
+const buildRequest = (path: string, init?: NextRequestInit) =>
+  new NextRequest(getTestApiUrl(path), init);
 
 describe('Transactions API Routes', () => {
   beforeEach(() => {
@@ -63,7 +79,7 @@ describe('Transactions API Routes', () => {
         },
       ]);
 
-      const response = await GET();
+      const response = await GET(buildRequest('/api/transactions'));
       const body = await response.json();
 
       expect(response.status).toBe(200);
@@ -74,7 +90,7 @@ describe('Transactions API Routes', () => {
     it('handles service errors', async () => {
       mockTransactionService.findActive.mockRejectedValue(new Error('boom'));
 
-      const response = await GET();
+      const response = await GET(buildRequest('/api/transactions'));
       const body = await response.json();
 
       expect(response.status).toBe(500);
@@ -119,8 +135,10 @@ describe('Transactions API Routes', () => {
 
     it('returns conflict when references are missing', async () => {
       mockTransactionService.importTransactions.mockRejectedValue(
-        new TransactionReferenceError({
+        new TransactionReferenceError('Reference integrity violation', {
           missing: { customers: [], products: [], shipments: [] },
+          counts: { customers: 0, products: 0, shipments: 0 },
+          suggestion: 'Verify reference data before importing.',
         })
       );
 

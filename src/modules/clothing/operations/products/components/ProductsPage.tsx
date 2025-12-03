@@ -5,7 +5,7 @@
  * Main orchestration component for Products module with tab navigation
  */
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Stack, Tabs } from '@mantine/core';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';

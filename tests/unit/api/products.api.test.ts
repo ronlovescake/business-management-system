@@ -18,6 +18,11 @@ vi.mock('@/modules/products/api/service', () => ({
 
 import { GET, POST, PUT, DELETE } from '@/app/api/products/route';
 
+type NextRequestInit = ConstructorParameters<typeof NextRequest>[1];
+
+const buildRequest = (path: string, init?: NextRequestInit) =>
+  new NextRequest(getTestApiUrl(path), init);
+
 const sampleProduct = {
   'Shipment Code': 'SHIP-1',
   'CV Number': 'CV-1',
@@ -67,7 +72,7 @@ describe('Products API Routes', () => {
     it('returns products successfully', async () => {
       mockProductService.findActive.mockResolvedValue([sampleProduct]);
 
-      const response = await GET();
+      const response = await GET(buildRequest('/api/products'));
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -78,7 +83,7 @@ describe('Products API Routes', () => {
     it('handles service errors', async () => {
       mockProductService.findActive.mockRejectedValue(new Error('boom'));
 
-      const response = await GET();
+      const response = await GET(buildRequest('/api/products'));
       const data = await response.json();
 
       expect(response.status).toBe(500);

@@ -46,6 +46,11 @@ import { GET, POST, DELETE } from '@/app/api/prices/route';
 import { PUT, DELETE as DELETE_BY_ID } from '@/app/api/prices/[id]/route';
 import { getTestApiUrl } from '@/core/testing/test-helpers';
 
+type NextRequestInit = ConstructorParameters<typeof NextRequest>[1];
+
+const buildRequest = (path: string, init?: NextRequestInit) =>
+  new NextRequest(getTestApiUrl(path), init);
+
 describe('Prices API Routes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -69,7 +74,7 @@ describe('Prices API Routes', () => {
 
       mockPrisma.price.findMany.mockResolvedValue(mockPrices);
 
-      const response = await GET();
+      const response = await GET(buildRequest('/api/prices'));
       const payload = await response.json();
 
       expect(response.status).toBe(200);
@@ -82,7 +87,7 @@ describe('Prices API Routes', () => {
     it('should return empty array when no prices exist', async () => {
       mockPrisma.price.findMany.mockResolvedValue([]);
 
-      const response = await GET();
+      const response = await GET(buildRequest('/api/prices'));
       const payload = await response.json();
 
       expect(response.status).toBe(200);

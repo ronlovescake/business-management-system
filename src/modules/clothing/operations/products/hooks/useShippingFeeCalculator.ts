@@ -4,7 +4,8 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { showNotification } from '@mantine/notifications';
 import type { HotTableClass } from '@handsontable/react';
 import type { CellChange, ChangeSource } from 'handsontable/common';
-import type { ColumnSettings } from 'handsontable/settings';
+import type Handsontable from 'handsontable';
+type ColumnSettings = Handsontable.ColumnSettings;
 import { useShipmentsData } from '../../shipments/hooks/useShipmentsData';
 import { useProductsData } from './useProductsData';
 

@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
+import type { HotTableClass } from '@handsontable/react';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { useShippingFeeCalculator } from '../useShippingFeeCalculator';
 
@@ -125,7 +126,10 @@ describe('useShippingFeeCalculator hook', () => {
     });
 
     act(() => {
-      result.current.hotTableRef.current = {
+      const hotTableRef = result.current.hotTableRef as unknown as {
+        current: HotTableClass | null;
+      };
+      hotTableRef.current = {
         hotInstance: {
           getData: () => [
             ['PROD-1', 10, 2],

@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import type { NextRequest, NextURL } from 'next/server';
-import type { POST as GeneratePayslipsPostHandler } from '@/app/api/payroll/generate-payslips/route';
+import { NextRequest } from 'next/server';
+
+type GeneratePayslipsPostHandler =
+  typeof import('@/app/api/payroll/generate-payslips/route').POST;
 
 const {
   mockPrisma,
@@ -107,15 +109,11 @@ vi.mock('@/lib/logger', () => ({
 
 let POST: GeneratePayslipsPostHandler;
 
-const createRequest = (body: unknown): NextRequest => {
-  const url = 'https://test.local/api/payroll/generate-payslips';
-  return {
+const createRequest = (body: unknown): NextRequest =>
+  new NextRequest('https://test.local/api/payroll/generate-payslips', {
     method: 'POST',
-    url,
-    nextUrl: new URL(url) as unknown as NextURL,
-    json: async () => body,
-  } as NextRequest;
-};
+    body: JSON.stringify(body),
+  });
 
 describe('Payroll Generate Payslips API', () => {
   beforeEach(async () => {

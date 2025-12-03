@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { NextRequest, NextURL } from 'next/server';
+import { NextRequest } from 'next/server';
 
 const { mockPrisma } = vi.hoisted(() => {
   return {
@@ -21,14 +21,8 @@ vi.mock('@/lib/db', () => ({
 
 import { POST, GET } from '@/app/api/payroll/sync-lwop/route';
 
-const createRequest = (path: string, method: 'GET' | 'POST'): NextRequest => {
-  const url = `https://test.local${path}`;
-  return {
-    method,
-    url,
-    nextUrl: new URL(url) as unknown as NextURL,
-  } as NextRequest;
-};
+const createRequest = (path: string, method: 'GET' | 'POST'): NextRequest =>
+  new NextRequest(`https://test.local${path}`, { method });
 
 const basePayrollRecord = {
   id: 'payroll-1',

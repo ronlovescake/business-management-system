@@ -599,7 +599,7 @@
 
 ---
 
-### 25. Monolith Page Refactors (Wave 2) ⏰ 10h 🔥 HIGH IMPACT — 9/10 complete
+### 25. Monolith Page Refactors (Wave 2) ⏰ 10h 🔥 HIGH IMPACT — 10/10 complete ✅
 
 **Priority:** P0  
 **Impact:** Maintainability, Render Performance, Onboarding Cost  
@@ -609,7 +609,7 @@
 
 - System-wide scan (Dec 3, 2025) surfaced several TSX files still exceeding 400+ lines. These are difficult to lint, memoize, or test and block further Tier roadmaps.
 - The largest offenders mix data fetching, business rules, heavy UI state, and modal management in a single component, preventing reuse of the new hook/component architecture.
-- **Recent Progress (Current Session):** CustomersPage reduced from 753 to 400 lines (47%), TransactionsLayout reduced from 312 to 164 lines (47%). Only DispatchComponent (2,019 lines) remains as a massive undertaking requiring separate dedicated task planning.
+- **Wave 2 Complete (Dec 3, 2025):** All 10 target components successfully refactored with 40-50% reductions. CustomersPage (753→400, 47%), TransactionsLayout (312→164, 47%), DispatchComponent (2,020→274, 86%+). Wave 2 achieved 100% completion with production build verified passing.
 
 **Tasks:**
 
@@ -639,9 +639,22 @@
   - Extracted `useCustomersGrid` hook (198 lines) for grid rendering logic, cell navigation
   - Extracted `useCustomersCSV` hook (174 lines) for CSV import/export (3 formats), query invalidation
   - Streamlined UI button groups and simplified component structure
-- [ ] `src/app/clothing/operations/dispatch/page.tsx` (2,019 lines — MASSIVE)
-  - **Deferred:** Requires separate dedicated task due to size. This component manages order routing, customer matching via Shopee usernames, React Query saved orders, link mutations, and routing board tabs.
-  - Estimated breakdown: Extract routing board + driver actions + KPI widgets + `useDispatchPage` hook will require splitting into 5-6 files minimum (likely 300-400 lines each)
+- [x] `src/modules/clothing/operations/dispatch/components/DispatchComponent.tsx` (2,020 → 274 lines, 86% reduction) ✅
+  - Extracted comprehensive hook architecture:
+    - `useDispatchData.ts` (430 lines): React Query layer (savedOrders query, saveOrdersMutation, linkCustomerMutation), state management (10+ useState hooks), data derivations (effectiveRawData, unmatchedOrders, filteredData with complex tab-specific filters)
+    - `useDispatchImport.ts` (120 lines): XLSX import/export with validation (file extension, 10MB limit, workbook/worksheet/data validation)
+    - `useDispatchActions.ts` (350 lines): Action handlers (handleCustomerNameClick, navigateToPossibleMatchTab, handleUpdateShippedOrders with 24h filter + transaction API + double Swal confirmations + batch updates, handleLinkCustomer with address score conditionals)
+    - `useClipboard.ts` (70 lines): Clipboard utilities with fallback for non-secure contexts
+  - Extracted 5 memoized tab components:
+    - `MatchingTab.tsx` (330 lines): Customer matching table with Facebook links, action toggle, completed order tracking
+    - `PossibleMatchTab.tsx` (365 lines): Unmatched orders with address matching UI, accordion with match scores, link buttons
+    - `CheckoutUpdateTab.tsx` (265 lines): Status/date filters with unique order status dropdown, date range Select (6 options), filtered table
+    - `RecentlyUpdatedTab.tsx` (145 lines): Ship Time sorted view with date formatting, simple read-only display
+    - `RawDataTab.tsx` (106 lines): Raw data JSON display with import/export, database vs imported indicator
+  - Created `DispatchKPICards.tsx` (120 lines): 6 KPI stat cards (total orders, filtered, completed, unmatched, with matches, avg matches) with color-coded icons
+  - Created `types/index.ts` (50 lines): Centralized type definitions (DispatchItem, RawOrderData, ServerCustomerData, UnmatchedOrder)
+  - Refactored main component (274 lines): Composition of all hooks + tab components, clean prop drilling, removed 10+ useState hooks, all useMemo calculations, mutation definitions, and handler implementations
+  - **Total:** 2,020 lines → 2,625 lines across 12 files (main component 274 lines, 86% reduction in main file)
 
 **Benefits:**
 
@@ -649,7 +662,8 @@
 - ✅ Keeps render trees shallow, improving perceived performance for ops teams
 - ✅ Unlocks easier testing + memoization for dashboard analytics
 - ✅ Aligns entire workspace with the hook/component architecture already adopted elsewhere
-- ✅ Production build guardrail: Husky pre-push + `verify:prod` workflow (lint, test, build) now block regressions before release.
+- ✅ Production build guardrail: Husky pre-push + `verify:prod` workflow (lint, test, build) now block regressions before release
+- ✅ Wave 2 100% Complete: All 10 targets refactored with 40-86% main file reductions, maintaining full functionality with improved maintainability
 
 ---
 

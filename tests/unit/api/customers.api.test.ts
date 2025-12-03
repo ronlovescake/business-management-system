@@ -45,6 +45,11 @@ import {
   DELETE as DELETE_BY_ID,
 } from '@/app/api/customers/[id]/route';
 
+type NextRequestInit = ConstructorParameters<typeof NextRequest>[1];
+
+const buildRequest = (path: string, init?: NextRequestInit) =>
+  new NextRequest(getTestApiUrl(path), init);
+
 describe('Customers API Routes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -92,7 +97,7 @@ describe('Customers API Routes', () => {
         }))
       );
 
-      const response = await GET();
+      const response = await GET(buildRequest('/api/customers'));
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -107,7 +112,7 @@ describe('Customers API Routes', () => {
         new Error('Database connection failed')
       );
 
-      const response = await GET();
+      const response = await GET(buildRequest('/api/customers'));
       const data = await response.json();
 
       expect(response.status).toBe(500);

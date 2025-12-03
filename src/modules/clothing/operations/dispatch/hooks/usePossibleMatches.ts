@@ -21,7 +21,7 @@ export interface DispatchCustomerWithAddresses {
   businessName: string;
   phoneNumber: string;
   address: string;
-  additionalAddresses?: string[]; // Pre-loaded additional addresses
+  additionalAddresses: string[]; // Pre-loaded additional addresses
 }
 
 interface PossibleMatch {
@@ -31,6 +31,7 @@ interface PossibleMatch {
   addressScore: number;
   phoneScore: number;
   nameScore: number;
+  overallScore: number;
   details: string;
 }
 
@@ -174,6 +175,7 @@ async function findPossibleMatches(
         addressScore: maxAddressScore,
         phoneScore,
         nameScore,
+        overallScore,
         details: details.join(' • '),
       });
     }

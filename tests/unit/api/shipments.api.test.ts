@@ -23,6 +23,8 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Prisma } from '@prisma/client';
+import { NextRequest } from 'next/server';
+import { getTestApiUrl } from '@/core/testing/test-helpers';
 import {
   GET as getShipments,
   POST as createShipments,
@@ -34,6 +36,11 @@ import {
   DELETE as deleteShipment,
 } from '@/app/api/shipments/[id]/route';
 import { prisma } from '@/lib/db';
+
+type NextRequestInit = ConstructorParameters<typeof NextRequest>[1];
+
+const buildRequest = (path: string, init?: NextRequestInit) =>
+  new NextRequest(getTestApiUrl(path), init);
 
 // Mock Prisma
 vi.mock('@/lib/db', () => ({
@@ -110,7 +117,7 @@ describe('Shipments API - /api/shipments', () => {
         mockShipments as any
       );
 
-      const response = await getShipments();
+      const response = await getShipments(buildRequest('/api/shipments'));
       const payload = await response.json();
       const data = payload.data;
 
@@ -139,7 +146,7 @@ describe('Shipments API - /api/shipments', () => {
     it('should return empty array when no shipments exist', async () => {
       vi.mocked(prisma.shipment.findMany).mockResolvedValue([]);
 
-      const response = await getShipments();
+      const response = await getShipments(buildRequest('/api/shipments'));
       const payload = await response.json();
 
       expect(payload.success).toBe(true);
@@ -151,7 +158,7 @@ describe('Shipments API - /api/shipments', () => {
         new Error('DB Error')
       );
 
-      const response = await getShipments();
+      const response = await getShipments(buildRequest('/api/shipments'));
       const payload = await response.json();
 
       expect(response.status).toBe(500);

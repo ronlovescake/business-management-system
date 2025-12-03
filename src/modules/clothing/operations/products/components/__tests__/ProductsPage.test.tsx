@@ -1,5 +1,7 @@
-import type { ReactNode } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import React, { type ReactNode } from 'react';
+import { render } from '@testing-library/react';
+import { MantineProvider } from '@mantine/core';
+import { fireEvent, screen } from '@testing-library/dom';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { ProductsPage } from '../ProductsPage';
 
@@ -31,6 +33,13 @@ vi.mock('../ShippingFeeCalculator', () => ({
   ShippingFeeCalculator: () => <div>shipping-calculator</div>,
 }));
 
+const renderProductsPage = () =>
+  render(
+    <MantineProvider>
+      <ProductsPage />
+    </MantineProvider>
+  );
+
 describe('ProductsPage', () => {
   beforeEach(() => {
     mockUseProductsData.mockReset();
@@ -39,7 +48,7 @@ describe('ProductsPage', () => {
   it('renders skeleton while loading', () => {
     mockUseProductsData.mockReturnValue({ isLoading: true, statistics: {} });
 
-    render(<ProductsPage />);
+    renderProductsPage();
 
     expect(screen.getByTestId('table-skeleton')).toBeInTheDocument();
     expect(screen.queryByText('stats-cards')).not.toBeInTheDocument();
@@ -51,18 +60,18 @@ describe('ProductsPage', () => {
       statistics: { total: 10 },
     });
 
-    render(<ProductsPage />);
+    renderProductsPage();
 
     expect(screen.getByText('stats-cards')).toBeInTheDocument();
-    expect(screen.getByText('products-grid')).toBeInTheDocument();
-    expect(screen.queryByText('shipping-calculator')).not.toBeInTheDocument();
+    expect(screen.getByText('products-grid')).toBeVisible();
+    expect(screen.getByText('shipping-calculator')).not.toBeVisible();
 
     const shippingTab = screen.getByRole('tab', {
       name: /shipping fee calculator/i,
     });
     fireEvent.click(shippingTab);
 
-    expect(screen.getByText('shipping-calculator')).toBeInTheDocument();
-    expect(screen.queryByText('products-grid')).not.toBeInTheDocument();
+    expect(screen.getByText('shipping-calculator')).toBeVisible();
+    expect(screen.getByText('products-grid')).not.toBeVisible();
   });
 });
