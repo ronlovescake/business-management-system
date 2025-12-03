@@ -1,17 +1,17 @@
 import type { NextRequest } from 'next/server';
 import type { Price } from '@prisma/client';
 import { Prisma } from '@prisma/client';
-import type { ZodError } from 'zod';
 import { ApiResponse } from '@/core/api';
 import { withErrorHandler } from '@/core/api/middleware';
 import { MAX_QUERY_LIMIT } from '@/constants/batch-sizes';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
+import type { PriceRecordInput } from '@/modules/prices/api/schemas';
 import {
-  priceRecordSchema,
-  type PriceRecordInput,
-} from '@/modules/prices/api/schemas';
+  convertPriceDataToDb,
+  validatePriceRecords,
+} from '@/modules/prices/api/utils';
 import { HTTP_STATUS } from '@/shared/constants/api';
 
 type PriceDTO = {
@@ -22,10 +22,6 @@ type PriceDTO = {
   Prices: number;
   'Price Adjustment': number;
 };
-
-type PriceRecord = Record<string, unknown>;
-type PriceValidationIssue = { index: number; issues: Record<string, string> };
-type PriceDbPayload = Prisma.PriceCreateManyInput;
 
 const MASS_DELETE_CONFIRM_TOKEN = 'DELETE_ALL_PRICES';
 const CSV_IMPORT_THRESHOLD = 10;
@@ -39,109 +35,6 @@ function mapPriceDbToDto(price: Price): PriceDTO {
     Prices: Math.round(price.currentPrice / 100),
     'Price Adjustment': Math.round(price.priceAdjustment / 100),
   };
-}
-
-function toCents(value: number): number {
-  return Math.round(value * 100);
-}
-
-function sanitizeOptionalDescription(value: unknown): string | undefined {
-  const sanitized = sanitizers.description(value);
-  if (!sanitized) {
-    return undefined;
-  }
-  return sanitized.slice(0, 500);
-}
-
-function sanitizeOptionalCategory(value: unknown): string | undefined {
-  const sanitized = sanitizers.name(value);
-  if (!sanitized) {
-    return undefined;
-  }
-  return sanitized.slice(0, 100);
-}
-
-function normalizeBoolean(value: unknown): boolean {
-  if (typeof value === 'boolean') {
-    return value;
-  }
-  if (typeof value === 'string') {
-    const normalized = value.trim().toLowerCase();
-    if (['false', '0', 'no'].includes(normalized)) {
-      return false;
-    }
-    if (['true', '1', 'yes'].includes(normalized)) {
-      return true;
-    }
-  }
-  return true;
-}
-
-function sanitizePriceRecord(record: PriceRecord): PriceRecordInput {
-  const parseNumericField = (value: unknown): number =>
-    sanitizers.number(value, { min: 0, decimals: 2 }) ?? 0;
-
-  return {
-    id:
-      typeof record.id === 'number' && Number.isFinite(record.id)
-        ? record.id
-        : undefined,
-    'Product Code': sanitizers.productCode(record['Product Code']) || '',
-    'Lower Limit': parseNumericField(record['Lower Limit']),
-    'Upper Limit': parseNumericField(record['Upper Limit']),
-    Prices: parseNumericField(record['Prices']),
-    'Price Adjustment': parseNumericField(record['Price Adjustment']),
-    description: sanitizeOptionalDescription(record.description),
-    category: sanitizeOptionalCategory(record.category),
-    isActive: normalizeBoolean(record.isActive),
-  } satisfies PriceRecordInput;
-}
-
-function buildValidationErrors(error: ZodError): Record<string, string> {
-  return error.errors.reduce<Record<string, string>>((acc, issue) => {
-    const key = issue.path.join('.') || 'root';
-    acc[key] = issue.message;
-    return acc;
-  }, {});
-}
-
-function validatePriceRecords(payload: unknown[]): {
-  valid: PriceRecordInput[];
-  invalid: PriceValidationIssue[];
-} {
-  const valid: PriceRecordInput[] = [];
-  const invalid: PriceValidationIssue[] = [];
-
-  payload.forEach((entry, index) => {
-    if (!entry || typeof entry !== 'object') {
-      invalid.push({ index, issues: { payload: 'Invalid price entry' } });
-      return;
-    }
-
-    const sanitized = sanitizePriceRecord(entry as PriceRecord);
-    const result = priceRecordSchema.safeParse(sanitized);
-
-    if (result.success) {
-      valid.push(result.data);
-    } else {
-      invalid.push({ index, issues: buildValidationErrors(result.error) });
-    }
-  });
-
-  return { valid, invalid };
-}
-
-function convertPriceDataToDb(price: PriceRecordInput): PriceDbPayload {
-  return {
-    productCode: price['Product Code'],
-    lowerLimit: toCents(price['Lower Limit']),
-    upperLimit: toCents(price['Upper Limit']),
-    currentPrice: toCents(price.Prices),
-    priceAdjustment: toCents(price['Price Adjustment']),
-    description: price.description ?? null,
-    category: price.category ?? null,
-    isActive: price.isActive ?? true,
-  } satisfies PriceDbPayload;
 }
 
 async function handleBulkPriceImport(
@@ -404,5 +297,3 @@ export const DELETE = withErrorHandler(async (request: NextRequest) => {
     return ApiResponse.error('Failed to delete prices');
   }
 });
-
-export { sanitizePriceRecord, validatePriceRecords, convertPriceDataToDb };

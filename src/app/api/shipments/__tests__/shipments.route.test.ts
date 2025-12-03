@@ -3,7 +3,7 @@ import {
   sanitizeShipmentRecord,
   validateShipmentRecords,
   validateSingleShipment,
-} from '@/app/api/shipments/route';
+} from '@/modules/shipments/api/utils';
 
 function buildBasePayload(overrides: Record<string, unknown> = {}) {
   return {

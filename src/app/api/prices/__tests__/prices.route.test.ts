@@ -3,7 +3,7 @@ import {
   convertPriceDataToDb,
   sanitizePriceRecord,
   validatePriceRecords,
-} from '@/app/api/prices/route';
+} from '@/modules/prices/api/utils';
 import type { PriceDataInput } from '@/lib/validations/price.validation';
 
 describe('prices API helpers', () => {

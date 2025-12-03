@@ -294,7 +294,7 @@ export class ProductService {
    */
   static productToForm(product: ProductData): ProductFormData {
     // Parse age range into components (e.g., "3-6 months" -> start: "3", end: "6", unit: "months")
-    const ageRange = product['Age Range'] || '';
+    const ageRange = this.toSafeString(product['Age Range']);
     let ageRangeStart = '';
     let ageRangeEnd = '';
     let ageRangeUnit = '';
@@ -309,30 +309,32 @@ export class ProductService {
       }
     }
 
+    const exchangeRates = this.toSafeNumber(product['Exchange Rates']);
+
     return {
-      shipmentCode: product['Shipment Code'],
-      postingDate: product['Posting Date'],
-      orderDate: product['Order Date'],
-      payment: product.Payment,
-      product: product.Product,
-      previousProductCode: product['Product Code'] || '',
-      ageRange: ageRange,
-      ageRangeStart: ageRangeStart,
-      ageRangeEnd: ageRangeEnd,
-      ageRangeUnit: ageRangeUnit,
-      unit: product.Unit,
-      unitPrice: product['Unit Price'],
-      quantity: product.Quantity,
-      alibabaShippingCost: product['Alibaba Shipping Cost'],
-      exchangeRates: product['Exchange Rates'],
-      forwardersFee: product["Forwarder's Fee"],
-      lalamove: product.Lalamove,
-      packagingCost: product['Packaging Cost'],
-      actualPrice: product['Actual Price'],
-      linkToPost: product['Link To Post'] || '',
-      bulkQuantity: product['Bulk Quantity'] ?? 0,
-      bulkWeight: product['Bulk Weight'] ?? 0,
-      weightPerPiece: product['Weight Per Piece'] ?? 0,
+      shipmentCode: this.toSafeString(product['Shipment Code']),
+      postingDate: this.toSafeString(product['Posting Date']),
+      orderDate: this.toSafeString(product['Order Date']),
+      payment: this.toSafeString(product.Payment),
+      product: this.toSafeString(product.Product),
+      previousProductCode: this.toSafeString(product['Product Code']),
+      ageRange,
+      ageRangeStart,
+      ageRangeEnd,
+      ageRangeUnit,
+      unit: this.toSafeString(product.Unit),
+      unitPrice: this.toSafeNumber(product['Unit Price']),
+      quantity: this.toSafeNumber(product.Quantity),
+      alibabaShippingCost: this.toSafeNumber(product['Alibaba Shipping Cost']),
+      exchangeRates: exchangeRates === 0 ? 1 : exchangeRates,
+      forwardersFee: this.toSafeNumber(product["Forwarder's Fee"]),
+      lalamove: this.toSafeNumber(product.Lalamove),
+      packagingCost: this.toSafeNumber(product['Packaging Cost']),
+      actualPrice: this.toSafeNumber(product['Actual Price']),
+      linkToPost: this.toSafeString(product['Link To Post']),
+      bulkQuantity: this.toSafeNumber(product['Bulk Quantity']),
+      bulkWeight: this.toSafeNumber(product['Bulk Weight']),
+      weightPerPiece: this.toSafeNumber(product['Weight Per Piece']),
     };
   }
 

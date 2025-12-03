@@ -4,9 +4,9 @@
 
 import { BaseRepository } from '@/core/database';
 import { prisma } from '@/lib/db';
-import type { CheckoutLinks } from '../types';
+import type { CheckoutLink } from '@prisma/client';
 
-class CheckoutLinksRepository extends BaseRepository<CheckoutLinks> {
+class CheckoutLinksRepository extends BaseRepository<CheckoutLink> {
   constructor() {
     super(prisma.checkoutLink, 'CheckoutLink');
   }

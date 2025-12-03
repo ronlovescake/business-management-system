@@ -10,7 +10,11 @@ import {
   expenseService,
   ExpenseQuerySchema,
   ExpenseBatchCreateSchema,
+  ExpenseStatusSchema,
+  ExpenseCategorySchema,
   type ExpenseQuery,
+  type ExpenseStatus,
+  type ExpenseCategory,
 } from '@/modules/clothing/employees/expenses/api';
 
 /**
@@ -247,8 +251,8 @@ function buildExpenseFilters(searchParams: URLSearchParams): {
   errors?: Record<string, string>;
 } {
   const candidate: Partial<ExpenseQuery> = removeUndefined({
-    category: sanitizeStringParam(searchParams.get('category')),
-    status: sanitizeStringParam(searchParams.get('status')),
+    category: sanitizeCategoryFilter(searchParams.get('category')),
+    status: sanitizeStatusFilter(searchParams.get('status')),
     employeeName: sanitizeStringParam(searchParams.get('employeeName')),
     startDate: sanitizeDateParam(searchParams.get('startDate')),
     endDate: sanitizeDateParam(searchParams.get('endDate')),
@@ -277,6 +281,43 @@ function sanitizeStringParam(value: string | null): string | undefined {
   }
   const sanitized = sanitizers.name(value);
   return sanitized ? sanitized : undefined;
+}
+
+function sanitizeStatusFilter(value: string | null): ExpenseStatus | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const normalized = sanitizers.name(value)?.toLowerCase();
+  if (!normalized) {
+    return undefined;
+  }
+
+  const match = ExpenseStatusSchema.options.find(
+    (status) => status.toLowerCase() === normalized
+  );
+
+  return match as ExpenseStatus | undefined;
+}
+
+function sanitizeCategoryFilter(
+  value: string | null
+): ExpenseCategory | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const sanitized = sanitizers.name(value);
+  if (!sanitized) {
+    return undefined;
+  }
+
+  const normalized = sanitized.toLowerCase();
+  const match = ExpenseCategorySchema.options.find(
+    (category) => category.toLowerCase() === normalized
+  );
+
+  return match as ExpenseCategory | undefined;
 }
 
 function sanitizeDateParam(value: string | null): Date | undefined {

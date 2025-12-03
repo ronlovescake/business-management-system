@@ -599,6 +599,60 @@
 
 ---
 
+### 25. Monolith Page Refactors (Wave 2) ⏰ 10h 🔥 HIGH IMPACT — 9/10 complete
+
+**Priority:** P0  
+**Impact:** Maintainability, Render Performance, Onboarding Cost  
+**Effort:** 10 hours
+
+**Current State:**
+
+- System-wide scan (Dec 3, 2025) surfaced several TSX files still exceeding 400+ lines. These are difficult to lint, memoize, or test and block further Tier roadmaps.
+- The largest offenders mix data fetching, business rules, heavy UI state, and modal management in a single component, preventing reuse of the new hook/component architecture.
+- **Recent Progress (Current Session):** CustomersPage reduced from 753 to 400 lines (47%), TransactionsLayout reduced from 312 to 164 lines (47%). Only DispatchComponent (2,019 lines) remains as a massive undertaking requiring separate dedicated task planning.
+
+**Tasks:**
+
+- [x] `src/modules/clothing/operations/settings/components/BackupRestoreTab.tsx` (2,537 lines)
+  - Extract backup schedule hooks + service helpers
+  - Move modal and report builders into dedicated memoized components
+- [x] `src/components/navigation/HeaderQuickActions.tsx` (1,440 lines)
+  - Split into memoized subcomponents + extract `useChatWindows` hook
+- [x] `src/modules/clothing/operations/transactions/components/TransactionsPage.tsx` (1,349 lines)
+  - Reuse the Tier 2 pattern: stats, controls, tables, and modals as memoized children
+  - Push formatters/column builders into `/lib/transactions`
+- [x] `src/app/clothing/operations/dashboard/page.tsx` (948 lines)
+  - Extracted SalesPerformance, OrderPipeline, Shipments, Inventory, RecentActivity, and sidebar KPI cards into dedicated section components
+  - Added `useOperationsDashboard` hook to centralize derived state, filters, and summaries for the dashboard layout
+- [x] `src/modules/clothing/operations/products/components/ProductsGrid.tsx` (825 lines)
+  - Derive columns/actions via `useProductsGrid`
+  - Memoize row renderers and move CSV helpers to `products/lib`
+- [x] `src/app/clothing/operations/products/shipping-fee-calculator/page.tsx` (715 lines)
+  - Extract shared calculators + state machines into hooks
+  - Break UI into CalculatorCard, CostBreakdown, and ResultSummary components
+- [x] `src/app/clothing/employees/leave-tracker/components/LeaveListTable.tsx` (643 lines)
+  - Memoized column/action definitions + summary counters
+- [x] `src/components/features/transactions/TransactionsLayout.tsx` (312 → 164 lines, 47% reduction)
+  - Extracted `useTransactionsLayout` hook (192 lines) for XLSX export, status filter pills, and action buttons
+  - Simplified component to focus on HandsontableGrid composition
+- [x] `src/modules/clothing/operations/customers/components/CustomersPage.tsx` (753 → 400 lines, 47% reduction)
+  - Extracted `useCustomersGrid` hook (198 lines) for grid rendering logic, cell navigation
+  - Extracted `useCustomersCSV` hook (174 lines) for CSV import/export (3 formats), query invalidation
+  - Streamlined UI button groups and simplified component structure
+- [ ] `src/app/clothing/operations/dispatch/page.tsx` (2,019 lines — MASSIVE)
+  - **Deferred:** Requires separate dedicated task due to size. This component manages order routing, customer matching via Shopee usernames, React Query saved orders, link mutations, and routing board tabs.
+  - Estimated breakdown: Extract routing board + driver actions + KPI widgets + `useDispatchPage` hook will require splitting into 5-6 files minimum (likely 300-400 lines each)
+
+**Benefits:**
+
+- ✅ Accelerates remaining Tier 1/Tier 2 refactors by clearing the biggest blockers
+- ✅ Keeps render trees shallow, improving perceived performance for ops teams
+- ✅ Unlocks easier testing + memoization for dashboard analytics
+- ✅ Aligns entire workspace with the hook/component architecture already adopted elsewhere
+- ✅ Production build guardrail: Husky pre-push + `verify:prod` workflow (lint, test, build) now block regressions before release.
+
+---
+
 ## 💡 Recommended Implementation Phases
 
 ### Phase 1: Foundation & Performance (Week 1)

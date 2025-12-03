@@ -26,7 +26,7 @@ type AdditionalCustomerInfoResponse = {
   facebookAccounts: AdditionalInfoEntry[];
 };
 
-type AdditionalInfoCategory = keyof AdditionalCustomerInfoInput;
+type AdditionalInfoCategory = keyof CustomerAdditionalInfoInput;
 
 const ADDITIONAL_INFO_TYPE_CONFIG = {
   addresses: { type: 'address', sanitizer: sanitizers.address },

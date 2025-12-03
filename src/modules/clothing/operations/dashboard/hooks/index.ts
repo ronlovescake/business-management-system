@@ -3,3 +3,4 @@
  */
 
 export * from './useDashboardData';
+export * from './useOperationsDashboard';

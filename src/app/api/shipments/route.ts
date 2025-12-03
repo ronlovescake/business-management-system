@@ -7,13 +7,13 @@ import { MAX_QUERY_LIMIT } from '@/constants/batch-sizes';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
+import type { ShipmentRecordInput } from '@/modules/shipments/api/schemas';
 import {
-  shipmentRecordSchema,
-  type ShipmentRecordInput,
-} from '@/modules/shipments/api/schemas';
+  validateShipmentRecords,
+  validateSingleShipment,
+} from '@/modules/shipments/api/utils';
 import { HTTP_STATUS } from '@/shared/constants/api';
 import type { ShipmentData, ShipmentDB } from '@/types';
-import type { ZodError } from 'zod';
 
 const MONTH_NAMES = [
   'Jan',
@@ -38,8 +38,6 @@ interface ShipmentChangeTracking {
   cvNumber: string | null | undefined;
   changes: string[];
 }
-
-type ShipmentRecord = Record<string, unknown>;
 
 function formatDateValue(date: string | Date | null | undefined): string {
   if (!date) {
@@ -124,121 +122,6 @@ function convertShipmentDataToDB(
 }
 
 type ShipmentDbPayload = ReturnType<typeof convertShipmentDataToDB>;
-
-function sanitizeDateField(value: unknown): string | null {
-  const sanitized = sanitizers.date(value);
-  return sanitized || null;
-}
-
-function sanitizeOptionalString(value: unknown): string | null {
-  const sanitized = sanitizers.name(value);
-  return sanitized ? sanitized : null;
-}
-
-function sanitizeDuration(value: unknown): string | null {
-  const sanitized = sanitizers.name(value);
-  if (!sanitized) {
-    return null;
-  }
-  return sanitized.length > 20 ? sanitized.slice(0, 20) : sanitized;
-}
-
-function sanitizeNotes(value: unknown): string | null {
-  const sanitized = sanitizers.notes(value);
-  return sanitized ? sanitized : null;
-}
-
-function sanitizeShipmentRecord(record: ShipmentRecord): ShipmentRecordInput {
-  const numberOrZero = (value: unknown, decimals = 2): number =>
-    sanitizers.number(value, { min: 0, decimals }) ?? 0;
-
-  const sacks = numberOrZero(record['No. Of Sacks'], 0);
-  const totalCBM = numberOrZero(record['Total CBM']);
-  const weight = numberOrZero(record['Weight']);
-  const fee = numberOrZero(record['Fee']);
-
-  const status = sanitizeOptionalString(record['Shipment Status']);
-  const duration = sanitizeDuration(record['Duration']);
-  const notes = sanitizeNotes(record['Notes']);
-
-  return {
-    id:
-      typeof record.id === 'number' && Number.isFinite(record.id)
-        ? record.id
-        : undefined,
-    'Shipment Code': sanitizers.productCode(record['Shipment Code']) || '',
-    'CV Number': sanitizeOptionalString(record['CV Number']) ?? undefined,
-    'No. Of Sacks': Math.round(sacks),
-    'Total CBM': totalCBM,
-    Weight: weight,
-    Fee: fee,
-    'Shipment Status': status ?? undefined,
-    'Date Created': sanitizeDateField(record['Date Created']) ?? undefined,
-    'Date Delivered': sanitizeDateField(record['Date Delivered']) ?? undefined,
-    Duration: duration ?? undefined,
-    Notes: notes ?? undefined,
-  } satisfies ShipmentRecordInput;
-}
-
-function buildValidationErrors(error: ZodError): Record<string, string> {
-  return error.errors.reduce<Record<string, string>>((acc, issue) => {
-    const key = issue.path.join('.') || 'root';
-    acc[key] = issue.message;
-    return acc;
-  }, {});
-}
-
-function validateSingleShipment(payload: unknown):
-  | { success: true; shipment: ShipmentRecordInput }
-  | {
-      success: false;
-      errors: Record<string, string>;
-    } {
-  if (!payload || typeof payload !== 'object') {
-    return {
-      success: false,
-      errors: { payload: 'Invalid shipment payload' },
-    };
-  }
-
-  const sanitized = sanitizeShipmentRecord(payload as ShipmentRecord);
-  const validation = shipmentRecordSchema.safeParse(sanitized);
-
-  if (!validation.success) {
-    return {
-      success: false,
-      errors: buildValidationErrors(validation.error),
-    };
-  }
-
-  return { success: true, shipment: validation.data };
-}
-
-function validateShipmentRecords(payload: unknown[]): {
-  valid: ShipmentRecordInput[];
-  invalid: Array<{ index: number; issues: Record<string, string> }>;
-} {
-  const valid: ShipmentRecordInput[] = [];
-  const invalid: Array<{ index: number; issues: Record<string, string> }> = [];
-
-  payload.forEach((entry, index) => {
-    if (!entry || typeof entry !== 'object') {
-      invalid.push({ index, issues: { payload: 'Invalid shipment entry' } });
-      return;
-    }
-
-    const sanitized = sanitizeShipmentRecord(entry as ShipmentRecord);
-    const result = shipmentRecordSchema.safeParse(sanitized);
-
-    if (result.success) {
-      valid.push(result.data);
-    } else {
-      invalid.push({ index, issues: buildValidationErrors(result.error) });
-    }
-  });
-
-  return { valid, invalid };
-}
 
 function compareValues(
   label: string,
@@ -648,9 +531,3 @@ export const DELETE = withErrorHandler(async (request: NextRequest) => {
     return ApiResponse.error('Failed to delete shipments');
   }
 });
-
-export {
-  sanitizeShipmentRecord,
-  validateShipmentRecords,
-  validateSingleShipment,
-};

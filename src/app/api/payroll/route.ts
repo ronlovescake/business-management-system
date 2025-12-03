@@ -22,7 +22,11 @@ type BuildPayrollUpdateResult =
   | { success: true; payload: PayrollInput }
   | { success: false; errors: Record<string, string> };
 
-const MONEY_FIELDS: Array<keyof PayrollInput> = [
+type NumericPayrollField = {
+  [K in keyof PayrollInput]: PayrollInput[K] extends number ? K : never;
+}[keyof PayrollInput];
+
+const MONEY_FIELDS = [
   'basicSalary',
   'allowance',
   'overtime',
@@ -40,9 +44,14 @@ const MONEY_FIELDS: Array<keyof PayrollInput> = [
   'totalDeductions',
   'dailyRate',
   'deduction',
-];
+  // netPay handled separately to allow negative numbers
+] as const satisfies NumericPayrollField[];
 
-const ALLOWED_STATUSES: Payroll['status'][] = ['pending', 'approved', 'paid'];
+const ALLOWED_STATUSES: PayrollInput['status'][] = [
+  'pending',
+  'approved',
+  'paid',
+];
 
 function sanitizeMoney(
   value: unknown,
@@ -78,11 +87,12 @@ function sanitizeOptionalDate(value: unknown): string | null {
   return sanitized ? sanitized : null;
 }
 
-function sanitizeStatus(value: unknown): Payroll['status'] {
+function sanitizeStatus(value: unknown): PayrollInput['status'] {
   if (typeof value === 'string') {
     const normalized = value.trim().toLowerCase();
-    if (ALLOWED_STATUSES.includes(normalized as Payroll['status'])) {
-      return normalized as Payroll['status'];
+    const matched = ALLOWED_STATUSES.find((status) => status === normalized);
+    if (matched) {
+      return matched;
     }
   }
   return 'pending';
@@ -178,7 +188,7 @@ async function createPayrollRecords(records: PayrollInput[]) {
   });
 }
 
-function shouldSync(status: Payroll['status']): boolean {
+function shouldSync(status: string): boolean {
   return status === 'pending' || status === 'approved';
 }
 
@@ -229,7 +239,7 @@ function mapPayrollToInput(payroll: Payroll): PayrollInput {
     absentsLates: payroll.absentsLates,
     totalDeductions: payroll.totalDeductions,
     netPay: payroll.netPay,
-    status: payroll.status,
+    status: sanitizeStatus(payroll.status),
     bankGcash: payroll.bankGcash,
     approvedBy: payroll.approvedBy,
     approvedDate: payroll.approvedDate,
@@ -319,6 +329,14 @@ function buildPayrollUpdatePayload(
   return { success: true, payload: validation.data };
 }
 
+function setPayrollField<K extends keyof PayrollInput>(
+  target: Partial<PayrollInput>,
+  key: K,
+  value: PayrollInput[K]
+) {
+  target[key] = value;
+}
+
 function extractUpdatedFields(
   updatedRecord: PayrollInput,
   original: PayrollInput
@@ -326,7 +344,7 @@ function extractUpdatedFields(
   const diff: Partial<PayrollInput> = {};
   (Object.keys(updatedRecord) as Array<keyof PayrollInput>).forEach((key) => {
     if (updatedRecord[key] !== original[key]) {
-      diff[key] = updatedRecord[key];
+      setPayrollField(diff, key, updatedRecord[key]);
     }
   });
   return diff;
@@ -396,7 +414,9 @@ async function handleBulkPayload(payload: unknown[]) {
     );
   }
 
-  const missingEmployees = await findMissingEmployeeIds([...employeeIds]);
+  const missingEmployees = await findMissingEmployeeIds(
+    Array.from(employeeIds)
+  );
   if (missingEmployees.length) {
     return ApiResponse.conflict(
       'Referenced employees not found',

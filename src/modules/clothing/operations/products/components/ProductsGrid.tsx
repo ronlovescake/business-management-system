@@ -1,42 +1,17 @@
 'use client';
 
-/**
- * Products Grid Component
- * Main data grid for Products using Handsontable
- * - 36-column data grid
- * - Search with Ctrl+F
- * - CSV import/export
- * - Multi-cell paste
- * - Add/Edit products
- * - Real-time statistics
- */
-
-import { useState, useCallback, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { Stack, Group, TextInput, Button, Text } from '@mantine/core';
-import { showNotification } from '@mantine/notifications';
-import {
-  IconSearch,
-  IconPlus,
-  IconCheck,
-  IconEdit,
-  IconLock,
-} from '@tabler/icons-react';
+import { Stack } from '@mantine/core';
 import { HotTable } from '@handsontable/react';
-import type { HotTableClass } from '@handsontable/react';
-import type { CellChange, ChangeSource } from 'handsontable/common';
 import { registerAllModules } from 'handsontable/registry';
 import 'handsontable/styles/handsontable.min.css';
 import 'handsontable/styles/ht-theme-horizon.min.css';
-import { useProductsData } from '../hooks/useProductsData';
-import { useProductForm } from '../hooks/useProductForm';
-import type { ProductData } from '../types/product.types';
-import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
+import { useProductsGrid } from '../hooks';
+import { ProductsGridControls } from './ProductsGridControls';
+import { ProductsGridFooter } from './ProductsGridFooter';
 
-// Register Handsontable modules
 registerAllModules();
 
-// Lazy load heavy modal component
 const AddProductModal = dynamic(
   () =>
     import('./AddProductModal').then((mod) => ({
@@ -48,585 +23,26 @@ const AddProductModal = dynamic(
   }
 );
 
-type HandsontableGlobal = typeof window & {
-  Handsontable?: {
-    renderers?: {
-      TextRenderer?: (
-        instance: unknown,
-        td: HTMLTableCellElement,
-        row: number,
-        col: number,
-        prop: string | number,
-        value: unknown,
-        cellProperties: unknown
-      ) => void;
-    };
-  };
-};
-
-const displayOptionalNumber = (value?: number | null) => {
-  if (value === null || value === undefined) {
-    return '';
-  }
-
-  return value === 0 ? '' : value;
-};
-
-const getHandsontableTextRenderer = () => {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  return (
-    (window as HandsontableGlobal).Handsontable?.renderers?.TextRenderer ?? null
-  );
-};
-
-const clippedTextRenderer = (
-  instance: unknown,
-  td: HTMLTableCellElement,
-  row: number,
-  col: number,
-  prop: string | number,
-  value: unknown,
-  cellProperties: unknown
-) => {
-  const textRenderer = getHandsontableTextRenderer();
-  if (textRenderer) {
-    textRenderer(instance, td, row, col, prop, value, cellProperties);
-  } else {
-    td.textContent = value !== null && value !== undefined ? String(value) : '';
-  }
-
-  td.style.whiteSpace = 'nowrap';
-  td.style.textOverflow = 'ellipsis';
-  td.style.overflow = 'hidden';
-};
-
 export function ProductsGrid() {
-  // Hooks
   const {
-    products,
-    filteredProducts,
     searchQuery,
-    statistics,
-    isLoading,
     handleSearch,
-    addProduct,
-    updateProduct,
-    bulkUpdateProducts,
-    refreshProducts: _refreshProducts,
-  } = useProductsData();
-
-  const productForm = useProductForm();
-
-  // Local state
-  const [addProductOpen, setAddProductOpen] = useState(false);
-  const [gridHeight, setGridHeight] = useState(600);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const hotTableRef = useRef<HotTableClass>(null);
-  const lastClickRef = useRef<{
-    row: number;
-    col: number;
-    time: number;
-  } | null>(null);
-
-  // Set grid height on mount
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setGridHeight(window.innerHeight * 0.8);
-    }
-  }, []);
-
-  // Convert ProductData to row arrays for Handsontable
-  const tableData = filteredProducts.map((product) => [
-    product['Shipment Code'],
-    product['CV Number'],
-    product['No. Of Sacks'],
-    product['Total CBM'],
-    product.Weight,
-    product['Shipment Status'],
-    product['Posting Date'],
-    product['Order Date'],
-    product.Payment,
-    product.Product,
-    product['Product Code'],
-    product['Age Range'],
-    product.Unit,
-    product['Unit Price'],
-    product.Quantity,
-    product['Alibaba Shipping Cost'],
-    product['Exchange Rates'],
-    product.PHP,
-    product['Sub Total (PHP)'],
-    product['Transaction Fee'],
-    product['Grand Total'],
-    product["Forwarder's Fee"],
-    product.Lalamove,
-    product['Packaging Cost'],
-    product['Suggested Price'],
-    product['Actual Price'],
-    product['Base Price'],
-    product.COGS,
-    product['Projected Sales'],
-    product['Projected Profit'],
-    product['Projected Profit (%)'],
-    product['Total Markup'],
-    product['Link To Post'] || '',
-    displayOptionalNumber(product['Bulk Quantity']),
-    displayOptionalNumber(product['Bulk Weight']),
-    displayOptionalNumber(product['Weight Per Piece']),
-  ]);
-
-  // Define columns
-  const columns = [
-    {
-      data: 0,
-      title: 'SHIPMENT CODE',
-      width: 180,
-      type: 'text',
-      readOnly: !isEditMode,
-    },
-    { data: 1, title: 'CV NUMBER', width: 180, type: 'text', readOnly: true },
-    {
-      data: 2,
-      title: 'NO. OF SACKS',
-      width: 180,
-      type: 'numeric',
-      numericFormat: { pattern: '0,0' },
-      readOnly: true,
-    },
-    {
-      data: 3,
-      title: 'TOTAL CBM',
-      width: 180,
-      type: 'numeric',
-      numericFormat: { pattern: '0,0.00' },
-      readOnly: true,
-    },
-    {
-      data: 4,
-      title: 'WEIGHT',
-      width: 180,
-      type: 'numeric',
-      numericFormat: { pattern: '0,0' },
-      readOnly: true,
-    },
-    {
-      data: 5,
-      title: 'SHIPMENT STATUS',
-      width: 180,
-      type: 'text',
-      readOnly: true,
-    },
-    {
-      data: 6,
-      title: 'POSTING DATE',
-      width: 180,
-      type: 'text',
-      readOnly: true,
-    },
-    { data: 7, title: 'ORDER DATE', width: 180, type: 'text', readOnly: true },
-    { data: 8, title: 'PAYMENT', width: 180, type: 'text', readOnly: true },
-    {
-      data: 9,
-      title: 'PRODUCT',
-      width: 500,
-      type: 'text',
-      readOnly: !isEditMode,
-      className: 'htLeft',
-    },
-    {
-      data: 10,
-      title: 'PRODUCT CODE',
-      width: 500,
-      type: 'text',
-      readOnly: true,
-      className: 'htLeft',
-    },
-    { data: 11, title: 'AGE RANGE', width: 180, type: 'text', readOnly: true },
-    { data: 12, title: 'UNIT', width: 180, type: 'text', readOnly: true },
-    {
-      data: 13,
-      title: 'UNIT PRICE',
-      width: 180,
-      type: 'numeric',
-      numericFormat: { pattern: '0,0.00' },
-      readOnly: true,
-    },
-    {
-      data: 14,
-      title: 'QUANTITY',
-      width: 180,
-      type: 'numeric',
-      numericFormat: { pattern: '0,0' },
-      readOnly: true,
-    },
-    {
-      data: 15,
-      title: 'ALIBABA SHIPPING',
-      width: 180,
-      type: 'numeric',
-      numericFormat: { pattern: '0,0.00' },
-      readOnly: !isEditMode,
-    },
-    {
-      data: 16,
-      title: 'EXCHANGE RATE',
-      width: 180,
-      type: 'numeric',
-      numericFormat: { pattern: '0,0.00' },
-      readOnly: true,
-    },
-    {
-      data: 17,
-      title: 'PHP',
-      width: 180,
-      type: 'numeric',
-      numericFormat: { pattern: '0,0.00' },
-      readOnly: true,
-    },
-    {
-      data: 18,
-      title: 'SUB TOTAL (PHP)',
-      width: 180,
-      type: 'numeric',
-      numericFormat: { pattern: '0,0.00' },
-      readOnly: true,
-    },
-    {
-      data: 19,
-      title: 'TRANSACTION FEE',
-      width: 180,
-      type: 'numeric',
-      numericFormat: { pattern: '0,0.00' },
-      readOnly: true,
-    },
-    {
-      data: 20,
-      title: 'GRAND TOTAL',
-      width: 180,
-      type: 'numeric',
-      numericFormat: { pattern: '0,0.00' },
-      readOnly: true,
-    },
-    {
-      data: 21,
-      title: "FORWARDER'S FEE",
-      width: 180,
-      type: 'numeric',
-      numericFormat: { pattern: '0,0.00' },
-      readOnly: !isEditMode,
-    },
-    {
-      data: 22,
-      title: 'LALAMOVE',
-      width: 180,
-      type: 'numeric',
-      numericFormat: { pattern: '0,0.00' },
-      readOnly: !isEditMode,
-    },
-    {
-      data: 23,
-      title: 'PACKAGING COST',
-      width: 180,
-      type: 'numeric',
-      numericFormat: { pattern: '0,0.00' },
-      readOnly: !isEditMode,
-    },
-    {
-      data: 24,
-      title: 'SUGGESTED PRICE',
-      width: 180,
-      type: 'numeric',
-      numericFormat: { pattern: '0,0.00' },
-      readOnly: true,
-    },
-    {
-      data: 25,
-      title: 'ACTUAL PRICE',
-      width: 180,
-      type: 'numeric',
-      numericFormat: { pattern: '0,0.00' },
-      readOnly: true,
-    },
-    {
-      data: 26,
-      title: 'BASE PRICE',
-      width: 180,
-      type: 'numeric',
-      numericFormat: { pattern: '0,0.00' },
-      readOnly: true,
-    },
-    {
-      data: 27,
-      title: 'COGS',
-      width: 180,
-      type: 'numeric',
-      numericFormat: { pattern: '0,0.00' },
-      readOnly: true,
-    },
-    {
-      data: 28,
-      title: 'PROJECTED SALES',
-      width: 180,
-      type: 'numeric',
-      numericFormat: { pattern: '0,0.00' },
-      readOnly: true,
-    },
-    {
-      data: 29,
-      title: 'PROJECTED PROFIT',
-      width: 180,
-      type: 'numeric',
-      numericFormat: { pattern: '0,0.00' },
-      readOnly: true,
-    },
-    {
-      data: 30,
-      title: 'PROFIT MARGIN (%)',
-      width: 180,
-      type: 'numeric',
-      numericFormat: { pattern: '0,0.00' },
-      readOnly: true,
-    },
-    {
-      data: 31,
-      title: 'TOTAL MARKUP (%)',
-      width: 180,
-      type: 'numeric',
-      numericFormat: { pattern: '0,0.00' },
-      readOnly: true,
-    },
-    {
-      data: 32,
-      title: 'LINK TO POST',
-      width: 220,
-      type: 'text',
-      readOnly: true,
-      className: 'htLeft',
-      renderer: clippedTextRenderer,
-      wordWrap: false,
-    },
-    {
-      data: 33,
-      title: 'BULK QUANTITY',
-      width: 180,
-      type: 'numeric',
-      numericFormat: { pattern: '0,0' },
-      readOnly: true,
-    },
-    {
-      data: 34,
-      title: 'BULK WEIGHT',
-      width: 180,
-      type: 'numeric',
-      numericFormat: { pattern: '0,0.00' },
-      readOnly: true,
-    },
-    {
-      data: 35,
-      title: 'WEIGHT PER PIECE',
-      width: 180,
-      type: 'numeric',
-      numericFormat: { pattern: '0,0.00' },
-      readOnly: true,
-    },
-  ];
-
-  /**
-   * Handle cell changes
-   */
-  const handleAfterChange = useCallback(
-    (changes: CellChange[] | null, source: ChangeSource) => {
-      if (!changes || source === 'loadData') {
-        return;
-      }
-
-      // Update products based on changes
-      const updatedProducts = [...products];
-
-      changes.forEach(([row, col, _oldValue, newValue]) => {
-        if (row < filteredProducts.length) {
-          const product = filteredProducts[row];
-          const globalIndex = products.findIndex((p) => p.id === product.id);
-
-          if (globalIndex !== -1) {
-            const columnKeys: (keyof ProductData)[] = [
-              'Shipment Code',
-              'CV Number',
-              'No. Of Sacks',
-              'Total CBM',
-              'Weight',
-              'Shipment Status',
-              'Posting Date',
-              'Order Date',
-              'Payment',
-              'Product',
-              'Product Code',
-              'Age Range',
-              'Unit',
-              'Unit Price',
-              'Quantity',
-              'Alibaba Shipping Cost',
-              'Exchange Rates',
-              'PHP',
-              'Sub Total (PHP)',
-              'Transaction Fee',
-              'Grand Total',
-              "Forwarder's Fee",
-              'Lalamove',
-              'Packaging Cost',
-              'Suggested Price',
-              'Actual Price',
-              'Base Price',
-              'COGS',
-              'Projected Sales',
-              'Projected Profit',
-              'Projected Profit (%)',
-              'Total Markup',
-              'Link To Post',
-              'Bulk Quantity',
-              'Bulk Weight',
-              'Weight Per Piece',
-            ];
-
-            const key = columnKeys[col as number];
-            if (key) {
-              // Check if Shipment Code column (0) is being cleared
-              if (col === 0 && (!newValue || newValue === '')) {
-                // Clear dependent fields when shipment code is deleted
-                updatedProducts[globalIndex] = {
-                  ...updatedProducts[globalIndex],
-                  'Shipment Code': '',
-                  'CV Number': '',
-                  'No. Of Sacks': 0,
-                  'Total CBM': 0,
-                  Weight: 0,
-                  'Shipment Status': '',
-                };
-              } else {
-                updatedProducts[globalIndex] = {
-                  ...updatedProducts[globalIndex],
-                  [key]: newValue,
-                };
-              }
-            }
-          }
-        }
-      });
-
-      bulkUpdateProducts(updatedProducts);
-    },
-    [products, filteredProducts, bulkUpdateProducts]
-  );
-
-  /**
-   * Handle double-click on Product Code column to edit product
-   */
-  const handleCellClick = useCallback(
-    (event: MouseEvent, coords: { row: number; col: number }) => {
-      const now = Date.now();
-      const lastClick = lastClickRef.current;
-
-      // Check if this is a double-click (within 300ms on the same cell)
-      const isDoubleClick =
-        lastClick &&
-        lastClick.row === coords.row &&
-        lastClick.col === coords.col &&
-        now - lastClick.time < 300;
-
-      if (isDoubleClick) {
-        // Double-click detected on Product Code column (column index 10)
-        if (
-          coords.col === 10 &&
-          coords.row >= 0 &&
-          coords.row < filteredProducts.length
-        ) {
-          const product = filteredProducts[coords.row];
-
-          // Populate the form with the selected product data
-          productForm.populateForm(product);
-          setAddProductOpen(true);
-        }
-
-        // Reset the last click
-        lastClickRef.current = null;
-      } else {
-        // Store this click for double-click detection
-        lastClickRef.current = {
-          row: coords.row,
-          col: coords.col,
-          time: now,
-        };
-      }
-    },
-    [filteredProducts, productForm]
-  );
-
-  useCtrlFFocus('[data-ctrlf-target="products-search-input"]', !isLoading);
-
-  /**
-   * Handle product form submission
-   */
-  const handleSubmitProduct = useCallback(async () => {
-    const validation = productForm.validate();
-    if (!validation.isValid) {
-      showNotification({
-        title: 'Validation Error',
-        message: validation.errors[0],
-        color: 'red',
-      });
-      return;
-    }
-
-    const existingProduct = productForm.isEditMode
-      ? products.find((p) => p.id === productForm.editingProductId)
-      : undefined;
-
-    const productData = productForm.toProductData(existingProduct);
-
-    if (productForm.isEditMode && productForm.editingProductId) {
-      const result = await updateProduct(
-        productForm.editingProductId,
-        productData
-      );
-      if (result.success) {
-        showNotification({
-          title: '✅ Product Updated Successfully!',
-          message: `${productForm.form.product} has been updated`,
-          color: 'green',
-          icon: <IconCheck size={18} />,
-        });
-        productForm.resetForm();
-        setAddProductOpen(false);
-      } else {
-        showNotification({
-          title: '❌ Failed to Update Product',
-          message: result.error || 'An error occurred',
-          color: 'red',
-        });
-      }
-    } else {
-      const result = await addProduct(productData);
-      if (result.success) {
-        showNotification({
-          title: '🎉 Product Added Successfully!',
-          message: `${productForm.form.product} has been added`,
-          color: 'green',
-          icon: <IconCheck size={18} />,
-        });
-        productForm.resetForm();
-        setAddProductOpen(false);
-      } else {
-        showNotification({
-          title: '❌ Failed to Add Product',
-          message: result.error || 'An error occurred',
-          color: 'red',
-        });
-      }
-    }
-  }, [productForm, products, updateProduct, addProduct]);
+    isEditMode,
+    toggleEditMode,
+    addProductOpen,
+    openCreateProductModal,
+    closeProductModal,
+    gridHeight,
+    tableData,
+    columns,
+    handleAfterChange,
+    handleCellClick,
+    handleSubmitProduct,
+    filteredProducts,
+    products,
+    statistics,
+    productForm,
+  } = useProductsGrid();
 
   return (
     <>
@@ -703,13 +119,12 @@ export function ProductsGrid() {
           --ht-header-row-active-foreground-color: #ffffff;
           --ht-header-row-active-background-color: #070604;
         }
-        
-        /* Remove zebra striping completely */
+
         .ht-theme-horizon tr:nth-child(even) td,
         .ht-theme-horizon tr:nth-child(odd) td {
           background-color: #ffffff !important;
         }
-        
+
         .ht-theme-horizon tr:nth-child(even) th,
         .ht-theme-horizon tr:nth-child(odd) th {
           background-color: rgba(255, 255, 255, 0) !important;
@@ -717,55 +132,17 @@ export function ProductsGrid() {
       `}</style>
 
       <Stack gap="md">
-        {/* Search and controls */}
-        <Group justify="space-between" align="flex-end" wrap="wrap" gap="md">
-          <TextInput
-            placeholder="Search products by code, name, shipment code..."
-            leftSection={<IconSearch size={16} />}
-            value={searchQuery}
-            onChange={(e) => handleSearch(e.currentTarget?.value || '')}
-            style={{ flex: 1, minWidth: 300 }}
-            size="md"
-            radius="md"
-            data-ctrlf-target="products-search-input"
-          />
+        <ProductsGridControls
+          searchQuery={searchQuery}
+          onSearchChange={handleSearch}
+          isEditMode={isEditMode}
+          onToggleEditMode={toggleEditMode}
+          onAddProduct={openCreateProductModal}
+        />
 
-          <Group gap="sm">
-            <Button
-              leftSection={
-                isEditMode ? <IconLock size={16} /> : <IconEdit size={16} />
-              }
-              variant="filled"
-              color={isEditMode ? 'red' : 'blue'}
-              size="sm"
-              radius="sm"
-              onClick={() => setIsEditMode(!isEditMode)}
-            >
-              {isEditMode ? 'Disable Edit Mode' : 'Enable Edit Mode'}
-            </Button>
-            <Button
-              leftSection={<IconPlus size={16} />}
-              variant="filled"
-              color="green"
-              size="sm"
-              radius="sm"
-              onClick={() => {
-                productForm.resetForm();
-                setAddProductOpen(true);
-              }}
-            >
-              Add Product
-            </Button>
-          </Group>
-        </Group>
-
-        {/* Add Product Modal */}
         <AddProductModal
           opened={addProductOpen}
-          onClose={() => {
-            productForm.resetForm();
-            setAddProductOpen(false);
-          }}
+          onClose={closeProductModal}
           form={productForm.form}
           updateField={productForm.updateField}
           calculations={productForm.calculations}
@@ -773,7 +150,6 @@ export function ProductsGrid() {
           isEditMode={productForm.isEditMode}
         />
 
-        {/* Handsontable Grid */}
         <div
           style={{
             height: gridHeight,
@@ -783,19 +159,18 @@ export function ProductsGrid() {
           }}
         >
           <HotTable
-            ref={hotTableRef}
             data={tableData}
             columns={columns}
-            colHeaders={true}
-            rowHeaders={true}
+            colHeaders
+            rowHeaders
             width="100%"
             height={gridHeight}
             licenseKey="non-commercial-and-evaluation"
             stretchH="all"
-            contextMenu={true}
-            manualColumnResize={true}
-            manualRowResize={true}
-            filters={true}
+            contextMenu
+            manualColumnResize
+            manualRowResize
+            filters
             dropdownMenu={false}
             afterChange={handleAfterChange}
             afterOnCellMouseDown={handleCellClick}
@@ -804,20 +179,12 @@ export function ProductsGrid() {
           />
         </div>
 
-        {/* Footer info */}
-        <Group
-          justify="space-between"
-          align="center"
-          style={{ marginTop: 'md' }}
-        >
-          <Text size="sm" c="dimmed">
-            Showing {filteredProducts.length} of {products.length} products
-          </Text>
-          <Text size="sm" c="dimmed">
-            Total Value: ₱{statistics.totalValue.toLocaleString()} | Total
-            Profit: ₱{statistics.totalProfit.toLocaleString()}
-          </Text>
-        </Group>
+        <ProductsGridFooter
+          filteredCount={filteredProducts.length}
+          totalCount={products.length}
+          totalValue={statistics.totalValue}
+          totalProfit={statistics.totalProfit}
+        />
       </Stack>
     </>
   );

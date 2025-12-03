@@ -48,7 +48,7 @@ interface StandardDataTableProps {
   /**
    * Table headers - array of column names
    */
-  headers: HeaderItem[];
+  headers: readonly HeaderItem[];
 
   /**
    * Table body content - render prop for flexibility

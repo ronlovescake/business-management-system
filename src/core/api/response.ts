@@ -37,7 +37,7 @@ export class ApiResponseUtil {
   static success<T>(
     data: T,
     message?: string,
-    status = HTTP_STATUS.OK
+    status: number = HTTP_STATUS.OK
   ): NextResponse<ApiResponseType<T>> {
     return NextResponse.json(
       {

@@ -15,6 +15,18 @@ export interface DueDateItem {
   contactBuyer: string;
 }
 
+export interface DueDateTransaction {
+  'Invoice Date': string;
+  'Line Total': number;
+  'Order Status': string;
+  Customers: string;
+  'Product Code'?: string;
+  Quantity?: number;
+  'Unit Price'?: number;
+  'Order Date'?: string;
+  Notes?: string;
+}
+
 export interface DueDateFilters {
   searchQuery: string;
   statusFilter: 'all' | 'overdue' | 'due-soon' | 'on-track' | null;

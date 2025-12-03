@@ -6,19 +6,11 @@
  */
 
 import { FormatterService } from '@/services/FormatterService';
-import type { DueDateItem, DueDateStats } from '../types/dueDate.types';
-
-// Transaction type (from existing codebase)
-interface Transaction {
-  'Invoice Date': string;
-  'Line Total': number;
-  'Order Status': string;
-  Customers: string;
-  'Product Code'?: string;
-  Quantity?: number;
-  'Unit Price'?: number;
-  'Order Date'?: string;
-}
+import type {
+  DueDateItem,
+  DueDateStats,
+  DueDateTransaction,
+} from '../types/dueDate.types';
 
 export class DueDateService {
   /**
@@ -93,7 +85,9 @@ export class DueDateService {
    * Process transactions into due date items
    * Groups by customer and sums line totals
    */
-  static processDueDateItems(transactions: Transaction[]): DueDateItem[] {
+  static processDueDateItems(
+    transactions: DueDateTransaction[]
+  ): DueDateItem[] {
     if (!transactions || transactions.length === 0) {
       return [];
     }
@@ -207,9 +201,9 @@ export class DueDateService {
    * Get customer orders from transactions
    */
   static getCustomerOrders(
-    transactions: Transaction[],
+    transactions: DueDateTransaction[],
     customerName: string
-  ): Transaction[] {
+  ): DueDateTransaction[] {
     if (!transactions || !customerName) {
       return [];
     }

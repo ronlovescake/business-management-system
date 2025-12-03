@@ -2,7 +2,7 @@
  * Item Weights API Route
  */
 
-import type { NextRequest } from 'next/server';
+import type { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import type { ZodError } from 'zod';
 import { ApiResponse } from '@/core/api';
@@ -38,6 +38,17 @@ type ItemWeightEntity = Prisma.ItemWeightGetPayload<{
 type ItemWeightClient = typeof prisma.itemWeight;
 
 const getItemWeightClient = (): ItemWeightClient => prisma.itemWeight;
+
+type UpdatePayloadData = {
+  itemName: string;
+  bulkQuantity: Prisma.Decimal;
+  bulkWeight: Prisma.Decimal;
+  approxWeightPerPiece: Prisma.Decimal;
+};
+
+type UpdatePayloadResult =
+  | { data: UpdatePayloadData; error?: undefined }
+  | { data?: undefined; error: ReturnType<typeof ApiResponse.error> };
 
 const serializeItemWeight = (item: ItemWeightEntity) => ({
   id: item.id,
@@ -129,7 +140,7 @@ const parseBody = <T>(
 const computeUpdatePayload = (
   validated: UpdateItemWeightInput,
   existing: ItemWeightEntity
-) => {
+): UpdatePayloadResult => {
   const bulkQuantityDecimal =
     validated.bulkQuantity !== undefined
       ? toDecimal(validated.bulkQuantity)
@@ -141,8 +152,8 @@ const computeUpdatePayload = (
       : toDecimal(existing.bulkWeight);
 
   const quantityError = ensurePositiveQuantity(bulkQuantityDecimal);
-  if (quantityError) {
-    return { error: quantityError } as const;
+  if (quantityError !== null) {
+    return { error: quantityError };
   }
 
   const approxWeightPerPiece = calculateApproxWeightPerPiece(
@@ -160,7 +171,7 @@ const computeUpdatePayload = (
       bulkWeight: bulkWeightDecimal,
       approxWeightPerPiece,
     },
-  } as const;
+  };
 };
 
 export const GET = withErrorHandler(async (request: NextRequest) => {
@@ -240,61 +251,64 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   }
 });
 
-export const PUT = withErrorHandler(async (request: NextRequest) => {
-  const body = await request.json();
-  const { id, ...payload } = (body ?? {}) as { id?: unknown } & Record<
-    string,
-    unknown
-  >;
+export const PUT = withErrorHandler(
+  async (request: NextRequest): Promise<NextResponse> => {
+    const body = await request.json();
+    const { id, ...payload } = (body ?? {}) as { id?: unknown } & Record<
+      string,
+      unknown
+    >;
 
-  if (!id || typeof id !== 'string') {
-    return ApiResponse.badRequest('Item weight ID is required');
-  }
+    if (!id || typeof id !== 'string') {
+      return ApiResponse.badRequest('Item weight ID is required');
+    }
 
-  const parsedBody = parseBody<UpdateItemWeightInput>(
-    payload,
-    UpdateItemWeightSchema
-  );
+    const parsedBody = parseBody<UpdateItemWeightInput>(
+      payload,
+      UpdateItemWeightSchema
+    );
 
-  if (!parsedBody.success) {
-    return validationFailedResponse(parsedBody.error);
-  }
+    if (!parsedBody.success) {
+      return validationFailedResponse(parsedBody.error);
+    }
 
-  const itemWeightClient = getItemWeightClient();
-  const existing = await itemWeightClient.findUnique({
-    where: { id },
-    select: itemWeightSelect,
-  });
-
-  if (!existing || existing.deletedAt) {
-    return ApiResponse.notFound('Item weight');
-  }
-
-  const updatePayload = computeUpdatePayload(parsedBody.data, existing);
-  if ('error' in updatePayload) {
-    return updatePayload.error;
-  }
-
-  try {
-    const updated = await itemWeightClient.update({
+    const itemWeightClient = getItemWeightClient();
+    const existing = await itemWeightClient.findUnique({
       where: { id },
-      data: updatePayload.data,
       select: itemWeightSelect,
     });
 
-    return ApiResponse.success(
-      serializeItemWeight(updated),
-      'Item weight updated'
-    );
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === 'P2025') {
-        return ApiResponse.notFound('Item weight');
-      }
+    if (!existing || existing.deletedAt) {
+      return ApiResponse.notFound('Item weight');
     }
-    return handlePrismaError(error, 'Failed to update item weight');
+
+    const updatePayload = computeUpdatePayload(parsedBody.data, existing);
+    const errorResponse = updatePayload.error;
+    if (errorResponse) {
+      return errorResponse;
+    }
+
+    try {
+      const updated = await itemWeightClient.update({
+        where: { id },
+        data: updatePayload.data,
+        select: itemWeightSelect,
+      });
+
+      return ApiResponse.success(
+        serializeItemWeight(updated),
+        'Item weight updated'
+      );
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2025') {
+          return ApiResponse.notFound('Item weight');
+        }
+      }
+      return handlePrismaError(error, 'Failed to update item weight');
+    }
   }
-});
+);
 
 export const DELETE = withErrorHandler(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);

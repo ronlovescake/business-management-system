@@ -44,3 +44,22 @@ export interface PayrollFormData {
   absentsLates: string;
   bankGcash: string;
 }
+
+export interface PayrollColumnTotals {
+  basicSalary: number;
+  allowance: number;
+  overtime: number;
+  bonuses: number;
+  thirteenthMonth: number;
+  grossPay: number;
+  sss: number;
+  philHealth: number;
+  pagIbig: number;
+  tax: number;
+  loans: number;
+  cashAdvance: number;
+  lwop: number;
+  absentsLates: number;
+  totalDeductions: number;
+  netPay: number;
+}

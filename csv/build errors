@@ -1,0 +1,1211 @@
+ron@ron-Venus-series:~/Websites/business-management$ npm run build
+y
+> business-management@1.0.0 prebuild
+> npm run clean:next
+
+
+> business-management@1.0.0 clean:next
+> bash scripts/clean-dev-cache.sh
+
+🧹 Cleaning Next.js development cache...
+📁 Removing .next directory...
+✅ .next directory removed
+
+✨ Cache cleaned successfully!
+
+💡 Next steps:
+   1. Run: npm run dev
+   2. First load will be slow (building cache)
+   3. Subsequent loads should be faster
+
+
+> business-management@1.0.0 build
+> node scripts/build-webpack.js
+
+  ▲ Next.js 14.2.33
+  - Environments: .env.local, .env
+  - Experiments (use with caution):
+    · instrumentationHook
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (185kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (139kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled successfully
+   Linting and checking validity of types  .Failed to compile.
+
+./src/app/api/item-weights/route.ts:243:37
+Type error: Argument of type '(request: NextRequest) => Promise<NextResponse<ApiErrorResponse> | NextResponse<ApiResponse<{ id: string; itemName: string; bulkQuantity: string; bulkWeight: string; approxWeightPerPiece: string; createdAt: string; }>> | undefined>' is not assignable to parameter of type '(request: NextRequest, context?: unknown) => Promise<NextResponse<unknown>>'.
+  Type 'Promise<NextResponse<ApiErrorResponse> | NextResponse<ApiResponse<{ id: string; itemName: string; bulkQuantity: string; bulkWeight: string; approxWeightPerPiece: string; createdAt: string; }>> | undefined>' is not assignable to type 'Promise<NextResponse<unknown>>'.
+    Type 'NextResponse<ApiErrorResponse> | NextResponse<ApiResponse<{ id: string; itemName: string; bulkQuantity: string; bulkWeight: string; approxWeightPerPiece: string; createdAt: string; }>> | undefined' is not assignable to type 'NextResponse<unknown>'.
+      Type 'undefined' is not assignable to type 'NextResponse<unknown>'.
+
+  241 | });
+  242 |
+> 243 | export const PUT = withErrorHandler(async (request: NextRequest) => {
+      |                                     ^
+  244 |   const body = await request.json();
+  245 |   const { id, ...payload } = (body ?? {}) as { id?: unknown } & Record<
+  246 |     string,
+Next.js build worker exited with code: 1 and signal: null
+ron@ron-Venus-series:~/Websites/business-management$ npm run build
+y
+> business-management@1.0.0 prebuild
+> npm run clean:next
+
+
+> business-management@1.0.0 clean:next
+> bash scripts/clean-dev-cache.sh
+
+🧹 Cleaning Next.js development cache...
+📁 Removing .next directory...
+✅ .next directory removed
+
+✨ Cache cleaned successfully!
+
+💡 Next steps:
+   1. Run: npm run dev
+   2. First load will be slow (building cache)
+   3. Subsequent loads should be faster
+
+
+> business-management@1.0.0 build
+> node scripts/build-webpack.js
+
+  ▲ Next.js 14.2.33
+  - Environments: .env.local, .env
+  - Experiments (use with caution):
+    · instrumentationHook
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (185kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (139kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled successfully
+   Linting and checking validity of types  ...Failed to compile.
+
+./src/app/api/item-weights/route.ts:276:7
+Type error: Type 'NextResponse<ApiErrorResponse> | undefined' is not assignable to type 'NextResponse<unknown>'.
+  Type 'undefined' is not assignable to type 'NextResponse<unknown>'.
+
+  274 |     const updatePayload = computeUpdatePayload(parsedBody.data, existing);
+  275 |     if ('error' in updatePayload) {
+> 276 |       return updatePayload.error;
+      |       ^
+  277 |     }
+  278 |
+  279 |     try {
+Next.js build worker exited with code: 1 and signal: null
+ron@ron-Venus-series:~/Websites/business-management$ npm run build
+y
+> business-management@1.0.0 prebuild
+> npm run clean:next
+
+
+> business-management@1.0.0 clean:next
+> bash scripts/clean-dev-cache.sh
+
+🧹 Cleaning Next.js development cache...
+📁 Removing .next directory...
+✅ .next directory removed
+
+✨ Cache cleaned successfully!
+
+💡 Next steps:
+   1. Run: npm run dev
+   2. First load will be slow (building cache)
+   3. Subsequent loads should be faster
+
+
+> business-management@1.0.0 build
+> node scripts/build-webpack.js
+
+  ▲ Next.js 14.2.33
+  - Environments: .env.local, .env
+  - Experiments (use with caution):
+    · instrumentationHook
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (185kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (139kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled successfully
+   Linting and checking validity of types  ..Failed to compile.
+
+./src/app/api/item-weights/route.ts:276:7
+Type error: Type 'NextResponse<ApiErrorResponse> | undefined' is not assignable to type 'NextResponse<unknown>'.
+  Type 'undefined' is not assignable to type 'NextResponse<unknown>'.
+
+  274 |     const updatePayload = computeUpdatePayload(parsedBody.data, existing);
+  275 |     if ('error' in updatePayload) {
+> 276 |       return updatePayload.error;
+      |       ^
+  277 |     }
+  278 |
+  279 |     try {
+Next.js build worker exited with code: 1 and signal: null
+ron@ron-Venus-series:~/Websites/business-management$ npm run build
+y
+> business-management@1.0.0 prebuild
+> npm run clean:next
+
+
+> business-management@1.0.0 clean:next
+> bash scripts/clean-dev-cache.sh
+
+🧹 Cleaning Next.js development cache...
+📁 Removing .next directory...
+✅ .next directory removed
+
+✨ Cache cleaned successfully!
+
+💡 Next steps:
+   1. Run: npm run dev
+   2. First load will be slow (building cache)
+   3. Subsequent loads should be faster
+
+
+> business-management@1.0.0 build
+> node scripts/build-webpack.js
+
+  ▲ Next.js 14.2.33
+  - Environments: .env.local, .env
+  - Experiments (use with caution):
+    · instrumentationHook
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (185kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (139kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled successfully
+   Linting and checking validity of types  ...Failed to compile.
+
+./src/app/api/item-weights/route.ts:287:7
+Type error: Type 'NextResponse<ApiErrorResponse> | undefined' is not assignable to type 'NextResponse<unknown>'.
+  Type 'undefined' is not assignable to type 'NextResponse<unknown>'.
+
+  285 |     const updatePayload = computeUpdatePayload(parsedBody.data, existing);
+  286 |     if ('error' in updatePayload) {
+> 287 |       return updatePayload.error;
+      |       ^
+  288 |     }
+  289 |
+  290 |     try {
+Next.js build worker exited with code: 1 and signal: null
+ron@ron-Venus-series:~/Websites/business-management$ npm run build
+y
+> business-management@1.0.0 prebuild
+> npm run clean:next
+
+
+> business-management@1.0.0 clean:next
+> bash scripts/clean-dev-cache.sh
+
+🧹 Cleaning Next.js development cache...
+📁 Removing .next directory...
+✅ .next directory removed
+
+✨ Cache cleaned successfully!
+
+💡 Next steps:
+   1. Run: npm run dev
+   2. First load will be slow (building cache)
+   3. Subsequent loads should be faster
+
+
+> business-management@1.0.0 build
+> node scripts/build-webpack.js
+
+  ▲ Next.js 14.2.33
+  - Environments: .env.local, .env
+  - Experiments (use with caution):
+    · instrumentationHook
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (185kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (139kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled successfully
+   Linting and checking validity of types  .Failed to compile.
+
+./src/app/api/payroll/route.ts:123:5
+Type error: Type 'string' is not assignable to type '"pending" | "approved" | "paid"'.
+
+  121 |     totalDeductions: sanitizeMoney(record.totalDeductions),
+  122 |     netPay: sanitizeMoney(record.netPay, { allowNegative: true }),
+> 123 |     status: sanitizeStatus(record.status),
+      |     ^
+  124 |     bankGcash: sanitizeRequiredField(record.bankGcash),
+  125 |     approvedBy: sanitizeRequiredField(record.approvedBy) || null,
+  126 |     approvedDate: sanitizeOptionalDate(record.approvedDate),
+Next.js build worker exited with code: 1 and signal: null
+ron@ron-Venus-series:~/Websites/business-management$ npm run build
+y
+> business-management@1.0.0 prebuild
+> npm run clean:next
+
+
+> business-management@1.0.0 clean:next
+> bash scripts/clean-dev-cache.sh
+
+🧹 Cleaning Next.js development cache...
+📁 Removing .next directory...
+✅ .next directory removed
+
+✨ Cache cleaned successfully!
+
+💡 Next steps:
+   1. Run: npm run dev
+   2. First load will be slow (building cache)
+   3. Subsequent loads should be faster
+
+
+> business-management@1.0.0 build
+> node scripts/build-webpack.js
+
+  ▲ Next.js 14.2.33
+  - Environments: .env.local, .env
+  - Experiments (use with caution):
+    · instrumentationHook
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (185kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (139kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled successfully
+   Linting and checking validity of types  ..Failed to compile.
+
+./src/app/api/payroll/route.ts:233:5
+Type error: Type 'string' is not assignable to type '"pending" | "approved" | "paid"'.
+
+  231 |     totalDeductions: payroll.totalDeductions,
+  232 |     netPay: payroll.netPay,
+> 233 |     status: payroll.status,
+      |     ^
+  234 |     bankGcash: payroll.bankGcash,
+  235 |     approvedBy: payroll.approvedBy,
+  236 |     approvedDate: payroll.approvedDate,
+Next.js build worker exited with code: 1 and signal: null
+ron@ron-Venus-series:~/Websites/business-management$ npm run build
+y
+> business-management@1.0.0 prebuild
+> npm run clean:next
+
+
+> business-management@1.0.0 clean:next
+> bash scripts/clean-dev-cache.sh
+
+🧹 Cleaning Next.js development cache...
+📁 Removing .next directory...
+✅ .next directory removed
+
+✨ Cache cleaned successfully!
+
+💡 Next steps:
+   1. Run: npm run dev
+   2. First load will be slow (building cache)
+   3. Subsequent loads should be faster
+
+
+> business-management@1.0.0 build
+> node scripts/build-webpack.js
+
+  ▲ Next.js 14.2.33
+  - Environments: .env.local, .env
+  - Experiments (use with caution):
+    · instrumentationHook
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (185kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (139kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled successfully
+   Linting and checking validity of types  ...Failed to compile.
+
+./src/app/api/payroll/route.ts:271:7
+Type error: Type 'number' is not assignable to type 'undefined'.
+
+  269 |   for (const field of MONEY_FIELDS) {
+  270 |     if (body[field] !== undefined) {
+> 271 |       sanitizedInput[field] = sanitizeMoney(body[field]);
+      |       ^
+  272 |     }
+  273 |   }
+  274 |
+Next.js build worker exited with code: 1 and signal: null
+ron@ron-Venus-series:~/Websites/business-management$ npm run build
+y
+> business-management@1.0.0 prebuild
+> npm run clean:next
+
+
+> business-management@1.0.0 clean:next
+> bash scripts/clean-dev-cache.sh
+
+🧹 Cleaning Next.js development cache...
+📁 Removing .next directory...
+✅ .next directory removed
+
+✨ Cache cleaned successfully!
+
+💡 Next steps:
+   1. Run: npm run dev
+   2. First load will be slow (building cache)
+   3. Subsequent loads should be faster
+
+
+> business-management@1.0.0 build
+> node scripts/build-webpack.js
+
+  ▲ Next.js 14.2.33
+  - Environments: .env.local, .env
+  - Experiments (use with caution):
+    · instrumentationHook
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (185kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (139kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled successfully
+   Linting and checking validity of types  ..Failed to compile.
+
+./src/app/api/payroll/route.ts:335:7
+Type error: Type 'string | number | null | undefined' is not assignable to type 'undefined'.
+  Type 'null' is not assignable to type 'undefined'.
+
+  333 |   (Object.keys(updatedRecord) as Array<keyof PayrollInput>).forEach((key) => {
+  334 |     if (updatedRecord[key] !== original[key]) {
+> 335 |       diff[key] = updatedRecord[key];
+      |       ^
+  336 |     }
+  337 |   });
+  338 |   return diff;
+Next.js build worker exited with code: 1 and signal: null
+ron@ron-Venus-series:~/Websites/business-management$ npm run build
+y
+> business-management@1.0.0 prebuild
+> npm run clean:next
+
+
+> business-management@1.0.0 clean:next
+> bash scripts/clean-dev-cache.sh
+
+🧹 Cleaning Next.js development cache...
+📁 Removing .next directory...
+✅ .next directory removed
+
+✨ Cache cleaned successfully!
+
+💡 Next steps:
+   1. Run: npm run dev
+   2. First load will be slow (building cache)
+   3. Subsequent loads should be faster
+
+
+> business-management@1.0.0 build
+> node scripts/build-webpack.js
+
+  ▲ Next.js 14.2.33
+  - Environments: .env.local, .env
+  - Experiments (use with caution):
+    · instrumentationHook
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (185kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (139kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled successfully
+   Linting and checking validity of types  .Failed to compile.
+
+./src/app/api/payroll/route.ts:413:61
+Type error: Type 'Set<string>' can only be iterated through when using the '--downlevelIteration' flag or with a '--target' of 'es2015' or higher.
+
+  411 |   }
+  412 |
+> 413 |   const missingEmployees = await findMissingEmployeeIds([...employeeIds]);
+      |                                                             ^
+  414 |   if (missingEmployees.length) {
+  415 |     return ApiResponse.conflict(
+  416 |       'Referenced employees not found',
+Next.js build worker exited with code: 1 and signal: null
+ron@ron-Venus-series:~/Websites/business-management$ npm run build
+y
+> business-management@1.0.0 prebuild
+> npm run clean:next
+
+
+> business-management@1.0.0 clean:next
+> bash scripts/clean-dev-cache.sh
+
+🧹 Cleaning Next.js development cache...
+📁 Removing .next directory...
+✅ .next directory removed
+
+✨ Cache cleaned successfully!
+
+💡 Next steps:
+   1. Run: npm run dev
+   2. First load will be slow (building cache)
+   3. Subsequent loads should be faster
+
+
+> business-management@1.0.0 build
+> node scripts/build-webpack.js
+
+  ▲ Next.js 14.2.33
+  - Environments: .env.local, .env
+  - Experiments (use with caution):
+    · instrumentationHook
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (185kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (139kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled successfully
+   Linting and checking validity of types  ...Failed to compile.
+
+./src/app/api/transactions/[id]/route.ts:27:3
+Type error: Argument of type '(_request: NextRequest, { params }: RouteContext) => Promise<NextResponse<ApiErrorResponse> | NextResponse<ApiResponse<{ id: number; }>>>' is not assignable to parameter of type '(request: NextRequest, context?: RouteContext | undefined) => Promise<NextResponse<unknown>>'.
+  Types of parameters '__1' and 'context' are incompatible.
+    Type 'RouteContext | undefined' is not assignable to type 'RouteContext'.
+      Type 'undefined' is not assignable to type 'RouteContext'.
+
+  25 |  */
+  26 | export const DELETE = withErrorHandler(
+> 27 |   async (_request: NextRequest, { params }: RouteContext) => {
+     |   ^
+  28 |     const id = parseTransactionId(params.id);
+  29 |     if (id === null) {
+  30 |       return ApiResponse.badRequest('Invalid transaction ID');
+Next.js build worker exited with code: 1 and signal: null
+ron@ron-Venus-series:~/Websites/business-management$ npm run build
+y
+> business-management@1.0.0 prebuild
+> npm run clean:next
+
+
+> business-management@1.0.0 clean:next
+> bash scripts/clean-dev-cache.sh
+
+🧹 Cleaning Next.js development cache...
+📁 Removing .next directory...
+✅ .next directory removed
+
+✨ Cache cleaned successfully!
+
+💡 Next steps:
+   1. Run: npm run dev
+   2. First load will be slow (building cache)
+   3. Subsequent loads should be faster
+
+
+> business-management@1.0.0 build
+> node scripts/build-webpack.js
+
+  ▲ Next.js 14.2.33
+  - Environments: .env.local, .env
+  - Experiments (use with caution):
+    · instrumentationHook
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (185kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (139kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled successfully
+   Linting and checking validity of types  .Failed to compile.
+
+./src/modules/clothing/operations/checkout-links/services/repository.ts:7:15
+Type error: '"../types"' has no exported member named 'CheckoutLinks'. Did you mean 'CheckoutLinkData'?
+
+   5 | import { BaseRepository } from '@/core/database';
+   6 | import { prisma } from '@/lib/db';
+>  7 | import type { CheckoutLinks } from '../types';
+     |               ^
+   8 |
+   9 | class CheckoutLinksRepository extends BaseRepository<CheckoutLinks> {
+  10 |   constructor() {
+Next.js build worker exited with code: 1 and signal: null
+ron@ron-Venus-series:~/Websites/business-management$ npm run build
+y
+> business-management@1.0.0 prebuild
+> npm run clean:next
+
+
+> business-management@1.0.0 clean:next
+> bash scripts/clean-dev-cache.sh
+
+🧹 Cleaning Next.js development cache...
+📁 Removing .next directory...
+✅ .next directory removed
+
+✨ Cache cleaned successfully!
+
+💡 Next steps:
+   1. Run: npm run dev
+   2. First load will be slow (building cache)
+   3. Subsequent loads should be faster
+
+
+> business-management@1.0.0 build
+> node scripts/build-webpack.js
+
+  ▲ Next.js 14.2.33
+  - Environments: .env.local, .env
+  - Experiments (use with caution):
+    · instrumentationHook
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (185kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (139kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled successfully
+   Linting and checking validity of types  ...Failed to compile.
+
+./src/modules/clothing/operations/due-dates/components/DueDatesPage.tsx:32:13
+Type error: The type 'readonly string[]' is 'readonly' and cannot be assigned to the mutable type 'HeaderItem[]'.
+
+  30 |         <StandardTableContainer>
+  31 |           <StandardDataTable
+> 32 |             headers={headers}
+     |             ^
+  33 |             emptyState="Loading due dates..."
+  34 |             colSpan={headers.length}
+  35 |             height="86vh"
+Next.js build worker exited with code: 1 and signal: null
+ron@ron-Venus-series:~/Websites/business-management$ npm run build
+y
+> business-management@1.0.0 prebuild
+> npm run clean:next
+
+
+> business-management@1.0.0 clean:next
+> bash scripts/clean-dev-cache.sh
+
+🧹 Cleaning Next.js development cache...
+📁 Removing .next directory...
+✅ .next directory removed
+
+✨ Cache cleaned successfully!
+
+💡 Next steps:
+   1. Run: npm run dev
+   2. First load will be slow (building cache)
+   3. Subsequent loads should be faster
+
+
+> business-management@1.0.0 build
+> node scripts/build-webpack.js
+
+  ▲ Next.js 14.2.33
+  - Environments: .env.local, .env
+  - Experiments (use with caution):
+    · instrumentationHook
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (185kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (139kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled successfully
+   Linting and checking validity of types  ..Failed to compile.
+
+./src/modules/clothing/operations/transactions/components/TransactionsTabs.tsx:111:25
+Type error: Type 'T' does not satisfy the constraint 'object'.
+
+  109 | }: ReadOnlyTransactionsTabProps<T>) {
+  110 |   return (
+> 111 |     <TransactionsLayout<T>
+      |                         ^
+  112 |       data={data}
+  113 |       filteredData={filteredData}
+  114 |       columns={columns}
+Next.js build worker exited with code: 1 and signal: null
+ron@ron-Venus-series:~/Websites/business-management$ npm run build
+y
+> business-management@1.0.0 prebuild
+> npm run clean:next
+
+
+> business-management@1.0.0 clean:next
+> bash scripts/clean-dev-cache.sh
+
+🧹 Cleaning Next.js development cache...
+📁 Removing .next directory...
+✅ .next directory removed
+
+✨ Cache cleaned successfully!
+
+💡 Next steps:
+   1. Run: npm run dev
+   2. First load will be slow (building cache)
+   3. Subsequent loads should be faster
+
+
+> business-management@1.0.0 build
+> node scripts/build-webpack.js
+
+  ▲ Next.js 14.2.33
+  - Environments: .env.local, .env
+  - Experiments (use with caution):
+    · instrumentationHook
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (185kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (139kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled successfully
+   Linting and checking validity of types  ..Failed to compile.
+
+./src/modules/clothing/operations/transactions/components/TransactionsTabs.tsx:335:34
+Type error: Expected 0 type arguments, but got 1.
+
+  333 |
+  334 |       <Tabs.Panel value="packing-list" pt="md">
+> 335 |         <ReadOnlyTransactionsTab<TransactionData>
+      |                                  ^
+  336 |           data={packingListEligibleData}
+  337 |           filteredData={packingListEligibleData}
+  338 |           columns={packingListColumns}
+Next.js build worker exited with code: 1 and signal: null
+ron@ron-Venus-series:~/Websites/business-management$ npm run build
+y
+> business-management@1.0.0 prebuild
+> npm run clean:next
+
+
+> business-management@1.0.0 clean:next
+> bash scripts/clean-dev-cache.sh
+
+🧹 Cleaning Next.js development cache...
+📁 Removing .next directory...
+✅ .next directory removed
+
+✨ Cache cleaned successfully!
+
+💡 Next steps:
+   1. Run: npm run dev
+   2. First load will be slow (building cache)
+   3. Subsequent loads should be faster
+
+
+> business-management@1.0.0 build
+> node scripts/build-webpack.js
+
+  ▲ Next.js 14.2.33
+  - Environments: .env.local, .env
+  - Experiments (use with caution):
+    · instrumentationHook
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (185kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (139kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled successfully
+   Linting and checking validity of types  ..Failed to compile.
+
+./src/modules/clothing/operations/transactions/hooks/useTransactionsDerivedData.ts:499:5
+Type error: Type '({ column, rowData, row: _row, }: { column: HandsontableColumn; rowData: DueDateGridRow; row: number; }) => CellData' is not assignable to type '({ column, rowData, }: { column: HandsontableColumn; rowData: DueDateGridRow; }) => CellData'.
+  Types of parameters '__0' and '__0' are incompatible.
+    Property 'row' is missing in type '{ column: HandsontableColumn; rowData: DueDateGridRow; }' but required in type '{ column: HandsontableColumn; rowData: DueDateGridRow; row: number; }'.
+
+  497 |     dueDateColumns,
+  498 |     dueDatesData,
+> 499 |     getDueDateCellData,
+      |     ^
+  500 |     meaningfulTransactions,
+  501 |     cappedFilteredTransactions,
+  502 |     recentlyUpdatedColumns,
+Next.js build worker exited with code: 1 and signal: null
+ron@ron-Venus-series:~/Websites/business-management$ npm run build
+y
+> business-management@1.0.0 prebuild
+> npm run clean:next
+
+
+> business-management@1.0.0 clean:next
+> bash scripts/clean-dev-cache.sh
+
+🧹 Cleaning Next.js development cache...
+📁 Removing .next directory...
+✅ .next directory removed
+
+✨ Cache cleaned successfully!
+
+💡 Next steps:
+   1. Run: npm run dev
+   2. First load will be slow (building cache)
+   3. Subsequent loads should be faster
+
+
+> business-management@1.0.0 build
+> node scripts/build-webpack.js
+
+  ▲ Next.js 14.2.33
+  - Environments: .env.local, .env
+  - Experiments (use with caution):
+    · instrumentationHook
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (185kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (139kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled successfully
+   Linting and checking validity of types  ...Failed to compile.
+
+./src/modules/employees/cash-advance/api/routeFactory.ts:248:5
+Type error: Type 'Date | null | undefined' is not assignable to type 'Date | undefined'.
+  Type 'null' is not assignable to type 'Date | undefined'.
+
+  246 |
+  247 |   if (body.requestDate !== undefined) {
+> 248 |     payload.requestDate = sanitizeNullableDate(body.requestDate);
+      |     ^
+  249 |   }
+  250 |
+  251 |   if (body.status !== undefined) {
+Next.js build worker exited with code: 1 and signal: null
+
+
+ron@ron-Venus-series:~/Websites/business-management$ npm run build
+y
+> business-management@1.0.0 prebuild
+> npm run clean:next
+
+
+> business-management@1.0.0 clean:next
+> bash scripts/clean-dev-cache.sh
+
+🧹 Cleaning Next.js development cache...
+📁 Removing .next directory...
+✅ .next directory removed
+
+✨ Cache cleaned successfully!
+
+💡 Next steps:
+   1. Run: npm run dev
+   2. First load will be slow (building cache)
+   3. Subsequent loads should be faster
+
+
+> business-management@1.0.0 build
+> node scripts/build-webpack.js
+
+  ▲ Next.js 14.2.33
+  - Environments: .env.local, .env
+  - Experiments (use with caution):
+    · instrumentationHook
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (185kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (139kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled successfully
+   Linting and checking validity of types  .Failed to compile.
+
+./src/modules/employees/cash-advance/api/routeFactory.ts:333:32
+Type error: No overload matches this call.
+  Overload 1 of 2, '(o: {}): string[]', gave the following error.
+    Argument of type 'TQuery' is not assignable to parameter of type '{}'.
+  Overload 2 of 2, '(o: object): string[]', gave the following error.
+    Argument of type 'TQuery' is not assignable to parameter of type 'object'.
+
+  331 |
+  332 |       const filters = validation.data;
+> 333 |       const data = Object.keys(filters).length
+      |                                ^
+  334 |         ? await service.findWithFilters(filters)
+  335 |         : await service.findAll();
+  336 |
+Next.js build worker exited with code: 1 and signal: null
+ron@ron-Venus-series:~/Websites/business-management$ 
+
+
+on@ron-Venus-series:~/Websites/business-management$ npm run build
+y
+> business-management@1.0.0 prebuild
+> npm run clean:next
+
+
+> business-management@1.0.0 clean:next
+> bash scripts/clean-dev-cache.sh
+
+🧹 Cleaning Next.js development cache...
+📁 Removing .next directory...
+✅ .next directory removed
+
+✨ Cache cleaned successfully!
+
+💡 Next steps:
+   1. Run: npm run dev
+   2. First load will be slow (building cache)
+   3. Subsequent loads should be faster
+
+
+> business-management@1.0.0 build
+> node scripts/build-webpack.js
+
+  ▲ Next.js 14.2.33
+  - Environments: .env.local, .env
+  - Experiments (use with caution):
+    · instrumentationHook
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (185kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (139kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled successfully
+   Linting and checking validity of types  ..Failed to compile.
+
+./src/modules/employees/cash-advance/api/routeFactory.ts:365:37
+Type error: Property 'employeeId' does not exist on type 'TCreateInput'.
+
+  363 |
+  364 |       logger.info(`[${loggerScope}] Cash advance created`, {
+> 365 |         employeeId: validation.data.employeeId,
+      |                                     ^
+  366 |       });
+  367 |
+  368 |       return ApiResponse.success(result, 'Cash advance created', 201);
+Next.js build worker exited with code: 1 and signal: null
+ron@ron-Venus-series:~/Websites/business-management$ npm run build
+
+
+
+ron@ron-Venus-series:~/Websites/business-management$ npm run build
+y
+> business-management@1.0.0 prebuild
+> npm run clean:next
+
+
+> business-management@1.0.0 clean:next
+> bash scripts/clean-dev-cache.sh
+
+🧹 Cleaning Next.js development cache...
+📁 Removing .next directory...
+✅ .next directory removed
+
+✨ Cache cleaned successfully!
+
+💡 Next steps:
+   1. Run: npm run dev
+   2. First load will be slow (building cache)
+   3. Subsequent loads should be faster
+
+
+> business-management@1.0.0 build
+> node scripts/build-webpack.js
+
+  ▲ Next.js 14.2.33
+  - Environments: .env.local, .env
+  - Experiments (use with caution):
+    · instrumentationHook
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (185kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (139kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled successfully
+   Linting and checking validity of types  ..Failed to compile.
+
+./src/modules/employees/cash-advance/api/routeFactory.ts:406:47
+Type error: Argument of type 'Omit<{ id: string; } & Partial<TUpdateInput>, "id">' is not assignable to parameter of type 'Partial<TUpdateInput>'.
+  Type 'keyof TUpdateInput' is not assignable to type 'Exclude<keyof TUpdateInput, "id">'.
+    Type 'string | number | symbol' is not assignable to type 'Exclude<keyof TUpdateInput, "id">'.
+      Type 'string' is not assignable to type 'Exclude<keyof TUpdateInput, "id">'.
+
+  404 |       } & Partial<TUpdateInput>;
+  405 |
+> 406 |       const result = await service.update(id, updateData);
+      |                                               ^
+  407 |
+  408 |       logger.info(`[${loggerScope}] Cash advance updated`, { id });
+  409 |
+Next.js build worker exited with code: 1 and signal: null
+
+
+
+
+ron@ron-Venus-series:~/Websites/business-management$ npm run build
+y
+> business-management@1.0.0 prebuild
+> npm run clean:next
+
+
+> business-management@1.0.0 clean:next
+> bash scripts/clean-dev-cache.sh
+
+🧹 Cleaning Next.js development cache...
+📁 Removing .next directory...
+✅ .next directory removed
+
+✨ Cache cleaned successfully!
+
+💡 Next steps:
+   1. Run: npm run dev
+   2. First load will be slow (building cache)
+   3. Subsequent loads should be faster
+
+
+> business-management@1.0.0 build
+> node scripts/build-webpack.js
+
+  ▲ Next.js 14.2.33
+  - Environments: .env.local, .env
+  - Experiments (use with caution):
+    · instrumentationHook
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (185kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (139kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled successfully
+   Linting and checking validity of types  .Failed to compile.
+
+./src/modules/shipments/api/utils.ts:72:5
+Type error: Type 'string | undefined' is not assignable to type '"" | "Pending" | "Cancelled" | "In Transit" | "Delivered" | "Processing" | "On Hold" | null | undefined'.
+  Type 'string' is not assignable to type '"" | "Pending" | "Cancelled" | "In Transit" | "Delivered" | "Processing" | "On Hold" | null | undefined'.
+
+  70 |     Weight: weight,
+  71 |     Fee: fee,
+> 72 |     'Shipment Status': status ?? undefined,
+     |     ^
+  73 |     'Date Created': sanitizeDateField(record['Date Created']) ?? undefined,
+  74 |     'Date Delivered': sanitizeDateField(record['Date Delivered']) ?? undefined,
+  75 |     Duration: duration ?? undefined,
+Next.js build worker exited with code: 1 and signal: null
+ron@ron-Venus-series:~/Websites/business-management$ 
+
+
+
+
+ron@ron-Venus-series:~/Websites/business-management$ npm run build
+y
+> business-management@1.0.0 prebuild
+> npm run clean:next
+
+
+> business-management@1.0.0 clean:next
+> bash scripts/clean-dev-cache.sh
+
+🧹 Cleaning Next.js development cache...
+📁 Removing .next directory...
+✅ .next directory removed
+
+✨ Cache cleaned successfully!
+
+💡 Next steps:
+   1. Run: npm run dev
+   2. First load will be slow (building cache)
+   3. Subsequent loads should be faster
+
+
+> business-management@1.0.0 build
+> node scripts/build-webpack.js
+
+  ▲ Next.js 14.2.33
+  - Environments: .env.local, .env
+  - Experiments (use with caution):
+    · instrumentationHook
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (185kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (139kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled successfully
+ ✓ Linting and checking validity of types    
+ ✓ Collecting page data    
+ ✓ Generating static pages (130/130)
+ ✓ Collecting build traces    
+ ✓ Finalizing page optimization    
+
+Route (app)                                                    Size     First Load JS
+┌ ○ /                                                          13.2 kB         126 kB
+├ ○ /_not-found                                                1.03 kB        90.3 kB
+├ ○ /admin/change-log                                          315 B          89.6 kB
+├ ƒ /api/attendance                                            0 B                0 B
+├ ƒ /api/attendance/apply-leave                                0 B                0 B
+├ ƒ /api/auth/[...nextauth]                                    0 B                0 B
+├ ƒ /api/auth/password/forgot                                  0 B                0 B
+├ ƒ /api/auth/password/reset                                   0 B                0 B
+├ ƒ /api/auth/redirect                                         0 B                0 B
+├ ƒ /api/backup                                                0 B                0 B
+├ ƒ /api/backup/[timestamp]/[filename]                         0 B                0 B
+├ ƒ /api/cash-advances                                         0 B                0 B
+├ ƒ /api/change-log                                            0 B                0 B
+├ ƒ /api/checkout-links                                        0 B                0 B
+├ ƒ /api/clothing-attendance                                   0 B                0 B
+├ ƒ /api/clothing/employees/dashboard                          0 B                0 B
+├ ƒ /api/clothing/operations/products/shipping-fee-calculator  0 B                0 B
+├ ƒ /api/clothing/operations/settings/change-log               0 B                0 B
+├ ƒ /api/conversations                                         0 B                0 B
+├ ƒ /api/conversations/[id]/messages                           0 B                0 B
+├ ƒ /api/conversations/[id]/read                               0 B                0 B
+├ ƒ /api/conversations/unread-count                            0 B                0 B
+├ ƒ /api/customers                                             0 B                0 B
+├ ƒ /api/customers/[id]                                        0 B                0 B
+├ ƒ /api/customers/[id]/additional-info                        0 B                0 B
+├ ƒ /api/customers/[id]/additional-info/add                    0 B                0 B
+├ ƒ /api/customers/[id]/orders                                 0 B                0 B
+├ ƒ /api/customers/[id]/transactions                           0 B                0 B
+├ ○ /api/customers/export                                      0 B                0 B
+├ ƒ /api/customers/import                                      0 B                0 B
+├ ○ /api/customers/with-all-addresses                          0 B                0 B
+├ ƒ /api/customers/with-shopee                                 0 B                0 B
+├ ƒ /api/dispatch/orders                                       0 B                0 B
+├ ○ /api/docs                                                  4.44 kB         104 kB
+├ ○ /api/docs/spec                                             0 B                0 B
+├ ƒ /api/employee-automation-settings                          0 B                0 B
+├ ƒ /api/employees                                             0 B                0 B
+├ ƒ /api/employees/[id]                                        0 B                0 B
+├ ƒ /api/employees/[id]/salary-history                         0 B                0 B
+├ ƒ /api/employees/restore                                     0 B                0 B
+├ ƒ /api/expenses                                              0 B                0 B
+├ ƒ /api/expenses/[id]                                         0 B                0 B
+├ ƒ /api/generate-distribution                                 0 B                0 B
+├ ƒ /api/generate-in-transit-invoice                           0 B                0 B
+├ ƒ /api/generate-invoice                                      0 B                0 B
+├ ƒ /api/generate-packing-list                                 0 B                0 B
+├ ƒ /api/google-drive/sync-files                               0 B                0 B
+├ ○ /api/health                                                0 B                0 B
+├ ƒ /api/inventory/check-stock                                 0 B                0 B
+├ ƒ /api/invoice-settings                                      0 B                0 B
+├ ƒ /api/invoice-settings/reset                                0 B                0 B
+├ ƒ /api/invoices                                              0 B                0 B
+├ ƒ /api/invoices/[id]/tickbox                                 0 B                0 B
+├ ƒ /api/invoices/calculate-weights                            0 B                0 B
+├ ƒ /api/item-weights                                          0 B                0 B
+├ ƒ /api/leave-requests                                        0 B                0 B
+├ ƒ /api/leave-requests/[id]                                   0 B                0 B
+├ ƒ /api/marketplace/modules                                   0 B                0 B
+├ ƒ /api/message-templates                                     0 B                0 B
+├ ƒ /api/modules                                               0 B                0 B
+├ ƒ /api/modules/config                                        0 B                0 B
+├ ƒ /api/modules/config/[moduleId]                             0 B                0 B
+├ ƒ /api/modules/download                                      0 B                0 B
+├ ƒ /api/modules/install                                       0 B                0 B
+├ ƒ /api/modules/performance                                   0 B                0 B
+├ ƒ /api/modules/reload                                        0 B                0 B
+├ ƒ /api/modules/uninstall                                     0 B                0 B
+├ ƒ /api/modules/update                                        0 B                0 B
+├ ƒ /api/operations/notifications                              0 B                0 B
+├ ƒ /api/payroll                                               0 B                0 B
+├ ƒ /api/payroll/cleanup                                       0 B                0 B
+├ ƒ /api/payroll/generate                                      0 B                0 B
+├ ƒ /api/payroll/generate-payslips                             0 B                0 B
+├ ƒ /api/payroll/sync-lwop                                     0 B                0 B
+├ ƒ /api/permissions/check                                     0 B                0 B
+├ ○ /api/post-template-notice                                  0 B                0 B
+├ ƒ /api/prices                                                0 B                0 B
+├ ƒ /api/prices/[id]                                           0 B                0 B
+├ ƒ /api/products                                              0 B                0 B
+├ ƒ /api/products/[id]                                         0 B                0 B
+├ ƒ /api/restore                                               0 B                0 B
+├ ƒ /api/schedules                                             0 B                0 B
+├ ƒ /api/settings/invoice                                      0 B                0 B
+├ ○ /api/settings/transactions                                 0 B                0 B
+├ ƒ /api/shipments                                             0 B                0 B
+├ ƒ /api/shipments/[id]                                        0 B                0 B
+├ ƒ /api/sorting-distribution                                  0 B                0 B
+├ ƒ /api/thirteenth-month-pay                                  0 B                0 B
+├ ƒ /api/thirteenth-month-pay/[recordId]/status                0 B                0 B
+├ ƒ /api/transactions                                          0 B                0 B
+├ ƒ /api/transactions/[id]                                     0 B                0 B
+├ ƒ /api/trucking/attendance                                   0 B                0 B
+├ ƒ /api/trucking/attendance/apply-leave                       0 B                0 B
+├ ƒ /api/trucking/cash-advances                                0 B                0 B
+├ ƒ /api/trucking/employee-automation-settings                 0 B                0 B
+├ ƒ /api/trucking/employees                                    0 B                0 B
+├ ƒ /api/trucking/employees/[id]                               0 B                0 B
+├ ƒ /api/trucking/employees/[id]/salary-history                0 B                0 B
+├ ƒ /api/trucking/expenses                                     0 B                0 B
+├ ƒ /api/trucking/leave-requests                               0 B                0 B
+├ ƒ /api/trucking/leave-requests/[id]                          0 B                0 B
+├ ƒ /api/trucking/payroll                                      0 B                0 B
+├ ƒ /api/trucking/payroll/cleanup                              0 B                0 B
+├ ƒ /api/trucking/payroll/generate                             0 B                0 B
+├ ƒ /api/trucking/payroll/generate-payslips                    0 B                0 B
+├ ƒ /api/trucking/payroll/sync-lwop                            0 B                0 B
+├ ƒ /api/trucking/schedules                                    0 B                0 B
+├ ƒ /api/trucking/thirteenth-month-pay                         0 B                0 B
+├ ƒ /api/trucking/thirteenth-month-pay/[recordId]/status       0 B                0 B
+├ ƒ /api/users                                                 0 B                0 B
+├ ƒ /api/users/[id]                                            0 B                0 B
+├ ƒ /api/users/[id]/permissions                                0 B                0 B
+├ ƒ /api/users/messaging                                       0 B                0 B
+├ ƒ /api/users/profile                                         0 B                0 B
+├ ƒ /api/users/profile/photo                                   0 B                0 B
+├ ƒ /api/version-history                                       0 B                0 B
+├ ƒ /api/version-history/sync                                  0 B                0 B
+├ ○ /clothing/employees/attendance                             12.4 kB         274 kB
+├ ○ /clothing/employees/calendar                               751 B           100 kB
+├ ○ /clothing/employees/cash-advance                           19.7 kB         277 kB
+├ ○ /clothing/employees/dashboard                              16.8 kB         322 kB
+├ ○ /clothing/employees/employee-loans                         7.69 kB         242 kB
+├ ○ /clothing/employees/expenses                               10.3 kB         276 kB
+├ ○ /clothing/employees/leave-tracker                          10.9 kB         249 kB
+├ ○ /clothing/employees/notifications                          752 B           100 kB
+├ ○ /clothing/employees/payroll                                21.3 kB         269 kB
+├ ○ /clothing/employees/schedules                              12.6 kB         267 kB
+├ ○ /clothing/employees/settings                               11.7 kB         125 kB
+├ ○ /clothing/employees/team                                   6.44 kB         258 kB
+├ ƒ /clothing/employees/team/[id]                              18.9 kB         255 kB
+├ ○ /clothing/employees/thirteenth-month-pay                   8.59 kB         264 kB
+├ ƒ /clothing/operations/business-intelligence                 20.8 kB         308 kB
+├ ƒ /clothing/operations/checkout-links                        18.8 kB         203 kB
+├ ƒ /clothing/operations/customers                             7.82 kB         219 kB
+├ ƒ /clothing/operations/customers/[id]                        21.1 kB         258 kB
+├ ƒ /clothing/operations/dashboard                             6.87 kB         286 kB
+├ ƒ /clothing/operations/dispatch                              15.6 kB         363 kB
+├ ƒ /clothing/operations/dispatching                           8.83 kB         166 kB
+├ ƒ /clothing/operations/inventory                             10.5 kB         161 kB
+├ ƒ /clothing/operations/message-templates                     13.7 kB         186 kB
+├ ƒ /clothing/operations/messaging                             17.2 kB         219 kB
+├ ƒ /clothing/operations/notifications                         10.4 kB         177 kB
+├ ƒ /clothing/operations/post-template                         10.4 kB         186 kB
+├ ƒ /clothing/operations/prices                                5.38 kB         336 kB
+├ ƒ /clothing/operations/products                              6.63 kB         533 kB
+├ ƒ /clothing/operations/settings                              15.9 kB         425 kB
+├ ƒ /clothing/operations/shipments                             18.6 kB         273 kB
+├ ○ /clothing/operations/sorting-distribution                  10.1 kB         474 kB
+├ ƒ /clothing/operations/transactions                          8.64 kB         383 kB
+├ ○ /clothing/users                                            12.2 kB         189 kB
+├ ○ /forgot-password                                           7.36 kB         128 kB
+├ ○ /icon.svg                                                  0 B                0 B
+├ ○ /login                                                     10.8 kB         146 kB
+├ ○ /profile                                                   4.8 kB          143 kB
+├ ○ /reset-password                                            8.45 kB         131 kB
+├ ○ /trucking/employees/attendance                             12.4 kB         274 kB
+├ ○ /trucking/employees/calendar                               751 B           100 kB
+├ ○ /trucking/employees/cash-advance                           19.8 kB         277 kB
+├ ○ /trucking/employees/dashboard                              751 B           100 kB
+├ ○ /trucking/employees/employee-loans                         7.69 kB         242 kB
+├ ○ /trucking/employees/expenses                               10.3 kB         276 kB
+├ ○ /trucking/employees/leave-tracker                          10.8 kB         249 kB
+├ ○ /trucking/employees/notifications                          751 B           100 kB
+├ ○ /trucking/employees/payroll                                21.3 kB         269 kB
+├ ○ /trucking/employees/schedules                              12.7 kB         267 kB
+├ ○ /trucking/employees/settings                               11.7 kB         125 kB
+├ ○ /trucking/employees/team                                   6.64 kB         258 kB
+├ ƒ /trucking/employees/team/[id]                              18.9 kB         255 kB
+├ ○ /trucking/employees/thirteenth-month-pay                   8.6 kB          264 kB
+├ ○ /trucking/employees/trips                                  751 B           100 kB
+└ ƒ /workspaces                                                2.79 kB         112 kB
++ First Load JS shared by all                                  89.2 kB
+  ├ chunks/2117-7c6cf80b0a72494d.js                            32 kB
+  ├ chunks/fd9d1056-ee30b4f956631290.js                        53.8 kB
+  └ other shared chunks (total)                                3.47 kB
+
+
+ƒ Middleware                                                   55.4 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+ron@ron-Venus-series:~/Websites/business-management$ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

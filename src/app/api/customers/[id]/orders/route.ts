@@ -47,10 +47,7 @@ export const GET = withErrorHandler<RouteContext>(
 
     // TODO: Replace with real queries when order tables exist
     logger.info('Customer orders requested', { customerId: idResult.id });
-    return ApiResponse.success<Order[]>(
-      DEFAULT_ITEMS,
-      'Customer orders fetched'
-    );
+    return ApiResponse.success<Order[]>([], 'Customer orders fetched');
   }
 );
 

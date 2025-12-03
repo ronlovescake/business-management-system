@@ -24,8 +24,12 @@ const TRANSACTION_SELECT = {
  * Soft-delete a single transaction by ID
  */
 export const DELETE = withErrorHandler(
-  async (_request: NextRequest, { params }: RouteContext) => {
-    const id = parseTransactionId(params.id);
+  async (_request: NextRequest, context?: RouteContext) => {
+    if (!context?.params) {
+      return ApiResponse.badRequest('Missing transaction parameters');
+    }
+
+    const id = parseTransactionId(context.params.id);
     if (id === null) {
       return ApiResponse.badRequest('Invalid transaction ID');
     }
@@ -68,7 +72,7 @@ export const DELETE = withErrorHandler(
  * Restore a soft-deleted transaction
  */
 export const PUT = withErrorHandler(
-  async (request: NextRequest, { params }: RouteContext) => {
+  async (request: NextRequest, context?: RouteContext) => {
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
 
@@ -78,7 +82,11 @@ export const PUT = withErrorHandler(
       );
     }
 
-    const id = parseTransactionId(params.id);
+    if (!context?.params) {
+      return ApiResponse.badRequest('Missing transaction parameters');
+    }
+
+    const id = parseTransactionId(context.params.id);
     if (id === null) {
       return ApiResponse.badRequest('Invalid transaction ID');
     }

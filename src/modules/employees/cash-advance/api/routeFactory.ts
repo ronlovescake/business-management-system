@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import type { ZodIssue, ZodSchema } from 'zod';
+import type { ZodIssue, ZodSchema, ZodTypeDef } from 'zod';
 import { ApiResponse } from '@/core/api/response';
 import { withErrorHandler } from '@/core/api/middleware';
 import { sanitizeNumber, sanitizeString } from '@/lib/security/sanitize';
@@ -9,7 +9,7 @@ export interface CashAdvanceRouteConfig<
   TRecord,
   TCreateInput,
   TUpdateInput,
-  TQuery,
+  TQuery extends Record<string, unknown>,
 > {
   service: {
     findAll: () => Promise<TRecord[]>;
@@ -19,9 +19,9 @@ export interface CashAdvanceRouteConfig<
     delete: (id: string) => Promise<void>;
   };
   schemas: {
-    query: ZodSchema<TQuery>;
-    create: ZodSchema<TCreateInput>;
-    update: ZodSchema<TUpdateInput>;
+    query: ZodSchema<TQuery, ZodTypeDef, unknown>;
+    create: ZodSchema<TCreateInput, ZodTypeDef, unknown>;
+    update: ZodSchema<TUpdateInput, ZodTypeDef, unknown>;
   };
   loggerScope?: string;
 }
@@ -37,7 +37,7 @@ interface SerializedRequest {
   remainingBalance?: number | null;
   purpose?: string | null;
   notes?: string | null;
-  requestDate?: Date;
+  requestDate?: Date | null;
   status?: string;
   approvedBy?: string | null;
   approvedDate?: Date | null;
@@ -300,7 +300,7 @@ export function createCashAdvanceRoutes<
   TRecord,
   TCreateInput,
   TUpdateInput,
-  TQuery,
+  TQuery extends Record<string, unknown>,
 >(config: CashAdvanceRouteConfig<TRecord, TCreateInput, TUpdateInput, TQuery>) {
   const { service, schemas, loggerScope = 'Cash advance' } = config;
 
@@ -362,7 +362,7 @@ export function createCashAdvanceRoutes<
       const result = await service.create(validation.data);
 
       logger.info(`[${loggerScope}] Cash advance created`, {
-        employeeId: validation.data.employeeId,
+        employeeId: sanitized.employeeId,
       });
 
       return ApiResponse.success(result, 'Cash advance created', 201);
@@ -403,7 +403,10 @@ export function createCashAdvanceRoutes<
         id: string;
       } & Partial<TUpdateInput>;
 
-      const result = await service.update(id, updateData);
+      const result = await service.update(
+        id,
+        updateData as Partial<TUpdateInput>
+      );
 
       logger.info(`[${loggerScope}] Cash advance updated`, { id });
 

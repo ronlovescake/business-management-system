@@ -1,53 +1,37 @@
 'use client';
 
-import React, {
-  useEffect,
-  useRef,
-  useState,
-  useCallback,
-  useMemo,
-} from 'react';
+import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { useRouter } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '@/lib/queryKeys';
 import {
   Stack,
   Text,
-  Button,
-  Group,
-  FileButton,
   TextInput,
   Card,
+  Group,
+  Button,
   Menu,
+  FileButton,
 } from '@mantine/core';
-import { showNotification, hideNotification } from '@mantine/notifications';
 import {
-  IconUpload,
   IconSearch,
-  IconPlus,
-  IconCheck,
   IconDownload,
   IconChevronDown,
   IconFileSpreadsheet,
   IconTable,
   IconChartBar,
+  IconUpload,
+  IconPlus,
 } from '@tabler/icons-react';
-import {
-  GridCellKind,
-  type GridCell,
-  type GridColumn,
-  type Item,
-} from '@glideapps/glide-data-grid';
 import { GridView } from '@/components/grid';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { throttle } from '@/lib/performance';
-import { logger } from '@/lib/logger';
-import { CustomerService } from '../services/CustomerService';
+import { showNotification } from '@mantine/notifications';
 import { useCustomersData } from '../hooks/useCustomersData';
 import { useCustomerForm } from '../hooks/useCustomerForm';
 import { useCustomerDuplicateCheck } from '../hooks/useCustomerDuplicateCheck';
+import { useCustomersGrid } from '../hooks/useCustomersGrid';
+import { useCustomersCSV } from '../hooks/useCustomersCSV';
 import { CustomerStatsCards } from './CustomerStatsCards';
 import { operationsActionButtonStyles } from '../../common/buttonStyles';
 import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
@@ -118,11 +102,7 @@ const customGridStyles = `
  * Main component for customer management with grid view, search, CSV import, and CRUD operations
  */
 export function CustomersPage() {
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const lastClickRef = useRef<{ cell: Item; time: number } | null>(null);
-
-  // Custom hooks
+  // Data hooks
   const {
     customers,
     filteredCustomers,
@@ -143,11 +123,23 @@ export function CustomersPage() {
     getValidatedCustomerData,
   } = useCustomerForm(customers);
 
-  // Duplicate check hook
   const { checkForDuplicates } = useCustomerDuplicateCheck();
 
-  // Local state
-  const [file, setFile] = useState<File | null>(null);
+  // Grid logic hook
+  const { columns, getData, getRowCount, drawHeader, handleCellClick } =
+    useCustomersGrid({ filteredCustomers });
+
+  // CSV operations hook
+  const {
+    file,
+    setFile,
+    handleImportCSV,
+    handleExportCSV,
+    handleExportDetailedCSV,
+    handleExportAnalysisCSV,
+  } = useCustomersCSV({ customers, filteredCustomers });
+
+  // Local state for responsive grid height
   const [gridHeight, setGridHeight] = useState<number>(600);
 
   // Keep grid height at ~85vh responsively
@@ -170,173 +162,6 @@ export function CustomersPage() {
 
   useCtrlFFocus('[data-ctrlf-target="customers-search-input"]', true);
 
-  // Customer columns
-  const columns: GridColumn[] = useMemo(
-    () => [
-      { title: 'Date', width: 160, id: 'date' },
-      { title: 'Customer Name', width: 500, id: 'customerName' },
-      { title: 'Phone Number', width: 190, id: 'phoneNumber' },
-      { title: 'Address', width: 340, id: 'address' },
-      { title: 'Facebook', width: 220, id: 'facebook' },
-      { title: 'Email Address', width: 260, id: 'emailAddress' },
-      { title: 'Business Name', width: 500, id: 'businessName' },
-      { title: 'Tax Number', width: 170, id: 'taxNumber' },
-      { title: 'Business Address', width: 340, id: 'businessAddress' },
-      {
-        title: 'Business Contact Number',
-        width: 260,
-        id: 'businessContactNumber',
-      },
-      { title: 'Customer Status', width: 120, id: 'customerStatus', grow: 1 },
-    ],
-    []
-  );
-
-  // CSV import functionality
-  const handleImportCSV = async (file: File | null) => {
-    if (!file) {
-      return;
-    }
-
-    try {
-      showNotification({
-        id: 'import-progress',
-        title: 'Importing...',
-        message: 'Processing CSV file, please wait...',
-        color: 'blue',
-        loading: true,
-        autoClose: false,
-      });
-
-      const result = await CustomerService.importFromCSV(file);
-
-      hideNotification('import-progress');
-
-      if (result.success && result.stats) {
-        const {
-          customersCreated,
-          customersUpdated,
-          additionalInfoCreated,
-          errors,
-          totalRows,
-        } = result.stats;
-
-        showNotification({
-          title: 'Import Successful',
-          message: `Processed ${totalRows} rows. Created ${customersCreated} new customers, updated ${customersUpdated} customers, added ${additionalInfoCreated} additional info records${errors.length > 0 ? `. ${errors.length} errors occurred.` : ''}`,
-          color: errors.length > 0 ? 'yellow' : 'green',
-          autoClose: 10000,
-        });
-
-        if (errors.length > 0) {
-          logger.warn('Import errors:', errors);
-        }
-
-        // Refresh customers list
-        void queryClient.invalidateQueries({
-          queryKey: queryKeys.customers.lists(),
-        });
-      } else {
-        showNotification({
-          title: 'Import Failed',
-          message: result.error || 'Error importing CSV file.',
-          color: 'red',
-        });
-      }
-
-      setFile(null);
-    } catch (error) {
-      hideNotification('import-progress');
-      logger.error('Error importing CSV:', error);
-      showNotification({
-        title: 'Import Failed',
-        message: 'Error importing CSV file. Please check the file format.',
-        color: 'red',
-      });
-    }
-  };
-
-  // CSV export functionality
-  const handleExportCSV = () => {
-    try {
-      const dataToExport =
-        filteredCustomers.length > 0 ? filteredCustomers : customers;
-      const timestamp = new Date().toISOString().slice(0, 10);
-      const filename = `customers-export-${timestamp}.csv`;
-
-      CustomerService.exportToCSV(dataToExport, filename);
-
-      showNotification({
-        title: 'Export Successful',
-        message: `Exported ${dataToExport.length} customers to ${filename}`,
-        color: 'green',
-      });
-    } catch (error) {
-      logger.error('Error exporting CSV:', error);
-      showNotification({
-        title: 'Export Failed',
-        message: 'Error exporting CSV file.',
-        color: 'red',
-      });
-    }
-  };
-
-  // CSV export with additional info (numbered columns format)
-  const handleExportDetailedCSV = async () => {
-    try {
-      const timestamp = new Date().toISOString().slice(0, 10);
-      const filename = `customers-detailed-${timestamp}.csv`;
-
-      const result = await CustomerService.exportToCSVDetailed(filename, 5);
-
-      if (result.warning) {
-        showNotification({
-          title: '⚠️ Export Successful (with warnings)',
-          message: result.warning,
-          color: 'yellow',
-          autoClose: 10000,
-        });
-      } else {
-        showNotification({
-          title: 'Export Successful',
-          message:
-            'Exported customers with all additional info (Shopee usernames, addresses, phones, alternate names, Facebook)',
-          color: 'green',
-        });
-      }
-    } catch (error) {
-      logger.error('Error exporting detailed CSV:', error);
-      showNotification({
-        title: 'Export Failed',
-        message: 'Error exporting detailed CSV file.',
-        color: 'red',
-      });
-    }
-  };
-
-  // CSV export with duplicate rows format (for analysis)
-  const handleExportAnalysisCSV = async () => {
-    try {
-      const timestamp = new Date().toISOString().slice(0, 10);
-      const filename = `customers-analysis-${timestamp}.csv`;
-
-      await CustomerService.exportToCSVDuplicateRows(filename);
-
-      showNotification({
-        title: 'Export Successful',
-        message: 'Exported customers in duplicate rows format for analysis',
-        color: 'green',
-      });
-    } catch (error) {
-      logger.error('Error exporting analysis CSV:', error);
-      showNotification({
-        title: 'Export Failed',
-        message: 'Error exporting analysis CSV file.',
-        color: 'red',
-      });
-    }
-  };
-
   // Handle add customer submission
   const handleAddCustomer = async () => {
     const result = getValidatedCustomerData();
@@ -351,32 +176,26 @@ export function CustomersPage() {
     }
 
     try {
-      // Check for duplicates before saving
       const shouldProceed = await checkForDuplicates({
         customerName: result.data['Customer Name'],
         phoneNumber: result.data['Phone Number'],
         address: result.data.Address,
       });
 
-      // If user cancelled, don't proceed with save
       if (!shouldProceed) {
         return;
       }
 
-      // Proceed with adding the customer
       await addCustomer(result.data);
-
       closeModal();
 
       showNotification({
         title: '🎉 Customer Added Successfully!',
         message: `${result.data['Customer Name']} has been added to your customer database`,
         color: 'green',
-        icon: <IconCheck size={18} />,
         autoClose: 4000,
       });
     } catch (error) {
-      logger.error('Failed to add customer', error);
       showNotification({
         title: 'Saved locally only',
         message: 'Database not reachable',
@@ -384,124 +203,6 @@ export function CustomersPage() {
       });
     }
   };
-
-  // Data rendering for grid
-  const getData = useCallback(
-    (cell: Item): GridCell => {
-      const [col, row] = cell;
-
-      if (row >= filteredCustomers.length) {
-        return {
-          kind: GridCellKind.Text,
-          data: '',
-          displayData: '',
-          allowOverlay: false,
-          readonly: true,
-        } as GridCell;
-      }
-
-      const customer = filteredCustomers[row];
-      const column = columns[col];
-
-      let rawValue: unknown = '';
-      switch (column.id) {
-        case 'date':
-          rawValue = customer.Date;
-          break;
-        case 'customerName':
-          rawValue = customer['Customer Name'];
-          break;
-        case 'phoneNumber':
-          rawValue = customer['Phone Number'];
-          break;
-        case 'address':
-          rawValue = customer.Address;
-          break;
-        case 'facebook':
-          rawValue = customer.Facebook;
-          break;
-        case 'emailAddress':
-          rawValue = customer['Email Address'];
-          break;
-        case 'businessName':
-          rawValue = customer['Business Name'];
-          break;
-        case 'taxNumber':
-          rawValue = customer['Tax Number'];
-          break;
-        case 'businessAddress':
-          rawValue = customer['Business Address'];
-          break;
-        case 'businessContactNumber':
-          rawValue = customer['Business Contact Number'];
-          break;
-        case 'customerStatus':
-          rawValue = customer['Customer Status'];
-          break;
-        default:
-          rawValue = '';
-      }
-
-      const cellData =
-        rawValue === null || rawValue === undefined ? '' : String(rawValue);
-
-      // Make customer name column appear as a clickable link
-      if (column.id === 'customerName' && cellData && customer.id) {
-        return {
-          kind: GridCellKind.Text,
-          data: cellData,
-          displayData: cellData,
-          allowOverlay: false,
-          readonly: true,
-          contentAlign: 'left',
-        } as GridCell;
-      }
-
-      return {
-        kind: GridCellKind.Text,
-        data: cellData,
-        displayData: cellData,
-        allowOverlay: false,
-        readonly: true,
-      };
-    },
-    [filteredCustomers, columns]
-  );
-
-  const getRowCount = useCallback(
-    () => filteredCustomers.length,
-    [filteredCustomers]
-  );
-
-  interface DrawHeaderArgs {
-    ctx: CanvasRenderingContext2D;
-    column: GridColumn;
-    rect: { x: number; y: number; width: number; height: number };
-    theme: {
-      bgHeader: string;
-      textHeader: string;
-      headerFontStyle: string;
-    };
-  }
-
-  // Custom header renderer for center alignment
-  const drawHeader = useCallback((args: DrawHeaderArgs) => {
-    const { ctx, column, rect, theme } = args;
-
-    ctx.fillStyle = theme.bgHeader;
-    ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
-
-    ctx.fillStyle = theme.textHeader;
-    ctx.font = theme.headerFontStyle;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    const centerX = rect.x + rect.width / 2;
-    const centerY = rect.y + rect.height / 2;
-    ctx.fillText(column.title, centerX, centerY);
-
-    return true;
-  }, []);
 
   // Loading state
   if (isLoading) {
@@ -524,28 +225,21 @@ export function CustomersPage() {
 
         {/* Search and controls */}
         <Group justify="space-between" align="flex-end" wrap="wrap" gap="md">
-          <Group gap="md" style={{ flex: 1 }}>
-            <TextInput
-              placeholder={'Search customers... (Ctrl+F)'}
-              leftSection={<IconSearch size={16} />}
-              value={searchQuery}
-              onChange={(e) => handleSearch(e.target.value)}
-              style={{
-                flex: 1,
-                minWidth: 300,
-              }}
-              styles={{
-                input: {
-                  backgroundColor: '#ffffff',
-                  border: '1px solid #dee2e6',
-                  '&:focus': {
-                    borderColor: '#228be6',
-                  },
-                },
-              }}
-              data-ctrlf-target="customers-search-input"
-            />
-          </Group>
+          <TextInput
+            placeholder={'Search customers... (Ctrl+F)'}
+            leftSection={<IconSearch size={16} />}
+            value={searchQuery}
+            onChange={(e) => handleSearch(e.target.value)}
+            style={{ flex: 1, minWidth: 300 }}
+            styles={{
+              input: {
+                backgroundColor: '#ffffff',
+                border: '1px solid #dee2e6',
+                '&:focus': { borderColor: '#228be6' },
+              },
+            }}
+            data-ctrlf-target="customers-search-input"
+          />
 
           <Group gap="sm">
             <Menu shadow="md" width={280} position="bottom-end">
@@ -602,34 +296,36 @@ export function CustomersPage() {
                 </Menu.Item>
               </Menu.Dropdown>
             </Menu>
-            <FileButton
-              accept=".csv"
-              onChange={(uploadedFile) => setFile(uploadedFile)}
-            >
-              {(fileButtonProps) => (
+
+            <Group gap="xs">
+              <FileButton accept=".csv" onChange={setFile}>
+                {(fileButtonProps) => (
+                  <Button
+                    {...fileButtonProps}
+                    leftSection={<IconUpload size={16} color="#ffffff" />}
+                    styles={operationsActionButtonStyles}
+                  >
+                    {file ? 'Change CSV' : 'Select CSV'}
+                  </Button>
+                )}
+              </FileButton>
+              {file && (
                 <Button
-                  {...fileButtonProps}
+                  onClick={() => handleImportCSV(file)}
                   leftSection={<IconUpload size={16} color="#ffffff" />}
                   styles={operationsActionButtonStyles}
                 >
-                  {file ? 'Change CSV File' : 'Select CSV File'}
+                  Import
                 </Button>
               )}
-            </FileButton>
-            <Button
-              onClick={() => handleImportCSV(file)}
-              disabled={!file}
-              leftSection={<IconUpload size={16} color="#ffffff" />}
-              styles={operationsActionButtonStyles}
-            >
-              Import CSV
-            </Button>
+            </Group>
+
             <Button
               leftSection={<IconPlus size={16} />}
               color="blue"
               onClick={openModal}
             >
-              Add New Customer
+              Add Customer
             </Button>
           </Group>
         </Group>
@@ -673,38 +369,8 @@ export function CustomersPage() {
             headerHeight={80}
             rowMarkers="none"
             isDraggable={false}
-            onCellClicked={(cell: Item) => {
-              const [col, row] = cell;
-              const column = columns[col];
-
-              if (
-                column?.id === 'customerName' &&
-                row < filteredCustomers.length
-              ) {
-                const now = Date.now();
-                const lastClick = lastClickRef.current;
-
-                if (
-                  lastClick &&
-                  lastClick.cell[0] === col &&
-                  lastClick.cell[1] === row &&
-                  now - lastClick.time < 500
-                ) {
-                  const customer = filteredCustomers[row];
-                  if (customer?.id) {
-                    router.push(
-                      `/clothing/operations/customers/${customer.id}`
-                    );
-                  }
-                  lastClickRef.current = null;
-                } else {
-                  lastClickRef.current = { cell, time: now };
-                }
-              }
-            }}
-            experimental={{
-              scrollbarWidthOverride: 16,
-            }}
+            onCellClicked={handleCellClick}
+            experimental={{ scrollbarWidthOverride: 16 }}
             drawHeader={drawHeader}
             theme={{
               accentColor: '#228be6',

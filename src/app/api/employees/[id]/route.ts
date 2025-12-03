@@ -37,10 +37,16 @@ async function findEmployeeByIdentifier(
  * GET /api/employees/[id]
  * Fetch a single employee by ID
  */
-export const GET = withErrorHandler(
-  async (_request: NextRequest, { params }: RouteContext) => {
+export const GET = withErrorHandler<RouteContext>(
+  async (_request: NextRequest, context?: RouteContext) => {
     try {
-      const employee = await findEmployeeByIdentifier(params.id);
+      const employeeIdParam = context?.params?.id;
+
+      if (!employeeIdParam) {
+        return ApiResponse.badRequest('Employee ID is required');
+      }
+
+      const employee = await findEmployeeByIdentifier(employeeIdParam);
 
       if (!employee) {
         return ApiResponse.error(
@@ -53,7 +59,7 @@ export const GET = withErrorHandler(
     } catch (error) {
       logger.error('Failed to fetch employee', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        employeeId: params.id,
+        employeeId: context?.params?.id,
       });
 
       return ApiResponse.error(
@@ -69,10 +75,16 @@ export const GET = withErrorHandler(
  * PUT /api/employees/[id]
  * Update an employee by ID
  */
-export const PUT = withErrorHandler(
-  async (request: NextRequest, { params }: RouteContext) => {
+export const PUT = withErrorHandler<RouteContext>(
+  async (request: NextRequest, context?: RouteContext) => {
     try {
-      const employeeRecord = await findEmployeeByIdentifier(params.id);
+      const employeeIdParam = context?.params?.id;
+
+      if (!employeeIdParam) {
+        return ApiResponse.badRequest('Employee ID is required');
+      }
+
+      const employeeRecord = await findEmployeeByIdentifier(employeeIdParam);
 
       if (!employeeRecord) {
         return ApiResponse.error(
@@ -284,7 +296,7 @@ export const PUT = withErrorHandler(
 
       logger.error('Failed to update employee', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        employeeId: params.id,
+        employeeId: context?.params?.id,
       });
 
       return ApiResponse.error(
@@ -300,10 +312,16 @@ export const PUT = withErrorHandler(
  * DELETE /api/employees/[id]
  * Soft delete an employee by ID
  */
-export const DELETE = withErrorHandler(
-  async (_request: NextRequest, { params }: RouteContext) => {
+export const DELETE = withErrorHandler<RouteContext>(
+  async (_request: NextRequest, context?: RouteContext) => {
     try {
-      const employeeRecord = await findEmployeeByIdentifier(params.id);
+      const employeeIdParam = context?.params?.id;
+
+      if (!employeeIdParam) {
+        return ApiResponse.badRequest('Employee ID is required');
+      }
+
+      const employeeRecord = await findEmployeeByIdentifier(employeeIdParam);
 
       if (!employeeRecord) {
         return ApiResponse.error(
@@ -336,7 +354,7 @@ export const DELETE = withErrorHandler(
 
       logger.error('Failed to delete employee', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        employeeId: params.id,
+        employeeId: context?.params?.id,
       });
 
       return ApiResponse.error(
