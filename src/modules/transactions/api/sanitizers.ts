@@ -52,7 +52,7 @@ export function sanitizeTransactionRecord(entry: unknown): TransactionRecord {
     Discount: parseNumeric(record['Discount']),
     Adjustment: parseNumeric(record['Adjustment']),
     'Line Total': parseNumeric(record['Line Total']),
-    'Order Status': parseTrimmed(record['Order Status']) || 'Prepared',
+    'Order Status': parseTrimmed(record['Order Status']),
     Notes: parseOptional(record['Notes']),
     'Invoice Date': parseOptional(record['Invoice Date']),
     'Packed Date': parseOptional(record['Packed Date']),
@@ -100,7 +100,7 @@ export function sanitizeTransactionUpdateRecord(
     values['Line Total'] = parseNumeric(record['Line Total']);
   }
   if ('Order Status' in record) {
-    values['Order Status'] = parseTrimmed(record['Order Status']) || 'Prepared';
+    values['Order Status'] = parseTrimmed(record['Order Status']);
   }
   if ('Notes' in record) {
     values.Notes = parseOptional(record['Notes']);
@@ -151,7 +151,7 @@ function defaultRecord(): TransactionRecord {
     Discount: 0,
     Adjustment: 0,
     'Line Total': 0,
-    'Order Status': 'Prepared',
+    'Order Status': '',
     Notes: null,
     'Invoice Date': null,
     'Packed Date': null,

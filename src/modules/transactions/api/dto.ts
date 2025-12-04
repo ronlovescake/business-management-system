@@ -28,7 +28,7 @@ export function mapToDTO(transaction: Transaction): TransactionDTO {
     Discount: transaction.discount ?? 0,
     Adjustment: transaction.adjustment ?? 0,
     'Line Total': transaction.lineTotal ?? 0,
-    'Order Status': transaction.orderStatus ?? 'Prepared',
+    'Order Status': transaction.orderStatus ?? '',
     Notes: transaction.notes ?? null,
     'Invoice Date': transaction.invoiceDate ?? null,
     'Packed Date': transaction.packedDate ?? null,

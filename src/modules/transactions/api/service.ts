@@ -186,7 +186,7 @@ function buildCreateInput(row: TransactionRecord, priceTiers: PriceTier[]) {
     discount,
     adjustment,
     lineTotal,
-    orderStatus: row['Order Status'] || 'Prepared',
+    orderStatus: row['Order Status'] || null,
     notes: row.Notes,
     invoiceDate: row['Invoice Date'],
     packedDate: row['Packed Date'],
