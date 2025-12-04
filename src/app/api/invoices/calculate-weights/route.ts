@@ -45,6 +45,7 @@ type ProductWeightEntity = Prisma.ProductGetPayload<{
 }>;
 
 const PRODUCT_CODE_CAPTURE_REGEX = /\(([^)]+)\)/g;
+const EXCLUDED_TRANSACTION_STATUS = 'In Transit';
 
 const normalizeKey = (value: string | null | undefined) =>
   value ? value.toLowerCase().replace(/\s+/g, ' ').trim() : '';
@@ -232,6 +233,12 @@ export async function POST(request: NextRequest) {
         const normalizedCustomerName = invoice.customerName.trim();
         const transactionWhere: Prisma.TransactionWhereInput = {
           deletedAt: null,
+          NOT: {
+            orderStatus: {
+              equals: EXCLUDED_TRANSACTION_STATUS,
+              mode: 'insensitive',
+            },
+          },
         };
 
         if (normalizedCustomerName.length > 0) {
