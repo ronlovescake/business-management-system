@@ -32,6 +32,135 @@ type ItemWeightEntity = {
   deletedAt: Date | null;
 };
 
+const productWeightSelect = {
+  productCode: true,
+  product: true,
+  bulkQuantity: true,
+  bulkWeight: true,
+  weightPerPiece: true,
+} as const;
+
+type ProductWeightEntity = Prisma.ProductGetPayload<{
+  select: typeof productWeightSelect;
+}>;
+
+const PRODUCT_CODE_CAPTURE_REGEX = /\(([^)]+)\)/g;
+
+const normalizeKey = (value: string | null | undefined) =>
+  value ? value.toLowerCase().replace(/\s+/g, ' ').trim() : '';
+
+const registerWeightKey = (
+  index: Map<string, number>,
+  rawKey: string | null | undefined,
+  weight: number
+) => {
+  const normalized = normalizeKey(rawKey);
+  if (!normalized || !Number.isFinite(weight) || weight <= 0) {
+    return;
+  }
+
+  if (!index.has(normalized)) {
+    index.set(normalized, weight);
+  }
+};
+
+const computeProductWeight = (product: ProductWeightEntity) => {
+  if (product.weightPerPiece && product.weightPerPiece > 0) {
+    return product.weightPerPiece;
+  }
+
+  if (product.bulkQuantity > 0 && product.bulkWeight > 0) {
+    return product.bulkWeight / product.bulkQuantity;
+  }
+
+  return 0;
+};
+
+const buildWeightIndex = (
+  itemWeights: ItemWeightEntity[],
+  productWeights: ProductWeightEntity[]
+) => {
+  const index = new Map<string, number>();
+
+  for (const item of itemWeights) {
+    const weight = item.approxWeightPerPiece.toNumber();
+    registerWeightKey(index, item.itemName, weight);
+
+    for (const match of item.itemName.matchAll(PRODUCT_CODE_CAPTURE_REGEX)) {
+      const [, capturedCode] = match;
+      registerWeightKey(index, capturedCode, weight);
+    }
+  }
+
+  for (const product of productWeights) {
+    const weight = computeProductWeight(product);
+    if (weight <= 0) {
+      continue;
+    }
+
+    registerWeightKey(index, product.productCode, weight);
+    registerWeightKey(index, product.product, weight);
+
+    if (product.product && product.productCode) {
+      registerWeightKey(
+        index,
+        `${product.product} (${product.productCode})`,
+        weight
+      );
+    }
+  }
+
+  return index;
+};
+
+const collectLookupCandidates = (raw: string) => {
+  const candidates = new Set<string>();
+  const direct = normalizeKey(raw);
+  if (direct) {
+    candidates.add(direct);
+  }
+
+  for (const match of raw.matchAll(PRODUCT_CODE_CAPTURE_REGEX)) {
+    const [, capturedCode] = match;
+    const normalized = normalizeKey(capturedCode);
+    if (normalized) {
+      candidates.add(normalized);
+    }
+  }
+
+  const withoutParentheses = raw.replace(PRODUCT_CODE_CAPTURE_REGEX, ' ');
+  const normalizedWithoutParentheses = normalizeKey(withoutParentheses);
+  if (normalizedWithoutParentheses) {
+    candidates.add(normalizedWithoutParentheses);
+  }
+
+  return Array.from(candidates);
+};
+
+const findWeightForProduct = (
+  weightIndex: Map<string, number>,
+  rawProductCode: string
+) => {
+  const candidates = collectLookupCandidates(rawProductCode);
+
+  for (const candidate of candidates) {
+    const weight = weightIndex.get(candidate);
+    if (weight !== undefined) {
+      return weight;
+    }
+  }
+
+  for (const candidate of candidates) {
+    for (const [key, weight] of weightIndex.entries()) {
+      if (key.includes(candidate) || candidate.includes(key)) {
+        return weight;
+      }
+    }
+  }
+
+  return undefined;
+};
+
 const getItemWeightClient = () =>
   (
     prisma as unknown as {
@@ -73,33 +202,48 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch all item weights once
+    // Fetch all weight sources once
     const itemWeightClient = getItemWeightClient();
-    const itemWeights = await itemWeightClient.findMany({
-      where: { deletedAt: null },
-    });
+    const [itemWeights, productWeights] = await Promise.all([
+      itemWeightClient.findMany({
+        where: { deletedAt: null },
+      }),
+      prisma.product.findMany({
+        where: {
+          deletedAt: null,
+          OR: [
+            { weightPerPiece: { gt: 0 } },
+            {
+              AND: [{ bulkWeight: { gt: 0 } }, { bulkQuantity: { gt: 0 } }],
+            },
+          ],
+        },
+        select: productWeightSelect,
+      }),
+    ]);
 
-    // Create a map for quick lookup: itemName -> approxWeightPerPiece
-    const itemWeightMap = new Map<string, number>();
-    for (const item of itemWeights) {
-      // Store by item name for matching
-      itemWeightMap.set(
-        item.itemName.toLowerCase().trim(),
-        item.approxWeightPerPiece.toNumber()
-      );
-    }
+    const weightIndex = buildWeightIndex(itemWeights, productWeights);
 
     const results: WeightCalculationResult[] = [];
 
     // Process each invoice
     for (const invoice of invoices) {
       try {
+        const normalizedCustomerName = invoice.customerName.trim();
+        const transactionWhere: Prisma.TransactionWhereInput = {
+          deletedAt: null,
+        };
+
+        if (normalizedCustomerName.length > 0) {
+          transactionWhere.customers = {
+            equals: normalizedCustomerName,
+            mode: 'insensitive',
+          };
+        }
+
         // Fetch all transactions for this customer
         const transactions = await prisma.transaction.findMany({
-          where: {
-            deletedAt: null,
-            customers: invoice.customerName,
-          },
+          where: transactionWhere,
           select: {
             productCode: true,
             quantity: true,
@@ -132,18 +276,7 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
-          // Try to find matching item weight by product code
-          // The itemName in ItemWeight table should contain the product code
-          let weightPerPiece: number | undefined;
-
-          // Look for exact match or partial match in item names
-          for (const itemName of Array.from(itemWeightMap.keys())) {
-            // Check if the product code appears in the item name
-            if (itemName.includes(productCode.toLowerCase())) {
-              weightPerPiece = itemWeightMap.get(itemName);
-              break;
-            }
-          }
+          const weightPerPiece = findWeightForProduct(weightIndex, productCode);
 
           if (weightPerPiece !== undefined) {
             const itemTotalWeight = weightPerPiece * quantity;
