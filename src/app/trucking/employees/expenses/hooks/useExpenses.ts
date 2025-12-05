@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useSession } from 'next-auth/react';
 import { logger } from '@/lib/logger';
 import { useTruckingExpenseData } from '@/hooks/useSheetData';
 import { showNotification } from '@mantine/notifications';
@@ -56,6 +57,20 @@ export interface MonthlyBreakdown {
  * - Easier to maintain and debug
  */
 export function useExpenses() {
+  const { data: session } = useSession();
+  const currentUserName = useMemo(() => {
+    const name = session?.user?.name?.trim();
+    if (name) {
+      return name;
+    }
+
+    const email = session?.user?.email?.trim();
+    if (email) {
+      return email;
+    }
+
+    return 'Current User';
+  }, [session?.user?.name, session?.user?.email]);
   // ============================================================================
   // DATABASE CONNECTION
   // ============================================================================
@@ -392,7 +407,7 @@ export function useExpenses() {
         notes: formNotes,
         receipt: receiptFileName,
         status: 'pending',
-        employeeName: 'Current User',
+        employeeName: currentUserName,
       });
       showNotification({
         title: 'Success',

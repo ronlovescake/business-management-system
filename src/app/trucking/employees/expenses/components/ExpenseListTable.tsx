@@ -66,6 +66,7 @@ export const ExpenseListTable = memo(function ExpenseListTable({
               <Table.Tr>
                 <Table.Th
                   style={{
+                    width: 300,
                     padding: '16px 12px',
                     color: '#495057',
                     backgroundColor: '#f1f3f5',
@@ -76,6 +77,7 @@ export const ExpenseListTable = memo(function ExpenseListTable({
                 </Table.Th>
                 <Table.Th
                   style={{
+                    width: 300,
                     padding: '16px 12px',
                     color: '#495057',
                     backgroundColor: '#f1f3f5',
@@ -96,6 +98,7 @@ export const ExpenseListTable = memo(function ExpenseListTable({
                 </Table.Th>
                 <Table.Th
                   style={{
+                    width: 300,
                     padding: '16px 12px',
                     color: '#495057',
                     backgroundColor: '#f1f3f5',
@@ -116,6 +119,7 @@ export const ExpenseListTable = memo(function ExpenseListTable({
                 </Table.Th>
                 <Table.Th
                   style={{
+                    width: 300,
                     padding: '16px 12px',
                     color: '#495057',
                     backgroundColor: '#f1f3f5',
@@ -123,6 +127,17 @@ export const ExpenseListTable = memo(function ExpenseListTable({
                   }}
                 >
                   RECEIPT
+                </Table.Th>
+                <Table.Th
+                  style={{
+                    width: 300,
+                    padding: '16px 12px',
+                    color: '#495057',
+                    backgroundColor: '#f1f3f5',
+                    textAlign: 'center',
+                  }}
+                >
+                  LOGGED BY
                 </Table.Th>
                 <Table.Th
                   style={{
@@ -140,7 +155,7 @@ export const ExpenseListTable = memo(function ExpenseListTable({
             <Table.Tbody>
               {filteredExpenses.length === 0 ? (
                 <Table.Tr>
-                  <Table.Td colSpan={7} style={{ textAlign: 'center' }}>
+                  <Table.Td colSpan={8} style={{ textAlign: 'center' }}>
                     <Text c="dimmed" py="xl">
                       No expenses found
                     </Text>
@@ -149,25 +164,18 @@ export const ExpenseListTable = memo(function ExpenseListTable({
               ) : (
                 filteredExpenses.map((expense) => (
                   <Table.Tr key={expense.id}>
-                    <Table.Td style={{ color: '#495057' }}>
+                    <Table.Td style={{ color: '#495057', textAlign: 'center' }}>
                       {formatDate(expense.date)}
                     </Table.Td>
-                    <Table.Td>
+                    <Table.Td style={{ textAlign: 'right' }}>
                       <Text fw={600} c="#495057">
                         {formatCurrency(expense.amount)}
                       </Text>
                     </Table.Td>
                     <Table.Td>
-                      <div>
-                        <Text size="sm" fw={500} c="#495057">
-                          {expense.description}
-                        </Text>
-                        {expense.employeeName && (
-                          <Text size="xs" c="dimmed">
-                            {expense.employeeName}
-                          </Text>
-                        )}
-                      </div>
+                      <Text size="sm" fw={500} c="#495057">
+                        {expense.description}
+                      </Text>
                     </Table.Td>
                     <Table.Td>
                       <Badge
@@ -182,7 +190,7 @@ export const ExpenseListTable = memo(function ExpenseListTable({
                         {expense.notes || '-'}
                       </Text>
                     </Table.Td>
-                    <Table.Td>
+                    <Table.Td style={{ textAlign: 'center' }}>
                       {expense.receipt ? (
                         <Group
                           gap="xs"
@@ -207,6 +215,11 @@ export const ExpenseListTable = memo(function ExpenseListTable({
                           No receipt
                         </Text>
                       )}
+                    </Table.Td>
+                    <Table.Td style={{ textAlign: 'center' }}>
+                      <Text size="sm" c="#495057">
+                        {expense.employeeName || '—'}
+                      </Text>
                     </Table.Td>
                     <Table.Td>
                       <Group gap="xs" justify="center">
