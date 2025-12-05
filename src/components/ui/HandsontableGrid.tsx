@@ -153,6 +153,12 @@ export function HandsontableGrid<T extends object>({
     cleanup?: () => void;
   } | null>(null);
   const lastSelectionSummaryRef = useRef<SelectionSummary | null>(null);
+  const handleSearchFocus = useCallback(
+    (event: React.FocusEvent<HTMLInputElement>) => {
+      event.target.select();
+    },
+    []
+  );
 
   // Debug: Check if theme is applied
   useEffect(() => {
@@ -928,6 +934,7 @@ export function HandsontableGrid<T extends object>({
             leftSection={<IconSearch size={16} />}
             value={searchQuery}
             onChange={(e) => onSearch(e.target.value)}
+            onFocus={handleSearchFocus}
             style={{
               flex: 1,
               minWidth: 300,
