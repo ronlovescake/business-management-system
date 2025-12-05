@@ -123,7 +123,7 @@ function MatchingTabComponent({
           </Center>
         ),
       },
-      'DONE',
+      'Status',
     ],
     [actionLinksEnabled, toggleActionLinks]
   );
