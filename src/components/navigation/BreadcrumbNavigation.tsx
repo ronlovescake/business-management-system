@@ -57,7 +57,10 @@ export function BreadcrumbNavigation() {
       ];
     }
     if (selectedBusiness === 'trucking') {
-      return [{ value: 'employees', label: 'Employees', icon: IconUsers }];
+      return [
+        { value: 'operations', label: 'Operations', icon: IconSettings },
+        { value: 'employees', label: 'Employees', icon: IconUsers },
+      ];
     }
     return [];
   };

@@ -92,6 +92,14 @@ export function buildNavigationItems(
   }
 
   if (workspace === 'operations') {
+    if (business === 'trucking') {
+      additionalItems.push({
+        label: 'Operations Overview',
+        path: basePath,
+        icon: IconDashboard as IconComponent,
+        order: 0,
+      });
+    }
   }
 
   if (workspace === 'employees') {

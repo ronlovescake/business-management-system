@@ -39,6 +39,7 @@ import { settingsModule } from './clothing/operations/settings';
 // Operations
 // import { deliveriesModule } from './trucking/operations/deliveries';
 // import { routesModule } from './trucking/operations/routes';
+import { truckingTripsModule } from './trucking/operations/trips';
 
 // Employees
 // import { expensesModule } from './trucking/employees/expenses';
@@ -74,6 +75,7 @@ moduleRegistry.register(settingsModule); // ✅ REGISTERED!
 // Trucking
 // moduleRegistry.register(deliveriesModule);
 // moduleRegistry.register(routesModule);
+moduleRegistry.register(truckingTripsModule);
 // moduleRegistry.register(expensesModule);
 // moduleRegistry.register(timesheetsModule);
 // moduleRegistry.register(vehiclesModule);
