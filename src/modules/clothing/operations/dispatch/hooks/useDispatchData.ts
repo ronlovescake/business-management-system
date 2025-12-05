@@ -133,9 +133,13 @@ export function useDispatchData({
     RawOrderData[]
   >({
     mutationFn: async (orders: RawOrderData[]) => {
-      const response = (await apiClient.post('/api/dispatch/orders', {
-        orders,
-      })) as {
+      const response = (await apiClient.post(
+        '/api/dispatch/orders',
+        {
+          orders,
+        },
+        { unwrapApiResponse: false }
+      )) as {
         success: boolean;
         message: string;
         data: { deleted: number; created: number };
