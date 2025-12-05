@@ -11,6 +11,7 @@ import {
   Badge,
   Checkbox,
   Radio,
+  Center,
 } from '@mantine/core';
 import { IconMessageCircle } from '@tabler/icons-react';
 import {
@@ -95,29 +96,31 @@ function MatchingTabComponent({
       {
         key: 'action-toggle',
         content: (
-          <Tooltip
-            label={
-              actionLinksEnabled
-                ? 'Click to disable Facebook links'
-                : 'Click to enable Facebook links'
-            }
-          >
-            <Radio
-              checked={actionLinksEnabled}
-              onChange={() => {
-                /* Controlled via onClick */
-              }}
-              onClick={(event) => {
-                event.preventDefault();
-                toggleActionLinks();
-              }}
-              aria-label={
+          <Center>
+            <Tooltip
+              label={
                 actionLinksEnabled
-                  ? 'Disable Facebook links'
-                  : 'Enable Facebook links'
+                  ? 'Click to disable Facebook links'
+                  : 'Click to enable Facebook links'
               }
-            />
-          </Tooltip>
+            >
+              <Radio
+                checked={actionLinksEnabled}
+                onChange={() => {
+                  /* Controlled via onClick */
+                }}
+                onClick={(event) => {
+                  event.preventDefault();
+                  toggleActionLinks();
+                }}
+                aria-label={
+                  actionLinksEnabled
+                    ? 'Disable Facebook links'
+                    : 'Enable Facebook links'
+                }
+              />
+            </Tooltip>
+          </Center>
         ),
       },
       'DONE',
@@ -349,7 +352,7 @@ function MatchingTabComponent({
                   {item.messageCustomer}
                 </Table.Td>
                 <Table.Td style={{ textAlign: 'center' }}>
-                  <Group gap="xs" justify="center">
+                  <Center style={{ width: '100%' }}>
                     <Tooltip label={actionTooltipLabel}>
                       <ActionIcon
                         variant="light"
@@ -376,19 +379,21 @@ function MatchingTabComponent({
                         <IconMessageCircle size={16} />
                       </ActionIcon>
                     </Tooltip>
-                  </Group>
+                  </Center>
                 </Table.Td>
                 <Table.Td style={{ textAlign: 'center' }}>
-                  <Checkbox
-                    checked={isCompleted}
-                    onChange={(event) =>
-                      updateOrderCompletion(
-                        item.id,
-                        event.currentTarget.checked
-                      )
-                    }
-                    aria-label="Mark order handled"
-                  />
+                  <Center style={{ width: '100%' }}>
+                    <Checkbox
+                      checked={isCompleted}
+                      onChange={(event) =>
+                        updateOrderCompletion(
+                          item.id,
+                          event.currentTarget.checked
+                        )
+                      }
+                      aria-label="Mark order handled"
+                    />
+                  </Center>
                 </Table.Td>
               </Table.Tr>
             );
