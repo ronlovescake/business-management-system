@@ -257,6 +257,7 @@ export default function EmployeeLoans() {
 
         {/* Loan List Table */}
         <DataTable
+          height="73vh"
           data={loans}
           columns={columns}
           actions={actions}

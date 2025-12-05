@@ -58,7 +58,7 @@ export const ExpenseListTable = memo(function ExpenseListTable({
       <Card
         withBorder
         padding={0}
-        style={{ overflow: 'hidden', height: '71vh' }}
+        style={{ overflow: 'hidden', height: '73vh' }}
       >
         <Box style={{ height: '100%', overflowY: 'auto' }}>
           <Table highlightOnHover withTableBorder>

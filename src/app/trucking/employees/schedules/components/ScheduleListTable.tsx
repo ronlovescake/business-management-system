@@ -67,7 +67,7 @@ export const ScheduleListTable = memo(function ScheduleListTable({
       <Card
         withBorder
         padding={0}
-        style={{ overflow: 'hidden', height: '71vh' }}
+        style={{ overflow: 'hidden', height: '73vh' }}
       >
         <Box style={{ height: '100%', overflowY: 'auto' }}>
           <Table highlightOnHover withTableBorder>

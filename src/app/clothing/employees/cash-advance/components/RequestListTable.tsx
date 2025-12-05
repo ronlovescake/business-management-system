@@ -54,7 +54,7 @@ export const RequestListTable = memo(function RequestListTable({
         border: '1px solid rgba(255, 255, 255, 0.1)',
       }}
     >
-      <Box style={{ overflowX: 'auto', maxHeight: '71vh', overflowY: 'auto' }}>
+      <Box style={{ overflowX: 'auto', maxHeight: '73vh', overflowY: 'auto' }}>
         <Table striped highlightOnHover>
           <Table.Thead>
             <Table.Tr>
@@ -129,7 +129,11 @@ export const RequestListTable = memo(function RequestListTable({
                             color="green"
                             variant="light"
                             onClick={() => onApprove(request.id)}
-                            {...getActionLabel('Approve', 'cash advance request', request.employee)}
+                            {...getActionLabel(
+                              'Approve',
+                              'cash advance request',
+                              request.employee
+                            )}
                           >
                             <IconCheck size={16} />
                           </ActionIcon>
@@ -137,7 +141,11 @@ export const RequestListTable = memo(function RequestListTable({
                             color="red"
                             variant="light"
                             onClick={() => onReject(request.id)}
-                            {...getActionLabel('Reject', 'cash advance request', request.employee)}
+                            {...getActionLabel(
+                              'Reject',
+                              'cash advance request',
+                              request.employee
+                            )}
                           >
                             <IconX size={16} />
                           </ActionIcon>
@@ -148,7 +156,11 @@ export const RequestListTable = memo(function RequestListTable({
                           color="blue"
                           variant="light"
                           onClick={() => onMarkAsPaid(request.id)}
-                          {...getActionLabel('Mark as paid', 'cash advance', request.employee)}
+                          {...getActionLabel(
+                            'Mark as paid',
+                            'cash advance',
+                            request.employee
+                          )}
                         >
                           <IconCurrencyPeso size={16} />
                         </ActionIcon>
@@ -157,7 +169,11 @@ export const RequestListTable = memo(function RequestListTable({
                         color="blue"
                         variant="light"
                         onClick={() => onEdit(request)}
-                        {...getActionLabel('Edit', 'cash advance request', request.employee)}
+                        {...getActionLabel(
+                          'Edit',
+                          'cash advance request',
+                          request.employee
+                        )}
                       >
                         <IconEdit size={16} />
                       </ActionIcon>
@@ -165,7 +181,11 @@ export const RequestListTable = memo(function RequestListTable({
                         color="red"
                         variant="light"
                         onClick={() => onDelete(request.id)}
-                        {...getActionLabel('Delete', 'cash advance request', request.employee)}
+                        {...getActionLabel(
+                          'Delete',
+                          'cash advance request',
+                          request.employee
+                        )}
                       >
                         <IconTrash size={16} />
                       </ActionIcon>

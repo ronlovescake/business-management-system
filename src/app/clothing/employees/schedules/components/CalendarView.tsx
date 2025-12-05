@@ -170,7 +170,6 @@ export const CalendarView = memo(function CalendarView({
     );
   }, [currentDate]);
 
-  // Check if a specific day is today
   const isToday = (day: number) => {
     const now = new Date();
     return (
@@ -230,7 +229,7 @@ export const CalendarView = memo(function CalendarView({
         withBorder
         padding="md"
         radius="md"
-        style={{ height: '71vh', display: 'flex', flexDirection: 'column' }}
+        style={{ height: '73vh', display: 'flex', flexDirection: 'column' }}
       >
         <Stack gap="xs" style={{ flex: 1 }}>
           {/* Day Headers */}

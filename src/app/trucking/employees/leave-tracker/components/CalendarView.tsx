@@ -328,7 +328,7 @@ export const CalendarView = React.memo(function CalendarView({
         background: '#f8f9fa',
         border: '1px solid #e9ecef',
         boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
-        minHeight: '75vh',
+        minHeight: '73vh',
         display: 'flex',
         flexDirection: 'column',
       }}

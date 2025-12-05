@@ -285,6 +285,7 @@ function CashAdvance() {
 
         {/* Request List Table */}
         <DataTable
+          height="73vh"
           data={cashAdvances}
           columns={columns}
           actions={actions}

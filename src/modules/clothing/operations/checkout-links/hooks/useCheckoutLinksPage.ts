@@ -174,8 +174,19 @@ export const useCheckoutLinksPage = () => {
         throw new Error('Failed to load product weights');
       }
 
-      const result = (await response.json()) as ProductData[];
-      const productsWithWeight = result.filter(hasWeightData);
+      const payload = (await response.json()) as
+        | ProductData[]
+        | { data?: ProductData[] }
+        | undefined;
+      let products: ProductData[] = [];
+
+      if (Array.isArray(payload)) {
+        products = payload;
+      } else if (payload && Array.isArray(payload.data)) {
+        products = payload.data;
+      }
+
+      const productsWithWeight = products.filter(hasWeightData);
 
       setItemWeightData(productsWithWeight.map(mapProductToItemWeight));
     } catch (error) {

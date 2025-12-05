@@ -237,6 +237,7 @@ function AttendanceContent() {
         />
 
         <DataTable
+          height="73vh"
           data={filteredRecords}
           columns={columns}
           actions={actions}

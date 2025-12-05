@@ -772,7 +772,7 @@ export default function EmployeeDetailPage() {
                     No payroll entries yet for this employee.
                   </Text>
                 ) : (
-                  <ScrollArea h="68vh">
+                  <ScrollArea h="73vh">
                     <Table highlightOnHover withTableBorder>
                       <Table.Thead>
                         <Table.Tr>
@@ -839,7 +839,7 @@ export default function EmployeeDetailPage() {
                     No schedules assigned to this employee yet.
                   </Text>
                 ) : (
-                  <ScrollArea h="68vh">
+                  <ScrollArea h="73vh">
                     <Table highlightOnHover withTableBorder>
                       <Table.Thead>
                         <Table.Tr>
@@ -904,7 +904,7 @@ export default function EmployeeDetailPage() {
                     No attendance entries found for this employee.
                   </Text>
                 ) : (
-                  <ScrollArea h="68vh">
+                  <ScrollArea h="73vh">
                     <Table highlightOnHover withTableBorder>
                       <Table.Thead>
                         <Table.Tr>
@@ -1016,7 +1016,7 @@ export default function EmployeeDetailPage() {
                     No leave requests recorded for this employee.
                   </Text>
                 ) : (
-                  <ScrollArea h="68vh">
+                  <ScrollArea h="73vh">
                     <Table highlightOnHover withTableBorder>
                       <Table.Thead>
                         <Table.Tr>
@@ -1086,7 +1086,7 @@ export default function EmployeeDetailPage() {
                     cash advance it will appear here.
                   </Text>
                 ) : (
-                  <ScrollArea h="68vh">
+                  <ScrollArea h="73vh">
                     <Table highlightOnHover withTableBorder>
                       <Table.Thead>
                         <Table.Tr>
@@ -1148,7 +1148,7 @@ export default function EmployeeDetailPage() {
                   </div>
                 </Group>
                 <Divider my="md" />
-                <ScrollArea h="68vh">
+                <ScrollArea h="73vh">
                   <Stack gap="lg" pr="sm">
                     <Grid gutter="md">
                       {statutoryDetails.map((detail) => (

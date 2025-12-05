@@ -44,8 +44,29 @@ type ProductWeightEntity = Prisma.ProductGetPayload<{
   select: typeof productWeightSelect;
 }>;
 
-const PRODUCT_CODE_CAPTURE_REGEX = /\(([^)]+)\)/g;
+const PRODUCT_CODE_CAPTURE_PATTERN = '\\(([^)]+)\\)';
+const createProductCodeRegex = () =>
+  new RegExp(PRODUCT_CODE_CAPTURE_PATTERN, 'g');
 const EXCLUDED_TRANSACTION_STATUS = 'In Transit';
+
+const extractParentheticalSegments = (value: string | null | undefined) => {
+  if (!value) {
+    return [] as string[];
+  }
+
+  const regex = createProductCodeRegex();
+  const segments: string[] = [];
+  let match: RegExpExecArray | null;
+
+  // eslint-disable-next-line no-cond-assign
+  while ((match = regex.exec(value)) !== null) {
+    if (match[1]) {
+      segments.push(match[1]);
+    }
+  }
+
+  return segments;
+};
 
 const normalizeKey = (value: string | null | undefined) =>
   value ? value.toLowerCase().replace(/\s+/g, ' ').trim() : '';
@@ -87,10 +108,10 @@ const buildWeightIndex = (
     const weight = item.approxWeightPerPiece.toNumber();
     registerWeightKey(index, item.itemName, weight);
 
-    for (const match of item.itemName.matchAll(PRODUCT_CODE_CAPTURE_REGEX)) {
-      const [, capturedCode] = match;
-      registerWeightKey(index, capturedCode, weight);
-    }
+    const capturedCodes = extractParentheticalSegments(item.itemName);
+    capturedCodes.forEach((code) => {
+      registerWeightKey(index, code, weight);
+    });
   }
 
   for (const product of productWeights) {
@@ -121,15 +142,15 @@ const collectLookupCandidates = (raw: string) => {
     candidates.add(direct);
   }
 
-  for (const match of raw.matchAll(PRODUCT_CODE_CAPTURE_REGEX)) {
-    const [, capturedCode] = match;
-    const normalized = normalizeKey(capturedCode);
+  const capturedCodes = extractParentheticalSegments(raw);
+  capturedCodes.forEach((code) => {
+    const normalized = normalizeKey(code);
     if (normalized) {
       candidates.add(normalized);
     }
-  }
+  });
 
-  const withoutParentheses = raw.replace(PRODUCT_CODE_CAPTURE_REGEX, ' ');
+  const withoutParentheses = raw.replace(createProductCodeRegex(), ' ');
   const normalizedWithoutParentheses = normalizeKey(withoutParentheses);
   if (normalizedWithoutParentheses) {
     candidates.add(normalizedWithoutParentheses);
@@ -152,10 +173,20 @@ const findWeightForProduct = (
   }
 
   for (const candidate of candidates) {
-    for (const [key, weight] of weightIndex.entries()) {
-      if (key.includes(candidate) || candidate.includes(key)) {
-        return weight;
+    let fuzzyMatch: number | undefined;
+
+    weightIndex.forEach((weight, key) => {
+      if (fuzzyMatch !== undefined) {
+        return;
       }
+
+      if (key.includes(candidate) || candidate.includes(key)) {
+        fuzzyMatch = weight;
+      }
+    });
+
+    if (fuzzyMatch !== undefined) {
+      return fuzzyMatch;
     }
   }
 

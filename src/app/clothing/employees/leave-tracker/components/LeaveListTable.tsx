@@ -194,6 +194,7 @@ export const LeaveListTable = React.memo(function LeaveListTable({
 
   return (
     <DataTable
+      height="73vh"
       data={filteredRequests}
       columns={columns}
       actions={actions}

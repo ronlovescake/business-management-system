@@ -252,6 +252,7 @@ export default function ThirteenthMonthPayPage() {
         />
 
         <DataTable
+          height="73vh"
           data={records}
           columns={columns}
           actions={actions}

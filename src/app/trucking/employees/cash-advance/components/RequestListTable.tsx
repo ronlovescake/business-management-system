@@ -54,7 +54,7 @@ export const RequestListTable = memo(function RequestListTable({
         border: '1px solid rgba(255, 255, 255, 0.1)',
       }}
     >
-      <Box style={{ overflowX: 'auto', maxHeight: '71vh', overflowY: 'auto' }}>
+      <Box style={{ overflowX: 'auto', maxHeight: '73vh', overflowY: 'auto' }}>
         <Table striped highlightOnHover>
           <Table.Thead>
             <Table.Tr>

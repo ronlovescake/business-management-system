@@ -269,6 +269,7 @@ export default function Team() {
           </Paper>
         ) : (
           <DataTable
+            height="73vh"
             data={employees}
             columns={columns}
             actions={actions}

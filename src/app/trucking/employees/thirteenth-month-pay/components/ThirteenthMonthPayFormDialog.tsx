@@ -107,7 +107,7 @@ export const ThirteenthMonthPayFormDialog = memo(
         }}
         body={{
           padding: 'xl',
-          maxHeight: '75vh',
+          maxHeight: '73vh',
         }}
         footer={{
           layout: 'flex-end',

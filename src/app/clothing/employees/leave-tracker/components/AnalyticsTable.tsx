@@ -127,6 +127,7 @@ export const AnalyticsTable = React.memo(function AnalyticsTable({
 
   return (
     <DataTable
+      height="73vh"
       data={dataWithIds}
       columns={columns}
       emptyMessage="No leave data available for analytics"
