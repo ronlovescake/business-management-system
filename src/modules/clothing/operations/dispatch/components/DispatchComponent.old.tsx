@@ -56,6 +56,7 @@ export function DispatchComponent({
     dateRangeFilter,
     setDateRangeFilter,
     completedOrders,
+    autoCompletedOrders,
     updateOrderCompletion,
     actionLinksEnabled,
     toggleActionLinks,
@@ -69,6 +70,7 @@ export function DispatchComponent({
     linkCustomerMutation,
     filteredData,
     unmatchedOrders,
+    preparedLineTotalsByCustomer,
   } = useDispatchData({
     _serverCustomersData: serverCustomersData,
     lookupCustomerName,
@@ -170,6 +172,7 @@ export function DispatchComponent({
             loadingCustomers={loadingCustomers}
             loadingSavedOrders={loadingSavedOrders}
             completedOrders={completedOrders}
+            autoCompletedOrders={autoCompletedOrders}
             updateOrderCompletion={updateOrderCompletion}
             actionLinksEnabled={actionLinksEnabled}
             toggleActionLinks={toggleActionLinks}
@@ -181,6 +184,7 @@ export function DispatchComponent({
             handleCustomerNameClick={handleCustomerNameClick}
             copyToClipboard={copyToClipboard}
             getMatchesForOrder={getMatchesForOrder}
+            preparedLineTotalsByCustomer={preparedLineTotalsByCustomer}
           />
         </Tabs.Panel>
 

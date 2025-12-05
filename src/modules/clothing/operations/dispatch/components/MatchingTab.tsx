@@ -38,6 +38,7 @@ interface MatchingTabProps {
   loadingCustomers: boolean;
   loadingSavedOrders: boolean;
   completedOrders: Record<string, boolean>;
+  autoCompletedOrders: Record<string, boolean>;
   updateOrderCompletion: (orderId: string, completed: boolean) => void;
   actionLinksEnabled: boolean;
   toggleActionLinks: () => void;
@@ -57,6 +58,7 @@ interface MatchingTabProps {
     };
     similarityScore: number;
   }>;
+  preparedLineTotalsByCustomer: Record<string, number>;
 }
 
 function MatchingTabComponent({
@@ -76,6 +78,7 @@ function MatchingTabComponent({
   loadingCustomers,
   loadingSavedOrders,
   completedOrders,
+  autoCompletedOrders,
   updateOrderCompletion,
   actionLinksEnabled,
   toggleActionLinks,
@@ -85,6 +88,7 @@ function MatchingTabComponent({
   handleCustomerNameClick,
   copyToClipboard,
   getMatchesForOrder,
+  preparedLineTotalsByCustomer,
 }: MatchingTabProps) {
   const headers = useMemo(
     () => [
@@ -190,7 +194,9 @@ function MatchingTabComponent({
           {filteredData.map((item) => {
             const isNotJT = item.shippingOptions !== 'J&T';
             const facebookLink = lookupFacebookLink(item.username);
-            const isCompleted = !!completedOrders[item.id];
+            const manualCompleted = !!completedOrders[item.id];
+            const isAutoCompleted = !!autoCompletedOrders[item.id];
+            const isCompleted = manualCompleted || isAutoCompleted;
             const possibleMatches = getMatchesForOrder(item.id) || [];
             const suggestedMatch = possibleMatches[0];
             const suggestedDisplayName = suggestedMatch
@@ -198,6 +204,15 @@ function MatchingTabComponent({
                 ? `${suggestedMatch.customer.customerName} | ${suggestedMatch.customer.businessName}`
                 : suggestedMatch.customer.customerName
               : null;
+            const customerKey = item.customerNames?.trim();
+            const preparedTotal =
+              customerKey &&
+              Object.prototype.hasOwnProperty.call(
+                preparedLineTotalsByCustomer,
+                customerKey
+              )
+                ? preparedLineTotalsByCustomer[customerKey]
+                : undefined;
             const normalizedFacebookLink = facebookLink
               ? facebookLink.startsWith('http')
                 ? facebookLink
@@ -218,6 +233,9 @@ function MatchingTabComponent({
                 : facebookLink
                   ? 'Message customer'
                   : 'No Facebook link available';
+            const checkboxTooltipLabel = isAutoCompleted
+              ? `Auto-checked · Prepared total PHP ${(preparedTotal ?? 0).toFixed(2)}`
+              : 'Mark order handled';
 
             return (
               <Table.Tr
@@ -383,16 +401,22 @@ function MatchingTabComponent({
                 </Table.Td>
                 <Table.Td style={{ textAlign: 'center' }}>
                   <Center style={{ width: '100%' }}>
-                    <Checkbox
-                      checked={isCompleted}
-                      onChange={(event) =>
-                        updateOrderCompletion(
-                          item.id,
-                          event.currentTarget.checked
-                        )
-                      }
-                      aria-label="Mark order handled"
-                    />
+                    <Tooltip label={checkboxTooltipLabel}>
+                      <Checkbox
+                        checked={isCompleted}
+                        disabled={isAutoCompleted}
+                        onChange={(event) => {
+                          if (isAutoCompleted) {
+                            return;
+                          }
+                          updateOrderCompletion(
+                            item.id,
+                            event.currentTarget.checked
+                          );
+                        }}
+                        aria-label="Mark order handled"
+                      />
+                    </Tooltip>
                   </Center>
                 </Table.Td>
               </Table.Tr>

@@ -83,7 +83,16 @@ interface UseDispatchDataResult {
     province: string;
     zipCode: string;
   }>;
+  autoCompletedOrders: Record<string, boolean>;
+  preparedLineTotalsByCustomer: Record<string, number>;
 }
+
+type TransactionRecord = {
+  id: number;
+  Customers?: string | null;
+  'Order Status'?: string | null;
+  'Line Total'?: number | string | null;
+};
 
 export function useDispatchData({
   _serverCustomersData,
@@ -121,6 +130,52 @@ export function useDispatchData({
     },
     staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
   });
+
+  const { data: transactions = [] } = useQuery<TransactionRecord[]>({
+    queryKey: ['transactions', 'dispatch'],
+    queryFn: async () =>
+      (await apiClient.get('/api/transactions')) as TransactionRecord[],
+    staleTime: 60 * 1000,
+  });
+
+  const preparedLineTotalsByCustomer = useMemo(() => {
+    if (transactions.length === 0) {
+      return {};
+    }
+
+    return transactions.reduce(
+      (acc, transaction) => {
+        const status = transaction['Order Status'];
+        if (!status || status.toLowerCase() !== 'prepared') {
+          return acc;
+        }
+
+        const customerName = transaction.Customers?.trim();
+        if (!customerName) {
+          return acc;
+        }
+
+        const rawLineTotal = transaction['Line Total'];
+        const numericValue = (() => {
+          if (typeof rawLineTotal === 'number') {
+            return rawLineTotal;
+          }
+
+          if (typeof rawLineTotal === 'string') {
+            const sanitized = rawLineTotal.replace(/[^\d.-]/g, '');
+            const parsed = Number(sanitized);
+            return Number.isNaN(parsed) ? 0 : parsed;
+          }
+
+          return 0;
+        })();
+
+        acc[customerName] = (acc[customerName] ?? 0) + numericValue;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
+  }, [transactions]);
 
   // Mutation to save orders to database
   const saveOrdersMutation = useMutation<
@@ -488,6 +543,29 @@ export function useDispatchData({
     extractCarrierName,
   ]);
 
+  // Automatically mark orders as handled when prepared totals are small
+  const autoCompletedOrders = useMemo(() => {
+    if (filteredData.length === 0) {
+      return {};
+    }
+
+    return filteredData.reduce(
+      (acc, item) => {
+        const customerKey = item.customerNames?.trim();
+        if (!customerKey) {
+          return acc;
+        }
+
+        const total = preparedLineTotalsByCustomer[customerKey];
+        if (typeof total === 'number' && total <= 50) {
+          acc[item.id] = true;
+        }
+        return acc;
+      },
+      {} as Record<string, boolean>
+    );
+  }, [filteredData, preparedLineTotalsByCustomer]);
+
   const updateOrderCompletion = useCallback(
     (orderId: string, completed: boolean) => {
       setCompletedOrders((prev) => ({
@@ -527,5 +605,7 @@ export function useDispatchData({
     linkCustomerMutation,
     filteredData,
     unmatchedOrders,
+    autoCompletedOrders,
+    preparedLineTotalsByCustomer,
   };
 }
