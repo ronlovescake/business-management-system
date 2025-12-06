@@ -1,5 +1,6 @@
 'use client';
 
+import { Group, Text } from '@mantine/core';
 import {
   DataTable,
   type TableColumn,
@@ -24,6 +25,14 @@ interface TripsTableProps {
   data: TripRecord[];
   emptyMessage?: string;
   height?: string;
+  summary?: {
+    totalCount: number;
+    filteredCount: number;
+    filteredRevenue: number;
+    filteredExpenses: number;
+    filteredNet: number;
+    formatCurrency: (value: number) => string;
+  };
 }
 
 const formatCurrency = (value: number) =>
@@ -88,13 +97,37 @@ export function TripsTable({
   data,
   emptyMessage = 'No trips logged yet',
   height = '73vh',
+  summary,
 }: TripsTableProps) {
+  const summaryLeft = summary ? (
+    <Text size="sm" c="dimmed">
+      Showing {summary.filteredCount} of {summary.totalCount} trips
+    </Text>
+  ) : undefined;
+
+  const summaryRight = summary ? (
+    <Group gap="lg">
+      <Text size="sm" fw={600}>
+        Revenue: {summary.formatCurrency(summary.filteredRevenue)}
+      </Text>
+      <Text size="sm" fw={600}>
+        Expenses: {summary.formatCurrency(summary.filteredExpenses)}
+      </Text>
+      <Text size="sm" fw={600}>
+        Net: {summary.formatCurrency(summary.filteredNet)}
+      </Text>
+    </Group>
+  ) : undefined;
+
   return (
     <DataTable
       data={data}
       columns={baseColumns}
       emptyMessage={emptyMessage}
       height={height}
+      showSummary={Boolean(summary)}
+      summaryLeft={summaryLeft}
+      summaryRight={summaryRight}
     />
   );
 }

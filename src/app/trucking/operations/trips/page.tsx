@@ -1,71 +1,62 @@
-import { Badge, Card, Stack, Text, Title } from '@mantine/core';
-import { PageLayout } from '@/components/layout/PageLayout';
-import {
-  TripsTable,
-  type TripRecord,
-} from '@/modules/trucking/operations/trips/components/TripsTable';
+'use client';
 
-const placeholderTrips: TripRecord[] = [
-  {
-    id: 'trip-001',
-    date: '2025-11-30',
-    truckId: 'TRK-102',
-    grossRevenue: 45000,
-    fuelCost: 9500,
-    maintenance: 1800,
-    tollFees: 1200,
-    driver: 'Jonas Velasco',
-    helper: 'Mia Santos',
-    miscExpenses: 750,
-    totalExpenses: 13250,
-    remarks: 'Double drop-off, Metro Manila loop',
-  },
-  {
-    id: 'trip-002',
-    date: '2025-12-02',
-    truckId: 'TRK-205',
-    grossRevenue: 52000,
-    fuelCost: 10200,
-    maintenance: 0,
-    tollFees: 1450,
-    driver: 'Luis Dizon',
-    helper: 'Ivan Cruz',
-    miscExpenses: 600,
-    totalExpenses: 12250,
-    remarks: 'North Luzon pharma delivery',
-  },
-];
+import { Stack } from '@mantine/core';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { TripsTable } from '@/modules/trucking/operations/trips/components/TripsTable';
+import { TripsStatsCards } from '@/modules/trucking/operations/trips/components/TripsStatsCards';
+import { TripsControlPanel } from '@/modules/trucking/operations/trips/components/TripsControlPanel';
+import { useTripsDashboard } from '@/modules/trucking/operations/trips/hooks/useTripsDashboard';
 
 export default function TripsPage() {
+  const {
+    filteredTrips,
+    stats,
+    summary,
+    filters,
+    collections,
+    actions,
+    formatCurrency,
+  } = useTripsDashboard();
+
   return (
     <PageLayout fluid withPadding>
       <Stack gap="lg">
-        <Stack gap={4}>
-          <Title order={2}>Trips</Title>
-          <Text c="dimmed" size="sm">
-            This workspace module is ready for build-out. Connect dispatch data,
-            fleet telemetry, or billing workflows here when you are ready to
-            ship the trucking ops experience.
-          </Text>
-        </Stack>
+        <TripsStatsCards
+          totalRevenue={stats.totalRevenue}
+          totalExpenses={stats.totalExpenses}
+          netIncome={stats.netIncome}
+          tripsThisMonth={stats.tripsThisMonth}
+          formatCurrency={formatCurrency}
+        />
 
-        <Card withBorder padding="lg" radius="md" shadow="xs">
-          <Stack gap="sm">
-            <Stack gap={2}>
-              <Text fw={600}>Status</Text>
-              <Badge color="gray" variant="light" size="lg">
-                Placeholder
-              </Badge>
-            </Stack>
-            <Text size="sm" c="dimmed">
-              No UI has been wired up yet. Add Mantine components, data grids,
-              or charts inside this module as you define the trucking trips
-              workflow.
-            </Text>
-          </Stack>
-        </Card>
+        <TripsControlPanel
+          searchQuery={filters.searchQuery}
+          onSearchChange={filters.setSearchQuery}
+          driverFilter={filters.driverFilter}
+          onDriverFilterChange={filters.setDriverFilter}
+          truckFilter={filters.truckFilter}
+          onTruckFilterChange={filters.setTruckFilter}
+          dateRangeFilter={filters.dateRange}
+          onDateRangeFilterChange={filters.setDateRange}
+          drivers={collections.drivers}
+          trucks={collections.trucks}
+          onImportCSV={actions.handleImportTrips}
+          onExportCSV={actions.handleExportTrips}
+          onAddTrip={actions.handleLogTrip}
+          isImporting={filters.isImporting}
+        />
 
-        <TripsTable data={placeholderTrips} />
+        <TripsTable
+          data={filteredTrips}
+          summary={{
+            totalCount: summary.totalCount,
+            filteredCount: summary.filteredCount,
+            filteredRevenue: summary.filteredRevenue,
+            filteredExpenses: summary.filteredExpenses,
+            filteredNet: summary.filteredNet,
+            formatCurrency,
+          }}
+        />
       </Stack>
     </PageLayout>
   );
