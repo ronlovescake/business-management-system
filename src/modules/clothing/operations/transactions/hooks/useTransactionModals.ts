@@ -40,6 +40,9 @@ interface UseTransactionModalsReturn {
   ) => Promise<void>;
   confirmInvoiceGeneration: () => Promise<void>;
   cancelInvoiceGeneration: () => void;
+  generateTwentyPercentReservationInvoices: (
+    visibleTransactions: TransactionData[]
+  ) => Promise<void>;
 
   // Packing list generation
   showPackingListModal: boolean;
@@ -69,6 +72,18 @@ interface UseTransactionModalsReturn {
   setCustomerWarningData: (data: CustomerWarningData | null) => void;
   setShowCustomerWarningModal: (show: boolean) => void;
 }
+
+interface ReservationInvoiceWorkflowConfig {
+  invoiceType: 'Reservation Fee' | 'Reservation Fee 20';
+  feePercentage: number;
+  downloadBaseName: string;
+}
+
+type InvoiceSelection =
+  | 'onhand'
+  | 'inTransit'
+  | 'reservation10'
+  | 'reservation20';
 
 export function useTransactionModals(
   props: UseTransactionModalsProps
@@ -338,9 +353,15 @@ export function useTransactionModals(
     []
   );
 
-  const handleReservationInvoiceGeneration = useCallback(
-    async (visibleTransactions: TransactionData[]) => {
-      logger.debug('💳 Preparing reservation-fee invoice generation...');
+  const runReservationInvoiceWorkflow = useCallback(
+    async (
+      visibleTransactions: TransactionData[],
+      config: ReservationInvoiceWorkflowConfig
+    ) => {
+      const percentLabel = `${Math.round(config.feePercentage * 100)}%`;
+      logger.debug(
+        `💳 Preparing reservation-fee invoice generation (${percentLabel})...`
+      );
 
       const reservationTransactions = visibleTransactions.filter(
         (t) => t['Order Status'] === 'In Transit'
@@ -365,13 +386,15 @@ export function useTransactionModals(
         (sum, t) => sum + (Number(t['Line Total']) || 0),
         0
       );
-      const reservationFeeValue = Number((totalValue * 0.1).toFixed(2));
+      const reservationFeeValue = Number(
+        (totalValue * config.feePercentage).toFixed(2)
+      );
 
       const result = await Swal.fire({
-        title: 'Reservation Fee Invoice Confirmation',
+        title: `Reservation Fee Invoice Confirmation (${percentLabel})`,
         html: `
           <div style="text-align: left;">
-            <p style="margin-bottom: 12px; font-weight: 500;">You are about to send reservation invoices (10% fee) for:</p>
+            <p style="margin-bottom: 12px; font-weight: 500;">You are about to send reservation invoices (${percentLabel} fee) for:</p>
             <div style="margin-bottom: 16px;">
               <p style="margin: 6px 0; font-size: 14px;">
                 <strong>${customersWithReservations.size}</strong> customer${customersWithReservations.size === 1 ? '' : 's'}
@@ -383,7 +406,7 @@ export function useTransactionModals(
                 Total order value: <strong>₱${totalValue.toLocaleString()}</strong>
               </p>
               <p style="margin: 6px 0; font-size: 14px;">
-                Reservation fee (10%): <strong>₱${reservationFeeValue.toLocaleString()}</strong>
+                Reservation fee (${percentLabel}): <strong>₱${reservationFeeValue.toLocaleString()}</strong>
               </p>
             </div>
 
@@ -392,7 +415,7 @@ export function useTransactionModals(
             <p style="margin-bottom: 12px; font-weight: 500;">Important Details:</p>
             <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #495057;">
               <li>Invoices use the reservation template (24-hour payment reminder)</li>
-              <li>Amount due per invoice is exactly 10% of its subtotal</li>
+              <li>Amount due per invoice is exactly ${percentLabel} of its subtotal</li>
               <li>No status or invoice date changes will be applied to these orders</li>
             </ul>
 
@@ -449,7 +472,7 @@ export function useTransactionModals(
           body: JSON.stringify({
             transactions: reservationTransactions,
             customers: customersData,
-            invoiceType: 'Reservation Fee',
+            invoiceType: config.invoiceType,
           }),
         });
 
@@ -466,7 +489,7 @@ export function useTransactionModals(
         link.href = url;
 
         const contentDisposition = response.headers.get('Content-Disposition');
-        let filename = 'reservation-fee-invoices.pdf';
+        let filename = `${config.downloadBaseName}.pdf`;
 
         if (contentDisposition) {
           const filenameMatch = contentDisposition.match(
@@ -479,7 +502,7 @@ export function useTransactionModals(
           }
         }
 
-        if (filename === 'reservation-fee-invoices.pdf') {
+        if (filename === `${config.downloadBaseName}.pdf`) {
           const contentType = response.headers.get('Content-Type');
           const timestamp = new Date()
             .toISOString()
@@ -487,11 +510,11 @@ export function useTransactionModals(
             .replace(/[:-]/g, '');
 
           if (contentType?.includes('zip')) {
-            filename = `reservation-fee-invoices-${timestamp}.zip`;
+            filename = `${config.downloadBaseName}-${timestamp}.zip`;
           } else if (contentType?.includes('png')) {
-            filename = `reservation-fee-invoices-${timestamp}.png`;
+            filename = `${config.downloadBaseName}-${timestamp}.png`;
           } else {
-            filename = `reservation-fee-invoices-${timestamp}.pdf`;
+            filename = `${config.downloadBaseName}-${timestamp}.pdf`;
           }
         }
 
@@ -509,7 +532,7 @@ export function useTransactionModals(
 
         showNotification({
           title: '✅ Reservation Fee Invoices Generated',
-          message: `${fileType} for ${reservationTransactions.length} In Transit order${reservationTransactions.length === 1 ? '' : 's'} across ${customersWithReservations.size} customer${customersWithReservations.size === 1 ? '' : 's'} downloaded. Total 10% reservation fees: ₱${reservationFeeValue.toLocaleString()}.`,
+          message: `${fileType} for ${reservationTransactions.length} In Transit order${reservationTransactions.length === 1 ? '' : 's'} across ${customersWithReservations.size} customer${customersWithReservations.size === 1 ? '' : 's'} downloaded. Total ${percentLabel} reservation fees: ₱${reservationFeeValue.toLocaleString()}.`,
           color: 'green',
           autoClose: 8000,
         });
@@ -531,6 +554,28 @@ export function useTransactionModals(
     []
   );
 
+  const handleReservationInvoiceGeneration = useCallback(
+    async (visibleTransactions: TransactionData[]) => {
+      await runReservationInvoiceWorkflow(visibleTransactions, {
+        invoiceType: 'Reservation Fee',
+        feePercentage: 0.1,
+        downloadBaseName: 'reservation-fee-invoices',
+      });
+    },
+    [runReservationInvoiceWorkflow]
+  );
+
+  const handleTwentyPercentReservationInvoiceGeneration = useCallback(
+    async (visibleTransactions: TransactionData[]) => {
+      await runReservationInvoiceWorkflow(visibleTransactions, {
+        invoiceType: 'Reservation Fee 20',
+        feePercentage: 0.2,
+        downloadBaseName: 'reservation-fee-20-invoices',
+      });
+    },
+    [runReservationInvoiceWorkflow]
+  );
+
   // ============================================================================
   // INVOICE GENERATION
   // ============================================================================
@@ -542,45 +587,73 @@ export function useTransactionModals(
       );
 
       try {
-        // Always ask user to pick the invoice type before running any logic
-        const typeSelection = await Swal.fire({
-          title: 'Select Invoice Type',
-          html: `
-            <p style="margin-bottom: 12px; color: #495057;">
-              Choose the invoice workflow you want to run:
-            </p>
-          `,
-          icon: 'question',
-          showDenyButton: true,
-          showCancelButton: true,
-          showCloseButton: true,
-          confirmButtonText: 'Onhand',
-          denyButtonText: 'In Transit',
-          cancelButtonText: 'Reservation Fee',
-          confirmButtonColor: '#60bd52',
-          denyButtonColor: '#2196F3',
-          cancelButtonColor: '#cc0000',
-          width: '520px',
-          allowOutsideClick: false,
-          customClass: {
-            popup: 'swal-wide',
-            confirmButton: 'swal-confirm-btn',
-            denyButton: 'swal-deny-btn',
-            cancelButton: 'swal-cancel-btn',
-          },
-        });
+        const selection = await new Promise<InvoiceSelection | null>(
+          (resolve) => {
+            let resolved = false;
+            Swal.fire({
+              title: 'Select Invoice Type',
+              html: `
+                <div style="text-align: center;">
+                  <p style="margin-bottom: 12px; color: #495057;">
+                    Choose the invoice workflow you want to run:
+                  </p>
+                  <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 16px;">
+                    <button type="button" class="swal2-styled" data-selection="onhand" style="background-color: #60bd52; padding: 10px 18px; min-width: 120px;">Onhand</button>
+                    <button type="button" class="swal2-styled" data-selection="inTransit" style="background-color: #2196F3; padding: 10px 18px; min-width: 120px;">In Transit</button>
+                    <button type="button" class="swal2-styled" data-selection="reservation10" style="background-color: #cc0000; padding: 10px 18px; min-width: 120px;">10% DP</button>
+                    <button type="button" class="swal2-styled" data-selection="reservation20" style="background-color: #e67700; padding: 10px 18px; min-width: 120px;">20% DP</button>
+                  </div>
+                </div>
+              `,
+              icon: 'question',
+              showConfirmButton: false,
+              showDenyButton: false,
+              showCancelButton: false,
+              showCloseButton: true,
+              width: '520px',
+              allowOutsideClick: false,
+              customClass: {
+                popup: 'swal-wide',
+              },
+              didOpen: () => {
+                const container = Swal.getHtmlContainer();
+                container
+                  ?.querySelectorAll<HTMLButtonElement>('[data-selection]')
+                  .forEach((button) => {
+                    button.addEventListener('click', () => {
+                      resolved = true;
+                      resolve(button.dataset.selection as InvoiceSelection);
+                      Swal.close();
+                    });
+                  });
+              },
+              willClose: () => {
+                if (!resolved) {
+                  resolve(null);
+                }
+              },
+            });
+          }
+        );
 
-        if (typeSelection.isDenied) {
+        if (selection === 'inTransit') {
           await handleInTransitInvoiceGeneration(visibleTransactions);
           return;
         }
 
-        if (typeSelection.dismiss === Swal.DismissReason.cancel) {
+        if (selection === 'reservation10') {
           await handleReservationInvoiceGeneration(visibleTransactions);
           return;
         }
 
-        if (!typeSelection.isConfirmed) {
+        if (selection === 'reservation20') {
+          await handleTwentyPercentReservationInvoiceGeneration(
+            visibleTransactions
+          );
+          return;
+        }
+
+        if (selection !== 'onhand') {
           showNotification({
             title: '✅ Invoice Generation Cancelled',
             message: 'No changes were made.',
@@ -882,6 +955,7 @@ export function useTransactionModals(
       saveTransactionToDatabase,
       handleInTransitInvoiceGeneration,
       handleReservationInvoiceGeneration,
+      handleTwentyPercentReservationInvoiceGeneration,
     ]
   );
 
@@ -1589,6 +1663,8 @@ export function useTransactionModals(
     prepareInvoiceGeneration,
     confirmInvoiceGeneration, // Dummy function
     cancelInvoiceGeneration, // Dummy function
+    generateTwentyPercentReservationInvoices:
+      handleTwentyPercentReservationInvoiceGeneration,
 
     // Packing list (SweetAlert-based, modal state kept for compatibility)
     showPackingListModal, // Always false now

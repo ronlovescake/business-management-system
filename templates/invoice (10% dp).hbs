@@ -1,0 +1,368 @@
+<!-- views/invoice.hbs -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Invoice</title>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,700;1,400&family=Comfortaa:wght@700&display=swap" rel="stylesheet">
+  <style>
+    /* Reset & Base */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: #f0f0f0;
+      padding: 0px 0;
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Container */
+    .invoice-container {
+      width: 817px;
+      background: #fff;
+      position: relative;
+      height: 1056px;  /* Fixed A4 height - no min-height */
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top & Bottom Bars */
+    .bar {
+      width: 100%;
+      height: 18px;
+      background-color: #cc0000;
+    }
+
+    /* Header Section */
+    .body-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 20px;      /* 20px padding to the sides */
+      margin-top: 20px;    /* Reduce space from top bar */
+      margin-bottom: 15px; /* Reduce space before "Prepared for" */
+    }
+
+    /* Wrap title + date for independent spacing */
+    .header-text {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    /* Invoice Title */
+    .invoice-title {
+      font-size: 20pt;
+      color: #cc0000;
+      margin-top: 50px;      /* Reduce top margin */
+      margin-bottom: 35px;   /* Reduce bottom margin */
+    }
+
+    /* Invoice Date */
+    .invoice-date {
+      font-size: 12pt;
+      color: #000;
+      margin-top: 0;
+    }
+
+    /* Logo sizing */
+    .logo {
+      max-width: 190px;
+    }
+
+    /* "Prepared for" Table */
+    .info-table {
+      width: calc(100% - 40px);
+      margin: 0 20px 20px;
+      border-collapse: collapse;
+    }
+    .info-table td {
+      vertical-align: top;
+      padding: 3px;
+    }
+    .info-table .label {
+      font-family: 'Comfortaa', cursive;
+      font-size: 12pt;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    .info-table .value {
+      font-family: 'Comfortaa', cursive;
+      font-size: 15pt;
+      font-weight: bold;
+      color: #660000;
+      margin-bottom: 8px;
+    }
+    .info-table .contact {
+      font-family: 'Comfortaa', cursive;
+      font-size: 10pt;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    .info-table td:nth-child(2) {
+      text-align: right;
+    }
+
+    /* Content area that expands to push footer down */
+    .content-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Items Table with white borders */
+    .items-table {
+      width: calc(100% - 40px);
+      border-collapse: collapse;
+      margin: -20px 20px 0px;  /* Remove bottom margin to eliminate gap */
+    }
+    .items-table th,
+    .items-table td {
+      border: 1px solid #ffffff;
+      padding: 4px;              /* Reduce padding slightly */
+      height: 22pt;              /* Reduce row height slightly */
+      font-size: 10pt;
+    }
+    .items-table th {
+      background-color: #cc0000;
+      color: #ffffff;
+      font-weight: bold;
+      text-align: center;
+    }
+    .items-table tr:nth-child(even) td {
+      background-color: #f3f3f3;
+    }
+    
+    
+
+    /* right-align numeric cells */
+    .items-table td.right {
+      text-align: right;
+    }
+
+    /* Footer area that sticks to bottom */
+    .footer-area {
+      margin-top: auto;  /* Push to bottom */
+      flex-shrink: 0;    /* Prevent shrinking */
+    }
+
+    /* Summary & Notes */
+    .summary {
+      width: calc(100% - 40px);
+      border: 1px solid #cccccc;
+      border-collapse: collapse;
+      margin: 0px 20px 10px;    /* Remove top margin to eliminate gap */
+    }
+    .summary td {
+      vertical-align: top;
+      padding: 8px;              /* Slightly increase padding for better readability */
+    }
+    .summary .due {
+      font-size: 15pt;
+      font-weight: bold;
+      color: #cc0000;
+    }
+    .summary em {
+      display: block;
+      font-style: italic;
+      font-size: 9pt;
+      color: #555;
+      margin-bottom: 5px;
+    }
+    .summary .note-title {
+      font-size: 12pt;
+      font-weight: bold;
+      color: #cc0000;
+      margin: 10px 0 5px;
+    }
+    .summary .note {
+      font-size: 11pt;
+      margin-bottom: 3px;
+    }
+
+    /* Center-align the left side of the summary (due date & notes) */
+    .summary td:first-child {
+      text-align: center;
+    }
+
+    /* Totals Table */
+    .totals-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .totals-table td {
+      padding: 5px;
+      font-size: 10pt;
+    }
+    .totals-table td.label {
+      text-align: left;
+    }
+    .totals-table td.value {
+      text-align: right;
+    }
+    .totals-table .amount-due .label,
+    .totals-table .amount-due .value {
+      font-size: 12pt;
+      font-weight: bold;
+      color: #cc0000;
+    }
+
+    /* Right-align Sub Total, Adjustment & Amount Due */
+    .totals-table td.label,
+    .totals-table td.value {
+      text-align: right;
+    }
+
+
+    /* Flexible spacer - remove gap, just use minimal spacing */
+    .flexible-spacer {
+      height: 0px;  /* No gap between table and footer */
+    }
+
+    /* No spacer needed - red bar should be at absolute bottom */
+    .spacer {
+      height: 0px;
+    }
+  </style>
+</head>
+<body>
+  <div class="invoice-container">
+
+    <!-- Top red bar -->
+    <div class="bar"></div>
+
+    <!-- Content area that expands to push footer down -->
+    <div class="content-area">
+      <!-- Header: Invoice title + date + logo -->
+      <div class="body-header">
+        <div class="header-text">
+          <h1 class="invoice-title">INVOICE</h1>
+          <div class="invoice-date">Invoice Date: {{date}}</div>
+        </div>
+        <img src="data:image/png;base64,{{logoData}}" alt="Logo" class="logo" />
+      </div>
+
+      <!-- "Prepared for" / "Order from" table -->
+      <table class="info-table">
+        <tr>
+          <td width="60%">
+            <div class="label">Prepared for</div>
+            <div class="value">{{customerName}}</div>
+            <div class="contact">{{phone}}</div>
+            <div class="contact">{{address}}</div>
+          </td>
+          <td width="40%">
+            <div class="label">Order from</div>
+            <div class="value">Czarlie &amp; Ron</div>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Items listing -->
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th>ITEM DESCRIPTION</th>
+            <th>QUANTITY</th>
+            <th>UNIT PRICE</th>
+            <th>ADJUSTMENT</th>
+            <th>LINE TOTAL</th>
+          </tr>
+        </thead>
+        <tbody id="invoice-items">
+          {{#each items}}
+          <tr>
+            <td>{{description}}</td>
+            <td style="text-align:center">{{quantity}}</td>
+<td class="right">{{currency unitPrice}}</td>
+<td class="right">{{currency adjustment}}</td>
+<td class="right">{{currency lineTotal}}</td>
+
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
+
+      <!-- Auto-pad empty rows for consistent table height -->
+      <script>
+        (function(){
+          const tbody = document.getElementById('invoice-items');
+          const currentRows = tbody.rows.length;
+          
+          // Priority: maintain exactly 15 rows for optimal layout
+          let targetRows;
+          if (currentRows < 15) {
+            targetRows = 15;      // Pad to 15 rows when less than 15
+          } else if (currentRows === 15) {
+            targetRows = 15;      // Keep exactly 15 rows - no padding needed
+          } else if (currentRows <= 18) {
+            targetRows = currentRows + 1;  // 16-18 items get minimal padding
+          } else {
+            targetRows = currentRows;      // Very large orders get no padding to fit on page
+          }
+          
+          while (tbody.rows.length < targetRows) {
+            const tr = document.createElement('tr');
+            for (let i = 0; i < 5; i++) {
+              const td = document.createElement('td');
+              td.innerHTML = '&nbsp;';
+              tr.appendChild(td);
+            }
+            tbody.appendChild(tr);
+          }
+        })();
+      </script>
+
+      <!-- Flexible spacer that expands to push footer to bottom -->
+      <div class="flexible-spacer"></div>
+    </div>
+
+    <!-- Footer area that stays at bottom -->
+    <div class="footer-area">
+      <!-- Summary & Notes -->
+      <table class="summary">
+      <tr>
+        <td width="60%">
+          <div class="due">DUE DATE: IN 24 HOURS</div>
+          <div class="note-title">IMPORTANT NOTES:</div>
+          <div class="note">Please settle the reservation fee within 24 hours!!!</div>
+          <div class="note">Unpaid reservations after 24 hours will automatically be cancelled!!!</div>
+        </td>
+        <td width="40%">
+          <table class="totals-table">
+            <tr>
+              <td class="label">Sub Total:</td>
+              <td class="value">{{currency subTotal}}</td>
+            </tr>
+            <tr>
+              <td class="label">Reservation Fee (10%):</td>
+              <td class="value">{{currency reservationFee}}</td>
+            </tr>
+            <tr><td colspan="2"><hr></td></tr>
+            <tr class="amount-due">
+              <td class="label">AMOUNT DUE:</td>
+              <td class="value">{{currency reservationFee}}</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Bottom spacer -->
+    <div class="spacer"></div>
+
+      <!-- Bottom red bar -->
+      <div class="bar"></div>
+    </div>
+  </div>
+</body>
+</html>
+
