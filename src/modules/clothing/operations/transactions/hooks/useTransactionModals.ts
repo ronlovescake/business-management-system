@@ -600,7 +600,7 @@ export function useTransactionModals(
                   <div style="display: flex; flex-wrap: nowrap; gap: 12px; justify-content: center; margin-top: 16px;">
                     <button type="button" class="swal2-styled" data-selection="onhand" style="background-color: #60bd52; padding: 10px 18px; min-width: 120px;">Onhand</button>
                     <button type="button" class="swal2-styled" data-selection="inTransit" style="background-color: #2196F3; padding: 10px 18px; min-width: 120px;">In Transit</button>
-                    <button type="button" class="swal2-styled" data-selection="reservation10" style="background-color: #cc0000; padding: 10px 18px; min-width: 120px;">10% DP</button>
+                    <button type="button" class="swal2-styled" data-selection="reservation10" style="background-color: #f06543; padding: 10px 18px; min-width: 120px;">10% DP</button>
                     <button type="button" class="swal2-styled" data-selection="reservation20" style="background-color: #e67700; padding: 10px 18px; min-width: 120px;">20% DP</button>
                   </div>
                 </div>
