@@ -3,15 +3,19 @@
 // ==============================================================================
 //
 // This API generates invoice PDFs for transactions with "Warehouse" status.
+// It also supports reservation-fee invoices for "In Transit" orders using a
+// dedicated template that charges 10% of the subtotal.
 //
 // ✅ BUSINESS LOGIC - DO NOT MODIFY:
-//    - Filter: Only "Warehouse" Order Status transactions
+//    - Filter: Only "Warehouse" Order Status transactions (standard invoices)
 //    - Group by customer: One invoice per customer
 //    - Invoice Date: Auto-populate if empty (format: "October 3, 2025")
 //    - Due Date: Invoice Date + 3 days
 //    - Include ALL warehouse transactions regardless of existing Invoice Date
 //    - DO NOT overwrite existing Invoice Date timestamps
 //    - DO NOT touch PACKED DATE or SHIPMENT CODE columns
+//    - Reservation invoices: include only "In Transit" orders, no status updates,
+//      and charge 10% of the subtotal as the reservation fee
 //
 // 📋 CALCULATIONS:
 //    - Sub Total: Sum of all Line Totals
@@ -72,6 +76,7 @@ interface InvoiceData {
   subTotal: number;
   creditAmount: number;
   orderTotal: number;
+  reservationFee?: number;
 }
 
 interface InvoiceSettings {
@@ -128,10 +133,20 @@ export async function POST(request: NextRequest) {
     const settings = getInvoiceSettings();
 
     const body = await request.json();
-    const { transactions, customers } = body as {
+    const { transactions, customers, invoiceType } = body as {
       transactions: Transaction[];
       customers: Customer[];
+      invoiceType?: 'In Transit' | 'Onhand' | 'Reservation Fee';
     };
+
+    const normalizedInvoiceType: 'In Transit' | 'Onhand' | 'Reservation Fee' =
+      invoiceType === 'In Transit'
+        ? 'In Transit'
+        : invoiceType === 'Reservation Fee'
+          ? 'Reservation Fee'
+          : 'Onhand';
+
+    const isReservationInvoice = normalizedInvoiceType === 'Reservation Fee';
 
     if (!transactions || transactions.length === 0) {
       return NextResponse.json(
@@ -169,7 +184,11 @@ export async function POST(request: NextRequest) {
     });
 
     // Read the invoice template
-    const templatePath = path.join(process.cwd(), 'templates', 'invoice.hbs');
+    const templatePath = path.join(
+      process.cwd(),
+      'templates',
+      isReservationInvoice ? 'invoice (reservation fee).hbs' : 'invoice.hbs'
+    );
     const templateSource = fs.readFileSync(templatePath, 'utf-8');
     const template = Handlebars.compile(templateSource);
 
@@ -245,6 +264,8 @@ export async function POST(request: NextRequest) {
       const orderTotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
 
       // Sanitize customer data for PDF generation
+      const reservationFeeAmount = Number((subTotal * 0.1).toFixed(2));
+
       const invoiceData: InvoiceData = {
         date: invoiceDate,
         dueDate: dueDateFormatted,
@@ -256,6 +277,7 @@ export async function POST(request: NextRequest) {
         subTotal,
         creditAmount,
         orderTotal,
+        reservationFee: isReservationInvoice ? reservationFeeAmount : undefined,
       };
 
       const html = template(invoiceData);
@@ -348,11 +370,15 @@ export async function POST(request: NextRequest) {
     const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
 
     // Return the zip file
+    const zipFilenameBase = isReservationInvoice
+      ? 'reservation-fee-invoices'
+      : 'invoices';
+
     return new NextResponse(Buffer.from(zipBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/zip',
-        'Content-Disposition': `attachment; filename="invoices-${timestamp}.zip"`,
+        'Content-Disposition': `attachment; filename="${zipFilenameBase}-${timestamp}.zip"`,
       },
     });
   } catch (error) {
