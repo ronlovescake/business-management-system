@@ -597,7 +597,7 @@ export function useTransactionModals(
                   <p style="margin-bottom: 12px; color: #495057;">
                     Choose the invoice workflow you want to run:
                   </p>
-                  <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 16px;">
+                  <div style="display: flex; flex-wrap: nowrap; gap: 12px; justify-content: center; margin-top: 16px;">
                     <button type="button" class="swal2-styled" data-selection="onhand" style="background-color: #60bd52; padding: 10px 18px; min-width: 120px;">Onhand</button>
                     <button type="button" class="swal2-styled" data-selection="inTransit" style="background-color: #2196F3; padding: 10px 18px; min-width: 120px;">In Transit</button>
                     <button type="button" class="swal2-styled" data-selection="reservation10" style="background-color: #cc0000; padding: 10px 18px; min-width: 120px;">10% DP</button>
@@ -610,7 +610,7 @@ export function useTransactionModals(
               showDenyButton: false,
               showCancelButton: false,
               showCloseButton: true,
-              width: '520px',
+              width: '640px',
               allowOutsideClick: false,
               customClass: {
                 popup: 'swal-wide',
