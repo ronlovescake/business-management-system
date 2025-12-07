@@ -8,7 +8,6 @@ import {
   IconGift,
   IconLink,
   IconSettings,
-  IconTruck,
   IconBoxSeam,
   IconUsers,
   IconReceipt,
@@ -183,15 +182,6 @@ export function buildNavigationItems(
         order: 12,
       },
     ];
-
-    if (business === 'trucking') {
-      employeeItems.splice(1, 0, {
-        label: 'Trips',
-        path: `${basePath}/trips`,
-        icon: IconTruck as IconComponent,
-        order: 1.5,
-      });
-    }
 
     additionalItems.push(...employeeItems);
   }
