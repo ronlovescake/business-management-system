@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import React, { memo } from 'react';
 import {
   Stack,
   Card,
@@ -67,7 +67,7 @@ export const ScheduleListTable = memo(function ScheduleListTable({
       <Card
         withBorder
         padding={0}
-        style={{ overflow: 'hidden', height: '73vh' }}
+        style={{ overflow: 'hidden', height: '74vh' }}
       >
         <Box style={{ height: '100%', overflowY: 'auto' }}>
           <Table highlightOnHover withTableBorder>
