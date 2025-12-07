@@ -173,6 +173,35 @@ export async function POST(request: NextRequest) {
       profilePhoto: validatedData.profilePhoto || null,
     };
 
+    const existingById = await prisma.truckingEmployee.findFirst({
+      where: { employeeId: validatedData.employeeId },
+      select: { id: true, deletedAt: true },
+    });
+
+    if (existingById && !existingById.deletedAt) {
+      return NextResponse.json(
+        {
+          error: 'Duplicate employee',
+          details: 'An active employee with this identifier already exists',
+          code: 'DUPLICATE_ACTIVE',
+        },
+        { status: 409 }
+      );
+    }
+
+    if (existingById && existingById.deletedAt) {
+      const restored = await prisma.truckingEmployee.update({
+        where: { id: existingById.id },
+        data: {
+          ...employeeData,
+          deletedAt: null,
+        },
+      });
+
+      logger.success('✅ [API] Trucking employee restored', restored.id);
+      return NextResponse.json(restored, { status: 201 });
+    }
+
     const employee = await prisma.truckingEmployee.create({
       data: employeeData,
     });
