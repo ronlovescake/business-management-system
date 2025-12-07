@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
-import { assertApiSuccess, getApiDataOrThrow } from '@/lib/api/response';
 import { queryKeys } from '@/lib/queryKeys';
 import { showError, showDeleteConfirm } from '@/lib/alerts';
 import type {
@@ -13,7 +13,6 @@ import type {
 } from '../types';
 import { getCurrentDateISO, formatDisplayDate } from '@/utils/date';
 import { FormatterService } from '@/services/FormatterService';
-import type { ApiResponse } from '@/types/api';
 
 export interface EmployeeOption {
   value: string;
@@ -133,6 +132,21 @@ const getRemainingBalanceFromRecord = (record: CashAdvance) => {
 
 export function useCashAdvance() {
   const queryClient = useQueryClient();
+  const { data: session } = useSession();
+
+  const currentUserName = useMemo(() => {
+    const name = session?.user?.name?.trim();
+    if (name) {
+      return name;
+    }
+
+    const email = session?.user?.email?.trim();
+    if (email) {
+      return email;
+    }
+
+    return 'Current User';
+  }, [session?.user?.name, session?.user?.email]);
 
   // State Management
   const autoMarkingRef = useRef<Set<string>>(new Set());
@@ -160,10 +174,9 @@ export function useCashAdvance() {
   } = useQuery({
     queryKey: queryKeys.cashAdvances.list(filters),
     queryFn: async () => {
-      const response = await api.get<ApiResponse<CashAdvanceApiRecord[]>>(
+      const data = await api.get<CashAdvanceApiRecord[]>(
         '/api/trucking/cash-advances'
       );
-      const data = getApiDataOrThrow(response, 'Failed to fetch cash advances');
 
       if (!Array.isArray(data)) {
         throw new Error('Cash advance response was not an array');
@@ -282,11 +295,10 @@ export function useCashAdvance() {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await api.delete<ApiResponse<{ id: string }>>(
+      const response = await api.delete<{ id: string }>(
         `/api/trucking/cash-advances?id=${id}`
       );
-      assertApiSuccess(response, 'Failed to delete cash advance');
-      return response.data?.id ?? id;
+      return response?.id ?? id;
     },
     onMutate: async (deletedId) => {
       await queryClient.cancelQueries({
@@ -336,21 +348,15 @@ export function useCashAdvance() {
       payload: Record<string, unknown>;
     }) => {
       if (isUpdate) {
-        const updatedResponse = await api.put<
-          ApiResponse<CashAdvanceApiRecord>
-        >('/api/trucking/cash-advances', payload);
-        const updated = getApiDataOrThrow(
-          updatedResponse,
-          'Failed to update cash advance'
+        const updated = await api.put<CashAdvanceApiRecord>(
+          '/api/trucking/cash-advances',
+          payload
         );
         return mapApiRecordToCashAdvance(updated);
       } else {
-        const createdResponse = await api.post<
-          ApiResponse<CashAdvanceApiRecord>
-        >('/api/trucking/cash-advances', payload);
-        const created = getApiDataOrThrow(
-          createdResponse,
-          'Failed to create cash advance'
+        const created = await api.post<CashAdvanceApiRecord>(
+          '/api/trucking/cash-advances',
+          payload
         );
         return mapApiRecordToCashAdvance(created);
       }
@@ -431,13 +437,14 @@ export function useCashAdvance() {
   // Update status mutation (approve/reject/mark paid)
   const updateStatusMutation = useMutation({
     mutationFn: async (payload: { id: string } & Record<string, unknown>) => {
-      const updatedResponse = await api.put<ApiResponse<CashAdvanceApiRecord>>(
-        '/api/trucking/cash-advances',
-        payload
+      const cleanedPayload = Object.fromEntries(
+        Object.entries(payload).filter(
+          ([, value]) => value !== undefined && value !== null
+        )
       );
-      const updated = getApiDataOrThrow(
-        updatedResponse,
-        'Failed to update cash advance'
+      const updated = await api.put<CashAdvanceApiRecord>(
+        '/api/trucking/cash-advances',
+        cleanedPayload
       );
       return mapApiRecordToCashAdvance(updated);
     },
@@ -600,11 +607,11 @@ export function useCashAdvance() {
     updateStatusMutation.mutate({
       id,
       status: 'approved',
-      approvedBy: 'Current User',
+      approvedBy: currentUserName,
       approvedDate: new Date().toISOString(),
-      rejectedBy: null,
-      rejectedDate: null,
-      rejectionReason: null,
+      rejectedBy: undefined,
+      rejectedDate: undefined,
+      rejectionReason: undefined,
     });
   };
 
@@ -614,11 +621,11 @@ export function useCashAdvance() {
       updateStatusMutation.mutate({
         id,
         status: 'rejected',
-        rejectedBy: 'Current User',
+        rejectedBy: currentUserName,
         rejectedDate: new Date().toISOString(),
         rejectionReason: reason,
-        approvedBy: null,
-        approvedDate: null,
+        approvedBy: undefined,
+        approvedDate: undefined,
       });
     }
   };
@@ -690,11 +697,10 @@ export function useCashAdvance() {
       // Bulk create via API
       try {
         for (const record of imported) {
-          const response = await api.post<ApiResponse<CashAdvanceApiRecord>>(
+          await api.post<CashAdvanceApiRecord>(
             '/api/trucking/cash-advances',
             record
           );
-          assertApiSuccess(response, 'Failed to import cash advance');
         }
 
         // Invalidate to refetch
