@@ -1,6 +1,6 @@
 'use client';
 
-import { Stack, Title, Text } from '@mantine/core';
+import { Stack } from '@mantine/core';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { TemplateStatsCards } from './TemplateStatsCards';
 import { TemplateControlPanel } from './TemplateControlPanel';
@@ -21,14 +21,6 @@ export function TemplatePage() {
   return (
     <PageLayout fluid withPadding>
       <Stack gap="lg">
-        <div>
-          <Title order={2}>New Module Template</Title>
-          <Text c="dimmed" size="sm">
-            Trips-style layout: stats cards, control panel, table with summary
-            bar.
-          </Text>
-        </div>
-
         <TemplateStatsCards
           totalIn={stats.totalIn}
           totalOut={stats.totalOut}

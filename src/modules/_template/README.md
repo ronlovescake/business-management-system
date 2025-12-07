@@ -29,6 +29,7 @@ src/modules/_template/
 4. Wire the module in `src/modules/index.ts` and register it in `moduleRegistry`.
 5. Adjust types and sample data in `useTemplateDashboard.ts` to your real data model.
 6. Swap placeholder labels/icons as needed. The layout, summary bar, and vh heights are already set.
+7. The template page intentionally has **no default title/subtitle**; add your own heading if the module needs one.
 
 ## Layout guarantees
 
@@ -36,6 +37,7 @@ src/modules/_template/
 - Control panel with search, category filter, status filter, date range, import/export/add buttons.
 - Data table with summary bar (counts + metric totals) and default height of 74vh.
 - Default currency formatter (PHP) and date formatting.
+- No default page title/subtitle; you control the header content.
 
 ## Notes
 
