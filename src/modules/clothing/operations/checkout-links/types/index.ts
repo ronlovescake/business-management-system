@@ -23,6 +23,8 @@ export interface InvoiceData {
   message: string;
   chat: string;
   tickbox: boolean;
+  localInvoiceDate?: string;
+  localInvoiceDates?: string[];
 }
 
 export interface ItemWeightData {

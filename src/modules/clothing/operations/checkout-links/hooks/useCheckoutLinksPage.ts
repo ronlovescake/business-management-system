@@ -17,6 +17,7 @@ import type {
   ItemWeightData,
 } from '../types';
 import type { ProductData } from '../../products/types/product.types';
+import type { TransactionData } from '../../transactions/types/transaction.types';
 
 interface InvoiceSettingsResponse {
   messageTemplate: string;
@@ -31,6 +32,14 @@ export const useCheckoutLinksPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [checkoutLinks, setCheckoutLinks] = useState<CheckoutLinkData[]>([]);
   const [invoiceData, setInvoiceData] = useState<InvoiceData[]>([]);
+  const [localInvoiceDateFilter, setLocalInvoiceDateFilter] = useState<
+    string | null
+  >(null);
+  const [localInvoiceTickboxes, setLocalInvoiceTickboxes] = useState<
+    Record<string, boolean>
+  >({});
+  const [transactionsWithInvoiceDate, setTransactionsWithInvoiceDate] =
+    useState<TransactionData[]>([]);
   const [itemWeightData, setItemWeightData] = useState<ItemWeightData[]>([]);
   const [isItemWeightLoading, setIsItemWeightLoading] = useState(true);
   const [itemWeightError, setItemWeightError] = useState<string | null>(null);
@@ -206,6 +215,47 @@ export const useCheckoutLinksPage = () => {
     }
   }, []);
 
+  const loadTransactionsWithInvoiceDate = useCallback(async () => {
+    try {
+      const response = await fetch('/api/transactions');
+
+      if (!response.ok) {
+        throw new Error('Failed to load transactions');
+      }
+
+      const payload = (await response.json()) as
+        | TransactionData[]
+        | { data?: TransactionData[] }
+        | undefined;
+
+      let transactions: TransactionData[] = [];
+
+      if (Array.isArray(payload)) {
+        transactions = payload;
+      } else if (payload && Array.isArray(payload.data)) {
+        transactions = payload.data;
+      }
+
+      const withInvoiceDates = transactions.filter((transaction) => {
+        const hasInvoiceDate = Boolean(transaction['Invoice Date']?.trim());
+        const isPrepared =
+          transaction['Order Status']?.trim().toLowerCase() === 'prepared';
+        return hasInvoiceDate && isPrepared;
+      });
+
+      setTransactionsWithInvoiceDate(withInvoiceDates);
+    } catch (error) {
+      showNotification({
+        title: 'Error',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to load transactions for local invoicing',
+        color: 'red',
+      });
+    }
+  }, []);
+
   useEffect(() => {
     void loadCheckoutLinks();
   }, [loadCheckoutLinks]);
@@ -217,6 +267,10 @@ export const useCheckoutLinksPage = () => {
   useEffect(() => {
     void loadProductWeights();
   }, [loadProductWeights]);
+
+  useEffect(() => {
+    void loadTransactionsWithInvoiceDate();
+  }, [loadTransactionsWithInvoiceDate]);
 
   const filteredCheckoutLinks = useMemo(() => {
     if (!searchQuery.trim()) {
@@ -259,6 +313,116 @@ export const useCheckoutLinksPage = () => {
         .some((field) => field.toLowerCase().includes(query))
     );
   }, [invoiceData, searchQuery]);
+
+  const localInvoiceData = useMemo<InvoiceData[]>(() => {
+    if (transactionsWithInvoiceDate.length === 0) {
+      return [];
+    }
+
+    const collator = new Intl.Collator(undefined, {
+      sensitivity: 'base',
+      ignorePunctuation: true,
+    });
+
+    const byCustomer = new Map<string, InvoiceData>();
+
+    transactionsWithInvoiceDate.forEach((transaction) => {
+      const invoiceDate = transaction['Invoice Date']?.trim();
+      const customerName = transaction.Customers?.trim();
+
+      if (!invoiceDate || !customerName) {
+        return;
+      }
+
+      const key = customerName.toLowerCase();
+      const existing = byCustomer.get(key);
+      const recordId = existing?.id ?? `local-${transaction.id ?? key}`;
+      const isChecked = Boolean(localInvoiceTickboxes[recordId]);
+      if (existing) {
+        const existingDates = new Set(
+          existing.localInvoiceDates ??
+            (existing.localInvoiceDate ? [existing.localInvoiceDate] : [])
+        );
+
+        if (!existingDates.has(invoiceDate)) {
+          existingDates.add(invoiceDate);
+          existing.localInvoiceDates = Array.from(existingDates);
+        }
+
+        existing.tickbox = isChecked;
+        return;
+      }
+
+      byCustomer.set(key, {
+        id: recordId,
+        customerName,
+        actualWeight:
+          typeof transaction.Quantity === 'number'
+            ? String(transaction.Quantity)
+            : '',
+        finalWeight: '',
+        shopeeCheckoutLinks: '',
+        driveFiles: invoiceDate,
+        message: '',
+        chat: '',
+        tickbox: isChecked,
+        localInvoiceDate: invoiceDate,
+        localInvoiceDates: [invoiceDate],
+      });
+    });
+
+    return Array.from(byCustomer.values()).sort((a, b) =>
+      collator.compare(a.customerName, b.customerName)
+    );
+  }, [transactionsWithInvoiceDate, localInvoiceTickboxes]);
+
+  const filteredLocalInvoiceData = useMemo(() => {
+    const matchesSelectedDate = (item: InvoiceData) => {
+      if (!localInvoiceDateFilter) {
+        return true;
+      }
+
+      const invoiceDates = item.localInvoiceDates
+        ? item.localInvoiceDates
+        : item.localInvoiceDate
+          ? [item.localInvoiceDate]
+          : [];
+
+      return invoiceDates.includes(localInvoiceDateFilter);
+    };
+
+    if (!searchQuery.trim()) {
+      return localInvoiceData.filter(matchesSelectedDate);
+    }
+
+    const query = searchQuery.toLowerCase();
+    return localInvoiceData.filter((item) => {
+      const matchesSearch = [item.customerName, item.driveFiles]
+        .filter(Boolean)
+        .some((field) => field.toLowerCase().includes(query));
+
+      return matchesSearch && matchesSelectedDate(item);
+    });
+  }, [localInvoiceData, searchQuery, localInvoiceDateFilter]);
+
+  const localInvoiceDateOptions = useMemo(() => {
+    const uniqueDates = Array.from(
+      new Set(
+        transactionsWithInvoiceDate
+          .map((transaction) => transaction['Invoice Date']?.trim())
+          .filter((value): value is string => Boolean(value))
+      )
+    );
+
+    return uniqueDates.sort((a, b) => {
+      const dateA = Date.parse(a);
+      const dateB = Date.parse(b);
+      if (Number.isNaN(dateA) || Number.isNaN(dateB)) {
+        return a.localeCompare(b);
+      }
+      return dateB - dateA;
+    });
+  }, [transactionsWithInvoiceDate]);
 
   const filteredItemWeightData = useMemo(() => {
     if (!searchQuery.trim()) {
@@ -772,8 +936,8 @@ export const useCheckoutLinksPage = () => {
     [invoiceData, updateInvoiceTickbox]
   );
 
-  const handleCustomerNameClick = useCallback(
-    async (invoice: InvoiceData) => {
+  const sendInvoiceMessengerMessage = useCallback(
+    async (invoice: InvoiceData, driveFilesOverride?: string) => {
       const facebookLink = lookupFacebookLink(invoice.customerName);
 
       if (!facebookLink) {
@@ -782,7 +946,7 @@ export const useCheckoutLinksPage = () => {
           message: `No Facebook Messenger link found for ${invoice.customerName}`,
           color: 'yellow',
         });
-        return;
+        return false;
       }
 
       if (!invoiceSettings) {
@@ -791,7 +955,7 @@ export const useCheckoutLinksPage = () => {
           message: 'Invoice message template is loading...',
           color: 'yellow',
         });
-        return;
+        return false;
       }
 
       const finalWeight = calculateFinalWeight(invoice.actualWeight);
@@ -799,7 +963,7 @@ export const useCheckoutLinksPage = () => {
         findCheckoutLinkByWeight(finalWeight, checkoutLinks) || '';
 
       const message = generateInvoiceMessage(invoiceSettings.messageTemplate, {
-        driveFilesUrl: invoice.driveFiles || '',
+        driveFilesUrl: driveFilesOverride ?? invoice.driveFiles ?? '',
         shopeeCheckoutLink,
         paymentChannelsUrl: invoiceSettings.paymentChannelsUrl,
       });
@@ -811,7 +975,7 @@ export const useCheckoutLinksPage = () => {
           message: 'Could not copy message to clipboard',
           color: 'red',
         });
-        return;
+        return false;
       }
 
       showNotification({
@@ -825,6 +989,24 @@ export const useCheckoutLinksPage = () => {
         : `https://${facebookLink}`;
       window.open(messengerUrl, '_blank');
 
+      return true;
+    },
+    [
+      calculateFinalWeight,
+      checkoutLinks,
+      findCheckoutLinkByWeight,
+      invoiceSettings,
+      lookupFacebookLink,
+    ]
+  );
+
+  const handleCustomerNameClick = useCallback(
+    async (invoice: InvoiceData) => {
+      const success = await sendInvoiceMessengerMessage(invoice);
+      if (!success) {
+        return;
+      }
+
       const updated = await updateInvoiceTickbox(invoice.id, true);
       if (updated) {
         setInvoiceData((prev) =>
@@ -834,7 +1016,32 @@ export const useCheckoutLinksPage = () => {
         );
       }
     },
-    [checkoutLinks, invoiceSettings, lookupFacebookLink, updateInvoiceTickbox]
+    [sendInvoiceMessengerMessage, setInvoiceData, updateInvoiceTickbox]
+  );
+
+  const handleLocalCustomerNameClick = useCallback(
+    async (invoice: InvoiceData) => {
+      const success = await sendInvoiceMessengerMessage(invoice, '');
+      if (!success) {
+        return;
+      }
+
+      setLocalInvoiceTickboxes((prev) => ({
+        ...prev,
+        [invoice.id]: true,
+      }));
+    },
+    [sendInvoiceMessengerMessage, setLocalInvoiceTickboxes]
+  );
+
+  const handleLocalInvoiceTickboxChange = useCallback(
+    (invoiceId: string, newValue: boolean) => {
+      setLocalInvoiceTickboxes((prev) => ({
+        ...prev,
+        [invoiceId]: newValue,
+      }));
+    },
+    [setLocalInvoiceTickboxes]
   );
 
   return {
@@ -861,6 +1068,16 @@ export const useCheckoutLinksPage = () => {
       handleSyncGoogleDrive,
       handleCustomerNameClick,
       handleInvoiceTickboxChange,
+      hasFacebookLink,
+    },
+    localInvoicesState: {
+      data: localInvoiceData,
+      filteredData: filteredLocalInvoiceData,
+      invoiceDateOptions: localInvoiceDateOptions,
+      invoiceDateFilter: localInvoiceDateFilter,
+      setInvoiceDateFilter: setLocalInvoiceDateFilter,
+      handleCustomerNameClick: handleLocalCustomerNameClick,
+      handleInvoiceTickboxChange: handleLocalInvoiceTickboxChange,
       hasFacebookLink,
     },
     itemWeightsState: {

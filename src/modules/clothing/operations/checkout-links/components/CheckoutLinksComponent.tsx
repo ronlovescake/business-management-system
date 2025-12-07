@@ -5,6 +5,7 @@ import { CheckoutLinkEditorModal } from './modals/CheckoutLinkEditorModal';
 import { CheckoutLinksTab } from './tabs/CheckoutLinksTab';
 import { InvoicingTab } from './tabs/InvoicingTab';
 import { ItemWeightTab } from './tabs/ItemWeightTab';
+import { LocalInvoicingTab } from './tabs/LocalInvoicingTab';
 import { useCheckoutLinksPage } from '../hooks/useCheckoutLinksPage';
 
 export function CheckoutLinksComponent() {
@@ -15,6 +16,7 @@ export function CheckoutLinksComponent() {
     setSearchQuery,
     checkoutLinksState,
     invoicesState,
+    localInvoicesState,
     itemWeightsState,
     modalState,
     utilities,
@@ -27,6 +29,7 @@ export function CheckoutLinksComponent() {
       <Tabs value={activeTab} onChange={setActiveTab}>
         <Tabs.List>
           <Tabs.Tab value="invoicing">Invoicing</Tabs.Tab>
+          <Tabs.Tab value="local-invoicing">Local Invoicing</Tabs.Tab>
           <Tabs.Tab value="item-weight">Item Weight</Tabs.Tab>
           <Tabs.Tab value="checkout-links">Checkout Link</Tabs.Tab>
         </Tabs.List>
@@ -44,6 +47,26 @@ export function CheckoutLinksComponent() {
             onTickboxChange={invoicesState.handleInvoiceTickboxChange}
             calculateFinalWeight={utilities.calculateFinalWeight}
             findCheckoutLinkByWeight={utilities.findCheckoutLinkByWeight}
+          />
+        </Tabs.Panel>
+
+        <Tabs.Panel value="local-invoicing" pt="md">
+          <LocalInvoicingTab
+            invoiceData={localInvoicesState.data}
+            filteredInvoiceData={localInvoicesState.filteredData}
+            checkoutLinks={checkoutLinksState.data}
+            onSearch={setSearchQuery}
+            calculateFinalWeight={utilities.calculateFinalWeight}
+            findCheckoutLinkByWeight={utilities.findCheckoutLinkByWeight}
+            onCustomerNameClick={localInvoicesState.handleCustomerNameClick}
+            hasFacebookLink={localInvoicesState.hasFacebookLink}
+            onTickboxChange={localInvoicesState.handleInvoiceTickboxChange}
+            searchPlaceholder="Search local invoicing customers..."
+            summaryLabel="local transactions with invoice dates"
+            emptyStateMessage="No transactions with invoice dates were found."
+            invoiceDateOptions={localInvoicesState.invoiceDateOptions}
+            invoiceDateFilter={localInvoicesState.invoiceDateFilter}
+            onInvoiceDateFilterChange={localInvoicesState.setInvoiceDateFilter}
           />
         </Tabs.Panel>
 

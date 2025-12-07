@@ -5,22 +5,30 @@ import {
   StandardTableControls,
 } from '@/components/tables/StandardDataTable';
 import type { CheckoutLinkData, InvoiceData } from '../../types';
+import type { ReactNode } from 'react';
 
-interface InvoicingTabProps {
+export interface InvoicingTabProps {
   invoiceData: InvoiceData[];
   filteredInvoiceData: InvoiceData[];
   checkoutLinks: CheckoutLinkData[];
   onSearch: (query: string) => void;
-  onSyncGoogleDrive: () => void;
-  isSyncing: boolean;
-  onCustomerNameClick: (invoice: InvoiceData) => void;
-  hasFacebookLink: (customerName: string) => boolean;
-  onTickboxChange: (invoiceId: string, nextValue: boolean) => void;
-  calculateFinalWeight: (weight: string) => string;
-  findCheckoutLinkByWeight: (
+  onSyncGoogleDrive?: () => void;
+  isSyncing?: boolean;
+  onCustomerNameClick?: (invoice: InvoiceData) => void;
+  hasFacebookLink?: (customerName: string) => boolean;
+  onTickboxChange?: (invoiceId: string, nextValue: boolean) => void;
+  calculateFinalWeight?: (weight: string) => string;
+  findCheckoutLinkByWeight?: (
     weight: string,
     data: CheckoutLinkData[]
   ) => string | undefined;
+  searchPlaceholder?: string;
+  summaryLabel?: string;
+  emptyStateMessage?: string;
+  addNewLabel?: string;
+  showAddNewButton?: boolean;
+  searchAddon?: ReactNode;
+  showDriveFilesColumn?: boolean;
 }
 
 export function InvoicingTab({
@@ -35,11 +43,24 @@ export function InvoicingTab({
   onTickboxChange,
   calculateFinalWeight,
   findCheckoutLinkByWeight,
+  searchPlaceholder = 'Search invoicing records...',
+  summaryLabel = 'invoicing records',
+  emptyStateMessage = "No invoicing records found. Click 'Add New' to get started.",
+  addNewLabel = 'Retrieve Google Drive Invoices',
+  showAddNewButton = true,
+  searchAddon,
+  showDriveFilesColumn = true,
 }: InvoicingTabProps) {
+  const safeIsSyncing = Boolean(isSyncing);
+  const safeCalculateFinalWeight =
+    calculateFinalWeight ?? ((weight: string) => weight);
+  const safeFindCheckoutLinkByWeight =
+    findCheckoutLinkByWeight ?? (() => undefined);
+
   return (
     <Stack gap="md">
       <StandardTableControls
-        searchPlaceholder="Search invoicing records..."
+        searchPlaceholder={searchPlaceholder}
         onSearch={onSearch}
         onImport={() => {
           // TODO: Implement import functionality
@@ -47,9 +68,11 @@ export function InvoicingTab({
         onExport={() => {
           // TODO: Implement export functionality
         }}
-        onAddNew={onSyncGoogleDrive}
-        addNewLabel="Retrieve Google Drive Invoices"
-        isImporting={isSyncing}
+        onAddNew={showAddNewButton ? onSyncGoogleDrive : undefined}
+        addNewLabel={addNewLabel}
+        isImporting={safeIsSyncing}
+        hideAddNew={!showAddNewButton}
+        searchAddon={searchAddon}
       />
 
       <StandardTableContainer
@@ -57,122 +80,140 @@ export function InvoicingTab({
           <Group justify="space-between">
             <Text size="sm" c="dimmed">
               Showing {filteredInvoiceData.length} of {invoiceData.length}{' '}
-              invoicing records
+              {summaryLabel}
             </Text>
           </Group>
         }
       >
-        <StandardDataTable
-          headers={[
+        {(() => {
+          const baseHeaders = [
             'CUSTOMER NAME',
             'ACTUAL WEIGHT',
             'FINAL WEIGHT',
             'SHOPEE CHECKOUT LINKS',
-            'DRIVE FILES',
-            'TICKBOX',
-          ]}
-          emptyState="No invoicing records found. Click 'Add New' to get started."
-          colSpan={6}
-        >
-          {filteredInvoiceData.map((row) => (
-            <Table.Tr
-              key={row.id}
-              style={{
-                opacity: row.tickbox ? 0.5 : 1,
-                transition: 'opacity 0.2s ease',
-              }}
-            >
-              <Table.Td>
-                {hasFacebookLink(row.customerName) && !row.tickbox ? (
-                  <Anchor
-                    size="sm"
-                    c="blue"
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => {
-                      onCustomerNameClick(row);
-                    }}
-                    title="Click to copy message and open Facebook Messenger"
-                  >
-                    {row.customerName}
-                  </Anchor>
-                ) : (
-                  <Text size="sm" c="#495057">
-                    {row.customerName}
-                  </Text>
-                )}
-              </Table.Td>
-              <Table.Td style={{ textAlign: 'center' }}>
-                <Text size="sm" c="#495057">
-                  {row.actualWeight}
-                </Text>
-              </Table.Td>
-              <Table.Td style={{ textAlign: 'center' }}>
-                <Text size="sm" c="#495057">
-                  {calculateFinalWeight(row.actualWeight)}
-                </Text>
-              </Table.Td>
-              <Table.Td>
-                {(() => {
-                  const finalWeight = calculateFinalWeight(row.actualWeight);
-                  const checkoutLink = findCheckoutLinkByWeight(
-                    finalWeight,
-                    checkoutLinks
-                  );
+          ];
+          const headers = showDriveFilesColumn
+            ? [...baseHeaders, 'DRIVE FILES', 'TICKBOX']
+            : [...baseHeaders, 'TICKBOX'];
+          const colSpan = headers.length;
 
-                  return checkoutLink ? (
-                    <Anchor
-                      href={
-                        checkoutLink.startsWith('http')
-                          ? checkoutLink
-                          : `https://${checkoutLink}`
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      size="sm"
-                      lineClamp={2}
-                    >
-                      {checkoutLink}
-                    </Anchor>
-                  ) : (
-                    <Text size="sm" c="dimmed">
-                      -
-                    </Text>
-                  );
-                })()}
-              </Table.Td>
-              <Table.Td>
-                {row.driveFiles ? (
-                  <Anchor
-                    href={
-                      row.driveFiles.startsWith('http')
-                        ? row.driveFiles
-                        : `https://${row.driveFiles}`
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    size="sm"
-                    lineClamp={2}
-                  >
-                    {row.driveFiles}
-                  </Anchor>
-                ) : (
-                  <Text size="sm" c="dimmed">
-                    -
-                  </Text>
-                )}
-              </Table.Td>
-              <Table.Td style={{ textAlign: 'center' }}>
-                <Checkbox
-                  checked={row.tickbox}
-                  onChange={(event) => {
-                    const newValue = event.currentTarget.checked;
-                    onTickboxChange(row.id, newValue);
+          return (
+            <StandardDataTable
+              headers={headers}
+              emptyState={emptyStateMessage}
+              colSpan={colSpan}
+            >
+              {filteredInvoiceData.map((row) => (
+                <Table.Tr
+                  key={row.id}
+                  style={{
+                    opacity: row.tickbox ? 0.5 : 1,
+                    transition: 'opacity 0.2s ease',
                   }}
-                />
-              </Table.Td>
-            </Table.Tr>
-          ))}
-        </StandardDataTable>
+                >
+                  <Table.Td>
+                    {hasFacebookLink?.(row.customerName) &&
+                    !row.tickbox &&
+                    onCustomerNameClick ? (
+                      <Anchor
+                        size="sm"
+                        c="blue"
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => {
+                          onCustomerNameClick(row);
+                        }}
+                        title="Click to copy message and open Facebook Messenger"
+                      >
+                        {row.customerName}
+                      </Anchor>
+                    ) : (
+                      <Text size="sm" c="#495057">
+                        {row.customerName}
+                      </Text>
+                    )}
+                  </Table.Td>
+                  <Table.Td style={{ textAlign: 'center' }}>
+                    <Text size="sm" c="#495057">
+                      {row.actualWeight}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td style={{ textAlign: 'center' }}>
+                    <Text size="sm" c="#495057">
+                      {safeCalculateFinalWeight(row.actualWeight)}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    {(() => {
+                      const finalWeight = safeCalculateFinalWeight(
+                        row.actualWeight
+                      );
+                      const checkoutLink = safeFindCheckoutLinkByWeight(
+                        finalWeight,
+                        checkoutLinks
+                      );
+
+                      return checkoutLink ? (
+                        <Anchor
+                          href={
+                            checkoutLink.startsWith('http')
+                              ? checkoutLink
+                              : `https://${checkoutLink}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          size="sm"
+                          lineClamp={2}
+                        >
+                          {checkoutLink}
+                        </Anchor>
+                      ) : (
+                        <Text size="sm" c="dimmed">
+                          -
+                        </Text>
+                      );
+                    })()}
+                  </Table.Td>
+                  {showDriveFilesColumn ? (
+                    <Table.Td>
+                      {row.driveFiles ? (
+                        <Anchor
+                          href={
+                            row.driveFiles.startsWith('http')
+                              ? row.driveFiles
+                              : `https://${row.driveFiles}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          size="sm"
+                          lineClamp={2}
+                        >
+                          {row.driveFiles}
+                        </Anchor>
+                      ) : (
+                        <Text size="sm" c="dimmed">
+                          -
+                        </Text>
+                      )}
+                    </Table.Td>
+                  ) : null}
+                  <Table.Td style={{ textAlign: 'center' }}>
+                    <Checkbox
+                      checked={row.tickbox}
+                      onChange={(event) => {
+                        if (!onTickboxChange) {
+                          return;
+                        }
+                        const newValue = event.currentTarget.checked;
+                        onTickboxChange(row.id, newValue);
+                      }}
+                      disabled={!onTickboxChange}
+                    />
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </StandardDataTable>
+          );
+        })()}
       </StandardTableContainer>
     </Stack>
   );
