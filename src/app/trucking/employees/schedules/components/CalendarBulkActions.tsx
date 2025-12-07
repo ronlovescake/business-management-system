@@ -12,7 +12,11 @@ import {
   Textarea,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
-import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
+import {
+  COMMON_DATE_INPUT_PROPS,
+  formatDateForInput,
+  parseDateValue,
+} from '@/lib/dateInputConfig';
 import Swal from 'sweetalert2';
 import type { EmployeeSummary, RecurringRule, ShiftType } from '../types';
 
@@ -325,13 +329,11 @@ export const CalendarBulkActions = memo(function CalendarBulkActions({
                 <DateInput
                   label="Start date"
                   placeholder="mm/dd/yyyy"
-                  value={
-                    ruleDraft.startDate ? new Date(ruleDraft.startDate) : null
-                  }
+                  value={parseDateValue(ruleDraft.startDate)}
                   onChange={(date) =>
                     setRuleDraft((prev) => ({
                       ...prev,
-                      startDate: date ? date.toISOString().split('T')[0] : '',
+                      startDate: formatDateForInput(date),
                     }))
                   }
                   withAsterisk
@@ -342,14 +344,15 @@ export const CalendarBulkActions = memo(function CalendarBulkActions({
                 <DateInput
                   label="End date"
                   placeholder="mm/dd/yyyy"
-                  value={ruleDraft.endDate ? new Date(ruleDraft.endDate) : null}
+                  value={parseDateValue(ruleDraft.endDate)}
                   onChange={(date) =>
-                    setRuleDraft((prev) => ({
-                      ...prev,
-                      endDate: date
-                        ? date.toISOString().split('T')[0]
-                        : undefined,
-                    }))
+                    setRuleDraft((prev) => {
+                      const normalized = formatDateForInput(date);
+                      return {
+                        ...prev,
+                        endDate: normalized || undefined,
+                      };
+                    })
                   }
                   description="Leave empty to build the next 3 months."
                   valueFormat="MM/DD/YYYY"

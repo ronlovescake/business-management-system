@@ -45,8 +45,16 @@ type ProductWeightEntity = Prisma.ProductGetPayload<{
 }>;
 
 const PRODUCT_CODE_CAPTURE_PATTERN = '\\(([^)]+)\\)';
+const PRODUCT_CODE_CAPTURE_REGEX = new RegExp(
+  PRODUCT_CODE_CAPTURE_PATTERN,
+  'g'
+);
 const createProductCodeRegex = () =>
-  new RegExp(PRODUCT_CODE_CAPTURE_PATTERN, 'g');
+  // Create a fresh regex to avoid sharing lastIndex state across calls
+  new RegExp(
+    PRODUCT_CODE_CAPTURE_REGEX.source,
+    PRODUCT_CODE_CAPTURE_REGEX.flags
+  );
 const EXCLUDED_TRANSACTION_STATUS = 'In Transit';
 
 const extractParentheticalSegments = (value: string | null | undefined) => {
@@ -54,10 +62,11 @@ const extractParentheticalSegments = (value: string | null | undefined) => {
     return [] as string[];
   }
 
-  const regex = createProductCodeRegex();
   const segments: string[] = [];
+  const regex = createProductCodeRegex();
   let match: RegExpExecArray | null;
 
+  // Avoid String.matchAll to keep compatibility with lower TS targets
   // eslint-disable-next-line no-cond-assign
   while ((match = regex.exec(value)) !== null) {
     if (match[1]) {

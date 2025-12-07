@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Swal from 'sweetalert2';
 import { logger } from '@/lib/logger';
-import { api } from '@/lib/api/client';
+import { api, ApiError } from '@/lib/api/client';
 import { queryKeys } from '@/lib/queryKeys';
 import { getCurrentDateISO, toISODate } from '@/utils/date';
 import { dateFormatterShort, formatTimeString } from '@/utils/dateFormatters';
@@ -70,6 +70,88 @@ const toDateKey = (date: Date) => {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+};
+
+const extractMessageString = (value: unknown): string | null => {
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return value.trim();
+  }
+  return null;
+};
+
+const getConflictMessage = (
+  payload: Record<string, unknown>
+): string | null => {
+  const conflicts = payload.conflicts;
+  if (Array.isArray(conflicts) && conflicts.length > 0) {
+    const conflict = conflicts[0] as Record<string, unknown>;
+    const employeeName = extractMessageString(conflict.employeeName);
+    const employeeId = extractMessageString(conflict.employeeId);
+    const date = extractMessageString(conflict.date);
+
+    if (date) {
+      const identifier =
+        employeeName ||
+        (employeeId ? `Employee ${employeeId}` : 'This employee');
+      try {
+        const formatted = dateFormatterShort.format(new Date(date));
+        return `${identifier} already has a schedule on ${formatted}.`;
+      } catch {
+        return `${identifier} already has a schedule on ${date}.`;
+      }
+    }
+  }
+  return null;
+};
+
+const getScheduleErrorMessage = (error: unknown): string => {
+  if (error instanceof ApiError) {
+    const payload = error.data;
+
+    if (payload && typeof payload === 'object') {
+      const conflictMessage = getConflictMessage(
+        payload as Record<string, unknown>
+      );
+      if (conflictMessage) {
+        return conflictMessage;
+      }
+
+      const details = extractMessageString(
+        (payload as Record<string, unknown>).details
+      );
+      if (details) {
+        return details;
+      }
+
+      const explicitError = extractMessageString(
+        (payload as Record<string, unknown>).error
+      );
+      if (explicitError) {
+        return explicitError;
+      }
+
+      const message = extractMessageString(
+        (payload as Record<string, unknown>).message
+      );
+      if (message) {
+        return message;
+      }
+    } else if (typeof payload === 'string' && payload.trim().length > 0) {
+      return payload;
+    }
+
+    if (error.status === 409) {
+      return 'This employee already has a schedule on the selected date.';
+    }
+
+    return `Request failed (${error.status}). Please try again.`;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return 'Failed to save schedule. Please try again.';
 };
 
 /**
@@ -571,7 +653,7 @@ export function useSchedules() {
         );
       }
       logger.error('Error saving schedule:', error);
-      alert('Failed to save schedule. Please try again.');
+      alert(getScheduleErrorMessage(error));
     },
     onSuccess: () => {
       setIsModalOpen(false);
@@ -643,10 +725,7 @@ export function useSchedules() {
     },
     onError: (error) => {
       logger.error('Error saving imported schedules:', error);
-      alert(
-        'Failed to save imported schedules to database. Error: ' +
-          (error instanceof Error ? error.message : String(error))
-      );
+      alert(getScheduleErrorMessage(error));
       setIsImporting(false);
     },
     onSettled: () => {
@@ -872,7 +951,7 @@ export function useSchedules() {
         await Swal.fire({
           icon: 'error',
           title: 'Error',
-          text: 'Failed to save schedules. Please try again.',
+          text: getScheduleErrorMessage(error),
           confirmButtonColor: '#228be6',
           allowOutsideClick: false,
         });

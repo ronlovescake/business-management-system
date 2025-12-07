@@ -242,6 +242,7 @@ const getScheduleDelegate = (client: unknown) =>
     client as {
       truckingSchedule: {
         findMany: (args: unknown) => Promise<ScheduleEntity[]>;
+        findFirst: (args: unknown) => Promise<ScheduleEntity | null>;
         create: (args: {
           data: ScheduleCreateInput;
         }) => Promise<ScheduleEntity>;
@@ -376,6 +377,69 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Detect duplicate schedules within the same request (same employee + date)
+    const seenKeys = new Map<
+      string,
+      { firstIndex: number; duplicates: number[] }
+    >();
+    validatedInputs.forEach((input, index) => {
+      const key = `${input.employeeId}__${input.date}`;
+      const existing = seenKeys.get(key);
+      if (existing) {
+        existing.duplicates.push(index);
+      } else {
+        seenKeys.set(key, { firstIndex: index, duplicates: [] });
+      }
+    });
+
+    const duplicateEntries = Array.from(seenKeys.entries())
+      .filter(([, value]) => value.duplicates.length > 0)
+      .map(([key, value]) => ({
+        key,
+        firstIndex: value.firstIndex,
+        duplicateIndexes: value.duplicates,
+      }));
+
+    if (duplicateEntries.length > 0) {
+      return NextResponse.json(
+        {
+          error: 'Duplicate schedules in request',
+          details:
+            'Each employee can only have one schedule per date. Remove duplicates and try again.',
+          duplicates: duplicateEntries,
+        },
+        { status: 409 }
+      );
+    }
+
+    // Prevent duplicates against existing records (same employee + date, not deleted)
+    const pairs = Array.from(seenKeys.keys()).map((key) => {
+      const [employeeId, date] = key.split('__');
+      return { employeeId, date };
+    });
+
+    if (pairs.length > 0) {
+      const existingConflicts = await scheduleDelegate.findMany({
+        where: {
+          deletedAt: null,
+          OR: pairs.map((p) => ({ employeeId: p.employeeId, date: p.date })),
+        },
+        select: { employeeId: true, employeeName: true, date: true },
+      });
+
+      if (existingConflicts.length > 0) {
+        return NextResponse.json(
+          {
+            error: 'Duplicate schedules exist',
+            details:
+              'A schedule already exists for one or more employee/date combinations.',
+            conflicts: existingConflicts,
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     // Check if all referenced employees exist
     if (employeeIds.size > 0) {
       const existingEmployees = await prisma.truckingEmployee.findMany({
@@ -484,6 +548,17 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    const existing = await scheduleDelegate.findFirst({
+      where: { id, deletedAt: null },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: 'Schedule not found or already deleted' },
+        { status: 404 }
+      );
+    }
+
     const updateData = toUpdateInput(payload);
 
     if (Object.keys(updateData).length === 0) {
@@ -502,6 +577,30 @@ export async function PATCH(request: NextRequest) {
           details: formatValidationErrors(validation.error),
         },
         { status: 400 }
+      );
+    }
+
+    const targetEmployeeId = validation.data.employeeId ?? existing.employeeId;
+    const targetDate = validation.data.date ?? existing.date;
+
+    const conflicting = await scheduleDelegate.findFirst({
+      where: {
+        id: { not: id },
+        employeeId: targetEmployeeId,
+        date: targetDate,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+
+    if (conflicting) {
+      return NextResponse.json(
+        {
+          error: 'Duplicate schedule',
+          details:
+            'Another schedule already exists for this employee and date.',
+        },
+        { status: 409 }
       );
     }
 

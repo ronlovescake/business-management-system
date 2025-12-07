@@ -48,7 +48,22 @@ export const parseDateValue = (
     return Number.isNaN(value.getTime()) ? null : value;
   }
 
-  const date = new Date(value);
+  // Handle ISO-like date strings (YYYY-MM-DD) as local dates to avoid
+  // timezone offsets shifting the day (e.g., UTC parsing subtracting a day
+  // in negative timezones).
+  if (typeof value === 'string') {
+    const isoDatePattern = /^(\d{4})-(\d{2})-(\d{2})$/;
+    const match = isoDatePattern.exec(value.trim());
+    if (match) {
+      const year = Number(match[1]);
+      const month = Number(match[2]);
+      const day = Number(match[3]);
+      const localDate = new Date(year, month - 1, day);
+      return Number.isNaN(localDate.getTime()) ? null : localDate;
+    }
+  }
+
+  const date = new Date(value as string);
   return Number.isNaN(date.getTime()) ? null : date;
 };
 

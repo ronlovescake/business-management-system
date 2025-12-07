@@ -13,6 +13,32 @@ import { getDatabaseUrl } from '@/lib/env';
 
 export const dynamic = 'force-dynamic';
 
+const EMPLOYEE_ID_PREFIX = 'TRK-';
+
+const isValidEmployeeId = (employeeId: string | undefined | null) => {
+  return !!employeeId && /^TRK-\d{4,}$/.test(employeeId.trim());
+};
+
+async function generateEmployeeId(retryOffset = 0): Promise<string> {
+  const latest = await prisma.truckingEmployee.findMany({
+    select: { employeeId: true },
+    orderBy: { createdAt: 'desc' },
+    take: 200,
+  });
+
+  const maxNumber = latest.reduce((max, row) => {
+    const match = row.employeeId?.match(/^TRK-(\d{4,})$/);
+    if (!match) {
+      return max;
+    }
+    const num = parseInt(match[1], 10);
+    return Number.isFinite(num) ? Math.max(max, num) : max;
+  }, 0);
+
+  const nextNumber = (maxNumber + 1 + retryOffset).toString().padStart(4, '0');
+  return `${EMPLOYEE_ID_PREFIX}${nextNumber}`;
+}
+
 function dbNotConfigured(): string | null {
   try {
     const url = getDatabaseUrl();
@@ -123,8 +149,12 @@ export async function POST(request: NextRequest) {
 
     const validatedData = validation.data;
 
+    const baseEmployeeId = isValidEmployeeId(validatedData.employeeId)
+      ? validatedData.employeeId.trim()
+      : await generateEmployeeId();
+
     const employeeData: Prisma.TruckingEmployeeCreateInput = {
-      employeeId: validatedData.employeeId,
+      employeeId: baseEmployeeId,
       firstName: validatedData.firstName,
       lastName: validatedData.lastName,
       middleName: validatedData.middleName || null,
@@ -173,41 +203,44 @@ export async function POST(request: NextRequest) {
       profilePhoto: validatedData.profilePhoto || null,
     };
 
-    const existingById = await prisma.truckingEmployee.findFirst({
-      where: { employeeId: validatedData.employeeId },
-      select: { id: true, deletedAt: true },
-    });
+    const maxRetries = 5;
+    for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+      const candidateId =
+        attempt === 0
+          ? employeeData.employeeId
+          : await generateEmployeeId(attempt);
 
-    if (existingById && !existingById.deletedAt) {
-      return NextResponse.json(
-        {
-          error: 'Duplicate employee',
-          details: 'An active employee with this identifier already exists',
-          code: 'DUPLICATE_ACTIVE',
-        },
-        { status: 409 }
-      );
+      try {
+        const employee = await prisma.truckingEmployee.create({
+          data: { ...employeeData, employeeId: candidateId },
+        });
+
+        logger.success('✅ [API] Trucking employee created', employee.id);
+        return NextResponse.json(employee, { status: 201 });
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
+          // Duplicate ID, retry with a freshly generated one
+          logger.warn(
+            `⚠️ [API] Duplicate trucking employeeId (${candidateId}), retrying with a new id…`
+          );
+          continue;
+        }
+        throw error;
+      }
     }
 
-    if (existingById && existingById.deletedAt) {
-      const restored = await prisma.truckingEmployee.update({
-        where: { id: existingById.id },
-        data: {
-          ...employeeData,
-          deletedAt: null,
-        },
-      });
-
-      logger.success('✅ [API] Trucking employee restored', restored.id);
-      return NextResponse.json(restored, { status: 201 });
-    }
-
-    const employee = await prisma.truckingEmployee.create({
-      data: employeeData,
-    });
-
-    logger.success('✅ [API] Trucking employee created', employee.id);
-    return NextResponse.json(employee, { status: 201 });
+    // If we exhausted retries, surface a conflict
+    return NextResponse.json(
+      {
+        error: 'Duplicate employee',
+        details: 'Could not generate a unique employee ID after retries',
+        code: 'DUPLICATE_ID_RETRIES',
+      },
+      { status: 409 }
+    );
   } catch (error) {
     logger.error('❌ [API] Error creating trucking employee:', error);
 
