@@ -16,6 +16,7 @@ import type { TransactionStatistics } from '../types/transaction.types';
 
 export type TransactionsTabValue =
   | 'main'
+  | 'invoicing'
   | 'packing-list'
   | 'packed'
   | 'due-dates'
@@ -237,6 +238,8 @@ interface TransactionsTabsProps extends BaseTabProps {
   statistics: TransactionStatistics;
   transactions: TransactionData[];
   cappedFilteredTransactions: TransactionData[];
+  onhandEligibleTransactions: TransactionData[];
+  onhandEligibleFilteredTransactions: TransactionData[];
   columns: HandsontableColumn[];
   getCellData: GetCellData<TransactionData>;
   onCellEdited: (event: CellEditEvent<TransactionData>) => void;
@@ -298,6 +301,8 @@ export const TransactionsTabs = memo(function TransactionsTabs({
   searchQuery,
   onSearch,
   stretchColumnId,
+  onhandEligibleTransactions,
+  onhandEligibleFilteredTransactions,
 }: TransactionsTabsProps) {
   return (
     <Tabs
@@ -311,6 +316,7 @@ export const TransactionsTabs = memo(function TransactionsTabs({
 
       <Tabs.List mt="sm">
         <Tabs.Tab value="main">Main Transactions</Tabs.Tab>
+        <Tabs.Tab value="invoicing">Invoicing</Tabs.Tab>
         <Tabs.Tab value="packing-list">Packing List</Tabs.Tab>
         <Tabs.Tab value="packed">Packed</Tabs.Tab>
         <Tabs.Tab value="due-dates">Due Dates</Tabs.Tab>
@@ -335,6 +341,19 @@ export const TransactionsTabs = memo(function TransactionsTabs({
           isGeneratingInvoice={isGeneratingInvoice}
           isGeneratingPackingList={isGeneratingPackingList}
           isGeneratingDistribution={isGeneratingDistribution}
+          stretchColumnId={stretchColumnId}
+        />
+      </Tabs.Panel>
+
+      <Tabs.Panel value="invoicing" pt="md">
+        <ReadOnlyTransactionsTab<TransactionData>
+          data={onhandEligibleTransactions}
+          filteredData={onhandEligibleFilteredTransactions}
+          columns={columns}
+          getCellData={getCellData}
+          searchQuery={searchQuery}
+          onSearch={onSearch}
+          searchPlaceholder="Search invoicing-ready transactions..."
           stretchColumnId={stretchColumnId}
         />
       </Tabs.Panel>

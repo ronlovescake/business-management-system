@@ -300,17 +300,37 @@ export function useTransactionsData(): UseTransactionsDataReturn {
 
   // Compute customer names from API + transactions
   const customerNames = useMemo(() => {
-    // Extract unique customer names from imported transactions
-    const transactionCustomers = transactions
-      .map((t) => t.Customers)
-      .filter(Boolean);
+    const normalizedMap = new Map<string, string>();
 
-    // 🚀 PERFORMANCE: Use Set for O(n) deduplication
-    const allCustomers = Array.from(
-      new Set([...customersQueryData, ...transactionCustomers])
-    ).sort();
+    const addCustomerName = (rawName: unknown) => {
+      if (typeof rawName !== 'string') {
+        return;
+      }
 
-    return allCustomers;
+      const sanitized = rawName.trim();
+      if (!sanitized) {
+        return;
+      }
+
+      const key = sanitized.toLowerCase();
+      if (!normalizedMap.has(key)) {
+        normalizedMap.set(key, sanitized);
+      }
+    };
+
+    customersQueryData.forEach(addCustomerName);
+    transactions.forEach((transaction) =>
+      addCustomerName(transaction.Customers)
+    );
+
+    const collator = new Intl.Collator(undefined, {
+      sensitivity: 'base',
+      numeric: false,
+    });
+
+    return Array.from(normalizedMap.values()).sort((a, b) =>
+      collator.compare(a, b)
+    );
   }, [customersQueryData, transactions]);
 
   // Compute product codes and price tiers from prices API

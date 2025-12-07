@@ -227,6 +227,68 @@ export function TransactionsPage() {
   const { dueDateFilters, filteredDueDatesData, handleDueDateFilter } =
     useDueDateFilters(dueDatesData);
 
+  const onhandEligibleTransactions = useMemo(() => {
+    const warehouseCustomers = new Set(
+      transactions
+        .filter((transaction) => transaction['Order Status'] === 'Warehouse')
+        .map((transaction) => transaction.Customers)
+        .filter((customer): customer is string => Boolean(customer))
+    );
+
+    if (warehouseCustomers.size === 0) {
+      return [];
+    }
+
+    const eligibleStatuses = new Set(['Warehouse', 'Prepared', 'On-Hold']);
+    const collator = new Intl.Collator(undefined, {
+      sensitivity: 'base',
+      ignorePunctuation: true,
+    });
+
+    return transactions
+      .map((transaction, index) => ({ transaction, index }))
+      .filter(({ transaction }) => {
+        if (!transaction.Customers) {
+          return false;
+        }
+        if (!warehouseCustomers.has(transaction.Customers)) {
+          return false;
+        }
+        return eligibleStatuses.has(transaction['Order Status']);
+      })
+      .sort((a, b) => {
+        const customerA = a.transaction.Customers ?? '';
+        const customerB = b.transaction.Customers ?? '';
+        const comparison = collator.compare(customerA, customerB);
+        if (comparison !== 0) {
+          return comparison;
+        }
+        return a.index - b.index;
+      })
+      .map(({ transaction }) => transaction);
+  }, [transactions]);
+
+  const onhandEligibleFilteredTransactions = useMemo(() => {
+    if (onhandEligibleTransactions.length === 0) {
+      return [];
+    }
+
+    const orderMap = new Map(
+      onhandEligibleTransactions.map((transaction, orderIndex) => [
+        transaction.id,
+        orderIndex,
+      ])
+    );
+
+    return cappedFilteredTransactions
+      .filter((transaction) => orderMap.has(transaction.id))
+      .sort((a, b) => {
+        const orderA = orderMap.get(a.id) ?? 0;
+        const orderB = orderMap.get(b.id) ?? 0;
+        return orderA - orderB;
+      });
+  }, [cappedFilteredTransactions, onhandEligibleTransactions]);
+
   // ============================================================================
   // LOADING STATE
   // ============================================================================
@@ -273,6 +335,10 @@ export function TransactionsPage() {
           statistics={statistics}
           transactions={transactions}
           cappedFilteredTransactions={cappedFilteredTransactions}
+          onhandEligibleTransactions={onhandEligibleTransactions}
+          onhandEligibleFilteredTransactions={
+            onhandEligibleFilteredTransactions
+          }
           columns={columns}
           getCellData={getCellData}
           onCellEdited={handleCellEdited}
