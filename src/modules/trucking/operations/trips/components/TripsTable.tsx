@@ -96,7 +96,7 @@ const baseColumns: TableColumn<TripRecord>[] = [
 export function TripsTable({
   data,
   emptyMessage = 'No trips logged yet',
-  height = '73vh',
+  height = '74vh',
   summary,
 }: TripsTableProps) {
   const summaryLeft = summary ? (

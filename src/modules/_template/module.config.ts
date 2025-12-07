@@ -1,72 +1,43 @@
-/**
- * Module Template Configuration
- *
- * Copy this template when creating new modules.
- * Follow this pattern for consistent module structure across the codebase.
- *
- * Usage:
- * 1. Copy this entire _template folder
- * 2. Rename to your feature name
- * 3. Update this config with your module details
- * 4. Create your components, hooks, services, types
- * 5. Register in src/modules/index.ts
- */
-
+import { IconLayoutGrid } from '@tabler/icons-react';
 import type { ModuleConfig, IconComponent } from '@/core/ModuleRegistry';
 
-// Import your icon from Tabler Icons
-// import { IconYourIcon } from '@tabler/icons-react';
-
-// Placeholder icon component
-const PlaceholderIcon: IconComponent = () => null;
+/**
+ * New Module Template Configuration (Trips-style layout)
+ *
+ * Copy this folder, rename it, and update the paths/labels/id below when creating a new module.
+ * This template is intentionally generic (not tied to any business/workspace) but ships with
+ * a full stats-cards + control-panel + table + summary bar layout.
+ */
 
 export const templateModule: ModuleConfig = {
-  // Unique identifier: {business}-{feature}
   id: 'template-module',
-
-  // Display name for UI
-  name: 'Module Template',
-
-  // Semantic versioning
+  name: 'New Module Template',
   version: '1.0.0',
-
-  // Module enabled by default
-  enabled: false, // Set to false for template
-
-  // Optional: Dependencies on other modules
-  dependencies: [],
-
-  // Navigation entries (can have multiple)
+  enabled: false, // keep disabled until you wire a concrete module
   navigation: [
     {
-      label: 'Template',
-      path: '/business/workspace/feature',
-      icon: PlaceholderIcon, // Replace with your icon
-      order: 999, // Lower number = higher in list
-      business: ['clothing'], // or ['trucking'] or both
-      workspace: ['operations'], // or ['employees'], etc.
+      label: 'New Module Template',
+      path: '/template/module', // update to your target path
+      icon: IconLayoutGrid as IconComponent,
+      order: 999,
+      business: ['clothing', 'trucking'], // update as needed
+      workspace: ['operations', 'employees'], // update as needed
     },
   ],
-
-  // Route configuration
   routes: [
     {
-      path: '/business/workspace/feature',
-      component: async () => {
-        // This will be replaced with actual component import
-        return { default: () => null };
-      },
-      protected: true, // Requires authentication
+      path: '/template/module', // update to your target path
+      component: async () =>
+        import('./components/TemplatePage').then((mod) => ({
+          default: mod.TemplatePage,
+        })),
+      protected: true,
     },
   ],
-
-  // Access control (array of role names)
   permissions: ['admin', 'manager', 'user'],
-
-  // Optional metadata
   metadata: {
-    description: 'Template module for creating new features',
-    author: 'Your Name',
-    tags: ['template', 'example'],
+    description: 'Reusable module template with trips-style layout',
+    author: 'Template',
+    tags: ['template', 'trips-layout'],
   },
 };

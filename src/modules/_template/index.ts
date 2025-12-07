@@ -5,17 +5,10 @@
  * Other modules should only import from this index file, not from internal files.
  */
 
-// Export module configuration
 export { templateModule } from './module.config';
-
-// Export types (uncomment when you create them)
-// export type { TemplateData, TemplateDTO } from './types/template.types';
-
-// Export services (uncomment when you create them)
-// export { TemplateService } from './services/TemplateService';
-
-// Export hooks (uncomment when you create them)
-// export { useTemplateData } from './hooks/useTemplateData';
-
-// Export components (uncomment when you create them)
-// export { TemplatePage } from './components/TemplatePage';
+export * from './components/TemplatePage';
+export * from './components/TemplateControlPanel';
+export * from './components/TemplateStatsCards';
+export * from './components/TemplateTable';
+export * from './hooks/useTemplateDashboard';
+export * from './types/template.types';
