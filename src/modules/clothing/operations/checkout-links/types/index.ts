@@ -36,6 +36,15 @@ export interface ItemWeightData {
   approxWeightPerPiece: string;
 }
 
+export interface CustomerOrderData {
+  id: string;
+  customerName: string;
+  productCode: string;
+  quantity: number;
+  weightPerPiece: string;
+  actualWeight: string;
+}
+
 export type CheckoutLinkFormValues = {
   weight: string;
   width: string;

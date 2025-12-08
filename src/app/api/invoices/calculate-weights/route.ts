@@ -55,7 +55,12 @@ const createProductCodeRegex = () =>
     PRODUCT_CODE_CAPTURE_REGEX.source,
     PRODUCT_CODE_CAPTURE_REGEX.flags
   );
-const EXCLUDED_TRANSACTION_STATUS = 'In Transit';
+const EXCLUDED_TRANSACTION_STATUSES = [
+  'In Transit',
+  'Shipped',
+  'Cancelled',
+  'Pending Payment',
+] as const;
 
 const extractParentheticalSegments = (value: string | null | undefined) => {
   if (!value) {
@@ -273,12 +278,12 @@ export async function POST(request: NextRequest) {
         const normalizedCustomerName = invoice.customerName.trim();
         const transactionWhere: Prisma.TransactionWhereInput = {
           deletedAt: null,
-          NOT: {
+          NOT: EXCLUDED_TRANSACTION_STATUSES.map((status) => ({
             orderStatus: {
-              equals: EXCLUDED_TRANSACTION_STATUS,
+              equals: status,
               mode: 'insensitive',
             },
-          },
+          })),
         };
 
         if (normalizedCustomerName.length > 0) {
@@ -416,6 +421,12 @@ export async function GET(request: NextRequest) {
       where: {
         deletedAt: null,
         customers: customerName,
+        NOT: EXCLUDED_TRANSACTION_STATUSES.map((status) => ({
+          orderStatus: {
+            equals: status,
+            mode: 'insensitive',
+          },
+        })),
       },
       select: {
         productCode: true,

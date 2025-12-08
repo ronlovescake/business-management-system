@@ -6,6 +6,7 @@ import { CheckoutLinksTab } from './tabs/CheckoutLinksTab';
 import { InvoicingTab } from './tabs/InvoicingTab';
 import { ItemWeightTab } from './tabs/ItemWeightTab';
 import { LocalInvoicingTab } from './tabs/LocalInvoicingTab';
+import { CustomerOrdersTab } from './tabs/CustomerOrdersTab';
 import { useCheckoutLinksPage } from '../hooks/useCheckoutLinksPage';
 
 export function CheckoutLinksComponent() {
@@ -17,6 +18,7 @@ export function CheckoutLinksComponent() {
     checkoutLinksState,
     invoicesState,
     localInvoicesState,
+    customerOrdersState,
     itemWeightsState,
     modalState,
     utilities,
@@ -30,6 +32,7 @@ export function CheckoutLinksComponent() {
         <Tabs.List>
           <Tabs.Tab value="invoicing">Invoicing</Tabs.Tab>
           <Tabs.Tab value="local-invoicing">Local Invoicing</Tabs.Tab>
+          <Tabs.Tab value="customer-orders">Customer Orders</Tabs.Tab>
           <Tabs.Tab value="item-weight">Item Weight</Tabs.Tab>
           <Tabs.Tab value="checkout-links">Checkout Link</Tabs.Tab>
         </Tabs.List>
@@ -67,6 +70,14 @@ export function CheckoutLinksComponent() {
             invoiceDateOptions={localInvoicesState.invoiceDateOptions}
             invoiceDateFilter={localInvoicesState.invoiceDateFilter}
             onInvoiceDateFilterChange={localInvoicesState.setInvoiceDateFilter}
+          />
+        </Tabs.Panel>
+
+        <Tabs.Panel value="customer-orders" pt="md">
+          <CustomerOrdersTab
+            orders={customerOrdersState.data}
+            filteredOrders={customerOrdersState.filteredData}
+            onSearch={setSearchQuery}
           />
         </Tabs.Panel>
 

@@ -13,6 +13,7 @@ import { hasWeightData, mapProductToItemWeight } from '../lib/weights';
 import type {
   CheckoutLinkData,
   CheckoutLinkFormValues,
+  CustomerOrderData,
   InvoiceData,
   ItemWeightData,
 } from '../types';
@@ -43,6 +44,7 @@ export const useCheckoutLinksPage = () => {
   const [itemWeightData, setItemWeightData] = useState<ItemWeightData[]>([]);
   const [isItemWeightLoading, setIsItemWeightLoading] = useState(true);
   const [itemWeightError, setItemWeightError] = useState<string | null>(null);
+  const [customerOrders, setCustomerOrders] = useState<CustomerOrderData[]>([]);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingCheckoutLink, setEditingCheckoutLink] =
@@ -104,10 +106,75 @@ export const useCheckoutLinksPage = () => {
 
       setInvoiceData(result.invoices);
 
-      const { results } = result;
-      const totalCalculated = results.length;
-      const withUnmatched = results.filter(
-        (r: { unmatchedProducts: string[] }) => r.unmatchedProducts.length > 0
+      type WeightCalculationBreakdown = {
+        productCode?: string;
+        quantity?: number;
+        totalWeight?: number;
+        weightPerPiece?: number;
+      };
+
+      type WeightCalculationResult = {
+        customerName?: string;
+        breakdown?: WeightCalculationBreakdown[];
+        unmatchedProducts?: string[];
+      };
+
+      const calculationResults: WeightCalculationResult[] = Array.isArray(
+        result.results
+      )
+        ? (result.results as WeightCalculationResult[])
+        : [];
+
+      const flattenedOrders: CustomerOrderData[] = calculationResults.flatMap(
+        (customerResult) => {
+          if (!customerResult || !Array.isArray(customerResult.breakdown)) {
+            return [];
+          }
+
+          const normalizedCustomerName =
+            customerResult.customerName ?? 'Unknown Customer';
+
+          return customerResult.breakdown.map((entry, index) => {
+            const rawQuantity =
+              typeof entry.quantity === 'number'
+                ? entry.quantity
+                : Number(entry.quantity ?? 0);
+            const safeQuantity = Number.isFinite(rawQuantity) ? rawQuantity : 0;
+
+            const rawWeight =
+              typeof entry.totalWeight === 'number'
+                ? entry.totalWeight
+                : Number(entry.totalWeight ?? 0);
+            const safeWeight = Number.isFinite(rawWeight) ? rawWeight : 0;
+
+            const rawWeightPerPiece =
+              typeof entry.weightPerPiece === 'number'
+                ? entry.weightPerPiece
+                : Number(entry.weightPerPiece ?? 0);
+            const safeWeightPerPiece = Number.isFinite(rawWeightPerPiece)
+              ? rawWeightPerPiece
+              : 0;
+
+            const productCode = entry.productCode?.trim() || 'Unknown Product';
+
+            return {
+              id: `${normalizedCustomerName}-${productCode}-${index}`,
+              customerName: normalizedCustomerName,
+              productCode,
+              quantity: safeQuantity,
+              weightPerPiece: safeWeightPerPiece.toFixed(2),
+              actualWeight: safeWeight.toFixed(2),
+            } satisfies CustomerOrderData;
+          });
+        }
+      );
+
+      setCustomerOrders(flattenedOrders);
+
+      const totalCalculated = calculationResults.length;
+      const withUnmatched = calculationResults.filter(
+        (r) =>
+          Array.isArray(r.unmatchedProducts) && r.unmatchedProducts.length > 0
       ).length;
 
       let message = `Successfully calculated weights for ${totalCalculated} invoice(s)`;
@@ -314,6 +381,27 @@ export const useCheckoutLinksPage = () => {
     );
   }, [invoiceData, searchQuery]);
 
+  const invoiceWeightsByCustomer = useMemo(() => {
+    const map = new Map<string, string>();
+
+    invoiceData.forEach((invoice) => {
+      const customerName = invoice.customerName?.trim().toLowerCase();
+      if (!customerName) {
+        return;
+      }
+
+      if (!invoice.actualWeight) {
+        return;
+      }
+
+      if (!map.has(customerName)) {
+        map.set(customerName, invoice.actualWeight);
+      }
+    });
+
+    return map;
+  }, [invoiceData]);
+
   const localInvoiceData = useMemo<InvoiceData[]>(() => {
     if (transactionsWithInvoiceDate.length === 0) {
       return [];
@@ -335,6 +423,7 @@ export const useCheckoutLinksPage = () => {
       }
 
       const key = customerName.toLowerCase();
+      const invoiceActualWeight = invoiceWeightsByCustomer.get(key);
       const existing = byCustomer.get(key);
       const recordId = existing?.id ?? `local-${transaction.id ?? key}`;
       const isChecked = Boolean(localInvoiceTickboxes[recordId]);
@@ -349,17 +438,22 @@ export const useCheckoutLinksPage = () => {
           existing.localInvoiceDates = Array.from(existingDates);
         }
 
+        if (invoiceActualWeight) {
+          existing.actualWeight = invoiceActualWeight;
+        }
         existing.tickbox = isChecked;
         return;
       }
 
+      const fallbackQuantity =
+        typeof transaction.Quantity === 'number'
+          ? String(transaction.Quantity)
+          : '';
+
       byCustomer.set(key, {
         id: recordId,
         customerName,
-        actualWeight:
-          typeof transaction.Quantity === 'number'
-            ? String(transaction.Quantity)
-            : '',
+        actualWeight: invoiceActualWeight ?? fallbackQuantity,
         finalWeight: '',
         shopeeCheckoutLinks: '',
         driveFiles: invoiceDate,
@@ -374,7 +468,11 @@ export const useCheckoutLinksPage = () => {
     return Array.from(byCustomer.values()).sort((a, b) =>
       collator.compare(a.customerName, b.customerName)
     );
-  }, [transactionsWithInvoiceDate, localInvoiceTickboxes]);
+  }, [
+    transactionsWithInvoiceDate,
+    localInvoiceTickboxes,
+    invoiceWeightsByCustomer,
+  ]);
 
   const filteredLocalInvoiceData = useMemo(() => {
     const matchesSelectedDate = (item: InvoiceData) => {
@@ -441,6 +539,25 @@ export const useCheckoutLinksPage = () => {
       return candidates.some((field) => field.toLowerCase().includes(query));
     });
   }, [itemWeightData, searchQuery]);
+
+  const filteredCustomerOrders = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return customerOrders;
+    }
+
+    const query = searchQuery.toLowerCase();
+    return customerOrders.filter((order) =>
+      [
+        order.customerName,
+        order.productCode,
+        order.actualWeight,
+        order.weightPerPiece,
+        order.quantity.toString(),
+      ]
+        .filter(Boolean)
+        .some((field) => field.toLowerCase().includes(query))
+    );
+  }, [customerOrders, searchQuery]);
 
   const handleEdit = useCallback(
     (item: CheckoutLinkData) => {
@@ -991,13 +1108,7 @@ export const useCheckoutLinksPage = () => {
 
       return true;
     },
-    [
-      calculateFinalWeight,
-      checkoutLinks,
-      findCheckoutLinkByWeight,
-      invoiceSettings,
-      lookupFacebookLink,
-    ]
+    [checkoutLinks, invoiceSettings, lookupFacebookLink]
   );
 
   const handleCustomerNameClick = useCallback(
@@ -1079,6 +1190,10 @@ export const useCheckoutLinksPage = () => {
       handleCustomerNameClick: handleLocalCustomerNameClick,
       handleInvoiceTickboxChange: handleLocalInvoiceTickboxChange,
       hasFacebookLink,
+    },
+    customerOrdersState: {
+      data: customerOrders,
+      filteredData: filteredCustomerOrders,
     },
     itemWeightsState: {
       data: itemWeightData,

@@ -65,7 +65,6 @@ export function LocalInvoicingTab({
       }}
       size="sm"
       styles={{ input: { minWidth: 200 } }}
-      nothingFound="No dates"
     />
   );
 
