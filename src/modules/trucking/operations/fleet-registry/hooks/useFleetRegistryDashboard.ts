@@ -7,6 +7,7 @@ import type {
   FleetRegistrySummary,
   FleetRegistryStats,
   FleetStatus,
+  FleetUnitFormValues,
 } from '../types/fleetRegistry.types';
 
 const sampleFleet: FleetRegistryRecord[] = [
@@ -23,6 +24,13 @@ const sampleFleet: FleetRegistryRecord[] = [
     ltoRegisterDate: '2025-01-15',
     engineNo: 'ENG-5678-A',
     capacity: '4.5T',
+    passengerCapacity: '3',
+    grossWeight: '7500 kg',
+    netWeight: '4500 kg',
+    bodyType: 'Closed Van',
+    series: 'NQR',
+    classification: 'Light Truck',
+    vehicleType: 'Cargo',
     fuelType: 'Diesel',
     status: 'active',
     remarks: 'Primary delivery unit.',
@@ -40,6 +48,13 @@ const sampleFleet: FleetRegistryRecord[] = [
     ltoRegisterDate: '2024-03-10',
     engineNo: 'ENG-7823-B',
     capacity: '6.5T',
+    passengerCapacity: '3',
+    grossWeight: '8500 kg',
+    netWeight: '5200 kg',
+    bodyType: 'Reefer',
+    series: 'XZU',
+    classification: 'Medium Truck',
+    vehicleType: 'Refrigerated',
     fuelType: 'Diesel',
     status: 'maintenance',
     remarks: 'Scheduled preventive maintenance.',
@@ -57,6 +72,13 @@ const sampleFleet: FleetRegistryRecord[] = [
     ltoRegisterDate: '2023-07-22',
     engineNo: 'ENG-9921-C',
     capacity: '3.0T',
+    passengerCapacity: '3',
+    grossWeight: '6500 kg',
+    netWeight: '3800 kg',
+    bodyType: 'Open Flatbed',
+    series: 'FE74',
+    classification: 'Light Truck',
+    vehicleType: 'Utility',
     fuelType: 'Diesel',
     status: 'active',
     remarks: 'Assigned to North Luzon route.',
@@ -74,6 +96,13 @@ const sampleFleet: FleetRegistryRecord[] = [
     ltoRegisterDate: '2022-09-05',
     engineNo: 'ENG-4551-D',
     capacity: '10T',
+    passengerCapacity: '2',
+    grossWeight: '12000 kg',
+    netWeight: '7800 kg',
+    bodyType: 'Wing Van',
+    series: 'FK61',
+    classification: 'Heavy Truck',
+    vehicleType: 'Cargo',
     fuelType: 'Diesel',
     status: 'inactive',
     remarks: 'Awaiting sale; minor body repair.',
@@ -91,6 +120,13 @@ const sampleFleet: FleetRegistryRecord[] = [
     ltoRegisterDate: '2021-05-12',
     engineNo: 'ENG-7700-E',
     capacity: '3.5T',
+    passengerCapacity: '3',
+    grossWeight: '6000 kg',
+    netWeight: '3400 kg',
+    bodyType: 'Dropside',
+    series: 'HD72',
+    classification: 'Light Truck',
+    vehicleType: 'Cargo',
     fuelType: 'Diesel',
     status: 'retired',
     remarks: 'Retired unit kept for parts.',
@@ -106,6 +142,38 @@ const statusColors: Record<FleetStatus, string> = {
 
 const normalize = (value: string) => value.toLowerCase().trim();
 
+const createDefaultFleetUnitFormValues = (): FleetUnitFormValues => ({
+  truckId: '',
+  maker: '',
+  model: '',
+  year: '',
+  plateNo: '',
+  bodyNo: '',
+  chassisNo: '',
+  engineNo: '',
+  capacity: '',
+  passengerCapacity: '',
+  grossWeight: '',
+  netWeight: '',
+  bodyType: '',
+  series: '',
+  classification: '',
+  vehicleType: '',
+  fuelType: '',
+  status: 'active',
+  ltoRegisterDate: '',
+  orCrInfo: '',
+  ownershipType: 'Company-owned',
+  acquisitionDate: '',
+  purchaseCost: '',
+  insuranceProvider: '',
+  insuranceExpiry: '',
+  gpsTrackerId: '',
+  depotLocation: '',
+  driverAssigned: '',
+  remarks: '',
+});
+
 export function useFleetRegistryDashboard() {
   const [records] = useState<FleetRegistryRecord[]>(sampleFleet);
   const [searchQuery, setSearchQuery] = useState('');
@@ -114,6 +182,10 @@ export function useFleetRegistryDashboard() {
   const [makerFilter, setMakerFilter] = useState<string | null>(null);
   const [yearFilter, setYearFilter] = useState<'all' | '5' | '10'>('all');
   const [isImporting, setIsImporting] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isSubmittingAddUnit, setIsSubmittingAddUnit] = useState(false);
+  const [modalInitialValues, setModalInitialValues] =
+    useState<FleetUnitFormValues>(createDefaultFleetUnitFormValues());
 
   const filteredRecords = useMemo(() => {
     const query = normalize(searchQuery);
@@ -153,6 +225,13 @@ export function useFleetRegistryDashboard() {
         record.bodyNo,
         record.chassisNo,
         record.engineNo,
+        record.passengerCapacity,
+        record.grossWeight,
+        record.netWeight,
+        record.bodyType,
+        record.series,
+        record.classification,
+        record.vehicleType,
         record.remarks,
       ]
         .filter(Boolean)
@@ -241,10 +320,32 @@ export function useFleetRegistryDashboard() {
   };
 
   const handleAdd = () => {
-    showNotification({
-      title: 'Add fleet unit',
-      message: 'Replace with real create flow.',
-    });
+    setModalInitialValues(createDefaultFleetUnitFormValues());
+    setIsAddModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsAddModalOpen(false);
+  };
+
+  const handleAddSubmit = async (values: FleetUnitFormValues) => {
+    setIsSubmittingAddUnit(true);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      showNotification({
+        title: 'Fleet unit recorded',
+        message: `${values.truckId || 'New unit'} saved locally. Replace with API call.`,
+      });
+      setIsAddModalOpen(false);
+    } catch (error) {
+      showNotification({
+        color: 'red',
+        title: 'Save failed',
+        message: 'Could not save fleet unit. Please retry.',
+      });
+    } finally {
+      setIsSubmittingAddUnit(false);
+    }
   };
 
   const handleView = (record: FleetRegistryRecord) => {
@@ -297,6 +398,13 @@ export function useFleetRegistryDashboard() {
       handleView,
       handleEdit,
       handleRetire,
+    },
+    modal: {
+      opened: isAddModalOpen,
+      initialValues: modalInitialValues,
+      onClose: handleCloseModal,
+      onSubmit: handleAddSubmit,
+      isSubmitting: isSubmittingAddUnit,
     },
     getStatusColor,
   };

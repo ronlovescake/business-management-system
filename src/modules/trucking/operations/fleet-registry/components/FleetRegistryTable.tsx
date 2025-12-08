@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Badge, Button, Group, Text } from '@mantine/core';
+import { Badge, Group, Text } from '@mantine/core';
 import {
   DataTable,
   type TableColumn,
@@ -25,9 +25,6 @@ interface FleetRegistryTableProps {
   height?: string;
   summary?: FleetRegistrySummary;
   getStatusColor: (status: FleetStatus) => string;
-  onView?: (record: FleetRegistryRecord) => void;
-  onEdit?: (record: FleetRegistryRecord) => void;
-  onRetire?: (record: FleetRegistryRecord) => void;
 }
 
 export function FleetRegistryTable({
@@ -36,9 +33,6 @@ export function FleetRegistryTable({
   height = '74vh',
   summary,
   getStatusColor,
-  onView,
-  onEdit,
-  onRetire,
 }: FleetRegistryTableProps) {
   const columns: TableColumn<FleetRegistryRecord>[] = useMemo(
     () => [
@@ -47,6 +41,7 @@ export function FleetRegistryTable({
       { key: 'model', label: 'Model' },
       { key: 'year', label: 'Year' },
       { key: 'plateNo', label: 'Plate No.' },
+      { key: 'engineNo', label: 'Engine No.' },
       { key: 'bodyNo', label: 'Body No.' },
       { key: 'chassisNo', label: 'Chassis No.' },
       { key: 'orCrInfo', label: 'OR/CR Info' },
@@ -55,8 +50,14 @@ export function FleetRegistryTable({
         label: 'LTO Register Date',
         render: (item) => formatDate(item.ltoRegisterDate),
       },
-      { key: 'engineNo', label: 'Engine No.' },
       { key: 'capacity', label: 'Capacity' },
+      { key: 'passengerCapacity', label: 'Passenger Capacity' },
+      { key: 'grossWeight', label: 'Gross Weight' },
+      { key: 'netWeight', label: 'Net Weight' },
+      { key: 'bodyType', label: 'Body Type' },
+      { key: 'series', label: 'Series' },
+      { key: 'classification', label: 'Classification' },
+      { key: 'vehicleType', label: 'Vehicle Type' },
       { key: 'fuelType', label: 'Fuel Type' },
       {
         key: 'status',
@@ -68,35 +69,8 @@ export function FleetRegistryTable({
         ),
       },
       { key: 'remarks', label: 'Remarks' },
-      {
-        key: 'actions',
-        label: 'Action',
-        render: (item) => (
-          <Group gap={6} wrap="wrap">
-            <Button size="xs" variant="light" onClick={() => onView?.(item)}>
-              View
-            </Button>
-            <Button
-              size="xs"
-              variant="light"
-              color="blue"
-              onClick={() => onEdit?.(item)}
-            >
-              Edit
-            </Button>
-            <Button
-              size="xs"
-              variant="light"
-              color="red"
-              onClick={() => onRetire?.(item)}
-            >
-              Retire
-            </Button>
-          </Group>
-        ),
-      },
     ],
-    [getStatusColor, onEdit, onRetire, onView]
+    [getStatusColor]
   );
 
   const summaryLeft = summary ? (

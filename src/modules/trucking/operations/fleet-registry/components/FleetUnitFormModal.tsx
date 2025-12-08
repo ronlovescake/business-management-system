@@ -146,6 +146,41 @@ export function FleetUnitFormModal({
                 placeholder="4.5T"
                 {...form.getInputProps('capacity')}
               />
+              <TextInput
+                label="Passenger Capacity"
+                placeholder="3"
+                {...form.getInputProps('passengerCapacity')}
+              />
+              <TextInput
+                label="Gross Weight"
+                placeholder="7500 kg"
+                {...form.getInputProps('grossWeight')}
+              />
+              <TextInput
+                label="Net Weight"
+                placeholder="4500 kg"
+                {...form.getInputProps('netWeight')}
+              />
+              <TextInput
+                label="Body Type"
+                placeholder="Closed Van"
+                {...form.getInputProps('bodyType')}
+              />
+              <TextInput
+                label="Series"
+                placeholder="NQR"
+                {...form.getInputProps('series')}
+              />
+              <TextInput
+                label="Classification"
+                placeholder="Light Truck"
+                {...form.getInputProps('classification')}
+              />
+              <TextInput
+                label="Vehicle Type"
+                placeholder="Cargo"
+                {...form.getInputProps('vehicleType')}
+              />
             </SimpleGrid>
           </Stack>
 
