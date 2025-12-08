@@ -67,7 +67,7 @@ export function useFleetVehicleDetails(vehicleId: string) {
       },
       {
         id: 'registration',
-        title: 'Registration & Classification',
+        title: 'Route History',
         items: [
           { label: 'Plate Number', value: vehicle.plateNo || 'N/A' },
           { label: 'OR/CR Info', value: vehicle.orCrInfo || 'N/A' },
@@ -86,7 +86,7 @@ export function useFleetVehicleDetails(vehicleId: string) {
       },
       {
         id: 'performance',
-        title: 'Capacity & Performance',
+        title: 'Fuel Consumption',
         items: [
           { label: 'Capacity', value: vehicle.capacity || 'N/A' },
           {
@@ -103,7 +103,7 @@ export function useFleetVehicleDetails(vehicleId: string) {
     if (vehicle.remarks) {
       base.push({
         id: 'notes',
-        title: 'Operational Notes',
+        title: 'Maintenance & Repairs History',
         items: [{ label: 'Remarks', value: vehicle.remarks }],
       });
     }

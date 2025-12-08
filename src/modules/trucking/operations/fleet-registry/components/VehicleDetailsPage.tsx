@@ -264,13 +264,6 @@ export function VehicleDetailsPage({ vehicleId }: VehicleDetailsPageProps) {
             {statusLabel}
           </Badge>
         </Group>
-
-        <Group gap="lg" wrap="wrap">
-          <Text c="dimmed">Truck ID: {vehicle.truckId}</Text>
-          <Text c="dimmed">Plate: {displayValue(vehicle.plateNo)}</Text>
-          <Text c="dimmed">Year: {displayValue(vehicle.year)}</Text>
-          <Text c="dimmed">Fuel Type: {displayValue(vehicle.fuelType)}</Text>
-        </Group>
       </Stack>
     </Paper>
   );
@@ -303,7 +296,7 @@ export function VehicleDetailsPage({ vehicleId }: VehicleDetailsPageProps) {
   if (registrationSection) {
     detailsTabs.push({
       value: 'registration',
-      label: 'Registration & Classification',
+      label: 'Route History',
       content: <Stack gap="lg">{renderSectionCard(registrationSection)}</Stack>,
     });
   }
@@ -311,7 +304,7 @@ export function VehicleDetailsPage({ vehicleId }: VehicleDetailsPageProps) {
   if (performanceSection) {
     detailsTabs.push({
       value: 'performance',
-      label: 'Capacity & Performance',
+      label: 'Fuel Consumption',
       content: <Stack gap="lg">{renderSectionCard(performanceSection)}</Stack>,
     });
   }
@@ -319,7 +312,7 @@ export function VehicleDetailsPage({ vehicleId }: VehicleDetailsPageProps) {
   if (notesSection) {
     detailsTabs.push({
       value: 'notes',
-      label: 'Operational Notes',
+      label: 'Maintenance & Repairs History',
       content: <Stack gap="lg">{renderSectionCard(notesSection)}</Stack>,
     });
   }
