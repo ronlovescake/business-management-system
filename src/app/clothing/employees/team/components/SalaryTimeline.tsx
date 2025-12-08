@@ -238,7 +238,7 @@ export function SalaryTimeline({
               </Stack>
             </Center>
           ) : (
-            <ScrollArea h="71vh">
+            <ScrollArea h="70vh">
               <Timeline
                 active={salaryHistory.length - 1}
                 bulletSize={24}
