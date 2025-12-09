@@ -25,13 +25,14 @@ export interface VehicleDetailsSection {
 
 export function useFleetVehicleDetails(vehicleId: string) {
   const [vehicle, setVehicle] = useState<FleetRegistryRecord | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchVehicle = useCallback(async () => {
     const normalizedId = vehicleId?.trim();
     if (!normalizedId) {
       setVehicle(null);
+      setIsLoading(false);
       return;
     }
 

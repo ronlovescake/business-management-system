@@ -69,7 +69,7 @@ const convertFileToBase64 = (file: File): Promise<string> =>
 
 export function VehicleDetailsPage({ vehicleId }: VehicleDetailsPageProps) {
   const router = useRouter();
-  const { vehicle, quickStats, sections, statusColor, refresh } =
+  const { vehicle, quickStats, sections, statusColor, refresh, isLoading } =
     useFleetVehicleDetails(vehicleId);
   const [vehiclePhoto, setVehiclePhoto] = useState<string | null>(null);
   const [isPhotoUploading, setIsPhotoUploading] = useState(false);
@@ -185,6 +185,21 @@ export function VehicleDetailsPage({ vehicleId }: VehicleDetailsPageProps) {
     },
     [vehicle?.truckId]
   );
+
+  if (isLoading) {
+    return (
+      <PageLayout>
+        <Paper withBorder p="xl">
+          <Center mih={200}>
+            <Stack gap="sm" align="center">
+              <Loader />
+              <Text c="dimmed">Loading vehicle details...</Text>
+            </Stack>
+          </Center>
+        </Paper>
+      </PageLayout>
+    );
+  }
 
   if (!vehicle) {
     return (
