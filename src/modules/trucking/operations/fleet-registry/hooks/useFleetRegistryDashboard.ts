@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { showNotification } from '@mantine/notifications';
+import { useRouter } from 'next/navigation';
 import type {
   FleetRegistryRecord,
   FleetRegistrySummary,
@@ -9,173 +10,13 @@ import type {
   FleetStatus,
   FleetUnitFormValues,
 } from '../types/fleetRegistry.types';
-
-const sampleFleet: FleetRegistryRecord[] = [
-  {
-    id: 'fleet-001',
-    truckId: 'TRK-001',
-    maker: 'Isuzu',
-    model: 'N-Series',
-    year: 2021,
-    plateNo: 'ABC-1234',
-    bodyNo: 'B-1001',
-    chassisNo: 'CHS-001-XYZ',
-    orCrInfo: 'OR-2025-0001',
-    ltoRegisterDate: '2025-01-15',
-    engineNo: 'ENG-5678-A',
-    capacity: '4.5T',
-    passengerCapacity: '3',
-    grossWeight: '7500 kg',
-    netWeight: '4500 kg',
-    bodyType: 'Closed Van',
-    series: 'NQR',
-    classification: 'Light Truck',
-    vehicleType: 'Cargo',
-    fuelType: 'Diesel',
-    status: 'active',
-    remarks: 'Primary delivery unit.',
-  },
-  {
-    id: 'fleet-002',
-    truckId: 'TRK-014',
-    maker: 'Hino',
-    model: '300 Series',
-    year: 2020,
-    plateNo: 'DEF-5678',
-    bodyNo: 'B-1002',
-    chassisNo: 'CHS-014-ABC',
-    orCrInfo: 'OR-2024-1102',
-    ltoRegisterDate: '2024-03-10',
-    engineNo: 'ENG-7823-B',
-    capacity: '6.5T',
-    passengerCapacity: '3',
-    grossWeight: '8500 kg',
-    netWeight: '5200 kg',
-    bodyType: 'Reefer',
-    series: 'XZU',
-    classification: 'Medium Truck',
-    vehicleType: 'Refrigerated',
-    fuelType: 'Diesel',
-    status: 'maintenance',
-    remarks: 'Scheduled preventive maintenance.',
-  },
-  {
-    id: 'fleet-003',
-    truckId: 'TRK-221',
-    maker: 'Fuso',
-    model: 'Canter',
-    year: 2019,
-    plateNo: 'XYZ-9999',
-    bodyNo: 'B-1003',
-    chassisNo: 'CHS-221-DEF',
-    orCrInfo: 'OR-2023-2219',
-    ltoRegisterDate: '2023-07-22',
-    engineNo: 'ENG-9921-C',
-    capacity: '3.0T',
-    passengerCapacity: '3',
-    grossWeight: '6500 kg',
-    netWeight: '3800 kg',
-    bodyType: 'Open Flatbed',
-    series: 'FE74',
-    classification: 'Light Truck',
-    vehicleType: 'Utility',
-    fuelType: 'Diesel',
-    status: 'active',
-    remarks: 'Assigned to North Luzon route.',
-  },
-  {
-    id: 'fleet-004',
-    truckId: 'TRK-109',
-    maker: 'Mitsubishi',
-    model: 'Fighter',
-    year: 2017,
-    plateNo: 'TUV-4567',
-    bodyNo: 'B-1004',
-    chassisNo: 'CHS-109-GHI',
-    orCrInfo: 'OR-2022-1110',
-    ltoRegisterDate: '2022-09-05',
-    engineNo: 'ENG-4551-D',
-    capacity: '10T',
-    passengerCapacity: '2',
-    grossWeight: '12000 kg',
-    netWeight: '7800 kg',
-    bodyType: 'Wing Van',
-    series: 'FK61',
-    classification: 'Heavy Truck',
-    vehicleType: 'Cargo',
-    fuelType: 'Diesel',
-    status: 'inactive',
-    remarks: 'Awaiting sale; minor body repair.',
-  },
-  {
-    id: 'fleet-005',
-    truckId: 'TRK-007',
-    maker: 'Hyundai',
-    model: 'HD72',
-    year: 2015,
-    plateNo: 'HJK-8888',
-    bodyNo: 'B-1005',
-    chassisNo: 'CHS-007-JKL',
-    orCrInfo: 'OR-2021-0707',
-    ltoRegisterDate: '2021-05-12',
-    engineNo: 'ENG-7700-E',
-    capacity: '3.5T',
-    passengerCapacity: '3',
-    grossWeight: '6000 kg',
-    netWeight: '3400 kg',
-    bodyType: 'Dropside',
-    series: 'HD72',
-    classification: 'Light Truck',
-    vehicleType: 'Cargo',
-    fuelType: 'Diesel',
-    status: 'retired',
-    remarks: 'Retired unit kept for parts.',
-  },
-];
-
-const statusColors: Record<FleetStatus, string> = {
-  active: 'green',
-  maintenance: 'yellow',
-  inactive: 'gray',
-  retired: 'red',
-};
+import { statusColors } from '../data/fleetRegistryData';
+import { createDefaultFleetUnitFormValues } from '../utils/formTransforms';
 
 const normalize = (value: string) => value.toLowerCase().trim();
 
-const createDefaultFleetUnitFormValues = (): FleetUnitFormValues => ({
-  truckId: '',
-  maker: '',
-  model: '',
-  year: '',
-  plateNo: '',
-  bodyNo: '',
-  chassisNo: '',
-  engineNo: '',
-  capacity: '',
-  passengerCapacity: '',
-  grossWeight: '',
-  netWeight: '',
-  bodyType: '',
-  series: '',
-  classification: '',
-  vehicleType: '',
-  fuelType: '',
-  status: 'active',
-  ltoRegisterDate: '',
-  orCrInfo: '',
-  ownershipType: 'Company-owned',
-  acquisitionDate: '',
-  purchaseCost: '',
-  insuranceProvider: '',
-  insuranceExpiry: '',
-  gpsTrackerId: '',
-  depotLocation: '',
-  driverAssigned: '',
-  remarks: '',
-});
-
 export function useFleetRegistryDashboard() {
-  const [records] = useState<FleetRegistryRecord[]>(sampleFleet);
+  const [records, setRecords] = useState<FleetRegistryRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<FleetStatus | 'all'>('all');
   const [fuelFilter, setFuelFilter] = useState<string | null>(null);
@@ -184,8 +25,43 @@ export function useFleetRegistryDashboard() {
   const [isImporting, setIsImporting] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSubmittingAddUnit, setIsSubmittingAddUnit] = useState(false);
+  const [isLoadingRecords, setIsLoadingRecords] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [modalInitialValues, setModalInitialValues] =
     useState<FleetUnitFormValues>(createDefaultFleetUnitFormValues());
+  const router = useRouter();
+
+  const fetchRecords = useCallback(async () => {
+    setIsLoadingRecords(true);
+    setLoadError(null);
+    try {
+      const response = await fetch('/api/trucking/fleet-vehicles', {
+        cache: 'no-store',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to load fleet vehicles');
+      }
+      const payload = (await response.json()) as {
+        data?: FleetRegistryRecord[];
+      };
+      setRecords(payload.data ?? []);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to load vehicles';
+      setLoadError(message);
+      showNotification({
+        color: 'red',
+        title: 'Fleet data unavailable',
+        message,
+      });
+    } finally {
+      setIsLoadingRecords(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchRecords();
+  }, [fetchRecords]);
 
   const filteredRecords = useMemo(() => {
     const query = normalize(searchQuery);
@@ -331,29 +207,58 @@ export function useFleetRegistryDashboard() {
   const handleAddSubmit = async (values: FleetUnitFormValues) => {
     setIsSubmittingAddUnit(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 600));
+      const response = await fetch('/api/trucking/fleet-vehicles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        data?: FleetRegistryRecord;
+        error?: string;
+      };
+
+      if (!response.ok || !payload.data) {
+        throw new Error(payload.error || 'Failed to save vehicle');
+      }
+
+      const created = payload.data;
+      setRecords((current) => [created, ...current]);
+      setIsAddModalOpen(false);
       showNotification({
         title: 'Fleet unit recorded',
-        message: `${values.truckId || 'New unit'} saved locally. Replace with API call.`,
+        message: `${created.truckId} added to the registry.`,
+        color: 'green',
       });
-      setIsAddModalOpen(false);
     } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Could not save fleet unit.';
       showNotification({
         color: 'red',
         title: 'Save failed',
-        message: 'Could not save fleet unit. Please retry.',
+        message,
       });
     } finally {
       setIsSubmittingAddUnit(false);
     }
   };
 
-  const handleView = (record: FleetRegistryRecord) => {
-    showNotification({
-      title: 'View unit',
-      message: `${record.truckId} — ${record.maker} ${record.model}`,
-    });
-  };
+  const handleView = useCallback(
+    (record: FleetRegistryRecord) => {
+      const slug = record.truckId?.trim() || record.id;
+      if (!slug) {
+        showNotification({
+          color: 'red',
+          title: 'Unable to open vehicle',
+          message: 'This fleet entry is missing a valid identifier.',
+        });
+        return;
+      }
+
+      router.push(`/trucking/operations/fleet-registry/${slug}`);
+    },
+    [router]
+  );
 
   const handleEdit = (record: FleetRegistryRecord) => {
     showNotification({
@@ -390,6 +295,11 @@ export function useFleetRegistryDashboard() {
     collections: {
       makers,
       fuels,
+    },
+    status: {
+      isLoading: isLoadingRecords,
+      error: loadError,
+      refresh: fetchRecords,
     },
     actions: {
       handleImport,

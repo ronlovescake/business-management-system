@@ -18,6 +18,18 @@ export default function TripsPage() {
     formatCurrency,
   } = useTripsDashboard();
 
+  const analyticsSummary = {
+    totalTrips: summary.totalCount,
+    filteredTrips: summary.filteredCount,
+    tripsThisMonth: stats.tripsThisMonth,
+    totalRevenue: stats.totalRevenue,
+    totalExpenses: stats.totalExpenses,
+    netIncome: stats.netIncome,
+    filteredRevenue: summary.filteredRevenue,
+    filteredExpenses: summary.filteredExpenses,
+    filteredNet: summary.filteredNet,
+  } as const;
+
   return (
     <PageLayout fluid withPadding>
       <Stack gap="lg">
@@ -44,6 +56,8 @@ export default function TripsPage() {
           onExportCSV={actions.handleExportTrips}
           onAddTrip={actions.handleLogTrip}
           isImporting={filters.isImporting}
+          analyticsSummary={analyticsSummary}
+          formatCurrency={formatCurrency}
         />
 
         <TripsTable

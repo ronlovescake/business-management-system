@@ -23,6 +23,16 @@ export interface FleetRegistryRecord {
   fuelType: string;
   status: FleetStatus;
   remarks?: string;
+  ownershipType?: FleetUnitFormValues['ownershipType'];
+  acquisitionDate?: string;
+  purchaseCost?: string;
+  insuranceProvider?: string;
+  insuranceExpiry?: string;
+  gpsTrackerId?: string;
+  depotLocation?: string;
+  driverAssigned?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface FleetRegistrySummary {

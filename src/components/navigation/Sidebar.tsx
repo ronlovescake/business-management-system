@@ -14,7 +14,12 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
 import { useBusinessStore } from '../../lib/store';
-import { buildNavigationItems } from './navigationItems';
+import {
+  buildNavigationItems,
+  getWorkspaceDefinition,
+  isBusiness,
+  isWorkspace,
+} from './navigationItems';
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -29,15 +34,15 @@ export function Sidebar() {
   }, [pathname, selectedBusiness, selectedWorkspace, initializeFromPath]);
 
   const navigationItems = useMemo(() => {
-    if (!selectedBusiness || !selectedWorkspace) {
+    if (!isBusiness(selectedBusiness) || !isWorkspace(selectedWorkspace)) {
       return [];
     }
-    const business = selectedBusiness as 'clothing' | 'trucking';
-    const workspace = selectedWorkspace as 'operations' | 'employees';
-    return buildNavigationItems(business, workspace);
+    return buildNavigationItems(selectedBusiness, selectedWorkspace);
   }, [selectedBusiness, selectedWorkspace]);
 
-  if (!selectedBusiness || !selectedWorkspace) {
+  const workspaceMeta = getWorkspaceDefinition(selectedWorkspace);
+
+  if (!isBusiness(selectedBusiness) || !isWorkspace(selectedWorkspace)) {
     return (
       <Stack gap="md">
         <Group>
@@ -78,9 +83,9 @@ export function Sidebar() {
           <Badge
             size="xs"
             variant="light"
-            color={selectedWorkspace === 'operations' ? 'blue' : 'green'}
+            color={workspaceMeta?.color ?? 'gray'}
           >
-            {selectedWorkspace === 'operations' ? 'Operations' : 'Employees'}
+            {workspaceMeta?.label ?? 'Workspace'}
           </Badge>
         </Stack>
       </Group>

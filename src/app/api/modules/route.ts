@@ -430,11 +430,11 @@ const APP_MODULES = [
   {
     name: 'trucking-employees-expenses',
     displayName: 'Expenses',
-    path: '/trucking/employees/expenses',
+    path: '/trucking/expenses',
     category: 'trucking',
     icon: 'IconReceipt',
-    parentName: 'trucking-employees',
-    sortOrder: 12,
+    parentName: 'trucking',
+    sortOrder: 3,
   },
   {
     name: 'trucking-employees-settings',

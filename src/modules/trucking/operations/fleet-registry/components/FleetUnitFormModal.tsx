@@ -1,18 +1,22 @@
+import { useRef } from 'react';
+import type { ReactNode } from 'react';
 import {
-  Modal,
   Stack,
-  Group,
   TextInput,
   Select,
   Textarea,
   NumberInput,
-  Button,
   Divider,
-  Title,
   SimpleGrid,
+  Text,
 } from '@mantine/core';
-import { useForm } from '@mantine/form';
+import { useForm, type UseFormReturnType } from '@mantine/form';
 import { useDidUpdate } from '@mantine/hooks';
+import { IconTruckDelivery } from '@tabler/icons-react';
+import {
+  PolishedFormTemplate,
+  usePolishedFormStyles,
+} from '@/components/forms/polished';
 import type {
   FleetUnitFormValues,
   FleetStatus,
@@ -24,6 +28,11 @@ interface FleetUnitFormModalProps {
   onClose: () => void;
   onSubmit: (values: FleetUnitFormValues) => Promise<void> | void;
   isSubmitting?: boolean;
+  title?: ReactNode;
+  subtitle?: ReactNode;
+  icon?: ReactNode;
+  primaryActionLabel?: string;
+  secondaryActionLabel?: string;
 }
 
 const fuelOptions = ['Diesel', 'Gasoline', 'Hybrid', 'Electric'];
@@ -40,12 +49,18 @@ export function FleetUnitFormModal({
   onClose,
   onSubmit,
   isSubmitting = false,
+  title,
+  subtitle,
+  icon,
+  primaryActionLabel,
+  secondaryActionLabel,
 }: FleetUnitFormModalProps) {
+  const formRef = useRef<HTMLFormElement>(null);
   const form = useForm<FleetUnitFormValues>({
     initialValues,
     validate: {
       truckId: (value) =>
-        value.trim().length === 0 ? 'Truck ID is required' : null,
+        value.trim().length === 0 ? 'Vehicle ID is required' : null,
       maker: (value) =>
         value.trim().length === 0 ? 'Maker is required' : null,
       model: (value) =>
@@ -53,6 +68,8 @@ export function FleetUnitFormModal({
       year: (value) => (value.trim().length === 0 ? 'Year is required' : null),
       plateNo: (value) =>
         value.trim().length === 0 ? 'Plate number is required' : null,
+      vehicleType: (value) =>
+        value.trim().length === 0 ? 'Vehicle type is required' : null,
       fuelType: (value) =>
         value.trim().length === 0 ? 'Fuel type is required' : null,
       ltoRegisterDate: (value) =>
@@ -73,210 +90,324 @@ export function FleetUnitFormModal({
     await onSubmit(values);
   });
 
+  const handlePrimaryAction = () => {
+    formRef.current?.requestSubmit();
+  };
+
+  const modalTitle = title ?? 'Add Fleet Unit';
+  const modalSubtitle = subtitle ?? 'Complete the vehicle details below';
+  const modalIcon = icon ?? <IconTruckDelivery size={26} color="#65ab58" />;
+  const primaryLabel = primaryActionLabel ?? 'Add Unit';
+  const secondaryLabel = secondaryActionLabel ?? 'Cancel';
+
   return (
-    <Modal
+    <PolishedFormTemplate
       opened={opened}
       onClose={onClose}
-      size="80rem"
-      title={
-        <Title order={3} ta="center" w="100%">
-          Add Fleet Unit
-        </Title>
-      }
-      radius="lg"
-      padding="xl"
-      centered
+      title={modalTitle}
+      subtitle={modalSubtitle}
+      icon={modalIcon}
+      primaryAction={{
+        label: primaryLabel,
+        onClick: handlePrimaryAction,
+        loading: isSubmitting,
+        disabled: isSubmitting,
+      }}
+      secondaryAction={{
+        label: secondaryLabel,
+        onClick: onClose,
+        disabled: isSubmitting,
+      }}
     >
-      <form onSubmit={handleSubmit}>
-        <Stack gap="lg">
-          <Stack gap="xs">
-            <Title order={4}>Basic Information</Title>
-            <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
-              <TextInput
-                label="Truck ID"
-                placeholder="TRK-001"
-                withAsterisk
-                {...form.getInputProps('truckId')}
-              />
-              <TextInput
-                label="Maker"
-                placeholder="Isuzu"
-                withAsterisk
-                {...form.getInputProps('maker')}
-              />
-              <TextInput
-                label="Model"
-                placeholder="N-Series"
-                withAsterisk
-                {...form.getInputProps('model')}
-              />
-              <NumberInput
-                label="Model Year"
-                min={1990}
-                max={2100}
-                clampBehavior="strict"
-                value={Number(form.values.year) || undefined}
-                onChange={(value) =>
-                  form.setFieldValue('year', value ? String(value) : '')
-                }
-              />
-              <TextInput
-                label="Plate Number"
-                placeholder="ABC-1234"
-                withAsterisk
-                {...form.getInputProps('plateNo')}
-              />
-              <TextInput
-                label="Body Number"
-                placeholder="B-1001"
-                {...form.getInputProps('bodyNo')}
-              />
-              <TextInput
-                label="Chassis Number"
-                placeholder="CHS-001-XYZ"
-                {...form.getInputProps('chassisNo')}
-              />
-              <TextInput
-                label="Engine Number"
-                placeholder="ENG-5678-A"
-                {...form.getInputProps('engineNo')}
-              />
-              <TextInput
-                label="Capacity"
-                placeholder="4.5T"
-                {...form.getInputProps('capacity')}
-              />
-              <TextInput
-                label="Passenger Capacity"
-                placeholder="3"
-                {...form.getInputProps('passengerCapacity')}
-              />
-              <TextInput
-                label="Gross Weight"
-                placeholder="7500 kg"
-                {...form.getInputProps('grossWeight')}
-              />
-              <TextInput
-                label="Net Weight"
-                placeholder="4500 kg"
-                {...form.getInputProps('netWeight')}
-              />
-              <TextInput
-                label="Body Type"
-                placeholder="Closed Van"
-                {...form.getInputProps('bodyType')}
-              />
-              <TextInput
-                label="Series"
-                placeholder="NQR"
-                {...form.getInputProps('series')}
-              />
-              <TextInput
-                label="Classification"
-                placeholder="Light Truck"
-                {...form.getInputProps('classification')}
-              />
-              <TextInput
-                label="Vehicle Type"
-                placeholder="Cargo"
-                {...form.getInputProps('vehicleType')}
-              />
-            </SimpleGrid>
-          </Stack>
-
-          <Divider label="Registration & Status" labelPosition="left" />
-          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
-            <TextInput
-              label="LTO Register Date"
-              type="date"
-              withAsterisk
-              {...form.getInputProps('ltoRegisterDate')}
-            />
-            <TextInput
-              label="OR/CR Info"
-              placeholder="OR-2025-0001"
-              {...form.getInputProps('orCrInfo')}
-            />
-            <Select
-              label="Fuel Type"
-              data={fuelOptions}
-              placeholder="Select fuel"
-              withAsterisk
-              {...form.getInputProps('fuelType')}
-            />
-            <Select
-              label="Status"
-              data={statusOptions}
-              placeholder="Select status"
-              {...form.getInputProps('status')}
-            />
-            <Select
-              label="Ownership"
-              data={['Company-owned', 'Leased']}
-              {...form.getInputProps('ownershipType')}
-            />
-            <TextInput
-              label="Acquisition Date"
-              type="date"
-              {...form.getInputProps('acquisitionDate')}
-            />
-          </SimpleGrid>
-
-          <Divider label="Financial & Compliance" labelPosition="left" />
-          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
-            <TextInput
-              label="Purchase Cost (₱)"
-              placeholder="1500000"
-              {...form.getInputProps('purchaseCost')}
-            />
-            <TextInput
-              label="Insurance Provider"
-              placeholder="Allied Insurance"
-              {...form.getInputProps('insuranceProvider')}
-            />
-            <TextInput
-              label="Insurance Expiry"
-              type="date"
-              {...form.getInputProps('insuranceExpiry')}
-            />
-          </SimpleGrid>
-
-          <Divider label="Assignments & Tracking" labelPosition="left" />
-          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
-            <TextInput
-              label="GPS Tracker ID"
-              placeholder="TRK-001-GPS"
-              {...form.getInputProps('gpsTrackerId')}
-            />
-            <TextInput
-              label="Depot Location"
-              placeholder="Meycauayan Yard"
-              {...form.getInputProps('depotLocation')}
-            />
-            <TextInput
-              label="Assigned Driver"
-              placeholder="Jonas Velasco"
-              {...form.getInputProps('driverAssigned')}
-            />
-          </SimpleGrid>
-
-          <Textarea
-            label="Remarks"
-            minRows={3}
-            placeholder="Special notes, maintenance reminders, or compliance details"
-            {...form.getInputProps('remarks')}
-          />
-
-          <Group justify="flex-end" gap="sm">
-            <Button variant="default" onClick={onClose} type="button">
-              Cancel
-            </Button>
-            <Button type="submit" loading={isSubmitting}>
-              Add Unit
-            </Button>
-          </Group>
-        </Stack>
+      <form ref={formRef} onSubmit={handleSubmit} noValidate>
+        <FleetUnitFormFields form={form} />
+        <button type="submit" hidden aria-hidden />
       </form>
-    </Modal>
+    </PolishedFormTemplate>
+  );
+}
+
+function FleetUnitFormFields({
+  form,
+}: {
+  form: UseFormReturnType<FleetUnitFormValues>;
+}) {
+  const { getFieldProps, getSelectProps } = usePolishedFormStyles();
+
+  return (
+    <Stack gap="lg">
+      <Divider
+        label={
+          <Text size="sm" fw={600}>
+            🚚 Basic Information
+          </Text>
+        }
+        labelPosition="left"
+      />
+      <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
+        <TextInput
+          label="Vehicle ID"
+          placeholder="TRK-001"
+          required
+          {...form.getInputProps('truckId')}
+          {...getFieldProps('truckId').handlers}
+          styles={getFieldProps('truckId').styles}
+        />
+        <TextInput
+          label="Maker"
+          placeholder="Isuzu"
+          required
+          {...form.getInputProps('maker')}
+          {...getFieldProps('maker').handlers}
+          styles={getFieldProps('maker').styles}
+        />
+        <TextInput
+          label="Model"
+          placeholder="N-Series"
+          required
+          {...form.getInputProps('model')}
+          {...getFieldProps('model').handlers}
+          styles={getFieldProps('model').styles}
+        />
+        <NumberInput
+          label="Model Year"
+          min={1990}
+          max={2100}
+          clampBehavior="strict"
+          required
+          value={form.values.year ? Number(form.values.year) : undefined}
+          onChange={(value) =>
+            form.setFieldValue('year', value ? String(value) : '')
+          }
+          error={form.errors.year}
+          placeholder="2025"
+          {...getFieldProps('year').handlers}
+          styles={getFieldProps('year').styles}
+        />
+        <TextInput
+          label="Plate Number"
+          placeholder="ABC-1234"
+          required
+          {...form.getInputProps('plateNo')}
+          {...getFieldProps('plateNo').handlers}
+          styles={getFieldProps('plateNo').styles}
+        />
+        <TextInput
+          label="Body Number"
+          placeholder="B-1001"
+          {...form.getInputProps('bodyNo')}
+          {...getFieldProps('bodyNo').handlers}
+          styles={getFieldProps('bodyNo').styles}
+        />
+        <TextInput
+          label="Chassis Number"
+          placeholder="CHS-001-XYZ"
+          {...form.getInputProps('chassisNo')}
+          {...getFieldProps('chassisNo').handlers}
+          styles={getFieldProps('chassisNo').styles}
+        />
+        <TextInput
+          label="Engine Number"
+          placeholder="ENG-5678-A"
+          {...form.getInputProps('engineNo')}
+          {...getFieldProps('engineNo').handlers}
+          styles={getFieldProps('engineNo').styles}
+        />
+        <TextInput
+          label="Capacity"
+          placeholder="4.5T"
+          {...form.getInputProps('capacity')}
+          {...getFieldProps('capacity').handlers}
+          styles={getFieldProps('capacity').styles}
+        />
+        <TextInput
+          label="Passenger Capacity"
+          placeholder="3"
+          {...form.getInputProps('passengerCapacity')}
+          {...getFieldProps('passengerCapacity').handlers}
+          styles={getFieldProps('passengerCapacity').styles}
+        />
+        <TextInput
+          label="Gross Weight"
+          placeholder="7500 kg"
+          {...form.getInputProps('grossWeight')}
+          {...getFieldProps('grossWeight').handlers}
+          styles={getFieldProps('grossWeight').styles}
+        />
+        <TextInput
+          label="Net Weight"
+          placeholder="4500 kg"
+          {...form.getInputProps('netWeight')}
+          {...getFieldProps('netWeight').handlers}
+          styles={getFieldProps('netWeight').styles}
+        />
+        <TextInput
+          label="Body Type"
+          placeholder="Closed Van"
+          {...form.getInputProps('bodyType')}
+          {...getFieldProps('bodyType').handlers}
+          styles={getFieldProps('bodyType').styles}
+        />
+        <TextInput
+          label="Series"
+          placeholder="NQR"
+          {...form.getInputProps('series')}
+          {...getFieldProps('series').handlers}
+          styles={getFieldProps('series').styles}
+        />
+        <TextInput
+          label="Classification"
+          placeholder="Light Truck"
+          {...form.getInputProps('classification')}
+          {...getFieldProps('classification').handlers}
+          styles={getFieldProps('classification').styles}
+        />
+        <TextInput
+          label="Vehicle Type"
+          placeholder="Cargo"
+          required
+          {...form.getInputProps('vehicleType')}
+          {...getFieldProps('vehicleType').handlers}
+          styles={getFieldProps('vehicleType').styles}
+        />
+      </SimpleGrid>
+
+      <Divider
+        label={
+          <Text size="sm" fw={600}>
+            📋 Registration & Status
+          </Text>
+        }
+        labelPosition="left"
+      />
+      <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
+        <TextInput
+          label="LTO Register Date"
+          type="date"
+          required
+          {...form.getInputProps('ltoRegisterDate')}
+          {...getFieldProps('ltoRegisterDate').handlers}
+          styles={getFieldProps('ltoRegisterDate').styles}
+        />
+        <TextInput
+          label="OR/CR Info"
+          placeholder="OR-2025-0001"
+          {...form.getInputProps('orCrInfo')}
+          {...getFieldProps('orCrInfo').handlers}
+          styles={getFieldProps('orCrInfo').styles}
+        />
+        <Select
+          label="Fuel Type"
+          data={fuelOptions}
+          placeholder="Select fuel"
+          required
+          {...form.getInputProps('fuelType')}
+          {...getSelectProps('fuelType').handlers}
+          styles={getSelectProps('fuelType').styles}
+          withCheckIcon={false}
+          comboboxProps={{ withinPortal: true, zIndex: 500 }}
+        />
+        <Select
+          label="Status"
+          data={statusOptions}
+          placeholder="Select status"
+          {...form.getInputProps('status')}
+          {...getSelectProps('status').handlers}
+          styles={getSelectProps('status').styles}
+          withCheckIcon={false}
+          comboboxProps={{ withinPortal: true, zIndex: 500 }}
+        />
+        <Select
+          label="Ownership"
+          data={['Company-owned', 'Leased']}
+          placeholder="Select ownership"
+          {...form.getInputProps('ownershipType')}
+          {...getSelectProps('ownershipType').handlers}
+          styles={getSelectProps('ownershipType').styles}
+          withCheckIcon={false}
+          comboboxProps={{ withinPortal: true, zIndex: 500 }}
+        />
+        <TextInput
+          label="Acquisition Date"
+          type="date"
+          {...form.getInputProps('acquisitionDate')}
+          {...getFieldProps('acquisitionDate').handlers}
+          styles={getFieldProps('acquisitionDate').styles}
+        />
+      </SimpleGrid>
+
+      <Divider
+        label={
+          <Text size="sm" fw={600}>
+            💼 Financial & Compliance
+          </Text>
+        }
+        labelPosition="left"
+      />
+      <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
+        <TextInput
+          label="Purchase Cost (₱)"
+          placeholder="1500000"
+          {...form.getInputProps('purchaseCost')}
+          {...getFieldProps('purchaseCost').handlers}
+          styles={getFieldProps('purchaseCost').styles}
+        />
+        <TextInput
+          label="Insurance Provider"
+          placeholder="Allied Insurance"
+          {...form.getInputProps('insuranceProvider')}
+          {...getFieldProps('insuranceProvider').handlers}
+          styles={getFieldProps('insuranceProvider').styles}
+        />
+        <TextInput
+          label="Insurance Expiry"
+          type="date"
+          {...form.getInputProps('insuranceExpiry')}
+          {...getFieldProps('insuranceExpiry').handlers}
+          styles={getFieldProps('insuranceExpiry').styles}
+        />
+      </SimpleGrid>
+
+      <Divider
+        label={
+          <Text size="sm" fw={600}>
+            📍 Assignments & Tracking
+          </Text>
+        }
+        labelPosition="left"
+      />
+      <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
+        <TextInput
+          label="GPS Tracker ID"
+          placeholder="TRK-001-GPS"
+          {...form.getInputProps('gpsTrackerId')}
+          {...getFieldProps('gpsTrackerId').handlers}
+          styles={getFieldProps('gpsTrackerId').styles}
+        />
+        <TextInput
+          label="Depot Location"
+          placeholder="Meycauayan Yard"
+          {...form.getInputProps('depotLocation')}
+          {...getFieldProps('depotLocation').handlers}
+          styles={getFieldProps('depotLocation').styles}
+        />
+        <TextInput
+          label="Assigned Driver"
+          placeholder="Jonas Velasco"
+          {...form.getInputProps('driverAssigned')}
+          {...getFieldProps('driverAssigned').handlers}
+          styles={getFieldProps('driverAssigned').styles}
+        />
+      </SimpleGrid>
+
+      <Textarea
+        label="Remarks"
+        minRows={3}
+        placeholder="Special notes, maintenance reminders, or compliance details"
+        {...form.getInputProps('remarks')}
+        {...getFieldProps('remarks').handlers}
+        styles={getFieldProps('remarks').styles}
+      />
+    </Stack>
   );
 }

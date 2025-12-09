@@ -272,6 +272,7 @@ interface StandardTableControlsProps {
    * Optional: Make search input expand to full width
    */
   expandSearch?: boolean;
+  searchAddon?: ReactNode;
 }
 
 export const StandardTableControls = memo(function StandardTableControls({
@@ -289,6 +290,7 @@ export const StandardTableControls = memo(function StandardTableControls({
   acceptFileTypes = '.csv,text/csv',
   enableCtrlF = true,
   expandSearch = false,
+  searchAddon,
 }: StandardTableControlsProps) {
   const [searchValue, setSearchValue] = useState('');
   const ctrlFId = useId();
@@ -328,19 +330,28 @@ export const StandardTableControls = memo(function StandardTableControls({
       wrap="wrap"
       style={expandSearch ? { gap: '0.5rem', width: '100%' } : undefined}
     >
-      {!hideSearch && (
-        <TextInput
-          placeholder={
-            ctrlFFocusEnabled
-              ? `${searchPlaceholder} (Ctrl+F)`
-              : searchPlaceholder
-          }
-          leftSection={<IconSearch size={16} />}
-          value={searchValue}
-          onChange={handleSearchChange}
+      {(!hideSearch || searchAddon) && (
+        <Group
+          gap="sm"
+          align="flex-end"
           style={expandSearch ? { width: '100%' } : { flex: 1 }}
-          data-ctrlf-target={searchTarget}
-        />
+        >
+          {!hideSearch && (
+            <TextInput
+              placeholder={
+                ctrlFFocusEnabled
+                  ? `${searchPlaceholder} (Ctrl+F)`
+                  : searchPlaceholder
+              }
+              leftSection={<IconSearch size={16} />}
+              value={searchValue}
+              onChange={handleSearchChange}
+              style={{ flex: 1 }}
+              data-ctrlf-target={searchTarget}
+            />
+          )}
+          {searchAddon}
+        </Group>
       )}
       <Group gap="sm">
         {!hideImport && (

@@ -12,7 +12,7 @@ export interface Workspace {
   id: string;
   name: string;
   businessId: string;
-  type: 'operations' | 'employees';
+  type: 'operations' | 'employees' | 'expenses';
 }
 
 export interface NavigationItem {

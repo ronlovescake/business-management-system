@@ -6,6 +6,7 @@
     "clean:next": "bash scripts/clean-dev-cache.sh",
     "dev": "next dev --turbo -H 0.0.0.0 -p 5001",
     "dev:webpack": "TURBOPACK=0 next dev -H 0.0.0.0 -p 5001",
+    "dev:playwright": "TURBOPACK=1 next dev --turbo -H 0.0.0.0 -p 3100",
     "dev:clean": "npm run clean:next && npm run dev",
     "typecheck": "tsc --pretty --noEmit",
     "prebuild": "node scripts/check-required-env.js && npm run lint && npm run typecheck && npm run clean:next",

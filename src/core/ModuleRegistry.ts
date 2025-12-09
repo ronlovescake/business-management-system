@@ -25,7 +25,7 @@ export interface ModuleNavigation {
   icon: IconComponent;
   path: string;
   order: number;
-  workspace?: ('operations' | 'employees')[];
+  workspace?: ('operations' | 'employees' | 'expenses')[];
   business?: ('clothing' | 'trucking')[];
 }
 
@@ -174,7 +174,7 @@ class ModuleRegistry {
    */
   getForContext(
     business: 'clothing' | 'trucking',
-    workspace: 'operations' | 'employees'
+    workspace: 'operations' | 'employees' | 'expenses'
   ): ModuleConfig[] {
     return this.getEnabled().filter((module) => {
       const navItems = module.navigation || [];
@@ -191,7 +191,7 @@ class ModuleRegistry {
    */
   getNavigation(
     business: 'clothing' | 'trucking',
-    workspace: 'operations' | 'employees'
+    workspace: 'operations' | 'employees' | 'expenses'
   ): ModuleNavigation[] {
     const modules = this.getForContext(business, workspace);
 

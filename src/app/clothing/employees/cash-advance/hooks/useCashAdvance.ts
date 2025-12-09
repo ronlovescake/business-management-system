@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
-import { assertApiSuccess, getApiDataOrThrow } from '@/lib/api/response';
 import { queryKeys } from '@/lib/queryKeys';
 import { showError, showDeleteConfirm } from '@/lib/alerts';
 import type {
@@ -13,7 +12,6 @@ import type {
 } from '../types';
 import { getCurrentDateISO, formatDisplayDate } from '@/utils/date';
 import { FormatterService } from '@/services/FormatterService';
-import type { ApiResponse } from '@/types/api';
 
 export interface EmployeeOption {
   value: string;
@@ -160,11 +158,7 @@ export function useCashAdvance() {
   } = useQuery({
     queryKey: queryKeys.cashAdvances.list(filters),
     queryFn: async () => {
-      const response =
-        await api.get<ApiResponse<CashAdvanceApiRecord[]>>(
-          '/api/cash-advances'
-        );
-      const data = getApiDataOrThrow(response, 'Failed to fetch cash advances');
+      const data = await api.get<CashAdvanceApiRecord[]>('/api/cash-advances');
 
       if (!Array.isArray(data)) {
         throw new Error('Cash advance response was not an array');
@@ -283,11 +277,10 @@ export function useCashAdvance() {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await api.delete<ApiResponse<{ id: string }>>(
+      const response = await api.delete<{ id: string }>(
         `/api/cash-advances?id=${id}`
       );
-      assertApiSuccess(response, 'Failed to delete cash advance');
-      return response.data?.id ?? id;
+      return response?.id ?? id;
     },
     onMutate: async (deletedId) => {
       await queryClient.cancelQueries({
@@ -337,21 +330,15 @@ export function useCashAdvance() {
       payload: Record<string, unknown>;
     }) => {
       if (isUpdate) {
-        const updatedResponse = await api.put<
-          ApiResponse<CashAdvanceApiRecord>
-        >('/api/cash-advances', payload);
-        const updated = getApiDataOrThrow(
-          updatedResponse,
-          'Failed to update cash advance'
+        const updated = await api.put<CashAdvanceApiRecord>(
+          '/api/cash-advances',
+          payload
         );
         return mapApiRecordToCashAdvance(updated);
       } else {
-        const createdResponse = await api.post<
-          ApiResponse<CashAdvanceApiRecord>
-        >('/api/cash-advances', payload);
-        const created = getApiDataOrThrow(
-          createdResponse,
-          'Failed to create cash advance'
+        const created = await api.post<CashAdvanceApiRecord>(
+          '/api/cash-advances',
+          payload
         );
         return mapApiRecordToCashAdvance(created);
       }
@@ -432,13 +419,9 @@ export function useCashAdvance() {
   // Update status mutation (approve/reject/mark paid)
   const updateStatusMutation = useMutation({
     mutationFn: async (payload: { id: string } & Record<string, unknown>) => {
-      const updatedResponse = await api.put<ApiResponse<CashAdvanceApiRecord>>(
+      const updated = await api.put<CashAdvanceApiRecord>(
         '/api/cash-advances',
         payload
-      );
-      const updated = getApiDataOrThrow(
-        updatedResponse,
-        'Failed to update cash advance'
       );
       return mapApiRecordToCashAdvance(updated);
     },
@@ -691,11 +674,7 @@ export function useCashAdvance() {
       // Bulk create via API
       try {
         for (const record of imported) {
-          const response = await api.post<ApiResponse<CashAdvanceApiRecord>>(
-            '/api/cash-advances',
-            record
-          );
-          assertApiSuccess(response, 'Failed to import cash advance');
+          await api.post<CashAdvanceApiRecord>('/api/cash-advances', record);
         }
 
         // Invalidate to refetch

@@ -13,6 +13,7 @@ export const CashAdvanceStatusSchema = z.enum([
   'pending',
   'approved',
   'rejected',
+  'paid',
   'settled',
 ]);
 export type CashAdvanceStatus = z.infer<typeof CashAdvanceStatusSchema>;

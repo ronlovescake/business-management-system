@@ -5,6 +5,7 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import { FleetRegistryStatsCards } from './FleetRegistryStatsCards';
 import { FleetRegistryControlPanel } from './FleetRegistryControlPanel';
 import { FleetRegistryTable } from './FleetRegistryTable';
+import { FleetUnitFormModal } from './FleetUnitFormModal';
 import { useFleetRegistryDashboard } from '../hooks/useFleetRegistryDashboard';
 
 export function FleetRegistryPage() {
@@ -16,6 +17,7 @@ export function FleetRegistryPage() {
     collections,
     actions,
     getStatusColor,
+    modal,
   } = useFleetRegistryDashboard();
 
   return (
@@ -58,9 +60,15 @@ export function FleetRegistryPage() {
           summary={summary}
           height="74vh"
           getStatusColor={getStatusColor}
-          onView={actions.handleView}
-          onEdit={actions.handleEdit}
-          onRetire={actions.handleRetire}
+          onRowDoubleClick={actions.handleView}
+        />
+
+        <FleetUnitFormModal
+          opened={modal.opened}
+          initialValues={modal.initialValues}
+          onClose={modal.onClose}
+          onSubmit={modal.onSubmit}
+          isSubmitting={modal.isSubmitting}
         />
       </Stack>
     </PageLayout>

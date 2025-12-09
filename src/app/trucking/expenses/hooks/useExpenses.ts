@@ -1,10 +1,38 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { showNotification } from '@mantine/notifications';
 import { logger } from '@/lib/logger';
 import { useTruckingExpenseData } from '@/hooks/useSheetData';
-import { showNotification } from '@mantine/notifications';
 import { getCurrentDateISO } from '@/utils/date';
 import { showError, showDeleteConfirm } from '@/lib/alerts';
+import type { FleetRegistryRecord } from '@/modules/trucking/operations/fleet-registry/types/fleetRegistry.types';
+
+type VehicleOption = { value: string; label: string };
+
+const buildVehicleOptions = (
+  records: FleetRegistryRecord[]
+): VehicleOption[] => {
+  const deduped = new Map<string, string>();
+
+  records.forEach((record) => {
+    const truckId = record.truckId?.trim();
+    if (!truckId) {
+      return;
+    }
+
+    const descriptor = [record.maker, record.model]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+
+    const label = descriptor ? `${truckId} — ${descriptor}` : truckId;
+    deduped.set(truckId, label);
+  });
+
+  return Array.from(deduped.entries())
+    .map(([value, label]) => ({ value, label }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+};
 
 /**
  * Expense Interface
@@ -87,7 +115,9 @@ export function useExpenses() {
 
   // Convert from database format to UI format
   const expenses = useMemo(() => {
-    return expensesFromDB.map((exp) => ({
+    const source = Array.isArray(expensesFromDB) ? expensesFromDB : [];
+
+    return source.map((exp) => ({
       id: String(exp.id),
       date: exp.date,
       amount: exp.amount,
@@ -131,6 +161,8 @@ export function useExpenses() {
 
   // Store receipt files as data URLs
   const [receiptFiles, setReceiptFiles] = useState<Record<string, string>>({});
+  const [vehicleOptions, setVehicleOptions] = useState<VehicleOption[]>([]);
+  const [isLoadingVehicles, setIsLoadingVehicles] = useState(false);
 
   // ============================================================================
   // CONSTANTS
@@ -153,6 +185,46 @@ export function useExpenses() {
     ],
     []
   );
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchVehicleOptions = async () => {
+      setIsLoadingVehicles(true);
+      try {
+        const response = await fetch('/api/trucking/fleet-vehicles', {
+          cache: 'no-store',
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to load fleet vehicles');
+        }
+
+        const payload = (await response.json()) as {
+          data?: FleetRegistryRecord[];
+        };
+
+        if (isMounted) {
+          setVehicleOptions(buildVehicleOptions(payload.data ?? []));
+        }
+      } catch (error) {
+        logger.error(
+          'Unable to load fleet vehicles for trucking expenses',
+          error
+        );
+      } finally {
+        if (isMounted) {
+          setIsLoadingVehicles(false);
+        }
+      }
+    };
+
+    void fetchVehicleOptions();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // ============================================================================
   // COMPUTED VALUES
@@ -768,6 +840,8 @@ export function useExpenses() {
 
     // Computed values
     categories,
+    vehicleOptions,
+    isLoadingVehicles,
     totalExpenses,
     pendingExpenses,
     approvedExpenses,

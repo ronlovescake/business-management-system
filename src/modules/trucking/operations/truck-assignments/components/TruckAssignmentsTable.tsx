@@ -44,7 +44,7 @@ export function TruckAssignmentsTable({
 }: TruckAssignmentsTableProps) {
   const columns: TableColumn<TruckAssignmentRecord>[] = useMemo(
     () => [
-      { key: 'truckId', label: 'Truck ID' },
+      { key: 'truckId', label: 'Vehicle ID' },
       { key: 'plateNo', label: 'Plate No.' },
       { key: 'driver', label: 'Driver' },
       { key: 'helper', label: 'Helper' },

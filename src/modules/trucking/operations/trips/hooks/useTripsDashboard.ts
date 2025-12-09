@@ -218,7 +218,7 @@ export function useTripsDashboard() {
     const headers = [
       'ID',
       'Date',
-      'Truck ID',
+      'Vehicle ID',
       'Driver',
       'Helper',
       'Gross Revenue',

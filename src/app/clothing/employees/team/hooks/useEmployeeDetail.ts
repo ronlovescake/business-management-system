@@ -14,7 +14,7 @@ import type { ApiResponse } from '@/types/api';
 /**
  * Custom hook for employee detail page - React Query version
  */
-interface EmployeePayrollRecord {
+export interface EmployeePayrollRecord {
   id: string;
   payPeriod: string;
   periodStart?: string | null;

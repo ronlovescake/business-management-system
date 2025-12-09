@@ -51,7 +51,7 @@ const formatDate = (value: string) =>
 
 const baseColumns: TableColumn<TripRecord>[] = [
   { key: 'date', label: 'Date', render: (item) => formatDate(item.date) },
-  { key: 'truckId', label: 'Truck ID' },
+  { key: 'truckId', label: 'Vehicle ID' },
   {
     key: 'grossRevenue',
     label: 'Gross Revenue',

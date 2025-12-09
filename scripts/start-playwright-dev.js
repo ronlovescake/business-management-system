@@ -16,9 +16,10 @@ const env = {
   PLAYWRIGHT_ENV_FILE: envFile,
   PORT: process.env.PORT || '3100',
   NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'http://localhost:3100',
+  TURBOPACK: process.env.TURBOPACK ?? '1',
 };
 
-const devScript = process.env.PLAYWRIGHT_DEV_SCRIPT || 'dev';
+const devScript = process.env.PLAYWRIGHT_DEV_SCRIPT || 'dev:playwright';
 console.log(`▶ Starting Next.js via npm run ${devScript}`);
 
 const child = spawn(

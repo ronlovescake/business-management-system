@@ -1,41 +1,34 @@
 'use client';
 
 import { Button, Menu } from '@mantine/core';
-import { IconChevronDown, IconUsers, IconSettings } from '@tabler/icons-react';
+import { IconChevronDown } from '@tabler/icons-react';
 import { useBusinessStore } from '../../lib/store';
+import {
+  getWorkspacesForBusiness,
+  isBusiness,
+  type WorkspaceDefinition,
+} from './navigationItems';
 
 export function WorkspaceSelector() {
   const { selectedBusiness, selectedWorkspace, setSelectedWorkspace } =
     useBusinessStore();
 
-  const getWorkspaces = () => {
-    if (selectedBusiness === 'clothing') {
-      return [
-        { value: 'operations', label: 'Operations', icon: IconSettings },
-        { value: 'employees', label: 'Employees', icon: IconUsers },
-      ];
-    }
-    if (selectedBusiness === 'trucking') {
-      return [
-        { value: 'operations', label: 'Operations', icon: IconSettings },
-        { value: 'employees', label: 'Employees', icon: IconUsers },
-      ];
-    }
-    return [];
-  };
-
-  if (!selectedBusiness) {
+  if (!isBusiness(selectedBusiness)) {
     return null;
   }
 
-  const workspaces = getWorkspaces();
+  const workspaces = getWorkspacesForBusiness(selectedBusiness);
+  if (workspaces.length === 0) {
+    return null;
+  }
+
   const currentWorkspace = workspaces.find(
     (w) => w.value === selectedWorkspace
   );
-  const otherWorkspaces = workspaces.filter(
-    (w) => w.value !== selectedWorkspace
-  );
-  const CurrentIcon = currentWorkspace?.icon || IconSettings;
+  const otherWorkspaces: WorkspaceDefinition[] = currentWorkspace
+    ? workspaces.filter((w) => w.value !== selectedWorkspace)
+    : [];
+  const CurrentIcon = currentWorkspace?.icon ?? workspaces[0].icon;
 
   return (
     <Menu shadow="md" width={200}>

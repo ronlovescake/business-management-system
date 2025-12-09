@@ -37,6 +37,12 @@ import {
   DetailsPageTemplate,
   type DetailsTabConfig,
 } from '@/modules/shared/details';
+import { FleetUnitFormModal } from './FleetUnitFormModal';
+import type { FleetUnitFormValues } from '../types/fleetRegistry.types';
+import {
+  createDefaultFleetUnitFormValues,
+  recordToFleetUnitFormValues,
+} from '../utils/formTransforms';
 
 interface VehicleDetailsPageProps {
   vehicleId: string;
@@ -63,11 +69,15 @@ const convertFileToBase64 = (file: File): Promise<string> =>
 
 export function VehicleDetailsPage({ vehicleId }: VehicleDetailsPageProps) {
   const router = useRouter();
-  const { vehicle, quickStats, sections, statusColor } =
+  const { vehicle, quickStats, sections, statusColor, refresh } =
     useFleetVehicleDetails(vehicleId);
   const [vehiclePhoto, setVehiclePhoto] = useState<string | null>(null);
   const [isPhotoUploading, setIsPhotoUploading] = useState(false);
   const [isPhotoHovered, setIsPhotoHovered] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editInitialValues, setEditInitialValues] =
+    useState<FleetUnitFormValues>(createDefaultFleetUnitFormValues());
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
 
   const handleBack = useCallback(() => {
     router.push('/trucking/operations/fleet-registry');
@@ -78,11 +88,67 @@ export function VehicleDetailsPage({ vehicleId }: VehicleDetailsPageProps) {
       return;
     }
 
-    showNotification({
-      title: 'Edit vehicle',
-      message: `${vehicle.truckId} edit flow coming soon.`,
-    });
+    setEditInitialValues(recordToFleetUnitFormValues(vehicle));
+    setIsEditModalOpen(true);
   }, [vehicle]);
+
+  const handleCloseEditModal = useCallback(() => {
+    setIsEditModalOpen(false);
+  }, []);
+
+  const handleSubmitEdit = useCallback(
+    async (values: FleetUnitFormValues) => {
+      if (!vehicle) {
+        showNotification({
+          color: 'red',
+          title: 'Vehicle unavailable',
+          message: 'Unable to determine which vehicle to update.',
+        });
+        return;
+      }
+
+      setIsSubmittingEdit(true);
+      try {
+        const response = await fetch(
+          `/api/trucking/fleet-vehicles/${encodeURIComponent(vehicle.truckId)}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(values),
+          }
+        );
+
+        const payload = (await response.json().catch(() => ({}))) as {
+          data?: { truckId: string };
+          error?: string;
+        };
+
+        if (!response.ok || !payload.data) {
+          throw new Error(payload.error || 'Failed to update vehicle');
+        }
+
+        showNotification({
+          color: 'green',
+          title: 'Vehicle updated',
+          message: `${payload.data.truckId} details saved successfully.`,
+        });
+
+        setIsEditModalOpen(false);
+        await refresh();
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Could not update vehicle';
+        showNotification({
+          color: 'red',
+          title: 'Update failed',
+          message,
+        });
+      } finally {
+        setIsSubmittingEdit(false);
+      }
+    },
+    [refresh, vehicle]
+  );
 
   const handlePhotoChange = useCallback(
     async (file: File | null) => {
@@ -318,11 +384,25 @@ export function VehicleDetailsPage({ vehicleId }: VehicleDetailsPageProps) {
   }
 
   return (
-    <DetailsPageTemplate
-      header={header}
-      heroSection={heroSection}
-      tabs={detailsTabs}
-      defaultTab="overview"
-    />
+    <>
+      <DetailsPageTemplate
+        header={header}
+        heroSection={heroSection}
+        tabs={detailsTabs}
+        defaultTab="overview"
+      />
+      <FleetUnitFormModal
+        opened={isEditModalOpen}
+        onClose={handleCloseEditModal}
+        initialValues={editInitialValues}
+        onSubmit={handleSubmitEdit}
+        isSubmitting={isSubmittingEdit}
+        title="Edit Fleet Unit"
+        subtitle="Update this vehicle's information"
+        icon={<IconPencil size={26} color="#65ab58" />}
+        primaryActionLabel="Save Changes"
+        secondaryActionLabel="Close"
+      />
+    </>
   );
 }

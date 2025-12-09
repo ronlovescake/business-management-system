@@ -16,7 +16,7 @@ type PolishedModalProps = Omit<ModalProps, 'children'> & {
  */
 export function PolishedModal({
   children,
-  radius = 'xl',
+  radius = 'md',
   padding = 'xl',
   centered = true,
   closeOnClickOutside = false,

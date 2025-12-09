@@ -249,9 +249,9 @@ export const RequestFormDialog = React.memo(function RequestFormDialog({
               ...withHiddenError(amountField.styles),
               input: {
                 ...amountField.styles.input,
-                '&::-webkit-inner-spin-button': {
-                  display: 'none',
-                },
+                appearance: 'textfield',
+                WebkitAppearance: 'none',
+                MozAppearance: 'textfield',
               },
             }}
             style={{ flex: 1 }}
@@ -320,9 +320,9 @@ export const RequestFormDialog = React.memo(function RequestFormDialog({
               ...withHiddenError(termsField.styles),
               input: {
                 ...termsField.styles.input,
-                '&::-webkit-inner-spin-button': {
-                  display: 'none',
-                },
+                appearance: 'textfield',
+                WebkitAppearance: 'none',
+                MozAppearance: 'textfield',
               },
             }}
           />
@@ -345,9 +345,9 @@ export const RequestFormDialog = React.memo(function RequestFormDialog({
               ...withHiddenError(monthlyPaymentField.styles),
               input: {
                 ...monthlyPaymentField.styles.input,
-                '&::-webkit-inner-spin-button': {
-                  display: 'none',
-                },
+                appearance: 'textfield',
+                WebkitAppearance: 'none',
+                MozAppearance: 'textfield',
               },
             }}
           />

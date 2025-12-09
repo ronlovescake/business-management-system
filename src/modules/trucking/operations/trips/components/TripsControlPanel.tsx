@@ -1,5 +1,15 @@
-import { memo } from 'react';
-import { Group, TextInput, Select, FileButton, Button } from '@mantine/core';
+import { memo, useState } from 'react';
+import {
+  Group,
+  TextInput,
+  Select,
+  FileButton,
+  Button,
+  Stack,
+  SimpleGrid,
+  Card,
+  Text,
+} from '@mantine/core';
 import {
   IconRoute,
   IconSearch,
@@ -9,6 +19,7 @@ import {
   IconDownload,
   IconPlus,
   IconCalendarStats,
+  IconChartBar,
 } from '@tabler/icons-react';
 import {
   ControlPanelCard,
@@ -32,6 +43,20 @@ interface TripsControlPanelProps {
   onExportCSV: () => void;
   onAddTrip: () => void;
   isImporting: boolean;
+  analyticsSummary: TripsAnalyticsSummary;
+  formatCurrency: (value: number) => string;
+}
+
+interface TripsAnalyticsSummary {
+  totalTrips: number;
+  filteredTrips: number;
+  tripsThisMonth: number;
+  totalRevenue: number;
+  totalExpenses: number;
+  netIncome: number;
+  filteredRevenue: number;
+  filteredExpenses: number;
+  filteredNet: number;
 }
 
 const dateRangeOptions = [
@@ -55,8 +80,47 @@ export const TripsControlPanel = memo(function TripsControlPanel({
   onExportCSV,
   onAddTrip,
   isImporting,
+  analyticsSummary,
+  formatCurrency,
 }: TripsControlPanelProps) {
   useCtrlFFocus('[data-ctrlf-target="trips-search"]', true);
+  const [activeTab, setActiveTab] = useState<'trips' | 'analytics'>('trips');
+
+  const analyticsMetrics = [
+    {
+      label: 'Total Trips Logged',
+      value: analyticsSummary.totalTrips.toLocaleString(),
+    },
+    {
+      label: 'Trips This Month',
+      value: analyticsSummary.tripsThisMonth.toLocaleString(),
+    },
+    {
+      label: 'Filtered Trips',
+      value: analyticsSummary.filteredTrips.toLocaleString(),
+    },
+    {
+      label: 'Gross Revenue (All Time)',
+      value: formatCurrency(analyticsSummary.totalRevenue),
+    },
+    {
+      label: 'Total Expenses (All Time)',
+      value: formatCurrency(analyticsSummary.totalExpenses),
+    },
+    {
+      label: 'Net Income (All Time)',
+      value: formatCurrency(analyticsSummary.netIncome),
+    },
+  ];
+
+  const overallMargin =
+    analyticsSummary.totalRevenue > 0
+      ? (analyticsSummary.netIncome / analyticsSummary.totalRevenue) * 100
+      : 0;
+  const filteredMargin =
+    analyticsSummary.filteredRevenue > 0
+      ? (analyticsSummary.filteredNet / analyticsSummary.filteredRevenue) * 100
+      : 0;
 
   const tabs: ControlPanelTabConfig[] = [
     {
@@ -147,14 +211,56 @@ export const TripsControlPanel = memo(function TripsControlPanel({
         </Group>
       ),
     },
+    {
+      value: 'analytics',
+      label: 'Analytics',
+      leftSection: <IconChartBar size={16} />,
+      panel: (
+        <Stack gap="md">
+          <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
+            {analyticsMetrics.map((metric) => (
+              <Card key={metric.label} shadow="sm" radius="md" padding="md">
+                <Stack gap={2}>
+                  <Text size="xs" c="dimmed" fw={500} tt="uppercase">
+                    {metric.label}
+                  </Text>
+                  <Text size="lg" fw={600}>
+                    {metric.value}
+                  </Text>
+                </Stack>
+              </Card>
+            ))}
+          </SimpleGrid>
+
+          <Card shadow="sm" radius="md" padding="md">
+            <Stack gap="xs">
+              <Text size="sm" c="dimmed">
+                Filtered view revenue vs expenses
+              </Text>
+              <Text fw={600}>
+                {formatCurrency(analyticsSummary.filteredRevenue)} revenue ·{' '}
+                {formatCurrency(analyticsSummary.filteredExpenses)} expenses ·{' '}
+                {formatCurrency(analyticsSummary.filteredNet)} net
+              </Text>
+              <Text size="sm" c="dimmed">
+                Overall net margin {overallMargin.toFixed(1)}% · Filtered net
+                margin {filteredMargin.toFixed(1)}%
+              </Text>
+            </Stack>
+          </Card>
+        </Stack>
+      ),
+    },
   ];
 
   return (
     <ControlPanelCard
       title="Trip Records"
       tabs={tabs}
-      activeTab="trips"
-      onTabChange={() => undefined}
+      activeTab={activeTab}
+      onTabChange={(value) =>
+        setActiveTab((value as 'trips' | 'analytics') || 'trips')
+      }
     />
   );
 });

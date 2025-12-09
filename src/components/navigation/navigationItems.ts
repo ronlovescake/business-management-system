@@ -16,8 +16,81 @@ import {
 import { moduleRegistry } from '@/modules';
 import type { IconComponent } from '@/core/ModuleRegistry';
 
-export type WorkspaceType = 'operations' | 'employees';
+export type WorkspaceType = 'operations' | 'employees' | 'expenses';
 export type BusinessType = 'clothing' | 'trucking';
+
+export interface WorkspaceDefinition {
+  value: WorkspaceType;
+  label: string;
+  icon: IconComponent;
+  color: string;
+  businesses: BusinessType[];
+  description?: string;
+}
+
+export const BUSINESS_OPTIONS: ReadonlyArray<{
+  value: BusinessType;
+  label: string;
+}> = [
+  { value: 'clothing', label: 'Czarlie & Ron Clothing' },
+  { value: 'trucking', label: 'Czarlie & Ron Trucking' },
+];
+
+export const isBusiness = (
+  value: string | null | undefined
+): value is BusinessType => value === 'clothing' || value === 'trucking';
+
+const WORKSPACE_DEFINITIONS: WorkspaceDefinition[] = [
+  {
+    value: 'operations',
+    label: 'Operations',
+    icon: IconSettings as IconComponent,
+    color: 'blue',
+    businesses: ['clothing', 'trucking'],
+  },
+  {
+    value: 'employees',
+    label: 'Employees',
+    icon: IconUsers as IconComponent,
+    color: 'green',
+    businesses: ['clothing', 'trucking'],
+  },
+  {
+    value: 'expenses',
+    label: 'Expenses',
+    icon: IconReceipt as IconComponent,
+    color: 'grape',
+    businesses: ['trucking'],
+    description: 'Standalone trucking expenses workspace',
+  },
+];
+
+export function getWorkspacesForBusiness(
+  business?: BusinessType | null
+): WorkspaceDefinition[] {
+  if (!business) {
+    return [];
+  }
+  return WORKSPACE_DEFINITIONS.filter((workspace) =>
+    workspace.businesses.includes(business)
+  );
+}
+
+export function getWorkspaceDefinition(
+  value?: string | null
+): WorkspaceDefinition | undefined {
+  if (!value) {
+    return undefined;
+  }
+  return WORKSPACE_DEFINITIONS.find((workspace) => workspace.value === value);
+}
+
+export function isWorkspace(value?: string | null): value is WorkspaceType {
+  if (!value) {
+    return false;
+  }
+  return WORKSPACE_DEFINITIONS.some((workspace) => workspace.value === value);
+}
 
 export interface NavigationItem {
   label: string;
@@ -184,6 +257,17 @@ export function buildNavigationItems(
     ];
 
     additionalItems.push(...employeeItems);
+  }
+
+  if (workspace === 'expenses') {
+    if (business === 'trucking') {
+      additionalItems.push({
+        label: 'Expenses',
+        path: basePath,
+        icon: IconReceipt as IconComponent,
+        order: 0,
+      });
+    }
   }
 
   const seenPaths = new Set<string>();

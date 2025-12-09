@@ -25,6 +25,7 @@ interface FleetRegistryTableProps {
   height?: string;
   summary?: FleetRegistrySummary;
   getStatusColor: (status: FleetStatus) => string;
+  onRowDoubleClick?: (record: FleetRegistryRecord) => void;
 }
 
 export function FleetRegistryTable({
@@ -33,10 +34,11 @@ export function FleetRegistryTable({
   height = '74vh',
   summary,
   getStatusColor,
+  onRowDoubleClick,
 }: FleetRegistryTableProps) {
   const columns: TableColumn<FleetRegistryRecord>[] = useMemo(
     () => [
-      { key: 'truckId', label: 'Truck ID' },
+      { key: 'truckId', label: 'Vehicle ID' },
       { key: 'maker', label: 'Maker' },
       { key: 'model', label: 'Model' },
       { key: 'year', label: 'Year' },
@@ -99,6 +101,7 @@ export function FleetRegistryTable({
       showSummary={Boolean(summary)}
       summaryLeft={summaryLeft}
       summaryRight={summaryRight}
+      onRowDoubleClick={onRowDoubleClick}
     />
   );
 }

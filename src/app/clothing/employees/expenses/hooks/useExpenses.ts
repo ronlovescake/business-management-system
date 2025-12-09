@@ -87,7 +87,9 @@ export function useExpenses() {
 
   // Convert from database format to UI format
   const expenses = useMemo(() => {
-    return expensesFromDB.map((exp) => ({
+    const source = Array.isArray(expensesFromDB) ? expensesFromDB : [];
+
+    return source.map((exp) => ({
       id: String(exp.id),
       date: exp.date,
       amount: exp.amount,

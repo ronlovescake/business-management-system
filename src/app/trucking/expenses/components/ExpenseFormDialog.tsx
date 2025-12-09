@@ -45,6 +45,7 @@ interface ExpenseFormDialogProps {
   onClose: () => void;
   editingExpense: Expense | null;
   categories: string[];
+  vehicleOptions: Array<{ value: string; label: string }>;
 
   // Form state
   formDate: string;
@@ -86,6 +87,7 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
   formReceipt,
   setFormReceipt,
   onSave,
+  vehicleOptions,
 }: ExpenseFormDialogProps) {
   // Validation
   const isValid = formDate && formAmount && formDescription && formCategory;
@@ -96,7 +98,7 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
   const dateField = getFieldProps('date');
   const categorySelect = getSelectProps('category');
   const amountField = getFieldProps('amount');
-  const tripIdField = getFieldProps('tripId');
+  const vehicleSelect = getSelectProps('tripId');
   const descriptionField = getFieldProps('description');
   const notesField = getTextareaProps('notes');
 
@@ -164,12 +166,20 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
               {...amountField.handlers}
               styles={amountField.styles}
             />
-            <TextInput
-              label="Trip ID (Optional)"
-              value={formTripId}
-              onChange={(e) => setFormTripId(e.target.value)}
-              {...tripIdField.handlers}
-              styles={tripIdField.styles}
+            <Select
+              label="Vehicle ID (Optional)"
+              placeholder={
+                vehicleOptions.length ? 'Select vehicle' : 'No vehicles found'
+              }
+              data={vehicleOptions}
+              value={formTripId || null}
+              onChange={(value) => setFormTripId(value || '')}
+              searchable
+              allowDeselect
+              {...vehicleSelect.handlers}
+              styles={vehicleSelect.styles}
+              withCheckIcon={false}
+              comboboxProps={{ withinPortal: true, zIndex: 500 }}
             />
           </Group>
 

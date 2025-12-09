@@ -11,8 +11,6 @@ import {
 } from '@mantine/core';
 import {
   IconChevronDown,
-  IconUsers,
-  IconSettings,
   IconHome,
   IconShirt,
   IconTruck,
@@ -21,11 +19,12 @@ import { useBusinessStore } from '../../lib/store';
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { getIconButtonLabel } from '@/lib/accessibility';
-
-const businesses = [
-  { value: 'clothing', label: 'Czarlie & Ron Clothing' },
-  { value: 'trucking', label: 'Czarlie & Ron Trucking' },
-];
+import {
+  BUSINESS_OPTIONS,
+  getWorkspacesForBusiness,
+  isBusiness,
+  type WorkspaceDefinition,
+} from './navigationItems';
 
 export function BreadcrumbNavigation() {
   const {
@@ -44,26 +43,12 @@ export function BreadcrumbNavigation() {
     }
   }, [pathname, selectedBusiness, selectedWorkspace, initializeFromPath]);
 
-  const currentBusiness = businesses.find((b) => b.value === selectedBusiness);
-  const otherBusinesses = businesses.filter(
+  const currentBusiness = BUSINESS_OPTIONS.find(
+    (b) => b.value === selectedBusiness
+  );
+  const otherBusinesses = BUSINESS_OPTIONS.filter(
     (b) => b.value !== selectedBusiness
   );
-
-  const getWorkspaces = () => {
-    if (selectedBusiness === 'clothing') {
-      return [
-        { value: 'operations', label: 'Operations', icon: IconSettings },
-        { value: 'employees', label: 'Employees', icon: IconUsers },
-      ];
-    }
-    if (selectedBusiness === 'trucking') {
-      return [
-        { value: 'operations', label: 'Operations', icon: IconSettings },
-        { value: 'employees', label: 'Employees', icon: IconUsers },
-      ];
-    }
-    return [];
-  };
 
   const getCurrentPageName = () => {
     if (!pathname || pathname === '/') {
@@ -83,13 +68,15 @@ export function BreadcrumbNavigation() {
       .join(' ');
   };
 
-  const workspaces = getWorkspaces();
+  const workspaces = isBusiness(selectedBusiness)
+    ? getWorkspacesForBusiness(selectedBusiness)
+    : [];
   const currentWorkspace = workspaces.find(
     (w) => w.value === selectedWorkspace
   );
-  const otherWorkspaces = workspaces.filter(
-    (w) => w.value !== selectedWorkspace
-  );
+  const otherWorkspaces: WorkspaceDefinition[] = currentWorkspace
+    ? workspaces.filter((w) => w.value !== selectedWorkspace)
+    : workspaces;
 
   const breadcrumbItems = [
     // Business Level
@@ -132,7 +119,7 @@ export function BreadcrumbNavigation() {
               </Menu.Item>
             ))
           : // Show all businesses when none is selected
-            businesses.map((business) => (
+            BUSINESS_OPTIONS.map((business) => (
               <Menu.Item
                 key={business.value}
                 onClick={() => setSelectedBusiness(business.value)}
@@ -188,9 +175,7 @@ export function BreadcrumbNavigation() {
                         size="sm"
                         radius="sm"
                         variant="light"
-                        color={
-                          workspace.value === 'operations' ? 'blue' : 'green'
-                        }
+                        color={workspace.color}
                       >
                         <WorkspaceIcon size={14} />
                       </ThemeIcon>
@@ -212,9 +197,7 @@ export function BreadcrumbNavigation() {
                         size="sm"
                         radius="sm"
                         variant="light"
-                        color={
-                          workspace.value === 'operations' ? 'blue' : 'green'
-                        }
+                        color={workspace.color}
                       >
                         <WorkspaceIcon size={14} />
                       </ThemeIcon>

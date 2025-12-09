@@ -298,9 +298,9 @@ export const LoanFormDialog = React.memo(function LoanFormDialog({
               input: {
                 ...interestRateField.styles.input,
                 fontWeight: 600,
-                '&::-webkit-inner-spin-button': {
-                  display: 'none',
-                },
+                appearance: 'textfield',
+                WebkitAppearance: 'none',
+                MozAppearance: 'textfield',
               },
             }}
           />
@@ -322,9 +322,9 @@ export const LoanFormDialog = React.memo(function LoanFormDialog({
               input: {
                 ...termMonthsField.styles.input,
                 fontWeight: 600,
-                '&::-webkit-inner-spin-button': {
-                  display: 'none',
-                },
+                appearance: 'textfield',
+                WebkitAppearance: 'none',
+                MozAppearance: 'textfield',
               },
             }}
           />
@@ -350,9 +350,9 @@ export const LoanFormDialog = React.memo(function LoanFormDialog({
               input: {
                 ...amountField.styles.input,
                 fontWeight: 600,
-                '&::-webkit-inner-spin-button': {
-                  display: 'none',
-                },
+                appearance: 'textfield',
+                WebkitAppearance: 'none',
+                MozAppearance: 'textfield',
               },
             }}
           />
@@ -373,9 +373,9 @@ export const LoanFormDialog = React.memo(function LoanFormDialog({
                 ...monthlyPaymentField.styles.input,
                 fontWeight: 600,
                 color: '#047857',
-                '&::-webkit-inner-spin-button': {
-                  display: 'none',
-                },
+                appearance: 'textfield',
+                WebkitAppearance: 'none',
+                MozAppearance: 'textfield',
               },
             }}
           />

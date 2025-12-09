@@ -157,6 +157,48 @@ model Shipment {
   @@map("shipments")
 }
 
+model TruckingFleetRegistry {
+  id                String   @id @default(cuid())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  truckId           String   @unique @db.VarChar(50)
+  maker             String   @db.VarChar(100)
+  model             String   @db.VarChar(100)
+  year              Int
+  plateNo           String   @db.VarChar(50)
+  bodyNo            String?  @db.VarChar(100)
+  chassisNo         String?  @db.VarChar(100)
+  orCrInfo          String?  @db.VarChar(100)
+  ltoRegisterDate   String   @db.VarChar(50)
+  engineNo          String?  @db.VarChar(100)
+  capacity          String?  @db.VarChar(50)
+  passengerCapacity String?  @db.VarChar(50)
+  grossWeight       String?  @db.VarChar(50)
+  netWeight         String?  @db.VarChar(50)
+  bodyType          String?  @db.VarChar(100)
+  series            String?  @db.VarChar(100)
+  classification    String?  @db.VarChar(100)
+  vehicleType       String   @db.VarChar(100)
+  fuelType          String   @db.VarChar(50)
+  status            String   @db.VarChar(20) @default("active")
+  remarks           String?
+  ownershipType     String?  @db.VarChar(50)
+  acquisitionDate   String?  @db.VarChar(50)
+  purchaseCost      String?  @db.VarChar(100)
+  insuranceProvider String?  @db.VarChar(100)
+  insuranceExpiry   String?  @db.VarChar(50)
+  gpsTrackerId      String?  @db.VarChar(100)
+  depotLocation     String?  @db.VarChar(100)
+  driverAssigned    String?  @db.VarChar(100)
+  deletedAt         DateTime?
+
+  @@index([status])
+  @@index([maker])
+  @@index([vehicleType])
+  @@index([fuelType])
+  @@map("trucking_fleet_registry")
+}
+
 model Transaction {
   id           Int       @id @default(autoincrement())
   createdAt    DateTime  @default(now())

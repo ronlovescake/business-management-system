@@ -71,9 +71,10 @@ import {
 } from '@/services/messaging.service';
 import {
   buildNavigationItems,
-  type BusinessType,
-  type WorkspaceType,
+  getWorkspacesForBusiness,
+  isBusiness,
   type NavigationItem,
+  type WorkspaceDefinition,
 } from './navigationItems';
 
 interface HeaderQuickActionsProps {
@@ -85,6 +86,11 @@ interface HeaderQuickActionsProps {
 type ChatWindowState = {
   id: string;
   minimized: boolean;
+};
+
+type WorkspaceNavSection = {
+  workspace: WorkspaceDefinition;
+  items: NavigationItem[];
 };
 
 const STORAGE_KEY = 'bm-open-chat-windows';
@@ -212,9 +218,6 @@ function useChatWindows() {
     toggleConversation,
   } as const;
 }
-
-const isBusiness = (value: string | null): value is BusinessType =>
-  value === 'clothing' || value === 'trucking';
 
 function formatBadgeCount(count: number | undefined): string {
   if (!count || count <= 0) {
@@ -351,18 +354,15 @@ export function HeaderQuickActions({
     }
   }, [pathname, selectedBusiness, selectedWorkspace, initializeFromPath]);
 
-  const operationsNavItems = useMemo(() => {
+  const workspaceSections: WorkspaceNavSection[] = useMemo(() => {
     if (!isBusiness(selectedBusiness)) {
       return [];
     }
-    return buildNavigationItems(selectedBusiness, 'operations');
-  }, [selectedBusiness]);
 
-  const employeesNavItems = useMemo(() => {
-    if (!isBusiness(selectedBusiness)) {
-      return [];
-    }
-    return buildNavigationItems(selectedBusiness, 'employees');
+    return getWorkspacesForBusiness(selectedBusiness).map((workspace) => ({
+      workspace,
+      items: buildNavigationItems(selectedBusiness, workspace.value),
+    }));
   }, [selectedBusiness]);
 
   const handleNavigate = useCallback(
@@ -452,9 +452,7 @@ export function HeaderQuickActions({
         isOpen={appsOpen}
         onOpenChange={setAppsOpen}
         onToggle={toggleAppsOpen}
-        selectedBusiness={selectedBusiness}
-        operationsNavItems={operationsNavItems}
-        employeesNavItems={employeesNavItems}
+        workspaceSections={workspaceSections}
         onNavigate={handleNavigate}
         activePath={pathname}
       />
@@ -501,9 +499,7 @@ interface AppsMenuProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onToggle: () => void;
-  selectedBusiness: string | null;
-  operationsNavItems: NavigationItem[];
-  employeesNavItems: NavigationItem[];
+  workspaceSections: WorkspaceNavSection[];
   onNavigate: (path: string) => void;
   activePath: string | null;
 }
@@ -512,27 +508,21 @@ const AppsMenu = memo(function AppsMenu({
   isOpen,
   onOpenChange,
   onToggle,
-  selectedBusiness,
-  operationsNavItems,
-  employeesNavItems,
+  workspaceSections,
   onNavigate,
   activePath,
 }: AppsMenuProps) {
-  const renderNavSection = (
-    title: string,
-    items: NavigationItem[],
-    workspace: WorkspaceType
-  ) => {
-    const accentColor = workspace === 'operations' ? 'blue' : 'green';
+  const renderNavSection = ({ workspace, items }: WorkspaceNavSection) => {
+    const accentColor = workspace.color || 'blue';
 
     return (
-      <Stack key={workspace} gap="xs">
+      <Stack key={workspace.value} gap="xs">
         <Group justify="space-between" align="center">
           <Text fw={600} size="sm">
-            {title}
+            {workspace.label} workspace
           </Text>
           <Badge size="xs" variant="light" color={accentColor}>
-            {workspace === 'operations' ? 'Operations' : 'Employees'}
+            {workspace.label}
           </Badge>
         </Group>
         {items.length > 0 ? (
@@ -543,7 +533,7 @@ const AppsMenu = memo(function AppsMenu({
 
               return (
                 <UnstyledButton
-                  key={`${workspace}-${item.path}`}
+                  key={`${workspace.value}-${item.path}`}
                   onClick={() => onNavigate(item.path)}
                   style={{
                     borderRadius: 10,
@@ -582,7 +572,7 @@ const AppsMenu = memo(function AppsMenu({
     );
   };
 
-  const hasBusiness = isBusiness(selectedBusiness);
+  const hasBusiness = workspaceSections.length > 0;
 
   return (
     <Popover
@@ -614,23 +604,14 @@ const AppsMenu = memo(function AppsMenu({
               <div>
                 <Text fw={600}>Workspace navigator</Text>
                 <Text size="xs" c="dimmed">
-                  Switch between operations and employees
+                  Switch between available workspaces
                 </Text>
               </div>
             </Group>
 
             <ScrollArea h={720} offsetScrollbars>
               <Stack gap="md">
-                {renderNavSection(
-                  'Operations workspace',
-                  operationsNavItems,
-                  'operations'
-                )}
-                {renderNavSection(
-                  'Employees workspace',
-                  employeesNavItems,
-                  'employees'
-                )}
+                {workspaceSections.map((section) => renderNavSection(section))}
               </Stack>
             </ScrollArea>
           </Stack>
