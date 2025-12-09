@@ -102,26 +102,6 @@ export function VehicleAssignmentDialog({
     }
   }, [opened, setInitialValues, setValues]);
 
-  const vehicleOptions = useMemo(
-    () =>
-      vehicles.map((vehicle) => ({
-        value: vehicle.vehicleId,
-        label: vehicle.label,
-      })),
-    [vehicles]
-  );
-
-  const handleQuickFillVehicle = (value: string | null) => {
-    if (!value) {
-      return;
-    }
-    const match = vehicles.find((vehicle) => vehicle.vehicleId === value);
-    if (match) {
-      form.setFieldValue('vehicleId', match.vehicleId);
-      form.setFieldValue('plateNo', match.plateNo);
-    }
-  };
-
   const handleSubmit = (values: VehicleAssignmentDraft) => {
     onSubmit(values);
     const nextValues = createInitialValues();
@@ -165,9 +145,7 @@ export function VehicleAssignmentDialog({
         form={form}
         drivers={driverData}
         helpers={helperData}
-        vehicles={vehicleOptions}
         rawVehicles={vehicles}
-        onQuickFillVehicle={handleQuickFillVehicle}
       />
     </PolishedFormTemplate>
   );
@@ -177,20 +155,28 @@ interface VehicleAssignmentFieldsProps {
   form: UseFormReturnType<VehicleAssignmentDraft>;
   drivers: string[];
   helpers: string[];
-  vehicles: { value: string; label: string }[];
   rawVehicles: VehicleAssignmentVehicleOption[];
-  onQuickFillVehicle: (value: string | null) => void;
 }
 
 function VehicleAssignmentFields({
   form,
   drivers,
   helpers,
-  vehicles,
   rawVehicles,
-  onQuickFillVehicle,
 }: VehicleAssignmentFieldsProps) {
   const { getFieldProps } = usePolishedFormStyles();
+
+  const handleVehicleIdChange = (value: string) => {
+    form.setFieldValue('vehicleId', value);
+    if (!value) {
+      return;
+    }
+
+    const match = rawVehicles.find((vehicle) => vehicle.vehicleId === value);
+    if (match?.plateNo) {
+      form.setFieldValue('plateNo', match.plateNo);
+    }
+  };
 
   return (
     <Stack gap="lg">
@@ -205,23 +191,12 @@ function VehicleAssignmentFields({
           />
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6 }}>
-          <Select
-            label="Quick Fill From Existing"
-            placeholder="Select vehicle"
-            data={vehicles}
-            searchable
-            clearable
-            onChange={onQuickFillVehicle}
-            comboboxProps={{ withinPortal: true, zIndex: 500 }}
-          />
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, md: 6 }}>
           <Autocomplete
             label="Vehicle ID"
             required
             data={rawVehicles.map((vehicle) => vehicle.vehicleId)}
             value={form.values.vehicleId}
-            onChange={(value) => form.setFieldValue('vehicleId', value)}
+            onChange={handleVehicleIdChange}
             {...getFieldProps('vehicleId').handlers}
             styles={getFieldProps('vehicleId').styles}
           />
