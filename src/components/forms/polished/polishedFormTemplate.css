@@ -1,0 +1,8 @@
+.polished-form-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.polished-form-scroll::-webkit-scrollbar {
+  display: none;
+}

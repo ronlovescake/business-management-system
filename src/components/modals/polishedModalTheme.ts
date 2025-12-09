@@ -29,6 +29,7 @@ export const polishedModalStyles: NonNullable<ModalProps['styles']> = {
   },
   body: {
     padding: '0 1.75rem 1.85rem',
+    overflowY: 'visible',
   },
 };
 

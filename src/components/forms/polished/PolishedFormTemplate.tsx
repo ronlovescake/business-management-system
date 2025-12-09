@@ -1,10 +1,22 @@
+import { forwardRef } from 'react';
 import { Button, Group, Stack, Text } from '@mantine/core';
 import { PolishedModal } from '@/components/modals/PolishedModal';
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
 import { PolishedFormStylesProvider } from './PolishedFormContext';
+import './polishedFormTemplate.css';
 
 type TextProps = React.ComponentProps<typeof Text>;
+
+const PlainScrollArea = forwardRef<HTMLDivElement, React.ComponentProps<'div'>>(
+  ({ children, ...rest }, ref) => (
+    <div ref={ref} {...rest}>
+      {children}
+    </div>
+  )
+);
+
+PlainScrollArea.displayName = 'PlainScrollArea';
 
 const renderTextContent = (content: React.ReactNode, textProps: TextProps) => {
   if (content === null || content === undefined) {
@@ -63,6 +75,10 @@ export function PolishedFormTemplate({
   ...modalProps
 }: PolishedFormTemplateProps) {
   const fieldStyles = usePolishedFieldStyles(Boolean(opened));
+  const scrollBodyClassName = ['polished-form-scroll', bodyClassName]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
 
   const headerContent = (
     <Group gap="sm" align="center">
@@ -81,13 +97,14 @@ export function PolishedFormTemplate({
         opened={opened}
         onClose={onClose}
         title={headerContent}
+        scrollAreaComponent={PlainScrollArea}
         size={modalProps.size ?? 1750}
         radius={modalProps.radius ?? 8}
         {...modalProps}
       >
         <Stack gap="lg">
           <div
-            className={bodyClassName}
+            className={scrollBodyClassName || undefined}
             style={{
               maxHeight: maxBodyHeight,
               overflowY: 'auto',
