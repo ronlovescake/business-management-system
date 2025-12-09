@@ -117,7 +117,7 @@ export function PolishedFormTemplate({
           <Group justify="flex-end" gap="sm">
             {secondaryAction && !secondaryAction.hidden ? (
               <Button
-                radius="md"
+                radius={6}
                 variant="default"
                 onClick={secondaryAction.onClick}
                 disabled={secondaryAction.disabled}
@@ -128,7 +128,7 @@ export function PolishedFormTemplate({
             ) : null}
             {!primaryAction.hidden ? (
               <Button
-                radius="md"
+                radius={6}
                 onClick={primaryAction.onClick}
                 disabled={primaryAction.disabled}
                 loading={primaryAction.loading}
