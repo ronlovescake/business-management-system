@@ -225,6 +225,9 @@ function VehicleAssignmentFields({
               )
             }
             comboboxProps={{ withinPortal: true, zIndex: 500 }}
+            withCheckIcon={false}
+            rightSection={null}
+            rightSectionWidth={0}
             {...getSelectProps('status').handlers}
             styles={getSelectProps('status').styles}
           />

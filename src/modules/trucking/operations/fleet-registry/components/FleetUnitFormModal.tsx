@@ -10,6 +10,7 @@ import {
   SimpleGrid,
   Text,
 } from '@mantine/core';
+import { DateInput } from '@mantine/dates';
 import { useForm, type UseFormReturnType } from '@mantine/form';
 import { useDidUpdate } from '@mantine/hooks';
 import { IconTruckDelivery } from '@tabler/icons-react';
@@ -17,6 +18,8 @@ import {
   PolishedFormTemplate,
   usePolishedFormStyles,
 } from '@/components/forms/polished';
+import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
+import { toDate, toISODate } from '@/utils/date';
 import type {
   FleetUnitFormValues,
   FleetStatus,
@@ -173,7 +176,8 @@ function FleetUnitFormFields({
           label="Model Year"
           min={1990}
           max={2100}
-          clampBehavior="strict"
+          clampBehavior="blur"
+          hideControls
           required
           value={form.values.year ? Number(form.values.year) : undefined}
           onChange={(value) =>
@@ -281,11 +285,14 @@ function FleetUnitFormFields({
         labelPosition="left"
       />
       <SimpleGrid cols={{ base: 1, md: 3 }} spacing="md">
-        <TextInput
+        <DateInput
           label="LTO Register Date"
-          type="date"
           required
-          {...form.getInputProps('ltoRegisterDate')}
+          value={toDate(form.values.ltoRegisterDate)}
+          onChange={(value) =>
+            form.setFieldValue('ltoRegisterDate', toISODate(value) || '')
+          }
+          {...COMMON_DATE_INPUT_PROPS}
           {...getFieldProps('ltoRegisterDate').handlers}
           styles={getFieldProps('ltoRegisterDate').styles}
         />
@@ -327,10 +334,13 @@ function FleetUnitFormFields({
           withCheckIcon={false}
           comboboxProps={{ withinPortal: true, zIndex: 500 }}
         />
-        <TextInput
+        <DateInput
           label="Acquisition Date"
-          type="date"
-          {...form.getInputProps('acquisitionDate')}
+          value={toDate(form.values.acquisitionDate)}
+          onChange={(value) =>
+            form.setFieldValue('acquisitionDate', toISODate(value) || '')
+          }
+          {...COMMON_DATE_INPUT_PROPS}
           {...getFieldProps('acquisitionDate').handlers}
           styles={getFieldProps('acquisitionDate').styles}
         />
@@ -359,10 +369,13 @@ function FleetUnitFormFields({
           {...getFieldProps('insuranceProvider').handlers}
           styles={getFieldProps('insuranceProvider').styles}
         />
-        <TextInput
+        <DateInput
           label="Insurance Expiry"
-          type="date"
-          {...form.getInputProps('insuranceExpiry')}
+          value={toDate(form.values.insuranceExpiry)}
+          onChange={(value) =>
+            form.setFieldValue('insuranceExpiry', toISODate(value) || '')
+          }
+          {...COMMON_DATE_INPUT_PROPS}
           {...getFieldProps('insuranceExpiry').handlers}
           styles={getFieldProps('insuranceExpiry').styles}
         />

@@ -6,3 +6,9 @@
 .polished-form-scroll::-webkit-scrollbar {
   display: none;
 }
+
+.polished-form-scroll .mantine-Select-rightSection {
+  display: none;
+  width: 0;
+  margin: 0;
+}

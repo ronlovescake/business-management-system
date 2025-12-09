@@ -59,6 +59,11 @@ const buildSelectStyles = (isFocused: boolean) => ({
     : { ...polishedInputBaseStyles },
   dropdown: polishedSelectDropdownStyles,
   option: polishedSelectOptionStyles,
+  rightSection: {
+    display: 'none',
+    width: 0,
+    margin: 0,
+  },
 });
 
 /**
