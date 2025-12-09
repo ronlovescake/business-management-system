@@ -15,7 +15,7 @@ export const polishedModalOverlayProps: NonNullable<
 
 export const polishedModalStyles: NonNullable<ModalProps['styles']> = {
   content: {
-    borderRadius: '28px',
+    borderRadius: '12px',
     border: '1px solid #ebedf2',
     boxShadow: '0 32px 60px rgba(15, 23, 42, 0.18)',
   },
@@ -45,7 +45,7 @@ export const polishedInputBaseStyles = {
   borderWidth: 1,
   borderStyle: 'solid',
   borderColor: '#e5e7ed',
-  borderRadius: 8,
+  borderRadius: 4,
   padding: '0.65rem 0.95rem',
   fontSize: '1.05rem',
   color: '#1f2937',
