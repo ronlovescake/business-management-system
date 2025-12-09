@@ -164,7 +164,7 @@ function VehicleAssignmentFields({
   helpers,
   rawVehicles,
 }: VehicleAssignmentFieldsProps) {
-  const { getFieldProps } = usePolishedFormStyles();
+  const { getFieldProps, getSelectProps } = usePolishedFormStyles();
 
   const handleVehicleIdChange = (value: string) => {
     form.setFieldValue('vehicleId', value);
@@ -225,6 +225,8 @@ function VehicleAssignmentFields({
               )
             }
             comboboxProps={{ withinPortal: true, zIndex: 500 }}
+            {...getSelectProps('status').handlers}
+            styles={getSelectProps('status').styles}
           />
         </Grid.Col>
       </Grid>
