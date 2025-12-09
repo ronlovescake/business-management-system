@@ -4,6 +4,20 @@ import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyl
 import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
 import { PolishedFormStylesProvider } from './PolishedFormContext';
 
+type TextProps = React.ComponentProps<typeof Text>;
+
+const renderTextContent = (content: React.ReactNode, textProps: TextProps) => {
+  if (content === null || content === undefined) {
+    return null;
+  }
+
+  if (typeof content === 'string' || typeof content === 'number') {
+    return <Text {...textProps}>{content}</Text>;
+  }
+
+  return content;
+};
+
 interface PolishedFormAction {
   label: string;
   onClick: () => void;
@@ -54,19 +68,9 @@ export function PolishedFormTemplate({
     <Group gap="sm" align="center">
       {icon}
       <Stack gap={2}>
-        <Text fw={700} fz="lg" c="#101828">
-          {title}
-        </Text>
-        {subtitle ? (
-          <Text fz="sm" c="#667085">
-            {subtitle}
-          </Text>
-        ) : null}
-        {description ? (
-          <Text fz="sm" c="#98a2b3">
-            {description}
-          </Text>
-        ) : null}
+        {renderTextContent(title, { fw: 700, fz: 'lg', c: '#101828' })}
+        {renderTextContent(subtitle, { fz: 'sm', c: '#667085' })}
+        {renderTextContent(description, { fz: 'sm', c: '#98a2b3' })}
       </Stack>
     </Group>
   );
