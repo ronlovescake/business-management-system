@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getDatabaseUrl } from '@/lib/env';
 import fs from 'fs';
+import fsPromises from 'fs/promises';
 import path from 'path';
 import { logger } from '@/lib/logger';
 import * as Papa from 'papaparse';
@@ -53,6 +54,11 @@ interface BackupLookup {
   manifest: BackupManifestFile;
 }
 
+type BackupFileDescriptor = {
+  filePath: string;
+  size: number;
+};
+
 const LOG_TABLES = [
   { name: 'change_log', model: 'changeLog', dateField: 'createdAt' },
   { name: 'audit_logs', model: 'auditLog', dateField: 'timestamp' },
@@ -93,13 +99,31 @@ function listBackupFoldersDescending() {
   }
 
   return fs
-    .readdirSync(BACKUP_DIR)
-    .filter((name) => {
-      const fullPath = path.join(BACKUP_DIR, name);
-      return fs.statSync(fullPath).isDirectory();
-    })
+    .readdirSync(BACKUP_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
     .sort()
     .reverse();
+}
+
+async function describeFiles(
+  filePaths: string[]
+): Promise<BackupFileDescriptor[]> {
+  if (!filePaths.length) {
+    return [];
+  }
+
+  return Promise.all(
+    filePaths.map(async (filePath) => {
+      try {
+        const stats = await fsPromises.stat(filePath);
+        return { filePath, size: stats.size };
+      } catch (error) {
+        logger.warn('Failed to read file stats', { filePath, error });
+        return { filePath, size: 0 };
+      }
+    })
+  );
 }
 
 function readManifest(folder: string): BackupManifestFile | null {
@@ -620,6 +644,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const describedFiles = await describeFiles(files);
+
     const manifest: BackupManifestFile = {
       timestamp: manilaTime.toISOString(),
       database: parseDatabaseUrl().database,
@@ -629,10 +655,10 @@ export async function POST(request: NextRequest) {
       baseTimestamp: baseReference?.manifest.timestamp ?? null,
       baseFolder: baseReference?.folder ?? null,
       changeWindow,
-      files: files.map((file) => ({
-        name: path.basename(file),
-        size: fs.statSync(file).size,
-        path: path.relative(BACKUP_DIR, file),
+      files: describedFiles.map(({ filePath, size }) => ({
+        name: path.basename(filePath),
+        size,
+        path: path.relative(BACKUP_DIR, filePath),
       })),
       recordCounts,
       differentialFallbackTables:
@@ -644,8 +670,8 @@ export async function POST(request: NextRequest) {
     const manifestFile = path.join(backupDir, 'MANIFEST.json');
     fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2));
 
-    const totalSize = files.reduce((sum, file) => {
-      return sum + fs.statSync(file).size;
+    const totalSize = describedFiles.reduce((sum, { size }) => {
+      return sum + size;
     }, 0);
 
     return NextResponse.json({
@@ -683,42 +709,44 @@ export async function GET() {
     }
 
     const backupFolders = fs
-      .readdirSync(BACKUP_DIR)
-      .filter((name) => {
-        const fullPath = path.join(BACKUP_DIR, name);
-        return fs.statSync(fullPath).isDirectory();
-      })
+      .readdirSync(BACKUP_DIR, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
       .sort()
       .reverse(); // Most recent first
 
-    const backups = backupFolders.map((folder) => {
-      const folderPath = path.join(BACKUP_DIR, folder);
-      const manifestPath = path.join(folderPath, 'MANIFEST.json');
+    const backups = await Promise.all(
+      backupFolders.map(async (folder) => {
+        const folderPath = path.join(BACKUP_DIR, folder);
+        const manifestPath = path.join(folderPath, 'MANIFEST.json');
 
-      let manifest = null;
-      if (fs.existsSync(manifestPath)) {
-        try {
-          manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-        } catch {
-          // Ignore invalid manifest
+        let manifest = null;
+        if (fs.existsSync(manifestPath)) {
+          try {
+            manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+          } catch {
+            // Ignore invalid manifest
+          }
         }
-      }
 
-      const files = fs.readdirSync(folderPath);
-      const totalSize = files.reduce((sum, file) => {
-        const filePath = path.join(folderPath, file);
-        return sum + fs.statSync(filePath).size;
-      }, 0);
+        const files = fs.readdirSync(folderPath);
+        const describedFolderFiles = await describeFiles(
+          files.map((file) => path.join(folderPath, file))
+        );
+        const totalSize = describedFolderFiles.reduce((sum, { size }) => {
+          return sum + size;
+        }, 0);
 
-      return {
-        timestamp: folder,
-        path: folderPath,
-        files: files,
-        totalSize,
-        manifest,
-        strategy: manifest?.strategy,
-      };
-    });
+        return {
+          timestamp: folder,
+          path: folderPath,
+          files,
+          totalSize,
+          manifest,
+          strategy: manifest?.strategy,
+        };
+      })
+    );
 
     return NextResponse.json({ success: true, backups });
   } catch (error) {
