@@ -15,6 +15,7 @@ const createPrismaError = (code: string, message: string) => {
 const mockPrisma = vi.hoisted(() => ({
   schedule: {
     findMany: vi.fn(),
+    findFirst: vi.fn(),
     create: vi.fn(),
     createMany: vi.fn(),
     update: vi.fn(),
@@ -177,7 +178,9 @@ describe('Schedules API - POST', () => {
     // Mock employee existence check
     mockPrisma.employee.findMany.mockResolvedValue([{ employeeId: 'emp1' }]);
     mockPrisma.schedule.createMany.mockResolvedValue({ count: 1 });
-    mockPrisma.schedule.findMany.mockResolvedValue([mockSchedule]);
+    mockPrisma.schedule.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([mockSchedule]);
 
     const request = new NextRequest('http://localhost/api/schedules', {
       method: 'POST',
@@ -256,7 +259,9 @@ describe('Schedules API - POST', () => {
       { employeeId: 'emp2' },
     ]);
     mockPrisma.schedule.createMany.mockResolvedValue({ count: 2 });
-    mockPrisma.schedule.findMany.mockResolvedValue(mockSchedules);
+    mockPrisma.schedule.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce(mockSchedules);
 
     const request = new NextRequest('http://localhost/api/schedules', {
       method: 'POST',
@@ -318,7 +323,9 @@ describe('Schedules API - POST', () => {
     // Mock employee existence check
     mockPrisma.employee.findMany.mockResolvedValue([{ employeeId: 'emp1' }]);
     mockPrisma.schedule.createMany.mockResolvedValue({ count: 1 });
-    mockPrisma.schedule.findMany.mockResolvedValue([mockSchedule]);
+    mockPrisma.schedule.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([mockSchedule]);
 
     const request = new NextRequest('http://localhost/api/schedules', {
       method: 'POST',
@@ -366,7 +373,9 @@ describe('Schedules API - POST', () => {
     // Mock employee existence check
     mockPrisma.employee.findMany.mockResolvedValue([{ employeeId: 'emp1' }]);
     mockPrisma.schedule.createMany.mockResolvedValue({ count: 1 });
-    mockPrisma.schedule.findMany.mockResolvedValue([mockSchedule]);
+    mockPrisma.schedule.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([mockSchedule]);
 
     const request = new NextRequest('http://localhost/api/schedules', {
       method: 'POST',
@@ -414,7 +423,9 @@ describe('Schedules API - POST', () => {
     // Mock employee existence check
     mockPrisma.employee.findMany.mockResolvedValue([{ employeeId: 'emp1' }]);
     mockPrisma.schedule.createMany.mockResolvedValue({ count: 1 });
-    mockPrisma.schedule.findMany.mockResolvedValue([mockSchedule]);
+    mockPrisma.schedule.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([mockSchedule]);
 
     const request = new NextRequest('http://localhost/api/schedules', {
       method: 'POST',
@@ -463,7 +474,9 @@ describe('Schedules API - POST', () => {
     // Mock employee existence check
     mockPrisma.employee.findMany.mockResolvedValue([{ employeeId: 'emp1' }]);
     mockPrisma.schedule.createMany.mockResolvedValue({ count: 1 });
-    mockPrisma.schedule.findMany.mockResolvedValue([mockSchedule]);
+    mockPrisma.schedule.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([mockSchedule]);
 
     const request = new NextRequest('http://localhost/api/schedules', {
       method: 'POST',
@@ -513,7 +526,9 @@ describe('Schedules API - POST', () => {
     // Mock employee existence check
     mockPrisma.employee.findMany.mockResolvedValue([{ employeeId: 'emp1' }]);
     mockPrisma.schedule.createMany.mockResolvedValue({ count: 1 });
-    mockPrisma.schedule.findMany.mockResolvedValue([mockSchedule]);
+    mockPrisma.schedule.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([mockSchedule]);
 
     const request = new NextRequest('http://localhost/api/schedules', {
       method: 'POST',
@@ -573,6 +588,7 @@ describe('Schedules API - POST', () => {
     mockPrisma.schedule.createMany.mockRejectedValue(
       new Error('Database error')
     );
+    mockPrisma.schedule.findMany.mockResolvedValue([]);
 
     const request = new NextRequest('http://localhost/api/schedules', {
       method: 'POST',
@@ -617,6 +633,12 @@ describe('Schedules API - PATCH', () => {
   });
 
   it('should return 400 if no valid fields to update', async () => {
+    mockPrisma.schedule.findFirst.mockResolvedValue({
+      id: 'sch1',
+      employeeId: 'emp1',
+      date: '2025-10-25',
+    });
+
     const request = new NextRequest('http://localhost/api/schedules', {
       method: 'PATCH',
       body: JSON.stringify({
@@ -653,6 +675,9 @@ describe('Schedules API - PATCH', () => {
       updatedAt: new Date('2025-10-25'),
     };
 
+    mockPrisma.schedule.findFirst
+      .mockResolvedValueOnce(mockSchedule)
+      .mockResolvedValueOnce(null);
     mockPrisma.schedule.update.mockResolvedValue(mockSchedule);
 
     const request = new NextRequest('http://localhost/api/schedules', {
@@ -681,9 +706,7 @@ describe('Schedules API - PATCH', () => {
   });
 
   it('should return 404 if schedule not found', async () => {
-    mockPrisma.schedule.update.mockRejectedValue(
-      createPrismaError('P2025', 'Record not found')
-    );
+    mockPrisma.schedule.findFirst.mockResolvedValue(null);
 
     const request = new NextRequest('http://localhost/api/schedules', {
       method: 'PATCH',
@@ -701,6 +724,13 @@ describe('Schedules API - PATCH', () => {
   });
 
   it('should handle errors', async () => {
+    mockPrisma.schedule.findFirst
+      .mockResolvedValueOnce({
+        id: 'sch1',
+        employeeId: 'emp1',
+        date: '2025-10-25',
+      })
+      .mockResolvedValueOnce(null);
     mockPrisma.schedule.update.mockRejectedValue(new Error('Database error'));
 
     const request = new NextRequest('http://localhost/api/schedules', {
