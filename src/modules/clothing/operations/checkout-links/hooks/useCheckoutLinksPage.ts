@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from '@mantine/form';
 import { showNotification } from '@mantine/notifications';
 import Swal from 'sweetalert2';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
 import { useInvoiceCustomerLookup } from './useInvoiceCustomerLookup';
 import { calculateFinalWeight } from '../utils/finalWeightCalculator';
@@ -44,7 +44,6 @@ export const useCheckoutLinksPage = () => {
   const [itemWeightData, setItemWeightData] = useState<ItemWeightData[]>([]);
   const [isItemWeightLoading, setIsItemWeightLoading] = useState(true);
   const [itemWeightError, setItemWeightError] = useState<string | null>(null);
-  const [customerOrders, setCustomerOrders] = useState<CustomerOrderData[]>([]);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingCheckoutLink, setEditingCheckoutLink] =
@@ -52,6 +51,7 @@ export const useCheckoutLinksPage = () => {
   const [isSavingCheckoutLink, setIsSavingCheckoutLink] = useState(false);
 
   const { lookupFacebookLink, hasFacebookLink } = useInvoiceCustomerLookup();
+  const queryClient = useQueryClient();
 
   const { data: invoiceSettings } = useQuery<InvoiceSettingsResponse>({
     queryKey: ['invoice-settings'],
@@ -87,6 +87,28 @@ export const useCheckoutLinksPage = () => {
     },
   });
 
+  const { data: customerOrders = [], isFetching: isCustomerOrdersLoading } =
+    useQuery<CustomerOrderData[]>({
+      queryKey: ['customer-orders'],
+      queryFn: async () => {
+        const response = await fetch('/api/invoices/customer-orders');
+        const result = await response.json();
+
+        if (!response.ok || result?.success !== true) {
+          throw new Error(
+            result?.error || 'Failed to load customer orders. Please retry.'
+          );
+        }
+
+        return Array.isArray(result.orders)
+          ? (result.orders as CustomerOrderData[])
+          : [];
+      },
+      refetchOnWindowFocus: true,
+      refetchInterval: 60 * 1000,
+      staleTime: 30 * 1000,
+    });
+
   const handleCalculateWeights = useCallback(async () => {
     try {
       const response = await fetch('/api/invoices/calculate-weights', {
@@ -106,70 +128,11 @@ export const useCheckoutLinksPage = () => {
 
       setInvoiceData(result.invoices);
 
-      type WeightCalculationBreakdown = {
-        productCode?: string;
-        quantity?: number;
-        totalWeight?: number;
-        weightPerPiece?: number;
-      };
-
-      type WeightCalculationResult = {
-        customerName?: string;
-        breakdown?: WeightCalculationBreakdown[];
+      const calculationResults: Array<{
         unmatchedProducts?: string[];
-      };
-
-      const calculationResults: WeightCalculationResult[] = Array.isArray(
-        result.results
-      )
-        ? (result.results as WeightCalculationResult[])
+      }> = Array.isArray(result.results)
+        ? (result.results as Array<{ unmatchedProducts?: string[] }>)
         : [];
-
-      const flattenedOrders: CustomerOrderData[] = calculationResults.flatMap(
-        (customerResult) => {
-          if (!customerResult || !Array.isArray(customerResult.breakdown)) {
-            return [];
-          }
-
-          const normalizedCustomerName =
-            customerResult.customerName ?? 'Unknown Customer';
-
-          return customerResult.breakdown.map((entry, index) => {
-            const rawQuantity =
-              typeof entry.quantity === 'number'
-                ? entry.quantity
-                : Number(entry.quantity ?? 0);
-            const safeQuantity = Number.isFinite(rawQuantity) ? rawQuantity : 0;
-
-            const rawWeight =
-              typeof entry.totalWeight === 'number'
-                ? entry.totalWeight
-                : Number(entry.totalWeight ?? 0);
-            const safeWeight = Number.isFinite(rawWeight) ? rawWeight : 0;
-
-            const rawWeightPerPiece =
-              typeof entry.weightPerPiece === 'number'
-                ? entry.weightPerPiece
-                : Number(entry.weightPerPiece ?? 0);
-            const safeWeightPerPiece = Number.isFinite(rawWeightPerPiece)
-              ? rawWeightPerPiece
-              : 0;
-
-            const productCode = entry.productCode?.trim() || 'Unknown Product';
-
-            return {
-              id: `${normalizedCustomerName}-${productCode}-${index}`,
-              customerName: normalizedCustomerName,
-              productCode,
-              quantity: safeQuantity,
-              weightPerPiece: safeWeightPerPiece.toFixed(2),
-              actualWeight: safeWeight.toFixed(2),
-            } satisfies CustomerOrderData;
-          });
-        }
-      );
-
-      setCustomerOrders(flattenedOrders);
 
       const totalCalculated = calculationResults.length;
       const withUnmatched = calculationResults.filter(
@@ -187,6 +150,8 @@ export const useCheckoutLinksPage = () => {
         message,
         color: 'green',
       });
+
+      await queryClient.invalidateQueries({ queryKey: ['customer-orders'] });
     } catch (error) {
       showNotification({
         title: 'Calculation Failed',
@@ -197,7 +162,7 @@ export const useCheckoutLinksPage = () => {
         color: 'red',
       });
     }
-  }, []);
+  }, [queryClient]);
 
   const loadCheckoutLinks = useCallback(async () => {
     try {
@@ -1194,6 +1159,7 @@ export const useCheckoutLinksPage = () => {
     customerOrdersState: {
       data: customerOrders,
       filteredData: filteredCustomerOrders,
+      isLoading: isCustomerOrdersLoading,
     },
     itemWeightsState: {
       data: itemWeightData,

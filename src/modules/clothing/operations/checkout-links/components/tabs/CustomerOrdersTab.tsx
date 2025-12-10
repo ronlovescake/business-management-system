@@ -53,7 +53,7 @@ export function CustomerOrdersTab({
             'ACTUAL WEIGHT',
           ]}
           colSpan={5}
-          emptyState="No customer order data available. Recalculate invoice weights to refresh."
+          emptyState="No customer order data available yet. Data updates automatically when new invoices are recorded."
         >
           {sortedOrders.map((order) => (
             <Table.Tr key={order.id}>
