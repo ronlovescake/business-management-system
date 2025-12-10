@@ -367,6 +367,26 @@ export const useCheckoutLinksPage = () => {
     return map;
   }, [invoiceData]);
 
+  const customerOrderWeightsByCustomer = useMemo(() => {
+    const map = new Map<string, number>();
+
+    customerOrders.forEach((order) => {
+      const key = order.customerName?.trim().toLowerCase();
+      if (!key) {
+        return;
+      }
+
+      const weight = Number(order.actualWeight);
+      if (!Number.isFinite(weight)) {
+        return;
+      }
+
+      map.set(key, (map.get(key) ?? 0) + weight);
+    });
+
+    return map;
+  }, [customerOrders]);
+
   const localInvoiceData = useMemo<InvoiceData[]>(() => {
     if (transactionsWithInvoiceDate.length === 0) {
       return [];
@@ -388,6 +408,7 @@ export const useCheckoutLinksPage = () => {
       }
 
       const key = customerName.toLowerCase();
+      const derivedOrderWeight = customerOrderWeightsByCustomer.get(key);
       const invoiceActualWeight = invoiceWeightsByCustomer.get(key);
       const existing = byCustomer.get(key);
       const recordId = existing?.id ?? `local-${transaction.id ?? key}`;
@@ -403,22 +424,29 @@ export const useCheckoutLinksPage = () => {
           existing.localInvoiceDates = Array.from(existingDates);
         }
 
-        if (invoiceActualWeight) {
+        if (derivedOrderWeight !== undefined) {
+          existing.actualWeight = derivedOrderWeight.toFixed(2);
+        } else if (invoiceActualWeight) {
           existing.actualWeight = invoiceActualWeight;
         }
         existing.tickbox = isChecked;
         return;
       }
 
-      const fallbackQuantity =
-        typeof transaction.Quantity === 'number'
-          ? String(transaction.Quantity)
-          : '';
+      const resolvedActualWeight = (() => {
+        if (derivedOrderWeight !== undefined) {
+          return derivedOrderWeight.toFixed(2);
+        }
+        if (invoiceActualWeight) {
+          return invoiceActualWeight;
+        }
+        return '';
+      })();
 
       byCustomer.set(key, {
         id: recordId,
         customerName,
-        actualWeight: invoiceActualWeight ?? fallbackQuantity,
+        actualWeight: resolvedActualWeight,
         finalWeight: '',
         shopeeCheckoutLinks: '',
         driveFiles: invoiceDate,
@@ -437,6 +465,7 @@ export const useCheckoutLinksPage = () => {
     transactionsWithInvoiceDate,
     localInvoiceTickboxes,
     invoiceWeightsByCustomer,
+    customerOrderWeightsByCustomer,
   ]);
 
   const filteredLocalInvoiceData = useMemo(() => {
