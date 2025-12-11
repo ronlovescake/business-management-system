@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, type CSSProperties } from 'react';
 import {
   Stack,
   Card,
@@ -53,6 +53,14 @@ export const ExpenseListTable = memo(function ExpenseListTable({
   onEdit,
   onDelete,
 }: ExpenseListTableProps) {
+  const headerCellStyles: CSSProperties = {
+    padding: '16px 12px',
+    color: '#495057',
+    backgroundColor: '#f1f3f5',
+    textAlign: 'center',
+    borderBottom: '1px solid #dee2e6',
+  };
+
   return (
     <Stack gap="md">
       <Card
@@ -60,92 +68,95 @@ export const ExpenseListTable = memo(function ExpenseListTable({
         padding={0}
         style={{ overflow: 'hidden', height: '73vh' }}
       >
-        <Box style={{ height: '100%', overflowY: 'auto' }}>
-          <Table highlightOnHover withTableBorder>
-            <Table.Thead style={{ backgroundColor: '#f1f3f5' }}>
+        <Box
+          style={{
+            height: '100%',
+            overflowY: 'auto',
+            position: 'relative',
+            backgroundColor: '#fff',
+          }}
+        >
+          <Table
+            highlightOnHover
+            withTableBorder
+            style={{ borderCollapse: 'separate', borderSpacing: 0 }}
+          >
+            <Table.Thead
+              style={{
+                backgroundColor: '#f1f3f5',
+                position: 'sticky',
+                top: 0,
+                zIndex: 6,
+                boxShadow: '0 3px 8px rgba(0, 0, 0, 0.08)',
+              }}
+            >
               <Table.Tr>
                 <Table.Th
                   style={{
+                    ...headerCellStyles,
                     width: 300,
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'center',
                   }}
                 >
                   DATE
                 </Table.Th>
                 <Table.Th
                   style={{
+                    ...headerCellStyles,
                     width: 300,
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'center',
                   }}
                 >
                   AMOUNT
                 </Table.Th>
                 <Table.Th
                   style={{
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'center',
+                    ...headerCellStyles,
                   }}
                 >
                   DESCRIPTION
                 </Table.Th>
                 <Table.Th
                   style={{
+                    ...headerCellStyles,
                     width: 300,
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'center',
                   }}
                 >
                   CATEGORY
                 </Table.Th>
                 <Table.Th
                   style={{
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'center',
+                    ...headerCellStyles,
                   }}
                 >
                   NOTES
                 </Table.Th>
                 <Table.Th
                   style={{
+                    ...headerCellStyles,
+                    width: 220,
+                  }}
+                >
+                  VEHICLE ID
+                </Table.Th>
+                <Table.Th
+                  style={{
+                    ...headerCellStyles,
                     width: 300,
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'center',
                   }}
                 >
                   RECEIPT
                 </Table.Th>
                 <Table.Th
                   style={{
+                    ...headerCellStyles,
                     width: 300,
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'center',
                   }}
                 >
                   LOGGED BY
                 </Table.Th>
                 <Table.Th
                   style={{
+                    ...headerCellStyles,
                     width: 150,
-                    textAlign: 'center',
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
                   }}
                 >
                   ACTION
@@ -155,7 +166,7 @@ export const ExpenseListTable = memo(function ExpenseListTable({
             <Table.Tbody>
               {filteredExpenses.length === 0 ? (
                 <Table.Tr>
-                  <Table.Td colSpan={8} style={{ textAlign: 'center' }}>
+                  <Table.Td colSpan={9} style={{ textAlign: 'center' }}>
                     <Text c="dimmed" py="xl">
                       No expenses found
                     </Text>
@@ -188,6 +199,11 @@ export const ExpenseListTable = memo(function ExpenseListTable({
                     <Table.Td>
                       <Text size="sm" lineClamp={2} c="#495057">
                         {expense.notes || '-'}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td style={{ textAlign: 'center' }}>
+                      <Text size="sm" c="#495057">
+                        {expense.vehicleId || '—'}
                       </Text>
                     </Table.Td>
                     <Table.Td style={{ textAlign: 'center' }}>
