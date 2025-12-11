@@ -4,7 +4,7 @@ import { showNotification } from '@mantine/notifications';
 import { logger } from '@/lib/logger';
 import { useTruckingExpenseData } from '@/hooks/useSheetData';
 import { getCurrentDateISO } from '@/utils/date';
-import { showError, showDeleteConfirm } from '@/lib/alerts';
+import { showError, showDeleteConfirm, showSuccess } from '@/lib/alerts';
 import type { FleetRegistryRecord } from '@/modules/trucking/operations/fleet-registry/types/fleetRegistry.types';
 
 type VehicleOption = { value: string; label: string };
@@ -47,6 +47,7 @@ export interface Expense {
   receipt: string | null;
   status: 'pending' | 'approved' | 'rejected';
   employeeName?: string;
+  vehicleId?: string;
 }
 
 /**
@@ -127,6 +128,7 @@ export function useExpenses() {
       receipt: exp.receipt,
       status: exp.status as 'pending' | 'approved' | 'rejected',
       employeeName: exp.employeeName ?? undefined,
+      vehicleId: exp.vehicleId ?? undefined,
     }));
   }, [expensesFromDB]);
 
@@ -146,7 +148,7 @@ export function useExpenses() {
   const [formAmount, setFormAmount] = useState<number | ''>('');
   const [formDescription, setFormDescription] = useState('');
   const [formCategory, setFormCategory] = useState('');
-  const [formTripId, setFormTripId] = useState('');
+  const [formVehicleId, setFormVehicleId] = useState('');
   const [formNotes, setFormNotes] = useState('');
   const [formReceipt, setFormReceipt] = useState<File | null>(null);
 
@@ -396,7 +398,7 @@ export function useExpenses() {
     setFormAmount('');
     setFormDescription('');
     setFormCategory('');
-    setFormTripId('');
+    setFormVehicleId('');
     setFormNotes('');
     setFormReceipt(null);
     setIsModalOpen(true);
@@ -408,6 +410,7 @@ export function useExpenses() {
     setFormAmount(expense.amount);
     setFormDescription(expense.description);
     setFormCategory(expense.category);
+    setFormVehicleId(expense.vehicleId || '');
     setFormNotes(expense.notes);
     setFormReceipt(null);
     setIsModalOpen(true);
@@ -461,6 +464,7 @@ export function useExpenses() {
           category: formCategory,
           notes: formNotes,
           receipt: receiptFileName,
+          vehicleId: formVehicleId || null,
           status: editingExpense.status,
           employeeName: editingExpense.employeeName || null,
         },
@@ -478,6 +482,7 @@ export function useExpenses() {
         category: formCategory,
         notes: formNotes,
         receipt: receiptFileName,
+        vehicleId: formVehicleId || null,
         status: 'pending',
         employeeName: currentUserName,
       });
@@ -583,7 +588,7 @@ export function useExpenses() {
           await showError(
             `Missing required columns: ${missingColumns.join(', ')}\n\n` +
               'Required columns: date, amount, description, category\n' +
-              'Optional columns: notes, receipt, status, employeeName',
+              'Optional columns: notes, receipt, status, employeeName, vehicleId',
             'Import Error'
           );
           setIsImporting(false);
@@ -656,16 +661,20 @@ export function useExpenses() {
               ? status
               : 'pending';
 
+            const vehicleId = row.vehicleid?.trim() || '';
+            const employeeName = row.employeename?.trim();
+
             const newExpense: Expense = {
               id: `import_${Date.now()}_${i}`,
               date: dateStr,
               amount,
               description: row.description,
               category: row.category,
-              notes: row.notes || '',
+              notes: row.notes?.trim() || '',
               receipt: row.receipt || null,
               status: validStatus,
-              employeeName: row.employeename || 'Imported',
+              employeeName: employeeName || 'Imported',
+              vehicleId: vehicleId || undefined,
             };
 
             importedExpenses.push(newExpense);
@@ -678,6 +687,11 @@ export function useExpenses() {
         }
 
         if (importedExpenses.length > 0) {
+          const toOptionalString = (value?: string | null) => {
+            const trimmed = value?.trim();
+            return trimmed && trimmed.length > 0 ? trimmed : undefined;
+          };
+
           // Import new expenses by creating them in bulk
           bulkCreateExpenses(
             importedExpenses.map((exp) => ({
@@ -685,10 +699,11 @@ export function useExpenses() {
               amount: exp.amount,
               description: exp.description,
               category: exp.category,
-              notes: exp.notes || null,
+              notes: toOptionalString(exp.notes),
               receipt: exp.receipt,
               status: exp.status,
-              employeeName: exp.employeeName || null,
+              employeeName: toOptionalString(exp.employeeName),
+              vehicleId: toOptionalString(exp.vehicleId) ?? null,
             }))
           );
 
@@ -709,7 +724,7 @@ export function useExpenses() {
           message += `\n\nErrors:\n${errors.join('\n')}`;
         }
 
-        await showError(message, 'Import Complete');
+        await showSuccess(message, 'Import Complete');
       } catch (error) {
         logger.error('CSV import error:', error);
         await showError(
@@ -741,6 +756,7 @@ export function useExpenses() {
       'Description',
       'Category',
       'Notes',
+      'Vehicle ID',
       'Receipt',
       'Status',
       'Employee Name',
@@ -767,6 +783,7 @@ export function useExpenses() {
       escapeCSV(expense.description),
       escapeCSV(expense.category),
       escapeCSV(expense.notes),
+      escapeCSV(expense.vehicleId || ''),
       escapeCSV(expense.receipt || ''),
       escapeCSV(expense.status),
       escapeCSV(expense.employeeName || ''),
@@ -823,8 +840,8 @@ export function useExpenses() {
     setFormDescription,
     formCategory,
     setFormCategory,
-    formTripId,
-    setFormTripId,
+    formVehicleId,
+    setFormVehicleId,
     formNotes,
     setFormNotes,
     formReceipt,

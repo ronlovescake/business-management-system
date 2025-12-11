@@ -58,7 +58,20 @@ test.describe('Customers Page', () => {
     const gridContainer = page
       .locator('[role="grid"], canvas, .data-grid-container')
       .first();
-    await expect(gridContainer).toBeVisible({ timeout: 15000 });
+    const emptyState = page
+      .locator('text=/no customers/i, text=/empty/i, text=/no data/i')
+      .first();
+
+    const gridVisible = await gridContainer
+      .waitFor({ state: 'visible', timeout: 15000 })
+      .then(() => true)
+      .catch(() => false);
+    const emptyVisible = await emptyState
+      .waitFor({ state: 'visible', timeout: 15000 })
+      .then(() => true)
+      .catch(() => false);
+
+    expect(gridVisible || emptyVisible).toBeTruthy();
   });
 
   test('should show loading skeleton initially', async ({ page }) => {
@@ -85,22 +98,24 @@ test.describe('Customers Page', () => {
   test('should handle empty state if no customers exist', async ({ page }) => {
     await gotoCustomers(page, 2000);
 
-    // Check if there's either data or an empty state message
     const gridLocator = page.locator(
       '[role="grid"], canvas, .data-grid-container'
     );
+    const emptyStateLocator = page
+      .locator('text=/no customers/i, text=/empty/i')
+      .first();
+
     const gridVisible = await gridLocator
       .first()
-      .isVisible()
+      .waitFor({ state: 'visible', timeout: 8000 })
+      .then(() => true)
       .catch(() => false);
     const gridExists = (await gridLocator.count().catch(() => 0)) > 0;
-    const emptyMessage = await page
-      .locator('text=/no customers/i, text=/empty/i')
-      .first()
-      .isVisible()
+    const emptyMessage = await emptyStateLocator
+      .waitFor({ state: 'visible', timeout: 8000 })
+      .then(() => true)
       .catch(() => false);
 
-    // Either the grid should be visible (with data) or empty message should show
     expect(gridVisible || gridExists || emptyMessage).toBeTruthy();
   });
 

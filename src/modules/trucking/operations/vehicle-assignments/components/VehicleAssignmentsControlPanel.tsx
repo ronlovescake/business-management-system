@@ -16,7 +16,7 @@ import {
 import { actionButtonStyles } from '@/components/shared/styles/actionButtonStyles';
 import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
 
-interface TruckAssignmentsControlPanelProps {
+interface VehicleAssignmentsControlPanelProps {
   searchQuery: string;
   onSearchChange: (value: string) => void;
   statusFilter: string | null;
@@ -46,8 +46,8 @@ const statusOptions = [
   { label: 'Cancelled', value: 'cancelled' },
 ];
 
-export const TruckAssignmentsControlPanel = memo(
-  function TruckAssignmentsControlPanel({
+export const VehicleAssignmentsControlPanel = memo(
+  function VehicleAssignmentsControlPanel({
     searchQuery,
     onSearchChange,
     statusFilter,
@@ -61,8 +61,8 @@ export const TruckAssignmentsControlPanel = memo(
     onExport,
     onAdd,
     isImporting,
-  }: TruckAssignmentsControlPanelProps) {
-    useCtrlFFocus('[data-ctrlf-target="truck-assignments-search"]', true);
+  }: VehicleAssignmentsControlPanelProps) {
+    useCtrlFFocus('[data-ctrlf-target="vehicle-assignments-search"]', true);
 
     const tabs: ControlPanelTabConfig[] = [
       {
@@ -72,12 +72,12 @@ export const TruckAssignmentsControlPanel = memo(
         panel: (
           <Group wrap="wrap" gap="sm">
             <TextInput
-              placeholder="Search truck, plate, driver, or helper"
+              placeholder="Search vehicle, plate, driver, or helper"
               leftSection={<IconSearch size={16} />}
               value={searchQuery}
               onChange={(event) => onSearchChange(event.currentTarget.value)}
               style={{ flex: 1, minWidth: 260 }}
-              data-ctrlf-target="truck-assignments-search"
+              data-ctrlf-target="vehicle-assignments-search"
             />
             <Select
               placeholder="Filter by status"
@@ -153,7 +153,7 @@ export const TruckAssignmentsControlPanel = memo(
 
     return (
       <ControlPanelCard
-        title="Truck Assignments"
+        title="Vehicle Assignments"
         tabs={tabs}
         activeTab="assignments"
         onTabChange={() => undefined}

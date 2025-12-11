@@ -1,13 +1,16 @@
 'use client';
 
+import { useState } from 'react';
 import { Stack } from '@mantine/core';
 import { PageLayout } from '@/components/layout/PageLayout';
-import { TruckAssignmentsStatsCards } from './TruckAssignmentsStatsCards';
-import { TruckAssignmentsControlPanel } from './TruckAssignmentsControlPanel';
-import { TruckAssignmentsTable } from './TruckAssignmentsTable';
-import { useTruckAssignmentsDashboard } from '../hooks/useTruckAssignmentsDashboard';
+import { VehicleAssignmentsStatsCards } from './VehicleAssignmentsStatsCards';
+import { VehicleAssignmentsControlPanel } from './VehicleAssignmentsControlPanel';
+import { VehicleAssignmentsTable } from './VehicleAssignmentsTable';
+import { useVehicleAssignmentsDashboard } from '../hooks/useVehicleAssignmentsDashboard';
+import { VehicleAssignmentDialog } from './VehicleAssignmentDialog';
+import type { VehicleAssignmentDraft } from '../types/vehicleAssignments.types';
 
-export function TruckAssignmentsPage() {
+export function VehicleAssignmentsPage() {
   const {
     records,
     stats,
@@ -16,19 +19,29 @@ export function TruckAssignmentsPage() {
     collections,
     actions,
     getStatusColor,
-  } = useTruckAssignmentsDashboard();
+  } = useVehicleAssignmentsDashboard();
+
+  const [isAssignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
+
+  const handleOpenAssignmentDialog = () => setAssignmentDialogOpen(true);
+  const handleCloseAssignmentDialog = () => setAssignmentDialogOpen(false);
+
+  const handleSaveAssignment = (assignment: VehicleAssignmentDraft) => {
+    actions.handleCreateAssignment(assignment);
+    setAssignmentDialogOpen(false);
+  };
 
   return (
     <PageLayout fluid withPadding>
       <Stack gap="lg">
-        <TruckAssignmentsStatsCards
+        <VehicleAssignmentsStatsCards
           activeCount={stats.activeCount}
           scheduledThisWeek={stats.scheduledThisWeek}
           endingSoon={stats.endingSoon}
           completedThisMonth={stats.completedThisMonth}
         />
 
-        <TruckAssignmentsControlPanel
+        <VehicleAssignmentsControlPanel
           searchQuery={filters.searchQuery}
           onSearchChange={filters.setSearchQuery}
           statusFilter={
@@ -46,14 +59,14 @@ export function TruckAssignmentsPage() {
           drivers={collections.drivers}
           onImport={actions.handleImport}
           onExport={actions.handleExport}
-          onAdd={actions.handleAdd}
+          onAdd={handleOpenAssignmentDialog}
           isImporting={filters.isImporting}
         />
 
-        <TruckAssignmentsTable
+        <VehicleAssignmentsTable
           data={records}
           summary={summary}
-          emptyMessage="No truck assignments yet"
+          emptyMessage="No vehicle assignments yet"
           height="74vh"
           getStatusColor={getStatusColor}
           onView={actions.handleView}
@@ -62,6 +75,15 @@ export function TruckAssignmentsPage() {
           onCancel={actions.handleCancel}
         />
       </Stack>
+
+      <VehicleAssignmentDialog
+        opened={isAssignmentDialogOpen}
+        onClose={handleCloseAssignmentDialog}
+        onSubmit={handleSaveAssignment}
+        drivers={collections.drivers}
+        helpers={collections.helpers}
+        vehicles={collections.vehicles}
+      />
     </PageLayout>
   );
 }

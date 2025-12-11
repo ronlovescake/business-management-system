@@ -1,11 +1,12 @@
 'use client';
 
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { Tabs } from '@mantine/core';
 import { TransactionsLayout } from '@/components/features/transactions';
 import type {
   HandsontableColumn,
   GetCellData,
+  CellClickEvent,
 } from '@/components/ui/HandsontableGrid';
 import type { TransactionData } from '../types/transaction.types';
 import type { DueDateGridRow } from '@/lib/transactions';
@@ -17,6 +18,7 @@ import type { TransactionStatistics } from '../types/transaction.types';
 export type TransactionsTabValue =
   | 'main'
   | 'invoicing'
+  | 'warehouse-prepared'
   | 'packing-list'
   | 'packed'
   | 'due-dates'
@@ -96,6 +98,7 @@ interface ReadOnlyTransactionsTabProps<T extends object> extends BaseTabProps {
   columns: HandsontableColumn[];
   getCellData: GetCellData<T>;
   searchPlaceholder: string;
+  onCellClick?: (event: CellClickEvent<T>) => void;
 }
 
 function ReadOnlyTransactionsTabComponent<T extends object>({
@@ -107,6 +110,7 @@ function ReadOnlyTransactionsTabComponent<T extends object>({
   onSearch,
   searchPlaceholder,
   stretchColumnId,
+  onCellClick,
 }: ReadOnlyTransactionsTabProps<T>) {
   return (
     <TransactionsLayout<T>
@@ -122,6 +126,7 @@ function ReadOnlyTransactionsTabComponent<T extends object>({
       statusOptions={[]}
       showActionButtons={false}
       stretchColumnId={stretchColumnId}
+      onCellClick={onCellClick}
     />
   );
 }
@@ -240,6 +245,11 @@ interface TransactionsTabsProps extends BaseTabProps {
   cappedFilteredTransactions: TransactionData[];
   onhandEligibleTransactions: TransactionData[];
   onhandEligibleFilteredTransactions: TransactionData[];
+  warehousePreparedTransactions: TransactionData[];
+  warehousePreparedFilteredTransactions: TransactionData[];
+  onWarehousePreparedCustomerClick?: (
+    event: CellClickEvent<TransactionData>
+  ) => void;
   columns: HandsontableColumn[];
   getCellData: GetCellData<TransactionData>;
   onCellEdited: (event: CellEditEvent<TransactionData>) => void;
@@ -303,7 +313,15 @@ export const TransactionsTabs = memo(function TransactionsTabs({
   stretchColumnId,
   onhandEligibleTransactions,
   onhandEligibleFilteredTransactions,
+  warehousePreparedTransactions,
+  warehousePreparedFilteredTransactions,
+  onWarehousePreparedCustomerClick,
 }: TransactionsTabsProps) {
+  const readOnlyTransactionsColumns = useMemo(
+    () => columns.map((column) => ({ ...column, readOnly: true })),
+    [columns]
+  );
+
   return (
     <Tabs
       value={activeTab}
@@ -317,6 +335,7 @@ export const TransactionsTabs = memo(function TransactionsTabs({
       <Tabs.List mt="sm">
         <Tabs.Tab value="main">Main Transactions</Tabs.Tab>
         <Tabs.Tab value="invoicing">Invoicing</Tabs.Tab>
+        <Tabs.Tab value="warehouse-prepared">Warehouse + Prepared</Tabs.Tab>
         <Tabs.Tab value="packing-list">Packing List</Tabs.Tab>
         <Tabs.Tab value="packed">Packed</Tabs.Tab>
         <Tabs.Tab value="due-dates">Due Dates</Tabs.Tab>
@@ -349,12 +368,26 @@ export const TransactionsTabs = memo(function TransactionsTabs({
         <ReadOnlyTransactionsTab<TransactionData>
           data={onhandEligibleTransactions}
           filteredData={onhandEligibleFilteredTransactions}
-          columns={columns}
+          columns={readOnlyTransactionsColumns}
           getCellData={getCellData}
           searchQuery={searchQuery}
           onSearch={onSearch}
           searchPlaceholder="Search invoicing-ready transactions..."
           stretchColumnId={stretchColumnId}
+        />
+      </Tabs.Panel>
+
+      <Tabs.Panel value="warehouse-prepared" pt="md">
+        <ReadOnlyTransactionsTab<TransactionData>
+          data={warehousePreparedTransactions}
+          filteredData={warehousePreparedFilteredTransactions}
+          columns={readOnlyTransactionsColumns}
+          getCellData={getCellData}
+          searchQuery={searchQuery}
+          onSearch={onSearch}
+          searchPlaceholder="Search Warehouse + Prepared customers..."
+          stretchColumnId={stretchColumnId}
+          onCellClick={onWarehousePreparedCustomerClick}
         />
       </Tabs.Panel>
 

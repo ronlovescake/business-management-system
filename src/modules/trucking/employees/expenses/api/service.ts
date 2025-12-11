@@ -14,6 +14,19 @@ import type {
 import type { ExpenseCreateDbInput } from './schemas';
 import { logger } from '@/lib/logger';
 
+const normalizeVehicleId = (value?: string | null) => {
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed.toUpperCase() : null;
+};
+
 export class ExpenseService {
   /**
    * Get all expenses
@@ -65,6 +78,7 @@ export class ExpenseService {
         receipt: data.receipt ?? undefined,
         notes: data.notes ?? undefined,
         employeeName: data.employeeName ?? undefined,
+        vehicleId: normalizeVehicleId(data.vehicleId),
       };
 
       // Type assertion needed: ExpenseCreateDbInput structure matches database schema
@@ -89,6 +103,7 @@ export class ExpenseService {
         receipt: expense.receipt ?? undefined,
         notes: expense.notes ?? undefined,
         employeeName: expense.employeeName ?? undefined,
+        vehicleId: normalizeVehicleId(expense.vehicleId),
       }));
 
       // Type assertion needed: Converted data matches database schema
@@ -123,6 +138,9 @@ export class ExpenseService {
       const updateData: Record<string, any> = { ...updateFields };
       if (updateData.date instanceof Date) {
         updateData.date = updateData.date.toISOString().split('T')[0];
+      }
+      if (Object.prototype.hasOwnProperty.call(updateData, 'vehicleId')) {
+        updateData.vehicleId = normalizeVehicleId(updateData.vehicleId);
       }
 
       // Type assertion needed: Converted data matches database schema

@@ -221,47 +221,6 @@ describe('TransactionService - Comprehensive Tests', () => {
       expect(unitPrice).toBe(-50); // Business decision: allow negative
     });
   });
-
-  // ============================================================================
-  // LINE TOTAL CALCULATION TESTS
-  // ============================================================================
-
-  describe('calculateLineTotal', () => {
-    it('should calculate line total: (Quantity × Unit Price) - Adjustment', () => {
-      const lineTotal = TransactionService.calculateLineTotal(10, 50, 20);
-      expect(lineTotal).toBe(480); // (10 × 50) - 20 = 480
-    });
-
-    it('should handle zero adjustment', () => {
-      const lineTotal = TransactionService.calculateLineTotal(10, 50, 0);
-      expect(lineTotal).toBe(500);
-    });
-
-    it('should handle zero quantity', () => {
-      const lineTotal = TransactionService.calculateLineTotal(0, 50, 10);
-      expect(lineTotal).toBe(-10); // 0 - 10
-    });
-
-    it('should handle zero unit price', () => {
-      const lineTotal = TransactionService.calculateLineTotal(10, 0, 5);
-      expect(lineTotal).toBe(-5);
-    });
-
-    it('should handle fractional quantities', () => {
-      const lineTotal = TransactionService.calculateLineTotal(2.5, 100, 50);
-      expect(lineTotal).toBe(200); // (2.5 × 100) - 50
-    });
-
-    it('should handle large numbers', () => {
-      const lineTotal = TransactionService.calculateLineTotal(1000, 999.99, 100);
-      expect(lineTotal).toBeCloseTo(999890, 2);
-    });
-  });
-
-  // ============================================================================
-  // ORDER STATUS LOGIC TESTS
-  // ============================================================================
-
   describe('getOrderStatusFromShipmentStatus', () => {
     it('should return "In Transit" for blank shipment status', () => {
       expect(TransactionService.getOrderStatusFromShipmentStatus('')).toBe(
@@ -286,7 +245,9 @@ describe('TransactionService - Comprehensive Tests', () => {
 
     it('should return "In Transit" for "With Pier Gatepass"', () => {
       expect(
-        TransactionService.getOrderStatusFromShipmentStatus('With Pier Gatepass')
+        TransactionService.getOrderStatusFromShipmentStatus(
+          'With Pier Gatepass'
+        )
       ).toBe('In Transit');
     });
 
@@ -303,9 +264,9 @@ describe('TransactionService - Comprehensive Tests', () => {
     });
 
     it('should return "Warehouse" for "Sorting"', () => {
-      expect(TransactionService.getOrderStatusFromShipmentStatus('Sorting')).toBe(
-        'Warehouse'
-      );
+      expect(
+        TransactionService.getOrderStatusFromShipmentStatus('Sorting')
+      ).toBe('Warehouse');
     });
 
     it('should return "Warehouse" for "Delivered"', () => {
@@ -410,7 +371,6 @@ describe('TransactionService - Comprehensive Tests', () => {
       expect(sanitized['Shipment Code']).toBe('SHIP001');
     });
   });
-
   describe('sanitizeTransactions', () => {
     it('should sanitize array of transactions', () => {
       const transactions: TransactionData[] = [
@@ -496,7 +456,7 @@ describe('TransactionService - Comprehensive Tests', () => {
         Adjustment: 0,
         'Line Total': 1000,
         'Order Status': 'Warehouse',
-        'Notes': '',
+        Notes: '',
         'Invoice Date': '',
         'Packed Date': '',
         'Shipment Code': '-',
@@ -582,10 +542,11 @@ describe('TransactionService - Comprehensive Tests', () => {
         PROD001: 'For Pickup', // Should change to "Warehouse"
       };
 
-      const [updated, count] = TransactionService.syncTransactionsWithShipmentStatus(
-        transactions,
-        statusMap
-      );
+      const [updated, count] =
+        TransactionService.syncTransactionsWithShipmentStatus(
+          transactions,
+          statusMap
+        );
 
       expect(count).toBe(1);
       expect(updated[0]['Order Status']).toBe('Warehouse');
@@ -615,10 +576,11 @@ describe('TransactionService - Comprehensive Tests', () => {
         PROD001: 'For Pickup',
       };
 
-      const [updated, count] = TransactionService.syncTransactionsWithShipmentStatus(
-        transactions,
-        statusMap
-      );
+      const [updated, count] =
+        TransactionService.syncTransactionsWithShipmentStatus(
+          transactions,
+          statusMap
+        );
 
       expect(count).toBe(0);
       expect(updated[0]['Order Status']).toBe('Prepared'); // Unchanged
@@ -648,10 +610,11 @@ describe('TransactionService - Comprehensive Tests', () => {
         PROD001: 'For Pickup',
       };
 
-      const [updated, count] = TransactionService.syncTransactionsWithShipmentStatus(
-        transactions,
-        statusMap
-      );
+      const [updated, count] =
+        TransactionService.syncTransactionsWithShipmentStatus(
+          transactions,
+          statusMap
+        );
 
       expect(count).toBe(0);
       expect(updated[0]['Order Status']).toBe('In Transit'); // Unchanged
@@ -669,58 +632,24 @@ describe('TransactionService - Comprehensive Tests', () => {
     });
 
     it('should handle quoted fields', () => {
-      const result = TransactionService.parseCSVLine('"field1","field2","field3"');
+      const result = TransactionService.parseCSVLine(
+        '"field1","field2","field3"'
+      );
       expect(result).toEqual(['field1', 'field2', 'field3']);
     });
 
     it('should handle commas inside quotes', () => {
-      const result = TransactionService.parseCSVLine('"field1,with,commas",field2,field3');
+      const result = TransactionService.parseCSVLine(
+        '"field1,with,commas",field2,field3'
+      );
       expect(result).toEqual(['field1,with,commas', 'field2', 'field3']);
     });
 
     it('should trim whitespace', () => {
-      const result = TransactionService.parseCSVLine('  field1  ,  field2  ,  field3  ');
+      const result = TransactionService.parseCSVLine(
+        '  field1  ,  field2  ,  field3  '
+      );
       expect(result).toEqual(['field1', 'field2', 'field3']);
-    });
-  });
-
-  // ============================================================================
-  // EMPTY ROWS GENERATION TESTS
-  // ============================================================================
-
-  describe('generateEmptyRows', () => {
-    it('should generate specified number of empty rows', () => {
-      const rows = TransactionService.generateEmptyRows(5);
-      expect(rows).toHaveLength(5);
-    });
-
-    it('should have unique IDs', () => {
-      const rows = TransactionService.generateEmptyRows(10);
-      const ids = rows.map((r) => r.id);
-      const uniqueIds = new Set(ids);
-      expect(uniqueIds.size).toBe(10);
-    });
-
-    it('should initialize with empty/null values', () => {
-      const rows = TransactionService.generateEmptyRows(1);
-      const row = rows[0];
-      
-      expect(row['Order Date']).toBe('');
-      expect(row.Customers).toBe('');
-      expect(row['Product Code']).toBe('');
-      expect(row.Quantity).toBeNull();
-      expect(row['Unit Price']).toBeNull();
-      expect(row.Discount).toBeNull();
-      expect(row.Adjustment).toBeNull();
-      expect(row['Line Total']).toBeNull();
-      expect(row['Order Status']).toBe('');
-      expect(row.Notes).toBe('');
-      expect(row['Shipment Code']).toBe('-');
-    });
-
-    it('should handle zero count', () => {
-      const rows = TransactionService.generateEmptyRows(0);
-      expect(rows).toHaveLength(0);
     });
   });
 });

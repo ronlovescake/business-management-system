@@ -38,6 +38,7 @@ interface Expense {
   receipt: string | null;
   status: 'pending' | 'approved' | 'rejected';
   employeeName?: string;
+  vehicleId?: string;
 }
 
 interface ExpenseFormDialogProps {
@@ -56,8 +57,8 @@ interface ExpenseFormDialogProps {
   setFormDescription: (description: string) => void;
   formCategory: string;
   setFormCategory: (category: string) => void;
-  formTripId: string;
-  setFormTripId: (tripId: string) => void;
+  formVehicleId: string;
+  setFormVehicleId: (vehicleId: string) => void;
   formNotes: string;
   setFormNotes: (notes: string) => void;
   formReceipt: File | null;
@@ -80,8 +81,8 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
   setFormDescription,
   formCategory,
   setFormCategory,
-  formTripId,
-  setFormTripId,
+  formVehicleId,
+  setFormVehicleId,
   formNotes,
   setFormNotes,
   formReceipt,
@@ -98,7 +99,7 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
   const dateField = getFieldProps('date');
   const categorySelect = getSelectProps('category');
   const amountField = getFieldProps('amount');
-  const vehicleSelect = getSelectProps('tripId');
+  const vehicleSelect = getSelectProps('vehicleId');
   const descriptionField = getFieldProps('description');
   const notesField = getTextareaProps('notes');
 
@@ -145,6 +146,7 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
               onChange={(value) => setFormCategory(value || '')}
               required
               searchable
+              maxDropdownHeight={420}
               {...categorySelect.handlers}
               styles={categorySelect.styles}
               withCheckIcon={false}
@@ -172,8 +174,8 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
                 vehicleOptions.length ? 'Select vehicle' : 'No vehicles found'
               }
               data={vehicleOptions}
-              value={formTripId || null}
-              onChange={(value) => setFormTripId(value || '')}
+              value={formVehicleId || null}
+              onChange={(value) => setFormVehicleId(value || '')}
               searchable
               allowDeselect
               {...vehicleSelect.handlers}

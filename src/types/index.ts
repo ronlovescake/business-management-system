@@ -115,6 +115,7 @@ export interface ExpenseDTO {
   receipt: string | null;
   status: string;
   employeeName: string | null;
+  vehicleId?: string | null;
 }
 
 // Legacy support

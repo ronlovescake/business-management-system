@@ -24,8 +24,6 @@ import type {
 } from '../types/transaction.types';
 import type { ApiResponse } from '@/types/api';
 
-const MIN_EMPTY_TRANSACTION_ROWS = 120;
-const MAX_ROWS_PER_ALLOCATION = 25;
 const SEARCH_STORAGE_KEY = 'transactions-search-query';
 
 async function fetchArray<T>(url: string): Promise<T[]> {
@@ -125,79 +123,7 @@ export function useTransactionsData(): UseTransactionsDataReturn {
     isLoading: transactionsLoading,
     bulkUpdate: bulkUpdateTransactions,
     update: updateTransaction,
-    refetch: refetchTransactions,
   } = useTransactionData();
-
-  const ensuringEmptyRowsRef = useRef(false);
-  const refetchTransactionsRef = useRef(refetchTransactions);
-
-  useEffect(() => {
-    refetchTransactionsRef.current = refetchTransactions;
-  }, [refetchTransactions]);
-
-  useEffect(() => {
-    if (!transactions || transactions.length === 0) {
-      return;
-    }
-
-    const emptyRowCount = transactions.filter((transaction) => {
-      const hasCustomer = Boolean(transaction.Customers?.trim());
-      const hasProduct = Boolean(transaction['Product Code']?.trim());
-      const hasOrderDate = Boolean(transaction['Order Date']?.trim());
-      const hasShipmentCode = Boolean(
-        transaction['Shipment Code'] &&
-          transaction['Shipment Code']?.trim() !== '' &&
-          transaction['Shipment Code'] !== '-'
-      );
-      const hasQuantity = Boolean(
-        transaction.Quantity && transaction.Quantity > 0
-      );
-      const hasNotes = Boolean(transaction.Notes?.trim());
-
-      return (
-        !hasCustomer &&
-        !hasProduct &&
-        !hasOrderDate &&
-        !hasShipmentCode &&
-        !hasQuantity &&
-        !hasNotes
-      );
-    }).length;
-
-    const missingRows = MIN_EMPTY_TRANSACTION_ROWS - emptyRowCount;
-
-    if (missingRows <= 0 || ensuringEmptyRowsRef.current) {
-      return;
-    }
-
-    ensuringEmptyRowsRef.current = true;
-
-    const allocateEmptyRows = async () => {
-      try {
-        let remaining = missingRows;
-        while (remaining > 0) {
-          const batchSize = Math.min(remaining, MAX_ROWS_PER_ALLOCATION);
-          const payload = TransactionService.generateEmptyRows(batchSize);
-          await api.post('/api/transactions', payload);
-          remaining -= batchSize;
-        }
-
-        const refresh = refetchTransactionsRef.current;
-        if (refresh) {
-          await refresh();
-        }
-        logger.info(
-          `Auto-provisioned ${missingRows} empty transaction rows to keep bulk paste capacity available.`
-        );
-      } catch (error) {
-        logger.error('Failed to auto-provision empty transaction rows:', error);
-      } finally {
-        ensuringEmptyRowsRef.current = false;
-      }
-    };
-
-    void allocateEmptyRows();
-  }, [transactions]);
 
   // logger.debug(`Loaded ${transactions.length} transactions from service layer`);
 

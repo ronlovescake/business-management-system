@@ -14,6 +14,7 @@ export default defineConfig({
   expect: {
     timeout: 5000,
   },
+  globalSetup: require.resolve('./tests/e2e/setup/global-setup'),
   fullyParallel: true,
   retries: 1,
   workers: isCI ? 1 : undefined,

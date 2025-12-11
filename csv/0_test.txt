@@ -1,0 +1,434 @@
+﻿2025-12-10T12:22:41.4628837Z Current runner version: '2.329.0'
+2025-12-10T12:22:41.4688812Z ##[group]Runner Image Provisioner
+2025-12-10T12:22:41.4690016Z Hosted Compute Agent
+2025-12-10T12:22:41.4690840Z Version: 20251124.448
+2025-12-10T12:22:41.4691923Z Commit: fda5086b43ec66ade217e5fcd18146c879571177
+2025-12-10T12:22:41.4693064Z Build Date: 2025-11-24T21:16:26Z
+2025-12-10T12:22:41.4693946Z ##[endgroup]
+2025-12-10T12:22:41.4694904Z ##[group]Operating System
+2025-12-10T12:22:41.4695741Z Ubuntu
+2025-12-10T12:22:41.4696439Z 24.04.3
+2025-12-10T12:22:41.4717697Z LTS
+2025-12-10T12:22:41.4718526Z ##[endgroup]
+2025-12-10T12:22:41.4719968Z ##[group]Runner Image
+2025-12-10T12:22:41.4720861Z Image: ubuntu-24.04
+2025-12-10T12:22:41.4721672Z Version: 20251126.144.1
+2025-12-10T12:22:41.4723422Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20251126.144/images/ubuntu/Ubuntu2404-Readme.md
+2025-12-10T12:22:41.4726216Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20251126.144
+2025-12-10T12:22:41.4728172Z ##[endgroup]
+2025-12-10T12:22:41.4729945Z ##[group]GITHUB_TOKEN Permissions
+2025-12-10T12:22:41.4733005Z Contents: read
+2025-12-10T12:22:41.4733772Z Metadata: read
+2025-12-10T12:22:41.4734532Z Packages: read
+2025-12-10T12:22:41.4735285Z ##[endgroup]
+2025-12-10T12:22:41.4748639Z Secret source: Actions
+2025-12-10T12:22:41.4750230Z Prepare workflow directory
+2025-12-10T12:22:41.5984124Z Prepare all required actions
+2025-12-10T12:22:41.6041715Z Getting action download info
+2025-12-10T12:22:41.9609602Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+2025-12-10T12:22:42.4048647Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+2025-12-10T12:22:42.5341293Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2025-12-10T12:22:42.8237702Z Complete job name: test
+2025-12-10T12:22:42.8798579Z ##[group]Checking docker version
+2025-12-10T12:22:42.8812786Z ##[command]/usr/bin/docker version --format '{{.Server.APIVersion}}'
+2025-12-10T12:22:42.9659648Z '1.48'
+2025-12-10T12:22:42.9670587Z Docker daemon API version: '1.48'
+2025-12-10T12:22:42.9672005Z ##[command]/usr/bin/docker version --format '{{.Client.APIVersion}}'
+2025-12-10T12:22:42.9933672Z '1.48'
+2025-12-10T12:22:42.9950978Z Docker client API version: '1.48'
+2025-12-10T12:22:42.9960205Z ##[endgroup]
+2025-12-10T12:22:42.9964908Z ##[group]Clean up resources from previous jobs
+2025-12-10T12:22:42.9970924Z ##[command]/usr/bin/docker ps --all --quiet --no-trunc --filter "label=c4b079"
+2025-12-10T12:22:43.0131268Z ##[command]/usr/bin/docker network prune --force --filter "label=c4b079"
+2025-12-10T12:22:43.0298979Z ##[endgroup]
+2025-12-10T12:22:43.0299831Z ##[group]Create local container network
+2025-12-10T12:22:43.0311349Z ##[command]/usr/bin/docker network create --label c4b079 github_network_78d2683f13ec44fcb0626760f125386f
+2025-12-10T12:22:43.1137694Z 02dada51f3bb0beb23c943323ce5bc33f326f9cc7a1d50663b7042dfbd8541a8
+2025-12-10T12:22:43.1159790Z ##[endgroup]
+2025-12-10T12:22:43.1185403Z ##[group]Starting postgres service container
+2025-12-10T12:22:43.1205941Z ##[command]/usr/bin/docker pull postgres:15
+2025-12-10T12:22:43.5823380Z 15: Pulling from library/postgres
+2025-12-10T12:22:43.7601133Z 1733a4cd5954: Pulling fs layer
+2025-12-10T12:22:43.7602171Z 66fe66faf896: Pulling fs layer
+2025-12-10T12:22:43.7602993Z c94f51fe9236: Pulling fs layer
+2025-12-10T12:22:43.7603796Z 9602d06b4e70: Pulling fs layer
+2025-12-10T12:22:43.7604629Z fab6e4443d8a: Pulling fs layer
+2025-12-10T12:22:43.7605387Z f2a9e5883151: Pulling fs layer
+2025-12-10T12:22:43.7606161Z 9602d06b4e70: Waiting
+2025-12-10T12:22:43.7607155Z fab6e4443d8a: Waiting
+2025-12-10T12:22:43.7607809Z f2a9e5883151: Waiting
+2025-12-10T12:22:43.7608567Z 8d363c2df07a: Pulling fs layer
+2025-12-10T12:22:43.7609364Z 5cdd56139991: Pulling fs layer
+2025-12-10T12:22:43.7610169Z aa55ead71133: Pulling fs layer
+2025-12-10T12:22:43.7610940Z 758ebfa119db: Pulling fs layer
+2025-12-10T12:22:43.7612141Z 798e92f9757e: Pulling fs layer
+2025-12-10T12:22:43.7612943Z ada9fa789fdc: Pulling fs layer
+2025-12-10T12:22:43.7613724Z 3e738c3a66c8: Pulling fs layer
+2025-12-10T12:22:43.7614459Z 687b178dca38: Pulling fs layer
+2025-12-10T12:22:43.7615185Z 8d363c2df07a: Waiting
+2025-12-10T12:22:43.7615850Z 5cdd56139991: Waiting
+2025-12-10T12:22:43.7616864Z aa55ead71133: Waiting
+2025-12-10T12:22:43.7617608Z 758ebfa119db: Waiting
+2025-12-10T12:22:43.7618368Z 798e92f9757e: Waiting
+2025-12-10T12:22:43.7619195Z ada9fa789fdc: Waiting
+2025-12-10T12:22:43.7620035Z 3e738c3a66c8: Waiting
+2025-12-10T12:22:43.7620863Z 687b178dca38: Waiting
+2025-12-10T12:22:43.9137673Z 66fe66faf896: Verifying Checksum
+2025-12-10T12:22:43.9148647Z 66fe66faf896: Download complete
+2025-12-10T12:22:44.3481684Z 9602d06b4e70: Verifying Checksum
+2025-12-10T12:22:44.3498978Z 9602d06b4e70: Download complete
+2025-12-10T12:22:44.4052425Z c94f51fe9236: Verifying Checksum
+2025-12-10T12:22:44.4054448Z c94f51fe9236: Download complete
+2025-12-10T12:22:44.6099941Z 1733a4cd5954: Verifying Checksum
+2025-12-10T12:22:44.6101278Z 1733a4cd5954: Download complete
+2025-12-10T12:22:44.9689288Z 8d363c2df07a: Verifying Checksum
+2025-12-10T12:22:44.9697446Z 8d363c2df07a: Download complete
+2025-12-10T12:22:45.0308556Z fab6e4443d8a: Verifying Checksum
+2025-12-10T12:22:45.0315438Z fab6e4443d8a: Download complete
+2025-12-10T12:22:45.0394329Z f2a9e5883151: Verifying Checksum
+2025-12-10T12:22:45.0407229Z f2a9e5883151: Download complete
+2025-12-10T12:22:45.2551895Z 5cdd56139991: Verifying Checksum
+2025-12-10T12:22:45.2557483Z 5cdd56139991: Download complete
+2025-12-10T12:22:45.3271794Z 758ebfa119db: Verifying Checksum
+2025-12-10T12:22:45.3280038Z 758ebfa119db: Download complete
+2025-12-10T12:22:45.5627333Z 798e92f9757e: Verifying Checksum
+2025-12-10T12:22:45.5637501Z 798e92f9757e: Download complete
+2025-12-10T12:22:45.6301815Z ada9fa789fdc: Verifying Checksum
+2025-12-10T12:22:45.6305326Z ada9fa789fdc: Download complete
+2025-12-10T12:22:45.8544846Z 687b178dca38: Verifying Checksum
+2025-12-10T12:22:45.8545871Z 687b178dca38: Download complete
+2025-12-10T12:22:45.8585495Z 3e738c3a66c8: Verifying Checksum
+2025-12-10T12:22:45.8587872Z 3e738c3a66c8: Download complete
+2025-12-10T12:22:45.9987437Z 1733a4cd5954: Pull complete
+2025-12-10T12:22:47.3066964Z aa55ead71133: Verifying Checksum
+2025-12-10T12:22:47.3067564Z aa55ead71133: Download complete
+2025-12-10T12:22:48.3897643Z 66fe66faf896: Pull complete
+2025-12-10T12:22:48.6145081Z c94f51fe9236: Pull complete
+2025-12-10T12:22:48.6677053Z 9602d06b4e70: Pull complete
+2025-12-10T12:22:49.0358507Z fab6e4443d8a: Pull complete
+2025-12-10T12:22:49.1324990Z f2a9e5883151: Pull complete
+2025-12-10T12:22:49.1448485Z 8d363c2df07a: Pull complete
+2025-12-10T12:22:49.1610337Z 5cdd56139991: Pull complete
+2025-12-10T12:22:53.4961243Z aa55ead71133: Pull complete
+2025-12-10T12:22:53.5251425Z 758ebfa119db: Pull complete
+2025-12-10T12:22:53.5515034Z 798e92f9757e: Pull complete
+2025-12-10T12:22:53.5688758Z ada9fa789fdc: Pull complete
+2025-12-10T12:22:53.5899627Z 3e738c3a66c8: Pull complete
+2025-12-10T12:22:53.6020713Z 687b178dca38: Pull complete
+2025-12-10T12:22:53.6081558Z Digest: sha256:0f34b3378f8982d16add539e7b11411ee8386d43a9e0c30dcfd63d25f2f3df26
+2025-12-10T12:22:53.6099049Z Status: Downloaded newer image for postgres:15
+2025-12-10T12:22:53.6110579Z docker.io/library/postgres:15
+2025-12-10T12:22:53.6184111Z ##[command]/usr/bin/docker create --name 03f47755db0546bc957c0b1c347fc04b_postgres15_0b5ff6 --label c4b079 --network github_network_78d2683f13ec44fcb0626760f125386f --network-alias postgres -p 5433:5432 --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5 -e "POSTGRES_USER=testuser" -e "POSTGRES_PASSWORD=testpass" -e "POSTGRES_DB=business_management_test" -e GITHUB_ACTIONS=true -e CI=true postgres:15
+2025-12-10T12:22:53.6465782Z 3a8ea17a78449a0800d0d4362f48d2e9a17277628d3e2b7726f377dd2e4cbf3d
+2025-12-10T12:22:53.6492495Z ##[command]/usr/bin/docker start 3a8ea17a78449a0800d0d4362f48d2e9a17277628d3e2b7726f377dd2e4cbf3d
+2025-12-10T12:22:53.8948844Z 3a8ea17a78449a0800d0d4362f48d2e9a17277628d3e2b7726f377dd2e4cbf3d
+2025-12-10T12:22:53.8971421Z ##[command]/usr/bin/docker ps --all --filter id=3a8ea17a78449a0800d0d4362f48d2e9a17277628d3e2b7726f377dd2e4cbf3d --filter status=running --no-trunc --format "{{.ID}} {{.Status}}"
+2025-12-10T12:22:53.9172382Z 3a8ea17a78449a0800d0d4362f48d2e9a17277628d3e2b7726f377dd2e4cbf3d Up Less than a second (health: starting)
+2025-12-10T12:22:53.9211030Z ##[command]/usr/bin/docker port 3a8ea17a78449a0800d0d4362f48d2e9a17277628d3e2b7726f377dd2e4cbf3d
+2025-12-10T12:22:53.9480155Z 5432/tcp -> 0.0.0.0:5433
+2025-12-10T12:22:53.9487238Z 5432/tcp -> [::]:5433
+2025-12-10T12:22:53.9555615Z ##[endgroup]
+2025-12-10T12:22:53.9568375Z ##[group]Waiting for all services to be ready
+2025-12-10T12:22:53.9586401Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 3a8ea17a78449a0800d0d4362f48d2e9a17277628d3e2b7726f377dd2e4cbf3d
+2025-12-10T12:22:53.9798384Z starting
+2025-12-10T12:22:53.9860712Z postgres service is starting, waiting 2 seconds before checking again.
+2025-12-10T12:22:55.9867286Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 3a8ea17a78449a0800d0d4362f48d2e9a17277628d3e2b7726f377dd2e4cbf3d
+2025-12-10T12:22:56.0008259Z starting
+2025-12-10T12:22:56.0023795Z postgres service is starting, waiting 4 seconds before checking again.
+2025-12-10T12:23:00.0070196Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 3a8ea17a78449a0800d0d4362f48d2e9a17277628d3e2b7726f377dd2e4cbf3d
+2025-12-10T12:23:00.0210771Z starting
+2025-12-10T12:23:00.0225998Z postgres service is starting, waiting 6 seconds before checking again.
+2025-12-10T12:23:06.9148051Z ##[command]/usr/bin/docker inspect --format="{{if .Config.Healthcheck}}{{print .State.Health.Status}}{{end}}" 3a8ea17a78449a0800d0d4362f48d2e9a17277628d3e2b7726f377dd2e4cbf3d
+2025-12-10T12:23:06.9309839Z healthy
+2025-12-10T12:23:06.9342016Z postgres service is healthy.
+2025-12-10T12:23:06.9342823Z ##[endgroup]
+2025-12-10T12:23:06.9599157Z ##[group]Run actions/checkout@v4
+2025-12-10T12:23:06.9599678Z with:
+2025-12-10T12:23:06.9599957Z   repository: homesweethomevlog-prog/business-management-system
+2025-12-10T12:23:06.9600430Z   token: ***
+2025-12-10T12:23:06.9600605Z   ssh-strict: true
+2025-12-10T12:23:06.9600778Z   ssh-user: git
+2025-12-10T12:23:06.9600959Z   persist-credentials: true
+2025-12-10T12:23:06.9601169Z   clean: true
+2025-12-10T12:23:06.9601353Z   sparse-checkout-cone-mode: true
+2025-12-10T12:23:06.9601568Z   fetch-depth: 1
+2025-12-10T12:23:06.9601746Z   fetch-tags: false
+2025-12-10T12:23:06.9601919Z   show-progress: true
+2025-12-10T12:23:06.9602102Z   lfs: false
+2025-12-10T12:23:06.9602264Z   submodules: false
+2025-12-10T12:23:06.9602458Z   set-safe-directory: true
+2025-12-10T12:23:06.9602838Z ##[endgroup]
+2025-12-10T12:23:07.0933989Z Syncing repository: homesweethomevlog-prog/business-management-system
+2025-12-10T12:23:07.0937124Z ##[group]Getting Git version info
+2025-12-10T12:23:07.0938437Z Working directory is '/home/runner/work/business-management-system/business-management-system'
+2025-12-10T12:23:07.0943411Z [command]/usr/bin/git version
+2025-12-10T12:23:07.0943852Z git version 2.52.0
+2025-12-10T12:23:07.0945468Z ##[endgroup]
+2025-12-10T12:23:07.0952348Z Temporarily overriding HOME='/home/runner/work/_temp/c79232a3-b953-4834-865c-7e1abc27f1ce' before making global git config changes
+2025-12-10T12:23:07.0954887Z Adding repository directory to the temporary git global config as a safe directory
+2025-12-10T12:23:07.0973597Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/business-management-system/business-management-system
+2025-12-10T12:23:07.1032719Z Deleting the contents of '/home/runner/work/business-management-system/business-management-system'
+2025-12-10T12:23:07.1038909Z ##[group]Initializing the repository
+2025-12-10T12:23:07.1044651Z [command]/usr/bin/git init /home/runner/work/business-management-system/business-management-system
+2025-12-10T12:23:07.1163994Z hint: Using 'master' as the name for the initial branch. This default branch name
+2025-12-10T12:23:07.1165857Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2025-12-10T12:23:07.1171133Z hint: to use in all of your new repositories, which will suppress this warning,
+2025-12-10T12:23:07.1171774Z hint: call:
+2025-12-10T12:23:07.1177215Z hint:
+2025-12-10T12:23:07.1178481Z hint: 	git config --global init.defaultBranch <name>
+2025-12-10T12:23:07.1180484Z hint:
+2025-12-10T12:23:07.1180972Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2025-12-10T12:23:07.1181756Z hint: 'development'. The just-created branch can be renamed via this command:
+2025-12-10T12:23:07.1182346Z hint:
+2025-12-10T12:23:07.1182679Z hint: 	git branch -m <name>
+2025-12-10T12:23:07.1183042Z hint:
+2025-12-10T12:23:07.1183580Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2025-12-10T12:23:07.1184785Z Initialized empty Git repository in /home/runner/work/business-management-system/business-management-system/.git/
+2025-12-10T12:23:07.1189252Z [command]/usr/bin/git remote add origin https://github.com/homesweethomevlog-prog/business-management-system
+2025-12-10T12:23:07.1234087Z ##[endgroup]
+2025-12-10T12:23:07.1234734Z ##[group]Disabling automatic garbage collection
+2025-12-10T12:23:07.1235276Z [command]/usr/bin/git config --local gc.auto 0
+2025-12-10T12:23:07.1269718Z ##[endgroup]
+2025-12-10T12:23:07.1271986Z ##[group]Setting up auth
+2025-12-10T12:23:07.1277066Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2025-12-10T12:23:07.1311473Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2025-12-10T12:23:07.1688446Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2025-12-10T12:23:07.1728540Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2025-12-10T12:23:07.1974230Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2025-12-10T12:23:07.2009162Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2025-12-10T12:23:07.2265552Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2025-12-10T12:23:07.2307763Z ##[endgroup]
+2025-12-10T12:23:07.2309903Z ##[group]Fetching the repository
+2025-12-10T12:23:07.2317947Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +2dad60df4783f07c86de815cc2f06c24018fe01b:refs/remotes/origin/main
+2025-12-10T12:23:08.6435151Z From https://github.com/homesweethomevlog-prog/business-management-system
+2025-12-10T12:23:08.6436097Z  * [new ref]         2dad60df4783f07c86de815cc2f06c24018fe01b -> origin/main
+2025-12-10T12:23:08.6477823Z ##[endgroup]
+2025-12-10T12:23:08.6478397Z ##[group]Determining the checkout info
+2025-12-10T12:23:08.6479009Z ##[endgroup]
+2025-12-10T12:23:08.6482882Z [command]/usr/bin/git sparse-checkout disable
+2025-12-10T12:23:08.6528546Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2025-12-10T12:23:08.6557865Z ##[group]Checking out the ref
+2025-12-10T12:23:08.6562691Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2025-12-10T12:23:08.9353043Z Switched to a new branch 'main'
+2025-12-10T12:23:08.9357518Z branch 'main' set up to track 'origin/main'.
+2025-12-10T12:23:08.9380088Z ##[endgroup]
+2025-12-10T12:23:08.9422715Z [command]/usr/bin/git log -1 --format=%H
+2025-12-10T12:23:08.9450568Z 2dad60df4783f07c86de815cc2f06c24018fe01b
+2025-12-10T12:23:08.9670613Z ##[group]Run actions/setup-node@v4
+2025-12-10T12:23:08.9671035Z with:
+2025-12-10T12:23:08.9671202Z   node-version: 20
+2025-12-10T12:23:08.9671390Z   cache: npm
+2025-12-10T12:23:08.9671560Z   always-auth: false
+2025-12-10T12:23:08.9671753Z   check-latest: false
+2025-12-10T12:23:08.9672060Z   token: ***
+2025-12-10T12:23:08.9672236Z ##[endgroup]
+2025-12-10T12:23:09.1795356Z Found in cache @ /opt/hostedtoolcache/node/20.19.6/x64
+2025-12-10T12:23:09.1812215Z ##[group]Environment details
+2025-12-10T12:23:10.9993554Z node: v20.19.6
+2025-12-10T12:23:10.9994081Z npm: 10.8.2
+2025-12-10T12:23:10.9995119Z yarn: 1.22.22
+2025-12-10T12:23:10.9997658Z ##[endgroup]
+2025-12-10T12:23:11.0022656Z [command]/opt/hostedtoolcache/node/20.19.6/x64/bin/npm config get cache
+2025-12-10T12:23:11.2271840Z /home/runner/.npm
+2025-12-10T12:23:11.4041026Z Cache hit for: node-cache-Linux-x64-npm-eb134633bdbd8aad3f3aa9030c165eacd596f5b2552ed664b9c0148ce35cbfb5
+2025-12-10T12:23:12.5134681Z Received 125829120 of 280970419 (44.8%), 120.0 MBs/sec
+2025-12-10T12:23:13.5129711Z Received 264241152 of 280970419 (94.0%), 126.1 MBs/sec
+2025-12-10T12:23:13.7581827Z Received 280970419 of 280970419 (100.0%), 119.4 MBs/sec
+2025-12-10T12:23:13.7585832Z Cache Size: ~268 MB (280970419 B)
+2025-12-10T12:23:13.7764531Z [command]/usr/bin/tar -xf /home/runner/work/_temp/f537af50-816a-4e97-bc2a-028646aa2bc1/cache.tzst -P -C /home/runner/work/business-management-system/business-management-system --use-compress-program unzstd
+2025-12-10T12:23:14.5792014Z Cache restored successfully
+2025-12-10T12:23:14.6378247Z Cache restored from key: node-cache-Linux-x64-npm-eb134633bdbd8aad3f3aa9030c165eacd596f5b2552ed664b9c0148ce35cbfb5
+2025-12-10T12:23:14.6529507Z ##[group]Run npm ci
+2025-12-10T12:23:14.6529773Z [36;1mnpm ci[0m
+2025-12-10T12:23:14.6575678Z shell: /usr/bin/bash -e {0}
+2025-12-10T12:23:14.6575934Z ##[endgroup]
+2025-12-10T12:23:29.1719311Z npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+2025-12-10T12:23:29.3216491Z npm warn deprecated @babel/plugin-proposal-export-namespace-from@7.18.9: This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained. Please use @babel/plugin-transform-export-namespace-from instead.
+2025-12-10T12:23:29.4983337Z npm warn deprecated @humanwhocodes/config-array@0.13.0: Use @eslint/config-array instead
+2025-12-10T12:23:29.5381518Z npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+2025-12-10T12:23:29.5707226Z npm warn deprecated abab@2.0.6: Use your platform's native atob() and btoa() methods instead
+2025-12-10T12:23:29.7788648Z npm warn deprecated @humanwhocodes/object-schema@2.0.3: Use @eslint/object-schema instead
+2025-12-10T12:23:29.7863077Z npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+2025-12-10T12:23:29.7864497Z npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+2025-12-10T12:23:29.9524021Z npm warn deprecated domexception@4.0.0: Use your platform's native DOMException instead
+2025-12-10T12:23:30.9865082Z npm warn deprecated babel-merge@3.0.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+2025-12-10T12:23:31.1898434Z npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+2025-12-10T12:23:31.5300415Z npm warn deprecated @handsontable/react@16.1.1: Handsontable for React is now available as @handsontable/react-wrapper.
+2025-12-10T12:23:39.1763858Z npm warn deprecated eslint@8.57.1: This version is no longer supported. Please see https://eslint.org/version-support for other options.
+2025-12-10T12:24:12.5546278Z 
+2025-12-10T12:24:12.5551186Z > business-management@1.0.0 prepare
+2025-12-10T12:24:12.5555167Z > husky install
+2025-12-10T12:24:12.5557456Z 
+2025-12-10T12:24:12.6307331Z husky - Git hooks installed
+2025-12-10T12:24:12.6839484Z 
+2025-12-10T12:24:12.6840977Z added 1503 packages, and audited 1504 packages in 58s
+2025-12-10T12:24:12.6843006Z 
+2025-12-10T12:24:12.6843320Z 290 packages are looking for funding
+2025-12-10T12:24:12.6843776Z   run `npm fund` for details
+2025-12-10T12:24:12.7675375Z 
+2025-12-10T12:24:12.7676236Z 19 vulnerabilities (1 low, 13 moderate, 5 high)
+2025-12-10T12:24:12.7676868Z 
+2025-12-10T12:24:12.7677240Z To address issues that do not require attention, run:
+2025-12-10T12:24:12.7677747Z   npm audit fix
+2025-12-10T12:24:12.7677947Z 
+2025-12-10T12:24:12.7678401Z To address all issues possible (including breaking changes), run:
+2025-12-10T12:24:12.7679220Z   npm audit fix --force
+2025-12-10T12:24:12.7679457Z 
+2025-12-10T12:24:12.7679767Z Some issues need review, and may require choosing
+2025-12-10T12:24:12.7680327Z a different dependency.
+2025-12-10T12:24:12.7680566Z 
+2025-12-10T12:24:12.7680755Z Run `npm audit` for details.
+2025-12-10T12:24:12.9297097Z ##[group]Run cp .env.example .env.test || touch .env.test
+2025-12-10T12:24:12.9297751Z [36;1mcp .env.example .env.test || touch .env.test[0m
+2025-12-10T12:24:12.9298861Z [36;1mecho "DATABASE_URL=***localhost:5433/business_management_test" >> .env.test[0m
+2025-12-10T12:24:12.9299593Z [36;1mecho "NEXTAUTH_URL=http://localhost:3100" >> .env.test[0m
+2025-12-10T12:24:12.9300306Z [36;1mecho "NEXTAUTH_SECRET=test-secret-key-for-ci-123456789012" >> .env.test[0m
+2025-12-10T12:24:12.9300974Z [36;1mecho "BYPASS_AUTH_FOR_TESTS=true" >> .env.test[0m
+2025-12-10T12:24:12.9301445Z [36;1mecho "PORT=3100" >> .env.test[0m
+2025-12-10T12:24:12.9361269Z shell: /usr/bin/bash -e {0}
+2025-12-10T12:24:12.9361522Z ##[endgroup]
+2025-12-10T12:24:12.9478817Z ##[group]Run npm run db:migrate
+2025-12-10T12:24:12.9479103Z [36;1mnpm run db:migrate[0m
+2025-12-10T12:24:12.9513711Z shell: /usr/bin/bash -e {0}
+2025-12-10T12:24:12.9513945Z env:
+2025-12-10T12:24:12.9514553Z   DATABASE_URL: ***localhost:5433/business_management_test
+2025-12-10T12:24:12.9514843Z ##[endgroup]
+2025-12-10T12:24:13.1077299Z 
+2025-12-10T12:24:13.1079821Z > business-management@1.0.0 db:migrate
+2025-12-10T12:24:13.1081778Z > prisma migrate dev
+2025-12-10T12:24:13.1082030Z 
+2025-12-10T12:24:13.6567891Z Environment variables loaded from .env
+2025-12-10T12:24:13.6569076Z Prisma schema loaded from prisma/schema.prisma
+2025-12-10T12:24:13.6734554Z Datasource "db": PostgreSQL database "business_management_test", schema "public" at "localhost:5433"
+2025-12-10T12:24:13.6740066Z 
+2025-12-10T12:24:14.4659721Z Error: P3006
+2025-12-10T12:24:14.4660349Z 
+2025-12-10T12:24:14.4666120Z Migration `20251210103000_add_vehicle_id_to_trucking_expenses` failed to apply cleanly to the shadow database. 
+2025-12-10T12:24:14.4707707Z Error code: P1014
+2025-12-10T12:24:14.4708033Z Error:
+2025-12-10T12:24:14.4708596Z The underlying table for model `trucking_expenses` does not exist.
+2025-12-10T12:24:14.4709025Z 
+2025-12-10T12:24:14.4909960Z ##[error]Process completed with exit code 1.
+2025-12-10T12:24:14.4979588Z ##[group]Run actions/upload-artifact@v4
+2025-12-10T12:24:14.4979876Z with:
+2025-12-10T12:24:14.4980075Z   name: playwright-report
+2025-12-10T12:24:14.4980307Z   path: playwright-report/
+2025-12-10T12:24:14.4980522Z   retention-days: 30
+2025-12-10T12:24:14.4980725Z   if-no-files-found: warn
+2025-12-10T12:24:14.4980927Z   compression-level: 6
+2025-12-10T12:24:14.4981116Z   overwrite: false
+2025-12-10T12:24:14.4981309Z   include-hidden-files: false
+2025-12-10T12:24:14.4981519Z ##[endgroup]
+2025-12-10T12:24:14.7882571Z ##[warning]No files were found with the provided path: playwright-report/. No artifacts will be uploaded.
+2025-12-10T12:24:14.8046188Z ##[group]Run actions/upload-artifact@v4
+2025-12-10T12:24:14.8046496Z with:
+2025-12-10T12:24:14.8046990Z   name: test-screenshots
+2025-12-10T12:24:14.8047212Z   path: test-results/
+2025-12-10T12:24:14.8047420Z   retention-days: 7
+2025-12-10T12:24:14.8047614Z   if-no-files-found: warn
+2025-12-10T12:24:14.8047813Z   compression-level: 6
+2025-12-10T12:24:14.8048007Z   overwrite: false
+2025-12-10T12:24:14.8048198Z   include-hidden-files: false
+2025-12-10T12:24:14.8048612Z ##[endgroup]
+2025-12-10T12:24:15.0285212Z ##[warning]No files were found with the provided path: test-results/. No artifacts will be uploaded.
+2025-12-10T12:24:15.0452737Z Post job cleanup.
+2025-12-10T12:24:15.1898628Z [command]/usr/bin/git version
+2025-12-10T12:24:15.1978280Z git version 2.52.0
+2025-12-10T12:24:15.2053164Z Temporarily overriding HOME='/home/runner/work/_temp/556fb820-28a6-4088-8595-6e28fa74fc74' before making global git config changes
+2025-12-10T12:24:15.2064298Z Adding repository directory to the temporary git global config as a safe directory
+2025-12-10T12:24:15.2069018Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/business-management-system/business-management-system
+2025-12-10T12:24:15.2179012Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2025-12-10T12:24:15.2228232Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2025-12-10T12:24:15.2521781Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2025-12-10T12:24:15.2553649Z http.https://github.com/.extraheader
+2025-12-10T12:24:15.2573103Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2025-12-10T12:24:15.2612148Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2025-12-10T12:24:15.2857449Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2025-12-10T12:24:15.2892626Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2025-12-10T12:24:15.3239094Z Print service container logs: 03f47755db0546bc957c0b1c347fc04b_postgres15_0b5ff6
+2025-12-10T12:24:15.3243413Z ##[command]/usr/bin/docker logs --details 3a8ea17a78449a0800d0d4362f48d2e9a17277628d3e2b7726f377dd2e4cbf3d
+2025-12-10T12:24:15.3387448Z  The files belonging to this database system will be owned by user "postgres".
+2025-12-10T12:24:15.3391044Z  initdb: warning: enabling "trust" authentication for local connections
+2025-12-10T12:24:15.3391437Z  This user must also own the server process.
+2025-12-10T12:24:15.3392394Z  initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+2025-12-10T12:24:15.3393481Z  2025-12-10 12:22:55.001 UTC [1] LOG:  starting PostgreSQL 15.15 (Debian 15.15-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2025-12-10T12:24:15.3394293Z  2025-12-10 12:22:55.001 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2025-12-10T12:24:15.3395042Z  2025-12-10 12:22:55.001 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+2025-12-10T12:24:15.3395779Z  2025-12-10 12:22:55.002 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2025-12-10T12:24:15.3396521Z  2025-12-10 12:22:55.006 UTC [63] LOG:  database system was shut down at 2025-12-10 12:22:54 UTC
+2025-12-10T12:24:15.3397545Z  2025-12-10 12:22:55.010 UTC [1] LOG:  database system is ready to accept connections
+2025-12-10T12:24:15.3398206Z  2025-12-10 12:23:03.958 UTC [74] FATAL:  role "root" does not exist
+2025-12-10T12:24:15.3398806Z  2025-12-10 12:23:14.068 UTC [81] FATAL:  role "root" does not exist
+2025-12-10T12:24:15.3399403Z  2025-12-10 12:23:24.206 UTC [89] FATAL:  role "root" does not exist
+2025-12-10T12:24:15.3399996Z  2025-12-10 12:23:34.308 UTC [97] FATAL:  role "root" does not exist
+2025-12-10T12:24:15.3400588Z  2025-12-10 12:23:44.410 UTC [104] FATAL:  role "root" does not exist
+2025-12-10T12:24:15.3401205Z  2025-12-10 12:23:54.519 UTC [112] FATAL:  role "root" does not exist
+2025-12-10T12:24:15.3401817Z  2025-12-10 12:24:04.590 UTC [121] FATAL:  role "root" does not exist
+2025-12-10T12:24:15.3402881Z  2025-12-10 12:24:13.982 UTC [123] ERROR:  relation "_prisma_migrations" does not exist at character 126
+2025-12-10T12:24:15.3404002Z  2025-12-10 12:24:13.982 UTC [123] STATEMENT:  SELECT "id", "checksum", "finished_at", "migration_name", "logs", "rolled_back_at", "started_at", "applied_steps_count" FROM "_prisma_migrations" ORDER BY "started_at" ASC
+2025-12-10T12:24:15.3405019Z  2025-12-10 12:24:14.121 UTC [124] FATAL:  terminating connection due to administrator command
+2025-12-10T12:24:15.3405685Z  2025-12-10 12:24:14.222 UTC [61] LOG:  checkpoint starting: immediate force wait
+2025-12-10T12:24:15.3408078Z  2025-12-10 12:24:14.243 UTC [61] LOG:  checkpoint complete: wrote 44 buffers (0.3%); 1 WAL file(s) added, 0 removed, 0 recycled; write=0.002 s, sync=0.001 s, total=0.021 s; sync files=14, longest=0.001 s, average=0.001 s; distance=4522 kB, estimate=4522 kB
+2025-12-10T12:24:15.3410258Z  2025-12-10 12:24:14.447 UTC [125] ERROR:  relation "trucking_expenses" does not exist
+2025-12-10T12:24:15.3411109Z  2025-12-10 12:24:14.447 UTC [125] STATEMENT:  -- Add optional vehicleId field for trucking expenses
+2025-12-10T12:24:15.3411995Z  	ALTER TABLE "trucking_expenses" ADD COLUMN IF NOT EXISTS "vehicleId" VARCHAR(50);
+2025-12-10T12:24:15.3412616Z  	
+2025-12-10T12:24:15.3412905Z  	-- Mirror Prisma schema indexes
+2025-12-10T12:24:15.3413606Z  	CREATE INDEX IF NOT EXISTS "trucking_expenses_vehicleId_idx" ON "trucking_expenses"("vehicleId");
+2025-12-10T12:24:15.3414307Z  	
+2025-12-10T12:24:15.3414711Z  2025-12-10 12:24:14.448 UTC [61] LOG:  checkpoint starting: immediate force wait
+2025-12-10T12:24:15.3416092Z  2025-12-10 12:24:14.451 UTC [61] LOG:  checkpoint complete: wrote 4 buffers (0.0%); 0 WAL file(s) added, 0 removed, 1 recycled; write=0.001 s, sync=0.001 s, total=0.004 s; sync files=4, longest=0.001 s, average=0.001 s; distance=5013 kB, estimate=5013 kB
+2025-12-10T12:24:15.3417980Z  2025-12-10 12:24:14.697 UTC [133] FATAL:  role "root" does not exist
+2025-12-10T12:24:15.3418467Z  
+2025-12-10T12:24:15.3418886Z  The database cluster will be initialized with locale "en_US.utf8".
+2025-12-10T12:24:15.3419564Z  The default database encoding has accordingly been set to "UTF8".
+2025-12-10T12:24:15.3420227Z  The default text search configuration will be set to "english".
+2025-12-10T12:24:15.3420723Z  
+2025-12-10T12:24:15.3421001Z  Data page checksums are disabled.
+2025-12-10T12:24:15.3421369Z  
+2025-12-10T12:24:15.3421822Z  fixing permissions on existing directory /var/lib/postgresql/data ... ok
+2025-12-10T12:24:15.3422439Z  creating subdirectories ... ok
+2025-12-10T12:24:15.3422926Z  selecting dynamic shared memory implementation ... posix
+2025-12-10T12:24:15.3423473Z  selecting default max_connections ... 100
+2025-12-10T12:24:15.3423925Z  selecting default shared_buffers ... 128MB
+2025-12-10T12:24:15.3424354Z  selecting default time zone ... Etc/UTC
+2025-12-10T12:24:15.3424798Z  creating configuration files ... ok
+2025-12-10T12:24:15.3425220Z  running bootstrap script ... ok
+2025-12-10T12:24:15.3425699Z  performing post-bootstrap initialization ... ok
+2025-12-10T12:24:15.3426161Z  syncing data to disk ... ok
+2025-12-10T12:24:15.3426671Z  
+2025-12-10T12:24:15.3426909Z  
+2025-12-10T12:24:15.3427217Z  Success. You can now start the database server using:
+2025-12-10T12:24:15.3427653Z  
+2025-12-10T12:24:15.3427972Z      pg_ctl -D /var/lib/postgresql/data -l logfile start
+2025-12-10T12:24:15.3428415Z  
+2025-12-10T12:24:15.3429352Z  waiting for server to start....2025-12-10 12:22:54.690 UTC [47] LOG:  starting PostgreSQL 15.15 (Debian 15.15-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2025-12-10T12:24:15.3430137Z  2025-12-10 12:22:54.691 UTC [47] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2025-12-10T12:24:15.3430658Z  2025-12-10 12:22:54.695 UTC [50] LOG:  database system was shut down at 2025-12-10 12:22:54 UTC
+2025-12-10T12:24:15.3431101Z  2025-12-10 12:22:54.699 UTC [47] LOG:  database system is ready to accept connections
+2025-12-10T12:24:15.3431570Z   done
+2025-12-10T12:24:15.3431734Z  server started
+2025-12-10T12:24:15.3431909Z  CREATE DATABASE
+2025-12-10T12:24:15.3432074Z  
+2025-12-10T12:24:15.3432217Z  
+2025-12-10T12:24:15.3432513Z  /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+2025-12-10T12:24:15.3432877Z  
+2025-12-10T12:24:15.3433183Z  waiting for server to shut down...2025-12-10 12:22:54.881 UTC [47] LOG:  received fast shutdown request
+2025-12-10T12:24:15.3433682Z  .2025-12-10 12:22:54.881 UTC [47] LOG:  aborting any active transactions
+2025-12-10T12:24:15.3434192Z  2025-12-10 12:22:54.883 UTC [47] LOG:  background worker "logical replication launcher" (PID 53) exited with exit code 1
+2025-12-10T12:24:15.3434655Z  2025-12-10 12:22:54.885 UTC [48] LOG:  shutting down
+2025-12-10T12:24:15.3434992Z  2025-12-10 12:22:54.885 UTC [48] LOG:  checkpoint starting: shutdown immediate
+2025-12-10T12:24:15.3435816Z  2025-12-10 12:22:54.906 UTC [48] LOG:  checkpoint complete: wrote 922 buffers (5.6%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.016 s, sync=0.003 s, total=0.021 s; sync files=301, longest=0.001 s, average=0.001 s; distance=4240 kB, estimate=4240 kB
+2025-12-10T12:24:15.3436882Z  2025-12-10 12:22:54.912 UTC [47] LOG:  database system is shut down
+2025-12-10T12:24:15.3437175Z   done
+2025-12-10T12:24:15.3437335Z  server stopped
+2025-12-10T12:24:15.3437499Z  
+2025-12-10T12:24:15.3437712Z  PostgreSQL init process complete; ready for start up.
+2025-12-10T12:24:15.3437987Z  
+2025-12-10T12:24:15.3443209Z Stop and remove container: 03f47755db0546bc957c0b1c347fc04b_postgres15_0b5ff6
+2025-12-10T12:24:15.3448561Z ##[command]/usr/bin/docker rm --force 3a8ea17a78449a0800d0d4362f48d2e9a17277628d3e2b7726f377dd2e4cbf3d
+2025-12-10T12:24:16.9485790Z 3a8ea17a78449a0800d0d4362f48d2e9a17277628d3e2b7726f377dd2e4cbf3d
+2025-12-10T12:24:16.9515585Z Remove container network: github_network_78d2683f13ec44fcb0626760f125386f
+2025-12-10T12:24:16.9520086Z ##[command]/usr/bin/docker network rm github_network_78d2683f13ec44fcb0626760f125386f
+2025-12-10T12:24:17.0345896Z github_network_78d2683f13ec44fcb0626760f125386f
+2025-12-10T12:24:17.0420475Z Cleaning up orphan processes

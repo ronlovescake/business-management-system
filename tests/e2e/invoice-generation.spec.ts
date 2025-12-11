@@ -20,14 +20,33 @@ async function safeReload(page: Page) {
   });
 }
 
-async function waitForTransactionsContent(page: Page, timeout = 30000) {
-  await page
-    .locator('text=/Showing \\d+ of \\d+ transactions/i')
-    .first()
-    .waitFor({ state: 'visible', timeout })
-    .catch(() => {
-      /* footer may remain hidden if no data yet; callers will fall back */
-    });
+async function waitForTransactionsContent(page: Page, timeout = 15000) {
+  const candidateLocators = [
+    page.locator('text=/Showing \\d+ of \\d+ transactions/i').first(),
+    page.locator('input[placeholder*="transactions" i]').first(),
+    page.locator('[role="grid"], canvas, .data-grid-container').first(),
+    page
+      .locator(
+        'button:has-text("Create Packing List"), button:has-text("Create Distribution"), button:has-text("Create Invoice")'
+      )
+      .first(),
+  ];
+
+  const perLocatorTimeout = Math.max(
+    1500,
+    Math.floor(timeout / candidateLocators.length)
+  );
+
+  for (const locator of candidateLocators) {
+    const isVisible = await locator
+      .waitFor({ state: 'visible', timeout: perLocatorTimeout })
+      .then(() => true)
+      .catch(() => false);
+
+    if (isVisible) {
+      return;
+    }
+  }
 }
 
 test.describe('Invoice Generation Flow', () => {

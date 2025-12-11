@@ -20,9 +20,17 @@
 
 'use client';
 
-import React, { Profiler, useEffect, useMemo, useState } from 'react';
+import React, {
+  Profiler,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import { showNotification } from '@mantine/notifications';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
+import type { CellClickEvent } from '@/components/ui/HandsontableGrid';
 import { onRenderCallback } from '@/lib/performance/monitoring';
 import { logger } from '@/lib/logger';
 import { useTransactionsData } from '../hooks/useTransactionsData';
@@ -43,6 +51,8 @@ import {
   CustomerWarningModal,
 } from './TransactionModals';
 import { useChangeLogQuery } from '../../settings/change-log/hooks/useChangeLogQuery';
+import { useInvoiceCustomerLookup } from '../../checkout-links/hooks/useInvoiceCustomerLookup';
+import type { TransactionData } from '../types/transaction.types';
 
 const STRETCH_COLUMN_ID = 'notes';
 
@@ -227,6 +237,8 @@ export function TransactionsPage() {
   const { dueDateFilters, filteredDueDatesData, handleDueDateFilter } =
     useDueDateFilters(dueDatesData);
 
+  const { lookupFacebookLink } = useInvoiceCustomerLookup();
+
   const onhandEligibleTransactions = useMemo(() => {
     const warehouseCustomers = new Set(
       transactions
@@ -289,6 +301,161 @@ export function TransactionsPage() {
       });
   }, [cappedFilteredTransactions, onhandEligibleTransactions]);
 
+  const warehousePreparedTransactions = useMemo(() => {
+    if (transactions.length === 0) {
+      return [];
+    }
+
+    const customerStatusMap = new Map<
+      string,
+      { hasWarehouse: boolean; hasPrepared: boolean; hasOnHold: boolean }
+    >();
+
+    transactions.forEach((transaction) => {
+      const customer = transaction.Customers;
+      if (!customer) {
+        return;
+      }
+
+      const status = transaction['Order Status'];
+      if (
+        !status ||
+        (status !== 'Warehouse' &&
+          status !== 'Prepared' &&
+          status !== 'On-Hold')
+      ) {
+        return;
+      }
+
+      const statusFlags = customerStatusMap.get(customer) ?? {
+        hasWarehouse: false,
+        hasPrepared: false,
+        hasOnHold: false,
+      };
+
+      if (status === 'Warehouse') {
+        statusFlags.hasWarehouse = true;
+      } else if (status === 'Prepared') {
+        statusFlags.hasPrepared = true;
+      } else {
+        statusFlags.hasOnHold = true;
+      }
+
+      customerStatusMap.set(customer, statusFlags);
+    });
+
+    const eligibleCustomers = new Set(
+      Array.from(customerStatusMap.entries())
+        .filter(
+          ([, flags]) =>
+            flags.hasWarehouse && (flags.hasPrepared || flags.hasOnHold)
+        )
+        .map(([customer]) => customer)
+    );
+
+    if (eligibleCustomers.size === 0) {
+      return [];
+    }
+
+    const eligibleStatuses = new Set(['Warehouse', 'Prepared', 'On-Hold']);
+    const collator = new Intl.Collator(undefined, {
+      sensitivity: 'base',
+      ignorePunctuation: true,
+    });
+
+    return transactions
+      .map((transaction, index) => ({ transaction, index }))
+      .filter(({ transaction }) => {
+        if (!transaction.Customers) {
+          return false;
+        }
+        if (!eligibleCustomers.has(transaction.Customers)) {
+          return false;
+        }
+        return eligibleStatuses.has(transaction['Order Status']);
+      })
+      .sort((a, b) => {
+        const customerA = a.transaction.Customers ?? '';
+        const customerB = b.transaction.Customers ?? '';
+        const comparison = collator.compare(customerA, customerB);
+        if (comparison !== 0) {
+          return comparison;
+        }
+        return a.index - b.index;
+      })
+      .map(({ transaction }) => transaction);
+  }, [transactions]);
+
+  const warehousePreparedFilteredTransactions = useMemo(() => {
+    if (warehousePreparedTransactions.length === 0) {
+      return [];
+    }
+
+    const orderMap = new Map(
+      warehousePreparedTransactions.map((transaction, orderIndex) => [
+        transaction.id,
+        orderIndex,
+      ])
+    );
+
+    return cappedFilteredTransactions
+      .filter((transaction) => orderMap.has(transaction.id))
+      .sort((a, b) => {
+        const orderA = orderMap.get(a.id) ?? 0;
+        const orderB = orderMap.get(b.id) ?? 0;
+        return orderA - orderB;
+      });
+  }, [cappedFilteredTransactions, warehousePreparedTransactions]);
+
+  const handleWarehousePreparedCustomerClick = useCallback(
+    async (event: CellClickEvent<TransactionData>) => {
+      if (event.column.id !== 'customers') {
+        return;
+      }
+
+      const customerName = event.rowData.Customers;
+      if (!customerName) {
+        return;
+      }
+
+      try {
+        if (
+          typeof navigator !== 'undefined' &&
+          navigator.clipboard?.writeText
+        ) {
+          await navigator.clipboard.writeText(customerName);
+        }
+      } catch (error) {
+        logger.warn('Failed to copy customer name to clipboard', error);
+      }
+
+      const facebookLink = lookupFacebookLink(customerName);
+      if (!facebookLink) {
+        showNotification({
+          title: 'No Facebook Link',
+          message: `No Facebook profile found for ${customerName}.`,
+          color: 'yellow',
+        });
+        return;
+      }
+
+      const normalizedLink = facebookLink.startsWith('http')
+        ? facebookLink
+        : `https://${facebookLink}`;
+
+      showNotification({
+        title: 'Opening Messenger',
+        message: `Copied ${customerName}. Launching Messenger...`,
+        color: 'blue',
+      });
+
+      if (typeof window !== 'undefined') {
+        window.open(normalizedLink, '_blank', 'noopener,noreferrer');
+      }
+    },
+    [lookupFacebookLink]
+  );
+
   // ============================================================================
   // LOADING STATE
   // ============================================================================
@@ -338,6 +505,13 @@ export function TransactionsPage() {
           onhandEligibleTransactions={onhandEligibleTransactions}
           onhandEligibleFilteredTransactions={
             onhandEligibleFilteredTransactions
+          }
+          warehousePreparedTransactions={warehousePreparedTransactions}
+          warehousePreparedFilteredTransactions={
+            warehousePreparedFilteredTransactions
+          }
+          onWarehousePreparedCustomerClick={
+            handleWarehousePreparedCustomerClick
           }
           columns={columns}
           getCellData={getCellData}

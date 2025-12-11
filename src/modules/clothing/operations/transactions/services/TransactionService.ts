@@ -544,36 +544,4 @@ export class TransactionService {
   ): PackingListTransaction[] {
     return transactions.map((t) => this.transformToPackingListTransaction(t));
   }
-
-  // ============================================================================
-  // EMPTY ROWS GENERATION
-  // ============================================================================
-
-  /**
-   * Generate empty transaction rows
-   */
-  static generateEmptyRows(count: number): TransactionData[] {
-    const newEmptyRows: TransactionData[] = [];
-
-    for (let i = 0; i < count; i++) {
-      newEmptyRows.push({
-        id: Date.now() + Math.random() * 10000 + i * 100,
-        'Order Date': '',
-        Customers: '',
-        'Product Code': '',
-        Quantity: null,
-        'Unit Price': null,
-        Discount: null,
-        Adjustment: null,
-        'Line Total': null,
-        'Order Status': '',
-        Notes: '',
-        'Invoice Date': '',
-        'Packed Date': '',
-        'Shipment Code': '-',
-      });
-    }
-
-    return newEmptyRows;
-  }
 }

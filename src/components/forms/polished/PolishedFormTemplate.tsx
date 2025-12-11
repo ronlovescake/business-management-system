@@ -81,14 +81,25 @@ export function PolishedFormTemplate({
     .trim();
 
   const headerContent = (
-    <Group gap="sm" align="center">
+    <Stack
+      gap="xs"
+      align="center"
+      style={{ textAlign: 'center', width: '100%' }}
+    >
       {icon}
-      <Stack gap={2}>
-        {renderTextContent(title, { fw: 700, fz: 'lg', c: '#101828' })}
-        {renderTextContent(subtitle, { fz: 'sm', c: '#667085' })}
-        {renderTextContent(description, { fz: 'sm', c: '#98a2b3' })}
-      </Stack>
-    </Group>
+      {renderTextContent(title, {
+        fw: 700,
+        fz: '1.5rem',
+        c: '#101828',
+        ta: 'center',
+      })}
+      {renderTextContent(subtitle, { fz: 'sm', c: '#667085', ta: 'center' })}
+      {renderTextContent(description, {
+        fz: 'sm',
+        c: '#98a2b3',
+        ta: 'center',
+      })}
+    </Stack>
   );
 
   return (

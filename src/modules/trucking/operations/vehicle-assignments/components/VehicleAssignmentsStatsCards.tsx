@@ -7,20 +7,20 @@ import {
 } from '@tabler/icons-react';
 import { StatsCardGrid, type StatCard } from '@/components/ui';
 
-interface TruckAssignmentsStatsCardsProps {
+interface VehicleAssignmentsStatsCardsProps {
   activeCount: number;
   scheduledThisWeek: number;
   endingSoon: number;
   completedThisMonth: number;
 }
 
-export const TruckAssignmentsStatsCards = memo(
-  function TruckAssignmentsStatsCards({
+export const VehicleAssignmentsStatsCards = memo(
+  function VehicleAssignmentsStatsCards({
     activeCount,
     scheduledThisWeek,
     endingSoon,
     completedThisMonth,
-  }: TruckAssignmentsStatsCardsProps) {
+  }: VehicleAssignmentsStatsCardsProps) {
     const cards: StatCard[] = useMemo(
       () => [
         {

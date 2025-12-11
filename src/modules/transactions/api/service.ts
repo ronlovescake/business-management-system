@@ -470,9 +470,7 @@ export const transactionService: TransactionService = {
     });
 
     const emptyRows = normalized.filter(({ record }) => isEmptyRow(record));
-    const validRows = normalized.filter(
-      ({ record }) => isValidRow(record) && !isEmptyRow(record)
-    );
+    const validRows = normalized.filter(({ record }) => isValidRow(record));
 
     const preparedRows: Prisma.TransactionCreateManyInput[] = [];
 
@@ -489,23 +487,8 @@ export const transactionService: TransactionService = {
       preparedRows.push(buildCreateInput(validation.data, priceTiers));
     });
 
-    const emptyRowsData = emptyRows.map(({ record }) => ({
-      orderDate: record['Order Date'],
-      customers: record.Customers,
-      productCode: record['Product Code'],
-      quantity: 0,
-      unitPrice: 0,
-      discount: 0,
-      adjustment: 0,
-      lineTotal: 0,
-      orderStatus: record['Order Status'],
-      notes: record.Notes,
-      invoiceDate: record['Invoice Date'],
-      packedDate: record['Packed Date'],
-      shipmentCode: EMPTY_SHIPMENT_MARKER,
-    }));
-
-    const allRows = [...preparedRows, ...emptyRowsData];
+    const skippedEmptyRows = emptyRows.length;
+    const allRows = preparedRows;
 
     if (allRows.length === 0) {
       throw new TransactionValidationError(
@@ -519,24 +502,20 @@ export const transactionService: TransactionService = {
 
     await logOperationNotification(
       'transactions',
-      `Imported ${result.count} transaction records (${preparedRows.length} with data, ${emptyRowsData.length} empty)`,
+      `Imported ${result.count} transaction records (${preparedRows.length} with data, ${skippedEmptyRows} empty rows skipped)`,
       {
         count: result.count,
         withData: preparedRows.length,
-        empty: emptyRowsData.length,
+        empty: skippedEmptyRows,
       }
     );
 
-    await logImportChange(
-      result.count,
-      preparedRows.length,
-      emptyRowsData.length
-    );
+    await logImportChange(result.count, preparedRows.length, skippedEmptyRows);
 
     return {
       count: result.count,
       withData: preparedRows.length,
-      empty: emptyRowsData.length,
+      empty: skippedEmptyRows,
     };
   },
 

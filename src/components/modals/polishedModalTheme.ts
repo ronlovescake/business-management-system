@@ -21,11 +21,16 @@ export const polishedModalStyles: NonNullable<ModalProps['styles']> = {
   },
   header: {
     padding: '1.5rem 1.75rem 0.75rem',
+    justifyContent: 'center',
   },
   title: {
-    fontSize: '1.25rem',
+    fontSize: '1.5rem',
     fontWeight: 700,
     color: '#101828',
+    width: '100%',
+    display: 'flex',
+    justifyContent: 'center',
+    textAlign: 'center',
   },
   body: {
     padding: '0 1.75rem 1.85rem',
@@ -45,7 +50,7 @@ export const polishedInputBaseStyles = {
   borderWidth: 1,
   borderStyle: 'solid',
   borderColor: '#e5e7ed',
-  borderRadius: 4,
+  borderRadius: 3,
   padding: '0.65rem 0.95rem',
   fontSize: '1.05rem',
   color: '#1f2937',
@@ -58,13 +63,13 @@ export const polishedInputBaseStyles = {
 
 export const polishedFocusRingStyles = {
   borderColor: '#65ab58',
-  boxShadow: '0 0 0 3px rgba(101, 171, 88, 0.25)',
+  boxShadow: '0 0 0 3px rgba(255, 255, 255, 0.25)',
 };
 
 export const polishedSelectDropdownStyles = {
-  borderRadius: 16,
-  border: '1px solid #e5e7ed',
-  boxShadow: '0 18px 40px rgba(16, 24, 40, 0.08)',
+  borderRadius: 12,
+  border: '1px solid #65ab58',
+  boxShadow: '0 18px 40px hsla(0, 0%, 100%, 0.08)',
 };
 
 export const polishedSelectOptionStyles = {

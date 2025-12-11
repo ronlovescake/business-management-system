@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
     const categoryParam = searchParams.get('category');
     const statusParam = searchParams.get('status');
     const employeeNameParam = searchParams.get('employeeName');
+    const vehicleIdParam = searchParams.get('vehicleId');
 
     const queryParams = {
       category: categoryParam ? sanitizers.name(categoryParam) : undefined,
@@ -50,6 +51,7 @@ export async function GET(request: NextRequest) {
       employeeName: employeeNameParam
         ? sanitizers.name(employeeNameParam)
         : undefined,
+      vehicleId: vehicleIdParam ? sanitizers.name(vehicleIdParam) : undefined,
       minAmount: minAmountParam
         ? sanitizers.number(minAmountParam, { min: 0, decimals: 2 })
         : undefined,

@@ -19,6 +19,7 @@
 - New code must pass TypeScript strict checks, ESLint, and Prettier.
 - Only add dependencies when necessary, secure, and version-locked.
 - Maintain consistency with existing architecture.
+- When introducing new Prisma fields, create a migration or run `npx prisma db push` against the test environment so schemas stay aligned.
 
 ## 4. Commit & Push Policy
 

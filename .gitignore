@@ -40,6 +40,7 @@ prisma/migrations/dev.db*
 backups/
 snapshots/
 *.sql
+!prisma/migrations/20251210103000_add_vehicle_id_to_trucking_expenses/migration.sql
 *.backup
 
 # Generated documents

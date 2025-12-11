@@ -279,7 +279,6 @@ export interface UseTransactionOperationsReturn {
   handleCellEdited: (
     edit: CellEditEvent<TransactionData>
   ) => void | Promise<void>;
-  handleAdd10Rows: () => Promise<void>;
   handleCSVImport: (file: File) => Promise<void>;
   handleGenerateInvoice: (
     visibleTransactions: TransactionData[]

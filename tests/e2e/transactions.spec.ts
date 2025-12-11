@@ -30,9 +30,8 @@ test.describe('Transactions page', () => {
     await expect(page).toHaveURL(/\/transactions/);
 
     // Search input should be present (using actual placeholder text)
-    await expect(
-      page.getByPlaceholder(/Search transactions by customer/)
-    ).toBeVisible({ timeout: 10000 });
+    const searchInput = page.getByPlaceholder(/search transactions/i);
+    await expect(searchInput).toBeVisible({ timeout: 10000 });
 
     // Note: Action buttons and grid headers are tested in invoice-generation.spec.ts
     // which has more comprehensive coverage of the transactions page functionality
@@ -44,8 +43,7 @@ test.describe('Transactions page', () => {
 
     // Note: Status filter functionality is thoroughly tested in invoice-generation.spec.ts
     // This basic test just ensures the page loads without errors
-    await expect(
-      page.getByPlaceholder(/Search transactions by customer/)
-    ).toBeVisible({ timeout: 10000 });
+    const searchInput = page.getByPlaceholder(/search transactions/i);
+    await expect(searchInput).toBeVisible({ timeout: 10000 });
   });
 });

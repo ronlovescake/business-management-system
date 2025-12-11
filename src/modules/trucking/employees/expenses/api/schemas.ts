@@ -36,6 +36,11 @@ export const ExpenseCreateSchema = z.object({
   receipt: z.string().url().nullable().optional(),
   status: ExpenseStatusSchema.default('pending'),
   employeeName: z.string().optional(),
+  vehicleId: z
+    .string()
+    .max(100, 'Vehicle ID must be 100 characters or less')
+    .optional()
+    .nullable(),
 });
 
 export type ExpenseCreateInput = z.infer<typeof ExpenseCreateSchema>;
@@ -79,6 +84,7 @@ export const ExpenseQuerySchema = z.object({
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),
   employeeName: z.string().optional(),
+  vehicleId: z.string().optional(),
   minAmount: z.number().nonnegative().optional(),
   maxAmount: z.number().nonnegative().optional(),
 });

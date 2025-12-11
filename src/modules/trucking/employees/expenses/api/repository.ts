@@ -40,6 +40,10 @@ export class ExpenseRepository extends BaseRepository<
       };
     }
 
+    if (filters.vehicleId) {
+      where.vehicleId = filters.vehicleId;
+    }
+
     if (filters.startDate || filters.endDate) {
       where.date = {};
       if (filters.startDate) {

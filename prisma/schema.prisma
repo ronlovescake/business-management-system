@@ -961,11 +961,13 @@ model TruckingExpense {
   receipt      String?  @db.VarChar(500)
   status       String   @db.VarChar(20)
   employeeName String?  @db.VarChar(255)
+  vehicleId    String?  @db.VarChar(50)
 
   @@index([date])
   @@index([category])
   @@index([status])
   @@index([employeeName])
+  @@index([vehicleId])
   @@index([status, date])
   @@index([employeeName, status])
   @@index([category, status])

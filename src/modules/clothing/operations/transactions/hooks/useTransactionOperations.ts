@@ -49,7 +49,6 @@ interface UseTransactionOperationsReturn {
   ) => void | Promise<void>;
 
   // Row operations
-  handleAdd10Rows: () => Promise<void>;
   handleCSVImport: (file: File) => Promise<void>;
 
   // Batch operation refs
@@ -170,7 +169,6 @@ export function useTransactionOperations(
           );
           return;
         }
-
         batchedUpdates.push({
           ...baseline,
           ...data,
@@ -1285,42 +1283,6 @@ export function useTransactionOperations(
   // ADD EMPTY ROWS
   // ============================================================================
 
-  const handleAdd10Rows = useCallback(async () => {
-    const newEmptyRows = TransactionService.generateEmptyRows(10);
-
-    try {
-      await api.post<{ count: number }>('/api/transactions', newEmptyRows);
-
-      // Reload transactions
-      const data = await api.get<TransactionData[]>('/api/transactions');
-      bulkUpdate(data);
-
-      showNotification({
-        title: 'Success',
-        message: '10 empty rows added successfully',
-        color: 'green',
-        autoClose: 3000,
-      });
-
-      logNotification('Added 10 empty transaction rows for future orders.', {
-        type: 'add-empty-rows',
-        rowsAdded: 10,
-      });
-    } catch (error) {
-      logger.error('Error adding empty rows:', error);
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : 'Failed to add empty rows to database';
-      showNotification({
-        title: 'Error',
-        message: errorMessage,
-        color: 'red',
-        autoClose: 5000,
-      });
-    }
-  }, [bulkUpdate, logNotification]);
-
   // ============================================================================
   // CSV IMPORT
   // ============================================================================
@@ -1387,7 +1349,6 @@ export function useTransactionOperations(
 
   return {
     handleCellEdited,
-    handleAdd10Rows,
     handleCSVImport,
     isBatchModeRef,
     batchUpdatesRef,

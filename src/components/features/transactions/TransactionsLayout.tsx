@@ -7,6 +7,7 @@ import type {
   GetCellData,
   CellEditEvent,
   HandsontableGridProps,
+  CellClickEvent,
 } from '@/components/ui/HandsontableGrid';
 import { useTransactionsLayout } from './hooks/useTransactionsLayout';
 
@@ -68,6 +69,7 @@ export interface TransactionsLayoutProps<T = Record<string, unknown>> {
   // Grid Interaction
   getCellData: GetCellData<T>;
   onCellEdited?: (edit: CellEditEvent<T>) => void;
+  onCellClick?: (event: CellClickEvent<T>) => void;
 
   // CSV Import
   enableCSVImport?: boolean;
@@ -107,6 +109,7 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
   onStatusFilter,
   getCellData,
   onCellEdited,
+  onCellClick,
   enableCSVImport = false,
   csvFile,
   onFileChange,
@@ -148,6 +151,7 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
       searchPlaceholder={searchPlaceholder}
       getCellData={getCellData}
       onCellEdited={onCellEdited}
+      onCellClick={onCellClick}
       statsCards={statsCards as StatCard[]}
       enableCSVImport={enableCSVImport}
       enableCtrlF={enableCtrlF}
