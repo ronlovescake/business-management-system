@@ -21,6 +21,7 @@ const execAsync = promisify(exec);
 
 // Force dynamic rendering for this route due to fs operations
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 const BACKUP_DIR = path.resolve(process.cwd(), 'backups');
 const TIMESTAMP_FOLDER_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}$/;
