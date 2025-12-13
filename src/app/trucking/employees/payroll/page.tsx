@@ -21,6 +21,8 @@ function PayrollContent() {
     statusFilter,
     payPeriodFilter,
     payPeriods,
+    payPeriodOptions,
+    employeeOptions,
     isFormOpen,
     editingPayroll,
     isGeneratingPayroll,
@@ -32,6 +34,7 @@ function PayrollContent() {
     formatCurrency,
     handleImportCSV,
     handleExportCSV,
+    handleOpenManualPayroll,
     handleAddPayroll,
     handleGeneratePayslips,
     handleSavePayroll,
@@ -54,6 +57,7 @@ function PayrollContent() {
           onImportCSV={handleImportCSV}
           onExportCSV={handleExportCSV}
           onAddPayroll={handleAddPayroll}
+          onOpenManualPayroll={handleOpenManualPayroll}
           addButtonLabel="Generate Payroll"
           onGeneratePayslips={handleGeneratePayslips}
           isGeneratingPayroll={isGeneratingPayroll}
@@ -77,6 +81,8 @@ function PayrollContent() {
         onClose={() => setIsFormOpen(false)}
         onSave={handleSavePayroll}
         calculateTotals={calculateTotals}
+        employeeOptions={employeeOptions}
+        payPeriodOptions={payPeriodOptions}
       />
     </PageLayout>
   );

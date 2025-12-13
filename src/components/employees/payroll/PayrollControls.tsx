@@ -6,6 +6,7 @@ import {
   IconUpload,
   IconDownload,
   IconPlus,
+  IconEdit,
 } from '@tabler/icons-react';
 import {
   ControlPanelCard,
@@ -24,6 +25,8 @@ interface PayrollControlsProps {
   onImportCSV: (file: File | null) => void;
   onExportCSV: () => void;
   onAddPayroll: () => void;
+  onOpenManualPayroll?: () => void;
+  manualButtonLabel?: string;
   addButtonLabel?: string;
   onGeneratePayslips: () => void;
   isGeneratingPayroll: boolean;
@@ -43,6 +46,8 @@ export const PayrollControls = memo(function PayrollControls({
   onImportCSV,
   onExportCSV,
   onAddPayroll,
+  onOpenManualPayroll,
+  manualButtonLabel = 'Add Manual Payroll',
   addButtonLabel = 'Generate Payroll',
   onGeneratePayslips,
   isGeneratingPayroll,
@@ -109,6 +114,19 @@ export const PayrollControls = memo(function PayrollControls({
           >
             Export
           </Button>
+          {onOpenManualPayroll && (
+            <Button
+              leftSection={<IconEdit size={16} />}
+              size="sm"
+              radius="sm"
+              variant="outline"
+              color="teal"
+              onClick={onOpenManualPayroll}
+              disabled={isGeneratingPayroll || isGeneratingPayslips}
+            >
+              {manualButtonLabel}
+            </Button>
+          )}
           <Button
             leftSection={<IconPlus size={16} />}
             size="sm"

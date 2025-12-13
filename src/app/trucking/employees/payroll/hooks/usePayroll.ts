@@ -47,6 +47,25 @@ export function usePayroll() {
     [searchQuery, statusFilter, payPeriodFilter]
   );
 
+  const employeeOptions = useMemo(() => {
+    const names = new Set<string>();
+    employees.forEach((entry) => {
+      const resolvedName = (entry.name || '').trim();
+      if (resolvedName) {
+        names.add(resolvedName);
+        return;
+      }
+
+      const fallback =
+        `${entry.firstName ?? ''} ${entry.lastName ?? ''}`.trim();
+      if (fallback) {
+        names.add(fallback);
+      }
+    });
+
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [employees]);
+
   const resolveEmployeeRecord = useCallback(
     (identifier: string | undefined | null) => {
       const normalized = normalizeIdentifier(identifier);
@@ -258,6 +277,11 @@ export function usePayroll() {
     return ['all', ...periods];
   }, [payrolls]);
 
+  const payPeriodOptions = useMemo(
+    () => payPeriods.filter((period) => period && period !== 'all'),
+    [payPeriods]
+  );
+
   // Utility Functions
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -319,6 +343,7 @@ export function usePayroll() {
     const allowance = parseFloat(formData.allowance) || 0;
     const overtime = parseFloat(formData.overtime) || 0;
     const bonuses = parseFloat(formData.bonuses) || 0;
+    const thirteenthMonth = parseFloat(formData.thirteenthMonth) || 0;
     const sss = parseFloat(formData.sss) || 0;
     const philHealth = parseFloat(formData.philHealth) || 0;
     const pagIbig = parseFloat(formData.pagIbig) || 0;
@@ -328,7 +353,8 @@ export function usePayroll() {
     const lwop = parseFloat(formData.lwop) || 0;
     const absentsLates = parseFloat(formData.absentsLates) || 0;
 
-    const grossPay = basicSalary + allowance + overtime + bonuses;
+    const grossPay =
+      basicSalary + allowance + overtime + bonuses + thirteenthMonth;
     const totalDeductions =
       sss +
       philHealth +
@@ -945,6 +971,11 @@ export function usePayroll() {
     });
   };
 
+  const handleOpenManualPayroll = () => {
+    setEditingPayroll(null);
+    setIsFormOpen(true);
+  };
+
   const handleEditPayroll = (payroll: Payroll) => {
     setEditingPayroll(payroll);
     setIsFormOpen(true);
@@ -1413,6 +1444,8 @@ export function usePayroll() {
     isFormOpen,
     editingPayroll,
     payPeriods,
+    payPeriodOptions,
+    employeeOptions,
     loading,
 
     // Computed Values
@@ -1434,6 +1467,7 @@ export function usePayroll() {
     calculateTotals,
 
     // Event Handlers
+    handleOpenManualPayroll,
     handleAddPayroll,
     handleGeneratePayslips,
     handleEditPayroll,

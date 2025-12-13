@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import React from 'react';
-import { TextInput, NumberInput, Grid } from '@mantine/core';
+import { Autocomplete, TextInput, NumberInput, Grid } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { ComposedDialog } from '@/components/shared/Dialog';
 import type { Payroll, PayrollFormData } from '../types';
@@ -15,6 +15,8 @@ interface PayrollFormDialogProps {
     totalDeductions: number;
     netPay: number;
   };
+  employeeOptions: string[];
+  payPeriodOptions: string[];
 }
 
 export const PayrollFormDialog = React.memo(function PayrollFormDialog({
@@ -23,6 +25,8 @@ export const PayrollFormDialog = React.memo(function PayrollFormDialog({
   onClose,
   onSave,
   calculateTotals,
+  employeeOptions,
+  payPeriodOptions,
 }: PayrollFormDialogProps) {
   const form = useForm<PayrollFormData>({
     initialValues: {
@@ -132,21 +136,40 @@ export const PayrollFormDialog = React.memo(function PayrollFormDialog({
       <Grid gutter="md">
         {/* Employee & Pay Period */}
         <Grid.Col span={6}>
-          <TextInput
+          <Autocomplete
             label="Employee Name"
-            placeholder="Enter employee name"
+            placeholder="Select or type employee"
+            data={employeeOptions}
             required
-            {...form.getInputProps('employee')}
+            value={form.values.employee}
+            onChange={(value) => form.setFieldValue('employee', value)}
+            comboboxProps={{ withinPortal: true }}
+            nothingFoundMessage={
+              employeeOptions.length ? 'No matches' : 'No employees found'
+            }
           />
         </Grid.Col>
 
         <Grid.Col span={6}>
-          <TextInput
-            label="Pay Period"
-            placeholder="e.g., 2024-10-01 to 2024-10-15"
-            required
-            {...form.getInputProps('payPeriod')}
-          />
+          {payPeriodOptions.length > 0 ? (
+            <Autocomplete
+              label="Pay Period"
+              placeholder="Select or type pay period"
+              data={payPeriodOptions}
+              required
+              value={form.values.payPeriod}
+              onChange={(value) => form.setFieldValue('payPeriod', value)}
+              comboboxProps={{ withinPortal: true }}
+              nothingFoundMessage="No pay periods found"
+            />
+          ) : (
+            <TextInput
+              label="Pay Period"
+              placeholder="e.g., 2024-10-01 to 2024-10-15"
+              required
+              {...form.getInputProps('payPeriod')}
+            />
+          )}
         </Grid.Col>
 
         {/* Earnings Section */}
@@ -227,6 +250,22 @@ export const PayrollFormDialog = React.memo(function PayrollFormDialog({
             value={form.values.bonuses}
             onChange={(value) =>
               form.setFieldValue('bonuses', value?.toString() || '0')
+            }
+          />
+        </Grid.Col>
+
+        <Grid.Col span={6}>
+          <NumberInput
+            label="13th Month Pay"
+            placeholder="Enter 13th month amount"
+            min={0}
+            prefix="₱"
+            decimalScale={2}
+            thousandSeparator=","
+            hideControls
+            value={form.values.thirteenthMonth}
+            onChange={(value) =>
+              form.setFieldValue('thirteenthMonth', value?.toString() || '0')
             }
           />
         </Grid.Col>
