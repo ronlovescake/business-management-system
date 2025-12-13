@@ -13,6 +13,7 @@ import { mapToDTO } from './dto';
 import {
   EMPTY_SHIPMENT_MARKER,
   isEmptyRow,
+  isTemplatePreparedRow,
   isValidRow,
   sanitizeTransactionRecord,
   sanitizeTransactionUpdateRecord,
@@ -271,7 +272,12 @@ async function validateReferences(rows: Prisma.TransactionCreateManyInput[]) {
   }
 }
 
-async function logImportChange(count: number, withData: number, empty: number) {
+async function logImportChange(
+  count: number,
+  withData: number,
+  empty: number,
+  templateSkipped = 0
+) {
   try {
     const context = await resolveChangeLogContext('transactions:import');
     await recordChange(
@@ -284,9 +290,11 @@ async function logImportChange(count: number, withData: number, empty: number) {
           count,
           withData,
           empty,
+          templateSkipped,
         },
         metadata: {
           emptyRows: empty,
+          templateRows: templateSkipped,
         },
       },
       context
@@ -473,6 +481,7 @@ export const transactionService: TransactionService = {
     const validRows = normalized.filter(({ record }) => isValidRow(record));
 
     const preparedRows: Prisma.TransactionCreateManyInput[] = [];
+    let skippedTemplateRows = 0;
 
     validRows.forEach(({ record, index }) => {
       const validation = transactionDataSchema.safeParse(record);
@@ -481,6 +490,17 @@ export const transactionService: TransactionService = {
           row: index + 1,
           issues: validation.error.issues,
         });
+        return;
+      }
+
+      if (isTemplatePreparedRow(validation.data)) {
+        skippedTemplateRows += 1;
+        logger.warn(
+          `Transaction #${index + 1} skipped - template row detected`,
+          {
+            row: index + 1,
+          }
+        );
         return;
       }
 
@@ -500,17 +520,21 @@ export const transactionService: TransactionService = {
 
     const result = await prisma.transaction.createMany({ data: allRows });
 
-    await logOperationNotification(
-      'transactions',
-      `Imported ${result.count} transaction records (${preparedRows.length} with data, ${skippedEmptyRows} empty rows skipped)`,
-      {
-        count: result.count,
-        withData: preparedRows.length,
-        empty: skippedEmptyRows,
-      }
-    );
+    const summaryMessage = `Imported ${result.count} transaction records (${preparedRows.length} with data, ${skippedEmptyRows} empty rows skipped${skippedTemplateRows ? `, ${skippedTemplateRows} template rows skipped` : ''})`;
 
-    await logImportChange(result.count, preparedRows.length, skippedEmptyRows);
+    await logOperationNotification('transactions', summaryMessage, {
+      count: result.count,
+      withData: preparedRows.length,
+      empty: skippedEmptyRows,
+      templateSkipped: skippedTemplateRows,
+    });
+
+    await logImportChange(
+      result.count,
+      preparedRows.length,
+      skippedEmptyRows,
+      skippedTemplateRows
+    );
 
     return {
       count: result.count,

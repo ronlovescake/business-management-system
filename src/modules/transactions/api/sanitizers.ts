@@ -2,6 +2,8 @@ import { sanitizers } from '@/lib/security/sanitize';
 
 export const EMPTY_SHIPMENT_MARKER = '-';
 
+const TEMPLATE_STATUS = 'prepared';
+
 export interface TransactionRecord {
   'Order Date': string;
   Customers: string;
@@ -118,13 +120,48 @@ export function sanitizeTransactionUpdateRecord(
   return { id, values };
 }
 
+const isZero = (value: number | undefined): boolean => value === 0;
+
+const allNumericZero = (row: TransactionRecord): boolean =>
+  isZero(row.Quantity) &&
+  isZero(row['Unit Price']) &&
+  isZero(row['Line Total']) &&
+  isZero(row.Discount) &&
+  isZero(row.Adjustment);
+
+const lacksCoreIdentifiers = (row: TransactionRecord): boolean =>
+  row['Order Date'].length === 0 &&
+  row.Customers.length === 0 &&
+  row['Product Code'].length === 0;
+
+export function isTemplatePreparedRow(row: TransactionRecord): boolean {
+  const status = row['Order Status']?.trim().toLowerCase() ?? '';
+  if (status !== TEMPLATE_STATUS) {
+    return false;
+  }
+
+  const missingIdentifiers =
+    row.Customers.length === 0 || row['Product Code'].length === 0;
+  return allNumericZero(row) && missingIdentifiers;
+}
+
 export function isEmptyRow(row: TransactionRecord): boolean {
+  if (isTemplatePreparedRow(row)) {
+    return true;
+  }
+
   const shipmentCode = row['Shipment Code'] ?? '';
+  const shipmentIsPlaceholder =
+    shipmentCode.length === 0 || shipmentCode === EMPTY_SHIPMENT_MARKER;
+
+  if (lacksCoreIdentifiers(row) && shipmentIsPlaceholder) {
+    return true;
+  }
+
   return (
-    row['Order Date'].length === 0 &&
-    row.Customers.length === 0 &&
-    row['Product Code'].length === 0 &&
-    shipmentCode === EMPTY_SHIPMENT_MARKER
+    shipmentIsPlaceholder &&
+    allNumericZero(row) &&
+    (row.Customers.length === 0 || row['Product Code'].length === 0)
   );
 }
 
