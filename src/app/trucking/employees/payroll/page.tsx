@@ -27,6 +27,8 @@ function PayrollContent() {
     editingPayroll,
     isGeneratingPayroll,
     isGeneratingPayslips,
+    isBulkApproving,
+    isBulkPaying,
     setSearchQuery,
     setStatusFilter,
     setPayPeriodFilter,
@@ -37,6 +39,8 @@ function PayrollContent() {
     handleOpenManualPayroll,
     handleAddPayroll,
     handleGeneratePayslips,
+    handleApproveAll,
+    handleMarkAllAsPaid,
     handleSavePayroll,
     calculateTotals,
   } = usePayrollPage();
@@ -63,6 +67,10 @@ function PayrollContent() {
           isGeneratingPayroll={isGeneratingPayroll}
           isGeneratingPayslips={isGeneratingPayslips}
           title="Payroll Records"
+          onApproveAll={handleApproveAll}
+          onMarkAllAsPaid={handleMarkAllAsPaid}
+          isBulkApproving={isBulkApproving}
+          isBulkPaying={isBulkPaying}
         />
 
         <PayrollTableSection

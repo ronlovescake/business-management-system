@@ -7,6 +7,8 @@ import {
   IconDownload,
   IconPlus,
   IconEdit,
+  IconCircleCheck,
+  IconCash,
 } from '@tabler/icons-react';
 import {
   ControlPanelCard,
@@ -33,6 +35,10 @@ interface PayrollControlsProps {
   isGeneratingPayslips: boolean;
   isImporting?: boolean;
   title?: string;
+  onApproveAll?: () => void;
+  onMarkAllAsPaid?: () => void;
+  isBulkApproving?: boolean;
+  isBulkPaying?: boolean;
 }
 
 export const PayrollControls = memo(function PayrollControls({
@@ -54,6 +60,10 @@ export const PayrollControls = memo(function PayrollControls({
   isGeneratingPayslips,
   isImporting,
   title = 'Payroll Records',
+  onApproveAll,
+  onMarkAllAsPaid,
+  isBulkApproving,
+  isBulkPaying,
 }: PayrollControlsProps) {
   const tabs: ControlPanelTabConfig[] = [
     {
@@ -150,6 +160,41 @@ export const PayrollControls = memo(function PayrollControls({
           >
             Generate Payslips
           </Button>
+          {onApproveAll && (
+            <Button
+              leftSection={<IconCircleCheck size={16} />}
+              size="sm"
+              radius="sm"
+              variant="outline"
+              color="green"
+              onClick={onApproveAll}
+              loading={isBulkApproving}
+              disabled={
+                isGeneratingPayroll ||
+                isGeneratingPayslips ||
+                Boolean(isBulkPaying)
+              }
+            >
+              Approve All
+            </Button>
+          )}
+          {onMarkAllAsPaid && (
+            <Button
+              leftSection={<IconCash size={16} />}
+              size="sm"
+              radius="sm"
+              color="indigo"
+              onClick={onMarkAllAsPaid}
+              loading={isBulkPaying}
+              disabled={
+                isGeneratingPayroll ||
+                isGeneratingPayslips ||
+                Boolean(isBulkApproving)
+              }
+            >
+              Mark All As Paid
+            </Button>
+          )}
         </Group>
       ),
     },

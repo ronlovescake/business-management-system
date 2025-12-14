@@ -36,6 +36,8 @@ export function usePayroll() {
   const [isGeneratingPayroll, setIsGeneratingPayroll] = useState(false);
   const [isGeneratingPayslips, setIsGeneratingPayslips] = useState(false);
   const [isSyncingLwop, setIsSyncingLwop] = useState(false);
+  const [isBulkApproving, setIsBulkApproving] = useState(false);
+  const [isBulkPaying, setIsBulkPaying] = useState(false);
 
   // Filters for cache key
   const filters = useMemo(
@@ -1053,6 +1055,141 @@ export function usePayroll() {
     });
   };
 
+  const handleApproveAll = async () => {
+    const pending = filteredPayrolls.filter((p) => p.status === 'pending');
+    if (pending.length === 0) {
+      await Swal.fire({
+        title: 'No Pending Payrolls',
+        text: 'There are no pending payrolls in the current view to approve.',
+        icon: 'info',
+        confirmButtonColor: '#3085d6',
+        confirmButtonText: 'OK',
+        allowOutsideClick: false,
+      });
+      return;
+    }
+
+    const confirm = await Swal.fire({
+      title: 'Approve All Pending Payrolls?',
+      html: `You are about to approve <strong>${pending.length}</strong> payroll record${pending.length === 1 ? '' : 's'}.<br/><br/>This applies only to the records matching your current filters.`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#16a34a',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Yes, approve all',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      allowOutsideClick: false,
+    });
+
+    if (!confirm.isConfirmed) {
+      return;
+    }
+
+    setIsBulkApproving(true);
+
+    try {
+      Swal.fire({
+        title: 'Approving...',
+        text: 'Updating payroll statuses. Please wait.',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+      });
+
+      const approvedDate = getCurrentDateISO();
+      const failures: string[] = [];
+
+      for (const payroll of pending) {
+        try {
+          await updateMutation.mutateAsync({
+            id: payroll.id,
+            status: 'approved',
+            approvedBy: 'Current User',
+            approvedDate,
+          });
+        } catch (error) {
+          failures.push(payroll.employee || payroll.id);
+          logger.error('Error approving payroll in bulk (trucking):', error);
+        }
+      }
+
+      Swal.close();
+
+      if (failures.length > 0) {
+        await Swal.fire({
+          title: 'Partial Success',
+          text: `Approved ${pending.length - failures.length} record(s). Failed: ${failures.join(', ')}.`,
+          icon: 'warning',
+          confirmButtonColor: '#f59e0b',
+          allowOutsideClick: false,
+        });
+        return;
+      }
+
+      await Swal.fire({
+        title: 'Approved!',
+        text: `Successfully approved ${pending.length} payroll record${pending.length === 1 ? '' : 's'}.`,
+        icon: 'success',
+        confirmButtonColor: '#16a34a',
+        allowOutsideClick: false,
+      });
+    } catch (error) {
+      Swal.close();
+      logger.error('Error approving all trucking payrolls:', error);
+      await Swal.fire({
+        title: 'Approval Failed',
+        text: 'Failed to approve all payrolls. Please try again.',
+        icon: 'error',
+        confirmButtonColor: '#d33',
+        allowOutsideClick: false,
+      });
+    } finally {
+      setIsBulkApproving(false);
+    }
+  };
+
+  const syncThirteenthMonthStatus = async (
+    payrollRecord: Payroll,
+    paidDate: string
+  ) => {
+    if (!payrollRecord.thirteenthMonth || payrollRecord.thirteenthMonth <= 0) {
+      return;
+    }
+
+    let year = new Date().getFullYear();
+    if (payrollRecord.payPeriod) {
+      const endDateStr =
+        payrollRecord.payPeriod.split(' to ')[1] ||
+        payrollRecord.payPeriod.split(' - ')[1] ||
+        payrollRecord.payPeriod;
+      const parsedDate = new Date(endDateStr);
+      if (!isNaN(parsedDate.getTime())) {
+        year = parsedDate.getFullYear();
+      }
+    }
+
+    const employeeId = payrollRecord.employeeId || '';
+    const thirteenthMonthRecordId = `${employeeId.toLowerCase()}-${year}`;
+
+    try {
+      await api.patch(
+        `/api/trucking/thirteenth-month-pay/${thirteenthMonthRecordId}/status`,
+        {
+          status: 'paid',
+          paidDate,
+        }
+      );
+    } catch (thirteenthError) {
+      logger.warn(
+        'Failed to sync trucking 13th month pay status:',
+        thirteenthError
+      );
+    }
+  };
+
   const handleMarkAsPaid = async (id: string) => {
     const payroll = payrolls.find((p) => p.id === id);
     if (!payroll) {
@@ -1108,38 +1245,7 @@ export function usePayroll() {
 
       const paidDate = getCurrentDateISO();
 
-      // If this payroll has 13th month pay, also mark 13th month record as paid
-      if (payroll.thirteenthMonth && payroll.thirteenthMonth > 0) {
-        // Extract year from pay period
-        let year = new Date().getFullYear();
-        if (payroll.payPeriod) {
-          const endDateStr =
-            payroll.payPeriod.split(' to ')[1] ||
-            payroll.payPeriod.split(' - ')[1] ||
-            payroll.payPeriod;
-          const parsedDate = new Date(endDateStr);
-          if (!isNaN(parsedDate.getTime())) {
-            year = parsedDate.getFullYear();
-          }
-        }
-
-        const employeeId = payroll.employeeId || '';
-        const thirteenthMonthRecordId = `${employeeId.toLowerCase()}-${year}`;
-
-        try {
-          // Update the 13th month record status to 'paid'
-          await api.patch(
-            `/api/trucking/thirteenth-month-pay/${thirteenthMonthRecordId}/status`,
-            {
-              status: 'paid',
-              paidDate: paidDate,
-            }
-          );
-        } catch (thirteenthError) {
-          logger.warn('Failed to sync 13th month pay status:', thirteenthError);
-          // Don't fail the entire operation if 13th month sync fails
-        }
-      }
+      await syncThirteenthMonthStatus(payroll, paidDate);
 
       // Use mutation to update status
       updateMutation.mutate({
@@ -1175,6 +1281,113 @@ export function usePayroll() {
         confirmButtonColor: '#ef4444',
         allowOutsideClick: false,
       });
+    }
+  };
+
+  const handleMarkAllAsPaid = async () => {
+    const approved = filteredPayrolls.filter((p) => p.status === 'approved');
+    if (approved.length === 0) {
+      await Swal.fire({
+        title: 'No Approved Payrolls',
+        text: 'There are no approved payrolls in the current view to mark as paid.',
+        icon: 'info',
+        confirmButtonColor: '#3085d6',
+        confirmButtonText: 'OK',
+        allowOutsideClick: false,
+      });
+      return;
+    }
+
+    const totalDisbursement = approved.reduce(
+      (sum, payroll) => sum + (payroll.netPay ?? 0),
+      0
+    );
+
+    const confirm = await Swal.fire({
+      title: 'Mark All as Paid?',
+      html:
+        `You are about to mark <strong>${approved.length}</strong> payroll record${approved.length === 1 ? '' : 's'} as paid.<br/><br/>` +
+        `<strong>Total Disbursement:</strong> ${formatCurrency(totalDisbursement)}<br/><br/>` +
+        '13th month pay entries linked to these payrolls will be updated as well.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#0ea5e9',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Yes, mark all as paid',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      allowOutsideClick: false,
+    });
+
+    if (!confirm.isConfirmed) {
+      return;
+    }
+
+    setIsBulkPaying(true);
+
+    try {
+      Swal.fire({
+        title: 'Processing...',
+        text: 'Marking payrolls as paid. Please wait.',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+      });
+
+      const paidDate = getCurrentDateISO();
+      const failures: string[] = [];
+
+      for (const payroll of approved) {
+        try {
+          await syncThirteenthMonthStatus(payroll, paidDate);
+          await updateMutation.mutateAsync({
+            id: payroll.id,
+            status: 'paid',
+            paidDate,
+          });
+        } catch (error) {
+          failures.push(payroll.employee || payroll.id);
+          logger.error(
+            'Error marking trucking payroll as paid in bulk:',
+            error
+          );
+        }
+      }
+
+      Swal.close();
+
+      if (failures.length > 0) {
+        await Swal.fire({
+          title: 'Partial Success',
+          text: `Updated ${approved.length - failures.length} record(s). Failed: ${failures.join(', ')}.`,
+          icon: 'warning',
+          confirmButtonColor: '#f59e0b',
+          allowOutsideClick: false,
+        });
+        return;
+      }
+
+      await Swal.fire({
+        title: 'Payrolls Paid',
+        text: `Successfully marked ${approved.length} payroll record${approved.length === 1 ? '' : 's'} as paid.`,
+        icon: 'success',
+        confirmButtonColor: '#10b981',
+        allowOutsideClick: false,
+      });
+    } catch (error) {
+      Swal.close();
+      logger.error('Error marking all trucking payrolls as paid:', error);
+      await Swal.fire({
+        title: 'Bulk Update Failed',
+        text: 'Failed to mark payrolls as paid. Please try again.',
+        icon: 'error',
+        confirmButtonColor: '#ef4444',
+        allowOutsideClick: false,
+      });
+    } finally {
+      setIsBulkPaying(false);
     }
   };
 
@@ -1474,7 +1687,9 @@ export function usePayroll() {
     handleDeletePayroll,
     handleSavePayroll,
     handleApprove,
+    handleApproveAll,
     handleMarkAsPaid,
+    handleMarkAllAsPaid,
     handleImportCSV,
     handleExportCSV,
     handleSyncLwop,
@@ -1484,5 +1699,7 @@ export function usePayroll() {
     isGeneratingPayroll,
     isGeneratingPayslips,
     isSyncingLwop,
+    isBulkApproving,
+    isBulkPaying,
   };
 }
