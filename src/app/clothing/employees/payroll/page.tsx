@@ -88,10 +88,14 @@ function PayrollContent() {
     handleDeletePayroll,
     handleSavePayroll,
     handleApprove,
+    handleApproveAll,
     handleMarkAsPaid,
+    handleMarkAllAsPaid,
     handleImportCSV,
     handleExportCSV,
     getEmployeeMonthlyContributions,
+    isBulkApproving,
+    isBulkPaying,
   } = usePayroll();
 
   const resolveContributionValue = React.useCallback(
@@ -548,6 +552,10 @@ function PayrollContent() {
           onGeneratePayslips={handleGeneratePayslips}
           isGeneratingPayroll={isGeneratingPayroll}
           isGeneratingPayslips={isGeneratingPayslips}
+          onApproveAll={handleApproveAll}
+          onMarkAllAsPaid={handleMarkAllAsPaid}
+          isBulkApproving={isBulkApproving}
+          isBulkPaying={isBulkPaying}
         />
 
         {/* Payroll Table */}
