@@ -539,6 +539,10 @@ export function useEmployeeDetail(employeeId: string) {
         office: formData.office || null,
         hiringSource: formData.hiringSource || null,
         hireDate: formData.hireDate,
+        employmentEndDate: formData.employmentEndDate || null,
+        finalPayPending: !!formData.finalPayPending,
+        finalPayEffectiveDate: formData.finalPayEffectiveDate || null,
+        finalPayNotes: formData.finalPayNotes || null,
         // Salary
         basicSalary: parseFloat(formData.basicSalary) || 0,
         currentSalary: formData.currentSalary
@@ -652,6 +656,7 @@ export function useEmployeeDetail(employeeId: string) {
         office: employee.office || null,
         hiringSource: employee.hiringSource || null,
         hireDate: employee.hireDate,
+        employmentEndDate: employee.employmentEndDate || null,
         basicSalary: employee.basicSalary,
         currentSalary:
           employee.currentSalary !== undefined &&
@@ -660,6 +665,9 @@ export function useEmployeeDetail(employeeId: string) {
             : employee.basicSalary,
         allowance: employee.allowance ?? null,
         paymentSchedule: employee.paymentSchedule || null,
+        finalPayPending: employee.finalPayPending ?? false,
+        finalPayEffectiveDate: employee.finalPayEffectiveDate || null,
+        finalPayNotes: employee.finalPayNotes || null,
         sssNumber: employee.sssNumber || null,
         philHealthNumber: employee.philHealthNumber || null,
         hdmfNumber: employee.hdmfNumber || null,

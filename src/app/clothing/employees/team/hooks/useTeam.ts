@@ -2,7 +2,12 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { Employee, EmployeeFormData } from '../types';
+import {
+  EMPLOYEE_STATUS_COLORS,
+  type Employee,
+  type EmployeeFormData,
+  type EmployeeStatus,
+} from '../types';
 import { getCurrentDateISO } from '@/utils/date';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
@@ -66,6 +71,10 @@ const transformEmployeePayload = (
   office: formData.office || null,
   hiringSource: formData.hiringSource || null,
   hireDate: formData.hireDate,
+  employmentEndDate: formData.employmentEndDate || null,
+  finalPayPending: !!formData.finalPayPending,
+  finalPayEffectiveDate: formData.finalPayEffectiveDate || null,
+  finalPayNotes: formData.finalPayNotes || null,
   // Salary
   basicSalary: parseFloat(formData.basicSalary) || 0,
   currentSalary: formData.currentSalary
@@ -106,7 +115,9 @@ export function useTeam() {
   // UI State
   const [searchQuery, setSearchQuery] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<EmployeeStatus | 'all'>(
+    'all'
+  );
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [activeTab, setActiveTab] = useState<string | null>('employees');
@@ -170,6 +181,12 @@ export function useTeam() {
   const activeEmployees = employees.filter((e) => e.status === 'active').length;
   const onLeaveEmployees = employees.filter(
     (e) => e.status === 'on-leave'
+  ).length;
+  const resignedEmployees = employees.filter(
+    (e) => e.status === 'resigned'
+  ).length;
+  const terminatedEmployees = employees.filter(
+    (e) => e.status === 'terminated'
   ).length;
   const totalSalary = employees
     .filter((e) => e.status === 'active')
@@ -391,18 +408,10 @@ export function useTeam() {
     }).format(amount);
   }, []);
 
-  const getStatusColor = useCallback((status: Employee['status']) => {
-    switch (status) {
-      case 'active':
-        return 'green';
-      case 'inactive':
-        return 'red';
-      case 'on-leave':
-        return 'orange';
-      default:
-        return 'gray';
-    }
-  }, []);
+  const getStatusColor = useCallback(
+    (status: Employee['status']) => EMPLOYEE_STATUS_COLORS[status] || 'gray',
+    []
+  );
 
   // Event Handlers
   const handleAddEmployee = useCallback(() => {
@@ -628,6 +637,10 @@ export function useTeam() {
       'Employee Type',
       'Status',
       'Hire Date',
+      'Employment End Date',
+      'Final Pay Pending',
+      'Final Pay Effective Date',
+      'Final Pay Notes',
       'Office',
       'Hiring Source',
       'Current Salary',
@@ -681,6 +694,10 @@ export function useTeam() {
       escapeCSV(e.employeeType || ''),
       escapeCSV(e.status),
       escapeCSV(e.hireDate),
+      escapeCSV(e.employmentEndDate || ''),
+      escapeCSV(e.finalPayPending ? 'Yes' : 'No'),
+      escapeCSV(e.finalPayEffectiveDate || ''),
+      escapeCSV(e.finalPayNotes || ''),
       escapeCSV(e.office || ''),
       escapeCSV(e.hiringSource || ''),
       escapeCSV(
@@ -729,6 +746,8 @@ export function useTeam() {
     totalEmployees,
     activeEmployees,
     onLeaveEmployees,
+    resignedEmployees,
+    terminatedEmployees,
     totalSalary,
 
     // Setters

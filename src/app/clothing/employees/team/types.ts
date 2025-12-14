@@ -1,3 +1,34 @@
+export const EMPLOYEE_STATUS_VALUES = [
+  'active',
+  'inactive',
+  'on-leave',
+  'resigned',
+  'terminated',
+] as const;
+
+export type EmployeeStatus = (typeof EMPLOYEE_STATUS_VALUES)[number];
+
+export const EMPLOYEE_STATUS_LABELS: Record<EmployeeStatus, string> = {
+  active: 'Active',
+  inactive: 'Inactive',
+  'on-leave': 'On Leave',
+  resigned: 'Resigned',
+  terminated: 'Terminated',
+};
+
+export const EMPLOYEE_STATUS_COLORS: Record<EmployeeStatus, string> = {
+  active: 'green',
+  inactive: 'red',
+  'on-leave': 'orange',
+  resigned: 'yellow',
+  terminated: 'gray',
+};
+
+export const EMPLOYEE_STATUS_OPTIONS = EMPLOYEE_STATUS_VALUES.map((status) => ({
+  value: status,
+  label: EMPLOYEE_STATUS_LABELS[status],
+}));
+
 export interface Employee {
   id: string;
   employeeId: string;
@@ -20,7 +51,8 @@ export interface Employee {
   currentSalary: number;
   basicSalary: number; // For backward compatibility
   hireDate: string;
-  status: 'active' | 'inactive' | 'on-leave';
+  employmentEndDate?: string;
+  status: EmployeeStatus;
   employmentStatus?:
     | 'probationary'
     | 'regular'
@@ -29,6 +61,9 @@ export interface Employee {
   employeeType?: 'full-time' | 'part-time' | 'contractor' | 'intern';
   office?: string;
   hiringSource?: string;
+  finalPayPending?: boolean;
+  finalPayEffectiveDate?: string;
+  finalPayNotes?: string;
 
   // Government IDs
   sssNumber?: string;
@@ -76,11 +111,15 @@ export interface EmployeeFormData {
   currentSalary: string;
   basicSalary: string;
   hireDate: string;
-  status: 'active' | 'inactive' | 'on-leave';
+  employmentEndDate?: string;
+  status: EmployeeStatus;
   employmentStatus?: string;
   employeeType?: string;
   office?: string;
   hiringSource?: string;
+  finalPayPending: boolean;
+  finalPayEffectiveDate?: string;
+  finalPayNotes?: string;
   sssNumber?: string;
   philHealthNumber?: string;
   hdmfNumber?: string;

@@ -170,6 +170,9 @@ export const PUT = withErrorHandler<RouteContext>(
         jobTitle: sanitizers.name(body.jobTitle || body.position),
         status: sanitizers.name(body.status),
         hireDate: sanitizers.date(body.hireDate),
+        employmentEndDate: body.employmentEndDate
+          ? sanitizers.date(body.employmentEndDate)
+          : null,
         phone: sanitizers.phone(body.phone || body.contact),
         contact: sanitizers.phone(body.contact || body.phone),
         email: body.email ? sanitizers.email(body.email) : null,
@@ -263,6 +266,18 @@ export const PUT = withErrorHandler<RouteContext>(
           : null,
         paymentSchedule: body.paymentSchedule
           ? sanitizers.name(body.paymentSchedule)
+          : null,
+        finalPayPending:
+          typeof body.finalPayPending === 'boolean'
+            ? body.finalPayPending
+            : ['true', '1', 'yes'].includes(
+                String(body.finalPayPending).toLowerCase()
+              ),
+        finalPayEffectiveDate: body.finalPayEffectiveDate
+          ? sanitizers.date(body.finalPayEffectiveDate)
+          : null,
+        finalPayNotes: body.finalPayNotes
+          ? sanitizers.notes(body.finalPayNotes)
           : null,
         profilePhoto: resolvedProfilePhoto,
         updatedAt: new Date(),

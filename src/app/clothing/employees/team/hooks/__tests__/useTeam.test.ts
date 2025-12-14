@@ -196,7 +196,7 @@ describe('Currency Formatting', () => {
 
 describe('Status Colors', () => {
   const getStatusColor = (
-    status: 'active' | 'inactive' | 'on-leave'
+    status: 'active' | 'inactive' | 'on-leave' | 'resigned' | 'terminated'
   ): string => {
     switch (status) {
       case 'active':
@@ -205,6 +205,10 @@ describe('Status Colors', () => {
         return 'red';
       case 'on-leave':
         return 'orange';
+      case 'resigned':
+        return 'yellow';
+      case 'terminated':
+        return 'gray';
       default:
         return 'gray';
     }
@@ -221,6 +225,14 @@ describe('Status Colors', () => {
   it('should return orange for on-leave status', () => {
     expect(getStatusColor('on-leave')).toBe('orange');
   });
+
+  it('should return yellow for resigned status', () => {
+    expect(getStatusColor('resigned')).toBe('yellow');
+  });
+
+  it('should return gray for terminated status', () => {
+    expect(getStatusColor('terminated')).toBe('gray');
+  });
 });
 
 // ==========================================================================
@@ -228,7 +240,9 @@ describe('Status Colors', () => {
 // ==========================================================================
 
 describe('CSV Field Escaping', () => {
-  const escapeCSVField = (field: string | number | null | undefined): string => {
+  const escapeCSVField = (
+    field: string | number | null | undefined
+  ): string => {
     if (field === null || field === undefined) {
       return '';
     }
@@ -331,7 +345,7 @@ describe('CSV Field Parsing', () => {
 
 describe('Employee Statistics', () => {
   interface Employee {
-    status: 'active' | 'inactive' | 'on-leave';
+    status: 'active' | 'inactive' | 'on-leave' | 'resigned' | 'terminated';
     currentSalary: number;
   }
 
@@ -341,6 +355,10 @@ describe('Employee Statistics', () => {
       activeEmployees: employees.filter((e) => e.status === 'active').length,
       onLeaveEmployees: employees.filter((e) => e.status === 'on-leave').length,
       inactiveEmployees: employees.filter((e) => e.status === 'inactive')
+        .length,
+      resignedEmployees: employees.filter((e) => e.status === 'resigned')
+        .length,
+      terminatedEmployees: employees.filter((e) => e.status === 'terminated')
         .length,
       totalSalary: employees
         .filter((e) => e.status === 'active')
@@ -354,6 +372,8 @@ describe('Employee Statistics', () => {
     expect(stats.activeEmployees).toBe(0);
     expect(stats.onLeaveEmployees).toBe(0);
     expect(stats.inactiveEmployees).toBe(0);
+    expect(stats.resignedEmployees).toBe(0);
+    expect(stats.terminatedEmployees).toBe(0);
     expect(stats.totalSalary).toBe(0);
   });
 
@@ -394,6 +414,26 @@ describe('Employee Statistics', () => {
     ];
     const stats = calculateStatistics(employees);
     expect(stats.inactiveEmployees).toBe(2);
+  });
+
+  it('should count resigned employees', () => {
+    const employees = [
+      { status: 'resigned' as const, currentSalary: 40000 },
+      { status: 'resigned' as const, currentSalary: 30000 },
+      { status: 'active' as const, currentSalary: 70000 },
+    ];
+    const stats = calculateStatistics(employees);
+    expect(stats.resignedEmployees).toBe(2);
+  });
+
+  it('should count terminated employees', () => {
+    const employees = [
+      { status: 'terminated' as const, currentSalary: 45000 },
+      { status: 'active' as const, currentSalary: 60000 },
+      { status: 'terminated' as const, currentSalary: 55000 },
+    ];
+    const stats = calculateStatistics(employees);
+    expect(stats.terminatedEmployees).toBe(2);
   });
 
   it('should calculate total salary for active only', () => {
@@ -493,7 +533,9 @@ describe('Form Data Transformation', () => {
       hireDate: formData.hireDate,
       basicSalary: parseFloat(formData.basicSalary),
       currentSalary: parseFloat(formData.currentSalary),
-      allowance: formData.allowance ? parseFloat(formData.allowance) : undefined,
+      allowance: formData.allowance
+        ? parseFloat(formData.allowance)
+        : undefined,
       numberOfKids: formData.numberOfKids
         ? parseInt(formData.numberOfKids, 10)
         : undefined,

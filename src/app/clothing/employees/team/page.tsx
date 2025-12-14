@@ -8,6 +8,8 @@ import {
   IconUsers,
   IconUserCheck,
   IconUserPause,
+  IconUserMinus,
+  IconUserX,
   IconCurrencyPeso,
   IconEdit,
   IconTrash,
@@ -23,7 +25,10 @@ import type {
   TableAction,
 } from '@/components/shared/PageTemplates/DataTable';
 import { EmployeeFormDialog } from './components/EmployeeFormDialog';
-import type { Employee as EmployeeType } from './types';
+import { EMPLOYEE_STATUS_LABELS, type Employee as EmployeeType } from './types';
+
+const formatStatusLabel = (status: EmployeeType['status']) =>
+  EMPLOYEE_STATUS_LABELS[status] || status;
 
 export default function Team() {
   const router = useRouter();
@@ -42,6 +47,8 @@ export default function Team() {
     totalEmployees,
     activeEmployees,
     onLeaveEmployees,
+    resignedEmployees,
+    terminatedEmployees,
     totalSalary,
 
     // Setters
@@ -95,6 +102,20 @@ export default function Team() {
       icon: <IconUserPause size={20} stroke={1.6} />,
       color: 'orange',
       backgroundColor: 'var(--mantine-color-orange-6)',
+    },
+    {
+      title: 'Resigned',
+      value: resignedEmployees,
+      icon: <IconUserMinus size={20} stroke={1.6} />,
+      color: 'yellow',
+      backgroundColor: 'var(--mantine-color-yellow-6)',
+    },
+    {
+      title: 'Terminated',
+      value: terminatedEmployees,
+      icon: <IconUserX size={20} stroke={1.6} />,
+      color: 'red',
+      backgroundColor: 'var(--mantine-color-red-6)',
     },
     {
       title: 'Total Salary',
@@ -162,7 +183,7 @@ export default function Team() {
       label: 'STATUS',
       render: (item) => (
         <Badge color={getStatusColor(item.status)} variant="light">
-          {item.status === 'on-leave' ? 'ON LEAVE' : item.status.toUpperCase()}
+          {formatStatusLabel(item.status).toUpperCase()}
         </Badge>
       ),
     },

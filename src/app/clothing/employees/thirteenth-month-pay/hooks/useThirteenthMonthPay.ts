@@ -283,8 +283,8 @@ export function useThirteenthMonthPay() {
         );
 
         const employeeRecord =
-          (rawEmployeeId && employeeById.get(rawEmployeeId)) ||
-          (rawEmployeeName && employeeByName.get(rawEmployeeName));
+          (rawEmployeeId ? employeeById.get(rawEmployeeId) : undefined) ??
+          (rawEmployeeName ? employeeByName.get(rawEmployeeName) : undefined);
 
         const year = deriveYearFromPayroll(payroll);
         if (year === null) {

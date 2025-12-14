@@ -24,11 +24,15 @@ const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 /**
  * Employee Status enum
  */
-const employeeStatusSchema = z.enum(['active', 'inactive', 'on-leave'], {
-  errorMap: () => ({
-    message: 'Employee status must be: active, inactive, or on-leave',
-  }),
-});
+const employeeStatusSchema = z.enum(
+  ['active', 'inactive', 'on-leave', 'resigned', 'terminated'],
+  {
+    errorMap: () => ({
+      message:
+        'Employee status must be: active, inactive, on-leave, resigned, or terminated',
+    }),
+  }
+);
 
 /**
  * Employment Status enum
@@ -118,6 +122,11 @@ export const employeeSchema = z.object({
   hireDate: z
     .string()
     .regex(dateRegex, 'Hire date must be in YYYY-MM-DD format'),
+  employmentEndDate: z
+    .string()
+    .regex(dateRegex, 'Employment end date must be in YYYY-MM-DD format')
+    .optional()
+    .nullable(),
   status: employeeStatusSchema,
 
   // Optional fields with validation
@@ -161,6 +170,13 @@ export const employeeSchema = z.object({
     .optional()
     .nullable(),
   paymentSchedule: paymentScheduleSchema.optional().nullable(),
+  finalPayPending: z.boolean().default(false),
+  finalPayEffectiveDate: z
+    .string()
+    .regex(dateRegex, 'Final pay effective date must be in YYYY-MM-DD format')
+    .optional()
+    .nullable(),
+  finalPayNotes: z.string().trim().max(2000).optional().nullable(),
 
   // Statutory contributions
   sssMonthlyContribution: z

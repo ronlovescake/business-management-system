@@ -8,6 +8,8 @@ import {
   Text,
   Stack,
   Group,
+  Switch,
+  Textarea,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { useForm, type UseFormReturnType } from '@mantine/form';
@@ -49,11 +51,15 @@ export const EmployeeFormDialog = React.memo(function EmployeeFormDialog({
       currentSalary: '',
       basicSalary: '',
       hireDate: getCurrentDateISO(),
+      employmentEndDate: '',
       status: 'active',
       employmentStatus: 'probationary',
       employeeType: 'full-time',
       office: '',
       hiringSource: '',
+      finalPayPending: false,
+      finalPayEffectiveDate: '',
+      finalPayNotes: '',
       sssNumber: '',
       philHealthNumber: '',
       hdmfNumber: '',
@@ -119,11 +125,15 @@ export const EmployeeFormDialog = React.memo(function EmployeeFormDialog({
             : editingEmployee.basicSalary.toString(),
         basicSalary: editingEmployee.basicSalary.toString(),
         hireDate: editingEmployee.hireDate,
+        employmentEndDate: editingEmployee.employmentEndDate || '',
         status: editingEmployee.status,
         employmentStatus: editingEmployee.employmentStatus || 'probationary',
         employeeType: editingEmployee.employeeType || 'full-time',
         office: editingEmployee.office || '',
         hiringSource: editingEmployee.hiringSource || '',
+        finalPayPending: !!editingEmployee.finalPayPending,
+        finalPayEffectiveDate: editingEmployee.finalPayEffectiveDate || '',
+        finalPayNotes: editingEmployee.finalPayNotes || '',
         sssNumber: editingEmployee.sssNumber || '',
         philHealthNumber: editingEmployee.philHealthNumber || '',
         hdmfNumber: editingEmployee.hdmfNumber || '',
@@ -419,6 +429,20 @@ function EmployeeFormFields({
           />
         </Grid.Col>
         <Grid.Col span={4}>
+          <DateInput
+            label="Employment End Date"
+            valueFormat="MM-DD-YYYY"
+            value={toDate(form.values.employmentEndDate)}
+            onChange={(value) =>
+              form.setFieldValue('employmentEndDate', toISODate(value))
+            }
+            clearable
+            {...COMMON_DATE_INPUT_PROPS}
+            {...getFieldProps('employmentEndDate').handlers}
+            styles={getFieldProps('employmentEndDate').styles}
+          />
+        </Grid.Col>
+        <Grid.Col span={4}>
           <Select
             label="Employment Status"
             data={[
@@ -472,6 +496,53 @@ function EmployeeFormFields({
             {...form.getInputProps('drivingLicense')}
             {...getFieldProps('drivingLicense').handlers}
             styles={getFieldProps('drivingLicense').styles}
+          />
+        </Grid.Col>
+
+        <Grid.Col span={12}>
+          <Divider
+            label={
+              <Text size="sm" fw={600}>
+                📄 Final Pay & Offboarding
+              </Text>
+            }
+            labelPosition="left"
+            mt="md"
+          />
+        </Grid.Col>
+        <Grid.Col span={4}>
+          <Switch
+            label="Final Pay Pending"
+            description="Track employees awaiting final payout"
+            checked={form.values.finalPayPending}
+            onChange={(event) =>
+              form.setFieldValue('finalPayPending', event.currentTarget.checked)
+            }
+          />
+        </Grid.Col>
+        <Grid.Col span={4}>
+          <DateInput
+            label="Final Pay Effective Date"
+            valueFormat="MM-DD-YYYY"
+            value={toDate(form.values.finalPayEffectiveDate)}
+            onChange={(value) =>
+              form.setFieldValue('finalPayEffectiveDate', toISODate(value))
+            }
+            clearable
+            disabled={!form.values.finalPayPending}
+            {...COMMON_DATE_INPUT_PROPS}
+            {...getFieldProps('finalPayEffectiveDate').handlers}
+            styles={getFieldProps('finalPayEffectiveDate').styles}
+          />
+        </Grid.Col>
+        <Grid.Col span={8}>
+          <Textarea
+            label="Final Pay Notes"
+            minRows={2}
+            disabled={!form.values.finalPayPending}
+            {...form.getInputProps('finalPayNotes')}
+            {...getFieldProps('finalPayNotes').handlers}
+            styles={getFieldProps('finalPayNotes').styles}
           />
         </Grid.Col>
         <Grid.Col span={12}>

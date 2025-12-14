@@ -15,7 +15,7 @@ import {
   UnstyledButton,
 } from '@mantine/core';
 import { IconCamera } from '@tabler/icons-react';
-import type { Employee } from '../types';
+import { EMPLOYEE_STATUS_LABELS, type Employee } from '../types';
 
 interface EmployeeProfileSummaryCardProps {
   employee: Employee;
@@ -31,6 +31,8 @@ export function EmployeeProfileSummaryCard({
   getStatusColor,
 }: EmployeeProfileSummaryCardProps) {
   const [isAvatarHovered, setIsAvatarHovered] = useState(false);
+  const statusLabel =
+    EMPLOYEE_STATUS_LABELS[employee.status] || employee.status;
 
   return (
     <Paper withBorder p="xl">
@@ -113,9 +115,7 @@ export function EmployeeProfileSummaryCard({
           color={getStatusColor(employee.status)}
           variant="light"
         >
-          {employee.status === 'on-leave'
-            ? 'ON LEAVE'
-            : employee.status.toUpperCase()}
+          {statusLabel.toUpperCase()}
         </Badge>
       </Group>
     </Paper>

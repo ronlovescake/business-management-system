@@ -192,6 +192,10 @@ export function useTeam() {
           office: formData.office || null,
           hiringSource: formData.hiringSource || null,
           hireDate: formData.hireDate,
+          employmentEndDate: formData.employmentEndDate || null,
+          finalPayPending: !!formData.finalPayPending,
+          finalPayEffectiveDate: formData.finalPayEffectiveDate || null,
+          finalPayNotes: formData.finalPayNotes || null,
           // Salary
           basicSalary: parseFloat(formData.basicSalary) || 0,
           currentSalary: formData.currentSalary
@@ -279,6 +283,10 @@ export function useTeam() {
           office: formData.office || null,
           hiringSource: formData.hiringSource || null,
           hireDate: formData.hireDate,
+          employmentEndDate: formData.employmentEndDate || null,
+          finalPayPending: !!formData.finalPayPending,
+          finalPayEffectiveDate: formData.finalPayEffectiveDate || null,
+          finalPayNotes: formData.finalPayNotes || null,
           // Salary
           basicSalary: parseFloat(formData.basicSalary) || 0,
           currentSalary: formData.currentSalary
@@ -548,6 +556,10 @@ export function useTeam() {
       'Employee Type',
       'Status',
       'Hire Date',
+      'Employment End Date',
+      'Final Pay Pending',
+      'Final Pay Effective Date',
+      'Final Pay Notes',
       'Office',
       'Hiring Source',
       'Current Salary',
@@ -601,6 +613,10 @@ export function useTeam() {
       escapeCSV(e.employeeType || ''),
       escapeCSV(e.status),
       escapeCSV(e.hireDate),
+      escapeCSV(e.employmentEndDate || ''),
+      escapeCSV(e.finalPayPending ? 'Yes' : 'No'),
+      escapeCSV(e.finalPayEffectiveDate || ''),
+      escapeCSV(e.finalPayNotes || ''),
       escapeCSV(e.office || ''),
       escapeCSV(e.hiringSource || ''),
       escapeCSV(

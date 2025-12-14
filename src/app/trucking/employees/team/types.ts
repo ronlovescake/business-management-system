@@ -20,6 +20,7 @@ export interface Employee {
   currentSalary: number;
   basicSalary: number; // For backward compatibility
   hireDate: string;
+  employmentEndDate?: string;
   status: 'active' | 'inactive' | 'on-leave';
   employmentStatus?:
     | 'probationary'
@@ -29,6 +30,9 @@ export interface Employee {
   employeeType?: 'full-time' | 'part-time' | 'contractor' | 'intern';
   office?: string;
   hiringSource?: string;
+  finalPayPending?: boolean;
+  finalPayEffectiveDate?: string;
+  finalPayNotes?: string;
 
   // Government IDs
   sssNumber?: string;
@@ -76,11 +80,15 @@ export interface EmployeeFormData {
   currentSalary: string;
   basicSalary: string;
   hireDate: string;
+  employmentEndDate?: string;
   status: 'active' | 'inactive' | 'on-leave';
   employmentStatus?: string;
   employeeType?: string;
   office?: string;
   hiringSource?: string;
+  finalPayPending: boolean;
+  finalPayEffectiveDate?: string;
+  finalPayNotes?: string;
   sssNumber?: string;
   philHealthNumber?: string;
   hdmfNumber?: string;
