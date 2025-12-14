@@ -8,7 +8,11 @@ import type { AttendanceRecord } from '@/app/clothing/employees/attendance/types
 import type { LeaveRequest } from '@/app/clothing/employees/leave-tracker/types';
 import type { CashAdvance } from '@/app/clothing/employees/cash-advance/types';
 import type { Schedule } from '@/app/clothing/employees/schedules/types';
-import type { Employee, EmployeeFormData } from '../types';
+import {
+  EMPLOYEE_STATUS_COLORS,
+  type Employee,
+  type EmployeeFormData,
+} from '../types';
 import type { ApiResponse } from '@/types/api';
 
 /**
@@ -36,6 +40,25 @@ interface SalaryHistoryEntry {
   basicSalary: number;
   allowance: number;
   grossPay: number;
+}
+
+export interface EmployeeThirteenthMonthRecord {
+  id: string;
+  recordId: string;
+  employeeId?: string;
+  employee: string;
+  year: number;
+  status: 'pending' | 'calculated' | 'approved' | 'paid';
+  totalBasicSalary: number;
+  totalLwop: number;
+  totalAbsencesLates: number;
+  netBasicSalary: number;
+  thirteenthMonthPay: number;
+  monthsWorked: number;
+  calculatedDate?: string;
+  approvedDate?: string;
+  paidDate?: string;
+  notes?: string;
 }
 
 export function useEmployeeDetail(employeeId: string) {
@@ -74,6 +97,7 @@ export function useEmployeeDetail(employeeId: string) {
   });
 
   const normalizedEmployeeId = employee?.employeeId?.trim() || '';
+  const normalizedEmployeeKey = normalizedEmployeeId.toLowerCase();
 
   // Helper functions for data transformation
   const parseNumber = (value: unknown) => {
@@ -125,6 +149,16 @@ export function useEmployeeDetail(employeeId: string) {
         'afternoon',
         'night',
         'full-day',
+      ]),
+    []
+  );
+  const allowedThirteenthStatuses = useMemo(
+    () =>
+      new Set<EmployeeThirteenthMonthRecord['status']>([
+        'pending',
+        'calculated',
+        'approved',
+        'paid',
       ]),
     []
   );
@@ -413,17 +447,138 @@ export function useEmployeeDetail(employeeId: string) {
       staleTime: 30 * 1000,
     });
 
+  const {
+    data: thirteenthMonthRecords = [],
+    isLoading: isLoadingThirteenthMonth,
+  } = useQuery({
+    queryKey: queryKeys.thirteenthMonthPay.list({
+      employeeId: normalizedEmployeeId,
+    }),
+    queryFn: async () => {
+      const query = encodeURIComponent(normalizedEmployeeId);
+      const response = await api.get<Array<Record<string, unknown>>>(
+        `/api/thirteenth-month-pay?employeeId=${query}`
+      );
+
+      if (!Array.isArray(response)) {
+        return [];
+      }
+
+      const normalizeIdentifier = (value: unknown) =>
+        typeof value === 'string' ? value.trim().toLowerCase() : '';
+
+      const safeString = (value: unknown) => {
+        if (typeof value !== 'string') {
+          return undefined;
+        }
+        const trimmed = value.trim();
+        return trimmed.length > 0 ? trimmed : undefined;
+      };
+
+      const filterKey = normalizedEmployeeKey;
+      if (!filterKey) {
+        return [];
+      }
+
+      const sanitized = response
+        .filter((record) => {
+          if (!record || typeof record !== 'object') {
+            return false;
+          }
+          const recordEmployeeId = normalizeIdentifier(
+            (record as { employeeId?: string }).employeeId
+          );
+          if (recordEmployeeId) {
+            return recordEmployeeId === filterKey;
+          }
+          const recordIdKey = normalizeIdentifier(
+            (record as { recordId?: string }).recordId
+          );
+          return recordIdKey.startsWith(`${filterKey}-`);
+        })
+        .map((record) => {
+          const raw = record as Record<string, unknown>;
+          const fallbackYear = Number.parseInt(
+            String(raw.year ?? new Date().getFullYear()),
+            10
+          );
+          const year = Number.isFinite(fallbackYear)
+            ? fallbackYear
+            : new Date().getFullYear();
+          const rawStatus = String(raw.status ?? 'calculated').toLowerCase();
+          const normalizedStatus =
+            rawStatus as EmployeeThirteenthMonthRecord['status'];
+          const status = allowedThirteenthStatuses.has(normalizedStatus)
+            ? normalizedStatus
+            : 'calculated';
+
+          const monthsWorkedValue = Number(
+            raw.monthsWorked ?? (status === 'paid' ? 12 : 1)
+          );
+          const monthsWorked = Number.isFinite(monthsWorkedValue)
+            ? Math.max(1, Math.min(12, Math.trunc(monthsWorkedValue)))
+            : 12;
+
+          const recordIdRaw = safeString(raw.recordId) || safeString(raw.id);
+          const recordId = recordIdRaw
+            ? recordIdRaw
+            : `${normalizedEmployeeId}-${year}`;
+
+          return {
+            id: recordId,
+            recordId,
+            employeeId: safeString(raw.employeeId) ?? normalizedEmployeeId,
+            employee:
+              safeString(raw.employeeName) ?? employee?.name ?? recordId,
+            year,
+            status,
+            totalBasicSalary: parseNumber(raw.totalBasicSalary),
+            totalLwop: parseNumber(raw.totalLwop),
+            totalAbsencesLates: parseNumber(raw.totalAbsencesLates),
+            netBasicSalary: parseNumber(raw.netBasicSalary),
+            thirteenthMonthPay: parseNumber(raw.thirteenthMonthPay),
+            monthsWorked,
+            calculatedDate: safeString(raw.calculatedDate),
+            approvedDate: safeString(raw.approvedDate),
+            paidDate: safeString(raw.paidDate),
+            notes: safeString(raw.notes),
+          } satisfies EmployeeThirteenthMonthRecord;
+        });
+
+      sanitized.sort((a, b) => {
+        if (a.year !== b.year) {
+          return b.year - a.year;
+        }
+        return a.recordId.localeCompare(b.recordId);
+      });
+
+      return sanitized;
+    },
+    enabled: !!normalizedEmployeeId,
+    staleTime: 30 * 1000,
+  });
+
   // Computed values
   const isLoadingRelated =
     isLoadingPayroll ||
     isLoadingAttendance ||
     isLoadingLeaves ||
     isLoadingCashAdvances ||
-    isLoadingSchedules;
+    isLoadingSchedules ||
+    isLoadingThirteenthMonth;
 
   const totalPayrollAmount = useMemo(
     () => payrollHistory.reduce((sum, record) => sum + record.netPay, 0),
     [payrollHistory]
+  );
+
+  const totalThirteenthMonthPay = useMemo(
+    () =>
+      thirteenthMonthRecords.reduce(
+        (sum, record) => sum + record.thirteenthMonthPay,
+        0
+      ),
+    [thirteenthMonthRecords]
   );
 
   const salaryTimeline = useMemo(() => {
@@ -512,6 +667,10 @@ export function useEmployeeDetail(employeeId: string) {
         office: formData.office || null,
         hiringSource: formData.hiringSource || null,
         hireDate: formData.hireDate,
+        employmentEndDate: formData.employmentEndDate || null,
+        finalPayPending: !!formData.finalPayPending,
+        finalPayEffectiveDate: formData.finalPayEffectiveDate || null,
+        finalPayNotes: formData.finalPayNotes || null,
         // Salary
         basicSalary: parseFloat(formData.basicSalary) || 0,
         currentSalary: formData.currentSalary
@@ -618,10 +777,14 @@ export function useEmployeeDetail(employeeId: string) {
           jobTitle: formData.jobTitle || formData.position,
           status: formData.status,
           hireDate: formData.hireDate,
+          employmentEndDate: formData.employmentEndDate || undefined,
           basicSalary: parseFloat(formData.basicSalary) || 0,
           currentSalary: formData.currentSalary
             ? parseFloat(formData.currentSalary)
             : parseFloat(formData.basicSalary) || 0,
+          finalPayPending: !!formData.finalPayPending,
+          finalPayEffectiveDate: formData.finalPayEffectiveDate || undefined,
+          finalPayNotes: formData.finalPayNotes || undefined,
         };
 
         queryClient.setQueryData<Employee>(
@@ -681,6 +844,7 @@ export function useEmployeeDetail(employeeId: string) {
         office: employee.office || null,
         hiringSource: employee.hiringSource || null,
         hireDate: employee.hireDate,
+        employmentEndDate: employee.employmentEndDate || null,
         basicSalary: employee.basicSalary,
         currentSalary:
           employee.currentSalary !== undefined &&
@@ -689,6 +853,9 @@ export function useEmployeeDetail(employeeId: string) {
             : employee.basicSalary,
         allowance: employee.allowance ?? null,
         paymentSchedule: employee.paymentSchedule || null,
+        finalPayPending: employee.finalPayPending ?? false,
+        finalPayEffectiveDate: employee.finalPayEffectiveDate || null,
+        finalPayNotes: employee.finalPayNotes || null,
         sssNumber: employee.sssNumber || null,
         philHealthNumber: employee.philHealthNumber || null,
         hdmfNumber: employee.hdmfNumber || null,
@@ -804,18 +971,8 @@ export function useEmployeeDetail(employeeId: string) {
     }).format(amount);
   };
 
-  const getStatusColor = (status: Employee['status']) => {
-    switch (status) {
-      case 'active':
-        return 'green';
-      case 'inactive':
-        return 'red';
-      case 'on-leave':
-        return 'orange';
-      default:
-        return 'gray';
-    }
-  };
+  const getStatusColor = (status: Employee['status']) =>
+    EMPLOYEE_STATUS_COLORS[status] || 'gray';
 
   const handleEdit = () => {
     setIsFormOpen(true);
@@ -844,6 +1001,9 @@ export function useEmployeeDetail(employeeId: string) {
     isLoadingRelated,
     payrollHistory,
     totalPayrollAmount,
+    thirteenthMonthRecords,
+    totalThirteenthMonthPay,
+    isLoadingThirteenthMonth,
     attendanceHistory,
     scheduleHistory,
     leaveHistory,

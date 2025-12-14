@@ -172,7 +172,7 @@ export const queryKeys = {
   thirteenthMonthPay: {
     all: ['thirteenth-month-pay'] as const,
     lists: () => [...queryKeys.thirteenthMonthPay.all, 'list'] as const,
-    list: (filters?: { year?: number; status?: string }) =>
+    list: (filters?: { year?: number; status?: string; employeeId?: string }) =>
       [...queryKeys.thirteenthMonthPay.lists(), { filters }] as const,
     details: () => [...queryKeys.thirteenthMonthPay.all, 'detail'] as const,
     detail: (recordId: string) =>

@@ -67,15 +67,15 @@ const buildPersistencePayload = (
   return {
     id: merged.id,
     employeeId: extractEmployeeId(merged.id),
-    employee: merged.employee,
+    employeeName: merged.employee,
     year: safeYear,
     status: merged.status,
-    totalBasicSalary: merged.totalBasicSalary,
-    totalLwop: merged.totalLwop,
-    totalAbsencesLates: merged.totalAbsencesLates,
-    netBasicSalary: merged.netBasicSalary,
+    totalBasicSalary: toNumber(merged.totalBasicSalary),
+    totalLwop: toNumber(merged.totalLwop),
+    totalAbsencesLates: toNumber(merged.totalAbsencesLates),
+    netBasicSalary: toNumber(merged.netBasicSalary),
     monthsWorked: safeMonthsWorked,
-    thirteenthMonthPay: merged.thirteenthMonthPay,
+    thirteenthMonthPay: toNumber(merged.thirteenthMonthPay),
     notes: merged.notes ?? null,
     calculatedDate: merged.calculatedDate ?? null,
     approvedDate: merged.approvedDate ?? null,
@@ -286,30 +286,46 @@ export function useThirteenthMonthPay() {
           (rawEmployeeId && employeeById.get(rawEmployeeId)) ||
           (rawEmployeeName && employeeByName.get(rawEmployeeName));
 
-        if (!employeeRecord) {
-          return;
-        }
-
         const year = deriveYearFromPayroll(payroll);
         if (year === null) {
           return;
         }
 
+        const normalizedEmployeeId = normalizeValue(
+          (employeeRecord?.employeeId as string | undefined) ??
+            (payroll.employeeId as string | undefined) ??
+            null
+        );
+        const normalizedEmployeeName =
+          rawEmployeeName ||
+          normalizeValue(
+            (payroll.employeeName as string | undefined) ??
+              (payroll.employee as string | undefined) ??
+              null
+          );
+
+        if (!normalizedEmployeeId && !normalizedEmployeeName) {
+          return;
+        }
+
         const employeeName =
-          (employeeRecord.name as string | undefined) ||
-          `${employeeRecord.firstName ?? ''} ${employeeRecord.lastName ?? ''}`.trim() ||
+          (employeeRecord?.name as string | undefined) ||
+          `${employeeRecord?.firstName ?? ''} ${employeeRecord?.lastName ?? ''}`.trim() ||
           (payroll.employeeName as string | undefined) ||
+          (payroll.employee as string | undefined) ||
           'Unknown Employee';
 
         const aggregationKey = `${
-          normalizeValue(employeeRecord.employeeId as string | undefined) ||
-          rawEmployeeName
+          normalizedEmployeeId || normalizedEmployeeName || 'unknown'
         }-${year}`;
 
         const hireDateValue =
-          (employeeRecord.hireDate as string | undefined) ??
-          (employeeRecord.dateHired as string | undefined) ??
-          (employeeRecord.hiredDate as string | undefined) ??
+          (employeeRecord?.hireDate as string | undefined) ??
+          (employeeRecord?.dateHired as string | undefined) ??
+          (employeeRecord?.hiredDate as string | undefined) ??
+          (payroll.hireDate as string | undefined) ??
+          (payroll.dateHired as string | undefined) ??
+          (payroll.hiredDate as string | undefined) ??
           null;
 
         if (!aggregated.has(aggregationKey)) {
@@ -384,27 +400,38 @@ export function useThirteenthMonthPay() {
 
       // Build map of persisted (approved/paid) records from database
       const persistedMap = new Map(
-        persistedRecords.map((r) => [
-          r.recordId || r.id,
-          {
-            id: (r.recordId || r.id) as string,
-            employee: r.employee as string,
-            year: r.year?.toString() || '2025',
-            hireDate: null,
-            tenureship: 'N/A',
-            totalBasicSalary: toNumber(r.totalBasicSalary),
-            totalLwop: toNumber(r.totalLwop),
-            totalAbsencesLates: toNumber(r.totalAbsencesLates),
-            netBasicSalary: toNumber(r.netBasicSalary),
-            thirteenthMonthPay: toNumber(r.thirteenthMonthPay),
-            monthsWorked: (r.monthsWorked as number) || 12,
-            status: (r.status as ThirteenthMonthPay['status']) || 'calculated',
-            calculatedDate: r.calculatedDate as string | undefined,
-            approvedDate: r.approvedDate as string | undefined,
-            paidDate: r.paidDate as string | undefined,
-            notes: r.notes as string | undefined,
-          } as ThirteenthMonthPay,
-        ])
+        persistedRecords.map((r) => {
+          const safeEmployeeName =
+            (r.employeeName as string | undefined) ||
+            (r.employee as string | undefined) ||
+            'Unknown Employee';
+          const safeYear = Number.isFinite(Number(r.year))
+            ? String(r.year)
+            : new Date().getFullYear().toString();
+
+          return [
+            r.recordId || r.id,
+            {
+              id: (r.recordId || r.id) as string,
+              employee: safeEmployeeName,
+              year: safeYear,
+              hireDate: null,
+              tenureship: 'N/A',
+              totalBasicSalary: toNumber(r.totalBasicSalary),
+              totalLwop: toNumber(r.totalLwop),
+              totalAbsencesLates: toNumber(r.totalAbsencesLates),
+              netBasicSalary: toNumber(r.netBasicSalary),
+              thirteenthMonthPay: toNumber(r.thirteenthMonthPay),
+              monthsWorked: (r.monthsWorked as number) || 12,
+              status:
+                (r.status as ThirteenthMonthPay['status']) || 'calculated',
+              calculatedDate: r.calculatedDate as string | undefined,
+              approvedDate: r.approvedDate as string | undefined,
+              paidDate: r.paidDate as string | undefined,
+              notes: r.notes as string | undefined,
+            } as ThirteenthMonthPay,
+          ];
+        })
       );
 
       const mergedMap = new Map<string, ThirteenthMonthPay>();

@@ -17,6 +17,7 @@ import {
 } from '@/modules/shared/details/DetailsPageTemplate';
 import { ProfileOverviewTab } from '../components/tabs/ProfileOverviewTab';
 import { PayrollHistoryTab } from '../components/tabs/PayrollHistoryTab';
+import { ThirteenthMonthPayTab } from '../components/tabs/ThirteenthMonthPayTab';
 import { SchedulesTab } from '../components/tabs/SchedulesTab';
 import { AttendanceTab } from '../components/tabs/AttendanceTab';
 import { LeaveRequestsTab } from '../components/tabs/LeaveRequestsTab';
@@ -48,6 +49,9 @@ export default function EmployeeDetailPage() {
     isLoadingRelated,
     payrollHistory,
     totalPayrollAmount,
+    thirteenthMonthRecords,
+    totalThirteenthMonthPay,
+    isLoadingThirteenthMonth,
     attendanceHistory,
     scheduleHistory,
     leaveHistory,
@@ -425,6 +429,21 @@ export default function EmployeeDetailPage() {
     }
   };
 
+  const getThirteenthStatusColor = (
+    status: (typeof thirteenthMonthRecords)[number]['status']
+  ) => {
+    switch (status) {
+      case 'paid':
+        return 'grape';
+      case 'approved':
+        return 'green';
+      case 'calculated':
+        return 'blue';
+      default:
+        return 'yellow';
+    }
+  };
+
   const getScheduleStatusColor = (
     status: (typeof scheduleHistory)[number]['status']
   ) => {
@@ -578,6 +597,20 @@ export default function EmployeeDetailPage() {
           formatCurrency={formatCurrency}
           formatPayrollPeriod={formatPayrollPeriod}
           getStatusColor={getPayrollStatusBadgeColor}
+        />
+      ),
+    },
+    {
+      value: 'thirteenth-month',
+      label: '13th Month Pay',
+      content: (
+        <ThirteenthMonthPayTab
+          isLoading={isLoadingThirteenthMonth}
+          records={thirteenthMonthRecords}
+          totalThirteenthMonthPay={totalThirteenthMonthPay}
+          formatCurrency={formatCurrency}
+          formatOptionalDate={formatOptionalDate}
+          getStatusColor={getThirteenthStatusColor}
         />
       ),
     },
