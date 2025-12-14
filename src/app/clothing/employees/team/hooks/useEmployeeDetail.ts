@@ -209,7 +209,7 @@ export function useEmployeeDetail(employeeId: string) {
 
       return payrollData;
     },
-    enabled: !!normalizedEmployeeId,
+    enabled: !!normalizedEmployeeKey,
     staleTime: 30 * 1000,
   });
 
@@ -452,10 +452,10 @@ export function useEmployeeDetail(employeeId: string) {
     isLoading: isLoadingThirteenthMonth,
   } = useQuery({
     queryKey: queryKeys.thirteenthMonthPay.list({
-      employeeId: normalizedEmployeeId,
+      employeeId: normalizedEmployeeKey,
     }),
     queryFn: async () => {
-      const query = encodeURIComponent(normalizedEmployeeId);
+      const query = encodeURIComponent(normalizedEmployeeKey);
       const response = await api.get<Array<Record<string, unknown>>>(
         `/api/thirteenth-month-pay?employeeId=${query}`
       );
@@ -522,14 +522,17 @@ export function useEmployeeDetail(employeeId: string) {
           const recordIdRaw = safeString(raw.recordId) || safeString(raw.id);
           const recordId = recordIdRaw
             ? recordIdRaw
-            : `${normalizedEmployeeId}-${year}`;
+            : `${normalizedEmployeeKey}-${year}`;
 
           return {
             id: recordId,
             recordId,
-            employeeId: safeString(raw.employeeId) ?? normalizedEmployeeId,
+            employeeId: safeString(raw.employeeId) ?? normalizedEmployeeKey,
             employee:
-              safeString(raw.employeeName) ?? employee?.name ?? recordId,
+              safeString(raw.employeeName) ??
+              safeString(raw.employee) ??
+              employee?.name ??
+              recordId,
             year,
             status,
             totalBasicSalary: parseNumber(raw.totalBasicSalary),
