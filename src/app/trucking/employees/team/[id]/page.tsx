@@ -22,6 +22,7 @@ import { AttendanceTab } from '../components/tabs/AttendanceTab';
 import { LeaveRequestsTab } from '../components/tabs/LeaveRequestsTab';
 import { CashAdvanceTab } from '../components/tabs/CashAdvanceTab';
 import { StatutoryDetailsTab } from '../components/tabs/StatutoryDetailsTab';
+import { ThirteenthMonthPayTab } from '../components/tabs/ThirteenthMonthPayTab';
 import type { EmployeeDetailField } from '../types/detail-field';
 
 export default function EmployeeDetailPage() {
@@ -54,6 +55,9 @@ export default function EmployeeDetailPage() {
     leaveHistory,
     cashAdvanceRecords,
     outstandingCashAdvance,
+    thirteenthMonthRecords,
+    totalThirteenthMonthPay,
+    isLoadingThirteenthMonth,
   } = useEmployeeDetail(employeeId);
 
   const MAX_PROFILE_PHOTO_SIZE = 2 * 1024 * 1024; // 2MB
@@ -408,6 +412,21 @@ export default function EmployeeDetailPage() {
     }
   };
 
+  const getThirteenthStatusColor = (
+    status: (typeof thirteenthMonthRecords)[number]['status']
+  ) => {
+    switch (status) {
+      case 'paid':
+        return 'grape';
+      case 'approved':
+        return 'green';
+      case 'calculated':
+        return 'blue';
+      default:
+        return 'yellow';
+    }
+  };
+
   const getScheduleStatusColor = (
     status: (typeof scheduleHistory)[number]['status']
   ) => {
@@ -562,6 +581,20 @@ export default function EmployeeDetailPage() {
           formatCurrency={formatCurrency}
           formatPayrollPeriod={formatPayrollPeriod}
           getStatusColor={getPayrollStatusBadgeColor}
+        />
+      ),
+    },
+    {
+      value: 'thirteenth-month',
+      label: '13th Month Pay',
+      content: (
+        <ThirteenthMonthPayTab
+          isLoading={isLoadingThirteenthMonth}
+          records={thirteenthMonthRecords}
+          totalThirteenthMonthPay={totalThirteenthMonthPay}
+          formatCurrency={formatCurrency}
+          formatOptionalDate={formatOptionalDate}
+          getStatusColor={getThirteenthStatusColor}
         />
       ),
     },
