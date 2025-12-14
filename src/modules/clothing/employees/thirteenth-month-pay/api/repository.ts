@@ -114,7 +114,6 @@ export class ThirteenthMonthPayRepository extends BaseRepository<
     return this.findFirst({
       where: {
         recordId,
-        deletedAt: null,
       },
     } as any);
   }

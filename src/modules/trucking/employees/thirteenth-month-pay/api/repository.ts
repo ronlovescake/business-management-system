@@ -113,7 +113,7 @@ export class ThirteenthMonthPayRepository extends BaseRepository<
     recordId: string
   ): Promise<TruckingThirteenthMonthPayRecord | null> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const results = await this.findMany({ recordId, deletedAt: null } as any);
+    const results = await this.findMany({ recordId } as any);
     return results.length > 0 ? results[0] : null;
   }
 

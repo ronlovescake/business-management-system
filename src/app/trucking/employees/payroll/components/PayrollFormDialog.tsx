@@ -144,9 +144,6 @@ export const PayrollFormDialog = React.memo(function PayrollFormDialog({
             value={form.values.employee}
             onChange={(value) => form.setFieldValue('employee', value)}
             comboboxProps={{ withinPortal: true }}
-            nothingFoundMessage={
-              employeeOptions.length ? 'No matches' : 'No employees found'
-            }
           />
         </Grid.Col>
 
@@ -160,7 +157,6 @@ export const PayrollFormDialog = React.memo(function PayrollFormDialog({
               value={form.values.payPeriod}
               onChange={(value) => form.setFieldValue('payPeriod', value)}
               comboboxProps={{ withinPortal: true }}
-              nothingFoundMessage="No pay periods found"
             />
           ) : (
             <TextInput
