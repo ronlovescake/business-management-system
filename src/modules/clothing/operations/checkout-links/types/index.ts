@@ -41,6 +41,7 @@ export interface CustomerOrderData {
   customerName: string;
   productCode: string;
   quantity: number;
+  orderStatus: string;
   weightPerPiece: string;
   actualWeight: string;
 }

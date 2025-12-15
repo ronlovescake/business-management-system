@@ -7,6 +7,7 @@ export interface WeightCalculationBreakdown {
   quantity: number;
   weightPerPiece: number;
   totalWeight: number;
+  orderStatus?: string;
 }
 
 export interface WeightCalculationResult {
@@ -304,6 +305,7 @@ export const calculateInvoiceWeights = async (
         select: {
           productCode: true,
           quantity: true,
+          orderStatus: true,
         },
       });
 
@@ -343,6 +345,7 @@ export const calculateInvoiceWeights = async (
             quantity,
             weightPerPiece,
             totalWeight: itemTotalWeight,
+            orderStatus: transaction.orderStatus?.trim() ?? undefined,
           });
         } else {
           unmatchedProducts.push(productCode);
@@ -402,6 +405,12 @@ type CustomerOrderCalculationOptions = {
   requireInvoiceDate?: boolean;
 };
 
+const CUSTOMER_ORDER_INCLUDED_STATUSES = [
+  'Prepared',
+  'On-Hold',
+  'Ready For Dispatch',
+] as const;
+
 export const calculateCustomerOrdersFromTransactions = async (
   options: CustomerOrderCalculationOptions = {}
 ): Promise<WeightCalculationResult[]> => {
@@ -410,7 +419,7 @@ export const calculateCustomerOrdersFromTransactions = async (
   const transactionWhere: Prisma.TransactionWhereInput = {
     deletedAt: null,
     orderStatus: {
-      equals: 'Prepared',
+      in: [...CUSTOMER_ORDER_INCLUDED_STATUSES],
       mode: 'insensitive',
     },
     ...(customerName
@@ -510,6 +519,7 @@ export const calculateCustomerOrdersFromTransactions = async (
           quantity,
           weightPerPiece,
           totalWeight: itemTotalWeight,
+          orderStatus: transaction.orderStatus?.trim() ?? undefined,
         });
       } else {
         unmatchedProducts.push(productCode);

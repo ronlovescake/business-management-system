@@ -25,6 +25,12 @@ interface InvoiceSettingsResponse {
   paymentChannelsUrl: string;
 }
 
+const CUSTOMER_ORDER_ELIGIBLE_STATUSES: string[] = [
+  'prepared',
+  'on-hold',
+  'ready for dispatch',
+];
+
 export const useCheckoutLinksPage = () => {
   const [activeTab, setActiveTab] = useState<string | null>('invoicing');
   const [invoicingSearchQuery, setInvoicingSearchQuery] = useState('');
@@ -276,9 +282,11 @@ export const useCheckoutLinksPage = () => {
 
       const withInvoiceDates = transactions.filter((transaction) => {
         const hasInvoiceDate = Boolean(transaction['Invoice Date']?.trim());
-        const isPrepared =
-          transaction['Order Status']?.trim().toLowerCase() === 'prepared';
-        return hasInvoiceDate && isPrepared;
+        const orderStatus = transaction['Order Status']?.trim().toLowerCase();
+        const isEligibleStatus = orderStatus
+          ? CUSTOMER_ORDER_ELIGIBLE_STATUSES.includes(orderStatus)
+          : false;
+        return hasInvoiceDate && isEligibleStatus;
       });
 
       setTransactionsWithInvoiceDate(withInvoiceDates);
@@ -550,6 +558,7 @@ export const useCheckoutLinksPage = () => {
       [
         order.customerName,
         order.productCode,
+        order.orderStatus,
         order.actualWeight,
         order.weightPerPiece,
         order.quantity.toString(),

@@ -62,10 +62,11 @@ export function CustomerOrdersTab({
             'CUSTOMER NAME',
             'PRODUCT CODE',
             'QUANTITY',
+            'ORDER STATUS',
             'WEIGHT PER PIECE',
             'ACTUAL WEIGHT',
           ]}
-          colSpan={5}
+          colSpan={6}
           emptyState={emptyState}
         >
           {sortedOrders.map((order) => (
@@ -83,6 +84,11 @@ export function CustomerOrdersTab({
               <Table.Td style={{ textAlign: 'center' }}>
                 <Text size="sm" c="#495057">
                   {order.quantity}
+                </Text>
+              </Table.Td>
+              <Table.Td>
+                <Text size="sm" c="#495057">
+                  {order.orderStatus || '—'}
                 </Text>
               </Table.Td>
               <Table.Td style={{ textAlign: 'center' }}>

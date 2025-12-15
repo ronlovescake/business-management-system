@@ -39,6 +39,7 @@ const mapResultsToCustomerOrders = (
         customerName: normalizedCustomerName,
         productCode,
         quantity: safeQuantity,
+        orderStatus: entry.orderStatus?.trim() || 'Unknown',
         weightPerPiece: safeWeightPerPiece.toFixed(2),
         actualWeight: safeTotalWeight.toFixed(2),
       } satisfies CustomerOrderData;
