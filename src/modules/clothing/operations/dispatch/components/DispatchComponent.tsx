@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Stack, Tabs } from '@mantine/core';
 import {
   useDispatchCustomerLookup,
@@ -29,11 +29,37 @@ interface DispatchComponentProps {
   serverCustomersData?: ServerCustomerData[];
 }
 
+type DispatchTabValue =
+  | 'match'
+  | 'possible-match'
+  | 'checkout-update'
+  | 'recently-updated'
+  | 'raw-data';
+
+type DispatchSearchableTab = Extract<
+  DispatchTabValue,
+  'match' | 'checkout-update' | 'recently-updated'
+>;
+
+const isSearchableDispatchTab = (
+  value: string | null
+): value is DispatchSearchableTab =>
+  value === 'match' ||
+  value === 'checkout-update' ||
+  value === 'recently-updated';
+
 export function DispatchComponent({
   serverCustomersData,
 }: DispatchComponentProps = {}) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [rawDataSearch, setRawDataSearch] = useState('');
+  const [tabSearchQueries, setTabSearchQueries] = useState<
+    Record<DispatchSearchableTab, string>
+  >({
+    match: '',
+    'checkout-update': '',
+    'recently-updated': '',
+  });
 
   // Customer lookup hook
   const {
@@ -47,7 +73,6 @@ export function DispatchComponent({
   const {
     activeTab,
     setActiveTab,
-    searchQuery,
     setSearchQuery,
     rawData,
     setRawData,
@@ -75,6 +100,37 @@ export function DispatchComponent({
     _serverCustomersData: serverCustomersData,
     lookupCustomerName,
   });
+
+  const handleTabSearchChange = useCallback(
+    (tab: DispatchSearchableTab, query: string) => {
+      setTabSearchQueries((prev) => {
+        if (prev[tab] === query) {
+          return prev;
+        }
+        return {
+          ...prev,
+          [tab]: query,
+        };
+      });
+
+      if (activeTab === tab) {
+        setSearchQuery(query);
+      }
+    },
+    [activeTab, setSearchQuery]
+  );
+
+  const handleTabChange = useCallback(
+    (value: string | null) => {
+      setActiveTab(value);
+      if (isSearchableDispatchTab(value)) {
+        setSearchQuery(tabSearchQueries[value]);
+      } else {
+        setSearchQuery('');
+      }
+    },
+    [setActiveTab, setSearchQuery, tabSearchQueries]
+  );
 
   // Possible matches hook with address matching
   const possibleMatchesSource = serverCustomersData?.map((customer) => ({
@@ -142,7 +198,7 @@ export function DispatchComponent({
       />
 
       {/* Main Tabs */}
-      <Tabs value={activeTab} onChange={setActiveTab}>
+      <Tabs value={activeTab} onChange={handleTabChange}>
         <Tabs.List>
           <Tabs.Tab value="match">To Ship</Tabs.Tab>
           <Tabs.Tab value="possible-match" id="dispatch-possible-match-tab">
@@ -161,8 +217,8 @@ export function DispatchComponent({
             mockData={mockData}
             savedOrders={savedOrders}
             rawData={rawData}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
+            searchQuery={tabSearchQueries.match}
+            setSearchQuery={(value) => handleTabSearchChange('match', value)}
             handleXlsxImport={handleXlsxImport}
             handleExportCSV={handleExportCSV}
             handleAddNew={handleAddNew}
@@ -225,8 +281,10 @@ export function DispatchComponent({
             filteredData={filteredData}
             effectiveRawData={effectiveRawData}
             mockData={mockData}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
+            searchQuery={tabSearchQueries['checkout-update']}
+            setSearchQuery={(value) =>
+              handleTabSearchChange('checkout-update', value)
+            }
             statusFilter={statusFilter}
             setStatusFilter={setStatusFilter}
             dateRangeFilter={dateRangeFilter}
@@ -247,8 +305,10 @@ export function DispatchComponent({
             filteredData={filteredData}
             effectiveRawData={effectiveRawData}
             mockData={mockData}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
+            searchQuery={tabSearchQueries['recently-updated']}
+            setSearchQuery={(value) =>
+              handleTabSearchChange('recently-updated', value)
+            }
             handleXlsxImport={handleXlsxImport}
             handleExportCSV={handleExportCSV}
             handleAddNew={handleAddNew}

@@ -1,9 +1,41 @@
+'use client';
+
 import { useEffect } from 'react';
 import React from 'react';
-import { Autocomplete, TextInput, NumberInput, Grid } from '@mantine/core';
+import {
+  Autocomplete,
+  TextInput,
+  NumberInput,
+  Grid,
+  Stack,
+  Group,
+  Text,
+  ThemeIcon,
+  Paper,
+  SimpleGrid,
+  Divider,
+  Button,
+} from '@mantine/core';
+import { IconCurrencyPeso } from '@tabler/icons-react';
 import { useForm } from '@mantine/form';
-import { ComposedDialog } from '@/components/shared/Dialog';
+import { PolishedModal } from '@/components/modals/PolishedModal';
+import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
+import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 import type { Payroll, PayrollFormData } from '../types';
+
+type NumericPayrollField =
+  | 'allowance'
+  | 'overtime'
+  | 'bonuses'
+  | 'thirteenthMonth'
+  | 'sss'
+  | 'philHealth'
+  | 'pagIbig'
+  | 'tax'
+  | 'loans'
+  | 'cashAdvance'
+  | 'lwop'
+  | 'absentsLates';
 
 interface PayrollFormDialogProps {
   opened: boolean;
@@ -55,7 +87,7 @@ export const PayrollFormDialog = React.memo(function PayrollFormDialog({
           return 'Basic salary is required';
         }
         const num = parseFloat(value);
-        if (isNaN(num) || num <= 0) {
+        if (Number.isNaN(num) || num <= 0) {
           return 'Basic salary must be greater than 0';
         }
         return null;
@@ -99,423 +131,283 @@ export const PayrollFormDialog = React.memo(function PayrollFormDialog({
     form.onSubmit(handleSubmit)();
   };
 
-  // Calculate real-time totals
   const totals = calculateTotals(form.values);
+  const canSave = form.isValid();
+
+  const { getFieldProps, getSelectProps } = usePolishedFieldStyles(opened);
+  const employeeSelect = getSelectProps('employee');
+  const payPeriodSelect = getSelectProps('payPeriod');
+  const payPeriodField = getFieldProps('payPeriod');
+  const bankField = getFieldProps('bankGcash');
+
+  const formatCurrency = (value: number) =>
+    `₱${value.toLocaleString('en-PH', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+
+  const renderNumberField = (
+    key: NumericPayrollField,
+    label: string,
+    placeholder: string
+  ) => {
+    const fieldProps = getFieldProps(key);
+    return (
+      <NumberInput
+        label={label}
+        placeholder={placeholder}
+        min={0}
+        prefix="₱"
+        decimalScale={2}
+        thousandSeparator=","
+        hideControls
+        value={form.values[key]}
+        onChange={(value) => form.setFieldValue(key, value?.toString() || '0')}
+        {...fieldProps.handlers}
+        styles={fieldProps.styles}
+      />
+    );
+  };
+
+  const modalTitle = (
+    <Group gap="md" align="center">
+      <ThemeIcon size={44} radius="xl" variant="light" color="violet">
+        <IconCurrencyPeso size={24} />
+      </ThemeIcon>
+      <Stack gap={2}>
+        <Text fw={700} fz="lg" c="#101828">
+          {editingPayroll ? 'Edit Payroll' : 'Add Payroll'}
+        </Text>
+        <Text fz="sm" c="#667085">
+          {editingPayroll
+            ? 'Update the employee payroll details below'
+            : 'Fill in the details to create a new payroll record'}
+        </Text>
+      </Stack>
+    </Group>
+  );
 
   return (
-    <ComposedDialog
+    <PolishedModal
       opened={opened}
       onClose={onClose}
-      size="xl"
-      header={{
-        title: editingPayroll ? 'Edit Payroll' : 'Add Payroll',
-        subtitle: editingPayroll
-          ? 'Update the payroll details below'
-          : 'Fill in the details to create a new payroll record',
-        iconColor: '#6366f1',
-      }}
-      body={{
-        padding: 'md',
-        maxHeight: '75vh',
-      }}
-      footer={{
-        layout: 'flex-end',
-        secondaryButton: {
-          label: 'Cancel',
-          onClick: onClose,
-          variant: 'default',
-        },
-        primaryButton: {
-          label: editingPayroll ? 'Update Payroll' : 'Create Payroll',
-          onClick: handleSave,
-          disabled: !form.isValid(),
-          color: '#6366f1',
-        },
-      }}
+      size="70rem"
+      title={modalTitle}
     >
-      <Grid gutter="md">
-        {/* Employee & Pay Period */}
-        <Grid.Col span={6}>
-          <Autocomplete
-            label="Employee Name"
-            placeholder="Select or type employee"
-            data={employeeOptions}
-            required
-            value={form.values.employee}
-            onChange={(value) => form.setFieldValue('employee', value)}
-            comboboxProps={{ withinPortal: true }}
-          />
-        </Grid.Col>
+      <Stack gap="xl">
+        <div style={{ maxHeight: '65vh', overflowY: 'auto', paddingRight: 4 }}>
+          <Stack gap="xl">
+            <Stack gap={4}>
+              <Text fw={600} c="#101828">
+                Employee & Pay Period
+              </Text>
+              <Text fz="sm" c="dimmed">
+                Assign the payroll entry to an employee and choose the
+                applicable pay period.
+              </Text>
+            </Stack>
 
-        <Grid.Col span={6}>
-          {payPeriodOptions.length > 0 ? (
-            <Autocomplete
-              label="Pay Period"
-              placeholder="Select or type pay period"
-              data={payPeriodOptions}
-              required
-              value={form.values.payPeriod}
-              onChange={(value) => form.setFieldValue('payPeriod', value)}
-              comboboxProps={{ withinPortal: true }}
-            />
-          ) : (
+            <Grid gutter="lg">
+              <Grid.Col span={{ base: 12, md: 6 }}>
+                <Autocomplete
+                  label="Employee Name"
+                  placeholder="Select or type employee"
+                  data={employeeOptions}
+                  required
+                  value={form.values.employee}
+                  onChange={(value) => form.setFieldValue('employee', value)}
+                  comboboxProps={{ withinPortal: true }}
+                  {...employeeSelect.handlers}
+                  styles={employeeSelect.styles}
+                />
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, md: 6 }}>
+                {payPeriodOptions.length > 0 ? (
+                  <Autocomplete
+                    label="Pay Period"
+                    placeholder="Select or type pay period"
+                    data={payPeriodOptions}
+                    required
+                    value={form.values.payPeriod}
+                    onChange={(value) => form.setFieldValue('payPeriod', value)}
+                    comboboxProps={{ withinPortal: true }}
+                    {...payPeriodSelect.handlers}
+                    styles={payPeriodSelect.styles}
+                  />
+                ) : (
+                  <TextInput
+                    label="Pay Period"
+                    placeholder="e.g., 2024-10-01 to 2024-10-15"
+                    required
+                    {...form.getInputProps('payPeriod')}
+                    {...payPeriodField.handlers}
+                    styles={payPeriodField.styles}
+                  />
+                )}
+              </Grid.Col>
+            </Grid>
+
+            <Divider label="Earnings" labelPosition="left" color="violet" />
+
+            <Grid gutter="lg">
+              <Grid.Col span={{ base: 12, md: 6 }}>
+                <NumberInput
+                  label="Basic Salary"
+                  placeholder="Enter basic salary"
+                  required
+                  min={0}
+                  prefix="₱"
+                  decimalScale={2}
+                  thousandSeparator=","
+                  hideControls
+                  value={form.values.basicSalary}
+                  onChange={(value) =>
+                    form.setFieldValue('basicSalary', value?.toString() || '')
+                  }
+                  error={form.errors.basicSalary}
+                  {...getFieldProps('basicSalary').handlers}
+                  styles={getFieldProps('basicSalary').styles}
+                />
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, md: 6 }}>
+                {renderNumberField('allowance', 'Allowance', 'Enter allowance')}
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, md: 6 }}>
+                {renderNumberField(
+                  'overtime',
+                  'Overtime',
+                  'Enter overtime pay'
+                )}
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, md: 6 }}>
+                {renderNumberField('bonuses', 'Bonuses', 'Enter bonuses')}
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, md: 6 }}>
+                {renderNumberField(
+                  'thirteenthMonth',
+                  '13th Month Pay',
+                  'Enter 13th month amount'
+                )}
+              </Grid.Col>
+            </Grid>
+
+            <Divider label="Deductions" labelPosition="left" color="pink" />
+
+            <Grid gutter="lg">
+              <Grid.Col span={{ base: 12, md: 6 }}>
+                {renderNumberField('sss', 'SSS', 'Enter SSS contribution')}
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, md: 6 }}>
+                {renderNumberField(
+                  'philHealth',
+                  'PhilHealth',
+                  'Enter PhilHealth contribution'
+                )}
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, md: 6 }}>
+                {renderNumberField(
+                  'pagIbig',
+                  'Pag-IBIG',
+                  'Enter Pag-IBIG contribution'
+                )}
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, md: 6 }}>
+                {renderNumberField('tax', 'Tax', 'Enter withholding tax')}
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, md: 6 }}>
+                {renderNumberField('loans', 'Loans', 'Enter loan deductions')}
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, md: 6 }}>
+                {renderNumberField(
+                  'cashAdvance',
+                  'Cash Advance',
+                  'Enter cash advance deductions'
+                )}
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, md: 6 }}>
+                {renderNumberField(
+                  'lwop',
+                  'LWOP',
+                  'Enter leave without pay deductions'
+                )}
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, md: 6 }}>
+                {renderNumberField(
+                  'absentsLates',
+                  'Absences/Lates',
+                  'Enter deductions for absences/lates'
+                )}
+              </Grid.Col>
+            </Grid>
+
+            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
+              <Paper shadow="xs" radius="md" p="md" withBorder>
+                <Text fz="sm" c="dimmed">
+                  Gross Pay
+                </Text>
+                <Text fw={700} fz="xl" c="teal.6">
+                  {formatCurrency(totals.grossPay)}
+                </Text>
+              </Paper>
+
+              <Paper shadow="xs" radius="md" p="md" withBorder>
+                <Text fz="sm" c="dimmed">
+                  Total Deductions
+                </Text>
+                <Text fw={700} fz="xl" c="red.6">
+                  {formatCurrency(totals.totalDeductions)}
+                </Text>
+              </Paper>
+
+              <Paper shadow="xs" radius="md" p="md" withBorder>
+                <Text fz="sm" c="dimmed">
+                  Net Pay
+                </Text>
+                <Text fw={700} fz="xl" c="blue.6">
+                  {formatCurrency(totals.netPay)}
+                </Text>
+              </Paper>
+            </SimpleGrid>
+
+            <Divider label="Disbursement" labelPosition="left" color="blue" />
+
             <TextInput
-              label="Pay Period"
-              placeholder="e.g., 2024-10-01 to 2024-10-15"
+              label="Bank/GCash"
+              placeholder="e.g., BDO - 001234567890 or GCash - 09171234567"
               required
-              {...form.getInputProps('payPeriod')}
+              {...form.getInputProps('bankGcash')}
+              {...bankField.handlers}
+              styles={bankField.styles}
             />
-          )}
-        </Grid.Col>
+          </Stack>
+        </div>
 
-        {/* Earnings Section */}
-        <Grid.Col span={12}>
-          <div
-            style={{
-              fontSize: '14px',
-              fontWeight: 600,
-              marginBottom: '8px',
-              color: '#495057',
-              borderBottom: '2px solid #e9ecef',
-              paddingBottom: '8px',
-            }}
+        <Group justify="flex-end" gap="sm">
+          <Button radius="md" variant="default" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            radius="md"
+            onClick={handleSave}
+            disabled={!canSave}
+            styles={polishedPrimaryButtonStyles}
           >
-            💰 Earnings
-          </div>
-        </Grid.Col>
-
-        <Grid.Col span={6}>
-          <NumberInput
-            label="Basic Salary"
-            placeholder="Enter basic salary"
-            required
-            min={0}
-            prefix="₱"
-            decimalScale={2}
-            thousandSeparator=","
-            hideControls
-            value={form.values.basicSalary}
-            onChange={(value) =>
-              form.setFieldValue('basicSalary', value?.toString() || '')
-            }
-            error={form.errors.basicSalary}
-          />
-        </Grid.Col>
-
-        <Grid.Col span={6}>
-          <NumberInput
-            label="Allowance"
-            placeholder="Enter allowance"
-            min={0}
-            prefix="₱"
-            decimalScale={2}
-            thousandSeparator=","
-            hideControls
-            value={form.values.allowance}
-            onChange={(value) =>
-              form.setFieldValue('allowance', value?.toString() || '0')
-            }
-          />
-        </Grid.Col>
-
-        <Grid.Col span={6}>
-          <NumberInput
-            label="Overtime"
-            placeholder="Enter overtime pay"
-            min={0}
-            prefix="₱"
-            decimalScale={2}
-            thousandSeparator=","
-            hideControls
-            value={form.values.overtime}
-            onChange={(value) =>
-              form.setFieldValue('overtime', value?.toString() || '0')
-            }
-          />
-        </Grid.Col>
-
-        <Grid.Col span={6}>
-          <NumberInput
-            label="Bonuses"
-            placeholder="Enter bonuses"
-            min={0}
-            prefix="₱"
-            decimalScale={2}
-            thousandSeparator=","
-            hideControls
-            value={form.values.bonuses}
-            onChange={(value) =>
-              form.setFieldValue('bonuses', value?.toString() || '0')
-            }
-          />
-        </Grid.Col>
-
-        <Grid.Col span={6}>
-          <NumberInput
-            label="13th Month Pay"
-            placeholder="Enter 13th month amount"
-            min={0}
-            prefix="₱"
-            decimalScale={2}
-            thousandSeparator=","
-            hideControls
-            value={form.values.thirteenthMonth}
-            onChange={(value) =>
-              form.setFieldValue('thirteenthMonth', value?.toString() || '0')
-            }
-          />
-        </Grid.Col>
-
-        {/* Gross Pay Display */}
-        <Grid.Col span={12}>
-          <div
-            style={{
-              padding: '12px',
-              backgroundColor: '#f8f9fa',
-              borderRadius: '8px',
-              border: '1px solid #e9ecef',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <span style={{ fontWeight: 600, color: '#495057' }}>
-              Gross Pay:
-            </span>
-            <span
-              style={{
-                fontWeight: 700,
-                fontSize: '18px',
-                color: '#10b981',
-              }}
-            >
-              ₱
-              {totals.grossPay.toLocaleString('en-PH', {
-                minimumFractionDigits: 2,
-              })}
-            </span>
-          </div>
-        </Grid.Col>
-
-        {/* Deductions Section */}
-        <Grid.Col span={12}>
-          <div
-            style={{
-              fontSize: '14px',
-              fontWeight: 600,
-              marginBottom: '8px',
-              color: '#495057',
-              borderBottom: '2px solid #e9ecef',
-              paddingBottom: '8px',
-              marginTop: '16px',
-            }}
-          >
-            📉 Deductions
-          </div>
-        </Grid.Col>
-
-        <Grid.Col span={6}>
-          <NumberInput
-            label="SSS"
-            placeholder="Enter SSS contribution"
-            min={0}
-            prefix="₱"
-            decimalScale={2}
-            thousandSeparator=","
-            hideControls
-            value={form.values.sss}
-            onChange={(value) =>
-              form.setFieldValue('sss', value?.toString() || '0')
-            }
-          />
-        </Grid.Col>
-
-        <Grid.Col span={6}>
-          <NumberInput
-            label="PhilHealth"
-            placeholder="Enter PhilHealth contribution"
-            min={0}
-            prefix="₱"
-            decimalScale={2}
-            thousandSeparator=","
-            hideControls
-            value={form.values.philHealth}
-            onChange={(value) =>
-              form.setFieldValue('philHealth', value?.toString() || '0')
-            }
-          />
-        </Grid.Col>
-
-        <Grid.Col span={6}>
-          <NumberInput
-            label="Pag-IBIG"
-            placeholder="Enter Pag-IBIG contribution"
-            min={0}
-            prefix="₱"
-            decimalScale={2}
-            thousandSeparator=","
-            hideControls
-            value={form.values.pagIbig}
-            onChange={(value) =>
-              form.setFieldValue('pagIbig', value?.toString() || '0')
-            }
-          />
-        </Grid.Col>
-
-        <Grid.Col span={6}>
-          <NumberInput
-            label="Tax"
-            placeholder="Enter withholding tax"
-            min={0}
-            prefix="₱"
-            decimalScale={2}
-            thousandSeparator=","
-            hideControls
-            value={form.values.tax}
-            onChange={(value) =>
-              form.setFieldValue('tax', value?.toString() || '0')
-            }
-          />
-        </Grid.Col>
-
-        <Grid.Col span={6}>
-          <NumberInput
-            label="Loans"
-            placeholder="Enter loan deductions"
-            min={0}
-            prefix="₱"
-            decimalScale={2}
-            thousandSeparator=","
-            hideControls
-            value={form.values.loans}
-            onChange={(value) =>
-              form.setFieldValue('loans', value?.toString() || '0')
-            }
-          />
-        </Grid.Col>
-
-        <Grid.Col span={6}>
-          <NumberInput
-            label="Cash Advance"
-            placeholder="Enter cash advance deductions"
-            min={0}
-            prefix="₱"
-            decimalScale={2}
-            thousandSeparator=","
-            hideControls
-            value={form.values.cashAdvance}
-            onChange={(value) =>
-              form.setFieldValue('cashAdvance', value?.toString() || '0')
-            }
-          />
-        </Grid.Col>
-
-        <Grid.Col span={6}>
-          <NumberInput
-            label="LWOP"
-            placeholder="Enter leave without pay deductions"
-            min={0}
-            prefix="₱"
-            decimalScale={2}
-            thousandSeparator=","
-            hideControls
-            value={form.values.lwop}
-            onChange={(value) =>
-              form.setFieldValue('lwop', value?.toString() || '0')
-            }
-          />
-        </Grid.Col>
-
-        <Grid.Col span={6}>
-          <NumberInput
-            label="Absences/Lates"
-            placeholder="Enter deductions for absences/lates"
-            min={0}
-            prefix="₱"
-            decimalScale={2}
-            thousandSeparator=","
-            hideControls
-            value={form.values.absentsLates}
-            onChange={(value) =>
-              form.setFieldValue('absentsLates', value?.toString() || '0')
-            }
-          />
-        </Grid.Col>
-
-        {/* Total Deductions Display */}
-        <Grid.Col span={12}>
-          <div
-            style={{
-              padding: '12px',
-              backgroundColor: '#fff5f5',
-              borderRadius: '8px',
-              border: '1px solid #fecaca',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <span style={{ fontWeight: 600, color: '#495057' }}>
-              Total Deductions:
-            </span>
-            <span
-              style={{
-                fontWeight: 700,
-                fontSize: '18px',
-                color: '#ef4444',
-              }}
-            >
-              ₱
-              {totals.totalDeductions.toLocaleString('en-PH', {
-                minimumFractionDigits: 2,
-              })}
-            </span>
-          </div>
-        </Grid.Col>
-
-        {/* Net Pay Display */}
-        <Grid.Col span={12}>
-          <div
-            style={{
-              padding: '16px',
-              backgroundColor: '#f0f9ff',
-              borderRadius: '8px',
-              border: '2px solid #3b82f6',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <span
-              style={{ fontWeight: 700, fontSize: '16px', color: '#1e40af' }}
-            >
-              NET PAY:
-            </span>
-            <span
-              style={{
-                fontWeight: 900,
-                fontSize: '24px',
-                color: '#1e40af',
-              }}
-            >
-              ₱
-              {totals.netPay.toLocaleString('en-PH', {
-                minimumFractionDigits: 2,
-              })}
-            </span>
-          </div>
-        </Grid.Col>
-
-        {/* Bank/GCash */}
-        <Grid.Col span={12}>
-          <TextInput
-            label="Bank/GCash"
-            placeholder="e.g., BDO - 001234567890 or GCash - 09171234567"
-            required
-            {...form.getInputProps('bankGcash')}
-          />
-        </Grid.Col>
-      </Grid>
-    </ComposedDialog>
+            {editingPayroll ? 'Update Payroll' : 'Create Payroll'}
+          </Button>
+        </Group>
+      </Stack>
+    </PolishedModal>
   );
 });

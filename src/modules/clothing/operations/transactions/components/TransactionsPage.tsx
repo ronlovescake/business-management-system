@@ -64,10 +64,17 @@ export function TransactionsPage() {
     DEFAULT_READ_ONLY_COLUMNS
   );
   const [activeTab, setActiveTab] = useState<TransactionsTabValue>('main');
-
-  const handleTabChange = (value: TransactionsTabValue) => {
-    setActiveTab(value);
-  };
+  const [tabSearchQueries, setTabSearchQueries] = useState<
+    Record<TransactionsTabValue, string>
+  >({
+    main: '',
+    invoicing: '',
+    'warehouse-prepared': '',
+    'packing-list': '',
+    packed: '',
+    'due-dates': '',
+    'recently-updated': '',
+  });
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -109,13 +116,37 @@ export function TransactionsPage() {
     priceTiers,
     productToShipmentMap,
     productToShipmentStatusMap,
-    searchQuery,
     handleSearch,
     selectedStatuses,
     handleStatusFilter,
     bulkUpdate,
     update,
   } = useTransactionsData();
+
+  const handleTabChange = useCallback(
+    (value: TransactionsTabValue) => {
+      setActiveTab(value);
+      const nextQuery = tabSearchQueries[value] ?? '';
+      handleSearch(nextQuery);
+    },
+    [handleSearch, tabSearchQueries]
+  );
+
+  const handleTabSearchChange = useCallback(
+    (tab: TransactionsTabValue, query: string) => {
+      setTabSearchQueries((prev) => {
+        if (prev[tab] === query) {
+          return prev;
+        }
+        return { ...prev, [tab]: query };
+      });
+
+      if (activeTab === tab) {
+        handleSearch(query);
+      }
+    },
+    [activeTab, handleSearch]
+  );
 
   // ============================================================================
   // MODAL HOOKS - All modal state and handlers
@@ -538,8 +569,8 @@ export function TransactionsPage() {
           isGeneratingInvoice={isGeneratingInvoice}
           isGeneratingPackingList={isGeneratingPackingList}
           isGeneratingDistribution={isGeneratingDistribution}
-          searchQuery={searchQuery}
-          onSearch={handleSearch}
+          searchQueries={tabSearchQueries}
+          onTabSearch={handleTabSearchChange}
           stretchColumnId={STRETCH_COLUMN_ID}
         />
       </PageLayout>

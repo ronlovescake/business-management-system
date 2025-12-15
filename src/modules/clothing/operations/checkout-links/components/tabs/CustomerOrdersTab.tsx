@@ -10,25 +10,38 @@ interface CustomerOrdersTabProps {
   orders: CustomerOrderData[];
   filteredOrders: CustomerOrderData[];
   onSearch: (query: string) => void;
+  searchValue?: string;
+  isLoading?: boolean;
 }
 
 export function CustomerOrdersTab({
   orders,
   filteredOrders,
   onSearch,
+  searchValue,
+  isLoading,
 }: CustomerOrdersTabProps) {
+  const hasSearch = Boolean(searchValue?.trim());
   const sortedOrders = [...filteredOrders].sort((a, b) =>
     a.customerName.localeCompare(b.customerName, undefined, {
       sensitivity: 'base',
       ignorePunctuation: true,
     })
   );
+  const emptyState = isLoading
+    ? 'Loading customer orders...'
+    : sortedOrders.length === 0
+      ? hasSearch
+        ? 'No customer orders match your search.'
+        : 'No customer order data available yet. Data updates automatically when new invoices are recorded.'
+      : undefined;
 
   return (
     <Stack gap="md">
       <StandardTableControls
         searchPlaceholder="Search customer orders..."
         onSearch={onSearch}
+        searchValue={searchValue}
         hideImport
         hideExport
         hideAddNew
@@ -53,7 +66,7 @@ export function CustomerOrdersTab({
             'ACTUAL WEIGHT',
           ]}
           colSpan={5}
-          emptyState="No customer order data available yet. Data updates automatically when new invoices are recorded."
+          emptyState={emptyState}
         >
           {sortedOrders.map((order) => (
             <Table.Tr key={order.id}>

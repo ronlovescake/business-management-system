@@ -13,7 +13,7 @@ interface ItemWeightTabProps {
   itemWeightError: string | null;
   onSearch: (query: string) => void;
   onOpenProducts: () => void;
-  hasSearch: boolean;
+  searchValue?: string;
 }
 
 export function ItemWeightTab({
@@ -23,8 +23,9 @@ export function ItemWeightTab({
   itemWeightError,
   onSearch,
   onOpenProducts,
-  hasSearch,
+  searchValue,
 }: ItemWeightTabProps) {
+  const hasSearch = Boolean(searchValue?.trim());
   const emptyState = isItemWeightLoading
     ? 'Loading product weights...'
     : itemWeightError
@@ -38,6 +39,7 @@ export function ItemWeightTab({
       <StandardTableControls
         searchPlaceholder="Search product weights..."
         onSearch={onSearch}
+        searchValue={searchValue}
         hideImport
         hideExport
         onAddNew={onOpenProducts}

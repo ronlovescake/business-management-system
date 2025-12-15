@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { memo, useCallback, useId, useState } from 'react';
+import { memo, useCallback, useEffect, useId, useState } from 'react';
 import {
   Stack,
   Card,
@@ -273,6 +273,11 @@ interface StandardTableControlsProps {
    */
   expandSearch?: boolean;
   searchAddon?: ReactNode;
+
+  /**
+   * Optional: Controlled search input value
+   */
+  searchValue?: string;
 }
 
 export const StandardTableControls = memo(function StandardTableControls({
@@ -291,8 +296,11 @@ export const StandardTableControls = memo(function StandardTableControls({
   enableCtrlF = true,
   expandSearch = false,
   searchAddon,
+  searchValue,
 }: StandardTableControlsProps) {
-  const [searchValue, setSearchValue] = useState('');
+  const [internalSearchValue, setInternalSearchValue] = useState(
+    searchValue ?? ''
+  );
   const ctrlFId = useId();
   const searchTarget = `standard-table-search-${ctrlFId.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
 
@@ -300,13 +308,22 @@ export const StandardTableControls = memo(function StandardTableControls({
 
   useCtrlFFocus(`[data-ctrlf-target="${searchTarget}"]`, ctrlFFocusEnabled);
 
+  useEffect(() => {
+    if (searchValue === undefined) {
+      return;
+    }
+    setInternalSearchValue(searchValue);
+  }, [searchValue]);
+
   const handleSearchChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const value = event.target.value;
-      setSearchValue(value);
+      if (searchValue === undefined) {
+        setInternalSearchValue(value);
+      }
       onSearch?.(value);
     },
-    [onSearch]
+    [onSearch, searchValue]
   );
 
   const handleImportChange = useCallback(
@@ -344,7 +361,7 @@ export const StandardTableControls = memo(function StandardTableControls({
                   : searchPlaceholder
               }
               leftSection={<IconSearch size={16} />}
-              value={searchValue}
+              value={searchValue ?? internalSearchValue}
               onChange={handleSearchChange}
               style={{ flex: 1 }}
               data-ctrlf-target={searchTarget}

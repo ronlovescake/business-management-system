@@ -23,12 +23,12 @@ interface CheckoutLinksTabProps {
   isImporting: boolean;
   pendingDeleteId: string | null;
   onSearch: (query: string) => void;
+  searchValue?: string;
   onImport: (file: File | null) => void;
   onExport: () => void;
   onAddNew?: () => void;
   onEdit: (row: CheckoutLinkData) => void;
   onDelete: (row: CheckoutLinkData) => Promise<boolean>;
-  hasSearch: boolean;
 }
 
 export function CheckoutLinksTab({
@@ -38,13 +38,14 @@ export function CheckoutLinksTab({
   isImporting,
   pendingDeleteId,
   onSearch,
+  searchValue,
   onImport,
   onExport,
   onAddNew,
   onEdit,
   onDelete,
-  hasSearch,
 }: CheckoutLinksTabProps) {
+  const hasSearch = Boolean(searchValue?.trim());
   const emptyState = isLoading
     ? 'Loading checkout links...'
     : filteredCheckoutLinks.length === 0 && hasSearch
@@ -56,6 +57,7 @@ export function CheckoutLinksTab({
       <StandardTableControls
         searchPlaceholder="Search checkout links..."
         onSearch={onSearch}
+        searchValue={searchValue}
         onImport={onImport}
         onExport={onExport}
         onAddNew={onAddNew}

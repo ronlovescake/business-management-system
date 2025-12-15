@@ -12,6 +12,7 @@ export interface InvoicingTabProps {
   filteredInvoiceData: InvoiceData[];
   checkoutLinks: CheckoutLinkData[];
   onSearch: (query: string) => void;
+  searchValue?: string;
   onSyncGoogleDrive?: () => void;
   isSyncing?: boolean;
   onCustomerNameClick?: (invoice: InvoiceData) => void;
@@ -50,6 +51,7 @@ export function InvoicingTab({
   showAddNewButton = true,
   searchAddon,
   showDriveFilesColumn = true,
+  searchValue,
 }: InvoicingTabProps) {
   const safeIsSyncing = Boolean(isSyncing);
   const safeCalculateFinalWeight =
@@ -62,6 +64,7 @@ export function InvoicingTab({
       <StandardTableControls
         searchPlaceholder={searchPlaceholder}
         onSearch={onSearch}
+        searchValue={searchValue}
         onImport={() => {
           // TODO: Implement import functionality
         }}

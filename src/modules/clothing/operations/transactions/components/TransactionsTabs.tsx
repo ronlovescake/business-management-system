@@ -237,7 +237,7 @@ const RecentlyUpdatedTab = memo(function RecentlyUpdatedTab({
   );
 });
 
-interface TransactionsTabsProps extends BaseTabProps {
+interface TransactionsTabsProps {
   activeTab: TransactionsTabValue;
   onTabChange: (value: TransactionsTabValue) => void;
   statistics: TransactionStatistics;
@@ -275,6 +275,9 @@ interface TransactionsTabsProps extends BaseTabProps {
   isGeneratingInvoice: boolean;
   isGeneratingPackingList: boolean;
   isGeneratingDistribution: boolean;
+  searchQueries: Record<TransactionsTabValue, string>;
+  onTabSearch: (tab: TransactionsTabValue, query: string) => void;
+  stretchColumnId?: string;
 }
 
 export const TransactionsTabs = memo(function TransactionsTabs({
@@ -308,8 +311,8 @@ export const TransactionsTabs = memo(function TransactionsTabs({
   isGeneratingInvoice,
   isGeneratingPackingList,
   isGeneratingDistribution,
-  searchQuery,
-  onSearch,
+  searchQueries,
+  onTabSearch,
   stretchColumnId,
   onhandEligibleTransactions,
   onhandEligibleFilteredTransactions,
@@ -352,8 +355,8 @@ export const TransactionsTabs = memo(function TransactionsTabs({
           statusOptions={statusOptions}
           selectedStatuses={selectedStatuses}
           onStatusFilter={onStatusFilter}
-          searchQuery={searchQuery}
-          onSearch={onSearch}
+          searchQuery={searchQueries.main}
+          onSearch={(query) => onTabSearch('main', query)}
           onGenerateInvoice={onGenerateInvoice}
           onGeneratePackingList={onGeneratePackingList}
           onGenerateDistribution={onGenerateDistribution}
@@ -370,8 +373,8 @@ export const TransactionsTabs = memo(function TransactionsTabs({
           filteredData={onhandEligibleFilteredTransactions}
           columns={readOnlyTransactionsColumns}
           getCellData={getCellData}
-          searchQuery={searchQuery}
-          onSearch={onSearch}
+          searchQuery={searchQueries.invoicing}
+          onSearch={(query) => onTabSearch('invoicing', query)}
           searchPlaceholder="Search invoicing-ready transactions..."
           stretchColumnId={stretchColumnId}
         />
@@ -383,8 +386,8 @@ export const TransactionsTabs = memo(function TransactionsTabs({
           filteredData={warehousePreparedFilteredTransactions}
           columns={readOnlyTransactionsColumns}
           getCellData={getCellData}
-          searchQuery={searchQuery}
-          onSearch={onSearch}
+          searchQuery={searchQueries['warehouse-prepared']}
+          onSearch={(query) => onTabSearch('warehouse-prepared', query)}
           searchPlaceholder="Search Warehouse + Prepared customers..."
           stretchColumnId={stretchColumnId}
           onCellClick={onWarehousePreparedCustomerClick}
@@ -397,8 +400,8 @@ export const TransactionsTabs = memo(function TransactionsTabs({
           filteredData={packingListEligibleData}
           columns={packingListColumns}
           getCellData={getCellData}
-          searchQuery={searchQuery}
-          onSearch={onSearch}
+          searchQuery={searchQueries['packing-list']}
+          onSearch={(query) => onTabSearch('packing-list', query)}
           searchPlaceholder="Search packing list eligible transactions..."
           stretchColumnId={stretchColumnId}
         />
@@ -410,8 +413,8 @@ export const TransactionsTabs = memo(function TransactionsTabs({
           filteredData={packedTransactionsData}
           columns={packingListColumns}
           getCellData={getCellData}
-          searchQuery={searchQuery}
-          onSearch={onSearch}
+          searchQuery={searchQueries.packed}
+          onSearch={(query) => onTabSearch('packed', query)}
           searchPlaceholder="Search packed transactions..."
           stretchColumnId={stretchColumnId}
         />
@@ -426,8 +429,8 @@ export const TransactionsTabs = memo(function TransactionsTabs({
           dueDateFilters={dueDateFilters}
           onDueDateFilter={onDueDateFilter}
           statusOptions={Array.from(DUE_DATE_FILTER_OPTIONS)}
-          searchQuery={searchQuery}
-          onSearch={onSearch}
+          searchQuery={searchQueries['due-dates']}
+          onSearch={(query) => onTabSearch('due-dates', query)}
           stretchColumnId={stretchColumnId}
         />
       </Tabs.Panel>
@@ -447,8 +450,8 @@ export const TransactionsTabs = memo(function TransactionsTabs({
           isGeneratingInvoice={isGeneratingInvoice}
           isGeneratingPackingList={isGeneratingPackingList}
           isGeneratingDistribution={isGeneratingDistribution}
-          searchQuery={searchQuery}
-          onSearch={onSearch}
+          searchQuery={searchQueries['recently-updated']}
+          onSearch={(query) => onTabSearch('recently-updated', query)}
           stretchColumnId={stretchColumnId}
         />
       </Tabs.Panel>

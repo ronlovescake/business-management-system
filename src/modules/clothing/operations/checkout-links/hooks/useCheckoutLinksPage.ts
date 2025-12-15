@@ -27,7 +27,13 @@ interface InvoiceSettingsResponse {
 
 export const useCheckoutLinksPage = () => {
   const [activeTab, setActiveTab] = useState<string | null>('invoicing');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [invoicingSearchQuery, setInvoicingSearchQuery] = useState('');
+  const [localInvoicingSearchQuery, setLocalInvoicingSearchQuery] =
+    useState('');
+  const [customerOrdersSearchQuery, setCustomerOrdersSearchQuery] =
+    useState('');
+  const [itemWeightSearchQuery, setItemWeightSearchQuery] = useState('');
+  const [checkoutLinksSearchQuery, setCheckoutLinksSearchQuery] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -305,11 +311,11 @@ export const useCheckoutLinksPage = () => {
   }, [loadTransactionsWithInvoiceDate]);
 
   const filteredCheckoutLinks = useMemo(() => {
-    if (!searchQuery.trim()) {
+    if (!checkoutLinksSearchQuery.trim()) {
       return checkoutLinks;
     }
 
-    const query = searchQuery.toLowerCase();
+    const query = checkoutLinksSearchQuery.toLowerCase();
     return checkoutLinks.filter((item) =>
       [
         item.weight,
@@ -323,14 +329,14 @@ export const useCheckoutLinksPage = () => {
         .filter(Boolean)
         .some((field) => field.toLowerCase().includes(query))
     );
-  }, [checkoutLinks, searchQuery]);
+  }, [checkoutLinks, checkoutLinksSearchQuery]);
 
   const filteredInvoiceData = useMemo(() => {
-    if (!searchQuery.trim()) {
+    if (!invoicingSearchQuery.trim()) {
       return invoiceData;
     }
 
-    const query = searchQuery.toLowerCase();
+    const query = invoicingSearchQuery.toLowerCase();
     return invoiceData.filter((item) =>
       [
         item.customerName,
@@ -344,7 +350,7 @@ export const useCheckoutLinksPage = () => {
         .filter(Boolean)
         .some((field) => field.toLowerCase().includes(query))
     );
-  }, [invoiceData, searchQuery]);
+  }, [invoiceData, invoicingSearchQuery]);
 
   const invoiceWeightsByCustomer = useMemo(() => {
     const map = new Map<string, string>();
@@ -483,11 +489,11 @@ export const useCheckoutLinksPage = () => {
       return invoiceDates.includes(localInvoiceDateFilter);
     };
 
-    if (!searchQuery.trim()) {
+    if (!localInvoicingSearchQuery.trim()) {
       return localInvoiceData.filter(matchesSelectedDate);
     }
 
-    const query = searchQuery.toLowerCase();
+    const query = localInvoicingSearchQuery.toLowerCase();
     return localInvoiceData.filter((item) => {
       const matchesSearch = [item.customerName, item.driveFiles]
         .filter(Boolean)
@@ -495,7 +501,7 @@ export const useCheckoutLinksPage = () => {
 
       return matchesSearch && matchesSelectedDate(item);
     });
-  }, [localInvoiceData, searchQuery, localInvoiceDateFilter]);
+  }, [localInvoiceData, localInvoicingSearchQuery, localInvoiceDateFilter]);
 
   const localInvoiceDateOptions = useMemo(() => {
     const uniqueDates = Array.from(
@@ -517,11 +523,11 @@ export const useCheckoutLinksPage = () => {
   }, [transactionsWithInvoiceDate]);
 
   const filteredItemWeightData = useMemo(() => {
-    if (!searchQuery.trim()) {
+    if (!itemWeightSearchQuery.trim()) {
       return itemWeightData;
     }
 
-    const query = searchQuery.toLowerCase();
+    const query = itemWeightSearchQuery.toLowerCase();
     return itemWeightData.filter((item) => {
       const candidates = [
         item.itemName,
@@ -532,14 +538,14 @@ export const useCheckoutLinksPage = () => {
       ];
       return candidates.some((field) => field.toLowerCase().includes(query));
     });
-  }, [itemWeightData, searchQuery]);
+  }, [itemWeightData, itemWeightSearchQuery]);
 
   const filteredCustomerOrders = useMemo(() => {
-    if (!searchQuery.trim()) {
+    if (!customerOrdersSearchQuery.trim()) {
       return customerOrders;
     }
 
-    const query = searchQuery.toLowerCase();
+    const query = customerOrdersSearchQuery.toLowerCase();
     return customerOrders.filter((order) =>
       [
         order.customerName,
@@ -551,7 +557,27 @@ export const useCheckoutLinksPage = () => {
         .filter(Boolean)
         .some((field) => field.toLowerCase().includes(query))
     );
-  }, [customerOrders, searchQuery]);
+  }, [customerOrders, customerOrdersSearchQuery]);
+
+  const handleInvoicingSearch = useCallback((query: string) => {
+    setInvoicingSearchQuery(query);
+  }, []);
+
+  const handleLocalInvoicingSearch = useCallback((query: string) => {
+    setLocalInvoicingSearchQuery(query);
+  }, []);
+
+  const handleCustomerOrdersSearch = useCallback((query: string) => {
+    setCustomerOrdersSearchQuery(query);
+  }, []);
+
+  const handleItemWeightSearch = useCallback((query: string) => {
+    setItemWeightSearchQuery(query);
+  }, []);
+
+  const handleCheckoutLinksSearch = useCallback((query: string) => {
+    setCheckoutLinksSearchQuery(query);
+  }, []);
 
   const handleEdit = useCallback(
     (item: CheckoutLinkData) => {
@@ -1152,8 +1178,6 @@ export const useCheckoutLinksPage = () => {
   return {
     activeTab,
     setActiveTab,
-    searchQuery,
-    setSearchQuery,
     checkoutLinkForm,
     checkoutLinksState: {
       data: checkoutLinks,
@@ -1165,6 +1189,8 @@ export const useCheckoutLinksPage = () => {
       handleExportCSV,
       handleEdit,
       handleDelete,
+      searchQuery: checkoutLinksSearchQuery,
+      handleSearch: handleCheckoutLinksSearch,
     },
     invoicesState: {
       data: invoiceData,
@@ -1174,6 +1200,8 @@ export const useCheckoutLinksPage = () => {
       handleCustomerNameClick,
       handleInvoiceTickboxChange,
       hasFacebookLink,
+      searchQuery: invoicingSearchQuery,
+      handleSearch: handleInvoicingSearch,
     },
     localInvoicesState: {
       data: localInvoiceData,
@@ -1184,11 +1212,15 @@ export const useCheckoutLinksPage = () => {
       handleCustomerNameClick: handleLocalCustomerNameClick,
       handleInvoiceTickboxChange: handleLocalInvoiceTickboxChange,
       hasFacebookLink,
+      searchQuery: localInvoicingSearchQuery,
+      handleSearch: handleLocalInvoicingSearch,
     },
     customerOrdersState: {
       data: customerOrders,
       filteredData: filteredCustomerOrders,
       isLoading: isCustomerOrdersLoading,
+      searchQuery: customerOrdersSearchQuery,
+      handleSearch: handleCustomerOrdersSearch,
     },
     itemWeightsState: {
       data: itemWeightData,
@@ -1196,6 +1228,8 @@ export const useCheckoutLinksPage = () => {
       isItemWeightLoading,
       itemWeightError,
       handleOpenProductsModule,
+      searchQuery: itemWeightSearchQuery,
+      handleSearch: handleItemWeightSearch,
     },
     modalState: {
       isEditModalOpen,

@@ -13,8 +13,6 @@ export function CheckoutLinksComponent() {
   const {
     activeTab,
     setActiveTab,
-    searchQuery,
-    setSearchQuery,
     checkoutLinksState,
     invoicesState,
     localInvoicesState,
@@ -42,7 +40,8 @@ export function CheckoutLinksComponent() {
             invoiceData={invoicesState.data}
             filteredInvoiceData={invoicesState.filteredData}
             checkoutLinks={checkoutLinksState.data}
-            onSearch={setSearchQuery}
+            onSearch={invoicesState.handleSearch}
+            searchValue={invoicesState.searchQuery}
             onSyncGoogleDrive={invoicesState.handleSyncGoogleDrive}
             isSyncing={invoicesState.isSyncing}
             onCustomerNameClick={invoicesState.handleCustomerNameClick}
@@ -58,7 +57,8 @@ export function CheckoutLinksComponent() {
             invoiceData={localInvoicesState.data}
             filteredInvoiceData={localInvoicesState.filteredData}
             checkoutLinks={checkoutLinksState.data}
-            onSearch={setSearchQuery}
+            onSearch={localInvoicesState.handleSearch}
+            searchValue={localInvoicesState.searchQuery}
             calculateFinalWeight={utilities.calculateFinalWeight}
             findCheckoutLinkByWeight={utilities.findCheckoutLinkByWeight}
             onCustomerNameClick={localInvoicesState.handleCustomerNameClick}
@@ -77,7 +77,9 @@ export function CheckoutLinksComponent() {
           <CustomerOrdersTab
             orders={customerOrdersState.data}
             filteredOrders={customerOrdersState.filteredData}
-            onSearch={setSearchQuery}
+            onSearch={customerOrdersState.handleSearch}
+            searchValue={customerOrdersState.searchQuery}
+            isLoading={customerOrdersState.isLoading}
           />
         </Tabs.Panel>
 
@@ -87,9 +89,9 @@ export function CheckoutLinksComponent() {
             filteredItemWeightData={itemWeightsState.filteredData}
             isItemWeightLoading={itemWeightsState.isItemWeightLoading}
             itemWeightError={itemWeightsState.itemWeightError}
-            onSearch={setSearchQuery}
+            onSearch={itemWeightsState.handleSearch}
+            searchValue={itemWeightsState.searchQuery}
             onOpenProducts={itemWeightsState.handleOpenProductsModule}
-            hasSearch={Boolean(searchQuery.trim())}
           />
         </Tabs.Panel>
 
@@ -100,13 +102,13 @@ export function CheckoutLinksComponent() {
             isLoading={checkoutLinksState.isLoading}
             isImporting={checkoutLinksState.isImporting}
             pendingDeleteId={checkoutLinksState.pendingDeleteId}
-            onSearch={setSearchQuery}
+            onSearch={checkoutLinksState.handleSearch}
+            searchValue={checkoutLinksState.searchQuery}
             onImport={checkoutLinksState.handleImportCSV}
             onExport={checkoutLinksState.handleExportCSV}
             onAddNew={noop}
             onEdit={checkoutLinksState.handleEdit}
             onDelete={checkoutLinksState.handleDelete}
-            hasSearch={Boolean(searchQuery.trim())}
           />
         </Tabs.Panel>
       </Tabs>
