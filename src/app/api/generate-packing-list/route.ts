@@ -120,10 +120,17 @@ export async function POST(request: NextRequest) {
     const page = await browser.newPage();
     const pdfBuffers: Buffer[] = [];
 
-    // Generate a PDF page for each customer
-    for (const [customer, customerTransactions] of Array.from(
-      groupedByCustomer.entries()
-    )) {
+    // Generate a PDF page for each customer (sorted alphabetically)
+    const collator = new Intl.Collator(undefined, {
+      sensitivity: 'base',
+      ignorePunctuation: true,
+    });
+
+    const sortedCustomers = Array.from(groupedByCustomer.entries()).sort(
+      ([a], [b]) => collator.compare(a, b)
+    );
+
+    for (const [customer, customerTransactions] of sortedCustomers) {
       // Create rows for this customer's packing list
       const rows: PackingListRow[] = customerTransactions.map(
         (transaction: Transaction, index: number) => ({

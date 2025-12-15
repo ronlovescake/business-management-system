@@ -89,8 +89,14 @@ export async function POST(request: NextRequest) {
     const page = await browser.newPage();
     const pdfBuffers: Buffer[] = [];
 
-    // Generate a PDF page for each transaction
-    for (const transaction of transactions) {
+    // Generate a PDF page for each transaction (sorted by quantity ascending)
+    const sortedTransactions = [...transactions].sort((a, b) => {
+      const qtyA = Number(a.Quantity) || 0;
+      const qtyB = Number(b.Quantity) || 0;
+      return qtyA - qtyB;
+    });
+
+    for (const transaction of sortedTransactions) {
       const html = template({
         customer: transaction.Customers || '',
         quantity: transaction.Quantity || 0,
