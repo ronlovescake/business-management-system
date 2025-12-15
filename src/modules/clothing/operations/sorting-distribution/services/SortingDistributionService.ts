@@ -328,9 +328,11 @@ export class SortingDistributionService {
     productCode: string,
     transactions: Transaction[]
   ): number {
-    const matchingTransactions = transactions.filter(
-      (t) => t['Product Code'] === productCode
-    );
+    const matchingTransactions = transactions.filter((t) => {
+      const status = t['Order Status']?.toLowerCase();
+      const isExcluded = status === 'cancelled' || status === 'shipped';
+      return t['Product Code'] === productCode && !isExcluded;
+    });
     return matchingTransactions.length;
   }
 
@@ -342,10 +344,15 @@ export class SortingDistributionService {
     selectedQuantity: number,
     transactions: Transaction[]
   ): number {
-    const matchingTransactions = transactions.filter(
-      (t) =>
-        t['Product Code'] === productCode && t.Quantity === selectedQuantity
-    );
+    const matchingTransactions = transactions.filter((t) => {
+      const status = t['Order Status']?.toLowerCase();
+      const isExcluded = status === 'cancelled' || status === 'shipped';
+      return (
+        t['Product Code'] === productCode &&
+        t.Quantity === selectedQuantity &&
+        !isExcluded
+      );
+    });
     const uniqueCustomers = new Set(
       matchingTransactions.map((t) => t.Customers)
     );

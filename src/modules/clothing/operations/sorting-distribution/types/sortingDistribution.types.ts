@@ -36,6 +36,7 @@ export interface Transaction {
   'Product Code': string;
   Quantity: number | null;
   Customers: string;
+  'Order Status'?: string | null;
   Notes?: string | null;
   Note?: string | null;
   Requests?: string | null;
