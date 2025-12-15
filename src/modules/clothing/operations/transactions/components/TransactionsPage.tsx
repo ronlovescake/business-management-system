@@ -297,7 +297,11 @@ export function TransactionsPage() {
         if (!warehouseCustomers.has(transaction.Customers)) {
           return false;
         }
-        return eligibleStatuses.has(transaction['Order Status']);
+        const status = transaction['Order Status'];
+        if (!status) {
+          return false;
+        }
+        return eligibleStatuses.has(status);
       })
       .sort((a, b) => {
         const customerA = a.transaction.Customers ?? '';
@@ -403,7 +407,11 @@ export function TransactionsPage() {
         if (!eligibleCustomers.has(transaction.Customers)) {
           return false;
         }
-        return eligibleStatuses.has(transaction['Order Status']);
+        const status = transaction['Order Status'];
+        if (!status) {
+          return false;
+        }
+        return eligibleStatuses.has(status);
       })
       .sort((a, b) => {
         const customerA = a.transaction.Customers ?? '';

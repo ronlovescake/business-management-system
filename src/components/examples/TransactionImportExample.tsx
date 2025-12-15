@@ -20,7 +20,7 @@ interface TransactionImport extends Record<string, unknown> {
   Discount: number | string;
   Adjustment: number | string;
   'Line Total': number | string;
-  'Order Status': string;
+  'Order Status': string | null;
   Notes?: string;
   'Invoice Date'?: string;
   'Packed Date'?: string;

@@ -10,7 +10,7 @@ export interface TransactionDTO {
   Discount: number;
   Adjustment: number;
   'Line Total': number;
-  'Order Status': string;
+  'Order Status': string | null;
   Notes: string | null;
   'Invoice Date': string | null;
   'Packed Date': string | null;

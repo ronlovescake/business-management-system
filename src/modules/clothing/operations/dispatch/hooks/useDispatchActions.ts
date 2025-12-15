@@ -116,7 +116,7 @@ export function useDispatchActions({
       const transactions = (await apiClient.get('/api/transactions')) as Array<{
         id: number;
         Customers: string;
-        'Order Status': string;
+        'Order Status': string | null;
         'Product Code': string;
         Quantity: number;
       }>;

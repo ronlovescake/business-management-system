@@ -29,7 +29,7 @@ export interface TransactionData {
   Discount: number | null;
   Adjustment: number | null;
   'Line Total': number | null;
-  'Order Status': string;
+  'Order Status': string | null;
   Notes: string;
   'Invoice Date': string;
   'Packed Date': string;

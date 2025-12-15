@@ -19,7 +19,7 @@ import type { DueDateItem } from '../../types/dueDate.types';
 interface Transaction {
   'Invoice Date': string;
   'Line Total': number;
-  'Order Status': string;
+  'Order Status': string | null;
   Customers: string;
   'Product Code'?: string;
   Quantity?: number;
