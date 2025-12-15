@@ -92,13 +92,16 @@ const daysAgoDate = (days: number) => {
   return date;
 };
 
+export type NewTripPayload = Omit<TripRecord, 'id' | 'totalExpenses'>;
+
 export function useTripsDashboard() {
-  const [trips] = useState<TripRecord[]>(seedTrips);
+  const [trips, setTrips] = useState<TripRecord[]>(seedTrips);
   const [searchQuery, setSearchQuery] = useState('');
   const [driverFilter, setDriverFilter] = useState<string | null>(null);
   const [truckFilter, setTruckFilter] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<'all' | '7' | '30'>('all');
   const [isImporting, setIsImporting] = useState(false);
+  const [isLogTripOpen, setIsLogTripOpen] = useState(false);
 
   const filteredTrips = useMemo(() => {
     const query = normalizeString(searchQuery);
@@ -271,12 +274,31 @@ export function useTripsDashboard() {
     });
   };
 
-  const handleLogTrip = () => {
+  const openLogTrip = () => setIsLogTripOpen(true);
+  const closeLogTrip = () => setIsLogTripOpen(false);
+
+  const handleCreateTrip = (payload: NewTripPayload) => {
+    const totalExpenses =
+      payload.fuelCost +
+      payload.maintenance +
+      payload.tollFees +
+      payload.miscExpenses;
+
+    const newTrip: TripRecord = {
+      ...payload,
+      totalExpenses,
+      id: `trip-${Date.now()}`,
+    };
+
+    setTrips((prev) => [newTrip, ...prev]);
+
     showNotification({
-      title: 'Log Trip',
-      message: 'Trip logging workflow coming soon.',
-      color: 'teal',
+      title: 'Trip logged',
+      message: `${payload.truckId} • ${payload.driver} • ${payload.date}`,
+      color: 'green',
     });
+
+    closeLogTrip();
   };
 
   return {
@@ -313,7 +335,16 @@ export function useTripsDashboard() {
     actions: {
       handleImportTrips,
       handleExportTrips,
-      handleLogTrip,
+      handleLogTrip: openLogTrip,
+      handleCreateTrip,
+      closeLogTrip,
+    },
+    modals: {
+      logTrip: {
+        opened: isLogTripOpen,
+        onClose: closeLogTrip,
+        onSubmit: handleCreateTrip,
+      },
     },
     formatCurrency,
   };

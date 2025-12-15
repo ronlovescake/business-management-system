@@ -6,6 +6,7 @@ import { TripsTable } from '@/modules/trucking/operations/trips/components/Trips
 import { TripsStatsCards } from '@/modules/trucking/operations/trips/components/TripsStatsCards';
 import { TripsControlPanel } from '@/modules/trucking/operations/trips/components/TripsControlPanel';
 import { useTripsDashboard } from '@/modules/trucking/operations/trips/hooks/useTripsDashboard';
+import { LogTripModal } from '@/modules/trucking/operations/trips/components/LogTripModal';
 
 export default function TripsPage() {
   const {
@@ -15,6 +16,7 @@ export default function TripsPage() {
     filters,
     collections,
     actions,
+    modals,
     formatCurrency,
   } = useTripsDashboard();
 
@@ -70,6 +72,14 @@ export default function TripsPage() {
             filteredNet: summary.filteredNet,
             formatCurrency,
           }}
+        />
+
+        <LogTripModal
+          opened={modals.logTrip.opened}
+          onClose={modals.logTrip.onClose}
+          onSubmit={modals.logTrip.onSubmit}
+          drivers={collections.drivers}
+          trucks={collections.trucks}
         />
       </Stack>
     </PageLayout>
