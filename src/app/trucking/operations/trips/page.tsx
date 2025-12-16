@@ -53,6 +53,7 @@ export default function TripsPage() {
           dateRangeFilter={filters.dateRange}
           onDateRangeFilterChange={filters.setDateRange}
           drivers={collections.drivers}
+          helpers={collections.helpers}
           trucks={collections.trucks}
           onImportCSV={actions.handleImportTrips}
           onExportCSV={actions.handleExportTrips}
@@ -79,6 +80,7 @@ export default function TripsPage() {
           onClose={modals.logTrip.onClose}
           onSubmit={modals.logTrip.onSubmit}
           drivers={collections.drivers}
+          helpers={collections.helpers}
           trucks={collections.trucks}
         />
       </Stack>

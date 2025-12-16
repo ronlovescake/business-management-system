@@ -38,6 +38,11 @@ interface PolishedFormAction {
   hidden?: boolean;
 }
 
+type PolishedFieldHelpers = ReturnType<typeof usePolishedFieldStyles>;
+type PolishedFormChildren =
+  | React.ReactNode
+  | ((helpers: PolishedFieldHelpers) => React.ReactNode);
+
 interface PolishedFormTemplateProps
   extends Omit<
     React.ComponentProps<typeof PolishedModal>,
@@ -47,7 +52,7 @@ interface PolishedFormTemplateProps
   subtitle?: React.ReactNode;
   icon?: React.ReactNode;
   description?: React.ReactNode;
-  children: React.ReactNode;
+  children: PolishedFormChildren;
   primaryAction: PolishedFormAction;
   secondaryAction?: PolishedFormAction;
   maxBodyHeight?: number | string;
@@ -79,6 +84,13 @@ export function PolishedFormTemplate({
     .filter(Boolean)
     .join(' ')
     .trim();
+
+  const renderedChildren =
+    typeof children === 'function'
+      ? (children as (helpers: PolishedFieldHelpers) => React.ReactNode)(
+          fieldStyles
+        )
+      : children;
 
   const headerContent = (
     <Stack
@@ -123,7 +135,7 @@ export function PolishedFormTemplate({
               width: '100%',
             }}
           >
-            {children}
+            {renderedChildren}
           </div>
           <Group justify="flex-end" gap="sm">
             {secondaryAction && !secondaryAction.hidden ? (

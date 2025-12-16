@@ -1,11 +1,4 @@
-import {
-  Group,
-  NumberInput,
-  Select,
-  Stack,
-  Textarea,
-  TextInput,
-} from '@mantine/core';
+import { Group, NumberInput, Select, Stack, Textarea } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
 import {
@@ -22,6 +15,7 @@ interface LogTripModalProps {
   onClose: () => void;
   onSubmit: (payload: NewTripPayload) => void;
   drivers: string[];
+  helpers: string[];
   trucks: string[];
 }
 
@@ -59,6 +53,7 @@ export function LogTripModal({
   onClose,
   onSubmit,
   drivers,
+  helpers,
   trucks,
 }: LogTripModalProps) {
   const form = useForm<LogTripFormValues>({
@@ -119,128 +114,176 @@ export function LogTripModal({
       }}
       size={900}
     >
-      <Stack gap="md">
-        <Group grow gap="md" align="flex-start">
-          <DateInput
-            label="Trip date"
-            value={form.values.date}
-            onChange={(value) => form.setFieldValue('date', value)}
-            leftSection={<IconCalendar size={16} />}
-            required
-          />
-          <Select
-            label="Vehicle"
-            placeholder="Select truck"
-            data={trucks.map((truck) => ({ label: truck, value: truck }))}
-            leftSection={<IconTruck size={16} />}
-            value={form.values.truckId}
-            onChange={(value) => form.setFieldValue('truckId', value || '')}
-            searchable
-            required
-          />
-        </Group>
+      {(polished) => (
+        <Stack gap="md">
+          <Group grow gap="md" align="flex-start">
+            <DateInput
+              label="Trip date"
+              value={form.values.date}
+              onChange={(value) => form.setFieldValue('date', value)}
+              leftSection={<IconCalendar size={16} />}
+              required
+              {...polished.getFieldProps('date').handlers}
+              styles={{
+                ...polished.getFieldProps('date').styles,
+                input: {
+                  ...polished.getFieldProps('date').styles.input,
+                  paddingLeft: '2.5rem',
+                },
+              }}
+            />
+            <Select
+              label="Vehicle"
+              placeholder="Select truck"
+              data={trucks.map((truck) => ({ label: truck, value: truck }))}
+              leftSection={<IconTruck size={16} />}
+              value={form.values.truckId}
+              onChange={(value) => form.setFieldValue('truckId', value || '')}
+              searchable
+              required
+              {...polished.getSelectProps('truckId').handlers}
+              styles={{
+                ...polished.getSelectProps('truckId').styles,
+                input: {
+                  ...polished.getSelectProps('truckId').styles.input,
+                  paddingLeft: '2.5rem',
+                },
+              }}
+            />
+          </Group>
 
-        <Group grow gap="md" align="flex-start">
-          <Select
-            label="Driver"
-            placeholder="Select driver"
-            data={drivers.map((driver) => ({ label: driver, value: driver }))}
-            leftSection={<IconUser size={16} />}
-            value={form.values.driver}
-            onChange={(value) => form.setFieldValue('driver', value || '')}
-            searchable
-            required
-          />
-          <TextInput
-            label="Helper"
-            placeholder="Helper name"
-            leftSection={<IconUsers size={16} />}
-            value={form.values.helper}
+          <Group grow gap="md" align="flex-start">
+            <Select
+              label="Driver"
+              placeholder="Select driver"
+              data={drivers.map((driver) => ({ label: driver, value: driver }))}
+              leftSection={<IconUser size={16} />}
+              value={form.values.driver}
+              onChange={(value) => form.setFieldValue('driver', value || '')}
+              searchable
+              required
+              {...polished.getSelectProps('driver').handlers}
+              styles={{
+                ...polished.getSelectProps('driver').styles,
+                input: {
+                  ...polished.getSelectProps('driver').styles.input,
+                  paddingLeft: '2.5rem',
+                },
+              }}
+            />
+            <Select
+              label="Helper"
+              placeholder="Select helper"
+              data={helpers.map((helper) => ({ label: helper, value: helper }))}
+              leftSection={<IconUsers size={16} />}
+              value={form.values.helper}
+              onChange={(value) => form.setFieldValue('helper', value || '')}
+              searchable
+              clearable
+              {...polished.getSelectProps('helper').handlers}
+              styles={{
+                ...polished.getSelectProps('helper').styles,
+                input: {
+                  ...polished.getSelectProps('helper').styles.input,
+                  paddingLeft: '2.5rem',
+                },
+              }}
+            />
+          </Group>
+
+          <Group grow gap="md" align="flex-start">
+            <NumberInput
+              label="Gross revenue"
+              prefix="₱ "
+              thousandSeparator=","
+              value={form.values.grossRevenue}
+              onChange={(value) =>
+                form.setFieldValue('grossRevenue', Number(value) || 0)
+              }
+              min={0}
+              hideControls
+              {...polished.getFieldProps('grossRevenue').handlers}
+              styles={polished.getFieldProps('grossRevenue').styles}
+            />
+            <NumberInput
+              label="Fuel cost"
+              prefix="₱ "
+              thousandSeparator=","
+              value={form.values.fuelCost}
+              onChange={(value) =>
+                form.setFieldValue('fuelCost', Number(value) || 0)
+              }
+              min={0}
+              hideControls
+              {...polished.getFieldProps('fuelCost').handlers}
+              styles={polished.getFieldProps('fuelCost').styles}
+            />
+            <NumberInput
+              label="Maintenance"
+              prefix="₱ "
+              thousandSeparator=","
+              value={form.values.maintenance}
+              onChange={(value) =>
+                form.setFieldValue('maintenance', Number(value) || 0)
+              }
+              min={0}
+              hideControls
+              {...polished.getFieldProps('maintenance').handlers}
+              styles={polished.getFieldProps('maintenance').styles}
+            />
+          </Group>
+
+          <Group grow gap="md" align="flex-start">
+            <NumberInput
+              label="Toll fees"
+              prefix="₱ "
+              thousandSeparator=","
+              value={form.values.tollFees}
+              onChange={(value) =>
+                form.setFieldValue('tollFees', Number(value) || 0)
+              }
+              min={0}
+              hideControls
+              {...polished.getFieldProps('tollFees').handlers}
+              styles={polished.getFieldProps('tollFees').styles}
+            />
+            <NumberInput
+              label="Misc. expenses"
+              prefix="₱ "
+              thousandSeparator=","
+              value={form.values.miscExpenses}
+              onChange={(value) =>
+                form.setFieldValue('miscExpenses', Number(value) || 0)
+              }
+              min={0}
+              hideControls
+              {...polished.getFieldProps('miscExpenses').handlers}
+              styles={polished.getFieldProps('miscExpenses').styles}
+            />
+            <NumberInput
+              label="Total expenses"
+              prefix="₱ "
+              thousandSeparator=","
+              value={totalExpenses}
+              readOnly
+              hideControls
+              {...polished.getFieldProps('totalExpenses').handlers}
+              styles={polished.getFieldProps('totalExpenses').styles}
+            />
+          </Group>
+
+          <Textarea
+            label="Remarks"
+            minRows={3}
+            value={form.values.remarks}
             onChange={(event) =>
-              form.setFieldValue('helper', event.currentTarget.value)
+              form.setFieldValue('remarks', event.currentTarget.value)
             }
+            {...polished.getTextareaProps('remarks').handlers}
+            styles={polished.getTextareaProps('remarks').styles}
           />
-        </Group>
-
-        <Group grow gap="md" align="flex-start">
-          <NumberInput
-            label="Gross revenue"
-            prefix="₱ "
-            thousandSeparator=","
-            value={form.values.grossRevenue}
-            onChange={(value) =>
-              form.setFieldValue('grossRevenue', Number(value) || 0)
-            }
-            min={0}
-            hideControls
-          />
-          <NumberInput
-            label="Fuel cost"
-            prefix="₱ "
-            thousandSeparator=","
-            value={form.values.fuelCost}
-            onChange={(value) =>
-              form.setFieldValue('fuelCost', Number(value) || 0)
-            }
-            min={0}
-            hideControls
-          />
-          <NumberInput
-            label="Maintenance"
-            prefix="₱ "
-            thousandSeparator=","
-            value={form.values.maintenance}
-            onChange={(value) =>
-              form.setFieldValue('maintenance', Number(value) || 0)
-            }
-            min={0}
-            hideControls
-          />
-        </Group>
-
-        <Group grow gap="md" align="flex-start">
-          <NumberInput
-            label="Toll fees"
-            prefix="₱ "
-            thousandSeparator=","
-            value={form.values.tollFees}
-            onChange={(value) =>
-              form.setFieldValue('tollFees', Number(value) || 0)
-            }
-            min={0}
-            hideControls
-          />
-          <NumberInput
-            label="Misc. expenses"
-            prefix="₱ "
-            thousandSeparator=","
-            value={form.values.miscExpenses}
-            onChange={(value) =>
-              form.setFieldValue('miscExpenses', Number(value) || 0)
-            }
-            min={0}
-            hideControls
-          />
-          <NumberInput
-            label="Total expenses"
-            prefix="₱ "
-            thousandSeparator=","
-            value={totalExpenses}
-            readOnly
-            hideControls
-          />
-        </Group>
-
-        <Textarea
-          label="Remarks"
-          placeholder="Route details, client, cargo, or notes"
-          minRows={3}
-          value={form.values.remarks}
-          onChange={(event) =>
-            form.setFieldValue('remarks', event.currentTarget.value)
-          }
-        />
-      </Stack>
+        </Stack>
+      )}
     </PolishedFormTemplate>
   );
 }

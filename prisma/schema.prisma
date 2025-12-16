@@ -199,6 +199,30 @@ model TruckingFleetRegistry {
   @@map("trucking_fleet_registry")
 }
 
+model TruckingTrip {
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  date          String   @db.VarChar(50)
+  truckId       String   @db.VarChar(50)
+  driver        String   @db.VarChar(255)
+  helper        String?  @db.VarChar(255)
+  grossRevenue  Float
+  fuelCost      Float
+  maintenance   Float
+  tollFees      Float
+  miscExpenses  Float
+  totalExpenses Float
+  remarks       String?  @db.VarChar(1000)
+  deletedAt     DateTime?
+
+  @@index([date])
+  @@index([truckId])
+  @@index([driver])
+  @@index([helper])
+  @@map("trucking_trips")
+}
+
 model Transaction {
   id           Int       @id @default(autoincrement())
   createdAt    DateTime  @default(now())

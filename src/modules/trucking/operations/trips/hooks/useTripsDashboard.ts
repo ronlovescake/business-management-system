@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { showNotification } from '@mantine/notifications';
 import type { TripRecord } from '../components/TripsTable';
 
@@ -94,14 +94,167 @@ const daysAgoDate = (days: number) => {
 
 export type NewTripPayload = Omit<TripRecord, 'id' | 'totalExpenses'>;
 
+type FleetVehicle = {
+  truckId?: string | null;
+  plateNo?: string | null;
+  status?: string | null;
+};
+
+type TeamMember = {
+  name?: string | null;
+  firstName?: string | null;
+  middleName?: string | null;
+  lastName?: string | null;
+  jobTitle?: string | null;
+  status?: string | null;
+};
+
+const buildEmployeeName = (member: TeamMember) => {
+  const primary = member.name?.trim();
+  if (primary) {
+    return primary;
+  }
+
+  const composed = [member.firstName, member.middleName, member.lastName]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+
+  return composed || '';
+};
+
+const isActive = (status?: string | null) =>
+  (status ?? '').toLowerCase().trim() === 'active';
+
+const normalizeJobTitle = (title?: string | null) =>
+  (title ?? '').toLowerCase().trim();
+
 export function useTripsDashboard() {
-  const [trips, setTrips] = useState<TripRecord[]>(seedTrips);
+  const [trips, setTrips] = useState<TripRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [driverFilter, setDriverFilter] = useState<string | null>(null);
   const [truckFilter, setTruckFilter] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<'all' | '7' | '30'>('all');
   const [isImporting, setIsImporting] = useState(false);
   const [isLogTripOpen, setIsLogTripOpen] = useState(false);
+  const [drivers, setDrivers] = useState<string[]>([]);
+  const [helpers, setHelpers] = useState<string[]>([]);
+  const [fleetVehicles, setFleetVehicles] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchTrips = async () => {
+      try {
+        const response = await fetch('/api/trucking/trips', {
+          cache: 'no-store',
+        });
+        if (!response.ok) {
+          throw new Error('Failed to load trips');
+        }
+        const data = (await response.json()) as TripRecord[];
+        if (Array.isArray(data) && data.length > 0) {
+          setTrips(data);
+        } else {
+          setTrips(seedTrips);
+        }
+      } catch (error) {
+        showNotification({
+          title: 'Trips unavailable',
+          message:
+            error instanceof Error ? error.message : 'Could not load trips',
+          color: 'orange',
+        });
+        setTrips(seedTrips);
+      }
+    };
+
+    const fetchVehicles = async () => {
+      try {
+        const response = await fetch('/api/trucking/fleet-vehicles', {
+          cache: 'no-store',
+        });
+        if (!response.ok) {
+          throw new Error('Failed to load vehicles');
+        }
+        const payload = (await response.json()) as
+          | FleetVehicle[]
+          | { data?: FleetVehicle[] };
+
+        const vehicles = Array.isArray(payload)
+          ? payload
+          : (payload.data ?? []);
+        const options = Array.from(
+          new Set(
+            vehicles
+              .map((item) => item.truckId?.trim() || item.plateNo?.trim() || '')
+              .filter((v): v is string => Boolean(v))
+          )
+        ).sort();
+        setFleetVehicles(options);
+      } catch (error) {
+        showNotification({
+          title: 'Vehicles unavailable',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Could not load fleet vehicles',
+          color: 'orange',
+        });
+      }
+    };
+
+    const fetchTeam = async () => {
+      try {
+        const response = await fetch('/api/trucking/employees?status=active', {
+          cache: 'no-store',
+        });
+        if (!response.ok) {
+          throw new Error('Failed to load team');
+        }
+        const payload = (await response.json()) as
+          | TeamMember[]
+          | { data?: TeamMember[] };
+        const data = Array.isArray(payload) ? payload : (payload.data ?? []);
+
+        const driverNames = new Set<string>();
+        const helperNames = new Set<string>();
+
+        data.forEach((member) => {
+          if (!isActive(member.status)) {
+            return;
+          }
+          const name = buildEmployeeName(member);
+          if (!name) {
+            return;
+          }
+
+          const job = normalizeJobTitle(member.jobTitle);
+          if (job.includes('driver')) {
+            driverNames.add(name);
+          }
+          if (job.includes('helper')) {
+            helperNames.add(name);
+          }
+        });
+
+        setDrivers(Array.from(driverNames).sort());
+        setHelpers(Array.from(helperNames).sort());
+      } catch (error) {
+        showNotification({
+          title: 'Team list unavailable',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Could not load team members',
+          color: 'orange',
+        });
+      }
+    };
+
+    fetchTrips();
+    fetchVehicles();
+    fetchTeam();
+  }, []);
 
   const filteredTrips = useMemo(() => {
     const query = normalizeString(searchQuery);
@@ -182,14 +335,25 @@ export function useTripsDashboard() {
     }).length;
   }, [trips]);
 
-  const drivers = useMemo(
-    () => Array.from(new Set(trips.map((trip) => trip.driver))).sort(),
-    [trips]
-  );
-  const trucks = useMemo(
-    () => Array.from(new Set(trips.map((trip) => trip.truckId))).sort(),
-    [trips]
-  );
+  const driverOptions = useMemo(() => {
+    const seed = Array.from(new Set(trips.map((trip) => trip.driver))).sort();
+    const merged = new Set([...(drivers || []), ...seed]);
+    return Array.from(merged).sort();
+  }, [drivers, trips]);
+
+  const helperOptions = useMemo(() => {
+    const seed = Array.from(new Set(trips.map((trip) => trip.helper))).filter(
+      Boolean
+    ) as string[];
+    const merged = new Set([...(helpers || []), ...seed]);
+    return Array.from(merged).sort();
+  }, [helpers, trips]);
+
+  const truckOptions = useMemo(() => {
+    const seed = Array.from(new Set(trips.map((trip) => trip.truckId))).sort();
+    const merged = new Set([...(fleetVehicles || []), ...seed]);
+    return Array.from(merged).sort();
+  }, [fleetVehicles, trips]);
 
   const formatCurrency = (value: number) => pesoFormatter.format(value);
 
@@ -277,28 +441,52 @@ export function useTripsDashboard() {
   const openLogTrip = () => setIsLogTripOpen(true);
   const closeLogTrip = () => setIsLogTripOpen(false);
 
-  const handleCreateTrip = (payload: NewTripPayload) => {
-    const totalExpenses =
-      payload.fuelCost +
-      payload.maintenance +
-      payload.tollFees +
-      payload.miscExpenses;
+  const handleCreateTrip = async (payload: NewTripPayload) => {
+    try {
+      const response = await fetch('/api/trucking/trips', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
 
-    const newTrip: TripRecord = {
-      ...payload,
-      totalExpenses,
-      id: `trip-${Date.now()}`,
-    };
+      if (!response.ok) {
+        throw new Error('Failed to save trip');
+      }
 
-    setTrips((prev) => [newTrip, ...prev]);
+      const created = (await response.json()) as TripRecord;
+      setTrips((prev) => [created, ...prev]);
 
-    showNotification({
-      title: 'Trip logged',
-      message: `${payload.truckId} • ${payload.driver} • ${payload.date}`,
-      color: 'green',
-    });
+      showNotification({
+        title: 'Trip logged',
+        message: `${created.truckId} • ${created.driver} • ${created.date}`,
+        color: 'green',
+      });
+    } catch (error) {
+      const totalExpenses =
+        payload.fuelCost +
+        payload.maintenance +
+        payload.tollFees +
+        payload.miscExpenses;
 
-    closeLogTrip();
+      const fallbackTrip: TripRecord = {
+        ...payload,
+        totalExpenses,
+        id: `trip-${Date.now()}`,
+      };
+
+      setTrips((prev) => [fallbackTrip, ...prev]);
+
+      showNotification({
+        title: 'Saved offline',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Trip stored locally; will not persist to server',
+        color: 'orange',
+      });
+    } finally {
+      closeLogTrip();
+    }
   };
 
   return {
@@ -329,8 +517,9 @@ export function useTripsDashboard() {
       isImporting,
     },
     collections: {
-      drivers,
-      trucks,
+      drivers: driverOptions,
+      helpers: helperOptions,
+      trucks: truckOptions,
     },
     actions: {
       handleImportTrips,

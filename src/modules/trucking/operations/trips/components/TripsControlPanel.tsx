@@ -38,6 +38,7 @@ interface TripsControlPanelProps {
   dateRangeFilter: 'all' | '7' | '30';
   onDateRangeFilterChange: (value: 'all' | '7' | '30') => void;
   drivers: string[];
+  helpers?: string[]; // reserved for future helper filters
   trucks: string[];
   onImportCSV: (file: File | null) => void;
   onExportCSV: () => void;
@@ -75,6 +76,7 @@ export const TripsControlPanel = memo(function TripsControlPanel({
   dateRangeFilter,
   onDateRangeFilterChange,
   drivers,
+  helpers: _helpers,
   trucks,
   onImportCSV,
   onExportCSV,
