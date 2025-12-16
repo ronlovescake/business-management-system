@@ -61,3 +61,6 @@ temp-*.ts
 
 # Bundle analyzer
 .analyze/
+
+# TypeScript incremental build info
+*.tsbuildinfo
