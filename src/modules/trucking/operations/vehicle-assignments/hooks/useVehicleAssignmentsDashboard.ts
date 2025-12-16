@@ -23,68 +23,18 @@ type TeamEmployeeSummary = {
   status?: string | null;
 };
 
-const sampleAssignments: VehicleAssignmentRecord[] = [
-  {
-    id: 'assign-001',
-    vehicleId: 'TRK-001',
-    plateNo: 'ABC-1234',
-    driver: 'Juan Dela Cruz',
-    helper: 'Marco Santos',
-    startDate: '2025-12-05',
-    endDate: '2025-12-08',
-    status: 'active',
-    route: 'Manila → Baguio',
-    notes: 'Priority deliveries; keep refrigerated.',
-  },
-  {
-    id: 'assign-002',
-    vehicleId: 'TRK-014',
-    plateNo: 'DEF-5678',
-    driver: 'Liza Moreno',
-    helper: 'Paolo Cruz',
-    startDate: '2025-12-10',
-    endDate: '2025-12-14',
-    status: 'scheduled',
-    route: 'Clark → Cebu (RoRo)',
-    notes: 'Spare driver on standby.',
-  },
-  {
-    id: 'assign-003',
-    vehicleId: 'TRK-221',
-    plateNo: 'XYZ-9999',
-    driver: 'Chen Wu',
-    helper: 'Maria Lopez',
-    startDate: '2025-12-01',
-    endDate: '2025-12-02',
-    status: 'completed',
-    route: 'Laguna → Batangas',
-    notes: 'Returned with minor dent reported.',
-  },
-  {
-    id: 'assign-004',
-    vehicleId: 'TRK-109',
-    plateNo: 'TUV-4567',
-    driver: 'Andre Ramos',
-    helper: 'Kai Tan',
-    startDate: '2025-11-28',
-    endDate: '2025-12-03',
-    status: 'active',
-    route: 'Subic → La Union',
-    notes: 'Night driving restrictions in effect.',
-  },
-  {
-    id: 'assign-005',
-    vehicleId: 'TRK-007',
-    plateNo: 'HJK-8888',
-    driver: 'Nick Ortega',
-    helper: 'Omar Reyes',
-    startDate: '2025-11-18',
-    endDate: '2025-11-20',
-    status: 'cancelled',
-    route: 'Cavite → Tarlac',
-    notes: 'Cancelled due to unit maintenance.',
-  },
-];
+type VehicleAssignmentApiRecord = {
+  id: string;
+  vehicleId: string;
+  plateNo: string;
+  driver: string;
+  helper: string;
+  startDate: string;
+  endDate: string;
+  status: VehicleAssignmentStatus;
+  route?: string;
+  notes?: string;
+};
 
 const normalize = (value: string) => value.toLowerCase().trim();
 
@@ -140,8 +90,7 @@ const isActiveTeamMember = (status?: string | null) =>
   (status?.toLowerCase().trim() || '') === 'active';
 
 export function useVehicleAssignmentsDashboard() {
-  const [records, setRecords] =
-    useState<VehicleAssignmentRecord[]>(sampleAssignments);
+  const [records, setRecords] = useState<VehicleAssignmentRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<
     VehicleAssignmentStatus | 'all'
@@ -153,6 +102,52 @@ export function useVehicleAssignmentsDashboard() {
     VehicleAssignmentVehicleOption[]
   >([]);
   const [teamMembers, setTeamMembers] = useState<TeamEmployeeSummary[]>([]);
+
+  const fetchAssignments = useCallback(async () => {
+    try {
+      const response = await fetch('/api/trucking/vehicle-assignments', {
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to load vehicle assignments');
+      }
+
+      const payload = (await response.json()) as {
+        data?: VehicleAssignmentApiRecord[];
+      };
+
+      const loaded = (payload.data ?? []).map((row) => ({
+        id: row.id,
+        vehicleId: row.vehicleId,
+        plateNo: row.plateNo,
+        driver: row.driver,
+        helper: row.helper,
+        startDate: row.startDate,
+        endDate: row.endDate,
+        status: row.status,
+        route: row.route,
+        notes: row.notes,
+      }));
+
+      setRecords(loaded);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Unable to load vehicle assignments';
+      showNotification({
+        color: 'red',
+        title: 'Assignments unavailable',
+        message,
+      });
+      setRecords([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchAssignments();
+  }, [fetchAssignments]);
 
   const fetchFleetVehicles = useCallback(async () => {
     try {
@@ -459,35 +454,50 @@ export function useVehicleAssignmentsDashboard() {
     });
   };
 
-  const handleCreateAssignment = (payload: VehicleAssignmentDraft) => {
-    const trimmedVehicleId = payload.vehicleId.trim();
-    const trimmedPlateNo = payload.plateNo.trim();
-    const trimmedDriver = payload.driver.trim();
-    const trimmedHelper = payload.helper.trim();
-    const normalizedVehicleId = trimmedVehicleId.toUpperCase();
-    const normalizedPlateNo = trimmedPlateNo.toUpperCase();
+  const handleCreateAssignment = async (payload: VehicleAssignmentDraft) => {
+    try {
+      const response = await fetch('/api/trucking/vehicle-assignments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
 
-    const newRecord: VehicleAssignmentRecord = {
-      id: `assign-${Date.now().toString(36)}-${Math.random()
-        .toString(36)
-        .slice(2, 6)}`,
-      vehicleId: normalizedVehicleId,
-      plateNo: normalizedPlateNo,
-      driver: trimmedDriver,
-      helper: trimmedHelper,
-      startDate: payload.startDate,
-      endDate: payload.endDate,
-      status: payload.status,
-      route: payload.route?.trim() || undefined,
-      notes: payload.notes?.trim() || undefined,
-    };
+      const json = (await response.json()) as {
+        data?: VehicleAssignmentApiRecord;
+        error?: string;
+      };
 
-    setRecords((prev) => [newRecord, ...prev]);
+      if (!response.ok || !json.data) {
+        throw new Error(json.error || 'Failed to create assignment');
+      }
 
-    showNotification({
-      title: 'Assignment created',
-      message: `${trimmedDriver} & ${trimmedHelper} assigned to ${normalizedVehicleId}.`,
-    });
+      const saved: VehicleAssignmentRecord = {
+        id: json.data.id,
+        vehicleId: json.data.vehicleId,
+        plateNo: json.data.plateNo,
+        driver: json.data.driver,
+        helper: json.data.helper,
+        startDate: json.data.startDate,
+        endDate: json.data.endDate,
+        status: json.data.status,
+        route: json.data.route,
+        notes: json.data.notes,
+      };
+
+      setRecords((prev) => [saved, ...prev]);
+      showNotification({
+        title: 'Assignment created',
+        message: `${saved.driver} & ${saved.helper} assigned to ${saved.vehicleId}.`,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to create assignment';
+      showNotification({
+        color: 'red',
+        title: 'Create failed',
+        message,
+      });
+    }
   };
 
   const handleView = (record: VehicleAssignmentRecord) => {
@@ -504,19 +514,58 @@ export function useVehicleAssignmentsDashboard() {
     });
   };
 
+  const updateStatus = async (
+    record: VehicleAssignmentRecord,
+    nextStatus: VehicleAssignmentStatus
+  ) => {
+    try {
+      const response = await fetch(
+        `/api/trucking/vehicle-assignments/${record.id}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: nextStatus }),
+        }
+      );
+
+      const json = (await response.json()) as {
+        data?: VehicleAssignmentApiRecord;
+        error?: string;
+      };
+
+      if (!response.ok || !json.data) {
+        throw new Error(json.error || 'Failed to update assignment');
+      }
+
+      const updatedStatus = json.data.status;
+
+      setRecords((prev) =>
+        prev.map((row) =>
+          row.id === record.id
+            ? {
+                ...row,
+                status: updatedStatus,
+              }
+            : row
+        )
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to update assignment';
+      showNotification({
+        color: 'red',
+        title: 'Update failed',
+        message,
+      });
+    }
+  };
+
   const handleMarkComplete = (record: VehicleAssignmentRecord) => {
-    showNotification({
-      title: 'Mark complete',
-      message: `${record.vehicleId} marked as completed.`,
-    });
+    void updateStatus(record, 'completed');
   };
 
   const handleCancel = (record: VehicleAssignmentRecord) => {
-    showNotification({
-      color: 'red',
-      title: 'Assignment cancelled',
-      message: `${record.vehicleId} cancelled.`,
-    });
+    void updateStatus(record, 'cancelled');
   };
 
   return {

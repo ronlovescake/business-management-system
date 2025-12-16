@@ -18,7 +18,6 @@ import {
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import {
-  IconDatabase,
   IconFileInvoice,
   IconHistory,
   IconMessage,
@@ -28,7 +27,6 @@ import {
 import { useSearchParams } from 'next/navigation';
 import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 import { ChangeLogPage } from '@/modules/clothing/operations/settings/change-log';
-import { BackupRestoreTab } from './BackupRestoreTab';
 import { InvoiceSettingsTab } from './InvoiceSettingsTab';
 import InvoiceMessageTab, { type TemplateSubTab } from './InvoiceMessageTab';
 import { TransactionsSettingsTab } from './TransactionsSettingsTab';
@@ -43,7 +41,6 @@ const QUICK_ACTION_BUTTONS: Array<{
   { id: 'invoice-settings', label: 'Invoice Settings', tab: 'invoice' },
   { id: 'invoice-message', label: 'Templates', tab: 'message' },
   { id: 'transactions', label: 'Transactions', tab: 'transactions' },
-  { id: 'backup-restore', label: 'Backup & Restore', tab: 'backup' },
 ];
 
 export function SettingsPage() {
@@ -54,7 +51,6 @@ export function SettingsPage() {
       'invoice',
       'message',
       'transactions',
-      'backup',
       'change-log',
     ];
 
@@ -168,9 +164,6 @@ export function SettingsPage() {
             >
               Transactions
             </Tabs.Tab>
-            <Tabs.Tab value="backup" leftSection={<IconDatabase size={16} />}>
-              Backup & Restore
-            </Tabs.Tab>
             <Tabs.Tab
               value="change-log"
               leftSection={<IconHistory size={16} />}
@@ -189,10 +182,6 @@ export function SettingsPage() {
 
           <Tabs.Panel value="transactions" pt="md">
             <TransactionsSettingsTab />
-          </Tabs.Panel>
-
-          <Tabs.Panel value="backup" pt="md">
-            <BackupRestoreTab />
           </Tabs.Panel>
 
           <Tabs.Panel value="change-log" pt="md">

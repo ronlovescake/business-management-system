@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Stack } from '@mantine/core';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { VehicleAssignmentsStatsCards } from './VehicleAssignmentsStatsCards';
@@ -22,6 +22,11 @@ export function VehicleAssignmentsPage() {
   } = useVehicleAssignmentsDashboard();
 
   const [isAssignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   const handleOpenAssignmentDialog = () => setAssignmentDialogOpen(true);
   const handleCloseAssignmentDialog = () => setAssignmentDialogOpen(false);
@@ -35,10 +40,10 @@ export function VehicleAssignmentsPage() {
     <PageLayout fluid withPadding>
       <Stack gap="lg">
         <VehicleAssignmentsStatsCards
-          activeCount={stats.activeCount}
-          scheduledThisWeek={stats.scheduledThisWeek}
-          endingSoon={stats.endingSoon}
-          completedThisMonth={stats.completedThisMonth}
+          activeCount={hasMounted ? stats.activeCount : 0}
+          scheduledThisWeek={hasMounted ? stats.scheduledThisWeek : 0}
+          endingSoon={hasMounted ? stats.endingSoon : 0}
+          completedThisMonth={hasMounted ? stats.completedThisMonth : 0}
         />
 
         <VehicleAssignmentsControlPanel

@@ -223,6 +223,34 @@ model TruckingTrip {
   @@map("trucking_trips")
 }
 
+enum TruckingVehicleAssignmentStatus {
+  scheduled
+  active
+  completed
+  cancelled
+}
+
+model TruckingVehicleAssignment {
+  id        String                        @id @default(cuid())
+  createdAt DateTime                      @default(now())
+  updatedAt DateTime                      @updatedAt
+  vehicleId String                        @db.VarChar(50)
+  plateNo   String                        @db.VarChar(50)
+  driver    String                        @db.VarChar(255)
+  helper    String                        @db.VarChar(255)
+  startDate String                        @db.VarChar(50)
+  endDate   String                        @db.VarChar(50)
+  status    TruckingVehicleAssignmentStatus @default(scheduled)
+  route     String?                       @db.VarChar(255)
+  notes     String?
+  deletedAt DateTime?
+
+  @@index([vehicleId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("trucking_vehicle_assignments")
+}
+
 model Transaction {
   id           Int       @id @default(autoincrement())
   createdAt    DateTime  @default(now())

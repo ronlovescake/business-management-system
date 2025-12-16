@@ -44,6 +44,11 @@ const settingsLinks = [
     href: '/clothing/operations/settings',
   },
   {
+    title: 'Backup & Restore',
+    description: 'Create backups and restore data across businesses.',
+    href: '/admin/backup-restore',
+  },
+  {
     title: 'Clothing · Employees Settings',
     description: 'Settings for clothing employee tools and workflows.',
     href: '/clothing/employees/settings',
