@@ -6,7 +6,9 @@ const isCI = !!process.env.CI;
 const playwrightEnvFile = process.env.PLAYWRIGHT_ENV_FILE || '.env.test';
 
 // Load test environment variables for Prisma clients in tests
-dotenv.config({ path: playwrightEnvFile, override: true });
+// Do not override CI-provided env vars (e.g., DATABASE_URL pointing to the
+// service container port). The env file should only fill missing values.
+dotenv.config({ path: playwrightEnvFile, override: false });
 
 export default defineConfig({
   testDir: './tests/e2e',
