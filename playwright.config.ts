@@ -46,6 +46,9 @@ export default defineConfig({
     env: {
       ...process.env,
       PLAYWRIGHT_ENV_FILE: playwrightEnvFile,
+      // CI runs are more stable on Next.js webpack dev server than Turbopack
+      // (especially with current Sentry + Next.js 14.x warnings).
+      ...(isCI ? { PLAYWRIGHT_DEV_SCRIPT: 'dev:playwright:webpack' } : {}),
       BYPASS_AUTH_FOR_TESTS: process.env.BYPASS_AUTH_FOR_TESTS ?? 'true',
     },
   },
