@@ -92,6 +92,49 @@ function validateEnv(): Env {
   try {
     const parsed = envSchema.parse(process.env);
 
+    // Extra production safeguards: fail fast on common misconfigurations.
+    if (parsed.NODE_ENV === 'production') {
+      const missing: string[] = [];
+
+      if (!parsed.DATABASE_URL) {
+        missing.push('DATABASE_URL');
+      }
+      if (!parsed.NEXT_PUBLIC_APP_URL) {
+        missing.push('NEXT_PUBLIC_APP_URL');
+      }
+      if (!parsed.NEXTAUTH_SECRET) {
+        missing.push('NEXTAUTH_SECRET');
+      }
+      if (!parsed.NEXTAUTH_URL) {
+        missing.push('NEXTAUTH_URL');
+      }
+
+      if (missing.length > 0) {
+        throw new Error(
+          `❌ Missing required environment variables in production: ${missing.join(', ')}`
+        );
+      }
+
+      const databaseUrl = parsed.DATABASE_URL as string;
+      const nextAuthUrl = parsed.NEXTAUTH_URL as string;
+
+      const localhostHosts = new Set(['localhost', '127.0.0.1', '::1']);
+
+      const dbHost = new URL(databaseUrl).hostname;
+      if (localhostHosts.has(dbHost)) {
+        throw new Error(
+          '❌ DATABASE_URL points to localhost in production. Set DATABASE_URL to your hosted database.'
+        );
+      }
+
+      const nextAuthHost = new URL(nextAuthUrl).hostname;
+      if (localhostHosts.has(nextAuthHost)) {
+        throw new Error(
+          '❌ NEXTAUTH_URL points to localhost in production. Set NEXTAUTH_URL to your public site URL.'
+        );
+      }
+    }
+
     if (process.env.NODE_ENV === 'development') {
       logger.success('Environment variables validated successfully');
     }
