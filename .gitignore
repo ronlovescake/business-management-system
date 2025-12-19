@@ -55,7 +55,8 @@ snapshots/
 pdf_output/
 
 # User settings
-settings/
+/settings/*
+!/settings/invoice-settings.json
 !src/modules/clothing/operations/settings/
 !src/modules/clothing/operations/settings/**
 !src/app/clothing/operations/settings/

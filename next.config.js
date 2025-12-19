@@ -21,6 +21,10 @@ const nextConfig = {
         'templates/**',
         'settings/invoice-settings.json',
       ],
+      '/api/generate-invoice': [
+        'templates/**',
+        'settings/invoice-settings.json',
+      ],
     },
     // Turbopack is enabled via CLI flag: next dev --turbo
   },
