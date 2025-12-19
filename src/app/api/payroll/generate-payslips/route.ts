@@ -21,6 +21,46 @@ const LOGO_PATH = path.join(
   'payslip-logo.png'
 );
 
+function resolveExecutablePath(): string | undefined {
+  const candidates: Array<string | undefined> = [];
+
+  try {
+    const autoPath = puppeteer.executablePath?.();
+    if (autoPath) {
+      candidates.push(autoPath);
+    }
+  } catch (error) {
+    logger.error('puppeteer.executablePath failed', { error });
+  }
+
+  candidates.push(process.env.PUPPETEER_EXECUTABLE_PATH);
+
+  const cacheDir =
+    process.env.PUPPETEER_CACHE_DIR || '/opt/render/.cache/puppeteer';
+  try {
+    const chromeRoot = path.join(cacheDir, 'chrome');
+    if (fs.existsSync(chromeRoot)) {
+      const versions = fs
+        .readdirSync(chromeRoot)
+        .filter((dir) => dir.startsWith('linux-'))
+        .sort();
+
+      for (let i = versions.length - 1; i >= 0; i -= 1) {
+        candidates.push(
+          path.join(chromeRoot, versions[i], 'chrome-linux64', 'chrome')
+        );
+      }
+    }
+  } catch (error) {
+    logger.error('Failed to enumerate puppeteer cache for chrome', {
+      cacheDir,
+      error,
+    });
+  }
+
+  return candidates.find((candidate) => candidate && fs.existsSync(candidate));
+}
+
 let templateCache: HandlebarsTemplateDelegate | null = null;
 let logoBase64Cache: string | null = null;
 let helpersRegistered = false;
@@ -314,8 +354,10 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   }
 
   const template = getTemplate();
+  const executablePath = resolveExecutablePath();
   const browser = await puppeteer.launch({
     headless: true,
+    ...(executablePath ? { executablePath } : {}),
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
   try {
@@ -362,7 +404,12 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       },
     });
   } catch (error) {
-    logger.error('Error generating payslips', { error });
+    logger.error('Error generating payslips', {
+      executablePath: resolveExecutablePath(),
+      cacheDir: process.env.PUPPETEER_CACHE_DIR,
+      envExecutablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+      error,
+    });
     throw error;
   } finally {
     await browser.close();

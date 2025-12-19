@@ -63,11 +63,43 @@ const DEFAULT_SETTINGS: InvoiceSettings = {
 };
 
 function resolveExecutablePath(): string | undefined {
-  return (
-    process.env.PUPPETEER_EXECUTABLE_PATH ||
-    puppeteer.executablePath() ||
-    undefined
-  );
+  const candidates: Array<string | undefined> = [];
+
+  try {
+    const autoPath = puppeteer.executablePath?.();
+    if (autoPath) {
+      candidates.push(autoPath);
+    }
+  } catch (error) {
+    logger.error('puppeteer.executablePath failed', { error });
+  }
+
+  candidates.push(process.env.PUPPETEER_EXECUTABLE_PATH);
+
+  const cacheDir =
+    process.env.PUPPETEER_CACHE_DIR || '/opt/render/.cache/puppeteer';
+  try {
+    const chromeRoot = path.join(cacheDir, 'chrome');
+    if (fs.existsSync(chromeRoot)) {
+      const versions = fs
+        .readdirSync(chromeRoot)
+        .filter((dir) => dir.startsWith('linux-'))
+        .sort();
+
+      for (let i = versions.length - 1; i >= 0; i -= 1) {
+        candidates.push(
+          path.join(chromeRoot, versions[i], 'chrome-linux64', 'chrome')
+        );
+      }
+    }
+  } catch (error) {
+    logger.error('Failed to enumerate puppeteer cache for chrome', {
+      cacheDir,
+      error,
+    });
+  }
+
+  return candidates.find((candidate) => candidate && fs.existsSync(candidate));
 }
 
 const DUE_DATE_PLACEHOLDER = 'NOT YET ONHAND';
@@ -159,7 +191,7 @@ export async function POST(request: NextRequest) {
 
     const browser = await puppeteer.launch({
       headless: true,
-      executablePath,
+      ...(executablePath ? { executablePath } : {}),
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 
@@ -310,6 +342,7 @@ export async function POST(request: NextRequest) {
     logger.error('Error generating In Transit invoice:', {
       executablePath: resolveExecutablePath(),
       cacheDir: process.env.PUPPETEER_CACHE_DIR,
+      envExecutablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
       error,
     });
     return NextResponse.json(
