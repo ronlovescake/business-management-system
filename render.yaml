@@ -3,23 +3,7 @@ services:
     name: business-management
     env: node
     rootDir: .
-    buildCommand: npm install && PUPPETEER_CACHE_DIR=/opt/render/.cache/puppeteer npx puppeteer browsers install chrome && npm run build
-    startCommand: >-
-      bash -lc "
-      set -ex
-      export PUPPETEER_CACHE_DIR=/opt/render/.cache/puppeteer
-      npx puppeteer browsers install chrome --cache-dir=$PUPPETEER_CACHE_DIR
-      ls -la $PUPPETEER_CACHE_DIR/chrome || true
-      ls -la $PUPPETEER_CACHE_DIR/chrome/linux-* || true
-      ls -la $PUPPETEER_CACHE_DIR/chrome/linux-*/chrome-linux64 || true
-      ls -la $PUPPETEER_CACHE_DIR/chrome/linux-*/chrome-linux64/chrome || true
-      export PUPPETEER_EXECUTABLE_PATH=$(node -e "const fs=require('fs');const path=require('path');const base=process.env.PUPPETEER_CACHE_DIR+'/chrome';const dirs=fs.existsSync(base)?fs.readdirSync(base).filter(f=>f.startsWith('linux-')).sort():[];if(!dirs.length){console.error('No chrome dirs in',base);process.exit(1);}const execPath=path.join(base,dirs[dirs.length-1],'chrome-linux64','chrome');console.log(execPath);")
-      echo Using PUPPETEER_EXECUTABLE_PATH=$PUPPETEER_EXECUTABLE_PATH
-      ls -la $PUPPETEER_EXECUTABLE_PATH || true
-      npm run start
-      "
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
     autoDeploy: true
     envVars:
-      - key: PUPPETEER_CACHE_DIR
-        value: /opt/render/.cache/puppeteer
-      # Let startCommand compute the exact chrome path after install
