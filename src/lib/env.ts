@@ -92,8 +92,11 @@ function validateEnv(): Env {
   try {
     const parsed = envSchema.parse(process.env);
 
+    const skipProdGuard =
+      (process.env.SKIP_PROD_ENV_VALIDATION ?? '').toLowerCase() === 'true';
+
     // Extra production safeguards: fail fast on common misconfigurations.
-    if (parsed.NODE_ENV === 'production') {
+    if (parsed.NODE_ENV === 'production' && !skipProdGuard) {
       const missing: string[] = [];
 
       if (!parsed.DATABASE_URL) {
@@ -133,6 +136,12 @@ function validateEnv(): Env {
           '❌ NEXTAUTH_URL points to localhost in production. Set NEXTAUTH_URL to your public site URL.'
         );
       }
+    }
+
+    if (parsed.NODE_ENV === 'production' && skipProdGuard) {
+      logger.warn(
+        '⚠️ Production env validation bypassed via SKIP_PROD_ENV_VALIDATION=true; ensure real prod deploys do not set this.'
+      );
     }
 
     if (process.env.NODE_ENV === 'development') {
