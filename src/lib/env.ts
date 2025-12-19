@@ -120,21 +120,38 @@ function validateEnv(): Env {
 
       const databaseUrl = parsed.DATABASE_URL as string;
       const nextAuthUrl = parsed.NEXTAUTH_URL as string;
+      const appUrl = parsed.NEXT_PUBLIC_APP_URL as string;
 
       const localhostHosts = new Set(['localhost', '127.0.0.1', '::1']);
 
       const dbHost = new URL(databaseUrl).hostname;
-      if (localhostHosts.has(dbHost)) {
-        throw new Error(
-          '❌ DATABASE_URL points to localhost in production. Set DATABASE_URL to your hosted database.'
-        );
-      }
-
       const nextAuthHost = new URL(nextAuthUrl).hostname;
-      if (localhostHosts.has(nextAuthHost)) {
-        throw new Error(
-          '❌ NEXTAUTH_URL points to localhost in production. Set NEXTAUTH_URL to your public site URL.'
-        );
+
+      const appHost = new URL(appUrl).hostname;
+
+      const isLocalProdRun =
+        localhostHosts.has(dbHost) &&
+        localhostHosts.has(nextAuthHost) &&
+        localhostHosts.has(appHost);
+
+      if (!isLocalProdRun) {
+        if (localhostHosts.has(dbHost)) {
+          throw new Error(
+            '❌ DATABASE_URL points to localhost in production. Set DATABASE_URL to your hosted database.'
+          );
+        }
+
+        if (localhostHosts.has(nextAuthHost)) {
+          throw new Error(
+            '❌ NEXTAUTH_URL points to localhost in production. Set NEXTAUTH_URL to your public site URL.'
+          );
+        }
+
+        if (localhostHosts.has(appHost)) {
+          throw new Error(
+            '❌ NEXT_PUBLIC_APP_URL points to localhost in production. Set NEXT_PUBLIC_APP_URL to your public site URL.'
+          );
+        }
       }
     }
 
