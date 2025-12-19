@@ -4,8 +4,20 @@ services:
     env: node
     rootDir: .
     buildCommand: npm install && PUPPETEER_CACHE_DIR=/opt/render/.cache/puppeteer npx puppeteer browsers install chrome && npm run build
-    startCommand: PUPPETEER_CACHE_DIR=/opt/render/.cache/puppeteer npx puppeteer browsers install chrome && npm run start
+    startCommand: >-
+      bash -lc "
+      set -e
+      export PUPPETEER_CACHE_DIR=/opt/render/.cache/puppeteer
+      npx puppeteer browsers install chrome
+      ls -la /opt/render/.cache/puppeteer/chrome || true
+      ls -la /opt/render/.cache/puppeteer/chrome/linux-* || true
+      ls -la /opt/render/.cache/puppeteer/chrome/linux-*/chrome-linux64 || true
+      ls -la /opt/render/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome || true
+      npm run start
+      "
     autoDeploy: true
     envVars:
       - key: PUPPETEER_CACHE_DIR
         value: /opt/render/.cache/puppeteer
+      - key: PUPPETEER_EXECUTABLE_PATH
+        value: /opt/render/.cache/puppeteer/chrome/linux-141.0.7390.122/chrome-linux64/chrome
