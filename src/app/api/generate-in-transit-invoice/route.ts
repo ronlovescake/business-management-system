@@ -62,6 +62,14 @@ const DEFAULT_SETTINGS: InvoiceSettings = {
   pngQuality: 8,
 };
 
+function resolveExecutablePath(): string | undefined {
+  return (
+    process.env.PUPPETEER_EXECUTABLE_PATH ||
+    puppeteer.executablePath() ||
+    undefined
+  );
+}
+
 const DUE_DATE_PLACEHOLDER = 'NOT YET ONHAND';
 const TEMPLATE_FILE = 'invoice (In Transit).hbs';
 
@@ -147,8 +155,11 @@ export async function POST(request: NextRequest) {
     const logoBuffer = fs.readFileSync(logoPath);
     const logoData = logoBuffer.toString('base64');
 
+    const executablePath = resolveExecutablePath();
+
     const browser = await puppeteer.launch({
       headless: true,
+      executablePath,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 
@@ -296,7 +307,11 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    logger.error('Error generating In Transit invoice:', error);
+    logger.error('Error generating In Transit invoice:', {
+      executablePath: resolveExecutablePath(),
+      cacheDir: process.env.PUPPETEER_CACHE_DIR,
+      error,
+    });
     return NextResponse.json(
       { error: 'Failed to generate In Transit invoice' },
       { status: 500 }

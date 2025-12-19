@@ -107,6 +107,14 @@ const DEFAULT_SETTINGS: InvoiceSettings = {
   pngQuality: 8,
 };
 
+function resolveExecutablePath(): string | undefined {
+  return (
+    process.env.PUPPETEER_EXECUTABLE_PATH ||
+    puppeteer.executablePath() ||
+    undefined
+  );
+}
+
 /**
  * Read invoice settings from file
  */
@@ -230,8 +238,11 @@ export async function POST(request: NextRequest) {
     const logoData = logoBuffer.toString('base64');
 
     // Launch puppeteer
+    const executablePath = resolveExecutablePath();
+
     const browser = await puppeteer.launch({
       headless: true,
+      executablePath,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 
@@ -413,7 +424,11 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    logger.error('Error generating invoice:', error);
+    logger.error('Error generating invoice:', {
+      executablePath: resolveExecutablePath(),
+      cacheDir: process.env.PUPPETEER_CACHE_DIR,
+      error,
+    });
     return NextResponse.json(
       { error: 'Failed to generate invoice' },
       { status: 500 }
