@@ -15,6 +15,13 @@ const nextConfig = {
       '@glideapps/glide-data-grid',
       'recharts', // Heavy charting library - tree-shake unused components
     ],
+    // Keep invoice templates/settings available in standalone/server output
+    outputFileTracingIncludes: {
+      '/api/generate-in-transit-invoice': [
+        'templates/**',
+        'settings/invoice-settings.json',
+      ],
+    },
     // Turbopack is enabled via CLI flag: next dev --turbo
   },
   transpilePackages: ['@tabler/icons-react'],

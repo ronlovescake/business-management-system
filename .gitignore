@@ -15,9 +15,13 @@ build/
 !.env.example
 !.env.auth.example
 .env.local
+.env.local
+.env.local.dev
+.env.local.prod
 .env.development.local
 .env.test.local
 .env.production.local
+!.env.local.sample
 
 # Testing
 coverage/
