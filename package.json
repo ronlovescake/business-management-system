@@ -12,6 +12,8 @@
     "typecheck": "cross-env NODE_OPTIONS=--max-old-space-size=4096 tsc --pretty --noEmit",
     "prebuild": "node scripts/check-required-env.js && npm run lint && npm run typecheck && npm run clean:next",
     "build": "node scripts/build-webpack.js",
+    "postinstall": "cross-env PLAYWRIGHT_BROWSERS_PATH=0 node scripts/ensure-playwright-browsers.js",
+    "prestart": "cross-env PLAYWRIGHT_BROWSERS_PATH=0 node scripts/ensure-playwright-browsers.js",
     "start": "next start -H 0.0.0.0 -p ${PORT:-5000}",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
