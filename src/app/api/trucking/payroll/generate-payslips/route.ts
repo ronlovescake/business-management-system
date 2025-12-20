@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import type { TemplateDelegate as HandlebarsTemplateDelegate } from 'handlebars';
 import Handlebars from 'handlebars/dist/handlebars.js';
-import puppeteer from 'puppeteer';
+import { chromium } from 'playwright';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
@@ -264,12 +264,12 @@ export async function POST(request: NextRequest) {
 
     const generationTimestamp = new Date().toISOString().replace(/:/g, '-');
 
-    const browser = await puppeteer.launch({
+    const browser = await chromium.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
     const page = await browser.newPage();
-    await page.emulateMediaType('screen');
+    await page.emulateMedia({ media: 'screen' });
 
     const files: { name: string; buffer: Buffer }[] = [];
 

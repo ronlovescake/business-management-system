@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import puppeteer from 'puppeteer';
+import { chromium } from 'playwright';
 import Handlebars from 'handlebars/dist/cjs/handlebars';
 import fs from 'fs';
 import path from 'path';
@@ -61,70 +61,6 @@ const DEFAULT_SETTINGS: InvoiceSettings = {
   format: 'png',
   pngQuality: 8,
 };
-
-function resolveExecutablePath(): string | undefined {
-  const candidates: Array<string | undefined> = [];
-
-  try {
-    const autoPath = puppeteer.executablePath?.();
-    if (autoPath) {
-      candidates.push(autoPath);
-    }
-  } catch (error) {
-    logger.error('puppeteer.executablePath failed', { error });
-  }
-
-  candidates.push(process.env.PUPPETEER_EXECUTABLE_PATH);
-
-  const cacheDir =
-    process.env.PUPPETEER_CACHE_DIR || '/opt/render/.cache/puppeteer';
-  try {
-    const chromeRoot = path.join(cacheDir, 'chrome');
-    if (fs.existsSync(chromeRoot)) {
-      const versions = fs
-        .readdirSync(chromeRoot)
-        .filter((dir) => dir.startsWith('linux-'))
-        .sort();
-
-      for (let i = versions.length - 1; i >= 0; i -= 1) {
-        candidates.push(
-          path.join(chromeRoot, versions[i], 'chrome-linux64', 'chrome')
-        );
-      }
-    }
-  } catch (error) {
-    logger.error('Failed to enumerate puppeteer cache for chrome', {
-      cacheDir,
-      error,
-    });
-  }
-
-  // Scan puppeteer's local Chromium download (project-local)
-  try {
-    const localChromiumRoot = path.join(
-      process.cwd(),
-      'node_modules',
-      'puppeteer',
-      '.local-chromium'
-    );
-    if (fs.existsSync(localChromiumRoot)) {
-      const versions = fs
-        .readdirSync(localChromiumRoot)
-        .filter((dir) => dir.startsWith('linux-'))
-        .sort();
-
-      for (let i = versions.length - 1; i >= 0; i -= 1) {
-        candidates.push(
-          path.join(localChromiumRoot, versions[i], 'chrome-linux64', 'chrome')
-        );
-      }
-    }
-  } catch (error) {
-    logger.error('Failed to enumerate local puppeteer chromium', { error });
-  }
-
-  return candidates.find((candidate) => candidate && fs.existsSync(candidate));
-}
 
 const DUE_DATE_PLACEHOLDER = 'NOT YET ONHAND';
 const TEMPLATE_FILE = 'invoice (In Transit).hbs';
@@ -211,15 +147,17 @@ export async function POST(request: NextRequest) {
     const logoBuffer = fs.readFileSync(logoPath);
     const logoData = logoBuffer.toString('base64');
 
-    const executablePath = resolveExecutablePath();
-
-    const browser = await puppeteer.launch({
+    const browser = await chromium.launch({
       headless: true,
-      ...(executablePath ? { executablePath } : {}),
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 
-    const page = await browser.newPage();
+    const context = await browser.newContext({
+      viewport: { width: 817, height: 1056 },
+      deviceScaleFactor: settings.pngQuality,
+    });
+
+    const page = await context.newPage();
     const imageBuffers: Buffer[] = [];
 
     const now = new Date();
@@ -286,10 +224,9 @@ export async function POST(request: NextRequest) {
       );
 
       if (settings.format === 'png') {
-        await page.setViewport({
+        await page.setViewportSize({
           width: 817,
           height: 1056,
-          deviceScaleFactor: settings.pngQuality,
         });
 
         const imageBuffer = await page.screenshot({
@@ -303,7 +240,7 @@ export async function POST(request: NextRequest) {
         const pdfBuffer = await page.pdf({
           width: '817px',
           printBackground: true,
-          margin: { top: 0, right: 0, bottom: 0, left: 0 },
+          margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' },
         });
 
         imageBuffers.push(Buffer.from(pdfBuffer));
@@ -364,9 +301,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     logger.error('Error generating In Transit invoice:', {
-      executablePath: resolveExecutablePath(),
-      cacheDir: process.env.PUPPETEER_CACHE_DIR,
-      envExecutablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+      chromiumPath: chromium.executablePath(),
       error,
     });
     return NextResponse.json(

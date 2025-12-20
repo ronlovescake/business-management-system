@@ -18,7 +18,7 @@ const {
   mockLogger,
 } = vi.hoisted(() => {
   const mockPage = {
-    emulateMediaType: vi.fn().mockResolvedValue(undefined),
+    emulateMedia: vi.fn().mockResolvedValue(undefined),
     setContent: vi.fn().mockResolvedValue(undefined),
     pdf: vi.fn().mockResolvedValue(Buffer.from('pdf-buffer')),
   };
@@ -75,9 +75,9 @@ vi.mock('@/lib/db', () => ({
   prisma: mockPrisma,
 }));
 
-vi.mock('puppeteer', () => ({
+vi.mock('playwright', () => ({
   __esModule: true,
-  default: { launch: mockLaunch },
+  chromium: { launch: mockLaunch },
 }));
 
 vi.mock('jszip', () => ({

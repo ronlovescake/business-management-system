@@ -17,7 +17,7 @@
 //    - Modify PDF format, size, or orientation (A6 landscape)
 //    - Alter the template rendering process
 //    - Change file saving location or naming convention
-//    - Modify Puppeteer timeout or wait settings (unless fixing bugs)
+//    - Modify browser timeout or wait settings (unless fixing bugs)
 //    - Change the 12-row table structure
 //
 // 📋 CURRENT SPECIFICATIONS - DO NOT CHANGE:
@@ -38,7 +38,7 @@
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import puppeteer from 'puppeteer';
+import { chromium } from 'playwright';
 import Handlebars from 'handlebars/dist/cjs/handlebars';
 import fs from 'fs';
 import path from 'path';
@@ -111,8 +111,7 @@ export async function POST(request: NextRequest) {
     const templateSource = fs.readFileSync(templatePath, 'utf-8');
     const template = Handlebars.compile(templateSource);
 
-    // Launch puppeteer
-    const browser = await puppeteer.launch({
+    const browser = await chromium.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });

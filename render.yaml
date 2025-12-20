@@ -3,12 +3,7 @@ services:
     name: business-management
     env: node
     rootDir: .
-    buildCommand: npm install && npx puppeteer browsers install chrome && npm run build
-    startCommand: >-
-      bash -lc "
-      set -e
-      export PUPPETEER_EXECUTABLE_PATH=$(node -e "const p=require('puppeteer');console.log(p.executablePath())")
-      npm run start
-      "
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
     autoDeploy: true
     envVars:

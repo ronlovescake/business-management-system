@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import type { TemplateDelegate as HandlebarsTemplateDelegate } from 'handlebars';
 import Handlebars from 'handlebars/dist/handlebars.js';
-import puppeteer from 'puppeteer';
+import { chromium } from 'playwright';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { ApiResponse } from '@/core/api';
@@ -20,70 +20,6 @@ const LOGO_PATH = path.join(
   'images',
   'payslip-logo.png'
 );
-
-function resolveExecutablePath(): string | undefined {
-  const candidates: Array<string | undefined> = [];
-
-  try {
-    const autoPath = puppeteer.executablePath?.();
-    if (autoPath) {
-      candidates.push(autoPath);
-    }
-  } catch (error) {
-    logger.error('puppeteer.executablePath failed', { error });
-  }
-
-  candidates.push(process.env.PUPPETEER_EXECUTABLE_PATH);
-
-  const cacheDir =
-    process.env.PUPPETEER_CACHE_DIR || '/opt/render/.cache/puppeteer';
-  try {
-    const chromeRoot = path.join(cacheDir, 'chrome');
-    if (fs.existsSync(chromeRoot)) {
-      const versions = fs
-        .readdirSync(chromeRoot)
-        .filter((dir) => dir.startsWith('linux-'))
-        .sort();
-
-      for (let i = versions.length - 1; i >= 0; i -= 1) {
-        candidates.push(
-          path.join(chromeRoot, versions[i], 'chrome-linux64', 'chrome')
-        );
-      }
-    }
-  } catch (error) {
-    logger.error('Failed to enumerate puppeteer cache for chrome', {
-      cacheDir,
-      error,
-    });
-  }
-
-  // Scan puppeteer's local Chromium download (project-local)
-  try {
-    const localChromiumRoot = path.join(
-      process.cwd(),
-      'node_modules',
-      'puppeteer',
-      '.local-chromium'
-    );
-    if (fs.existsSync(localChromiumRoot)) {
-      const versions = fs
-        .readdirSync(localChromiumRoot)
-        .filter((dir) => dir.startsWith('linux-'))
-        .sort();
-
-      for (let i = versions.length - 1; i >= 0; i -= 1) {
-        candidates.push(
-          path.join(localChromiumRoot, versions[i], 'chrome-linux64', 'chrome')
-        );
-      }
-    }
-  } catch (error) {
-    logger.error('Failed to enumerate local puppeteer chromium', { error });
-  }
-
-  return candidates.find((candidate) => candidate && fs.existsSync(candidate));
-}
 
 let templateCache: HandlebarsTemplateDelegate | null = null;
 let logoBase64Cache: string | null = null;
@@ -378,15 +314,14 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   }
 
   const template = getTemplate();
-  const executablePath = resolveExecutablePath();
-  const browser = await puppeteer.launch({
+  const browser = await chromium.launch({
     headless: true,
-    ...(executablePath ? { executablePath } : {}),
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
+  const context = await browser.newContext();
   try {
-    const page = await browser.newPage();
-    await page.emulateMediaType('screen');
+    const page = await context.newPage();
+    await page.emulateMedia({ media: 'screen' });
 
     const files: { name: string; buffer: Buffer }[] = [];
 
@@ -429,9 +364,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     });
   } catch (error) {
     logger.error('Error generating payslips', {
-      executablePath: resolveExecutablePath(),
-      cacheDir: process.env.PUPPETEER_CACHE_DIR,
-      envExecutablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+      chromiumPath: chromium.executablePath(),
       error,
     });
     throw error;
