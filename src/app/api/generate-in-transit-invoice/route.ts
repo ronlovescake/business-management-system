@@ -149,6 +149,7 @@ export async function POST(request: NextRequest) {
 
     const browser = await chromium.launch({
       headless: true,
+      executablePath: chromium.executablePath(),
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 

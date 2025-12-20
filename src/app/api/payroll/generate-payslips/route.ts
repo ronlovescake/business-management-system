@@ -316,6 +316,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
   const template = getTemplate();
   const browser = await chromium.launch({
     headless: true,
+    executablePath: chromium.executablePath(),
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
   const context = await browser.newContext();
