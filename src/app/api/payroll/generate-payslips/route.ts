@@ -58,6 +58,30 @@ function resolveExecutablePath(): string | undefined {
     });
   }
 
+  // Scan puppeteer's local Chromium download (project-local)
+  try {
+    const localChromiumRoot = path.join(
+      process.cwd(),
+      'node_modules',
+      'puppeteer',
+      '.local-chromium'
+    );
+    if (fs.existsSync(localChromiumRoot)) {
+      const versions = fs
+        .readdirSync(localChromiumRoot)
+        .filter((dir) => dir.startsWith('linux-'))
+        .sort();
+
+      for (let i = versions.length - 1; i >= 0; i -= 1) {
+        candidates.push(
+          path.join(localChromiumRoot, versions[i], 'chrome-linux64', 'chrome')
+        );
+      }
+    }
+  } catch (error) {
+    logger.error('Failed to enumerate local puppeteer chromium', { error });
+  }
+
   return candidates.find((candidate) => candidate && fs.existsSync(candidate));
 }
 
