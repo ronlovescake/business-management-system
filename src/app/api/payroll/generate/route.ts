@@ -4,6 +4,7 @@ import { logger } from '@/lib/logger';
 import { ApiResponse } from '@/core/api';
 import { withErrorHandler } from '@/core/api/middleware';
 import { HTTP_STATUS } from '@/shared/constants/api';
+import { sanitizers } from '@/lib/security/sanitize';
 
 const normalizeKey = (value?: string | null): string =>
   (value ?? '').trim().toLowerCase();
@@ -13,6 +14,12 @@ type AttendanceSummary = {
   employeeName: string;
   totalHours: number;
   daysWorked: number;
+};
+
+type GeneratePayrollRequest = {
+  periodStart?: string;
+  periodEnd?: string;
+  payPeriodLabel?: string;
 };
 
 function formatLocalDate(date: Date): string {
@@ -46,6 +53,43 @@ function getCurrentPayPeriod(referenceDate: Date): {
   };
 }
 
+function normalizePayPeriodLabel(
+  label: string | undefined,
+  start: string,
+  end: string
+): string {
+  const trimmed = (label ?? '').trim();
+  if (trimmed.length > 0) {
+    return trimmed;
+  }
+  return `${start} to ${end}`;
+}
+
+function parseRequestedPeriod(
+  body: Record<string, unknown>
+): { start: string; end: string; label?: string } | null {
+  const rawStart = body.periodStart;
+  const rawEnd = body.periodEnd;
+  const rawLabel = body.payPeriodLabel;
+
+  if (rawStart === undefined && rawEnd === undefined) {
+    return null; // no override provided; use current period
+  }
+
+  const periodStart = sanitizers.date(rawStart);
+  const periodEnd = sanitizers.date(rawEnd);
+
+  if (!periodStart || !periodEnd) {
+    throw new Error('Both periodStart and periodEnd must be valid dates.');
+  }
+
+  return {
+    start: periodStart,
+    end: periodEnd,
+    label: typeof rawLabel === 'string' ? rawLabel.trim() : undefined,
+  };
+}
+
 function buildAttendanceSummary(
   records: Array<{
     employeeId: string;
@@ -76,9 +120,37 @@ function buildAttendanceSummary(
   return Array.from(grouped.values());
 }
 
-export const POST = withErrorHandler(async (_request: NextRequest) => {
+export const POST = withErrorHandler(async (request: NextRequest) => {
   try {
-    const currentPeriod = getCurrentPayPeriod(new Date());
+    let requestBody: Record<string, unknown> = {};
+    try {
+      requestBody = ((await request.json()) as GeneratePayrollRequest) || {};
+    } catch {
+      requestBody = {};
+    }
+
+    let currentPeriod = getCurrentPayPeriod(new Date());
+    try {
+      const override = parseRequestedPeriod(requestBody);
+      if (override) {
+        currentPeriod = {
+          start: override.start,
+          end: override.end,
+          label: normalizePayPeriodLabel(
+            override.label,
+            override.start,
+            override.end
+          ),
+        };
+      }
+    } catch (periodError) {
+      return ApiResponse.badRequest('Validation failed', {
+        period:
+          periodError instanceof Error
+            ? periodError.message
+            : 'Invalid period range',
+      });
+    }
 
     // Check for existing payroll (including soft-deleted ones)
     const existingRecords = await prisma.payroll.findMany({

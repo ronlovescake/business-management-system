@@ -736,27 +736,275 @@ export function usePayroll() {
       return;
     }
 
-    // Confirmation prompt before generating
-    const confirmResult = await Swal.fire({
+    const parseISODate = (value: string) => {
+      const d = new Date(value);
+      return Number.isNaN(d.getTime()) ? null : d;
+    };
+
+    const formatLocalISO = (date: Date) => {
+      const year = date.getFullYear();
+      const month = `${date.getMonth() + 1}`.padStart(2, '0');
+      const day = `${date.getDate()}`.padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    const getCurrentPayPeriod = () => {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      const day = now.getDate();
+
+      const startDate =
+        day <= 15 ? new Date(year, month, 1) : new Date(year, month, 16);
+      const endDate =
+        day <= 15 ? new Date(year, month, 15) : new Date(year, month + 1, 0);
+
+      const start = formatLocalISO(startDate);
+      const end = formatLocalISO(endDate);
+
+      return { start, end, label: `${start} to ${end}` };
+    };
+
+    const alignToPeriodStart = (date: Date) => {
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      const day = date.getDate();
+      return day <= 15 ? new Date(year, month, 1) : new Date(year, month, 16);
+    };
+
+    const buildExpectedPeriods = (startISO: string, endISO: string) => {
+      const periods: { start: string; end: string; label: string }[] = [];
+      let cursor = alignToPeriodStart(new Date(startISO));
+      const endBoundary = new Date(endISO);
+
+      while (cursor <= endBoundary) {
+        const year = cursor.getFullYear();
+        const month = cursor.getMonth();
+        const day = cursor.getDate();
+        const periodStart = new Date(cursor);
+        const periodEnd =
+          day === 1 ? new Date(year, month, 15) : new Date(year, month + 1, 0);
+
+        const start = formatLocalISO(periodStart);
+        const end = formatLocalISO(periodEnd);
+        periods.push({ start, end, label: `${start} to ${end}` });
+
+        cursor =
+          day === 1 ? new Date(year, month, 16) : new Date(year, month + 1, 1);
+      }
+
+      return periods;
+    };
+
+    const currentPeriod = getCurrentPayPeriod();
+
+    const existingPeriodLabels = new Set<string>();
+    let earliestStart: string | null = null;
+
+    const normalizePeriodLabel = (startRaw: string, endRaw: string) => {
+      const start = parseISODate(startRaw);
+      const end = parseISODate(endRaw);
+      if (start && end) {
+        const startIso = formatLocalISO(start);
+        const endIso = formatLocalISO(end);
+        return `${startIso} to ${endIso}`;
+      }
+      return `${startRaw.trim()} to ${endRaw.trim()}`;
+    };
+
+    payrolls.forEach((p) => {
+      const parsed = parsePayPeriodLabel(p.payPeriod);
+      if (parsed) {
+        const normalizedLabel = normalizePeriodLabel(parsed.start, parsed.end);
+        existingPeriodLabels.add(normalizedLabel);
+
+        const parsedStart = parseISODate(parsed.start);
+        if (parsedStart) {
+          const startIso = formatLocalISO(parsedStart);
+          if (!earliestStart || parsedStart < new Date(earliestStart)) {
+            earliestStart = startIso;
+          }
+        }
+      }
+    });
+
+    if (!earliestStart) {
+      earliestStart = currentPeriod.start;
+    }
+
+    const expectedPeriods = buildExpectedPeriods(
+      earliestStart,
+      currentPeriod.end
+    );
+    const missingPeriods = expectedPeriods
+      .filter((period) => !existingPeriodLabels.has(period.label))
+      .map((period) => ({ value: period.label, label: period.label }));
+
+    const defaultPeriodOption = 'current';
+
+    const payPeriodChoices = [
+      { value: 'current', label: 'Current period (based on today)' },
+      ...missingPeriods,
+      { value: 'custom', label: 'Custom period' },
+    ];
+
+    const payPeriodOptionsHtml = payPeriodChoices
+      .map(
+        (option) =>
+          `<option value="${option.value}" ${option.value === defaultPeriodOption ? 'selected' : ''}>${option.label}</option>`
+      )
+      .join('');
+
+    const modalResult = await Swal.fire({
       title: 'Generate Payroll?',
-      text: 'This will generate payroll for the current pay period for all active employees.',
+      width: '44rem',
+      padding: '2.25rem 2.5rem 2rem',
+      html: `
+        <div style="text-align:left; margin-bottom: 12px; color: #4b5563;">
+          Select a pay period to generate payroll for. Choose an existing period or enter a custom range if it does not exist yet.
+        </div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <label style="font-weight:600; color:#111827;">Pay period</label>
+          <div style="display:flex; justify-content:center; width:100%;">
+            <select
+              id="payPeriodSelect"
+              class="swal2-select"
+              style="width:100%; max-width: 420px;"
+            >
+              ${payPeriodOptionsHtml}
+            </select>
+          </div>
+          <div id="customPeriodFields" style="display:${defaultPeriodOption === 'custom' ? 'grid' : 'none'}; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; margin-top:8px;">
+            <div style="display:flex; flex-direction:column; gap:4px;">
+              <label style="font-weight:600; color:#111827;">Start date</label>
+              <input id="customPeriodStart" type="date" class="swal2-input" style="width:100%;" />
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px;">
+              <label style="font-weight:600; color:#111827;">End date</label>
+              <input id="customPeriodEnd" type="date" class="swal2-input" style="width:100%;" />
+            </div>
+            <div style="grid-column: span 2; display:flex; flex-direction:column; gap:4px;">
+              <label style="font-weight:600; color:#111827;">Optional label</label>
+              <input id="customPeriodLabel" type="text" class="swal2-input" placeholder="e.g., 2025-12-01 to 2025-12-15" style="width:100%;" />
+            </div>
+          </div>
+        </div>
+      `,
       icon: 'question',
       showCancelButton: true,
       confirmButtonColor: '#3085d6',
       cancelButtonColor: '#d33',
-      confirmButtonText: 'Yes, generate it!',
+      confirmButtonText: 'Generate Payroll',
       cancelButtonText: 'Cancel',
       allowOutsideClick: false,
+      focusConfirm: false,
+      didOpen: () => {
+        const selectEl = document.getElementById(
+          'payPeriodSelect'
+        ) as HTMLSelectElement | null;
+        const customFields = document.getElementById('customPeriodFields');
+
+        const toggleCustomFields = (value: string | undefined) => {
+          if (!customFields) {
+            return;
+          }
+          customFields.style.display = value === 'custom' ? 'grid' : 'none';
+        };
+
+        toggleCustomFields(selectEl?.value);
+        selectEl?.addEventListener('change', (event) => {
+          const target = event.target as HTMLSelectElement;
+          toggleCustomFields(target.value);
+        });
+      },
+      preConfirm: () => {
+        const selectEl = document.getElementById(
+          'payPeriodSelect'
+        ) as HTMLSelectElement | null;
+        const selected = selectEl?.value ?? 'current';
+
+        if (selected === 'current') {
+          return {
+            periodStart: null,
+            periodEnd: null,
+            payPeriodLabel: null,
+          } as const;
+        }
+
+        if (selected === 'custom') {
+          const startEl = document.getElementById(
+            'customPeriodStart'
+          ) as HTMLInputElement | null;
+          const endEl = document.getElementById(
+            'customPeriodEnd'
+          ) as HTMLInputElement | null;
+          const labelEl = document.getElementById(
+            'customPeriodLabel'
+          ) as HTMLInputElement | null;
+
+          const periodStart = startEl?.value || '';
+          const periodEnd = endEl?.value || '';
+          const payPeriodLabel = (labelEl?.value || '').trim();
+
+          if (!periodStart || !periodEnd) {
+            Swal.showValidationMessage(
+              'Please provide both start and end dates.'
+            );
+            return null;
+          }
+
+          if (new Date(periodStart) > new Date(periodEnd)) {
+            Swal.showValidationMessage('Start date must be before end date.');
+            return null;
+          }
+
+          return {
+            periodStart,
+            periodEnd,
+            payPeriodLabel: payPeriodLabel || `${periodStart} to ${periodEnd}`,
+          } as const;
+        }
+
+        const parsed = parsePayPeriodLabel(selected);
+        if (!parsed) {
+          Swal.showValidationMessage('Please select a valid pay period.');
+          return null;
+        }
+
+        return {
+          periodStart: parsed.start,
+          periodEnd: parsed.end,
+          payPeriodLabel: selected,
+        } as const;
+      },
     });
 
-    if (!confirmResult.isConfirmed) {
+    if (!modalResult.isConfirmed || !modalResult.value) {
       return;
     }
+
+    const { periodStart, periodEnd, payPeriodLabel } = modalResult.value as {
+      periodStart: string | null;
+      periodEnd: string | null;
+      payPeriodLabel: string | null;
+    };
 
     setIsGeneratingPayroll(true);
 
     try {
-      const result = await api.post<unknown>('/api/trucking/payroll/generate');
+      const payload: Record<string, unknown> = {};
+      if (periodStart && periodEnd) {
+        payload.periodStart = periodStart;
+        payload.periodEnd = periodEnd;
+      }
+      if (payPeriodLabel) {
+        payload.payPeriodLabel = payPeriodLabel;
+      }
+
+      const result = await api.post<unknown>(
+        '/api/trucking/payroll/generate',
+        payload
+      );
 
       const normalized =
         typeof result === 'object' && result !== null

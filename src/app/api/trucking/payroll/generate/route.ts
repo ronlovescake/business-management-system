@@ -73,15 +73,46 @@ function buildAttendanceSummary(
   return Array.from(grouped.values());
 }
 
-export async function POST() {
+function parseAndFormatDate(value?: unknown): string | null {
+  if (!value || typeof value !== 'string') {
+    return null;
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return formatLocalDate(parsed);
+}
+
+export async function POST(request: Request) {
   try {
-    const currentPeriod = getCurrentPayPeriod(new Date());
+    let targetPeriod = getCurrentPayPeriod(new Date());
+
+    try {
+      const body = await request.json();
+      const periodStart = parseAndFormatDate(body?.periodStart);
+      const periodEnd = parseAndFormatDate(body?.periodEnd);
+      const payPeriodLabel =
+        typeof body?.payPeriodLabel === 'string'
+          ? body.payPeriodLabel.trim()
+          : '';
+
+      if (periodStart && periodEnd) {
+        targetPeriod = {
+          start: periodStart,
+          end: periodEnd,
+          label: payPeriodLabel || `${periodStart} to ${periodEnd}`,
+        };
+      }
+    } catch {
+      // If parsing fails, continue with the default current period
+    }
 
     // Check for existing payroll (including soft-deleted ones)
     const existingRecords = await prisma.truckingPayroll.findMany({
       where: {
-        periodStart: currentPeriod.start,
-        periodEnd: currentPeriod.end,
+        periodStart: targetPeriod.start,
+        periodEnd: targetPeriod.end,
       },
       select: {
         id: true,
@@ -125,8 +156,8 @@ export async function POST() {
         deletedAt: null,
         status: { in: ['present', 'late'] },
         date: {
-          gte: currentPeriod.start,
-          lte: currentPeriod.end,
+          gte: targetPeriod.start,
+          lte: targetPeriod.end,
         },
       },
       select: {
@@ -139,8 +170,8 @@ export async function POST() {
     if (attendance.length === 0) {
       return NextResponse.json({
         success: false,
-        message: `No attendance records found for ${currentPeriod.label}`,
-        period: currentPeriod,
+        message: `No attendance records found for ${targetPeriod.label}`,
+        period: targetPeriod,
       });
     }
 
@@ -148,8 +179,8 @@ export async function POST() {
     if (attendanceSummaries.length === 0) {
       return NextResponse.json({
         success: false,
-        message: `No eligible employees with attendance found for ${currentPeriod.label}`,
-        period: currentPeriod,
+        message: `No eligible employees with attendance found for ${targetPeriod.label}`,
+        period: targetPeriod,
       });
     }
 
@@ -169,8 +200,8 @@ export async function POST() {
     if (eligibleSummaries.length === 0) {
       return NextResponse.json({
         success: false,
-        message: `Payroll already exists for period ${currentPeriod.label}`,
-        period: currentPeriod,
+        message: `Payroll already exists for period ${targetPeriod.label}`,
+        period: targetPeriod,
       });
     }
 
@@ -190,7 +221,7 @@ export async function POST() {
       return NextResponse.json({
         success: false,
         message: `Deleted payroll exists for ${softConflictSummaries.length} employee${softConflictSummaries.length === 1 ? '' : 's'} in period ${currentPeriod.label}. Please clean up the deleted records before generating new payroll.`,
-        period: currentPeriod,
+        period: targetPeriod,
         action: 'cleanup_soft_deleted',
         conflicts: softConflictSummaries.map((summary) => ({
           employeeId: summary.employeeId,
@@ -230,7 +261,7 @@ export async function POST() {
     // FETCH 13TH MONTH PAY RECORDS TO PREVENT DUPLICATE PAYMENTS
     // ============================================================================
     // Get the year from the pay period to check 13th month pay status
-    const payPeriodYear = new Date(currentPeriod.end).getFullYear();
+    const payPeriodYear = new Date(targetPeriod.end).getFullYear();
 
     // Fetch all 13th month records for this year to check payment status
     // This prevents including 13th month pay in payroll after it's already been paid
@@ -316,8 +347,8 @@ export async function POST() {
           employeeId,
           employeeName: resolvedName,
           payPeriod: currentPeriod.label,
-          periodStart: currentPeriod.start,
-          periodEnd: currentPeriod.end,
+          periodStart: targetPeriod.start,
+          periodEnd: targetPeriod.end,
           basicSalary,
           allowance,
           overtime: overtimePay,
@@ -347,7 +378,7 @@ export async function POST() {
     return NextResponse.json({
       success: true,
       message: `Successfully generated payroll for ${created.count} employees`,
-      period: currentPeriod,
+      period: targetPeriod,
       count: created.count,
     });
   } catch (error) {
