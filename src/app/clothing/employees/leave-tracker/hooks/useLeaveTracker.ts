@@ -91,14 +91,23 @@ export default function useLeaveTracker() {
     useQuery({
       queryKey: employeeKeys.lists(),
       queryFn: async () => {
-        const data =
-          await api.get<
-            Array<{ employeeId: string; firstName: string; lastName: string }>
-          >('/api/employees');
-        return data.map((emp) => ({
-          value: emp.employeeId,
-          label: `${emp.firstName} ${emp.lastName}`,
-        }));
+        const data = await api.get<
+          Array<{
+            employeeId: string;
+            firstName: string;
+            lastName: string;
+            status?: string | null;
+          }>
+        >('/api/employees');
+        return data
+          .filter((emp) => {
+            const normalizedStatus = (emp.status || '').toLowerCase();
+            return !['terminated', 'resigned'].includes(normalizedStatus);
+          })
+          .map((emp) => ({
+            value: emp.employeeId,
+            label: `${emp.firstName} ${emp.lastName}`,
+          }));
       },
     });
 

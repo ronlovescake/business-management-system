@@ -155,6 +155,8 @@ export const PUT = withErrorHandler<RouteContext>(
             : null
           : currentProfilePhoto;
 
+      const sanitizedStatus = sanitizers.name(body.status);
+
       const employeeData: Prisma.EmployeeUpdateInput = {
         employeeId: sanitizers.name(body.employeeId),
         firstName: sanitizers.name(
@@ -168,7 +170,7 @@ export const PUT = withErrorHandler<RouteContext>(
         department: sanitizers.name(body.department),
         position: sanitizers.name(body.position || body.jobTitle),
         jobTitle: sanitizers.name(body.jobTitle || body.position),
-        status: sanitizers.name(body.status),
+        status: sanitizedStatus,
         hireDate: sanitizers.date(body.hireDate),
         employmentEndDate: body.employmentEndDate
           ? sanitizers.date(body.employmentEndDate)
@@ -287,6 +289,52 @@ export const PUT = withErrorHandler<RouteContext>(
         where: { id: employeeNumericId },
         data: employeeData,
       });
+
+      // Auto-cancel future schedules when status becomes resigned/terminated
+      const nextStatus = String(sanitizedStatus || '').toLowerCase();
+      const shouldAutoCancel = ['terminated', 'resigned'].includes(nextStatus);
+
+      if (shouldAutoCancel) {
+        // Schedules use a string date (YYYY-MM-DD). Ensure we compare as string.
+        const cutoffDateStr = employee.employmentEndDate
+          ? typeof employee.employmentEndDate === 'string'
+            ? employee.employmentEndDate
+            : new Date(employee.employmentEndDate).toISOString().slice(0, 10)
+          : new Date().toISOString().slice(0, 10);
+
+        try {
+          const result = await prisma.schedule.updateMany({
+            where: {
+              employeeId: employee.employeeId,
+              deletedAt: null,
+              date: {
+                gte: cutoffDateStr,
+              },
+            },
+            data: {
+              status: 'cancelled',
+              deletedAt: new Date(),
+              notes: 'Auto-cancelled due to employment termination/resignation',
+            },
+          });
+
+          logger.info('Auto-cancelled future schedules after status change', {
+            employeeId: employee.employeeId,
+            nextStatus,
+            cutoffDateStr,
+            cancelledCount: result.count,
+          });
+        } catch (scheduleCleanupError) {
+          logger.error('Failed to auto-cancel future schedules', {
+            employeeId: employee.employeeId,
+            cutoffDateStr,
+            error:
+              scheduleCleanupError instanceof Error
+                ? scheduleCleanupError.message
+                : 'Unknown error',
+          });
+        }
+      }
 
       logger.info('Employee updated successfully', { employeeId: employee.id });
       return ApiResponse.success(employee, 'Employee updated successfully');

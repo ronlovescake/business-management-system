@@ -293,7 +293,22 @@ export const EmployeeFormDialog = React.memo(function EmployeeFormDialog({
                 label="Status"
                 required
                 data={EMPLOYEE_STATUS_OPTIONS}
-                {...form.getInputProps('status')}
+                value={form.values.status}
+                onChange={(value) => {
+                  form.setFieldValue('status', value || '');
+
+                  // Autofill termination date when marking as resigned/terminated and no end date set yet
+                  if (
+                    value &&
+                    ['terminated', 'resigned'].includes(value) &&
+                    !form.values.employmentEndDate
+                  ) {
+                    form.setFieldValue(
+                      'employmentEndDate',
+                      getCurrentDateISO()
+                    );
+                  }
+                }}
                 {...getSelectProps('status').handlers}
                 styles={getSelectProps('status').styles}
                 withCheckIcon={false}
@@ -425,7 +440,7 @@ export const EmployeeFormDialog = React.memo(function EmployeeFormDialog({
             </Grid.Col>
             <Grid.Col span={4}>
               <DateInput
-                label="Employment End Date"
+                label="Termination Date (Employment End)"
                 valueFormat="MM-DD-YYYY"
                 value={toDate(form.values.employmentEndDate)}
                 onChange={(value) =>
