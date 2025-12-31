@@ -295,12 +295,14 @@ export const EmployeeFormDialog = React.memo(function EmployeeFormDialog({
                 data={EMPLOYEE_STATUS_OPTIONS}
                 value={form.values.status}
                 onChange={(value) => {
-                  form.setFieldValue('status', value || '');
+                  const nextStatus = (value ??
+                    form.values.status ??
+                    'active') as (typeof EMPLOYEE_STATUS_OPTIONS)[number]['value'];
+                  form.setFieldValue('status', nextStatus);
 
                   // Autofill termination date when marking as resigned/terminated and no end date set yet
                   if (
-                    value &&
-                    ['terminated', 'resigned'].includes(value) &&
+                    ['terminated', 'resigned'].includes(nextStatus) &&
                     !form.values.employmentEndDate
                   ) {
                     form.setFieldValue(

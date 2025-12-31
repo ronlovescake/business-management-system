@@ -220,7 +220,7 @@ export async function POST(request: Request) {
     if (softConflictSummaries.length > 0) {
       return NextResponse.json({
         success: false,
-        message: `Deleted payroll exists for ${softConflictSummaries.length} employee${softConflictSummaries.length === 1 ? '' : 's'} in period ${currentPeriod.label}. Please clean up the deleted records before generating new payroll.`,
+        message: `Deleted payroll exists for ${softConflictSummaries.length} employee${softConflictSummaries.length === 1 ? '' : 's'} in period ${targetPeriod.label}. Please clean up the deleted records before generating new payroll.`,
         period: targetPeriod,
         action: 'cleanup_soft_deleted',
         conflicts: softConflictSummaries.map((summary) => ({
@@ -346,7 +346,7 @@ export async function POST(request: Request) {
         return {
           employeeId,
           employeeName: resolvedName,
-          payPeriod: currentPeriod.label,
+          payPeriod: targetPeriod.label,
           periodStart: targetPeriod.start,
           periodEnd: targetPeriod.end,
           basicSalary,

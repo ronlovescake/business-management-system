@@ -874,7 +874,7 @@ export function usePayroll() {
               ${payPeriodOptionsHtml}
             </select>
           </div>
-          <div id="customPeriodFields" style="display:${defaultPeriodOption === 'custom' ? 'grid' : 'none'}; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; margin-top:8px;">
+          <div id="customPeriodFields" style="display:none; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; margin-top:8px;">
             <div style="display:flex; flex-direction:column; gap:4px;">
               <label style="font-weight:600; color:#111827;">Start date</label>
               <input id="customPeriodStart" type="date" class="swal2-input" style="width:100%;" />
