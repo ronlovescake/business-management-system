@@ -99,16 +99,40 @@ export function PostTemplateComponent() {
           fetch('/api/prices'),
           fetch('/api/post-template-notice'),
         ]);
-        const [productsData, pricesData, noticeData] = await Promise.all([
-          productsRes.json(),
-          pricesRes.json(),
-          noticeRes.json().catch(() => ({})),
-        ]);
-        const validProducts = Array.isArray(productsData) ? productsData : [];
-        const validPrices = Array.isArray(pricesData) ? pricesData : [];
-        const fetchedNotice = noticeData?.data as
-          | PostTemplateNotice
-          | undefined;
+
+        if (!productsRes.ok || !pricesRes.ok) {
+          throw new Error('Failed to load products or prices');
+        }
+
+        const [productsPayload, pricesPayload, noticePayload] =
+          await Promise.all([
+            productsRes.json(),
+            pricesRes.json(),
+            noticeRes.json().catch(() => ({})),
+          ]);
+
+        const unwrapArray = (payload: unknown) => {
+          if (Array.isArray(payload)) {
+            return payload;
+          }
+          if (
+            payload &&
+            typeof payload === 'object' &&
+            Array.isArray((payload as { data?: unknown }).data)
+          ) {
+            return (payload as { data: unknown[] }).data;
+          }
+          return [] as unknown[];
+        };
+
+        const validProducts = unwrapArray(productsPayload) as Product[];
+        const validPrices = unwrapArray(pricesPayload) as Price[];
+        const fetchedNotice =
+          (noticePayload && typeof noticePayload === 'object'
+            ? ((noticePayload as { data?: unknown }).data as
+                | PostTemplateNotice
+                | undefined)
+            : undefined) || undefined;
 
         setProducts(validProducts);
         setPrices(validPrices);
@@ -117,7 +141,15 @@ export function PostTemplateComponent() {
         } else {
           setNotice(cloneNotice(DEFAULT_POST_TEMPLATE_NOTICE));
         }
-      } catch {
+      } catch (error) {
+        showNotification({
+          title: 'Load failed',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Unable to load post template data',
+          color: 'red',
+        });
         setProducts([]);
         setPrices([]);
         setNotice(cloneNotice(DEFAULT_POST_TEMPLATE_NOTICE));
