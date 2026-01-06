@@ -75,6 +75,7 @@ export default function TripsPage() {
           }}
           onEditTrip={actions.handleEditTrip}
           onDeleteTrip={actions.handleDeleteTrip}
+          onFinalizeTrip={actions.handleFinalizeTrip}
         />
 
         <LogTripModal
@@ -86,6 +87,7 @@ export default function TripsPage() {
           drivers={collections.drivers}
           helpers={collections.helpers}
           trucks={collections.trucks}
+          customers={collections.customers}
         />
       </Stack>
     </PageLayout>

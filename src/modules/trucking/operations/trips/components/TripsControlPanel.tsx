@@ -143,7 +143,9 @@ export const TripsControlPanel = memo(function TripsControlPanel({
             placeholder="Filter by driver"
             data={[
               { label: 'All Drivers', value: 'all' },
-              ...drivers.map((driver) => ({ label: driver, value: driver })),
+              ...drivers
+                .filter((driver) => driver && driver.trim().length > 0)
+                .map((driver) => ({ label: driver, value: driver })),
             ]}
             value={driverFilter || 'all'}
             onChange={(value) =>
@@ -157,7 +159,9 @@ export const TripsControlPanel = memo(function TripsControlPanel({
             placeholder="Filter by truck"
             data={[
               { label: 'All Trucks', value: 'all' },
-              ...trucks.map((truck) => ({ label: truck, value: truck })),
+              ...trucks
+                .filter((truck) => truck && truck.trim().length > 0)
+                .map((truck) => ({ label: truck, value: truck })),
             ]}
             value={truckFilter || 'all'}
             onChange={(value) =>

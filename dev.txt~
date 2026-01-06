@@ -1,0 +1,139 @@
+
+> business-management@1.0.0 dev
+> next dev --turbo -H 0.0.0.0 -p 5001
+
+  ▲ Next.js 14.2.33 (turbo)
+  - Local:        http://localhost:5001
+  - Network:      http://0.0.0.0:5001
+  - Environments: .env.local, .env
+  - Experiments (use with caution):
+    · instrumentationHook
+
+ ✓ Starting...
+ ✓ Compiled in 869ms
+✅ Environment variables validated successfully
+ ✓ Ready in 1885ms
+✅ Environment variables validated successfully
+✅ Environment variables validated successfully
+ ○ Compiling /api/conversations ...
+ GET /api/conversations 200 in 521ms
+ GET /api/conversations 200 in 121ms
+ ✓ Compiled /api/conversations in 9.3s
+[✅ Module registered: Dashboard (v1.0.0)]
+[✅ Module registered: Customers (v1.0.0)]
+[✅ Module registered: Transactions (v1.0.0)]
+[✅ Module registered: Shipments (v1.0.0)]
+[✅ Module registered: Products (v1.0.0)]
+[✅ Module registered: Inventory (v1.0.0)]
+[✅ Module registered: Prices (v1.0.0)]
+[✅ Module registered: Sorting Distribution (v1.0.0)]
+[✅ Module registered: Dispatch (v1.0.0)]
+[✅ Module registered: Settings (v1.0.0)]
+[✅ Module registered: Trips (v0.1.0)]
+[✅ Module registered: Vehicle Assignments (v1.0.0)]
+[✅ Module registered: Fleet Registry (v1.0.0)]
+✅ Environment variables validated successfully
+[✅ Module registered: Dashboard (v1.0.0)]
+[✅ Module registered: Customers (v1.0.0)]
+[✅ Module registered: Transactions (v1.0.0)]
+[✅ Module registered: Shipments (v1.0.0)]
+[✅ Module registered: Products (v1.0.0)]
+[✅ Module registered: Inventory (v1.0.0)]
+[✅ Module registered: Prices (v1.0.0)]
+[✅ Module registered: Sorting Distribution (v1.0.0)]
+[✅ Module registered: Dispatch (v1.0.0)]
+[✅ Module registered: Settings (v1.0.0)]
+[✅ Module registered: Trips (v0.1.0)]
+[✅ Module registered: Vehicle Assignments (v1.0.0)]
+[✅ Module registered: Fleet Registry (v1.0.0)]
+ GET /trucking/operations/trips 200 in 10090ms
+ ○ Compiling /_not-found/page ...
+ GET /icon.svg?icon.8c4bbc9b.svg 200 in 207ms
+ GET /api/conversations 200 in 99ms
+prisma:error 
+Invalid `delegate.findMany()` invocation in
+/home/ron/Websites/business-management-development/.next/server/chunks/src_c24304._.js:747:46
+
+  744 const delegate = tripDelegate();
+  745 if (delegate?.findMany) {
+  746     try {
+→ 747         const trips = await delegate.findMany(
+The column `trucking_trips.customerId` does not exist in the current database.
+ GET /api/trucking/trips 200 in 1037ms
+ GET /api/trucking/fleet-vehicles 200 in 1446ms
+ℹ️  ✅ [Trucking] Fetched 3 employees
+ GET /api/trucking/employees?status=active 200 in 1451ms
+prisma:error 
+Invalid `delegate.findMany()` invocation in
+/home/ron/Websites/business-management-development/.next/server/chunks/src_c24304._.js:747:46
+
+  744 const delegate = tripDelegate();
+  745 if (delegate?.findMany) {
+  746     try {
+→ 747         const trips = await delegate.findMany(
+The column `trucking_trips.customerId` does not exist in the current database.
+ GET /api/trucking/trips 200 in 427ms
+ℹ️  [Customers] Customers fetched { count: 1135 }
+ GET /api/customers?status=active 200 in 1549ms
+ GET /api/trucking/fleet-vehicles 200 in 123ms
+ℹ️  [Customers] Customers fetched { count: 1135 }
+ GET /api/customers?status=active 200 in 164ms
+ℹ️  ✅ [Trucking] Fetched 3 employees
+ GET /api/trucking/employees?status=active 200 in 134ms
+✅ Environment variables validated successfully
+ GET /api/auth/session 200 in 1619ms
+ GET /api/auth/session 200 in 161ms
+ GET /api/auth/session 200 in 401ms
+ GET /api/auth/session 200 in 196ms
+✅ Environment variables validated successfully
+ ✓ Compiled /_not-found/page in 5.6s
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 5717ms
+ GET /api/conversations 200 in 35ms
+ ✓ Compiled /trucking/operations/trips in 9ms
+ GET /api/conversations 200 in 26ms
+ GET /api/conversations 200 in 39ms
+ GET /api/conversations 200 in 36ms
+ GET /api/conversations 200 in 32ms
+ GET /api/conversations 200 in 32ms
+ GET /api/conversations 200 in 30ms
+ GET /api/conversations 200 in 30ms
+ GET /api/conversations 200 in 31ms
+ GET /api/conversations 200 in 30ms
+ GET /api/conversations 200 in 29ms
+ GET /api/conversations 200 in 35ms
+ GET /api/conversations 200 in 27ms
+ GET /api/conversations 200 in 28ms
+ GET /api/conversations 200 in 28ms
+ GET /api/conversations 200 in 28ms
+ GET /api/conversations 200 in 29ms
+ GET /api/conversations 200 in 25ms
+ GET /api/conversations 200 in 34ms
+ GET /api/conversations 200 in 26ms
+ GET /api/conversations 200 in 38ms
+ GET /api/conversations 200 in 29ms
+ GET /api/conversations 200 in 30ms
+ GET /api/conversations 200 in 37ms
+ GET /api/conversations 200 in 25ms
+ GET /api/conversations 200 in 25ms
+ GET /api/conversations 200 in 46ms
+ GET /api/conversations 200 in 30ms
+ GET /api/conversations 200 in 28ms
+ GET /api/conversations 200 in 27ms
+ GET /api/conversations 200 in 26ms
+ GET /api/conversations 200 in 28ms
+ GET /api/conversations 200 in 26ms
+ ✓ Compiled /api/trucking/trips/[id]/finalize in 33ms
+✅ Environment variables validated successfully
+prisma:error 
+Invalid `prisma.truckingTrip.update()` invocation:
+
+
+The column `trucking_trips.customerId` does not exist in the current database.
+ POST /api/trucking/trips/e1c054ba-486e-4040-b4d9-a38097932920/finalize 500 in 495ms
+ GET /api/conversations 200 in 25ms
+ GET /api/conversations 200 in 24ms
+ GET /api/conversations 200 in 23ms
+ GET /api/conversations 200 in 27ms
+ GET /api/conversations 200 in 27ms
+ GET /api/conversations 200 in 28ms
+ GET /api/conversations 200 in 29ms

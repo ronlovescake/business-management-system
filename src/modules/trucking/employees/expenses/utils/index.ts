@@ -4,6 +4,7 @@ const EXPENSE_CATEGORY_OPTIONS = [
   'Helper Pay',
   'Load/Unload Fees',
   'Maintenance & Repairs',
+  'Misc',
   'Meal',
   'Parking Fees',
   'Toll Fees',

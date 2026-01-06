@@ -48,6 +48,11 @@ export interface Expense {
   status: 'pending' | 'approved' | 'rejected';
   employeeName?: string;
   vehicleId?: string;
+  sourceType?: string | null;
+  sourceId?: string | null;
+  sourceLineKey?: string | null;
+  systemGenerated?: boolean;
+  employeeId?: string | null;
 }
 
 /**
@@ -129,6 +134,11 @@ export function useExpenses() {
       status: exp.status as 'pending' | 'approved' | 'rejected',
       employeeName: exp.employeeName ?? undefined,
       vehicleId: exp.vehicleId ?? undefined,
+      sourceType: exp.sourceType ?? null,
+      sourceId: exp.sourceId ?? null,
+      sourceLineKey: exp.sourceLineKey ?? null,
+      systemGenerated: exp.systemGenerated ?? false,
+      employeeId: exp.employeeId ?? null,
     }));
   }, [expensesFromDB]);
 
@@ -238,7 +248,13 @@ export function useExpenses() {
         searchQuery === '' ||
         expense.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
         expense.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        expense.employeeName?.toLowerCase().includes(searchQuery.toLowerCase());
+        expense.employeeName
+          ?.toLowerCase()
+          .includes(searchQuery.toLowerCase()) ||
+        expense.sourceType?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        expense.sourceLineKey
+          ?.toLowerCase()
+          .includes(searchQuery.toLowerCase());
 
       const matchesCategory =
         !filterCategory || expense.category === filterCategory;
@@ -388,6 +404,24 @@ export function useExpenses() {
     return colorMap[category] || 'gray';
   };
 
+  const getSourceLabel = (expense: Expense): string => {
+    if (!expense.sourceType) {
+      return 'Manual';
+    }
+
+    const readableType = expense.sourceType
+      .toLowerCase()
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+
+    const lineKey = expense.sourceLineKey?.trim();
+    if (lineKey) {
+      return `${readableType} — ${lineKey}`;
+    }
+
+    return readableType;
+  };
+
   // ============================================================================
   // EVENT HANDLERS
   // ============================================================================
@@ -467,6 +501,11 @@ export function useExpenses() {
           vehicleId: formVehicleId || null,
           status: editingExpense.status,
           employeeName: editingExpense.employeeName || null,
+          sourceType: editingExpense.sourceType ?? null,
+          sourceId: editingExpense.sourceId ?? null,
+          sourceLineKey: editingExpense.sourceLineKey ?? null,
+          systemGenerated: editingExpense.systemGenerated ?? false,
+          employeeId: editingExpense.employeeId ?? null,
         },
       });
       showNotification({
@@ -485,6 +524,11 @@ export function useExpenses() {
         vehicleId: formVehicleId || null,
         status: 'pending',
         employeeName: currentUserName,
+        sourceType: 'MANUAL',
+        sourceId: null,
+        sourceLineKey: null,
+        systemGenerated: false,
+        employeeId: null,
       });
       showNotification({
         title: 'Success',
@@ -757,6 +801,7 @@ export function useExpenses() {
       'Category',
       'Notes',
       'Vehicle ID',
+      'Source',
       'Receipt',
       'Status',
       'Employee Name',
@@ -784,6 +829,7 @@ export function useExpenses() {
       escapeCSV(expense.category),
       escapeCSV(expense.notes),
       escapeCSV(expense.vehicleId || ''),
+      escapeCSV(getSourceLabel(expense)),
       escapeCSV(expense.receipt || ''),
       escapeCSV(expense.status),
       escapeCSV(expense.employeeName || ''),
@@ -869,6 +915,7 @@ export function useExpenses() {
     formatDate,
     formatCurrency,
     getCategoryColor,
+    getSourceLabel,
 
     // Event handlers
     handleAddExpense,

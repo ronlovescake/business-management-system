@@ -30,6 +30,9 @@ model Customer {
   customerStatus         String                   @db.VarChar(50)
   deletedAt              DateTime?
   additionalCustomerInfo AdditionalCustomerInfo[]
+  truckingTrips          TruckingTrip[]
+  truckingInvoices       TruckingInvoice[]
+  truckingPayments       TruckingPayment[]
 
   @@index([customerName])
   @@index([phoneNumber])
@@ -218,10 +221,22 @@ model TruckingTrip {
   remarks       String?  @db.VarChar(1000)
   deletedAt     DateTime?
 
+  // Billing / AR linkage
+  customerId    Int?
+  invoiceId     String?
+  status        String   @default("draft") @db.VarChar(30)
+  completedAt   DateTime?
+  customer      Customer?        @relation(fields: [customerId], references: [id])
+  invoice       TruckingInvoice? @relation(fields: [invoiceId], references: [id])
+
   @@index([date])
   @@index([truckId])
   @@index([driver])
   @@index([helper])
+  @@index([customerId])
+  @@index([invoiceId])
+  @@index([status])
+  @@index([customerId, date])
   @@map("trucking_trips")
 }
 
@@ -1021,15 +1036,97 @@ model TruckingExpense {
   employeeName String?  @db.VarChar(255)
   vehicleId    String?  @db.VarChar(50)
 
+  // Traceability for auto-posted expenses (Trips, Payroll, etc.)
+  sourceType      String?  @db.VarChar(50)
+  sourceId        String?
+  sourceLineKey   String?
+  systemGenerated Boolean  @default(false)
+  employeeId      String?  @db.VarChar(50)
+
   @@index([date])
   @@index([category])
   @@index([status])
   @@index([employeeName])
   @@index([vehicleId])
+  @@index([sourceType, sourceId])
+  @@unique([sourceType, sourceId, sourceLineKey])
   @@index([status, date])
   @@index([employeeName, status])
   @@index([category, status])
   @@map("trucking_expenses")
+}
+
+// -----------------------------------------------------------------------------
+// Trucking AR: Invoices, Payments, Allocations (batch per cutoff)
+// -----------------------------------------------------------------------------
+
+enum TruckingInvoiceStatus {
+  DRAFT
+  SENT
+  PARTIAL
+  PAID
+  VOID
+}
+
+enum TruckingPaymentMethod {
+  CASH
+  BANK
+  GCASH
+  CHECK
+  OTHER
+}
+
+model TruckingInvoice {
+  id          String                 @id @default(cuid())
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  customerId  Int
+  customer    Customer               @relation(fields: [customerId], references: [id])
+  cutoffStart DateTime
+  cutoffEnd   DateTime
+  invoiceDate DateTime
+  dueDate     DateTime?
+  status      TruckingInvoiceStatus  @default(DRAFT)
+  totalAmount Decimal                @db.Decimal(12, 2)
+
+  trips       TruckingTrip[]
+  allocations TruckingPaymentAllocation[]
+
+  @@index([customerId, cutoffStart, cutoffEnd])
+  @@index([status])
+  @@unique([customerId, cutoffStart, cutoffEnd])
+  @@map("trucking_invoices")
+}
+
+model TruckingPayment {
+  id          String                @id @default(cuid())
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  customerId  Int
+  customer    Customer              @relation(fields: [customerId], references: [id])
+  paymentDate DateTime
+  amount      Decimal               @db.Decimal(12, 2)
+  method      TruckingPaymentMethod @default(OTHER)
+  referenceNo String?               @db.VarChar(255)
+  notes       String?
+
+  allocations TruckingPaymentAllocation[]
+
+  @@index([customerId, paymentDate])
+  @@map("trucking_payments")
+}
+
+model TruckingPaymentAllocation {
+  paymentId String
+  invoiceId String
+  amount    Decimal @db.Decimal(12, 2)
+
+  payment   TruckingPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  invoice   TruckingInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@id([paymentId, invoiceId])
+  @@index([invoiceId])
+  @@map("trucking_payment_allocations")
 }
 
 model TruckingSalaryHistory {

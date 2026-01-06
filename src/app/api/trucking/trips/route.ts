@@ -18,6 +18,7 @@ const TripCreateSchema = z.object({
   tollFees: z.number().nonnegative(),
   miscExpenses: z.number().nonnegative(),
   remarks: z.string().trim().optional().nullable(),
+  customerId: z.number().int().positive().optional().nullable(),
 });
 
 type TripCreateInput = z.infer<typeof TripCreateSchema>;
@@ -71,6 +72,10 @@ const mapTrip = (trip: unknown) => {
     miscExpenses: toNumber(record.miscExpenses),
     totalExpenses: toNumber(record.totalExpenses),
     remarks: toStringValue(record.remarks) || '',
+    status: toStringValue(record.status) || 'draft',
+    completedAt: record.completedAt ? toStringValue(record.completedAt) : null,
+    customerId: record.customerId ? Number(record.customerId) : null,
+    invoiceId: record.invoiceId ? toStringValue(record.invoiceId) : null,
   };
 };
 
@@ -99,9 +104,21 @@ const tripDelegate = (): TripDelegate | null => {
 
 export async function GET() {
   try {
+    const columnRows = await prisma.$queryRaw<Array<{ column_name: string }>>`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'trucking_trips'
+    `;
+
+    const columnNames = new Set(columnRows.map((row) => row.column_name));
+    const selectOrNull = (column: string) =>
+      columnNames.has(column) ? `"${column}"` : `NULL as "${column}"`;
+
+    const isDrifted = !columnNames.has('customerId');
+
     const delegate = tripDelegate();
 
-    if (delegate?.findMany) {
+    if (delegate?.findMany && !isDrifted) {
       try {
         const trips = await delegate.findMany({
           where: { deletedAt: null },
@@ -123,16 +140,6 @@ export async function GET() {
     }
 
     // Fallback: raw SQL in case the delegate is unavailable or client drifted
-    const columnRows = await prisma.$queryRaw<Array<{ column_name: string }>>`
-      SELECT column_name
-      FROM information_schema.columns
-      WHERE table_schema = 'public' AND table_name = 'trucking_trips'
-    `;
-
-    const columnNames = new Set(columnRows.map((row) => row.column_name));
-    const selectOrNull = (column: string) =>
-      columnNames.has(column) ? `"${column}"` : `NULL as "${column}"`;
-
     const selectClause = [
       selectOrNull('id'),
       selectOrNull('date'),
@@ -148,6 +155,10 @@ export async function GET() {
       selectOrNull('miscExpenses'),
       selectOrNull('totalExpenses'),
       selectOrNull('remarks'),
+      selectOrNull('status'),
+      selectOrNull('completedAt'),
+      selectOrNull('customerId'),
+      selectOrNull('invoiceId'),
     ].join(', ');
 
     const orderByClause: string[] = [];
@@ -195,6 +206,8 @@ export async function POST(request: NextRequest) {
         data: {
           id,
           ...data,
+          customerId: data.customerId ?? null,
+          status: 'draft',
           totalExpenses,
         },
       });
@@ -204,7 +217,7 @@ export async function POST(request: NextRequest) {
 
     // Fallback insert via raw SQL
     await prisma.$executeRawUnsafe(
-      'INSERT INTO "trucking_trips" (id, "createdAt", "updatedAt", "date", "truckId", destination, driver, helper, "grossRevenue", "fuelLiters", "fuelCost", "maintenance", "tollFees", "miscExpenses", "totalExpenses", remarks) VALUES ($1, NOW(), NOW(), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)',
+      'INSERT INTO "trucking_trips" (id, "createdAt", "updatedAt", "date", "truckId", destination, driver, helper, "grossRevenue", "fuelLiters", "fuelCost", maintenance, "tollFees", "miscExpenses", "totalExpenses", remarks, status, "customerId") VALUES ($1, NOW(), NOW(), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)',
       id,
       data.date,
       data.truckId,
@@ -218,7 +231,9 @@ export async function POST(request: NextRequest) {
       data.tollFees,
       data.miscExpenses,
       totalExpenses,
-      data.remarks ?? null
+      data.remarks ?? null,
+      'draft',
+      data.customerId ?? null
     );
 
     return NextResponse.json(mapTrip({ id, ...data, totalExpenses }), {

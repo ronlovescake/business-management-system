@@ -26,6 +26,7 @@ interface ExpenseListTableProps {
   formatDate: (date: string) => string;
   formatCurrency: (amount: number) => string;
   getCategoryColor: (category: string) => string;
+  getSourceLabel: (expense: Expense) => string;
   onViewReceipt: (receiptName: string) => void;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
@@ -47,6 +48,7 @@ export const ExpenseListTable = memo(function ExpenseListTable({
   formatDate,
   formatCurrency,
   getCategoryColor,
+  getSourceLabel,
   onViewReceipt,
   onApprove,
   onReject,
@@ -135,7 +137,15 @@ export const ExpenseListTable = memo(function ExpenseListTable({
                     width: 220,
                   }}
                 >
-                  VEHICLE ID
+                  VEHICLE / ASSET
+                </Table.Th>
+                <Table.Th
+                  style={{
+                    ...headerCellStyles,
+                    width: 280,
+                  }}
+                >
+                  SOURCE
                 </Table.Th>
                 <Table.Th
                   style={{
@@ -166,7 +176,7 @@ export const ExpenseListTable = memo(function ExpenseListTable({
             <Table.Tbody>
               {filteredExpenses.length === 0 ? (
                 <Table.Tr>
-                  <Table.Td colSpan={9} style={{ textAlign: 'center' }}>
+                  <Table.Td colSpan={10} style={{ textAlign: 'center' }}>
                     <Text c="dimmed" py="xl">
                       No expenses found
                     </Text>
@@ -205,6 +215,14 @@ export const ExpenseListTable = memo(function ExpenseListTable({
                       <Text size="sm" c="#495057">
                         {expense.vehicleId || '—'}
                       </Text>
+                    </Table.Td>
+                    <Table.Td style={{ textAlign: 'center' }}>
+                      <Badge
+                        color={expense.systemGenerated ? 'blue' : 'gray'}
+                        variant="light"
+                      >
+                        {getSourceLabel(expense)}
+                      </Badge>
                     </Table.Td>
                     <Table.Td style={{ textAlign: 'center' }}>
                       {expense.receipt ? (

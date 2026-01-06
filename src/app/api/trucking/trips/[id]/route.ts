@@ -26,6 +26,7 @@ const TripUpdateSchema = z.object({
   tollFees: coerceNumber(0),
   miscExpenses: coerceNumber(0),
   remarks: z.string().trim().optional().nullable(),
+  customerId: z.number().int().positive().optional().nullable(),
 });
 
 type TripUpdateInput = z.infer<typeof TripUpdateSchema>;
@@ -45,6 +46,10 @@ const mapTrip = (trip: Record<string, unknown>) => ({
   miscExpenses: Number(trip.miscExpenses ?? 0),
   totalExpenses: Number(trip.totalExpenses ?? 0),
   remarks: trip.remarks ? String(trip.remarks) : '',
+  status: String(trip.status ?? ''),
+  completedAt: trip.completedAt ? String(trip.completedAt) : null,
+  customerId: trip.customerId ? Number(trip.customerId) : null,
+  invoiceId: trip.invoiceId ? String(trip.invoiceId) : null,
 });
 
 export async function PUT(
@@ -74,6 +79,7 @@ export async function PUT(
           ...data,
           helper: data.helper ?? null,
           remarks: data.remarks ?? null,
+          customerId: data.customerId ?? null,
           totalExpenses,
         },
       });
@@ -81,7 +87,7 @@ export async function PUT(
       if (err instanceof Prisma.PrismaClientValidationError) {
         // Fallback raw SQL to avoid client drift issues
         await prisma.$executeRawUnsafe(
-          'UPDATE "trucking_trips" SET "updatedAt" = NOW(), "date" = $1, "truckId" = $2, destination = $3, driver = $4, helper = $5, "grossRevenue" = $6, "fuelLiters" = $7, "fuelCost" = $8, maintenance = $9, "tollFees" = $10, "miscExpenses" = $11, "totalExpenses" = $12, remarks = $13 WHERE id = $14 AND "deletedAt" IS NULL',
+          'UPDATE "trucking_trips" SET "updatedAt" = NOW(), "date" = $1, "truckId" = $2, destination = $3, driver = $4, helper = $5, "grossRevenue" = $6, "fuelLiters" = $7, "fuelCost" = $8, maintenance = $9, "tollFees" = $10, "miscExpenses" = $11, "totalExpenses" = $12, remarks = $13, "customerId" = $14 WHERE id = $15 AND "deletedAt" IS NULL',
           data.date,
           data.truckId,
           data.destination,
@@ -95,13 +101,14 @@ export async function PUT(
           data.miscExpenses,
           totalExpenses,
           data.remarks ?? null,
+          data.customerId ?? null,
           params.id
         );
 
         const rows = await prisma.$queryRawUnsafe<
           Array<Record<string, unknown>>
         >(
-          'SELECT id, "date", "truckId", destination, driver, helper, "grossRevenue", "fuelLiters", "fuelCost", maintenance, "tollFees", "miscExpenses", "totalExpenses", remarks FROM "trucking_trips" WHERE id = $1 AND "deletedAt" IS NULL LIMIT 1',
+          'SELECT id, "date", "truckId", destination, driver, helper, "grossRevenue", "fuelLiters", "fuelCost", maintenance, "tollFees", "miscExpenses", "totalExpenses", remarks, status, "completedAt", "customerId", "invoiceId" FROM "trucking_trips" WHERE id = $1 AND "deletedAt" IS NULL LIMIT 1',
           params.id
         );
         updated = rows?.[0];

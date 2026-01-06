@@ -82,6 +82,7 @@ export default function Expenses() {
     formatDate,
     formatCurrency,
     getCategoryColor,
+    getSourceLabel,
 
     // Event handlers
     handleAddExpense,
@@ -133,6 +134,7 @@ export default function Expenses() {
               formatDate={formatDate}
               formatCurrency={formatCurrency}
               getCategoryColor={getCategoryColor}
+              getSourceLabel={getSourceLabel}
               onViewReceipt={handleViewReceipt}
               onApprove={handleApprove}
               onReject={handleReject}

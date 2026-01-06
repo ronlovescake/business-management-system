@@ -41,6 +41,11 @@ export const ExpenseCreateSchema = z.object({
     .max(100, 'Vehicle ID must be 100 characters or less')
     .optional()
     .nullable(),
+  sourceType: z.string().max(50).optional().nullable(),
+  sourceId: z.string().max(255).optional().nullable(),
+  sourceLineKey: z.string().max(255).optional().nullable(),
+  systemGenerated: z.boolean().default(false),
+  employeeId: z.string().max(50).optional().nullable(),
 });
 
 export type ExpenseCreateInput = z.infer<typeof ExpenseCreateSchema>;

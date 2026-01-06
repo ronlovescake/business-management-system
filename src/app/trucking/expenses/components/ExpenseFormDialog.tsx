@@ -39,6 +39,11 @@ interface Expense {
   status: 'pending' | 'approved' | 'rejected';
   employeeName?: string;
   vehicleId?: string;
+  sourceType?: string | null;
+  sourceId?: string | null;
+  sourceLineKey?: string | null;
+  systemGenerated?: boolean;
+  employeeId?: string | null;
 }
 
 interface ExpenseFormDialogProps {
