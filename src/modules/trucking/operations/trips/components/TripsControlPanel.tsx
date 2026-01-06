@@ -132,7 +132,7 @@ export const TripsControlPanel = memo(function TripsControlPanel({
       panel: (
         <Group wrap="wrap" gap="sm">
           <TextInput
-            placeholder="Search driver, helper, truck, or remarks"
+            placeholder="Search driver, helper, truck, destination, or remarks"
             leftSection={<IconSearch size={16} />}
             value={searchQuery}
             onChange={(event) => onSearchChange(event.currentTarget.value)}

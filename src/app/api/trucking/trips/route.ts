@@ -7,9 +7,11 @@ import { logger } from '@/lib/logger';
 const TripCreateSchema = z.object({
   date: z.string().min(1),
   truckId: z.string().min(1),
+  destination: z.string().trim().min(1),
   driver: z.string().min(1),
   helper: z.string().trim().optional().nullable(),
   grossRevenue: z.number().nonnegative(),
+  fuelLiters: z.number().nonnegative(),
   fuelCost: z.number().nonnegative(),
   maintenance: z.number().nonnegative(),
   tollFees: z.number().nonnegative(),
@@ -57,9 +59,11 @@ const mapTrip = (trip: unknown) => {
     id: toStringValue(record.id),
     date: toStringValue(record.date),
     truckId: toStringValue(record.truckId),
+    destination: toStringValue(record.destination),
     driver: toStringValue(record.driver),
     helper: toStringValue(record.helper) || '',
     grossRevenue: toNumber(record.grossRevenue),
+    fuelLiters: toNumber(record.fuelLiters),
     fuelCost: toNumber(record.fuelCost),
     maintenance: toNumber(record.maintenance),
     tollFees: toNumber(record.tollFees),
@@ -107,7 +111,7 @@ export async function GET() {
 
     // Fallback: raw SQL in case the delegate is unavailable (drifted client)
     const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-      'SELECT id, "date", "truckId", driver, helper, "grossRevenue", "fuelCost", "maintenance", "tollFees", "miscExpenses", "totalExpenses", remarks FROM "trucking_trips" WHERE "deletedAt" IS NULL ORDER BY "date" DESC, "createdAt" DESC'
+      'SELECT id, "date", "truckId", destination, driver, helper, "grossRevenue", "fuelLiters", "fuelCost", "maintenance", "tollFees", "miscExpenses", "totalExpenses", remarks FROM "trucking_trips" WHERE "deletedAt" IS NULL ORDER BY "date" DESC, "createdAt" DESC'
     );
 
     return NextResponse.json(rows.map(mapTrip));
@@ -146,13 +150,15 @@ export async function POST(request: NextRequest) {
 
     // Fallback insert via raw SQL
     await prisma.$executeRawUnsafe(
-      'INSERT INTO "trucking_trips" (id, "createdAt", "updatedAt", "date", "truckId", driver, helper, "grossRevenue", "fuelCost", "maintenance", "tollFees", "miscExpenses", "totalExpenses", remarks) VALUES ($1, NOW(), NOW(), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)',
+      'INSERT INTO "trucking_trips" (id, "createdAt", "updatedAt", "date", "truckId", destination, driver, helper, "grossRevenue", "fuelLiters", "fuelCost", "maintenance", "tollFees", "miscExpenses", "totalExpenses", remarks) VALUES ($1, NOW(), NOW(), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)',
       id,
       data.date,
       data.truckId,
+      data.destination,
       data.driver,
       data.helper ?? null,
       data.grossRevenue,
+      data.fuelLiters,
       data.fuelCost,
       data.maintenance,
       data.tollFees,

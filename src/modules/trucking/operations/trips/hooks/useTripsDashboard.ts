@@ -9,7 +9,9 @@ const seedTrips: TripRecord[] = [
     id: 'trip-001',
     date: '2025-11-30',
     truckId: 'TRK-102',
+    destination: 'Quezon City to Pasig loop',
     grossRevenue: 45000,
+    fuelLiters: 158,
     fuelCost: 9500,
     maintenance: 1800,
     tollFees: 1200,
@@ -23,7 +25,9 @@ const seedTrips: TripRecord[] = [
     id: 'trip-002',
     date: '2025-12-02',
     truckId: 'TRK-205',
+    destination: 'Manila to Pangasinan pharma run',
     grossRevenue: 52000,
+    fuelLiters: 172,
     fuelCost: 10200,
     maintenance: 0,
     tollFees: 1450,
@@ -37,7 +41,9 @@ const seedTrips: TripRecord[] = [
     id: 'trip-003',
     date: '2025-12-04',
     truckId: 'TRK-307',
+    destination: 'Manila to Batangas cold chain',
     grossRevenue: 38500,
+    fuelLiters: 144,
     fuelCost: 8600,
     maintenance: 650,
     tollFees: 980,
@@ -51,7 +57,9 @@ const seedTrips: TripRecord[] = [
     id: 'trip-004',
     date: '2025-12-05',
     truckId: 'TRK-102',
+    destination: 'Quezon City to Pampanga restock',
     grossRevenue: 47800,
+    fuelLiters: 169,
     fuelCost: 9900,
     maintenance: 0,
     tollFees: 1320,
@@ -65,7 +73,9 @@ const seedTrips: TripRecord[] = [
     id: 'trip-005',
     date: '2025-11-25',
     truckId: 'TRK-410',
+    destination: 'Cebu consolidation drop',
     grossRevenue: 56200,
+    fuelLiters: 201,
     fuelCost: 11800,
     maintenance: 2100,
     tollFees: 1500,
@@ -130,6 +140,17 @@ const isActive = (status?: string | null) =>
 const normalizeJobTitle = (title?: string | null) =>
   (title ?? '').toLowerCase().trim();
 
+const normalizeTripRecord = (trip: TripRecord): TripRecord => ({
+  ...trip,
+  destination: (trip.destination || '—').trim(),
+  fuelLiters:
+    typeof trip.fuelLiters === 'number' && Number.isFinite(trip.fuelLiters)
+      ? trip.fuelLiters
+      : Number(trip.fuelLiters || 0),
+  helper: trip.helper || '',
+  remarks: trip.remarks || '',
+});
+
 export function useTripsDashboard() {
   const [trips, setTrips] = useState<TripRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -153,7 +174,7 @@ export function useTripsDashboard() {
         }
         const data = (await response.json()) as TripRecord[];
         if (Array.isArray(data) && data.length > 0) {
-          setTrips(data);
+          setTrips(data.map(normalizeTripRecord));
         } else {
           setTrips(seedTrips);
         }
@@ -288,7 +309,13 @@ export function useTripsDashboard() {
         return true;
       }
 
-      const haystack = [trip.driver, trip.helper, trip.truckId, trip.remarks]
+      const haystack = [
+        trip.driver,
+        trip.helper,
+        trip.truckId,
+        trip.destination,
+        trip.remarks,
+      ]
         .filter(Boolean)
         .map((value) => normalizeString(value as string));
 
@@ -386,12 +413,14 @@ export function useTripsDashboard() {
       'ID',
       'Date',
       'Vehicle ID',
-      'Driver',
-      'Helper',
+      'Destination',
       'Gross Revenue',
+      'Fuel (Liters)',
       'Fuel Cost',
       'Maintenance',
       'Toll Fees',
+      'Driver',
+      'Helper',
       'Misc Expenses',
       'Total Expenses',
       'Remarks',
@@ -402,12 +431,14 @@ export function useTripsDashboard() {
         record.id,
         record.date,
         record.truckId,
-        record.driver,
-        record.helper,
+        record.destination,
         record.grossRevenue,
+        record.fuelLiters,
         record.fuelCost,
         record.maintenance,
         record.tollFees,
+        record.driver,
+        record.helper,
         record.miscExpenses,
         record.totalExpenses,
         record.remarks,
@@ -454,7 +485,7 @@ export function useTripsDashboard() {
       }
 
       const created = (await response.json()) as TripRecord;
-      setTrips((prev) => [created, ...prev]);
+      setTrips((prev) => [normalizeTripRecord(created), ...prev]);
 
       showNotification({
         title: 'Trip logged',
@@ -474,7 +505,7 @@ export function useTripsDashboard() {
         id: `trip-${Date.now()}`,
       };
 
-      setTrips((prev) => [fallbackTrip, ...prev]);
+      setTrips((prev) => [normalizeTripRecord(fallbackTrip), ...prev]);
 
       showNotification({
         title: 'Saved offline',

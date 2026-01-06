@@ -1,8 +1,17 @@
-import { Group, NumberInput, Select, Stack, Textarea } from '@mantine/core';
+import {
+  Group,
+  NumberInput,
+  Select,
+  Stack,
+  Textarea,
+  TextInput,
+} from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
 import {
   IconCalendar,
+  IconGasStation,
+  IconRoute,
   IconTruck,
   IconUser,
   IconUsers,
@@ -22,9 +31,11 @@ interface LogTripModalProps {
 interface LogTripFormValues {
   date: Date | null;
   truckId: string;
+  destination: string;
   driver: string;
   helper: string;
   grossRevenue: number;
+  fuelLiters: number;
   fuelCost: number;
   maintenance: number;
   tollFees: number;
@@ -35,9 +46,11 @@ interface LogTripFormValues {
 const DEFAULT_FORM: LogTripFormValues = {
   date: new Date(),
   truckId: '',
+  destination: '',
   driver: '',
   helper: '',
   grossRevenue: 0,
+  fuelLiters: 0,
   fuelCost: 0,
   maintenance: 0,
   tollFees: 0,
@@ -61,8 +74,11 @@ export function LogTripModal({
     validate: {
       date: (value) => (value ? null : 'Date is required'),
       truckId: (value) => (value ? null : 'Select a vehicle'),
+      destination: (value) =>
+        value.trim().length > 0 ? null : 'Add a destination',
       driver: (value) => (value ? null : 'Select a driver'),
       grossRevenue: (value) => (value >= 0 ? null : 'Cannot be negative'),
+      fuelLiters: (value) => (value >= 0 ? null : 'Cannot be negative'),
       fuelCost: (value) => (value >= 0 ? null : 'Cannot be negative'),
       maintenance: (value) => (value >= 0 ? null : 'Cannot be negative'),
       tollFees: (value) => (value >= 0 ? null : 'Cannot be negative'),
@@ -81,9 +97,11 @@ export function LogTripModal({
     onSubmit({
       date: toDateString(payload.date),
       truckId: payload.truckId,
+      destination: payload.destination.trim(),
       driver: payload.driver,
       helper: payload.helper,
       grossRevenue: payload.grossRevenue,
+      fuelLiters: payload.fuelLiters,
       fuelCost: payload.fuelCost,
       maintenance: payload.maintenance,
       tollFees: payload.tollFees,
@@ -150,6 +168,24 @@ export function LogTripModal({
                 },
               }}
             />
+            <TextInput
+              label="Destination"
+              placeholder="Where is this trip heading?"
+              leftSection={<IconRoute size={16} />}
+              value={form.values.destination}
+              onChange={(event) =>
+                form.setFieldValue('destination', event.currentTarget.value)
+              }
+              required
+              {...polished.getFieldProps('destination').handlers}
+              styles={{
+                ...polished.getFieldProps('destination').styles,
+                input: {
+                  ...polished.getFieldProps('destination').styles.input,
+                  paddingLeft: '2.5rem',
+                },
+              }}
+            />
           </Group>
 
           <Group grow gap="md" align="flex-start">
@@ -204,6 +240,19 @@ export function LogTripModal({
               hideControls
               {...polished.getFieldProps('grossRevenue').handlers}
               styles={polished.getFieldProps('grossRevenue').styles}
+            />
+            <NumberInput
+              label="Fuel (liters)"
+              suffix=" L"
+              value={form.values.fuelLiters}
+              onChange={(value) =>
+                form.setFieldValue('fuelLiters', Number(value) || 0)
+              }
+              min={0}
+              hideControls
+              leftSection={<IconGasStation size={16} />}
+              {...polished.getFieldProps('fuelLiters').handlers}
+              styles={polished.getFieldProps('fuelLiters').styles}
             />
             <NumberInput
               label="Fuel cost"

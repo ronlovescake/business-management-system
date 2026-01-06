@@ -4,13 +4,17 @@ import { Group, Text } from '@mantine/core';
 import {
   DataTable,
   type TableColumn,
+  type TableAction,
 } from '@/components/shared/PageTemplates/DataTable';
+import { IconClipboard } from '@tabler/icons-react';
 
 export interface TripRecord {
   id: string;
   date: string;
   truckId: string;
+  destination: string;
   grossRevenue: number;
+  fuelLiters: number;
   fuelCost: number;
   maintenance: number;
   tollFees: number;
@@ -52,11 +56,19 @@ const formatDate = (value: string) =>
 const baseColumns: TableColumn<TripRecord>[] = [
   { key: 'date', label: 'Date', render: (item) => formatDate(item.date) },
   { key: 'truckId', label: 'Vehicle ID' },
+  { key: 'destination', label: 'Destination' },
   {
     key: 'grossRevenue',
     label: 'Gross Revenue',
     align: 'right',
     render: (item) => formatCurrency(item.grossRevenue),
+  },
+  {
+    key: 'fuelLiters',
+    label: 'Fuel (Liters)',
+    align: 'right',
+    render: (item) =>
+      `${item.fuelLiters.toLocaleString('en-US', { maximumFractionDigits: 2 })} L`,
   },
   {
     key: 'fuelCost',
@@ -93,6 +105,20 @@ const baseColumns: TableColumn<TripRecord>[] = [
   { key: 'remarks', label: 'Remarks', align: 'left' },
 ];
 
+const actions: TableAction<TripRecord>[] = [
+  {
+    icon: <IconClipboard size={16} />,
+    label: 'Copy trip summary',
+    onClick: (item) => {
+      const summary = `${formatDate(item.date)} • ${item.truckId} • ${item.destination}`;
+
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(summary).catch(() => undefined);
+      }
+    },
+  },
+];
+
 export function TripsTable({
   data,
   emptyMessage = 'No trips logged yet',
@@ -123,6 +149,7 @@ export function TripsTable({
     <DataTable
       data={data}
       columns={baseColumns}
+      actions={actions}
       emptyMessage={emptyMessage}
       height={height}
       showSummary={Boolean(summary)}

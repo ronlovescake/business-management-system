@@ -205,9 +205,11 @@ model TruckingTrip {
   updatedAt     DateTime @updatedAt
   date          String   @db.VarChar(50)
   truckId       String   @db.VarChar(50)
+  destination   String   @default("") @db.VarChar(255)
   driver        String   @db.VarChar(255)
   helper        String?  @db.VarChar(255)
   grossRevenue  Float
+  fuelLiters    Float    @default(0)
   fuelCost      Float
   maintenance   Float
   tollFees      Float
