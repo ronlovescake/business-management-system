@@ -6,7 +6,7 @@ import {
   type TableColumn,
   type TableAction,
 } from '@/components/shared/PageTemplates/DataTable';
-import { IconClipboard } from '@tabler/icons-react';
+import { IconPencil, IconTrash } from '@tabler/icons-react';
 
 export interface TripRecord {
   id: string;
@@ -37,6 +37,8 @@ interface TripsTableProps {
     filteredNet: number;
     formatCurrency: (value: number) => string;
   };
+  onEditTrip?: (trip: TripRecord) => void;
+  onDeleteTrip?: (trip: TripRecord) => void;
 }
 
 const formatCurrency = (value: number) =>
@@ -105,26 +107,33 @@ const baseColumns: TableColumn<TripRecord>[] = [
   { key: 'remarks', label: 'Remarks', align: 'left' },
 ];
 
-const actions: TableAction<TripRecord>[] = [
-  {
-    icon: <IconClipboard size={16} />,
-    label: 'Copy trip summary',
-    onClick: (item) => {
-      const summary = `${formatDate(item.date)} • ${item.truckId} • ${item.destination}`;
-
-      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        navigator.clipboard.writeText(summary).catch(() => undefined);
-      }
-    },
-  },
-];
-
 export function TripsTable({
   data,
   emptyMessage = 'No trips logged yet',
   height = '74vh',
   summary,
+  onEditTrip,
+  onDeleteTrip,
 }: TripsTableProps) {
+  const actions: TableAction<TripRecord>[] = [];
+
+  if (onEditTrip) {
+    actions.push({
+      icon: <IconPencil size={16} />,
+      label: 'Edit trip',
+      onClick: (item) => onEditTrip(item),
+    });
+  }
+
+  if (onDeleteTrip) {
+    actions.push({
+      icon: <IconTrash size={16} />,
+      label: 'Delete trip',
+      color: 'red',
+      onClick: (item) => onDeleteTrip(item),
+    });
+  }
+
   const summaryLeft = summary ? (
     <Text size="sm" c="dimmed">
       Showing {summary.filteredCount} of {summary.totalCount} trips

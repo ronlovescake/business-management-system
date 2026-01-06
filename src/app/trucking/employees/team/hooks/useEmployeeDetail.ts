@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { showNotification } from '@mantine/notifications';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
 import { getApiDataOrThrow } from '@/lib/api/response';
@@ -62,6 +63,51 @@ export function useEmployeeDetail(employeeId: string) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isPhotoUploading, setIsPhotoUploading] = useState(false);
 
+  const extractSuffixFromName = (fullName?: string | null) => {
+    if (!fullName) {
+      return '';
+    }
+    const commaMatch = fullName.match(/,\s*(.+)$/);
+    if (commaMatch?.[1]) {
+      return commaMatch[1];
+    }
+    const parts = fullName.trim().split(/\s+/);
+    const lastPart = parts[parts.length - 1]?.toLowerCase();
+    const common = new Set(['jr', 'jr.', 'sr', 'sr.', 'ii', 'iii', 'iv', 'v']);
+    return lastPart && common.has(lastPart) ? parts[parts.length - 1] : '';
+  };
+
+  const showApiError = (error: unknown, fallback: string) => {
+    const status =
+      (error as { status?: number })?.status ??
+      (error as { response?: { status?: number } })?.response?.status;
+    const data =
+      (error as { data?: unknown })?.data ??
+      (error as { response?: { data?: unknown } })?.response?.data ??
+      {};
+    const details = (data as { details?: string })?.details;
+    const field = (data as { field?: string })?.field;
+
+    if (status === 409) {
+      showNotification({
+        title: 'Duplicate entry',
+        message:
+          details ||
+          (field
+            ? `Another employee already uses this ${field}.`
+            : 'Another employee already uses these details.'),
+        color: 'red',
+      });
+      return;
+    }
+
+    showNotification({
+      title: 'Update failed',
+      message: details || fallback,
+      color: 'red',
+    });
+  };
+
   // Main employee query
   const { data: employee = null, isLoading } = useQuery({
     queryKey: queryKeys.employees.detail(employeeId),
@@ -79,6 +125,7 @@ export function useEmployeeDetail(employeeId: string) {
       const transformedEmployee: Employee = {
         ...data,
         id: data.id.toString(), // Convert number to string for UI
+        suffix: extractSuffixFromName(data.name),
         sssMonthlyContribution:
           toOptionalNumber(data.sssMonthlyContribution) ?? undefined,
         philHealthMonthlyContribution:
@@ -651,7 +698,7 @@ export function useEmployeeDetail(employeeId: string) {
         middleName: formData.middleName || null,
         name:
           formData.name ||
-          `${formData.firstName} ${formData.middleName || ''} ${formData.lastName}`
+          `${formData.firstName} ${formData.middleName || ''} ${formData.lastName}${formData.suffix ? ` ${formData.suffix}` : ''}`
             .replace(/\s+/g, ' ')
             .trim(),
         // Contact
@@ -797,7 +844,6 @@ export function useEmployeeDetail(employeeId: string) {
       return { previous };
     },
     onError: (error, variables, context) => {
-      // Rollback on error
       if (context?.previous) {
         queryClient.setQueryData(
           queryKeys.employees.detail(employeeId),
@@ -805,7 +851,7 @@ export function useEmployeeDetail(employeeId: string) {
         );
       }
       logger.error('Error updating employee:', error);
-      alert('Failed to update employee. Please try again.');
+      showApiError(error, 'Failed to update employee. Please try again.');
     },
     onSuccess: () => {
       // Close form on success
@@ -934,7 +980,6 @@ export function useEmployeeDetail(employeeId: string) {
       return { previous };
     },
     onError: (error, variables, context) => {
-      // Rollback on error
       if (context?.previous) {
         queryClient.setQueryData(
           queryKeys.employees.detail(employeeId),
@@ -942,7 +987,7 @@ export function useEmployeeDetail(employeeId: string) {
         );
       }
       logger.error('Error uploading photo:', error);
-      alert('Failed to upload profile photo. Please try again.');
+      showApiError(error, 'Failed to upload profile photo. Please try again.');
     },
     onSettled: () => {
       setIsPhotoUploading(false);

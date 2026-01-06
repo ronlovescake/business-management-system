@@ -49,7 +49,7 @@ const transformEmployeePayload = (
   middleName: formData.middleName || null,
   name:
     formData.name ||
-    `${formData.firstName} ${formData.middleName || ''} ${formData.lastName}`
+    `${formData.firstName} ${formData.middleName || ''} ${formData.lastName}${formData.suffix ? ` ${formData.suffix}` : ''}`
       .replace(/\s+/g, ' ')
       .trim(),
   // Contact

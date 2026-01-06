@@ -66,6 +66,20 @@ export function useEmployeeDetail(employeeId: string) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isPhotoUploading, setIsPhotoUploading] = useState(false);
 
+  const extractSuffixFromName = (fullName?: string | null) => {
+    if (!fullName) {
+      return '';
+    }
+    const commaMatch = fullName.match(/,\s*(.+)$/);
+    if (commaMatch?.[1]) {
+      return commaMatch[1];
+    }
+    const parts = fullName.trim().split(/\s+/);
+    const lastPart = parts[parts.length - 1]?.toLowerCase();
+    const common = new Set(['jr', 'jr.', 'sr', 'sr.', 'ii', 'iii', 'iv', 'v']);
+    return lastPart && common.has(lastPart) ? parts[parts.length - 1] : '';
+  };
+
   // Main employee query
   const { data: employee = null, isLoading } = useQuery({
     queryKey: queryKeys.employees.detail(employeeId),
@@ -81,6 +95,7 @@ export function useEmployeeDetail(employeeId: string) {
       const transformedEmployee: Employee = {
         ...data,
         id: data.id.toString(), // Convert number to string for UI
+        suffix: extractSuffixFromName(data.name),
         sssMonthlyContribution:
           toOptionalNumber(data.sssMonthlyContribution) ?? undefined,
         philHealthMonthlyContribution:
@@ -653,7 +668,7 @@ export function useEmployeeDetail(employeeId: string) {
         middleName: formData.middleName || null,
         name:
           formData.name ||
-          `${formData.firstName} ${formData.middleName || ''} ${formData.lastName}`
+          `${formData.firstName} ${formData.middleName || ''} ${formData.lastName}${formData.suffix ? ` ${formData.suffix}` : ''}`
             .replace(/\s+/g, ' ')
             .trim(),
         // Contact
@@ -766,12 +781,20 @@ export function useEmployeeDetail(employeeId: string) {
 
       // Optimistically update
       if (previous) {
+        const suffix = formData.suffix || extractSuffixFromName(previous.name);
+        const fullName =
+          formData.name ||
+          `${formData.firstName} ${formData.middleName || ''} ${formData.lastName}${suffix ? ` ${suffix}` : ''}`
+            .replace(/\s+/g, ' ')
+            .trim();
+
         const optimisticUpdate: Employee = {
           ...previous,
           firstName: formData.firstName,
           lastName: formData.lastName,
           middleName: formData.middleName || undefined,
-          name: formData.name || previous.name,
+          suffix: suffix || undefined,
+          name: fullName,
           email: formData.email || undefined,
           phone: formData.phone,
           contact: formData.contact || formData.phone,

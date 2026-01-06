@@ -73,12 +73,16 @@ export default function TripsPage() {
             filteredNet: summary.filteredNet,
             formatCurrency,
           }}
+          onEditTrip={actions.handleEditTrip}
+          onDeleteTrip={actions.handleDeleteTrip}
         />
 
         <LogTripModal
           opened={modals.logTrip.opened}
           onClose={modals.logTrip.onClose}
           onSubmit={modals.logTrip.onSubmit}
+          mode={modals.logTrip.initialTrip ? 'edit' : 'create'}
+          initialTrip={modals.logTrip.initialTrip}
           drivers={collections.drivers}
           helpers={collections.helpers}
           trucks={collections.trucks}

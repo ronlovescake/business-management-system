@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { Prisma } from '@prisma/client';
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
@@ -101,17 +102,70 @@ export async function GET() {
     const delegate = tripDelegate();
 
     if (delegate?.findMany) {
-      const trips = await delegate.findMany({
-        where: { deletedAt: null },
-        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
-      });
+      try {
+        const trips = await delegate.findMany({
+          where: { deletedAt: null },
+          orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+        });
 
-      return NextResponse.json(trips.map(mapTrip));
+        return NextResponse.json(trips.map(mapTrip));
+      } catch (err) {
+        // P2022 (missing column) or schema drift falls back to raw query
+        const isPrismaSchemaMismatch =
+          err instanceof Prisma.PrismaClientValidationError ||
+          err instanceof Prisma.PrismaClientKnownRequestError;
+
+        if (!isPrismaSchemaMismatch) {
+          throw err;
+        }
+        // fall through to raw query
+      }
     }
 
-    // Fallback: raw SQL in case the delegate is unavailable (drifted client)
+    // Fallback: raw SQL in case the delegate is unavailable or client drifted
+    const columnRows = await prisma.$queryRaw<Array<{ column_name: string }>>`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'trucking_trips'
+    `;
+
+    const columnNames = new Set(columnRows.map((row) => row.column_name));
+    const selectOrNull = (column: string) =>
+      columnNames.has(column) ? `"${column}"` : `NULL as "${column}"`;
+
+    const selectClause = [
+      selectOrNull('id'),
+      selectOrNull('date'),
+      selectOrNull('truckId'),
+      selectOrNull('destination'),
+      selectOrNull('driver'),
+      selectOrNull('helper'),
+      selectOrNull('grossRevenue'),
+      selectOrNull('fuelLiters'),
+      selectOrNull('fuelCost'),
+      selectOrNull('maintenance'),
+      selectOrNull('tollFees'),
+      selectOrNull('miscExpenses'),
+      selectOrNull('totalExpenses'),
+      selectOrNull('remarks'),
+    ].join(', ');
+
+    const orderByClause: string[] = [];
+    if (columnNames.has('date')) {
+      orderByClause.push('"date" DESC');
+    }
+    if (columnNames.has('createdAt')) {
+      orderByClause.push('"createdAt" DESC');
+    }
+
+    const whereClause = columnNames.has('deletedAt')
+      ? 'WHERE "deletedAt" IS NULL'
+      : '';
+
     const rows = await prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-      'SELECT id, "date", "truckId", destination, driver, helper, "grossRevenue", "fuelLiters", "fuelCost", "maintenance", "tollFees", "miscExpenses", "totalExpenses", remarks FROM "trucking_trips" WHERE "deletedAt" IS NULL ORDER BY "date" DESC, "createdAt" DESC'
+      `SELECT ${selectClause} FROM "trucking_trips" ${whereClause} ${
+        orderByClause.length ? `ORDER BY ${orderByClause.join(', ')}` : ''
+      }`
     );
 
     return NextResponse.json(rows.map(mapTrip));

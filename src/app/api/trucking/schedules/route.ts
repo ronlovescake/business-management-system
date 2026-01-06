@@ -279,9 +279,11 @@ export async function GET() {
         position: true,
         department: true,
         status: true,
-        // Exclude advanced features not commonly used in list view:
-        // - source, templateId, recurrenceId, isOverride
-        // - notes (can be fetched separately if needed)
+        notes: true,
+        source: true,
+        templateId: true,
+        recurrenceId: true,
+        isOverride: true,
       },
       orderBy: [{ date: 'desc' }, { startTime: 'asc' }],
     });

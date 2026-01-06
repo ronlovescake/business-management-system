@@ -45,6 +45,7 @@ export const EmployeeFormDialog = React.memo(function EmployeeFormDialog({
       firstName: '',
       lastName: '',
       middleName: '',
+      suffix: '',
       name: '',
       phone: '',
       contact: '',
@@ -108,13 +109,29 @@ export const EmployeeFormDialog = React.memo(function EmployeeFormDialog({
     },
   });
 
+  const extractSuffix = (fullName: string) => {
+    if (!fullName) {
+      return '';
+    }
+    const commaMatch = fullName.match(/,\s*(.+)$/);
+    if (commaMatch?.[1]) {
+      return commaMatch[1];
+    }
+    const parts = fullName.trim().split(/\s+/);
+    const lastPart = parts[parts.length - 1]?.toLowerCase();
+    const common = new Set(['jr', 'jr.', 'sr', 'sr.', 'ii', 'iii', 'iv', 'v']);
+    return lastPart && common.has(lastPart) ? parts[parts.length - 1] : '';
+  };
+
   useEffect(() => {
     if (editingEmployee) {
+      const suffix = extractSuffix(editingEmployee.name);
       form.setValues({
         employeeId: editingEmployee.employeeId,
         firstName: editingEmployee.firstName,
         lastName: editingEmployee.lastName,
         middleName: editingEmployee.middleName || '',
+        suffix,
         name: editingEmployee.name,
         phone: editingEmployee.phone,
         contact: editingEmployee.contact,
@@ -185,9 +202,11 @@ export const EmployeeFormDialog = React.memo(function EmployeeFormDialog({
   }, [editingEmployee, opened]);
 
   const handleSubmit = (values: EmployeeFormData) => {
-    // Generate full name from parts
+    const suffixPart = values.suffix ? ` ${values.suffix}` : '';
     const fullName =
-      `${values.firstName} ${values.middleName ? values.middleName + ' ' : ''}${values.lastName}`.trim();
+      `${values.firstName} ${values.middleName ? values.middleName + ' ' : ''}${values.lastName}${suffixPart}`
+        .replace(/\s+/g, ' ')
+        .trim();
     const dataToSave = {
       ...values,
       name: fullName,
@@ -286,6 +305,15 @@ export const EmployeeFormDialog = React.memo(function EmployeeFormDialog({
                 {...form.getInputProps('lastName')}
                 {...getFieldProps('lastName').handlers}
                 styles={getFieldProps('lastName').styles}
+              />
+            </Grid.Col>
+            <Grid.Col span={4}>
+              <TextInput
+                label="Suffix"
+                placeholder="Jr., Sr., III"
+                {...form.getInputProps('suffix')}
+                {...getFieldProps('suffix').handlers}
+                styles={getFieldProps('suffix').styles}
               />
             </Grid.Col>
             <Grid.Col span={4}>

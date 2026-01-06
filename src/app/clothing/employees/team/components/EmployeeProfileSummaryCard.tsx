@@ -34,6 +34,36 @@ export function EmployeeProfileSummaryCard({
   const statusLabel =
     EMPLOYEE_STATUS_LABELS[employee.status] || employee.status;
 
+  const suffix =
+    employee.suffix ||
+    (() => {
+      const fullName = employee.name || '';
+      const commaMatch = fullName.match(/,\s*(.+)$/);
+      if (commaMatch?.[1]) {
+        return commaMatch[1];
+      }
+      const parts = fullName.trim().split(/\s+/);
+      const lastPart = parts[parts.length - 1]?.toLowerCase();
+      const common = new Set([
+        'jr',
+        'jr.',
+        'sr',
+        'sr.',
+        'ii',
+        'iii',
+        'iv',
+        'v',
+      ]);
+      return lastPart && common.has(lastPart) ? parts[parts.length - 1] : '';
+    })();
+
+  const fullName =
+    employee.firstName && employee.lastName
+      ? `${employee.firstName} ${employee.middleName ? employee.middleName + ' ' : ''}${employee.lastName}${suffix ? ` ${suffix}` : ''}`
+          .replace(/\s+/g, ' ')
+          .trim()
+      : employee.name;
+
   return (
     <Paper withBorder p="xl">
       <Group align="center" gap="lg" justify="space-between">
@@ -97,11 +127,7 @@ export function EmployeeProfileSummaryCard({
           </Box>
 
           <div>
-            <Title order={2}>
-              {employee.firstName && employee.lastName
-                ? `${employee.firstName} ${employee.middleName ? employee.middleName + ' ' : ''}${employee.lastName}`
-                : employee.name}
-            </Title>
+            <Title order={2}>{fullName}</Title>
             <Text size="lg" c="dimmed" mt={4}>
               {employee.position || employee.jobTitle}
             </Text>

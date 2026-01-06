@@ -118,6 +118,27 @@ export default function EmployeeDetailPage() {
       .join(' ');
   };
 
+  const extractSuffix = (fullName: string | undefined | null): string => {
+    if (!fullName) {
+      return '';
+    }
+    const commaMatch = fullName.match(/,\s*(.+)$/);
+    if (commaMatch?.[1]) {
+      return commaMatch[1];
+    }
+    const parts = fullName.trim().split(/\s+/);
+    const lastPart = parts[parts.length - 1]?.toLowerCase();
+    const common = new Set(['jr', 'jr.', 'sr', 'sr.', 'ii', 'iii', 'iv', 'v']);
+    return lastPart && common.has(lastPart) ? parts[parts.length - 1] : '';
+  };
+
+  const suffix = employee?.suffix || extractSuffix(employee?.name);
+  const fullName = employee
+    ? `${employee.firstName} ${employee.middleName ? employee.middleName + ' ' : ''}${employee.lastName}${suffix ? ` ${suffix}` : ''}`
+        .replace(/\s+/g, ' ')
+        .trim()
+    : '';
+
   if (isLoading) {
     return (
       <PageLayout>
@@ -155,10 +176,12 @@ export default function EmployeeDetailPage() {
   const employeeDetails: EmployeeDetailField[] = [
     {
       label: 'Employee Name',
-      value:
-        employee.firstName && employee.lastName
-          ? `${employee.firstName} ${employee.middleName ? employee.middleName + ' ' : ''}${employee.lastName}`
-          : employee.name,
+      value: fullName || employee.name,
+      category: 'Personal Information',
+    },
+    {
+      label: 'Suffix',
+      value: suffix || 'N/A',
       category: 'Personal Information',
     },
     {

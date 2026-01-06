@@ -6,6 +6,7 @@ import {
   Textarea,
   TextInput,
 } from '@mantine/core';
+import { useEffect } from 'react';
 import { DateInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
 import {
@@ -18,11 +19,14 @@ import {
 } from '@tabler/icons-react';
 import { PolishedFormTemplate } from '@/components/forms/polished/PolishedFormTemplate';
 import type { NewTripPayload } from '../hooks/useTripsDashboard';
+import type { TripRecord } from './TripsTable';
 
 interface LogTripModalProps {
   opened: boolean;
   onClose: () => void;
-  onSubmit: (payload: NewTripPayload) => void;
+  onSubmit: (payload: NewTripPayload, existingId?: string) => void;
+  initialTrip?: TripRecord | null;
+  mode?: 'create' | 'edit';
   drivers: string[];
   helpers: string[];
   trucks: string[];
@@ -68,9 +72,26 @@ export function LogTripModal({
   drivers,
   helpers,
   trucks,
+  initialTrip = null,
+  mode = 'create',
 }: LogTripModalProps) {
   const form = useForm<LogTripFormValues>({
-    initialValues: DEFAULT_FORM,
+    initialValues: initialTrip
+      ? {
+          date: initialTrip.date ? new Date(initialTrip.date) : new Date(),
+          truckId: initialTrip.truckId,
+          destination: initialTrip.destination,
+          driver: initialTrip.driver,
+          helper: initialTrip.helper,
+          grossRevenue: initialTrip.grossRevenue,
+          fuelLiters: initialTrip.fuelLiters,
+          fuelCost: initialTrip.fuelCost,
+          maintenance: initialTrip.maintenance,
+          tollFees: initialTrip.tollFees,
+          miscExpenses: initialTrip.miscExpenses,
+          remarks: initialTrip.remarks,
+        }
+      : DEFAULT_FORM,
     validate: {
       date: (value) => (value ? null : 'Date is required'),
       truckId: (value) => (value ? null : 'Select a vehicle'),
@@ -86,6 +107,30 @@ export function LogTripModal({
     },
   });
 
+  // Sync form when switching between create/edit
+  // Reset or prefill when modal opens or the target trip changes
+  useEffect(() => {
+    if (initialTrip) {
+      form.setValues({
+        date: initialTrip.date ? new Date(initialTrip.date) : new Date(),
+        truckId: initialTrip.truckId,
+        destination: initialTrip.destination,
+        driver: initialTrip.driver,
+        helper: initialTrip.helper,
+        grossRevenue: initialTrip.grossRevenue,
+        fuelLiters: initialTrip.fuelLiters,
+        fuelCost: initialTrip.fuelCost,
+        maintenance: initialTrip.maintenance,
+        tollFees: initialTrip.tollFees,
+        miscExpenses: initialTrip.miscExpenses,
+        remarks: initialTrip.remarks,
+      });
+    } else {
+      form.setValues(DEFAULT_FORM);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTrip?.id, opened]);
+
   const values = form.values;
   const totalExpenses =
     values.fuelCost +
@@ -94,20 +139,23 @@ export function LogTripModal({
     values.miscExpenses;
 
   const handleSubmit = (payload: LogTripFormValues) => {
-    onSubmit({
-      date: toDateString(payload.date),
-      truckId: payload.truckId,
-      destination: payload.destination.trim(),
-      driver: payload.driver,
-      helper: payload.helper,
-      grossRevenue: payload.grossRevenue,
-      fuelLiters: payload.fuelLiters,
-      fuelCost: payload.fuelCost,
-      maintenance: payload.maintenance,
-      tollFees: payload.tollFees,
-      miscExpenses: payload.miscExpenses,
-      remarks: payload.remarks,
-    });
+    onSubmit(
+      {
+        date: toDateString(payload.date),
+        truckId: payload.truckId,
+        destination: payload.destination.trim(),
+        driver: payload.driver,
+        helper: payload.helper,
+        grossRevenue: payload.grossRevenue,
+        fuelLiters: payload.fuelLiters,
+        fuelCost: payload.fuelCost,
+        maintenance: payload.maintenance,
+        tollFees: payload.tollFees,
+        miscExpenses: payload.miscExpenses,
+        remarks: payload.remarks,
+      },
+      initialTrip?.id
+    );
     form.reset();
   };
 
@@ -115,11 +163,11 @@ export function LogTripModal({
     <PolishedFormTemplate
       opened={opened}
       onClose={onClose}
-      title="Log a trip"
+      title={mode === 'edit' ? 'Edit trip' : 'Log a trip'}
       subtitle="Capture revenue and expenses for a completed run"
       description="Use this form to log trip earnings and costs. Fields support quick keyboard navigation."
       primaryAction={{
-        label: 'Save trip',
+        label: mode === 'edit' ? 'Update trip' : 'Save trip',
         onClick: form.onSubmit(handleSubmit),
         disabled: !opened,
       }}

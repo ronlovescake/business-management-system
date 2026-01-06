@@ -2,90 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { showNotification } from '@mantine/notifications';
+import Swal from 'sweetalert2';
 import type { TripRecord } from '../components/TripsTable';
-
-const seedTrips: TripRecord[] = [
-  {
-    id: 'trip-001',
-    date: '2025-11-30',
-    truckId: 'TRK-102',
-    destination: 'Quezon City to Pasig loop',
-    grossRevenue: 45000,
-    fuelLiters: 158,
-    fuelCost: 9500,
-    maintenance: 1800,
-    tollFees: 1200,
-    driver: 'Jonas Velasco',
-    helper: 'Mia Santos',
-    miscExpenses: 750,
-    totalExpenses: 13250,
-    remarks: 'Double drop-off, Metro Manila loop',
-  },
-  {
-    id: 'trip-002',
-    date: '2025-12-02',
-    truckId: 'TRK-205',
-    destination: 'Manila to Pangasinan pharma run',
-    grossRevenue: 52000,
-    fuelLiters: 172,
-    fuelCost: 10200,
-    maintenance: 0,
-    tollFees: 1450,
-    driver: 'Luis Dizon',
-    helper: 'Ivan Cruz',
-    miscExpenses: 600,
-    totalExpenses: 12250,
-    remarks: 'North Luzon pharma delivery',
-  },
-  {
-    id: 'trip-003',
-    date: '2025-12-04',
-    truckId: 'TRK-307',
-    destination: 'Manila to Batangas cold chain',
-    grossRevenue: 38500,
-    fuelLiters: 144,
-    fuelCost: 8600,
-    maintenance: 650,
-    tollFees: 980,
-    driver: 'Bea Mercado',
-    helper: 'Paolo Jimenez',
-    miscExpenses: 420,
-    totalExpenses: 10650,
-    remarks: 'Reefer run to Batangas',
-  },
-  {
-    id: 'trip-004',
-    date: '2025-12-05',
-    truckId: 'TRK-102',
-    destination: 'Quezon City to Pampanga restock',
-    grossRevenue: 47800,
-    fuelLiters: 169,
-    fuelCost: 9900,
-    maintenance: 0,
-    tollFees: 1320,
-    driver: 'Jonas Velasco',
-    helper: 'Mia Santos',
-    miscExpenses: 510,
-    totalExpenses: 11730,
-    remarks: 'Cold chain restock – Pampanga',
-  },
-  {
-    id: 'trip-005',
-    date: '2025-11-25',
-    truckId: 'TRK-410',
-    destination: 'Cebu consolidation drop',
-    grossRevenue: 56200,
-    fuelLiters: 201,
-    fuelCost: 11800,
-    maintenance: 2100,
-    tollFees: 1500,
-    driver: 'Hiro Tan',
-    helper: 'Angelo Perez',
-    miscExpenses: 880,
-    totalExpenses: 16280,
-    remarks: 'VisMin consolidation drop',
-  },
-];
 
 const pesoFormatter = new Intl.NumberFormat('en-PH', {
   style: 'currency',
@@ -162,6 +80,7 @@ export function useTripsDashboard() {
   const [drivers, setDrivers] = useState<string[]>([]);
   const [helpers, setHelpers] = useState<string[]>([]);
   const [fleetVehicles, setFleetVehicles] = useState<string[]>([]);
+  const [editingTrip, setEditingTrip] = useState<TripRecord | null>(null);
 
   useEffect(() => {
     const fetchTrips = async () => {
@@ -173,10 +92,10 @@ export function useTripsDashboard() {
           throw new Error('Failed to load trips');
         }
         const data = (await response.json()) as TripRecord[];
-        if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data)) {
           setTrips(data.map(normalizeTripRecord));
         } else {
-          setTrips(seedTrips);
+          throw new Error('Unexpected trips response');
         }
       } catch (error) {
         showNotification({
@@ -185,7 +104,7 @@ export function useTripsDashboard() {
             error instanceof Error ? error.message : 'Could not load trips',
           color: 'orange',
         });
-        setTrips(seedTrips);
+        setTrips([]);
       }
     };
 
@@ -469,26 +388,51 @@ export function useTripsDashboard() {
     });
   };
 
-  const openLogTrip = () => setIsLogTripOpen(true);
-  const closeLogTrip = () => setIsLogTripOpen(false);
+  const openLogTrip = () => {
+    setEditingTrip(null);
+    setIsLogTripOpen(true);
+  };
+  const openEditTrip = (trip: TripRecord) => {
+    setEditingTrip(trip);
+    setIsLogTripOpen(true);
+  };
+  const closeLogTrip = () => {
+    setEditingTrip(null);
+    setIsLogTripOpen(false);
+  };
 
-  const handleCreateTrip = async (payload: NewTripPayload) => {
+  const handleCreateOrUpdateTrip = async (
+    payload: NewTripPayload,
+    existingId?: string
+  ) => {
     try {
-      const response = await fetch('/api/trucking/trips', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const response = await fetch(
+        existingId
+          ? `/api/trucking/trips/${existingId}`
+          : '/api/trucking/trips',
+        {
+          method: existingId ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }
+      );
 
       if (!response.ok) {
         throw new Error('Failed to save trip');
       }
 
       const created = (await response.json()) as TripRecord;
-      setTrips((prev) => [normalizeTripRecord(created), ...prev]);
+      setTrips((prev) => {
+        if (!existingId) {
+          return [normalizeTripRecord(created), ...prev];
+        }
+        return prev.map((trip) =>
+          trip.id === existingId ? normalizeTripRecord(created) : trip
+        );
+      });
 
       showNotification({
-        title: 'Trip logged',
+        title: existingId ? 'Trip updated' : 'Trip logged',
         message: `${created.truckId} • ${created.driver} • ${created.date}`,
         color: 'green',
       });
@@ -502,13 +446,20 @@ export function useTripsDashboard() {
       const fallbackTrip: TripRecord = {
         ...payload,
         totalExpenses,
-        id: `trip-${Date.now()}`,
+        id: existingId || `trip-${Date.now()}`,
       };
 
-      setTrips((prev) => [normalizeTripRecord(fallbackTrip), ...prev]);
+      setTrips((prev) => {
+        if (!existingId) {
+          return [normalizeTripRecord(fallbackTrip), ...prev];
+        }
+        return prev.map((trip) =>
+          trip.id === existingId ? normalizeTripRecord(fallbackTrip) : trip
+        );
+      });
 
       showNotification({
-        title: 'Saved offline',
+        title: existingId ? 'Update saved locally' : 'Saved offline',
         message:
           error instanceof Error
             ? error.message
@@ -517,6 +468,68 @@ export function useTripsDashboard() {
       });
     } finally {
       closeLogTrip();
+    }
+  };
+
+  const confirmDeleteTrip = async (trip: TripRecord) => {
+    if (typeof window === 'undefined') {
+      return true;
+    }
+
+    const firstStep = await Swal.fire({
+      title: 'Delete this trip?',
+      text: `${trip.truckId} • ${trip.driver || '—'} • ${trip.date}`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Continue',
+      cancelButtonText: 'Cancel',
+      focusCancel: true,
+      confirmButtonColor: '#e03131',
+    });
+
+    if (!firstStep.isConfirmed) {
+      return false;
+    }
+
+    const secondStep = await Swal.fire({
+      title: 'Confirm permanent delete',
+      text: 'This cannot be undone.',
+      icon: 'error',
+      showCancelButton: true,
+      confirmButtonText: 'Delete trip',
+      cancelButtonText: 'Go back',
+      confirmButtonColor: '#c92a2a',
+      cancelButtonColor: '#6b7280',
+      focusCancel: true,
+    });
+
+    return secondStep.isConfirmed;
+  };
+
+  const handleDeleteTrip = async (trip: TripRecord) => {
+    const confirmed = await confirmDeleteTrip(trip);
+    if (!confirmed) {
+      return;
+    }
+
+    setTrips((prev) => prev.filter((item) => item.id !== trip.id));
+
+    try {
+      await fetch(`/api/trucking/trips/${trip.id}`, { method: 'DELETE' });
+      showNotification({
+        title: 'Trip deleted',
+        message: `${trip.truckId} • ${trip.date}`,
+        color: 'green',
+      });
+    } catch (error) {
+      showNotification({
+        title: 'Deletion failed',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Trip removed locally; not synced to server',
+        color: 'orange',
+      });
     }
   };
 
@@ -556,14 +569,17 @@ export function useTripsDashboard() {
       handleImportTrips,
       handleExportTrips,
       handleLogTrip: openLogTrip,
-      handleCreateTrip,
+      handleCreateOrUpdateTrip,
+      handleEditTrip: openEditTrip,
+      handleDeleteTrip,
       closeLogTrip,
     },
     modals: {
       logTrip: {
         opened: isLogTripOpen,
         onClose: closeLogTrip,
-        onSubmit: handleCreateTrip,
+        onSubmit: handleCreateOrUpdateTrip,
+        initialTrip: editingTrip,
       },
     },
     formatCurrency,

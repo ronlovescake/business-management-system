@@ -78,11 +78,29 @@ export async function PUT(
 
     const existing = employeeRecord;
 
+    const existingEmail = existing.email
+      ? sanitizers.email(existing.email)
+      : null;
+    const existingPhone = existing.phone
+      ? sanitizers.phone(existing.phone)
+      : null;
+
+    const incomingEmail =
+      typeof body.email === 'string' ? body.email.trim() : '';
+    const sanitizedEmail = incomingEmail
+      ? sanitizers.email(incomingEmail)
+      : null;
+
+    const incomingPhone =
+      typeof body.phone === 'string' ? body.phone.trim() : '';
+    const sanitizedPhone = incomingPhone
+      ? sanitizers.phone(incomingPhone)
+      : null;
+
     const currentProfilePhoto =
       (existing as { profilePhoto?: string | null }).profilePhoto ?? null;
 
-    if (body.email && body.email.trim() !== '') {
-      const sanitizedEmail = sanitizers.email(body.email);
+    if (sanitizedEmail && sanitizedEmail !== existingEmail) {
       const duplicateEmail = await prisma.truckingEmployee.findFirst({
         where: {
           email: sanitizedEmail,
@@ -105,8 +123,7 @@ export async function PUT(
       }
     }
 
-    if (body.phone && body.phone.trim() !== '') {
-      const sanitizedPhone = sanitizers.phone(body.phone);
+    if (sanitizedPhone && sanitizedPhone !== existingPhone) {
       const duplicatePhone = await prisma.truckingEmployee.findFirst({
         where: {
           phone: sanitizedPhone,
@@ -156,9 +173,9 @@ export async function PUT(
       employmentEndDate: body.employmentEndDate
         ? sanitizers.date(body.employmentEndDate)
         : null,
-      phone: sanitizers.phone(body.phone || body.contact),
+      phone: sanitizedPhone ?? null,
       contact: sanitizers.phone(body.contact || body.phone),
-      email: body.email ? sanitizers.email(body.email) : null,
+      email: sanitizedEmail,
       address: body.address ? sanitizers.address(body.address) : null,
       emergencyContact:
         body.emergencyContact || body.emergencyContactNumber

@@ -6,6 +6,7 @@ export interface Employee {
   firstName: string;
   lastName: string;
   middleName?: string;
+  suffix?: string;
   name: string; // Full name (for backward compatibility)
 
   // Contact Information
@@ -71,6 +72,7 @@ export interface EmployeeFormData {
   firstName: string;
   lastName: string;
   middleName?: string;
+  suffix?: string;
   name: string;
   email?: string;
   phone: string;
