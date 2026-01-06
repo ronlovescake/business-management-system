@@ -5,6 +5,7 @@ import {
   Stack,
   Textarea,
   TextInput,
+  Switch,
 } from '@mantine/core';
 import { useEffect } from 'react';
 import { DateInput } from '@mantine/dates';
@@ -30,6 +31,7 @@ interface LogTripModalProps {
   drivers: string[];
   helpers: string[];
   trucks: string[];
+  customers: Array<{ label: string; value: string }>;
 }
 
 interface LogTripFormValues {
@@ -38,6 +40,7 @@ interface LogTripFormValues {
   destination: string;
   driver: string;
   helper: string;
+  customerId: string;
   grossRevenue: number;
   fuelLiters: number;
   fuelCost: number;
@@ -45,6 +48,11 @@ interface LogTripFormValues {
   tollFees: number;
   miscExpenses: number;
   remarks: string;
+  overrideEnabled: boolean;
+  actualDriver: string;
+  actualHelper: string;
+  crewOverrideReason: string;
+  attendanceStatus: string;
 }
 
 const DEFAULT_FORM: LogTripFormValues = {
@@ -53,6 +61,7 @@ const DEFAULT_FORM: LogTripFormValues = {
   destination: '',
   driver: '',
   helper: '',
+  customerId: '',
   grossRevenue: 0,
   fuelLiters: 0,
   fuelCost: 0,
@@ -60,6 +69,11 @@ const DEFAULT_FORM: LogTripFormValues = {
   tollFees: 0,
   miscExpenses: 0,
   remarks: '',
+  overrideEnabled: false,
+  actualDriver: '',
+  actualHelper: '',
+  crewOverrideReason: '',
+  attendanceStatus: 'UNCONFIRMED',
 };
 
 const toDateString = (value: Date | null) =>
@@ -72,6 +86,7 @@ export function LogTripModal({
   drivers,
   helpers,
   trucks,
+  customers,
   initialTrip = null,
   mode = 'create',
 }: LogTripModalProps) {
@@ -83,6 +98,25 @@ export function LogTripModal({
           destination: initialTrip.destination,
           driver: initialTrip.driver,
           helper: initialTrip.helper,
+          overrideEnabled:
+            Boolean(initialTrip.crewOverrideReason) ||
+            Boolean(
+              (initialTrip.actualDriver || '').trim() &&
+                (initialTrip.actualDriver || '').trim() !==
+                  (initialTrip.driver || '').trim()
+            ) ||
+            Boolean(
+              (initialTrip.actualHelper || '').trim() &&
+                (initialTrip.actualHelper || '').trim() !==
+                  (initialTrip.helper || '').trim()
+            ),
+          actualDriver: initialTrip.actualDriver || initialTrip.driver || '',
+          actualHelper: initialTrip.actualHelper || initialTrip.helper || '',
+          crewOverrideReason: initialTrip.crewOverrideReason || '',
+          attendanceStatus: initialTrip.attendanceStatus || 'UNCONFIRMED',
+          customerId: initialTrip.customerId
+            ? String(initialTrip.customerId)
+            : '',
           grossRevenue: initialTrip.grossRevenue,
           fuelLiters: initialTrip.fuelLiters,
           fuelCost: initialTrip.fuelCost,
@@ -98,12 +132,19 @@ export function LogTripModal({
       destination: (value) =>
         value.trim().length > 0 ? null : 'Add a destination',
       driver: (value) => (value ? null : 'Select a driver'),
+      customerId: () => null,
       grossRevenue: (value) => (value >= 0 ? null : 'Cannot be negative'),
       fuelLiters: (value) => (value >= 0 ? null : 'Cannot be negative'),
       fuelCost: (value) => (value >= 0 ? null : 'Cannot be negative'),
       maintenance: (value) => (value >= 0 ? null : 'Cannot be negative'),
       tollFees: (value) => (value >= 0 ? null : 'Cannot be negative'),
       miscExpenses: (value) => (value >= 0 ? null : 'Cannot be negative'),
+      crewOverrideReason: (value, values) =>
+        values.overrideEnabled && value.trim().length === 0
+          ? 'Add a brief reason'
+          : null,
+      attendanceStatus: (value, values) =>
+        values.overrideEnabled && !value ? 'Select crew status' : null,
     },
   });
 
@@ -117,6 +158,25 @@ export function LogTripModal({
         destination: initialTrip.destination,
         driver: initialTrip.driver,
         helper: initialTrip.helper,
+        overrideEnabled:
+          Boolean(initialTrip.crewOverrideReason) ||
+          Boolean(
+            (initialTrip.actualDriver || '').trim() &&
+              (initialTrip.actualDriver || '').trim() !==
+                (initialTrip.driver || '').trim()
+          ) ||
+          Boolean(
+            (initialTrip.actualHelper || '').trim() &&
+              (initialTrip.actualHelper || '').trim() !==
+                (initialTrip.helper || '').trim()
+          ),
+        actualDriver: initialTrip.actualDriver || initialTrip.driver || '',
+        actualHelper: initialTrip.actualHelper || initialTrip.helper || '',
+        crewOverrideReason: initialTrip.crewOverrideReason || '',
+        attendanceStatus: initialTrip.attendanceStatus || 'UNCONFIRMED',
+        customerId: initialTrip.customerId
+          ? String(initialTrip.customerId)
+          : '',
         grossRevenue: initialTrip.grossRevenue,
         fuelLiters: initialTrip.fuelLiters,
         fuelCost: initialTrip.fuelCost,
@@ -139,6 +199,26 @@ export function LogTripModal({
     values.miscExpenses;
 
   const handleSubmit = (payload: LogTripFormValues) => {
+    const overrideEnabled = payload.overrideEnabled;
+    const actualDriverInput = (payload.actualDriver || '').trim();
+    const actualHelperInput = (payload.actualHelper || '').trim();
+
+    const actualDriver = overrideEnabled
+      ? actualDriverInput || payload.driver
+      : payload.driver;
+
+    const actualHelper = overrideEnabled
+      ? actualHelperInput || payload.helper
+      : payload.helper;
+
+    const crewOverrideReason = overrideEnabled
+      ? payload.crewOverrideReason.trim() || null
+      : null;
+
+    const attendanceStatus = overrideEnabled
+      ? payload.attendanceStatus || 'UNCONFIRMED'
+      : 'UNCONFIRMED';
+
     onSubmit(
       {
         date: toDateString(payload.date),
@@ -146,6 +226,11 @@ export function LogTripModal({
         destination: payload.destination.trim(),
         driver: payload.driver,
         helper: payload.helper,
+        actualDriver,
+        actualHelper,
+        crewOverrideReason,
+        attendanceStatus,
+        customerId: payload.customerId ? Number(payload.customerId) : null,
         grossRevenue: payload.grossRevenue,
         fuelLiters: payload.fuelLiters,
         fuelCost: payload.fuelCost,
@@ -158,6 +243,15 @@ export function LogTripModal({
     );
     form.reset();
   };
+
+  const attendanceOptions = [
+    { value: 'UNCONFIRMED', label: 'Unconfirmed' },
+    { value: 'PRESENT', label: 'Present' },
+    { value: 'LATE', label: 'Late' },
+    { value: 'ABSENT_NO_SHOW', label: 'Absent / No show' },
+    { value: 'REPLACED_BY_RELIEVER', label: 'Replaced by reliever' },
+    { value: 'TRIP_CANCELLED', label: 'Trip cancelled' },
+  ];
 
   return (
     <PolishedFormTemplate
@@ -201,7 +295,9 @@ export function LogTripModal({
             <Select
               label="Vehicle"
               placeholder="Select truck"
-              data={trucks.map((truck) => ({ label: truck, value: truck }))}
+              data={trucks
+                .filter((truck) => truck && truck.trim().length > 0)
+                .map((truck) => ({ label: truck, value: truck }))}
               leftSection={<IconTruck size={16} />}
               value={form.values.truckId}
               onChange={(value) => form.setFieldValue('truckId', value || '')}
@@ -238,9 +334,22 @@ export function LogTripModal({
 
           <Group grow gap="md" align="flex-start">
             <Select
+              label="Customer"
+              placeholder="Select customer"
+              data={customers}
+              value={form.values.customerId}
+              onChange={(value) =>
+                form.setFieldValue('customerId', value || '')
+              }
+              searchable
+              {...polished.getSelectProps('customerId').handlers}
+            />
+            <Select
               label="Driver"
               placeholder="Select driver"
-              data={drivers.map((driver) => ({ label: driver, value: driver }))}
+              data={drivers
+                .filter((driver) => driver && driver.trim().length > 0)
+                .map((driver) => ({ label: driver, value: driver }))}
               leftSection={<IconUser size={16} />}
               value={form.values.driver}
               onChange={(value) => form.setFieldValue('driver', value || '')}
@@ -258,7 +367,9 @@ export function LogTripModal({
             <Select
               label="Helper"
               placeholder="Select helper"
-              data={helpers.map((helper) => ({ label: helper, value: helper }))}
+              data={helpers
+                .filter((helper) => helper && helper.trim().length > 0)
+                .map((helper) => ({ label: helper, value: helper }))}
               leftSection={<IconUsers size={16} />}
               value={form.values.helper}
               onChange={(value) => form.setFieldValue('helper', value || '')}
@@ -274,6 +385,96 @@ export function LogTripModal({
               }}
             />
           </Group>
+
+          <Stack gap="xs">
+            <Switch
+              label="Override crew / reliever"
+              description="Enable when a different driver/helper or reliever handled the trip."
+              checked={form.values.overrideEnabled}
+              onChange={(event) =>
+                form.setFieldValue(
+                  'overrideEnabled',
+                  event.currentTarget.checked
+                )
+              }
+            />
+
+            {form.values.overrideEnabled && (
+              <Group grow gap="md" align="flex-start">
+                <Select
+                  label="Actual driver / reliever"
+                  placeholder="Select driver"
+                  data={drivers
+                    .filter((driver) => driver && driver.trim().length > 0)
+                    .map((driver) => ({ label: driver, value: driver }))}
+                  leftSection={<IconUser size={16} />}
+                  value={form.values.actualDriver}
+                  onChange={(value) =>
+                    form.setFieldValue('actualDriver', value || '')
+                  }
+                  searchable
+                  {...polished.getSelectProps('actualDriver').handlers}
+                  styles={{
+                    ...polished.getSelectProps('actualDriver').styles,
+                    input: {
+                      ...polished.getSelectProps('actualDriver').styles.input,
+                      paddingLeft: '2.5rem',
+                    },
+                  }}
+                />
+                <Select
+                  label="Actual helper / reliever"
+                  placeholder="Select helper"
+                  data={helpers
+                    .filter((helper) => helper && helper.trim().length > 0)
+                    .map((helper) => ({ label: helper, value: helper }))}
+                  leftSection={<IconUsers size={16} />}
+                  value={form.values.actualHelper}
+                  onChange={(value) =>
+                    form.setFieldValue('actualHelper', value || '')
+                  }
+                  searchable
+                  clearable
+                  {...polished.getSelectProps('actualHelper').handlers}
+                  styles={{
+                    ...polished.getSelectProps('actualHelper').styles,
+                    input: {
+                      ...polished.getSelectProps('actualHelper').styles.input,
+                      paddingLeft: '2.5rem',
+                    },
+                  }}
+                />
+                <TextInput
+                  label="Crew override reason"
+                  placeholder="e.g., Driver absent, replaced by reliever"
+                  value={form.values.crewOverrideReason}
+                  onChange={(event) =>
+                    form.setFieldValue(
+                      'crewOverrideReason',
+                      event.currentTarget.value
+                    )
+                  }
+                  required
+                  {...polished.getFieldProps('crewOverrideReason').handlers}
+                  styles={polished.getFieldProps('crewOverrideReason').styles}
+                />
+                <Select
+                  label="Attendance status"
+                  placeholder="Select status"
+                  data={attendanceOptions}
+                  value={form.values.attendanceStatus}
+                  onChange={(value) =>
+                    form.setFieldValue(
+                      'attendanceStatus',
+                      value || 'UNCONFIRMED'
+                    )
+                  }
+                  required
+                  {...polished.getSelectProps('attendanceStatus').handlers}
+                />
+              </Group>
+            )}
+          </Stack>
 
           <Group grow gap="md" align="flex-start">
             <NumberInput

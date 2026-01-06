@@ -1,18 +1,20 @@
 'use client';
 
-import { Group, Text } from '@mantine/core';
+import { Badge, Group, Text } from '@mantine/core';
 import {
   DataTable,
   type TableColumn,
   type TableAction,
 } from '@/components/shared/PageTemplates/DataTable';
-import { IconPencil, IconTrash } from '@tabler/icons-react';
+import { IconCheck, IconPencil, IconTrash } from '@tabler/icons-react';
 
 export interface TripRecord {
   id: string;
   date: string;
   truckId: string;
   destination: string;
+  customerId?: number | null;
+  customerName?: string | null;
   grossRevenue: number;
   fuelLiters: number;
   fuelCost: number;
@@ -20,9 +22,16 @@ export interface TripRecord {
   tollFees: number;
   driver: string;
   helper: string;
+  actualDriver?: string | null;
+  actualHelper?: string | null;
+  crewOverrideReason?: string | null;
+  attendanceStatus?: string | null;
   miscExpenses: number;
   totalExpenses: number;
   remarks: string;
+  status: string;
+  completedAt: string | null;
+  invoiceId?: string | null;
 }
 
 interface TripsTableProps {
@@ -39,6 +48,7 @@ interface TripsTableProps {
   };
   onEditTrip?: (trip: TripRecord) => void;
   onDeleteTrip?: (trip: TripRecord) => void;
+  onFinalizeTrip?: (trip: TripRecord) => void;
 }
 
 const formatCurrency = (value: number) =>
@@ -58,7 +68,19 @@ const formatDate = (value: string) =>
 const baseColumns: TableColumn<TripRecord>[] = [
   { key: 'date', label: 'Date', render: (item) => formatDate(item.date) },
   { key: 'truckId', label: 'Vehicle ID' },
+  {
+    key: 'customerName',
+    label: 'Customer',
+    render: (item) =>
+      item.customerName?.trim() ||
+      (item.customerId ? `#${item.customerId}` : '—'),
+  },
   { key: 'destination', label: 'Destination' },
+  {
+    key: 'status',
+    label: 'Status',
+    render: (item) => item.status?.toUpperCase?.() || 'DRAFT',
+  },
   {
     key: 'grossRevenue',
     label: 'Gross Revenue',
@@ -90,8 +112,57 @@ const baseColumns: TableColumn<TripRecord>[] = [
     align: 'right',
     render: (item) => formatCurrency(item.tollFees),
   },
-  { key: 'driver', label: 'Driver' },
-  { key: 'helper', label: 'Helper' },
+  {
+    key: 'driver',
+    label: 'Driver',
+    render: (item) => {
+      const actual = item.actualDriver?.trim() || item.driver || '—';
+      const isReliever =
+        item.attendanceStatus === 'REPLACED_BY_RELIEVER' ||
+        (item.actualDriver && item.actualDriver.trim() !== item.driver.trim());
+
+      if (!isReliever) {
+        return actual;
+      }
+
+      return (
+        <Group gap="xs" wrap="nowrap">
+          <Text>{actual}</Text>
+          <Badge size="xs" color="blue" radius="sm">
+            Reliever
+          </Badge>
+        </Group>
+      );
+    },
+  },
+  {
+    key: 'helper',
+    label: 'Helper',
+    render: (item) => {
+      const actual = item.actualHelper?.trim() || item.helper || '—';
+      const isReliever =
+        item.attendanceStatus === 'REPLACED_BY_RELIEVER' ||
+        (item.actualHelper && item.actualHelper.trim() !== item.helper.trim());
+
+      if (!isReliever) {
+        return actual;
+      }
+
+      return (
+        <Group gap="xs" wrap="nowrap">
+          <Text>{actual}</Text>
+          <Badge size="xs" color="blue" radius="sm">
+            Reliever
+          </Badge>
+        </Group>
+      );
+    },
+  },
+  {
+    key: 'attendanceStatus',
+    label: 'Crew Status',
+    render: (item) => item.crewOverrideReason?.toUpperCase?.() || 'NORMAL',
+  },
   {
     key: 'miscExpenses',
     label: 'Misc. Expenses',
@@ -114,8 +185,17 @@ export function TripsTable({
   summary,
   onEditTrip,
   onDeleteTrip,
+  onFinalizeTrip,
 }: TripsTableProps) {
   const actions: TableAction<TripRecord>[] = [];
+
+  if (onFinalizeTrip) {
+    actions.push({
+      icon: <IconCheck size={16} />,
+      label: 'Finalize & post expenses',
+      onClick: (item) => onFinalizeTrip(item),
+    });
+  }
 
   if (onEditTrip) {
     actions.push({

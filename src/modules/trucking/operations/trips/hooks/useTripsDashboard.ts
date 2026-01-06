@@ -20,7 +20,26 @@ const daysAgoDate = (days: number) => {
   return date;
 };
 
-export type NewTripPayload = Omit<TripRecord, 'id' | 'totalExpenses'>;
+export type NewTripPayload = Pick<
+  TripRecord,
+  | 'date'
+  | 'truckId'
+  | 'destination'
+  | 'driver'
+  | 'helper'
+  | 'grossRevenue'
+  | 'fuelLiters'
+  | 'fuelCost'
+  | 'maintenance'
+  | 'tollFees'
+  | 'miscExpenses'
+  | 'remarks'
+  | 'customerId'
+  | 'actualDriver'
+  | 'actualHelper'
+  | 'crewOverrideReason'
+  | 'attendanceStatus'
+>;
 
 type FleetVehicle = {
   truckId?: string | null;
@@ -35,6 +54,12 @@ type TeamMember = {
   lastName?: string | null;
   jobTitle?: string | null;
   status?: string | null;
+};
+
+type CustomerLite = {
+  id?: number | null;
+  customerName?: string | null;
+  name?: string | null;
 };
 
 const buildEmployeeName = (member: TeamMember) => {
@@ -67,6 +92,15 @@ const normalizeTripRecord = (trip: TripRecord): TripRecord => ({
       : Number(trip.fuelLiters || 0),
   helper: trip.helper || '',
   remarks: trip.remarks || '',
+  status: trip.status || 'draft',
+  completedAt: trip.completedAt || null,
+  customerId: trip.customerId ?? null,
+  customerName: trip.customerName ?? null,
+  invoiceId: trip.invoiceId ?? null,
+  actualDriver: trip.actualDriver ?? trip.driver ?? '',
+  actualHelper: trip.actualHelper ?? trip.helper ?? '',
+  crewOverrideReason: trip.crewOverrideReason ?? null,
+  attendanceStatus: trip.attendanceStatus ?? 'UNCONFIRMED',
 });
 
 export function useTripsDashboard() {
@@ -80,7 +114,24 @@ export function useTripsDashboard() {
   const [drivers, setDrivers] = useState<string[]>([]);
   const [helpers, setHelpers] = useState<string[]>([]);
   const [fleetVehicles, setFleetVehicles] = useState<string[]>([]);
+  const [customers, setCustomers] = useState<
+    Array<{ id: number; name: string }>
+  >([]);
   const [editingTrip, setEditingTrip] = useState<TripRecord | null>(null);
+
+  useEffect(() => {
+    if (!customers.length) {
+      return;
+    }
+    const map = new Map(customers.map((c) => [c.id, c.name]));
+    setTrips((prev) =>
+      prev.map((trip) => ({
+        ...trip,
+        customerName:
+          map.get(trip.customerId ?? undefined) ?? trip.customerName ?? null,
+      }))
+    );
+  }, [customers]);
 
   useEffect(() => {
     const fetchTrips = async () => {
@@ -105,6 +156,43 @@ export function useTripsDashboard() {
           color: 'orange',
         });
         setTrips([]);
+      }
+    };
+
+    const fetchCustomers = async () => {
+      try {
+        const response = await fetch('/api/customers?status=active', {
+          cache: 'no-store',
+        });
+        if (!response.ok) {
+          throw new Error('Failed to load customers');
+        }
+
+        const payload = (await response.json()) as
+          | CustomerLite[]
+          | { data?: CustomerLite[] };
+
+        const data = Array.isArray(payload) ? payload : (payload.data ?? []);
+
+        const mapped = data
+          .map((item) => ({
+            id: Number(item.id ?? 0),
+            name: (item.customerName ?? item.name ?? '').trim(),
+          }))
+          .filter((item) => item.id && item.name.length > 0);
+
+        const deduped = Array.from(
+          new Map(mapped.map((m) => [m.id, m.name]))
+        ).map(([id, name]) => ({ id: Number(id), name: String(name) }));
+
+        setCustomers(deduped.sort((a, b) => a.name.localeCompare(b.name)));
+      } catch (error) {
+        showNotification({
+          title: 'Customers unavailable',
+          message:
+            error instanceof Error ? error.message : 'Could not load customers',
+          color: 'orange',
+        });
       }
     };
 
@@ -192,6 +280,7 @@ export function useTripsDashboard() {
     };
 
     fetchTrips();
+    fetchCustomers();
     fetchVehicles();
     fetchTeam();
   }, []);
@@ -205,7 +294,8 @@ export function useTripsDashboard() {
     return trips.filter((trip) => {
       if (
         driverFilter &&
-        normalizeString(trip.driver) !== normalizeString(driverFilter)
+        normalizeString(trip.actualDriver || trip.driver) !==
+          normalizeString(driverFilter)
       ) {
         return false;
       }
@@ -229,11 +319,12 @@ export function useTripsDashboard() {
       }
 
       const haystack = [
-        trip.driver,
-        trip.helper,
+        trip.actualDriver || trip.driver,
+        trip.actualHelper || trip.helper,
         trip.truckId,
         trip.destination,
         trip.remarks,
+        trip.customerName,
       ]
         .filter(Boolean)
         .map((value) => normalizeString(value as string));
@@ -282,24 +373,55 @@ export function useTripsDashboard() {
   }, [trips]);
 
   const driverOptions = useMemo(() => {
-    const seed = Array.from(new Set(trips.map((trip) => trip.driver))).sort();
+    const seed = Array.from(
+      new Set(
+        trips
+          .map((trip) => (trip.actualDriver || trip.driver || '').trim())
+          .filter((name) => name.length > 0)
+      )
+    ).sort();
     const merged = new Set([...(drivers || []), ...seed]);
-    return Array.from(merged).sort();
+    return Array.from(merged)
+      .map((name) => name.trim())
+      .filter((name) => name.length > 0)
+      .sort();
   }, [drivers, trips]);
 
   const helperOptions = useMemo(() => {
-    const seed = Array.from(new Set(trips.map((trip) => trip.helper))).filter(
-      Boolean
-    ) as string[];
+    const seed = Array.from(
+      new Set(
+        trips
+          .map((trip) => (trip.actualHelper || trip.helper || '').trim())
+          .filter((name) => name.length > 0)
+      )
+    );
     const merged = new Set([...(helpers || []), ...seed]);
     return Array.from(merged).sort();
   }, [helpers, trips]);
 
   const truckOptions = useMemo(() => {
-    const seed = Array.from(new Set(trips.map((trip) => trip.truckId))).sort();
+    const seed = Array.from(
+      new Set(
+        trips
+          .map((trip) => (trip.truckId || '').trim())
+          .filter((id) => id.length > 0)
+      )
+    ).sort();
     const merged = new Set([...(fleetVehicles || []), ...seed]);
-    return Array.from(merged).sort();
+    return Array.from(merged)
+      .map((id) => id.trim())
+      .filter((id) => id.length > 0)
+      .sort();
   }, [fleetVehicles, trips]);
+
+  const customerOptions = useMemo(
+    () =>
+      customers.map((customer) => ({
+        label: customer.name,
+        value: String(customer.id),
+      })),
+    [customers]
+  );
 
   const formatCurrency = (value: number) => pesoFormatter.format(value);
 
@@ -333,6 +455,11 @@ export function useTripsDashboard() {
       'Date',
       'Vehicle ID',
       'Destination',
+      'Customer ID',
+      'Driver (Actual)',
+      'Helper (Actual)',
+      'Crew Override Reason',
+      'Attendance Status',
       'Gross Revenue',
       'Fuel (Liters)',
       'Fuel Cost',
@@ -351,6 +478,11 @@ export function useTripsDashboard() {
         record.date,
         record.truckId,
         record.destination,
+        record.customerId ?? '',
+        record.actualDriver ?? record.driver,
+        record.actualHelper ?? record.helper,
+        record.crewOverrideReason ?? '',
+        record.attendanceStatus ?? '',
         record.grossRevenue,
         record.fuelLiters,
         record.fuelCost,
@@ -422,18 +554,29 @@ export function useTripsDashboard() {
       }
 
       const created = (await response.json()) as TripRecord;
+      const createdWithCustomer = {
+        ...created,
+        customerName:
+          customers.find((c) => c.id === created.customerId)?.name ??
+          created.customerName ??
+          null,
+      };
       setTrips((prev) => {
         if (!existingId) {
-          return [normalizeTripRecord(created), ...prev];
+          return [normalizeTripRecord(createdWithCustomer), ...prev];
         }
         return prev.map((trip) =>
-          trip.id === existingId ? normalizeTripRecord(created) : trip
+          trip.id === existingId
+            ? normalizeTripRecord(createdWithCustomer)
+            : trip
         );
       });
 
       showNotification({
         title: existingId ? 'Trip updated' : 'Trip logged',
-        message: `${created.truckId} • ${created.driver} • ${created.date}`,
+        message: `${created.truckId} • ${
+          created.actualDriver || created.driver
+        } • ${created.date}`,
         color: 'green',
       });
     } catch (error) {
@@ -443,10 +586,23 @@ export function useTripsDashboard() {
         payload.tollFees +
         payload.miscExpenses;
 
+      const customerName = customers.find(
+        (customer) => customer.id === (payload.customerId ?? null)
+      )?.name;
+
       const fallbackTrip: TripRecord = {
         ...payload,
         totalExpenses,
         id: existingId || `trip-${Date.now()}`,
+        status: 'draft',
+        completedAt: null,
+        customerId: payload.customerId ?? null,
+        customerName: customerName ?? null,
+        invoiceId: null,
+        actualDriver: payload.actualDriver ?? payload.driver,
+        actualHelper: payload.actualHelper ?? payload.helper,
+        crewOverrideReason: payload.crewOverrideReason ?? null,
+        attendanceStatus: payload.attendanceStatus ?? 'UNCONFIRMED',
       };
 
       setTrips((prev) => {
@@ -533,6 +689,41 @@ export function useTripsDashboard() {
     }
   };
 
+  const handleFinalizeTrip = async (trip: TripRecord) => {
+    try {
+      const response = await fetch(`/api/trucking/trips/${trip.id}/finalize`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to finalize trip');
+      }
+
+      const updated = normalizeTripRecord(
+        ((await response.json()) as TripRecord) || trip
+      );
+
+      setTrips((prev) =>
+        prev.map((item) => (item.id === trip.id ? updated : item))
+      );
+
+      showNotification({
+        title: 'Trip finalized',
+        message: `${trip.truckId} • expenses posted`,
+        color: 'green',
+      });
+    } catch (error) {
+      showNotification({
+        title: 'Finalize failed',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Trip not finalized; no expenses posted',
+        color: 'red',
+      });
+    }
+  };
+
   return {
     trips,
     filteredTrips,
@@ -564,6 +755,7 @@ export function useTripsDashboard() {
       drivers: driverOptions,
       helpers: helperOptions,
       trucks: truckOptions,
+      customers: customerOptions,
     },
     actions: {
       handleImportTrips,
@@ -572,6 +764,7 @@ export function useTripsDashboard() {
       handleCreateOrUpdateTrip,
       handleEditTrip: openEditTrip,
       handleDeleteTrip,
+      handleFinalizeTrip,
       closeLogTrip,
     },
     modals: {
