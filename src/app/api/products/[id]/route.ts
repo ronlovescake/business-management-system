@@ -3,6 +3,8 @@ import type { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
+import { mapToDTO } from '@/modules/products/api/dto';
+import { postExpenseForProduct } from '@/modules/products/api/service';
 
 export async function PUT(
   request: NextRequest,
@@ -36,6 +38,8 @@ export async function PUT(
         unit: sanitizers.name(productData['Unit']) || null,
         shipmentStatus: sanitizers.name(productData['Shipment Status']) || null,
         payment: sanitizers.name(productData['Payment']) || null,
+        paymentMethod: sanitizers.name(productData['Payment Method']) || null,
+        paymentCardId: sanitizers.name(productData['Payment Card Id']) || null,
         linkToPost: sanitizers.url(productData['Link To Post']) || null,
 
         // Sanitize date fields
@@ -152,6 +156,16 @@ export async function PUT(
           }) || 0,
       },
     });
+
+    try {
+      const dto = mapToDTO(updatedProduct);
+      await postExpenseForProduct(updatedProduct.id, dto);
+    } catch (error) {
+      logger.warn('Failed to post expense after product update', {
+        error,
+        productId: id,
+      });
+    }
 
     return NextResponse.json({
       message: 'Product updated successfully',

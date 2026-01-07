@@ -5,7 +5,8 @@
  * Complex form with 15 fields and real-time financial calculations
  */
 
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Stack,
   Group,
@@ -16,6 +17,7 @@ import {
   NumberInput,
   Button,
   Card,
+  Loader,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { PolishedModal } from '@/components/modals/PolishedModal';
@@ -29,12 +31,15 @@ import {
   AGE_RANGE_UNIT_OPTIONS,
   UNIT_OPTIONS,
   PAYMENT_STATUS_OPTIONS,
+  PAYMENT_METHOD_OPTIONS,
 } from '../types/product.types';
 import {
   COMMON_DATE_INPUT_PROPS,
   formatDateForInput,
   parseDateValue,
 } from '@/lib/dateInputConfig';
+import { queryKeys } from '@/lib/queryKeys';
+import { paymentCardService } from '@/modules/settings/global/services/paymentCards.service';
 
 interface AddProductModalProps {
   opened: boolean;
@@ -70,6 +75,21 @@ export const AddProductModal = memo(function AddProductModal({
     calculations.projectedProfit < 0 ? 'red.6' : 'green.6';
   const profitMarginColor =
     calculations.projectedProfitPercent < 0 ? 'red.6' : 'green.6';
+
+  const { data: paymentCards = [], isLoading: cardsLoading } = useQuery({
+    queryKey: queryKeys.paymentCards.lists(),
+    queryFn: () => paymentCardService.list(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const paymentCardOptions = useMemo(
+    () =>
+      paymentCards.map((card) => ({
+        value: card.id,
+        label: `${card.bank} • ${card.label} (${card.last4 ? `•••• ${card.last4}` : '••••'})`,
+      })),
+    [paymentCards]
+  );
 
   return (
     <PolishedModal
@@ -242,6 +262,37 @@ export const AddProductModal = memo(function AddProductModal({
               clearable
               value={form.payment || null}
               onChange={(value) => updateField('payment', value || '')}
+            />
+            <Select
+              label="Payment Method"
+              size="md"
+              radius="md"
+              data={PAYMENT_METHOD_OPTIONS.map((opt) => ({ ...opt }))}
+              allowDeselect
+              clearable
+              value={form.paymentMethod || null}
+              onChange={(value) => {
+                updateField('paymentMethod', value || '');
+                if (value !== 'CARD') {
+                  updateField('paymentCardId', '');
+                }
+              }}
+            />
+            <Select
+              label="Payment Card"
+              size="md"
+              radius="md"
+              data={paymentCardOptions}
+              allowDeselect
+              searchable
+              clearable
+              disabled={form.paymentMethod !== 'CARD'}
+              placeholder={
+                cardsLoading ? 'Loading saved cards...' : 'Select saved card'
+              }
+              rightSection={cardsLoading ? <Loader size="xs" /> : undefined}
+              value={form.paymentCardId || null}
+              onChange={(value) => updateField('paymentCardId', value || '')}
             />
           </SimpleGrid>
         </div>

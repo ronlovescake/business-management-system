@@ -39,12 +39,31 @@ export class ExpenseService {
     };
   }
 
+  private normalizePaymentFields(
+    data: Partial<ExpenseCreateInput>
+  ): Pick<ExpenseCreateDbInput, 'paymentMethod' | 'paymentCardId'> {
+    const toOptional = (value?: string | null) => {
+      if (value === undefined || value === null) {
+        return undefined;
+      }
+      const trimmed = String(value).trim();
+      return trimmed.length === 0 ? undefined : trimmed;
+    };
+
+    return {
+      paymentMethod: toOptional(data.paymentMethod),
+      paymentCardId: toOptional(data.paymentCardId),
+    };
+  }
+
   private normalizeCreateInput(data: ExpenseCreateInput): ExpenseCreateDbInput {
     const sourceFields = this.normalizeSourceFields(data);
+    const paymentFields = this.normalizePaymentFields(data);
 
     return {
       ...data,
       ...sourceFields,
+      ...paymentFields,
       date: data.date.toISOString().split('T')[0],
       receipt: data.receipt ?? undefined,
       notes: data.notes ?? undefined,
@@ -170,6 +189,19 @@ export class ExpenseService {
         }
         if ('systemGenerated' in updateData) {
           updateData.systemGenerated = normalized.systemGenerated;
+        }
+      }
+
+      const shouldNormalizePayment =
+        'paymentMethod' in updateData || 'paymentCardId' in updateData;
+
+      if (shouldNormalizePayment) {
+        const normalizedPayment = this.normalizePaymentFields(updateData);
+        if ('paymentMethod' in updateData) {
+          updateData.paymentMethod = normalizedPayment.paymentMethod ?? null;
+        }
+        if ('paymentCardId' in updateData) {
+          updateData.paymentCardId = normalizedPayment.paymentCardId ?? null;
         }
       }
 

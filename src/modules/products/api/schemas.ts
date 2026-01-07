@@ -10,6 +10,8 @@ export const productDataSchema = z.object({
   'Posting Date': z.string().nullable(),
   'Order Date': z.string().nullable(),
   Payment: z.string().max(191).nullable(),
+  'Payment Method': z.string().max(100).nullable().optional(),
+  'Payment Card Id': z.string().max(191).nullable().optional(),
   Product: z.string().max(191).nullable(),
   'Product Code': z.string().min(1).max(191),
   'Age Range': z.string().max(191).nullable(),

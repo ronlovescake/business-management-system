@@ -4,6 +4,8 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { mapFromDTO, mapToDTO } from './dto';
 import type { ProductDTO } from './dto';
+import { expenseService } from '@/modules/clothing/employees/expenses/api/service';
+import type { ExpenseCreateInput } from '@/modules/clothing/employees/expenses/api/schemas';
 
 async function logOperationNotification(
   category: string,
@@ -31,9 +33,7 @@ export interface ProductService {
   bulkImport: (
     payload: ProductDTO[]
   ) => Promise<{ created: number; updated: number; restored: number }>;
-  bulkUpdate: (
-    payload: ProductDTO[]
-  ) => Promise<{
+  bulkUpdate: (payload: ProductDTO[]) => Promise<{
     created: number;
     updated: number;
     restored: number;
@@ -47,6 +47,89 @@ function buildUpdateData(dto: ProductDTO): Prisma.ProductUpdateInput {
   return { ...base, deletedAt: null };
 }
 
+function isPaid(payment?: string | null): boolean {
+  return (payment ?? '').trim().toLowerCase() === 'paid';
+}
+
+function buildExpenseFromProduct(
+  productId: number,
+  dto: ProductDTO
+): (ExpenseCreateInput & { sourceId: string }) | null {
+  if (!isPaid(dto.Payment)) {
+    logger.info('Skip expense post: payment not paid', {
+      productId,
+      payment: dto.Payment,
+    });
+    return null;
+  }
+
+  const amount = dto['Grand Total'] ?? 0;
+  if (!amount || amount <= 0) {
+    logger.info('Skip expense post: amount not positive', {
+      productId,
+      amount,
+    });
+    return null;
+  }
+
+  const dateString = dto['Order Date'] || dto['Posting Date'] || null;
+  const date = dateString ? new Date(dateString) : new Date();
+  if (Number.isNaN(date.getTime())) {
+    logger.info('Skip expense post: invalid date', {
+      productId,
+      orderDate: dto['Order Date'],
+      postingDate: dto['Posting Date'],
+    });
+    return null;
+  }
+
+  const description =
+    dto['Product Code'] || dto.Product || `Product #${productId}`;
+  const sourceLineKey = dto['Product Code'] || String(productId);
+
+  return {
+    date,
+    amount,
+    description,
+    category: 'Products',
+    notes: dto.Product ?? undefined,
+    receipt: null,
+    status: 'pending',
+    employeeName: undefined,
+    paymentMethod: dto['Payment Method'] ?? undefined,
+    paymentCardId: dto['Payment Card Id'] ?? undefined,
+    sourceType: 'PRODUCT',
+    sourceId: String(productId),
+    sourceLineKey,
+    systemGenerated: true,
+  };
+}
+
+export async function postExpenseForProduct(
+  productId: number,
+  dto: ProductDTO
+) {
+  const expensePayload = buildExpenseFromProduct(productId, dto);
+  if (!expensePayload) {
+    return;
+  }
+
+  try {
+    const expense = await expenseService.upsertBySource(expensePayload);
+    logger.info('Expense posted from product', {
+      productId,
+      expenseId: expense.id,
+      sourceLineKey: expense.sourceLineKey,
+    });
+  } catch (error) {
+    logger.warn('Failed to post expense for product', {
+      error,
+      productId,
+      payment: dto.Payment,
+    });
+  }
+}
+
 export const productService: ProductService = {
   async findActive() {
     const products = await prisma.product.findMany({
@@ -58,10 +141,13 @@ export const productService: ProductService = {
 
   async createSingle(payload) {
     const created = await prisma.product.create({ data: mapFromDTO(payload) });
+    await postExpenseForProduct(created.id, payload);
     return mapToDTO(created);
   },
 
   async bulkImport(payload) {
+    const postings: Array<{ productId: number; dto: ProductDTO }> = [];
+
     const result = await prisma.$transaction(async (tx) => {
       let created = 0;
       let updated = 0;
@@ -84,13 +170,15 @@ export const productService: ProductService = {
             where: { id: existing.id },
             data: buildUpdateData(dto),
           });
+          postings.push({ productId: existing.id, dto });
           if (wasDeleted) {
             restored++;
           } else {
             updated++;
           }
         } else {
-          await tx.product.create({ data });
+          const createdProduct = await tx.product.create({ data });
+          postings.push({ productId: createdProduct.id, dto });
           created++;
         }
       }
@@ -98,10 +186,18 @@ export const productService: ProductService = {
       return { created, updated, restored };
     });
 
+    await Promise.all(
+      postings.map(({ productId, dto }) =>
+        postExpenseForProduct(productId, dto)
+      )
+    );
+
     return result;
   },
 
   async bulkUpdate(payload) {
+    const postings: Array<{ productId: number; dto: ProductDTO }> = [];
+
     const result = await prisma.$transaction(async (tx) => {
       let created = 0;
       let updated = 0;
@@ -163,6 +259,7 @@ export const productService: ProductService = {
             where: { id: existing.id },
             data: buildUpdateData(dto),
           });
+          postings.push({ productId: existing.id, dto });
 
           if (changes.length > 0) {
             changeTracking.push({
@@ -180,6 +277,7 @@ export const productService: ProductService = {
           }
         } else {
           const createdProduct = await tx.product.create({ data });
+          postings.push({ productId: createdProduct.id, dto });
           created++;
 
           const changes: string[] = [];
@@ -215,6 +313,12 @@ export const productService: ProductService = {
 
       return { created, updated, restored, changeTracking };
     });
+
+    await Promise.all(
+      postings.map(({ productId, dto }) =>
+        postExpenseForProduct(productId, dto)
+      )
+    );
 
     let notifications = 0;
     if (result.changeTracking.length > 0) {

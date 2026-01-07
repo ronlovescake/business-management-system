@@ -87,6 +87,8 @@ model Product {
   postingDate            String?   @db.VarChar(50)
   orderDate              String?   @db.VarChar(50)
   payment                String?   @db.VarChar(100)
+  paymentMethod          String?   @db.VarChar(50)
+  paymentCardId          String?   @db.VarChar(100)
   product                String?   @db.VarChar(500)
   productCode            String?   @db.VarChar(100)
   ageRange               String?   @db.VarChar(100)
@@ -115,13 +117,33 @@ model Product {
   bulkQuantity           Float     @default(0)
   bulkWeight             Float     @default(0)
   weightPerPiece         Float     @default(0)
+  paymentCard            PaymentCard? @relation(fields: [paymentCardId], references: [id])
 
   @@index([productCode])
   @@index([shipmentCode])
   @@index([shipmentStatus])
   @@index([payment])
+  @@index([paymentMethod])
+  @@index([paymentCardId])
   @@index([ageRange])
   @@map("products")
+}
+
+model PaymentCard {
+  id         String    @id @default(cuid())
+  bank       String    @db.VarChar(100)
+  label      String    @db.VarChar(100)
+  nameOnCard String    @db.VarChar(255)
+  last4      String?   @db.VarChar(4)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  expenses Expense[]
+  products Product[]
+
+  @@index([bank])
+  @@index([label])
+  @@map("payment_cards")
 }
 
 model ShippingFeeCalculatorState {
@@ -426,15 +448,20 @@ model Expense {
   receipt      String?  @db.VarChar(500)
   status       String   @db.VarChar(20)
   employeeName String?  @db.VarChar(255)
+  paymentMethod String?  @db.VarChar(50)
+  paymentCardId String?  @db.VarChar(100)
   sourceType   String   @default("MANUAL") @db.VarChar(50)
   sourceId     String?  @db.VarChar(100)
   sourceLineKey String? @db.VarChar(100)
   systemGenerated Boolean @default(false)
+  paymentCard  PaymentCard? @relation(fields: [paymentCardId], references: [id])
 
   @@index([date])
   @@index([category])
   @@index([status])
   @@index([employeeName])
+  @@index([paymentMethod])
+  @@index([paymentCardId])
   @@index([sourceType])
   @@index([sourceId])
   @@unique([sourceType, sourceId, sourceLineKey])

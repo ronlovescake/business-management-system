@@ -19,6 +19,8 @@ export interface ProductData {
   'Posting Date': string;
   'Order Date': string;
   Payment: string;
+  'Payment Method'?: string | null;
+  'Payment Card Id'?: string | null;
   Product: string;
   'Product Code': string;
   'Age Range': string;
@@ -57,6 +59,8 @@ export interface ProductFormData {
   postingDate: string;
   orderDate: string;
   payment: string;
+  paymentMethod: string;
+  paymentCardId: string;
   product: string;
   previousProductCode: string;
   ageRange: string;
@@ -284,6 +288,15 @@ export const UNIT_OPTIONS = [
 export const PAYMENT_STATUS_OPTIONS = [
   { label: '✅ Paid', value: 'Paid' },
   { label: '⏳ Unpaid', value: 'Unpaid' },
+] as const;
+
+export const PAYMENT_METHOD_OPTIONS = [
+  { label: 'Cash', value: 'CASH' },
+  { label: 'Bank Transfer', value: 'BANK' },
+  { label: 'GCash', value: 'GCASH' },
+  { label: 'Check', value: 'CHECK' },
+  { label: 'Credit / Debit Card', value: 'CARD' },
+  { label: 'Other', value: 'OTHER' },
 ] as const;
 
 /**

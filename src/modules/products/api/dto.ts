@@ -11,6 +11,8 @@ export type ProductDTO = {
   'Posting Date': string | null;
   'Order Date': string | null;
   Payment: string | null;
+  'Payment Method'?: string | null;
+  'Payment Card Id'?: string | null;
   Product: string | null;
   'Product Code': string | null;
   'Age Range': string | null;
@@ -53,6 +55,10 @@ export function mapToDTO(product: Product): ProductDTO {
     'Posting Date': product.postingDate,
     'Order Date': product.orderDate,
     Payment: product.payment,
+    'Payment Method':
+      (product as Product & { paymentMethod?: string }).paymentMethod ?? null,
+    'Payment Card Id':
+      (product as Product & { paymentCardId?: string }).paymentCardId ?? null,
     Product: product.product,
     'Product Code': product.productCode,
     'Age Range': product.ageRange,
@@ -95,6 +101,10 @@ export function mapFromDTO(payload: ProductDTO): Prisma.ProductCreateInput {
     postingDate: payload['Posting Date'],
     orderDate: payload['Order Date'],
     payment: payload.Payment,
+    paymentMethod: payload['Payment Method'],
+    paymentCard: payload['Payment Card Id']
+      ? { connect: { id: payload['Payment Card Id'] } }
+      : undefined,
     product: payload.Product,
     productCode: payload['Product Code'],
     ageRange: payload['Age Range'],

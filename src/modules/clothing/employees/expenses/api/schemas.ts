@@ -54,6 +54,8 @@ export const ExpenseCreateSchema = z.object({
   receipt: z.string().url().nullable().optional(),
   status: ExpenseStatusSchema.default('pending'),
   employeeName: z.string().optional().nullable(),
+  paymentMethod: z.string().trim().max(50).optional(),
+  paymentCardId: z.string().trim().max(100).optional(),
   sourceType: SourceTypeCreateSchema,
   sourceId: OptionalSourceIdSchema,
   sourceLineKey: OptionalSourceIdSchema,

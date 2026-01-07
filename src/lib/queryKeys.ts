@@ -82,6 +82,17 @@ export const queryKeys = {
       [...queryKeys.expenses.details(), id] as const,
   },
 
+  // Payment Cards
+  paymentCards: {
+    all: ['payment-cards'] as const,
+    lists: () => [...queryKeys.paymentCards.all, 'list'] as const,
+    list: (filters?: Record<string, unknown>) =>
+      [...queryKeys.paymentCards.lists(), { filters }] as const,
+    details: () => [...queryKeys.paymentCards.all, 'detail'] as const,
+    detail: (id: string | number) =>
+      [...queryKeys.paymentCards.details(), id] as const,
+  },
+
   // Business Intelligence / Analytics
   analytics: {
     all: ['analytics'] as const,

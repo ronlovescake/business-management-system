@@ -76,6 +76,10 @@ export class ProductService {
       errors.push('Weight per piece cannot be negative');
     }
 
+    if (form.paymentMethod === 'CARD' && !form.paymentCardId.trim()) {
+      errors.push('Select a saved card when payment method is Card');
+    }
+
     return {
       isValid: errors.length === 0,
       errors,
@@ -200,6 +204,16 @@ export class ProductService {
       form.postingDate
     );
 
+    const paymentMethod =
+      form.paymentMethod && form.paymentMethod.trim().length
+        ? form.paymentMethod.trim().toUpperCase()
+        : null;
+
+    const paymentCardId =
+      form.paymentCardId && form.paymentCardId.trim().length
+        ? form.paymentCardId.trim()
+        : null;
+
     // Combine age range fields into a single string
     // Supports: "0-12 months", "12 years", "0-12 years", etc.
     let ageRange = '';
@@ -228,6 +242,8 @@ export class ProductService {
       'Posting Date': form.postingDate || '',
       'Order Date': form.orderDate || '',
       Payment: form.payment || '',
+      'Payment Method': paymentMethod,
+      'Payment Card Id': paymentCardId,
       Product: form.product?.trim() || '',
       'Product Code': productCode,
       'Age Range': ageRange,
@@ -267,6 +283,8 @@ export class ProductService {
       postingDate: '',
       orderDate: '',
       payment: '',
+      paymentMethod: '',
+      paymentCardId: '',
       product: '',
       previousProductCode: '',
       ageRange: '',
@@ -316,6 +334,8 @@ export class ProductService {
       postingDate: this.toSafeString(product['Posting Date']),
       orderDate: this.toSafeString(product['Order Date']),
       payment: this.toSafeString(product.Payment),
+      paymentMethod: this.toSafeString(product['Payment Method'] || ''),
+      paymentCardId: this.toSafeString(product['Payment Card Id'] || ''),
       product: this.toSafeString(product.Product),
       previousProductCode: this.toSafeString(product['Product Code']),
       ageRange,

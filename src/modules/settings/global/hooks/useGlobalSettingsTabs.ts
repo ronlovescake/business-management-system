@@ -7,6 +7,7 @@ import type {
 
 const DEFAULT_ACTIONS: GlobalSettingsToolbarAction[] = [
   { value: 'users', label: 'User Management' },
+  { value: 'payments', label: 'Payments & Cards', color: 'teal' },
   { value: 'backup', label: 'Backup & Restore', color: 'grape' },
   { value: 'scheduler', label: 'Schedulers', color: 'indigo' },
 ];

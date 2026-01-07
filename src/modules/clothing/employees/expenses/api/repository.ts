@@ -192,6 +192,8 @@ export class ExpenseRepository extends BaseRepository<
         notes: data.notes ?? undefined,
         receipt: data.receipt ?? undefined,
         status: data.status,
+        paymentMethod: data.paymentMethod ?? null,
+        paymentCardId: data.paymentCardId ?? null,
         // Allow explicit null to clear Logged By
         employeeName:
           data.employeeName === undefined ? undefined : data.employeeName,
