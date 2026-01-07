@@ -32,7 +32,7 @@ Every generated record should link back to its origin:
 
 When syncing/auto-posting, prevent duplicates with a uniqueness rule like:
 
-- Unique constraint: `(sourceType, sourceId, sourceLineKey)`
+- Unique constraint: `(sourceType, sourceId, sourceLineKey)` — DONE (DB unique index applied)
 - Use **upsert** or **void+recreate** when the source changes.
 
 ### 4) Clear edit/reversal policy (decide before rollout)
@@ -70,6 +70,8 @@ Expenses table currently shows **Vehicle ID**, but not all expenses are vehicle-
 - ACTION
 
 ### Recommended DB fields (minimum for integrations)
+
+Status: DONE in schema/DB (fields present with unique index)
 
 - `vehicleId` (nullable)
 - `sourceType` (string/enum; displayed as SOURCE in UI)
@@ -253,6 +255,8 @@ Track **cash received from clients** (payments). Clients pay **batch per cutoff*
 
 ### Minimal AR data model (recommended)
 
+Status: Core AR tables + trips.customerId added and synced to DB
+
 1. **Customers**
 
 - A trip must be attributable to a customer to batch-bill correctly.
@@ -260,7 +264,7 @@ Track **cash received from clients** (payments). Clients pay **batch per cutoff*
 2. **Trips**
    Add/ensure:
 
-- `customerId` (required for invoicing)
+- `customerId` (required for invoicing) — DONE (column added + db push)
 - `status` (`DRAFT|COMPLETED|CANCELLED`, etc.)
 - optional: `completedAt`
 

@@ -38,6 +38,8 @@ export default function Expenses() {
     setFilterCategory,
     filterStatus,
     setFilterStatus,
+    filterSource,
+    setFilterSource,
     isModalOpen,
     setIsModalOpen,
     editingExpense,
@@ -71,6 +73,7 @@ export default function Expenses() {
 
     // Computed values
     categories,
+    sourceOptions,
     totalExpenses,
     pendingExpenses,
     approvedExpenses,
@@ -81,6 +84,8 @@ export default function Expenses() {
     formatDate,
     formatCurrency,
     getCategoryColor,
+    getSourceLabel,
+    getSourceColor,
 
     // Event handlers
     handleAddExpense,
@@ -117,7 +122,10 @@ export default function Expenses() {
             onCategoryFilterChange={setFilterCategory}
             filterStatus={filterStatus}
             onStatusFilterChange={setFilterStatus}
+            filterSource={filterSource}
+            onSourceFilterChange={setFilterSource}
             categories={categories}
+            sources={sourceOptions}
             onImportCSV={handleImportCSV}
             onExportCSV={handleExportCSV}
             onAddExpense={handleAddExpense}
@@ -132,6 +140,8 @@ export default function Expenses() {
               formatDate={formatDate}
               formatCurrency={formatCurrency}
               getCategoryColor={getCategoryColor}
+              getSourceLabel={getSourceLabel}
+              getSourceColor={getSourceColor}
               onViewReceipt={handleViewReceipt}
               onApprove={handleApprove}
               onReject={handleReject}

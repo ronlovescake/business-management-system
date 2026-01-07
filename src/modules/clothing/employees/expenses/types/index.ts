@@ -1,4 +1,4 @@
-export type ExpenseStatus = 'pending' | 'approved' | 'rejected';
+export type ExpenseStatus = 'pending' | 'approved' | 'rejected' | 'paid';
 
 export interface Expense {
   id: string;
@@ -10,6 +10,10 @@ export interface Expense {
   receipt: string | null;
   status: ExpenseStatus;
   employeeName?: string;
+  sourceType?: string;
+  sourceId?: string | null;
+  sourceLineKey?: string | null;
+  systemGenerated?: boolean;
 }
 
 export interface ImportCSVSummary {

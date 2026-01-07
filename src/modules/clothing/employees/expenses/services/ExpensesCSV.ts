@@ -130,6 +130,7 @@ export function parseCSV(text: string): ParseResult {
         'pending',
         'approved',
         'rejected',
+        'paid',
       ].includes(status)
         ? status
         : 'pending';

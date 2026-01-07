@@ -62,6 +62,15 @@ type CustomerLite = {
   name?: string | null;
 };
 
+type VehicleAssignment = {
+  vehicleId: string;
+  driver: string;
+  helper: string;
+  startDate: string;
+  endDate: string;
+  status: 'scheduled' | 'active' | 'completed' | 'cancelled';
+};
+
 const buildEmployeeName = (member: TeamMember) => {
   const primary = member.name?.trim();
   if (primary) {
@@ -117,6 +126,7 @@ export function useTripsDashboard() {
   const [customers, setCustomers] = useState<
     Array<{ id: number; name: string }>
   >([]);
+  const [assignments, setAssignments] = useState<VehicleAssignment[]>([]);
   const [editingTrip, setEditingTrip] = useState<TripRecord | null>(null);
 
   useEffect(() => {
@@ -127,8 +137,12 @@ export function useTripsDashboard() {
     setTrips((prev) =>
       prev.map((trip) => ({
         ...trip,
-        customerName:
-          map.get(trip.customerId ?? undefined) ?? trip.customerName ?? null,
+        customerName: (() => {
+          if (typeof trip.customerId === 'number') {
+            return map.get(trip.customerId) ?? trip.customerName ?? null;
+          }
+          return trip.customerName ?? null;
+        })(),
       }))
     );
   }, [customers]);
@@ -231,6 +245,47 @@ export function useTripsDashboard() {
       }
     };
 
+    const fetchAssignments = async () => {
+      try {
+        const response = await fetch('/api/trucking/vehicle-assignments', {
+          cache: 'no-store',
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to load vehicle assignments');
+        }
+
+        const payload = (await response.json()) as {
+          data?: VehicleAssignment[];
+        };
+
+        const data = Array.isArray(payload.data) ? payload.data : [];
+
+        const normalized = data
+          .map((row) => ({
+            vehicleId: (row.vehicleId || '').trim(),
+            driver: (row.driver || '').trim(),
+            helper: (row.helper || '').trim(),
+            startDate: row.startDate,
+            endDate: row.endDate,
+            status: row.status,
+          }))
+          .filter((row) => row.vehicleId && row.startDate && row.endDate);
+
+        setAssignments(normalized);
+      } catch (error) {
+        showNotification({
+          title: 'Assignments unavailable',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Could not load vehicle assignments',
+          color: 'orange',
+        });
+        setAssignments([]);
+      }
+    };
+
     const fetchTeam = async () => {
       try {
         const response = await fetch('/api/trucking/employees?status=active', {
@@ -283,7 +338,52 @@ export function useTripsDashboard() {
     fetchCustomers();
     fetchVehicles();
     fetchTeam();
+    fetchAssignments();
   }, []);
+
+  const findExpectedCrew = useMemo(() => {
+    const byVehicle = new Map<string, VehicleAssignment[]>();
+
+    assignments.forEach((assignment) => {
+      if (!byVehicle.has(assignment.vehicleId)) {
+        byVehicle.set(assignment.vehicleId, []);
+      }
+      byVehicle.get(assignment.vehicleId)?.push(assignment);
+    });
+
+    return (truckId: string, date: Date | null) => {
+      if (!truckId || !date) {
+        return null;
+      }
+
+      const candidates = byVehicle.get(truckId.trim());
+      if (!candidates || !candidates.length) {
+        return null;
+      }
+
+      const target = date.toISOString().slice(0, 10);
+
+      const match = candidates.find((assignment) => {
+        if (!['active', 'scheduled'].includes(assignment.status)) {
+          return false;
+        }
+
+        return (
+          target >= assignment.startDate.slice(0, 10) &&
+          target <= assignment.endDate.slice(0, 10)
+        );
+      });
+
+      if (!match) {
+        return null;
+      }
+
+      return {
+        driver: match.driver,
+        helper: match.helper,
+      };
+    };
+  }, [assignments]);
 
   const filteredTrips = useMemo(() => {
     const query = normalizeString(searchQuery);
@@ -773,6 +873,7 @@ export function useTripsDashboard() {
         onClose: closeLogTrip,
         onSubmit: handleCreateOrUpdateTrip,
         initialTrip: editingTrip,
+        getExpectedCrew: findExpectedCrew,
       },
     },
     formatCurrency,

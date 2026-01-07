@@ -11,6 +11,16 @@ const EXPENSE_CATEGORY_OPTIONS = [
   'Truck Washing / Cleaning',
   'Permits & Registration',
   'Vehicle Purchase',
+  // Clothing business additions
+  'Products',
+  'Shipping / Delivery Fee',
+  'Payroll',
+  'Packaging',
+  'Warehouse Rental',
+  'Electricity Bill [Warehouse]',
+  'Water Bill [Warehouse]',
+  'Business Expense - Others',
+  'Business Expense - Food',
 ] as const;
 
 export const expenseCategoryOptions = EXPENSE_CATEGORY_OPTIONS;

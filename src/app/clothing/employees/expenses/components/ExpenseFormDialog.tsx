@@ -36,7 +36,7 @@ interface Expense {
   category: string;
   notes: string;
   receipt: string | null;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'paid';
   employeeName?: string;
 }
 

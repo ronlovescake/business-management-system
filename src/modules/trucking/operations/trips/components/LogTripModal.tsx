@@ -32,6 +32,10 @@ interface LogTripModalProps {
   helpers: string[];
   trucks: string[];
   customers: Array<{ label: string; value: string }>;
+  getExpectedCrew?: (
+    truckId: string,
+    date: Date | null
+  ) => { driver: string; helper: string } | null;
 }
 
 interface LogTripFormValues {
@@ -87,6 +91,7 @@ export function LogTripModal({
   helpers,
   trucks,
   customers,
+  getExpectedCrew,
   initialTrip = null,
   mode = 'create',
 }: LogTripModalProps) {
@@ -197,6 +202,80 @@ export function LogTripModal({
     values.maintenance +
     values.tollFees +
     values.miscExpenses;
+
+  // Prefill expected crew from vehicle assignment when provided
+  useEffect(() => {
+    if (!getExpectedCrew || initialTrip) {
+      return;
+    }
+
+    const expected = getExpectedCrew(form.values.truckId, form.values.date);
+    if (!expected) {
+      return;
+    }
+
+    const driverChanged = form.values.driver.trim().length > 0;
+    const helperChanged = form.values.helper.trim().length > 0;
+
+    // Only prefill when the user hasn't picked a crew yet
+    if (!driverChanged) {
+      form.setFieldValue('driver', expected.driver);
+      if (!form.values.overrideEnabled) {
+        form.setFieldValue('actualDriver', expected.driver);
+      }
+    }
+
+    if (!helperChanged) {
+      form.setFieldValue('helper', expected.helper || '');
+      if (!form.values.overrideEnabled) {
+        form.setFieldValue('actualHelper', expected.helper || '');
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.values.truckId, form.values.date, getExpectedCrew, initialTrip]);
+
+  const expectedCrew = getExpectedCrew?.(form.values.truckId, form.values.date);
+
+  const ensureOverrideIfDifferent = (
+    role: 'driver' | 'helper',
+    selected: string
+  ) => {
+    if (!expectedCrew) {
+      return false;
+    }
+
+    const expectedValue =
+      role === 'driver' ? expectedCrew.driver : expectedCrew.helper;
+
+    if (
+      !form.values.overrideEnabled &&
+      expectedValue &&
+      selected.trim() &&
+      selected.trim() !== expectedValue.trim()
+    ) {
+      form.setFieldValue('overrideEnabled', true);
+      form.setFieldValue(
+        'crewOverrideReason',
+        form.values.crewOverrideReason || 'Manual override'
+      );
+      form.setFieldValue(
+        'attendanceStatus',
+        form.values.attendanceStatus || 'UNCONFIRMED'
+      );
+
+      if (role === 'driver') {
+        form.setFieldValue('driver', expectedValue);
+        form.setFieldValue('actualDriver', selected.trim());
+      } else {
+        form.setFieldValue('helper', expectedValue);
+        form.setFieldValue('actualHelper', selected.trim());
+      }
+
+      return true;
+    }
+
+    return false;
+  };
 
   const handleSubmit = (payload: LogTripFormValues) => {
     const overrideEnabled = payload.overrideEnabled;
@@ -352,7 +431,16 @@ export function LogTripModal({
                 .map((driver) => ({ label: driver, value: driver }))}
               leftSection={<IconUser size={16} />}
               value={form.values.driver}
-              onChange={(value) => form.setFieldValue('driver', value || '')}
+              onChange={(value) => {
+                const next = value || '';
+                const forced = ensureOverrideIfDifferent('driver', next);
+                if (!forced) {
+                  form.setFieldValue('driver', next);
+                  if (!form.values.overrideEnabled) {
+                    form.setFieldValue('actualDriver', next);
+                  }
+                }
+              }}
               searchable
               required
               {...polished.getSelectProps('driver').handlers}
@@ -372,7 +460,16 @@ export function LogTripModal({
                 .map((helper) => ({ label: helper, value: helper }))}
               leftSection={<IconUsers size={16} />}
               value={form.values.helper}
-              onChange={(value) => form.setFieldValue('helper', value || '')}
+              onChange={(value) => {
+                const next = value || '';
+                const forced = ensureOverrideIfDifferent('helper', next);
+                if (!forced) {
+                  form.setFieldValue('helper', next);
+                  if (!form.values.overrideEnabled) {
+                    form.setFieldValue('actualHelper', next);
+                  }
+                }
+              }}
               searchable
               clearable
               {...polished.getSelectProps('helper').handlers}

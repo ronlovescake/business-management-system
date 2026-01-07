@@ -7,6 +7,24 @@
 import { z } from 'zod';
 import { expenseCategoryOptions } from '../utils';
 
+const BaseSourceTypeSchema = z.string().trim().max(50);
+
+const SourceTypeCreateSchema = BaseSourceTypeSchema.optional()
+  .transform((val) => (val ? val.toUpperCase() : 'MANUAL'))
+  .default('MANUAL');
+
+const SourceTypeFilterSchema = BaseSourceTypeSchema.optional().transform(
+  (val) => (val ? val.toUpperCase() : undefined)
+);
+
+const OptionalSourceIdSchema = z
+  .string()
+  .trim()
+  .max(100)
+  .transform((val) => (val === '' ? null : val))
+  .nullable()
+  .optional();
+
 /**
  * Expense status enum
  */
@@ -35,7 +53,11 @@ export const ExpenseCreateSchema = z.object({
   notes: z.string().max(1000).optional(),
   receipt: z.string().url().nullable().optional(),
   status: ExpenseStatusSchema.default('pending'),
-  employeeName: z.string().optional(),
+  employeeName: z.string().optional().nullable(),
+  sourceType: SourceTypeCreateSchema,
+  sourceId: OptionalSourceIdSchema,
+  sourceLineKey: OptionalSourceIdSchema,
+  systemGenerated: z.boolean().default(false),
 });
 
 export type ExpenseCreateInput = z.infer<typeof ExpenseCreateSchema>;
@@ -81,6 +103,7 @@ export const ExpenseQuerySchema = z.object({
   employeeName: z.string().optional(),
   minAmount: z.number().nonnegative().optional(),
   maxAmount: z.number().nonnegative().optional(),
+  sourceType: SourceTypeFilterSchema,
 });
 
 export type ExpenseQuery = z.infer<typeof ExpenseQuerySchema>;

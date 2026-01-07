@@ -224,7 +224,8 @@ export async function POST(
             description: line.description,
           };
 
-          const existing = await tx.truckingExpense.findFirst({
+          // Idempotent upsert: ensure only one line per (sourceType, sourceId, sourceLineKey)
+          await tx.truckingExpense.deleteMany({
             where: {
               sourceType: SOURCE_TYPE,
               sourceId: trip.id,
@@ -232,14 +233,7 @@ export async function POST(
             },
           });
 
-          if (existing) {
-            await tx.truckingExpense.update({
-              where: { id: existing.id },
-              data: payload,
-            });
-          } else {
-            await tx.truckingExpense.create({ data: payload });
-          }
+          await tx.truckingExpense.create({ data: payload });
         }
 
         await updateTripStatus(tx, tripId, trip, columns);

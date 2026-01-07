@@ -116,6 +116,11 @@ export interface ExpenseDTO {
   status: string;
   employeeName: string | null;
   vehicleId?: string | null;
+  sourceType?: string | null;
+  sourceId?: string | null;
+  sourceLineKey?: string | null;
+  systemGenerated?: boolean;
+  employeeId?: string | null;
 }
 
 // Legacy support

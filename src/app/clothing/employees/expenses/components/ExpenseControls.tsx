@@ -24,7 +24,10 @@ interface ExpenseControlsProps {
   onCategoryFilterChange: (category: string | null) => void;
   filterStatus: string | null;
   onStatusFilterChange: (status: string | null) => void;
+  filterSource: string | null;
+  onSourceFilterChange: (source: string | null) => void;
   categories: string[];
+  sources: string[];
   onImportCSV: (file: File | null) => void;
   onExportCSV: () => void;
   onAddExpense: () => void;
@@ -45,7 +48,10 @@ export const ExpenseControls = memo(function ExpenseControls({
   onCategoryFilterChange,
   filterStatus,
   onStatusFilterChange,
+  filterSource,
+  onSourceFilterChange,
   categories,
+  sources,
   onImportCSV,
   onExportCSV,
   onAddExpense,
@@ -83,10 +89,20 @@ export const ExpenseControls = memo(function ExpenseControls({
           />
           <Select
             placeholder="Filter by status"
-            data={['All', 'pending', 'approved', 'rejected']}
+            data={['All', 'pending', 'approved', 'rejected', 'paid']}
             value={filterStatus}
             onChange={(value) =>
               onStatusFilterChange(value === 'All' ? null : value)
+            }
+            clearable
+            style={{ width: 200 }}
+          />
+          <Select
+            placeholder="Filter by source"
+            data={['All', ...sources]}
+            value={filterSource}
+            onChange={(value) =>
+              onSourceFilterChange(value === 'All' ? null : value)
             }
             clearable
             style={{ width: 200 }}

@@ -13,6 +13,7 @@ import {
   validatePayroll,
   type PayrollInput,
 } from '@/lib/validations/payroll.validation';
+import { expenseService } from '@/modules/clothing/employees/expenses/api';
 
 const BULK_PAYROLL_LIMIT = BATCH_LIMITS.MAX_BATCH_SIZE;
 
@@ -213,6 +214,52 @@ function sortPayrolls(payrolls: Payroll[]): Payroll[] {
       return dateCompare;
     }
     return (a.employeeName || '').localeCompare(b.employeeName || '');
+  });
+}
+
+async function syncExpenseFromPayroll(
+  payroll: Payroll,
+  processedBy?: string | null
+): Promise<void> {
+  const paidDate = payroll.paidDate || new Date().toISOString().split('T')[0];
+  const parsedDate = new Date(paidDate);
+  const expenseDate = Number.isNaN(parsedDate.getTime())
+    ? new Date()
+    : parsedDate;
+
+  const netPay = Number(payroll.netPay ?? 0);
+  const amount = Number.isFinite(netPay) ? Math.max(0, netPay) : 0;
+
+  const descriptionParts = [
+    'Payroll',
+    payroll.employeeName || payroll.employeeId || 'Employee',
+  ];
+  const description = descriptionParts.filter(Boolean).join(' - ');
+
+  const notesParts = [
+    payroll.payPeriod ? `Pay period: ${payroll.payPeriod}` : null,
+    payroll.periodStart && payroll.periodEnd
+      ? `Period dates: ${payroll.periodStart} to ${payroll.periodEnd}`
+      : null,
+  ].filter(Boolean);
+
+  // Prefer the processor; if absent, explicitly clear to avoid showing payee
+  const loggedBy = processedBy?.trim() ? processedBy.trim() : null;
+
+  await expenseService.upsertBySource({
+    date: expenseDate,
+    amount,
+    description,
+    category: 'Payroll',
+    notes: notesParts.join(' | ') || undefined,
+    receipt: null,
+    status: 'paid',
+    employeeName: loggedBy,
+    sourceType: 'PAYROLL',
+    sourceId: payroll.id,
+    sourceLineKey:
+      payroll.payPeriod || payroll.periodEnd || payroll.periodStart || null,
+    systemGenerated: true,
   });
 }
 
@@ -543,12 +590,52 @@ export const PUT = withErrorHandler(async (request: NextRequest) => {
     const statusChangedToPaid =
       existing.status !== 'paid' && payroll.status === 'paid';
 
+    // Resolve the processor from payload or common forwarded user headers
+    const headerNames = [
+      'x-user-name',
+      'x-ms-client-principal-name',
+      'x-client-principal-name',
+      'x-forwarded-user',
+      'x-forwarded-email',
+    ];
+
+    const processedByFromHeaders = headerNames
+      .map((name) => request.headers.get(name))
+      .map((value) => sanitizers.name(value))
+      .find((value) => Boolean(value?.trim()))
+      ?.trim();
+
+    const processedBy =
+      sanitizers
+        .name(
+          (body as Record<string, unknown>).processedBy ??
+            (body as Record<string, unknown>).processedByName ??
+            (body as Record<string, unknown>).updatedBy ??
+            (body as Record<string, unknown>).user ??
+            (body as Record<string, unknown>).actor
+        )
+        ?.trim() || processedByFromHeaders;
+
     if (statusChangedToPaid) {
       const [syncedPayroll] = await syncPayrollDeductions([payroll]);
-      return ApiResponse.success(
-        syncedPayroll ?? payroll,
-        'Payroll record updated'
-      );
+      const payrollForSync = syncedPayroll ?? payroll;
+
+      logger.info('Syncing payroll to expenses', {
+        payrollId: payrollForSync.id,
+        processedBy,
+        fallbackEmployeeName: payrollForSync.employeeName,
+      });
+
+      try {
+        await syncExpenseFromPayroll(payrollForSync, processedBy);
+      } catch (error) {
+        logger.error('Failed to sync payroll to expenses', {
+          error,
+          payrollId: id,
+        });
+      }
+
+      return ApiResponse.success(payrollForSync, 'Payroll record updated');
     }
 
     return ApiResponse.success(payroll, 'Payroll record updated');

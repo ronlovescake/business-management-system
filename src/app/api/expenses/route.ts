@@ -258,6 +258,7 @@ function buildExpenseFilters(searchParams: URLSearchParams): {
     endDate: sanitizeDateParam(searchParams.get('endDate')),
     minAmount: sanitizeAmountParam(searchParams.get('minAmount')),
     maxAmount: sanitizeAmountParam(searchParams.get('maxAmount')),
+    sourceType: sanitizeSourceTypeParam(searchParams.get('sourceType')),
   });
 
   if (Object.keys(candidate).length === 0) {
@@ -338,6 +339,19 @@ function sanitizeAmountParam(value: string | null): number | undefined {
   }
   const parsed = sanitizers.number(value, { min: 0, decimals: 2 });
   return parsed ?? undefined;
+}
+
+function sanitizeSourceTypeParam(value: string | null): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const sanitized = sanitizers.name(value);
+  if (!sanitized) {
+    return undefined;
+  }
+
+  return sanitized.toUpperCase();
 }
 
 function ensureArray<T>(payload: T | T[]): T[] {

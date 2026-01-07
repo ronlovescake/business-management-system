@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 type Summary = {
   revenue: number;
@@ -27,19 +29,25 @@ export async function GET(request: Request) {
     const endDate = endDateParam ? new Date(endDateParam) : null;
     const customerId = customerIdParam ? Number(customerIdParam) : null;
 
-    const tripWhere: Parameters<
-      typeof prisma.truckingTrip.findMany
-    >[0]['where'] = {
+    // Normalize invalid or reversed dates
+    const startIsValid = startDate && !Number.isNaN(startDate.getTime());
+    const endIsValid = endDate && !Number.isNaN(endDate.getTime());
+    const start = startIsValid ? startDate : null;
+    const end = endIsValid ? endDate : null;
+    const useStart = start && end && start > end ? end : start;
+    const useEnd = start && end && start > end ? start : end;
+
+    const tripWhere: Prisma.TruckingTripWhereInput = {
       status: 'completed',
     };
 
-    if (startDate || endDate) {
+    if (useStart || useEnd) {
       tripWhere.date = {};
-      if (startDate) {
-        tripWhere.date.gte = startDate.toISOString().split('T')[0];
+      if (useStart) {
+        tripWhere.date.gte = useStart.toISOString().split('T')[0];
       }
-      if (endDate) {
-        tripWhere.date.lte = endDate.toISOString().split('T')[0];
+      if (useEnd) {
+        tripWhere.date.lte = useEnd.toISOString().split('T')[0];
       }
     }
 
@@ -54,29 +62,29 @@ export async function GET(request: Request) {
 
     const tripIds = trips.map((trip) => trip.id).filter(Boolean);
 
-    const expenseWhere: Parameters<
-      typeof prisma.truckingExpense.findMany
-    >[0]['where'] = {
+    const expenseWhere: Prisma.TruckingExpenseWhereInput = {
       sourceType: 'TRIP',
     };
 
     if (tripIds.length > 0) {
-      expenseWhere.sourceId = { in: tripIds } as any;
+      expenseWhere.sourceId = { in: tripIds };
     }
 
-    const expenses = tripIds.length
-      ? await prisma.truckingExpense.findMany({ where: expenseWhere })
-      : [];
+    const expenseTotalsByTrip: Record<string, number> = {};
 
-    const expenseTotalsByTrip = expenses.reduce<Record<string, number>>(
-      (acc, expense) => {
-        const key = String(expense.sourceId ?? '');
-        const amount = Number(expense.amount ?? 0);
-        acc[key] = (acc[key] ?? 0) + amount;
-        return acc;
-      },
-      {}
-    );
+    if (tripIds.length) {
+      const grouped = await prisma.truckingExpense.groupBy({
+        by: ['sourceId'],
+        where: expenseWhere,
+        _sum: { amount: true },
+      });
+
+      grouped.forEach((row) => {
+        const key = String(row.sourceId ?? '');
+        const total = Number(row._sum?.amount ?? 0);
+        expenseTotalsByTrip[key] = total;
+      });
+    }
 
     const tripRows: TripRow[] = trips.map((trip) => {
       const id = String(trip.id ?? '');
@@ -102,6 +110,9 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ summary, trips: tripRows });
   } catch (error) {
+    logger.error('Failed to load trucking profitability', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       {
         error: 'Failed to load profitability data',

@@ -10,1963 +10,278 @@
     · instrumentationHook
 
  ✓ Starting...
- ✓ Compiled in 900ms
+ ✓ Compiled in 669ms
 ✅ Environment variables validated successfully
- ✓ Ready in 1976ms
+ ✓ Ready in 1617ms
 ✅ Environment variables validated successfully
- ✓ Compiled /api/conversations in 189ms
 ✅ Environment variables validated successfully
- GET /api/conversations 200 in 372ms
- ○ Compiling /trucking/operations/trips ...
- GET /api/conversations 200 in 28ms
- GET /api/conversations 200 in 36ms
- ✓ Compiled /trucking/operations/trips in 8.1s
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
+ GET /api/conversations 200 in 443ms
+ ○ Compiling /api/conversations ...
 ✅ Environment variables validated successfully
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
- GET /trucking/operations/trips 200 in 8786ms
- ○ Compiling /_not-found/page ...
- GET /api/conversations 200 in 55ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 88ms
- GET /api/trucking/fleet-vehicles 200 in 880ms
- GET /api/trucking/trips 200 in 887ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 1068ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 1233ms
- GET /api/trucking/trips 200 in 377ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 402ms
- GET /api/trucking/fleet-vehicles 200 in 82ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 60ms
+ GET /api/auth/session 200 in 479ms
+ GET /api/auth/session 200 in 102ms
+ GET /api/auth/session 200 in 102ms
 ✅ Environment variables validated successfully
- GET /api/auth/session 200 in 1319ms
- GET /api/auth/session 200 in 187ms
- GET /api/auth/session 200 in 331ms
- GET /api/auth/session 200 in 26ms
+ GET /api/conversations 200 in 73ms
+ GET /api/auth/session 200 in 346ms
+ GET /api/conversations 200 in 358ms
+ GET /api/auth/session 200 in 113ms
+ GET /api/auth/session 200 in 124ms
 ✅ Environment variables validated successfully
- ✓ Compiled /_not-found/page in 4.9s
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 4926ms
- GET /api/conversations 200 in 24ms
- ✓ Compiled /trucking/operations/trips in 8ms
- GET /api/conversations 200 in 23ms
- ✓ Compiled /api/trucking/trips/[id]/finalize in 34ms
-✅ Environment variables validated successfully
- POST /api/trucking/trips/9ff6e447-bf3a-46ea-b8d8-9f4506f4060d/finalize 200 in 511ms
- ✓ Compiled in 14ms
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
-✅ Environment variables validated successfully
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
- GET /trucking/operations/trips 200 in 698ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 54ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 24ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 483ms
- GET /api/trucking/trips 200 in 510ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 509ms
- GET /api/auth/session 200 in 444ms
- GET /api/trucking/fleet-vehicles 200 in 495ms
- GET /api/conversations 200 in 541ms
- GET /api/auth/session 200 in 99ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 105ms
- GET /api/trucking/trips 200 in 109ms
- GET /api/trucking/fleet-vehicles 200 in 111ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 146ms
- GET /api/auth/session 200 in 98ms
- GET /api/auth/session 200 in 72ms
-✅ Environment variables validated successfully
- ✓ Compiled in 11ms
- GET /api/conversations 200 in 28ms
- ✓ Compiled in 11ms
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
-✅ Environment variables validated successfully
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
- GET /trucking/operations/trips 200 in 884ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 118ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 107ms
- GET /api/trucking/trips 200 in 155ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 144ms
- GET /api/trucking/fleet-vehicles 200 in 151ms
- GET /api/conversations 200 in 205ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 176ms
- GET /api/trucking/trips 200 in 107ms
- GET /api/trucking/fleet-vehicles 200 in 97ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 391ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 411ms
- GET /api/auth/session 200 in 395ms
- GET /api/auth/session 200 in 567ms
- GET /api/auth/session 200 in 50ms
- GET /api/auth/session 200 in 44ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 25ms
- GET /api/conversations 200 in 24ms
- GET /api/conversations 200 in 48ms
- GET /api/conversations 200 in 25ms
- GET /api/conversations 200 in 25ms
- GET /api/conversations 200 in 30ms
- GET /api/conversations 200 in 33ms
- GET /api/conversations 200 in 33ms
- GET /api/conversations 200 in 35ms
- GET /api/conversations 200 in 32ms
- GET /api/conversations 200 in 34ms
- GET /api/conversations 200 in 33ms
- GET /api/conversations 200 in 33ms
- GET /api/conversations 200 in 29ms
- GET /api/conversations 200 in 29ms
- GET /api/conversations 200 in 30ms
- GET /api/conversations 200 in 27ms
- GET /api/conversations 200 in 45ms
- GET /api/conversations 200 in 31ms
- GET /api/conversations 200 in 28ms
- GET /api/conversations 200 in 30ms
- GET /api/conversations 200 in 34ms
- GET /api/conversations 200 in 28ms
- GET /api/conversations 200 in 29ms
- GET /api/conversations 200 in 29ms
- GET /api/conversations 200 in 32ms
- GET /api/conversations 200 in 28ms
- GET /api/conversations 200 in 40ms
- GET /api/conversations 200 in 33ms
- GET /api/conversations 200 in 39ms
- GET /api/conversations 200 in 32ms
- GET /api/conversations 200 in 45ms
- GET /api/conversations 200 in 33ms
- GET /api/conversations 200 in 29ms
- GET /api/conversations 200 in 26ms
- GET /api/conversations 200 in 28ms
- GET /api/conversations 200 in 33ms
- GET /api/conversations 200 in 29ms
- GET /api/conversations 200 in 31ms
- GET /api/conversations 200 in 41ms
- GET /api/conversations 200 in 29ms
- GET /api/conversations 200 in 31ms
- GET /api/conversations 200 in 27ms
- GET /api/conversations 200 in 31ms
- GET /api/conversations 200 in 30ms
- GET /api/conversations 200 in 36ms
- GET /api/conversations 200 in 32ms
- GET /api/conversations 200 in 27ms
- GET /api/conversations 200 in 28ms
- GET /api/conversations 200 in 24ms
- GET /api/conversations 200 in 25ms
- GET /api/conversations 200 in 60ms
- GET /api/conversations 200 in 31ms
- GET /api/conversations 200 in 28ms
- GET /api/conversations 200 in 30ms
- GET /api/conversations 200 in 29ms
- GET /api/conversations 200 in 38ms
- GET /trucking/operations/trips 200 in 78ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 65ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 39ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 360ms
- GET /api/trucking/trips 200 in 365ms
- GET /api/trucking/fleet-vehicles 200 in 365ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 370ms
  GET /api/auth/session 200 in 336ms
- GET /api/conversations 200 in 398ms
- GET /api/trucking/fleet-vehicles 200 in 86ms
- GET /api/trucking/trips 200 in 88ms
- GET /api/auth/session 200 in 76ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 87ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 103ms
- GET /api/auth/session 200 in 65ms
- GET /api/auth/session 200 in 22ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 29ms
- ○ Compiling /trucking/operations/vehicle-assignments ...
- GET /api/conversations 200 in 24ms
- ✓ Compiled /trucking/operations/vehicle-assignments in 2.3s
- GET /api/trucking/fleet-vehicles 200 in 108ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 109ms
- GET /api/trucking/fleet-vehicles 200 in 104ms
- ✓ Compiled /api/trucking/vehicle-assignments in 105ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 103ms
- GET /api/trucking/vehicle-assignments 200 in 150ms
- GET /api/trucking/vehicle-assignments 200 in 161ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 69ms
- GET /api/trucking/trips 200 in 76ms
- GET /api/trucking/trips 200 in 71ms
- GET /api/trucking/fleet-vehicles 200 in 77ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 94ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 97ms
- GET /api/trucking/fleet-vehicles 200 in 34ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 35ms
- GET /api/conversations 200 in 30ms
- GET /api/conversations 200 in 25ms
- POST /api/trucking/trips/e1c054ba-486e-4040-b4d9-a38097932920/finalize 200 in 299ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 22ms
- GET /api/conversations 200 in 22ms
- GET /api/auth/session 200 in 269ms
- GET /api/conversations 200 in 273ms
- GET /api/auth/session 200 in 32ms
- GET /api/auth/session 200 in 34ms
-✅ Environment variables validated successfully
- ○ Compiling /trucking/expenses ...
- GET /api/conversations 200 in 32ms
- ✓ Compiled /trucking/expenses in 2.7s
- GET /trucking/expenses 200 in 2778ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 19ms
- GET /api/auth/session 200 in 380ms
- GET /api/trucking/fleet-vehicles 200 in 394ms
- GET /api/conversations 200 in 399ms
- GET /api/trucking/fleet-vehicles 200 in 369ms
- GET /api/auth/session 200 in 56ms
- GET /api/auth/session 200 in 59ms
- GET /api/auth/session 200 in 31ms
- ○ Compiling /api/trucking/expenses ...
-✅ Environment variables validated successfully
- ✓ Compiled /api/trucking/expenses in 645ms
-[truckingExpense.findMany] { count: 72, options: { orderBy: { date: 'desc' } } }
- GET /api/trucking/expenses 200 in 710ms
- GET /api/conversations 200 in 25ms
- GET /api/conversations 200 in 25ms
- GET /api/conversations 200 in 20ms
- GET /api/conversations 200 in 21ms
- GET /api/conversations 200 in 21ms
- GET /api/auth/session 200 in 281ms
- GET /api/conversations 200 in 290ms
- GET /api/auth/session 200 in 30ms
- GET /api/auth/session 200 in 32ms
-✅ Environment variables validated successfully
- GET /api/auth/session 200 in 309ms
- GET /api/auth/session 200 in 53ms
- GET /api/auth/session 200 in 45ms
- GET /api/auth/session 200 in 47ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 23ms
- GET /api/auth/session 200 in 268ms
- GET /api/auth/session 200 in 34ms
- GET /api/auth/session 200 in 36ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 27ms
- ✓ Compiled /api/trucking/expenses/[id] in 42ms
-✅ Environment variables validated successfully
-[truckingExpense.findById] { id: 233, found: true }
-ℹ️  Expense deleted { id: 233 }
- DELETE /api/trucking/expenses/233 200 in 555ms
-[truckingExpense.findMany] { count: 71, options: { orderBy: { date: 'desc' } } }
- GET /api/trucking/expenses 200 in 26ms
- GET /api/conversations 200 in 22ms
-[truckingExpense.findById] { id: 231, found: true }
-ℹ️  Expense deleted { id: 231 }
- DELETE /api/trucking/expenses/231 200 in 317ms
-[truckingExpense.findMany] { count: 70, options: { orderBy: { date: 'desc' } } }
- GET /api/trucking/expenses 200 in 22ms
-✅ Environment variables validated successfully
-[truckingExpense.findById] { id: 232, found: true }
-ℹ️  Expense deleted { id: 232 }
- DELETE /api/trucking/expenses/232 200 in 292ms
-[truckingExpense.findMany] { count: 69, options: { orderBy: { date: 'desc' } } }
- GET /api/trucking/expenses 200 in 24ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 27ms
- GET /api/auth/session 200 in 276ms
- GET /api/auth/session 200 in 18ms
- GET /api/auth/session 200 in 19ms
-✅ Environment variables validated successfully
- POST /api/trucking/trips/9ff6e447-bf3a-46ea-b8d8-9f4506f4060d/finalize 200 in 286ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 29ms
- GET /api/conversations 200 in 22ms
- GET /api/auth/session 200 in 280ms
- GET /api/auth/session 200 in 30ms
- GET /api/auth/session 200 in 31ms
-✅ Environment variables validated successfully
- GET /trucking/expenses 200 in 72ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 19ms
- GET /api/auth/session 200 in 348ms
- GET /api/trucking/fleet-vehicles 200 in 359ms
-[truckingExpense.findMany] { count: 71, options: { orderBy: { date: 'desc' } } }
- GET /api/trucking/expenses 200 in 361ms
- GET /api/conversations 200 in 363ms
- GET /api/trucking/fleet-vehicles 200 in 357ms
- GET /api/auth/session 200 in 36ms
- GET /api/auth/session 200 in 35ms
- GET /api/auth/session 200 in 23ms
-✅ Environment variables validated successfully
- GET /api/auth/session 200 in 276ms
- GET /api/auth/session 200 in 22ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 22ms
- GET /api/conversations 200 in 25ms
- GET /api/conversations 200 in 25ms
- GET /api/conversations 200 in 24ms
- GET /api/conversations 200 in 30ms
- GET /api/conversations 200 in 31ms
- GET /api/conversations 200 in 29ms
- GET /api/conversations 200 in 26ms
- GET /api/conversations 200 in 29ms
- GET /api/auth/session 200 in 315ms
- GET /api/conversations 200 in 322ms
- GET /api/auth/session 200 in 24ms
- GET /api/auth/session 200 in 20ms
-✅ Environment variables validated successfully
- GET /api/auth/session 200 in 321ms
- GET /api/auth/session 200 in 21ms
- GET /api/auth/session 200 in 20ms
- GET /api/auth/session 200 in 20ms
-✅ Environment variables validated successfully
- ✓ Compiled /trucking/operations/trips in 8ms
- GET /trucking/operations/trips 200 in 82ms
- ✓ Compiled /_not-found/page in 7ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 41ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 55ms
- GET /api/trucking/trips 200 in 94ms
- GET /api/trucking/fleet-vehicles 200 in 89ms
- GET /api/conversations 200 in 107ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 106ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 125ms
- GET /api/trucking/fleet-vehicles 200 in 108ms
- GET /api/trucking/trips 200 in 368ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 339ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 371ms
- GET /api/auth/session 200 in 334ms
- GET /api/auth/session 200 in 465ms
- GET /api/auth/session 200 in 38ms
- GET /api/auth/session 200 in 35ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 27ms
- GET /api/conversations 200 in 24ms
- GET /api/conversations 200 in 26ms
- GET /api/conversations 200 in 24ms
- GET /api/auth/session 200 in 261ms
- GET /api/auth/session 200 in 32ms
- GET /api/auth/session 200 in 35ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 27ms
- GET /api/auth/session 200 in 285ms
  GET /api/auth/session 200 in 28ms
- GET /api/auth/session 200 in 23ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 25ms
- GET /api/conversations 200 in 27ms
- POST /api/trucking/trips/e1c054ba-486e-4040-b4d9-a38097932920/finalize 200 in 268ms
- GET /api/conversations 200 in 32ms
-✅ Environment variables validated successfully
- GET /api/auth/session 200 in 271ms
  GET /api/auth/session 200 in 31ms
- GET /api/auth/session 200 in 33ms
 ✅ Environment variables validated successfully
- GET /trucking/expenses 200 in 72ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 30ms
- GET /api/trucking/fleet-vehicles 200 in 343ms
-[truckingExpense.findMany] { count: 72, options: { orderBy: { date: 'desc' } } }
- GET /api/trucking/expenses 200 in 347ms
- GET /api/conversations 200 in 348ms
- GET /api/auth/session 200 in 346ms
- GET /api/trucking/fleet-vehicles 200 in 340ms
+ GET /api/conversations 200 in 342ms
+ GET /api/auth/session 200 in 368ms
+ GET /api/auth/session 200 in 29ms
+ GET /api/auth/session 200 in 38ms
+✅ Environment variables validated successfully
+[✅ Module registered: Dashboard (v1.0.0)]
+[✅ Module registered: Customers (v1.0.0)]
+[✅ Module registered: Transactions (v1.0.0)]
+[✅ Module registered: Shipments (v1.0.0)]
+[✅ Module registered: Products (v1.0.0)]
+[✅ Module registered: Inventory (v1.0.0)]
+[✅ Module registered: Prices (v1.0.0)]
+[✅ Module registered: Sorting Distribution (v1.0.0)]
+[✅ Module registered: Dispatch (v1.0.0)]
+[✅ Module registered: Settings (v1.0.0)]
+[✅ Module registered: Trips (v0.1.0)]
+[✅ Module registered: Vehicle Assignments (v1.0.0)]
+[✅ Module registered: Fleet Registry (v1.0.0)]
+✅ Environment variables validated successfully
+[✅ Module registered: Dashboard (v1.0.0)]
+[✅ Module registered: Customers (v1.0.0)]
+[✅ Module registered: Transactions (v1.0.0)]
+[✅ Module registered: Shipments (v1.0.0)]
+[✅ Module registered: Products (v1.0.0)]
+[✅ Module registered: Inventory (v1.0.0)]
+[✅ Module registered: Prices (v1.0.0)]
+[✅ Module registered: Sorting Distribution (v1.0.0)]
+[✅ Module registered: Dispatch (v1.0.0)]
+[✅ Module registered: Settings (v1.0.0)]
+[✅ Module registered: Trips (v0.1.0)]
+[✅ Module registered: Vehicle Assignments (v1.0.0)]
+[✅ Module registered: Fleet Registry (v1.0.0)]
+ GET /clothing/employees/expenses 200 in 9249ms
+ ✓ Compiled /api/conversations in 9.3s
+ GET /clothing/employees/payroll 200 in 7926ms
+ ○ Compiling /_not-found/page ...
+ GET /api/auth/session 200 in 590ms
+ GET /api/conversations 200 in 626ms
+ GET /api/auth/session 200 in 684ms
+[expense.findMany] { count: 2, options: { orderBy: { date: 'desc' } } }
+ℹ️  Expenses fetched { count: 2, filtered: false }
+ GET /api/expenses 200 in 812ms
+ GET /api/conversations 200 in 230ms
+✅ Environment variables validated successfully
+ GET /icon.svg?icon.8c4bbc9b.svg 200 in 397ms
+ℹ️  Employees fetched { total: 5 }
+ GET /api/employees 200 in 381ms
+ GET /api/auth/session 200 in 470ms
+ GET /api/auth/session 200 in 337ms
+ℹ️  Employees fetched { total: 5 }
+ GET /api/employees 200 in 85ms
+ GET /api/auth/session 200 in 77ms
+ GET /api/payroll 200 in 810ms
+ GET /api/auth/session 200 in 493ms
+ GET /api/auth/session 200 in 109ms
+✅ Environment variables validated successfully
+ GET /api/auth/session 200 in 490ms
+ GET /api/auth/session 200 in 490ms
+✅ Environment variables validated successfully
+ ✓ Compiled /_not-found/page in 4.4s
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 4502ms
+ ✓ Compiled /clothing/employees/payroll in 36ms
+ GET /icon.svg?icon.8c4bbc9b.svg 200 in 59ms
+ GET /api/auth/session 200 in 320ms
+ GET /api/auth/session 200 in 323ms
+✅ Environment variables validated successfully
+ ✓ Compiled /api/expenses/[id] in 31ms
+✅ Environment variables validated successfully
+ DELETE /api/expenses/11 200 in 508ms
+[expense.findMany] { count: 1, options: { orderBy: { date: 'desc' } } }
+ℹ️  Expenses fetched { count: 1, filtered: false }
+ GET /api/expenses 200 in 21ms
+ GET /api/conversations 200 in 22ms
+ GET /api/auth/session 200 in 268ms
+ GET /api/auth/session 200 in 36ms
+ GET /api/auth/session 200 in 37ms
+ GET /api/conversations 200 in 49ms
+✅ Environment variables validated successfully
+ℹ️  Payroll soft deleted { id: 'cmk4a8wpu000wwlqp3d7t6guj' }
+ DELETE /api/payroll?id=cmk4a8wpu000wwlqp3d7t6guj 200 in 27ms
+ GET /api/payroll 200 in 25ms
+ GET /api/conversations 200 in 22ms
+ ✓ Compiled /api/payroll/generate in 42ms
+ POST /api/payroll/generate 201 in 74ms
+ GET /api/payroll 200 in 76ms
+ ✓ Compiled /api/payroll/generate-payslips in 178ms
+ POST /api/payroll/generate-payslips 200 in 1247ms
+ GET /api/conversations 200 in 32ms
+ PUT /api/payroll 200 in 35ms
+ GET /api/payroll 200 in 62ms
+ GET /api/conversations 200 in 26ms
+ℹ️  Syncing payroll to expenses {
+  payrollId: 'cmk4apabd000u5qqn6w558d0w',
+  processedBy: undefined,
+  fallbackEmployeeName: 'Rain Joel Orong Subia'
+}
+ PUT /api/payroll 200 in 45ms
+ GET /api/payroll 200 in 24ms
+ GET /api/auth/session 200 in 236ms
+ GET /api/auth/session 200 in 19ms
+ GET /api/auth/session 200 in 20ms
+✅ Environment variables validated successfully
+ GET /api/conversations 200 in 24ms
+ GET /clothing/employees/expenses 200 in 71ms
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 38ms
+ GET /icon.svg?icon.8c4bbc9b.svg 200 in 27ms
+[expense.findMany] { count: 2, options: { orderBy: { date: 'desc' } } }
+ℹ️  Expenses fetched { count: 2, filtered: false }
+ GET /api/expenses 200 in 308ms
+ GET /api/auth/session 200 in 284ms
+ GET /api/conversations 200 in 323ms
+ GET /api/auth/session 200 in 287ms
+ GET /api/auth/session 200 in 24ms
  GET /api/auth/session 200 in 23ms
 ✅ Environment variables validated successfully
- GET /api/auth/session 200 in 286ms
- GET /api/auth/session 200 in 290ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 27ms
- GET /api/conversations 200 in 21ms
- GET /api/conversations 200 in 20ms
- GET /api/conversations 200 in 27ms
- GET /api/conversations 200 in 23ms
  GET /api/conversations 200 in 26ms
- GET /api/conversations 200 in 22ms
- GET /api/auth/session 200 in 272ms
- GET /api/conversations 200 in 271ms
- GET /api/auth/session 200 in 30ms
- GET /api/auth/session 200 in 30ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 27ms
- ○ Compiling /trucking/analytics/profitability ...
- GET /api/conversations 200 in 27ms
- ✓ Compiled /trucking/analytics/profitability in 2.6s
- GET /trucking/analytics/profitability 200 in 2677ms
- ✓ Compiled /trucking/expenses in 45ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 26ms
- GET /api/auth/session 200 in 408ms
- GET /api/conversations 200 in 422ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 450ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 437ms
- ✓ Compiled /api/trucking/analytics/profitability in 459ms
-prisma:error 
-Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].truckingTrip.findMany()` invocation in
-/home/ron/Websites/business-management-development/.next/server/chunks/src_1c5fb8._.js:684:167
-
-  681 if (Number.isFinite(customerId)) {
-  682     tripWhere.customerId = customerId;
-  683 }
-→ 684 const trips = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].truckingTrip.findMany(
-The column `trucking_trips.customerId` does not exist in the current database.
- GET /api/trucking/analytics/profitability? 500 in 528ms
-prisma:error 
-Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].truckingTrip.findMany()` invocation in
-/home/ron/Websites/business-management-development/.next/server/chunks/src_1c5fb8._.js:684:167
-
-  681 if (Number.isFinite(customerId)) {
-  682     tripWhere.customerId = customerId;
-  683 }
-→ 684 const trips = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].truckingTrip.findMany(
-The column `trucking_trips.customerId` does not exist in the current database.
- GET /api/trucking/analytics/profitability? 500 in 498ms
- GET /api/auth/session 200 in 105ms
- GET /api/auth/session 200 in 97ms
- GET /api/auth/session 200 in 25ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 26ms
- GET /api/conversations 200 in 23ms
- GET /api/conversations 200 in 22ms
- GET /api/conversations 200 in 21ms
- GET /api/conversations 200 in 25ms
- GET /api/conversations 200 in 21ms
- GET /api/conversations 200 in 21ms
- GET /api/conversations 200 in 19ms
  GET /api/conversations 200 in 25ms
  GET /api/conversations 200 in 23ms
- GET /api/conversations 200 in 42ms
- GET /api/conversations 200 in 21ms
- GET /api/conversations 200 in 27ms
- GET /api/conversations 200 in 26ms
- GET /api/conversations 200 in 30ms
- GET /api/conversations 200 in 27ms
- GET /api/conversations 200 in 34ms
- GET /api/conversations 200 in 25ms
- GET /api/conversations 200 in 27ms
- GET /api/conversations 200 in 26ms
- GET /api/conversations 200 in 27ms
- GET /api/conversations 200 in 23ms
- GET /api/conversations 200 in 24ms
- GET /api/conversations 200 in 26ms
- GET /api/conversations 200 in 26ms
- GET /api/conversations 200 in 23ms
- GET /api/conversations 200 in 21ms
  GET /api/conversations 200 in 22ms
  GET /api/conversations 200 in 33ms
- GET /api/conversations 200 in 27ms
- GET /api/conversations 200 in 22ms
- GET /api/conversations 200 in 25ms
- GET /api/conversations 200 in 23ms
- GET /api/conversations 200 in 28ms
- GET /api/conversations 200 in 26ms
- GET /api/conversations 200 in 23ms
- GET /api/conversations 200 in 24ms
- GET /api/conversations 200 in 24ms
- GET /api/conversations 200 in 22ms
- GET /api/conversations 200 in 21ms
- GET /api/conversations 200 in 36ms
- GET /api/conversations 200 in 82ms
- GET /api/conversations 200 in 21ms
- GET /api/conversations 200 in 42ms
- GET /api/conversations 200 in 30ms
- GET /api/conversations 200 in 29ms
- GET /api/conversations 200 in 34ms
- GET /api/conversations 200 in 28ms
- GET /api/conversations 200 in 27ms
- GET /api/conversations 200 in 29ms
- GET /api/conversations 200 in 31ms
- GET /api/conversations 200 in 28ms
- GET /api/conversations 200 in 29ms
- GET /api/conversations 200 in 26ms
- GET /api/conversations 200 in 24ms
- GET /api/conversations 200 in 28ms
- GET /api/conversations 200 in 28ms
- GET /api/conversations 200 in 30ms
- GET /api/conversations 200 in 31ms
- GET /api/conversations 200 in 34ms
- GET /api/conversations 200 in 30ms
- GET /api/conversations 200 in 29ms
- GET /api/conversations 200 in 28ms
- GET /api/conversations 200 in 27ms
- GET /api/conversations 200 in 27ms
- GET /api/conversations 200 in 28ms
- GET /api/conversations 200 in 30ms
- GET /api/conversations 200 in 27ms
- GET /api/conversations 200 in 27ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 42ms
- GET /api/conversations 200 in 23ms
- GET /api/conversations 200 in 30ms
- GET /api/conversations 200 in 42ms
- GET /api/conversations 200 in 29ms
- GET /api/conversations 200 in 25ms
- GET /api/conversations 200 in 24ms
- GET /api/conversations 200 in 27ms
- GET /api/conversations 200 in 24ms
- GET /api/conversations 200 in 26ms
- GET /api/conversations 200 in 29ms
- GET /api/conversations 200 in 47ms
- GET /api/conversations 200 in 38ms
- GET /api/conversations 200 in 28ms
- GET /api/conversations 200 in 27ms
- GET /api/conversations 200 in 29ms
- GET /api/conversations 200 in 30ms
- GET /api/conversations 200 in 27ms
- GET /api/conversations 200 in 26ms
- GET /api/conversations 200 in 52ms
- GET /api/conversations 200 in 25ms
- GET /api/conversations 200 in 27ms
- GET /api/conversations 200 in 27ms
- GET /api/conversations 200 in 30ms
- GET /api/conversations 200 in 28ms
- GET /api/conversations 200 in 28ms
- GET /api/conversations 200 in 26ms
- GET /api/conversations 200 in 26ms
- GET /api/conversations 200 in 25ms
- GET /api/conversations 200 in 28ms
- GET /api/conversations 200 in 25ms
- GET /api/auth/session 200 in 368ms
- GET /api/conversations 200 in 374ms
- GET /api/auth/session 200 in 42ms
- GET /api/auth/session 200 in 48ms
+ GET /api/auth/session 200 in 243ms
+ GET /api/auth/session 200 in 30ms
+ GET /api/auth/session 200 in 31ms
 ✅ Environment variables validated successfully
- GET /trucking/expenses 200 in 72ms
- GET /api/auth/session 200 in 378ms
-[truckingExpense.findMany] { count: 72, options: { orderBy: { date: 'desc' } } }
- GET /api/trucking/expenses 200 in 388ms
- GET /api/conversations 200 in 392ms
- GET /api/trucking/fleet-vehicles 200 in 396ms
- GET /api/trucking/fleet-vehicles 200 in 383ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 93ms
- GET /api/auth/session 200 in 73ms
- GET /api/auth/session 200 in 80ms
- GET /api/auth/session 200 in 23ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 25ms
- GET /api/conversations 200 in 25ms
- GET /api/conversations 200 in 25ms
- GET /api/conversations 200 in 50ms
- GET /api/conversations 200 in 22ms
- GET /api/conversations 200 in 23ms
- GET /api/conversations 200 in 24ms
  GET /api/conversations 200 in 26ms
- GET /api/conversations 200 in 21ms
- GET /api/conversations 200 in 18ms
- GET /api/conversations 200 in 22ms
- GET /api/conversations 200 in 23ms
- GET /api/conversations 200 in 21ms
- GET /api/conversations 200 in 21ms
+ GET /api/conversations 200 in 26ms
+ GET /api/conversations 200 in 25ms
  GET /api/conversations 200 in 27ms
- GET /api/conversations 200 in 23ms
  GET /api/conversations 200 in 26ms
- GET /api/conversations 200 in 22ms
+ GET /api/conversations 200 in 28ms
  GET /api/conversations 200 in 24ms
- GET /api/conversations 200 in 25ms
  GET /api/conversations 200 in 26ms
- GET /api/conversations 200 in 22ms
- GET /api/conversations 200 in 25ms
- GET /api/auth/session 200 in 346ms
- GET /api/conversations 200 in 344ms
- GET /api/auth/session 200 in 28ms
+ GET /api/conversations 200 in 23ms
+ GET /api/conversations 200 in 31ms
+ GET /api/auth/session 200 in 335ms
+ GET /api/conversations 200 in 336ms
+ GET /api/auth/session 200 in 34ms
+ GET /api/auth/session 200 in 36ms
+✅ Environment variables validated successfully
+ GET /api/auth/session 200 in 273ms
+ GET /api/conversations 200 in 279ms
+ GET /api/auth/session 200 in 25ms
+ GET /api/auth/session 200 in 22ms
+✅ Environment variables validated successfully
+ DELETE /api/expenses/12 200 in 258ms
+✅ Environment variables validated successfully
+[expense.findMany] { count: 1, options: { orderBy: { date: 'desc' } } }
+ℹ️  Expenses fetched { count: 1, filtered: false }
+ GET /api/expenses 200 in 113ms
+✅ Environment variables validated successfully
+ GET /api/auth/session 200 in 255ms
+ GET /api/conversations 200 in 265ms
+ GET /api/auth/session 200 in 29ms
  GET /api/auth/session 200 in 29ms
 ✅ Environment variables validated successfully
- GET /trucking/operations/trips 200 in 80ms
- ✓ Compiled /_not-found/page in 12ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 70ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 59ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 90ms
- GET /api/trucking/fleet-vehicles 200 in 92ms
- GET /api/trucking/trips 200 in 101ms
- GET /api/conversations 200 in 140ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 123ms
- GET /api/auth/session 200 in 423ms
- GET /api/trucking/trips 200 in 429ms
- GET /api/trucking/fleet-vehicles 200 in 394ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 387ms
- GET /api/auth/session 200 in 386ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 443ms
- GET /api/auth/session 200 in 63ms
- GET /api/auth/session 200 in 26ms
 ✅ Environment variables validated successfully
- GET /api/conversations 200 in 22ms
- GET /api/conversations 200 in 22ms
- GET /api/conversations 200 in 27ms
- GET /api/conversations 200 in 38ms
- GET /api/conversations 200 in 23ms
- GET /api/conversations 200 in 25ms
- GET /api/conversations 200 in 28ms
+ℹ️  Payroll soft deleted { id: 'cmk4apabd000u5qqn6w558d0w' }
+ DELETE /api/payroll?id=cmk4apabd000u5qqn6w558d0w 200 in 120ms
+ GET /api/payroll 200 in 27ms
+ GET /api/conversations 200 in 26ms
+ POST /api/payroll/generate 201 in 38ms
+ GET /api/payroll 200 in 354ms
+ POST /api/payroll/generate-payslips 200 in 878ms
  GET /api/conversations 200 in 24ms
- GET /api/conversations 200 in 28ms
+ PUT /api/payroll 200 in 32ms
+ GET /api/payroll 200 in 48ms
+ℹ️  Syncing payroll to expenses {
+  payrollId: 'cmk4atec9003u5qqnxrgn2243',
+  processedBy: undefined,
+  fallbackEmployeeName: 'Rain Joel Orong Subia'
+}
+ PUT /api/payroll 200 in 74ms
+ GET /api/payroll 200 in 26ms
  GET /api/conversations 200 in 25ms
- GET /api/conversations 200 in 22ms
- GET /api/conversations 200 in 26ms
- GET /api/conversations 200 in 31ms
- GET /api/conversations 200 in 28ms
- GET /api/conversations 200 in 24ms
- GET /api/conversations 200 in 21ms
- GET /api/conversations 200 in 25ms
- GET /api/conversations 200 in 26ms
- GET /api/conversations 200 in 26ms
- GET /api/conversations 200 in 23ms
- GET /api/conversations 200 in 22ms
- GET /api/conversations 200 in 25ms
- GET /api/conversations 200 in 31ms
- GET /api/auth/session 200 in 337ms
- GET /api/conversations 200 in 343ms
- GET /api/auth/session 200 in 88ms
- GET /api/auth/session 200 in 91ms
- GET /api/conversations 200 in 107ms
- GET /api/auth/session 200 in 78ms
- GET /api/auth/session 200 in 59ms
+ GET /api/auth/session 200 in 246ms
+ GET /api/auth/session 200 in 19ms
+ GET /api/auth/session 200 in 18ms
 ✅ Environment variables validated successfully
- ✓ Compiled in 7ms
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
-✅ Environment variables validated successfully
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
- GET /trucking/operations/trips 200 in 761ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 49ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 32ms
- GET /api/trucking/fleet-vehicles 200 in 164ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 166ms
- GET /api/trucking/trips 200 in 191ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 195ms
- GET /api/conversations 200 in 222ms
- GET /api/auth/session 200 in 574ms
- GET /api/trucking/trips 200 in 496ms
- GET /api/auth/session 200 in 438ms
- GET /api/trucking/fleet-vehicles 200 in 449ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 449ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 508ms
- GET /api/auth/session 200 in 82ms
- GET /api/auth/session 200 in 31ms
- GET /api/auth/session 200 in 35ms
-✅ Environment variables validated successfully
- GET /api/auth/session 200 in 294ms
-✅ Environment variables validated successfully
- ✓ Compiled in 6ms
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
-✅ Environment variables validated successfully
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
- GET /trucking/operations/trips 200 in 689ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 64ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 61ms
- GET /api/trucking/fleet-vehicles 200 in 189ms
- GET /api/trucking/trips 200 in 199ms
- GET /api/conversations 200 in 221ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 198ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 224ms
- GET /api/auth/session 200 in 567ms
- GET /api/trucking/trips 200 in 467ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 442ms
- GET /api/trucking/fleet-vehicles 200 in 450ms
- GET /api/auth/session 200 in 407ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 466ms
- GET /api/auth/session 200 in 78ms
- GET /api/auth/session 200 in 37ms
-✅ Environment variables validated successfully
- ✓ Compiled in 14ms
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
-✅ Environment variables validated successfully
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
- GET /trucking/operations/trips 200 in 894ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 59ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 41ms
- GET /api/trucking/trips 200 in 179ms
- GET /api/trucking/fleet-vehicles 200 in 181ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 182ms
- GET /api/conversations 200 in 213ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 198ms
- GET /api/auth/session 200 in 486ms
- GET /api/trucking/trips 200 in 510ms
- GET /api/trucking/fleet-vehicles 200 in 505ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 505ms
- GET /api/auth/session 200 in 510ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 535ms
- GET /api/auth/session 200 in 125ms
- GET /api/auth/session 200 in 52ms
-✅ Environment variables validated successfully
- GET /api/auth/session 200 in 343ms
- GET /api/auth/session 200 in 27ms
-✅ Environment variables validated successfully
- GET /api/auth/session 200 in 364ms
- GET /api/conversations 200 in 373ms
- GET /api/auth/session 200 in 77ms
- GET /api/auth/session 200 in 83ms
- GET /api/auth/session 200 in 81ms
- GET /api/conversations 200 in 88ms
- GET /api/auth/session 200 in 30ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 34ms
- GET /api/conversations 200 in 31ms
- GET /api/conversations 200 in 38ms
- GET /api/conversations 200 in 32ms
- GET /api/conversations 200 in 44ms
- GET /api/conversations 200 in 40ms
- ✓ Compiled in 15ms
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
-✅ Environment variables validated successfully
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
- GET /trucking/operations/trips 200 in 829ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 72ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 49ms
- GET /api/trucking/trips 200 in 170ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 169ms
- GET /api/conversations 200 in 190ms
- GET /api/trucking/fleet-vehicles 200 in 188ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 193ms
- GET /api/auth/session 200 in 531ms
- GET /api/trucking/trips 200 in 461ms
- GET /api/trucking/fleet-vehicles 200 in 461ms
- GET /api/auth/session 200 in 453ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 462ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 481ms
- GET /api/auth/session 200 in 48ms
- GET /api/auth/session 200 in 39ms
-✅ Environment variables validated successfully
- ✓ Compiled in 14ms
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
-✅ Environment variables validated successfully
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
- GET /trucking/operations/trips 200 in 776ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 80ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 53ms
- GET /api/conversations 200 in 290ms
- GET /api/trucking/fleet-vehicles 200 in 261ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 282ms
- GET /api/trucking/trips 200 in 292ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 265ms
- GET /api/auth/session 200 in 598ms
- GET /api/trucking/trips 200 in 495ms
- GET /api/trucking/fleet-vehicles 200 in 483ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 484ms
- GET /api/auth/session 200 in 475ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 515ms
- GET /api/auth/session 200 in 94ms
- GET /api/auth/session 200 in 67ms
-✅ Environment variables validated successfully
- ✓ Compiled in 11ms
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
-✅ Environment variables validated successfully
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
- GET /trucking/operations/trips 200 in 855ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 78ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 52ms
- GET /api/trucking/trips 200 in 236ms
- GET /api/trucking/fleet-vehicles 200 in 234ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 235ms
- GET /api/conversations 200 in 261ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 255ms
- GET /api/auth/session 200 in 584ms
- GET /api/trucking/trips 200 in 508ms
- GET /api/trucking/fleet-vehicles 200 in 509ms
- GET /api/auth/session 200 in 500ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 512ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 533ms
- GET /api/auth/session 200 in 103ms
- GET /api/auth/session 200 in 64ms
-✅ Environment variables validated successfully
- ✓ Compiled in 57ms
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
-✅ Environment variables validated successfully
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
- GET /trucking/operations/trips 200 in 763ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 65ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 54ms
- GET /api/trucking/trips 200 in 216ms
- GET /api/trucking/fleet-vehicles 200 in 209ms
- GET /api/conversations 200 in 232ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 206ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 228ms
- GET /api/auth/session 200 in 630ms
- GET /api/trucking/trips 200 in 578ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 582ms
- GET /api/auth/session 200 in 562ms
- GET /api/trucking/fleet-vehicles 200 in 603ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 618ms
- GET /api/auth/session 200 in 111ms
-✅ Environment variables validated successfully
- GET /api/auth/session 200 in 58ms
- GET /api/auth/session 200 in 354ms
- GET /api/auth/session 200 in 40ms
-✅ Environment variables validated successfully
- GET /api/auth/session 200 in 355ms
- GET /api/conversations 200 in 370ms
- GET /api/auth/session 200 in 46ms
- GET /api/auth/session 200 in 39ms
-✅ Environment variables validated successfully
- GET /trucking/operations/trips 200 in 99ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 50ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 43ms
- GET /api/trucking/trips 200 in 178ms
- GET /api/auth/session 200 in 406ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 467ms
- GET /api/trucking/fleet-vehicles 200 in 465ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 465ms
- GET /api/conversations 200 in 481ms
- GET /api/trucking/fleet-vehicles 200 in 143ms
- GET /api/trucking/trips 200 in 188ms
- GET /api/auth/session 200 in 142ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 152ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 198ms
-✅ Environment variables validated successfully
- GET /api/auth/session 200 in 147ms
- GET /api/auth/session 200 in 307ms
- GET /api/auth/session 200 in 38ms
- GET /api/auth/session 200 in 32ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 45ms
- GET /api/conversations 200 in 57ms
- GET /api/auth/session 200 in 319ms
- GET /api/conversations 200 in 342ms
- GET /api/auth/session 200 in 38ms
- GET /api/auth/session 200 in 34ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 42ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 41ms
- GET /api/conversations 200 in 36ms
- GET /api/conversations 200 in 39ms
- GET /api/conversations 200 in 35ms
- GET /api/conversations 200 in 33ms
- GET /api/conversations 200 in 33ms
- GET /api/conversations 200 in 36ms
- GET /api/conversations 200 in 34ms
- GET /api/conversations 200 in 34ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 35ms
- GET /api/conversations 200 in 33ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 33ms
- GET /api/conversations 200 in 34ms
- GET /api/conversations 200 in 33ms
- GET /api/conversations 200 in 36ms
- GET /api/conversations 200 in 36ms
- GET /api/conversations 200 in 36ms
- GET /api/conversations 200 in 46ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 35ms
- GET /api/conversations 200 in 36ms
- GET /api/conversations 200 in 34ms
- GET /api/conversations 200 in 35ms
- GET /api/conversations 200 in 39ms
- GET /api/conversations 200 in 31ms
- GET /api/conversations 200 in 39ms
- GET /api/conversations 200 in 36ms
- GET /api/conversations 200 in 32ms
- GET /api/conversations 200 in 36ms
- GET /api/conversations 200 in 34ms
- GET /api/conversations 200 in 49ms
- GET /api/conversations 200 in 39ms
- GET /api/conversations 200 in 39ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 47ms
- GET /api/conversations 200 in 47ms
- GET /api/conversations 200 in 47ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 40ms
- GET /api/conversations 200 in 41ms
- GET /api/conversations 200 in 45ms
- ✓ Compiled in 12ms
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
-✅ Environment variables validated successfully
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
- GET /trucking/operations/trips 200 in 725ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 56ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 51ms
- GET /api/trucking/fleet-vehicles 200 in 501ms
- GET /api/trucking/trips 200 in 512ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 512ms
- GET /api/auth/session 200 in 477ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 513ms
- GET /api/conversations 200 in 547ms
- GET /api/trucking/trips 200 in 232ms
- GET /api/trucking/fleet-vehicles 200 in 233ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 235ms
- GET /api/auth/session 200 in 227ms
-✅ Environment variables validated successfully
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 257ms
- GET /api/auth/session 200 in 534ms
- GET /api/auth/session 200 in 78ms
- GET /api/auth/session 200 in 83ms
- GET /api/auth/session 200 in 51ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 40ms
- GET /api/conversations 200 in 38ms
- GET /api/conversations 200 in 35ms
- GET /api/conversations 200 in 35ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 35ms
- GET /api/conversations 200 in 35ms
- GET /api/conversations 200 in 36ms
-prisma:error 
-Invalid `delegate.create()` invocation in
-/home/ron/Websites/business-management-development/.next/server/chunks/src_c24304._.js:828:44
-
-  825 const id = (0, __TURBOPACK__commonjs__external__crypto__["randomUUID"])();
-  826 const delegate = tripDelegate();
-  827 if (delegate?.create) {
-→ 828     const created = await delegate.create(
-The column `customerId` does not exist in the current database.
- POST /api/trucking/trips 500 in 40ms
- GET /api/conversations 200 in 35ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 38ms
- GET /api/conversations 200 in 49ms
- GET /api/conversations 200 in 43ms
- GET /api/conversations 200 in 35ms
- GET /api/conversations 200 in 42ms
- GET /api/conversations 200 in 42ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 35ms
- GET /trucking/operations/trips 200 in 95ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 48ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 34ms
- GET /api/trucking/trips 200 in 155ms
- GET /api/conversations 200 in 173ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 157ms
- GET /api/trucking/fleet-vehicles 200 in 171ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 179ms
- GET /api/auth/session 200 in 451ms
- GET /api/trucking/trips 200 in 456ms
- GET /api/trucking/fleet-vehicles 200 in 448ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 167ms
- GET /api/auth/session 200 in 176ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 473ms
- GET /api/auth/session 200 in 99ms
-✅ Environment variables validated successfully
- GET /api/auth/session 200 in 311ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 38ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 42ms
- GET /api/conversations 200 in 41ms
- GET /api/conversations 200 in 38ms
- GET /api/conversations 200 in 43ms
- GET /api/conversations 200 in 34ms
- GET /api/conversations 200 in 38ms
- GET /api/conversations 200 in 36ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 39ms
- GET /api/conversations 200 in 35ms
- GET /api/conversations 200 in 38ms
- GET /api/conversations 200 in 39ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 34ms
- GET /api/conversations 200 in 35ms
- GET /api/conversations 200 in 34ms
- GET /api/auth/session 200 in 350ms
- GET /api/conversations 200 in 363ms
- GET /api/auth/session 200 in 63ms
- GET /api/auth/session 200 in 68ms
-✅ Environment variables validated successfully
- GET /api/auth/session 200 in 319ms
- GET /api/conversations 200 in 312ms
- GET /api/auth/session 200 in 64ms
- GET /api/auth/session 200 in 64ms
-✅ Environment variables validated successfully
- ○ Compiling /trucking/employees/team ...
- GET /api/conversations 200 in 33ms
- ✓ Compiled /trucking/employees/team in 2.4s
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees? 200 in 54ms
- GET /api/conversations 200 in 36ms
- ○ Compiling /trucking/employees/team/[id] ...
- ✓ Compiled /trucking/employees/team/[id] in 2.3s
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
- ✓ Compiled /api/trucking/employees/[id] in 58ms
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
-✅ Environment variables validated successfully
- GET /api/trucking/employees/TRK-0001 200 in 653ms
- GET /api/trucking/schedules?employeeId=TRK-0001 200 in 121ms
- ✓ Compiled /api/trucking/attendance in 254ms
-[truckingThirteenthMonthPayRecord.findMany] {
-  count: 0,
-  options: {
-    where: { employeeId: 'trk-0001' },
-    orderBy: [ [Object], [Object] ]
-  }
-}
- GET /api/trucking/thirteenth-month-pay?employeeId=trk-0001 200 in 263ms
- GET /api/trucking/attendance?employeeId=TRK-0001 200 in 320ms
-[truckingCashAdvanceRecord.findMany] {
-  count: 2,
-  options: {
-    where: { employeeId: 'TRK-0001' },
-    orderBy: { requestDate: 'desc' }
-  }
-}
-ℹ️  [Trucking cash advance] Cash advances fetched { filters: [ 'employeeId' ], count: 2 }
- GET /api/trucking/cash-advances?employeeId=TRK-0001 200 in 319ms
- GET /api/trucking/leave-requests?employeeId=TRK-0001 200 in 322ms
- GET /api/trucking/payroll?employeeId=TRK-0001 200 in 346ms
- ✓ Compiled /trucking/operations/trips in 85ms
-[truckingCashAdvanceRecord.findMany] {
-  count: 2,
-  options: {
-    where: { employeeId: 'TRK-0001' },
-    orderBy: { requestDate: 'desc' }
-  }
-}
-ℹ️  [Trucking cash advance] Cash advances fetched { filters: [ 'employeeId' ], count: 2 }
- GET /api/trucking/cash-advances?employeeId=TRK-0001 200 in 179ms
- GET /api/conversations 200 in 186ms
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
-[truckingCashAdvanceRecord.findMany] {
-  count: 2,
-  options: {
-    where: { employeeId: 'TRK-0001' },
-    orderBy: { requestDate: 'desc' }
-  }
-}
-ℹ️  [Trucking cash advance] Cash advances fetched { filters: [ 'employeeId' ], count: 2 }
- GET /api/trucking/cash-advances?employeeId=TRK-0001 200 in 33ms
- GET /api/conversations 200 in 33ms
-[truckingCashAdvanceRecord.findMany] {
-  count: 2,
-  options: {
-    where: { employeeId: 'TRK-0001' },
-    orderBy: { requestDate: 'desc' }
-  }
-}
-ℹ️  [Trucking cash advance] Cash advances fetched { filters: [ 'employeeId' ], count: 2 }
- GET /api/trucking/cash-advances?employeeId=TRK-0001 200 in 34ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 34ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 34ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees? 200 in 39ms
- GET /api/conversations 200 in 80ms
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
- GET /api/trucking/employees/TRK-0002 200 in 338ms
- GET /api/trucking/payroll?employeeId=TRK-0002 200 in 133ms
- GET /api/trucking/attendance?employeeId=TRK-0002 200 in 134ms
- GET /api/trucking/leave-requests?employeeId=TRK-0002 200 in 133ms
-[truckingCashAdvanceRecord.findMany] {
-  count: 0,
-  options: {
-    where: { employeeId: 'TRK-0002' },
-    orderBy: { requestDate: 'desc' }
-  }
-}
-ℹ️  [Trucking cash advance] Cash advances fetched { filters: [ 'employeeId' ], count: 0 }
- GET /api/trucking/cash-advances?employeeId=TRK-0002 200 in 133ms
- GET /api/trucking/schedules?employeeId=TRK-0002 200 in 130ms
-[truckingThirteenthMonthPayRecord.findMany] {
-  count: 0,
-  options: {
-    where: { employeeId: 'trk-0002' },
-    orderBy: [ [Object], [Object] ]
-  }
-}
- GET /api/trucking/thirteenth-month-pay?employeeId=trk-0002 200 in 131ms
-✅ Environment variables validated successfully
-[truckingCashAdvanceRecord.findMany] {
-  count: 0,
-  options: {
-    where: { employeeId: 'TRK-0002' },
-    orderBy: { requestDate: 'desc' }
-  }
-}
-ℹ️  [Trucking cash advance] Cash advances fetched { filters: [ 'employeeId' ], count: 0 }
- GET /api/trucking/cash-advances?employeeId=TRK-0002 200 in 32ms
-[truckingCashAdvanceRecord.findMany] {
-  count: 0,
-  options: {
-    where: { employeeId: 'TRK-0002' },
-    orderBy: { requestDate: 'desc' }
-  }
-}
-ℹ️  [Trucking cash advance] Cash advances fetched { filters: [ 'employeeId' ], count: 0 }
- GET /api/trucking/cash-advances?employeeId=TRK-0002 200 in 31ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 35ms
- GET /api/trucking/payroll?employeeId=TRK-0001 200 in 466ms
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
-[truckingCashAdvanceRecord.findMany] {
-  count: 2,
-  options: {
-    where: { employeeId: 'TRK-0001' },
-    orderBy: { requestDate: 'desc' }
-  }
-}
-ℹ️  [Trucking cash advance] Cash advances fetched { filters: [ 'employeeId' ], count: 2 }
- GET /api/trucking/cash-advances?employeeId=TRK-0001 200 in 458ms
- GET /api/trucking/leave-requests?employeeId=TRK-0001 200 in 464ms
- GET /api/trucking/employees/TRK-0001 200 in 467ms
- GET /api/trucking/attendance?employeeId=TRK-0001 200 in 476ms
- GET /api/trucking/schedules?employeeId=TRK-0001 200 in 466ms
-[truckingThirteenthMonthPayRecord.findMany] {
-  count: 0,
-  options: {
-    where: { employeeId: 'trk-0001' },
-    orderBy: [ [Object], [Object] ]
-  }
-}
- GET /api/trucking/thirteenth-month-pay?employeeId=trk-0001 200 in 36ms
-✅ Environment variables validated successfully
-[truckingCashAdvanceRecord.findMany] {
-  count: 2,
-  options: {
-    where: { employeeId: 'TRK-0001' },
-    orderBy: { requestDate: 'desc' }
-  }
-}
-ℹ️  [Trucking cash advance] Cash advances fetched { filters: [ 'employeeId' ], count: 2 }
- GET /api/trucking/cash-advances?employeeId=TRK-0001 200 in 35ms
-[truckingCashAdvanceRecord.findMany] {
-  count: 2,
-  options: {
-    where: { employeeId: 'TRK-0001' },
-    orderBy: { requestDate: 'desc' }
-  }
-}
-ℹ️  [Trucking cash advance] Cash advances fetched { filters: [ 'employeeId' ], count: 2 }
- GET /api/trucking/cash-advances?employeeId=TRK-0001 200 in 32ms
- GET /api/conversations 200 in 34ms
-[truckingCashAdvanceRecord.findMany] {
-  count: 2,
-  options: {
-    where: { employeeId: 'TRK-0001' },
-    orderBy: { requestDate: 'desc' }
-  }
-}
-ℹ️  [Trucking cash advance] Cash advances fetched { filters: [ 'employeeId' ], count: 2 }
- GET /api/trucking/cash-advances?employeeId=TRK-0001 200 in 32ms
- GET /api/conversations 200 in 36ms
-ℹ️  [Trucking] Updating employee {
-  employeeId: 6,
-  updateFields: [
-    'employeeId',
-    'firstName',
-    'lastName',
-    'middleName',
-    'name',
-    'phone',
-    'contact',
-    'email',
-    'department',
-    'position',
-    'jobTitle',
-    'status',
-    'employmentStatus',
-    'employeeType',
-    'office',
-    'hiringSource',
-    'hireDate',
-    'employmentEndDate',
-    'finalPayPending',
-    'finalPayEffectiveDate',
-    'finalPayNotes',
-    'basicSalary',
-    'currentSalary',
-    'allowance',
-    'paymentSchedule',
-    'sssMonthlyContribution',
-    'philHealthMonthlyContribution',
-    'pagibigMonthlyContribution',
-    'taxMonthlyContribution',
-    'sssNumber',
-    'philHealthNumber',
-    'hdmfNumber',
-    'tinNumber',
-    'gender',
-    'education',
-    'dateOfBirth',
-    'maritalStatus',
-    'numberOfKids',
-    'drivingLicense',
-    'address',
-    'emergencyContactPerson',
-    'emergencyContactNumber',
-    'emergencyContact',
-    'bankAccount',
-    'gcashAccount',
-    'profilePhoto'
-  ]
-}
-ℹ️  [Trucking] Employee updated { employeeId: 6 }
- PUT /api/trucking/employees/6 200 in 353ms
- GET /api/trucking/employees/TRK-0001 200 in 46ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 32ms
- GET /api/conversations 200 in 36ms
- GET /api/auth/session 200 in 331ms
- GET /api/auth/session 200 in 52ms
- GET /api/conversations 200 in 75ms
- GET /api/auth/session 200 in 32ms
-✅ Environment variables validated successfully
- GET /trucking/operations/trips 200 in 93ms
- ✓ Compiled /_not-found/page in 14ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 62ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 43ms
- GET /api/trucking/trips 200 in 193ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 181ms
- GET /api/conversations 200 in 206ms
- GET /api/trucking/fleet-vehicles 200 in 189ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 213ms
- GET /api/trucking/trips 200 in 139ms
- GET /api/trucking/fleet-vehicles 200 in 139ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 139ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 427ms
- GET /api/auth/session 200 in 416ms
- GET /api/auth/session 200 in 617ms
- GET /api/auth/session 200 in 43ms
+ GET /clothing/employees/expenses 200 in 72ms
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 45ms
+ GET /icon.svg?icon.8c4bbc9b.svg 200 in 23ms
+ GET /api/auth/session 200 in 300ms
+[expense.findMany] { count: 2, options: { orderBy: { date: 'desc' } } }
+ℹ️  Expenses fetched { count: 2, filtered: false }
+ GET /api/expenses 200 in 320ms
+ GET /api/auth/session 200 in 303ms
+ GET /api/conversations 200 in 339ms
+ GET /api/auth/session 200 in 53ms
  GET /api/auth/session 200 in 33ms
 ✅ Environment variables validated successfully
- GET /api/conversations 200 in 35ms
- GET /api/conversations 200 in 32ms
- GET /api/conversations 200 in 45ms
- GET /api/conversations 200 in 35ms
- GET /api/conversations 200 in 38ms
-prisma:error 
-Invalid `delegate.create()` invocation in
-/home/ron/Websites/business-management-development/.next/server/chunks/src_c24304._.js:828:44
-
-  825 const id = (0, __TURBOPACK__commonjs__external__crypto__["randomUUID"])();
-  826 const delegate = tripDelegate();
-  827 if (delegate?.create) {
-→ 828     const created = await delegate.create(
-The column `customerId` does not exist in the current database.
- POST /api/trucking/trips 500 in 35ms
- GET /api/conversations 200 in 39ms
- GET /api/conversations 200 in 51ms
- GET /api/conversations 200 in 38ms
- GET /api/conversations 200 in 41ms
- GET /api/conversations 200 in 36ms
+ GET /api/conversations 200 in 30ms
+ GET /api/conversations 200 in 31ms
+ GET /api/conversations 200 in 28ms
+ GET /api/conversations 200 in 28ms
+ GET /api/conversations 200 in 28ms
+ GET /api/conversations 200 in 28ms
+ GET /api/conversations 200 in 25ms
+ GET /api/conversations 200 in 28ms
+ GET /api/conversations 200 in 26ms
+ GET /api/conversations 200 in 27ms
+ GET /api/conversations 200 in 30ms
  GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 42ms
- GET /api/conversations 200 in 34ms
- GET /api/conversations 200 in 33ms
- GET /api/conversations 200 in 36ms
- GET /api/conversations 200 in 36ms
- GET /api/conversations 200 in 36ms
- GET /api/conversations 200 in 47ms
- GET /api/conversations 200 in 35ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 43ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 39ms
- GET /api/conversations 200 in 40ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 35ms
- GET /api/conversations 200 in 39ms
- GET /api/conversations 200 in 35ms
- GET /api/conversations 200 in 35ms
- GET /api/conversations 200 in 39ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 36ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 35ms
- GET /api/conversations 200 in 38ms
- GET /api/conversations 200 in 36ms
- GET /api/conversations 200 in 35ms
- GET /api/conversations 200 in 39ms
- GET /api/conversations 200 in 36ms
- GET /api/conversations 200 in 35ms
- GET /api/conversations 200 in 39ms
- GET /api/conversations 200 in 36ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 44ms
- GET /api/conversations 200 in 38ms
- GET /api/auth/session 200 in 345ms
- GET /api/conversations 200 in 353ms
- GET /api/auth/session 200 in 61ms
- GET /api/auth/session 200 in 63ms
-✅ Environment variables validated successfully
- GET /trucking/analytics/profitability 200 in 95ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 36ms
- ✓ Compiled in 71ms
-prisma:error 
-Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].truckingTrip.findMany()` invocation in
-/home/ron/Websites/business-management-development/.next/server/chunks/src_1c5fb8._.js:684:167
-
-  681 if (Number.isFinite(customerId)) {
-  682     tripWhere.customerId = customerId;
-  683 }
-→ 684 const trips = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].truckingTrip.findMany(
-The column `trucking_trips.customerId` does not exist in the current database.
- GET /api/trucking/analytics/profitability? 500 in 530ms
- GET /api/auth/session 200 in 520ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 548ms
- GET /api/conversations 200 in 550ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 535ms
-prisma:error 
-Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].truckingTrip.findMany()` invocation in
-/home/ron/Websites/business-management-development/.next/server/chunks/src_1c5fb8._.js:684:167
-
-  681 if (Number.isFinite(customerId)) {
-  682     tripWhere.customerId = customerId;
-  683 }
-→ 684 const trips = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].truckingTrip.findMany(
-The column `trucking_trips.customerId` does not exist in the current database.
- GET /api/trucking/analytics/profitability? 500 in 548ms
- GET /api/auth/session 200 in 129ms
- GET /api/auth/session 200 in 124ms
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
-✅ Environment variables validated successfully
-✅ Environment variables validated successfully
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
- GET /trucking/operations/trips 200 in 910ms
- GET /api/auth/session 200 in 1172ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 441ms
-✅ Environment variables validated successfully
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 80ms
- GET /api/conversations 200 in 352ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 315ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 607ms
- GET /api/trucking/fleet-vehicles 200 in 648ms
- GET /api/trucking/trips 200 in 661ms
- GET /api/auth/session 200 in 559ms
- GET /api/trucking/trips 200 in 235ms
- GET /api/auth/session 200 in 224ms
- GET /api/trucking/fleet-vehicles 200 in 240ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 243ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 257ms
-✅ Environment variables validated successfully
- GET /api/auth/session 200 in 207ms
- GET /api/auth/session 200 in 392ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 47ms
- GET /api/conversations 200 in 63ms
-prisma:error 
-Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].truckingTrip.findMany()` invocation in
-/home/ron/Websites/business-management-development/.next/server/chunks/src_1c5fb8._.js:684:167
-
-  681 if (Number.isFinite(customerId)) {
-  682     tripWhere.customerId = customerId;
-  683 }
-→ 684 const trips = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].truckingTrip.findMany(
-The column `trucking_trips.customerId` does not exist in the current database.
- GET /api/trucking/analytics/profitability?startDate=2025-11-30&endDate=2025-12-30 500 in 54ms
-prisma:error 
-Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].truckingTrip.findMany()` invocation in
-/home/ron/Websites/business-management-development/.next/server/chunks/src_1c5fb8._.js:684:167
-
-  681 if (Number.isFinite(customerId)) {
-  682     tripWhere.customerId = customerId;
-  683 }
-→ 684 const trips = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].truckingTrip.findMany(
-The column `trucking_trips.customerId` does not exist in the current database.
- GET /api/trucking/analytics/profitability?startDate=2025-11-30&endDate=2025-12-30 500 in 45ms
- GET /api/conversations 200 in 39ms
- GET /api/conversations 200 in 41ms
- GET /api/auth/session 200 in 398ms
- GET /api/conversations 200 in 395ms
- GET /api/auth/session 200 in 111ms
- GET /api/auth/session 200 in 99ms
- GET /api/auth/session 200 in 100ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 40ms
- GET /api/auth/session 200 in 322ms
- GET /api/auth/session 200 in 59ms
- GET /api/auth/session 200 in 61ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 35ms
- GET /api/auth/session 200 in 360ms
- GET /api/auth/session 200 in 32ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 39ms
- GET /trucking/operations/trips 200 in 95ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 58ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 62ms
- GET /api/trucking/trips 200 in 164ms
- GET /api/trucking/fleet-vehicles 200 in 161ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 162ms
- GET /api/conversations 200 in 198ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 183ms
- GET /api/auth/session 200 in 496ms
- GET /api/trucking/trips 200 in 447ms
- GET /api/trucking/fleet-vehicles 200 in 447ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 444ms
- GET /api/auth/session 200 in 436ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 468ms
- GET /api/auth/session 200 in 74ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 51ms
- GET /api/conversations 200 in 40ms
- GET /api/conversations 200 in 39ms
- GET /api/conversations 200 in 34ms
-prisma:error 
-Invalid `delegate.create()` invocation in
-/home/ron/Websites/business-management-development/.next/server/chunks/src_c24304._.js:828:44
-
-  825 const id = (0, __TURBOPACK__commonjs__external__crypto__["randomUUID"])();
-  826 const delegate = tripDelegate();
-  827 if (delegate?.create) {
-→ 828     const created = await delegate.create(
-The column `customerId` does not exist in the current database.
- POST /api/trucking/trips 500 in 36ms
- GET /api/conversations 200 in 41ms
- GET /api/conversations 200 in 38ms
- GET /api/conversations 200 in 39ms
- GET /api/conversations 200 in 34ms
- GET /api/conversations 200 in 41ms
- GET /api/conversations 200 in 35ms
- GET /api/conversations 200 in 39ms
- GET /api/conversations 200 in 39ms
- GET /api/conversations 200 in 35ms
- GET /api/conversations 200 in 50ms
- GET /api/conversations 200 in 43ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 41ms
- GET /api/conversations 200 in 44ms
- GET /api/conversations 200 in 44ms
- GET /api/conversations 200 in 42ms
- GET /api/conversations 200 in 35ms
- GET /api/conversations 200 in 63ms
- GET /api/conversations 200 in 49ms
- GET /api/conversations 200 in 44ms
- ✓ Compiled in 8ms
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
-✅ Environment variables validated successfully
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
- GET /trucking/operations/trips 200 in 867ms
- ✓ Compiled in 0ms
- GET /api/conversations 200 in 185ms
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
-✅ Environment variables validated successfully
-[✅ Module registered: Dashboard (v1.0.0)]
-[✅ Module registered: Customers (v1.0.0)]
-[✅ Module registered: Transactions (v1.0.0)]
-[✅ Module registered: Shipments (v1.0.0)]
-[✅ Module registered: Products (v1.0.0)]
-[✅ Module registered: Inventory (v1.0.0)]
-[✅ Module registered: Prices (v1.0.0)]
-[✅ Module registered: Sorting Distribution (v1.0.0)]
-[✅ Module registered: Dispatch (v1.0.0)]
-[✅ Module registered: Settings (v1.0.0)]
-[✅ Module registered: Trips (v0.1.0)]
-[✅ Module registered: Vehicle Assignments (v1.0.0)]
-[✅ Module registered: Fleet Registry (v1.0.0)]
- GET /trucking/operations/trips 200 in 851ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 40ms
- GET /api/trucking/trips 200 in 199ms
- GET /api/trucking/fleet-vehicles 200 in 201ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 202ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 219ms
- GET /api/conversations 200 in 222ms
- GET /api/trucking/trips 200 in 132ms
- GET /api/trucking/fleet-vehicles 200 in 131ms
-ℹ️  ✅ [Trucking] Fetched 3 employees
- GET /api/trucking/employees?status=active 200 in 461ms
- GET /api/auth/session 200 in 676ms
-ℹ️  [Customers] Customers fetched { count: 1135 }
- GET /api/customers?status=active 200 in 485ms
- GET /api/auth/session 200 in 41ms
+ GET /api/auth/session 200 in 353ms
+ GET /api/conversations 200 in 373ms
+ GET /api/auth/session 200 in 62ms
  GET /api/auth/session 200 in 53ms
+ GET /api/conversations 200 in 72ms
+ GET /api/auth/session 200 in 36ms
 ✅ Environment variables validated successfully
- GET /api/conversations 200 in 42ms
- GET /api/conversations 200 in 42ms
- GET /api/conversations 200 in 49ms
- GET /api/conversations 200 in 46ms
- GET /api/conversations 200 in 36ms
- GET /api/conversations 200 in 39ms
- GET /api/conversations 200 in 35ms
- GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 41ms
- GET /api/conversations 200 in 36ms
- GET /api/conversations 200 in 38ms
- GET /api/conversations 200 in 41ms
- GET /api/conversations 200 in 42ms
+ GET /api/auth/session 200 in 309ms
+ GET /api/auth/session 200 in 35ms
+ GET /api/auth/session 200 in 28ms
+ GET /api/auth/session 200 in 22ms
+✅ Environment variables validated successfully
+ GET /api/conversations 200 in 56ms
+ ○ Compiling /clothing/operations/transactions ...
+ ✓ Compiled /clothing/operations/transactions in 2.8s
+✅ Environment variables validated successfully
+ GET /clothing/operations/transactions 200 in 2937ms
+ GET /api/auth/session 200 in 362ms
+ GET /api/conversations 200 in 441ms
+ GET /api/settings/transactions 200 in 112ms
+✅ Environment variables validated successfully
+ ○ Compiling /api/settings/transactions ...
+ ✓ Compiled /api/settings/transactions in 552ms
+ℹ️  Prices fetched { count: 79 }
+ GET /api/prices 200 in 566ms
+ℹ️  [Products] Products fetched { count: 74 }
+ GET /api/products 200 in 567ms
+ℹ️  [Customers] Customers fetched { count: 1135 }
+ GET /api/customers 200 in 595ms
+ℹ️  Shipments fetched { count: 53 }
+ GET /api/shipments 200 in 609ms
+ GET /api/clothing/operations/settings/change-log?page=1&limit=200&entityType=transaction&includeFilters=false 200 in 564ms
+ℹ️  [Transactions] Transactions fetched { count: 793 }
+ GET /api/transactions 200 in 749ms
+ GET /api/auth/session 200 in 592ms
+ GET /api/auth/session 200 in 603ms
+ GET /api/settings/transactions 200 in 583ms
+ℹ️  [Customers] Customers fetched { count: 1135 }
+ GET /api/customers 200 in 597ms
+ GET /api/auth/session 200 in 91ms
+ GET /api/auth/session 200 in 100ms
+ GET /api/auth/session 200 in 108ms
+ GET /api/auth/session 200 in 49ms
+ GET /api/auth/session 200 in 43ms
+✅ Environment variables validated successfully
+ GET /api/auth/session 200 in 268ms
+ GET /api/conversations 200 in 279ms
+ GET /api/auth/session 200 in 34ms
+ GET /api/auth/session 200 in 36ms
+ GET /api/auth/session 200 in 21ms
+✅ Environment variables validated successfully

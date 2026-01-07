@@ -10,6 +10,7 @@ import type {
   ExpenseCreateInput,
   ExpenseUpdateInput,
   ExpenseQuery,
+  ExpenseCreateDbInput,
 } from './schemas';
 
 export class ExpenseRepository extends BaseRepository<
@@ -38,6 +39,10 @@ export class ExpenseRepository extends BaseRepository<
         contains: filters.employeeName,
         mode: 'insensitive',
       };
+    }
+
+    if (filters.sourceType) {
+      where.sourceType = filters.sourceType;
     }
 
     if (filters.startDate || filters.endDate) {
@@ -163,6 +168,39 @@ export class ExpenseRepository extends BaseRepository<
       acc[item.status] = item._sum.amount || 0;
       return acc;
     }, {});
+  }
+
+  async upsertBySource(data: ExpenseCreateDbInput): Promise<Expense> {
+    if (!data.sourceId) {
+      throw new Error('sourceId is required for source-based upsert');
+    }
+
+    return this.model.upsert({
+      where: {
+        sourceType_sourceId_sourceLineKey: {
+          sourceType: data.sourceType,
+          sourceId: data.sourceId,
+          sourceLineKey: data.sourceLineKey ?? null,
+        },
+      },
+      create: data,
+      update: {
+        date: data.date,
+        amount: data.amount,
+        description: data.description,
+        category: data.category,
+        notes: data.notes ?? undefined,
+        receipt: data.receipt ?? undefined,
+        status: data.status,
+        // Allow explicit null to clear Logged By
+        employeeName:
+          data.employeeName === undefined ? undefined : data.employeeName,
+        sourceType: data.sourceType,
+        sourceId: data.sourceId,
+        sourceLineKey: data.sourceLineKey ?? null,
+        systemGenerated: data.systemGenerated ?? false,
+      },
+    });
   }
 }
 

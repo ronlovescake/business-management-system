@@ -15,6 +15,44 @@ import type { ExpenseCreateDbInput } from './schemas';
 import { logger } from '@/lib/logger';
 
 export class ExpenseService {
+  private normalizeSourceFields(
+    data: Partial<ExpenseCreateInput>
+  ): Pick<
+    ExpenseCreateDbInput,
+    'sourceType' | 'sourceId' | 'sourceLineKey' | 'systemGenerated'
+  > {
+    const sourceType = (data.sourceType ?? 'MANUAL').toUpperCase();
+
+    const toNullable = (value?: string | null) => {
+      if (value === undefined || value === null) {
+        return null;
+      }
+      const trimmed = String(value).trim();
+      return trimmed.length === 0 ? null : trimmed;
+    };
+
+    return {
+      sourceType,
+      sourceId: toNullable(data.sourceId),
+      sourceLineKey: toNullable(data.sourceLineKey),
+      systemGenerated: data.systemGenerated ?? false,
+    };
+  }
+
+  private normalizeCreateInput(data: ExpenseCreateInput): ExpenseCreateDbInput {
+    const sourceFields = this.normalizeSourceFields(data);
+
+    return {
+      ...data,
+      ...sourceFields,
+      date: data.date.toISOString().split('T')[0],
+      receipt: data.receipt ?? undefined,
+      notes: data.notes ?? undefined,
+      employeeName:
+        data.employeeName === undefined ? undefined : data.employeeName,
+    };
+  }
+
   /**
    * Get all expenses
    */
@@ -58,14 +96,7 @@ export class ExpenseService {
    */
   async create(data: ExpenseCreateInput): Promise<Expense> {
     try {
-      // Convert Date to string for database
-      const expenseData: ExpenseCreateDbInput = {
-        ...data,
-        date: data.date.toISOString().split('T')[0],
-        receipt: data.receipt ?? undefined,
-        notes: data.notes ?? undefined,
-        employeeName: data.employeeName ?? undefined,
-      };
+      const expenseData = this.normalizeCreateInput(data);
 
       // Type assertion needed: ExpenseCreateDbInput structure matches database schema
       // but type system cannot verify due to BaseRepository's generic constraints
@@ -82,14 +113,9 @@ export class ExpenseService {
    */
   async createMany(data: ExpenseCreateInput[]): Promise<{ count: number }> {
     try {
-      // Convert dates to strings
-      const expenses = data.map((expense) => ({
-        ...expense,
-        date: expense.date.toISOString().split('T')[0],
-        receipt: expense.receipt ?? undefined,
-        notes: expense.notes ?? undefined,
-        employeeName: expense.employeeName ?? undefined,
-      }));
+      const expenses = data.map((expense) =>
+        this.normalizeCreateInput(expense)
+      );
 
       // Type assertion needed: Converted data matches database schema
       // but type system cannot verify due to BaseRepository's generic constraints
@@ -123,6 +149,28 @@ export class ExpenseService {
       const updateData: Record<string, any> = { ...updateFields };
       if (updateData.date instanceof Date) {
         updateData.date = updateData.date.toISOString().split('T')[0];
+      }
+
+      const shouldNormalizeSource =
+        'sourceType' in updateData ||
+        'sourceId' in updateData ||
+        'sourceLineKey' in updateData ||
+        'systemGenerated' in updateData;
+
+      if (shouldNormalizeSource) {
+        const normalized = this.normalizeSourceFields(updateData);
+        if ('sourceType' in updateData) {
+          updateData.sourceType = normalized.sourceType;
+        }
+        if ('sourceId' in updateData) {
+          updateData.sourceId = normalized.sourceId;
+        }
+        if ('sourceLineKey' in updateData) {
+          updateData.sourceLineKey = normalized.sourceLineKey;
+        }
+        if ('systemGenerated' in updateData) {
+          updateData.systemGenerated = normalized.systemGenerated;
+        }
       }
 
       // Type assertion needed: Converted data matches database schema
@@ -290,6 +338,17 @@ export class ExpenseService {
       logger.error('Failed to fetch expense stats by status', { error });
       throw new Error('Failed to fetch expense stats by status');
     }
+  }
+
+  async upsertBySource(
+    payload: ExpenseCreateInput & { sourceId: string }
+  ): Promise<Expense> {
+    if (!payload.sourceId) {
+      throw new Error('sourceId is required for source-based upsert');
+    }
+
+    const expenseData = this.normalizeCreateInput(payload);
+    return expenseRepository.upsertBySource(expenseData);
   }
 }
 

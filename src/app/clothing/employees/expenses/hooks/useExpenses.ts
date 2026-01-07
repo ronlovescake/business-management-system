@@ -5,6 +5,7 @@ import { useExpenseData } from '@/hooks/useSheetData';
 import { showNotification } from '@mantine/notifications';
 import { getCurrentDateISO } from '@/utils/date';
 import { showError, showDeleteConfirm } from '@/lib/alerts';
+import { expenseCategoryOptions } from '@/modules/clothing/employees/expenses/utils';
 
 /**
  * Expense Interface
@@ -17,9 +18,29 @@ export interface Expense {
   category: string;
   notes: string;
   receipt: string | null;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'paid';
   employeeName?: string;
+  sourceType?: string;
+  sourceId?: string | null;
+  sourceLineKey?: string | null;
+  systemGenerated?: boolean;
 }
+
+type ExpenseDTO = {
+  id?: string | number;
+  date: string;
+  amount: number;
+  description: string;
+  category: string;
+  notes?: string | null;
+  receipt?: string | null;
+  status: string;
+  employeeName?: string | null;
+  sourceType?: string | null;
+  sourceId?: string | null;
+  sourceLineKey?: string | null;
+  systemGenerated?: boolean | null;
+};
 
 /**
  * Monthly Breakdown Interface
@@ -89,17 +110,30 @@ export function useExpenses() {
   const expenses = useMemo(() => {
     const source = Array.isArray(expensesFromDB) ? expensesFromDB : [];
 
-    return source.map((exp) => ({
-      id: String(exp.id),
-      date: exp.date,
-      amount: exp.amount,
-      description: exp.description,
-      category: exp.category,
-      notes: exp.notes ?? '',
-      receipt: exp.receipt,
-      status: exp.status as 'pending' | 'approved' | 'rejected',
-      employeeName: exp.employeeName ?? undefined,
-    }));
+    return source.map((exp) => {
+      const dto = exp as ExpenseDTO;
+      return {
+        id: dto.id !== undefined ? String(dto.id) : '',
+        date: dto.date,
+        amount: dto.amount,
+        description: dto.description,
+        category: dto.category,
+        notes: dto.notes ?? '',
+        receipt: dto.receipt ?? null,
+        status: dto.status as 'pending' | 'approved' | 'rejected' | 'paid',
+        employeeName: dto.employeeName ?? undefined,
+        sourceType: dto.sourceType ? String(dto.sourceType) : 'MANUAL',
+        sourceId:
+          dto.sourceId !== undefined && dto.sourceId !== null
+            ? String(dto.sourceId)
+            : null,
+        sourceLineKey:
+          dto.sourceLineKey !== undefined && dto.sourceLineKey !== null
+            ? String(dto.sourceLineKey)
+            : null,
+        systemGenerated: dto.systemGenerated === true,
+      } satisfies Expense;
+    });
   }, [expensesFromDB]);
 
   // ============================================================================
@@ -109,6 +143,7 @@ export function useExpenses() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
+  const [filterSource, setFilterSource] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [activeTab, setActiveTab] = useState<string | null>('list');
@@ -138,23 +173,42 @@ export function useExpenses() {
   // CONSTANTS
   // ============================================================================
 
-  const categories = useMemo(
-    () => [
-      'Driver Pay',
-      'Fuel',
-      'Helper Pay',
-      'Load/Unload Fees',
-      'Maintenance & Repairs',
-      'Meal',
-      'Parking Fees',
-      'Toll Fees',
-      'Transportation',
-      'Truck Washing / Cleaning',
-      'Permits & Registration',
-      'Vehicle Purchase',
-    ],
-    []
-  );
+  const categories = useMemo<string[]>(() => [...expenseCategoryOptions], []);
+
+  const getSourceLabel = (sourceType?: string): string => {
+    const normalized = (sourceType || 'MANUAL').toUpperCase();
+    switch (normalized) {
+      case 'PRODUCT':
+        return 'Product';
+      case 'PAYROLL':
+        return 'Payroll';
+      case 'MANUAL':
+        return 'Manual';
+      default:
+        return normalized.charAt(0) + normalized.slice(1).toLowerCase();
+    }
+  };
+
+  const getSourceColor = (sourceType?: string): string => {
+    const label = getSourceLabel(sourceType);
+    const map: Record<string, string> = {
+      Product: 'blue',
+      Payroll: 'cyan',
+      Manual: 'gray',
+    };
+    return map[label] || 'gray';
+  };
+
+  const sourceOptions = useMemo(() => {
+    const labels = new Set<string>();
+    expenses.forEach((exp) => {
+      const label = getSourceLabel(exp.sourceType);
+      if (label) {
+        labels.add(label);
+      }
+    });
+    return Array.from(labels).sort((a, b) => a.localeCompare(b));
+  }, [expenses]);
 
   // ============================================================================
   // COMPUTED VALUES
@@ -166,14 +220,22 @@ export function useExpenses() {
         searchQuery === '' ||
         expense.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
         expense.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        expense.employeeName?.toLowerCase().includes(searchQuery.toLowerCase());
+        expense.employeeName
+          ?.toLowerCase()
+          .includes(searchQuery.toLowerCase()) ||
+        getSourceLabel(expense.sourceType)
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase());
 
       const matchesCategory =
         !filterCategory || expense.category === filterCategory;
 
       const matchesStatus = !filterStatus || expense.status === filterStatus;
 
-      return matchesSearch && matchesCategory && matchesStatus;
+      const matchesSource =
+        !filterSource || getSourceLabel(expense.sourceType) === filterSource;
+
+      return matchesSearch && matchesCategory && matchesStatus && matchesSource;
     });
 
     return filtered.sort((a, b) => {
@@ -181,7 +243,7 @@ export function useExpenses() {
       const dateB = new Date(b.date).getTime();
       return dateB - dateA;
     });
-  }, [expenses, searchQuery, filterCategory, filterStatus]);
+  }, [expenses, searchQuery, filterCategory, filterStatus, filterSource]);
 
   const totalExpenses = useMemo(
     () => expenses.reduce((sum, exp) => sum + exp.amount, 0),
@@ -312,6 +374,15 @@ export function useExpenses() {
       'Truck Washing / Cleaning': 'pink',
       'Permits & Registration': 'violet',
       'Vehicle Purchase': 'lime',
+      Products: 'blue.6',
+      'Shipping / Delivery Fee': 'teal.6',
+      Payroll: 'cyan.7',
+      Packaging: 'orange.6',
+      'Warehouse Rental': 'grape.7',
+      'Electricity Bill [Warehouse]': 'yellow.7',
+      'Water Bill [Warehouse]': 'blue.4',
+      'Business Expense - Others': 'gray.6',
+      'Business Expense - Food': 'green.6',
     };
     return colorMap[category] || 'gray';
   };
@@ -736,6 +807,8 @@ export function useExpenses() {
     setFilterCategory,
     filterStatus,
     setFilterStatus,
+    filterSource,
+    setFilterSource,
     isModalOpen,
     setIsModalOpen,
     editingExpense,
@@ -770,6 +843,7 @@ export function useExpenses() {
 
     // Computed values
     categories,
+    sourceOptions,
     totalExpenses,
     pendingExpenses,
     approvedExpenses,
@@ -780,6 +854,8 @@ export function useExpenses() {
     formatDate,
     formatCurrency,
     getCategoryColor,
+    getSourceLabel,
+    getSourceColor,
 
     // Event handlers
     handleAddExpense,

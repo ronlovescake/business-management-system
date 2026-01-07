@@ -26,6 +26,8 @@ interface ExpenseListTableProps {
   formatDate: (date: string) => string;
   formatCurrency: (amount: number) => string;
   getCategoryColor: (category: string) => string;
+  getSourceLabel: (sourceType?: string) => string;
+  getSourceColor: (sourceType?: string) => string;
   onViewReceipt: (receiptName: string) => void;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
@@ -47,6 +49,8 @@ export const ExpenseListTable = memo(function ExpenseListTable({
   formatDate,
   formatCurrency,
   getCategoryColor,
+  getSourceLabel,
+  getSourceColor,
   onViewReceipt,
   onApprove,
   onReject,
@@ -109,6 +113,17 @@ export const ExpenseListTable = memo(function ExpenseListTable({
                 </Table.Th>
                 <Table.Th
                   style={{
+                    width: 200,
+                    padding: '16px 12px',
+                    color: '#495057',
+                    backgroundColor: '#f1f3f5',
+                    textAlign: 'center',
+                  }}
+                >
+                  SOURCE
+                </Table.Th>
+                <Table.Th
+                  style={{
                     padding: '16px 12px',
                     color: '#495057',
                     backgroundColor: '#f1f3f5',
@@ -155,7 +170,7 @@ export const ExpenseListTable = memo(function ExpenseListTable({
             <Table.Tbody>
               {filteredExpenses.length === 0 ? (
                 <Table.Tr>
-                  <Table.Td colSpan={8} style={{ textAlign: 'center' }}>
+                  <Table.Td colSpan={9} style={{ textAlign: 'center' }}>
                     <Text c="dimmed" py="xl">
                       No expenses found
                     </Text>
@@ -184,6 +199,21 @@ export const ExpenseListTable = memo(function ExpenseListTable({
                       >
                         {expense.category}
                       </Badge>
+                    </Table.Td>
+                    <Table.Td>
+                      <Group gap={6} justify="center">
+                        <Badge
+                          color={getSourceColor(expense.sourceType)}
+                          variant="light"
+                        >
+                          {getSourceLabel(expense.sourceType)}
+                        </Badge>
+                        {expense.systemGenerated && (
+                          <Badge color="gray" variant="outline">
+                            Auto
+                          </Badge>
+                        )}
+                      </Group>
                     </Table.Td>
                     <Table.Td>
                       <Text size="sm" lineClamp={2} c="#495057">

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
@@ -23,6 +24,7 @@ const normalizeIdentifier = (value: string | undefined | null) =>
   (value ?? '').toString().trim().replace(/\s+/g, ' ').toLowerCase();
 
 export function usePayroll() {
+  const { data: session } = useSession();
   const queryClient = useQueryClient();
 
   // State Management
@@ -65,6 +67,18 @@ export function usePayroll() {
 
     return Array.from(names).sort((a, b) => a.localeCompare(b));
   }, [employees]);
+
+  const currentUserName = useMemo(() => {
+    const name = session?.user?.name?.trim();
+    if (name) {
+      return name;
+    }
+    const email = session?.user?.email?.trim();
+    if (email) {
+      return email;
+    }
+    return 'Current User';
+  }, [session?.user?.name, session?.user?.email]);
 
   const resolveEmployeeRecord = useCallback(
     (identifier: string | undefined | null) => {
@@ -1141,6 +1155,11 @@ export function usePayroll() {
         id,
         status: 'paid',
         paidDate,
+        processedBy: currentUserName,
+        processedByName: currentUserName,
+        updatedBy: currentUserName,
+        user: currentUserName,
+        actor: currentUserName,
       });
 
       // Show success message

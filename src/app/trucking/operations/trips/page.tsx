@@ -88,6 +88,7 @@ export default function TripsPage() {
           helpers={collections.helpers}
           trucks={collections.trucks}
           customers={collections.customers}
+          getExpectedCrew={modals.logTrip.getExpectedCrew}
         />
       </Stack>
     </PageLayout>
