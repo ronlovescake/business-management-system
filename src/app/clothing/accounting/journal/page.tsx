@@ -6,7 +6,7 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import { JournalStatsCards } from './components/JournalStatsCards';
 import { JournalControls } from './components/JournalControls';
 import { JournalListTable } from './components/JournalListTable';
-import { useJournal } from '../hooks/useJournal';
+import { useJournal } from './hooks/useJournal';
 
 export default function JournalPage() {
   const {
@@ -25,6 +25,8 @@ export default function JournalPage() {
     handleAddEntry,
     handleImportCSV,
     handleExportCSV,
+    period,
+    setPeriod,
   } = useJournal();
 
   return (
@@ -45,6 +47,8 @@ export default function JournalPage() {
           onSearchChange={setSearchQuery}
           filterAccount={filterAccount}
           onAccountFilterChange={setFilterAccount}
+          period={period}
+          onPeriodChange={setPeriod}
           accounts={accounts}
           onImportCSV={handleImportCSV}
           onExportCSV={handleExportCSV}

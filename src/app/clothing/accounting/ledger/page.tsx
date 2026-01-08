@@ -13,6 +13,8 @@ export default function LedgerPage() {
     entries,
     filteredEntries,
     stats,
+    period,
+    setPeriod,
     accounts,
     searchQuery,
     setSearchQuery,
@@ -45,6 +47,8 @@ export default function LedgerPage() {
           onSearchChange={setSearchQuery}
           filterAccount={filterAccount}
           onAccountFilterChange={setFilterAccount}
+          period={period}
+          onPeriodChange={setPeriod}
           accounts={accounts}
           onImportCSV={handleImportCSV}
           onExportCSV={handleExportCSV}

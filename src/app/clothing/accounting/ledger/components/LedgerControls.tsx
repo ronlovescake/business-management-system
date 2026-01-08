@@ -13,6 +13,10 @@ import {
   type ControlPanelTabConfig,
 } from '@/components/ui/ControlPanelCard';
 import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
+import {
+  LEDGER_PERIOD_OPTIONS,
+  type LedgerPeriodOption,
+} from '../hooks/useLedger';
 
 interface LedgerControlsProps {
   activeTab: string | null;
@@ -21,6 +25,8 @@ interface LedgerControlsProps {
   onSearchChange: (query: string) => void;
   filterAccount: string | null;
   onAccountFilterChange: (account: string | null) => void;
+  period: LedgerPeriodOption;
+  onPeriodChange: (period: LedgerPeriodOption) => void;
   accounts: string[];
   onImportCSV: (file: File | null) => void;
   onExportCSV: () => void;
@@ -35,6 +41,8 @@ export const LedgerControls = memo(function LedgerControls({
   onSearchChange,
   filterAccount,
   onAccountFilterChange,
+  period,
+  onPeriodChange,
   accounts,
   onImportCSV,
   onExportCSV,
@@ -70,6 +78,20 @@ export const LedgerControls = memo(function LedgerControls({
             }
             clearable
             style={{ width: 220 }}
+          />
+          <Select
+            placeholder="Select period"
+            data={LEDGER_PERIOD_OPTIONS}
+            value={period}
+            onChange={(value) => {
+              if (!value) {
+                return;
+              }
+              if (LEDGER_PERIOD_OPTIONS.includes(value as LedgerPeriodOption)) {
+                onPeriodChange(value as LedgerPeriodOption);
+              }
+            }}
+            style={{ width: 180 }}
           />
           <FileButton onChange={onImportCSV} accept=".csv,text/csv">
             {(props) => (

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { logger } from '@/lib/logger';
 
-export type LedgerEntry = {
+export type JournalEntry = {
   id: string;
   date: string;
   ref: string;
@@ -9,18 +9,17 @@ export type LedgerEntry = {
   debit: number;
   credit: number;
   description: string;
-  balance?: number;
 };
 
-export type LedgerStats = {
+export type JournalStats = {
   totalDebits: number;
   totalCredits: number;
   netChange: number;
-  accounts: number;
+  entriesThisMonth: number;
   period: string;
 };
 
-export const LEDGER_PERIOD_OPTIONS = [
+export const JOURNAL_PERIOD_OPTIONS = [
   'All Time',
   'This Month',
   'Last Month',
@@ -28,21 +27,7 @@ export const LEDGER_PERIOD_OPTIONS = [
   'This Year',
 ] as const;
 
-export type LedgerPeriodOption = (typeof LEDGER_PERIOD_OPTIONS)[number];
-
-function computeRunningBalances(entries: LedgerEntry[]): LedgerEntry[] {
-  const balances = new Map<string, number>();
-  const byDate = [...entries].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-  );
-
-  return byDate.map((entry) => {
-    const current = balances.get(entry.account) ?? 0;
-    const next = current + entry.debit - entry.credit;
-    balances.set(entry.account, next);
-    return { ...entry, balance: next };
-  });
-}
+export type JournalPeriodOption = (typeof JOURNAL_PERIOD_OPTIONS)[number];
 
 function startOfDay(date: Date) {
   const next = new Date(date);
@@ -60,7 +45,7 @@ function toISOString(date: Date) {
   return date.toISOString();
 }
 
-function getPeriodRange(period: LedgerPeriodOption): {
+function getPeriodRange(period: JournalPeriodOption): {
   from?: string;
   to?: string;
 } {
@@ -96,24 +81,24 @@ function getPeriodRange(period: LedgerPeriodOption): {
   }
 }
 
-export function useLedger() {
+export function useJournal() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterAccount, setFilterAccount] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string | null>('list');
-  const [period, setPeriod] = useState<LedgerPeriodOption>('All Time');
-  const [entries, setEntries] = useState<LedgerEntry[]>([]);
-  const [stats, setStats] = useState<LedgerStats>({
+  const [period, setPeriod] = useState<JournalPeriodOption>('All Time');
+  const [entries, setEntries] = useState<JournalEntry[]>([]);
+  const [stats, setStats] = useState<JournalStats>({
     totalDebits: 0,
     totalCredits: 0,
     netChange: 0,
-    accounts: 0,
+    entriesThisMonth: 0,
     period: 'All Time',
   });
 
   useEffect(() => {
     let isMounted = true;
 
-    async function fetchLedger() {
+    async function fetchJournal() {
       try {
         const params = new URLSearchParams();
         const { from, to } = getPeriodRange(period);
@@ -126,14 +111,14 @@ export function useLedger() {
 
         const qs = params.toString();
         const res = await fetch(
-          qs ? `/api/accounting/ledger?${qs}` : '/api/accounting/ledger'
+          qs ? `/api/accounting/journal?${qs}` : '/api/accounting/journal'
         );
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`);
         }
         const payload = (await res.json()) as {
           success?: boolean;
-          data?: { entries: LedgerEntry[]; stats: LedgerStats };
+          data?: { entries: JournalEntry[]; stats: JournalStats };
         };
 
         if (!isMounted || !payload?.data) {
@@ -143,7 +128,7 @@ export function useLedger() {
         setEntries(payload.data.entries ?? []);
         setStats((prev) => payload.data?.stats ?? prev);
       } catch (error) {
-        logger.warn('Ledger fetch failed, showing empty results', { error });
+        logger.warn('Journal fetch failed, showing empty results', { error });
         if (!isMounted) {
           return;
         }
@@ -152,13 +137,13 @@ export function useLedger() {
           totalDebits: 0,
           totalCredits: 0,
           netChange: 0,
-          accounts: 0,
+          entriesThisMonth: 0,
           period: period,
         });
       }
     }
 
-    fetchLedger();
+    fetchJournal();
 
     return () => {
       isMounted = false;
@@ -167,23 +152,21 @@ export function useLedger() {
 
   const filteredEntries = useMemo(() => {
     const search = searchQuery.trim().toLowerCase();
-    const filtered = entries.filter((entry) => {
-      const matchesSearch =
-        search === '' ||
-        entry.account.toLowerCase().includes(search) ||
-        entry.ref.toLowerCase().includes(search) ||
-        entry.description.toLowerCase().includes(search);
 
-      const matchesAccount = !filterAccount || entry.account === filterAccount;
+    return entries
+      .filter((entry) => {
+        const matchesSearch =
+          search === '' ||
+          entry.account.toLowerCase().includes(search) ||
+          entry.ref.toLowerCase().includes(search) ||
+          entry.description.toLowerCase().includes(search);
 
-      return matchesSearch && matchesAccount;
-    });
+        const matchesAccount =
+          !filterAccount || entry.account === filterAccount;
 
-    const withBalances = computeRunningBalances(filtered);
-
-    return withBalances.sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
+        return matchesSearch && matchesAccount;
+      })
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [entries, filterAccount, searchQuery]);
 
   const accounts = useMemo(() => {
@@ -209,18 +192,18 @@ export function useLedger() {
     }).format(new Date(date));
 
   const handleAddEntry = () => {
-    logger.info('Add Ledger Entry clicked');
+    logger.info('Add Journal Entry clicked');
   };
 
   const handleImportCSV = (file: File | null) => {
     if (!file) {
       return;
     }
-    logger.info(`Import CSV (ledger) not implemented: ${file.name}`);
+    logger.info(`Import CSV (journal) not implemented: ${file.name}`);
   };
 
   const handleExportCSV = () => {
-    logger.info('Export CSV (ledger) not implemented');
+    logger.info('Export CSV (journal) not implemented');
   };
 
   return {

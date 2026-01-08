@@ -13,6 +13,10 @@ import {
   type ControlPanelTabConfig,
 } from '@/components/ui/ControlPanelCard';
 import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
+import {
+  JOURNAL_PERIOD_OPTIONS,
+  type JournalPeriodOption,
+} from '../hooks/useJournal';
 
 interface JournalControlsProps {
   activeTab: string | null;
@@ -21,6 +25,8 @@ interface JournalControlsProps {
   onSearchChange: (query: string) => void;
   filterAccount: string | null;
   onAccountFilterChange: (account: string | null) => void;
+  period: JournalPeriodOption;
+  onPeriodChange: (period: JournalPeriodOption) => void;
   accounts: string[];
   onImportCSV: (file: File | null) => void;
   onExportCSV: () => void;
@@ -35,6 +41,8 @@ export const JournalControls = memo(function JournalControls({
   onSearchChange,
   filterAccount,
   onAccountFilterChange,
+  period,
+  onPeriodChange,
   accounts,
   onImportCSV,
   onExportCSV,
@@ -70,6 +78,22 @@ export const JournalControls = memo(function JournalControls({
             }
             clearable
             style={{ width: 220 }}
+          />
+          <Select
+            placeholder="Select period"
+            data={JOURNAL_PERIOD_OPTIONS}
+            value={period}
+            onChange={(value) => {
+              if (!value) {
+                return;
+              }
+              if (
+                JOURNAL_PERIOD_OPTIONS.includes(value as JournalPeriodOption)
+              ) {
+                onPeriodChange(value as JournalPeriodOption);
+              }
+            }}
+            style={{ width: 180 }}
           />
           <FileButton onChange={onImportCSV} accept=".csv,text/csv">
             {(props) => (
