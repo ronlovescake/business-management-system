@@ -18,15 +18,15 @@ export async function fetchPaidTransactions(): Promise<
 > {
   const baseWhere = {
     deletedAt: null,
-    orderStatus: { in: PAID_STATUSES },
-  } as const;
+    orderStatus: { in: [...PAID_STATUSES] },
+  };
 
   try {
     return await prisma.transaction.findMany({
       where: baseWhere,
       include: {
         statusChanges: {
-          where: { newStatus: { in: PAID_STATUSES } },
+          where: { newStatus: { in: [...PAID_STATUSES] } },
           orderBy: { changedAt: 'asc' },
         },
       },
