@@ -284,7 +284,7 @@ const APP_MODULES = [
   {
     name: 'clothing-employees-expenses',
     displayName: 'Expenses',
-    path: '/clothing/employees/expenses',
+    path: '/clothing/accounting',
     category: 'clothing',
     icon: 'IconReceipt',
     parentName: 'clothing-employees',

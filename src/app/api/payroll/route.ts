@@ -13,7 +13,7 @@ import {
   validatePayroll,
   type PayrollInput,
 } from '@/lib/validations/payroll.validation';
-import { expenseService } from '@/modules/clothing/employees/expenses/api';
+import { expenseService } from '@/modules/clothing/ledger/api';
 
 const BULK_PAYROLL_LIMIT = BATCH_LIMITS.MAX_BATCH_SIZE;
 

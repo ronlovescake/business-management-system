@@ -4,7 +4,7 @@
  * Consolidates all expenses-related exports.
  *
  * @example
- * import { ExpensesCSV, Expense, isValidCategory } from '@/modules/clothing/employees/expenses';
+ * import { ExpensesCSV, Expense, isValidCategory } from '@/modules/clothing/ledger';
  */
 
 // Services

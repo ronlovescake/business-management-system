@@ -16,7 +16,11 @@ import {
 import { moduleRegistry } from '@/modules';
 import type { IconComponent } from '@/core/ModuleRegistry';
 
-export type WorkspaceType = 'operations' | 'employees' | 'expenses';
+export type WorkspaceType =
+  | 'operations'
+  | 'employees'
+  | 'accounting'
+  | 'expenses';
 export type BusinessType = 'clothing' | 'trucking';
 
 export interface WorkspaceDefinition {
@@ -54,6 +58,14 @@ const WORKSPACE_DEFINITIONS: WorkspaceDefinition[] = [
     icon: IconUsers as IconComponent,
     color: 'green',
     businesses: ['clothing', 'trucking'],
+  },
+  {
+    value: 'accounting',
+    label: 'Accounting',
+    icon: IconReceipt as IconComponent,
+    color: 'violet',
+    businesses: ['clothing'],
+    description: 'Accounting workspace with ledger/journal views',
   },
   {
     value: 'expenses',
@@ -189,74 +201,105 @@ export function buildNavigationItems(
         order: 1,
       },
       {
-        label: 'Expenses',
-        path: `${basePath}/expenses`,
-        icon: IconReceipt as IconComponent,
-        order: 2,
-      },
-      {
         label: 'Payroll',
         path: `${basePath}/payroll`,
         icon: IconCurrencyPeso as IconComponent,
-        order: 3,
+        order: 2,
       },
       {
         label: 'Calendar',
         path: `${basePath}/calendar`,
         icon: IconCalendar as IconComponent,
-        order: 4,
+        order: 3,
       },
       {
         label: 'Schedules',
         path: `${basePath}/schedules`,
         icon: IconClipboardList as IconComponent,
-        order: 5,
+        order: 4,
       },
       {
         label: 'Leave Tracker',
         path: `${basePath}/leave-tracker`,
         icon: IconCalendar as IconComponent,
-        order: 6,
+        order: 5,
       },
       {
         label: 'Cash Advance',
         path: `${basePath}/cash-advance`,
         icon: IconCurrencyPeso as IconComponent,
-        order: 7,
+        order: 6,
       },
       {
         label: 'Employee Loans',
         path: `${basePath}/employee-loans`,
         icon: IconCurrencyPeso as IconComponent,
-        order: 8,
+        order: 7,
       },
       {
         label: '13th Month Pay',
         path: `${basePath}/thirteenth-month-pay`,
         icon: IconGift as IconComponent,
-        order: 9,
+        order: 8,
       },
       {
         label: 'Team',
         path: `${basePath}/team`,
         icon: IconUsers as IconComponent,
-        order: 10,
+        order: 9,
       },
       {
         label: 'Notifications',
         path: `${basePath}/notifications`,
         icon: IconBell as IconComponent,
-        order: 11,
+        order: 10,
       },
       {
         label: 'Settings',
         path: `${basePath}/settings`,
         icon: IconSettings as IconComponent,
-        order: 12,
+        order: 11,
       },
     ];
 
     additionalItems.push(...employeeItems);
+  }
+
+  if (workspace === 'accounting') {
+    if (business === 'clothing') {
+      additionalItems.push(
+        {
+          label: 'Expenses',
+          path: `${basePath}/expenses`,
+          icon: IconReceipt as IconComponent,
+          order: 0,
+        },
+        {
+          label: 'Journal',
+          path: `${basePath}/journal`,
+          icon: IconClipboardList as IconComponent,
+          order: 1,
+        },
+        {
+          label: 'Ledger',
+          path: `${basePath}/ledger`,
+          icon: IconChartBar as IconComponent,
+          order: 2,
+        },
+        {
+          label: 'Profit & Loss',
+          path: `${basePath}/profit-loss`,
+          icon: IconCurrencyPeso as IconComponent,
+          order: 3,
+        },
+        {
+          label: 'Balance Sheet',
+          path: `${basePath}/balance-sheet`,
+          icon: IconCalendar as IconComponent,
+          order: 4,
+        }
+      );
+    }
   }
 
   if (workspace === 'expenses') {

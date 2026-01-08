@@ -24,6 +24,8 @@ const routePermissions: Record<string, string[]> = {
   '/clothing/employees/cash-advances': ['ADMIN', 'SUPER_ADMIN'],
   '/clothing/employees/thirteenth-month': ['ADMIN', 'SUPER_ADMIN'],
   '/clothing/employees/expenses': ['ADMIN', 'SUPER_ADMIN'],
+  '/clothing/accounting': ['ADMIN', 'SUPER_ADMIN'],
+  '/clothing/ledger': ['ADMIN', 'SUPER_ADMIN'],
 
   // Settings/Admin routes - Super Admin only
   '/clothing/settings': ['SUPER_ADMIN'],

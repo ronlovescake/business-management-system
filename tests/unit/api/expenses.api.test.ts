@@ -49,7 +49,7 @@ const mockExpenseBatchCreateSchema = vi.hoisted(() => {
 // Mock mass deletion safety check
 const mockValidateMassDeleteConfirmation = vi.hoisted(() => vi.fn(() => null));
 
-vi.mock('@/modules/clothing/employees/expenses/api', () => ({
+vi.mock('@/modules/clothing/ledger/api', () => ({
   expenseService: mockExpenseService,
   ExpenseQuerySchema: mockExpenseQuerySchema,
   ExpenseBatchCreateSchema: mockExpenseBatchCreateSchema,

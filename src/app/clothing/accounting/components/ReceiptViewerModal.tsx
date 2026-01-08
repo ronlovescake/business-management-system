@@ -70,12 +70,21 @@ export const ReceiptViewerModal = memo(function ReceiptViewerModal({
               </ActionIcon>
             </Tooltip>
             <Tooltip label="Reset Zoom">
-              <ActionIcon variant="light" onClick={onZoomReset} {...getIconButtonLabel('Reset zoom')}>
+              <ActionIcon
+                variant="light"
+                onClick={onZoomReset}
+                {...getIconButtonLabel('Reset zoom')}
+              >
                 <IconZoomReset size={18} />
               </ActionIcon>
             </Tooltip>
             <Tooltip label="Download Receipt">
-              <ActionIcon variant="filled" color="blue" onClick={onDownload} {...getIconButtonLabel('Download receipt')}>
+              <ActionIcon
+                variant="filled"
+                color="blue"
+                onClick={onDownload}
+                {...getIconButtonLabel('Download receipt')}
+              >
                 <IconDownload size={18} />
               </ActionIcon>
             </Tooltip>

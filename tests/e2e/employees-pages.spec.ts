@@ -155,7 +155,7 @@ test.describe('Employees - Payroll', () => {
 
 test.describe('Employees - Expenses', () => {
   test('should load expenses page', async ({ page }) => {
-    await gotoEmployeesPage(page, '/clothing/employees/expenses');
+    await gotoEmployeesPage(page, '/clothing/accounting');
     await expect(page.locator('body')).toBeVisible();
 
     // Expenses should have grid or table
@@ -168,7 +168,7 @@ test.describe('Employees - Expenses', () => {
   });
 
   test('should have add expense button', async ({ page }) => {
-    await gotoEmployeesPage(page, '/clothing/employees/expenses');
+    await gotoEmployeesPage(page, '/clothing/accounting');
 
     const addButton = page
       .getByRole('button', { name: /add|new|create/i })
@@ -183,7 +183,7 @@ test.describe('Employees - Expenses', () => {
   });
 
   test('should support CSV import', async ({ page }) => {
-    await gotoEmployeesPage(page, '/clothing/employees/expenses');
+    await gotoEmployeesPage(page, '/clothing/accounting');
 
     const importButton = page
       .getByRole('button', { name: /import|csv|upload/i })

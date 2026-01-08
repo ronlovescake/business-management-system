@@ -5,7 +5,7 @@ import { useExpenseData } from '@/hooks/useSheetData';
 import { showNotification } from '@mantine/notifications';
 import { getCurrentDateISO } from '@/utils/date';
 import { showError, showDeleteConfirm } from '@/lib/alerts';
-import { expenseCategoryOptions } from '@/modules/clothing/employees/expenses/utils';
+import { expenseCategoryOptions } from '@/modules/clothing/ledger/utils';
 
 /**
  * Expense Interface

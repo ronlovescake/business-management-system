@@ -15,7 +15,7 @@ import {
   type ExpenseQuery,
   type ExpenseStatus,
   type ExpenseCategory,
-} from '@/modules/clothing/employees/expenses/api';
+} from '@/modules/clothing/ledger/api';
 
 /**
  * Expenses API Route

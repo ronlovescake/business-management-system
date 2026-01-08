@@ -1,5 +1,5 @@
-import type { ExpenseCreateInput } from '@/modules/clothing/employees/expenses/api/schemas';
-import { expenseService } from '@/modules/clothing/employees/expenses/api/service';
+import type { ExpenseCreateInput } from '@/modules/clothing/ledger/api/schemas';
+import { expenseService } from '@/modules/clothing/ledger/api/service';
 import type { ShipmentDB } from '@/types';
 import { logger } from '@/lib/logger';
 

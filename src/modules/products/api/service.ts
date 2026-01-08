@@ -4,8 +4,8 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { mapFromDTO, mapToDTO } from './dto';
 import type { ProductDTO } from './dto';
-import { expenseService } from '@/modules/clothing/employees/expenses/api/service';
-import type { ExpenseCreateInput } from '@/modules/clothing/employees/expenses/api/schemas';
+import { expenseService } from '@/modules/clothing/ledger/api/service';
+import type { ExpenseCreateInput } from '@/modules/clothing/ledger/api/schemas';
 
 async function logOperationNotification(
   category: string,

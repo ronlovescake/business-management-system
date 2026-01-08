@@ -516,7 +516,7 @@ This page now uses all three template components and looks **exactly** like the 
 
 ### Expenses Page (Original)
 
-See: `/src/app/clothing/employees/expenses/page.tsx`
+See: `/src/app/clothing/accounting/page.tsx`
 
 This page uses custom components but has the exact same visual output. It can be converted to use templates for even better maintainability.
 

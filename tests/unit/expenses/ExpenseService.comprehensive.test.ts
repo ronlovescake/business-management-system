@@ -4,9 +4,16 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { parseCSV, parseCSVLine, normalizeDate, cleanAmount, toCSV, escapeCSV } from '@/modules/clothing/employees/expenses/services/ExpensesCSV';
-import { isValidCategory } from '@/modules/clothing/employees/expenses/utils/index';
-import type { Expense } from '@/modules/clothing/employees/expenses/types/index';
+import {
+  parseCSV,
+  parseCSVLine,
+  normalizeDate,
+  cleanAmount,
+  toCSV,
+  escapeCSV,
+} from '@/modules/clothing/ledger/services/ExpensesCSV';
+import { isValidCategory } from '@/modules/clothing/ledger/utils/index';
+import type { Expense } from '@/modules/clothing/ledger/types/index';
 
 describe('Expense Service', () => {
   describe('CSV Line Parsing', () => {
@@ -150,7 +157,9 @@ describe('Expense Service', () => {
       expect(result.expenses).toHaveLength(2);
       expect(result.summary.successCount).toBe(2);
       expect(result.summary.errorCount).toBe(1);
-      expect(result.summary.errors[0]).toContain('Row 3: Missing required field(s)');
+      expect(result.summary.errors[0]).toContain(
+        'Row 3: Missing required field(s)'
+      );
     });
 
     it('should validate dates', () => {
@@ -251,7 +260,7 @@ invalid-date,1000,Office Supplies,Supplies,pending
       {
         id: '2',
         date: '2025-01-16',
-        amount: 500.50,
+        amount: 500.5,
         description: 'Transportation',
         category: 'Transportation',
         notes: '',
@@ -373,28 +382,32 @@ invalid-date,1000,Office Supplies,Supplies,pending
     });
 
     it('should count by status', () => {
-      const pending = expenses.filter(e => e.status === 'pending').length;
-      const approved = expenses.filter(e => e.status === 'approved').length;
-      const rejected = expenses.filter(e => e.status === 'rejected').length;
-      
+      const pending = expenses.filter((e) => e.status === 'pending').length;
+      const approved = expenses.filter((e) => e.status === 'approved').length;
+      const rejected = expenses.filter((e) => e.status === 'rejected').length;
+
       expect(pending).toBe(1);
       expect(approved).toBe(1);
       expect(rejected).toBe(1);
     });
 
     it('should calculate total by category', () => {
-      const byCategory = expenses.reduce((acc, e) => {
-        acc[e.category] = (acc[e.category] || 0) + e.amount;
-        return acc;
-      }, {} as Record<string, number>);
-      
+      const byCategory = expenses.reduce(
+        (acc, e) => {
+          acc[e.category] = (acc[e.category] || 0) + e.amount;
+          return acc;
+        },
+        {} as Record<string, number>
+      );
+
       expect(byCategory['Supplies']).toBe(1000);
       expect(byCategory['Transportation']).toBe(500);
       expect(byCategory['Equipment']).toBe(750);
     });
 
     it('should calculate average expense', () => {
-      const avg = expenses.reduce((sum, e) => sum + e.amount, 0) / expenses.length;
+      const avg =
+        expenses.reduce((sum, e) => sum + e.amount, 0) / expenses.length;
       expect(avg).toBe(750);
     });
   });
@@ -430,7 +443,9 @@ invalid-date,1000,Office Supplies,Supplies,pending
 2025-01-15,100,"Supplies & Equipment (2025)",Transportation`;
 
       const result = parseCSV(csv);
-      expect(result.expenses[0].description).toBe('Supplies & Equipment (2025)');
+      expect(result.expenses[0].description).toBe(
+        'Supplies & Equipment (2025)'
+      );
     });
   });
 });

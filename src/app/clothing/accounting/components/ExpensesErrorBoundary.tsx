@@ -43,13 +43,30 @@ export class ExpensesErrorBoundary extends Component<Props, State> {
                 <IconAlertTriangle size={48} color="red" />
                 <Title order={2}>Expenses Module Error</Title>
               </Stack>
-              <Text c="dimmed" ta="center">An error occurred in the expenses module.</Text>
+              <Text c="dimmed" ta="center">
+                An error occurred in the expenses module.
+              </Text>
               {process.env.NODE_ENV === 'development' && this.state.error && (
-                <Code block color="red">{this.state.error.message}</Code>
+                <Code block color="red">
+                  {this.state.error.message}
+                </Code>
               )}
               <Stack gap="sm">
-                <Button leftSection={<IconRefresh size={16} />} onClick={() => window.location.reload()} fullWidth>Reload</Button>
-                <Button leftSection={<IconHome size={16} />} onClick={() => window.location.href = '/'} variant="light" fullWidth>Home</Button>
+                <Button
+                  leftSection={<IconRefresh size={16} />}
+                  onClick={() => window.location.reload()}
+                  fullWidth
+                >
+                  Reload
+                </Button>
+                <Button
+                  leftSection={<IconHome size={16} />}
+                  onClick={() => (window.location.href = '/')}
+                  variant="light"
+                  fullWidth
+                >
+                  Home
+                </Button>
               </Stack>
             </Stack>
           </Paper>
