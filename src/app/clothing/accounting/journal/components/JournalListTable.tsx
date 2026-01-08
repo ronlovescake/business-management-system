@@ -32,12 +32,15 @@ export const JournalListTable = memo(function JournalListTable({
         style={{ overflow: 'hidden', height: '73vh' }}
       >
         <Box style={{ height: '100%', overflowY: 'auto' }}>
-          <Table highlightOnHover withTableBorder>
+          <Table
+            highlightOnHover
+            withTableBorder
+            style={{ tableLayout: 'auto', minWidth: '100%' }}
+          >
             <Table.Thead style={{ backgroundColor: '#f1f3f5' }}>
               <Table.Tr>
                 <Table.Th
                   style={{
-                    width: 220,
                     padding: '16px 12px',
                     color: '#495057',
                     backgroundColor: '#f1f3f5',
@@ -48,7 +51,6 @@ export const JournalListTable = memo(function JournalListTable({
                 </Table.Th>
                 <Table.Th
                   style={{
-                    width: 120,
                     padding: '16px 12px',
                     color: '#495057',
                     backgroundColor: '#f1f3f5',
@@ -59,7 +61,6 @@ export const JournalListTable = memo(function JournalListTable({
                 </Table.Th>
                 <Table.Th
                   style={{
-                    width: 240,
                     padding: '16px 12px',
                     color: '#495057',
                     backgroundColor: '#f1f3f5',
@@ -70,7 +71,6 @@ export const JournalListTable = memo(function JournalListTable({
                 </Table.Th>
                 <Table.Th
                   style={{
-                    width: 180,
                     padding: '16px 12px',
                     color: '#495057',
                     backgroundColor: '#f1f3f5',
@@ -81,7 +81,6 @@ export const JournalListTable = memo(function JournalListTable({
                 </Table.Th>
                 <Table.Th
                   style={{
-                    width: 180,
                     padding: '16px 12px',
                     color: '#495057',
                     backgroundColor: '#f1f3f5',

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { logger } from '@/lib/logger';
+import { PERIOD_OPTIONS, type PeriodOption } from '@/lib/accounting/constants';
+import { getPeriodRange } from '@/lib/accounting/date-utils';
 
 export type JournalEntry = {
   id: string;
@@ -19,67 +21,8 @@ export type JournalStats = {
   period: string;
 };
 
-export const JOURNAL_PERIOD_OPTIONS = [
-  'All Time',
-  'This Month',
-  'Last Month',
-  'Last 30 Days',
-  'This Year',
-] as const;
-
-export type JournalPeriodOption = (typeof JOURNAL_PERIOD_OPTIONS)[number];
-
-function startOfDay(date: Date) {
-  const next = new Date(date);
-  next.setHours(0, 0, 0, 0);
-  return next;
-}
-
-function endOfDay(date: Date) {
-  const next = new Date(date);
-  next.setHours(23, 59, 59, 999);
-  return next;
-}
-
-function toISOString(date: Date) {
-  return date.toISOString();
-}
-
-function getPeriodRange(period: JournalPeriodOption): {
-  from?: string;
-  to?: string;
-} {
-  const now = new Date();
-
-  switch (period) {
-    case 'This Month': {
-      const from = startOfDay(new Date(now.getFullYear(), now.getMonth(), 1));
-      const to = endOfDay(new Date(now.getFullYear(), now.getMonth() + 1, 0));
-      return { from: toISOString(from), to: toISOString(to) };
-    }
-    case 'Last Month': {
-      const from = startOfDay(
-        new Date(now.getFullYear(), now.getMonth() - 1, 1)
-      );
-      const to = endOfDay(new Date(now.getFullYear(), now.getMonth(), 0));
-      return { from: toISOString(from), to: toISOString(to) };
-    }
-    case 'Last 30 Days': {
-      const to = endOfDay(now);
-      const from = startOfDay(
-        new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000)
-      );
-      return { from: toISOString(from), to: toISOString(to) };
-    }
-    case 'This Year': {
-      const from = startOfDay(new Date(now.getFullYear(), 0, 1));
-      const to = endOfDay(new Date(now.getFullYear(), 11, 31));
-      return { from: toISOString(from), to: toISOString(to) };
-    }
-    default:
-      return {};
-  }
-}
+export const JOURNAL_PERIOD_OPTIONS = PERIOD_OPTIONS;
+export type JournalPeriodOption = PeriodOption;
 
 export function useJournal() {
   const [searchQuery, setSearchQuery] = useState('');

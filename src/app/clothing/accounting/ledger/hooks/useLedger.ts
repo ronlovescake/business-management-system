@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { logger } from '@/lib/logger';
+import { PERIOD_OPTIONS, type PeriodOption } from '@/lib/accounting/constants';
+import { getPeriodRange } from '@/lib/accounting/date-utils';
 
 export type LedgerEntry = {
   id: string;
@@ -20,15 +22,8 @@ export type LedgerStats = {
   period: string;
 };
 
-export const LEDGER_PERIOD_OPTIONS = [
-  'All Time',
-  'This Month',
-  'Last Month',
-  'Last 30 Days',
-  'This Year',
-] as const;
-
-export type LedgerPeriodOption = (typeof LEDGER_PERIOD_OPTIONS)[number];
+export const LEDGER_PERIOD_OPTIONS = PERIOD_OPTIONS;
+export type LedgerPeriodOption = PeriodOption;
 
 function computeRunningBalances(entries: LedgerEntry[]): LedgerEntry[] {
   const balances = new Map<string, number>();
@@ -42,58 +37,6 @@ function computeRunningBalances(entries: LedgerEntry[]): LedgerEntry[] {
     balances.set(entry.account, next);
     return { ...entry, balance: next };
   });
-}
-
-function startOfDay(date: Date) {
-  const next = new Date(date);
-  next.setHours(0, 0, 0, 0);
-  return next;
-}
-
-function endOfDay(date: Date) {
-  const next = new Date(date);
-  next.setHours(23, 59, 59, 999);
-  return next;
-}
-
-function toISOString(date: Date) {
-  return date.toISOString();
-}
-
-function getPeriodRange(period: LedgerPeriodOption): {
-  from?: string;
-  to?: string;
-} {
-  const now = new Date();
-
-  switch (period) {
-    case 'This Month': {
-      const from = startOfDay(new Date(now.getFullYear(), now.getMonth(), 1));
-      const to = endOfDay(new Date(now.getFullYear(), now.getMonth() + 1, 0));
-      return { from: toISOString(from), to: toISOString(to) };
-    }
-    case 'Last Month': {
-      const from = startOfDay(
-        new Date(now.getFullYear(), now.getMonth() - 1, 1)
-      );
-      const to = endOfDay(new Date(now.getFullYear(), now.getMonth(), 0));
-      return { from: toISOString(from), to: toISOString(to) };
-    }
-    case 'Last 30 Days': {
-      const to = endOfDay(now);
-      const from = startOfDay(
-        new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000)
-      );
-      return { from: toISOString(from), to: toISOString(to) };
-    }
-    case 'This Year': {
-      const from = startOfDay(new Date(now.getFullYear(), 0, 1));
-      const to = endOfDay(new Date(now.getFullYear(), 11, 31));
-      return { from: toISOString(from), to: toISOString(to) };
-    }
-    default:
-      return {};
-  }
 }
 
 export function useLedger() {
