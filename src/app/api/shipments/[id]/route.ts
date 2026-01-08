@@ -5,6 +5,7 @@ import { prisma } from '../../../../lib/db';
 import type { ShipmentData, ShipmentDB } from '../../../../types';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
+import { postExpenseForShipment } from '@/modules/shipments/api/expenses';
 
 // Helper function to convert database model to frontend interface
 function convertShipmentDBToData(shipment: ShipmentDB): ShipmentData {
@@ -159,6 +160,8 @@ export const PUT = withErrorHandler<RouteContext>(
         `Updated fields: cvNumber, noOfSacks, totalCBM, weight, shipmentStatus`
       );
     }
+
+    await postExpenseForShipment(updatedShipment as ShipmentDB);
 
     const convertedShipment = convertShipmentDBToData(
       updatedShipment as ShipmentDB

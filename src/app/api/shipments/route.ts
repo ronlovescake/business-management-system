@@ -14,6 +14,7 @@ import {
 } from '@/modules/shipments/api/utils';
 import { HTTP_STATUS } from '@/shared/constants/api';
 import type { ShipmentData, ShipmentDB } from '@/types';
+import { postExpenseForShipment } from '@/modules/shipments/api/expenses';
 
 const MONTH_NAMES = [
   'Jan',
@@ -293,6 +294,8 @@ async function handleSingleShipmentCreation(
     );
   }
 
+  await postExpenseForShipment(createdShipment as ShipmentDB);
+
   return convertShipmentDBToData(createdShipment as ShipmentDB);
 }
 
@@ -306,6 +309,7 @@ async function handleBulkShipmentImport(
     let updated = 0;
     let restored = 0;
     const changeTracking: ShipmentChangeTracking[] = [];
+    const shipmentsForExpenses: ShipmentDB[] = [];
 
     for (const shipmentData of shipmentsToPersist) {
       if (!shipmentData.shipmentCode) {
@@ -320,7 +324,7 @@ async function handleBulkShipmentImport(
         const wasDeleted = existing.deletedAt !== null;
         const changeDetails = buildUpdateChangeDetails(existing, shipmentData);
 
-        await tx.shipment.update({
+        const updatedShipment = await tx.shipment.update({
           where: { id: existing.id },
           data: {
             ...shipmentData,
@@ -333,6 +337,8 @@ async function handleBulkShipmentImport(
           shipmentData.shipmentCode,
           shipmentData
         );
+
+        shipmentsForExpenses.push(updatedShipment as ShipmentDB);
 
         if (changeDetails.length > 0) {
           changeTracking.push({
@@ -360,6 +366,8 @@ async function handleBulkShipmentImport(
         shipmentData
       );
 
+      shipmentsForExpenses.push(newShipment as ShipmentDB);
+
       const creationChanges = buildCreationChangeDetails(shipmentData);
       if (creationChanges.length > 0) {
         changeTracking.push({
@@ -373,8 +381,14 @@ async function handleBulkShipmentImport(
       created++;
     }
 
-    return { created, updated, restored, changeTracking };
+    return { created, updated, restored, changeTracking, shipmentsForExpenses };
   });
+
+  await Promise.all(
+    result.shipmentsForExpenses.map((shipment) =>
+      postExpenseForShipment(shipment)
+    )
+  );
 
   await createShipmentNotifications(result.changeTracking);
 
