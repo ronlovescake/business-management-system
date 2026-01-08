@@ -384,6 +384,28 @@ function describeChange(
   return `${field}: ${formattedOld} → ${formattedNew}`;
 }
 
+async function logStatusChange(
+  client: Prisma.TransactionClient | typeof prisma,
+  transactionId: number,
+  previousStatus: string | null | undefined,
+  newStatus: string | null | undefined
+) {
+  const prev = previousStatus ?? null;
+  const next = newStatus ?? null;
+
+  if (prev === next) {
+    return;
+  }
+
+  await client.transactionStatusChange.create({
+    data: {
+      transactionId,
+      previousStatus: prev,
+      newStatus: next,
+    },
+  });
+}
+
 async function handleNotificationBatch(
   updates: Array<{ id: number; transaction: Transaction; changes: string[] }>
 ) {
@@ -687,6 +709,13 @@ export const transactionService: TransactionService = {
             data: dbData,
           });
 
+          await logStatusChange(
+            tx,
+            id,
+            existing.orderStatus,
+            updated.orderStatus
+          );
+
           if (changes.length > 0) {
             changeLogEntries.push({
               entityType: 'transaction',
@@ -755,6 +784,13 @@ export const transactionService: TransactionService = {
       where: { id: update.id },
       data: dbData,
     });
+
+    await logStatusChange(
+      prisma,
+      update.id,
+      existing.orderStatus,
+      updatedTransaction.orderStatus
+    );
 
     const changes: Array<{
       field: string;

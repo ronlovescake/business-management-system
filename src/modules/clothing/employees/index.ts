@@ -10,5 +10,4 @@
 // Leave Requests Module
 export * from './leave-requests';
 
-// Expenses Module
-export * from './expenses';
+// Expenses module moved to accounting/ledger workspace

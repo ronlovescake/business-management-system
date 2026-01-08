@@ -12,6 +12,9 @@
 import type { ComponentType } from 'react';
 import { logger } from '@/lib/logger';
 
+type ModuleBusiness = 'clothing' | 'trucking';
+type ModuleWorkspace = 'operations' | 'employees' | 'expenses' | 'accounting';
+
 export type IconComponent = ComponentType<{ size?: number; stroke?: number }>;
 
 export interface ModuleRoute {
@@ -25,8 +28,8 @@ export interface ModuleNavigation {
   icon: IconComponent;
   path: string;
   order: number;
-  workspace?: ('operations' | 'employees' | 'expenses')[];
-  business?: ('clothing' | 'trucking')[];
+  workspace?: ModuleWorkspace[];
+  business?: ModuleBusiness[];
 }
 
 export interface ModuleConfig {
@@ -173,8 +176,8 @@ class ModuleRegistry {
    * Get modules for specific business and workspace
    */
   getForContext(
-    business: 'clothing' | 'trucking',
-    workspace: 'operations' | 'employees' | 'expenses'
+    business: ModuleBusiness,
+    workspace: ModuleWorkspace
   ): ModuleConfig[] {
     return this.getEnabled().filter((module) => {
       const navItems = module.navigation || [];
@@ -190,8 +193,8 @@ class ModuleRegistry {
    * Generate navigation items for sidebar
    */
   getNavigation(
-    business: 'clothing' | 'trucking',
-    workspace: 'operations' | 'employees' | 'expenses'
+    business: ModuleBusiness,
+    workspace: ModuleWorkspace
   ): ModuleNavigation[] {
     const modules = this.getForContext(business, workspace);
 
