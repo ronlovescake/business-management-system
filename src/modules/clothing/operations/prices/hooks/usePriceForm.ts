@@ -36,11 +36,17 @@ export function usePriceForm() {
       );
 
       // Filter out product codes that already have prices
-      const codes = products
-        .map((p) => p['Product Code'] as string)
-        .filter(Boolean)
-        .filter((code) => !existingProductCodes.has(code))
-        .sort();
+      const normalizedCodes = products
+        .map((p) => {
+          const code = p['Product Code'];
+          return typeof code === 'string' ? code.trim() : '';
+        })
+        .filter((code) => code.length > 0)
+        .filter((code) => !existingProductCodes.has(code));
+
+      const codes = Array.from(new Set(normalizedCodes)).sort((a, b) =>
+        a.localeCompare(b)
+      );
 
       setProductCodeOptions(codes);
       logger.info(

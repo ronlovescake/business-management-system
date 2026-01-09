@@ -493,6 +493,27 @@ export function useProductsGrid(): UseProductsGridResult {
 
     const productData = productForm.toProductData(existingProduct);
 
+    // Prevent saving duplicate product codes
+    const normalizedCode = productData['Product Code']
+      ?.toString()
+      .trim()
+      .toLowerCase();
+
+    const duplicate = products.some(
+      (p) =>
+        p['Product Code']?.toString().trim().toLowerCase() === normalizedCode &&
+        (!productForm.isEditMode || p.id !== productForm.editingProductId)
+    );
+
+    if (normalizedCode && duplicate) {
+      showNotification({
+        title: 'Duplicate Product Code',
+        message: `${productData['Product Code']} already exists. Adjust the product name or posting date to generate a unique code.`,
+        color: 'red',
+      });
+      return;
+    }
+
     if (productForm.isEditMode && productForm.editingProductId) {
       const result = await updateProduct(
         productForm.editingProductId,
