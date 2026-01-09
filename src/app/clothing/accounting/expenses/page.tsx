@@ -164,6 +164,10 @@ export default function Expenses() {
           onClose={() => setIsModalOpen(false)}
           editingExpense={editingExpense}
           categories={categories}
+          addTitle="ADD CLOTHING OPERATIONS EXPENSE"
+          editTitle="Edit Clothing Operations Expense"
+          addSubtitle="Fill in the details to add a clothing operations expense"
+          editSubtitle="Update the clothing operations expense details below"
           formDate={formDate}
           setFormDate={setFormDate}
           formAmount={formAmount}

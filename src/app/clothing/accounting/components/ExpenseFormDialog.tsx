@@ -45,6 +45,10 @@ interface ExpenseFormDialogProps {
   onClose: () => void;
   editingExpense: Expense | null;
   categories: string[];
+  addTitle?: string;
+  editTitle?: string;
+  addSubtitle?: string;
+  editSubtitle?: string;
 
   // Form state
   formDate: string;
@@ -72,6 +76,10 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
   onClose,
   editingExpense,
   categories,
+  addTitle = 'Add New Expense',
+  editTitle = 'Edit Expense',
+  addSubtitle = 'Fill in the details to add a new expense',
+  editSubtitle = 'Update the expense details below',
   formDate,
   setFormDate,
   formAmount,
@@ -102,19 +110,18 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
   const descriptionField = getFieldProps('description');
   const notesField = getTextareaProps('notes');
 
+  const titleText = editingExpense ? editTitle : addTitle;
+  const subtitleText = editingExpense ? editSubtitle : addSubtitle;
+
   const modalTitle = (
     <Group gap="sm" align="center">
       <IconReceipt size={26} color="#65ab58" />
       <Stack gap={2}>
         <Text fw={700} fz="lg" c="#101828">
-          {editingExpense
-            ? 'Edit Household Expense'
-            : 'Add New Household Expense'}
+          {titleText}
         </Text>
         <Text fz="sm" c="#667085">
-          {editingExpense
-            ? 'Update the household expense details below'
-            : 'Fill in the details to add a new household expense'}
+          {subtitleText}
         </Text>
       </Stack>
     </Group>

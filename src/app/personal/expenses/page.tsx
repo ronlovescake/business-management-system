@@ -137,6 +137,10 @@ export default function PersonalExpensesPage() {
           onClose={() => setIsModalOpen(false)}
           editingExpense={editingExpense}
           categories={categories}
+          addTitle="Add New Household Expense"
+          editTitle="Edit Household Expense"
+          addSubtitle="Fill in the details to add a new household expense"
+          editSubtitle="Update the household expense details below"
           formDate={formDate}
           setFormDate={setFormDate}
           formAmount={formAmount}
