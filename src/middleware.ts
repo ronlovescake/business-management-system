@@ -31,6 +31,9 @@ const routePermissions: Record<string, string[]> = {
   '/clothing/settings': ['SUPER_ADMIN'],
   '/clothing/users': ['SUPER_ADMIN'],
 
+  // Personal finance - all authenticated users
+  '/personal': ['USER', 'ADMIN', 'SUPER_ADMIN'],
+
   // Profile route - All authenticated users
   '/profile': ['USER', 'ADMIN', 'SUPER_ADMIN'],
 };

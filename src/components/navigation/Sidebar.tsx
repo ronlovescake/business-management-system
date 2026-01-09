@@ -9,7 +9,7 @@ import {
   Badge,
   Divider,
 } from '@mantine/core';
-import { IconShirt, IconTruck } from '@tabler/icons-react';
+import { IconShirt, IconTruck, IconCurrencyPeso } from '@tabler/icons-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
@@ -66,19 +66,35 @@ export function Sidebar() {
           radius="md"
           variant="gradient"
           gradient={{
-            from: selectedBusiness === 'clothing' ? 'pink' : 'blue',
-            to: selectedBusiness === 'clothing' ? 'orange' : 'cyan',
+            from:
+              selectedBusiness === 'clothing'
+                ? 'pink'
+                : selectedBusiness === 'trucking'
+                  ? 'blue'
+                  : 'teal',
+            to:
+              selectedBusiness === 'clothing'
+                ? 'orange'
+                : selectedBusiness === 'trucking'
+                  ? 'cyan'
+                  : 'green',
           }}
         >
           {selectedBusiness === 'clothing' ? (
             <IconShirt size={20} />
-          ) : (
+          ) : selectedBusiness === 'trucking' ? (
             <IconTruck size={20} />
+          ) : (
+            <IconCurrencyPeso size={20} />
           )}
         </ThemeIcon>
         <Stack gap={2}>
           <Text size="sm" fw={600} c="dark">
-            {selectedBusiness === 'clothing' ? 'Clothing' : 'Trucking'}
+            {selectedBusiness === 'clothing'
+              ? 'Clothing'
+              : selectedBusiness === 'trucking'
+                ? 'Trucking'
+                : 'Personal Finance'}
           </Text>
           <Badge
             size="xs"

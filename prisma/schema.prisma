@@ -486,6 +486,40 @@ model Expense {
   @@map("expenses")
 }
 
+model HouseholdExpense {
+  id              Int       @id @default(autoincrement())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  date            String    @db.VarChar(50)
+  amount          Float
+  description     String    @db.VarChar(500)
+  category        String    @db.VarChar(100)
+  notes           String?
+  receipt         String?   @db.VarChar(500)
+  status          String    @db.VarChar(20)
+  loggedBy        String?   @db.VarChar(255)
+  paymentMethod   String?   @db.VarChar(50)
+  paymentCardId   String?   @db.VarChar(100)
+  sourceType      String    @default("MANUAL") @db.VarChar(50)
+  sourceId        String?   @db.VarChar(100)
+  sourceLineKey   String?   @db.VarChar(100)
+  systemGenerated Boolean   @default(false)
+
+  @@index([date])
+  @@index([category])
+  @@index([status])
+  @@index([loggedBy])
+  @@index([paymentMethod])
+  @@index([paymentCardId])
+  @@index([sourceType])
+  @@index([sourceId])
+  @@unique([sourceType, sourceId, sourceLineKey])
+  @@index([status, date])
+  @@index([loggedBy, status])
+  @@index([category, status])
+  @@map("household_expenses")
+}
+
 model Employee {
   id                            Int       @id @default(autoincrement())
   createdAt                     DateTime  @default(now())

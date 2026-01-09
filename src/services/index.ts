@@ -3,7 +3,11 @@ import { ProductService } from './ProductService';
 import { TransactionService } from './TransactionService';
 import { ShipmentService } from './ShipmentService';
 import { PriceService } from './PriceService';
-import { ExpenseService, TruckingExpenseService } from './ExpenseService';
+import {
+  ExpenseService,
+  TruckingExpenseService,
+  HouseholdExpenseService,
+} from './ExpenseService';
 import { FormatterService } from './FormatterService';
 import { ValidationService } from './ValidationService';
 import type { DataSourceType } from '../types';
@@ -51,6 +55,9 @@ export class ServiceFactory {
   static getTruckingExpenseService() {
     return TruckingExpenseService;
   }
+  static getHouseholdExpenseService() {
+    return HouseholdExpenseService;
+  }
   static getFormatterService() {
     return FormatterService;
   }
@@ -68,6 +75,7 @@ export {
   PriceService,
   ExpenseService,
   TruckingExpenseService,
+  HouseholdExpenseService,
   FormatterService,
   ValidationService,
 };

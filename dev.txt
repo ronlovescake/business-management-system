@@ -10,18 +10,16 @@
     · instrumentationHook
 
  ✓ Starting...
- ✓ Compiled in 651ms
+ ✓ Compiled in 729ms
 ✅ Environment variables validated successfully
- ✓ Ready in 1548ms
+ ✓ Ready in 1701ms
 ✅ Environment variables validated successfully
- ✓ Compiled /api/auth/[...nextauth] in 135ms
+ ✓ Compiled /api/conversations in 166ms
 ✅ Environment variables validated successfully
-✅ Environment variables validated successfully
- GET /api/auth/session 200 in 428ms
- ✓ Compiled /api/conversations in 61ms
- GET /api/conversations 200 in 132ms
- ○ Compiling /clothing/accounting/profit-loss ...
- ✓ Compiled /clothing/accounting/profit-loss in 6.4s
+ GET /api/conversations 200 in 351ms
+ ○ Compiling /personal/expenses ...
+ GET /api/conversations 200 in 120ms
+ ✓ Compiled /personal/expenses in 7s
 [✅ Module registered: Dashboard (v1.0.0)]
 [✅ Module registered: Customers (v1.0.0)]
 [✅ Module registered: Transactions (v1.0.0)]
@@ -49,191 +47,112 @@
 [✅ Module registered: Trips (v0.1.0)]
 [✅ Module registered: Vehicle Assignments (v1.0.0)]
 [✅ Module registered: Fleet Registry (v1.0.0)]
- GET /clothing/accounting/profit-loss 200 in 6970ms
- ✓ Compiled /icon.svg in 32ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 58ms
- GET /api/auth/session 200 in 257ms
- GET /api/conversations 200 in 280ms
- ✓ Compiled /api/accounting/profit-loss in 274ms
- GET /api/auth/session 200 in 57ms
-prisma:error 
-Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].transaction.findMany()` invocation in
-/home/ron/Websites/business-management-development/.next/server/chunks/src_6478ae._.js:1351:167
-
-  1348 };
-  1349 let transactions = [];
-  1350 try {
-→ 1351     transactions = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].transaction.findMany(
-The table `public.transaction_status_changes` does not exist in the current database.
- GET /api/accounting/profit-loss 200 in 371ms
- GET /api/auth/session 200 in 47ms
-prisma:error 
-Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].transaction.findMany()` invocation in
-/home/ron/Websites/business-management-development/.next/server/chunks/src_6478ae._.js:1351:167
-
-  1348 };
-  1349 let transactions = [];
-  1350 try {
-→ 1351     transactions = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].transaction.findMany(
-The table `public.transaction_status_changes` does not exist in the current database.
- GET /api/accounting/profit-loss 200 in 60ms
+ GET /personal/expenses 200 in 7659ms
+ ○ Compiling /_not-found/page ...
+ GET /api/conversations 200 in 74ms
 ✅ Environment variables validated successfully
- GET /api/conversations 200 in 19ms
-prisma:error 
-Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].transaction.findMany()` invocation in
-/home/ron/Websites/business-management-development/.next/server/chunks/src_6478ae._.js:1351:167
-
-  1348 };
-  1349 let transactions = [];
-  1350 try {
-→ 1351     transactions = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].transaction.findMany(
-The table `public.transaction_status_changes` does not exist in the current database.
- GET /api/accounting/profit-loss?from=2025-12-10T16%3A00%3A00.000Z&to=2026-01-09T15%3A59%3A59.999Z 200 in 41ms
+ GET /api/auth/session 200 in 657ms
+ GET /api/auth/session 200 in 674ms
+ GET /api/auth/session 200 in 262ms
+✅ Environment variables validated successfully
+ GET /icon.svg?icon.8c4bbc9b.svg 200 in 1466ms
+[householdExpense.findMany] { count: 0, options: { orderBy: { date: 'desc' } } }
+ℹ️  Household expenses fetched { count: 0, filtered: false }
+ GET /api/household/expenses 200 in 1388ms
+ ✓ Compiled /_not-found/page in 4.3s
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 4328ms
+ ✓ Compiled /personal/expenses in 8ms
+ ✓ Compiled /personal/expenses in 7ms
+ GET /api/conversations 200 in 27ms
  GET /api/conversations 200 in 25ms
-prisma:error 
-Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].transaction.findMany()` invocation in
-/home/ron/Websites/business-management-development/.next/server/chunks/src_6478ae._.js:1351:167
-
-  1348 };
-  1349 let transactions = [];
-  1350 try {
-→ 1351     transactions = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].transaction.findMany(
-The table `public.transaction_status_changes` does not exist in the current database.
- GET /api/accounting/profit-loss?from=2025-12-31T16%3A00%3A00.000Z&to=2026-01-31T15%3A59%3A59.999Z 200 in 38ms
- GET /api/conversations 200 in 21ms
+ GET /api/conversations 200 in 63ms
+ POST /api/household/expenses 400 in 29ms
+ POST /api/household/expenses 400 in 23ms
+ GET /api/conversations 200 in 27ms
+ GET /api/conversations 200 in 32ms
+ GET /api/conversations 200 in 35ms
+ GET /api/conversations 200 in 29ms
+ GET /api/conversations 200 in 32ms
+ GET /api/conversations 200 in 30ms
+ GET /api/conversations 200 in 27ms
+ GET /personal/expenses 200 in 79ms
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 53ms
+ GET /icon.svg?icon.8c4bbc9b.svg 200 in 27ms
+✅ Environment variables validated successfully
+ GET /api/auth/session 200 in 398ms
+ GET /api/auth/session 200 in 393ms
+[householdExpense.findMany] { count: 0, options: { orderBy: { date: 'desc' } } }
+ℹ️  Household expenses fetched { count: 0, filtered: false }
+ GET /api/household/expenses 200 in 407ms
+ GET /api/conversations 200 in 427ms
+ GET /api/auth/session 200 in 33ms
+✅ Environment variables validated successfully
+ GET /api/conversations 200 in 25ms
+ GET /api/conversations 200 in 22ms
  GET /api/conversations 200 in 23ms
-prisma:error 
-Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].transaction.findMany()` invocation in
-/home/ron/Websites/business-management-development/.next/server/chunks/src_6478ae._.js:1351:167
-
-  1348 };
-  1349 let transactions = [];
-  1350 try {
-→ 1351     transactions = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].transaction.findMany(
-The table `public.transaction_status_changes` does not exist in the current database.
- GET /api/accounting/profit-loss 200 in 40ms
-prisma:error 
-Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].transaction.findMany()` invocation in
-/home/ron/Websites/business-management-development/.next/server/chunks/src_6478ae._.js:1351:167
-
-  1348 };
-  1349 let transactions = [];
-  1350 try {
-→ 1351     transactions = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].transaction.findMany(
-The table `public.transaction_status_changes` does not exist in the current database.
- GET /api/accounting/profit-loss?from=2025-11-30T16%3A00%3A00.000Z&to=2025-12-31T15%3A59%3A59.999Z 200 in 35ms
- GET /api/conversations 200 in 20ms
-prisma:error 
-Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].transaction.findMany()` invocation in
-/home/ron/Websites/business-management-development/.next/server/chunks/src_6478ae._.js:1351:167
-
-  1348 };
-  1349 let transactions = [];
-  1350 try {
-→ 1351     transactions = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].transaction.findMany(
-The table `public.transaction_status_changes` does not exist in the current database.
- GET /api/accounting/profit-loss?from=2025-12-31T16%3A00%3A00.000Z&to=2026-01-31T15%3A59%3A59.999Z 200 in 34ms
  GET /api/conversations 200 in 24ms
- GET /api/conversations 200 in 17ms
-prisma:error 
-Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].transaction.findMany()` invocation in
-/home/ron/Websites/business-management-development/.next/server/chunks/src_6478ae._.js:1351:167
-
-  1348 };
-  1349 let transactions = [];
-  1350 try {
-→ 1351     transactions = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].transaction.findMany(
-The table `public.transaction_status_changes` does not exist in the current database.
- GET /api/accounting/profit-loss?from=2025-12-10T16%3A00%3A00.000Z&to=2026-01-09T15%3A59%3A59.999Z 200 in 38ms
- GET /api/conversations 200 in 19ms
-prisma:error 
-Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].transaction.findMany()` invocation in
-/home/ron/Websites/business-management-development/.next/server/chunks/src_6478ae._.js:1351:167
-
-  1348 };
-  1349 let transactions = [];
-  1350 try {
-→ 1351     transactions = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].transaction.findMany(
-The table `public.transaction_status_changes` does not exist in the current database.
- GET /api/accounting/profit-loss?from=2025-12-31T16%3A00%3A00.000Z&to=2026-12-31T15%3A59%3A59.999Z 200 in 36ms
-prisma:error 
-Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].transaction.findMany()` invocation in
-/home/ron/Websites/business-management-development/.next/server/chunks/src_6478ae._.js:1351:167
-
-  1348 };
-  1349 let transactions = [];
-  1350 try {
-→ 1351     transactions = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].transaction.findMany(
-The table `public.transaction_status_changes` does not exist in the current database.
- GET /api/accounting/profit-loss?from=2025-11-30T16%3A00%3A00.000Z&to=2025-12-31T15%3A59%3A59.999Z 200 in 35ms
+ℹ️  householdExpense.createMany { count: 1 }
+ℹ️  Household expenses created { count: 1 }
+ POST /api/household/expenses 201 in 35ms
+[householdExpense.findMany] { count: 1, options: { orderBy: { date: 'desc' } } }
+ℹ️  Household expenses fetched { count: 1, filtered: false }
+ GET /api/household/expenses 200 in 21ms
  GET /api/conversations 200 in 25ms
- GET /api/conversations 200 in 18ms
- GET /api/conversations 200 in 20ms
- GET /api/conversations 200 in 21ms
- GET /api/conversations 200 in 17ms
- GET /api/auth/session 200 in 223ms
- GET /api/conversations 200 in 232ms
+ GET /api/conversations 200 in 22ms
+ GET /api/auth/session 200 in 242ms
+ GET /api/auth/session 200 in 20ms
+✅ Environment variables validated successfully
+ GET /personal/expenses 200 in 69ms
+ GET /api/auth/session 200 in 293ms
+[householdExpense.findMany] { count: 1, options: { orderBy: { date: 'desc' } } }
+ℹ️  Household expenses fetched { count: 1, filtered: false }
+ GET /api/household/expenses 200 in 306ms
+ GET /api/conversations 200 in 325ms
+ GET /icon.svg?icon.8c4bbc9b.svg 200 in 53ms
+ GET /api/auth/session 200 in 39ms
+ GET /api/auth/session 200 in 25ms
+✅ Environment variables validated successfully
+ GET /api/conversations 200 in 28ms
+ GET /api/conversations 200 in 26ms
+[householdExpense.findById] { id: 1, found: true }
+ℹ️  householdExpense.update { id: 1 }
+ PATCH /api/household/expenses 200 in 35ms
+[householdExpense.findMany] { count: 1, options: { orderBy: { date: 'desc' } } }
+ℹ️  Household expenses fetched { count: 1, filtered: false }
+ GET /api/household/expenses 200 in 22ms
+ GET /api/conversations 200 in 27ms
+ GET /api/auth/session 200 in 240ms
+ GET /api/conversations 200 in 253ms
+ GET /api/auth/session 200 in 22ms
+✅ Environment variables validated successfully
+ GET /api/auth/session 200 in 250ms
+ GET /api/auth/session 200 in 16ms
+✅ Environment variables validated successfully
+ GET /api/auth/session 200 in 212ms
+ GET /api/auth/session 200 in 19ms
+✅ Environment variables validated successfully
+ GET /api/conversations 200 in 24ms
+ GET /api/auth/session 200 in 236ms
  GET /api/auth/session 200 in 18ms
 ✅ Environment variables validated successfully
- GET /api/conversations 200 in 21ms
-prisma:error 
-Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].transaction.findMany()` invocation in
-/home/ron/Websites/business-management-development/.next/server/chunks/src_6478ae._.js:1351:167
-
-  1348 };
-  1349 let transactions = [];
-  1350 try {
-→ 1351     transactions = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].transaction.findMany(
-The table `public.transaction_status_changes` does not exist in the current database.
- GET /api/accounting/profit-loss 200 in 39ms
- GET /api/conversations 200 in 18ms
-prisma:error 
-Invalid `__TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].transaction.findMany()` invocation in
-/home/ron/Websites/business-management-development/.next/server/chunks/src_6478ae._.js:1351:167
-
-  1348 };
-  1349 let transactions = [];
-  1350 try {
-→ 1351     transactions = await __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$lib$2f$db$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["prisma"].transaction.findMany(
-The table `public.transaction_status_changes` does not exist in the current database.
- GET /api/accounting/profit-loss?from=2025-12-31T16%3A00%3A00.000Z&to=2026-01-31T15%3A59%3A59.999Z 200 in 35ms
- GET /api/conversations 200 in 19ms
- GET /api/conversations 200 in 19ms
- GET /api/conversations 200 in 20ms
- GET /api/conversations 200 in 19ms
- GET /api/conversations 200 in 20ms
- GET /api/conversations 200 in 19ms
- GET /api/conversations 200 in 18ms
- GET /api/conversations 200 in 19ms
- GET /api/conversations 200 in 28ms
- GET /api/conversations 200 in 32ms
+ GET /api/auth/session 200 in 289ms
+ GET /api/auth/session 200 in 17ms
+✅ Environment variables validated successfully
+ GET /api/conversations 200 in 24ms
+ GET /api/auth/session 200 in 237ms
+ GET /api/auth/session 200 in 19ms
+✅ Environment variables validated successfully
  GET /api/conversations 200 in 26ms
- GET /api/conversations 200 in 20ms
- GET /api/conversations 200 in 25ms
  GET /api/conversations 200 in 23ms
- GET /api/conversations 200 in 20ms
- ✓ Compiled in 39ms
- GET /api/conversations 200 in 19ms
  GET /api/conversations 200 in 22ms
- GET /api/conversations 200 in 21ms
- GET /api/conversations 200 in 17ms
- GET /api/conversations 200 in 18ms
- GET /api/conversations 200 in 34ms
- GET /api/conversations 200 in 18ms
- GET /api/conversations 200 in 18ms
- GET /api/conversations 200 in 19ms
- GET /api/conversations 200 in 20ms
- GET /api/conversations 200 in 21ms
- GET /api/conversations 200 in 18ms
- GET /api/conversations 200 in 18ms
- GET /api/conversations 200 in 20ms
- GET /api/conversations 200 in 19ms
- GET /api/conversations 200 in 21ms
- GET /api/conversations 200 in 21ms
- GET /api/conversations 200 in 18ms
- GET /api/conversations 200 in 16ms
- GET /api/conversations 200 in 18ms
+ GET /api/conversations 200 in 25ms
+ GET /api/conversations 200 in 24ms
+ GET /api/conversations 200 in 37ms
+ GET /api/conversations 200 in 25ms
+ GET /api/conversations 200 in 24ms
  GET /api/conversations 200 in 22ms
- GET /api/conversations 200 in 21ms
  GET /api/conversations 200 in 22ms
- GET /api/conversations 200 in 19ms
+ GET /api/conversations 200 in 24ms
+ GET /api/conversations 200 in 28ms
+ GET /api/conversations 200 in 29ms
+ GET /api/conversations 200 in 24ms

@@ -178,6 +178,17 @@ export class BaseService {
         const response = await fetch(url, requestConfig);
 
         if (!response.ok) {
+          // Try to surface server-provided error details to aid debugging client errors
+          let errorPayload: unknown = null;
+          try {
+            const text = await response.text();
+            errorPayload = text;
+            // Attempt JSON parse for structured API responses
+            errorPayload = JSON.parse(text);
+          } catch {
+            // ignore parse errors; keep text/raw
+          }
+
           const apiError = new APIError(
             `HTTP Error: ${response.status} - ${response.statusText}`,
             response.status,
@@ -185,6 +196,11 @@ export class BaseService {
             endpoint,
             method
           );
+
+          if (errorPayload) {
+            // Attach payload for richer logging
+            (apiError as Record<string, unknown>).body = errorPayload;
+          }
 
           // Don't retry client errors (except 408 Request Timeout and 429 Too Many Requests)
           if (apiError.isClientError() && !apiError.isRetryable()) {

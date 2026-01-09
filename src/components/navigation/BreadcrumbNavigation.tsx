@@ -14,6 +14,7 @@ import {
   IconHome,
   IconShirt,
   IconTruck,
+  IconCurrencyPeso,
 } from '@tabler/icons-react';
 import { useBusinessStore } from '../../lib/store';
 import { usePathname } from 'next/navigation';
@@ -99,18 +100,31 @@ export function BreadcrumbNavigation() {
             otherBusinesses.map((business) => (
               <Menu.Item
                 key={business.value}
-                onClick={() => setSelectedBusiness(business.value)}
+                onClick={() => {
+                  setSelectedBusiness(business.value);
+                  if (business.value === 'personal') {
+                    setSelectedWorkspace('personal');
+                  }
+                }}
                 leftSection={
                   <ThemeIcon
                     size="sm"
                     radius="sm"
                     variant="light"
-                    color={business.value === 'clothing' ? 'pink' : 'blue'}
+                    color={
+                      business.value === 'clothing'
+                        ? 'pink'
+                        : business.value === 'trucking'
+                          ? 'blue'
+                          : 'teal'
+                    }
                   >
                     {business.value === 'clothing' ? (
                       <IconShirt size={14} />
-                    ) : (
+                    ) : business.value === 'trucking' ? (
                       <IconTruck size={14} />
+                    ) : (
+                      <IconCurrencyPeso size={14} />
                     )}
                   </ThemeIcon>
                 }
@@ -122,7 +136,12 @@ export function BreadcrumbNavigation() {
             BUSINESS_OPTIONS.map((business) => (
               <Menu.Item
                 key={business.value}
-                onClick={() => setSelectedBusiness(business.value)}
+                onClick={() => {
+                  setSelectedBusiness(business.value);
+                  if (business.value === 'personal') {
+                    setSelectedWorkspace('personal');
+                  }
+                }}
                 leftSection={
                   <ThemeIcon
                     size="sm"

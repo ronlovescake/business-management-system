@@ -20,8 +20,9 @@ export type WorkspaceType =
   | 'operations'
   | 'employees'
   | 'accounting'
-  | 'expenses';
-export type BusinessType = 'clothing' | 'trucking';
+  | 'expenses'
+  | 'personal';
+export type BusinessType = 'clothing' | 'trucking' | 'personal';
 
 export interface WorkspaceDefinition {
   value: WorkspaceType;
@@ -38,11 +39,13 @@ export const BUSINESS_OPTIONS: ReadonlyArray<{
 }> = [
   { value: 'clothing', label: 'Czarlie & Ron Clothing' },
   { value: 'trucking', label: 'Czarlie & Ron Trucking' },
+  { value: 'personal', label: 'Personal / Household Finance' },
 ];
 
 export const isBusiness = (
   value: string | null | undefined
-): value is BusinessType => value === 'clothing' || value === 'trucking';
+): value is BusinessType =>
+  value === 'clothing' || value === 'trucking' || value === 'personal';
 
 const WORKSPACE_DEFINITIONS: WorkspaceDefinition[] = [
   {
@@ -74,6 +77,14 @@ const WORKSPACE_DEFINITIONS: WorkspaceDefinition[] = [
     color: 'grape',
     businesses: ['trucking'],
     description: 'Standalone trucking expenses workspace',
+  },
+  {
+    value: 'personal',
+    label: 'Personal Finance',
+    icon: IconCurrencyPeso as IconComponent,
+    color: 'teal',
+    businesses: ['personal'],
+    description: 'Household budgeting and tracking',
   },
 ];
 
@@ -115,6 +126,65 @@ export function buildNavigationItems(
   business: BusinessType,
   workspace: WorkspaceType
 ): NavigationItem[] {
+  // Personal finance uses a flat route structure without workspaces
+  if (business === 'personal') {
+    return [
+      {
+        label: 'Dashboard',
+        path: '/personal/dashboard',
+        icon: IconDashboard as IconComponent,
+        order: 1,
+      },
+      {
+        label: 'Expenses',
+        path: '/personal/expenses',
+        icon: IconReceipt as IconComponent,
+        order: 2,
+      },
+      {
+        label: 'Income',
+        path: '/personal/income',
+        icon: IconClipboardList as IconComponent,
+        order: 3,
+      },
+      {
+        label: 'Accounts',
+        path: '/personal/accounts',
+        icon: IconDashboard as IconComponent,
+        order: 4,
+      },
+      {
+        label: 'Categories',
+        path: '/personal/categories',
+        icon: IconDashboard as IconComponent,
+        order: 5,
+      },
+      {
+        label: 'Budgets',
+        path: '/personal/budgets',
+        icon: IconDashboard as IconComponent,
+        order: 6,
+      },
+      {
+        label: 'Reports',
+        path: '/personal/reports',
+        icon: IconChartBar as IconComponent,
+        order: 7,
+      },
+      {
+        label: 'Settings',
+        path: '/personal/settings',
+        icon: IconSettings as IconComponent,
+        order: 8,
+      },
+    ];
+  }
+
+  // Defensive: avoid passing non-module workspaces to moduleRegistry
+  if (workspace === 'personal') {
+    return [];
+  }
+
   const basePath = `/${business}/${workspace}`;
 
   const moduleNavItems = moduleRegistry

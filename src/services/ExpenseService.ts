@@ -21,6 +21,24 @@ export interface ExpenseDTO {
   employeeId?: string | null;
 }
 
+export interface HouseholdExpenseDTO {
+  id: number;
+  date: string;
+  amount: number;
+  description: string;
+  category: string;
+  notes: string | null;
+  receipt: string | null;
+  status: string;
+  loggedBy: string | null;
+  paymentMethod?: string | null;
+  paymentCardId?: string | null;
+  sourceType?: string | null;
+  sourceId?: string | null;
+  sourceLineKey?: string | null;
+  systemGenerated?: boolean;
+}
+
 /**
  * Expense Service
  * Handles all expense-related API operations
@@ -99,4 +117,52 @@ export class ExpenseService extends BaseService {
 
 export class TruckingExpenseService extends ExpenseService {
   protected static override endpoint = '/trucking/expenses';
+}
+
+export class HouseholdExpenseService extends BaseService {
+  protected static endpoint = '/household/expenses';
+
+  static async getAll(): Promise<HouseholdExpenseDTO[]> {
+    return this.get<HouseholdExpenseDTO[]>(this.endpoint);
+  }
+
+  static async getById(id: string | number): Promise<HouseholdExpenseDTO> {
+    return this.get<HouseholdExpenseDTO>(`${this.endpoint}/${id}`);
+  }
+
+  static async create(
+    expense: Partial<HouseholdExpenseDTO>
+  ): Promise<HouseholdExpenseDTO> {
+    return this.post<HouseholdExpenseDTO>(this.endpoint, [expense]);
+  }
+
+  static async update(
+    id: string | number,
+    expense: Partial<HouseholdExpenseDTO>
+  ): Promise<HouseholdExpenseDTO> {
+    return this.patch<HouseholdExpenseDTO>(`${this.endpoint}`, {
+      id,
+      ...expense,
+    });
+  }
+
+  static async deleteById(id: string | number): Promise<void> {
+    await this.deleteVoid(`${this.endpoint}/${id}`);
+  }
+
+  static async bulkCreate(
+    expenses: Partial<HouseholdExpenseDTO>[]
+  ): Promise<{ count: number }> {
+    return this.post<{ count: number }>(this.endpoint, expenses);
+  }
+
+  static async bulkUpdate(
+    expenses: HouseholdExpenseDTO[]
+  ): Promise<{ count: number }> {
+    return this.put<{ count: number }>(this.endpoint, expenses);
+  }
+
+  static async deleteAll(): Promise<{ count: number }> {
+    return this.delete<{ count: number }>(this.endpoint);
+  }
 }

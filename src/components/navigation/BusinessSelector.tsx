@@ -7,10 +7,12 @@ import { useBusinessStore } from '../../lib/store';
 const businesses = [
   { value: 'clothing', label: 'Czarlie & Ron Clothing' },
   { value: 'trucking', label: 'Czarlie & Ron Trucking' },
+  { value: 'personal', label: 'Personal / Household Finance' },
 ];
 
 export function BusinessSelector() {
-  const { selectedBusiness, setSelectedBusiness } = useBusinessStore();
+  const { selectedBusiness, setSelectedBusiness, setSelectedWorkspace } =
+    useBusinessStore();
 
   const currentBusiness = businesses.find((b) => b.value === selectedBusiness);
   const otherBusinesses = businesses.filter(
@@ -39,7 +41,12 @@ export function BusinessSelector() {
           {otherBusinesses.map((business) => (
             <Menu.Item
               key={business.value}
-              onClick={() => setSelectedBusiness(business.value)}
+              onClick={() => {
+                setSelectedBusiness(business.value);
+                if (business.value === 'personal') {
+                  setSelectedWorkspace('personal');
+                }
+              }}
               leftSection={<IconBuilding size={16} />}
             >
               {business.label}
