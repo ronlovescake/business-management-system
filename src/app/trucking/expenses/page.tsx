@@ -158,6 +158,10 @@ export default function Expenses() {
           editingExpense={editingExpense}
           categories={categories}
           vehicleOptions={vehicleOptions}
+          addTitle="ADD TRUCKING OPERATIONS EXPENSE"
+          editTitle="Edit Trucking Operations Expense"
+          addSubtitle="Fill in the details to add a trucking operations expense"
+          editSubtitle="Update the trucking operations expense details below"
           formDate={formDate}
           setFormDate={setFormDate}
           formAmount={formAmount}
