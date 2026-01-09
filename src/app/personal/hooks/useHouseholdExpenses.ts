@@ -108,7 +108,6 @@ export function useHouseholdExpenses() {
   const [formAmount, setFormAmount] = useState<number | ''>('');
   const [formDescription, setFormDescription] = useState('');
   const [formCategory, setFormCategory] = useState('');
-  const [formTripId, setFormTripId] = useState('');
   const [formNotes, setFormNotes] = useState('');
   const [formReceipt, setFormReceipt] = useState<File | null>(null);
 
@@ -332,7 +331,6 @@ export function useHouseholdExpenses() {
     setFormAmount('');
     setFormDescription('');
     setFormCategory('');
-    setFormTripId('');
     setFormNotes('');
     setFormReceipt(null);
     setIsModalOpen(true);
@@ -344,7 +342,6 @@ export function useHouseholdExpenses() {
     setFormAmount(expense.amount);
     setFormDescription(expense.description);
     setFormCategory(expense.category);
-    setFormTripId('');
     setFormNotes(expense.notes || '');
     setFormReceipt(null);
     setIsModalOpen(true);
@@ -356,7 +353,6 @@ export function useHouseholdExpenses() {
     setFormAmount('');
     setFormDescription('');
     setFormCategory('');
-    setFormTripId('');
     setFormNotes('');
     setFormReceipt(null);
   };
@@ -485,8 +481,6 @@ export function useHouseholdExpenses() {
     setFormDescription,
     formCategory,
     setFormCategory,
-    formTripId,
-    setFormTripId,
     formNotes,
     setFormNotes,
     formReceipt,

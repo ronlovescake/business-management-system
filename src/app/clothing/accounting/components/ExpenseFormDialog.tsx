@@ -55,12 +55,13 @@ interface ExpenseFormDialogProps {
   setFormDescription: (description: string) => void;
   formCategory: string;
   setFormCategory: (category: string) => void;
-  formTripId: string;
-  setFormTripId: (tripId: string) => void;
+  formTripId?: string;
+  setFormTripId?: (tripId: string) => void;
   formNotes: string;
   setFormNotes: (notes: string) => void;
   formReceipt: File | null;
   setFormReceipt: (file: File | null) => void;
+  showTripId?: boolean;
 
   // Actions
   onSave: () => void;
@@ -79,12 +80,13 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
   setFormDescription,
   formCategory,
   setFormCategory,
-  formTripId,
-  setFormTripId,
+  formTripId = '',
+  setFormTripId = (_tripId: string) => {},
   formNotes,
   setFormNotes,
   formReceipt,
   setFormReceipt,
+  showTripId = true,
   onSave,
 }: ExpenseFormDialogProps) {
   // Validation
@@ -96,7 +98,7 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
   const dateField = getFieldProps('date');
   const categorySelect = getSelectProps('category');
   const amountField = getFieldProps('amount');
-  const tripIdField = getFieldProps('tripId');
+  const tripIdField = showTripId ? getFieldProps('tripId') : null;
   const descriptionField = getFieldProps('description');
   const notesField = getTextareaProps('notes');
 
@@ -105,12 +107,14 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
       <IconReceipt size={26} color="#65ab58" />
       <Stack gap={2}>
         <Text fw={700} fz="lg" c="#101828">
-          {editingExpense ? 'Edit Expense' : 'Add New Expense'}
+          {editingExpense
+            ? 'Edit Household Expense'
+            : 'Add New Household Expense'}
         </Text>
         <Text fz="sm" c="#667085">
           {editingExpense
-            ? 'Update the expense details below'
-            : 'Fill in the details to add a new expense'}
+            ? 'Update the household expense details below'
+            : 'Fill in the details to add a new household expense'}
         </Text>
       </Stack>
     </Group>
@@ -143,6 +147,7 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
               onChange={(value) => setFormCategory(value || '')}
               required
               searchable
+              maxDropdownHeight={400}
               {...categorySelect.handlers}
               styles={categorySelect.styles}
               withCheckIcon={false}
@@ -164,13 +169,15 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
               {...amountField.handlers}
               styles={amountField.styles}
             />
-            <TextInput
-              label="Trip ID (Optional)"
-              value={formTripId}
-              onChange={(e) => setFormTripId(e.target.value)}
-              {...tripIdField.handlers}
-              styles={tripIdField.styles}
-            />
+            {showTripId && (
+              <TextInput
+                label="Trip ID (Optional)"
+                value={formTripId}
+                onChange={(e) => setFormTripId(e.target.value)}
+                {...(tripIdField ? tripIdField.handlers : {})}
+                styles={tripIdField?.styles}
+              />
+            )}
           </Group>
 
           <TextInput
