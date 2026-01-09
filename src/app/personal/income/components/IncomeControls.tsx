@@ -1,0 +1,142 @@
+import React, { memo } from 'react';
+import { Group, TextInput, Select, FileButton, Button } from '@mantine/core';
+import {
+  IconList,
+  IconChartPie,
+  IconSearch,
+  IconUpload,
+  IconDownload,
+  IconPlus,
+} from '@tabler/icons-react';
+import { actionButtonStyles } from '@/components/shared/styles/actionButtonStyles';
+import {
+  ControlPanelCard,
+  type ControlPanelTabConfig,
+} from '@/components/ui/ControlPanelCard';
+import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
+
+interface IncomeControlsProps {
+  activeTab: string | null;
+  onTabChange: (tab: string | null) => void;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
+  filterType: string | null;
+  onTypeFilterChange: (type: string | null) => void;
+  filterAccount: string | null;
+  onAccountFilterChange: (account: string | null) => void;
+  types: string[];
+  accounts: string[];
+  onImportCSV: (file: File | null) => void;
+  onExportCSV: () => void;
+  onAddIncome: () => void;
+  isImporting: boolean;
+}
+
+export const IncomeControls = memo(function IncomeControls({
+  activeTab,
+  onTabChange,
+  searchQuery,
+  onSearchChange,
+  filterType,
+  onTypeFilterChange,
+  filterAccount,
+  onAccountFilterChange,
+  types,
+  accounts,
+  onImportCSV,
+  onExportCSV,
+  onAddIncome,
+  isImporting,
+}: IncomeControlsProps) {
+  useCtrlFFocus(
+    '[data-ctrlf-target="income-controls-search"]',
+    activeTab === 'list'
+  );
+
+  const tabs: ControlPanelTabConfig[] = [
+    {
+      value: 'list',
+      label: 'Income List',
+      leftSection: <IconList size={16} />,
+      panel: (
+        <Group wrap="wrap" gap="sm">
+          <TextInput
+            placeholder="Search income..."
+            leftSection={<IconSearch size={16} />}
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            style={{ flex: 1, minWidth: 220 }}
+            data-ctrlf-target="income-controls-search"
+          />
+          <Select
+            placeholder="Filter by type"
+            data={['All', ...types]}
+            value={filterType}
+            onChange={(value) =>
+              onTypeFilterChange(value === 'All' ? null : value)
+            }
+            clearable
+            style={{ width: 200 }}
+          />
+          <Select
+            placeholder="Filter by account"
+            data={['All', ...accounts]}
+            value={filterAccount}
+            onChange={(value) =>
+              onAccountFilterChange(value === 'All' ? null : value)
+            }
+            clearable
+            style={{ width: 200 }}
+          />
+          <FileButton onChange={onImportCSV} accept=".csv,text/csv">
+            {(props) => (
+              <Button
+                {...props}
+                leftSection={<IconUpload size={16} />}
+                size="sm"
+                radius="sm"
+                styles={actionButtonStyles}
+                loading={isImporting}
+              >
+                Import CSV
+              </Button>
+            )}
+          </FileButton>
+          <Button
+            leftSection={<IconDownload size={16} />}
+            size="sm"
+            radius="sm"
+            styles={actionButtonStyles}
+            onClick={onExportCSV}
+          >
+            Export
+          </Button>
+          <Button
+            leftSection={<IconPlus size={16} />}
+            size="sm"
+            radius="sm"
+            color="green"
+            onClick={onAddIncome}
+          >
+            Add Income
+          </Button>
+        </Group>
+      ),
+    },
+    {
+      value: 'analytics',
+      label: 'Analytics',
+      leftSection: <IconChartPie size={16} />,
+      panel: <div />,
+    },
+  ];
+
+  return (
+    <ControlPanelCard
+      title="Income Records"
+      activeTab={activeTab}
+      onTabChange={onTabChange}
+      tabs={tabs}
+    />
+  );
+});

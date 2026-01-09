@@ -42,11 +42,23 @@ const buildInputStyles = (isFocused: boolean) => ({
     : { ...polishedInputBaseStyles },
 });
 
+const { minHeight: _polishedMinHeight, ...polishedInputBaseNoMinHeight } =
+  polishedInputBaseStyles;
+
 const buildTextareaStyles = (isFocused: boolean) => ({
   label: polishedLabelStyles,
   input: {
     ...polishedInputBaseStyles,
     minHeight: 108,
+    resize: 'vertical' as const,
+    ...(isFocused ? polishedFocusRingStyles : {}),
+  },
+});
+
+const buildAutosizeTextareaStyles = (isFocused: boolean) => ({
+  label: polishedLabelStyles,
+  input: {
+    ...polishedInputBaseNoMinHeight,
     resize: 'vertical' as const,
     ...(isFocused ? polishedFocusRingStyles : {}),
   },
@@ -121,6 +133,14 @@ export function usePolishedFieldStyles(isModalOpen: boolean) {
     [focusedField, getHandlers]
   );
 
+  const getAutosizeTextareaProps = useCallback(
+    (fieldKey: string): FieldProps => ({
+      styles: buildAutosizeTextareaStyles(focusedField === fieldKey),
+      handlers: getHandlers(fieldKey),
+    }),
+    [focusedField, getHandlers]
+  );
+
   const getSelectProps = useCallback(
     (fieldKey: string): SelectProps => ({
       styles: buildSelectStyles(focusedField === fieldKey),
@@ -135,8 +155,15 @@ export function usePolishedFieldStyles(isModalOpen: boolean) {
       setFocusedField,
       getFieldProps,
       getTextareaProps,
+      getAutosizeTextareaProps,
       getSelectProps,
     }),
-    [focusedField, getFieldProps, getSelectProps, getTextareaProps]
+    [
+      focusedField,
+      getAutosizeTextareaProps,
+      getFieldProps,
+      getSelectProps,
+      getTextareaProps,
+    ]
   );
 }

@@ -305,7 +305,9 @@ export function useHouseholdExpenses() {
   const getCategoryColor = (category: string): string => {
     const householdMap: Partial<Record<HouseholdExpenseCategory, string>> = {
       Groceries: 'green.6',
-      Utilities: 'orange.6',
+      'Utilities - Electricity': 'orange.6',
+      'Utilities - Internet': 'orange.6',
+      'Utilities - Water': 'orange.6',
       Housing: 'grape.7',
       Transportation: 'indigo.6',
       Insurance: 'teal.7',
@@ -318,7 +320,6 @@ export function useHouseholdExpenses() {
       'Gifts & Donations': 'lime.6',
       Pets: 'orange.7',
       'Household Supplies': 'grape.5',
-      Childcare: 'cyan.7',
       Travel: 'teal.6',
       Miscellaneous: 'gray.6',
     };

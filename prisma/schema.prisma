@@ -520,6 +520,39 @@ model HouseholdExpense {
   @@map("household_expenses")
 }
 
+model HouseholdAccount {
+  id                String   @id @default(cuid())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  name              String   @db.VarChar(255)
+  type              String   @db.VarChar(30)
+  institution       String?  @db.VarChar(255)
+  accountNumberLast4 String? @db.VarChar(10)
+  isActive          Boolean  @default(true)
+  balance           Float    @default(0)
+
+  @@index([name])
+  @@index([type])
+  @@index([isActive])
+  @@map("HouseholdAccounts")
+}
+
+model HouseholdIncome {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  date      String   @db.VarChar(50)
+  type      String   @db.VarChar(30)
+  amount    Float
+  account   String?  @db.VarChar(255)
+  notes     String?
+
+  @@index([date])
+  @@index([type])
+  @@index([account])
+  @@map("HouseholdIncome")
+}
+
 model Employee {
   id                            Int       @id @default(autoincrement())
   createdAt                     DateTime  @default(now())

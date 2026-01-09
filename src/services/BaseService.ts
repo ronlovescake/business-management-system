@@ -199,7 +199,7 @@ export class BaseService {
 
           if (errorPayload) {
             // Attach payload for richer logging
-            (apiError as Record<string, unknown>).body = errorPayload;
+            (apiError as unknown as { body?: unknown }).body = errorPayload;
           }
 
           // Don't retry client errors (except 408 Request Timeout and 429 Too Many Requests)
