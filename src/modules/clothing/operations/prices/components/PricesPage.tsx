@@ -28,9 +28,11 @@ import { useThrottledCallback } from '@mantine/hooks';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { logger } from '@/lib/logger';
+import { api } from '@/lib/api/client';
 import { usePricesData } from '../hooks/usePricesData';
 import { usePriceForm } from '../hooks/usePriceForm';
 import { PriceService } from '../services/PriceService';
+import type { PriceFormData } from '../types/price.types';
 import { PriceStatsCards } from './PriceStatsCards';
 import { AddPriceModal } from './AddPriceModal';
 import { EditPriceModal } from './EditPriceModal';
@@ -46,6 +48,42 @@ const customGridStyles = `
     font-size: 17px !important;
   }
 `;
+
+const normalizeProductCode = (code: string): string =>
+  code.trim().toLowerCase();
+
+const applyActualPriceToTiers = (
+  tiers: PriceFormData['tiers'],
+  actualPrice: number
+): PriceFormData['tiers'] => {
+  const updatedTiers = tiers.map((tier) => ({ ...tier }));
+
+  let highestFilledIndex = -1;
+  for (let i = updatedTiers.length - 1; i >= 0; i--) {
+    if (updatedTiers[i].lowerLimit > 0) {
+      highestFilledIndex = i;
+      break;
+    }
+  }
+
+  if (highestFilledIndex === -1) {
+    highestFilledIndex = 0;
+  }
+
+  updatedTiers[highestFilledIndex] = {
+    ...updatedTiers[highestFilledIndex],
+    price: actualPrice,
+  };
+
+  for (let i = highestFilledIndex - 1; i >= 0; i--) {
+    updatedTiers[i] = {
+      ...updatedTiers[i],
+      price: actualPrice + 5 * (highestFilledIndex - i),
+    };
+  }
+
+  return updatedTiers;
+};
 
 /**
  * Main Prices page component
@@ -90,6 +128,65 @@ export function PricesPage() {
     priceAdjustment: 0,
   });
 
+  const getActualPriceForProduct = useCallback(
+    async (productCode: string): Promise<number | null> => {
+      const normalizedTarget = normalizeProductCode(productCode);
+      if (!normalizedTarget) {
+        return null;
+      }
+
+      try {
+        const products =
+          await api.get<Array<Record<string, unknown>>>('/api/products');
+
+        const product = products.find((p) => {
+          const rawCode =
+            typeof p['Product Code'] === 'string' ? p['Product Code'] : '';
+          return normalizeProductCode(rawCode) === normalizedTarget;
+        });
+
+        const rawActualPrice = product?.['Actual Price'];
+        const numericActualPrice =
+          typeof rawActualPrice === 'number'
+            ? rawActualPrice
+            : Number(rawActualPrice);
+
+        if (!Number.isFinite(numericActualPrice) || numericActualPrice <= 0) {
+          return null;
+        }
+
+        return numericActualPrice;
+      } catch (error) {
+        logger.error('Failed to load product actual price', {
+          productCode,
+          error,
+        });
+        return null;
+      }
+    },
+    []
+  );
+
+  const syncEditFormWithProductPrice = useCallback(
+    async (formSnapshot: typeof editForm): Promise<typeof editForm> => {
+      const actualPrice = await getActualPriceForProduct(
+        formSnapshot.productCode
+      );
+      if (!actualPrice) {
+        return formSnapshot;
+      }
+
+      const updatedForm = {
+        ...formSnapshot,
+        tiers: applyActualPriceToTiers(formSnapshot.tiers, actualPrice),
+      };
+
+      setEditForm(updatedForm);
+      return updatedForm;
+    },
+    [getActualPriceForProduct]
+  );
+
   // Edit modal handlers
   const openEditModal = useCallback(
     (productCode: string) => {
@@ -102,8 +199,9 @@ export function PricesPage() {
       const formData = PriceService.priceDataToForm(allTiersForProduct);
       setEditForm(formData);
       setIsEditOpen(true);
+      void syncEditFormWithProductPrice(formData);
     },
-    [prices]
+    [prices, syncEditFormWithProductPrice]
   );
 
   const closeEditModal = useCallback(() => {
@@ -129,6 +227,8 @@ export function PricesPage() {
       field: 'lowerLimit' | 'upperLimit' | 'price',
       value: number
     ) => {
+      let formNeedingPriceSync: typeof editForm | null = null;
+
       setEditForm((prev) => {
         const newTiers = [...prev.tiers];
         const numValue = value || 0;
@@ -237,61 +337,10 @@ export function PricesPage() {
             tiers: newTiers,
           };
 
+          formNeedingPriceSync = updatedForm;
+
           // Trigger price recalculation after state update (only if numValue > 0)
-          if (prev.productCode.trim() && numValue > 0) {
-            setTimeout(async () => {
-              try {
-                // Fetch all products
-                const response = await fetch('/api/products');
-                const products = await response.json();
-
-                // Find the product by product code
-                const product = products.find(
-                  (p: Record<string, unknown>) =>
-                    p['Product Code'] === prev.productCode.trim()
-                );
-
-                if (product && product['Actual Price']) {
-                  const actualPrice = Number(product['Actual Price']) || 0;
-
-                  // Find the highest filled tier
-                  let highestFilledTier = -1;
-                  for (let i = updatedForm.tiers.length - 1; i >= 0; i--) {
-                    if (updatedForm.tiers[i].lowerLimit > 0) {
-                      highestFilledTier = i;
-                      break;
-                    }
-                  }
-
-                  // If no tier has lower limit, default to Tier 1 (index 0)
-                  if (highestFilledTier === -1) {
-                    highestFilledTier = 0;
-                  }
-
-                  // Calculate prices based on highest filled tier
-                  const newTiersWithPrices = updatedForm.tiers.map(
-                    (tier, i) => {
-                      if (tier.lowerLimit > 0 && i <= highestFilledTier) {
-                        const priceIncrement = (highestFilledTier - i) * 5;
-                        return {
-                          ...tier,
-                          price: actualPrice + priceIncrement,
-                        };
-                      }
-                      return tier;
-                    }
-                  );
-
-                  setEditForm((current) => ({
-                    ...current,
-                    tiers: newTiersWithPrices,
-                  }));
-                }
-              } catch (error) {
-                logger.error('Failed to recalculate prices:', error);
-              }
-            }, 0);
-          }
+          // Actual price will be applied after state update via syncEditFormWithProductPrice
 
           return updatedForm;
         } else {
@@ -304,8 +353,12 @@ export function PricesPage() {
           tiers: newTiers,
         };
       });
+
+      if (formNeedingPriceSync) {
+        void syncEditFormWithProductPrice(formNeedingPriceSync);
+      }
     },
-    []
+    [syncEditFormWithProductPrice]
   );
 
   const setEditPriceAdjustment = useCallback((value: number) => {
@@ -553,8 +606,10 @@ export function PricesPage() {
 
   // Handle edit price submission
   const handleEditPriceSubmit = async () => {
+    const formForSubmit = await syncEditFormWithProductPrice(editForm);
+
     // Convert form to multiple price data (one per tier)
-    const priceDataArray = PriceService.formToMultiplePriceData(editForm);
+    const priceDataArray = PriceService.formToMultiplePriceData(formForSubmit);
 
     if (priceDataArray.length === 0) {
       throw new Error('No tiers filled');
@@ -562,7 +617,7 @@ export function PricesPage() {
 
     // Update all tiers for this product code
     const success = await PriceService.updateProductPrices(
-      editForm.productCode,
+      formForSubmit.productCode,
       priceDataArray
     );
 
