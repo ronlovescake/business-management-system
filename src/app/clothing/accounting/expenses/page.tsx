@@ -56,8 +56,6 @@ export default function Expenses() {
     setFormDescription,
     formCategory,
     setFormCategory,
-    formTripId,
-    setFormTripId,
     formNotes,
     setFormNotes,
     formReceipt,
@@ -176,12 +174,11 @@ export default function Expenses() {
           setFormDescription={setFormDescription}
           formCategory={formCategory}
           setFormCategory={setFormCategory}
-          formTripId={formTripId}
-          setFormTripId={setFormTripId}
           formNotes={formNotes}
           setFormNotes={setFormNotes}
           formReceipt={formReceipt}
           setFormReceipt={setFormReceipt}
+          showTripId={false}
           onSave={handleSaveExpense}
         />
 

@@ -153,7 +153,6 @@ export function useExpenses() {
   const [formAmount, setFormAmount] = useState<number | ''>('');
   const [formDescription, setFormDescription] = useState('');
   const [formCategory, setFormCategory] = useState('');
-  const [formTripId, setFormTripId] = useState('');
   const [formNotes, setFormNotes] = useState('');
   const [formReceipt, setFormReceipt] = useState<File | null>(null);
 
@@ -397,7 +396,6 @@ export function useExpenses() {
     setFormAmount('');
     setFormDescription('');
     setFormCategory('');
-    setFormTripId('');
     setFormNotes('');
     setFormReceipt(null);
     setIsModalOpen(true);
@@ -826,8 +824,6 @@ export function useExpenses() {
     setFormDescription,
     formCategory,
     setFormCategory,
-    formTripId,
-    setFormTripId,
     formNotes,
     setFormNotes,
     formReceipt,
