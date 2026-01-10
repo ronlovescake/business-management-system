@@ -10,6 +10,7 @@ const EMPTY_DRAFT: PersonalIncomeDraft = {
   type: 'BUSINESS_DRAW',
   amount: 0,
   account: '',
+  accountId: null,
   notes: '',
 };
 
@@ -17,12 +18,17 @@ function normalize(s: string): string {
   return s.trim().toLowerCase();
 }
 
-function newId(): string {
-  if (typeof globalThis.crypto?.randomUUID === 'function') {
-    return globalThis.crypto.randomUUID();
-  }
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
+type HouseholdIncomeApiRow = {
+  id: string;
+  date: string;
+  type: PersonalIncomeDraft['type'];
+  amount: number;
+  account: string | null;
+  accountId: string | null;
+  notes: string | null;
+};
+
+type HouseholdAccountOption = { value: string; label: string };
 
 function todayYmd(): string {
   const d = new Date();
@@ -34,24 +40,10 @@ function todayYmd(): string {
 
 export function IncomeClient() {
   const [search, setSearch] = React.useState('');
-  const [income, setIncome] = React.useState<PersonalIncomeRow[]>([
-    {
-      id: newId(),
-      date: todayYmd(),
-      type: 'BUSINESS_DRAW',
-      amount: 1500,
-      account: 'Cash Wallet',
-      notes: 'Owner draw',
-    },
-    {
-      id: newId(),
-      date: todayYmd(),
-      type: 'REFUND',
-      amount: 300,
-      account: 'GCash - Ron',
-      notes: 'Returned item refund',
-    },
-  ]);
+  const [income, setIncome] = React.useState<PersonalIncomeRow[]>([]);
+  const [accountOptions, setAccountOptions] = React.useState<
+    HouseholdAccountOption[]
+  >([]);
 
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editingId, setEditingId] = React.useState<string | null>(null);
@@ -59,6 +51,52 @@ export function IncomeClient() {
     ...EMPTY_DRAFT,
     date: todayYmd(),
   });
+
+  const reloadIncome = React.useCallback(async () => {
+    const res = await fetch('/api/household/income', { cache: 'no-store' });
+    const payload = (await res.json()) as unknown;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = (payload as any)?.data ?? payload;
+    if (!Array.isArray(data)) {
+      setIncome([]);
+      return;
+    }
+    const rows = (data as HouseholdIncomeApiRow[]).map((row) => ({
+      id: row.id,
+      date: row.date,
+      type: row.type,
+      amount: Number(row.amount || 0),
+      account: row.account ?? '',
+      accountId: row.accountId ?? null,
+      notes: row.notes ?? '',
+    }));
+    setIncome(rows);
+  }, []);
+
+  const reloadAccounts = React.useCallback(async () => {
+    const res = await fetch('/api/household/accounts', { cache: 'no-store' });
+    const payload = (await res.json()) as unknown;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = (payload as any)?.data ?? payload;
+    if (!Array.isArray(data)) {
+      setAccountOptions([]);
+      return;
+    }
+    const options = (
+      data as Array<{ id: string; name: string; isActive?: boolean }>
+    )
+      .filter(
+        (a) => a && typeof a.id === 'string' && typeof a.name === 'string'
+      )
+      .filter((a) => a.isActive !== false)
+      .map((a) => ({ value: a.id, label: a.name }));
+    setAccountOptions(options);
+  }, []);
+
+  React.useEffect(() => {
+    void reloadIncome();
+    void reloadAccounts();
+  }, [reloadIncome, reloadAccounts]);
 
   const filtered = React.useMemo(() => {
     const q = normalize(search);
@@ -97,6 +135,7 @@ export function IncomeClient() {
         type: row.type,
         amount: row.amount,
         account: row.account,
+        accountId: row.accountId ?? null,
         notes: row.notes,
       });
       setDialogOpen(true);
@@ -119,37 +158,33 @@ export function IncomeClient() {
       return;
     }
 
-    if (editingId) {
-      setIncome((prev) =>
-        prev.map((r) =>
-          r.id === editingId
-            ? {
-                ...r,
-                date,
-                type: draft.type,
-                amount,
-                account: draft.account.trim(),
-                notes: draft.notes.trim(),
-              }
-            : r
-        )
-      );
-    } else {
-      setIncome((prev) => [
-        {
-          id: newId(),
-          date,
-          type: draft.type,
-          amount,
-          account: draft.account.trim(),
-          notes: draft.notes.trim(),
-        },
-        ...prev,
-      ]);
-    }
+    void (async () => {
+      const payload = {
+        date,
+        type: draft.type,
+        amount,
+        accountId: draft.accountId ?? null,
+        notes: draft.notes.trim(),
+      };
 
-    setDialogOpen(false);
-  }, [draft, editingId]);
+      if (editingId) {
+        await fetch('/api/household/income', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: editingId, ...payload }),
+        });
+      } else {
+        await fetch('/api/household/income', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
+
+      await reloadIncome();
+      setDialogOpen(false);
+    })();
+  }, [draft, editingId, reloadIncome]);
 
   return (
     <Stack gap="md">
@@ -173,6 +208,7 @@ export function IncomeClient() {
         initial={draft}
         onChange={setDraft}
         onSave={onSave}
+        accountOptions={accountOptions}
       />
     </Stack>
   );

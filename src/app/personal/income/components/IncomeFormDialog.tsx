@@ -28,6 +28,7 @@ export interface PersonalIncomeDraft {
   type: PersonalIncomeType;
   amount: number;
   account: string;
+  accountId?: string | null;
   notes: string;
 }
 
@@ -39,6 +40,7 @@ interface IncomeFormDialogProps {
   initial: PersonalIncomeDraft;
   onChange: (next: PersonalIncomeDraft) => void;
   onSave: () => void;
+  accountOptions?: Array<{ value: string; label: string }>;
 }
 
 const INCOME_TYPE_OPTIONS: Array<{ value: PersonalIncomeType; label: string }> =
@@ -59,6 +61,7 @@ export const IncomeFormDialog = React.memo(function IncomeFormDialog({
   initial,
   onChange,
   onSave,
+  accountOptions = [],
 }: IncomeFormDialogProps) {
   const isValid =
     initial.date.trim().length > 0 &&
@@ -130,13 +133,24 @@ export const IncomeFormDialog = React.memo(function IncomeFormDialog({
           styles={amountField.styles}
         />
 
-        <TextInput
+        <Select
           label="Account (Optional)"
-          placeholder="e.g., Cash Wallet / GCash - Ron"
-          value={initial.account}
-          onChange={(e) => onChange({ ...initial, account: e.target.value })}
+          placeholder="Select an account"
+          data={accountOptions}
+          value={initial.accountId ?? null}
+          onChange={(value) => {
+            const selected = accountOptions.find((o) => o.value === value);
+            onChange({
+              ...initial,
+              accountId: value || null,
+              account: selected?.label || '',
+            });
+          }}
+          searchable
+          clearable
           {...accountField.handlers}
           styles={accountField.styles}
+          comboboxProps={{ withinPortal: true, zIndex: 500 }}
         />
 
         <Textarea

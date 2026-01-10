@@ -17,11 +17,20 @@ const OptionalText = z
   .nullable()
   .optional();
 
+const OptionalAccountId = z
+  .string()
+  .trim()
+  .max(255)
+  .transform((val) => (val === '' ? null : val))
+  .nullable()
+  .optional();
+
 export const HouseholdIncomeCreateSchema = z.object({
   date: z.coerce.date(),
   type: HouseholdIncomeTypeSchema,
   amount: z.number().positive('Amount must be positive'),
   account: OptionalText,
+  accountId: OptionalAccountId,
   notes: OptionalText,
 });
 

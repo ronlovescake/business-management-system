@@ -20,6 +20,7 @@ const EMPTY_DRAFT: PersonalIncomeDraft = {
   type: 'BUSINESS_DRAW',
   amount: 0,
   account: '',
+  accountId: null,
   notes: '',
 };
 
@@ -58,8 +59,29 @@ type HouseholdIncomeApiRow = {
   type: PersonalIncomeRow['type'];
   amount: number;
   account: string | null;
+  accountId: string | null;
   notes: string | null;
 };
+
+type HouseholdAccountOption = { value: string; label: string };
+
+async function fetchHouseholdAccountOptions(): Promise<
+  HouseholdAccountOption[]
+> {
+  const res = await fetch('/api/household/accounts', { cache: 'no-store' });
+  const payload = (await res.json()) as unknown;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = (payload as any)?.data ?? payload;
+  if (!Array.isArray(data)) {
+    return [];
+  }
+
+  return (data as Array<{ id: string; name: string; isActive?: boolean }>)
+    .filter((a) => a && typeof a.id === 'string' && typeof a.name === 'string')
+    .filter((a) => a.isActive !== false)
+    .map((a) => ({ value: a.id, label: a.name }));
+}
 
 async function fetchHouseholdIncome(): Promise<PersonalIncomeRow[]> {
   const res = await fetch('/api/household/income', { cache: 'no-store' });
@@ -77,6 +99,7 @@ async function fetchHouseholdIncome(): Promise<PersonalIncomeRow[]> {
     type: row.type,
     amount: Number(row.amount || 0),
     account: row.account ?? '',
+    accountId: row.accountId ?? null,
     notes: row.notes ?? '',
   }));
 }
@@ -92,6 +115,7 @@ async function createHouseholdIncome(
       type: draft.type,
       amount: draft.amount,
       account: draft.account,
+      accountId: draft.accountId ?? null,
       notes: draft.notes,
     }),
   });
@@ -110,6 +134,7 @@ async function updateHouseholdIncome(
       type: draft.type,
       amount: draft.amount,
       account: draft.account,
+      accountId: draft.accountId ?? null,
       notes: draft.notes,
     }),
   });
@@ -123,6 +148,9 @@ async function deleteHouseholdIncome(id: string): Promise<void> {
 
 export default function PersonalIncomePage() {
   const [income, setIncome] = React.useState<PersonalIncomeRow[]>([]);
+  const [accountOptions, setAccountOptions] = React.useState<
+    HouseholdAccountOption[]
+  >([]);
 
   const [activeTab, setActiveTab] = React.useState<string | null>('list');
 
@@ -212,6 +240,7 @@ export default function PersonalIncomePage() {
       type: row.type,
       amount: row.amount,
       account: row.account,
+      accountId: row.accountId ?? null,
       notes: row.notes,
     });
     setIsModalOpen(true);
@@ -242,6 +271,7 @@ export default function PersonalIncomePage() {
         date,
         amount,
         account: draft.account.trim(),
+        accountId: draft.accountId ?? null,
         notes: draft.notes.trim(),
       };
 
@@ -264,6 +294,14 @@ export default function PersonalIncomePage() {
       .then((data) => {
         if (active) {
           setIncome(data);
+        }
+      })
+      .catch(() => {});
+
+    void fetchHouseholdAccountOptions()
+      .then((options) => {
+        if (active) {
+          setAccountOptions(options);
         }
       })
       .catch(() => {});
@@ -360,6 +398,7 @@ export default function PersonalIncomePage() {
         initial={draft}
         onChange={setDraft}
         onSave={handleSaveIncome}
+        accountOptions={accountOptions}
       />
     </PageLayout>
   );

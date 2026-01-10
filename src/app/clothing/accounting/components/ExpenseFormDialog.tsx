@@ -59,6 +59,9 @@ interface ExpenseFormDialogProps {
   setFormDescription: (description: string) => void;
   formCategory: string;
   setFormCategory: (category: string) => void;
+  accountOptions?: Array<{ value: string; label: string }>;
+  formAccountId?: string | null;
+  setFormAccountId?: (accountId: string | null) => void;
   formTripId?: string;
   setFormTripId?: (tripId: string) => void;
   formNotes: string;
@@ -88,6 +91,9 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
   setFormDescription,
   formCategory,
   setFormCategory,
+  accountOptions,
+  formAccountId = null,
+  setFormAccountId = (_accountId: string | null) => {},
   formTripId = '',
   setFormTripId = (_tripId: string) => {},
   formNotes,
@@ -106,6 +112,7 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
   const dateField = getFieldProps('date');
   const categorySelect = getSelectProps('category');
   const amountField = getFieldProps('amount');
+  const accountSelect = accountOptions ? getSelectProps('account') : null;
   const tripIdField = showTripId ? getFieldProps('tripId') : null;
   const descriptionField = getFieldProps('description');
   const notesField = getTextareaProps('notes');
@@ -176,6 +183,20 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
               {...amountField.handlers}
               styles={amountField.styles}
             />
+            {accountOptions && (
+              <Select
+                label="Account (Optional)"
+                data={accountOptions}
+                value={formAccountId}
+                onChange={(value) => setFormAccountId(value || null)}
+                searchable
+                maxDropdownHeight={400}
+                {...(accountSelect ? accountSelect.handlers : {})}
+                styles={accountSelect?.styles}
+                withCheckIcon={false}
+                comboboxProps={{ withinPortal: true, zIndex: 500 }}
+              />
+            )}
             {showTripId && (
               <TextInput
                 label="Trip ID (Optional)"

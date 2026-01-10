@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { logger } from '@/lib/logger';
 import { useHouseholdExpenseData } from '@/hooks/useSheetData';
@@ -18,11 +18,17 @@ export interface Expense {
   receipt: string | null;
   status: 'pending' | 'approved' | 'rejected' | 'paid';
   employeeName?: string; // displayed as "Logged by" in UI
+  accountId?: string | null;
   sourceType?: string;
   sourceId?: string | null;
   sourceLineKey?: string | null;
   systemGenerated?: boolean;
 }
+
+type HouseholdAccountOption = {
+  value: string;
+  label: string;
+};
 
 export interface MonthlyBreakdown {
   category: string;
@@ -82,6 +88,7 @@ export function useHouseholdExpenses() {
         receipt: dto.receipt ?? null,
         status: dto.status as 'pending' | 'approved' | 'rejected' | 'paid',
         employeeName: dto.loggedBy ?? undefined,
+        accountId: dto.accountId ?? null,
         sourceType: dto.sourceType ? String(dto.sourceType) : 'MANUAL',
         sourceId:
           dto.sourceId !== undefined && dto.sourceId !== null
@@ -110,6 +117,7 @@ export function useHouseholdExpenses() {
   const [formCategory, setFormCategory] = useState('');
   const [formNotes, setFormNotes] = useState('');
   const [formReceipt, setFormReceipt] = useState<File | null>(null);
+  const [formAccountId, setFormAccountId] = useState<string | null>(null);
 
   const [isImporting, setIsImporting] = useState(false);
 
@@ -124,6 +132,51 @@ export function useHouseholdExpenses() {
     () => [...householdExpenseCategoryOptions],
     []
   );
+
+  const [accountOptions, setAccountOptions] = useState<
+    HouseholdAccountOption[]
+  >([]);
+
+  useEffect(() => {
+    let mounted = true;
+    void (async () => {
+      try {
+        const res = await fetch('/api/household/accounts', {
+          cache: 'no-store',
+        });
+        const payload = (await res.json()) as unknown;
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const data = (payload as any)?.data ?? payload;
+        if (!mounted || !Array.isArray(data)) {
+          return;
+        }
+
+        const options = (
+          data as Array<{
+            id: string;
+            name: string;
+            isActive?: boolean;
+          }>
+        )
+          .filter(
+            (a) => a && typeof a.id === 'string' && typeof a.name === 'string'
+          )
+          .filter((a) => a.isActive !== false)
+          .map((a) => ({ value: a.id, label: a.name }));
+
+        setAccountOptions(options);
+      } catch {
+        if (mounted) {
+          setAccountOptions([]);
+        }
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const getSourceLabel = (sourceType?: string): string => {
     const normalized = (sourceType || 'MANUAL').toUpperCase();
@@ -334,6 +387,7 @@ export function useHouseholdExpenses() {
     setFormCategory('');
     setFormNotes('');
     setFormReceipt(null);
+    setFormAccountId(null);
     setIsModalOpen(true);
   };
 
@@ -345,6 +399,7 @@ export function useHouseholdExpenses() {
     setFormCategory(expense.category);
     setFormNotes(expense.notes || '');
     setFormReceipt(null);
+    setFormAccountId(expense.accountId ?? null);
     setIsModalOpen(true);
   };
 
@@ -356,6 +411,7 @@ export function useHouseholdExpenses() {
     setFormCategory('');
     setFormNotes('');
     setFormReceipt(null);
+    setFormAccountId(null);
   };
 
   const handleDeleteExpense = async (id: string) => {
@@ -407,6 +463,7 @@ export function useHouseholdExpenses() {
       receipt: formReceipt ? formReceipt.name : null,
       status: editingExpense?.status || 'pending',
       loggedBy: editingExpense?.employeeName || currentUserName,
+      accountId: formAccountId,
     };
 
     try {
@@ -482,6 +539,8 @@ export function useHouseholdExpenses() {
     setFormDescription,
     formCategory,
     setFormCategory,
+    formAccountId,
+    setFormAccountId,
     formNotes,
     setFormNotes,
     formReceipt,
@@ -493,6 +552,7 @@ export function useHouseholdExpenses() {
     setReceiptZoom,
     receiptFileName,
     categories,
+    accountOptions,
     sourceOptions,
     totalExpenses,
     pendingExpenses,

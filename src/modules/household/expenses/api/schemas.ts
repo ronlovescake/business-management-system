@@ -53,6 +53,13 @@ export const HouseholdExpenseCreateSchema = z.object({
   loggedBy: z.string().optional().nullable(),
   paymentMethod: z.string().trim().max(50).optional(),
   paymentCardId: z.string().trim().max(100).optional(),
+  accountId: z
+    .string()
+    .trim()
+    .max(255)
+    .transform((val) => (val === '' ? null : val))
+    .nullable()
+    .optional(),
   sourceType: SourceTypeSchema,
   sourceId: OptionalId,
   sourceLineKey: OptionalId,

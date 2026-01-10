@@ -33,6 +33,7 @@ export interface HouseholdExpenseDTO {
   loggedBy: string | null;
   paymentMethod?: string | null;
   paymentCardId?: string | null;
+  accountId?: string | null;
   sourceType?: string | null;
   sourceId?: string | null;
   sourceLineKey?: string | null;

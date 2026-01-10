@@ -500,6 +500,8 @@ model HouseholdExpense {
   loggedBy        String?   @db.VarChar(255)
   paymentMethod   String?   @db.VarChar(50)
   paymentCardId   String?   @db.VarChar(100)
+  accountId       String?
+  accountRef      HouseholdAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
   sourceType      String    @default("MANUAL") @db.VarChar(50)
   sourceId        String?   @db.VarChar(100)
   sourceLineKey   String?   @db.VarChar(100)
@@ -511,6 +513,7 @@ model HouseholdExpense {
   @@index([loggedBy])
   @@index([paymentMethod])
   @@index([paymentCardId])
+  @@index([accountId])
   @@index([sourceType])
   @@index([sourceId])
   @@unique([sourceType, sourceId, sourceLineKey])
@@ -531,6 +534,9 @@ model HouseholdAccount {
   isActive          Boolean  @default(true)
   balance           Float    @default(0)
 
+  incomes  HouseholdIncome[]
+  expenses HouseholdExpense[]
+
   @@index([name])
   @@index([type])
   @@index([isActive])
@@ -545,11 +551,14 @@ model HouseholdIncome {
   type      String   @db.VarChar(30)
   amount    Float
   account   String?  @db.VarChar(255)
+  accountId String?
+  accountRef HouseholdAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
   notes     String?
 
   @@index([date])
   @@index([type])
   @@index([account])
+  @@index([accountId])
   @@map("HouseholdIncome")
 }
 

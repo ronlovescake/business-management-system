@@ -20,6 +20,7 @@ export interface PersonalIncomeRow {
   type: PersonalIncomeType;
   amount: number;
   account: string;
+  accountId?: string | null;
   notes: string;
 }
 

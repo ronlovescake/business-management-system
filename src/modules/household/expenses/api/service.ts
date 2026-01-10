@@ -4,7 +4,7 @@
  * Business logic layer for household/personal expense management
  */
 
-import type { HouseholdExpense } from '@prisma/client';
+import type { HouseholdExpense, Prisma } from '@prisma/client';
 import { householdExpenseRepository } from './repository';
 import type {
   HouseholdExpenseCreateInput,
@@ -13,8 +13,26 @@ import type {
   HouseholdExpenseCreateDbInput,
 } from './schemas';
 import { logger } from '@/lib/logger';
+import { prisma } from '@/lib/db';
 
 export class HouseholdExpenseService {
+  private statusImpactsBalance(status?: string | null): boolean {
+    return status === 'approved' || status === 'paid';
+  }
+
+  private async resolveAccountName(
+    tx: Prisma.TransactionClient,
+    accountId: string
+  ): Promise<void> {
+    const account = await tx.householdAccount.findUnique({
+      where: { id: accountId },
+      select: { id: true },
+    });
+    if (!account) {
+      throw new Error(`Household account ${accountId} not found`);
+    }
+  }
+
   private normalizeSourceFields(
     data: Partial<HouseholdExpenseCreateInput>
   ): Pick<
@@ -70,6 +88,7 @@ export class HouseholdExpenseService {
       receipt: data.receipt ?? undefined,
       notes: data.notes ?? undefined,
       loggedBy: data.loggedBy === undefined ? undefined : data.loggedBy,
+      accountId: data.accountId ?? undefined,
     };
   }
 
@@ -111,9 +130,29 @@ export class HouseholdExpenseService {
     try {
       const expenseData = this.normalizeCreateInput(data);
 
-      // Type assertion needed due to BaseRepository generic constraints
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return await householdExpenseRepository.create(expenseData as any);
+      return await prisma.$transaction(async (tx) => {
+        const accountId = expenseData.accountId ?? null;
+        if (accountId) {
+          await this.resolveAccountName(tx, accountId);
+        }
+
+        const created = await tx.householdExpense.create({
+          data: {
+            ...expenseData,
+            accountId,
+          },
+        });
+
+        const shouldImpact = this.statusImpactsBalance(created.status);
+        if (shouldImpact && accountId) {
+          await tx.householdAccount.update({
+            where: { id: accountId },
+            data: { balance: { decrement: created.amount } },
+          });
+        }
+
+        return created;
+      });
     } catch (error) {
       logger.error('Failed to create household expense', { error, data });
       throw new Error('Failed to create household expense');
@@ -144,55 +183,131 @@ export class HouseholdExpenseService {
     data: Partial<HouseholdExpenseUpdateInput>
   ): Promise<HouseholdExpense> {
     try {
-      const existing = await householdExpenseRepository.findById(id);
-      if (!existing) {
-        throw new Error(`Household expense with ID ${id} not found`);
-      }
-
       const { id: _, ...updateFields } = data;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const updateData: Record<string, any> = { ...updateFields };
-      if (updateData.date instanceof Date) {
-        updateData.date = updateData.date.toISOString().split('T')[0];
-      }
 
-      const shouldNormalizeSource =
-        'sourceType' in updateData ||
-        'sourceId' in updateData ||
-        'sourceLineKey' in updateData ||
-        'systemGenerated' in updateData;
+      return await prisma.$transaction(async (tx) => {
+        const existing = await tx.householdExpense.findUnique({
+          where: { id },
+          select: {
+            id: true,
+            amount: true,
+            status: true,
+            accountId: true,
+          },
+        });
+        if (!existing) {
+          throw new Error(`Household expense with ID ${id} not found`);
+        }
 
-      if (shouldNormalizeSource) {
-        const normalized = this.normalizeSourceFields(updateData);
-        if ('sourceType' in updateData) {
-          updateData.sourceType = normalized.sourceType;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const updateData: Record<string, any> = { ...updateFields };
+        if (updateData.date instanceof Date) {
+          updateData.date = updateData.date.toISOString().split('T')[0];
         }
-        if ('sourceId' in updateData) {
-          updateData.sourceId = normalized.sourceId;
-        }
-        if ('sourceLineKey' in updateData) {
-          updateData.sourceLineKey = normalized.sourceLineKey;
-        }
-        if ('systemGenerated' in updateData) {
-          updateData.systemGenerated = normalized.systemGenerated;
-        }
-      }
 
-      const shouldNormalizePayment =
-        'paymentMethod' in updateData || 'paymentCardId' in updateData;
+        const shouldNormalizeSource =
+          'sourceType' in updateData ||
+          'sourceId' in updateData ||
+          'sourceLineKey' in updateData ||
+          'systemGenerated' in updateData;
 
-      if (shouldNormalizePayment) {
-        const normalizedPayment = this.normalizePaymentFields(updateData);
-        if ('paymentMethod' in updateData) {
-          updateData.paymentMethod = normalizedPayment.paymentMethod ?? null;
+        if (shouldNormalizeSource) {
+          const normalized = this.normalizeSourceFields(updateData);
+          if ('sourceType' in updateData) {
+            updateData.sourceType = normalized.sourceType;
+          }
+          if ('sourceId' in updateData) {
+            updateData.sourceId = normalized.sourceId;
+          }
+          if ('sourceLineKey' in updateData) {
+            updateData.sourceLineKey = normalized.sourceLineKey;
+          }
+          if ('systemGenerated' in updateData) {
+            updateData.systemGenerated = normalized.systemGenerated;
+          }
         }
-        if ('paymentCardId' in updateData) {
-          updateData.paymentCardId = normalizedPayment.paymentCardId ?? null;
-        }
-      }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return await householdExpenseRepository.update(id, updateData as any);
+        const shouldNormalizePayment =
+          'paymentMethod' in updateData || 'paymentCardId' in updateData;
+
+        if (shouldNormalizePayment) {
+          const normalizedPayment = this.normalizePaymentFields(updateData);
+          if ('paymentMethod' in updateData) {
+            updateData.paymentMethod = normalizedPayment.paymentMethod ?? null;
+          }
+          if ('paymentCardId' in updateData) {
+            updateData.paymentCardId = normalizedPayment.paymentCardId ?? null;
+          }
+        }
+
+        const hasAccountId = Object.prototype.hasOwnProperty.call(
+          updateData,
+          'accountId'
+        );
+        const hasAmount = Object.prototype.hasOwnProperty.call(
+          updateData,
+          'amount'
+        );
+        const hasStatus = Object.prototype.hasOwnProperty.call(
+          updateData,
+          'status'
+        );
+
+        const nextAccountId = hasAccountId
+          ? (updateData.accountId ?? null)
+          : existing.accountId;
+        const nextAmount = hasAmount
+          ? Number(updateData.amount)
+          : existing.amount;
+        const nextStatus = hasStatus
+          ? (updateData.status ?? null)
+          : existing.status;
+
+        if (hasAccountId && nextAccountId) {
+          await this.resolveAccountName(tx, nextAccountId);
+        }
+
+        const oldEffect = this.statusImpactsBalance(existing.status)
+          ? existing.amount
+          : 0;
+        const newEffect = this.statusImpactsBalance(nextStatus)
+          ? nextAmount
+          : 0;
+
+        if (existing.accountId === nextAccountId) {
+          if (nextAccountId) {
+            const deltaBalance = oldEffect - newEffect;
+            if (deltaBalance !== 0) {
+              await tx.householdAccount.update({
+                where: { id: nextAccountId },
+                data: { balance: { increment: deltaBalance } },
+              });
+            }
+          }
+        } else {
+          if (existing.accountId && oldEffect !== 0) {
+            await tx.householdAccount.update({
+              where: { id: existing.accountId },
+              data: { balance: { increment: oldEffect } },
+            });
+          }
+          if (nextAccountId && newEffect !== 0) {
+            await tx.householdAccount.update({
+              where: { id: nextAccountId },
+              data: { balance: { decrement: newEffect } },
+            });
+          }
+        }
+
+        if (hasAccountId) {
+          updateData.accountId = nextAccountId;
+        }
+
+        return await tx.householdExpense.update({
+          where: { id },
+          data: updateData,
+        });
+      });
     } catch (error) {
       logger.error('Failed to update household expense', { error, id, data });
       throw error;
@@ -224,7 +339,28 @@ export class HouseholdExpenseService {
 
   async delete(id: number): Promise<void> {
     try {
-      await householdExpenseRepository.delete(id);
+      await prisma.$transaction(async (tx) => {
+        const existing = await tx.householdExpense.findUnique({
+          where: { id },
+          select: { id: true, amount: true, status: true, accountId: true },
+        });
+        if (!existing) {
+          return;
+        }
+
+        await tx.householdExpense.delete({ where: { id } });
+
+        const effect = this.statusImpactsBalance(existing.status)
+          ? existing.amount
+          : 0;
+
+        if (existing.accountId && effect !== 0) {
+          await tx.householdAccount.update({
+            where: { id: existing.accountId },
+            data: { balance: { increment: effect } },
+          });
+        }
+      });
     } catch (error) {
       logger.error('Failed to delete household expense', { error, id });
       throw new Error('Failed to delete household expense');

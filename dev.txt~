@@ -1,0 +1,20 @@
+
+> business-management@1.0.0 dev
+> next dev --turbo -H 0.0.0.0 -p 5001
+
+  ▲ Next.js 14.2.33 (turbo)
+  - Local:        http://localhost:5001
+  - Network:      http://0.0.0.0:5001
+  - Environments: .env.local, .env
+  - Experiments (use with caution):
+    · instrumentationHook
+
+ ✓ Starting...
+ ✓ Compiled in 662ms
+✅ Environment variables validated successfully
+ ✓ Ready in 1581ms
+✅ Environment variables validated successfully
+ ✓ Compiled /api/conversations in 156ms
+✅ Environment variables validated successfully
+ GET /api/conversations 200 in 332ms
+ GET /api/conversations 200 in 27ms

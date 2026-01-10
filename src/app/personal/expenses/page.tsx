@@ -39,6 +39,8 @@ export default function PersonalExpensesPage() {
     setFormDescription,
     formCategory,
     setFormCategory,
+    formAccountId,
+    setFormAccountId,
     formNotes,
     setFormNotes,
     formReceipt,
@@ -52,6 +54,7 @@ export default function PersonalExpensesPage() {
     receiptFileName,
 
     categories,
+    accountOptions,
     sourceOptions,
     totalExpenses,
     pendingExpenses,
@@ -137,6 +140,7 @@ export default function PersonalExpensesPage() {
           onClose={() => setIsModalOpen(false)}
           editingExpense={editingExpense}
           categories={categories}
+          accountOptions={accountOptions}
           addTitle="Add New Household Expense"
           editTitle="Edit Household Expense"
           addSubtitle="Fill in the details to add a new household expense"
@@ -149,6 +153,8 @@ export default function PersonalExpensesPage() {
           setFormDescription={setFormDescription}
           formCategory={formCategory}
           setFormCategory={setFormCategory}
+          formAccountId={formAccountId}
+          setFormAccountId={setFormAccountId}
           formNotes={formNotes}
           setFormNotes={setFormNotes}
           formReceipt={formReceipt}
