@@ -30,6 +30,23 @@ type HouseholdAccountOption = {
   label: string;
 };
 
+const DEFAULT_HOUSEHOLD_ACCOUNT_NAME = 'Ronald Allan Balnig';
+
+function resolveDefaultAccountId(
+  options: HouseholdAccountOption[]
+): string | null {
+  if (!Array.isArray(options) || options.length === 0) {
+    return null;
+  }
+
+  const normalizedTarget = DEFAULT_HOUSEHOLD_ACCOUNT_NAME.trim().toLowerCase();
+  const exact = options.find(
+    (o) => o.label.trim().toLowerCase() === normalizedTarget
+  );
+
+  return (exact ?? options[0])?.value ?? null;
+}
+
 export interface MonthlyBreakdown {
   category: string;
   percentage: number;
@@ -177,6 +194,23 @@ export function useHouseholdExpenses() {
       mounted = false;
     };
   }, []);
+
+  const defaultAccountId = useMemo(
+    () => resolveDefaultAccountId(accountOptions),
+    [accountOptions]
+  );
+
+  useEffect(() => {
+    // If adding a new expense and the user hasn't chosen an account yet,
+    // default to the preferred household account.
+    if (!isModalOpen || editingExpense || formAccountId) {
+      return;
+    }
+
+    if (defaultAccountId) {
+      setFormAccountId(defaultAccountId);
+    }
+  }, [defaultAccountId, editingExpense, formAccountId, isModalOpen]);
 
   const getSourceLabel = (sourceType?: string): string => {
     const normalized = (sourceType || 'MANUAL').toUpperCase();
@@ -387,7 +421,7 @@ export function useHouseholdExpenses() {
     setFormCategory('');
     setFormNotes('');
     setFormReceipt(null);
-    setFormAccountId(null);
+    setFormAccountId(defaultAccountId);
     setIsModalOpen(true);
   };
 

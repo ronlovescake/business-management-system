@@ -79,6 +79,21 @@ export default function PersonalExpensesPage() {
     handleExportCSV,
   } = useHouseholdExpenses();
 
+  const accountLabelById = React.useMemo(() => {
+    return new Map(accountOptions.map((opt) => [opt.value, opt.label]));
+  }, [accountOptions]);
+
+  const getAccountLabel = React.useCallback(
+    (accountId: string | null | undefined) => {
+      if (!accountId) {
+        return '—';
+      }
+
+      return accountLabelById.get(accountId) || '—';
+    },
+    [accountLabelById]
+  );
+
   return (
     <ExpensesErrorBoundary>
       <PageLayout fluid withPadding>
@@ -119,6 +134,8 @@ export default function PersonalExpensesPage() {
               getCategoryColor={getCategoryColor}
               getSourceLabel={getSourceLabel}
               getSourceColor={getSourceColor}
+              showAccountColumn
+              getAccountLabel={getAccountLabel}
               onViewReceipt={handleViewReceipt}
               onApprove={handleApprove}
               onReject={handleReject}

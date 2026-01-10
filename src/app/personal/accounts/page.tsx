@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Stack } from '@mantine/core';
+import Swal from 'sweetalert2';
 import { PageLayout } from '@/components/layout/PageLayout';
 import {
   AccountFormDialog,
@@ -98,9 +99,70 @@ async function updateHouseholdAccount(
 }
 
 async function deleteHouseholdAccount(id: string): Promise<void> {
-  await fetch(`/api/household/accounts?id=${encodeURIComponent(id)}`, {
-    method: 'DELETE',
+  const res = await fetch(
+    `/api/household/accounts?id=${encodeURIComponent(id)}`,
+    {
+      method: 'DELETE',
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error(`Failed to delete account (HTTP ${res.status})`);
+  }
+}
+
+async function confirmTripleDeleteAccount(): Promise<boolean> {
+  const step1 = await Swal.fire({
+    title: 'Delete account?',
+    text: 'This will permanently delete this account record.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Continue',
+    cancelButtonText: 'Cancel',
+    reverseButtons: true,
+    allowOutsideClick: false,
   });
+
+  if (!step1.isConfirmed) {
+    return false;
+  }
+
+  const step2 = await Swal.fire({
+    title: 'Are you absolutely sure?',
+    text: 'If this account is linked to income/expenses, deletion may fail.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, continue',
+    cancelButtonText: 'Cancel',
+    reverseButtons: true,
+    allowOutsideClick: false,
+  });
+
+  if (!step2.isConfirmed) {
+    return false;
+  }
+
+  const step3 = await Swal.fire({
+    title: 'Final confirmation',
+    text: 'Type DELETE to confirm.',
+    icon: 'warning',
+    input: 'text',
+    inputPlaceholder: 'DELETE',
+    inputAttributes: { autocapitalize: 'off' },
+    showCancelButton: true,
+    confirmButtonText: 'Delete',
+    cancelButtonText: 'Cancel',
+    reverseButtons: true,
+    allowOutsideClick: false,
+    inputValidator: (value) => {
+      if ((value || '').trim().toUpperCase() !== 'DELETE') {
+        return 'Please type DELETE to confirm.';
+      }
+      return undefined;
+    },
+  });
+
+  return step3.isConfirmed;
 }
 
 export default function PersonalAccountsPage() {
@@ -193,9 +255,41 @@ export default function PersonalAccountsPage() {
 
   const handleDeleteAccount = React.useCallback((id: string) => {
     void (async () => {
-      await deleteHouseholdAccount(id);
-      const next = await fetchHouseholdAccounts();
-      setAccounts(next);
+      const confirmed = await confirmTripleDeleteAccount();
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        void Swal.fire({
+          title: 'Deleting...',
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          },
+        });
+
+        await deleteHouseholdAccount(id);
+        const next = await fetchHouseholdAccounts();
+        setAccounts(next);
+
+        await Swal.fire({
+          icon: 'success',
+          title: 'Deleted',
+          text: 'Account deleted successfully.',
+          timer: 1200,
+          showConfirmButton: false,
+        });
+      } catch (error) {
+        await Swal.fire({
+          icon: 'error',
+          title: 'Delete failed',
+          text:
+            error instanceof Error
+              ? error.message
+              : 'Unable to delete account.',
+        });
+      }
     })();
   }, []);
 

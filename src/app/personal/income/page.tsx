@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Stack } from '@mantine/core';
+import Swal from 'sweetalert2';
 import { PageLayout } from '@/components/layout/PageLayout';
 import {
   IncomeFormDialog,
@@ -141,9 +142,70 @@ async function updateHouseholdIncome(
 }
 
 async function deleteHouseholdIncome(id: string): Promise<void> {
-  await fetch(`/api/household/income?id=${encodeURIComponent(id)}`, {
-    method: 'DELETE',
+  const res = await fetch(
+    `/api/household/income?id=${encodeURIComponent(id)}`,
+    {
+      method: 'DELETE',
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error(`Failed to delete income (HTTP ${res.status})`);
+  }
+}
+
+async function confirmTripleDeleteIncome(): Promise<boolean> {
+  const step1 = await Swal.fire({
+    title: 'Delete income record?',
+    text: 'This will permanently delete this income entry.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Continue',
+    cancelButtonText: 'Cancel',
+    reverseButtons: true,
+    allowOutsideClick: false,
   });
+
+  if (!step1.isConfirmed) {
+    return false;
+  }
+
+  const step2 = await Swal.fire({
+    title: 'Are you absolutely sure?',
+    text: 'Deleting will also affect your linked account balance.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, continue',
+    cancelButtonText: 'Cancel',
+    reverseButtons: true,
+    allowOutsideClick: false,
+  });
+
+  if (!step2.isConfirmed) {
+    return false;
+  }
+
+  const step3 = await Swal.fire({
+    title: 'Final confirmation',
+    text: 'Type DELETE to confirm.',
+    icon: 'warning',
+    input: 'text',
+    inputPlaceholder: 'DELETE',
+    inputAttributes: { autocapitalize: 'off' },
+    showCancelButton: true,
+    confirmButtonText: 'Delete',
+    cancelButtonText: 'Cancel',
+    reverseButtons: true,
+    allowOutsideClick: false,
+    inputValidator: (value) => {
+      if ((value || '').trim().toUpperCase() !== 'DELETE') {
+        return 'Please type DELETE to confirm.';
+      }
+      return undefined;
+    },
+  });
+
+  return step3.isConfirmed;
 }
 
 export default function PersonalIncomePage() {
@@ -248,9 +310,41 @@ export default function PersonalIncomePage() {
 
   const handleDeleteIncome = React.useCallback((id: string) => {
     void (async () => {
-      await deleteHouseholdIncome(id);
-      const next = await fetchHouseholdIncome();
-      setIncome(next);
+      const confirmed = await confirmTripleDeleteIncome();
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        void Swal.fire({
+          title: 'Deleting...',
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          },
+        });
+
+        await deleteHouseholdIncome(id);
+        const next = await fetchHouseholdIncome();
+        setIncome(next);
+
+        await Swal.fire({
+          icon: 'success',
+          title: 'Deleted',
+          text: 'Income record deleted successfully.',
+          timer: 1200,
+          showConfirmButton: false,
+        });
+      } catch (error) {
+        await Swal.fire({
+          icon: 'error',
+          title: 'Delete failed',
+          text:
+            error instanceof Error
+              ? error.message
+              : 'Unable to delete income record.',
+        });
+      }
     })();
   }, []);
 

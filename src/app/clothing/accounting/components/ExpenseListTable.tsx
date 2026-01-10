@@ -20,14 +20,22 @@ import {
 import { getActionLabel } from '@/lib/accessibility';
 import type { Expense } from '../hooks/useExpenses';
 
+type AccountId = string | null | undefined;
+
+type ExpenseRow = Expense & {
+  accountId?: AccountId;
+};
+
 interface ExpenseListTableProps {
-  expenses: Expense[];
-  filteredExpenses: Expense[];
+  expenses: ExpenseRow[];
+  filteredExpenses: ExpenseRow[];
   formatDate: (date: string) => string;
   formatCurrency: (amount: number) => string;
   getCategoryColor: (category: string) => string;
   getSourceLabel: (sourceType?: string) => string;
   getSourceColor: (sourceType?: string) => string;
+  showAccountColumn?: boolean;
+  getAccountLabel?: (accountId: AccountId) => string;
   onViewReceipt: (receiptName: string) => void;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
@@ -51,12 +59,16 @@ export const ExpenseListTable = memo(function ExpenseListTable({
   getCategoryColor,
   getSourceLabel,
   getSourceColor,
+  showAccountColumn = false,
+  getAccountLabel,
   onViewReceipt,
   onApprove,
   onReject,
   onEdit,
   onDelete,
 }: ExpenseListTableProps) {
+  const colSpan = showAccountColumn ? 10 : 9;
+
   return (
     <Stack gap="md">
       <Card
@@ -122,6 +134,19 @@ export const ExpenseListTable = memo(function ExpenseListTable({
                 >
                   SOURCE
                 </Table.Th>
+                {showAccountColumn && (
+                  <Table.Th
+                    style={{
+                      width: 300,
+                      padding: '16px 12px',
+                      color: '#495057',
+                      backgroundColor: '#f1f3f5',
+                      textAlign: 'center',
+                    }}
+                  >
+                    ACCOUNT
+                  </Table.Th>
+                )}
                 <Table.Th
                   style={{
                     padding: '16px 12px',
@@ -170,7 +195,7 @@ export const ExpenseListTable = memo(function ExpenseListTable({
             <Table.Tbody>
               {filteredExpenses.length === 0 ? (
                 <Table.Tr>
-                  <Table.Td colSpan={9} style={{ textAlign: 'center' }}>
+                  <Table.Td colSpan={colSpan} style={{ textAlign: 'center' }}>
                     <Text c="dimmed" py="xl">
                       No expenses found
                     </Text>
@@ -215,6 +240,15 @@ export const ExpenseListTable = memo(function ExpenseListTable({
                         )}
                       </Group>
                     </Table.Td>
+                    {showAccountColumn && (
+                      <Table.Td style={{ textAlign: 'center' }}>
+                        <Text size="sm" c="#495057">
+                          {getAccountLabel
+                            ? getAccountLabel(expense.accountId)
+                            : '—'}
+                        </Text>
+                      </Table.Td>
+                    )}
                     <Table.Td>
                       <Text size="sm" lineClamp={2} c="#495057">
                         {expense.notes || '-'}
