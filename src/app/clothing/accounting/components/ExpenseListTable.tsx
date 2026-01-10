@@ -37,8 +37,10 @@ interface ExpenseListTableProps {
   showAccountColumn?: boolean;
   getAccountLabel?: (accountId: AccountId) => string;
   onViewReceipt: (receiptName: string) => void;
-  onApprove: (id: string) => void;
-  onReject: (id: string) => void;
+  pendingActionMode?: 'approve-reject' | 'mark-paid' | 'none';
+  onApprove?: (id: string) => void;
+  onReject?: (id: string) => void;
+  onMarkPaid?: (id: string) => void;
   onEdit: (expense: Expense) => void;
   onDelete: (id: string) => void;
 }
@@ -62,8 +64,10 @@ export const ExpenseListTable = memo(function ExpenseListTable({
   showAccountColumn = false,
   getAccountLabel,
   onViewReceipt,
+  pendingActionMode = 'approve-reject',
   onApprove,
   onReject,
+  onMarkPaid,
   onEdit,
   onDelete,
 }: ExpenseListTableProps) {
@@ -287,16 +291,52 @@ export const ExpenseListTable = memo(function ExpenseListTable({
                     </Table.Td>
                     <Table.Td>
                       <Group gap="xs" justify="center">
-                        {expense.status === 'pending' && (
-                          <>
-                            <Tooltip label="Approve">
+                        {expense.status === 'pending' &&
+                          pendingActionMode === 'approve-reject' && (
+                            <>
+                              <Tooltip label="Approve">
+                                <ActionIcon
+                                  color="green"
+                                  variant="light"
+                                  size="sm"
+                                  onClick={() => onApprove?.(expense.id)}
+                                  {...getActionLabel(
+                                    'Approve',
+                                    'expense',
+                                    `${expense.employeeName || 'Unknown'} - ${expense.category}`
+                                  )}
+                                >
+                                  <IconCheck size={16} />
+                                </ActionIcon>
+                              </Tooltip>
+                              <Tooltip label="Reject">
+                                <ActionIcon
+                                  color="red"
+                                  variant="light"
+                                  size="sm"
+                                  onClick={() => onReject?.(expense.id)}
+                                  {...getActionLabel(
+                                    'Reject',
+                                    'expense',
+                                    `${expense.employeeName || 'Unknown'} - ${expense.category}`
+                                  )}
+                                >
+                                  <IconX size={16} />
+                                </ActionIcon>
+                              </Tooltip>
+                            </>
+                          )}
+
+                        {expense.status === 'pending' &&
+                          pendingActionMode === 'mark-paid' && (
+                            <Tooltip label="Mark as Paid">
                               <ActionIcon
                                 color="green"
                                 variant="light"
                                 size="sm"
-                                onClick={() => onApprove(expense.id)}
+                                onClick={() => onMarkPaid?.(expense.id)}
                                 {...getActionLabel(
-                                  'Approve',
+                                  'Mark as Paid',
                                   'expense',
                                   `${expense.employeeName || 'Unknown'} - ${expense.category}`
                                 )}
@@ -304,23 +344,7 @@ export const ExpenseListTable = memo(function ExpenseListTable({
                                 <IconCheck size={16} />
                               </ActionIcon>
                             </Tooltip>
-                            <Tooltip label="Reject">
-                              <ActionIcon
-                                color="red"
-                                variant="light"
-                                size="sm"
-                                onClick={() => onReject(expense.id)}
-                                {...getActionLabel(
-                                  'Reject',
-                                  'expense',
-                                  `${expense.employeeName || 'Unknown'} - ${expense.category}`
-                                )}
-                              >
-                                <IconX size={16} />
-                              </ActionIcon>
-                            </Tooltip>
-                          </>
-                        )}
+                          )}
                         <Tooltip label="Edit">
                           <ActionIcon
                             color="blue"

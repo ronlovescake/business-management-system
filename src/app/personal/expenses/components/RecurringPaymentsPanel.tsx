@@ -64,6 +64,7 @@ export function RecurringPaymentsPanel(props: {
   const [startDate, setStartDate] = React.useState<Date | null>(new Date());
   const [monthsCount, setMonthsCount] = React.useState<number | ''>('');
   const [isActive, setIsActive] = React.useState(true);
+  const [deductOnGenerate, setDeductOnGenerate] = React.useState(true);
   const [notes, setNotes] = React.useState('');
 
   const recurringQuery = useQuery({
@@ -95,6 +96,7 @@ export function RecurringPaymentsPanel(props: {
         startDate: startDate.toISOString(),
         monthsCount: monthsCount === '' ? null : monthsCount,
         isActive,
+        deductOnGenerate,
         accountId,
       });
     },
@@ -110,6 +112,7 @@ export function RecurringPaymentsPanel(props: {
       setStartDate(new Date());
       setMonthsCount('');
       setIsActive(true);
+      setDeductOnGenerate(true);
       setNotes('');
     },
   });
@@ -426,14 +429,20 @@ export function RecurringPaymentsPanel(props: {
                 {...monthsCountField.handlers}
                 styles={monthsCountField.styles}
               />
-              <Stack gap={6} style={{ flex: 1 }}>
+              <Stack gap={10} style={{ flex: 1 }}>
                 <Text size="sm" fw={500} c="#101828">
-                  Status
+                  Options
                 </Text>
                 <Switch
                   label="Active"
                   checked={isActive}
                   onChange={(e) => setIsActive(e.currentTarget.checked)}
+                />
+                <Switch
+                  label="Deduct on generate (Auto-paid)"
+                  description="If off, this generates as pending and won't deduct until you mark it paid"
+                  checked={deductOnGenerate}
+                  onChange={(e) => setDeductOnGenerate(e.currentTarget.checked)}
                 />
               </Stack>
             </Group>

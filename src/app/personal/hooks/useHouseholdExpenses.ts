@@ -547,6 +547,10 @@ export function useHouseholdExpenses() {
     updateExpense({ id, data: { status: 'rejected' } });
   };
 
+  const handleMarkPaid = (id: string) => {
+    updateExpense({ id, data: { status: 'paid' } });
+  };
+
   const handleViewReceipt = (receiptName: string) => {
     setViewingReceipt(receiptFiles[receiptName] || receiptName);
     setReceiptFileName(receiptName.split('/').pop() || 'receipt');
@@ -675,6 +679,7 @@ export function useHouseholdExpenses() {
     handleSaveExpense,
     handleApprove,
     handleReject,
+    handleMarkPaid,
     handleViewReceipt,
     handleImportCSV,
     handleExportCSV,

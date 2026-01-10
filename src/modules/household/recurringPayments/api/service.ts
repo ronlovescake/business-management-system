@@ -51,6 +51,7 @@ export class HouseholdRecurringPaymentService {
         startDate,
         monthsCount: data.monthsCount ?? null,
         isActive: data.isActive ?? true,
+        deductOnGenerate: data.deductOnGenerate ?? true,
         accountId: data.accountId ?? null,
       },
     });
@@ -129,7 +130,7 @@ export class HouseholdRecurringPaymentService {
         const day = clampDayInMonth(year, month, startDay);
         const expenseDate = toDateString(new Date(year, month, day));
 
-        const status = 'approved';
+        const status = tpl.deductOnGenerate ? 'paid' : 'pending';
         const accountId = tpl.accountId ?? null;
 
         if (accountId) {

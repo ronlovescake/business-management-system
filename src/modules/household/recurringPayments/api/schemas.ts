@@ -8,6 +8,7 @@ export const HouseholdRecurringPaymentCreateSchema = z.object({
   startDate: z.date(),
   monthsCount: z.number().int().positive().optional().nullable(),
   isActive: z.boolean().optional(),
+  deductOnGenerate: z.boolean().optional(),
   accountId: z.string().trim().optional().nullable(),
 });
 

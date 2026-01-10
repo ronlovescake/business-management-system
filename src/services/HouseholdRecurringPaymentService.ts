@@ -11,6 +11,7 @@ export interface HouseholdRecurringPaymentDTO {
   startDate: string;
   monthsCount: number | null;
   isActive: boolean;
+  deductOnGenerate?: boolean;
   accountId: string | null;
 }
 
@@ -29,6 +30,7 @@ export class HouseholdRecurringPaymentService extends BaseService {
     startDate: string; // ISO
     monthsCount?: number | null;
     isActive?: boolean;
+    deductOnGenerate?: boolean;
     accountId?: string | null;
   }): Promise<HouseholdRecurringPaymentDTO> {
     return this.post<HouseholdRecurringPaymentDTO>(this.endpoint, payload);

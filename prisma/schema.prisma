@@ -558,6 +558,8 @@ model HouseholdRecurringPayment {
   monthsCount Int?
   isActive    Boolean  @default(true)
 
+  deductOnGenerate Boolean @default(true)
+
   accountId   String?
   accountRef  HouseholdAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
 

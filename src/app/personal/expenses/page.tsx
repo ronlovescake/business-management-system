@@ -96,6 +96,7 @@ export default function PersonalExpensesPage() {
     handleSaveExpense,
     handleApprove,
     handleReject,
+    handleMarkPaid,
     handleViewReceipt,
     handleImportCSV,
     handleExportCSV,
@@ -165,6 +166,8 @@ export default function PersonalExpensesPage() {
               showAccountColumn
               getAccountLabel={getAccountLabel}
               onViewReceipt={handleViewReceipt}
+              pendingActionMode="mark-paid"
+              onMarkPaid={handleMarkPaid}
               onApprove={handleApprove}
               onReject={handleReject}
               onEdit={handleEditExpense}
