@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Stack } from '@mantine/core';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { ExpenseFormDialog } from '@/app/clothing/accounting/components/ExpenseFormDialog';
 import { StatsCards } from '@/app/clothing/accounting/components/StatsCards';
@@ -11,8 +12,29 @@ import { AnalyticsTable } from '@/app/clothing/accounting/components/AnalyticsTa
 import { ReceiptViewerModal } from '@/app/clothing/accounting/components/ReceiptViewerModal';
 import { useHouseholdExpenses } from '@/app/personal/hooks/useHouseholdExpenses';
 import { ExpensesErrorBoundary } from '@/app/clothing/accounting/components/ExpensesErrorBoundary';
+import { RecurringPaymentsPanel } from '@/app/personal/expenses/components/RecurringPaymentsPanel';
+import { HouseholdRecurringPaymentService } from '@/services/HouseholdRecurringPaymentService';
 
 export default function PersonalExpensesPage() {
+  const [recurringSearchQuery, setRecurringSearchQuery] = React.useState('');
+  const [recurringAddOpened, setRecurringAddOpened] = React.useState(false);
+  const [lastRecurringGenerateResult, setLastRecurringGenerateResult] =
+    React.useState<
+      { month: string; created: number; skipped: number } | null | undefined
+    >(undefined);
+
+  const queryClient = useQueryClient();
+
+  const generateRecurringMutation = useMutation({
+    mutationFn: () => HouseholdRecurringPaymentService.generate(),
+    onSuccess: async (result) => {
+      setLastRecurringGenerateResult(result);
+      await queryClient.invalidateQueries({
+        queryKey: ['household-expenses'],
+      });
+    },
+  });
+
   const {
     expenses,
     filteredExpenses,
@@ -109,8 +131,14 @@ export default function PersonalExpensesPage() {
           <ExpenseControls
             activeTab={activeTab}
             onTabChange={setActiveTab}
+            showRecurringPaymentsTab
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
+            recurringSearchQuery={recurringSearchQuery}
+            onRecurringSearchChange={setRecurringSearchQuery}
+            onGenerateRecurring={() => generateRecurringMutation.mutate()}
+            isGeneratingRecurring={generateRecurringMutation.isPending}
+            onAddRecurring={() => setRecurringAddOpened(true)}
             filterCategory={filterCategory}
             onCategoryFilterChange={setFilterCategory}
             filterStatus={filterStatus}
@@ -142,12 +170,24 @@ export default function PersonalExpensesPage() {
               onEdit={handleEditExpense}
               onDelete={handleDeleteExpense}
             />
-          ) : (
+          ) : activeTab === 'analytics' ? (
             <AnalyticsTable
               monthlyBreakdown={monthlyBreakdown}
               totalExpenses={totalExpenses}
               formatCurrency={formatCurrency}
               getCategoryColor={getCategoryColor}
+            />
+          ) : (
+            <RecurringPaymentsPanel
+              categories={categories}
+              accountOptions={accountOptions}
+              formatCurrency={formatCurrency}
+              formatDate={formatDate}
+              getCategoryColor={getCategoryColor}
+              searchQuery={recurringSearchQuery}
+              opened={recurringAddOpened}
+              setOpened={setRecurringAddOpened}
+              lastGenerateResult={lastRecurringGenerateResult}
             />
           )}
         </Stack>

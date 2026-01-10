@@ -536,11 +536,36 @@ model HouseholdAccount {
 
   incomes  HouseholdIncome[]
   expenses HouseholdExpense[]
+  recurringPayments HouseholdRecurringPayment[]
 
   @@index([name])
   @@index([type])
   @@index([isActive])
   @@map("HouseholdAccounts")
+}
+
+model HouseholdRecurringPayment {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  name        String   @db.VarChar(255)
+  amount      Float
+  category    String   @db.VarChar(100)
+  notes       String?
+
+  startDate   String   @db.VarChar(50)
+  monthsCount Int?
+  isActive    Boolean  @default(true)
+
+  accountId   String?
+  accountRef  HouseholdAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  @@index([isActive])
+  @@index([startDate])
+  @@index([category])
+  @@index([accountId])
+  @@map("household_recurring_payments")
 }
 
 model HouseholdIncome {

@@ -8,6 +8,7 @@ import {
   TruckingExpenseService,
   HouseholdExpenseService,
 } from './ExpenseService';
+import { HouseholdRecurringPaymentService } from './HouseholdRecurringPaymentService';
 import { FormatterService } from './FormatterService';
 import { ValidationService } from './ValidationService';
 import type { DataSourceType } from '../types';
@@ -58,6 +59,9 @@ export class ServiceFactory {
   static getHouseholdExpenseService() {
     return HouseholdExpenseService;
   }
+  static getHouseholdRecurringPaymentService() {
+    return HouseholdRecurringPaymentService;
+  }
   static getFormatterService() {
     return FormatterService;
   }
@@ -76,6 +80,7 @@ export {
   ExpenseService,
   TruckingExpenseService,
   HouseholdExpenseService,
+  HouseholdRecurringPaymentService,
   FormatterService,
   ValidationService,
 };

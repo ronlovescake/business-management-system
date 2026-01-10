@@ -68,6 +68,7 @@ export function isPrismaModelName(
     'householdAccount',
     'householdExpense',
     'householdIncome',
+    'householdRecurringPayment',
     'installedModule',
     'leaveRequest',
     'moduleMarketplace',
