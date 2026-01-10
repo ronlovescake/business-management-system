@@ -363,15 +363,18 @@ export function useTransactionModals(
         `💳 Preparing reservation-fee invoice generation (${percentLabel})...`
       );
 
+      // Filter: Only "In Transit" orders with Adjustment = 0.00 (unpaid reservation fees)
       const reservationTransactions = visibleTransactions.filter(
-        (t) => t['Order Status'] === 'In Transit'
+        (t) =>
+          t['Order Status'] === 'In Transit' &&
+          (Number(t.Adjustment) === 0 || !t.Adjustment)
       );
 
       if (reservationTransactions.length === 0) {
         showNotification({
-          title: '⚠️ No In Transit Transactions',
+          title: '⚠️ No Unpaid Reservations',
           message:
-            'Reservation invoices require visible transactions with "In Transit" status.',
+            'All visible "In Transit" orders have already paid their reservation fees (Adjustment ≠ 0.00).',
           color: 'yellow',
           autoClose: 5000,
         });

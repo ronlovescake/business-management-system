@@ -14,8 +14,9 @@
 //    - Include ALL warehouse transactions regardless of existing Invoice Date
 //    - DO NOT overwrite existing Invoice Date timestamps
 //    - DO NOT touch PACKED DATE or SHIPMENT CODE columns
-//    - Reservation invoices: include only "In Transit" orders, no status updates,
-//      and charge 10% or 20% of the subtotal as the reservation fee
+//    - Reservation invoices: include only "In Transit" orders WHERE Adjustment = 0.00
+//      (unpaid reservation fees), no status updates, and charge 10% or 20% of
+//      the subtotal as the reservation fee
 //
 // 📋 CALCULATIONS:
 //    - Sub Total: Sum of all Line Totals
@@ -182,15 +183,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // No filtering needed - frontend already sends the correct transactions
-    // (Warehouse + Prepared for customers with Warehouse items)
-    const eligibleTransactions = transactions;
+    // Apply filters based on invoice type
+    let eligibleTransactions: Transaction[];
+
+    if (reservationInvoiceConfig) {
+      // For reservation invoices (10% or 20% DP):
+      // Only include transactions with Adjustment = 0.00 (unpaid reservation fees)
+      eligibleTransactions = transactions.filter(
+        (t) => Number(t.Adjustment) === 0 || !t.Adjustment
+      );
+    } else {
+      // For standard invoices: no filtering needed
+      // Frontend already sends the correct transactions
+      eligibleTransactions = transactions;
+    }
 
     if (eligibleTransactions.length === 0) {
       return NextResponse.json(
         {
           error: 'No eligible transactions',
-          message: 'No transactions provided for invoice generation',
+          message: reservationInvoiceConfig
+            ? 'All transactions have already paid their reservation fees (Adjustment ≠ 0.00)'
+            : 'No transactions provided for invoice generation',
         },
         { status: 400 }
       );
