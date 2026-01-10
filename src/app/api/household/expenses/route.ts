@@ -246,6 +246,22 @@ export const PATCH = withErrorHandler(async (request: NextRequest) => {
  */
 export const DELETE = withErrorHandler(async (request: NextRequest) => {
   try {
+    const { searchParams } = new URL(request.url);
+    const idParam = searchParams.get('id');
+
+    // If an ID is provided, delete a single expense (no mass-delete confirmation needed)
+    if (idParam) {
+      const id = Number(sanitizers.number(idParam, { min: 1, decimals: 0 }));
+      if (!Number.isFinite(id)) {
+        return ApiResponse.badRequest('Expense ID must be a number', {
+          id: 'Use a numeric expense ID.',
+        });
+      }
+
+      await householdExpenseService.delete(id);
+      return ApiResponse.success({ id }, 'Household expense deleted');
+    }
+
     const validation = validateMassDeleteConfirmation(request, 'EXPENSES');
     if (validation) {
       return validation;
