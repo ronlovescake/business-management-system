@@ -104,7 +104,13 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
   onSave,
 }: ExpenseFormDialogProps) {
   // Validation
-  const isValid = formDate && formAmount && formDescription && formCategory;
+  const isValid = Boolean(
+    formDate &&
+      formAmount &&
+      formDescription &&
+      formCategory &&
+      (!accountOptions || formAccountId)
+  );
 
   const { getFieldProps, getTextareaProps, getSelectProps } =
     usePolishedFieldStyles(opened);
@@ -185,11 +191,12 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
             />
             {accountOptions && (
               <Select
-                label="Account (Optional)"
+                label="Account"
                 data={accountOptions}
                 value={formAccountId}
                 onChange={(value) => setFormAccountId(value || null)}
                 searchable
+                required
                 maxDropdownHeight={400}
                 {...(accountSelect ? accountSelect.handlers : {})}
                 styles={accountSelect?.styles}

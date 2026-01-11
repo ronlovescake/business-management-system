@@ -67,7 +67,8 @@ export const IncomeFormDialog = React.memo(function IncomeFormDialog({
     initial.date.trim().length > 0 &&
     Number.isFinite(initial.amount) &&
     initial.amount > 0 &&
-    initial.type.length > 0;
+    initial.type.length > 0 &&
+    Boolean(initial.accountId);
 
   const { getFieldProps, getSelectProps, getAutosizeTextareaProps } =
     usePolishedFieldStyles(opened);
@@ -134,7 +135,7 @@ export const IncomeFormDialog = React.memo(function IncomeFormDialog({
         />
 
         <Select
-          label="Account (Optional)"
+          label="Account"
           placeholder="Select an account"
           data={accountOptions}
           value={initial.accountId ?? null}
@@ -147,7 +148,7 @@ export const IncomeFormDialog = React.memo(function IncomeFormDialog({
             });
           }}
           searchable
-          clearable
+          required
           {...accountField.handlers}
           styles={accountField.styles}
           comboboxProps={{ withinPortal: true, zIndex: 500 }}

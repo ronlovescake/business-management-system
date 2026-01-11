@@ -102,6 +102,9 @@ export function RecurringPaymentsPanel(props: {
       if (!startDate) {
         throw new Error('Start date is required');
       }
+      if (!accountId) {
+        throw new Error('Account is required');
+      }
 
       return HouseholdRecurringPaymentService.create({
         name: name.trim(),
@@ -142,6 +145,9 @@ export function RecurringPaymentsPanel(props: {
       if (!startDate) {
         throw new Error('Start date is required');
       }
+      if (!accountId) {
+        throw new Error('Account is required');
+      }
 
       return HouseholdRecurringPaymentService.update(editingItem.id, {
         name: name.trim(),
@@ -180,7 +186,8 @@ export function RecurringPaymentsPanel(props: {
     typeof amount === 'number' &&
     amount > 0 &&
     Boolean(category) &&
-    Boolean(startDate);
+    Boolean(startDate) &&
+    Boolean(accountId);
 
   const { getFieldProps, getTextareaProps, getSelectProps } =
     usePolishedFieldStyles(opened);
@@ -522,12 +529,12 @@ export function RecurringPaymentsPanel(props: {
                 styles={amountField.styles}
               />
               <Select
-                label="Account (Optional)"
+                label="Account"
                 data={accountOptions}
                 value={accountId}
                 onChange={setAccountId}
                 searchable
-                clearable
+                required
                 maxDropdownHeight={400}
                 {...accountSelect.handlers}
                 styles={accountSelect.styles}
