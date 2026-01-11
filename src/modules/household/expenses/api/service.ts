@@ -4,7 +4,8 @@
  * Business logic layer for household/personal expense management
  */
 
-import type { HouseholdExpense, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import type { HouseholdExpense } from '@prisma/client';
 import { householdExpenseRepository } from './repository';
 import type {
   HouseholdExpenseCreateInput,
@@ -167,8 +168,72 @@ export class HouseholdExpenseService {
         this.normalizeCreateInput(expense)
       );
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return await householdExpenseRepository.createMany(expenses as any);
+      return await prisma.$transaction(async (tx) => {
+        const accountIds = Array.from(
+          new Set(
+            expenses
+              .map((expense) => expense.accountId)
+              .filter((id): id is string => Boolean(id))
+          )
+        );
+
+        if (accountIds.length > 0) {
+          const accounts = await tx.householdAccount.findMany({
+            where: { id: { in: accountIds } },
+            select: { id: true },
+          });
+
+          const foundAccounts = new Set(accounts.map((account) => account.id));
+          const missingAccounts = accountIds.filter(
+            (id) => !foundAccounts.has(id)
+          );
+
+          if (missingAccounts.length > 0) {
+            throw new Error(
+              `Household account(s) not found: ${missingAccounts.join(', ')}`
+            );
+          }
+        }
+
+        let createdCount = 0;
+
+        for (const expense of expenses) {
+          try {
+            const created = await tx.householdExpense.create({
+              data: {
+                ...expense,
+                accountId: expense.accountId ?? null,
+              },
+            });
+
+            if (
+              created.accountId &&
+              this.statusImpactsBalance(created.status)
+            ) {
+              await tx.householdAccount.update({
+                where: { id: created.accountId },
+                data: { balance: { decrement: created.amount } },
+              });
+            }
+
+            createdCount += 1;
+          } catch (error) {
+            if (
+              error instanceof Prisma.PrismaClientKnownRequestError &&
+              error.code === 'P2002'
+            ) {
+              logger.warn('Skipping duplicate household expense', {
+                code: error.code,
+                data: expense,
+              });
+              continue;
+            }
+            throw error;
+          }
+        }
+
+        return { count: createdCount };
+      });
     } catch (error) {
       logger.error('Failed to create household expenses', {
         error,

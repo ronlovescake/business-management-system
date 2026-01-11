@@ -36,6 +36,26 @@ export class HouseholdRecurringPaymentService extends BaseService {
     return this.post<HouseholdRecurringPaymentDTO>(this.endpoint, payload);
   }
 
+  static async update(
+    id: string,
+    payload: {
+      name?: string;
+      amount?: number;
+      category?: string;
+      notes?: string | null;
+      startDate?: string; // ISO
+      monthsCount?: number | null;
+      isActive?: boolean;
+      deductOnGenerate?: boolean;
+      accountId?: string | null;
+    }
+  ): Promise<HouseholdRecurringPaymentDTO> {
+    return this.patch<HouseholdRecurringPaymentDTO>(this.endpoint, {
+      id,
+      ...payload,
+    });
+  }
+
   static async generate(payload?: { month?: string }): Promise<{
     month: string;
     created: number;

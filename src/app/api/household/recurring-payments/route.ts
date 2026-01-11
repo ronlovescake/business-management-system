@@ -7,6 +7,7 @@ import { logger } from '@/lib/logger';
 import {
   householdRecurringPaymentService,
   HouseholdRecurringPaymentCreateSchema,
+  HouseholdRecurringPaymentUpdateSchema,
 } from '@/modules/household/recurringPayments/api';
 
 const buildValidationErrors = (error: ZodError) => {
@@ -66,6 +67,41 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     logger.error('Failed to create recurring payment', { error });
     return ApiResponse.error(
       'Failed to create recurring payment',
+      HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      error instanceof Error ? error.message : String(error)
+    );
+  }
+});
+
+/**
+ * PATCH /api/household/recurring-payments
+ */
+export const PATCH = withErrorHandler(async (request: NextRequest) => {
+  try {
+    const payload = await request.json();
+
+    const validation = HouseholdRecurringPaymentUpdateSchema.safeParse({
+      ...payload,
+      startDate: payload?.startDate ? new Date(payload.startDate) : undefined,
+    });
+
+    if (!validation.success) {
+      return ApiResponse.badRequest(
+        'Validation failed',
+        buildValidationErrors(validation.error)
+      );
+    }
+
+    const updated = await householdRecurringPaymentService.update(
+      validation.data.id,
+      validation.data
+    );
+
+    return ApiResponse.success(updated, 'Recurring payment updated');
+  } catch (error) {
+    logger.error('Failed to update recurring payment', { error });
+    return ApiResponse.error(
+      'Failed to update recurring payment',
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       error instanceof Error ? error.message : String(error)
     );

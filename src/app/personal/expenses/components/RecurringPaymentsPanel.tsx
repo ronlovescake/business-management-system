@@ -66,12 +66,27 @@ export function RecurringPaymentsPanel(props: {
   const [isActive, setIsActive] = React.useState(true);
   const [deductOnGenerate, setDeductOnGenerate] = React.useState(true);
   const [notes, setNotes] = React.useState('');
+  const [editingItem, setEditingItem] =
+    React.useState<HouseholdRecurringPaymentDTO | null>(null);
+  const isEditing = Boolean(editingItem);
 
   const recurringQuery = useQuery({
     queryKey: ['household-recurring-payments'],
     queryFn: () => HouseholdRecurringPaymentService.getAll(),
     staleTime: 60 * 1000,
   });
+
+  const resetForm = React.useCallback(() => {
+    setName('');
+    setAmount('');
+    setCategory(null);
+    setAccountId(null);
+    setStartDate(new Date());
+    setMonthsCount('');
+    setIsActive(true);
+    setDeductOnGenerate(true);
+    setNotes('');
+  }, []);
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -105,15 +120,48 @@ export function RecurringPaymentsPanel(props: {
         queryKey: ['household-recurring-payments'],
       });
       setOpened(false);
-      setName('');
-      setAmount('');
-      setCategory(null);
-      setAccountId(null);
-      setStartDate(new Date());
-      setMonthsCount('');
-      setIsActive(true);
-      setDeductOnGenerate(true);
-      setNotes('');
+      setEditingItem(null);
+      resetForm();
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingItem) {
+        throw new Error('No recurring payment selected');
+      }
+      if (!name.trim()) {
+        throw new Error('Name is required');
+      }
+      if (amount === '' || Number(amount) <= 0) {
+        throw new Error('Amount must be greater than zero');
+      }
+      if (!category) {
+        throw new Error('Category is required');
+      }
+      if (!startDate) {
+        throw new Error('Start date is required');
+      }
+
+      return HouseholdRecurringPaymentService.update(editingItem.id, {
+        name: name.trim(),
+        amount,
+        category,
+        notes: notes.trim() ? notes.trim() : null,
+        startDate: startDate.toISOString(),
+        monthsCount: monthsCount === '' ? null : monthsCount,
+        isActive,
+        deductOnGenerate,
+        accountId,
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ['household-recurring-payments'],
+      });
+      setOpened(false);
+      setEditingItem(null);
+      resetForm();
     },
   });
 
@@ -140,10 +188,12 @@ export function RecurringPaymentsPanel(props: {
       <IconRepeat size={26} color="#65ab58" />
       <Stack gap={2}>
         <Text fw={700} fz="lg" c="#101828">
-          Add Recurring Payment
+          {isEditing ? 'Edit Recurring Payment' : 'Add Recurring Payment'}
         </Text>
         <Text fz="sm" c="#667085">
-          Fill in the details to add a recurring payment
+          {isEditing
+            ? 'Update the details for this recurring payment'
+            : 'Fill in the details to add a recurring payment'}
         </Text>
       </Stack>
     </Group>
@@ -181,8 +231,38 @@ export function RecurringPaymentsPanel(props: {
     });
   }, [items, searchQuery, accountOptions]);
 
+  const startEditing = React.useCallback(
+    (item: HouseholdRecurringPaymentDTO) => {
+      setEditingItem(item);
+      setName(item.name);
+      setAmount(item.amount);
+      setCategory(item.category);
+      setAccountId(item.accountId);
+      setStartDate(new Date(item.startDate));
+      setMonthsCount(item.monthsCount ?? '');
+      setIsActive(item.isActive);
+      setDeductOnGenerate(item.deductOnGenerate ?? true);
+      setNotes(item.notes ?? '');
+      setOpened(true);
+    },
+    [setOpened]
+  );
+
+  React.useEffect(() => {
+    if (!opened) {
+      setEditingItem(null);
+      resetForm();
+    } else if (!editingItem) {
+      resetForm();
+    }
+  }, [opened, editingItem, resetForm]);
+
   const rows = filteredItems.map((item: HouseholdRecurringPaymentDTO) => (
-    <Table.Tr key={item.id}>
+    <Table.Tr
+      key={item.id}
+      onDoubleClick={() => startEditing(item)}
+      style={{ cursor: 'pointer' }}
+    >
       <Table.Td>
         <Text size="sm" fw={500} c="#495057">
           {item.name}
@@ -456,11 +536,13 @@ export function RecurringPaymentsPanel(props: {
               styles={notesField.styles}
             />
 
-            {createMutation.isError ? (
+            {createMutation.isError || updateMutation.isError ? (
               <Text c="red" size="sm">
-                {createMutation.error instanceof Error
-                  ? createMutation.error.message
-                  : 'Failed to create recurring payment'}
+                {updateMutation.error instanceof Error
+                  ? updateMutation.error.message
+                  : createMutation.error instanceof Error
+                    ? createMutation.error.message
+                    : 'Failed to save recurring payment'}
               </Text>
             ) : null}
 
@@ -474,12 +556,18 @@ export function RecurringPaymentsPanel(props: {
               </Button>
               <Button
                 radius="md"
-                onClick={() => createMutation.mutate()}
-                loading={createMutation.isPending}
+                onClick={() =>
+                  isEditing ? updateMutation.mutate() : createMutation.mutate()
+                }
+                loading={
+                  isEditing
+                    ? updateMutation.isPending
+                    : createMutation.isPending
+                }
                 disabled={!isValid}
                 styles={polishedPrimaryButtonStyles}
               >
-                Save
+                {isEditing ? 'Update' : 'Save'}
               </Button>
             </Group>
           </Stack>

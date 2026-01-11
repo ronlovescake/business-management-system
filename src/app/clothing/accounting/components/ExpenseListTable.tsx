@@ -328,7 +328,9 @@ export const ExpenseListTable = memo(function ExpenseListTable({
                           )}
 
                         {expense.status === 'pending' &&
-                          pendingActionMode === 'mark-paid' && (
+                          pendingActionMode === 'mark-paid' &&
+                          (expense.sourceType || '').toUpperCase() ===
+                            'RECURRING' && (
                             <Tooltip label="Mark as Paid">
                               <ActionIcon
                                 color="green"

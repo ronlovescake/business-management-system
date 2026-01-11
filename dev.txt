@@ -10,16 +10,18 @@
     · instrumentationHook
 
  ✓ Starting...
- ✓ Compiled in 694ms
+ ✓ Compiled in 790ms
 ✅ Environment variables validated successfully
- ✓ Ready in 1615ms
+ ✓ Ready in 1770ms
 ✅ Environment variables validated successfully
- ✓ Compiled /api/conversations in 162ms
 ✅ Environment variables validated successfully
- GET /api/conversations 200 in 325ms
- ○ Compiling /personal/expenses ...
- GET /api/conversations 200 in 47ms
- ✓ Compiled /personal/expenses in 6.4s
+ PATCH /api/household/recurring-payments 500 in 344ms
+ GET /api/conversations 200 in 469ms
+ ○ Compiling /api/conversations ...
+ PATCH /api/household/recurring-payments 500 in 20ms
+ GET /api/conversations 200 in 156ms
+ PATCH /api/household/recurring-payments 500 in 20ms
+ ✓ Compiled /api/conversations in 7.6s
 [✅ Module registered: Dashboard (v1.0.0)]
 [✅ Module registered: Customers (v1.0.0)]
 [✅ Module registered: Transactions (v1.0.0)]
@@ -47,73 +49,50 @@
 [✅ Module registered: Trips (v0.1.0)]
 [✅ Module registered: Vehicle Assignments (v1.0.0)]
 [✅ Module registered: Fleet Registry (v1.0.0)]
- GET /personal/expenses 200 in 6996ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 168ms
- GET /api/conversations 200 in 100ms
- ✓ Compiled /icon.svg in 177ms
+ GET /personal/expenses 200 in 8280ms
+ GET /icon.svg?icon.8c4bbc9b.svg 200 in 165ms
+ GET /api/conversations 200 in 111ms
+ ✓ Compiled /icon.svg in 185ms
 [householdAccount.findMany] { count: 1, options: { orderBy: { createdAt: 'desc' } } }
- GET /api/household/accounts 200 in 132ms
-[householdExpense.findMany] { count: 20, options: { orderBy: { date: 'desc' } } }
-ℹ️  Household expenses fetched { count: 20, filtered: false }
- GET /api/household/expenses 200 in 153ms
+ GET /api/household/accounts 200 in 113ms
 [householdAccount.findMany] { count: 1, options: { orderBy: { createdAt: 'desc' } } }
- GET /api/household/accounts 200 in 410ms
+ GET /api/household/accounts 200 in 435ms
+[householdExpense.findMany] { count: 24, options: { orderBy: { date: 'desc' } } }
+ℹ️  Household expenses fetched { count: 24, filtered: false }
+ GET /api/household/expenses 200 in 462ms
 ✅ Environment variables validated successfully
- GET /api/auth/session 200 in 672ms
- GET /api/auth/session 200 in 221ms
- GET /api/auth/session 200 in 27ms
- GET /api/auth/session 200 in 40ms
+ GET /api/auth/session 200 in 663ms
+ GET /api/auth/session 200 in 254ms
+ GET /api/auth/session 200 in 30ms
+ GET /api/auth/session 200 in 22ms
 ✅ Environment variables validated successfully
+ GET /api/conversations 200 in 22ms
+ GET /api/conversations 200 in 28ms
+ GET /api/household/recurring-payments 200 in 27ms
+ GET /api/conversations 200 in 25ms
+ PATCH /api/household/recurring-payments 500 in 22ms
+ PATCH /api/household/recurring-payments 500 in 18ms
+ GET /api/conversations 200 in 22ms
+ PATCH /api/household/recurring-payments 500 in 22ms
+ GET /api/conversations 200 in 21ms
+ PATCH /api/household/recurring-payments 500 in 18ms
+ PATCH /api/household/recurring-payments 500 in 20ms
+ PATCH /api/household/recurring-payments 500 in 16ms
+ GET /api/conversations 200 in 23ms
+ PATCH /api/household/recurring-payments 500 in 18ms
+ GET /api/conversations 200 in 23ms
+ PATCH /api/household/recurring-payments 500 in 20ms
+ GET /api/conversations 200 in 25ms
+ GET /api/conversations 200 in 26ms
+ GET /api/conversations 200 in 37ms
  GET /api/conversations 200 in 24ms
- ○ Compiling /_not-found/page ...
- GET /api/conversations 200 in 31ms
- ✓ Compiled /_not-found/page in 2.3s
- DELETE /api/household/expenses/1 404 in 2318ms
- DELETE /api/household/expenses/1 404 in 44ms
- GET /api/conversations 200 in 40ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 44ms
+ GET /api/conversations 200 in 23ms
+ GET /api/conversations 200 in 22ms
+ GET /api/conversations 200 in 22ms
+ GET /api/conversations 200 in 20ms
+ GET /api/conversations 200 in 22ms
  GET /api/conversations 200 in 24ms
- GET /api/conversations 200 in 27ms
-✅ Environment variables validated successfully
- ✓ Compiled in 1055ms
- ✓ Compiled /personal/expenses in 8ms
- GET /api/auth/session 200 in 359ms
- GET /api/auth/session 200 in 71ms
- GET /api/auth/session 200 in 93ms
- GET /api/conversations 200 in 115ms
- GET /api/auth/session 200 in 37ms
- GET /api/conversations 200 in 46ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 30ms
- GET /api/auth/session 200 in 224ms
- GET /api/conversations 200 in 237ms
- GET /api/auth/session 200 in 20ms
- GET /api/auth/session 200 in 18ms
-✅ Environment variables validated successfully
- GET /personal/expenses 200 in 71ms
- ✓ Compiled /_not-found/page in 8ms
- GET /.well-known/appspecific/com.chrome.devtools.json 404 in 69ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 38ms
- GET /api/auth/session 200 in 277ms
-✅ Environment variables validated successfully
-[householdAccount.findMany] { count: 1, options: { orderBy: { createdAt: 'desc' } } }
- GET /api/household/accounts 200 in 325ms
-[householdAccount.findMany] { count: 1, options: { orderBy: { createdAt: 'desc' } } }
- GET /api/household/accounts 200 in 353ms
- GET /api/conversations 200 in 365ms
- GET /api/auth/session 200 in 321ms
-[householdExpense.findMany] { count: 20, options: { orderBy: { date: 'desc' } } }
-ℹ️  Household expenses fetched { count: 20, filtered: false }
- GET /api/household/expenses 200 in 388ms
- GET /api/auth/session 200 in 27ms
- GET /api/auth/session 200 in 20ms
-✅ Environment variables validated successfully
- GET /api/conversations 200 in 73ms
- ✓ Compiled /api/household/expenses/[id] in 38ms
-✅ Environment variables validated successfully
- DELETE /api/household/expenses/1 200 in 517ms
-[householdExpense.findMany] { count: 19, options: { orderBy: { date: 'desc' } } }
-ℹ️  Household expenses fetched { count: 19, filtered: false }
- GET /api/household/expenses 200 in 31ms
- GET /api/conversations 200 in 70ms
+ GET /api/conversations 200 in 20ms
+ GET /api/conversations 200 in 20ms
  GET /api/conversations 200 in 24ms
+ GET /api/conversations 200 in 25ms
