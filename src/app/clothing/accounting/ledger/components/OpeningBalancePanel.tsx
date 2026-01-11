@@ -22,15 +22,17 @@ interface OpeningBalanceEntry {
 }
 
 interface OpeningBalancePanelProps {
-  onAddEntry: () => void;
+  onAddOpeningEntry: () => void;
   entries?: OpeningBalanceEntry[];
+  isLoading?: boolean;
   formatCurrency?: (amount: number) => string;
   formatDate?: (date: string) => string;
 }
 
 export function OpeningBalancePanel({
-  onAddEntry,
+  onAddOpeningEntry,
   entries = [],
+  isLoading = false,
   formatCurrency = (v) =>
     v.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' }),
   formatDate = (d) =>
@@ -57,7 +59,7 @@ export function OpeningBalancePanel({
           <Button
             leftSection={<IconPlus size={16} />}
             color="green"
-            onClick={onAddEntry}
+            onClick={onAddOpeningEntry}
           >
             Add Opening Entry
           </Button>
@@ -166,7 +168,15 @@ export function OpeningBalancePanel({
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {entries.length === 0 ? (
+              {isLoading ? (
+                <Table.Tr>
+                  <Table.Td colSpan={6} style={{ textAlign: 'center' }}>
+                    <Text c="dimmed" py="xl">
+                      Loading opening balance entries...
+                    </Text>
+                  </Table.Td>
+                </Table.Tr>
+              ) : entries.length === 0 ? (
                 <Table.Tr>
                   <Table.Td colSpan={6} style={{ textAlign: 'center' }}>
                     <Text c="dimmed" py="xl">

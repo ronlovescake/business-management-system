@@ -32,6 +32,7 @@ interface LedgerControlsProps {
   onImportCSV: (file: File | null) => void;
   onExportCSV: () => void;
   onAddEntry: () => void;
+  onAddOpeningEntry?: () => void;
   isImporting?: boolean;
 }
 
@@ -48,6 +49,7 @@ export const LedgerControls = memo(function LedgerControls({
   onImportCSV,
   onExportCSV,
   onAddEntry,
+  onAddOpeningEntry,
   isImporting = false,
 }: LedgerControlsProps) {
   useCtrlFFocus(
@@ -146,7 +148,7 @@ export const LedgerControls = memo(function LedgerControls({
             size="sm"
             radius="sm"
             color="green"
-            onClick={onAddEntry}
+            onClick={onAddOpeningEntry ?? onAddEntry}
           >
             Add Opening Entry
           </Button>

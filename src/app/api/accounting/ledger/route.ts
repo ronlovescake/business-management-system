@@ -12,6 +12,7 @@ import {
   getPaidAtDate,
   isWithinDateRange,
 } from '@/lib/accounting/data-fetchers';
+import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,30 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const transactions = await fetchPaidTransactions();
   const expenses = await fetchApprovedExpenses();
+
+  const openingBalanceRows =
+    await prisma.clothingAccountingOpeningBalance.findMany({
+      where:
+        from || to
+          ? {
+              date: {
+                ...(from ? { gte: from } : {}),
+                ...(to ? { lte: to } : {}),
+              },
+            }
+          : {},
+      orderBy: { date: 'asc' },
+    });
+
+  const openingEntries = openingBalanceRows.map((entry) => ({
+    id: entry.id,
+    date: entry.date.toISOString(),
+    ref: entry.ref,
+    account: entry.account,
+    debit: entry.debit,
+    credit: entry.credit,
+    description: entry.description ?? 'Opening balance',
+  }));
 
   const txEntries = transactions
     .map((tx) => {
@@ -124,7 +149,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     description: string;
   }>;
 
-  const entries = [...txEntries, ...expenseEntries];
+  const entries = [...openingEntries, ...txEntries, ...expenseEntries];
 
   const sortedByDate = entries.sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()

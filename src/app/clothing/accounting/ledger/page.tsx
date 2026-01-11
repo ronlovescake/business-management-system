@@ -7,6 +7,7 @@ import { LedgerStatsCards } from './components/LedgerStatsCards';
 import { LedgerControls } from './components/LedgerControls';
 import { LedgerListTable } from './components/LedgerListTable';
 import { OpeningBalancePanel } from './components/OpeningBalancePanel';
+import { OpeningBalanceEntryModal } from './components/OpeningBalanceEntryModal';
 import { useLedger } from './hooks/useLedger';
 
 export default function LedgerPage() {
@@ -28,6 +29,15 @@ export default function LedgerPage() {
     handleAddEntry,
     handleImportCSV,
     handleExportCSV,
+    openingEntries,
+    isLoadingOpeningEntries,
+    isOpeningEntryModalOpen,
+    isSavingOpeningEntry,
+    openingEntryForm,
+    handleOpeningEntryFieldChange,
+    openOpeningEntryModal,
+    closeOpeningEntryModal,
+    saveOpeningEntry,
   } = useLedger();
 
   const isOpeningBalanceTab = activeTab === 'opening-balance';
@@ -58,10 +68,17 @@ export default function LedgerPage() {
           onImportCSV={handleImportCSV}
           onExportCSV={handleExportCSV}
           onAddEntry={handleAddEntry}
+          onAddOpeningEntry={openOpeningEntryModal}
         />
 
         {isOpeningBalanceTab ? (
-          <OpeningBalancePanel onAddEntry={handleAddEntry} />
+          <OpeningBalancePanel
+            onAddOpeningEntry={openOpeningEntryModal}
+            entries={openingEntries}
+            isLoading={isLoadingOpeningEntries}
+            formatCurrency={formatCurrency}
+            formatDate={formatDate}
+          />
         ) : (
           <LedgerListTable
             entries={entries}
@@ -70,6 +87,16 @@ export default function LedgerPage() {
             formatCurrency={formatCurrency}
           />
         )}
+
+        <OpeningBalanceEntryModal
+          opened={isOpeningEntryModalOpen}
+          onClose={closeOpeningEntryModal}
+          onSubmit={saveOpeningEntry}
+          isSaving={isSavingOpeningEntry}
+          form={openingEntryForm}
+          onChange={handleOpeningEntryFieldChange}
+          accounts={accounts}
+        />
       </Stack>
     </PageLayout>
   );

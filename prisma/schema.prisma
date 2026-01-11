@@ -486,6 +486,23 @@ model Expense {
   @@map("expenses")
 }
 
+model ClothingAccountingOpeningBalance {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  date        DateTime
+  ref         String   @db.VarChar(120)
+  account     String   @db.VarChar(255)
+  debit       Float    @default(0)
+  credit      Float    @default(0)
+  description String?  @db.VarChar(1000)
+
+  @@index([date])
+  @@index([account])
+  @@index([ref])
+  @@map("ClothingAccountingOpeningBalance")
+}
+
 model HouseholdExpense {
   id              Int       @id @default(autoincrement())
   createdAt       DateTime  @default(now())
