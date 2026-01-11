@@ -47,11 +47,8 @@ export class HouseholdBudgetService {
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth() + 1; // 1-based month for DTO
 
-    // Consider the last 12 months (inclusive of the current month) when
-    // computing the monthly average planned budget per category.
-    const windowStart = new Date(now);
-    windowStart.setMonth(now.getMonth() - 11);
-    windowStart.setDate(1);
+    // Month-to-date average: consider from Jan 1 of current year through now.
+    const windowStart = new Date(currentYear, 0, 1);
 
     // HouseholdExpense.date is stored as a string (VarChar), so we cannot
     // reliably use a DB-side date filter. Pull the rows and filter in JS.
@@ -69,7 +66,7 @@ export class HouseholdBudgetService {
 
     type CatAgg = {
       totalsByMonth: Map<string, number>;
-      totalLast12: number;
+      totalYtd: number;
       currentMonthTotal: number;
     };
 
@@ -92,13 +89,13 @@ export class HouseholdBudgetService {
 
       const entry = agg.get(category) ?? {
         totalsByMonth: new Map<string, number>(),
-        totalLast12: 0,
+        totalYtd: 0,
         currentMonthTotal: 0,
       };
 
       const prev = entry.totalsByMonth.get(ymKey) ?? 0;
       entry.totalsByMonth.set(ymKey, prev + Number(exp.amount ?? 0));
-      entry.totalLast12 += Number(exp.amount ?? 0);
+      entry.totalYtd += Number(exp.amount ?? 0);
 
       if (y === currentYear && m === currentMonth) {
         entry.currentMonthTotal += Number(exp.amount ?? 0);
@@ -107,11 +104,11 @@ export class HouseholdBudgetService {
       agg.set(category, entry);
     }
 
-    const monthsInWindow = 12;
+    const monthsElapsed = currentMonth; // 1-based month already
 
     const derivedBudgets: HouseholdBudgetDTO[] = Array.from(agg.entries()).map(
-      ([category, { totalLast12, currentMonthTotal }]) => {
-        const plannedAverage = totalLast12 / monthsInWindow;
+      ([category, { totalYtd, currentMonthTotal }]) => {
+        const plannedAverage = monthsElapsed > 0 ? totalYtd / monthsElapsed : 0;
 
         return {
           id: `derived-${category}-${currentYear}-${currentMonth}`,
