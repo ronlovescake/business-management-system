@@ -1,7 +1,10 @@
 import type { HouseholdRecurringPayment, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import type { HouseholdRecurringPaymentCreateInput } from './schemas';
+import type {
+  HouseholdRecurringPaymentCreateInput,
+  HouseholdRecurringPaymentUpdateInput,
+} from './schemas';
 
 const toDateString = (date: Date): string => {
   return date.toISOString().split('T')[0];
@@ -54,6 +57,40 @@ export class HouseholdRecurringPaymentService {
         deductOnGenerate: data.deductOnGenerate ?? true,
         accountId: data.accountId ?? null,
       },
+    });
+  }
+
+  async update(
+    id: string,
+    data: HouseholdRecurringPaymentUpdateInput
+  ): Promise<HouseholdRecurringPayment> {
+    const { id: _, startDate, monthsCount, accountId, ...rest } = data;
+
+    return prisma.$transaction(async (tx) => {
+      const updateData: Prisma.HouseholdRecurringPaymentUncheckedUpdateInput = {
+        ...rest,
+      };
+
+      if (startDate) {
+        updateData.startDate = toDateString(startDate);
+      }
+
+      if (monthsCount !== undefined) {
+        updateData.monthsCount = monthsCount ?? null;
+      }
+
+      if (accountId !== undefined) {
+        updateData.accountId = accountId ?? null;
+      }
+
+      if (accountId) {
+        await this.ensureAccountExists(tx, accountId);
+      }
+
+      return tx.householdRecurringPayment.update({
+        where: { id },
+        data: updateData,
+      });
     });
   }
 

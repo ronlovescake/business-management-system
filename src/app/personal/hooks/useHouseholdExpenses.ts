@@ -6,6 +6,7 @@ import { showNotification } from '@mantine/notifications';
 import Swal from 'sweetalert2';
 import { showError } from '@/lib/alerts';
 import { householdExpenseCategoryOptions } from '@/modules/household/expenses/utils';
+import { escapeCSV } from '@/modules/clothing/ledger';
 import type { HouseholdExpenseCategory } from '@/modules/household/expenses/api';
 import type { HouseholdExpenseDTO } from '@/services/ExpenseService';
 
@@ -208,6 +209,10 @@ export function useHouseholdExpenses() {
   const [accountOptions, setAccountOptions] = useState<
     HouseholdAccountOption[]
   >([]);
+
+  const accountLabelById = useMemo(() => {
+    return new Map(accountOptions.map((opt) => [opt.value, opt.label]));
+  }, [accountOptions]);
 
   useEffect(() => {
     let mounted = true;
@@ -570,7 +575,7 @@ export function useHouseholdExpenses() {
       category: formCategory,
       notes: formNotes || null,
       receipt: formReceipt ? formReceipt.name : null,
-      status: editingExpense?.status || 'pending',
+      status: editingExpense?.status || 'paid',
       loggedBy: editingExpense?.employeeName || currentUserName,
       accountId: formAccountId,
     };
@@ -615,11 +620,60 @@ export function useHouseholdExpenses() {
   };
 
   const handleExportCSV = () => {
-    // Simple export placeholder
+    const data =
+      (filteredExpenses.length > 0 ? filteredExpenses : expenses) ?? [];
+
+    if (!data.length) {
+      showNotification({
+        title: 'Nothing to export',
+        message: 'No household expenses found to export.',
+        color: 'yellow',
+      });
+      return;
+    }
+
+    const headers = [
+      'Date',
+      'Amount',
+      'Description',
+      'Category',
+      'Account',
+      'Status',
+      'Source',
+      'Notes',
+    ];
+
+    const rows = data.map((e) => {
+      const accountLabel = e.accountId
+        ? accountLabelById.get(e.accountId) || ''
+        : '';
+      const sourceLabel = getSourceLabel(e.sourceType);
+
+      return [
+        escapeCSV(e.date),
+        escapeCSV(Number(e.amount).toFixed(2)),
+        escapeCSV(e.description),
+        escapeCSV(e.category),
+        escapeCSV(accountLabel),
+        escapeCSV(e.status),
+        escapeCSV(sourceLabel),
+        escapeCSV(e.notes),
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `household-expenses-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+
     showNotification({
-      title: 'Export not available',
-      message: 'CSV export for household expenses will be added soon.',
-      color: 'yellow',
+      title: 'Export started',
+      message: 'Household expenses CSV is downloading.',
+      color: 'green',
     });
   };
 
