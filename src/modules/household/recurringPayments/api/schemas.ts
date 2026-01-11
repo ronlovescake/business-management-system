@@ -25,6 +25,14 @@ export type HouseholdRecurringPaymentUpdateInput = z.infer<
   typeof HouseholdRecurringPaymentUpdateSchema
 >;
 
+export const HouseholdRecurringPaymentDeleteSchema = z.object({
+  id: z.string().trim().min(1),
+});
+
+export type HouseholdRecurringPaymentDeleteInput = z.infer<
+  typeof HouseholdRecurringPaymentDeleteSchema
+>;
+
 export const HouseholdRecurringPaymentGenerateSchema = z
   .object({
     month: z

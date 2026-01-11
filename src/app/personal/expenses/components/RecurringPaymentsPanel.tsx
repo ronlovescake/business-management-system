@@ -165,6 +165,16 @@ export function RecurringPaymentsPanel(props: {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) =>
+      HouseholdRecurringPaymentService.deleteById(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ['household-recurring-payments'],
+      });
+    },
+  });
+
   const isValid =
     Boolean(name.trim()) &&
     typeof amount === 'number' &&
@@ -297,6 +307,35 @@ export function RecurringPaymentsPanel(props: {
           {item.isActive ? 'Active' : 'Paused'}
         </Badge>
       </Table.Td>
+      <Table.Td style={{ textAlign: 'center' }}>
+        <Group gap="xs" justify="center">
+          <Button
+            size="xs"
+            variant="subtle"
+            color="red"
+            loading={deleteMutation.isPending}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!window.confirm('Delete this recurring payment?')) {
+                return;
+              }
+              deleteMutation.mutate(item.id);
+            }}
+          >
+            Delete
+          </Button>
+          <Button
+            size="xs"
+            variant="light"
+            onClick={(e) => {
+              e.stopPropagation();
+              startEditing(item);
+            }}
+          >
+            Edit
+          </Button>
+        </Group>
+      </Table.Td>
     </Table.Tr>
   ));
 
@@ -394,12 +433,23 @@ export function RecurringPaymentsPanel(props: {
                 >
                   STATUS
                 </Table.Th>
+                <Table.Th
+                  style={{
+                    width: 200,
+                    padding: '16px 12px',
+                    color: '#495057',
+                    backgroundColor: '#f1f3f5',
+                    textAlign: 'center',
+                  }}
+                >
+                  ACTIONS
+                </Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
               {recurringQuery.isLoading ? (
                 <Table.Tr>
-                  <Table.Td colSpan={7} style={{ textAlign: 'center' }}>
+                  <Table.Td colSpan={8} style={{ textAlign: 'center' }}>
                     <Text c="dimmed" py="xl">
                       Loading recurring payments…
                     </Text>
@@ -407,7 +457,7 @@ export function RecurringPaymentsPanel(props: {
                 </Table.Tr>
               ) : filteredItems.length === 0 ? (
                 <Table.Tr>
-                  <Table.Td colSpan={7} style={{ textAlign: 'center' }}>
+                  <Table.Td colSpan={8} style={{ textAlign: 'center' }}>
                     <Text c="dimmed" py="xl">
                       {items.length === 0
                         ? 'No recurring payments yet.'

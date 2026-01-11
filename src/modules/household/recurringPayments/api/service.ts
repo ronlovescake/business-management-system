@@ -4,6 +4,7 @@ import { logger } from '@/lib/logger';
 import type {
   HouseholdRecurringPaymentCreateInput,
   HouseholdRecurringPaymentUpdateInput,
+  HouseholdRecurringPaymentDeleteInput,
 } from './schemas';
 
 const toDateString = (date: Date): string => {
@@ -91,6 +92,14 @@ export class HouseholdRecurringPaymentService {
         where: { id },
         data: updateData,
       });
+    });
+  }
+
+  async delete(
+    data: HouseholdRecurringPaymentDeleteInput
+  ): Promise<HouseholdRecurringPayment> {
+    return prisma.householdRecurringPayment.delete({
+      where: { id: data.id },
     });
   }
 

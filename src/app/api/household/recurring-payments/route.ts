@@ -8,6 +8,7 @@ import {
   householdRecurringPaymentService,
   HouseholdRecurringPaymentCreateSchema,
   HouseholdRecurringPaymentUpdateSchema,
+  HouseholdRecurringPaymentDeleteSchema,
 } from '@/modules/household/recurringPayments/api';
 
 const buildValidationErrors = (error: ZodError) => {
@@ -102,6 +103,38 @@ export const PATCH = withErrorHandler(async (request: NextRequest) => {
     logger.error('Failed to update recurring payment', { error });
     return ApiResponse.error(
       'Failed to update recurring payment',
+      HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      error instanceof Error ? error.message : String(error)
+    );
+  }
+});
+
+/**
+ * DELETE /api/household/recurring-payments
+ */
+export const DELETE = withErrorHandler(async (request: NextRequest) => {
+  try {
+    const searchId = request.nextUrl.searchParams.get('id');
+    const body = searchId ? { id: searchId } : await request.json();
+
+    const validation = HouseholdRecurringPaymentDeleteSchema.safeParse(body);
+
+    if (!validation.success) {
+      return ApiResponse.badRequest(
+        'Validation failed',
+        buildValidationErrors(validation.error)
+      );
+    }
+
+    const deleted = await householdRecurringPaymentService.delete(
+      validation.data
+    );
+
+    return ApiResponse.success(deleted, 'Recurring payment deleted');
+  } catch (error) {
+    logger.error('Failed to delete recurring payment', { error });
+    return ApiResponse.error(
+      'Failed to delete recurring payment',
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       error instanceof Error ? error.message : String(error)
     );

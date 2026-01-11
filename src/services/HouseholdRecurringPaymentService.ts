@@ -66,4 +66,13 @@ export class HouseholdRecurringPaymentService extends BaseService {
       payload ?? {}
     );
   }
+
+  static async deleteById(id: string): Promise<HouseholdRecurringPaymentDTO> {
+    return this.request<HouseholdRecurringPaymentDTO>(
+      `${this.endpoint}?id=${encodeURIComponent(id)}`,
+      {
+        method: 'DELETE',
+      }
+    );
+  }
 }
