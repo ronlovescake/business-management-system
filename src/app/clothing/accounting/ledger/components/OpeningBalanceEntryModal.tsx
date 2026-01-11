@@ -79,7 +79,6 @@ export function OpeningBalanceEntryModal({
             label="Debit (₱)"
             thousandSeparator=","
             decimalSeparator="."
-            precision={2}
             value={form.debit}
             min={0}
             onChange={(value) => onChange('debit', value ?? 0)}
@@ -90,7 +89,6 @@ export function OpeningBalanceEntryModal({
             label="Credit (₱)"
             thousandSeparator=","
             decimalSeparator="."
-            precision={2}
             value={form.credit}
             min={0}
             onChange={(value) => onChange('credit', value ?? 0)}
