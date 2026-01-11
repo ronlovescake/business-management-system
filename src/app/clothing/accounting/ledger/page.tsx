@@ -6,6 +6,7 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import { LedgerStatsCards } from './components/LedgerStatsCards';
 import { LedgerControls } from './components/LedgerControls';
 import { LedgerListTable } from './components/LedgerListTable';
+import { OpeningBalancePanel } from './components/OpeningBalancePanel';
 import { useLedger } from './hooks/useLedger';
 
 export default function LedgerPage() {
@@ -29,16 +30,20 @@ export default function LedgerPage() {
     handleExportCSV,
   } = useLedger();
 
+  const isOpeningBalanceTab = activeTab === 'opening-balance';
+
   return (
     <PageLayout fluid withPadding>
       <Stack gap="lg">
-        <LedgerStatsCards
-          totalDebits={stats.totalDebits}
-          totalCredits={stats.totalCredits}
-          netChange={stats.netChange}
-          accounts={stats.accounts}
-          formatCurrency={formatCurrency}
-        />
+        {!isOpeningBalanceTab && (
+          <LedgerStatsCards
+            totalDebits={stats.totalDebits}
+            totalCredits={stats.totalCredits}
+            netChange={stats.netChange}
+            accounts={stats.accounts}
+            formatCurrency={formatCurrency}
+          />
+        )}
 
         <LedgerControls
           activeTab={activeTab}
@@ -55,12 +60,16 @@ export default function LedgerPage() {
           onAddEntry={handleAddEntry}
         />
 
-        <LedgerListTable
-          entries={entries}
-          filteredEntries={filteredEntries}
-          formatDate={formatDate}
-          formatCurrency={formatCurrency}
-        />
+        {isOpeningBalanceTab ? (
+          <OpeningBalancePanel onAddEntry={handleAddEntry} />
+        ) : (
+          <LedgerListTable
+            entries={entries}
+            filteredEntries={filteredEntries}
+            formatDate={formatDate}
+            formatCurrency={formatCurrency}
+          />
+        )}
       </Stack>
     </PageLayout>
   );

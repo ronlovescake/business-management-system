@@ -6,6 +6,7 @@ import {
   IconUpload,
   IconDownload,
   IconPlus,
+  IconBuildingBank,
 } from '@tabler/icons-react';
 import { actionButtonStyles } from '@/components/shared/styles/actionButtonStyles';
 import {
@@ -124,6 +125,30 @@ export const LedgerControls = memo(function LedgerControls({
             onClick={onAddEntry}
           >
             Add Entry
+          </Button>
+        </Group>
+      ),
+    },
+    {
+      value: 'opening-balance',
+      label: 'Opening Balance',
+      leftSection: <IconBuildingBank size={16} />,
+      panel: (
+        <Group wrap="wrap" gap="sm">
+          <TextInput
+            placeholder="Opening balances are managed below"
+            value=""
+            readOnly
+            style={{ flex: 1, minWidth: 220 }}
+          />
+          <Button
+            leftSection={<IconPlus size={16} />}
+            size="sm"
+            radius="sm"
+            color="green"
+            onClick={onAddEntry}
+          >
+            Add Opening Entry
           </Button>
         </Group>
       ),
