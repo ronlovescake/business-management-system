@@ -120,6 +120,18 @@ export class HouseholdRecurringPaymentService {
     }
   }
 
+  private async resolveDefaultAccount(
+    tx: Prisma.TransactionClient
+  ): Promise<string | null> {
+    const account = await tx.householdAccount.findFirst({
+      where: { isActive: true },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    });
+
+    return account?.id ?? null;
+  }
+
   async generateForMonth(input?: {
     month?: string;
   }): Promise<{ created: number; skipped: number; month: string }> {
@@ -177,7 +189,11 @@ export class HouseholdRecurringPaymentService {
         const expenseDate = toDateString(new Date(year, month, day));
 
         const status = tpl.deductOnGenerate ? 'paid' : 'pending';
-        const accountId = tpl.accountId ?? null;
+
+        // Prefer the template's account; otherwise fall back to the first active account
+        // so balances reflect generated expenses without manual selection.
+        const accountId =
+          tpl.accountId ?? (await this.resolveDefaultAccount(tx));
 
         if (accountId) {
           await this.ensureAccountExists(tx, accountId);
