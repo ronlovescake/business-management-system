@@ -43,14 +43,95 @@ const mapDTO = (
 
 export class HouseholdBudgetService {
   async findAll(): Promise<HouseholdBudgetDTO[]> {
-    const items = await prisma.householdBudget.findMany({
-      orderBy: { createdAt: 'desc' },
-      include: {
-        accountRef: { select: { name: true } },
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1; // 1-based month for DTO
+
+    // Consider the last 12 months (inclusive of the current month) when
+    // computing the monthly average planned budget per category.
+    const windowStart = new Date(now);
+    windowStart.setMonth(now.getMonth() - 11);
+    windowStart.setDate(1);
+
+    // HouseholdExpense.date is stored as a string (VarChar), so we cannot
+    // reliably use a DB-side date filter. Pull the rows and filter in JS.
+    const expenses = await prisma.householdExpense.findMany({
+      select: {
+        amount: true,
+        category: true,
+        date: true,
       },
     });
 
-    return items.map(mapDTO);
+    if (!expenses.length) {
+      return [];
+    }
+
+    type CatAgg = {
+      totalsByMonth: Map<string, number>;
+      totalLast12: number;
+      currentMonthTotal: number;
+    };
+
+    const agg = new Map<string, CatAgg>();
+
+    for (const exp of expenses) {
+      const category = exp.category || 'Uncategorized';
+      const expDate = new Date(exp.date as unknown as string);
+
+      if (Number.isNaN(expDate.getTime())) {
+        continue; // skip invalid dates
+      }
+
+      if (expDate < windowStart || expDate > now) {
+        continue; // outside the 12-month window
+      }
+      const y = expDate.getFullYear();
+      const m = expDate.getMonth() + 1; // 1-based
+      const ymKey = `${y}-${String(m).padStart(2, '0')}`;
+
+      const entry = agg.get(category) ?? {
+        totalsByMonth: new Map<string, number>(),
+        totalLast12: 0,
+        currentMonthTotal: 0,
+      };
+
+      const prev = entry.totalsByMonth.get(ymKey) ?? 0;
+      entry.totalsByMonth.set(ymKey, prev + Number(exp.amount ?? 0));
+      entry.totalLast12 += Number(exp.amount ?? 0);
+
+      if (y === currentYear && m === currentMonth) {
+        entry.currentMonthTotal += Number(exp.amount ?? 0);
+      }
+
+      agg.set(category, entry);
+    }
+
+    const monthsInWindow = 12;
+
+    const derivedBudgets: HouseholdBudgetDTO[] = Array.from(agg.entries()).map(
+      ([category, { totalLast12, currentMonthTotal }]) => {
+        const plannedAverage = totalLast12 / monthsInWindow;
+
+        return {
+          id: `derived-${category}-${currentYear}-${currentMonth}`,
+          category,
+          period: 'monthly',
+          plannedAmount: Number(plannedAverage.toFixed(2)),
+          actualAmount: Number(currentMonthTotal.toFixed(2)),
+          month: currentMonth,
+          year: currentYear,
+          accountId: null,
+          accountName: null,
+          notes: null,
+          createdAt: now,
+          updatedAt: now,
+        } satisfies HouseholdBudgetDTO;
+      }
+    );
+
+    // Sort by planned descending to mirror analytics prominence
+    return derivedBudgets.sort((a, b) => b.plannedAmount - a.plannedAmount);
   }
 
   async create(data: HouseholdBudgetCreateInput): Promise<HouseholdBudgetDTO> {
