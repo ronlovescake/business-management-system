@@ -7,6 +7,19 @@ import type { ProductDTO } from './dto';
 import { expenseService } from '@/modules/clothing/ledger/api/service';
 import type { ExpenseCreateInput } from '@/modules/clothing/ledger/api/schemas';
 
+// Cutover rule: only auto-post expenses for orders on/after this date
+const EXPENSE_CUTOVER_DATE = new Date('2026-01-01');
+const isOnOrAfterCutover = (date: Date) => date >= EXPENSE_CUTOVER_DATE;
+
+// Require delivered shipments before posting to expenses
+const isDeliveredStatus = (shipmentStatus: string | null | undefined) => {
+  if (!shipmentStatus) {
+    return false;
+  }
+  const normalized = shipmentStatus.toLowerCase();
+  return normalized.includes('delivered');
+};
+
 async function logOperationNotification(
   category: string,
   changes: string,
@@ -79,6 +92,23 @@ function buildExpenseFromProduct(
       productId,
       orderDate: dto['Order Date'],
       postingDate: dto['Posting Date'],
+    });
+    return null;
+  }
+
+  if (!isOnOrAfterCutover(date)) {
+    logger.info('Skip expense post: before cutover date', {
+      productId,
+      date: date.toISOString().slice(0, 10),
+      cutover: EXPENSE_CUTOVER_DATE.toISOString().slice(0, 10),
+    });
+    return null;
+  }
+
+  if (!isDeliveredStatus(dto['Shipment Status'])) {
+    logger.info('Skip expense post: shipment not delivered', {
+      productId,
+      shipmentStatus: dto['Shipment Status'] || 'none',
     });
     return null;
   }
