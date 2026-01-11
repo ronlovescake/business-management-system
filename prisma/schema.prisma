@@ -537,6 +537,7 @@ model HouseholdAccount {
   incomes  HouseholdIncome[]
   expenses HouseholdExpense[]
   recurringPayments HouseholdRecurringPayment[]
+  budgets HouseholdBudget[]
 
   @@index([name])
   @@index([type])
@@ -587,6 +588,27 @@ model HouseholdIncome {
   @@index([account])
   @@index([accountId])
   @@map("HouseholdIncome")
+}
+
+model HouseholdBudget {
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  category      String   @db.VarChar(100)
+  period        String   @db.VarChar(20)
+  year          Int?
+  month         Int?
+  plannedAmount Decimal  @default(0) @db.Decimal(14, 2)
+  actualAmount  Decimal  @default(0) @db.Decimal(14, 2)
+  accountId     String?
+  accountRef    HouseholdAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  notes         String?  @db.VarChar(500)
+
+  @@index([category])
+  @@index([period])
+  @@index([year, month])
+  @@index([accountId])
+  @@map("HouseholdBudget")
 }
 
 model Employee {

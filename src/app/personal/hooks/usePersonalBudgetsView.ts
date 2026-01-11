@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import Swal from 'sweetalert2';
 import { normalizeText } from '@/utils/text';
+import { householdExpenseCategoryOptions } from '@/modules/household/expenses/utils';
+import { useHouseholdBudgetsData } from './useHouseholdBudgetsData';
 
 export type BudgetPeriod = 'monthly' | 'annual';
 export type BudgetStatus = 'over' | 'under' | 'on-track';
@@ -55,59 +57,8 @@ const monthNames = [
 ];
 
 export function usePersonalBudgetsView() {
-  const sampleBudgets: BudgetRow[] = useMemo(
-    () => [
-      {
-        id: 'groceries-jan',
-        category: 'Groceries',
-        planned: 15000,
-        actual: 13250,
-        period: 'monthly',
-        month: new Date().getMonth() + 1,
-        account: 'Household Operating',
-        notes: 'Includes weekly markets and pantry restocks.',
-      },
-      {
-        id: 'utilities-jan',
-        category: 'Utilities',
-        planned: 8500,
-        actual: 9100,
-        period: 'monthly',
-        month: new Date().getMonth() + 1,
-        account: 'Household Operating',
-        notes: 'Power, water, internet, and mobile.',
-      },
-      {
-        id: 'rent-annual',
-        category: 'Housing',
-        planned: 480000,
-        actual: 480000,
-        period: 'annual',
-        account: 'Main Checking',
-        notes: 'Annual lease prepaid in January.',
-      },
-      {
-        id: 'subscriptions',
-        category: 'Subscriptions',
-        planned: 3600,
-        actual: 2800,
-        period: 'monthly',
-        month: new Date().getMonth() + 1,
-        account: 'Main Checking',
-        notes: 'Streaming, cloud storage, and software.',
-      },
-      {
-        id: 'emergency-fund',
-        category: 'Emergency Fund',
-        planned: 120000,
-        actual: 52000,
-        period: 'annual',
-        account: 'Savings',
-        notes: 'Target reserve for the year.',
-      },
-    ],
-    []
-  );
+  const { budgets: apiBudgets, isLoading: isLoadingBudgets } =
+    useHouseholdBudgetsData();
 
   const [activeTab, setActiveTab] = useState<string | null>('list');
   const [searchQuery, setSearchQuery] = useState('');
@@ -119,8 +70,21 @@ export function usePersonalBudgetsView() {
     null
   );
 
+  const sourceBudgets: BudgetRow[] = useMemo(() => {
+    return (apiBudgets ?? []).map((budget) => ({
+      id: budget.id,
+      category: budget.category,
+      planned: Number(budget.plannedAmount ?? 0),
+      actual: Number(budget.actualAmount ?? 0),
+      period: budget.period,
+      month: budget.month ?? undefined,
+      account: budget.accountName ?? undefined,
+      notes: budget.notes ?? undefined,
+    }));
+  }, [apiBudgets]);
+
   const displayBudgets: BudgetDisplayRow[] = useMemo(() => {
-    return sampleBudgets.map((budget) => {
+    return sourceBudgets.map((budget) => {
       const status: BudgetStatus =
         budget.actual > budget.planned
           ? 'over'
@@ -143,7 +107,7 @@ export function usePersonalBudgetsView() {
         monthLabel,
       };
     });
-  }, [sampleBudgets]);
+  }, [sourceBudgets]);
 
   const filteredBudgets = useMemo(() => {
     const query = normalizeText(searchQuery);
@@ -189,8 +153,13 @@ export function usePersonalBudgetsView() {
   }, [displayBudgets, filterCategory, filterPeriod, filterStatus, searchQuery]);
 
   const categories = useMemo(() => {
-    const unique = new Set(displayBudgets.map((b) => b.category));
-    return Array.from(unique);
+    const canonicalSet = new Set<string>(householdExpenseCategoryOptions);
+    const extras = displayBudgets
+      .map((b) => b.category)
+      .filter((cat) => !canonicalSet.has(cat));
+    return Array.from(
+      new Set<string>([...Array.from(canonicalSet), ...extras])
+    );
   }, [displayBudgets]);
 
   const stats: BudgetStats = useMemo(() => {
@@ -300,6 +269,7 @@ export function usePersonalBudgetsView() {
     filteredBudgets,
     stats,
     analyticsByCategory,
+    isLoadingBudgets,
     formatCurrency,
     handleImportCSV,
     handleExportCSV,

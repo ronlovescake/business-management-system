@@ -24,7 +24,7 @@ import {
 import { StatsCardGrid, type StatCard } from '@/components/ui';
 import { ControlPanelCard } from '@/components/ui/ControlPanelCard';
 import { actionButtonStyles } from '@/components/shared/styles/actionButtonStyles';
-import { PersonalPageShell } from '../components/PersonalPageShell';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
   usePersonalBudgetsView,
   type BudgetStatus,
@@ -94,10 +94,7 @@ export default function PersonalBudgetsPage() {
   ];
 
   return (
-    <PersonalPageShell
-      title="Budgets"
-      description="Plan monthly and annual budgets across categories and accounts."
-    >
+    <PageLayout fluid withPadding>
       <Stack gap="lg">
         <StatsCardGrid cards={statCards} variant="vibrant" minCardWidth={240} />
 
@@ -364,6 +361,6 @@ export default function PersonalBudgetsPage() {
           </Card>
         )}
       </Stack>
-    </PersonalPageShell>
+    </PageLayout>
   );
 }

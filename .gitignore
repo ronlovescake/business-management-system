@@ -49,6 +49,8 @@ backups/
 snapshots/
 *.sql
 !prisma/migrations/20251210103000_add_vehicle_id_to_trucking_expenses/migration.sql
+!prisma/migrations/20260111085500_create_household_accounts_baseline/migration.sql
+!prisma/migrations/20260111090000_add_household_budget_table/migration.sql
 *.backup
 
 # Generated documents
