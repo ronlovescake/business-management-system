@@ -15,6 +15,8 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+const CUTOVER = new Date('2026-01-01');
+
 export const GET = withErrorHandler(async (req: NextRequest) => {
   const { from, to } = parseDateRangeFromParams(req.nextUrl.searchParams);
 
@@ -29,6 +31,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       }
 
       const paidAt = getPaidAtDate(tx);
+      if (paidAt && paidAt < CUTOVER) {
+        return null;
+      }
       if (!isWithinDateRange(paidAt, from, to)) {
         return null;
       }
@@ -77,6 +82,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       }
 
       const expDate = parseDate(exp.date);
+      if (expDate && expDate < CUTOVER) {
+        return null;
+      }
       if (!isWithinDateRange(expDate, from, to)) {
         return null;
       }
