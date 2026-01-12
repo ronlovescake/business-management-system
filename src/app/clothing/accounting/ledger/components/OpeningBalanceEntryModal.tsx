@@ -29,6 +29,7 @@ interface OpeningBalanceEntryModalProps {
     value: string | number | null
   ) => void;
   accounts: string[];
+  isEditing?: boolean;
 }
 
 export function OpeningBalanceEntryModal({
@@ -39,12 +40,13 @@ export function OpeningBalanceEntryModal({
   form,
   onChange,
   accounts,
+  isEditing = false,
 }: OpeningBalanceEntryModalProps) {
   return (
     <Modal
       opened={opened}
       onClose={onClose}
-      title="Add Opening Entry"
+      title={isEditing ? 'Edit Opening Entry' : 'Add Opening Entry'}
       size="lg"
     >
       <Stack gap="md">
@@ -113,7 +115,7 @@ export function OpeningBalanceEntryModal({
             Cancel
           </Button>
           <Button color="green" onClick={onSubmit} loading={isSaving}>
-            Save Opening Entry
+            {isEditing ? 'Update Opening Entry' : 'Save Opening Entry'}
           </Button>
         </Group>
       </Stack>

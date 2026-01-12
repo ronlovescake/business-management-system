@@ -71,6 +71,9 @@ export function useLedger() {
   const [isLoadingOpeningEntries, setIsLoadingOpeningEntries] = useState(false);
   const [isOpeningEntryModalOpen, setIsOpeningEntryModalOpen] = useState(false);
   const [isSavingOpeningEntry, setIsSavingOpeningEntry] = useState(false);
+  const [editingOpeningEntryId, setEditingOpeningEntryId] = useState<
+    string | null
+  >(null);
   const [openingEntryForm, setOpeningEntryForm] = useState({
     date: OPENING_BALANCE_DEFAULT_DATE,
     ref: '',
@@ -238,6 +241,7 @@ export function useLedger() {
   );
 
   const openOpeningEntryModal = useCallback(() => {
+    setEditingOpeningEntryId(null);
     setOpeningEntryForm({
       date: OPENING_BALANCE_DEFAULT_DATE,
       ref: '',
@@ -249,7 +253,24 @@ export function useLedger() {
     setIsOpeningEntryModalOpen(true);
   }, []);
 
+  const openOpeningEntryModalForEdit = useCallback(
+    (entry: OpeningBalanceEntry) => {
+      setEditingOpeningEntryId(entry.id);
+      setOpeningEntryForm({
+        date: entry.date.slice(0, 10),
+        ref: entry.ref,
+        account: entry.account,
+        debit: entry.debit,
+        credit: entry.credit,
+        description: entry.description ?? '',
+      });
+      setIsOpeningEntryModalOpen(true);
+    },
+    []
+  );
+
   const closeOpeningEntryModal = useCallback(() => {
+    setEditingOpeningEntryId(null);
     setIsOpeningEntryModalOpen(false);
   }, []);
 
@@ -284,34 +305,41 @@ export function useLedger() {
 
     setIsSavingOpeningEntry(true);
     try {
+      const payload = {
+        id: editingOpeningEntryId ?? undefined,
+        date,
+        ref,
+        account,
+        debit,
+        credit,
+        description,
+      };
+
       const res = await fetch('/api/accounting/opening-balance', {
-        method: 'POST',
+        method: editingOpeningEntryId ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          date,
-          ref,
-          account,
-          debit,
-          credit,
-          description,
-        }),
+        body: JSON.stringify(payload),
       });
 
-      const payload = await res.json();
+      const responseBody = await res.json();
       if (!res.ok) {
-        const errorMessage = payload?.error || 'Failed to save opening entry';
+        const errorMessage =
+          responseBody?.error || 'Failed to save opening entry';
         throw new Error(errorMessage);
       }
 
       showNotification({
         color: 'teal',
-        title: 'Opening entry saved',
+        title: editingOpeningEntryId
+          ? 'Opening entry updated'
+          : 'Opening entry saved',
         message: account,
       });
 
       setIsOpeningEntryModalOpen(false);
+      setEditingOpeningEntryId(null);
       await fetchOpeningEntries();
       await refreshLedger();
     } catch (error) {
@@ -325,7 +353,53 @@ export function useLedger() {
     } finally {
       setIsSavingOpeningEntry(false);
     }
-  }, [openingEntryForm, fetchOpeningEntries, refreshLedger]);
+  }, [
+    editingOpeningEntryId,
+    openingEntryForm,
+    fetchOpeningEntries,
+    refreshLedger,
+  ]);
+
+  const deleteOpeningEntry = useCallback(
+    async (id: string) => {
+      try {
+        const res = await fetch(
+          `/api/accounting/opening-balance?id=${encodeURIComponent(id)}`,
+          {
+            method: 'DELETE',
+          }
+        );
+
+        if (!res.ok) {
+          const payload = await res.json().catch(() => null);
+          const errorMessage =
+            payload?.error || 'Failed to delete opening entry';
+          throw new Error(errorMessage);
+        }
+
+        await fetchOpeningEntries();
+        await refreshLedger();
+
+        showNotification({
+          color: 'green',
+          title: 'Opening entry deleted',
+          message: 'The opening balance line was removed.',
+        });
+      } catch (error) {
+        logger.error('Opening balance delete failed', { error });
+        showNotification({
+          color: 'red',
+          title: 'Delete failed',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Unexpected error deleting entry',
+        });
+        throw error;
+      }
+    },
+    [fetchOpeningEntries, refreshLedger]
+  );
 
   const handleAddEntry = () => {
     logger.info('Add Ledger Entry clicked');
@@ -367,7 +441,10 @@ export function useLedger() {
     openingEntryForm,
     handleOpeningEntryFieldChange,
     openOpeningEntryModal,
+    openOpeningEntryModalForEdit,
     closeOpeningEntryModal,
     saveOpeningEntry,
+    deleteOpeningEntry,
+    editingOpeningEntryId,
   };
 }

@@ -10,14 +10,16 @@ import {
   Box,
 } from '@mantine/core';
 import { IconBulb, IconPlus } from '@tabler/icons-react';
+import { confirmTripleDelete } from '@/utils/confirmTripleDelete';
+import { logger } from '@/lib/logger';
 
 interface OpeningBalanceEntry {
   id: string;
   date: string;
   ref: string;
   account: string;
-  debit?: number;
-  credit?: number;
+  debit: number;
+  credit: number;
   description?: string;
 }
 
@@ -27,6 +29,9 @@ interface OpeningBalancePanelProps {
   isLoading?: boolean;
   formatCurrency?: (amount: number) => string;
   formatDate?: (date: string) => string;
+  onEditEntry: (entry: OpeningBalanceEntry) => void;
+  onDeleteEntry: (entry: OpeningBalanceEntry) => Promise<void>;
+  isSaving?: boolean;
 }
 
 export function OpeningBalancePanel({
@@ -42,13 +47,37 @@ export function OpeningBalancePanel({
       month: 'long',
       day: 'numeric',
     }),
+  onEditEntry,
+  onDeleteEntry,
+  isSaving = false,
 }: OpeningBalancePanelProps) {
   const commonHeaderStyle = {
     padding: '16px 12px',
     color: '#495057',
     backgroundColor: '#f1f3f5',
-    width: '16.66%', // six columns, equal width
+    width: '14.28%', // seven columns, equal width
   } as const;
+
+  const handleDelete = async (entry: OpeningBalanceEntry) => {
+    const confirmed = await confirmTripleDelete({
+      title: 'Delete opening entry?',
+      warning: 'This will remove the opening balance line permanently.',
+      secondaryWarning: 'Deleting will change your opening balances.',
+      finalPrompt: 'Type DELETE to confirm.',
+      confirmWord: 'DELETE',
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await onDeleteEntry(entry);
+    } catch (error) {
+      // Notification is handled upstream; swallow to avoid unhandled rejections
+      logger.error('Failed to delete opening entry', { error });
+    }
+  };
 
   return (
     <Stack gap="md">
@@ -129,12 +158,15 @@ export function OpeningBalancePanel({
                 <Table.Th style={{ ...commonHeaderStyle, textAlign: 'center' }}>
                   DESCRIPTION
                 </Table.Th>
+                <Table.Th style={{ ...commonHeaderStyle, textAlign: 'center' }}>
+                  ACTIONS
+                </Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
               {isLoading ? (
                 <Table.Tr>
-                  <Table.Td colSpan={6} style={{ textAlign: 'center' }}>
+                  <Table.Td colSpan={7} style={{ textAlign: 'center' }}>
                     <Text c="dimmed" py="xl">
                       Loading opening balance entries...
                     </Text>
@@ -142,7 +174,7 @@ export function OpeningBalancePanel({
                 </Table.Tr>
               ) : entries.length === 0 ? (
                 <Table.Tr>
-                  <Table.Td colSpan={6} style={{ textAlign: 'center' }}>
+                  <Table.Td colSpan={7} style={{ textAlign: 'center' }}>
                     <Text c="dimmed" py="xl">
                       No opening balance entries yet. Click &quot;Add Opening
                       Entry&quot; to create the starting lines for 2026.
@@ -177,6 +209,27 @@ export function OpeningBalancePanel({
                       <Text size="sm" lineClamp={2} c="#495057">
                         {entry.description || '—'}
                       </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Group gap="xs" justify="center">
+                        <Button
+                          size="xs"
+                          variant="light"
+                          onClick={() => onEditEntry(entry)}
+                          disabled={isSaving}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          size="xs"
+                          color="red"
+                          variant="light"
+                          onClick={() => handleDelete(entry)}
+                          loading={isSaving}
+                        >
+                          Delete
+                        </Button>
+                      </Group>
                     </Table.Td>
                   </Table.Tr>
                 ))

@@ -38,6 +38,9 @@ export default function LedgerPage() {
     openOpeningEntryModal,
     closeOpeningEntryModal,
     saveOpeningEntry,
+    openOpeningEntryModalForEdit,
+    deleteOpeningEntry,
+    editingOpeningEntryId,
   } = useLedger();
 
   const isOpeningBalanceTab = activeTab === 'opening-balance';
@@ -78,6 +81,9 @@ export default function LedgerPage() {
             isLoading={isLoadingOpeningEntries}
             formatCurrency={formatCurrency}
             formatDate={formatDate}
+            onEditEntry={openOpeningEntryModalForEdit}
+            onDeleteEntry={(entry) => deleteOpeningEntry(entry.id)}
+            isSaving={isSavingOpeningEntry}
           />
         ) : (
           <LedgerListTable
@@ -96,6 +102,7 @@ export default function LedgerPage() {
           form={openingEntryForm}
           onChange={handleOpeningEntryFieldChange}
           accounts={accounts}
+          isEditing={Boolean(editingOpeningEntryId)}
         />
       </Stack>
     </PageLayout>
