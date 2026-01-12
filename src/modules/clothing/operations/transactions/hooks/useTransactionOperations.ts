@@ -132,7 +132,11 @@ export function useTransactionOperations(
   }, []);
 
   const createDraftTransaction = useCallback(
-    async (rowIndex: number, draft: TransactionData) => {
+    async (
+      rowIndex: number,
+      draft: TransactionData,
+      placeholderRow?: TransactionData
+    ) => {
       if (creatingDraftRowsRef.current.has(rowIndex)) {
         return false;
       }
@@ -160,6 +164,14 @@ export function useTransactionOperations(
         };
 
         await api.post('/api/transactions', [payload]);
+
+        // Clear the placeholder row we just used so it does not linger as a duplicate
+        // display row until the query refresh completes (both the draft object and the
+        // actual placeholder row reference shown in the grid).
+        Object.assign(draft, createEmptyTransaction());
+        if (placeholderRow) {
+          Object.assign(placeholderRow, createEmptyTransaction());
+        }
         draftRowsRef.current.delete(rowIndex);
 
         // Refresh shared cache so the new row arrives with a real ID
@@ -452,7 +464,7 @@ export function useTransactionOperations(
               merged['Order Date'] = formatToday();
             }
             draftRowsRef.current.set(rowIndex, merged);
-            await createDraftTransaction(rowIndex, merged);
+            await createDraftTransaction(rowIndex, merged, transaction);
           }
 
           return;
