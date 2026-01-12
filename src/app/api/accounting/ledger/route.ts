@@ -16,23 +16,32 @@ import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
+// Only show ledger activity from the accounting cutover date forward.
+const CUTOVER = new Date(Date.UTC(2026, 0, 1));
+
+function clampFrom(from: Date | null): Date {
+  if (!from) {
+    return CUTOVER;
+  }
+  return from < CUTOVER ? CUTOVER : from;
+}
+
 export const GET = withErrorHandler(async (req: NextRequest) => {
   const { from, to } = parseDateRangeFromParams(req.nextUrl.searchParams);
+  const effectiveFrom = clampFrom(from);
+  const effectiveTo = to ?? null;
 
   const transactions = await fetchPaidTransactions();
   const expenses = await fetchApprovedExpenses();
 
   const openingBalanceRows =
     await prisma.clothingAccountingOpeningBalance.findMany({
-      where:
-        from || to
-          ? {
-              date: {
-                ...(from ? { gte: from } : {}),
-                ...(to ? { lte: to } : {}),
-              },
-            }
-          : {},
+      where: {
+        date: {
+          gte: effectiveFrom,
+          ...(effectiveTo ? { lte: effectiveTo } : {}),
+        },
+      },
       orderBy: { date: 'asc' },
     });
 
@@ -54,7 +63,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       }
 
       const paidAt = getPaidAtDate(tx);
-      if (!isWithinDateRange(paidAt, from, to)) {
+      if (!isWithinDateRange(paidAt, effectiveFrom, effectiveTo)) {
         return null;
       }
 
@@ -102,7 +111,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       }
 
       const expDate = parseDate(exp.date);
-      if (!isWithinDateRange(expDate, from, to)) {
+      if (!isWithinDateRange(expDate, effectiveFrom, effectiveTo)) {
         return null;
       }
 
