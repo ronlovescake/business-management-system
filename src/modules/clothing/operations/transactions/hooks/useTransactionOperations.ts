@@ -184,6 +184,19 @@ export function useTransactionOperations(
               : undefined;
 
           const rawDetails = apiPayload?.details;
+          const rawPayloadString = apiPayload
+            ? (() => {
+                try {
+                  return JSON.stringify(apiPayload);
+                } catch (stringifyError) {
+                  logger.warn(
+                    'Failed to stringify API payload',
+                    stringifyError
+                  );
+                  return undefined;
+                }
+              })()
+            : undefined;
           const parsedDetails = (() => {
             if (!rawDetails) {
               return undefined;
@@ -234,8 +247,13 @@ export function useTransactionOperations(
             friendlyMessage = `Missing references – ${missingPieces.join('; ')}`;
           } else if (parsedDetails) {
             friendlyMessage = serverMessage;
-          } else {
+          } else if (serverMessage) {
             friendlyMessage = serverMessage;
+          } else if (rawPayloadString) {
+            friendlyMessage = `Conflict – ${rawPayloadString}`;
+          } else {
+            friendlyMessage =
+              'Reference conflict – please verify customer/product/shipment exists.';
           }
         } else if (error instanceof Error) {
           friendlyMessage = error.message;
