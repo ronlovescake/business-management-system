@@ -42,6 +42,16 @@ export function OpeningBalanceEntryModal({
   accounts,
   isEditing = false,
 }: OpeningBalanceEntryModalProps) {
+  const accountOptions = Array.from(
+    new Set([
+      ...accounts,
+      'Inventory',
+      'Stock on Hand',
+      'Opening Equity',
+      'Accounts Payable',
+    ])
+  );
+
   return (
     <Modal
       opened={opened}
@@ -68,7 +78,7 @@ export function OpeningBalanceEntryModal({
           <Select
             label="Account"
             placeholder="Select account"
-            data={accounts}
+            data={accountOptions}
             value={form.account}
             searchable
             clearable
