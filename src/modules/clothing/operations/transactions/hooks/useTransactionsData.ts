@@ -13,6 +13,7 @@ import { useTransactionData } from '@/hooks/useSheetData';
 import { useDataTable } from '@/components/ui';
 import { TransactionService } from '../services/TransactionService';
 import { ALL_STATUS_CONTROLLED_STATUSES } from '../types/transaction.types';
+import { MAX_PLACEHOLDER_ROWS } from '@/lib/transactions';
 import { queryKeys } from '@/lib/queryKeys';
 import { api } from '@/lib/api/client';
 import { ensureArray } from '@/lib/api/normalize';
@@ -473,6 +474,33 @@ export function useTransactionsData(): UseTransactionsDataReturn {
     return filtered;
   }, [searchFilteredData, selectedStatuses, searchQuery, transactions]);
 
+  // Provide stable placeholder rows so users can create new transactions from the grid
+  const placeholderRows = useMemo(() => {
+    return Array.from({ length: MAX_PLACEHOLDER_ROWS }).map(
+      () =>
+        ({
+          id: undefined,
+          'Order Date': '',
+          Customers: '',
+          'Product Code': '',
+          Quantity: 0,
+          'Unit Price': 0,
+          Discount: 0,
+          Adjustment: 0,
+          'Line Total': 0,
+          'Order Status': '',
+          Notes: '',
+          'Invoice Date': '',
+          'Packed Date': '',
+          'Shipment Code': '',
+        }) as TransactionData
+    );
+  }, []);
+
+  const filteredDataWithPlaceholders = useMemo(() => {
+    return [...filteredData, ...placeholderRows];
+  }, [filteredData, placeholderRows]);
+
   // ============================================================================
   // STATISTICS CALCULATION
   // ============================================================================
@@ -580,7 +608,7 @@ export function useTransactionsData(): UseTransactionsDataReturn {
     isLoading: transactionsLoading,
 
     // Filtered data
-    filteredData,
+    filteredData: filteredDataWithPlaceholders,
     searchQuery,
     handleSearch,
 

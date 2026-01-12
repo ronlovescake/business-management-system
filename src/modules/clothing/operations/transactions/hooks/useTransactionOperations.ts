@@ -77,6 +77,118 @@ export function useTransactionOperations(
 
   const queryClient = useQueryClient();
 
+  // Track draft (unsaved) rows created from Handsontable's spare rows
+  const draftRowsRef = useRef<Map<number, TransactionData>>(new Map());
+  const creatingDraftRowsRef = useRef<Set<number>>(new Set());
+
+  const createEmptyTransaction = useCallback((): TransactionData => {
+    return {
+      id: undefined,
+      'Order Date': '',
+      Customers: '',
+      'Product Code': '',
+      Quantity: 0,
+      'Unit Price': 0,
+      Discount: 0,
+      Adjustment: 0,
+      'Line Total': 0,
+      'Order Status': '',
+      Notes: '',
+      'Invoice Date': '',
+      'Packed Date': '',
+      'Shipment Code': '',
+    };
+  }, []);
+
+  const formatToday = useCallback(() => {
+    const now = new Date();
+    return now.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: 'Asia/Manila',
+    });
+  }, []);
+
+  const ensureDraftRow = useCallback(
+    (rowIndex: number): TransactionData => {
+      const existing = draftRowsRef.current.get(rowIndex);
+      if (existing) {
+        return existing;
+      }
+      const draft = createEmptyTransaction();
+      draftRowsRef.current.set(rowIndex, draft);
+      return draft;
+    },
+    [createEmptyTransaction]
+  );
+
+  const hasMinimumCreateFields = useCallback((row: TransactionData) => {
+    return (
+      Boolean(row.Customers && row.Customers.trim()) &&
+      Boolean(row['Product Code'] && row['Product Code'].trim()) &&
+      Boolean(row['Order Date'] && row['Order Date'].trim())
+    );
+  }, []);
+
+  const createDraftTransaction = useCallback(
+    async (rowIndex: number, draft: TransactionData) => {
+      if (creatingDraftRowsRef.current.has(rowIndex)) {
+        return false;
+      }
+
+      if (!hasMinimumCreateFields(draft)) {
+        return false;
+      }
+
+      creatingDraftRowsRef.current.add(rowIndex);
+      try {
+        const payload = {
+          'Order Date': draft['Order Date'] || '',
+          Customers: draft.Customers || '',
+          'Product Code': draft['Product Code'] || '',
+          Quantity: draft.Quantity ?? 0,
+          'Unit Price': draft['Unit Price'] ?? 0,
+          Discount: draft.Discount ?? 0,
+          Adjustment: draft.Adjustment ?? 0,
+          'Line Total': draft['Line Total'] ?? 0,
+          'Order Status': draft['Order Status'] ?? '',
+          Notes: draft.Notes || '',
+          'Invoice Date': draft['Invoice Date'] || '',
+          'Packed Date': draft['Packed Date'] || '',
+          'Shipment Code': draft['Shipment Code'] || '',
+        };
+
+        await api.post('/api/transactions', [payload]);
+        draftRowsRef.current.delete(rowIndex);
+
+        // Refresh shared cache so the new row arrives with a real ID
+        await queryClient.invalidateQueries({ queryKey: ['transactions'] });
+
+        showNotification({
+          title: 'Success',
+          message: 'New transaction created',
+          color: 'green',
+        });
+        return true;
+      } catch (error) {
+        logger.error('Failed to create transaction from draft row:', error);
+        showNotification({
+          title: '❌ Save Failed',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Could not save the new transaction',
+          color: 'red',
+        });
+        return false;
+      } finally {
+        creatingDraftRowsRef.current.delete(rowIndex);
+      }
+    },
+    [hasMinimumCreateFields, queryClient]
+  );
+
   const logNotification = useCallback(
     (message: string, metadata?: Record<string, unknown>) => {
       OperationsNotificationsService.log({
@@ -232,40 +344,50 @@ export function useTransactionOperations(
         return;
       }
 
-      const transaction = filteredData[rowIndex];
-
-      if (!transaction || !transaction.id) {
-        return;
-      }
+      const transaction = filteredData[rowIndex] ?? ensureDraftRow(rowIndex);
+      const isNewTransaction = !transaction.id;
 
       // Check if this is part of a batch operation
       const isBatchEdit = Boolean(isBatch || isBatchModeRef.current);
-      const shouldLog = !isBatchEdit;
+      const shouldLog = !isBatchEdit && !isNewTransaction;
       const transactionDescriptor = describeTransaction(transaction);
 
       const newValue = rawValue;
 
       // Helper: Update transaction (batched or immediate)
-      const updateTransactionData = (data: Partial<TransactionData>) => {
-        if (!transaction.id) {
+      const updateTransactionData = async (data: Partial<TransactionData>) => {
+        if (isNewTransaction) {
+          const merged = { ...transaction, ...data };
+          // Mutate the in-memory placeholder so the grid shows auto-populated values immediately
+          Object.assign(transaction, merged);
+          draftRowsRef.current.set(rowIndex, merged);
+
+          // Attempt creation once required fields are present
+          if (hasMinimumCreateFields(merged)) {
+            // Auto-populate Order Date if still empty
+            if (!merged['Order Date']) {
+              merged['Order Date'] = formatToday();
+            }
+            draftRowsRef.current.set(rowIndex, merged);
+            await createDraftTransaction(rowIndex, merged);
+          }
+
+          return;
+        }
+
+        const id = transaction.id;
+        if (!id) {
+          logger.warn('Skipping update for transaction without id', data);
           return;
         }
 
         if (isBatchEdit || isBatchModeRef.current) {
-          // BATCH MODE
-          logger.debug(
-            `📦 Batching update for transaction ${transaction.id}:`,
-            data
-          );
-          const existing = batchUpdatesRef.current.get(transaction.id) || {};
-          batchUpdatesRef.current.set(transaction.id, { ...existing, ...data });
+          logger.debug(`📦 Batching update for transaction ${id}:`, data);
+          const existing = batchUpdatesRef.current.get(id) || {};
+          batchUpdatesRef.current.set(id, { ...existing, ...data });
         } else {
-          // IMMEDIATE MODE
-          logger.debug(
-            `🔄 Immediate update for transaction ${transaction.id}:`,
-            data
-          );
-          update({ id: transaction.id, data });
+          logger.debug(`🔄 Immediate update for transaction ${id}:`, data);
+          update({ id, data });
         }
       };
 
@@ -284,12 +406,11 @@ export function useTransactionOperations(
       // Helper: Get current transaction with any pending batch updates
       const getCurrentTransaction = (): TransactionData => {
         if (!transaction.id) {
-          return transaction;
+          return draftRowsRef.current.get(rowIndex) ?? transaction;
         }
 
         const batchedUpdates = batchUpdatesRef.current.get(transaction.id);
         if (batchedUpdates) {
-          // Merge transaction with batched updates
           return { ...transaction, ...batchedUpdates };
         }
         return transaction;
@@ -1276,6 +1397,10 @@ export function useTransactionOperations(
       formatCurrencyValue,
       formatNumberValue,
       truncate,
+      ensureDraftRow,
+      createDraftTransaction,
+      hasMinimumCreateFields,
+      formatToday,
     ]
   );
 
