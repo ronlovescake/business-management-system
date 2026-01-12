@@ -124,11 +124,12 @@ export function useTransactionOperations(
   );
 
   const hasMinimumCreateFields = useCallback((row: TransactionData) => {
-    return (
-      Boolean(row.Customers && row.Customers.trim()) &&
-      Boolean(row['Product Code'] && row['Product Code'].trim()) &&
-      Boolean(row['Order Date'] && row['Order Date'].trim())
+    const hasCustomer = Boolean(row.Customers && row.Customers.trim());
+    const hasProduct = Boolean(
+      row['Product Code'] && row['Product Code'].trim()
     );
+    const hasOrderDate = Boolean(row['Order Date'] && row['Order Date'].trim());
+    return hasOrderDate && (hasCustomer || hasProduct);
   }, []);
 
   const createDraftTransaction = useCallback(
@@ -164,6 +165,23 @@ export function useTransactionOperations(
         };
 
         await api.post('/api/transactions', [payload]);
+
+        // Optimistically add the newly created transaction to the cache so the
+        // grid shows values immediately (no blank flash) while we wait for the
+        // real record with its server ID.
+        const optimisticId = Number(Date.now() * -1);
+        const optimisticTransaction: TransactionData = {
+          id: optimisticId,
+          ...payload,
+        } as TransactionData;
+
+        queryClient.setQueryData<TransactionData[] | undefined>(
+          ['transactions'],
+          (existing) =>
+            existing
+              ? [...existing, optimisticTransaction]
+              : [optimisticTransaction]
+        );
 
         // Clear the placeholder row we just used so it does not linger as a duplicate
         // display row until the query refresh completes (both the draft object and the
@@ -281,7 +299,7 @@ export function useTransactionOperations(
         creatingDraftRowsRef.current.delete(rowIndex);
       }
     },
-    [hasMinimumCreateFields, queryClient]
+    [hasMinimumCreateFields, queryClient, createEmptyTransaction]
   );
 
   const logNotification = useCallback(
@@ -453,16 +471,22 @@ export function useTransactionOperations(
       const updateTransactionData = async (data: Partial<TransactionData>) => {
         if (isNewTransaction) {
           const merged = { ...transaction, ...data };
+
+          // Auto-populate Order Date for new placeholders as soon as we have either customer or product
+          if (
+            (!merged['Order Date'] || merged['Order Date'].trim() === '') &&
+            ((merged.Customers && merged.Customers.trim() !== '') ||
+              (merged['Product Code'] && merged['Product Code'].trim() !== ''))
+          ) {
+            merged['Order Date'] = formatToday();
+          }
+
           // Mutate the in-memory placeholder so the grid shows auto-populated values immediately
           Object.assign(transaction, merged);
           draftRowsRef.current.set(rowIndex, merged);
 
-          // Attempt creation once required fields are present
+          // Attempt creation once required fields are present (order date + either customer or product)
           if (hasMinimumCreateFields(merged)) {
-            // Auto-populate Order Date if still empty
-            if (!merged['Order Date']) {
-              merged['Order Date'] = formatToday();
-            }
             draftRowsRef.current.set(rowIndex, merged);
             await createDraftTransaction(rowIndex, merged, transaction);
           }

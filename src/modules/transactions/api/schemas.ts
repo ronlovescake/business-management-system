@@ -2,8 +2,8 @@ import { z } from 'zod';
 
 export const transactionDataSchema = z.object({
   'Order Date': z.string().min(1).max(50),
-  Customers: z.string().min(1).max(255),
-  'Product Code': z.string().min(1).max(100),
+  Customers: z.string().max(255), // allow empty string when only product is provided
+  'Product Code': z.string().max(100), // allow empty string when only customer is provided
   Quantity: z.number().min(0),
   'Unit Price': z.number().min(0),
   Discount: z.number().min(0),

@@ -166,11 +166,10 @@ export function isEmptyRow(row: TransactionRecord): boolean {
 }
 
 export function isValidRow(row: TransactionRecord): boolean {
-  return (
-    row['Order Date'].length > 0 &&
-    row.Customers.length > 0 &&
-    row['Product Code'].length > 0
-  );
+  const hasOrderDate = row['Order Date'].length > 0;
+  const hasCustomer = row.Customers.length > 0;
+  const hasProduct = row['Product Code'].length > 0;
+  return hasOrderDate && (hasCustomer || hasProduct);
 }
 
 function normalizeShipmentCode(value: unknown): string | null {
