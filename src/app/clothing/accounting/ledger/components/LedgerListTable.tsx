@@ -24,6 +24,13 @@ export const LedgerListTable = memo(function LedgerListTable({
     { debit: 0, credit: 0 }
   );
 
+  const commonHeaderStyle = {
+    padding: '16px 12px',
+    color: '#495057',
+    backgroundColor: '#f1f3f5',
+    width: '14.28%', // keep every column visually consistent
+  } as const;
+
   return (
     <Stack gap="md">
       <Card
@@ -32,83 +39,32 @@ export const LedgerListTable = memo(function LedgerListTable({
         style={{ overflow: 'hidden', height: '73vh' }}
       >
         <Box style={{ height: '100%', overflowY: 'auto' }}>
-          <Table highlightOnHover withTableBorder>
+          <Table
+            highlightOnHover
+            withTableBorder
+            style={{ tableLayout: 'fixed' }}
+          >
             <Table.Thead style={{ backgroundColor: '#f1f3f5' }}>
               <Table.Tr>
-                <Table.Th
-                  style={{
-                    width: 220,
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'center',
-                  }}
-                >
+                <Table.Th style={{ ...commonHeaderStyle, textAlign: 'center' }}>
                   DATE
                 </Table.Th>
-                <Table.Th
-                  style={{
-                    width: 120,
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'center',
-                  }}
-                >
+                <Table.Th style={{ ...commonHeaderStyle, textAlign: 'center' }}>
                   REF
                 </Table.Th>
-                <Table.Th
-                  style={{
-                    width: 240,
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'center',
-                  }}
-                >
+                <Table.Th style={{ ...commonHeaderStyle, textAlign: 'center' }}>
                   ACCOUNT
                 </Table.Th>
-                <Table.Th
-                  style={{
-                    width: 180,
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'right',
-                  }}
-                >
+                <Table.Th style={{ ...commonHeaderStyle, textAlign: 'right' }}>
                   DEBIT (₱)
                 </Table.Th>
-                <Table.Th
-                  style={{
-                    width: 180,
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'right',
-                  }}
-                >
+                <Table.Th style={{ ...commonHeaderStyle, textAlign: 'right' }}>
                   CREDIT (₱)
                 </Table.Th>
-                <Table.Th
-                  style={{
-                    width: 180,
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'right',
-                  }}
-                >
+                <Table.Th style={{ ...commonHeaderStyle, textAlign: 'right' }}>
                   BALANCE (₱)
                 </Table.Th>
-                <Table.Th
-                  style={{
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'center',
-                  }}
-                >
+                <Table.Th style={{ ...commonHeaderStyle, textAlign: 'center' }}>
                   DESCRIPTION
                 </Table.Th>
               </Table.Tr>

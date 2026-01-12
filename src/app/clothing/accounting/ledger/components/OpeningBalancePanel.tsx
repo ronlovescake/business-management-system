@@ -43,6 +43,13 @@ export function OpeningBalancePanel({
       day: 'numeric',
     }),
 }: OpeningBalancePanelProps) {
+  const commonHeaderStyle = {
+    padding: '16px 12px',
+    color: '#495057',
+    backgroundColor: '#f1f3f5',
+    width: '16.66%', // six columns, equal width
+  } as const;
+
   return (
     <Stack gap="md">
       <Card withBorder padding="lg" radius="md">
@@ -97,72 +104,29 @@ export function OpeningBalancePanel({
         style={{ overflow: 'hidden', height: '68vh' }}
       >
         <Box style={{ height: '100%', overflowY: 'auto' }}>
-          <Table highlightOnHover withTableBorder>
+          <Table
+            highlightOnHover
+            withTableBorder
+            style={{ tableLayout: 'fixed' }}
+          >
             <Table.Thead style={{ backgroundColor: '#f1f3f5' }}>
               <Table.Tr>
-                <Table.Th
-                  style={{
-                    width: 220,
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'center',
-                  }}
-                >
+                <Table.Th style={{ ...commonHeaderStyle, textAlign: 'center' }}>
                   DATE
                 </Table.Th>
-                <Table.Th
-                  style={{
-                    width: 120,
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'center',
-                  }}
-                >
+                <Table.Th style={{ ...commonHeaderStyle, textAlign: 'center' }}>
                   REF
                 </Table.Th>
-                <Table.Th
-                  style={{
-                    width: 240,
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'center',
-                  }}
-                >
+                <Table.Th style={{ ...commonHeaderStyle, textAlign: 'center' }}>
                   ACCOUNT
                 </Table.Th>
-                <Table.Th
-                  style={{
-                    width: 180,
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'right',
-                  }}
-                >
+                <Table.Th style={{ ...commonHeaderStyle, textAlign: 'right' }}>
                   DEBIT (₱)
                 </Table.Th>
-                <Table.Th
-                  style={{
-                    width: 180,
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'right',
-                  }}
-                >
+                <Table.Th style={{ ...commonHeaderStyle, textAlign: 'right' }}>
                   CREDIT (₱)
                 </Table.Th>
-                <Table.Th
-                  style={{
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'center',
-                  }}
-                >
+                <Table.Th style={{ ...commonHeaderStyle, textAlign: 'center' }}>
                   DESCRIPTION
                 </Table.Th>
               </Table.Tr>
