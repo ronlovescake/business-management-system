@@ -18,7 +18,7 @@ import { showNotification } from '@mantine/notifications';
 import type { NotificationData } from '@mantine/notifications';
 import type { CellEditEvent } from '@/components/ui/HandsontableGrid';
 import { TransactionService } from '../services/TransactionService';
-import { api } from '@/lib/api/client';
+import { api, ApiError } from '@/lib/api/client';
 import { logger } from '@/lib/logger';
 import { showConfirm } from '@/lib/alerts';
 import Swal from 'sweetalert2';
@@ -173,12 +173,73 @@ export function useTransactionOperations(
         return true;
       } catch (error) {
         logger.error('Failed to create transaction from draft row:', error);
+
+        let friendlyMessage = 'Could not save the new transaction';
+
+        if (error instanceof ApiError && error.status === 409) {
+          // Parse the conflict payload to surface missing references (customers/products/shipments)
+          const detailsPayload =
+            typeof error.data === 'object' &&
+            error.data &&
+            'details' in error.data
+              ? (error.data as { details?: unknown }).details
+              : undefined;
+
+          const detailsJson =
+            typeof detailsPayload === 'string' ? detailsPayload : undefined;
+
+          if (detailsJson) {
+            try {
+              const parsed = JSON.parse(detailsJson) as {
+                missing?: {
+                  customers?: string[];
+                  products?: string[];
+                  shipments?: string[];
+                };
+              };
+
+              const missingPieces: string[] = [];
+              if (parsed.missing?.customers?.length) {
+                missingPieces.push(
+                  `customers: ${parsed.missing.customers.join(', ')}`
+                );
+              }
+              if (parsed.missing?.products?.length) {
+                missingPieces.push(
+                  `products: ${parsed.missing.products.join(', ')}`
+                );
+              }
+              if (parsed.missing?.shipments?.length) {
+                missingPieces.push(
+                  `shipments: ${parsed.missing.shipments.join(', ')}`
+                );
+              }
+
+              if (missingPieces.length > 0) {
+                friendlyMessage = `Missing references – ${missingPieces.join('; ')}`;
+              } else {
+                friendlyMessage =
+                  'Reference conflict – please verify customer/product/shipment exists.';
+              }
+            } catch (parseError) {
+              logger.warn(
+                'Failed to parse conflict details payload',
+                parseError
+              );
+              friendlyMessage =
+                'Reference conflict – please verify customer/product/shipment exists.';
+            }
+          } else {
+            friendlyMessage =
+              'Reference conflict – please verify customer/product/shipment exists.';
+          }
+        } else if (error instanceof Error) {
+          friendlyMessage = error.message;
+        }
+
         showNotification({
           title: '❌ Save Failed',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Could not save the new transaction',
+          message: friendlyMessage,
           color: 'red',
         });
         return false;
