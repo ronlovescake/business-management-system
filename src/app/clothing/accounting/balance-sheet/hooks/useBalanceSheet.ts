@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { logger } from '@/lib/logger';
 
 export type BalanceSheetRow = {
@@ -16,33 +16,77 @@ export type BalanceSheetStats = {
   asOf: string;
 };
 
-const seedRows: BalanceSheetRow[] = [
-  {
-    id: 'asset-cash',
-    account: 'Cash',
-    type: 'Asset',
-    amount: 11802,
-  },
-  {
-    id: 'asset-inventory',
-    account: 'Inventory',
-    type: 'Asset',
-    amount: 50000,
-  },
-  {
-    id: 'equity-retained',
-    account: 'Retained Earnings',
-    type: 'Equity',
-    amount: 61802,
-  },
-];
+type BalanceSheetResponse = {
+  rows: BalanceSheetRow[];
+  stats: BalanceSheetStats;
+};
+
+const DEFAULT_STATS: BalanceSheetStats = {
+  assets: 0,
+  liabilities: 0,
+  equity: 0,
+  balance: 0,
+  asOf: '2026-01-31',
+};
+
+function toIsoDate(asOfLabel: string): string {
+  const parsed = new Date(asOfLabel);
+  if (Number.isNaN(parsed.getTime())) {
+    return '2026-01-31T00:00:00.000Z';
+  }
+  return parsed.toISOString();
+}
+
+function toDisplayDate(iso: string): string {
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) {
+    return 'January 31, 2026';
+  }
+  return parsed.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
 
 export function useBalanceSheet() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<string | null>('list');
   const [asOf, setAsOf] = useState('January 31, 2026');
+  const [rows, setRows] = useState<BalanceSheetRow[]>([]);
+  const [stats, setStats] = useState<BalanceSheetStats>(DEFAULT_STATS);
 
-  const rows = useMemo(() => seedRows, []);
+  const fetchBalanceSheet = useCallback(async () => {
+    const iso = toIsoDate(asOf);
+    try {
+      const res = await fetch(
+        `/api/accounting/balance-sheet?asOf=${encodeURIComponent(iso)}`
+      );
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const payload = (await res.json()) as { data?: BalanceSheetResponse };
+
+      setRows(payload.data?.rows ?? []);
+      const nextStats = payload.data?.stats;
+      setStats(
+        nextStats
+          ? {
+              ...nextStats,
+              asOf: toDisplayDate(nextStats.asOf),
+            }
+          : { ...DEFAULT_STATS, asOf: toDisplayDate(iso) }
+      );
+    } catch (error) {
+      logger.warn('Balance sheet fetch failed; showing empty data', { error });
+      setRows([]);
+      setStats({ ...DEFAULT_STATS, asOf: toDisplayDate(iso) });
+    }
+  }, [asOf]);
+
+  useEffect(() => {
+    fetchBalanceSheet();
+  }, [fetchBalanceSheet]);
 
   const filteredRows = useMemo(() => {
     const search = searchQuery.trim().toLowerCase();
@@ -61,26 +105,6 @@ export function useBalanceSheet() {
           a.type.localeCompare(b.type) || a.account.localeCompare(b.account)
       );
   }, [rows, searchQuery]);
-
-  const stats: BalanceSheetStats = useMemo(() => {
-    const assets = rows
-      .filter((row) => row.type === 'Asset')
-      .reduce((sum, row) => sum + row.amount, 0);
-    const liabilities = rows
-      .filter((row) => row.type === 'Liability')
-      .reduce((sum, row) => sum + row.amount, 0);
-    const equity = rows
-      .filter((row) => row.type === 'Equity')
-      .reduce((sum, row) => sum + row.amount, 0);
-
-    return {
-      assets,
-      liabilities,
-      equity,
-      balance: assets - liabilities - equity,
-      asOf,
-    };
-  }, [asOf, rows]);
 
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('en-PH', {
