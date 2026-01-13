@@ -11,6 +11,7 @@ import {
 import type {
   InventoryItem,
   InventoryTotals,
+  BundleBatchFromAPI,
   ProductFromAPI,
   TransactionFromAPI,
 } from '../types';
@@ -36,15 +37,18 @@ export const useInventoryPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [products, setProducts] = useState<ProductFromAPI[]>([]);
   const [transactions, setTransactions] = useState<TransactionFromAPI[]>([]);
+  const [bundles, setBundles] = useState<BundleBatchFromAPI[]>([]);
 
   const fetchInventoryData = useCallback(async () => {
     try {
       setIsLoading(true);
 
-      const [productsResponse, transactionsResponse] = await Promise.all([
-        fetch('/api/products'),
-        fetch('/api/transactions'),
-      ]);
+      const [productsResponse, transactionsResponse, bundlesResponse] =
+        await Promise.all([
+          fetch('/api/products'),
+          fetch('/api/transactions'),
+          fetch('/api/bundles'),
+        ]);
 
       if (!productsResponse.ok) {
         throw new Error(
@@ -58,14 +62,23 @@ export const useInventoryPage = () => {
         );
       }
 
-      const [productsPayload, transactionsPayload] = await Promise.all([
-        productsResponse.json(),
-        transactionsResponse.json(),
-      ]);
+      if (!bundlesResponse.ok) {
+        throw new Error(
+          `Failed to fetch bundles: ${bundlesResponse.statusText}`
+        );
+      }
+
+      const [productsPayload, transactionsPayload, bundlesPayload] =
+        await Promise.all([
+          productsResponse.json(),
+          transactionsResponse.json(),
+          bundlesResponse.json(),
+        ]);
 
       const parsedProducts = extractApiData<ProductFromAPI>(productsPayload);
       const parsedTransactions =
         extractApiData<TransactionFromAPI>(transactionsPayload);
+      const parsedBundles = extractApiData<BundleBatchFromAPI>(bundlesPayload);
 
       if (parsedProducts.length === 0) {
         logger.warn('InventoryPage: products API returned no data payload');
@@ -75,8 +88,13 @@ export const useInventoryPage = () => {
         logger.warn('InventoryPage: transactions API returned no data payload');
       }
 
+      if (parsedBundles.length === 0) {
+        logger.warn('InventoryPage: bundles API returned no data payload');
+      }
+
       setProducts(parsedProducts);
       setTransactions(parsedTransactions);
+      setBundles(parsedBundles);
     } catch (error) {
       logger.error('Failed to load inventory data:', error);
       showNotification({
@@ -94,8 +112,8 @@ export const useInventoryPage = () => {
   }, [fetchInventoryData]);
 
   const inventoryItems = useMemo<InventoryItem[]>(() => {
-    return buildInventoryItems(products, transactions);
-  }, [products, transactions]);
+    return buildInventoryItems(products, transactions, bundles);
+  }, [products, transactions, bundles]);
 
   const filteredData = useMemo<InventoryItem[]>(() => {
     return filterInventoryData(inventoryItems, searchQuery);

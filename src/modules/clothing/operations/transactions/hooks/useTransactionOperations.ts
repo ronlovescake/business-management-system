@@ -77,13 +77,21 @@ export function useTransactionOperations(
 
   const queryClient = useQueryClient();
 
-  // Track draft (unsaved) rows created from Handsontable's spare rows
   const draftRowsRef = useRef<Map<number, TransactionData>>(new Map());
   const creatingDraftRowsRef = useRef<Set<number>>(new Set());
 
+  const formatToday = useCallback(() => {
+    const now = new Date();
+    return now.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: 'Asia/Manila',
+    });
+  }, []);
+
   const createEmptyTransaction = useCallback((): TransactionData => {
     return {
-      id: undefined,
       'Order Date': '',
       Customers: '',
       'Product Code': '',
@@ -100,35 +108,25 @@ export function useTransactionOperations(
     };
   }, []);
 
-  const formatToday = useCallback(() => {
-    const now = new Date();
-    return now.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      timeZone: 'Asia/Manila',
-    });
-  }, []);
-
   const ensureDraftRow = useCallback(
     (rowIndex: number): TransactionData => {
       const existing = draftRowsRef.current.get(rowIndex);
       if (existing) {
         return existing;
       }
-      const draft = createEmptyTransaction();
-      draftRowsRef.current.set(rowIndex, draft);
-      return draft;
+
+      const emptyRow = createEmptyTransaction();
+      draftRowsRef.current.set(rowIndex, emptyRow);
+      return emptyRow;
     },
     [createEmptyTransaction]
   );
 
-  const hasMinimumCreateFields = useCallback((row: TransactionData) => {
-    const hasCustomer = Boolean(row.Customers && row.Customers.trim());
-    const hasProduct = Boolean(
-      row['Product Code'] && row['Product Code'].trim()
-    );
-    const hasOrderDate = Boolean(row['Order Date'] && row['Order Date'].trim());
+  const hasMinimumCreateFields = useCallback((draft: TransactionData) => {
+    const orderDate = (draft['Order Date'] ?? '').trim();
+    const hasOrderDate = orderDate !== '';
+    const hasCustomer = (draft.Customers ?? '').trim() !== '';
+    const hasProduct = (draft['Product Code'] ?? '').trim() !== '';
     return hasOrderDate && (hasCustomer || hasProduct);
   }, []);
 
@@ -714,62 +712,100 @@ export function useTransactionOperations(
           !isBatchModeRef.current
         ) {
           try {
-            const currentQuantity = getCurrentTransaction().Quantity || 0;
+            const currentQuantity = getCurrentTransaction().Quantity ?? 0;
 
-            const stockResponse = await fetch('/api/inventory/check-stock', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                productCode: dropdownValue.trim(),
-                requestedQuantity: currentQuantity,
-              }),
-            });
+            // If Quantity is not set yet, don't block SKU selection.
+            // Stock will be validated when Quantity is entered/changed.
+            if (currentQuantity > 0) {
+              const stockResponse = await fetch('/api/inventory/check-stock', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  productCode: dropdownValue.trim(),
+                  requestedQuantity: currentQuantity,
+                }),
+              });
 
-            if (stockResponse.ok) {
-              const stockInfo = (await stockResponse.json()) as {
-                status: string;
-                message: string;
-                availableStock: number;
-                canFulfill: boolean;
-              };
+              if (stockResponse.ok) {
+                const stockInfo = (await stockResponse.json()) as {
+                  status: string;
+                  message: string;
+                  availableStock: number;
+                  canFulfill: boolean;
+                };
 
-              // 🔴 SOLD OUT or INSUFFICIENT STOCK - Block order creation
-              if (
-                stockInfo.status === 'SOLD_OUT' ||
-                stockInfo.status === 'INSUFFICIENT_STOCK'
-              ) {
-                await Swal.fire({
-                  icon: 'error',
-                  title: '🔴 Insufficient Quantity!',
-                  text: stockInfo.message,
-                  confirmButtonText: 'OK',
-                  confirmButtonColor: '#fa5252',
-                  allowOutsideClick: false,
-                });
-                logger.warn(
-                  `Stock check failed for ${dropdownValue}:`,
-                  stockInfo
-                );
-                return; // Prevent saving the transaction
-              }
+                // f534 SOLD OUT - Block order creation
+                if (stockInfo.status === 'SOLD_OUT') {
+                  await Swal.fire({
+                    icon: 'error',
+                    title: 'f534 Insufficient Quantity!',
+                    text: stockInfo.message,
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#fa5252',
+                    allowOutsideClick: false,
+                  });
+                  logger.warn(
+                    `Stock check failed for ${dropdownValue}:`,
+                    stockInfo
+                  );
+                  return;
+                }
 
-              // 🟡 LOW STOCK - Show warning but allow order
-              if (stockInfo.status === 'LOW_STOCK') {
-                await Swal.fire({
-                  icon: 'warning',
-                  title: '🟡 Low Stock Warning',
-                  text: stockInfo.message,
-                  confirmButtonText: 'OK',
-                  confirmButtonColor: '#fab005',
-                  allowOutsideClick: false,
-                });
-                logger.info(
-                  `Low stock warning for ${dropdownValue}:`,
-                  stockInfo
-                );
-                // Continue with order creation
+                // f534 INSUFFICIENT STOCK - Offer to cap quantity to what's available
+                if (stockInfo.status === 'INSUFFICIENT_STOCK') {
+                  const available = Number(stockInfo.availableStock || 0);
+                  if (available > 0) {
+                    const result = await Swal.fire({
+                      icon: 'warning',
+                      title: 'f534 Insufficient Quantity!',
+                      text: `${stockInfo.message}\n\nUse available quantity (${available}) to sell out?`,
+                      showCancelButton: true,
+                      confirmButtonText: `Use ${available}`,
+                      cancelButtonText: 'Cancel',
+                      confirmButtonColor: '#fab005',
+                      cancelButtonColor: '#adb5bd',
+                      allowOutsideClick: false,
+                    });
+
+                    if (result.isConfirmed) {
+                      await updateTransactionData({ Quantity: available });
+                    } else {
+                      return;
+                    }
+                  } else {
+                    await Swal.fire({
+                      icon: 'error',
+                      title: 'f534 Insufficient Quantity!',
+                      text: stockInfo.message,
+                      confirmButtonText: 'OK',
+                      confirmButtonColor: '#fa5252',
+                      allowOutsideClick: false,
+                    });
+                    logger.warn(
+                      `Stock check failed for ${dropdownValue}:`,
+                      stockInfo
+                    );
+                    return;
+                  }
+                }
+
+                // f7e1 LOW STOCK - Show warning but allow order
+                if (stockInfo.status === 'LOW_STOCK') {
+                  await Swal.fire({
+                    icon: 'warning',
+                    title: 'f7e1 Low Stock Warning',
+                    text: stockInfo.message,
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#fab005',
+                    allowOutsideClick: false,
+                  });
+                  logger.info(
+                    `Low stock warning for ${dropdownValue}:`,
+                    stockInfo
+                  );
+                }
               }
             }
           } catch (error) {
@@ -1040,11 +1076,50 @@ export function useTransactionOperations(
                 canFulfill: boolean;
               };
 
-              // 🔴 SOLD OUT or INSUFFICIENT STOCK - Block order creation
-              if (
-                stockInfo.status === 'SOLD_OUT' ||
-                stockInfo.status === 'INSUFFICIENT_STOCK'
-              ) {
+              // 🔴 SOLD OUT - Block increasing quantity
+              if (stockInfo.status === 'SOLD_OUT') {
+                await Swal.fire({
+                  icon: 'error',
+                  title: '🔴 Insufficient Quantity!',
+                  text: stockInfo.message,
+                  confirmButtonText: 'OK',
+                  confirmButtonColor: '#fa5252',
+                  allowOutsideClick: false,
+                });
+                logger.warn(
+                  `Stock check failed for ${currentProductCode} (adding ${quantityChange} units):`,
+                  stockInfo
+                );
+                return; // Prevent saving the transaction
+              }
+
+              // 🔴 INSUFFICIENT STOCK - Offer to cap to max fulfillable quantity
+              if (stockInfo.status === 'INSUFFICIENT_STOCK') {
+                const remainingAvailable = Number(
+                  stockInfo.availableStock || 0
+                );
+                if (remainingAvailable > 0) {
+                  const maxQuantity = oldQuantity + remainingAvailable;
+                  const result = await Swal.fire({
+                    icon: 'warning',
+                    title: '🔴 Insufficient Quantity!',
+                    text: `${stockInfo.message}\n\nUse max available quantity (${maxQuantity}) to sell out?`,
+                    showCancelButton: true,
+                    confirmButtonText: `Use ${maxQuantity}`,
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#fab005',
+                    cancelButtonColor: '#adb5bd',
+                    allowOutsideClick: false,
+                  });
+
+                  if (result.isConfirmed) {
+                    // Proceed with maxQuantity; downstream recalculation will run.
+                    return updateTransactionData({ Quantity: maxQuantity });
+                  }
+
+                  return;
+                }
+
                 await Swal.fire({
                   icon: 'error',
                   title: '🔴 Insufficient Quantity!',

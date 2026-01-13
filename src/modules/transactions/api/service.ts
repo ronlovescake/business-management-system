@@ -227,13 +227,34 @@ async function validateReferences(rows: Prisma.TransactionCreateManyInput[]) {
     where: { productCode: { in: uniqueProducts } },
     select: { productCode: true },
   });
-  const existingProductCodes = new Set(
-    existingProducts
-      .map((p) => p.productCode)
-      .filter((code): code is string => Boolean(code))
-  );
+
+  // Bundles are valid sale SKUs but do not exist in `products`.
+  // Treat any BundleBatch.bundleSku as a valid "product" reference.
+  const existingBundleSkus =
+    uniqueProducts.length === 0
+      ? []
+      : await prisma.bundleBatch.findMany({
+          where: {
+            OR: uniqueProducts.map((code) => ({
+              bundleSku: { equals: code, mode: 'insensitive' as const },
+            })),
+          },
+          select: { bundleSku: true },
+        });
+
+  const existingProductCodeSet = new Set<string>();
+  existingProducts
+    .map((p) => p.productCode)
+    .filter((code): code is string => Boolean(code))
+    .forEach((code) => existingProductCodeSet.add(code.toLowerCase()));
+
+  existingBundleSkus
+    .map((b) => b.bundleSku)
+    .filter((code): code is string => Boolean(code))
+    .forEach((code) => existingProductCodeSet.add(code.toLowerCase()));
+
   const missingProducts = uniqueProducts.filter(
-    (code) => !existingProductCodes.has(code)
+    (code) => !existingProductCodeSet.has(code.toLowerCase())
   );
 
   let missingShipments: string[] = [];

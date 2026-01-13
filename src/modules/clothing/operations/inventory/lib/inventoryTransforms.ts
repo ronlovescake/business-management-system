@@ -2,8 +2,13 @@ import type {
   InventoryItem,
   InventoryTotals,
   ProductFromAPI,
+  BundleBatchFromAPI,
   TransactionFromAPI,
 } from '../types';
+
+function normalizeProductCode(code: string | null | undefined): string {
+  return (code ?? '').trim().toLowerCase();
+}
 
 export function extractApiData<T>(payload: unknown): T[] {
   if (Array.isArray(payload)) {
@@ -24,34 +29,83 @@ export function extractApiData<T>(payload: unknown): T[] {
 
 export function buildInventoryItems(
   products: ProductFromAPI[],
-  transactions: TransactionFromAPI[]
+  transactions: TransactionFromAPI[],
+  bundles: BundleBatchFromAPI[] = []
 ): InventoryItem[] {
   const totalOrderByProduct = new Map<string, number>();
   const totalSalesByProduct = new Map<string, number>();
+
+  const bundleComponentsBySku = new Map<
+    string,
+    { componentProductCode: string; includedQuantity: number }[]
+  >();
+
+  bundles.forEach((bundle) => {
+    const normalizedSku = normalizeProductCode(bundle.bundleSku);
+    if (!normalizedSku) {
+      return;
+    }
+
+    const components = (bundle.components || []).filter(
+      (component) =>
+        Boolean(normalizeProductCode(component.componentProductCode)) &&
+        Number.isFinite(component.includedQuantity) &&
+        component.includedQuantity > 0
+    );
+
+    bundleComponentsBySku.set(normalizedSku, components);
+  });
 
   transactions.forEach((transaction) => {
     const productCode = transaction['Product Code'];
     const orderStatus = transaction['Order Status'];
     const quantity = transaction.Quantity || 0;
     const unitPrice = transaction['Unit Price'] || 0;
+    const normalizedProductCode = normalizeProductCode(productCode);
 
-    if (productCode && orderStatus !== 'Cancelled') {
-      const currentTotalOrder = totalOrderByProduct.get(productCode) || 0;
-      totalOrderByProduct.set(productCode, currentTotalOrder + quantity);
+    if (normalizedProductCode && orderStatus !== 'Cancelled') {
+      const bundleComponents = bundleComponentsBySku.get(normalizedProductCode);
 
-      const currentTotalSales = totalSalesByProduct.get(productCode) || 0;
-      totalSalesByProduct.set(
-        productCode,
-        currentTotalSales + unitPrice * quantity
-      );
+      if (bundleComponents?.length) {
+        bundleComponents.forEach((component) => {
+          const componentCode = normalizeProductCode(
+            component.componentProductCode
+          );
+
+          if (!componentCode) {
+            return;
+          }
+
+          const currentTotalOrder = totalOrderByProduct.get(componentCode) || 0;
+          totalOrderByProduct.set(
+            componentCode,
+            currentTotalOrder + quantity * component.includedQuantity
+          );
+        });
+      } else {
+        const currentTotalOrder =
+          totalOrderByProduct.get(normalizedProductCode) || 0;
+        totalOrderByProduct.set(
+          normalizedProductCode,
+          currentTotalOrder + quantity
+        );
+
+        const currentTotalSales =
+          totalSalesByProduct.get(normalizedProductCode) || 0;
+        totalSalesByProduct.set(
+          normalizedProductCode,
+          currentTotalSales + unitPrice * quantity
+        );
+      }
     }
   });
 
   return products.map((product) => {
     const productCode = product['Product Code'] || '';
+    const normalizedProductCode = normalizeProductCode(productCode);
     const quantity = product.Quantity || 0;
-    const totalOrder = totalOrderByProduct.get(productCode) || 0;
-    const totalSales = totalSalesByProduct.get(productCode) || 0;
+    const totalOrder = totalOrderByProduct.get(normalizedProductCode) || 0;
+    const totalSales = totalSalesByProduct.get(normalizedProductCode) || 0;
     const cogs = product.COGS || 0;
     const actualPrice = product['Actual Price'] || 0;
     const availableStock = quantity - totalOrder;
@@ -63,7 +117,7 @@ export function buildInventoryItems(
       id: product.id,
       productCode,
       quantity,
-      onhand: 0,
+      onhand: quantity,
       totalOrder,
       availableStock,
       totalSales,

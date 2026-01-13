@@ -16,6 +16,21 @@ export interface TransactionFromAPI {
   'Order Status': string | null;
 }
 
+export interface BundleComponentFromAPI {
+  componentProductCode: string;
+  includedQuantity: number;
+}
+
+export interface BundleBatchFromAPI {
+  id: number;
+  postingDate: string;
+  bundleName: string;
+  bundleSku: string;
+  quantity: number;
+  price: number;
+  components: BundleComponentFromAPI[];
+}
+
 export interface InventoryItem {
   id: string;
   productCode: string;
