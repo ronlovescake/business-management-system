@@ -104,21 +104,53 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const created = await prismaBundles.bundleBatch.create({
-      data: {
-        postingDate,
-        bundleName,
-        bundleSku,
-        quantity,
-        price,
-        components: {
-          create: normalizedComponents.map((c) => ({
-            componentProductCode: c.productCode,
-            includedQuantity: c.includedQuantity,
-          })),
+    const created = await prisma.$transaction(async (tx) => {
+      const createdBatch = await (
+        tx as unknown as typeof prismaBundles
+      ).bundleBatch.create({
+        data: {
+          postingDate,
+          bundleName,
+          bundleSku,
+          quantity,
+          price,
+          components: {
+            create: normalizedComponents.map((c) => ({
+              componentProductCode: c.productCode,
+              includedQuantity: c.includedQuantity,
+            })),
+          },
         },
-      },
-      include: { components: true },
+        include: { components: true },
+      });
+
+      const note = `bundle-assembly batch ${createdBatch.id} sku ${bundleSku}`;
+
+      // Consume component inventory (sellable -> scrap) for each component.
+      await tx.inventoryMovement.createMany({
+        data: normalizedComponents.map((component) => ({
+          productCode: component.productCode.trim(),
+          quantity: component.includedQuantity * quantity,
+          fromBucket: 'sellable',
+          toBucket: 'scrap',
+          postingDate,
+          notes: note,
+        })),
+      });
+
+      // Produce the bundled SKU (scrap -> sellable) for the batch quantity.
+      await tx.inventoryMovement.create({
+        data: {
+          productCode: bundleSku,
+          quantity,
+          fromBucket: 'scrap',
+          toBucket: 'sellable',
+          postingDate,
+          notes: note,
+        },
+      });
+
+      return createdBatch;
     });
 
     return NextResponse.json(created, { status: 201 });
