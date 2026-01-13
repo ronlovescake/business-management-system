@@ -698,6 +698,10 @@ export function useTransactionOperations(
       // ========================================================================
       if (columnId === 'productCode') {
         const dropdownValue = getCellValue(newValue);
+        const isBundleSku = dropdownValue
+          .trim()
+          .toLowerCase()
+          .startsWith('bundle');
 
         // =====================================================================
         // 🛡️ STOCK CHECK - Prevent overselling
@@ -840,8 +844,8 @@ export function useTransactionOperations(
                 correspondingShipmentStatus
               );
           } else {
-            // No shipment status yet - default to "In Transit"
-            finalOrderStatus = 'In Transit';
+            // No shipment status yet - bundles are on-hand, others default to "In Transit"
+            finalOrderStatus = isBundleSku ? 'Warehouse' : 'In Transit';
           }
         }
 
