@@ -324,7 +324,8 @@ export function BundlesTab() {
               <Table.Th>Bundle SKU</Table.Th>
               <Table.Th>Quantity</Table.Th>
               <Table.Th>Price</Table.Th>
-              <Table.Th>Bundled Products</Table.Th>
+              <Table.Th>Product Code</Table.Th>
+              <Table.Th>Left Over Quantity</Table.Th>
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
@@ -341,7 +342,16 @@ export function BundlesTab() {
                   <Stack gap={2}>
                     {b.components?.map((c) => (
                       <Text key={c.id} size="sm">
-                        {c.componentProductCode} × {c.includedQuantity}
+                        {c.componentProductCode}
+                      </Text>
+                    ))}
+                  </Stack>
+                </Table.Td>
+                <Table.Td>
+                  <Stack gap={2}>
+                    {b.components?.map((c) => (
+                      <Text key={c.id} size="sm">
+                        {c.includedQuantity}
                       </Text>
                     ))}
                   </Stack>
@@ -350,7 +360,7 @@ export function BundlesTab() {
             ))}
             {!bundlesLoading && bundles.length === 0 ? (
               <Table.Tr>
-                <Table.Td colSpan={6}>
+                <Table.Td colSpan={7}>
                   <Text c="dimmed" size="sm">
                     No bundles yet.
                   </Text>
