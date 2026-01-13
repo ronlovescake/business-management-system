@@ -229,8 +229,25 @@ Deliverables:
   - When a transaction becomes paid, create SALE movement (SELLABLE → SOLD/none) at unit cost.
 - Add idempotency so edits don’t re-post.
 - Receipt backfill helper is available now:
-  - Run `npx ts-node --transpile-only scripts/backfill-receipt-movements.ts` once per environment to seed SELLABLE on-hand from existing Products (idempotent via notes).
+  - Run `npx -y -p tsx -p tsconfig-paths tsx -r tsconfig-paths/register scripts/backfill-receipt-movements.ts` once per environment to seed SELLABLE on-hand from existing Products (idempotent via notes).
+  - Run `npx -y -p tsx -p tsconfig-paths tsx -r tsconfig-paths/register scripts/backfill-sale-movements.ts` to backfill SELLABLE → SOLD movements for already-fulfilled Transactions (idempotent per transaction note).
   - Inventory UI and stock checks now read sellable on-hand from movements first, with Products.Quantity used only as a temporary fallback when no movement exists.
+
+If a product’s Quantity was edited after the fact and you need to reconcile the movement-ledger sellable on-hand to a desired target, use the receipt-delta adjuster:
+
+- Dry run by product code:
+  - `npx -y -p tsx -p tsconfig-paths tsx -r tsconfig-paths/register scripts/adjust-receipt-delta.ts --productCode "ABC-123" --dry-run`
+- Apply by product code (defaults to `sellable -> scrap` for negative delta):
+  - `npx -y -p tsx -p tsconfig-paths tsx -r tsconfig-paths/register scripts/adjust-receipt-delta.ts --productCode "ABC-123"`
+- Override target quantity (instead of using the product row’s Quantity):
+  - `npx -y -p tsx -p tsconfig-paths tsx -r tsconfig-paths/register scripts/adjust-receipt-delta.ts --productCode "ABC-123" --target 42`
+- Route negative delta to damaged hold instead:
+  - `npx -y -p tsx -p tsconfig-paths tsx -r tsconfig-paths/register scripts/adjust-receipt-delta.ts --productCode "ABC-123" --negativeTo damaged_hold`
+
+Notes:
+
+- The script is idempotent by default (won't double-post the same adjustment).
+- Use `--force` to post anyway (rare; only if you intentionally want a second adjustment with the same inputs).
 
 ### Phase 3 — Upgrade Operations/Inventory UI (minimal clutter)
 

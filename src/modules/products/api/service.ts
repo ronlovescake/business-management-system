@@ -55,6 +55,68 @@ function isPaid(payment?: string | null): boolean {
   return (payment ?? '').trim().toLowerCase() === 'paid';
 }
 
+function normalizeProductCode(value: string | null | undefined): string {
+  return (value ?? '').trim();
+}
+
+function buildAutoReceiptMovementNote(productId: number): string {
+  return `auto-receipt product ${productId}`;
+}
+
+async function ensureReceiptMovementForProduct(params: {
+  productId: number;
+  productCode: string | null | undefined;
+  quantity: number | null | undefined;
+  postingDate?: string | null | undefined;
+}) {
+  const { productId, productCode, quantity, postingDate } = params;
+  const normalizedCode = normalizeProductCode(productCode);
+  const qty = quantity ?? 0;
+
+  if (!normalizedCode || qty <= 0) {
+    return;
+  }
+
+  // If any receipt movement already exists for this product code, do not create
+  // a second one (prevents double-counting in movement-based on-hand).
+  const existingReceipt = await prisma.inventoryMovement.findFirst({
+    where: {
+      deletedAt: null,
+      productCode: {
+        equals: normalizedCode,
+        mode: 'insensitive',
+      },
+      fromBucket: 'scrap',
+      toBucket: 'sellable',
+    },
+    select: { id: true },
+  });
+
+  if (existingReceipt) {
+    return;
+  }
+
+  try {
+    await prisma.inventoryMovement.create({
+      data: {
+        productCode: normalizedCode,
+        quantity: qty,
+        fromBucket: 'scrap',
+        toBucket: 'sellable',
+        postingDate: postingDate ?? null,
+        notes: buildAutoReceiptMovementNote(productId),
+      },
+    });
+  } catch (error) {
+    logger.warn('Failed to create receipt movement for product', {
+      error,
+      productId,
+      productCode: normalizedCode,
+      quantity: qty,
+    });
+  }
+}
+
 function buildExpenseFromProduct(
   productId: number,
   dto: ProductDTO
@@ -154,6 +216,12 @@ export const productService: ProductService = {
 
   async createSingle(payload) {
     const created = await prisma.product.create({ data: mapFromDTO(payload) });
+    await ensureReceiptMovementForProduct({
+      productId: created.id,
+      productCode: created.productCode,
+      quantity: created.quantity,
+      postingDate: created.postingDate ?? created.orderDate ?? null,
+    });
     await postExpenseForProduct(created.id, payload);
     return mapToDTO(created);
   },
@@ -202,6 +270,19 @@ export const productService: ProductService = {
     await Promise.all(
       postings.map(({ productId, dto }) =>
         postExpenseForProduct(productId, dto)
+      )
+    );
+
+    // For newly created/imported products, ensure a receipt movement exists so
+    // movement-based on-hand can be authoritative.
+    await Promise.all(
+      postings.map(({ productId, dto }) =>
+        ensureReceiptMovementForProduct({
+          productId,
+          productCode: dto['Product Code'],
+          quantity: dto.Quantity ?? 0,
+          postingDate: dto['Posting Date'] ?? dto['Order Date'] ?? null,
+        })
       )
     );
 
@@ -330,6 +411,17 @@ export const productService: ProductService = {
     await Promise.all(
       postings.map(({ productId, dto }) =>
         postExpenseForProduct(productId, dto)
+      )
+    );
+
+    await Promise.all(
+      postings.map(({ productId, dto }) =>
+        ensureReceiptMovementForProduct({
+          productId,
+          productCode: dto['Product Code'],
+          quantity: dto.Quantity ?? 0,
+          postingDate: dto['Posting Date'] ?? dto['Order Date'] ?? null,
+        })
       )
     );
 

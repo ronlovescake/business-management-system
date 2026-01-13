@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { memo } from 'react';
 import { StandardTableControls } from '@/components/tables/StandardDataTable';
 
@@ -8,6 +9,7 @@ interface InventoryTableControlsProps {
   onAddNew: () => void;
   isImporting: boolean;
   showActions?: boolean;
+  searchAddon?: ReactNode;
 }
 
 export const InventoryTableControls = memo(
@@ -18,6 +20,7 @@ export const InventoryTableControls = memo(
     onAddNew,
     isImporting,
     showActions = true,
+    searchAddon,
   }: InventoryTableControlsProps) => {
     return (
       <StandardTableControls
@@ -30,6 +33,7 @@ export const InventoryTableControls = memo(
         hideImport={!showActions}
         hideExport={!showActions}
         hideAddNew={!showActions}
+        searchAddon={searchAddon}
       />
     );
   }

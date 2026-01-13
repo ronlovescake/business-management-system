@@ -138,6 +138,14 @@ export function InventoryPage() {
             onExport={handleExportCSV}
             onAddNew={handleAddNew}
             isImporting={isImporting}
+            searchAddon={
+              <Button
+                variant="light"
+                onClick={() => setActiveTab('adjustments')}
+              >
+                Mark Damaged Qty
+              </Button>
+            }
           />
 
           <StandardTableContainer
