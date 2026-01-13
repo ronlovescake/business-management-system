@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import type { Prisma, Transaction } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import { isFulfilledStatus } from '@/lib/inventory/statuses';
 import { logger } from '@/lib/logger';
 import { getCurrentUser } from '@/lib/auth/session';
 import {
@@ -427,6 +428,66 @@ async function logStatusChange(
   });
 }
 
+function shouldRecordSaleMovement(
+  previousStatus: string | null | undefined,
+  newStatus: string | null | undefined
+) {
+  return isFulfilledStatus(newStatus) && !isFulfilledStatus(previousStatus);
+}
+
+function normalizeProductCode(value: string | null | undefined): string {
+  return (value ?? '').trim();
+}
+
+function buildAutoSaleMovementNote(transactionId: number) {
+  return `auto-sale txn ${transactionId}`;
+}
+
+async function recordSaleMovementIfNeeded(
+  client: Prisma.TransactionClient | typeof prisma,
+  transaction: Pick<
+    Transaction,
+    'id' | 'productCode' | 'quantity' | 'orderDate'
+  >
+) {
+  const productCode = normalizeProductCode(transaction.productCode);
+  const quantity = transaction.quantity ?? 0;
+
+  if (!productCode || quantity <= 0) {
+    return;
+  }
+
+  const note = buildAutoSaleMovementNote(transaction.id);
+
+  const existingMovement = await client.inventoryMovement.findFirst({
+    where: {
+      deletedAt: null,
+      productCode: {
+        equals: productCode,
+        mode: 'insensitive',
+      },
+      fromBucket: 'sellable',
+      toBucket: 'sold',
+      notes: note,
+    },
+  });
+
+  if (existingMovement) {
+    return;
+  }
+
+  await client.inventoryMovement.create({
+    data: {
+      productCode,
+      quantity,
+      fromBucket: 'sellable',
+      toBucket: 'sold',
+      notes: note,
+      postingDate: transaction.orderDate ?? null,
+    },
+  });
+}
+
 async function handleNotificationBatch(
   updates: Array<{ id: number; transaction: Transaction; changes: string[] }>
 ) {
@@ -737,6 +798,12 @@ export const transactionService: TransactionService = {
             updated.orderStatus
           );
 
+          if (
+            shouldRecordSaleMovement(existing.orderStatus, updated.orderStatus)
+          ) {
+            await recordSaleMovementIfNeeded(tx, updated);
+          }
+
           if (changes.length > 0) {
             changeLogEntries.push({
               entityType: 'transaction',
@@ -812,6 +879,15 @@ export const transactionService: TransactionService = {
       existing.orderStatus,
       updatedTransaction.orderStatus
     );
+
+    if (
+      shouldRecordSaleMovement(
+        existing.orderStatus,
+        updatedTransaction.orderStatus
+      )
+    ) {
+      await recordSaleMovementIfNeeded(prisma, updatedTransaction);
+    }
 
     const changes: Array<{
       field: string;

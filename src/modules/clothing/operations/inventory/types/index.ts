@@ -31,6 +31,19 @@ export interface BundleBatchFromAPI {
   components: BundleComponentFromAPI[];
 }
 
+export type InventoryBucket = 'sellable' | 'damaged_hold' | 'scrap' | 'sold';
+
+export interface InventoryMovementFromAPI {
+  id: number;
+  productCode: string;
+  quantity: number;
+  fromBucket: InventoryBucket;
+  toBucket: InventoryBucket;
+  postingDate?: string | null;
+  notes?: string | null;
+  createdAt?: string;
+}
+
 export interface InventoryItem {
   id: string;
   productCode: string;

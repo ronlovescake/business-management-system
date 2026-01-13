@@ -3,11 +3,16 @@ import { ApiResponse } from '@/core/api';
 import { withErrorHandler } from '@/core/api/middleware';
 import { parseDate } from '@/lib/accounting/date-utils';
 import {
+  ACCOUNTS_RECEIVABLE_STATUSES,
+  PAID_STATUSES,
+} from '@/lib/accounting/constants';
+import {
   fetchApprovedExpenses,
-  fetchPaidTransactions,
+  fetchRecognizedTransactions,
   getPaidAtDate,
   isWithinDateRange,
 } from '@/lib/accounting/data-fetchers';
+import { normalizeTransactionAmounts } from '@/lib/accounting/transaction-normalization';
 import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -93,7 +98,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const asOfParam = req.nextUrl.searchParams.get('asOf');
   const asOf = clampAsOf(parseDate(asOfParam));
 
-  const transactions = await fetchPaidTransactions();
+  const transactions = await fetchRecognizedTransactions();
   const expenses = await fetchApprovedExpenses();
 
   const openingBalanceRows =
@@ -112,22 +117,53 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     amount: entry.debit - entry.credit,
   }));
 
+  const isReceivableStatus = (status: string | null | undefined): boolean => {
+    const normalized = (status ?? '').trim();
+    return (ACCOUNTS_RECEIVABLE_STATUSES as readonly string[]).includes(
+      normalized
+    );
+  };
+
+  const isPaidStatus = (status: string | null | undefined): boolean => {
+    const normalized = (status ?? '').trim();
+    return (PAID_STATUSES as readonly string[]).includes(normalized);
+  };
+
+  const getRecognizedAt = (
+    tx: { orderStatus?: string | null; orderDate?: string | null } & Parameters<
+      typeof getPaidAtDate
+    >[0]
+  ) => {
+    if (isPaidStatus(tx.orderStatus)) {
+      return getPaidAtDate(tx);
+    }
+    return parseDate(tx.orderDate) ?? null;
+  };
+
   const txEntries = transactions
     .map((tx) => {
-      const amount = tx.adjustment ?? tx.lineTotal ?? 0;
-      if (!Number.isFinite(amount)) {
+      const { paymentReceived, balanceDue } = normalizeTransactionAmounts(tx);
+
+      const recognizedAt = getRecognizedAt(tx);
+      if (!isWithinDateRange(recognizedAt, CUTOVER, asOf)) {
         return null;
       }
 
-      const paidAt = getPaidAtDate(tx);
-      if (!isWithinDateRange(paidAt, CUTOVER, asOf)) {
+      const cash = Math.max(Number(paymentReceived) || 0, 0);
+      const ar = isReceivableStatus(tx.orderStatus)
+        ? Math.max(Number(balanceDue) || 0, 0)
+        : 0;
+      const saleAmount = cash + ar;
+
+      if (!Number.isFinite(saleAmount) || saleAmount <= 0) {
         return null;
       }
 
-      const amt = Number(amount);
       return [
-        { account: 'Cash', amount: Math.max(amt, 0) },
-        { account: 'Sales Revenue', amount: -Math.max(amt, 0) },
+        ...(cash > 0 ? [{ account: 'Cash', amount: cash }] : []),
+        ...(ar > 0 ? [{ account: 'Accounts Receivable', amount: ar }] : []),
+        // Revenue flows into Equity on the balance sheet.
+        { account: 'Retained Earnings', amount: -saleAmount },
       ];
     })
     .flat()
@@ -147,7 +183,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
       const amt = Math.max(amount, 0);
       return [
-        { account: exp.category, amount: amt },
+        // Expenses reduce Equity on the balance sheet.
+        { account: 'Retained Earnings', amount: amt },
         { account: 'Cash', amount: -amt },
       ];
     })

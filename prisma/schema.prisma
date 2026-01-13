@@ -160,6 +160,33 @@ model BundleBatchComponent {
   @@map("bundle_batch_components")
 }
 
+enum InventoryBucket {
+  sellable
+  damaged_hold
+  scrap
+  sold
+}
+
+model InventoryMovement {
+  id         Int            @id @default(autoincrement())
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  postingDate String?       @db.VarChar(50)
+  productCode String        @db.VarChar(100)
+  quantity   Float
+  fromBucket InventoryBucket
+  toBucket   InventoryBucket
+  notes      String?
+  deletedAt  DateTime?
+
+  @@index([productCode])
+  @@index([fromBucket])
+  @@index([toBucket])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@map("inventory_movements")
+}
+
 model PaymentCard {
   id         String    @id @default(cuid())
   bank       String    @db.VarChar(100)

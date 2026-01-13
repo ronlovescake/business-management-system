@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { isFulfilledStatus, isReservedStatus } from '@/lib/inventory/statuses';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,9 +30,17 @@ type BundleBatch = {
   components: BundleComponent[];
 };
 
+type MovementRecord = {
+  productCode: string;
+  quantity: number;
+  fromBucket: 'sellable' | 'damaged_hold' | 'scrap' | 'sold';
+  toBucket: 'sellable' | 'damaged_hold' | 'scrap' | 'sold';
+};
+
 type TransactionRecord = {
   productCode: string | null;
   quantity: number | null;
+  orderStatus: string | null;
 };
 
 const LOW_STOCK_THRESHOLD = 20;
@@ -128,6 +137,13 @@ function accumulateDemand(
   const totals = new Map<string, number>();
 
   transactions.forEach((transaction) => {
+    const reservedStatus = isReservedStatus(transaction.orderStatus);
+    const fulfilledStatus = isFulfilledStatus(transaction.orderStatus);
+    const shouldCount = reservedStatus || (!reservedStatus && !fulfilledStatus);
+    if (!shouldCount) {
+      return;
+    }
+
     const normalizedProductCode = normalizeProductCode(transaction.productCode);
     const quantity = transaction.quantity ?? 0;
     if (!normalizedProductCode || quantity <= 0) {
@@ -158,6 +174,28 @@ function accumulateDemand(
   });
 
   return totals;
+}
+
+function buildSellableDeltaMap(movements: MovementRecord[]) {
+  const deltas = new Map<string, number>();
+
+  movements.forEach((movement) => {
+    const code = normalizeProductCode(movement.productCode);
+    if (!code || !Number.isFinite(movement.quantity)) {
+      return;
+    }
+
+    const qty = movement.quantity;
+    const fromSellable = movement.fromBucket === 'sellable';
+    const toSellable = movement.toBucket === 'sellable';
+    const current = deltas.get(code) ?? 0;
+    deltas.set(
+      code,
+      current + (toSellable ? qty : 0) - (fromSellable ? qty : 0)
+    );
+  });
+
+  return deltas;
 }
 
 function buildTransactionWhereClause(codes: string[]) {
@@ -236,6 +274,18 @@ export async function POST(request: NextRequest) {
         productCode,
       ];
 
+      const movementCodes = Array.from(
+        new Set([...componentCodes, productCode])
+      );
+
+      const movements = (await prisma.inventoryMovement.findMany({
+        where: {
+          deletedAt: null,
+          productCode: { in: movementCodes },
+        },
+      })) as unknown as MovementRecord[];
+      const sellableDelta = buildSellableDeltaMap(movements);
+
       const transactions = await prisma.transaction.findMany({
         where: {
           orderStatus: {
@@ -246,6 +296,7 @@ export async function POST(request: NextRequest) {
         select: {
           productCode: true,
           quantity: true,
+          orderStatus: true,
         },
       });
 
@@ -278,7 +329,9 @@ export async function POST(request: NextRequest) {
           return;
         }
 
-        const supply = productQuantityMap.get(normalizedCode) ?? 0;
+        const supply =
+          (productQuantityMap.get(normalizedCode) ?? 0) +
+          (sellableDelta.get(normalizedCode) ?? 0);
         const demand = demandMap.get(normalizedCode) ?? 0;
         const available = supply - demand;
 
@@ -340,12 +393,24 @@ export async function POST(request: NextRequest) {
       select: {
         productCode: true,
         quantity: true,
+        orderStatus: true,
       },
     });
 
     const demandMap = accumulateDemand(transactions, componentsBySku);
+
+    const movementCodes = [productCode, ...bundleSkusThatUseProduct];
+    const movements = (await prisma.inventoryMovement.findMany({
+      where: {
+        deletedAt: null,
+        productCode: { in: movementCodes },
+      },
+    })) as unknown as MovementRecord[];
+    const sellableDelta = buildSellableDeltaMap(movements);
+
     const totalOrder = demandMap.get(normalizedProductCode) ?? 0;
-    const quantity = product.quantity ?? 0;
+    const quantity =
+      (product.quantity ?? 0) + (sellableDelta.get(normalizedProductCode) ?? 0);
     const availableStock = quantity - totalOrder;
 
     return NextResponse.json(

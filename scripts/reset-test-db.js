@@ -18,6 +18,39 @@ if (!process.env.DATABASE_URL) {
 
 const prismaArgs = ['npx', 'prisma'];
 
+function parseDatabaseUrl(databaseUrl) {
+  try {
+    const url = new URL(databaseUrl);
+    const dbName = (url.pathname || '').replace(/^\//, '');
+    return { host: url.hostname, dbName };
+  } catch {
+    return null;
+  }
+}
+
+const parsed = parseDatabaseUrl(process.env.DATABASE_URL);
+if (!parsed) {
+  console.error('❌ Could not parse DATABASE_URL for the test environment.');
+  process.exit(1);
+}
+
+if (
+  !String(parsed.dbName || '')
+    .toLowerCase()
+    .includes('test')
+) {
+  console.error(
+    '🛑 Refusing to reset a database that does not look like a TEST database.'
+  );
+  console.error(
+    `Target detected from DATABASE_URL: host=${parsed.host} db=${parsed.dbName || '(none)'}`
+  );
+  console.error(
+    'Use a dedicated test database (recommended name contains "test").'
+  );
+  process.exit(1);
+}
+
 function run(command, description) {
   try {
     console.log(`▶ ${description}`);

@@ -12,6 +12,7 @@ import {
   getPaidAtDate,
   isWithinDateRange,
 } from '@/lib/accounting/data-fetchers';
+import { normalizeTransactionAmounts } from '@/lib/accounting/transaction-normalization';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,8 +32,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   );
 
   const revenueTotal = filteredTransactions.reduce((sum, tx) => {
-    const amount = tx.adjustment ?? tx.lineTotal ?? 0;
-    return sum + (Number.isFinite(amount) ? amount : 0);
+    const { paymentReceived } = normalizeTransactionAmounts(tx);
+    return sum + paymentReceived;
   }, 0);
 
   const expenseTotalsByCategory = new Map<string, number>();

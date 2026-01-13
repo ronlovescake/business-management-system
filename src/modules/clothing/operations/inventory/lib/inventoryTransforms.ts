@@ -4,7 +4,9 @@ import type {
   ProductFromAPI,
   BundleBatchFromAPI,
   TransactionFromAPI,
+  InventoryMovementFromAPI,
 } from '../types';
+import { isFulfilledStatus, isReservedStatus } from '@/lib/inventory/statuses';
 
 function normalizeProductCode(code: string | null | undefined): string {
   return (code ?? '').trim().toLowerCase();
@@ -30,8 +32,26 @@ export function extractApiData<T>(payload: unknown): T[] {
 export function buildInventoryItems(
   products: ProductFromAPI[],
   transactions: TransactionFromAPI[],
-  bundles: BundleBatchFromAPI[] = []
+  bundles: BundleBatchFromAPI[] = [],
+  movements: InventoryMovementFromAPI[] = []
 ): InventoryItem[] {
+  const sellableDeltaByProduct = new Map<string, number>();
+
+  movements.forEach((movement) => {
+    const code = normalizeProductCode(movement.productCode);
+    if (!code || !Number.isFinite(movement.quantity)) {
+      return;
+    }
+
+    const qty = movement.quantity;
+    const fromSellable = movement.fromBucket === 'sellable';
+    const toSellable = movement.toBucket === 'sellable';
+
+    const current = sellableDeltaByProduct.get(code) ?? 0;
+    const next = current + (toSellable ? qty : 0) - (fromSellable ? qty : 0);
+    sellableDeltaByProduct.set(code, next);
+  });
+
   const totalOrderByProduct = new Map<string, number>();
   const totalSalesByProduct = new Map<string, number>();
 
@@ -63,40 +83,59 @@ export function buildInventoryItems(
     const unitPrice = transaction['Unit Price'] || 0;
     const normalizedProductCode = normalizeProductCode(productCode);
 
-    if (normalizedProductCode && orderStatus !== 'Cancelled') {
-      const bundleComponents = bundleComponentsBySku.get(normalizedProductCode);
+    const isCancelled = normalizeProductCode(orderStatus) === 'cancelled';
+    if (isCancelled || !normalizedProductCode) {
+      return;
+    }
 
-      if (bundleComponents?.length) {
-        bundleComponents.forEach((component) => {
-          const componentCode = normalizeProductCode(
-            component.componentProductCode
-          );
+    const reservedStatus = isReservedStatus(orderStatus);
+    const fulfilledStatus = isFulfilledStatus(orderStatus);
+    const shouldCountAsReserved =
+      reservedStatus || (!reservedStatus && !fulfilledStatus);
+    const shouldCountAsRevenue = fulfilledStatus;
 
-          if (!componentCode) {
-            return;
-          }
+    const bundleComponents = bundleComponentsBySku.get(normalizedProductCode);
 
-          const currentTotalOrder = totalOrderByProduct.get(componentCode) || 0;
-          totalOrderByProduct.set(
-            componentCode,
-            currentTotalOrder + quantity * component.includedQuantity
-          );
-        });
-      } else {
-        const currentTotalOrder =
-          totalOrderByProduct.get(normalizedProductCode) || 0;
-        totalOrderByProduct.set(
-          normalizedProductCode,
-          currentTotalOrder + quantity
-        );
-
-        const currentTotalSales =
-          totalSalesByProduct.get(normalizedProductCode) || 0;
-        totalSalesByProduct.set(
-          normalizedProductCode,
-          currentTotalSales + unitPrice * quantity
-        );
+    if (bundleComponents?.length) {
+      if (!shouldCountAsReserved) {
+        return;
       }
+
+      bundleComponents.forEach((component) => {
+        const componentCode = normalizeProductCode(
+          component.componentProductCode
+        );
+
+        if (!componentCode) {
+          return;
+        }
+
+        const currentTotalOrder = totalOrderByProduct.get(componentCode) || 0;
+        totalOrderByProduct.set(
+          componentCode,
+          currentTotalOrder + quantity * component.includedQuantity
+        );
+      });
+
+      return;
+    }
+
+    if (shouldCountAsReserved) {
+      const currentTotalOrder =
+        totalOrderByProduct.get(normalizedProductCode) || 0;
+      totalOrderByProduct.set(
+        normalizedProductCode,
+        currentTotalOrder + quantity
+      );
+    }
+
+    if (shouldCountAsRevenue) {
+      const currentTotalSales =
+        totalSalesByProduct.get(normalizedProductCode) || 0;
+      totalSalesByProduct.set(
+        normalizedProductCode,
+        currentTotalSales + unitPrice * quantity
+      );
     }
   });
 
@@ -104,11 +143,14 @@ export function buildInventoryItems(
     const productCode = product['Product Code'] || '';
     const normalizedProductCode = normalizeProductCode(productCode);
     const quantity = product.Quantity || 0;
+    const sellableDelta =
+      sellableDeltaByProduct.get(normalizedProductCode) || 0;
     const totalOrder = totalOrderByProduct.get(normalizedProductCode) || 0;
     const totalSales = totalSalesByProduct.get(normalizedProductCode) || 0;
     const cogs = product.COGS || 0;
     const actualPrice = product['Actual Price'] || 0;
-    const availableStock = quantity - totalOrder;
+    const onhand = quantity + sellableDelta;
+    const availableStock = onhand - totalOrder;
     const netProfit = totalSales - cogs;
     const percentage = cogs !== 0 ? netProfit / cogs : 0;
     const endingInventoryValue = availableStock * actualPrice;
@@ -117,7 +159,7 @@ export function buildInventoryItems(
       id: product.id,
       productCode,
       quantity,
-      onhand: quantity,
+      onhand,
       totalOrder,
       availableStock,
       totalSales,

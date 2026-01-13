@@ -14,6 +14,7 @@ import type {
   BundleBatchFromAPI,
   ProductFromAPI,
   TransactionFromAPI,
+  InventoryMovementFromAPI,
 } from '../types';
 
 const HEADERS = [
@@ -35,20 +36,27 @@ export const useInventoryPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmittingMovement, setIsSubmittingMovement] = useState(false);
   const [products, setProducts] = useState<ProductFromAPI[]>([]);
   const [transactions, setTransactions] = useState<TransactionFromAPI[]>([]);
   const [bundles, setBundles] = useState<BundleBatchFromAPI[]>([]);
+  const [movements, setMovements] = useState<InventoryMovementFromAPI[]>([]);
 
   const fetchInventoryData = useCallback(async () => {
     try {
       setIsLoading(true);
 
-      const [productsResponse, transactionsResponse, bundlesResponse] =
-        await Promise.all([
-          fetch('/api/products'),
-          fetch('/api/transactions'),
-          fetch('/api/bundles'),
-        ]);
+      const [
+        productsResponse,
+        transactionsResponse,
+        bundlesResponse,
+        movementsResponse,
+      ] = await Promise.all([
+        fetch('/api/products'),
+        fetch('/api/transactions'),
+        fetch('/api/bundles'),
+        fetch('/api/inventory/movements'),
+      ]);
 
       if (!productsResponse.ok) {
         throw new Error(
@@ -68,17 +76,30 @@ export const useInventoryPage = () => {
         );
       }
 
-      const [productsPayload, transactionsPayload, bundlesPayload] =
-        await Promise.all([
-          productsResponse.json(),
-          transactionsResponse.json(),
-          bundlesResponse.json(),
-        ]);
+      if (!movementsResponse.ok) {
+        throw new Error(
+          `Failed to fetch inventory movements: ${movementsResponse.statusText}`
+        );
+      }
+
+      const [
+        productsPayload,
+        transactionsPayload,
+        bundlesPayload,
+        movementsPayload,
+      ] = await Promise.all([
+        productsResponse.json(),
+        transactionsResponse.json(),
+        bundlesResponse.json(),
+        movementsResponse.json(),
+      ]);
 
       const parsedProducts = extractApiData<ProductFromAPI>(productsPayload);
       const parsedTransactions =
         extractApiData<TransactionFromAPI>(transactionsPayload);
       const parsedBundles = extractApiData<BundleBatchFromAPI>(bundlesPayload);
+      const parsedMovements =
+        extractApiData<InventoryMovementFromAPI>(movementsPayload);
 
       if (parsedProducts.length === 0) {
         logger.warn('InventoryPage: products API returned no data payload');
@@ -91,6 +112,8 @@ export const useInventoryPage = () => {
       if (parsedBundles.length === 0) {
         logger.warn('InventoryPage: bundles API returned no data payload');
       }
+
+      setMovements(parsedMovements);
 
       setProducts(parsedProducts);
       setTransactions(parsedTransactions);
@@ -112,8 +135,8 @@ export const useInventoryPage = () => {
   }, [fetchInventoryData]);
 
   const inventoryItems = useMemo<InventoryItem[]>(() => {
-    return buildInventoryItems(products, transactions, bundles);
-  }, [products, transactions, bundles]);
+    return buildInventoryItems(products, transactions, bundles, movements);
+  }, [products, transactions, bundles, movements]);
 
   const filteredData = useMemo<InventoryItem[]>(() => {
     return filterInventoryData(inventoryItems, searchQuery);
@@ -154,6 +177,48 @@ export const useInventoryPage = () => {
     }, 800);
   }, []);
 
+  const createMovement = useCallback(
+    async (
+      payload: Pick<
+        InventoryMovementFromAPI,
+        'productCode' | 'quantity' | 'fromBucket' | 'toBucket'
+      > & { notes?: string | null }
+    ) => {
+      try {
+        setIsSubmittingMovement(true);
+        const response = await fetch('/api/inventory/movements', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          const message = body?.error || 'Failed to record movement';
+          throw new Error(message);
+        }
+
+        await fetchInventoryData();
+
+        showNotification({
+          title: 'Saved',
+          message: 'Inventory movement recorded',
+          color: 'green',
+        });
+      } catch (error) {
+        logger.error('Failed to create inventory movement', { error });
+        showNotification({
+          title: 'Error',
+          message: 'Failed to record movement',
+          color: 'red',
+        });
+      } finally {
+        setIsSubmittingMovement(false);
+      }
+    },
+    [fetchInventoryData]
+  );
+
   const handleExportCSV = useCallback(() => {
     void showInfo(
       'Would export the filtered inventory dataset to CSV.',
@@ -173,6 +238,7 @@ export const useInventoryPage = () => {
     setSearchQuery,
     isImporting,
     isLoading,
+    isSubmittingMovement,
     headers: HEADERS,
     totalItemCount: inventoryItems.length,
     filteredData,
@@ -181,5 +247,7 @@ export const useInventoryPage = () => {
     handleImportCSV,
     handleExportCSV,
     handleAddNew,
+    products,
+    createMovement,
   };
 };

@@ -4,7 +4,7 @@
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { PAID_STATUSES } from './constants';
+import { ACCOUNTS_RECEIVABLE_STATUSES, PAID_STATUSES } from './constants';
 import { parseDate } from './date-utils';
 
 type TransactionWithStatusChanges = Awaited<
@@ -19,6 +19,37 @@ export async function fetchPaidTransactions(): Promise<
   const baseWhere = {
     deletedAt: null,
     orderStatus: { in: [...PAID_STATUSES] },
+  };
+
+  try {
+    return await prisma.transaction.findMany({
+      where: baseWhere,
+      include: {
+        statusChanges: {
+          where: { newStatus: { in: [...PAID_STATUSES] } },
+          orderBy: { changedAt: 'asc' },
+        },
+      },
+    });
+  } catch (error) {
+    logger.warn('Falling back to transactions without statusChanges', {
+      error,
+    });
+    return await prisma.transaction.findMany({ where: baseWhere });
+  }
+}
+
+export async function fetchRecognizedTransactions(): Promise<
+  TransactionWithStatusChanges[]
+> {
+  const recognizedStatuses = [
+    ...PAID_STATUSES,
+    ...ACCOUNTS_RECEIVABLE_STATUSES,
+  ] as const;
+
+  const baseWhere = {
+    deletedAt: null,
+    orderStatus: { in: [...recognizedStatuses] },
   };
 
   try {

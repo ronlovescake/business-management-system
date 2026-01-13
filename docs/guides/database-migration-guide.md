@@ -491,7 +491,8 @@ model Product {
 **Solution**:
 
 ```bash
-# Reset migrations (DEV ONLY!)
+# Reset database (DEV/TEST ONLY — DELETES ALL DATA)
+# Never run this against any live/shared database.
 npx prisma migrate reset
 
 # Or mark as applied without running:
@@ -524,7 +525,7 @@ Then create second migration to make it required.
 # Check status
 npx prisma migrate status
 
-# Reset database (DEV ONLY!)
+# Reset database (DEV/TEST ONLY — DELETES ALL DATA)
 npx prisma migrate reset
 
 # Or create a migration to fix drift
@@ -664,7 +665,7 @@ npx prisma migrate deploy
 # Check migration status
 npx prisma migrate status
 
-# Reset database (DEV ONLY - deletes all data!)
+# Reset database (DEV/TEST ONLY - deletes all data!)
 npx prisma migrate reset
 
 # Generate Prisma Client (after schema changes)

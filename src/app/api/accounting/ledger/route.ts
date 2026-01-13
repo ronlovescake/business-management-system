@@ -12,6 +12,7 @@ import {
   getPaidAtDate,
   isWithinDateRange,
 } from '@/lib/accounting/data-fetchers';
+import { normalizeTransactionAmounts } from '@/lib/accounting/transaction-normalization';
 import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -57,10 +58,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const txEntries = transactions
     .map((tx) => {
-      const amount = tx.adjustment ?? tx.lineTotal ?? 0;
-      if (!Number.isFinite(amount)) {
-        return null;
-      }
+      const { paymentReceived } = normalizeTransactionAmounts(tx);
+      const amount = paymentReceived;
 
       const paidAt = getPaidAtDate(tx);
       if (!isWithinDateRange(paidAt, effectiveFrom, effectiveTo)) {
