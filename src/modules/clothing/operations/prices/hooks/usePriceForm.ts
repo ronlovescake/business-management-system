@@ -29,6 +29,10 @@ export function usePriceForm() {
       const products =
         await api.get<Array<Record<string, unknown>>>('/api/products');
 
+      // Fetch bundle batches so bundle SKUs can also be priced
+      const bundles =
+        await api.get<Array<Record<string, unknown>>>('/api/bundles');
+
       // Fetch existing prices to filter out product codes that already have prices
       const prices = await api.get<PriceData[]>('/api/prices');
       const existingProductCodes = new Set(
@@ -36,7 +40,7 @@ export function usePriceForm() {
       );
 
       // Filter out product codes that already have prices
-      const normalizedCodes = products
+      const productCodes = products
         .map((p) => {
           const code = p['Product Code'];
           return typeof code === 'string' ? code.trim() : '';
@@ -44,8 +48,19 @@ export function usePriceForm() {
         .filter((code) => code.length > 0)
         .filter((code) => !existingProductCodes.has(code));
 
-      const codes = Array.from(new Set(normalizedCodes)).sort((a, b) =>
-        a.localeCompare(b)
+      const bundleCodes = Array.isArray(bundles)
+        ? bundles
+            .map((b) => {
+              const code =
+                b['bundleSku'] ?? (b as Record<string, unknown>).bundleSku;
+              return typeof code === 'string' ? code.trim() : '';
+            })
+            .filter((code) => code.length > 0)
+            .filter((code) => !existingProductCodes.has(code))
+        : [];
+
+      const codes = Array.from(new Set([...productCodes, ...bundleCodes])).sort(
+        (a, b) => a.localeCompare(b)
       );
 
       setProductCodeOptions(codes);
