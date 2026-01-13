@@ -203,7 +203,7 @@ export const useInventoryPage = () => {
     async (
       payload: Pick<
         InventoryMovementFromAPI,
-        'productCode' | 'quantity' | 'fromBucket' | 'toBucket'
+        'productCode' | 'quantity' | 'fromBucket' | 'toBucket' | 'postingDate'
       > & { notes?: string | null }
     ) => {
       try {

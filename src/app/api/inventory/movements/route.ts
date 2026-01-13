@@ -8,6 +8,7 @@ const movementSchema = z.object({
   quantity: z.number().positive('quantity must be > 0'),
   fromBucket: z.enum(['sellable', 'damaged_hold', 'scrap', 'sold']),
   toBucket: z.enum(['sellable', 'damaged_hold', 'scrap', 'sold']),
+  postingDate: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -44,7 +45,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const { productCode, quantity, fromBucket, toBucket, notes } = parsed.data;
+    const { productCode, quantity, fromBucket, toBucket, postingDate, notes } =
+      parsed.data;
 
     if (fromBucket === toBucket) {
       return NextResponse.json(
@@ -61,6 +63,7 @@ export async function POST(request: Request) {
         quantity,
         fromBucket,
         toBucket,
+        postingDate: postingDate?.trim() || null,
         notes,
       },
     });

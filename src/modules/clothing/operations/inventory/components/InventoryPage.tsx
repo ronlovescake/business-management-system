@@ -12,6 +12,7 @@ import {
   Stack,
   Tabs,
   Text,
+  TextInput,
   Textarea,
 } from '@mantine/core';
 import {
@@ -47,6 +48,9 @@ export function InventoryPage() {
   );
 
   const [selectedProduct, setSelectedProduct] = useState<string>('');
+  const [postingDate, setPostingDate] = useState<string>(
+    new Date().toISOString().slice(0, 10)
+  );
   const [quantity, setQuantity] = useState<number | ''>(1);
   const [toBucket, setToBucket] = useState<'damaged_hold' | 'scrap'>(
     'damaged_hold'
@@ -87,6 +91,7 @@ export function InventoryPage() {
       quantity: Number(quantity),
       fromBucket: 'sellable',
       toBucket,
+      postingDate: postingDate.trim() || undefined,
       notes: notes.trim() || undefined,
     });
 
@@ -181,6 +186,15 @@ export function InventoryPage() {
                   required
                   value={selectedProduct}
                   onChange={(value) => setSelectedProduct(value ?? '')}
+                />
+
+                <TextInput
+                  label="Posting date"
+                  placeholder="YYYY-MM-DD"
+                  value={postingDate}
+                  onChange={(event) =>
+                    setPostingDate(event.currentTarget.value)
+                  }
                 />
 
                 <NumberInput
