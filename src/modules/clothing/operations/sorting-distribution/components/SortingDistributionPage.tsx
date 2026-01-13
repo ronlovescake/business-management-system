@@ -741,6 +741,7 @@ export function SortingDistributionPage() {
           item={form.item}
           ordered={form.ordered}
           productOptions={dataHook.productOptions}
+          movementSellableOnHand={dataHook.movementSellableOnHand}
           statistics={dataHook.statistics}
           uniqueQuantities={dataHook.uniqueQuantities}
           selectedQuantity={selectedQuantity}

@@ -17,6 +17,11 @@ import type {
 } from '../types/sortingDistribution.types';
 import { AUTO_SAVE_DELAY } from '../types/sortingDistribution.types';
 import { logger } from '@/lib/logger';
+import {
+  buildSellableDeltaMap,
+  normalizeProductCode,
+  type MovementLike,
+} from '@/lib/inventory/movements';
 
 const cloneRows = (rows: DistributionRow[]): DistributionRow[] =>
   rows.map((row) => ({ ...row }));
@@ -51,6 +56,9 @@ export interface UseSortingDistributionDataReturn {
   allProducts: Product[];
   transactions: Transaction[];
   uniqueQuantities: number[];
+
+  // Movement-derived (display-only)
+  movementSellableOnHand: number | null;
 
   // Loading states
   isLoading: boolean;
@@ -101,6 +109,7 @@ export function useSortingDistributionData({
   const [productOptions, setProductOptions] = useState<string[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [movements, setMovements] = useState<MovementLike[]>([]);
   const [uniqueQuantities, setUniqueQuantities] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -141,6 +150,61 @@ export function useSortingDistributionData({
     };
     loadTransactions();
   }, []);
+
+  /**
+   * Load inventory movements once (used to compute movement-based sellable on-hand).
+   * We only use this to improve the accuracy of "Available Stock" without changing
+   * the existing grid math (distribution still uses the grid's Est. Qty. Received).
+   */
+  useEffect(() => {
+    const loadMovements = async () => {
+      try {
+        const response = await fetch('/api/inventory/movements');
+        if (!response.ok) {
+          throw new Error(`Failed to fetch movements: ${response.statusText}`);
+        }
+
+        const payload = (await response.json().catch(() => null)) as
+          | { data?: unknown }
+          | unknown;
+        const data =
+          payload && typeof payload === 'object' && 'data' in payload
+            ? (payload as { data?: unknown }).data
+            : payload;
+
+        setMovements(
+          Array.isArray(data)
+            ? (data as MovementLike[])
+            : ([] as MovementLike[])
+        );
+      } catch (error) {
+        logger.warn(
+          'Failed to load inventory movements for sorting-distribution',
+          {
+            error,
+          }
+        );
+        setMovements([]);
+      }
+    };
+
+    loadMovements();
+  }, []);
+
+  const sellableDeltaByProduct = useMemo(() => {
+    return buildSellableDeltaMap(movements);
+  }, [movements]);
+
+  const movementSellableOnHand = useMemo(() => {
+    const normalized = normalizeProductCode(productCode);
+    if (!normalized) {
+      return null;
+    }
+    if (!sellableDeltaByProduct.has(normalized)) {
+      return null;
+    }
+    return sellableDeltaByProduct.get(normalized) ?? 0;
+  }, [productCode, sellableDeltaByProduct]);
 
   /**
    * Load unique quantities when product code changes
@@ -259,13 +323,32 @@ export function useSortingDistributionData({
           )
         : 0;
 
-    return SortingDistributionService.calculateStatistics(
+    const base = SortingDistributionService.calculateStatistics(
       rows,
       totalReservation,
       totalCustomers,
       customerWithOrderQty
     );
-  }, [rows, productCode, selectedQuantity, transactions]);
+
+    // Preserve existing logic, but improve available stock accuracy when
+    // movement-based sellable on-hand exists for this product.
+    const normalized = normalizeProductCode(productCode);
+    if (normalized && sellableDeltaByProduct.has(normalized)) {
+      const sellableOnHand = sellableDeltaByProduct.get(normalized) ?? 0;
+      return {
+        ...base,
+        availableStock: sellableOnHand - totalReservation,
+      };
+    }
+
+    return base;
+  }, [
+    rows,
+    productCode,
+    selectedQuantity,
+    transactions,
+    sellableDeltaByProduct,
+  ]);
 
   /**
    * Auto-save data when rows or selectedQuantity changes
@@ -429,6 +512,9 @@ export function useSortingDistributionData({
     allProducts,
     transactions,
     uniqueQuantities,
+
+    // Movement-derived (display-only)
+    movementSellableOnHand,
 
     // Loading states
     isLoading,

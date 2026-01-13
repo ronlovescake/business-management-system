@@ -28,6 +28,9 @@ export interface InfoSectionProps {
   ordered: string;
   productOptions: string[];
 
+  // Movement-derived (display-only)
+  movementSellableOnHand?: number | null;
+
   // Statistics
   statistics: SortingDistributionStatistics;
 
@@ -81,6 +84,7 @@ export function InfoSection({
   item,
   ordered,
   productOptions,
+  movementSellableOnHand,
   statistics,
   uniqueQuantities,
   selectedQuantity,
@@ -496,6 +500,13 @@ export function InfoSection({
             }}
           >
             <Stat label="Ordered" value={(ordered || '0').toString()} />
+            {movementSellableOnHand !== null &&
+              movementSellableOnHand !== undefined && (
+                <Stat
+                  label="Sellable On-hand (Ledger)"
+                  value={movementSellableOnHand.toLocaleString()}
+                />
+              )}
             <Stat
               label="Total Customers"
               value={statistics.totalCustomers.toLocaleString()}
