@@ -272,7 +272,8 @@ export const AddPriceModal = memo(function AddPriceModal({
                       radius="md"
                       prefix="₱"
                       hideControls
-                      disabled={!isTierEnabled}
+                      readOnly
+                      tabIndex={-1}
                       styles={{
                         label: {
                           fontWeight: 500,
@@ -281,16 +282,12 @@ export const AddPriceModal = memo(function AddPriceModal({
                         },
                         input: {
                           borderWidth: 2,
-                          backgroundColor: !isTierEnabled
-                            ? 'var(--mantine-color-gray-1)'
-                            : undefined,
-                          color: !isTierEnabled ? '#4b5563' : '#1f2937',
+                          backgroundColor: 'var(--mantine-color-gray-1)',
+                          color: '#4b5563',
+                          cursor: 'not-allowed',
                         },
                       }}
                       value={tier.price === 0 ? undefined : tier.price}
-                      onChange={(value) =>
-                        onTierChange(index, 'price', Number(value) || 0)
-                      }
                     />
                   </SimpleGrid>
                 </div>

@@ -104,17 +104,24 @@ export function usePriceForm() {
       }
 
       try {
-        // Fetch all products
-        const products =
-          await api.get<Array<Record<string, unknown>>>('/api/products');
+        const [products, bundles] = await Promise.all([
+          api.get<Array<Record<string, unknown>>>('/api/products'),
+          api.get<Array<Record<string, unknown>>>('/api/bundles'),
+        ]);
 
-        // Find the product by product code
         const product = products.find(
           (p) => p['Product Code'] === productCode.trim()
         );
 
-        if (product && product['Actual Price']) {
-          const actualPrice = Number(product['Actual Price']) || 0;
+        // Fall back to bundle batches if this code is a bundle SKU
+        const bundle = Array.isArray(bundles)
+          ? bundles.find((b) => b['bundleSku'] === productCode.trim())
+          : undefined;
+
+        const resolvedPrice = product?.['Actual Price'] ?? bundle?.['price'];
+
+        if (resolvedPrice !== undefined && resolvedPrice !== null) {
+          const actualPrice = Number(resolvedPrice) || 0;
 
           // Auto-populate prices based on filled tiers
           setForm((prev) => {
@@ -160,7 +167,7 @@ export function usePriceForm() {
           });
         } else {
           logger.warn(
-            `Product not found or has no actual price: ${productCode}`
+            `Product/bundle not found or has no price: ${productCode}`
           );
         }
       } catch (error) {
