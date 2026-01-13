@@ -249,6 +249,20 @@ Notes:
 - The script is idempotent by default (won't double-post the same adjustment).
 - Use `--force` to post anyway (rare; only if you intentionally want a second adjustment with the same inputs).
 
+Additional reconciliation helpers:
+
+- Report drift between `products.quantity` and movement-ledger SELLABLE on-hand (read-only):
+  - `npx -y -p tsx -p tsconfig-paths tsx -r tsconfig-paths/register scripts/report-inventory-ledger-drift.ts --minAbsDelta 1`
+  - Limit output to 50 rows:
+    - `npx -y -p tsx -p tsconfig-paths tsx -r tsconfig-paths/register scripts/report-inventory-ledger-drift.ts --minAbsDelta 1 --limit 50`
+  - Export CSV:
+    - `npx -y -p tsx -p tsconfig-paths tsx -r tsconfig-paths/register scripts/report-inventory-ledger-drift.ts --minAbsDelta 1 --csv inventory-drift.csv`
+
+- Ledger healthcheck (read-only; flags negative balances):
+  - `npx -y -p tsx -p tsconfig-paths tsx -r tsconfig-paths/register scripts/inventory-ledger-healthcheck.ts`
+  - Fail the process if any SKU has negative SELLABLE on-hand (useful for CI/cron):
+    - `npx -y -p tsx -p tsconfig-paths tsx -r tsconfig-paths/register scripts/inventory-ledger-healthcheck.ts --failOnNegativeSellable`
+
 ### Phase 3 — Upgrade Operations/Inventory UI (minimal clutter)
 
 Deliverables:
@@ -260,7 +274,7 @@ Deliverables:
   - Ending inventory value = remaining qty × unitCost
 - Add one action: **“Mark Damaged Quantity”**
   - Moves qty SELLABLE → DAMAGED
-  - Reason captured
+  - Posting date and reason captured
 
 ### Phase 4 — Bundles support without changing your sales workflow
 
@@ -273,6 +287,13 @@ Deliverables:
   - Preferred: Assembly action that converts components → bundle on-hand
   - Fallback: Auto-explode at fulfillment to create component SALE movements (no packing step)
 - Optional later helper UI (if you want faster packing/assembly): select bundle, enter qty to assemble, system checks component availability and posts assembly movements.
+
+Current behavior:
+
+- Creating a bundle batch posts inventory movements for assembly:
+  - Component SKUs: `sellable -> scrap` (consumed into bundle)
+  - Bundle SKU: `scrap -> sellable` (bundle on-hand)
+  - All movements are dated to the bundle batch posting date and include an audit note.
 
 ### Phase 5 — Accounting reporting correctness
 
@@ -297,6 +318,15 @@ Deliverables:
 - “Negative stock” and “bucket mismatch” warnings.
 - Stock count adjustment tool (manual correction with reason).
 - Audit trail: each movement points to the transaction/product that caused it.
+
+Quick manual validation checklist (pick 2-3 real SKUs):
+
+- Inventory page
+  - Sellable on-hand matches expectations (ledger-based when movements exist)
+  - Damaged/Scrap adjustment posts a movement with the entered posting date
+- Sorting / Distribution page
+  - “Sellable On-hand (Ledger)” stat appears for SKUs that have movements
+  - Available Stock uses ledger sellable on-hand minus reservations (distribution math unchanged)
 
 ---
 
