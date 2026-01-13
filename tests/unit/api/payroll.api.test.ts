@@ -34,11 +34,13 @@ import { getTestApiUrl } from '@/core/testing/test-helpers';
 describe('Payroll API', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockPrisma.$transaction.mockImplementation(async (callback) =>
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      callback({
-        payroll: mockPrisma.payroll,
-      } as any)
+    mockPrisma.$transaction.mockImplementation(
+      async (
+        callback: (tx: { payroll: typeof mockPrisma.payroll }) => unknown
+      ) =>
+        callback({
+          payroll: mockPrisma.payroll,
+        })
     );
   });
 
@@ -113,12 +115,13 @@ describe('Payroll API', () => {
 
   const createMockRequest = (
     url: string = getTestApiUrl('/api/payroll'),
-    options: { method?: string; body?: unknown } = {}
+    options: { method?: string; body?: unknown; headers?: HeadersInit } = {}
   ): NextRequest => {
     const parsedUrl = new URL(url);
     return {
       url,
       method: options.method || 'GET',
+      headers: new Headers(options.headers),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       nextUrl: parsedUrl as any,
       json: async () => options.body,

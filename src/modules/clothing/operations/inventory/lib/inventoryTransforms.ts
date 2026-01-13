@@ -6,11 +6,12 @@ import type {
   TransactionFromAPI,
   InventoryMovementFromAPI,
 } from '../types';
+import {
+  buildSellableDeltaMap,
+  getSellableOnHand,
+  normalizeProductCode,
+} from '@/lib/inventory/movements';
 import { isFulfilledStatus, isReservedStatus } from '@/lib/inventory/statuses';
-
-function normalizeProductCode(code: string | null | undefined): string {
-  return (code ?? '').trim().toLowerCase();
-}
 
 export function extractApiData<T>(payload: unknown): T[] {
   if (Array.isArray(payload)) {
@@ -35,22 +36,7 @@ export function buildInventoryItems(
   bundles: BundleBatchFromAPI[] = [],
   movements: InventoryMovementFromAPI[] = []
 ): InventoryItem[] {
-  const sellableDeltaByProduct = new Map<string, number>();
-
-  movements.forEach((movement) => {
-    const code = normalizeProductCode(movement.productCode);
-    if (!code || !Number.isFinite(movement.quantity)) {
-      return;
-    }
-
-    const qty = movement.quantity;
-    const fromSellable = movement.fromBucket === 'sellable';
-    const toSellable = movement.toBucket === 'sellable';
-
-    const current = sellableDeltaByProduct.get(code) ?? 0;
-    const next = current + (toSellable ? qty : 0) - (fromSellable ? qty : 0);
-    sellableDeltaByProduct.set(code, next);
-  });
+  const sellableDeltaByProduct = buildSellableDeltaMap(movements);
 
   const totalOrderByProduct = new Map<string, number>();
   const totalSalesByProduct = new Map<string, number>();
@@ -143,13 +129,16 @@ export function buildInventoryItems(
     const productCode = product['Product Code'] || '';
     const normalizedProductCode = normalizeProductCode(productCode);
     const quantity = product.Quantity || 0;
-    const sellableDelta =
-      sellableDeltaByProduct.get(normalizedProductCode) || 0;
+    const sellableOnHand = getSellableOnHand({
+      productCode,
+      sellableDeltaByProduct,
+      fallbackQuantity: quantity,
+    });
     const totalOrder = totalOrderByProduct.get(normalizedProductCode) || 0;
     const totalSales = totalSalesByProduct.get(normalizedProductCode) || 0;
     const cogs = product.COGS || 0;
     const actualPrice = product['Actual Price'] || 0;
-    const onhand = quantity + sellableDelta;
+    const onhand = sellableOnHand;
     const availableStock = onhand - totalOrder;
     const netProfit = totalSales - cogs;
     const percentage = cogs !== 0 ? netProfit / cogs : 0;

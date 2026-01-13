@@ -1,7 +1,12 @@
 const EXPENSE_CATEGORY_OPTIONS = [
+  'Driver Pay',
   'Food',
+  'Fuel',
+  'Helper Pay',
   'Load/Unload Fees',
   'Maintenance & Repairs',
+  'Meal',
+  'Misc',
   'Packaging',
   'Parking Fees',
   'Payroll',

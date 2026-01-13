@@ -30,9 +30,9 @@ model Customer {
   customerStatus         String                   @db.VarChar(50)
   deletedAt              DateTime?
   additionalCustomerInfo AdditionalCustomerInfo[]
-  truckingTrips          TruckingTrip[]
   truckingInvoices       TruckingInvoice[]
   truckingPayments       TruckingPayment[]
+  truckingTrips          TruckingTrip[]
 
   @@index([customerName])
   @@index([phoneNumber])
@@ -75,48 +75,48 @@ model Price {
 }
 
 model Product {
-  id                     Int       @id @default(autoincrement())
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
-  shipmentCode           String?   @db.VarChar(100)
-  cvNumber               String?   @db.VarChar(100)
-  noOfSacks              Float     @default(0)
-  totalCBM               Float     @default(0)
-  weight                 Float     @default(0)
-  shipmentStatus         String?   @db.VarChar(100)
-  postingDate            String?   @db.VarChar(50)
-  orderDate              String?   @db.VarChar(50)
-  payment                String?   @db.VarChar(100)
-  paymentMethod          String?   @db.VarChar(50)
-  paymentCardId          String?   @db.VarChar(100)
-  product                String?   @db.VarChar(500)
-  productCode            String?   @db.VarChar(100)
-  ageRange               String?   @db.VarChar(100)
-  unit                   String?   @db.VarChar(50)
-  unitPrice              Float     @default(0)
-  quantity               Float     @default(0)
-  alibabaShippingCost    Float     @default(0)
-  exchangeRates          Float     @default(0)
-  php                    Float     @default(0)
-  subTotalPHP            Float     @default(0)
-  transactionFee         Float     @default(0)
-  grandTotal             Float     @default(0)
-  forwardersFee          Float     @default(0)
-  lalamove               Float     @default(0)
-  packagingCost          Float     @default(0)
-  suggestedPrice         Float     @default(0)
-  actualPrice            Float     @default(0)
-  basePrice              Float     @default(0)
-  cogs                   Float     @default(0)
-  projectedSales         Float     @default(0)
-  projectedProfit        Float     @default(0)
-  projectedProfitPercent Float     @default(0)
-  totalMarkup            Float     @default(0)
+  id                     Int          @id @default(autoincrement())
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+  shipmentCode           String?      @db.VarChar(100)
+  cvNumber               String?      @db.VarChar(100)
+  noOfSacks              Float        @default(0)
+  totalCBM               Float        @default(0)
+  weight                 Float        @default(0)
+  shipmentStatus         String?      @db.VarChar(100)
+  postingDate            String?      @db.VarChar(50)
+  orderDate              String?      @db.VarChar(50)
+  payment                String?      @db.VarChar(100)
+  product                String?      @db.VarChar(500)
+  productCode            String?      @db.VarChar(100)
+  ageRange               String?      @db.VarChar(100)
+  unit                   String?      @db.VarChar(50)
+  unitPrice              Float        @default(0)
+  quantity               Float        @default(0)
+  alibabaShippingCost    Float        @default(0)
+  exchangeRates          Float        @default(0)
+  php                    Float        @default(0)
+  subTotalPHP            Float        @default(0)
+  transactionFee         Float        @default(0)
+  grandTotal             Float        @default(0)
+  forwardersFee          Float        @default(0)
+  lalamove               Float        @default(0)
+  packagingCost          Float        @default(0)
+  suggestedPrice         Float        @default(0)
+  actualPrice            Float        @default(0)
+  basePrice              Float        @default(0)
+  cogs                   Float        @default(0)
+  projectedSales         Float        @default(0)
+  projectedProfit        Float        @default(0)
+  projectedProfitPercent Float        @default(0)
+  totalMarkup            Float        @default(0)
   deletedAt              DateTime?
-  linkToPost             String?   @db.VarChar(1000)
-  bulkQuantity           Float     @default(0)
-  bulkWeight             Float     @default(0)
-  weightPerPiece         Float     @default(0)
+  linkToPost             String?      @db.VarChar(1000)
+  bulkQuantity           Float        @default(0)
+  bulkWeight             Float        @default(0)
+  weightPerPiece         Float        @default(0)
+  paymentCardId          String?      @db.VarChar(100)
+  paymentMethod          String?      @db.VarChar(50)
   paymentCard            PaymentCard? @relation(fields: [paymentCardId], references: [id])
 
   @@index([productCode])
@@ -130,16 +130,15 @@ model Product {
 }
 
 model BundleBatch {
-  id          Int      @id @default(autoincrement())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  postingDate String   @db.VarChar(50)
-  bundleName  String   @db.VarChar(255)
-  bundleSku   String   @unique @db.VarChar(255)
-  quantity    Float    @default(0)
-  price       Float    @default(0)
-
-  components BundleBatchComponent[]
+  id          Int                    @id @default(autoincrement())
+  createdAt   DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime               @default(now()) @updatedAt @db.Timestamptz(6)
+  postingDate String                 @db.VarChar(50)
+  bundleName  String                 @db.VarChar(255)
+  bundleSku   String                 @unique @db.VarChar(255)
+  quantity    Float                  @default(0)
+  price       Float                  @default(0)
+  components  BundleBatchComponent[]
 
   @@index([bundleSku])
   @@index([postingDate])
@@ -147,37 +146,29 @@ model BundleBatch {
 }
 
 model BundleBatchComponent {
-  id                 Int      @id @default(autoincrement())
-  createdAt          DateTime @default(now())
-  bundleBatchId      Int
-  componentProductCode String @db.VarChar(100)
-  includedQuantity   Float    @default(0)
-
-  bundleBatch BundleBatch @relation(fields: [bundleBatchId], references: [id], onDelete: Cascade)
+  id                   Int         @id @default(autoincrement())
+  createdAt            DateTime    @default(now()) @db.Timestamptz(6)
+  bundleBatchId        Int
+  componentProductCode String      @db.VarChar(100)
+  includedQuantity     Float       @default(0)
+  bundleBatch          BundleBatch @relation(fields: [bundleBatchId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([bundleBatchId])
   @@index([componentProductCode])
   @@map("bundle_batch_components")
 }
 
-enum InventoryBucket {
-  sellable
-  damaged_hold
-  scrap
-  sold
-}
-
 model InventoryMovement {
-  id         Int            @id @default(autoincrement())
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
-  postingDate String?       @db.VarChar(50)
-  productCode String        @db.VarChar(100)
-  quantity   Float
-  fromBucket InventoryBucket
-  toBucket   InventoryBucket
-  notes      String?
-  deletedAt  DateTime?
+  id          Int             @id @default(autoincrement())
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @default(now()) @updatedAt
+  postingDate String?         @db.VarChar(50)
+  productCode String          @db.VarChar(100)
+  quantity    Float
+  fromBucket  InventoryBucket
+  toBucket    InventoryBucket
+  notes       String?
+  deletedAt   DateTime?
 
   @@index([productCode])
   @@index([fromBucket])
@@ -195,9 +186,8 @@ model PaymentCard {
   last4      String?   @db.VarChar(4)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
-
-  expenses Expense[]
-  products Product[]
+  expenses   Expense[]
+  products   Product[]
 
   @@index([bank])
   @@index([label])
@@ -283,29 +273,27 @@ model TruckingFleetRegistry {
 }
 
 model TruckingTrip {
-  id            String   @id @default(cuid())
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  date          String   @db.VarChar(50)
-  truckId       String   @db.VarChar(50)
-  destination   String   @default("") @db.VarChar(255)
-  driver        String   @db.VarChar(255)
-  helper        String?  @db.VarChar(255)
+  id            String           @id @default(cuid())
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  date          String           @db.VarChar(50)
+  truckId       String           @db.VarChar(50)
+  driver        String           @db.VarChar(255)
+  helper        String?          @db.VarChar(255)
   grossRevenue  Float
-  fuelLiters    Float    @default(0)
   fuelCost      Float
   maintenance   Float
   tollFees      Float
   miscExpenses  Float
   totalExpenses Float
-  remarks       String?  @db.VarChar(1000)
+  remarks       String?          @db.VarChar(1000)
   deletedAt     DateTime?
-
-  // Billing / AR linkage
+  destination   String           @default("") @db.VarChar(255)
+  fuelLiters    Float            @default(0)
+  completedAt   DateTime?
   customerId    Int?
   invoiceId     String?
-  status        String   @default("draft") @db.VarChar(30)
-  completedAt   DateTime?
+  status        String           @default("draft") @db.VarChar(30)
   customer      Customer?        @relation(fields: [customerId], references: [id])
   invoice       TruckingInvoice? @relation(fields: [invoiceId], references: [id])
 
@@ -320,25 +308,18 @@ model TruckingTrip {
   @@map("trucking_trips")
 }
 
-enum TruckingVehicleAssignmentStatus {
-  scheduled
-  active
-  completed
-  cancelled
-}
-
 model TruckingVehicleAssignment {
-  id        String                        @id @default(cuid())
-  createdAt DateTime                      @default(now())
-  updatedAt DateTime                      @updatedAt
-  vehicleId String                        @db.VarChar(50)
-  plateNo   String                        @db.VarChar(50)
-  driver    String                        @db.VarChar(255)
-  helper    String                        @db.VarChar(255)
-  startDate String                        @db.VarChar(50)
-  endDate   String                        @db.VarChar(50)
+  id        String                          @id @default(cuid())
+  createdAt DateTime                        @default(now())
+  updatedAt DateTime                        @updatedAt
+  vehicleId String                          @db.VarChar(50)
+  plateNo   String                          @db.VarChar(50)
+  driver    String                          @db.VarChar(255)
+  helper    String                          @db.VarChar(255)
+  startDate String                          @db.VarChar(50)
+  endDate   String                          @db.VarChar(50)
   status    TruckingVehicleAssignmentStatus @default(scheduled)
-  route     String?                       @db.VarChar(255)
+  route     String?                         @db.VarChar(255)
   notes     String?
   deletedAt DateTime?
 
@@ -349,24 +330,23 @@ model TruckingVehicleAssignment {
 }
 
 model Transaction {
-  id           Int       @id @default(autoincrement())
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  orderDate    String?   @db.VarChar(50)
-  customers    String?   @db.VarChar(255)
-  productCode  String?   @db.VarChar(100)
-  quantity     Float?
-  unitPrice    Float?
-  discount     Float?
-  adjustment   Float?
-  lineTotal    Float?
-  orderStatus  String?   @db.VarChar(100)
-  notes        String?
-  invoiceDate  String?   @db.VarChar(50)
-  packedDate   String?   @db.VarChar(50)
-  shipmentCode String?   @db.VarChar(100)
-  deletedAt    DateTime?
-
+  id            Int                       @id @default(autoincrement())
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  orderDate     String?                   @db.VarChar(50)
+  customers     String?                   @db.VarChar(255)
+  productCode   String?                   @db.VarChar(100)
+  quantity      Float?
+  unitPrice     Float?
+  discount      Float?
+  adjustment    Float?
+  lineTotal     Float?
+  orderStatus   String?                   @db.VarChar(100)
+  notes         String?
+  invoiceDate   String?                   @db.VarChar(50)
+  packedDate    String?                   @db.VarChar(50)
+  shipmentCode  String?                   @db.VarChar(100)
+  deletedAt     DateTime?
   statusChanges TransactionStatusChange[]
 
   @@index([orderDate])
@@ -382,13 +362,12 @@ model Transaction {
 }
 
 model TransactionStatusChange {
-  id             Int          @id @default(autoincrement())
+  id             Int         @id @default(autoincrement())
   transactionId  Int
-  previousStatus String?      @db.VarChar(100)
-  newStatus      String?      @db.VarChar(100)
-  changedAt      DateTime     @default(now())
-
-  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  previousStatus String?     @db.VarChar(100)
+  newStatus      String?     @db.VarChar(100)
+  changedAt      DateTime    @default(now())
+  transaction    Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 
   @@index([transactionId, changedAt])
   @@map("transaction_status_changes")
@@ -510,25 +489,26 @@ model ChangeLog {
 }
 
 model Expense {
-  id           Int      @id @default(autoincrement())
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  date         String   @db.VarChar(50)
-  amount       Float
-  description  String   @db.VarChar(500)
-  category     String   @db.VarChar(100)
-  notes        String?
-  receipt      String?  @db.VarChar(500)
-  status       String   @db.VarChar(20)
-  employeeName String?  @db.VarChar(255)
-  paymentMethod String?  @db.VarChar(50)
-  paymentCardId String?  @db.VarChar(100)
-  sourceType   String   @default("MANUAL") @db.VarChar(50)
-  sourceId     String?  @db.VarChar(100)
-  sourceLineKey String? @db.VarChar(100)
-  systemGenerated Boolean @default(false)
-  paymentCard  PaymentCard? @relation(fields: [paymentCardId], references: [id])
+  id              Int          @id @default(autoincrement())
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  date            String       @db.VarChar(50)
+  amount          Float
+  description     String       @db.VarChar(500)
+  category        String       @db.VarChar(100)
+  notes           String?
+  receipt         String?      @db.VarChar(500)
+  status          String       @db.VarChar(20)
+  employeeName    String?      @db.VarChar(255)
+  sourceType      String       @default("MANUAL") @db.VarChar(50)
+  sourceId        String?      @db.VarChar(100)
+  sourceLineKey   String?      @db.VarChar(100)
+  systemGenerated Boolean      @default(false)
+  paymentCardId   String?      @db.VarChar(100)
+  paymentMethod   String?      @db.VarChar(50)
+  paymentCard     PaymentCard? @relation(fields: [paymentCardId], references: [id])
 
+  @@unique([sourceType, sourceId, sourceLineKey])
   @@index([date])
   @@index([category])
   @@index([status])
@@ -537,7 +517,6 @@ model Expense {
   @@index([paymentCardId])
   @@index([sourceType])
   @@index([sourceId])
-  @@unique([sourceType, sourceId, sourceLineKey])
   @@index([status, date])
   @@index([employeeName, status])
   @@index([category, status])
@@ -546,9 +525,9 @@ model Expense {
 
 model ClothingAccountingOpeningBalance {
   id          String   @id @default(cuid())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  date        DateTime
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  date        DateTime @db.Timestamptz(6)
   ref         String   @db.VarChar(120)
   account     String   @db.VarChar(255)
   debit       Float    @default(0)
@@ -562,26 +541,27 @@ model ClothingAccountingOpeningBalance {
 }
 
 model HouseholdExpense {
-  id              Int       @id @default(autoincrement())
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  date            String    @db.VarChar(50)
+  id              Int               @id @default(autoincrement())
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  date            String            @db.VarChar(50)
   amount          Float
-  description     String    @db.VarChar(500)
-  category        String    @db.VarChar(100)
+  description     String            @db.VarChar(500)
+  category        String            @db.VarChar(100)
   notes           String?
-  receipt         String?   @db.VarChar(500)
-  status          String    @db.VarChar(20)
-  loggedBy        String?   @db.VarChar(255)
-  paymentMethod   String?   @db.VarChar(50)
-  paymentCardId   String?   @db.VarChar(100)
+  receipt         String?           @db.VarChar(500)
+  status          String            @db.VarChar(20)
+  loggedBy        String?           @db.VarChar(255)
+  paymentMethod   String?           @db.VarChar(50)
+  paymentCardId   String?           @db.VarChar(100)
+  sourceType      String            @default("MANUAL") @db.VarChar(50)
+  sourceId        String?           @db.VarChar(100)
+  sourceLineKey   String?           @db.VarChar(100)
+  systemGenerated Boolean           @default(false)
   accountId       String?
-  accountRef      HouseholdAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
-  sourceType      String    @default("MANUAL") @db.VarChar(50)
-  sourceId        String?   @db.VarChar(100)
-  sourceLineKey   String?   @db.VarChar(100)
-  systemGenerated Boolean   @default(false)
+  accountRef      HouseholdAccount? @relation(fields: [accountId], references: [id])
 
+  @@unique([sourceType, sourceId, sourceLineKey])
   @@index([date])
   @@index([category])
   @@index([status])
@@ -591,7 +571,6 @@ model HouseholdExpense {
   @@index([accountId])
   @@index([sourceType])
   @@index([sourceId])
-  @@unique([sourceType, sourceId, sourceLineKey])
   @@index([status, date])
   @@index([loggedBy, status])
   @@index([category, status])
@@ -599,20 +578,19 @@ model HouseholdExpense {
 }
 
 model HouseholdAccount {
-  id                String   @id @default(cuid())
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  name              String   @db.VarChar(255)
-  type              String   @db.VarChar(30)
-  institution       String?  @db.VarChar(255)
-  accountNumberLast4 String? @db.VarChar(10)
-  isActive          Boolean  @default(true)
-  balance           Float    @default(0)
-
-  incomes  HouseholdIncome[]
-  expenses HouseholdExpense[]
-  recurringPayments HouseholdRecurringPayment[]
-  budgets HouseholdBudget[]
+  id                 String                      @id @default(cuid())
+  createdAt          DateTime                    @default(now())
+  updatedAt          DateTime                    @updatedAt
+  name               String                      @db.VarChar(255)
+  type               String                      @db.VarChar(30)
+  institution        String?                     @db.VarChar(255)
+  accountNumberLast4 String?                     @db.VarChar(10)
+  isActive           Boolean                     @default(true)
+  balance            Float                       @default(0)
+  budgets            HouseholdBudget[]
+  incomes            HouseholdIncome[]
+  expenses           HouseholdExpense[]
+  recurringPayments  HouseholdRecurringPayment[]
 
   @@index([name])
   @@index([type])
@@ -621,42 +599,39 @@ model HouseholdAccount {
 }
 
 model HouseholdRecurringPayment {
-  id          String   @id @default(cuid())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               String            @id @default(cuid())
+  createdAt        DateTime          @default(now()) @db.Timestamp(6)
+  updatedAt        DateTime          @default(now()) @updatedAt @db.Timestamp(6)
+  name             String            @db.VarChar(255)
+  amount           Float
+  category         String            @db.VarChar(100)
+  notes            String?
+  startDate        String            @db.VarChar(50)
+  monthsCount      Int?
+  isActive         Boolean           @default(true)
+  accountId        String?
+  deductOnGenerate Boolean           @default(true)
+  accountRef       HouseholdAccount? @relation(fields: [accountId], references: [id], onUpdate: NoAction, map: "household_recurring_payments_account_id_fkey")
 
-  name        String   @db.VarChar(255)
-  amount      Float
-  category    String   @db.VarChar(100)
-  notes       String?
-
-  startDate   String   @db.VarChar(50)
-  monthsCount Int?
-  isActive    Boolean  @default(true)
-
-  deductOnGenerate Boolean @default(true)
-
-  accountId   String?
-  accountRef  HouseholdAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
-
-  @@index([isActive])
-  @@index([startDate])
   @@index([category])
-  @@index([accountId])
+  @@index([accountId], map: "household_recurring_payments_account_id_idx")
+  @@index([deductOnGenerate], map: "household_recurring_payments_deduct_on_generate_idx")
+  @@index([isActive], map: "household_recurring_payments_is_active_idx")
+  @@index([startDate], map: "household_recurring_payments_start_date_idx")
   @@map("household_recurring_payments")
 }
 
 model HouseholdIncome {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  date      String   @db.VarChar(50)
-  type      String   @db.VarChar(30)
-  amount    Float
-  account   String?  @db.VarChar(255)
-  accountId String?
-  accountRef HouseholdAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
-  notes     String?
+  id         String            @id @default(cuid())
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  date       String            @db.VarChar(50)
+  type       String            @db.VarChar(30)
+  amount     Float
+  account    String?           @db.VarChar(255)
+  notes      String?
+  accountId  String?
+  accountRef HouseholdAccount? @relation(fields: [accountId], references: [id])
 
   @@index([date])
   @@index([type])
@@ -666,18 +641,18 @@ model HouseholdIncome {
 }
 
 model HouseholdBudget {
-  id            String   @id @default(cuid())
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  category      String   @db.VarChar(100)
-  period        String   @db.VarChar(20)
+  id            String            @id @default(cuid())
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @default(now()) @updatedAt
+  category      String            @db.VarChar(100)
+  period        String            @db.VarChar(20)
   year          Int?
   month         Int?
-  plannedAmount Decimal  @default(0) @db.Decimal(14, 2)
-  actualAmount  Decimal  @default(0) @db.Decimal(14, 2)
+  plannedAmount Decimal           @default(0) @db.Decimal(14, 2)
+  actualAmount  Decimal           @default(0) @db.Decimal(14, 2)
   accountId     String?
-  accountRef    HouseholdAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
-  notes         String?  @db.VarChar(500)
+  notes         String?           @db.VarChar(500)
+  accountRef    HouseholdAccount? @relation(fields: [accountId], references: [id])
 
   @@index([category])
   @@index([period])
@@ -712,7 +687,6 @@ model Employee {
   office                        String?   @db.VarChar(255)
   hiringSource                  String?   @db.VarChar(100)
   hireDate                      String    @db.VarChar(50)
-  employmentEndDate             String?   @db.VarChar(50)
   basicSalary                   Float
   currentSalary                 Float?
   allowance                     Float?
@@ -734,9 +708,10 @@ model Employee {
   philHealthMonthlyContribution Float?
   sssMonthlyContribution        Float?
   taxMonthlyContribution        Float?
-  finalPayPending               Boolean   @default(false)
+  employmentEndDate             String?   @db.VarChar(50)
   finalPayEffectiveDate         String?   @db.VarChar(50)
   finalPayNotes                 String?
+  finalPayPending               Boolean   @default(false)
 
   @@index([employeeId])
   @@index([department])
@@ -1011,7 +986,6 @@ model TruckingEmployee {
   office                        String?   @db.VarChar(255)
   hiringSource                  String?   @db.VarChar(100)
   hireDate                      String    @db.VarChar(50)
-  employmentEndDate             String?   @db.VarChar(50)
   basicSalary                   Float
   currentSalary                 Float?
   allowance                     Float?
@@ -1033,9 +1007,10 @@ model TruckingEmployee {
   philHealthMonthlyContribution Float?
   sssMonthlyContribution        Float?
   taxMonthlyContribution        Float?
-  finalPayPending               Boolean   @default(false)
+  employmentEndDate             String?   @db.VarChar(50)
   finalPayEffectiveDate         String?   @db.VarChar(50)
   finalPayNotes                 String?
+  finalPayPending               Boolean   @default(false)
 
   @@index([employeeId])
   @@index([department])
@@ -1272,94 +1247,70 @@ model TruckingThirteenthMonthPayRecord {
 }
 
 model TruckingExpense {
-  id           Int      @id @default(autoincrement())
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  date         String   @db.VarChar(50)
-  amount       Float
-  description  String   @db.VarChar(500)
-  category     String   @db.VarChar(100)
-  notes        String?
-  receipt      String?  @db.VarChar(500)
-  status       String   @db.VarChar(20)
-  employeeName String?  @db.VarChar(255)
-  vehicleId    String?  @db.VarChar(50)
-
-  // Traceability for auto-posted expenses (Trips, Payroll, etc.)
+  id              Int      @id @default(autoincrement())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  date            String   @db.VarChar(50)
+  amount          Float
+  description     String   @db.VarChar(500)
+  category        String   @db.VarChar(100)
+  notes           String?
+  receipt         String?  @db.VarChar(500)
+  status          String   @db.VarChar(20)
+  employeeName    String?  @db.VarChar(255)
+  vehicleId       String?  @db.VarChar(50)
   sourceType      String?  @db.VarChar(50)
   sourceId        String?
   sourceLineKey   String?
   systemGenerated Boolean  @default(false)
   employeeId      String?  @db.VarChar(50)
 
+  @@unique([sourceType, sourceId, sourceLineKey])
   @@index([date])
   @@index([category])
   @@index([status])
   @@index([employeeName])
   @@index([vehicleId])
   @@index([sourceType, sourceId])
-  @@unique([sourceType, sourceId, sourceLineKey])
   @@index([status, date])
   @@index([employeeName, status])
   @@index([category, status])
   @@map("trucking_expenses")
 }
 
-// -----------------------------------------------------------------------------
-// Trucking AR: Invoices, Payments, Allocations (batch per cutoff)
-// -----------------------------------------------------------------------------
-
-enum TruckingInvoiceStatus {
-  DRAFT
-  SENT
-  PARTIAL
-  PAID
-  VOID
-}
-
-enum TruckingPaymentMethod {
-  CASH
-  BANK
-  GCASH
-  CHECK
-  OTHER
-}
-
 model TruckingInvoice {
-  id          String                 @id @default(cuid())
-  createdAt   DateTime               @default(now())
-  updatedAt   DateTime               @updatedAt
+  id          String                      @id @default(cuid())
+  createdAt   DateTime                    @default(now())
+  updatedAt   DateTime                    @updatedAt
   customerId  Int
-  customer    Customer               @relation(fields: [customerId], references: [id])
   cutoffStart DateTime
   cutoffEnd   DateTime
   invoiceDate DateTime
   dueDate     DateTime?
-  status      TruckingInvoiceStatus  @default(DRAFT)
-  totalAmount Decimal                @db.Decimal(12, 2)
-
-  trips       TruckingTrip[]
+  status      TruckingInvoiceStatus       @default(DRAFT)
+  totalAmount Decimal                     @db.Decimal(12, 2)
+  customer    Customer                    @relation(fields: [customerId], references: [id])
   allocations TruckingPaymentAllocation[]
+  trips       TruckingTrip[]
 
+  @@unique([customerId, cutoffStart, cutoffEnd])
   @@index([customerId, cutoffStart, cutoffEnd])
   @@index([status])
-  @@unique([customerId, cutoffStart, cutoffEnd])
   @@map("trucking_invoices")
 }
 
 model TruckingPayment {
-  id          String                @id @default(cuid())
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
+  id          String                      @id @default(cuid())
+  createdAt   DateTime                    @default(now())
+  updatedAt   DateTime                    @updatedAt
   customerId  Int
-  customer    Customer              @relation(fields: [customerId], references: [id])
   paymentDate DateTime
-  amount      Decimal               @db.Decimal(12, 2)
-  method      TruckingPaymentMethod @default(OTHER)
-  referenceNo String?               @db.VarChar(255)
+  amount      Decimal                     @db.Decimal(12, 2)
+  method      TruckingPaymentMethod       @default(OTHER)
+  referenceNo String?                     @db.VarChar(255)
   notes       String?
-
   allocations TruckingPaymentAllocation[]
+  customer    Customer                    @relation(fields: [customerId], references: [id])
 
   @@index([customerId, paymentDate])
   @@map("trucking_payments")
@@ -1368,10 +1319,9 @@ model TruckingPayment {
 model TruckingPaymentAllocation {
   paymentId String
   invoiceId String
-  amount    Decimal @db.Decimal(12, 2)
-
-  payment   TruckingPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  amount    Decimal         @db.Decimal(12, 2)
   invoice   TruckingInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  payment   TruckingPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
   @@id([paymentId, invoiceId])
   @@index([invoiceId])
@@ -1707,6 +1657,36 @@ model TransactionsSettings {
   minSpareRows         Int      @default(50)
 
   @@map("transactions_settings")
+}
+
+enum InventoryBucket {
+  sellable
+  damaged_hold
+  scrap
+  sold
+}
+
+enum TruckingVehicleAssignmentStatus {
+  scheduled
+  active
+  completed
+  cancelled
+}
+
+enum TruckingInvoiceStatus {
+  DRAFT
+  SENT
+  PARTIAL
+  PAID
+  VOID
+}
+
+enum TruckingPaymentMethod {
+  CASH
+  BANK
+  GCASH
+  CHECK
+  OTHER
 }
 
 enum CashAdvanceCycle {

@@ -1,6 +1,7 @@
 import React, { type ReactNode } from 'react';
 import { render } from '@testing-library/react';
 import { MantineProvider } from '@mantine/core';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, screen } from '@testing-library/dom';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { ProductsPage } from '../ProductsPage';
@@ -33,12 +34,29 @@ vi.mock('../ShippingFeeCalculator', () => ({
   ShippingFeeCalculator: () => <div>shipping-calculator</div>,
 }));
 
-const renderProductsPage = () =>
-  render(
-    <MantineProvider>
-      <ProductsPage />
-    </MantineProvider>
+vi.mock('../BundlesTab', () => ({
+  BundlesTab: () => <div>bundles-tab</div>,
+}));
+
+const createTestQueryClient = () =>
+  new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+
+const renderProductsPage = () => {
+  const queryClient = createTestQueryClient();
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MantineProvider>
+        <ProductsPage />
+      </MantineProvider>
+    </QueryClientProvider>
   );
+};
 
 describe('ProductsPage', () => {
   beforeEach(() => {

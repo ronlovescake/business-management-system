@@ -2,6 +2,11 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import {
+  buildSellableDeltaMap,
+  getSellableOnHand,
+  normalizeProductCode,
+} from '@/lib/inventory/movements';
 import { isFulfilledStatus, isReservedStatus } from '@/lib/inventory/statuses';
 
 export const dynamic = 'force-dynamic';
@@ -44,10 +49,6 @@ type TransactionRecord = {
 };
 
 const LOW_STOCK_THRESHOLD = 20;
-
-function normalizeProductCode(code: string | null | undefined): string {
-  return (code ?? '').trim().toLowerCase();
-}
 
 function summarizeStatus(
   productCode: string,
@@ -176,28 +177,6 @@ function accumulateDemand(
   return totals;
 }
 
-function buildSellableDeltaMap(movements: MovementRecord[]) {
-  const deltas = new Map<string, number>();
-
-  movements.forEach((movement) => {
-    const code = normalizeProductCode(movement.productCode);
-    if (!code || !Number.isFinite(movement.quantity)) {
-      return;
-    }
-
-    const qty = movement.quantity;
-    const fromSellable = movement.fromBucket === 'sellable';
-    const toSellable = movement.toBucket === 'sellable';
-    const current = deltas.get(code) ?? 0;
-    deltas.set(
-      code,
-      current + (toSellable ? qty : 0) - (fromSellable ? qty : 0)
-    );
-  });
-
-  return deltas;
-}
-
 function buildTransactionWhereClause(codes: string[]) {
   const filters = codes
     .map((code) => code.trim())
@@ -318,6 +297,14 @@ export async function POST(request: NextRequest) {
         }
       });
 
+      const getSellableOnHandWithFallback = (code: string) =>
+        getSellableOnHand({
+          productCode: code,
+          sellableDeltaByProduct: sellableDelta,
+          fallbackQuantity:
+            productQuantityMap.get(normalizeProductCode(code)) ?? 0,
+        });
+
       let limitingAvailable = Number.POSITIVE_INFINITY;
       let limitingComponent: string | null = null;
 
@@ -329,9 +316,9 @@ export async function POST(request: NextRequest) {
           return;
         }
 
-        const supply =
-          (productQuantityMap.get(normalizedCode) ?? 0) +
-          (sellableDelta.get(normalizedCode) ?? 0);
+        const supply = getSellableOnHandWithFallback(
+          component.componentProductCode
+        );
         const demand = demandMap.get(normalizedCode) ?? 0;
         const available = supply - demand;
 
@@ -409,9 +396,12 @@ export async function POST(request: NextRequest) {
     const sellableDelta = buildSellableDeltaMap(movements);
 
     const totalOrder = demandMap.get(normalizedProductCode) ?? 0;
-    const quantity =
-      (product.quantity ?? 0) + (sellableDelta.get(normalizedProductCode) ?? 0);
-    const availableStock = quantity - totalOrder;
+    const onhand = getSellableOnHand({
+      productCode,
+      sellableDeltaByProduct: sellableDelta,
+      fallbackQuantity: product.quantity ?? 0,
+    });
+    const availableStock = onhand - totalOrder;
 
     return NextResponse.json(
       summarizeStatus(productCode, availableStock, requestedQuantity),

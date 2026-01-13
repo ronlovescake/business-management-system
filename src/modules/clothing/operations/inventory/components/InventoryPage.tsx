@@ -2,6 +2,7 @@
 
 import type { FormEvent } from 'react';
 import { useMemo, useState } from 'react';
+import { showNotification } from '@mantine/notifications';
 import {
   Button,
   Card,
@@ -38,6 +39,7 @@ export function InventoryPage() {
     handleAddNew,
     products,
     createMovement,
+    getSellableOnHand,
   } = useInventoryPage();
 
   const [activeTab, setActiveTab] = useState<'inventory' | 'adjustments'>(
@@ -51,6 +53,11 @@ export function InventoryPage() {
   );
   const [notes, setNotes] = useState('');
 
+  const selectedOnHand = useMemo(
+    () => getSellableOnHand(selectedProduct),
+    [getSellableOnHand, selectedProduct]
+  );
+
   const productOptions = useMemo(
     () =>
       products
@@ -63,6 +70,15 @@ export function InventoryPage() {
   const handleMovementSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!selectedProduct || !quantity || quantity <= 0) {
+      return;
+    }
+
+    if (Number(quantity) > selectedOnHand) {
+      showNotification({
+        title: 'Quantity exceeds sellable on-hand',
+        message: `Available sellable units for ${selectedProduct}: ${selectedOnHand}`,
+        color: 'red',
+      });
       return;
     }
 
@@ -169,6 +185,10 @@ export function InventoryPage() {
                   }
                 />
 
+                <Text size="sm" c="dimmed">
+                  Sellable on-hand: {selectedProduct ? selectedOnHand : 0}
+                </Text>
+
                 <Select
                   label="Destination bucket"
                   data={[
@@ -195,7 +215,11 @@ export function InventoryPage() {
                 />
 
                 <Group justify="flex-end" mt="sm">
-                  <Button type="submit" loading={isSubmittingMovement}>
+                  <Button
+                    type="submit"
+                    loading={isSubmittingMovement}
+                    disabled={!selectedProduct || !quantity}
+                  >
                     Save Adjustment
                   </Button>
                 </Group>

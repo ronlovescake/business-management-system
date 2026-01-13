@@ -228,6 +228,9 @@ Deliverables:
 - Create movement generator for sales:
   - When a transaction becomes paid, create SALE movement (SELLABLE → SOLD/none) at unit cost.
 - Add idempotency so edits don’t re-post.
+- Receipt backfill helper is available now:
+  - Run `npx ts-node --transpile-only scripts/backfill-receipt-movements.ts` once per environment to seed SELLABLE on-hand from existing Products (idempotent via notes).
+  - Inventory UI and stock checks now read sellable on-hand from movements first, with Products.Quantity used only as a temporary fallback when no movement exists.
 
 ### Phase 3 — Upgrade Operations/Inventory UI (minimal clutter)
 

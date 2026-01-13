@@ -1,13 +1,15 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
-type GeneratePayslipsPostHandler =
-  typeof import('@/app/api/payroll/generate-payslips/route').POST;
+import type { POST as GeneratePayslipsPOST } from '@/app/api/payroll/generate-payslips/route';
+
+type GeneratePayslipsPostHandler = typeof GeneratePayslipsPOST;
 
 const {
   mockPrisma,
   mockLaunch,
   mockBrowser,
+  mockExecutablePath,
   mockJsZip,
   mockZipInstance,
   mockExistsSync,
@@ -23,12 +25,18 @@ const {
     pdf: vi.fn().mockResolvedValue(Buffer.from('pdf-buffer')),
   };
 
-  const mockBrowser = {
+  const mockBrowserContext = {
     newPage: vi.fn().mockResolvedValue(mockPage),
+  };
+
+  const mockBrowser = {
+    newContext: vi.fn().mockResolvedValue(mockBrowserContext),
     close: vi.fn().mockResolvedValue(undefined),
   };
 
   const mockLaunch = vi.fn().mockResolvedValue(mockBrowser);
+
+  const mockExecutablePath = vi.fn().mockReturnValue('/usr/bin/chromium');
 
   const mockZipInstance = {
     file: vi.fn(),
@@ -60,6 +68,7 @@ const {
     mockPrisma,
     mockLaunch,
     mockBrowser,
+    mockExecutablePath,
     mockJsZip,
     mockZipInstance,
     mockExistsSync,
@@ -77,7 +86,7 @@ vi.mock('@/lib/db', () => ({
 
 vi.mock('playwright', () => ({
   __esModule: true,
-  chromium: { launch: mockLaunch },
+  chromium: { launch: mockLaunch, executablePath: mockExecutablePath },
 }));
 
 vi.mock('jszip', () => ({

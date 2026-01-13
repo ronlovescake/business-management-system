@@ -21,7 +21,7 @@ const HEADERS = [
   'PRODUCT CODE',
   'QUANTITY',
   'ONHAND',
-  'TOTAL ORDER',
+  'RESERVED QTY',
   'AVAILABLE STOCK',
   'TOTAL SALES',
   'COGS',
@@ -138,6 +138,28 @@ export const useInventoryPage = () => {
     return buildInventoryItems(products, transactions, bundles, movements);
   }, [products, transactions, bundles, movements]);
 
+  const sellableOnHandByCode = useMemo(() => {
+    const map = new Map<string, number>();
+    inventoryItems.forEach((item) => {
+      const code = (item.productCode ?? '').trim();
+      if (code) {
+        map.set(code, item.onhand);
+      }
+    });
+    return map;
+  }, [inventoryItems]);
+
+  const getSellableOnHand = useCallback(
+    (productCode: string | null | undefined): number => {
+      if (!productCode) {
+        return 0;
+      }
+
+      return sellableOnHandByCode.get(productCode.trim()) ?? 0;
+    },
+    [sellableOnHandByCode]
+  );
+
   const filteredData = useMemo<InventoryItem[]>(() => {
     return filterInventoryData(inventoryItems, searchQuery);
   }, [inventoryItems, searchQuery]);
@@ -249,5 +271,6 @@ export const useInventoryPage = () => {
     handleAddNew,
     products,
     createMovement,
+    getSellableOnHand,
   };
 };

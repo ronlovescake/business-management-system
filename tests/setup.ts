@@ -28,6 +28,23 @@ if (!window.matchMedia) {
 
 window.confirm = vi.fn(() => true);
 
+if (!window.ResizeObserver) {
+  class ResizeObserver {
+    observe() {
+      // noop
+    }
+    unobserve() {
+      // noop
+    }
+    disconnect() {
+      // noop
+    }
+  }
+
+  window.ResizeObserver =
+    ResizeObserver as unknown as typeof window.ResizeObserver;
+}
+
 beforeAll(() => {
   server.listen({ onUnhandledRequest: 'warn' });
 });
