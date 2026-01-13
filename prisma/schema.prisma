@@ -129,6 +129,37 @@ model Product {
   @@map("products")
 }
 
+model BundleBatch {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  postingDate String   @db.VarChar(50)
+  bundleName  String   @db.VarChar(255)
+  bundleSku   String   @unique @db.VarChar(255)
+  quantity    Float    @default(0)
+  price       Float    @default(0)
+
+  components BundleBatchComponent[]
+
+  @@index([bundleSku])
+  @@index([postingDate])
+  @@map("bundle_batches")
+}
+
+model BundleBatchComponent {
+  id                 Int      @id @default(autoincrement())
+  createdAt          DateTime @default(now())
+  bundleBatchId      Int
+  componentProductCode String @db.VarChar(100)
+  includedQuantity   Float    @default(0)
+
+  bundleBatch BundleBatch @relation(fields: [bundleBatchId], references: [id], onDelete: Cascade)
+
+  @@index([bundleBatchId])
+  @@index([componentProductCode])
+  @@map("bundle_batch_components")
+}
+
 model PaymentCard {
   id         String    @id @default(cuid())
   bank       String    @db.VarChar(100)

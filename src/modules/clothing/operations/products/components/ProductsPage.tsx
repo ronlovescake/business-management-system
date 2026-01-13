@@ -13,6 +13,7 @@ import { useProductsData } from '../hooks/useProductsData';
 import { ProductsGrid } from './ProductsGrid';
 import { ShippingFeeCalculator } from './ShippingFeeCalculator';
 import { ProductStatsCards } from './ProductStatsCards';
+import { BundlesTab } from './BundlesTab';
 
 export function ProductsPage() {
   const [activeTab, setActiveTab] = useState<string | null>('products');
@@ -30,6 +31,7 @@ export function ProductsPage() {
           <Tabs value={activeTab} onChange={setActiveTab}>
             <Tabs.List>
               <Tabs.Tab value="products">Products</Tabs.Tab>
+              <Tabs.Tab value="bundles">Bundles</Tabs.Tab>
               <Tabs.Tab value="shipping-calculator">
                 Shipping Fee Calculator
               </Tabs.Tab>
@@ -37,6 +39,10 @@ export function ProductsPage() {
 
             <Tabs.Panel value="products" pt="md">
               <ProductsGrid />
+            </Tabs.Panel>
+
+            <Tabs.Panel value="bundles" pt="md">
+              <BundlesTab />
             </Tabs.Panel>
 
             <Tabs.Panel value="shipping-calculator" pt="md">

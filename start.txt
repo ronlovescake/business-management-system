@@ -1,0 +1,14 @@
+
+> business-management@1.0.0 prestart
+> cross-env PLAYWRIGHT_BROWSERS_PATH=0 node scripts/ensure-playwright-browsers.js
+
+[ensure-playwright-browsers] Chromium OK: /home/ron/Websites/business-management-development/node_modules/playwright-core/.local-browsers/chromium-1194/chrome-linux/chrome
+
+> business-management@1.0.0 start
+> next start -H 0.0.0.0 -p ${PORT:-5000}
+
+  ▲ Next.js 14.2.33
+  - Local:        http://localhost:5000
+  - Network:      http://0.0.0.0:5000
+
+ ✓ Starting...

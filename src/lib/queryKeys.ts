@@ -35,6 +35,17 @@ export const queryKeys = {
       [...queryKeys.products.details(), id] as const,
   },
 
+  // Bundles
+  bundles: {
+    all: ['bundles'] as const,
+    lists: () => [...queryKeys.bundles.all, 'list'] as const,
+    list: (filters?: Record<string, unknown>) =>
+      [...queryKeys.bundles.lists(), { filters }] as const,
+    details: () => [...queryKeys.bundles.all, 'detail'] as const,
+    detail: (id: string | number) =>
+      [...queryKeys.bundles.details(), id] as const,
+  },
+
   // Customers
   customers: {
     all: ['customers'] as const,
