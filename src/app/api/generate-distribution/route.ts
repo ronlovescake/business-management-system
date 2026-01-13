@@ -38,7 +38,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { chromium } from 'playwright';
-import Handlebars from 'handlebars/dist/cjs/handlebars';
+import Handlebars from 'handlebars';
 import fs from 'fs';
 import path from 'path';
 import { logger } from '@/lib/logger';

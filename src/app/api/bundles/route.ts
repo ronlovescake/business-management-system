@@ -5,16 +5,6 @@ import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
-// NOTE: Prisma Client types can appear stale in-editor until after `prisma generate`
-// and a TS server restart. Runtime delegates are present; this cast avoids blocking
-// builds in the meantime.
-type BundleBatchDelegate = {
-  findMany: (args: unknown) => Promise<unknown>;
-  create: (args: unknown) => Promise<unknown>;
-};
-
-const prismaBundles = prisma as unknown as { bundleBatch: BundleBatchDelegate };
-
 interface CreateBundleComponentInput {
   productCode: string;
   includedQuantity: number;
@@ -31,7 +21,7 @@ interface CreateBundleRequest {
 
 export async function GET() {
   try {
-    const bundles = await prismaBundles.bundleBatch.findMany({
+    const bundles = await prisma.bundleBatch.findMany({
       orderBy: { createdAt: 'desc' },
       include: { components: true },
     });
@@ -105,9 +95,7 @@ export async function POST(request: NextRequest) {
     }
 
     const created = await prisma.$transaction(async (tx) => {
-      const createdBatch = await (
-        tx as unknown as typeof prismaBundles
-      ).bundleBatch.create({
+      const createdBatch = await tx.bundleBatch.create({
         data: {
           postingDate,
           bundleName,

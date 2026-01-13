@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
 import type { TemplateDelegate as HandlebarsTemplateDelegate } from 'handlebars';
-import Handlebars from 'handlebars/dist/handlebars.js';
+import Handlebars from 'handlebars';
 import { chromium } from 'playwright';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
