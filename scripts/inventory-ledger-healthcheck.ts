@@ -219,7 +219,11 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  logger.error('Inventory ledger healthcheck failed', { error });
-  process.exitCode = 1;
-});
+main()
+  .catch((error) => {
+    logger.error('Inventory ledger healthcheck failed', { error });
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

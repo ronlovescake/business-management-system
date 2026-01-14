@@ -199,7 +199,11 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  logger.error('Failed to generate inventory ledger drift report', { error });
-  process.exitCode = 1;
-});
+main()
+  .catch((error) => {
+    logger.error('Failed to generate inventory ledger drift report', { error });
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
