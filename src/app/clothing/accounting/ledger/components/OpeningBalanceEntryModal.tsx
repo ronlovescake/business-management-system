@@ -47,6 +47,7 @@ export function OpeningBalanceEntryModal({
       ...accounts,
       'Inventory',
       'Stock on Hand',
+      'Inventory in Transit',
       'Opening Equity',
       'Accounts Payable',
     ])

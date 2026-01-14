@@ -15,7 +15,11 @@ import {
   isWithinDateRange,
 } from '@/lib/accounting/data-fetchers';
 import { normalizeTransactionAmounts } from '@/lib/accounting/transaction-normalization';
-import { buildCogsAndInventoryEntries } from '@/lib/accounting/inventory-cogs';
+import {
+  buildCogsAndInventoryEntries,
+  buildInventorySeedAndShrinkageEntries,
+} from '@/lib/accounting/inventory-cogs';
+import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,6 +41,17 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const payments = await fetchTransactionPayments();
   const expenses = await fetchApprovedExpenses();
   const refunds = await fetchTransactionRefunds();
+
+  const reclassRows = await prisma.clothingInventoryReclassEntry.findMany({
+    where: {
+      deletedAt: null,
+      postingDate: {
+        gte: effectiveFrom,
+        ...(effectiveTo ? { lte: effectiveTo } : {}),
+      },
+    },
+    orderBy: { postingDate: 'asc' },
+  });
 
   const paymentTransactionIds = new Set(payments.map((p) => p.transactionId));
 
@@ -259,17 +274,126 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     description: string;
   }>;
 
+  const reclassEntries = reclassRows
+    .map((row) => {
+      const amount = Number(row.amount ?? 0);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return null;
+      }
+
+      const dateStr = row.postingDate.toISOString();
+      const ref = (row.shipmentCode ?? '').trim() || row.productCode;
+      const description = `Inventory reclass • ${row.productCode}`;
+      const idBase = `RC-${row.id}`;
+
+      return [
+        {
+          id: `${idBase}-to`,
+          date: dateStr,
+          ref,
+          account: row.toAccount,
+          debit: Math.max(amount, 0),
+          credit: 0,
+          description,
+        },
+        {
+          id: `${idBase}-from`,
+          date: dateStr,
+          ref,
+          account: row.fromAccount,
+          debit: 0,
+          credit: Math.max(amount, 0),
+          description,
+        },
+      ];
+    })
+    .flat()
+    .filter(Boolean) as Array<{
+    id: string;
+    date: string;
+    ref: string;
+    account: string;
+    debit: number;
+    credit: number;
+    description: string;
+  }>;
+
+  const transitBuildRows =
+    await prisma.clothingInventoryTransitBuildEntry.findMany({
+      where: {
+        deletedAt: null,
+        postingDate: {
+          gte: effectiveFrom,
+          ...(effectiveTo ? { lte: effectiveTo } : {}),
+        },
+      },
+      orderBy: { postingDate: 'asc' },
+    });
+
+  const transitBuildEntries = transitBuildRows
+    .map((row) => {
+      const amount = Number(row.amount ?? 0);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return null;
+      }
+
+      const dateStr = row.postingDate.toISOString();
+      const ref = (row.shipmentCode ?? '').trim() || `SHIP-${row.shipmentId}`;
+      const description = `Transit build-up • ${row.shipmentCode}`;
+      const idBase = `TB-${row.id}`;
+
+      return [
+        {
+          id: `${idBase}-debit`,
+          date: dateStr,
+          ref,
+          account: row.debitAccount,
+          debit: Math.max(amount, 0),
+          credit: 0,
+          description,
+        },
+        {
+          id: `${idBase}-credit`,
+          date: dateStr,
+          ref,
+          account: row.creditAccount,
+          debit: 0,
+          credit: Math.max(amount, 0),
+          description,
+        },
+      ];
+    })
+    .flat()
+    .filter(Boolean) as Array<{
+    id: string;
+    date: string;
+    ref: string;
+    account: string;
+    debit: number;
+    credit: number;
+    description: string;
+  }>;
+
   const { entries: cogsEntries } = await buildCogsAndInventoryEntries({
     from: effectiveFrom,
     to: effectiveTo,
   });
 
+  const { entries: inventorySeedShrinkageEntries } =
+    await buildInventorySeedAndShrinkageEntries({
+      from: effectiveFrom,
+      to: effectiveTo,
+    });
+
   const entries = [
+    ...reclassEntries,
+    ...transitBuildEntries,
     ...paymentEntries,
     ...legacyTxEntries,
     ...refundEntries,
     ...expenseEntries,
     ...cogsEntries,
+    ...inventorySeedShrinkageEntries,
   ];
 
   const totalDebits = entries.reduce((sum, e) => sum + e.debit, 0);

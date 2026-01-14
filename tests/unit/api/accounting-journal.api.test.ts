@@ -2,7 +2,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { getTestApiUrl } from '@/core/testing/test-helpers';
 
-const { mockFetchers, mockBuildCogsAndInventoryEntries } = vi.hoisted(() => {
+const {
+  mockFetchers,
+  mockBuildCogsAndInventoryEntries,
+  mockBuildInventorySeedAndShrinkageEntries,
+} = vi.hoisted(() => {
   return {
     mockFetchers: {
       fetchPaidTransactions: vi.fn(),
@@ -12,6 +16,7 @@ const { mockFetchers, mockBuildCogsAndInventoryEntries } = vi.hoisted(() => {
       getPaidAtDate: vi.fn(),
     },
     mockBuildCogsAndInventoryEntries: vi.fn(),
+    mockBuildInventorySeedAndShrinkageEntries: vi.fn(),
   };
 });
 
@@ -34,6 +39,8 @@ vi.mock('@/lib/accounting/inventory-cogs', async (importOriginal) => {
   return {
     ...actual,
     buildCogsAndInventoryEntries: mockBuildCogsAndInventoryEntries,
+    buildInventorySeedAndShrinkageEntries:
+      mockBuildInventorySeedAndShrinkageEntries,
   };
 });
 
@@ -53,6 +60,12 @@ describe('Accounting Journal API - GET /api/accounting/journal', () => {
     mockBuildCogsAndInventoryEntries.mockResolvedValue({
       entries: [],
       totalCogs: 0,
+    });
+
+    mockBuildInventorySeedAndShrinkageEntries.mockResolvedValue({
+      entries: [],
+      seedTotal: 0,
+      shrinkageTotal: 0,
     });
 
     // Keep date logic predictable for legacy transactions.
@@ -100,6 +113,31 @@ describe('Accounting Journal API - GET /api/accounting/journal', () => {
       },
     ]);
 
+    mockBuildInventorySeedAndShrinkageEntries.mockResolvedValue({
+      entries: [
+        {
+          id: 'INV-SEED-2026-01-02-inventory-debit',
+          date: '2026-01-02T00:00:00.000Z',
+          ref: 'INV-SEED-2026-01-02',
+          account: 'Stock on Hand',
+          debit: 10,
+          credit: 0,
+          description: 'seed',
+        },
+        {
+          id: 'INV-SEED-2026-01-02-opening-equity-credit',
+          date: '2026-01-02T00:00:00.000Z',
+          ref: 'INV-SEED-2026-01-02',
+          account: 'Opening Equity',
+          debit: 0,
+          credit: 10,
+          description: 'seed offset',
+        },
+      ],
+      seedTotal: 10,
+      shrinkageTotal: 0,
+    });
+
     const res = await GET(
       buildRequest('/api/accounting/journal?from=2026-01-01&to=2026-01-31')
     );
@@ -130,5 +168,10 @@ describe('Accounting Journal API - GET /api/accounting/journal', () => {
 
     // Sanity: most recent (payment) should sort ahead of legacy entries.
     expect(entries[0]?.id.startsWith('PM-')).toBe(true);
+
+    // Inventory seed/shrinkage derived entries are included.
+    expect(
+      entries.some((e) => e.id === 'INV-SEED-2026-01-02-inventory-debit')
+    ).toBe(true);
   });
 });

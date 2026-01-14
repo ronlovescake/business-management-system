@@ -266,4 +266,94 @@ describe('buildInventoryItems', () => {
     expect(comp?.totalOrder).toBe(6);
     expect(comp?.availableStock).toBe(3);
   });
+
+  it('uses assembled bundle sellable on-hand first, and only reserves components for overflow bundles', () => {
+    const products: ProductFromAPI[] = [
+      {
+        id: 'p1',
+        'Product Code': 'COMP-1',
+        Quantity: 0,
+        COGS: 0,
+        'Actual Price': 5,
+        'Shipment Code': null,
+        'Shipment Status': null,
+      },
+      {
+        id: 'p2',
+        'Product Code': 'BUNDLE-1',
+        Quantity: 0,
+        COGS: 0,
+        'Actual Price': 0,
+        'Shipment Code': null,
+        'Shipment Status': null,
+      },
+    ];
+
+    const bundles: BundleBatchFromAPI[] = [
+      {
+        id: 1,
+        postingDate: '2026-01-01',
+        bundleName: 'Bundle',
+        bundleSku: 'BUNDLE-1',
+        quantity: 1,
+        price: 0,
+        components: [
+          {
+            componentProductCode: 'COMP-1',
+            includedQuantity: 2,
+          },
+        ],
+      },
+    ];
+
+    const transactions: TransactionFromAPI[] = [
+      {
+        id: 't1',
+        'Product Code': 'BUNDLE-1',
+        Quantity: 3,
+        'Unit Price': 0,
+        'Order Status': 'Warehouse',
+      },
+    ];
+
+    const movements: InventoryMovementFromAPI[] = [
+      // Component has 10 sellable units
+      {
+        id: 1,
+        productCode: 'COMP-1',
+        quantity: 10,
+        fromBucket: 'scrap',
+        toBucket: 'sellable',
+      },
+      // Bundle SKU has 2 assembled units on-hand
+      {
+        id: 2,
+        productCode: 'BUNDLE-1',
+        quantity: 2,
+        fromBucket: 'scrap',
+        toBucket: 'sellable',
+      },
+    ];
+
+    const items = buildInventoryItems(
+      products,
+      transactions,
+      bundles,
+      movements
+    );
+    const comp = items.find((i) => i.productCode === 'COMP-1');
+    const bundle = items.find((i) => i.productCode === 'BUNDLE-1');
+
+    // Bundle demand is 3. Two bundles are already assembled, so only 1 bundle overflows to components.
+    // Component demand from this bundle: 1 * 2 = 2.
+    expect(comp).toBeDefined();
+    expect(comp?.totalOrder).toBe(2);
+    expect(comp?.availableStock).toBe(8);
+
+    // Bundle SKU itself is reserved for all 3 bundles; availability uses its own sellable on-hand.
+    expect(bundle).toBeDefined();
+    expect(bundle?.sellableOnHand).toBe(2);
+    expect(bundle?.totalOrder).toBe(3);
+    expect(bundle?.availableStock).toBe(-1);
+  });
 });

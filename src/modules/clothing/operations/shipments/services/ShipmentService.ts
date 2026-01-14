@@ -435,6 +435,30 @@ export class ShipmentService {
     return updatedShipmentFromAPI;
   }
 
+  static async createTransitBuildEntry(
+    shipmentId: number,
+    input: {
+      postingDate: Date;
+      creditAccount: 'Cash' | 'Accounts Payable';
+      notes?: string;
+    }
+  ): Promise<{
+    id: string | null;
+    shipmentId: number;
+    shipmentCode: string;
+    postingDate: string | null;
+    amount: number;
+    debitAccount: string;
+    creditAccount: string;
+    wasDuplicate: boolean;
+  }> {
+    return await api.post(`/api/shipments/${shipmentId}/transit-build`, {
+      postingDate: this.formatDateForApi(input.postingDate),
+      creditAccount: input.creditAccount,
+      notes: input.notes,
+    });
+  }
+
   /**
    * Parse CSV file and import shipments
    *

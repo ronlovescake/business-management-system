@@ -7,6 +7,8 @@ import { logger } from '@/lib/logger';
 import { ACCOUNTS_RECEIVABLE_STATUSES, PAID_STATUSES } from './constants';
 import { parseDate } from './date-utils';
 
+const ACCOUNTING_CUTOVER = new Date(Date.UTC(2026, 0, 1));
+
 type TransactionWithStatusChanges = Awaited<
   ReturnType<typeof prisma.transaction.findMany>
 >[number] & {
@@ -175,11 +177,18 @@ export async function fetchTransactionPayments(): Promise<
 export function getPaidAtDate(
   transaction: TransactionWithStatusChanges
 ): Date | null {
-  return (
-    transaction.statusChanges?.[0]?.changedAt ??
-    parseDate(transaction.orderDate) ??
-    null
-  );
+  const orderDate = parseDate(transaction.orderDate);
+  const paidStatusChangedAt = transaction.statusChanges?.[0]?.changedAt ?? null;
+
+  // Pre-cutover transactions: anchor to orderDate to avoid retroactive status edits
+  // moving historical revenue into the cutover period.
+  if (orderDate && orderDate < ACCOUNTING_CUTOVER) {
+    return orderDate;
+  }
+
+  // Post-cutover legacy transactions: prefer the paid-status change timestamp so
+  // preorders/reservations don't recognize revenue until marked paid.
+  return paidStatusChangedAt ?? orderDate ?? null;
 }
 
 export function isWithinDateRange(

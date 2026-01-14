@@ -268,6 +268,22 @@ export function useShipmentsData() {
     },
   });
 
+  const transitBuildMutation = useMutation({
+    mutationFn: async ({
+      shipmentId,
+      input,
+    }: {
+      shipmentId: number;
+      input: {
+        postingDate: Date;
+        creditAccount: 'Cash' | 'Accounts Payable';
+        notes?: string;
+      };
+    }) => {
+      return await ShipmentService.createTransitBuildEntry(shipmentId, input);
+    },
+  });
+
   /**
    * CSV import mutation
    */
@@ -354,6 +370,47 @@ export function useShipmentsData() {
     }
   };
 
+  const createTransitBuildEntry = async (
+    shipmentId: number,
+    input: {
+      postingDate: Date;
+      creditAccount: 'Cash' | 'Accounts Payable';
+      notes?: string;
+    }
+  ): Promise<boolean> => {
+    try {
+      const result = await transitBuildMutation.mutateAsync({
+        shipmentId,
+        input,
+      });
+
+      if (result.wasDuplicate) {
+        showNotification({
+          title: 'ℹ️ Already exists',
+          message:
+            'Transit build-up entry already exists for this shipment + credit account.',
+          color: 'blue',
+        });
+      } else {
+        showNotification({
+          title: '✅ Success',
+          message: 'Transit build-up entry created successfully!',
+          color: 'green',
+        });
+      }
+
+      return true;
+    } catch (error) {
+      logger.error('Error creating transit build-up entry:', error);
+      showNotification({
+        title: '❌ Error',
+        message: 'Failed to create transit build-up entry. Please try again.',
+        color: 'red',
+      });
+      return false;
+    }
+  };
+
   // ==========================================================================
   // RETURN
   // ==========================================================================
@@ -380,6 +437,7 @@ export function useShipmentsData() {
     // CRUD Operations
     addShipment,
     updateShipment,
+    createTransitBuildEntry,
 
     // Reload
     loadShipments,

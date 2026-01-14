@@ -54,6 +54,8 @@ export interface InventoryItem {
   id: string;
   productCode: string;
   quantity: number;
+  sellableOnHand: number;
+  reservedOnHand: number;
   onhand: number;
   totalOrder: number;
   availableStock: number;

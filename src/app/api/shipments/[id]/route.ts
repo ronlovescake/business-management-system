@@ -6,6 +6,9 @@ import type { ShipmentData, ShipmentDB } from '../../../../types';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
 import { postExpenseForShipment } from '@/modules/shipments/api/expenses';
+import { parseDate } from '@/lib/accounting/date-utils';
+
+const ACCOUNTING_CUTOVER = new Date(Date.UTC(2026, 0, 1));
 
 // Helper function to convert database model to frontend interface
 function convertShipmentDBToData(shipment: ShipmentDB): ShipmentData {
@@ -141,6 +144,12 @@ export const PUT = withErrorHandler<RouteContext>(
       data: shipmentData,
     });
 
+    const prevStatus = (currentShipment.shipmentStatus ?? '').trim();
+    const nextStatus = (shipmentData.shipmentStatus ?? '').trim();
+    const becameDelivered =
+      prevStatus.toLowerCase() !== 'delivered' &&
+      nextStatus.toLowerCase() === 'delivered';
+
     if (currentShipment.shipmentCode) {
       await prisma.product.updateMany({
         where: {
@@ -154,6 +163,19 @@ export const PUT = withErrorHandler<RouteContext>(
           shipmentStatus: shipmentData.shipmentStatus,
         },
       });
+
+      if (becameDelivered) {
+        const deliveredAt = parseDate(shipmentData.dateDelivered) ?? new Date();
+
+        // Only auto-post reclass entries from the cutover forward.
+        if (deliveredAt >= ACCOUNTING_CUTOVER) {
+          await createInventoryReclassEntriesForDeliveredShipment({
+            shipmentId: idResult.id,
+            shipmentCode: currentShipment.shipmentCode,
+            deliveredAt,
+          });
+        }
+      }
 
       logger.debug(
         `Updated products with shipment code: ${currentShipment.shipmentCode}`,
@@ -169,6 +191,80 @@ export const PUT = withErrorHandler<RouteContext>(
     return ApiResponse.success(convertedShipment, 'Shipment updated');
   }
 );
+
+async function createInventoryReclassEntriesForDeliveredShipment(input: {
+  shipmentId: number;
+  shipmentCode: string;
+  deliveredAt: Date;
+}): Promise<void> {
+  const shipmentCode = (input.shipmentCode ?? '').trim();
+  if (!shipmentCode) {
+    return;
+  }
+
+  const products = await prisma.product.findMany({
+    where: {
+      shipmentCode,
+      deletedAt: null,
+      productCode: {
+        not: null,
+      },
+    },
+    select: {
+      productCode: true,
+      cogs: true,
+    },
+  });
+
+  const rows = products
+    .map((p) => {
+      const productCode = (p.productCode ?? '').trim();
+      if (!productCode) {
+        return null;
+      }
+
+      const amount = Number(p.cogs ?? 0);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return null;
+      }
+
+      return {
+        id: `rec_${shipmentCode}_${productCode}`,
+        postingDate: input.deliveredAt,
+        shipmentId: input.shipmentId,
+        shipmentCode,
+        productCode,
+        amount,
+        fromAccount: 'Inventory in Transit',
+        toAccount: 'Stock on Hand',
+        triggerStatus: 'Delivered',
+        idempotencyKey: `SHIPMENT_DELIVERED:${shipmentCode}:${productCode}`,
+        notes: null as string | null,
+      };
+    })
+    .filter(Boolean) as Array<{
+    id: string;
+    postingDate: Date;
+    shipmentId: number;
+    shipmentCode: string;
+    productCode: string;
+    amount: number;
+    fromAccount: string;
+    toAccount: string;
+    triggerStatus: string;
+    idempotencyKey: string;
+    notes: string | null;
+  }>;
+
+  if (rows.length === 0) {
+    return;
+  }
+
+  await prisma.clothingInventoryReclassEntry.createMany({
+    data: rows,
+    skipDuplicates: true,
+  });
+}
 
 export const DELETE = withErrorHandler<RouteContext>(
   async (_request: NextRequest, context) => {

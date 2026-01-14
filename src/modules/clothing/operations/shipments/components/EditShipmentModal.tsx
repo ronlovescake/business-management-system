@@ -27,6 +27,8 @@ interface EditShipmentModalProps {
   onClose: () => void;
   form: UseFormReturnType<ShipmentFormData>;
   onSubmit: (values: ShipmentFormData) => Promise<void>;
+  onOpenTransitBuild?: () => void;
+  transitBuildDisabled?: boolean;
 }
 
 export const EditShipmentModal = React.memo(function EditShipmentModal({
@@ -34,6 +36,8 @@ export const EditShipmentModal = React.memo(function EditShipmentModal({
   onClose,
   form,
   onSubmit,
+  onOpenTransitBuild,
+  transitBuildDisabled,
 }: EditShipmentModalProps) {
   const handleSubmit = async (values: ShipmentFormData) => {
     await onSubmit(values);
@@ -135,6 +139,17 @@ export const EditShipmentModal = React.memo(function EditShipmentModal({
           />
 
           <Group justify="flex-end" mt="md">
+            {onOpenTransitBuild && (
+              <Button
+                type="button"
+                variant="light"
+                color="orange"
+                onClick={onOpenTransitBuild}
+                disabled={transitBuildDisabled}
+              >
+                Transit Build-Up
+              </Button>
+            )}
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>

@@ -35,6 +35,7 @@ import { useShipmentsData } from '../hooks/useShipmentsData';
 import { useShipmentForm } from '../hooks/useShipmentForm';
 import { AddShipmentModal } from './AddShipmentModal';
 import { EditShipmentModal } from './EditShipmentModal';
+import { TransitBuildModal } from './TransitBuildModal';
 import { ShipmentsDashboard } from './ShipmentsDashboard';
 import { PickupForm } from './PickupForm';
 import type { ShipmentData } from '../types/shipment.types';
@@ -51,6 +52,9 @@ export function ShipmentsPage() {
   // ==========================================================================
 
   const [activeTab, setActiveTab] = useState<string>('shipments');
+  const [transitBuildOpened, setTransitBuildOpened] = useState<boolean>(false);
+  const [transitBuildShipment, setTransitBuildShipment] =
+    useState<ShipmentData | null>(null);
 
   // ==========================================================================
   // HOOKS
@@ -69,6 +73,7 @@ export function ShipmentsPage() {
     handleCSVImport,
     addShipment,
     updateShipment,
+    createTransitBuildEntry,
   } = useShipmentsData();
 
   const {
@@ -222,6 +227,28 @@ export function ShipmentsPage() {
     await handleCSVImport(file);
   };
 
+  const handleOpenTransitBuild = () => {
+    if (!editingShipment) {
+      return;
+    }
+
+    setTransitBuildShipment(editingShipment);
+    setTransitBuildOpened(true);
+    closeEditModal();
+  };
+
+  const handleSubmitTransitBuild = async (input: {
+    postingDate: Date;
+    creditAccount: 'Cash' | 'Accounts Payable';
+    notes?: string;
+  }): Promise<boolean> => {
+    if (!transitBuildShipment) {
+      return false;
+    }
+
+    return await createTransitBuildEntry(transitBuildShipment.id, input);
+  };
+
   // ==========================================================================
   // LOADING STATE
   // ==========================================================================
@@ -343,6 +370,21 @@ export function ShipmentsPage() {
             onClose={closeEditModal}
             form={editShipmentForm}
             onSubmit={handleSubmitEdit}
+            onOpenTransitBuild={handleOpenTransitBuild}
+            transitBuildDisabled={
+              !editingShipment ||
+              !(editingShipment['Shipment Code'] ?? '').toString().trim()
+            }
+          />
+
+          <TransitBuildModal
+            opened={transitBuildOpened}
+            onClose={() => {
+              setTransitBuildOpened(false);
+              setTransitBuildShipment(null);
+            }}
+            shipment={transitBuildShipment}
+            onSubmit={handleSubmitTransitBuild}
           />
         </Tabs.Panel>
 

@@ -143,7 +143,7 @@ export const useInventoryPage = () => {
     inventoryItems.forEach((item) => {
       const code = (item.productCode ?? '').trim();
       if (code) {
-        map.set(code, item.onhand);
+        map.set(code, item.sellableOnHand);
       }
     });
     return map;

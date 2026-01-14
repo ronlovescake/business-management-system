@@ -112,6 +112,185 @@ If persisting:
 
 ## 3) Posting Rules (the accounting logic)
 
+### Inventory in Transit (imports + preorders)
+
+Your operational reality:
+
+- You **pay immediately** when importing.
+- You must **create the Product Code early** so it appears on Transactions for preorders.
+- A Product Code can exist **before** the shipment is physically received.
+
+So we treat “inventory not yet received” as a separate asset:
+
+- **Inventory in Transit** = paid/owned but not yet received.
+- **Stock on Hand** = physically received (on-hand).
+
+#### Status mapping (what counts as on-hand)
+
+These shipment statuses are **NOT on-hand** (treat as Inventory in Transit):
+
+- (blank shipment status)
+- In Transit
+- Manila Port
+- With Pier Gatepass
+- PH Warehouse
+- For Pickup
+
+These shipment statuses are **ON-HAND** (treat as Stock on Hand):
+
+- Delivered
+
+Notes:
+
+- Treating **blank shipment status** as “not received yet” is aligned with your current Transactions logic.
+- For accounting automation, use **Delivered** as the receiving event (more conservative; avoids premature reclass while still sorting).
+
+#### Valuation rule for imports
+
+For your Products module, `COGS` is the **total landed cost for the entire batch** (not per-piece).
+
+- Batch value = `Product.COGS` (use this for accounting).
+- Per-piece landed cost (for reference) = `Product.COGS / Product.Quantity`.
+
+Do **not** use `Grand Total` for inventory valuation because it excludes multiple landed-cost components.
+
+#### Manual workflow (now)
+
+This is the process you can follow today without new automation.
+
+1. **Create/import products early (for preorders)**
+   - Create Products so Product Codes exist for Transactions.
+   - If shipment fields are not known yet, leave shipment code/status blank.
+   - Operationally, you can still accept preorders.
+
+2. **Classify inventory correctly while not received**
+   - In accounting reports, treat these batches as **Inventory in Transit** (not Stock on Hand).
+   - Keep using Shipments/Products `shipmentStatus` as the source of truth for “received vs not received”.
+
+3. **When goods physically arrive (Shipment Status becomes Delivered)**
+   - Post a one-time reclass entry for the received batch amounts:
+     - Dr Stock on Hand
+     - Cr Inventory in Transit
+   - Amount per batch = `Product.COGS`.
+
+4. **When a batch is missing / moved / refunded**
+   - **Partial shipment (some product codes missing):**
+     - Only reclass the product codes that actually reached Delivered.
+     - Missing product codes stay in Inventory in Transit.
+
+   - **Supplier ships missing batch in the next shipment:**
+     - Move that product’s shipmentCode/status to the new shipment.
+     - Reclass only when that batch reaches Delivered.
+
+   - **Batch will never arrive (supplier refund / wrong shipment to other customer):**
+     - Remove it from Inventory in Transit on the refund date:
+       - Dr Cash (or Supplier Receivable / Supplier Credit)
+       - Cr Inventory in Transit
+     - Operationally, reduce/cancel the expected quantity so you don’t keep selling it.
+
+#### Example walkthrough (real import shipment)
+
+Use this as a “worked example” checklist when you’re doing a real shipment like `KPC 23930A-00222`.
+If that shipment was complete for you, treat the “missing/moved/refund” sections below as the pattern to follow when it happens on other shipments.
+
+Assumptions (matches our agreed reality):
+
+- Each **Product Code** is a batch.
+- Each batch’s accounting value is `Product.COGS` (total landed cost for that batch).
+- Status rule: ON-HAND when `shipmentStatus = Delivered`; otherwise it stays in **Inventory in Transit**.
+
+Example data shape (replace with your real Product Codes under the shipment):
+
+- Shipment: `KPC 23930A-00222`
+- Product batch A: `...A` (value = `Product.COGS_A`)
+- Product batch B: `...B` (value = `Product.COGS_B`)
+- Product batch C: `...C` (value = `Product.COGS_C`) (used below to illustrate “if missing/moved/refunded” scenarios)
+
+##### Case 1 — Batch is received (reclass to on-hand)
+
+When batch A’s shipment status becomes `Delivered`:
+
+```
+Dr Stock on Hand              (amount = Product.COGS_A)
+Cr Inventory in Transit       (amount = Product.COGS_A)
+```
+
+Notes:
+
+- Post this **once per batch** (idempotent). Don’t re-post it if someone edits the shipment fields again.
+- If a shipment contains many batches, you will have multiple reclass entries (one per received Product Code).
+
+##### Case 2 — Partial shipment (some batches received, some missing)
+
+If batch A is `Delivered` but batch B is still blank / `In Transit`:
+
+- Reclass A only (Case 1).
+- Do nothing for B yet; it remains in **Inventory in Transit**.
+
+This is how you avoid overstating Stock on Hand.
+
+##### Case 3 — Missing batch is moved to the next shipment
+
+If batch C did not arrive under `KPC 23930A-00222` and the supplier ships it under `KPC 23930A-00223` later:
+
+1. Operational step:
+   - Update batch C’s `shipmentCode` to `KPC 23930A-00223` (and let status cascade).
+2. Accounting step:
+
+- Still **no reclass** until batch C reaches `Delivered`.
+
+3. When batch C eventually hits `Delivered`, post:
+
+```
+Dr Stock on Hand              (amount = Product.COGS_C)
+Cr Inventory in Transit       (amount = Product.COGS_C)
+```
+
+##### Case 4 — Missing batch is refunded (it will never arrive)
+
+If the supplier refunds batch C (or it was shipped to another customer and you’re compensated):
+
+Post on the refund date:
+
+```
+Dr Cash (or Supplier Credit)  (amount = Product.COGS_C)
+Cr Inventory in Transit       (amount = Product.COGS_C)
+```
+
+Operational follow-through:
+
+- Mark the batch as cancelled / remove it from future selling availability so it doesn’t keep getting reserved/sold.
+
+##### Case 5 — You already sold preorders for a batch, then it gets refunded
+
+This is the “danger case” operationally:
+
+- Accounting-wise, you still remove the asset (Case 4).
+- Operationally, you must either:
+  - refund customers / re-route them to another Product Code, or
+  - replace supply (new incoming batch) and move customers to the replacement batch.
+
+Otherwise, you’ll end up with sales that require inventory you no longer own.
+
+#### Cutover / opening balance workflow (one-time)
+
+At the accounting cutover date (Jan 1, 2026), you do this **only once**:
+
+- Any paid/owned batches not yet received at cutover go to **Inventory in Transit** (not Stock on Hand), offset by **Opening Equity**.
+
+After cutover, use normal entries (not Opening Equity) for future activity.
+
+#### Automation workflow (Delivered trigger)
+
+When a Shipment is updated to `Delivered`, the system can auto-post idempotent reclass entries per Product Code:
+
+- Dr Stock on Hand
+- Cr Inventory in Transit
+- Amount = `Product.COGS`
+
+Important: you still need a corresponding “create/paid” step (or explicit import payment event) so Inventory in Transit is built up correctly from Cash/AP.
+Without that, auto-reclass can create a negative Inventory in Transit balance.
+
 ### Sale posting (when a transaction becomes “paid/recognized”)
 
 Trigger: status transitions into a fulfilled/shipped status (see Status Mapping below).

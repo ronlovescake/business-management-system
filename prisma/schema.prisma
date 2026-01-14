@@ -583,6 +583,76 @@ model ClothingAccountingOpeningBalance {
   @@map("ClothingAccountingOpeningBalance")
 }
 
+model ClothingInventoryReclassEntry {
+  id             String   @id @default(cuid())
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  postingDate     DateTime @db.Timestamptz(6)
+  shipmentId      Int?
+  shipmentCode    String   @db.VarChar(100)
+  productCode     String   @db.VarChar(100)
+  amount          Float    @default(0)
+  fromAccount     String   @db.VarChar(255)
+  toAccount       String   @db.VarChar(255)
+  triggerStatus   String   @db.VarChar(100)
+  idempotencyKey  String   @unique @db.VarChar(220)
+  notes           String?  @db.VarChar(1000)
+  deletedAt       DateTime?
+
+  @@index([postingDate])
+  @@index([shipmentCode])
+  @@index([productCode])
+  @@index([shipmentId])
+  @@index([deletedAt])
+  @@map("clothing_inventory_reclass_entries")
+}
+
+model ClothingInventoryTransitBuildEntry {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  postingDate    DateTime @db.Timestamptz(6)
+  shipmentId     Int?
+  shipmentCode   String   @db.VarChar(100)
+  amount         Float    @default(0)
+  debitAccount   String   @db.VarChar(255)
+  creditAccount  String   @db.VarChar(255)
+  idempotencyKey String   @unique @db.VarChar(220)
+  notes          String?  @db.VarChar(1000)
+  deletedAt      DateTime?
+
+  @@index([postingDate])
+  @@index([shipmentCode])
+  @@index([shipmentId])
+  @@index([creditAccount])
+  @@index([deletedAt])
+  @@map("clothing_inventory_transit_build_entries")
+}
+
+model ClothingAccountingJournalLine {
+  id              String   @id @default(cuid())
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  date            DateTime @db.Timestamptz(6)
+  ref             String   @db.VarChar(120)
+  account         String   @db.VarChar(255)
+  debit           Float    @default(0)
+  credit          Float    @default(0)
+  description     String?  @db.VarChar(1000)
+  sourceType      String   @db.VarChar(50)
+  sourceId        String?  @db.VarChar(100)
+  sourceLineKey   String   @db.VarChar(150)
+  systemGenerated Boolean  @default(true)
+
+  @@unique([sourceType, sourceId, sourceLineKey])
+  @@index([date])
+  @@index([account])
+  @@index([ref])
+  @@index([sourceType])
+  @@index([sourceId])
+  @@map("clothing_accounting_journal_lines")
+}
+
 model HouseholdExpense {
   id              Int               @id @default(autoincrement())
   createdAt       DateTime          @default(now())

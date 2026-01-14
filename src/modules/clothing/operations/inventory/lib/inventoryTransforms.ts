@@ -40,7 +40,8 @@ export function buildInventoryItems(
   const sellableDeltaByProduct = buildSellableDeltaMap(movements);
   const reservedDeltaByProduct = buildReservedDeltaMap(movements);
 
-  const totalOrderByProduct = new Map<string, number>();
+  const directDemandByProduct = new Map<string, number>();
+  const bundleDemandBySku = new Map<string, number>();
   const totalSalesByProduct = new Map<string, number>();
 
   const bundleComponentsBySku = new Map<
@@ -62,6 +63,28 @@ export function buildInventoryItems(
     );
 
     bundleComponentsBySku.set(normalizedSku, components);
+  });
+
+  const productQuantityByCode = new Map<string, number>();
+  products.forEach((product) => {
+    const normalizedCode = normalizeProductCode(product['Product Code']);
+    if (!normalizedCode) {
+      return;
+    }
+
+    productQuantityByCode.set(normalizedCode, product.Quantity || 0);
+  });
+
+  const bundleSellableSupplyBySku = new Map<string, number>();
+  bundleComponentsBySku.forEach((_components, bundleSku) => {
+    bundleSellableSupplyBySku.set(
+      bundleSku,
+      getSellableOnHand({
+        productCode: bundleSku,
+        sellableDeltaByProduct,
+        fallbackQuantity: productQuantityByCode.get(bundleSku) ?? 0,
+      })
+    );
   });
 
   transactions.forEach((transaction) => {
@@ -88,29 +111,19 @@ export function buildInventoryItems(
         return;
       }
 
-      bundleComponents.forEach((component) => {
-        const componentCode = normalizeProductCode(
-          component.componentProductCode
-        );
-
-        if (!componentCode) {
-          return;
-        }
-
-        const currentTotalOrder = totalOrderByProduct.get(componentCode) || 0;
-        totalOrderByProduct.set(
-          componentCode,
-          currentTotalOrder + quantity * component.includedQuantity
-        );
-      });
+      const currentBundleDemand = bundleDemandBySku.get(normalizedProductCode);
+      bundleDemandBySku.set(
+        normalizedProductCode,
+        (currentBundleDemand ?? 0) + quantity
+      );
 
       return;
     }
 
     if (shouldCountAsReserved) {
       const currentTotalOrder =
-        totalOrderByProduct.get(normalizedProductCode) || 0;
-      totalOrderByProduct.set(
+        directDemandByProduct.get(normalizedProductCode) || 0;
+      directDemandByProduct.set(
         normalizedProductCode,
         currentTotalOrder + quantity
       );
@@ -126,6 +139,34 @@ export function buildInventoryItems(
     }
   });
 
+  const componentDemandByProduct = new Map(directDemandByProduct);
+  bundleDemandBySku.forEach((bundleDemand, bundleSku) => {
+    const bundleSellableSupply = bundleSellableSupplyBySku.get(bundleSku) ?? 0;
+    const overflowBundlesNeeded = Math.max(
+      bundleDemand - bundleSellableSupply,
+      0
+    );
+    if (overflowBundlesNeeded <= 0) {
+      return;
+    }
+
+    const components = bundleComponentsBySku.get(bundleSku) ?? [];
+    components.forEach((component) => {
+      const componentCode = normalizeProductCode(
+        component.componentProductCode
+      );
+      if (!componentCode) {
+        return;
+      }
+
+      const current = componentDemandByProduct.get(componentCode) ?? 0;
+      componentDemandByProduct.set(
+        componentCode,
+        current + overflowBundlesNeeded * component.includedQuantity
+      );
+    });
+  });
+
   return products.map((product) => {
     const productCode = product['Product Code'] || '';
     const normalizedProductCode = normalizeProductCode(productCode);
@@ -135,7 +176,10 @@ export function buildInventoryItems(
       sellableDeltaByProduct,
       fallbackQuantity: quantity,
     });
-    const demandRaw = totalOrderByProduct.get(normalizedProductCode) || 0;
+    const isBundleSku = bundleComponentsBySku.has(normalizedProductCode);
+    const demandRaw = isBundleSku
+      ? (bundleDemandBySku.get(normalizedProductCode) ?? 0)
+      : (componentDemandByProduct.get(normalizedProductCode) ?? 0);
     const reservedOnHand =
       reservedDeltaByProduct.get(normalizedProductCode) || 0;
     const reservedQty = Math.max(demandRaw - reservedOnHand, 0);
@@ -152,6 +196,8 @@ export function buildInventoryItems(
       id: product.id,
       productCode,
       quantity,
+      sellableOnHand,
+      reservedOnHand,
       onhand,
       totalOrder: reservedQty,
       availableStock,

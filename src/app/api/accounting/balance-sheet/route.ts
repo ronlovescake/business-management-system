@@ -14,7 +14,10 @@ import {
   isWithinDateRange,
 } from '@/lib/accounting/data-fetchers';
 import { normalizeTransactionAmounts } from '@/lib/accounting/transaction-normalization';
-import { computeCogsTotal } from '@/lib/accounting/inventory-cogs';
+import {
+  computeCogsTotal,
+  computeInventorySeedAndShrinkageTotals,
+} from '@/lib/accounting/inventory-cogs';
 import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -120,6 +123,61 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     amount: entry.debit - entry.credit,
   }));
 
+  const reclassRows = await prisma.clothingInventoryReclassEntry.findMany({
+    where: {
+      deletedAt: null,
+      postingDate: {
+        gte: CUTOVER,
+        lte: asOf,
+      },
+    },
+    orderBy: { postingDate: 'asc' },
+  });
+
+  const reclassEntries: BalanceRow[] = reclassRows
+    .map((row) => {
+      const amount = Number(row.amount ?? 0);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return null;
+      }
+
+      const value = Math.max(amount, 0);
+      return [
+        { account: row.toAccount, amount: value },
+        { account: row.fromAccount, amount: -value },
+      ];
+    })
+    .flat()
+    .filter(Boolean) as BalanceRow[];
+
+  const transitBuildRows =
+    await prisma.clothingInventoryTransitBuildEntry.findMany({
+      where: {
+        deletedAt: null,
+        postingDate: {
+          gte: CUTOVER,
+          lte: asOf,
+        },
+      },
+      orderBy: { postingDate: 'asc' },
+    });
+
+  const transitBuildEntries: BalanceRow[] = transitBuildRows
+    .map((row) => {
+      const amount = Number(row.amount ?? 0);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return null;
+      }
+
+      const value = Math.max(amount, 0);
+      return [
+        { account: row.debitAccount, amount: value },
+        { account: row.creditAccount, amount: -value },
+      ];
+    })
+    .flat()
+    .filter(Boolean) as BalanceRow[];
+
   const isReceivableStatus = (status: string | null | undefined): boolean => {
     const normalized = (status ?? '').trim();
     return (ACCOUNTS_RECEIVABLE_STATUSES as readonly string[]).includes(
@@ -205,6 +263,29 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         ]
       : [];
 
+  // Inventory seed/shrinkage proxy valuation.
+  // Seed: scrap -> asset bucket (treat as opening equity contribution).
+  // Shrinkage: asset bucket -> scrap (treat as reduction to retained earnings).
+  const { seedTotal, shrinkageTotal } =
+    await computeInventorySeedAndShrinkageTotals({
+      from: CUTOVER,
+      to: asOf,
+    });
+  const inventorySeedEntries: BalanceRow[] =
+    Number.isFinite(seedTotal) && seedTotal > 0
+      ? [
+          { account: 'Stock on Hand', amount: seedTotal },
+          { account: 'Opening Equity', amount: -seedTotal },
+        ]
+      : [];
+  const inventoryShrinkageEntries: BalanceRow[] =
+    Number.isFinite(shrinkageTotal) && shrinkageTotal > 0
+      ? [
+          { account: 'Retained Earnings', amount: shrinkageTotal },
+          { account: 'Stock on Hand', amount: -shrinkageTotal },
+        ]
+      : [];
+
   const refundEntries = refunds
     .map((refund) => {
       const refundAt = parseDate(refund.refundDate);
@@ -230,9 +311,13 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const combined = [
     ...openingEntries,
+    ...reclassEntries,
+    ...transitBuildEntries,
     ...txEntries,
     ...expenseEntries,
     ...cogsEntries,
+    ...inventorySeedEntries,
+    ...inventoryShrinkageEntries,
     ...refundEntries,
   ];
 
