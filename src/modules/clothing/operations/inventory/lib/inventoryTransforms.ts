@@ -8,6 +8,7 @@ import type {
 } from '../types';
 import {
   buildSellableDeltaMap,
+  buildReservedDeltaMap,
   getSellableOnHand,
   normalizeProductCode,
 } from '@/lib/inventory/movements';
@@ -37,6 +38,7 @@ export function buildInventoryItems(
   movements: InventoryMovementFromAPI[] = []
 ): InventoryItem[] {
   const sellableDeltaByProduct = buildSellableDeltaMap(movements);
+  const reservedDeltaByProduct = buildReservedDeltaMap(movements);
 
   const totalOrderByProduct = new Map<string, number>();
   const totalSalesByProduct = new Map<string, number>();
@@ -76,8 +78,7 @@ export function buildInventoryItems(
 
     const reservedStatus = isReservedStatus(orderStatus);
     const fulfilledStatus = isFulfilledStatus(orderStatus);
-    const shouldCountAsReserved =
-      reservedStatus || (!reservedStatus && !fulfilledStatus);
+    const shouldCountAsReserved = reservedStatus;
     const shouldCountAsRevenue = fulfilledStatus;
 
     const bundleComponents = bundleComponentsBySku.get(normalizedProductCode);
@@ -134,12 +135,15 @@ export function buildInventoryItems(
       sellableDeltaByProduct,
       fallbackQuantity: quantity,
     });
-    const totalOrder = totalOrderByProduct.get(normalizedProductCode) || 0;
+    const demandRaw = totalOrderByProduct.get(normalizedProductCode) || 0;
+    const reservedOnHand =
+      reservedDeltaByProduct.get(normalizedProductCode) || 0;
+    const reservedQty = Math.max(demandRaw - reservedOnHand, 0);
     const totalSales = totalSalesByProduct.get(normalizedProductCode) || 0;
     const cogs = product.COGS || 0;
     const actualPrice = product['Actual Price'] || 0;
-    const onhand = sellableOnHand;
-    const availableStock = onhand - totalOrder;
+    const onhand = sellableOnHand + reservedOnHand;
+    const availableStock = sellableOnHand - reservedQty;
     const netProfit = totalSales - cogs;
     const percentage = cogs !== 0 ? netProfit / cogs : 0;
     const endingInventoryValue = availableStock * actualPrice;
@@ -149,7 +153,7 @@ export function buildInventoryItems(
       productCode,
       quantity,
       onhand,
-      totalOrder,
+      totalOrder: reservedQty,
       availableStock,
       totalSales,
       cogs,

@@ -26,6 +26,11 @@ export function buildBucketDeltaMap(
     const qty = movement.quantity ?? 0;
     const fromBucket = movement.fromBucket === bucket;
     const toBucket = movement.toBucket === bucket;
+
+    if (!fromBucket && !toBucket) {
+      return;
+    }
+
     const current = deltas.get(code) ?? 0;
     deltas.set(code, current + (toBucket ? qty : 0) - (fromBucket ? qty : 0));
   });
