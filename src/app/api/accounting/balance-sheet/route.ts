@@ -13,7 +13,7 @@ import {
   getPaidAtDate,
   isWithinDateRange,
 } from '@/lib/accounting/data-fetchers';
-import { normalizeTransactionAmounts } from '@/lib/accounting/transaction-normalization';
+import { normalizeTransactionAmountsForAccounting } from '@/lib/accounting/transaction-normalization';
 import {
   computeCogsTotal,
   computeInventorySeedAndShrinkageTotals,
@@ -203,7 +203,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const txEntries = transactions
     .map((tx) => {
-      const { paymentReceived, balanceDue } = normalizeTransactionAmounts(tx);
+      const { paymentReceived, balanceDue } =
+        normalizeTransactionAmountsForAccounting(tx);
 
       const recognizedAt = getRecognizedAt(tx);
       if (!isWithinDateRange(recognizedAt, CUTOVER, asOf)) {

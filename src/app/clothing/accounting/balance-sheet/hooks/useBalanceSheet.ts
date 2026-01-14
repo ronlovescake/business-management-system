@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { logger } from '@/lib/logger';
+import { formatCurrencyPHP } from '@/lib/accounting/formatters';
 
 export type BalanceSheetRow = {
   id: string;
@@ -106,13 +107,7 @@ export function useBalanceSheet() {
       );
   }, [rows, searchQuery]);
 
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat('en-PH', {
-      style: 'currency',
-      currency: 'PHP',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
+  const formatCurrency = formatCurrencyPHP;
 
   const handleExportCSV = () => {
     logger.info('Export CSV (balance sheet) not implemented');

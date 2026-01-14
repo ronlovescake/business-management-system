@@ -14,11 +14,11 @@ import {
   getPaidAtDate,
   isWithinDateRange,
 } from '@/lib/accounting/data-fetchers';
-import { normalizeTransactionAmounts } from '@/lib/accounting/transaction-normalization';
 import {
   computeCogsTotal,
   computeInventorySeedAndShrinkageTotals,
 } from '@/lib/accounting/inventory-cogs';
+import { normalizeTransactionAmountsForAccounting } from '@/lib/accounting/transaction-normalization';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,7 +69,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   );
 
   const legacyRevenueTotal = filteredTransactions.reduce((sum, tx) => {
-    const { paymentReceived } = normalizeTransactionAmounts(tx);
+    const { paymentReceived } = normalizeTransactionAmountsForAccounting(tx);
     return sum + paymentReceived;
   }, 0);
 

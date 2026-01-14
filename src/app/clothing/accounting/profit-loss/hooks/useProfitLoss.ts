@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { logger } from '@/lib/logger';
 import { PERIOD_OPTIONS, type PeriodOption } from '@/lib/accounting/constants';
 import { getPeriodRange } from '@/lib/accounting/date-utils';
+import { formatCurrencyPHP } from '@/lib/accounting/formatters';
 
 export type ProfitLossRow = {
   id: string;
@@ -175,13 +176,7 @@ export function useProfitLoss() {
     };
   }, [period, rows]);
 
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat('en-PH', {
-      style: 'currency',
-      currency: 'PHP',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
+  const formatCurrency = formatCurrencyPHP;
 
   const handleExportCSV = () => {
     const header = ['Category', 'Type', 'Amount'];

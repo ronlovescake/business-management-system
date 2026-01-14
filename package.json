@@ -46,7 +46,8 @@
     "inventory:ledger:drift": "tsx scripts/report-inventory-ledger-drift.ts --onlyWithMovements --minAbsDelta 0.000001 --failOnDrift",
     "inventory:ledger:controls": "npm run -s inventory:ledger:healthcheck && npm run -s inventory:ledger:drift",
     "inventory:ledger:rollback-sales-backfill": "tsx scripts/rollback-sale-backfill-movements.ts",
-    "inventory:movements:resync-paid-prepared": "tsx scripts/resync-paid-prepared-inventory-movements.ts"
+    "inventory:movements:resync-paid-prepared": "tsx scripts/resync-paid-prepared-inventory-movements.ts",
+    "accounting:transactions:sanitycheck": "tsx scripts/accounting-sanity-check.ts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^7.1.0",

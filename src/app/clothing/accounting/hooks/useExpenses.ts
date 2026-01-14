@@ -1,6 +1,10 @@
 import { useState, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { logger } from '@/lib/logger';
+import {
+  formatCurrencyPHP,
+  formatLongDateUS,
+} from '@/lib/accounting/formatters';
 import { useExpenseData } from '@/hooks/useSheetData';
 import { showNotification } from '@mantine/notifications';
 import { getCurrentDateISO } from '@/utils/date';
@@ -343,20 +347,11 @@ export function useExpenses() {
   // ============================================================================
 
   const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
+    return formatLongDateUS(dateString);
   };
 
   const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('en-PH', {
-      style: 'currency',
-      currency: 'PHP',
-    }).format(amount);
+    return formatCurrencyPHP(amount);
   };
 
   const getCategoryColor = (category: string): string => {

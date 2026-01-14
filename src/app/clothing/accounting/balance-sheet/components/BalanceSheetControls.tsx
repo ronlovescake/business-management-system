@@ -1,12 +1,11 @@
 import React, { memo } from 'react';
-import { Group, TextInput, Select, Button } from '@mantine/core';
-import { IconList, IconSearch, IconDownload } from '@tabler/icons-react';
-import { actionButtonStyles } from '@/components/shared/styles/actionButtonStyles';
+import { IconList } from '@tabler/icons-react';
 import {
   ControlPanelCard,
   type ControlPanelTabConfig,
 } from '@/components/ui/ControlPanelCard';
 import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
+import { AccountingSearchSelectExportTabPanel } from '../../components/AccountingSearchSelectExportTabPanel';
 
 interface BalanceSheetControlsProps {
   activeTab: string | null;
@@ -38,32 +37,18 @@ export const BalanceSheetControls = memo(function BalanceSheetControls({
       label: 'Balance Sheet',
       leftSection: <IconList size={16} />,
       panel: (
-        <Group wrap="wrap" gap="sm">
-          <TextInput
-            placeholder="Search accounts..."
-            leftSection={<IconSearch size={16} />}
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            style={{ flex: 1, minWidth: 220 }}
-            data-ctrlf-target="balance-sheet-controls-search"
-          />
-          <Select
-            placeholder="As of date"
-            data={[asOf, 'December 31, 2025', 'November 30, 2025']}
-            value={asOf}
-            onChange={(value) => value && onAsOfChange(value)}
-            style={{ width: 220 }}
-          />
-          <Button
-            leftSection={<IconDownload size={16} />}
-            size="sm"
-            radius="sm"
-            styles={actionButtonStyles}
-            onClick={onExportCSV}
-          >
-            Export
-          </Button>
-        </Group>
+        <AccountingSearchSelectExportTabPanel
+          searchPlaceholder="Search accounts..."
+          searchQuery={searchQuery}
+          onSearchChange={onSearchChange}
+          searchCtrlFTarget="balance-sheet-controls-search"
+          selectPlaceholder="As of date"
+          selectOptions={[asOf, 'December 31, 2025', 'November 30, 2025']}
+          selectValue={asOf}
+          onSelectChange={onAsOfChange}
+          selectWidth={220}
+          onExport={onExportCSV}
+        />
       ),
     },
   ];

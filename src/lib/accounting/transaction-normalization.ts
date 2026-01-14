@@ -6,6 +6,10 @@ export type TransactionAmountInputs = {
   lineTotal?: number | null;
 };
 
+export type TransactionAccountingAmountInputs = TransactionAmountInputs & {
+  orderStatus?: string | null;
+};
+
 export type NormalizedTransactionAmounts = {
   grossSale: number;
   paymentReceived: number;
@@ -61,4 +65,58 @@ export function normalizeTransactionAmounts(
     paymentReceived,
     balanceDue,
   };
+}
+
+function normalizeStatus(status: string | null | undefined): string {
+  return (status ?? '').trim();
+}
+
+function isPaidForAccounting(status: string | null | undefined): boolean {
+  const normalized = normalizeStatus(status);
+  return (
+    normalized === 'Checked Out' ||
+    normalized === 'Shipped' ||
+    normalized === 'Ready For Dispatch'
+  );
+}
+
+function isPendingPaymentForAccounting(
+  status: string | null | undefined
+): boolean {
+  return normalizeStatus(status) === 'Pending Payment';
+}
+
+/**
+ * Accounting-specific normalization.
+ *
+ * Current ops semantics:
+ * - Paid statuses should represent fully paid orders; use `grossSale` as cash.
+ * - Pending Payment represents reservation/deposit flows; use `adjustment` (cash received) and derive balance.
+ *
+ * This intentionally reduces reliance on a manually-entered Adjustment value *when an order is marked paid*.
+ */
+export function normalizeTransactionAmountsForAccounting(
+  tx: TransactionAccountingAmountInputs
+): NormalizedTransactionAmounts {
+  const quantity = toFiniteNumber(tx.quantity) ?? 0;
+  const unitPrice = toFiniteNumber(tx.unitPrice) ?? 0;
+  const grossSale = Number.isFinite(quantity * unitPrice)
+    ? quantity * unitPrice
+    : 0;
+
+  if (isPaidForAccounting(tx.orderStatus)) {
+    const paid = Math.max(grossSale, 0);
+    return { grossSale: paid, paymentReceived: paid, balanceDue: 0 };
+  }
+
+  // Pending Payment: treat Adjustment as cash received and compute the remaining balance.
+  if (isPendingPaymentForAccounting(tx.orderStatus)) {
+    const adjustment = toFiniteNumber(tx.adjustment) ?? 0;
+    const paymentReceived = clamp(adjustment, 0, Math.max(grossSale, 0));
+    const balanceDue = Math.max(grossSale - paymentReceived, 0);
+    return { grossSale, paymentReceived, balanceDue };
+  }
+
+  // Default behavior for other statuses.
+  return normalizeTransactionAmounts(tx);
 }

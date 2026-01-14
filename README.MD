@@ -22,6 +22,16 @@
 
 ---
 
+# 🧾 Accounting Diagnostics
+
+Run a read-only scan to flag suspicious transactions (e.g., paid status but missing quantity/unit price, pending payment deposit greater than gross sale):
+
+```bash
+npm run -s accounting:transactions:sanitycheck -- --from 2026-01-01 --limit 50
+```
+
+---
+
 # 🎨 State & Responsive
 - **Zustand** → UI-only state (avoid storing server data)
 - **React Query DevTools** → Query debugging

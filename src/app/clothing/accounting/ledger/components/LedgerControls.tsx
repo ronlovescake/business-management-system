@@ -1,19 +1,12 @@
 import React, { memo } from 'react';
-import { Group, TextInput, Select, FileButton, Button } from '@mantine/core';
-import {
-  IconList,
-  IconSearch,
-  IconUpload,
-  IconDownload,
-  IconPlus,
-  IconBuildingBank,
-} from '@tabler/icons-react';
-import { actionButtonStyles } from '@/components/shared/styles/actionButtonStyles';
+import { Group, TextInput, Button } from '@mantine/core';
+import { IconList, IconPlus, IconBuildingBank } from '@tabler/icons-react';
 import {
   ControlPanelCard,
   type ControlPanelTabConfig,
 } from '@/components/ui/ControlPanelCard';
 import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
+import { AccountingEntriesListTabPanel } from '../../components/AccountingEntriesListTabPanel';
 import {
   LEDGER_PERIOD_OPTIONS,
   type LedgerPeriodOption,
@@ -63,72 +56,24 @@ export const LedgerControls = memo(function LedgerControls({
       label: 'Ledger Entries',
       leftSection: <IconList size={16} />,
       panel: (
-        <Group wrap="wrap" gap="sm">
-          <TextInput
-            placeholder="Search ledger..."
-            leftSection={<IconSearch size={16} />}
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            style={{ flex: 1, minWidth: 220 }}
-            data-ctrlf-target="ledger-controls-search"
-          />
-          <Select
-            placeholder="Filter by account"
-            data={['All', ...accounts]}
-            value={filterAccount}
-            onChange={(value) =>
-              onAccountFilterChange(value === 'All' ? null : value)
-            }
-            clearable
-            style={{ width: 220 }}
-          />
-          <Select
-            placeholder="Select period"
-            data={LEDGER_PERIOD_OPTIONS}
-            value={period}
-            onChange={(value) => {
-              if (!value) {
-                return;
-              }
-              if (LEDGER_PERIOD_OPTIONS.includes(value as LedgerPeriodOption)) {
-                onPeriodChange(value as LedgerPeriodOption);
-              }
-            }}
-            style={{ width: 180 }}
-          />
-          <FileButton onChange={onImportCSV} accept=".csv,text/csv">
-            {(props) => (
-              <Button
-                {...props}
-                leftSection={<IconUpload size={16} />}
-                size="sm"
-                radius="sm"
-                styles={actionButtonStyles}
-                loading={isImporting}
-              >
-                Import CSV
-              </Button>
-            )}
-          </FileButton>
-          <Button
-            leftSection={<IconDownload size={16} />}
-            size="sm"
-            radius="sm"
-            styles={actionButtonStyles}
-            onClick={onExportCSV}
-          >
-            Export
-          </Button>
-          <Button
-            leftSection={<IconPlus size={16} />}
-            size="sm"
-            radius="sm"
-            color="green"
-            onClick={onAddEntry}
-          >
-            Add Entry
-          </Button>
-        </Group>
+        <AccountingEntriesListTabPanel
+          searchPlaceholder="Search ledger..."
+          searchQuery={searchQuery}
+          onSearchChange={onSearchChange}
+          searchCtrlFTarget="ledger-controls-search"
+          accounts={accounts}
+          filterAccount={filterAccount}
+          onAccountFilterChange={onAccountFilterChange}
+          periodOptions={LEDGER_PERIOD_OPTIONS}
+          period={period}
+          onPeriodChange={(nextPeriod) =>
+            onPeriodChange(nextPeriod as LedgerPeriodOption)
+          }
+          onImportCSV={onImportCSV}
+          onExportCSV={onExportCSV}
+          onAddEntry={onAddEntry}
+          isImporting={isImporting}
+        />
       ),
     },
     {

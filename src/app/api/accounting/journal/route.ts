@@ -14,7 +14,7 @@ import {
   getPaidAtDate,
   isWithinDateRange,
 } from '@/lib/accounting/data-fetchers';
-import { normalizeTransactionAmounts } from '@/lib/accounting/transaction-normalization';
+import { normalizeTransactionAmountsForAccounting } from '@/lib/accounting/transaction-normalization';
 import {
   buildCogsAndInventoryEntries,
   buildInventorySeedAndShrinkageEntries,
@@ -117,7 +117,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const legacyTxEntries = transactions
     .filter((tx) => !paymentTransactionIds.has(tx.id))
     .map((tx) => {
-      const { paymentReceived } = normalizeTransactionAmounts(tx);
+      const { paymentReceived } = normalizeTransactionAmountsForAccounting(tx);
       const amount = paymentReceived;
 
       const paidAt = getPaidAtDate(tx);

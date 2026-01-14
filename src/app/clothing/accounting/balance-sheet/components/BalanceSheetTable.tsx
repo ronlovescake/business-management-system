@@ -1,6 +1,13 @@
 import { memo } from 'react';
-import { Stack, Card, Box, Table, Text, Group, Badge } from '@mantine/core';
+import { Stack, Table, Text, Badge } from '@mantine/core';
 import type { BalanceSheetRow } from '../hooks/useBalanceSheet';
+import { AccountingTableCard } from '../../components/AccountingTableCard';
+import { AccountingTableSummaryCard } from '../../components/AccountingTableSummaryCard';
+import {
+  ACCOUNTING_TABLE_HEAD_STICKY_STYLE,
+  accountingThStyle,
+  ACCOUNTING_TABLE_TD_TEXT_STYLE,
+} from '../../components/accountingTableStyles';
 
 interface BalanceSheetTableProps {
   rows: BalanceSheetRow[];
@@ -31,115 +38,79 @@ export const BalanceSheetTable = memo(function BalanceSheetTable({
 
   return (
     <Stack gap="md">
-      <Card
-        withBorder
-        padding={0}
-        style={{ overflow: 'hidden', height: '73vh' }}
-      >
-        <Box style={{ height: '100%', overflowY: 'auto' }}>
-          <Table highlightOnHover withTableBorder>
-            <Table.Thead style={{ backgroundColor: '#f1f3f5' }}>
+      <AccountingTableCard>
+        <Table highlightOnHover withTableBorder>
+          <Table.Thead style={ACCOUNTING_TABLE_HEAD_STICKY_STYLE}>
+            <Table.Tr>
+              <Table.Th style={accountingThStyle({ width: 320 })}>
+                ACCOUNT
+              </Table.Th>
+              <Table.Th style={accountingThStyle({ width: 180 })}>
+                TYPE
+              </Table.Th>
+              <Table.Th
+                style={accountingThStyle({ width: 220, textAlign: 'right' })}
+              >
+                AMOUNT (₱)
+              </Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {filteredRows.length === 0 ? (
               <Table.Tr>
-                <Table.Th
-                  style={{
-                    width: 320,
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'center',
-                  }}
-                >
-                  ACCOUNT
-                </Table.Th>
-                <Table.Th
-                  style={{
-                    width: 180,
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'center',
-                  }}
-                >
-                  TYPE
-                </Table.Th>
-                <Table.Th
-                  style={{
-                    width: 220,
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'right',
-                  }}
-                >
-                  AMOUNT (₱)
-                </Table.Th>
+                <Table.Td colSpan={3} style={{ textAlign: 'center' }}>
+                  <Text c="dimmed" py="xl">
+                    No accounts found
+                  </Text>
+                </Table.Td>
               </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {filteredRows.length === 0 ? (
-                <Table.Tr>
-                  <Table.Td colSpan={3} style={{ textAlign: 'center' }}>
-                    <Text c="dimmed" py="xl">
-                      No accounts found
+            ) : (
+              filteredRows.map((row) => (
+                <Table.Tr key={row.id}>
+                  <Table.Td>
+                    <Text
+                      size="sm"
+                      fw={500}
+                      c={ACCOUNTING_TABLE_TD_TEXT_STYLE.color}
+                    >
+                      {row.account}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td style={{ textAlign: 'center' }}>
+                    <Badge
+                      color={
+                        row.type === 'Asset'
+                          ? 'blue'
+                          : row.type === 'Liability'
+                            ? 'red'
+                            : 'green'
+                      }
+                      variant="light"
+                    >
+                      {row.type}
+                    </Badge>
+                  </Table.Td>
+                  <Table.Td style={{ textAlign: 'right' }}>
+                    <Text fw={600} c={ACCOUNTING_TABLE_TD_TEXT_STYLE.color}>
+                      {formatCurrency(row.amount)}
                     </Text>
                   </Table.Td>
                 </Table.Tr>
-              ) : (
-                filteredRows.map((row) => (
-                  <Table.Tr key={row.id}>
-                    <Table.Td>
-                      <Text size="sm" fw={500} c="#495057">
-                        {row.account}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td style={{ textAlign: 'center' }}>
-                      <Badge
-                        color={
-                          row.type === 'Asset'
-                            ? 'blue'
-                            : row.type === 'Liability'
-                              ? 'red'
-                              : 'green'
-                        }
-                        variant="light"
-                      >
-                        {row.type}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td style={{ textAlign: 'right' }}>
-                      <Text fw={600} c="#495057">
-                        {formatCurrency(row.amount)}
-                      </Text>
-                    </Table.Td>
-                  </Table.Tr>
-                ))
-              )}
-            </Table.Tbody>
-          </Table>
-        </Box>
-      </Card>
+              ))
+            )}
+          </Table.Tbody>
+        </Table>
+      </AccountingTableCard>
 
-      <Card withBorder padding="md">
-        <Group justify="space-between">
-          <Text size="sm" c="dimmed">
-            Showing {filteredRows.length} of {rows.length} accounts
-          </Text>
-          <Group gap="lg">
-            <Text size="sm" fw={600}>
-              Assets: {formatCurrency(totals.assets)}
-            </Text>
-            <Text size="sm" fw={600}>
-              Liabilities: {formatCurrency(totals.liabilities)}
-            </Text>
-            <Text size="sm" fw={600}>
-              Equity: {formatCurrency(totals.equity)}
-            </Text>
-            <Text size="sm" fw={600}>
-              Balance: {formatCurrency(balance)}
-            </Text>
-          </Group>
-        </Group>
-      </Card>
+      <AccountingTableSummaryCard
+        leftText={`Showing ${filteredRows.length} of ${rows.length} accounts`}
+        items={[
+          { label: 'Assets:', value: formatCurrency(totals.assets) },
+          { label: 'Liabilities:', value: formatCurrency(totals.liabilities) },
+          { label: 'Equity:', value: formatCurrency(totals.equity) },
+          { label: 'Balance:', value: formatCurrency(balance) },
+        ]}
+      />
     </Stack>
   );
 });

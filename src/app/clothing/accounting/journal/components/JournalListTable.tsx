@@ -1,6 +1,14 @@
 import { memo } from 'react';
-import { Stack, Card, Box, Table, Text, Group } from '@mantine/core';
-import type { JournalEntry } from '../../hooks/useJournal';
+import { Stack, Table, Text } from '@mantine/core';
+import type { JournalEntry } from '../hooks/useJournal';
+import { AccountingTableCard } from '../../components/AccountingTableCard';
+import { AccountingTableSummaryCard } from '../../components/AccountingTableSummaryCard';
+import {
+  ACCOUNTING_TABLE_HEAD_STICKY_STYLE,
+  accountingThStyle,
+  ACCOUNTING_TABLE_TD_CENTER_STYLE,
+  ACCOUNTING_TABLE_TD_TEXT_STYLE,
+} from '../../components/accountingTableStyles';
 
 interface JournalListTableProps {
   entries: JournalEntry[];
@@ -26,142 +34,86 @@ export const JournalListTable = memo(function JournalListTable({
 
   return (
     <Stack gap="md">
-      <Card
-        withBorder
-        padding={0}
-        style={{ overflow: 'hidden', height: '73vh' }}
-      >
-        <Box style={{ height: '100%', overflowY: 'auto' }}>
-          <Table
-            highlightOnHover
-            withTableBorder
-            style={{ tableLayout: 'auto', minWidth: '100%' }}
-          >
-            <Table.Thead style={{ backgroundColor: '#f1f3f5' }}>
+      <AccountingTableCard>
+        <Table
+          highlightOnHover
+          withTableBorder
+          style={{ tableLayout: 'auto', minWidth: '100%' }}
+        >
+          <Table.Thead style={ACCOUNTING_TABLE_HEAD_STICKY_STYLE}>
+            <Table.Tr>
+              <Table.Th style={accountingThStyle()}>DATE</Table.Th>
+              <Table.Th style={accountingThStyle()}>REF</Table.Th>
+              <Table.Th style={accountingThStyle()}>ACCOUNT</Table.Th>
+              <Table.Th style={accountingThStyle({ textAlign: 'right' })}>
+                DEBIT (₱)
+              </Table.Th>
+              <Table.Th style={accountingThStyle({ textAlign: 'right' })}>
+                CREDIT (₱)
+              </Table.Th>
+              <Table.Th style={accountingThStyle()}>DESCRIPTION</Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {filteredEntries.length === 0 ? (
               <Table.Tr>
-                <Table.Th
-                  style={{
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'center',
-                  }}
-                >
-                  DATE
-                </Table.Th>
-                <Table.Th
-                  style={{
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'center',
-                  }}
-                >
-                  REF
-                </Table.Th>
-                <Table.Th
-                  style={{
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'center',
-                  }}
-                >
-                  ACCOUNT
-                </Table.Th>
-                <Table.Th
-                  style={{
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'right',
-                  }}
-                >
-                  DEBIT (₱)
-                </Table.Th>
-                <Table.Th
-                  style={{
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'right',
-                  }}
-                >
-                  CREDIT (₱)
-                </Table.Th>
-                <Table.Th
-                  style={{
-                    padding: '16px 12px',
-                    color: '#495057',
-                    backgroundColor: '#f1f3f5',
-                    textAlign: 'center',
-                  }}
-                >
-                  DESCRIPTION
-                </Table.Th>
+                <Table.Td colSpan={6} style={{ textAlign: 'center' }}>
+                  <Text c="dimmed" py="xl">
+                    No journal entries found
+                  </Text>
+                </Table.Td>
               </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {filteredEntries.length === 0 ? (
-                <Table.Tr>
-                  <Table.Td colSpan={6} style={{ textAlign: 'center' }}>
-                    <Text c="dimmed" py="xl">
-                      No journal entries found
+            ) : (
+              filteredEntries.map((entry) => (
+                <Table.Tr key={entry.id}>
+                  <Table.Td style={ACCOUNTING_TABLE_TD_CENTER_STYLE}>
+                    {formatDate(entry.date)}
+                  </Table.Td>
+                  <Table.Td style={ACCOUNTING_TABLE_TD_CENTER_STYLE}>
+                    {entry.ref}
+                  </Table.Td>
+                  <Table.Td>
+                    <Text
+                      size="sm"
+                      fw={500}
+                      c={ACCOUNTING_TABLE_TD_TEXT_STYLE.color}
+                    >
+                      {entry.account}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td style={{ textAlign: 'right' }}>
+                    <Text fw={600} c={ACCOUNTING_TABLE_TD_TEXT_STYLE.color}>
+                      {entry.debit ? formatCurrency(entry.debit) : '—'}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td style={{ textAlign: 'right' }}>
+                    <Text fw={600} c={ACCOUNTING_TABLE_TD_TEXT_STYLE.color}>
+                      {entry.credit ? formatCurrency(entry.credit) : '—'}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text
+                      size="sm"
+                      lineClamp={2}
+                      c={ACCOUNTING_TABLE_TD_TEXT_STYLE.color}
+                    >
+                      {entry.description}
                     </Text>
                   </Table.Td>
                 </Table.Tr>
-              ) : (
-                filteredEntries.map((entry) => (
-                  <Table.Tr key={entry.id}>
-                    <Table.Td style={{ color: '#495057', textAlign: 'center' }}>
-                      {formatDate(entry.date)}
-                    </Table.Td>
-                    <Table.Td style={{ textAlign: 'center', color: '#495057' }}>
-                      {entry.ref}
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="sm" fw={500} c="#495057">
-                        {entry.account}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td style={{ textAlign: 'right' }}>
-                      <Text fw={600} c="#495057">
-                        {entry.debit ? formatCurrency(entry.debit) : '—'}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td style={{ textAlign: 'right' }}>
-                      <Text fw={600} c="#495057">
-                        {entry.credit ? formatCurrency(entry.credit) : '—'}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="sm" lineClamp={2} c="#495057">
-                        {entry.description}
-                      </Text>
-                    </Table.Td>
-                  </Table.Tr>
-                ))
-              )}
-            </Table.Tbody>
-          </Table>
-        </Box>
-      </Card>
+              ))
+            )}
+          </Table.Tbody>
+        </Table>
+      </AccountingTableCard>
 
-      <Card withBorder padding="md">
-        <Group justify="space-between">
-          <Text size="sm" c="dimmed">
-            Showing {filteredEntries.length} of {entries.length} lines
-          </Text>
-          <Group gap="lg">
-            <Text size="sm" fw={600}>
-              Debit Total: {formatCurrency(totals.debit)}
-            </Text>
-            <Text size="sm" fw={600}>
-              Credit Total: {formatCurrency(totals.credit)}
-            </Text>
-          </Group>
-        </Group>
-      </Card>
+      <AccountingTableSummaryCard
+        leftText={`Showing ${filteredEntries.length} of ${entries.length} lines`}
+        items={[
+          { label: 'Debit Total:', value: formatCurrency(totals.debit) },
+          { label: 'Credit Total:', value: formatCurrency(totals.credit) },
+        ]}
+      />
     </Stack>
   );
 });

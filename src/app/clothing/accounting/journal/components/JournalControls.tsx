@@ -1,18 +1,11 @@
 import React, { memo } from 'react';
-import { Group, TextInput, Select, FileButton, Button } from '@mantine/core';
-import {
-  IconList,
-  IconSearch,
-  IconUpload,
-  IconDownload,
-  IconPlus,
-} from '@tabler/icons-react';
-import { actionButtonStyles } from '@/components/shared/styles/actionButtonStyles';
+import { IconList } from '@tabler/icons-react';
 import {
   ControlPanelCard,
   type ControlPanelTabConfig,
 } from '@/components/ui/ControlPanelCard';
 import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
+import { AccountingEntriesListTabPanel } from '../../components/AccountingEntriesListTabPanel';
 import {
   JOURNAL_PERIOD_OPTIONS,
   type JournalPeriodOption,
@@ -60,74 +53,24 @@ export const JournalControls = memo(function JournalControls({
       label: 'Journal Entries',
       leftSection: <IconList size={16} />,
       panel: (
-        <Group wrap="wrap" gap="sm">
-          <TextInput
-            placeholder="Search journal..."
-            leftSection={<IconSearch size={16} />}
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            style={{ flex: 1, minWidth: 220 }}
-            data-ctrlf-target="journal-controls-search"
-          />
-          <Select
-            placeholder="Filter by account"
-            data={['All', ...accounts]}
-            value={filterAccount}
-            onChange={(value) =>
-              onAccountFilterChange(value === 'All' ? null : value)
-            }
-            clearable
-            style={{ width: 220 }}
-          />
-          <Select
-            placeholder="Select period"
-            data={JOURNAL_PERIOD_OPTIONS}
-            value={period}
-            onChange={(value) => {
-              if (!value) {
-                return;
-              }
-              if (
-                JOURNAL_PERIOD_OPTIONS.includes(value as JournalPeriodOption)
-              ) {
-                onPeriodChange(value as JournalPeriodOption);
-              }
-            }}
-            style={{ width: 180 }}
-          />
-          <FileButton onChange={onImportCSV} accept=".csv,text/csv">
-            {(props) => (
-              <Button
-                {...props}
-                leftSection={<IconUpload size={16} />}
-                size="sm"
-                radius="sm"
-                styles={actionButtonStyles}
-                loading={isImporting}
-              >
-                Import CSV
-              </Button>
-            )}
-          </FileButton>
-          <Button
-            leftSection={<IconDownload size={16} />}
-            size="sm"
-            radius="sm"
-            styles={actionButtonStyles}
-            onClick={onExportCSV}
-          >
-            Export
-          </Button>
-          <Button
-            leftSection={<IconPlus size={16} />}
-            size="sm"
-            radius="sm"
-            color="green"
-            onClick={onAddEntry}
-          >
-            Add Entry
-          </Button>
-        </Group>
+        <AccountingEntriesListTabPanel
+          searchPlaceholder="Search journal..."
+          searchQuery={searchQuery}
+          onSearchChange={onSearchChange}
+          searchCtrlFTarget="journal-controls-search"
+          accounts={accounts}
+          filterAccount={filterAccount}
+          onAccountFilterChange={onAccountFilterChange}
+          periodOptions={JOURNAL_PERIOD_OPTIONS}
+          period={period}
+          onPeriodChange={(nextPeriod) =>
+            onPeriodChange(nextPeriod as JournalPeriodOption)
+          }
+          onImportCSV={onImportCSV}
+          onExportCSV={onExportCSV}
+          onAddEntry={onAddEntry}
+          isImporting={isImporting}
+        />
       ),
     },
   ];

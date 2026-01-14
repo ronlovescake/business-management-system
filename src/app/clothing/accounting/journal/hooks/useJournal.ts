@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { logger } from '@/lib/logger';
 import { PERIOD_OPTIONS, type PeriodOption } from '@/lib/accounting/constants';
 import { getPeriodRange } from '@/lib/accounting/date-utils';
+import {
+  formatCurrencyPHP,
+  formatLongDateUS,
+} from '@/lib/accounting/formatters';
 
 export type JournalEntry = {
   id: string;
@@ -118,21 +122,9 @@ export function useJournal() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [entries]);
 
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat('en-PH', {
-      style: 'currency',
-      currency: 'PHP',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
+  const formatCurrency = formatCurrencyPHP;
 
-  const formatDate = (date: string) =>
-    new Intl.DateTimeFormat('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    }).format(new Date(date));
+  const formatDate = (date: string) => formatLongDateUS(date);
 
   const handleAddEntry = () => {
     logger.info('Add Journal Entry clicked');
