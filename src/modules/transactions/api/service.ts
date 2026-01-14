@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import type { Prisma, Transaction } from '@prisma/client';
 import { prisma } from '@/lib/db';
-import { isFulfilledStatus } from '@/lib/inventory/statuses';
+import { isFulfilledStatus, isReservedStatus } from '@/lib/inventory/statuses';
 import { logger } from '@/lib/logger';
 import { getCurrentUser } from '@/lib/auth/session';
 import {
@@ -428,13 +428,6 @@ async function logStatusChange(
   });
 }
 
-function shouldRecordSaleMovement(
-  previousStatus: string | null | undefined,
-  newStatus: string | null | undefined
-) {
-  return isFulfilledStatus(newStatus) && !isFulfilledStatus(previousStatus);
-}
-
 function normalizeProductCode(value: string | null | undefined): string {
   return (value ?? '').trim();
 }
@@ -443,36 +436,65 @@ function buildAutoSaleMovementNote(transactionId: number) {
   return `auto-sale txn ${transactionId}`;
 }
 
-async function recordSaleMovementIfNeeded(
+function buildAutoReserveMovementNote(transactionId: number) {
+  return `auto-reserve txn ${transactionId}`;
+}
+
+type TransactionForInventorySync = Pick<
+  Transaction,
+  'id' | 'productCode' | 'quantity' | 'orderDate' | 'orderStatus' | 'adjustment'
+>;
+
+type AutoMovementRecord = {
+  id: number;
+  deletedAt: Date | null;
+};
+
+async function findLatestAutoMovement(
   client: Prisma.TransactionClient | typeof prisma,
-  transaction: Pick<
-    Transaction,
-    'id' | 'productCode' | 'quantity' | 'orderDate'
-  >
-) {
-  const productCode = normalizeProductCode(transaction.productCode);
-  const quantity = transaction.quantity ?? 0;
-
-  if (!productCode || quantity <= 0) {
-    return;
-  }
-
-  const note = buildAutoSaleMovementNote(transaction.id);
-
-  const existingMovement = await client.inventoryMovement.findFirst({
-    where: {
-      deletedAt: null,
-      productCode: {
-        equals: productCode,
-        mode: 'insensitive',
-      },
-      fromBucket: 'sellable',
-      toBucket: 'sold',
-      notes: note,
-    },
+  note: string
+): Promise<AutoMovementRecord | null> {
+  return client.inventoryMovement.findFirst({
+    where: { notes: note },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, deletedAt: true },
   });
+}
 
-  if (existingMovement) {
+async function setAutoMovementActive(params: {
+  client: Prisma.TransactionClient | typeof prisma;
+  existing: AutoMovementRecord | null;
+  productCode: string;
+  quantity: number;
+  fromBucket: Prisma.InventoryMovementCreateInput['fromBucket'];
+  toBucket: Prisma.InventoryMovementCreateInput['toBucket'];
+  postingDate: string | null;
+  note: string;
+}) {
+  const {
+    client,
+    existing,
+    productCode,
+    quantity,
+    fromBucket,
+    toBucket,
+    postingDate,
+    note,
+  } = params;
+
+  if (existing) {
+    await client.inventoryMovement.update({
+      where: { id: existing.id },
+      data: {
+        deletedAt: null,
+        productCode,
+        quantity,
+        fromBucket,
+        toBucket,
+        postingDate,
+        notes: note,
+      },
+    });
     return;
   }
 
@@ -480,12 +502,107 @@ async function recordSaleMovementIfNeeded(
     data: {
       productCode,
       quantity,
-      fromBucket: 'sellable',
-      toBucket: 'sold',
+      fromBucket,
+      toBucket,
+      postingDate,
       notes: note,
-      postingDate: transaction.orderDate ?? null,
     },
   });
+}
+
+async function setAutoMovementInactive(params: {
+  client: Prisma.TransactionClient | typeof prisma;
+  existing: AutoMovementRecord | null;
+}) {
+  const { client, existing } = params;
+  if (!existing || existing.deletedAt) {
+    return;
+  }
+
+  await client.inventoryMovement.update({
+    where: { id: existing.id },
+    data: { deletedAt: new Date() },
+  });
+}
+
+async function syncInventoryMovementsForTransaction(
+  client: Prisma.TransactionClient | typeof prisma,
+  transaction: TransactionForInventorySync
+) {
+  const productCode = normalizeProductCode(transaction.productCode);
+  const quantity = transaction.quantity ?? 0;
+
+  const reserveNote = buildAutoReserveMovementNote(transaction.id);
+  const saleNote = buildAutoSaleMovementNote(transaction.id);
+
+  const [existingReserve, existingSale] = await Promise.all([
+    findLatestAutoMovement(client, reserveNote),
+    findLatestAutoMovement(client, saleNote),
+  ]);
+
+  // If SKU/qty is invalid, ensure our auto-movements are inactive.
+  if (!productCode || quantity <= 0) {
+    await Promise.all([
+      setAutoMovementInactive({ client, existing: existingReserve }),
+      setAutoMovementInactive({ client, existing: existingSale }),
+    ]);
+    return;
+  }
+
+  const postingDate = transaction.orderDate ?? null;
+  const reserved = isReservedStatus(transaction.orderStatus);
+  const paidAmount = transaction.adjustment ?? 0;
+  const treatedAsFulfilledBecausePaidAndPrepared =
+    (transaction.orderStatus ?? '').trim().toLowerCase() === 'prepared' &&
+    paidAmount > 0;
+
+  const fulfilled =
+    isFulfilledStatus(transaction.orderStatus) ||
+    treatedAsFulfilledBecausePaidAndPrepared;
+
+  // Reservation movement:
+  // - Active while reserved
+  // - Also stays active if it was already active and the transaction becomes fulfilled
+  //   (so the path can be: sellable -> reserved -> sold)
+  const shouldKeepReserveActive =
+    reserved ||
+    (fulfilled && Boolean(existingReserve && !existingReserve.deletedAt));
+
+  if (shouldKeepReserveActive) {
+    await setAutoMovementActive({
+      client,
+      existing: existingReserve,
+      productCode,
+      quantity,
+      fromBucket: 'sellable',
+      toBucket: 'reserved',
+      postingDate,
+      note: reserveNote,
+    });
+  } else {
+    await setAutoMovementInactive({ client, existing: existingReserve });
+  }
+
+  const reserveIsActive = shouldKeepReserveActive;
+
+  // Sale movement:
+  // - Active while fulfilled
+  // - If reservation exists and is active, sell from reserved -> sold
+  //   otherwise sell from sellable -> sold
+  if (fulfilled) {
+    await setAutoMovementActive({
+      client,
+      existing: existingSale,
+      productCode,
+      quantity,
+      fromBucket: reserveIsActive ? 'reserved' : 'sellable',
+      toBucket: 'sold',
+      postingDate,
+      note: saleNote,
+    });
+  } else {
+    await setAutoMovementInactive({ client, existing: existingSale });
+  }
 }
 
 async function handleNotificationBatch(
@@ -622,7 +739,38 @@ export const transactionService: TransactionService = {
 
     await validateReferences(allRows);
 
+    const importStartedAt = new Date();
     const result = await prisma.transaction.createMany({ data: allRows });
+
+    // createMany does not return created IDs; re-query recent rows and post
+    // reservation/sale movements based on their initial status.
+    const createdTransactions = await prisma.transaction.findMany({
+      where: {
+        deletedAt: null,
+        createdAt: { gte: importStartedAt },
+      },
+      select: {
+        id: true,
+        productCode: true,
+        quantity: true,
+        orderDate: true,
+        orderStatus: true,
+        adjustment: true,
+      },
+    });
+
+    const needsMovementSync = createdTransactions.filter(
+      (tx) =>
+        isReservedStatus(tx.orderStatus) || isFulfilledStatus(tx.orderStatus)
+    );
+
+    if (needsMovementSync.length > 0) {
+      await prisma.$transaction(async (tx) => {
+        for (const created of needsMovementSync) {
+          await syncInventoryMovementsForTransaction(tx, created);
+        }
+      });
+    }
 
     const summaryMessage = `Imported ${result.count} transaction records (${preparedRows.length} with data, ${skippedEmptyRows} empty rows skipped${skippedTemplateRows ? `, ${skippedTemplateRows} template rows skipped` : ''})`;
 
@@ -798,11 +946,7 @@ export const transactionService: TransactionService = {
             updated.orderStatus
           );
 
-          if (
-            shouldRecordSaleMovement(existing.orderStatus, updated.orderStatus)
-          ) {
-            await recordSaleMovementIfNeeded(tx, updated);
-          }
+          await syncInventoryMovementsForTransaction(tx, updated);
 
           if (changes.length > 0) {
             changeLogEntries.push({
@@ -880,14 +1024,7 @@ export const transactionService: TransactionService = {
       updatedTransaction.orderStatus
     );
 
-    if (
-      shouldRecordSaleMovement(
-        existing.orderStatus,
-        updatedTransaction.orderStatus
-      )
-    ) {
-      await recordSaleMovementIfNeeded(prisma, updatedTransaction);
-    }
+    await syncInventoryMovementsForTransaction(prisma, updatedTransaction);
 
     const changes: Array<{
       field: string;

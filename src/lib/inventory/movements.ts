@@ -11,7 +11,10 @@ export function normalizeProductCode(value: string | null | undefined): string {
   return (value ?? '').trim().toLowerCase();
 }
 
-export function buildSellableDeltaMap(movements: MovementLike[]) {
+export function buildBucketDeltaMap(
+  movements: MovementLike[],
+  bucket: InventoryBucket
+) {
   const deltas = new Map<string, number>();
 
   movements.forEach((movement) => {
@@ -21,16 +24,21 @@ export function buildSellableDeltaMap(movements: MovementLike[]) {
     }
 
     const qty = movement.quantity ?? 0;
-    const fromSellable = movement.fromBucket === 'sellable';
-    const toSellable = movement.toBucket === 'sellable';
+    const fromBucket = movement.fromBucket === bucket;
+    const toBucket = movement.toBucket === bucket;
     const current = deltas.get(code) ?? 0;
-    deltas.set(
-      code,
-      current + (toSellable ? qty : 0) - (fromSellable ? qty : 0)
-    );
+    deltas.set(code, current + (toBucket ? qty : 0) - (fromBucket ? qty : 0));
   });
 
   return deltas;
+}
+
+export function buildSellableDeltaMap(movements: MovementLike[]) {
+  return buildBucketDeltaMap(movements, 'sellable');
+}
+
+export function buildReservedDeltaMap(movements: MovementLike[]) {
+  return buildBucketDeltaMap(movements, 'reserved');
 }
 
 export function getSellableOnHand(params: {

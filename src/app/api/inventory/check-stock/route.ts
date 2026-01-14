@@ -3,11 +3,12 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import {
+  buildReservedDeltaMap,
   buildSellableDeltaMap,
   getSellableOnHand,
   normalizeProductCode,
 } from '@/lib/inventory/movements';
-import { isFulfilledStatus, isReservedStatus } from '@/lib/inventory/statuses';
+import { isReservedStatus } from '@/lib/inventory/statuses';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,8 +39,20 @@ type BundleBatch = {
 type MovementRecord = {
   productCode: string;
   quantity: number;
-  fromBucket: 'sellable' | 'damaged_hold' | 'scrap' | 'sold';
-  toBucket: 'sellable' | 'damaged_hold' | 'scrap' | 'sold';
+  fromBucket:
+    | 'sellable'
+    | 'damaged_hold'
+    | 'reserved'
+    | 'assembly_wip'
+    | 'scrap'
+    | 'sold';
+  toBucket:
+    | 'sellable'
+    | 'damaged_hold'
+    | 'reserved'
+    | 'assembly_wip'
+    | 'scrap'
+    | 'sold';
 };
 
 type TransactionRecord = {
@@ -139,9 +152,7 @@ function accumulateDemand(
 
   transactions.forEach((transaction) => {
     const reservedStatus = isReservedStatus(transaction.orderStatus);
-    const fulfilledStatus = isFulfilledStatus(transaction.orderStatus);
-    const shouldCount = reservedStatus || (!reservedStatus && !fulfilledStatus);
-    if (!shouldCount) {
+    if (!reservedStatus) {
       return;
     }
 
@@ -264,6 +275,7 @@ export async function POST(request: NextRequest) {
         },
       })) as unknown as MovementRecord[];
       const sellableDelta = buildSellableDeltaMap(movements);
+      const reservedDelta = buildReservedDeltaMap(movements);
 
       const transactions = await prisma.transaction.findMany({
         where: {
@@ -319,7 +331,9 @@ export async function POST(request: NextRequest) {
         const supply = getSellableOnHandWithFallback(
           component.componentProductCode
         );
-        const demand = demandMap.get(normalizedCode) ?? 0;
+        const demandRaw = demandMap.get(normalizedCode) ?? 0;
+        const reservedOnHand = reservedDelta.get(normalizedCode) ?? 0;
+        const demand = Math.max(demandRaw - reservedOnHand, 0);
         const available = supply - demand;
 
         const availableBundles = Math.floor(
@@ -394,8 +408,12 @@ export async function POST(request: NextRequest) {
       },
     })) as unknown as MovementRecord[];
     const sellableDelta = buildSellableDeltaMap(movements);
+    const reservedDelta = buildReservedDeltaMap(movements);
 
-    const totalOrder = demandMap.get(normalizedProductCode) ?? 0;
+    const totalOrderRaw = demandMap.get(normalizedProductCode) ?? 0;
+    const reservedOnHand =
+      reservedDelta.get(normalizeProductCode(productCode)) ?? 0;
+    const totalOrder = Math.max(totalOrderRaw - reservedOnHand, 0);
     const onhand = getSellableOnHand({
       productCode,
       sellableDeltaByProduct: sellableDelta,

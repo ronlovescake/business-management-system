@@ -1,6 +1,8 @@
 import { memo, useMemo } from 'react';
 import {
   IconChartBar,
+  IconPackage,
+  IconTrendingUp,
   IconCurrencyPeso,
   IconScale,
   IconCalendar,
@@ -9,6 +11,8 @@ import { StatsCardGrid, type StatCard } from '@/components/ui';
 
 interface ProfitLossStatsCardsProps {
   revenueTotal: number;
+  cogsTotal: number;
+  grossProfit: number;
   expenseTotal: number;
   netProfit: number;
   period: string;
@@ -17,6 +21,8 @@ interface ProfitLossStatsCardsProps {
 
 export const ProfitLossStatsCards = memo(function ProfitLossStatsCards({
   revenueTotal,
+  cogsTotal,
+  grossProfit,
   expenseTotal,
   netProfit,
   period,
@@ -31,6 +37,22 @@ export const ProfitLossStatsCards = memo(function ProfitLossStatsCards({
         color: 'blue',
         backgroundColor:
           'linear-gradient(135deg, rgba(59, 130, 246, 0.95), rgba(37, 99, 235, 0.95))',
+      },
+      {
+        title: 'COGS',
+        value: formatCurrency(cogsTotal),
+        icon: <IconPackage size={24} stroke={1.6} />,
+        color: 'orange',
+        backgroundColor:
+          'linear-gradient(135deg, rgba(251, 146, 60, 0.95), rgba(234, 88, 12, 0.95))',
+      },
+      {
+        title: 'Gross Profit',
+        value: formatCurrency(grossProfit),
+        icon: <IconTrendingUp size={24} stroke={1.6} />,
+        color: grossProfit >= 0 ? 'teal' : 'red',
+        backgroundColor:
+          'linear-gradient(135deg, rgba(20, 184, 166, 0.95), rgba(13, 148, 136, 0.95))',
       },
       {
         title: 'Expenses',
@@ -57,7 +79,15 @@ export const ProfitLossStatsCards = memo(function ProfitLossStatsCards({
           'linear-gradient(135deg, rgba(139, 92, 246, 0.95), rgba(109, 40, 217, 0.95))',
       },
     ],
-    [expenseTotal, formatCurrency, netProfit, period, revenueTotal]
+    [
+      cogsTotal,
+      expenseTotal,
+      formatCurrency,
+      grossProfit,
+      netProfit,
+      period,
+      revenueTotal,
+    ]
   );
 
   return (

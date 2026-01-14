@@ -28,6 +28,8 @@ export default function ProfitLossPage() {
       <Stack gap="lg">
         <ProfitLossStatsCards
           revenueTotal={stats.revenueTotal}
+          cogsTotal={stats.cogsTotal}
+          grossProfit={stats.grossProfit}
           expenseTotal={stats.expenseTotal}
           netProfit={stats.netProfit}
           period={stats.period}

@@ -9,7 +9,59 @@ export function parseDate(value?: string | null): Date | null {
   if (!value) {
     return null;
   }
-  const d = new Date(value);
+
+  const trimmed = value.trim();
+
+  // Handle simple "Month D, YYYY" strings (e.g. "Jan 13, 2026") as calendar dates.
+  // We intentionally construct a UTC date to avoid timezone shifting the day bucket.
+  const monthDayYear = trimmed.match(/^([A-Za-z]+)\s+(\d{1,2}),\s*(\d{4})$/);
+  if (monthDayYear) {
+    const [, monthRaw, dayRaw, yearRaw] = monthDayYear;
+    const month = monthRaw.toLowerCase();
+    const day = Number(dayRaw);
+    const year = Number(yearRaw);
+
+    const monthIndexByName: Record<string, number> = {
+      jan: 0,
+      january: 0,
+      feb: 1,
+      february: 1,
+      mar: 2,
+      march: 2,
+      apr: 3,
+      april: 3,
+      may: 4,
+      jun: 5,
+      june: 5,
+      jul: 6,
+      july: 6,
+      aug: 7,
+      august: 7,
+      sep: 8,
+      sept: 8,
+      september: 8,
+      oct: 9,
+      october: 9,
+      nov: 10,
+      november: 10,
+      dec: 11,
+      december: 11,
+    };
+
+    const monthIndex = monthIndexByName[month];
+    if (
+      Number.isFinite(monthIndex) &&
+      Number.isFinite(day) &&
+      day >= 1 &&
+      day <= 31 &&
+      Number.isFinite(year)
+    ) {
+      const d = new Date(Date.UTC(year, monthIndex, day, 0, 0, 0, 0));
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+  }
+
+  const d = new Date(trimmed);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 

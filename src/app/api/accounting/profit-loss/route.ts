@@ -13,11 +13,23 @@ import {
   isWithinDateRange,
 } from '@/lib/accounting/data-fetchers';
 import { normalizeTransactionAmounts } from '@/lib/accounting/transaction-normalization';
+import { computeCogsTotal } from '@/lib/accounting/inventory-cogs';
 
 export const dynamic = 'force-dynamic';
 
+const CUTOVER = new Date(Date.UTC(2026, 0, 1));
+
+function clampFrom(from: Date | null): Date {
+  if (!from) {
+    return CUTOVER;
+  }
+  return from < CUTOVER ? CUTOVER : from;
+}
+
 export const GET = withErrorHandler(async (req: NextRequest) => {
   const { from, to } = parseDateRangeFromParams(req.nextUrl.searchParams);
+  const effectiveFrom = clampFrom(from);
+  const effectiveTo = to ?? null;
 
   const transactions = await fetchPaidTransactions();
   const expenses = await fetchApprovedExpenses();
@@ -28,7 +40,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   });
 
   const filteredTransactions = transactionsWithPaidAt.filter((tx) =>
-    isWithinDateRange(tx.paidAt, from, to)
+    isWithinDateRange(tx.paidAt, effectiveFrom, effectiveTo)
   );
 
   const revenueTotal = filteredTransactions.reduce((sum, tx) => {
@@ -39,7 +51,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const expenseTotalsByCategory = new Map<string, number>();
   expenses.forEach((exp) => {
     const expenseDate = parseDate(exp.date);
-    if (!isWithinDateRange(expenseDate, from, to)) {
+    if (!isWithinDateRange(expenseDate, effectiveFrom, effectiveTo)) {
       return;
     }
 
@@ -78,10 +90,29 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     0
   );
 
+  const cogsTotal = await computeCogsTotal({
+    from: effectiveFrom,
+    to: effectiveTo,
+  });
+
+  if (cogsTotal !== 0) {
+    rows.push({
+      id: 'expense-cogs',
+      category: 'COGS',
+      type: 'Expense',
+      amount: cogsTotal,
+    });
+  }
+
+  const totalExpenses = expenseTotal + cogsTotal;
+  const grossProfit = revenueTotal - cogsTotal;
+
   const stats = {
     revenueTotal,
-    expenseTotal,
-    netProfit: revenueTotal - expenseTotal,
+    cogsTotal,
+    grossProfit,
+    expenseTotal: totalExpenses,
+    netProfit: revenueTotal - totalExpenses,
     period: buildPeriodLabel(from, to),
   };
 

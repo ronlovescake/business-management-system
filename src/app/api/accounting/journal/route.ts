@@ -13,13 +13,23 @@ import {
   isWithinDateRange,
 } from '@/lib/accounting/data-fetchers';
 import { normalizeTransactionAmounts } from '@/lib/accounting/transaction-normalization';
+import { buildCogsAndInventoryEntries } from '@/lib/accounting/inventory-cogs';
 
 export const dynamic = 'force-dynamic';
 
-const CUTOVER = new Date('2026-01-01');
+const CUTOVER = new Date(Date.UTC(2026, 0, 1));
+
+function clampFrom(from: Date | null): Date {
+  if (!from) {
+    return CUTOVER;
+  }
+  return from < CUTOVER ? CUTOVER : from;
+}
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
   const { from, to } = parseDateRangeFromParams(req.nextUrl.searchParams);
+  const effectiveFrom = clampFrom(from);
+  const effectiveTo = to ?? null;
 
   const transactions = await fetchPaidTransactions();
   const expenses = await fetchApprovedExpenses();
@@ -30,35 +40,35 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       const amount = paymentReceived;
 
       const paidAt = getPaidAtDate(tx);
-      if (paidAt && paidAt < CUTOVER) {
-        return null;
-      }
-      if (!isWithinDateRange(paidAt, from, to)) {
+      if (!isWithinDateRange(paidAt, effectiveFrom, effectiveTo)) {
         return null;
       }
 
       const amt = Number(amount);
       const dateStr = (paidAt ?? new Date()).toISOString();
-      const ref = tx.shipmentCode || `TX-${tx.id}`;
+      const productRef = (tx.productCode ?? '').trim();
+      const ref = productRef || `TX-${tx.id}`;
+      const idBase = `TX-${tx.id}`;
+      const customer = (tx.customers ?? '').trim();
 
       return [
         {
-          id: `${ref}-cash`,
+          id: `${idBase}-cash`,
           date: dateStr,
           ref,
           account: 'Cash',
           debit: Math.max(amt, 0),
           credit: 0,
-          description: tx.notes ?? 'Cash received',
+          description: customer || 'Unknown customer',
         },
         {
-          id: `${ref}-sales`,
+          id: `${idBase}-sales`,
           date: dateStr,
           ref,
           account: 'Sales Revenue',
           debit: 0,
           credit: Math.max(amt, 0),
-          description: tx.notes ?? 'Sales revenue',
+          description: customer || 'Unknown customer',
         },
       ];
     })
@@ -81,10 +91,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       }
 
       const expDate = parseDate(exp.date);
-      if (expDate && expDate < CUTOVER) {
-        return null;
-      }
-      if (!isWithinDateRange(expDate, from, to)) {
+      if (!isWithinDateRange(expDate, effectiveFrom, effectiveTo)) {
         return null;
       }
 
@@ -123,7 +130,12 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     description: string;
   }>;
 
-  const entries = [...txEntries, ...expenseEntries];
+  const { entries: cogsEntries } = await buildCogsAndInventoryEntries({
+    from: effectiveFrom,
+    to: effectiveTo,
+  });
+
+  const entries = [...txEntries, ...expenseEntries, ...cogsEntries];
 
   const totalDebits = entries.reduce((sum, e) => sum + e.debit, 0);
   const totalCredits = entries.reduce((sum, e) => sum + e.credit, 0);

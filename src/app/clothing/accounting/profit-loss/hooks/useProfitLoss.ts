@@ -12,6 +12,8 @@ export type ProfitLossRow = {
 
 export type ProfitLossStats = {
   revenueTotal: number;
+  cogsTotal: number;
+  grossProfit: number;
   expenseTotal: number;
   netProfit: number;
   period: string;
@@ -59,6 +61,8 @@ export function useProfitLoss() {
   const [rows, setRows] = useState<ProfitLossRow[]>(seedRows);
   const [stats, setStats] = useState<ProfitLossStats>({
     revenueTotal: 0,
+    cogsTotal: 0,
+    grossProfit: 0,
     expenseTotal: 0,
     netProfit: 0,
     period: 'All Time',
@@ -114,6 +118,8 @@ export function useProfitLoss() {
         setRows(seedRows);
         setStats({
           revenueTotal,
+          cogsTotal: 0,
+          grossProfit: revenueTotal,
           expenseTotal,
           netProfit: revenueTotal - expenseTotal,
           period: 'All Time',
@@ -150,12 +156,19 @@ export function useProfitLoss() {
     const revenueTotal = rows
       .filter((row) => row.type === 'Revenue')
       .reduce((sum, row) => sum + row.amount, 0);
+
+    const cogsTotal = rows
+      .filter((row) => row.type === 'Expense' && row.category === 'COGS')
+      .reduce((sum, row) => sum + row.amount, 0);
+
     const expenseTotal = rows
       .filter((row) => row.type === 'Expense')
       .reduce((sum, row) => sum + row.amount, 0);
 
     return {
       revenueTotal,
+      cogsTotal,
+      grossProfit: revenueTotal - cogsTotal,
       expenseTotal,
       netProfit: revenueTotal - expenseTotal,
       period,

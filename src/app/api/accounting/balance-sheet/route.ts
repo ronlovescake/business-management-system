@@ -13,6 +13,7 @@ import {
   isWithinDateRange,
 } from '@/lib/accounting/data-fetchers';
 import { normalizeTransactionAmounts } from '@/lib/accounting/transaction-normalization';
+import { computeCogsTotal } from '@/lib/accounting/inventory-cogs';
 import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -191,7 +192,23 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     .flat()
     .filter(Boolean) as BalanceRow[];
 
-  const combined = [...openingEntries, ...txEntries, ...expenseEntries];
+  // COGS reduces equity and reduces the inventory asset.
+  // This makes old stock depletion visible on the balance sheet even in cash-basis mode.
+  const cogsTotal = await computeCogsTotal({ from: CUTOVER, to: asOf });
+  const cogsEntries: BalanceRow[] =
+    Number.isFinite(cogsTotal) && cogsTotal > 0
+      ? [
+          { account: 'Retained Earnings', amount: cogsTotal },
+          { account: 'Stock on Hand', amount: -cogsTotal },
+        ]
+      : [];
+
+  const combined = [
+    ...openingEntries,
+    ...txEntries,
+    ...expenseEntries,
+    ...cogsEntries,
+  ];
 
   const byAccount = combined.reduce<
     Record<string, { amount: number; type: AccountType }>

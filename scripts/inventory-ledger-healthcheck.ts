@@ -5,7 +5,13 @@ import {
 } from '@/lib/inventory/movements';
 import { logger } from '@/lib/logger';
 
-type Bucket = 'sellable' | 'damaged_hold' | 'scrap' | 'sold';
+type Bucket =
+  | 'sellable'
+  | 'damaged_hold'
+  | 'reserved'
+  | 'assembly_wip'
+  | 'scrap'
+  | 'sold';
 
 type Args = {
   limit?: number;
@@ -54,7 +60,14 @@ function parseArgs(argv: string[]): Args {
 type Balances = Record<Bucket, number>;
 
 function emptyBalances(): Balances {
-  return { sellable: 0, damaged_hold: 0, scrap: 0, sold: 0 };
+  return {
+    sellable: 0,
+    damaged_hold: 0,
+    reserved: 0,
+    assembly_wip: 0,
+    scrap: 0,
+    sold: 0,
+  };
 }
 
 function applyMovement(balances: Balances, movement: MovementLike): void {
@@ -103,6 +116,11 @@ async function main() {
   const negativeSellable: Array<{ productCode: string; sellable: number }> = [];
   const negativeDamaged: Array<{ productCode: string; damaged_hold: number }> =
     [];
+  const negativeReserved: Array<{ productCode: string; reserved: number }> = [];
+  const negativeAssembly: Array<{
+    productCode: string;
+    assembly_wip: number;
+  }> = [];
   const negativeSold: Array<{ productCode: string; sold: number }> = [];
 
   for (const [productCode, balances] of Array.from(bySku.entries())) {
@@ -115,6 +133,15 @@ async function main() {
         damaged_hold: balances.damaged_hold,
       });
     }
+    if (balances.reserved < -tolerance) {
+      negativeReserved.push({ productCode, reserved: balances.reserved });
+    }
+    if (balances.assembly_wip < -tolerance) {
+      negativeAssembly.push({
+        productCode,
+        assembly_wip: balances.assembly_wip,
+      });
+    }
     if (balances.sold < -tolerance) {
       negativeSold.push({ productCode, sold: balances.sold });
     }
@@ -122,6 +149,8 @@ async function main() {
 
   negativeSellable.sort((a, b) => a.sellable - b.sellable);
   negativeDamaged.sort((a, b) => a.damaged_hold - b.damaged_hold);
+  negativeReserved.sort((a, b) => a.reserved - b.reserved);
+  negativeAssembly.sort((a, b) => a.assembly_wip - b.assembly_wip);
   negativeSold.sort((a, b) => a.sold - b.sold);
 
   logger.info('Inventory ledger healthcheck summary', {
@@ -130,6 +159,8 @@ async function main() {
     invalidProductCodeCount: invalidProductCodes.length,
     negativeSellableCount: negativeSellable.length,
     negativeDamagedHoldCount: negativeDamaged.length,
+    negativeReservedCount: negativeReserved.length,
+    negativeAssemblyWipCount: negativeAssembly.length,
     negativeSoldCount: negativeSold.length,
     tolerance,
   });
@@ -162,6 +193,20 @@ async function main() {
     negativeDamaged.map((r) => ({
       productCode: r.productCode,
       value: r.damaged_hold,
+    }))
+  );
+  printList(
+    'Negative RESERVED balance (unexpected)',
+    negativeReserved.map((r) => ({
+      productCode: r.productCode,
+      value: r.reserved,
+    }))
+  );
+  printList(
+    'Negative ASSEMBLY_WIP balance (unexpected)',
+    negativeAssembly.map((r) => ({
+      productCode: r.productCode,
+      value: r.assembly_wip,
     }))
   );
   printList(

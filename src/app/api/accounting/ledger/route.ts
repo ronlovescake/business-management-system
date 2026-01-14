@@ -13,6 +13,7 @@ import {
   isWithinDateRange,
 } from '@/lib/accounting/data-fetchers';
 import { normalizeTransactionAmounts } from '@/lib/accounting/transaction-normalization';
+import { buildCogsAndInventoryEntries } from '@/lib/accounting/inventory-cogs';
 import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -68,26 +69,29 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
       const amt = Number(amount);
       const dateStr = (paidAt ?? new Date()).toISOString();
-      const ref = tx.shipmentCode || `TX-${tx.id}`;
+      const productRef = (tx.productCode ?? '').trim();
+      const ref = productRef || `TX-${tx.id}`;
+      const idBase = `TX-${tx.id}`;
+      const customer = (tx.customers ?? '').trim();
 
       return [
         {
-          id: `${ref}-cash`,
+          id: `${idBase}-cash`,
           date: dateStr,
           ref,
           account: 'Cash',
           debit: Math.max(amt, 0),
           credit: 0,
-          description: tx.notes ?? 'Cash received',
+          description: customer || 'Unknown customer',
         },
         {
-          id: `${ref}-sales`,
+          id: `${idBase}-sales`,
           date: dateStr,
           ref,
           account: 'Sales Revenue',
           debit: 0,
           credit: Math.max(amt, 0),
-          description: tx.notes ?? 'Sales revenue',
+          description: customer || 'Unknown customer',
         },
       ];
     })
@@ -149,7 +153,17 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     description: string;
   }>;
 
-  const entries = [...openingEntries, ...txEntries, ...expenseEntries];
+  const { entries: cogsEntries } = await buildCogsAndInventoryEntries({
+    from: effectiveFrom,
+    to: effectiveTo,
+  });
+
+  const entries = [
+    ...openingEntries,
+    ...txEntries,
+    ...expenseEntries,
+    ...cogsEntries,
+  ];
 
   const sortedByDate = entries.sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()

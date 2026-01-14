@@ -6,8 +6,22 @@ import { z } from 'zod';
 const movementSchema = z.object({
   productCode: z.string().min(1, 'productCode is required'),
   quantity: z.number().positive('quantity must be > 0'),
-  fromBucket: z.enum(['sellable', 'damaged_hold', 'scrap', 'sold']),
-  toBucket: z.enum(['sellable', 'damaged_hold', 'scrap', 'sold']),
+  fromBucket: z.enum([
+    'sellable',
+    'damaged_hold',
+    'reserved',
+    'assembly_wip',
+    'scrap',
+    'sold',
+  ]),
+  toBucket: z.enum([
+    'sellable',
+    'damaged_hold',
+    'reserved',
+    'assembly_wip',
+    'scrap',
+    'sold',
+  ]),
   postingDate: z.string().optional(),
   notes: z.string().optional(),
 });

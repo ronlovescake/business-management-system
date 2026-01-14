@@ -114,24 +114,24 @@ export async function POST(request: NextRequest) {
 
       const note = `bundle-assembly batch ${createdBatch.id} sku ${bundleSku}`;
 
-      // Consume component inventory (sellable -> scrap) for each component.
+      // Consume component inventory (sellable -> assembly_wip) for each component.
       await tx.inventoryMovement.createMany({
         data: normalizedComponents.map((component) => ({
           productCode: component.productCode.trim(),
           quantity: component.includedQuantity * quantity,
           fromBucket: 'sellable',
-          toBucket: 'scrap',
+          toBucket: 'assembly_wip',
           postingDate,
           notes: note,
         })),
       });
 
-      // Produce the bundled SKU (scrap -> sellable) for the batch quantity.
+      // Produce the bundled SKU (assembly_wip -> sellable) for the batch quantity.
       await tx.inventoryMovement.create({
         data: {
           productCode: bundleSku,
           quantity,
-          fromBucket: 'scrap',
+          fromBucket: 'assembly_wip',
           toBucket: 'sellable',
           postingDate,
           notes: note,

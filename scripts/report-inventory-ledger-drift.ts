@@ -13,6 +13,7 @@ type Args = {
   onlyWithMovements?: boolean;
   limit?: number;
   csv?: string;
+  failOnDrift?: boolean;
 };
 
 function parseArgs(argv: string[]): Args {
@@ -23,6 +24,11 @@ function parseArgs(argv: string[]): Args {
 
     if (token === '--onlyWithMovements') {
       args.onlyWithMovements = true;
+      continue;
+    }
+
+    if (token === '--failOnDrift') {
+      args.failOnDrift = true;
       continue;
     }
 
@@ -186,6 +192,10 @@ async function main() {
       : path.join(process.cwd(), args.csv);
     fs.writeFileSync(outPath, toCsv(top), 'utf8');
     logger.info('Wrote CSV', { path: outPath, rows: top.length });
+  }
+
+  if (args.failOnDrift && drift.length > 0) {
+    process.exitCode = 2;
   }
 }
 

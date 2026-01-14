@@ -233,6 +233,12 @@ Deliverables:
   - Run `npx -y -p tsx -p tsconfig-paths tsx -r tsconfig-paths/register scripts/backfill-sale-movements.ts` to backfill SELLABLE → SOLD movements for already-fulfilled Transactions (idempotent per transaction note).
   - Inventory UI and stock checks now read sellable on-hand from movements first, with Products.Quantity used only as a temporary fallback when no movement exists.
 
+Deferred (we will revisit later):
+
+- Decide whether this environment is using **opening-balance seeding** (seed current sellable on-hand, then post movements going forward) or **full-history backfill** (backfill receipts + sales from day 1).
+- These two strategies must not be mixed: if we seed sellable as an “opening balance” and also backfill historical sales, sellable will go negative even if the sales rows are correct.
+- For now, keep the historical `auto-sale txn ...` backfill disabled/rolled back in environments that are seeded from today’s on-hand; we can re-enable it later when we’re ready to backfill the full inbound history (or switch to a true opening balance + forward-only model).
+
 If a product’s Quantity was edited after the fact and you need to reconcile the movement-ledger sellable on-hand to a desired target, use the receipt-delta adjuster:
 
 - Dry run by product code:
