@@ -58,6 +58,7 @@ vi.mock('@/lib/db', () => ({
       count: vi.fn(),
     },
     product: {
+      groupBy: vi.fn(),
       updateMany: vi.fn(),
     },
     $transaction: vi.fn(),
@@ -117,6 +118,10 @@ describe('Shipments API - /api/shipments', () => {
         mockShipments as any
       );
 
+      vi.mocked(prisma.product.groupBy).mockResolvedValue([
+        { shipmentCode: 'SH-001', _count: { _all: 2 } },
+      ] as any);
+
       const response = await getShipments(buildRequest('/api/shipments'));
       const payload = await response.json();
       const data = payload.data;
@@ -125,6 +130,14 @@ describe('Shipments API - /api/shipments', () => {
       expect(prisma.shipment.findMany).toHaveBeenCalledWith({
         where: { deletedAt: null },
         orderBy: { id: 'asc' },
+      });
+      expect(prisma.product.groupBy).toHaveBeenCalledWith({
+        by: ['shipmentCode'],
+        where: {
+          shipmentCode: { in: ['SH-001', 'SH-002'] },
+          deletedAt: null,
+        },
+        _count: { _all: true },
       });
       expect(data).toHaveLength(2);
       expect(data[0]).toEqual({
@@ -140,6 +153,8 @@ describe('Shipments API - /api/shipments', () => {
         'Date Delivered': '',
         Duration: '5 days',
         Notes: 'Test shipment',
+        linkedProductCount: 2,
+        hasLinkedProducts: true,
       });
     });
 
@@ -151,6 +166,7 @@ describe('Shipments API - /api/shipments', () => {
 
       expect(payload.success).toBe(true);
       expect(payload.data).toEqual([]);
+      expect(prisma.product.groupBy).not.toHaveBeenCalled();
     });
 
     it('should handle database errors gracefully', async () => {
@@ -597,6 +613,7 @@ describe('Shipments API - /api/shipments/[id]', () => {
         Weight: 400,
         Fee: 4000,
         'Shipment Status': 'Delivered',
+        'Date Delivered': '2025-12-31',
       };
 
       const updatedShipment = {

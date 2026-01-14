@@ -404,7 +404,46 @@ export const GET = withErrorHandler(async () => {
       orderBy: { id: 'asc' },
     });
 
-    const convertedShipments = shipments.map(convertShipmentDBToData);
+    const shipmentCodes = Array.from(
+      new Set(
+        shipments
+          .map((shipment) => (shipment.shipmentCode ?? '').trim())
+          .filter((code): code is string => Boolean(code))
+      )
+    );
+
+    const linkedProductCounts = shipmentCodes.length
+      ? await prisma.product.groupBy({
+          by: ['shipmentCode'],
+          where: {
+            shipmentCode: { in: shipmentCodes },
+            deletedAt: null,
+          },
+          _count: { _all: true },
+        })
+      : [];
+
+    const linkedProductCountByShipmentCode = new Map<string, number>();
+    for (const entry of linkedProductCounts) {
+      const code = (entry.shipmentCode ?? '').trim();
+      if (!code) {
+        continue;
+      }
+      linkedProductCountByShipmentCode.set(code, entry._count._all);
+    }
+
+    const convertedShipments = shipments.map((shipment) => {
+      const shipmentCode = (shipment.shipmentCode ?? '').trim();
+      const linkedProductCount = shipmentCode
+        ? (linkedProductCountByShipmentCode.get(shipmentCode) ?? 0)
+        : 0;
+
+      return {
+        ...convertShipmentDBToData(shipment as ShipmentDB),
+        linkedProductCount,
+        hasLinkedProducts: linkedProductCount > 0,
+      };
+    });
     logger.info('Shipments fetched', { count: convertedShipments.length });
     return ApiResponse.success(convertedShipments, 'Shipments fetched');
   } catch (error) {

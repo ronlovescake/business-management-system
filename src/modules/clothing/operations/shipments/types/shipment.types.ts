@@ -40,6 +40,11 @@ export interface ShipmentData {
   'Date Delivered': string;
   Duration: string;
   Notes: string;
+
+  /** Derived from Products table: number of non-deleted Products with this shipmentCode. */
+  linkedProductCount?: number;
+  /** Convenience flag derived from linkedProductCount. */
+  hasLinkedProducts?: boolean;
 }
 
 /**

@@ -249,6 +249,24 @@ export function ShipmentsPage() {
     return await createTransitBuildEntry(transitBuildShipment.id, input);
   };
 
+  const transitBuildDisabledReason = useMemo(() => {
+    if (!editingShipment) {
+      return 'No shipment selected.';
+    }
+
+    const shipmentCode = (editingShipment['Shipment Code'] ?? '').toString();
+    if (!shipmentCode.trim()) {
+      return 'Add a Shipment Code before creating a transit build-up entry.';
+    }
+
+    const linkedProductCount = Number(editingShipment.linkedProductCount ?? 0);
+    if (Number.isFinite(linkedProductCount) && linkedProductCount <= 0) {
+      return 'Link at least one Product to this Shipment Code on the Products page first.';
+    }
+
+    return undefined;
+  }, [editingShipment]);
+
   // ==========================================================================
   // LOADING STATE
   // ==========================================================================
@@ -371,10 +389,8 @@ export function ShipmentsPage() {
             form={editShipmentForm}
             onSubmit={handleSubmitEdit}
             onOpenTransitBuild={handleOpenTransitBuild}
-            transitBuildDisabled={
-              !editingShipment ||
-              !(editingShipment['Shipment Code'] ?? '').toString().trim()
-            }
+            transitBuildDisabled={Boolean(transitBuildDisabledReason)}
+            transitBuildDisabledReason={transitBuildDisabledReason}
           />
 
           <TransitBuildModal

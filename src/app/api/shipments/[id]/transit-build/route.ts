@@ -76,6 +76,13 @@ export const POST = withErrorHandler<RouteContext>(
       },
     });
 
+    if (products.length === 0) {
+      return ApiResponse.badRequest('No products linked to shipment code', {
+        shipmentCode:
+          'Link at least one Product to this Shipment Code on the Products page before creating a transit build-up entry.',
+      });
+    }
+
     const amount = products.reduce((sum, product) => {
       const value = Number(product.cogs ?? 0);
       if (!Number.isFinite(value) || value <= 0) {

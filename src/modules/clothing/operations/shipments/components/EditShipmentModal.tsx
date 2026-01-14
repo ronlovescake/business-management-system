@@ -14,6 +14,7 @@ import {
   Select,
   Textarea,
   Button,
+  Tooltip,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { IconCheck, IconCalendar } from '@tabler/icons-react';
@@ -29,6 +30,7 @@ interface EditShipmentModalProps {
   onSubmit: (values: ShipmentFormData) => Promise<void>;
   onOpenTransitBuild?: () => void;
   transitBuildDisabled?: boolean;
+  transitBuildDisabledReason?: string;
 }
 
 export const EditShipmentModal = React.memo(function EditShipmentModal({
@@ -38,6 +40,7 @@ export const EditShipmentModal = React.memo(function EditShipmentModal({
   onSubmit,
   onOpenTransitBuild,
   transitBuildDisabled,
+  transitBuildDisabledReason,
 }: EditShipmentModalProps) {
   const handleSubmit = async (values: ShipmentFormData) => {
     await onSubmit(values);
@@ -140,15 +143,27 @@ export const EditShipmentModal = React.memo(function EditShipmentModal({
 
           <Group justify="flex-end" mt="md">
             {onOpenTransitBuild && (
-              <Button
-                type="button"
-                variant="light"
-                color="orange"
-                onClick={onOpenTransitBuild}
-                disabled={transitBuildDisabled}
+              <Tooltip
+                label={
+                  transitBuildDisabledReason ??
+                  'Transit Build-Up is not available for this shipment.'
+                }
+                disabled={!transitBuildDisabled}
+                withArrow
+                withinPortal
               >
-                Transit Build-Up
-              </Button>
+                <span>
+                  <Button
+                    type="button"
+                    variant="light"
+                    color="orange"
+                    onClick={onOpenTransitBuild}
+                    disabled={transitBuildDisabled}
+                  >
+                    Transit Build-Up
+                  </Button>
+                </span>
+              </Tooltip>
             )}
             <Button variant="outline" onClick={onClose}>
               Cancel
