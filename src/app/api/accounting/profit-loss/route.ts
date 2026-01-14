@@ -9,6 +9,8 @@ import {
 import {
   fetchPaidTransactions,
   fetchApprovedExpenses,
+  fetchTransactionRefunds,
+  fetchTransactionPayments,
   getPaidAtDate,
   isWithinDateRange,
 } from '@/lib/accounting/data-fetchers';
@@ -33,20 +35,58 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const transactions = await fetchPaidTransactions();
   const expenses = await fetchApprovedExpenses();
+  const refunds = await fetchTransactionRefunds();
+  const payments = await fetchTransactionPayments();
 
-  const transactionsWithPaidAt = transactions.map((tx) => {
-    const paidAt = getPaidAtDate(tx);
-    return { ...tx, paidAt };
-  });
+  const paymentTransactionIds = new Set(payments.map((p) => p.transactionId));
+
+  const paymentRevenueTotal = payments.reduce((sum, payment) => {
+    const paymentAt = parseDate(payment.paymentDate);
+    if (!isWithinDateRange(paymentAt, effectiveFrom, effectiveTo)) {
+      return sum;
+    }
+
+    const amt = Number(payment.amount ?? 0);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      return sum;
+    }
+
+    return sum + amt;
+  }, 0);
+
+  const transactionsWithPaidAt = transactions
+    .filter((tx) => !paymentTransactionIds.has(tx.id))
+    .map((tx) => {
+      const paidAt = getPaidAtDate(tx);
+      return { ...tx, paidAt };
+    });
 
   const filteredTransactions = transactionsWithPaidAt.filter((tx) =>
     isWithinDateRange(tx.paidAt, effectiveFrom, effectiveTo)
   );
 
-  const revenueTotal = filteredTransactions.reduce((sum, tx) => {
+  const legacyRevenueTotal = filteredTransactions.reduce((sum, tx) => {
     const { paymentReceived } = normalizeTransactionAmounts(tx);
     return sum + paymentReceived;
   }, 0);
+
+  const revenueTotal = paymentRevenueTotal + legacyRevenueTotal;
+
+  const refundTotal = refunds.reduce((sum, refund) => {
+    const refundAt = parseDate(refund.refundDate);
+    if (!isWithinDateRange(refundAt, effectiveFrom, effectiveTo)) {
+      return sum;
+    }
+
+    const amt = Number(refund.amount ?? 0);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      return sum;
+    }
+
+    return sum + amt;
+  }, 0);
+
+  const netRevenueTotal = revenueTotal - refundTotal;
 
   const expenseTotalsByCategory = new Map<string, number>();
   expenses.forEach((exp) => {
@@ -73,6 +113,15 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       category: 'Sales Revenue',
       type: 'Revenue',
       amount: revenueTotal,
+    });
+  }
+
+  if (refundTotal !== 0) {
+    rows.push({
+      id: 'revenue-sales-returns',
+      category: 'Sales Returns',
+      type: 'Revenue',
+      amount: -refundTotal,
     });
   }
 
@@ -105,14 +154,14 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   }
 
   const totalExpenses = expenseTotal + cogsTotal;
-  const grossProfit = revenueTotal - cogsTotal;
+  const grossProfit = netRevenueTotal - cogsTotal;
 
   const stats = {
-    revenueTotal,
+    revenueTotal: netRevenueTotal,
     cogsTotal,
     grossProfit,
     expenseTotal: totalExpenses,
-    netProfit: revenueTotal - totalExpenses,
+    netProfit: netRevenueTotal - totalExpenses,
     period: buildPeriodLabel(from, to),
   };
 

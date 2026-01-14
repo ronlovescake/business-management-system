@@ -9,6 +9,8 @@ import {
 import {
   fetchPaidTransactions,
   fetchApprovedExpenses,
+  fetchTransactionRefunds,
+  fetchTransactionPayments,
   getPaidAtDate,
   isWithinDateRange,
 } from '@/lib/accounting/data-fetchers';
@@ -32,9 +34,73 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const effectiveTo = to ?? null;
 
   const transactions = await fetchPaidTransactions();
+  const payments = await fetchTransactionPayments();
   const expenses = await fetchApprovedExpenses();
+  const refunds = await fetchTransactionRefunds();
 
-  const txEntries = transactions
+  const paymentTransactionIds = new Set(payments.map((p) => p.transactionId));
+
+  const paymentEntries = payments
+    .map((payment) => {
+      const paymentAt = parseDate(payment.paymentDate);
+      if (!isWithinDateRange(paymentAt, effectiveFrom, effectiveTo)) {
+        return null;
+      }
+
+      const amt = Number(payment.amount ?? 0);
+      if (!Number.isFinite(amt) || amt <= 0) {
+        return null;
+      }
+
+      const dateStr = (paymentAt ?? new Date()).toISOString();
+      const idBase = `PM-${payment.id}`;
+      const productRef = (payment.transaction?.productCode ?? '').trim();
+      const ref = productRef || `TX-${payment.transactionId}`;
+      const customer = (payment.transaction?.customers ?? '').trim();
+
+      const method = (payment.method ?? '').trim();
+      const notes = (payment.notes ?? '').trim();
+      const suffix = [method, notes].filter(Boolean).join(' • ');
+      const descriptionBase =
+        customer || `Payment for TX-${payment.transactionId}`;
+      const description = suffix
+        ? `${descriptionBase} • ${suffix}`
+        : descriptionBase;
+
+      return [
+        {
+          id: `${idBase}-cash`,
+          date: dateStr,
+          ref,
+          account: 'Cash',
+          debit: Math.max(amt, 0),
+          credit: 0,
+          description,
+        },
+        {
+          id: `${idBase}-sales`,
+          date: dateStr,
+          ref,
+          account: 'Sales Revenue',
+          debit: 0,
+          credit: Math.max(amt, 0),
+          description,
+        },
+      ];
+    })
+    .flat()
+    .filter(Boolean) as Array<{
+    id: string;
+    date: string;
+    ref: string;
+    account: string;
+    debit: number;
+    credit: number;
+    description: string;
+  }>;
+
+  const legacyTxEntries = transactions
+    .filter((tx) => !paymentTransactionIds.has(tx.id))
     .map((tx) => {
       const { paymentReceived } = normalizeTransactionAmounts(tx);
       const amount = paymentReceived;
@@ -45,6 +111,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       }
 
       const amt = Number(amount);
+      if (!Number.isFinite(amt) || amt <= 0) {
+        return null;
+      }
+
       const dateStr = (paidAt ?? new Date()).toISOString();
       const productRef = (tx.productCode ?? '').trim();
       const ref = productRef || `TX-${tx.id}`;
@@ -130,12 +200,77 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     description: string;
   }>;
 
+  const refundEntries = refunds
+    .map((refund) => {
+      const refundAt = parseDate(refund.refundDate);
+      if (!isWithinDateRange(refundAt, effectiveFrom, effectiveTo)) {
+        return null;
+      }
+
+      const amt = Number(refund.amount ?? 0);
+      if (!Number.isFinite(amt) || amt <= 0) {
+        return null;
+      }
+
+      const dateStr = (refundAt ?? new Date()).toISOString();
+      const idBase = `RF-${refund.id}`;
+      const productRef = (refund.transaction?.productCode ?? '').trim();
+      const ref = productRef || idBase;
+      const customer = (refund.transaction?.customers ?? '').trim();
+
+      const reason = (refund.reason ?? '').trim();
+      const notes = (refund.notes ?? '').trim();
+      const suffix = [reason, notes].filter(Boolean).join(' • ');
+      const descriptionBase =
+        customer || `Refund for TX-${refund.transactionId}`;
+      const description = suffix
+        ? `${descriptionBase} • ${suffix}`
+        : descriptionBase;
+
+      return [
+        {
+          id: `${idBase}-sales-returns`,
+          date: dateStr,
+          ref,
+          account: 'Sales Returns',
+          debit: Math.max(amt, 0),
+          credit: 0,
+          description,
+        },
+        {
+          id: `${idBase}-cash`,
+          date: dateStr,
+          ref,
+          account: 'Cash',
+          debit: 0,
+          credit: Math.max(amt, 0),
+          description,
+        },
+      ];
+    })
+    .flat()
+    .filter(Boolean) as Array<{
+    id: string;
+    date: string;
+    ref: string;
+    account: string;
+    debit: number;
+    credit: number;
+    description: string;
+  }>;
+
   const { entries: cogsEntries } = await buildCogsAndInventoryEntries({
     from: effectiveFrom,
     to: effectiveTo,
   });
 
-  const entries = [...txEntries, ...expenseEntries, ...cogsEntries];
+  const entries = [
+    ...paymentEntries,
+    ...legacyTxEntries,
+    ...refundEntries,
+    ...expenseEntries,
+    ...cogsEntries,
+  ];
 
   const totalDebits = entries.reduce((sum, e) => sum + e.debit, 0);
   const totalCredits = entries.reduce((sum, e) => sum + e.credit, 0);

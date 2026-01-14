@@ -124,6 +124,42 @@ Trigger: status transitions into a fulfilled/shipped status (see Status Mapping 
 **Revenue amount** should come from the field that represents the agreed sale amount.
 Given your current workflow, that is usually the payment logged in `Adjustment` (we should rename internally to `paymentReceived`).
 
+### Reservation fee / deposit (10%)
+
+Policy clarification (your workflow): the “10% reservation fee” is a **deposit applied to the invoice total**, not an extra fee.
+
+- Example: invoice total = 1,000; deposit collected = 100; remaining balance = 900.
+- If you do a **full refund**, you refund **100% of the invoice total** (e.g., 1,000). This includes the deposit.
+
+Recommended accounting treatment:
+
+- When the deposit is collected **before fulfillment**:
+  - Dr Cash
+  - Cr Customer Deposits / Unearned Revenue (Liability)
+- When the order is fulfilled/shipped (sale recognized):
+  - Reclassify the deposit into revenue (and record any remaining cash received):
+    - Dr Customer Deposits / Unearned Revenue
+    - Cr Sales Revenue
+  - Then post COGS + inventory reduction per the Sale posting rule.
+
+Note: to model deposits/partial payments cleanly (including trusted customers who pay later), we eventually want a separate payment event ledger (e.g., `TransactionPayment`) rather than overwriting a single `Adjustment` value.
+
+### Refunds (including full refund of reservation deposit)
+
+Treat refunds as their own dated events (cash-basis reporting depends on the refund date).
+
+- **Refund only (no return)** (e.g., damaged pieces kept by customer):
+  - Dr Sales Returns / Refunds (contra-revenue) (or an Expense account if you prefer)
+  - Cr Cash
+  - No inventory movement.
+- **Return + refund** (rare in your process; typically returned stock is sellable):
+  - Reverse the sale posting:
+    - Dr Sales Returns / Refunds (contra-revenue)
+    - Cr Cash
+    - Dr Inventory
+    - Cr COGS
+  - Add an inventory movement back into `SELLABLE` (or `DAMAGED_HOLD`/`SCRAP` if applicable), dated to the return posting date.
+
 ### Damaged bucket (sellable later)
 
 When you inspect and mark damaged:

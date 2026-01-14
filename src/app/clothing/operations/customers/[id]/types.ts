@@ -70,6 +70,19 @@ export interface CustomerStats {
   shippedOrders: number;
 }
 
+export interface TransactionRefund {
+  id: number;
+  transactionId: number;
+  refundDate: string;
+  amount: number;
+  reason: string | null;
+  returnedQuantity: number | null;
+  restockBucket: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type OrderStatus =
   | 'pending'
   | 'processing'

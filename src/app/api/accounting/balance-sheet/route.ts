@@ -9,6 +9,7 @@ import {
 import {
   fetchApprovedExpenses,
   fetchRecognizedTransactions,
+  fetchTransactionRefunds,
   getPaidAtDate,
   isWithinDateRange,
 } from '@/lib/accounting/data-fetchers';
@@ -101,6 +102,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const transactions = await fetchRecognizedTransactions();
   const expenses = await fetchApprovedExpenses();
+  const refunds = await fetchTransactionRefunds();
 
   const openingBalanceRows =
     await prisma.clothingAccountingOpeningBalance.findMany({
@@ -203,11 +205,35 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         ]
       : [];
 
+  const refundEntries = refunds
+    .map((refund) => {
+      const refundAt = parseDate(refund.refundDate);
+      if (!isWithinDateRange(refundAt, CUTOVER, asOf)) {
+        return null;
+      }
+
+      const amt = Number(refund.amount ?? 0);
+      if (!Number.isFinite(amt) || amt <= 0) {
+        return null;
+      }
+
+      const value = Math.max(amt, 0);
+
+      // Refunds reduce Equity and reduce the Cash asset.
+      return [
+        { account: 'Retained Earnings', amount: value },
+        { account: 'Cash', amount: -value },
+      ];
+    })
+    .flat()
+    .filter(Boolean) as BalanceRow[];
+
   const combined = [
     ...openingEntries,
     ...txEntries,
     ...expenseEntries,
     ...cogsEntries,
+    ...refundEntries,
   ];
 
   const byAccount = combined.reduce<

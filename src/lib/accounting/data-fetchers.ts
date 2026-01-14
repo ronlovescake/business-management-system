@@ -13,6 +13,36 @@ type TransactionWithStatusChanges = Awaited<
   statusChanges?: { newStatus: string | null; changedAt: Date }[];
 };
 
+type TransactionRefundWithTransaction = {
+  id: number;
+  transactionId: number;
+  refundDate: string;
+  amount: number;
+  reason: string | null;
+  notes: string | null;
+  createdAt: Date;
+  transaction: {
+    id: number;
+    customers: string | null;
+    productCode: string | null;
+  };
+};
+
+type TransactionPaymentWithTransaction = {
+  id: number;
+  transactionId: number;
+  paymentDate: string;
+  amount: number;
+  method: string | null;
+  notes: string | null;
+  createdAt: Date;
+  transaction: {
+    id: number;
+    customers: string | null;
+    productCode: string | null;
+  };
+};
+
 export async function fetchPaidTransactions(): Promise<
   TransactionWithStatusChanges[]
 > {
@@ -76,6 +106,70 @@ export async function fetchApprovedExpenses() {
       status: { in: ['approved', 'paid'] },
     },
   });
+}
+
+export async function fetchTransactionRefunds(): Promise<
+  TransactionRefundWithTransaction[]
+> {
+  const rows = (await prisma.transactionRefund.findMany({
+    where: {
+      deletedAt: null,
+      transaction: { deletedAt: null },
+    },
+    include: {
+      transaction: {
+        select: {
+          id: true,
+          customers: true,
+          productCode: true,
+        },
+      },
+    },
+    orderBy: [{ refundDate: 'asc' }, { createdAt: 'asc' }],
+  })) as TransactionRefundWithTransaction[];
+
+  return rows;
+}
+
+export async function fetchTransactionPayments(): Promise<
+  TransactionPaymentWithTransaction[]
+> {
+  const transactionPayment = (
+    prisma as unknown as {
+      transactionPayment?: { findMany?: (args: unknown) => Promise<unknown> };
+    }
+  ).transactionPayment;
+
+  if (!transactionPayment?.findMany) {
+    // This usually means the DB/schema was updated but Prisma Client wasn't regenerated yet.
+    // Fail open so accounting pages still work using legacy transaction payment fields.
+    logger.warn(
+      'TransactionPayment model is unavailable on Prisma Client; returning no payment events',
+      {
+        hint: 'Run `npx prisma generate` and apply the payments migration to enable payment events.',
+      }
+    );
+    return [];
+  }
+
+  const rows = (await transactionPayment.findMany({
+    where: {
+      deletedAt: null,
+      transaction: { deletedAt: null },
+    },
+    include: {
+      transaction: {
+        select: {
+          id: true,
+          customers: true,
+          productCode: true,
+        },
+      },
+    },
+    orderBy: [{ paymentDate: 'asc' }, { createdAt: 'asc' }],
+  })) as TransactionPaymentWithTransaction[];
+
+  return rows;
 }
 
 export function getPaidAtDate(

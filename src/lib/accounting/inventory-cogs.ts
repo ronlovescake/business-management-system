@@ -53,7 +53,12 @@ export async function buildCogsAndInventoryEntries(params: {
   const movements = await prisma.inventoryMovement.findMany({
     where: {
       deletedAt: null,
-      toBucket: 'sold',
+      OR: [
+        // Sales: increase SOLD bucket (drives COGS + inventory reduction)
+        { toBucket: 'sold' },
+        // Returns/restocks: move from SOLD back into a stock bucket
+        { fromBucket: 'sold' },
+      ],
       createdAt: {
         gte: from,
       },
@@ -64,6 +69,8 @@ export async function buildCogsAndInventoryEntries(params: {
       postingDate: true,
       productCode: true,
       quantity: true,
+      fromBucket: true,
+      toBucket: true,
     },
     orderBy: { createdAt: 'asc' },
   });
@@ -118,11 +125,19 @@ export async function buildCogsAndInventoryEntries(params: {
       continue;
     }
 
+    // Net COGS effect sign:
+    // - Sales (.. -> sold): +qty
+    // - Returns (sold -> ..): -qty
+    const sign = m.toBucket === 'sold' ? 1 : m.fromBucket === 'sold' ? -1 : 0;
+    if (sign === 0) {
+      continue;
+    }
+
     const code = (m.productCode ?? '').trim();
     const unitCost = unitCostByProductCode.get(code) ?? 0;
-    const cost = qty * unitCost;
+    const cost = sign * qty * unitCost;
 
-    if (!Number.isFinite(cost) || cost <= 0) {
+    if (!Number.isFinite(cost) || cost === 0) {
       continue;
     }
 
@@ -135,31 +150,58 @@ export async function buildCogsAndInventoryEntries(params: {
     .sort(([a], [b]) => a.localeCompare(b))
     .flatMap(([dateKey, amount]) => {
       const amt = Number(amount);
-      if (!Number.isFinite(amt) || amt <= 0) {
+      if (!Number.isFinite(amt) || amt === 0) {
         return [];
       }
 
       const date = dateKeyToIso(dateKey);
       const ref = `COGS-${dateKey}`;
 
+      const abs = Math.abs(amt);
+
+      // Positive: Dr COGS / Cr Inventory
+      if (amt > 0) {
+        return [
+          {
+            id: `${ref}-cogs-debit`,
+            date,
+            ref,
+            account: COGS_ACCOUNT,
+            debit: abs,
+            credit: 0,
+            description: 'Cost of goods sold (inventory movements)',
+          },
+          {
+            id: `${ref}-inventory-credit`,
+            date,
+            ref,
+            account: INVENTORY_ACCOUNT,
+            debit: 0,
+            credit: abs,
+            description: 'Inventory reduction from sales (inventory movements)',
+          },
+        ];
+      }
+
+      // Negative: Dr Inventory / Cr COGS (return/restock reversal)
       return [
         {
-          id: `${ref}-cogs-debit`,
-          date,
-          ref,
-          account: COGS_ACCOUNT,
-          debit: amt,
-          credit: 0,
-          description: 'Cost of goods sold (inventory movements)',
-        },
-        {
-          id: `${ref}-inventory-credit`,
+          id: `${ref}-inventory-debit`,
           date,
           ref,
           account: INVENTORY_ACCOUNT,
+          debit: abs,
+          credit: 0,
+          description: 'Inventory increase from returns (inventory movements)',
+        },
+        {
+          id: `${ref}-cogs-credit`,
+          date,
+          ref,
+          account: COGS_ACCOUNT,
           debit: 0,
-          credit: amt,
-          description: 'Inventory reduction from sales (inventory movements)',
+          credit: abs,
+          description: 'COGS reversal from returns (inventory movements)',
         },
       ];
     });

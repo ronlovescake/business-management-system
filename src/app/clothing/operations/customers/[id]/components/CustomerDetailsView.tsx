@@ -145,6 +145,7 @@ export const CustomerDetailsView = memo(function CustomerDetailsView({
 
         {/* Orders and Transactions */}
         <OrdersAndTransactions
+          customerId={customerId}
           orders={orders}
           transactions={transactions}
           stats={stats}
