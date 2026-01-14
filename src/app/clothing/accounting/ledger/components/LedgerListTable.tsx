@@ -28,7 +28,13 @@ export const LedgerListTable = memo(function LedgerListTable({
     padding: '16px 12px',
     color: '#495057',
     backgroundColor: '#f1f3f5',
-    width: '14.28%', // keep every column visually consistent
+  } as const;
+
+  const stickyHeaderStyle = {
+    position: 'sticky',
+    top: 0,
+    zIndex: 2,
+    backgroundColor: '#f1f3f5',
   } as const;
 
   return (
@@ -44,27 +50,69 @@ export const LedgerListTable = memo(function LedgerListTable({
             withTableBorder
             style={{ tableLayout: 'fixed' }}
           >
-            <Table.Thead style={{ backgroundColor: '#f1f3f5' }}>
+            <Table.Thead style={stickyHeaderStyle}>
               <Table.Tr>
-                <Table.Th style={{ ...commonHeaderStyle, textAlign: 'center' }}>
+                <Table.Th
+                  style={{
+                    ...commonHeaderStyle,
+                    width: '14%',
+                    textAlign: 'center',
+                  }}
+                >
                   DATE
                 </Table.Th>
-                <Table.Th style={{ ...commonHeaderStyle, textAlign: 'center' }}>
+                <Table.Th
+                  style={{
+                    ...commonHeaderStyle,
+                    width: '14%',
+                    textAlign: 'center',
+                  }}
+                >
                   REF
                 </Table.Th>
-                <Table.Th style={{ ...commonHeaderStyle, textAlign: 'center' }}>
+                <Table.Th
+                  style={{
+                    ...commonHeaderStyle,
+                    width: '12%',
+                    textAlign: 'center',
+                  }}
+                >
                   ACCOUNT
                 </Table.Th>
-                <Table.Th style={{ ...commonHeaderStyle, textAlign: 'right' }}>
+                <Table.Th
+                  style={{
+                    ...commonHeaderStyle,
+                    width: '10%',
+                    textAlign: 'right',
+                  }}
+                >
                   DEBIT (₱)
                 </Table.Th>
-                <Table.Th style={{ ...commonHeaderStyle, textAlign: 'right' }}>
+                <Table.Th
+                  style={{
+                    ...commonHeaderStyle,
+                    width: '10%',
+                    textAlign: 'right',
+                  }}
+                >
                   CREDIT (₱)
                 </Table.Th>
-                <Table.Th style={{ ...commonHeaderStyle, textAlign: 'right' }}>
+                <Table.Th
+                  style={{
+                    ...commonHeaderStyle,
+                    width: '12%',
+                    textAlign: 'right',
+                  }}
+                >
                   BALANCE (₱)
                 </Table.Th>
-                <Table.Th style={{ ...commonHeaderStyle, textAlign: 'center' }}>
+                <Table.Th
+                  style={{
+                    ...commonHeaderStyle,
+                    width: '28%',
+                    textAlign: 'center',
+                  }}
+                >
                   DESCRIPTION
                 </Table.Th>
               </Table.Tr>

@@ -16,6 +16,12 @@ const { mockFetchers, mockPrisma, mockInventoryCogs } = vi.hoisted(() => {
       clothingAccountingOpeningBalance: {
         findMany: vi.fn(),
       },
+      clothingInventoryReclassEntry: {
+        findMany: vi.fn(),
+      },
+      clothingInventoryTransitBuildEntry: {
+        findMany: vi.fn(),
+      },
     },
     mockInventoryCogs: {
       buildCogsAndInventoryEntries: vi.fn(),
@@ -80,6 +86,10 @@ describe('Accounting Ledger API - GET /api/accounting/ledger', () => {
     mockFetchers.getPaidAtDate.mockReturnValue(null);
 
     mockPrisma.clothingAccountingOpeningBalance.findMany.mockResolvedValue([]);
+    mockPrisma.clothingInventoryReclassEntry.findMany.mockResolvedValue([]);
+    mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue(
+      []
+    );
 
     mockInventoryCogs.buildCogsAndInventoryEntries.mockResolvedValue({
       entries: [],

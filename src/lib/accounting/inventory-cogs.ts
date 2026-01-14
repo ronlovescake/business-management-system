@@ -53,6 +53,90 @@ function pickUnitCost(actualPrice: number | null | undefined): number {
   return Number.isFinite(cost) && cost > 0 ? cost : 0;
 }
 
+function pickUnitCostFromProductRow(row: {
+  basePrice?: number | null;
+  cogs?: number | null;
+  quantity?: number | null;
+}): number {
+  const base = pickUnitCost(row.basePrice);
+  if (base > 0) {
+    return base;
+  }
+
+  const cogs = Number(row.cogs ?? 0);
+  const qty = Number(row.quantity ?? 0);
+  if (!Number.isFinite(cogs) || cogs <= 0) {
+    return 0;
+  }
+  if (!Number.isFinite(qty) || qty <= 0) {
+    return 0;
+  }
+
+  return pickUnitCost(cogs / qty);
+}
+
+function normalizeIdSegment(value: string): string {
+  return (value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 80);
+}
+
+function formatQty(qty: number): string {
+  if (!Number.isFinite(qty)) {
+    return '0';
+  }
+  const rounded = Math.round(qty * 1000) / 1000;
+  if (Number.isInteger(rounded)) {
+    return String(rounded);
+  }
+  return String(rounded).replace(/0+$/, '').replace(/\.$/, '');
+}
+
+function summarizeSignedTransitions(transitions: Map<string, number>): string {
+  const parts = Array.from(transitions.entries())
+    .map(([label, qty]) => {
+      const q = Number(qty);
+      if (!Number.isFinite(q) || q === 0) {
+        return null;
+      }
+      const sign = q > 0 ? '+' : '';
+      return `${label} ${sign}${formatQty(q)}`;
+    })
+    .filter(Boolean) as string[];
+
+  return parts.join('; ');
+}
+
+function extractAutoSaleTransactionId(
+  notes: string | null | undefined
+): number | null {
+  const raw = (notes ?? '').trim();
+  if (!raw) {
+    return null;
+  }
+  const match = raw.match(/\bauto-sale\s+txn\s+(\d+)\b/i);
+  if (!match) {
+    return null;
+  }
+  const id = Number(match[1]);
+  return Number.isFinite(id) && id > 0 ? id : null;
+}
+
+function summarizeCustomerNames(names: string[]): string {
+  const cleaned = names.map((n) => n.trim()).filter(Boolean);
+  if (cleaned.length === 0) {
+    return '';
+  }
+  const unique = Array.from(new Set(cleaned));
+  if (unique.length <= 10) {
+    return unique.join(', ');
+  }
+  return `${unique.slice(0, 10).join(', ')} +${unique.length - 10} more`;
+}
+
 async function getUnitCostByProductCode(productCodes: string[]) {
   const codes = Array.from(
     new Set(productCodes.map((c) => c.trim()).filter(Boolean))
@@ -68,7 +152,9 @@ async function getUnitCostByProductCode(productCodes: string[]) {
     },
     select: {
       productCode: true,
-      actualPrice: true,
+      basePrice: true,
+      cogs: true,
+      quantity: true,
       updatedAt: true,
       createdAt: true,
     },
@@ -81,7 +167,7 @@ async function getUnitCostByProductCode(productCodes: string[]) {
     if (!code || unitCostByProductCode.has(code)) {
       continue;
     }
-    unitCostByProductCode.set(code, pickUnitCost(row.actualPrice));
+    unitCostByProductCode.set(code, pickUnitCostFromProductRow(row));
   }
 
   return unitCostByProductCode;
@@ -91,8 +177,8 @@ async function computeInventorySeedAndShrinkageByDate(params: {
   from: Date;
   to: Date | null;
 }): Promise<{
-  seedByDate: Map<string, number>;
-  shrinkageByDate: Map<string, number>;
+  seedByKey: Map<string, { value: number; qty: number; label: string }>;
+  shrinkageByKey: Map<string, { value: number; qty: number; label: string }>;
   seedTotal: number;
   shrinkageTotal: number;
 }> {
@@ -131,8 +217,8 @@ async function computeInventorySeedAndShrinkageByDate(params: {
 
   if (filtered.length === 0) {
     return {
-      seedByDate: new Map(),
-      shrinkageByDate: new Map(),
+      seedByKey: new Map(),
+      shrinkageByKey: new Map(),
       seedTotal: 0,
       shrinkageTotal: 0,
     };
@@ -142,8 +228,14 @@ async function computeInventorySeedAndShrinkageByDate(params: {
     filtered.map((m) => m.productCode)
   );
 
-  const seedByDate = new Map<string, number>();
-  const shrinkageByDate = new Map<string, number>();
+  const seedByKey = new Map<
+    string,
+    { value: number; qty: number; label: string }
+  >();
+  const shrinkageByKey = new Map<
+    string,
+    { value: number; qty: number; label: string }
+  >();
   let seedTotal = 0;
   let shrinkageTotal = 0;
 
@@ -161,23 +253,36 @@ async function computeInventorySeedAndShrinkageByDate(params: {
     }
 
     const dateKey = toDateKey(m.when);
+    const productCode = (m.productCode ?? '').trim() || 'Unknown Product';
+    const label = `${m.fromBucket}→${m.toBucket}`;
+    const key = `${dateKey}|||${productCode}|||${label}`;
 
     // Inventory seed: scrap -> asset bucket.
     if (m.fromBucket === 'scrap' && INVENTORY_ASSET_BUCKETS.has(m.toBucket)) {
-      seedByDate.set(dateKey, (seedByDate.get(dateKey) ?? 0) + value);
+      const current = seedByKey.get(key) ?? { value: 0, qty: 0, label };
+      seedByKey.set(key, {
+        value: current.value + value,
+        qty: current.qty + qty,
+        label,
+      });
       seedTotal += value;
       continue;
     }
 
     // Inventory shrinkage: asset bucket -> scrap.
     if (m.toBucket === 'scrap' && INVENTORY_ASSET_BUCKETS.has(m.fromBucket)) {
-      shrinkageByDate.set(dateKey, (shrinkageByDate.get(dateKey) ?? 0) + value);
+      const current = shrinkageByKey.get(key) ?? { value: 0, qty: 0, label };
+      shrinkageByKey.set(key, {
+        value: current.value + value,
+        qty: current.qty + qty,
+        label,
+      });
       shrinkageTotal += value;
       continue;
     }
   }
 
-  return { seedByDate, shrinkageByDate, seedTotal, shrinkageTotal };
+  return { seedByKey, shrinkageByKey, seedTotal, shrinkageTotal };
 }
 
 export async function buildCogsAndInventoryEntries(params: {
@@ -207,6 +312,7 @@ export async function buildCogsAndInventoryEntries(params: {
       quantity: true,
       fromBucket: true,
       toBucket: true,
+      notes: true,
     },
     orderBy: { createdAt: 'asc' },
   });
@@ -229,7 +335,40 @@ export async function buildCogsAndInventoryEntries(params: {
     filtered.map((m) => m.productCode)
   );
 
-  const cogsByDate = new Map<string, number>();
+  const autoSaleTxnIds = Array.from(
+    new Set(
+      filtered
+        .map((m) => extractAutoSaleTransactionId(m.notes))
+        .filter((id): id is number => typeof id === 'number' && id > 0)
+    )
+  );
+
+  const customerNameByTransactionId = new Map<number, string>();
+  if (autoSaleTxnIds.length > 0) {
+    const transactions = await prisma.transaction.findMany({
+      where: { id: { in: autoSaleTxnIds } },
+      select: { id: true, customers: true },
+    });
+
+    for (const tx of transactions) {
+      const name = (tx.customers ?? '').trim();
+      if (name) {
+        customerNameByTransactionId.set(tx.id, name);
+      }
+    }
+  }
+
+  const cogsByGroup = new Map<
+    string,
+    {
+      dateKey: string;
+      productCode: string;
+      netQty: number;
+      netCost: number;
+      transitions: Map<string, number>;
+      customers: Set<string>;
+    }
+  >();
   let totalCogs = 0;
 
   for (const m of filtered) {
@@ -254,44 +393,98 @@ export async function buildCogsAndInventoryEntries(params: {
       continue;
     }
 
-    const key = toDateKey(m.when);
-    cogsByDate.set(key, (cogsByDate.get(key) ?? 0) + cost);
+    const dateKey = toDateKey(m.when);
+    const productCode = code || 'Unknown Product';
+    const groupKey = `${dateKey}|||${productCode}`;
+
+    const transitionLabel = `${m.fromBucket}→${m.toBucket}`;
+
+    const group = cogsByGroup.get(groupKey) ?? {
+      dateKey,
+      productCode,
+      netQty: 0,
+      netCost: 0,
+      transitions: new Map<string, number>(),
+      customers: new Set<string>(),
+    };
+
+    group.netQty += sign * qty;
+    group.netCost += cost;
+    group.transitions.set(
+      transitionLabel,
+      (group.transitions.get(transitionLabel) ?? 0) + sign * qty
+    );
+
+    const txnId = extractAutoSaleTransactionId(m.notes);
+    if (txnId) {
+      const customerName = customerNameByTransactionId.get(txnId);
+      if (customerName) {
+        group.customers.add(customerName);
+      }
+    }
+
+    cogsByGroup.set(groupKey, group);
     totalCogs += cost;
   }
 
-  const entries: DerivedJournalEntry[] = Array.from(cogsByDate.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .flatMap(([dateKey, amount]) => {
-      const amt = Number(amount);
+  const entries: DerivedJournalEntry[] = Array.from(cogsByGroup.values())
+    .sort((a, b) => {
+      const byDate = a.dateKey.localeCompare(b.dateKey);
+      if (byDate !== 0) {
+        return byDate;
+      }
+      return a.productCode.localeCompare(b.productCode);
+    })
+    .flatMap((group) => {
+      const amt = Number(group.netCost);
       if (!Number.isFinite(amt) || amt === 0) {
         return [];
       }
 
-      const date = dateKeyToIso(dateKey);
-      const ref = `COGS-${dateKey}`;
+      const date = dateKeyToIso(group.dateKey);
+      const qtyAbs = Math.abs(Number(group.netQty));
+      const qtyLabel = qtyAbs > 0 ? ` x${formatQty(qtyAbs)}` : '';
+      const ref = `COGS-${group.dateKey} ${group.productCode}${qtyLabel}`;
+
+      const customerSummary = summarizeCustomerNames(
+        Array.from(group.customers)
+      );
+      const transitionSummary = summarizeSignedTransitions(group.transitions);
+      const details = [
+        transitionSummary ? `Movements: ${transitionSummary}` : null,
+        customerSummary ? `Customers: ${customerSummary}` : null,
+      ]
+        .filter(Boolean)
+        .join(' • ');
 
       const abs = Math.abs(amt);
+      const idBase = `COGS-${group.dateKey}-${normalizeIdSegment(group.productCode)}`;
+
+      const baseDescription = `Cost of goods sold (inventory movements) • ${group.productCode}${qtyLabel}`;
+      const description = details
+        ? `${baseDescription} • ${details}`
+        : baseDescription;
 
       // Positive: Dr COGS / Cr Inventory
       if (amt > 0) {
         return [
           {
-            id: `${ref}-cogs-debit`,
+            id: `${idBase}-cogs-debit`,
             date,
             ref,
             account: COGS_ACCOUNT,
             debit: abs,
             credit: 0,
-            description: 'Cost of goods sold (inventory movements)',
+            description,
           },
           {
-            id: `${ref}-inventory-credit`,
+            id: `${idBase}-inventory-credit`,
             date,
             ref,
             account: INVENTORY_ACCOUNT,
             debit: 0,
             credit: abs,
-            description: 'Inventory reduction from sales (inventory movements)',
+            description,
           },
         ];
       }
@@ -299,22 +492,22 @@ export async function buildCogsAndInventoryEntries(params: {
       // Negative: Dr Inventory / Cr COGS (return/restock reversal)
       return [
         {
-          id: `${ref}-inventory-debit`,
+          id: `${idBase}-inventory-debit`,
           date,
           ref,
           account: INVENTORY_ACCOUNT,
           debit: abs,
           credit: 0,
-          description: 'Inventory increase from returns (inventory movements)',
+          description,
         },
         {
-          id: `${ref}-cogs-credit`,
+          id: `${idBase}-cogs-credit`,
           date,
           ref,
           account: COGS_ACCOUNT,
           debit: 0,
           credit: abs,
-          description: 'COGS reversal from returns (inventory movements)',
+          description,
         },
       ];
     });
@@ -339,73 +532,94 @@ export async function buildInventorySeedAndShrinkageEntries(params: {
   seedTotal: number;
   shrinkageTotal: number;
 }> {
-  const { seedByDate, shrinkageByDate, seedTotal, shrinkageTotal } =
+  const { seedByKey, shrinkageByKey, seedTotal, shrinkageTotal } =
     await computeInventorySeedAndShrinkageByDate(params);
 
-  const dateKeys = new Set<string>([
-    ...Array.from(seedByDate.keys()),
-    ...Array.from(shrinkageByDate.keys()),
-  ]);
+  const parseKey = (key: string) => {
+    const [dateKey = '', productCode = '', label = ''] = key.split('|||');
+    return { dateKey, productCode, label };
+  };
 
-  const entries: DerivedJournalEntry[] = Array.from(dateKeys)
-    .sort((a, b) => a.localeCompare(b))
-    .flatMap((dateKey) => {
-      const seedAmt = Number(seedByDate.get(dateKey) ?? 0);
-      const shrinkAmt = Number(shrinkageByDate.get(dateKey) ?? 0);
+  const seedEntries: DerivedJournalEntry[] = Array.from(seedByKey.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .flatMap(([key, data]) => {
+      const { dateKey, productCode, label } = parseKey(key);
+      const seedAmt = Number(data.value ?? 0);
+      const seedQty = Number(data.qty ?? 0);
+      if (!Number.isFinite(seedAmt) || seedAmt <= 0) {
+        return [];
+      }
+
       const date = dateKeyToIso(dateKey);
-      const rows: DerivedJournalEntry[] = [];
+      const qtyLabel = seedQty > 0 ? ` x${formatQty(seedQty)}` : '';
+      const ref = `INV-SEED-${dateKey} ${productCode}${qtyLabel}`;
+      const idBase = `INV-SEED-${dateKey}-${normalizeIdSegment(productCode)}-${normalizeIdSegment(label)}`;
 
-      if (Number.isFinite(seedAmt) && seedAmt > 0) {
-        const ref = `INV-SEED-${dateKey}`;
-        rows.push(
-          {
-            id: `${ref}-inventory-debit`,
-            date,
-            ref,
-            account: INVENTORY_ACCOUNT,
-            debit: seedAmt,
-            credit: 0,
-            description: 'Inventory seeded from scrap (inventory movements)',
-          },
-          {
-            id: `${ref}-opening-equity-credit`,
-            date,
-            ref,
-            account: OPENING_EQUITY_ACCOUNT,
-            debit: 0,
-            credit: seedAmt,
-            description: 'Opening equity offset for inventory seed',
-          }
-        );
-      }
+      const description = `Inventory seeded (inventory movements) • ${productCode}${qtyLabel} • ${label}`;
 
-      if (Number.isFinite(shrinkAmt) && shrinkAmt > 0) {
-        const ref = `INV-SHRINK-${dateKey}`;
-        rows.push(
-          {
-            id: `${ref}-retained-earnings-debit`,
-            date,
-            ref,
-            account: 'Retained Earnings',
-            debit: shrinkAmt,
-            credit: 0,
-            description: 'Inventory shrinkage to scrap (inventory movements)',
-          },
-          {
-            id: `${ref}-inventory-credit`,
-            date,
-            ref,
-            account: INVENTORY_ACCOUNT,
-            debit: 0,
-            credit: shrinkAmt,
-            description:
-              'Inventory reduction from shrinkage (inventory movements)',
-          }
-        );
-      }
-
-      return rows;
+      return [
+        {
+          id: `${idBase}-inventory-debit`,
+          date,
+          ref,
+          account: INVENTORY_ACCOUNT,
+          debit: seedAmt,
+          credit: 0,
+          description,
+        },
+        {
+          id: `${idBase}-opening-equity-credit`,
+          date,
+          ref,
+          account: OPENING_EQUITY_ACCOUNT,
+          debit: 0,
+          credit: seedAmt,
+          description: `${description} • Offset`,
+        },
+      ];
     });
+
+  const shrinkEntries: DerivedJournalEntry[] = Array.from(
+    shrinkageByKey.entries()
+  )
+    .sort(([a], [b]) => a.localeCompare(b))
+    .flatMap(([key, data]) => {
+      const { dateKey, productCode, label } = parseKey(key);
+      const shrinkAmt = Number(data.value ?? 0);
+      const shrinkQty = Number(data.qty ?? 0);
+      if (!Number.isFinite(shrinkAmt) || shrinkAmt <= 0) {
+        return [];
+      }
+
+      const date = dateKeyToIso(dateKey);
+      const qtyLabel = shrinkQty > 0 ? ` x${formatQty(shrinkQty)}` : '';
+      const ref = `INV-SHRINK-${dateKey} ${productCode}${qtyLabel}`;
+      const idBase = `INV-SHRINK-${dateKey}-${normalizeIdSegment(productCode)}-${normalizeIdSegment(label)}`;
+      const description = `Inventory shrinkage (inventory movements) • ${productCode}${qtyLabel} • ${label}`;
+
+      return [
+        {
+          id: `${idBase}-retained-earnings-debit`,
+          date,
+          ref,
+          account: 'Retained Earnings',
+          debit: shrinkAmt,
+          credit: 0,
+          description,
+        },
+        {
+          id: `${idBase}-inventory-credit`,
+          date,
+          ref,
+          account: INVENTORY_ACCOUNT,
+          debit: 0,
+          credit: shrinkAmt,
+          description,
+        },
+      ];
+    });
+
+  const entries: DerivedJournalEntry[] = [...seedEntries, ...shrinkEntries];
 
   return { entries, seedTotal, shrinkageTotal };
 }
