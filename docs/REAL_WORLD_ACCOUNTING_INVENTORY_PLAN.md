@@ -280,6 +280,66 @@ At the accounting cutover date (Jan 1, 2026), you do this **only once**:
 
 After cutover, use normal entries (not Opening Equity) for future activity.
 
+#### Loans / opening balance workflow (one-time)
+
+If a loan already existed before the accounting cutover date, you must seed its outstanding principal as an opening balance.
+Otherwise, the first loan payment you enter will make the loan account look “negative” (because you’re debiting a liability account that started at 0 in the system).
+
+**Core rule:** a loan payable normally has a **credit** balance.
+
+Practical setup (works even when last year’s principal isn’t fully tracked yet):
+
+1. Create one liability account per loan you want to track, using the names from `csv/Loans.csv`.
+   - Examples:
+     - Loan Payable – BPI Business Loan (6th)
+     - Loan Payable – BPI Business Loan (26th)
+     - Loan Payable – Esquire Loan 1
+     - Loan Payable – Esquire Loan 2
+     - Loan Payable – Grab
+     - Loan Payable – GCash
+
+2. On the cutover date (Jan 1, 2026), enter an opening balance for each loan’s **outstanding principal as of cutover**:
+
+```
+Create two opening balance lines (the Opening Balance UI is one-account-per-line):
+
+Line A (loan account):
+
+- Date: 2026-01-01
+- Reference: OPENING • <Loan Name>
+- Account: Loan Payable – <Loan Name>
+- Credit: <Outstanding Principal at 2026-01-01>
+
+Line B (offset):
+
+- Date: 2026-01-01
+- Reference: OPENING • <Loan Name>
+- Account: Opening Equity (or Loan Proceeds Clearing)
+- Debit: <Outstanding Principal at 2026-01-01>
+```
+
+Notes:
+
+- If you don’t know the exact principal on Jan 1 yet, it’s still better to:
+  - put your best known balance from a bank statement, then
+  - adjust later when you get the real payoff/principal schedule.
+- If some loans were used to buy a truck (other business), you can still track them here, but consider using a distinct equity/clearing account (e.g. “Due from Owner / Other Business Clearing”) so the clothing books don’t silently absorb the loan proceeds.
+  - Later, you can reclassify the clearing balance into the correct asset (Truck) or intercompany account once you decide the final bookkeeping split.
+
+3. Enter each monthly payment as a split between principal and interest:
+
+```
+Date: 2026-01-05
+Reference: PAYMENT • Esquire Loan 1
+Debit Account: Loan Payable – Esquire Loan 1        (principal portion)
+Debit Account: Interest Expense – Loans             (interest portion)
+Credit Account: Cash
+Amount: <total payment>
+Memo: Jan 5 payment
+```
+
+If you don’t know the interest split yet, you can temporarily debit the full payment to Loan Payable and fix later, but expect reporting distortion until the split is corrected.
+
 #### Automation workflow (Delivered trigger)
 
 When a Shipment is updated to `Delivered`, the system can auto-post idempotent reclass entries per Product Code:

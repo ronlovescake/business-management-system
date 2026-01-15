@@ -34,7 +34,8 @@ export const BalanceSheetTable = memo(function BalanceSheetTable({
     { assets: 0, liabilities: 0, equity: 0 }
   );
 
-  const balance = totals.assets - totals.liabilities - totals.equity;
+  // With signed balances (debit positive, credit negative): Assets + Liabilities + Equity = 0.
+  const balance = totals.assets + totals.liabilities + totals.equity;
 
   return (
     <Stack gap="md">

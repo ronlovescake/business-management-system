@@ -50,11 +50,16 @@ export function ManualJournalEntryModal({
       'Stock on Hand',
       'Inventory in Transit',
       'Accounts Payable',
+      'Loan Payable',
+      'Loan Payable – Esquire Loan 1',
+      'Loan Payable – Esquire Loan 2',
       'Opening Equity',
+      'Owner Draw',
       'Sales Revenue',
       'Sales Returns',
       'COGS',
       'Inventory Shrinkage',
+      'Interest Expense',
     ])
   ).sort((a, b) => a.localeCompare(b));
 

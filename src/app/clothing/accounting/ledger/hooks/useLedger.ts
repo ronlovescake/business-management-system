@@ -85,10 +85,13 @@ export function useLedger() {
   >(null);
   const [openingEntryForm, setOpeningEntryForm] = useState({
     date: OPENING_BALANCE_DEFAULT_DATE,
-    ref: '',
+    ref: 'OPENING',
     account: '',
     debit: 0,
     credit: 0,
+    debitAccount: '',
+    creditAccount: '',
+    amount: 0,
     description: '',
   });
 
@@ -222,7 +225,16 @@ export function useLedger() {
 
   const handleOpeningEntryFieldChange = useCallback(
     (
-      field: 'date' | 'ref' | 'account' | 'debit' | 'credit' | 'description',
+      field:
+        | 'date'
+        | 'ref'
+        | 'account'
+        | 'debit'
+        | 'credit'
+        | 'debitAccount'
+        | 'creditAccount'
+        | 'amount'
+        | 'description',
       value: string | number | null
     ) => {
       setOpeningEntryForm((prev) => {
@@ -242,6 +254,13 @@ export function useLedger() {
           };
         }
 
+        if (field === 'amount') {
+          return {
+            ...prev,
+            amount: Number(value ?? 0),
+          };
+        }
+
         return {
           ...prev,
           [field]: typeof value === 'number' ? value : (value ?? ''),
@@ -255,10 +274,13 @@ export function useLedger() {
     setEditingOpeningEntryId(null);
     setOpeningEntryForm({
       date: OPENING_BALANCE_DEFAULT_DATE,
-      ref: '',
+      ref: 'OPENING',
       account: '',
       debit: 0,
       credit: 0,
+      debitAccount: '',
+      creditAccount: '',
+      amount: 0,
       description: '',
     });
     setIsOpeningEntryModalOpen(true);
@@ -273,6 +295,9 @@ export function useLedger() {
         account: entry.account,
         debit: entry.debit,
         credit: entry.credit,
+        debitAccount: '',
+        creditAccount: '',
+        amount: 0,
         description: entry.description ?? '',
       });
       setIsOpeningEntryModalOpen(true);
@@ -286,67 +311,180 @@ export function useLedger() {
   }, []);
 
   const saveOpeningEntry = useCallback(async () => {
-    const account = openingEntryForm.account.trim();
     const ref = openingEntryForm.ref.trim();
     const description = openingEntryForm.description.trim();
-    const debit = Number(openingEntryForm.debit ?? 0);
-    const credit = Number(openingEntryForm.credit ?? 0);
-    const date = openingEntryForm.date || OPENING_BALANCE_DEFAULT_DATE;
+    const date = OPENING_BALANCE_DEFAULT_DATE;
 
-    if (!account) {
+    const isEditing = Boolean(editingOpeningEntryId);
+
+    if (isEditing) {
+      const account = openingEntryForm.account.trim();
+      const debit = Number(openingEntryForm.debit ?? 0);
+      const credit = Number(openingEntryForm.credit ?? 0);
+
+      if (!account) {
+        showNotification({
+          color: 'red',
+          title: 'Account is required',
+          message: 'Choose an account for the opening entry.',
+        });
+        return;
+      }
+
+      const hasDebit = debit > 0;
+      const hasCredit = credit > 0;
+
+      if ((hasDebit && hasCredit) || (!hasDebit && !hasCredit)) {
+        showNotification({
+          color: 'red',
+          title: 'Enter a debit or a credit',
+          message: 'Provide one side only for the opening line.',
+        });
+        return;
+      }
+
+      setIsSavingOpeningEntry(true);
+      try {
+        const payload = {
+          id: editingOpeningEntryId ?? undefined,
+          date,
+          ref,
+          account,
+          debit,
+          credit,
+          description,
+        };
+
+        const res = await fetch('/api/accounting/opening-balance', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+
+        const responseBody = await res.json();
+        if (!res.ok) {
+          const errorMessage =
+            responseBody?.error || 'Failed to save opening entry';
+          throw new Error(errorMessage);
+        }
+
+        showNotification({
+          color: 'teal',
+          title: 'Opening entry updated',
+          message: account,
+        });
+
+        setIsOpeningEntryModalOpen(false);
+        setEditingOpeningEntryId(null);
+        await fetchOpeningEntries();
+        await refreshLedger();
+      } catch (error) {
+        logger.error('Opening balance save failed', { error });
+        showNotification({
+          color: 'red',
+          title: 'Could not save entry',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Unexpected error occurred',
+        });
+      } finally {
+        setIsSavingOpeningEntry(false);
+      }
+
+      return;
+    }
+
+    const debitAccount = openingEntryForm.debitAccount.trim();
+    const creditAccount = openingEntryForm.creditAccount.trim();
+    const amount = Number(openingEntryForm.amount ?? 0);
+
+    if (!debitAccount || !creditAccount) {
       showNotification({
         color: 'red',
-        title: 'Account is required',
-        message: 'Choose an account for the opening entry.',
+        title: 'Accounts are required',
+        message: 'Choose both a debit and a credit account.',
       });
       return;
     }
 
-    const hasDebit = debit > 0;
-    const hasCredit = credit > 0;
-
-    if ((hasDebit && hasCredit) || (!hasDebit && !hasCredit)) {
+    if (debitAccount === creditAccount) {
       showNotification({
         color: 'red',
-        title: 'Enter a debit or a credit',
-        message: 'Provide one side only for the opening line.',
+        title: 'Accounts must be different',
+        message: 'Debit and credit accounts cannot be the same.',
+      });
+      return;
+    }
+
+    if (!(amount > 0)) {
+      showNotification({
+        color: 'red',
+        title: 'Amount is required',
+        message: 'Enter an amount greater than zero.',
       });
       return;
     }
 
     setIsSavingOpeningEntry(true);
     try {
-      const payload = {
-        id: editingOpeningEntryId ?? undefined,
-        date,
-        ref,
-        account,
-        debit,
-        credit,
-        description,
-      };
-
-      const res = await fetch('/api/accounting/opening-balance', {
-        method: editingOpeningEntryId ? 'PUT' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
+      // Create a balanced opening entry as two lines.
+      const debitRes = await fetch('/api/accounting/opening-balance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date,
+          ref,
+          account: debitAccount,
+          debit: amount,
+          credit: 0,
+          description,
+        }),
       });
 
-      const responseBody = await res.json();
-      if (!res.ok) {
-        const errorMessage =
-          responseBody?.error || 'Failed to save opening entry';
-        throw new Error(errorMessage);
+      const debitBody = await debitRes.json().catch(() => null);
+      if (!debitRes.ok) {
+        throw new Error(
+          debitBody?.error || 'Failed to save opening debit line'
+        );
+      }
+
+      const createdDebitId = debitBody?.entry?.id as string | undefined;
+
+      const creditRes = await fetch('/api/accounting/opening-balance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date,
+          ref,
+          account: creditAccount,
+          debit: 0,
+          credit: amount,
+          description,
+        }),
+      });
+
+      const creditBody = await creditRes.json().catch(() => null);
+      if (!creditRes.ok) {
+        if (createdDebitId) {
+          await fetch(
+            `/api/accounting/opening-balance?id=${encodeURIComponent(
+              createdDebitId
+            )}`,
+            { method: 'DELETE' }
+          ).catch(() => null);
+        }
+        throw new Error(
+          creditBody?.error || 'Failed to save opening credit line'
+        );
       }
 
       showNotification({
         color: 'teal',
-        title: editingOpeningEntryId
-          ? 'Opening entry updated'
-          : 'Opening entry saved',
-        message: account,
+        title: 'Opening entry saved',
+        message: `${debitAccount} → ${creditAccount}`,
       });
 
       setIsOpeningEntryModalOpen(false);

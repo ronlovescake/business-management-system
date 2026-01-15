@@ -9,6 +9,7 @@ import {
 import {
   fetchApprovedExpenses,
   fetchRecognizedTransactions,
+  fetchManualJournalLines,
   fetchTransactionRefunds,
   getPaidAtDate,
   isWithinDateRange,
@@ -66,6 +67,10 @@ const ACCOUNT_MAP: Record<AccountType, Set<string>> = {
     'opening equity',
     'owner’s equity',
     "owner's equity",
+    'owner draw',
+    'owner’s draw',
+    "owner's draw",
+    'owners draw',
     'retained earnings',
     'capital',
     'equity',
@@ -73,7 +78,8 @@ const ACCOUNT_MAP: Record<AccountType, Set<string>> = {
 };
 
 function detectAccountType(account: string): AccountType | null {
-  const name = account.trim().toLowerCase();
+  const rawName = account.trim();
+  const name = rawName.toLowerCase();
   if (!name) {
     return null;
   }
@@ -81,6 +87,35 @@ function detectAccountType(account: string): AccountType | null {
   for (const type of Object.keys(ACCOUNT_MAP) as AccountType[]) {
     if (ACCOUNT_MAP[type].has(name)) {
       return type;
+    }
+  }
+
+  const normalize = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim()
+      .replace(/\s+/g, ' ');
+
+  const normalizedName = normalize(rawName);
+  if (!normalizedName) {
+    return null;
+  }
+
+  for (const type of Object.keys(ACCOUNT_MAP) as AccountType[]) {
+    for (const keyword of Array.from(ACCOUNT_MAP[type])) {
+      const normalizedKeyword = normalize(keyword);
+      if (!normalizedKeyword) {
+        continue;
+      }
+
+      if (normalizedName === normalizedKeyword) {
+        return type;
+      }
+
+      if (normalizedName.includes(normalizedKeyword)) {
+        return type;
+      }
     }
   }
 
@@ -106,6 +141,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const transactions = await fetchRecognizedTransactions();
   const expenses = await fetchApprovedExpenses();
   const refunds = await fetchTransactionRefunds();
+  const manualLines = await fetchManualJournalLines({
+    from: CUTOVER,
+    to: asOf,
+  });
 
   const openingBalanceRows =
     await prisma.clothingAccountingOpeningBalance.findMany({
@@ -310,12 +349,22 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     .flat()
     .filter(Boolean) as BalanceRow[];
 
+  // Manual journal entries affect the balance sheet directly (e.g. Owner Draw).
+  // Each line is already one side of a balanced entry, so include as-is.
+  const manualEntries: BalanceRow[] = manualLines
+    .map((line) => ({
+      account: line.account,
+      amount: Number(line.debit ?? 0) - Number(line.credit ?? 0),
+    }))
+    .filter((row) => Number.isFinite(row.amount) && row.amount !== 0);
+
   const combined = [
     ...openingEntries,
     ...reclassEntries,
     ...transitBuildEntries,
     ...txEntries,
     ...expenseEntries,
+    ...manualEntries,
     ...cogsEntries,
     ...inventorySeedEntries,
     ...inventoryShrinkageEntries,
@@ -353,9 +402,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       assets: totals.Asset,
       liabilities: totals.Liability,
       equity: totals.Equity,
-      // Accounting equation: Assets = Liabilities + Equity.
-      // Equity is stored as a signed balance (credits negative), so use assets + equity - liabilities.
-      balance: totals.Asset + totals.Equity - totals.Liability,
+      // Accounting equation (with signed balances): Assets + Liabilities + Equity = 0.
+      // This endpoint uses signed balances where debits are positive and credits are negative.
+      balance: totals.Asset + totals.Liability + totals.Equity,
       asOf: asOf.toISOString(),
     },
   });

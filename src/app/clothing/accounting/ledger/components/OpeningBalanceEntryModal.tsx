@@ -7,6 +7,7 @@ import {
   Group,
   Stack,
   Button,
+  Text,
 } from '@mantine/core';
 
 export type OpeningBalanceEntryForm = {
@@ -15,6 +16,9 @@ export type OpeningBalanceEntryForm = {
   account: string;
   debit: number;
   credit: number;
+  debitAccount: string;
+  creditAccount: string;
+  amount: number;
   description: string;
 };
 
@@ -45,14 +49,18 @@ export function OpeningBalanceEntryModal({
   const accountOptions = Array.from(
     new Set([
       ...accounts,
+      'Cash',
       'Inventory',
       'Stock on Hand',
       'Inventory in Transit',
       'Opening Equity',
       'Accounts Receivable',
       'Accounts Payable',
+      'Loan Payable',
+      'Loan Payable – Esquire Loan 1',
+      'Loan Payable – Esquire Loan 2',
     ])
-  );
+  ).sort((a, b) => a.localeCompare(b));
 
   return (
     <Modal
@@ -67,49 +75,95 @@ export function OpeningBalanceEntryModal({
           type="date"
           value={form.date}
           onChange={(event) => onChange('date', event.currentTarget.value)}
+          min="2026-01-01"
           max="2026-01-01"
+          disabled
         />
 
-        <Group grow>
-          <TextInput
-            label="Reference"
-            placeholder="OPENING"
-            value={form.ref}
-            onChange={(event) => onChange('ref', event.currentTarget.value)}
-          />
-          <Select
-            label="Account"
-            placeholder="Select account"
-            data={accountOptions}
-            value={form.account}
-            searchable
-            clearable
-            onChange={(value) => onChange('account', value || '')}
-          />
-        </Group>
+        {!isEditing && (
+          <Text size="sm" c="dimmed">
+            This creates two opening balance lines on 2026-01-01 (one debit, one
+            credit).
+          </Text>
+        )}
 
-        <Group grow>
-          <NumberInput
-            label="Debit (₱)"
-            thousandSeparator=","
-            decimalSeparator="."
-            value={form.debit}
-            min={0}
-            onChange={(value) => onChange('debit', value ?? 0)}
-            hideControls
-            placeholder="0.00"
-          />
-          <NumberInput
-            label="Credit (₱)"
-            thousandSeparator=","
-            decimalSeparator="."
-            value={form.credit}
-            min={0}
-            onChange={(value) => onChange('credit', value ?? 0)}
-            hideControls
-            placeholder="0.00"
-          />
-        </Group>
+        <TextInput
+          label="Reference"
+          placeholder="OPENING"
+          value={form.ref}
+          onChange={(event) => onChange('ref', event.currentTarget.value)}
+        />
+
+        {isEditing ? (
+          <>
+            <Select
+              label="Account"
+              placeholder="Select account"
+              data={accountOptions}
+              value={form.account}
+              searchable
+              clearable
+              onChange={(value) => onChange('account', value || '')}
+            />
+
+            <Group grow>
+              <NumberInput
+                label="Debit (₱)"
+                thousandSeparator=","
+                decimalSeparator="."
+                value={form.debit}
+                min={0}
+                onChange={(value) => onChange('debit', value ?? 0)}
+                hideControls
+                placeholder="0.00"
+              />
+              <NumberInput
+                label="Credit (₱)"
+                thousandSeparator=","
+                decimalSeparator="."
+                value={form.credit}
+                min={0}
+                onChange={(value) => onChange('credit', value ?? 0)}
+                hideControls
+                placeholder="0.00"
+              />
+            </Group>
+          </>
+        ) : (
+          <>
+            <Group grow>
+              <Select
+                label="Debit Account"
+                placeholder="Select account"
+                data={accountOptions}
+                value={form.debitAccount}
+                searchable
+                clearable
+                onChange={(value) => onChange('debitAccount', value || '')}
+              />
+              <Select
+                label="Credit Account"
+                placeholder="Select account"
+                data={accountOptions}
+                value={form.creditAccount}
+                searchable
+                clearable
+                onChange={(value) => onChange('creditAccount', value || '')}
+              />
+            </Group>
+
+            <NumberInput
+              label="Amount (₱)"
+              thousandSeparator=","
+              decimalSeparator="."
+              value={form.amount}
+              min={0}
+              onChange={(value) => onChange('amount', value ?? 0)}
+              hideControls
+              placeholder="0.00"
+            />
+          </>
+        )}
 
         <Textarea
           label="Description"
