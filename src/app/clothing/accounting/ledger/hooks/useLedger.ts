@@ -17,6 +17,10 @@ export type LedgerEntry = {
   credit: number;
   description: string;
   balance?: number;
+  sourceType?: string;
+  sourceId?: string | null;
+  sourceLineKey?: string;
+  systemGenerated?: boolean;
 };
 
 export type OpeningBalanceEntry = {
@@ -38,6 +42,7 @@ export type LedgerStats = {
 };
 
 const OPENING_BALANCE_DEFAULT_DATE = '2026-01-01';
+const MANUAL_ENTRY_DEFAULT_DATE = '2026-01-01';
 
 export const LEDGER_PERIOD_OPTIONS = PERIOD_OPTIONS;
 export type LedgerPeriodOption = PeriodOption;
@@ -84,6 +89,20 @@ export function useLedger() {
     account: '',
     debit: 0,
     credit: 0,
+    description: '',
+  });
+
+  const [isManualEntryModalOpen, setIsManualEntryModalOpen] = useState(false);
+  const [isSavingManualEntry, setIsSavingManualEntry] = useState(false);
+  const [editingManualSourceId, setEditingManualSourceId] = useState<
+    string | null
+  >(null);
+  const [manualEntryForm, setManualEntryForm] = useState({
+    date: MANUAL_ENTRY_DEFAULT_DATE,
+    ref: '',
+    debitAccount: '',
+    creditAccount: '',
+    amount: 0,
     description: '',
   });
 
@@ -393,9 +412,216 @@ export function useLedger() {
     [fetchOpeningEntries, refreshLedger]
   );
 
-  const handleAddEntry = () => {
-    logger.info('Add Ledger Entry clicked');
-  };
+  const openManualEntryModal = useCallback(() => {
+    setEditingManualSourceId(null);
+    setManualEntryForm((prev) => ({
+      ...prev,
+      date: prev.date || MANUAL_ENTRY_DEFAULT_DATE,
+    }));
+    setIsManualEntryModalOpen(true);
+  }, []);
+
+  const openManualEntryModalForEdit = useCallback(
+    (entry: LedgerEntry) => {
+      const sourceId = entry.sourceId ?? null;
+      if (!sourceId) {
+        return;
+      }
+
+      const group = entries.filter(
+        (e) => e.sourceType === 'MANUAL' && e.sourceId === sourceId
+      );
+      const debitLine = group.find((e) => Number(e.debit ?? 0) > 0);
+      const creditLine = group.find((e) => Number(e.credit ?? 0) > 0);
+
+      if (!debitLine || !creditLine) {
+        showNotification({
+          color: 'red',
+          title: 'Cannot edit entry',
+          message: 'This manual entry is missing a debit or credit line.',
+        });
+        return;
+      }
+
+      setEditingManualSourceId(sourceId);
+      setManualEntryForm({
+        date: (debitLine.date || creditLine.date).slice(0, 10),
+        ref: debitLine.ref || creditLine.ref,
+        debitAccount: debitLine.account,
+        creditAccount: creditLine.account,
+        amount: Number(debitLine.debit ?? creditLine.credit ?? 0),
+        description: debitLine.description || creditLine.description || '',
+      });
+      setIsManualEntryModalOpen(true);
+    },
+    [entries]
+  );
+
+  const closeManualEntryModal = useCallback(() => {
+    setIsManualEntryModalOpen(false);
+    setEditingManualSourceId(null);
+  }, []);
+
+  const handleManualEntryFieldChange = useCallback(
+    (
+      field:
+        | 'date'
+        | 'ref'
+        | 'debitAccount'
+        | 'creditAccount'
+        | 'amount'
+        | 'description',
+      value: string | number | null
+    ) => {
+      setManualEntryForm((prev) => ({
+        ...prev,
+        [field]: value ?? (field === 'amount' ? 0 : ''),
+      }));
+    },
+    []
+  );
+
+  const saveManualEntry = useCallback(async () => {
+    const date = manualEntryForm.date || MANUAL_ENTRY_DEFAULT_DATE;
+    const ref = manualEntryForm.ref.trim();
+    const debitAccount = manualEntryForm.debitAccount.trim();
+    const creditAccount = manualEntryForm.creditAccount.trim();
+    const amount = Number(manualEntryForm.amount ?? 0);
+    const description = manualEntryForm.description.trim();
+
+    if (!ref) {
+      showNotification({
+        color: 'red',
+        title: 'Reference is required',
+        message: 'Add a short reference (e.g., PAYMENT • Customer Name).',
+      });
+      return;
+    }
+
+    if (!debitAccount || !creditAccount) {
+      showNotification({
+        color: 'red',
+        title: 'Accounts are required',
+        message: 'Choose both a debit and credit account.',
+      });
+      return;
+    }
+
+    if (debitAccount === creditAccount) {
+      showNotification({
+        color: 'red',
+        title: 'Accounts must differ',
+        message: 'Debit and credit accounts must be different.',
+      });
+      return;
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      showNotification({
+        color: 'red',
+        title: 'Amount must be positive',
+        message: 'Enter a valid amount greater than 0.',
+      });
+      return;
+    }
+
+    setIsSavingManualEntry(true);
+    try {
+      const payload = {
+        sourceId: editingManualSourceId ?? undefined,
+        date,
+        ref,
+        debitAccount,
+        creditAccount,
+        amount,
+        description,
+      };
+
+      const res = await fetch('/api/accounting/manual-journal', {
+        method: editingManualSourceId ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const responseBody = await res.json().catch(() => null);
+      if (!res.ok) {
+        const errorMessage =
+          responseBody?.error || 'Failed to save manual journal entry';
+        throw new Error(errorMessage);
+      }
+
+      showNotification({
+        color: 'teal',
+        title: editingManualSourceId ? 'Entry updated' : 'Entry saved',
+        message: `${debitAccount} / ${creditAccount}`,
+      });
+
+      setIsManualEntryModalOpen(false);
+      setEditingManualSourceId(null);
+      await refreshLedger();
+    } catch (error) {
+      logger.error('Manual journal save failed', { error });
+      showNotification({
+        color: 'red',
+        title: 'Could not save entry',
+        message:
+          error instanceof Error ? error.message : 'Unexpected error occurred',
+      });
+    } finally {
+      setIsSavingManualEntry(false);
+    }
+  }, [manualEntryForm, refreshLedger, editingManualSourceId]);
+
+  const deleteManualEntry = useCallback(
+    async (entry: LedgerEntry) => {
+      const sourceId = entry.sourceId ?? null;
+      if (!sourceId) {
+        return;
+      }
+
+      const ok = window.confirm(
+        `Delete this manual entry?\n\n${entry.ref}\n${entry.account}`
+      );
+      if (!ok) {
+        return;
+      }
+
+      try {
+        const res = await fetch(
+          `/api/accounting/manual-journal?sourceId=${encodeURIComponent(sourceId)}`,
+          { method: 'DELETE' }
+        );
+
+        const payload = await res.json().catch(() => null);
+        if (!res.ok) {
+          const errorMessage = payload?.error || 'Failed to delete entry';
+          throw new Error(errorMessage);
+        }
+
+        showNotification({
+          color: 'green',
+          title: 'Entry deleted',
+          message: entry.ref,
+        });
+
+        await refreshLedger();
+      } catch (error) {
+        logger.error('Manual journal delete failed', { error });
+        showNotification({
+          color: 'red',
+          title: 'Delete failed',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Unexpected error deleting entry',
+        });
+        throw error;
+      }
+    },
+    [refreshLedger]
+  );
+
+  const handleAddEntry = openManualEntryModal;
 
   const handleImportCSV = (file: File | null) => {
     if (!file) {
@@ -426,6 +652,16 @@ export function useLedger() {
     handleAddEntry,
     handleImportCSV,
     handleExportCSV,
+    isManualEntryModalOpen,
+    isSavingManualEntry,
+    editingManualSourceId,
+    manualEntryForm,
+    handleManualEntryFieldChange,
+    openManualEntryModal,
+    openManualEntryModalForEdit,
+    closeManualEntryModal,
+    saveManualEntry,
+    deleteManualEntry,
     openingEntries,
     isLoadingOpeningEntries,
     isOpeningEntryModalOpen,

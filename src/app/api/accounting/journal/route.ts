@@ -11,6 +11,7 @@ import {
   fetchApprovedExpenses,
   fetchTransactionRefunds,
   fetchTransactionPayments,
+  fetchManualJournalLines,
   getPaidAtDate,
   isWithinDateRange,
 } from '@/lib/accounting/data-fetchers';
@@ -41,6 +42,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const payments = await fetchTransactionPayments();
   const expenses = await fetchApprovedExpenses();
   const refunds = await fetchTransactionRefunds();
+  const manualLines = await fetchManualJournalLines({
+    from: effectiveFrom,
+    to: effectiveTo,
+  });
 
   const reclassRows = await prisma.clothingInventoryReclassEntry.findMany({
     where: {
@@ -385,6 +390,20 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       to: effectiveTo,
     });
 
+  const manualEntries = manualLines.map((line) => ({
+    id: line.id,
+    date: line.date.toISOString(),
+    ref: line.ref,
+    account: line.account,
+    debit: Number(line.debit ?? 0),
+    credit: Number(line.credit ?? 0),
+    description: line.description ?? '',
+    sourceType: line.sourceType,
+    sourceId: line.sourceId,
+    sourceLineKey: line.sourceLineKey,
+    systemGenerated: line.systemGenerated,
+  }));
+
   const entries = [
     ...reclassEntries,
     ...transitBuildEntries,
@@ -394,6 +413,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     ...expenseEntries,
     ...cogsEntries,
     ...inventorySeedShrinkageEntries,
+    ...manualEntries,
   ];
 
   const totalDebits = entries.reduce((sum, e) => sum + e.debit, 0);

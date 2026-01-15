@@ -3,6 +3,7 @@
 import React from 'react';
 import { Stack } from '@mantine/core';
 import { PageLayout } from '@/components/layout/PageLayout';
+import { ManualJournalEntryModal } from '../components/ManualJournalEntryModal';
 import { JournalStatsCards } from './components/JournalStatsCards';
 import { JournalControls } from './components/JournalControls';
 import { JournalListTable } from './components/JournalListTable';
@@ -25,6 +26,15 @@ export default function JournalPage() {
     handleAddEntry,
     handleImportCSV,
     handleExportCSV,
+    editingManualSourceId,
+    openManualEntryModalForEdit,
+    deleteManualEntry,
+    isManualEntryModalOpen,
+    closeManualEntryModal,
+    saveManualEntry,
+    isSavingManualEntry,
+    manualEntryForm,
+    handleManualEntryFieldChange,
     period,
     setPeriod,
   } = useJournal();
@@ -60,6 +70,21 @@ export default function JournalPage() {
           filteredEntries={filteredEntries}
           formatDate={formatDate}
           formatCurrency={formatCurrency}
+          onEditManualEntry={openManualEntryModalForEdit}
+          onDeleteManualEntry={deleteManualEntry}
+        />
+
+        <ManualJournalEntryModal
+          opened={isManualEntryModalOpen}
+          onClose={closeManualEntryModal}
+          onSubmit={saveManualEntry}
+          isSaving={isSavingManualEntry}
+          form={manualEntryForm}
+          onChange={handleManualEntryFieldChange}
+          accounts={accounts}
+          title={
+            editingManualSourceId ? 'Edit Journal Entry' : 'Add Journal Entry'
+          }
         />
       </Stack>
     </PageLayout>

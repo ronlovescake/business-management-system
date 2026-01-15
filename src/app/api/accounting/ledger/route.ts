@@ -11,6 +11,7 @@ import {
   fetchApprovedExpenses,
   fetchTransactionRefunds,
   fetchTransactionPayments,
+  fetchManualJournalLines,
   getPaidAtDate,
   isWithinDateRange,
 } from '@/lib/accounting/data-fetchers';
@@ -42,6 +43,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const expenses = await fetchApprovedExpenses();
   const refunds = await fetchTransactionRefunds();
   const payments = await fetchTransactionPayments();
+  const manualLines = await fetchManualJournalLines({
+    from: effectiveFrom,
+    to: effectiveTo,
+  });
 
   const paymentTransactionIds = new Set(payments.map((p) => p.transactionId));
 
@@ -403,6 +408,20 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       to: effectiveTo,
     });
 
+  const manualEntries = manualLines.map((line) => ({
+    id: line.id,
+    date: line.date.toISOString(),
+    ref: line.ref,
+    account: line.account,
+    debit: Number(line.debit ?? 0),
+    credit: Number(line.credit ?? 0),
+    description: line.description ?? '',
+    sourceType: line.sourceType,
+    sourceId: line.sourceId,
+    sourceLineKey: line.sourceLineKey,
+    systemGenerated: line.systemGenerated,
+  }));
+
   const entries = [
     ...openingEntries,
     ...reclassEntries,
@@ -413,6 +432,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     ...expenseEntries,
     ...cogsEntries,
     ...inventorySeedShrinkageEntries,
+    ...manualEntries,
   ];
 
   const sortedByDate = entries.sort(

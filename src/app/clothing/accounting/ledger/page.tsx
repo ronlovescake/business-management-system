@@ -8,6 +8,7 @@ import { LedgerControls } from './components/LedgerControls';
 import { LedgerListTable } from './components/LedgerListTable';
 import { OpeningBalancePanel } from './components/OpeningBalancePanel';
 import { OpeningBalanceEntryModal } from './components/OpeningBalanceEntryModal';
+import { ManualJournalEntryModal } from '../components/ManualJournalEntryModal';
 import { useLedger } from './hooks/useLedger';
 
 export default function LedgerPage() {
@@ -29,6 +30,15 @@ export default function LedgerPage() {
     handleAddEntry,
     handleImportCSV,
     handleExportCSV,
+    editingManualSourceId,
+    openManualEntryModalForEdit,
+    deleteManualEntry,
+    isManualEntryModalOpen,
+    closeManualEntryModal,
+    saveManualEntry,
+    isSavingManualEntry,
+    manualEntryForm,
+    handleManualEntryFieldChange,
     openingEntries,
     isLoadingOpeningEntries,
     isOpeningEntryModalOpen,
@@ -91,6 +101,8 @@ export default function LedgerPage() {
             filteredEntries={filteredEntries}
             formatDate={formatDate}
             formatCurrency={formatCurrency}
+            onEditManualEntry={openManualEntryModalForEdit}
+            onDeleteManualEntry={deleteManualEntry}
           />
         )}
 
@@ -103,6 +115,19 @@ export default function LedgerPage() {
           onChange={handleOpeningEntryFieldChange}
           accounts={accounts}
           isEditing={Boolean(editingOpeningEntryId)}
+        />
+
+        <ManualJournalEntryModal
+          opened={isManualEntryModalOpen}
+          onClose={closeManualEntryModal}
+          onSubmit={saveManualEntry}
+          isSaving={isSavingManualEntry}
+          form={manualEntryForm}
+          onChange={handleManualEntryFieldChange}
+          accounts={accounts}
+          title={
+            editingManualSourceId ? 'Edit Ledger Entry' : 'Add Ledger Entry'
+          }
         />
       </Stack>
     </PageLayout>

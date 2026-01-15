@@ -1,5 +1,7 @@
 import { memo } from 'react';
-import { Stack, Table, Text } from '@mantine/core';
+import { Stack, Table, Text, Group, ActionIcon, Tooltip } from '@mantine/core';
+import { IconEdit, IconTrash } from '@tabler/icons-react';
+import { getActionLabel } from '@/lib/accessibility';
 import type { JournalEntry } from '../hooks/useJournal';
 import { AccountingTableCard } from '../../components/AccountingTableCard';
 import { AccountingTableSummaryCard } from '../../components/AccountingTableSummaryCard';
@@ -15,6 +17,8 @@ interface JournalListTableProps {
   filteredEntries: JournalEntry[];
   formatDate: (date: string) => string;
   formatCurrency: (amount: number) => string;
+  onEditManualEntry?: (entry: JournalEntry) => void;
+  onDeleteManualEntry?: (entry: JournalEntry) => void;
 }
 
 export const JournalListTable = memo(function JournalListTable({
@@ -22,6 +26,8 @@ export const JournalListTable = memo(function JournalListTable({
   filteredEntries,
   formatDate,
   formatCurrency,
+  onEditManualEntry,
+  onDeleteManualEntry,
 }: JournalListTableProps) {
   const totals = filteredEntries.reduce(
     (acc, entry) => {
@@ -52,12 +58,13 @@ export const JournalListTable = memo(function JournalListTable({
                 CREDIT (₱)
               </Table.Th>
               <Table.Th style={accountingThStyle()}>DESCRIPTION</Table.Th>
+              <Table.Th style={accountingThStyle()}>ACTIONS</Table.Th>
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
             {filteredEntries.length === 0 ? (
               <Table.Tr>
-                <Table.Td colSpan={6} style={{ textAlign: 'center' }}>
+                <Table.Td colSpan={7} style={{ textAlign: 'center' }}>
                   <Text c="dimmed" py="xl">
                     No journal entries found
                   </Text>
@@ -99,6 +106,46 @@ export const JournalListTable = memo(function JournalListTable({
                     >
                       {entry.description}
                     </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Group gap="xs" justify="center">
+                      {entry.sourceType === 'MANUAL' &&
+                        entry.systemGenerated === false &&
+                        entry.sourceId && (
+                          <>
+                            <Tooltip label="Edit">
+                              <ActionIcon
+                                color="blue"
+                                variant="light"
+                                size="sm"
+                                onClick={() => onEditManualEntry?.(entry)}
+                                {...getActionLabel(
+                                  'Edit',
+                                  'manual journal entry',
+                                  entry.ref
+                                )}
+                              >
+                                <IconEdit size={16} />
+                              </ActionIcon>
+                            </Tooltip>
+                            <Tooltip label="Delete">
+                              <ActionIcon
+                                color="red"
+                                variant="light"
+                                size="sm"
+                                onClick={() => onDeleteManualEntry?.(entry)}
+                                {...getActionLabel(
+                                  'Delete',
+                                  'manual journal entry',
+                                  entry.ref
+                                )}
+                              >
+                                <IconTrash size={16} />
+                              </ActionIcon>
+                            </Tooltip>
+                          </>
+                        )}
+                    </Group>
                   </Table.Td>
                 </Table.Tr>
               ))

@@ -45,6 +45,20 @@ type TransactionPaymentWithTransaction = {
   };
 };
 
+export type ManualJournalLine = {
+  id: string;
+  date: Date;
+  ref: string;
+  account: string;
+  debit: number;
+  credit: number;
+  description: string | null;
+  sourceType: string;
+  sourceId: string | null;
+  sourceLineKey: string;
+  systemGenerated: boolean;
+};
+
 export async function fetchPaidTransactions(): Promise<
   TransactionWithStatusChanges[]
 > {
@@ -172,6 +186,42 @@ export async function fetchTransactionPayments(): Promise<
   })) as TransactionPaymentWithTransaction[];
 
   return rows;
+}
+
+export async function fetchManualJournalLines(params: {
+  from: Date;
+  to: Date | null;
+}): Promise<ManualJournalLine[]> {
+  const { from, to } = params;
+
+  try {
+    const rows = (await prisma.clothingAccountingJournalLine.findMany({
+      where: {
+        sourceType: 'MANUAL',
+        systemGenerated: false,
+        date: {
+          gte: from,
+          ...(to ? { lte: to } : {}),
+        },
+      },
+      orderBy: { date: 'asc' },
+    })) as ManualJournalLine[];
+
+    return rows;
+  } catch (error) {
+    const code = (error as { code?: string })?.code;
+    const message = (error as { message?: string })?.message ?? '';
+    if (code === 'P2021' || message.includes('does not exist')) {
+      logger.warn(
+        'Manual journal table is missing; returning no manual journal lines',
+        {
+          hint: 'Create/apply the ClothingAccountingJournalLine table to enable manual entries.',
+        }
+      );
+      return [];
+    }
+    throw error;
+  }
 }
 
 export function getPaidAtDate(

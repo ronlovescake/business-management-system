@@ -1,5 +1,7 @@
 import { memo } from 'react';
-import { Stack, Table, Text } from '@mantine/core';
+import { Stack, Table, Text, Group, ActionIcon, Tooltip } from '@mantine/core';
+import { IconEdit, IconTrash } from '@tabler/icons-react';
+import { getActionLabel } from '@/lib/accessibility';
 import type { LedgerEntry } from '../hooks/useLedger';
 import { AccountingTableCard } from '../../components/AccountingTableCard';
 import { AccountingTableSummaryCard } from '../../components/AccountingTableSummaryCard';
@@ -15,6 +17,8 @@ interface LedgerListTableProps {
   filteredEntries: LedgerEntry[];
   formatDate: (date: string) => string;
   formatCurrency: (amount: number) => string;
+  onEditManualEntry?: (entry: LedgerEntry) => void;
+  onDeleteManualEntry?: (entry: LedgerEntry) => void;
 }
 
 export const LedgerListTable = memo(function LedgerListTable({
@@ -22,6 +26,8 @@ export const LedgerListTable = memo(function LedgerListTable({
   filteredEntries,
   formatDate,
   formatCurrency,
+  onEditManualEntry,
+  onDeleteManualEntry,
 }: LedgerListTableProps) {
   const totals = filteredEntries.reduce(
     (acc, entry) => {
@@ -69,12 +75,15 @@ export const LedgerListTable = memo(function LedgerListTable({
               <Table.Th style={accountingThStyle({ width: '28%' })}>
                 DESCRIPTION
               </Table.Th>
+              <Table.Th style={accountingThStyle({ width: '10%' })}>
+                ACTIONS
+              </Table.Th>
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
             {filteredEntries.length === 0 ? (
               <Table.Tr>
-                <Table.Td colSpan={7} style={{ textAlign: 'center' }}>
+                <Table.Td colSpan={8} style={{ textAlign: 'center' }}>
                   <Text c="dimmed" py="xl">
                     No ledger entries found
                   </Text>
@@ -82,6 +91,7 @@ export const LedgerListTable = memo(function LedgerListTable({
               </Table.Tr>
             ) : (
               filteredEntries.map((entry) => (
+                // Only manual lines are editable/deletable.
                 <Table.Tr key={entry.id}>
                   <Table.Td style={ACCOUNTING_TABLE_TD_CENTER_STYLE}>
                     {formatDate(entry.date)}
@@ -123,6 +133,46 @@ export const LedgerListTable = memo(function LedgerListTable({
                     >
                       {entry.description}
                     </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Group gap="xs" justify="center">
+                      {entry.sourceType === 'MANUAL' &&
+                        entry.systemGenerated === false &&
+                        entry.sourceId && (
+                          <>
+                            <Tooltip label="Edit">
+                              <ActionIcon
+                                color="blue"
+                                variant="light"
+                                size="sm"
+                                onClick={() => onEditManualEntry?.(entry)}
+                                {...getActionLabel(
+                                  'Edit',
+                                  'manual journal entry',
+                                  entry.ref
+                                )}
+                              >
+                                <IconEdit size={16} />
+                              </ActionIcon>
+                            </Tooltip>
+                            <Tooltip label="Delete">
+                              <ActionIcon
+                                color="red"
+                                variant="light"
+                                size="sm"
+                                onClick={() => onDeleteManualEntry?.(entry)}
+                                {...getActionLabel(
+                                  'Delete',
+                                  'manual journal entry',
+                                  entry.ref
+                                )}
+                              >
+                                <IconTrash size={16} />
+                              </ActionIcon>
+                            </Tooltip>
+                          </>
+                        )}
+                    </Group>
                   </Table.Td>
                 </Table.Tr>
               ))
