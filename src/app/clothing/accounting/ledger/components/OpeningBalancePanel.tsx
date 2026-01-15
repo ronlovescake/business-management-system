@@ -1,4 +1,5 @@
 import {
+  Alert,
   Card,
   Stack,
   Text,
@@ -9,7 +10,7 @@ import {
   Table,
   Box,
 } from '@mantine/core';
-import { IconBulb, IconPlus } from '@tabler/icons-react';
+import { IconAlertTriangle, IconBulb, IconPlus } from '@tabler/icons-react';
 import { confirmTripleDelete } from '@/utils/confirmTripleDelete';
 import { logger } from '@/lib/logger';
 
@@ -51,12 +52,45 @@ export function OpeningBalancePanel({
   onDeleteEntry,
   isSaving = false,
 }: OpeningBalancePanelProps) {
+  const CUTOVER_DATE = '2026-01-01';
+
   const commonHeaderStyle = {
     padding: '16px 12px',
     color: '#495057',
     backgroundColor: '#f1f3f5',
     width: '14.28%', // seven columns, equal width
   } as const;
+
+  const cutoverWarnings = (() => {
+    const cutoverEntries = entries.filter(
+      (entry) => entry.date?.slice(0, 10) === CUTOVER_DATE
+    );
+
+    const byAccount = new Map<
+      string,
+      { debitTotal: number; creditTotal: number; count: number }
+    >();
+
+    for (const entry of cutoverEntries) {
+      const key = entry.account;
+      const current = byAccount.get(key) ?? {
+        debitTotal: 0,
+        creditTotal: 0,
+        count: 0,
+      };
+
+      byAccount.set(key, {
+        debitTotal: current.debitTotal + (entry.debit || 0),
+        creditTotal: current.creditTotal + (entry.credit || 0),
+        count: current.count + 1,
+      });
+    }
+
+    return Array.from(byAccount.entries())
+      .map(([account, totals]) => ({ account, ...totals }))
+      .filter((row) => row.debitTotal > 0 && row.creditTotal > 0)
+      .sort((a, b) => a.account.localeCompare(b.account));
+  })();
 
   const handleDelete = async (entry: OpeningBalanceEntry) => {
     const confirmed = await confirmTripleDelete({
@@ -117,6 +151,11 @@ export function OpeningBalancePanel({
             dated 2026-01-01.
           </List.Item>
           <List.Item>
+            Each row is one account line. To set an opening loan balance, add
+            two rows: credit the Loan Payable account and debit Opening Equity
+            (same amount).
+          </List.Item>
+          <List.Item>
             These entries are manual only; they will not flow through P&L.
           </List.Item>
           <List.Item>
@@ -124,6 +163,55 @@ export function OpeningBalancePanel({
             system-generated entries.
           </List.Item>
         </List>
+
+        {cutoverWarnings.length > 0 && (
+          <Alert
+            color="yellow"
+            icon={<IconAlertTriangle size={16} />}
+            title="Potential opening balance cancellation"
+            mt="sm"
+          >
+            <Text size="sm">
+              On {CUTOVER_DATE}, these accounts have both debit and credit
+              opening lines. This often cancels the starting balance (like a
+              loan opening posted twice). Usually you want one side on the
+              account, and the offset goes to Opening Equity.
+            </Text>
+
+            <Table withTableBorder mt="sm" style={{ tableLayout: 'fixed' }}>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Account</Table.Th>
+                  <Table.Th style={{ textAlign: 'right' }}>Debit</Table.Th>
+                  <Table.Th style={{ textAlign: 'right' }}>Credit</Table.Th>
+                  <Table.Th style={{ textAlign: 'right' }}>Net</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {cutoverWarnings.map((row) => (
+                  <Table.Tr key={row.account}>
+                    <Table.Td>
+                      <Text size="sm" fw={600} c="#495057">
+                        {row.account}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td style={{ textAlign: 'right' }}>
+                      <Text size="sm">{formatCurrency(row.debitTotal)}</Text>
+                    </Table.Td>
+                    <Table.Td style={{ textAlign: 'right' }}>
+                      <Text size="sm">{formatCurrency(row.creditTotal)}</Text>
+                    </Table.Td>
+                    <Table.Td style={{ textAlign: 'right' }}>
+                      <Text size="sm">
+                        {formatCurrency(row.debitTotal - row.creditTotal)}
+                      </Text>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Alert>
+        )}
       </Card>
 
       <Card
