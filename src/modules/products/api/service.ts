@@ -11,6 +11,10 @@ import type { ExpenseCreateInput } from '@/modules/clothing/ledger/api/schemas';
 const EXPENSE_CUTOVER_DATE = new Date('2026-01-01');
 const isOnOrAfterCutover = (date: Date) => date >= EXPENSE_CUTOVER_DATE;
 
+// Accounting policy: product costs/COGS are handled in the ledger; the Expenses
+// module is reserved for operational expenses.
+const ENABLE_PRODUCT_EXPENSE_POSTING = false;
+
 async function logOperationNotification(
   category: string,
   changes: string,
@@ -184,6 +188,14 @@ export async function postExpenseForProduct(
   productId: number,
   dto: ProductDTO
 ) {
+  if (!ENABLE_PRODUCT_EXPENSE_POSTING) {
+    logger.debug('Skip expense post: product-to-expenses disabled', {
+      productId,
+      payment: dto.Payment,
+    });
+    return;
+  }
+
   const expensePayload = buildExpenseFromProduct(productId, dto);
   if (!expensePayload) {
     return;

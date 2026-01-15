@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { logger } from '@/lib/logger';
 import {
@@ -110,35 +110,64 @@ export function useExpenses() {
     bulkCreate: bulkCreateExpenses,
   } = useExpenseData();
 
+  // The Accounting Expenses page is intended for operational expenses only.
+  // Product costs/COGS are handled in the ledger and should not be shown here.
+  const isOperationalExpense = useCallback((dto: ExpenseDTO): boolean => {
+    const sourceType = (dto.sourceType ?? 'MANUAL').trim().toUpperCase();
+    if (sourceType === 'PRODUCT') {
+      return false;
+    }
+
+    if (sourceType === 'SHIPMENT') {
+      return false;
+    }
+
+    const category = (dto.category ?? '').trim().toLowerCase();
+    if (dto.systemGenerated === true && category === 'products') {
+      return false;
+    }
+
+    if (
+      dto.systemGenerated === true &&
+      category === 'shipping / delivery fee'
+    ) {
+      return false;
+    }
+
+    return true;
+  }, []);
+
   // Convert from database format to UI format
   const expenses = useMemo(() => {
     const source = Array.isArray(expensesFromDB) ? expensesFromDB : [];
 
-    return source.map((exp) => {
-      const dto = exp as ExpenseDTO;
-      return {
-        id: dto.id !== undefined ? String(dto.id) : '',
-        date: dto.date,
-        amount: dto.amount,
-        description: dto.description,
-        category: dto.category,
-        notes: dto.notes ?? '',
-        receipt: dto.receipt ?? null,
-        status: dto.status as 'pending' | 'approved' | 'rejected' | 'paid',
-        employeeName: dto.employeeName ?? undefined,
-        sourceType: dto.sourceType ? String(dto.sourceType) : 'MANUAL',
-        sourceId:
-          dto.sourceId !== undefined && dto.sourceId !== null
-            ? String(dto.sourceId)
-            : null,
-        sourceLineKey:
-          dto.sourceLineKey !== undefined && dto.sourceLineKey !== null
-            ? String(dto.sourceLineKey)
-            : null,
-        systemGenerated: dto.systemGenerated === true,
-      } satisfies Expense;
-    });
-  }, [expensesFromDB]);
+    return source
+      .map((raw) => raw as ExpenseDTO)
+      .filter(isOperationalExpense)
+      .map((dto) => {
+        return {
+          id: dto.id !== undefined ? String(dto.id) : '',
+          date: dto.date,
+          amount: dto.amount,
+          description: dto.description,
+          category: dto.category,
+          notes: dto.notes ?? '',
+          receipt: dto.receipt ?? null,
+          status: dto.status as 'pending' | 'approved' | 'rejected' | 'paid',
+          employeeName: dto.employeeName ?? undefined,
+          sourceType: dto.sourceType ? String(dto.sourceType) : 'MANUAL',
+          sourceId:
+            dto.sourceId !== undefined && dto.sourceId !== null
+              ? String(dto.sourceId)
+              : null,
+          sourceLineKey:
+            dto.sourceLineKey !== undefined && dto.sourceLineKey !== null
+              ? String(dto.sourceLineKey)
+              : null,
+          systemGenerated: dto.systemGenerated === true,
+        } satisfies Expense;
+      });
+  }, [expensesFromDB, isOperationalExpense]);
 
   // ============================================================================
   // STATE MANAGEMENT

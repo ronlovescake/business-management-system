@@ -3,6 +3,10 @@ import { expenseService } from '@/modules/clothing/ledger/api/service';
 import type { ShipmentDB } from '@/types';
 import { logger } from '@/lib/logger';
 
+// Accounting policy: shipment costs are handled in the ledger; the Expenses
+// module is reserved for operational expenses.
+const ENABLE_SHIPMENT_EXPENSE_POSTING = false;
+
 function isDelivered(status?: string | null): boolean {
   return (status ?? '').trim().toLowerCase() === 'delivered';
 }
@@ -55,6 +59,15 @@ function buildExpenseFromShipment(
 }
 
 export async function postExpenseForShipment(shipment: ShipmentDB) {
+  if (!ENABLE_SHIPMENT_EXPENSE_POSTING) {
+    logger.debug('Skip expense post: shipment-to-expenses disabled', {
+      shipmentId: shipment.id,
+      shipmentCode: shipment.shipmentCode,
+      shipmentStatus: shipment.shipmentStatus,
+    });
+    return;
+  }
+
   const expensePayload = buildExpenseFromShipment(shipment);
   if (!expensePayload) {
     logger.debug('Skip expense post for shipment', {
