@@ -7,6 +7,11 @@ import {
   formatCurrencyPHP,
   formatLongDateUS,
 } from '@/lib/accounting/formatters';
+import {
+  buildTaggedAccountName,
+  isTaggableAccountParent,
+  toTaggableSelection,
+} from '@/lib/accounting/account-tagging';
 
 export type LedgerEntry = {
   id: string;
@@ -83,6 +88,14 @@ export function useLedger() {
   const [editingOpeningEntryId, setEditingOpeningEntryId] = useState<
     string | null
   >(null);
+  const [editingOpeningEntryDebitId, setEditingOpeningEntryDebitId] = useState<
+    string | null
+  >(null);
+  const [editingOpeningEntryCreditId, setEditingOpeningEntryCreditId] =
+    useState<string | null>(null);
+  const [editingOpeningEntrySide, setEditingOpeningEntrySide] = useState<
+    'debit' | 'credit' | null
+  >(null);
   const [openingEntryForm, setOpeningEntryForm] = useState({
     date: OPENING_BALANCE_DEFAULT_DATE,
     ref: 'OPENING',
@@ -91,6 +104,8 @@ export function useLedger() {
     credit: 0,
     debitAccount: '',
     creditAccount: '',
+    debitAccountTag: '',
+    creditAccountTag: '',
     amount: 0,
     description: '',
   });
@@ -105,6 +120,8 @@ export function useLedger() {
     ref: '',
     debitAccount: '',
     creditAccount: '',
+    debitAccountTag: '',
+    creditAccountTag: '',
     amount: 0,
     description: '',
   });
@@ -233,6 +250,8 @@ export function useLedger() {
         | 'credit'
         | 'debitAccount'
         | 'creditAccount'
+        | 'debitAccountTag'
+        | 'creditAccountTag'
         | 'amount'
         | 'description',
       value: string | number | null
@@ -261,6 +280,28 @@ export function useLedger() {
           };
         }
 
+        if (field === 'debitAccount') {
+          const nextDebit = String(value ?? '');
+          return {
+            ...prev,
+            debitAccount: nextDebit,
+            debitAccountTag: isTaggableAccountParent(nextDebit)
+              ? prev.debitAccountTag
+              : '',
+          };
+        }
+
+        if (field === 'creditAccount') {
+          const nextCredit = String(value ?? '');
+          return {
+            ...prev,
+            creditAccount: nextCredit,
+            creditAccountTag: isTaggableAccountParent(nextCredit)
+              ? prev.creditAccountTag
+              : '',
+          };
+        }
+
         return {
           ...prev,
           [field]: typeof value === 'number' ? value : (value ?? ''),
@@ -272,6 +313,9 @@ export function useLedger() {
 
   const openOpeningEntryModal = useCallback(() => {
     setEditingOpeningEntryId(null);
+    setEditingOpeningEntryDebitId(null);
+    setEditingOpeningEntryCreditId(null);
+    setEditingOpeningEntrySide(null);
     setOpeningEntryForm({
       date: OPENING_BALANCE_DEFAULT_DATE,
       ref: 'OPENING',
@@ -280,6 +324,8 @@ export function useLedger() {
       credit: 0,
       debitAccount: '',
       creditAccount: '',
+      debitAccountTag: '',
+      creditAccountTag: '',
       amount: 0,
       description: '',
     });
@@ -288,25 +334,91 @@ export function useLedger() {
 
   const openOpeningEntryModalForEdit = useCallback(
     (entry: OpeningBalanceEntry) => {
-      setEditingOpeningEntryId(entry.id);
-      setOpeningEntryForm({
-        date: entry.date.slice(0, 10),
-        ref: entry.ref,
-        account: entry.account,
-        debit: entry.debit,
-        credit: entry.credit,
-        debitAccount: '',
-        creditAccount: '',
-        amount: 0,
-        description: entry.description ?? '',
+      const dateKey = entry.date.slice(0, 10);
+      const refKey = entry.ref;
+      const descKey = (entry.description ?? '').trim();
+      const amount = entry.debit > 0 ? entry.debit : entry.credit;
+      const side: 'debit' | 'credit' = entry.debit > 0 ? 'debit' : 'credit';
+
+      const isSameAmount = (value: number) =>
+        Math.abs(Number(value ?? 0) - amount) < 0.00001;
+
+      const counterpart = openingEntries.find((candidate) => {
+        if (candidate.id === entry.id) {
+          return false;
+        }
+        if (candidate.date.slice(0, 10) !== dateKey) {
+          return false;
+        }
+        if (candidate.ref !== refKey) {
+          return false;
+        }
+        if ((candidate.description ?? '').trim() !== descKey) {
+          return false;
+        }
+
+        return side === 'debit'
+          ? candidate.credit > 0 && isSameAmount(candidate.credit)
+          : candidate.debit > 0 && isSameAmount(candidate.debit);
       });
+
+      setEditingOpeningEntryId(entry.id);
+      setEditingOpeningEntrySide(side);
+
+      if (counterpart) {
+        const debitLine = side === 'debit' ? entry : counterpart;
+        const creditLine = side === 'debit' ? counterpart : entry;
+
+        const debitSelection = toTaggableSelection(debitLine.account);
+        const creditSelection = toTaggableSelection(creditLine.account);
+
+        setEditingOpeningEntryDebitId(debitLine.id);
+        setEditingOpeningEntryCreditId(creditLine.id);
+
+        setOpeningEntryForm({
+          date: dateKey,
+          ref: refKey,
+          account: entry.account,
+          debit: entry.debit,
+          credit: entry.credit,
+          debitAccount: debitSelection.account,
+          creditAccount: creditSelection.account,
+          debitAccountTag: debitSelection.tag,
+          creditAccountTag: creditSelection.tag,
+          amount,
+          description: entry.description ?? '',
+        });
+      } else {
+        const singleSelection = toTaggableSelection(entry.account);
+
+        setEditingOpeningEntryDebitId(side === 'debit' ? entry.id : null);
+        setEditingOpeningEntryCreditId(side === 'credit' ? entry.id : null);
+
+        setOpeningEntryForm({
+          date: dateKey,
+          ref: refKey,
+          account: entry.account,
+          debit: entry.debit,
+          credit: entry.credit,
+          debitAccount: side === 'debit' ? singleSelection.account : '',
+          creditAccount: side === 'credit' ? singleSelection.account : '',
+          debitAccountTag: side === 'debit' ? singleSelection.tag : '',
+          creditAccountTag: side === 'credit' ? singleSelection.tag : '',
+          amount,
+          description: entry.description ?? '',
+        });
+      }
+
       setIsOpeningEntryModalOpen(true);
     },
-    []
+    [openingEntries]
   );
 
   const closeOpeningEntryModal = useCallback(() => {
     setEditingOpeningEntryId(null);
+    setEditingOpeningEntryDebitId(null);
+    setEditingOpeningEntryCreditId(null);
+    setEditingOpeningEntrySide(null);
     setIsOpeningEntryModalOpen(false);
   }, []);
 
@@ -318,66 +430,177 @@ export function useLedger() {
     const isEditing = Boolean(editingOpeningEntryId);
 
     if (isEditing) {
-      const account = openingEntryForm.account.trim();
-      const debit = Number(openingEntryForm.debit ?? 0);
-      const credit = Number(openingEntryForm.credit ?? 0);
+      const debitSelection = openingEntryForm.debitAccount.trim();
+      const creditSelection = openingEntryForm.creditAccount.trim();
+      const amount = Number(openingEntryForm.amount ?? 0);
 
-      if (!account) {
+      const debitAccount = isTaggableAccountParent(debitSelection)
+        ? buildTaggedAccountName(
+            debitSelection,
+            openingEntryForm.debitAccountTag
+          )
+        : debitSelection;
+      const creditAccount = isTaggableAccountParent(creditSelection)
+        ? buildTaggedAccountName(
+            creditSelection,
+            openingEntryForm.creditAccountTag
+          )
+        : creditSelection;
+
+      if (!debitAccount || !creditAccount) {
         showNotification({
           color: 'red',
-          title: 'Account is required',
-          message: 'Choose an account for the opening entry.',
+          title: 'Accounts are required',
+          message: 'Choose both a debit and a credit account.',
         });
         return;
       }
 
-      const hasDebit = debit > 0;
-      const hasCredit = credit > 0;
-
-      if ((hasDebit && hasCredit) || (!hasDebit && !hasCredit)) {
+      if (debitAccount === creditAccount) {
         showNotification({
           color: 'red',
-          title: 'Enter a debit or a credit',
-          message: 'Provide one side only for the opening line.',
+          title: 'Accounts must be different',
+          message: 'Debit and credit accounts cannot be the same.',
         });
         return;
       }
+
+      if (!(amount > 0)) {
+        showNotification({
+          color: 'red',
+          title: 'Amount is required',
+          message: 'Enter an amount greater than zero.',
+        });
+        return;
+      }
+
+      const putLine = async (payload: {
+        id: string;
+        account: string;
+        debit: number;
+        credit: number;
+      }) => {
+        const res = await fetch('/api/accounting/opening-balance', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: payload.id,
+            date,
+            ref,
+            account: payload.account,
+            debit: payload.debit,
+            credit: payload.credit,
+            description,
+          }),
+        });
+
+        const body = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(body?.error || 'Failed to update opening entry');
+        }
+      };
 
       setIsSavingOpeningEntry(true);
       try {
-        const payload = {
-          id: editingOpeningEntryId ?? undefined,
-          date,
-          ref,
-          account,
-          debit,
-          credit,
-          description,
-        };
+        if (editingOpeningEntryDebitId && editingOpeningEntryCreditId) {
+          await Promise.all([
+            putLine({
+              id: editingOpeningEntryDebitId,
+              account: debitAccount,
+              debit: amount,
+              credit: 0,
+            }),
+            putLine({
+              id: editingOpeningEntryCreditId,
+              account: creditAccount,
+              debit: 0,
+              credit: amount,
+            }),
+          ]);
+        } else {
+          const side = editingOpeningEntrySide;
+          const existingId = editingOpeningEntryId;
 
-        const res = await fetch('/api/accounting/opening-balance', {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        });
+          if (!side || !existingId) {
+            throw new Error('Missing opening entry context for edit');
+          }
 
-        const responseBody = await res.json();
-        if (!res.ok) {
-          const errorMessage =
-            responseBody?.error || 'Failed to save opening entry';
-          throw new Error(errorMessage);
+          // If this was created as a single line, create the missing line first
+          // and then update the existing one.
+          const missingPayload =
+            side === 'debit'
+              ? {
+                  account: creditAccount,
+                  debit: 0,
+                  credit: amount,
+                }
+              : {
+                  account: debitAccount,
+                  debit: amount,
+                  credit: 0,
+                };
+
+          const createRes = await fetch('/api/accounting/opening-balance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              date,
+              ref,
+              account: missingPayload.account,
+              debit: missingPayload.debit,
+              credit: missingPayload.credit,
+              description,
+            }),
+          });
+
+          const createBody = await createRes.json().catch(() => null);
+          if (!createRes.ok) {
+            throw new Error(
+              createBody?.error || 'Failed to create the missing opening line'
+            );
+          }
+
+          const createdId = createBody?.entry?.id as string | undefined;
+
+          try {
+            const existingPayload =
+              side === 'debit'
+                ? {
+                    account: debitAccount,
+                    debit: amount,
+                    credit: 0,
+                  }
+                : {
+                    account: creditAccount,
+                    debit: 0,
+                    credit: amount,
+                  };
+
+            await putLine({ id: existingId, ...existingPayload });
+          } catch (error) {
+            if (createdId) {
+              await fetch(
+                `/api/accounting/opening-balance?id=${encodeURIComponent(
+                  createdId
+                )}`,
+                { method: 'DELETE' }
+              ).catch(() => null);
+            }
+            throw error;
+          }
         }
 
         showNotification({
           color: 'teal',
           title: 'Opening entry updated',
-          message: account,
+          message: `${debitAccount} → ${creditAccount}`,
         });
 
         setIsOpeningEntryModalOpen(false);
         setEditingOpeningEntryId(null);
+        setEditingOpeningEntryDebitId(null);
+        setEditingOpeningEntryCreditId(null);
+        setEditingOpeningEntrySide(null);
         await fetchOpeningEntries();
         await refreshLedger();
       } catch (error) {
@@ -401,7 +624,14 @@ export function useLedger() {
     const creditAccount = openingEntryForm.creditAccount.trim();
     const amount = Number(openingEntryForm.amount ?? 0);
 
-    if (!debitAccount || !creditAccount) {
+    const resolvedDebitAccount = isTaggableAccountParent(debitAccount)
+      ? buildTaggedAccountName(debitAccount, openingEntryForm.debitAccountTag)
+      : debitAccount;
+    const resolvedCreditAccount = isTaggableAccountParent(creditAccount)
+      ? buildTaggedAccountName(creditAccount, openingEntryForm.creditAccountTag)
+      : creditAccount;
+
+    if (!resolvedDebitAccount || !resolvedCreditAccount) {
       showNotification({
         color: 'red',
         title: 'Accounts are required',
@@ -410,7 +640,7 @@ export function useLedger() {
       return;
     }
 
-    if (debitAccount === creditAccount) {
+    if (resolvedDebitAccount === resolvedCreditAccount) {
       showNotification({
         color: 'red',
         title: 'Accounts must be different',
@@ -437,7 +667,7 @@ export function useLedger() {
         body: JSON.stringify({
           date,
           ref,
-          account: debitAccount,
+          account: resolvedDebitAccount,
           debit: amount,
           credit: 0,
           description,
@@ -459,7 +689,7 @@ export function useLedger() {
         body: JSON.stringify({
           date,
           ref,
-          account: creditAccount,
+          account: resolvedCreditAccount,
           debit: 0,
           credit: amount,
           description,
@@ -484,7 +714,7 @@ export function useLedger() {
       showNotification({
         color: 'teal',
         title: 'Opening entry saved',
-        message: `${debitAccount} → ${creditAccount}`,
+        message: `${resolvedDebitAccount} → ${resolvedCreditAccount}`,
       });
 
       setIsOpeningEntryModalOpen(false);
@@ -504,6 +734,9 @@ export function useLedger() {
     }
   }, [
     editingOpeningEntryId,
+    editingOpeningEntryDebitId,
+    editingOpeningEntryCreditId,
+    editingOpeningEntrySide,
     openingEntryForm,
     fetchOpeningEntries,
     refreshLedger,
@@ -582,11 +815,17 @@ export function useLedger() {
       }
 
       setEditingManualSourceId(sourceId);
+
+      const debitSelection = toTaggableSelection(debitLine.account);
+      const creditSelection = toTaggableSelection(creditLine.account);
+
       setManualEntryForm({
         date: (debitLine.date || creditLine.date).slice(0, 10),
         ref: debitLine.ref || creditLine.ref,
-        debitAccount: debitLine.account,
-        creditAccount: creditLine.account,
+        debitAccount: debitSelection.account,
+        creditAccount: creditSelection.account,
+        debitAccountTag: debitSelection.tag,
+        creditAccountTag: creditSelection.tag,
         amount: Number(debitLine.debit ?? creditLine.credit ?? 0),
         description: debitLine.description || creditLine.description || '',
       });
@@ -607,14 +846,42 @@ export function useLedger() {
         | 'ref'
         | 'debitAccount'
         | 'creditAccount'
+        | 'debitAccountTag'
+        | 'creditAccountTag'
         | 'amount'
         | 'description',
       value: string | number | null
     ) => {
-      setManualEntryForm((prev) => ({
-        ...prev,
-        [field]: value ?? (field === 'amount' ? 0 : ''),
-      }));
+      setManualEntryForm((prev) => {
+        const nextValue = value ?? (field === 'amount' ? 0 : '');
+
+        if (field === 'debitAccount') {
+          const nextDebit = String(nextValue);
+          return {
+            ...prev,
+            debitAccount: nextDebit,
+            debitAccountTag: isTaggableAccountParent(nextDebit)
+              ? prev.debitAccountTag
+              : '',
+          };
+        }
+
+        if (field === 'creditAccount') {
+          const nextCredit = String(nextValue);
+          return {
+            ...prev,
+            creditAccount: nextCredit,
+            creditAccountTag: isTaggableAccountParent(nextCredit)
+              ? prev.creditAccountTag
+              : '',
+          };
+        }
+
+        return {
+          ...prev,
+          [field]: nextValue,
+        };
+      });
     },
     []
   );
@@ -622,10 +889,23 @@ export function useLedger() {
   const saveManualEntry = useCallback(async () => {
     const date = manualEntryForm.date || MANUAL_ENTRY_DEFAULT_DATE;
     const ref = manualEntryForm.ref.trim();
-    const debitAccount = manualEntryForm.debitAccount.trim();
-    const creditAccount = manualEntryForm.creditAccount.trim();
+    const debitAccountSelection = manualEntryForm.debitAccount.trim();
+    const creditAccountSelection = manualEntryForm.creditAccount.trim();
     const amount = Number(manualEntryForm.amount ?? 0);
     const description = manualEntryForm.description.trim();
+
+    const debitAccount = isTaggableAccountParent(debitAccountSelection)
+      ? buildTaggedAccountName(
+          debitAccountSelection,
+          manualEntryForm.debitAccountTag
+        )
+      : debitAccountSelection;
+    const creditAccount = isTaggableAccountParent(creditAccountSelection)
+      ? buildTaggedAccountName(
+          creditAccountSelection,
+          manualEntryForm.creditAccountTag
+        )
+      : creditAccountSelection;
 
     if (!ref) {
       showNotification({
@@ -776,6 +1056,7 @@ export function useLedger() {
     entries,
     filteredEntries,
     stats,
+    refreshLedger,
     period,
     setPeriod,
     accounts,

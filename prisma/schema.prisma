@@ -653,6 +653,57 @@ model ClothingAccountingJournalLine {
   @@map("clothing_accounting_journal_lines")
 }
 
+model ClothingRecurringPaymentTemplate {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  name           String   @db.VarChar(255)
+  kind           String   @db.VarChar(30) // LOAN | EXPENSE
+  amount         Float    @default(0)
+  frequency      String   @default("MONTHLY") @db.VarChar(30)
+  dayOfMonth     Int
+  nextDueDate    DateTime @db.Timestamptz(6)
+  endDate        DateTime? @db.Timestamptz(6)
+  debitAccount   String   @db.VarChar(255)
+  debitTag       String?  @db.VarChar(255)
+  creditAccount  String   @db.VarChar(255)
+  creditTag      String?  @db.VarChar(255)
+  notes          String?  @db.VarChar(1000)
+  isActive       Boolean  @default(true)
+
+  drafts ClothingRecurringPaymentDraft[]
+
+  @@index([isActive])
+  @@index([nextDueDate])
+  @@index([kind])
+  @@map("clothing_recurring_payment_templates")
+}
+
+model ClothingRecurringPaymentDraft {
+  id                String   @id @default(cuid())
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  templateId        String
+  dueDate           DateTime @db.Timestamptz(6)
+  amount            Float    @default(0)
+  debitAccount      String   @db.VarChar(255)
+  debitTag          String?  @db.VarChar(255)
+  creditAccount     String   @db.VarChar(255)
+  creditTag         String?  @db.VarChar(255)
+  ref               String   @db.VarChar(120)
+  description       String?  @db.VarChar(1000)
+  status            String   @default("DRAFT") @db.VarChar(30) // DRAFT | APPROVED | SKIPPED
+  approvedAt        DateTime? @db.Timestamptz(6)
+
+  template ClothingRecurringPaymentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, dueDate])
+  @@index([status])
+  @@index([dueDate])
+  @@index([templateId])
+  @@map("clothing_recurring_payment_drafts")
+}
+
 model HouseholdExpense {
   id              Int               @id @default(autoincrement())
   createdAt       DateTime          @default(now())

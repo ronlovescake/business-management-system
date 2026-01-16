@@ -7,13 +7,22 @@ import {
   Group,
   Stack,
   Button,
+  Text,
 } from '@mantine/core';
+
+import {
+  collapseTaggableAccountsForOptions,
+  isTaggableAccountParent,
+  type TaggableAccountParent,
+} from '@/lib/accounting/account-tagging';
 
 export type ManualJournalEntryForm = {
   date: string;
   ref: string;
   debitAccount: string;
   creditAccount: string;
+  debitAccountTag: string;
+  creditAccountTag: string;
   amount: number;
   description: string;
 };
@@ -42,26 +51,39 @@ export function ManualJournalEntryModal({
   accounts,
   title = 'Add Entry',
 }: ManualJournalEntryModalProps) {
-  const accountOptions = Array.from(
-    new Set([
-      ...accounts,
-      'Cash',
-      'Accounts Receivable',
-      'Stock on Hand',
-      'Inventory in Transit',
-      'Accounts Payable',
-      'Loan Payable',
-      'Loan Payable – Esquire Loan 1',
-      'Loan Payable – Esquire Loan 2',
-      'Opening Equity',
-      'Owner Draw',
-      'Sales Revenue',
-      'Sales Returns',
-      'COGS',
-      'Inventory Shrinkage',
-      'Interest Expense',
-    ])
-  ).sort((a, b) => a.localeCompare(b));
+  const accountOptions = collapseTaggableAccountsForOptions(
+    Array.from(
+      new Set([
+        ...accounts,
+        'Cash',
+        'Bank',
+        'E-Wallet',
+        'Accounts Receivable',
+        'Stock on Hand',
+        'Inventory in Transit',
+        'Accounts Payable',
+        'Credit Card Payable',
+        'Loan Payable',
+        'Opening Equity',
+        'Owner Draw',
+        'Sales Revenue',
+        'Sales Returns',
+        'COGS',
+        'Inventory Shrinkage',
+        'Interest Expense',
+      ])
+    )
+  );
+
+  const debitTaggableParent: TaggableAccountParent | null =
+    isTaggableAccountParent(form.debitAccount) ? form.debitAccount : null;
+  const creditTaggableParent: TaggableAccountParent | null =
+    isTaggableAccountParent(form.creditAccount) ? form.creditAccount : null;
+
+  const tagHelperText = (parent: TaggableAccountParent) => {
+    const label = parent === 'Loan Payable' ? 'Loan' : 'Vendor / AP';
+    return `This will post to “${parent} – <${label}>” on the ledger.`;
+  };
 
   return (
     <Modal opened={opened} onClose={onClose} title={title} size="lg">
@@ -101,6 +123,62 @@ export function ManualJournalEntryModal({
             onChange={(value) => onChange('creditAccount', value || '')}
           />
         </Group>
+
+        {(debitTaggableParent || creditTaggableParent) && (
+          <Group grow>
+            {debitTaggableParent ? (
+              <Stack gap={4}>
+                <TextInput
+                  label={
+                    form.debitAccount === 'Loan Payable'
+                      ? 'Loan Tag'
+                      : 'Accounts Payable Tag'
+                  }
+                  placeholder={
+                    form.debitAccount === 'Loan Payable'
+                      ? 'e.g., Esquire Loan 1'
+                      : 'e.g., Supplier Name'
+                  }
+                  value={form.debitAccountTag}
+                  onChange={(event) =>
+                    onChange('debitAccountTag', event.currentTarget.value)
+                  }
+                />
+                <Text size="xs" c="dimmed">
+                  {tagHelperText(debitTaggableParent)}
+                </Text>
+              </Stack>
+            ) : (
+              <div />
+            )}
+
+            {creditTaggableParent ? (
+              <Stack gap={4}>
+                <TextInput
+                  label={
+                    form.creditAccount === 'Loan Payable'
+                      ? 'Loan Tag'
+                      : 'Accounts Payable Tag'
+                  }
+                  placeholder={
+                    form.creditAccount === 'Loan Payable'
+                      ? 'e.g., Esquire Loan 1'
+                      : 'e.g., Supplier Name'
+                  }
+                  value={form.creditAccountTag}
+                  onChange={(event) =>
+                    onChange('creditAccountTag', event.currentTarget.value)
+                  }
+                />
+                <Text size="xs" c="dimmed">
+                  {tagHelperText(creditTaggableParent)}
+                </Text>
+              </Stack>
+            ) : (
+              <div />
+            )}
+          </Group>
+        )}
 
         <NumberInput
           label="Amount (₱)"

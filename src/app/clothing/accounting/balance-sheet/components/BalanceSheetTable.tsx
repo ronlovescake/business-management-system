@@ -1,5 +1,5 @@
-import { memo } from 'react';
-import { Stack, Table, Text, Badge } from '@mantine/core';
+import { memo, useMemo, useState } from 'react';
+import { Stack, Table, Text, Badge, Button, Modal } from '@mantine/core';
 import type { BalanceSheetRow } from '../hooks/useBalanceSheet';
 import { AccountingTableCard } from '../../components/AccountingTableCard';
 import { AccountingTableSummaryCard } from '../../components/AccountingTableSummaryCard';
@@ -20,6 +20,15 @@ export const BalanceSheetTable = memo(function BalanceSheetTable({
   filteredRows,
   formatCurrency,
 }: BalanceSheetTableProps) {
+  const [detailsRow, setDetailsRow] = useState<BalanceSheetRow | null>(null);
+
+  const detailItems = detailsRow?.details ?? [];
+
+  const hasAnyDetails = useMemo(
+    () => filteredRows.some((row) => (row.details?.length ?? 0) > 0),
+    [filteredRows]
+  );
+
   const totals = filteredRows.reduce(
     (acc, row) => {
       if (row.type === 'Asset') {
@@ -49,6 +58,11 @@ export const BalanceSheetTable = memo(function BalanceSheetTable({
               <Table.Th style={accountingThStyle({ width: 180 })}>
                 TYPE
               </Table.Th>
+              {hasAnyDetails && (
+                <Table.Th style={accountingThStyle({ width: 160 })}>
+                  DETAILS
+                </Table.Th>
+              )}
               <Table.Th
                 style={accountingThStyle({ width: 220, textAlign: 'right' })}
               >
@@ -59,7 +73,10 @@ export const BalanceSheetTable = memo(function BalanceSheetTable({
           <Table.Tbody>
             {filteredRows.length === 0 ? (
               <Table.Tr>
-                <Table.Td colSpan={3} style={{ textAlign: 'center' }}>
+                <Table.Td
+                  colSpan={hasAnyDetails ? 4 : 3}
+                  style={{ textAlign: 'center' }}
+                >
                   <Text c="dimmed" py="xl">
                     No accounts found
                   </Text>
@@ -91,6 +108,23 @@ export const BalanceSheetTable = memo(function BalanceSheetTable({
                       {row.type}
                     </Badge>
                   </Table.Td>
+                  {hasAnyDetails && (
+                    <Table.Td>
+                      {(row.details?.length ?? 0) > 0 ? (
+                        <Button
+                          size="xs"
+                          variant="subtle"
+                          onClick={() => setDetailsRow(row)}
+                        >
+                          View
+                        </Button>
+                      ) : (
+                        <Text size="sm" c="dimmed">
+                          —
+                        </Text>
+                      )}
+                    </Table.Td>
+                  )}
                   <Table.Td style={{ textAlign: 'right' }}>
                     <Text fw={600} c={ACCOUNTING_TABLE_TD_TEXT_STYLE.color}>
                       {formatCurrency(row.amount)}
@@ -102,6 +136,40 @@ export const BalanceSheetTable = memo(function BalanceSheetTable({
           </Table.Tbody>
         </Table>
       </AccountingTableCard>
+
+      <Modal
+        opened={Boolean(detailsRow)}
+        onClose={() => setDetailsRow(null)}
+        title={detailsRow ? `${detailsRow.account} details` : 'Details'}
+        size="md"
+      >
+        {detailItems.length === 0 ? (
+          <Text c="dimmed">No details available.</Text>
+        ) : (
+          <Table withTableBorder>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>TAG</Table.Th>
+                <Table.Th style={{ textAlign: 'right' }}>AMOUNT (₱)</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {detailItems.map((item) => (
+                <Table.Tr key={item.label}>
+                  <Table.Td>
+                    <Text size="sm" fw={500}>
+                      {item.label}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td style={{ textAlign: 'right' }}>
+                    <Text fw={600}>{formatCurrency(item.amount)}</Text>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        )}
+      </Modal>
 
       <AccountingTableSummaryCard
         leftText={`Showing ${filteredRows.length} of ${rows.length} accounts`}

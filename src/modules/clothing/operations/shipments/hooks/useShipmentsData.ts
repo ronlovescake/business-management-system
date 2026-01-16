@@ -276,7 +276,7 @@ export function useShipmentsData() {
       shipmentId: number;
       input: {
         postingDate: Date;
-        creditAccount: 'Cash' | 'Accounts Payable';
+        creditAccount: 'Cash' | 'Bank' | 'E-Wallet' | 'Accounts Payable';
         notes?: string;
       };
     }) => {
@@ -374,7 +374,7 @@ export function useShipmentsData() {
     shipmentId: number,
     input: {
       postingDate: Date;
-      creditAccount: 'Cash' | 'Accounts Payable';
+      creditAccount: 'Cash' | 'Bank' | 'E-Wallet' | 'Accounts Payable';
       notes?: string;
     }
   ): Promise<boolean> => {

@@ -7,6 +7,11 @@ import {
   formatCurrencyPHP,
   formatLongDateUS,
 } from '@/lib/accounting/formatters';
+import {
+  buildTaggedAccountName,
+  isTaggableAccountParent,
+  toTaggableSelection,
+} from '@/lib/accounting/account-tagging';
 
 const MANUAL_ENTRY_DEFAULT_DATE = '2026-01-01';
 
@@ -59,6 +64,8 @@ export function useJournal() {
     ref: '',
     debitAccount: '',
     creditAccount: '',
+    debitAccountTag: '',
+    creditAccountTag: '',
     amount: 0,
     description: '',
   });
@@ -171,11 +178,17 @@ export function useJournal() {
       }
 
       setEditingManualSourceId(sourceId);
+
+      const debitSelection = toTaggableSelection(debitLine.account);
+      const creditSelection = toTaggableSelection(creditLine.account);
+
       setManualEntryForm({
         date: (debitLine.date || creditLine.date).slice(0, 10),
         ref: debitLine.ref || creditLine.ref,
-        debitAccount: debitLine.account,
-        creditAccount: creditLine.account,
+        debitAccount: debitSelection.account,
+        creditAccount: creditSelection.account,
+        debitAccountTag: debitSelection.tag,
+        creditAccountTag: creditSelection.tag,
         amount: Number(debitLine.debit ?? creditLine.credit ?? 0),
         description: debitLine.description || creditLine.description || '',
       });
@@ -196,14 +209,40 @@ export function useJournal() {
         | 'ref'
         | 'debitAccount'
         | 'creditAccount'
+        | 'debitAccountTag'
+        | 'creditAccountTag'
         | 'amount'
         | 'description',
       value: string | number | null
     ) => {
-      setManualEntryForm((prev) => ({
-        ...prev,
-        [field]: value ?? (field === 'amount' ? 0 : ''),
-      }));
+      setManualEntryForm((prev) => {
+        const nextValue = value ?? (field === 'amount' ? 0 : '');
+
+        if (field === 'debitAccount') {
+          return {
+            ...prev,
+            debitAccount: String(nextValue),
+            debitAccountTag: isTaggableAccountParent(String(nextValue))
+              ? prev.debitAccountTag
+              : '',
+          };
+        }
+
+        if (field === 'creditAccount') {
+          return {
+            ...prev,
+            creditAccount: String(nextValue),
+            creditAccountTag: isTaggableAccountParent(String(nextValue))
+              ? prev.creditAccountTag
+              : '',
+          };
+        }
+
+        return {
+          ...prev,
+          [field]: nextValue,
+        };
+      });
     },
     []
   );
@@ -211,10 +250,23 @@ export function useJournal() {
   const saveManualEntry = useCallback(async () => {
     const date = manualEntryForm.date || MANUAL_ENTRY_DEFAULT_DATE;
     const ref = manualEntryForm.ref.trim();
-    const debitAccount = manualEntryForm.debitAccount.trim();
-    const creditAccount = manualEntryForm.creditAccount.trim();
+    const debitAccountSelection = manualEntryForm.debitAccount.trim();
+    const creditAccountSelection = manualEntryForm.creditAccount.trim();
     const amount = Number(manualEntryForm.amount ?? 0);
     const description = manualEntryForm.description.trim();
+
+    const debitAccount = isTaggableAccountParent(debitAccountSelection)
+      ? buildTaggedAccountName(
+          debitAccountSelection,
+          manualEntryForm.debitAccountTag
+        )
+      : debitAccountSelection;
+    const creditAccount = isTaggableAccountParent(creditAccountSelection)
+      ? buildTaggedAccountName(
+          creditAccountSelection,
+          manualEntryForm.creditAccountTag
+        )
+      : creditAccountSelection;
 
     if (!ref) {
       showNotification({

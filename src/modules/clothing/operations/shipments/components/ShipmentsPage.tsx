@@ -239,7 +239,7 @@ export function ShipmentsPage() {
 
   const handleSubmitTransitBuild = async (input: {
     postingDate: Date;
-    creditAccount: 'Cash' | 'Accounts Payable';
+    creditAccount: 'Cash' | 'Bank' | 'E-Wallet' | 'Accounts Payable';
     notes?: string;
   }): Promise<boolean> => {
     if (!transitBuildShipment) {

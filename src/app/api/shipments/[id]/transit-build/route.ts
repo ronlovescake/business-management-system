@@ -7,7 +7,12 @@ import { sanitizers } from '@/lib/security/sanitize';
 
 const ACCOUNTING_CUTOVER = new Date(Date.UTC(2026, 0, 1));
 
-const ALLOWED_CREDIT_ACCOUNTS = new Set(['Cash', 'Accounts Payable']);
+const ALLOWED_CREDIT_ACCOUNTS = new Set([
+  'Cash',
+  'Bank',
+  'E-Wallet',
+  'Accounts Payable',
+]);
 
 type RouteContext = { params: { id: string } };
 

@@ -38,10 +38,21 @@ type BalanceRow = {
   account: string;
   amount: number;
 };
+
+type BalanceRowDetail = {
+  label: string;
+  amount: number;
+};
 const ACCOUNT_MAP: Record<AccountType, Set<string>> = {
   Asset: new Set([
     'cash',
     'cash on hand',
+    'bank',
+    'bank account',
+    'e-wallet',
+    'e wallet',
+    'ewallet',
+    'wallet',
     'inventory',
     'stock on hand',
     'inventory in transit',
@@ -60,6 +71,9 @@ const ACCOUNT_MAP: Record<AccountType, Set<string>> = {
     'accrued freight',
     'accrued expense',
     'accrued expenses',
+    'credit card',
+    'credit card payable',
+    'card payable',
     'loan',
     'liability',
   ]),
@@ -102,6 +116,36 @@ function detectAccountType(account: string): AccountType | null {
     return null;
   }
 
+  const nameTokens = normalizedName.split(' ').filter(Boolean);
+
+  const matchesKeyword = (normalizedKeyword: string): boolean => {
+    const keywordTokens = normalizedKeyword.split(' ').filter(Boolean);
+    if (keywordTokens.length === 0) {
+      return false;
+    }
+
+    // Single-word keywords must match whole tokens so we don't treat "gcash" as "cash".
+    if (keywordTokens.length === 1) {
+      return nameTokens.includes(keywordTokens[0]);
+    }
+
+    // Multi-word keywords must match as a contiguous phrase in the token stream.
+    for (let i = 0; i <= nameTokens.length - keywordTokens.length; i += 1) {
+      let match = true;
+      for (let j = 0; j < keywordTokens.length; j += 1) {
+        if (nameTokens[i + j] !== keywordTokens[j]) {
+          match = false;
+          break;
+        }
+      }
+      if (match) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
   for (const type of Object.keys(ACCOUNT_MAP) as AccountType[]) {
     for (const keyword of Array.from(ACCOUNT_MAP[type])) {
       const normalizedKeyword = normalize(keyword);
@@ -113,7 +157,7 @@ function detectAccountType(account: string): AccountType | null {
         return type;
       }
 
-      if (normalizedName.includes(normalizedKeyword)) {
+      if (matchesKeyword(normalizedKeyword)) {
         return type;
       }
     }
@@ -157,10 +201,84 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       orderBy: { date: 'asc' },
     });
 
+  const loanDetailsByLabel = new Map<string, number>();
+  const addLoanDetail = (label: string, amount: number) => {
+    const key = label.trim();
+    if (!key || !Number.isFinite(amount) || amount === 0) {
+      return;
+    }
+    loanDetailsByLabel.set(key, (loanDetailsByLabel.get(key) ?? 0) + amount);
+  };
+
+  const parseLoanSuffix = (account: string): string | null => {
+    const trimmed = account.trim();
+    const prefix = 'Loan Payable';
+    if (!trimmed.toLowerCase().startsWith(prefix.toLowerCase())) {
+      return null;
+    }
+    const rest = trimmed.slice(prefix.length).trim();
+    if (!rest) {
+      return null;
+    }
+
+    // Supports both hyphen and en-dash separators.
+    const normalized = rest.replace(/^[-–—]+\s*/, '').trim();
+    return normalized || null;
+  };
+
+  const loanLabelForLine = (line: {
+    account: string;
+    description?: string | null;
+    ref?: string | null;
+  }): string => {
+    const suffix = parseLoanSuffix(line.account);
+    if (suffix) {
+      return suffix;
+    }
+
+    const desc = (line.description ?? '').trim();
+    if (desc) {
+      return desc;
+    }
+
+    const ref = (line.ref ?? '').trim();
+    if (ref) {
+      return ref;
+    }
+
+    return 'Unspecified';
+  };
+
   const openingEntries = openingBalanceRows.map((entry) => ({
     account: entry.account,
     amount: entry.debit - entry.credit,
   }));
+
+  // Capture per-loan breakdown only when the account is the generic Loan Payable
+  // (or when using suffixed loan payable accounts), using description/ref as the tag.
+  for (const entry of openingBalanceRows) {
+    const account = entry.account.trim();
+    if (!account) {
+      continue;
+    }
+    if (!account.toLowerCase().startsWith('loan payable')) {
+      continue;
+    }
+
+    const amount = Number(entry.debit ?? 0) - Number(entry.credit ?? 0);
+    if (!Number.isFinite(amount) || amount === 0) {
+      continue;
+    }
+
+    addLoanDetail(
+      loanLabelForLine({
+        account,
+        description: entry.description,
+        ref: entry.ref,
+      }),
+      amount
+    );
+  }
 
   const reclassRows = await prisma.clothingInventoryReclassEntry.findMany({
     where: {
@@ -358,6 +476,30 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     }))
     .filter((row) => Number.isFinite(row.amount) && row.amount !== 0);
 
+  for (const line of manualLines) {
+    const account = line.account.trim();
+    if (!account) {
+      continue;
+    }
+    if (!account.toLowerCase().startsWith('loan payable')) {
+      continue;
+    }
+
+    const amount = Number(line.debit ?? 0) - Number(line.credit ?? 0);
+    if (!Number.isFinite(amount) || amount === 0) {
+      continue;
+    }
+
+    addLoanDetail(
+      loanLabelForLine({
+        account,
+        description: line.description,
+        ref: line.ref,
+      }),
+      amount
+    );
+  }
+
   const combined = [
     ...openingEntries,
     ...reclassEntries,
@@ -394,10 +536,28 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     amount: data.amount,
   }));
 
+  const loanDetails: BalanceRowDetail[] = Array.from(loanDetailsByLabel)
+    .map(([label, amount]) => ({ label, amount }))
+    .filter((item) => Number.isFinite(item.amount) && item.amount !== 0)
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  const rowsWithDetails = rows.map((row) => {
+    if (row.account !== 'Loan Payable') {
+      return row;
+    }
+    if (loanDetails.length === 0) {
+      return row;
+    }
+    return {
+      ...row,
+      details: loanDetails,
+    };
+  });
+
   const totals = aggregateBalancesFromRows(rows);
 
   return ApiResponse.success({
-    rows,
+    rows: rowsWithDetails,
     stats: {
       assets: totals.Asset,
       liabilities: totals.Liability,

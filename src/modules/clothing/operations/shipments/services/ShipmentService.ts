@@ -439,7 +439,7 @@ export class ShipmentService {
     shipmentId: number,
     input: {
       postingDate: Date;
-      creditAccount: 'Cash' | 'Accounts Payable';
+      creditAccount: 'Cash' | 'Bank' | 'E-Wallet' | 'Accounts Payable';
       notes?: string;
     }
   ): Promise<{

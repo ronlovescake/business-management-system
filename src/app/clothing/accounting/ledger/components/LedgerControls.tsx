@@ -1,6 +1,12 @@
 import React, { memo } from 'react';
 import { Group, TextInput, Button } from '@mantine/core';
-import { IconList, IconPlus, IconBuildingBank } from '@tabler/icons-react';
+import {
+  IconList,
+  IconPlus,
+  IconBuildingBank,
+  IconRepeat,
+  IconHelpCircle,
+} from '@tabler/icons-react';
 import {
   ControlPanelCard,
   type ControlPanelTabConfig,
@@ -11,6 +17,7 @@ import {
   LEDGER_PERIOD_OPTIONS,
   type LedgerPeriodOption,
 } from '../hooks/useLedger';
+import { LedgerHelpPanel } from './LedgerHelpPanel';
 
 interface LedgerControlsProps {
   activeTab: string | null;
@@ -99,6 +106,27 @@ export const LedgerControls = memo(function LedgerControls({
           </Button>
         </Group>
       ),
+    },
+    {
+      value: 'recurring-payments',
+      label: 'Recurring Payments',
+      leftSection: <IconRepeat size={16} />,
+      panel: (
+        <Group wrap="wrap" gap="sm">
+          <TextInput
+            placeholder="Recurring payments are managed below"
+            value=""
+            readOnly
+            style={{ flex: 1, minWidth: 220 }}
+          />
+        </Group>
+      ),
+    },
+    {
+      value: 'help',
+      label: 'Help',
+      leftSection: <IconHelpCircle size={16} />,
+      panel: <LedgerHelpPanel />,
     },
   ];
 

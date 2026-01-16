@@ -7,6 +7,7 @@ export type BalanceSheetRow = {
   account: string;
   type: 'Asset' | 'Liability' | 'Equity';
   amount: number;
+  details?: Array<{ label: string; amount: number }>;
 };
 
 export type BalanceSheetStats = {

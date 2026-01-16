@@ -7,15 +7,18 @@ import { LedgerStatsCards } from './components/LedgerStatsCards';
 import { LedgerControls } from './components/LedgerControls';
 import { LedgerListTable } from './components/LedgerListTable';
 import { OpeningBalancePanel } from './components/OpeningBalancePanel';
+import { RecurringPaymentsPanel } from './components/RecurringPaymentsPanel';
 import { OpeningBalanceEntryModal } from './components/OpeningBalanceEntryModal';
 import { ManualJournalEntryModal } from '../components/ManualJournalEntryModal';
 import { useLedger } from './hooks/useLedger';
+import { LedgerHelpPanel } from './components/LedgerHelpPanel';
 
 export default function LedgerPage() {
   const {
     entries,
     filteredEntries,
     stats,
+    refreshLedger,
     period,
     setPeriod,
     accounts,
@@ -54,11 +57,13 @@ export default function LedgerPage() {
   } = useLedger();
 
   const isOpeningBalanceTab = activeTab === 'opening-balance';
+  const isHelpTab = activeTab === 'help';
+  const isRecurringPaymentsTab = activeTab === 'recurring-payments';
 
   return (
     <PageLayout fluid withPadding>
       <Stack gap="lg">
-        {!isOpeningBalanceTab && (
+        {!isOpeningBalanceTab && !isHelpTab && !isRecurringPaymentsTab && (
           <LedgerStatsCards
             totalDebits={stats.totalDebits}
             totalCredits={stats.totalCredits}
@@ -84,7 +89,14 @@ export default function LedgerPage() {
           onAddOpeningEntry={openOpeningEntryModal}
         />
 
-        {isOpeningBalanceTab ? (
+        {isHelpTab ? (
+          <LedgerHelpPanel />
+        ) : isRecurringPaymentsTab ? (
+          <RecurringPaymentsPanel
+            accounts={accounts}
+            onLedgerUpdated={refreshLedger}
+          />
+        ) : isOpeningBalanceTab ? (
           <OpeningBalancePanel
             onAddOpeningEntry={openOpeningEntryModal}
             entries={openingEntries}
