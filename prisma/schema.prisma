@@ -597,7 +597,7 @@ model ClothingInventoryReclassEntry {
   triggerStatus   String   @db.VarChar(100)
   idempotencyKey  String   @unique @db.VarChar(220)
   notes           String?  @db.VarChar(1000)
-  deletedAt       DateTime?
+  deletedAt       DateTime? @db.Timestamptz(6)
 
   @@index([postingDate])
   @@index([shipmentCode])
@@ -619,7 +619,7 @@ model ClothingInventoryTransitBuildEntry {
   creditAccount  String   @db.VarChar(255)
   idempotencyKey String   @unique @db.VarChar(220)
   notes          String?  @db.VarChar(1000)
-  deletedAt      DateTime?
+  deletedAt      DateTime? @db.Timestamptz(6)
 
   @@index([postingDate])
   @@index([shipmentCode])
