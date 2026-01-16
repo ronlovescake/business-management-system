@@ -5,8 +5,25 @@ import { useHouseholdExpenseData } from '@/hooks/useSheetData';
 import { showNotification } from '@mantine/notifications';
 import Swal from 'sweetalert2';
 import { showError } from '@/lib/alerts';
+import {
+  computeExpenseTotals,
+  computeMonthlyBreakdownByCategory,
+} from '@/lib/accounting/expenses-utils';
+import {
+  formatCurrencyPHP,
+  formatLongDateUS,
+} from '@/lib/accounting/formatters';
+import {
+  getExpenseSourceColor,
+  getExpenseSourceLabel,
+} from '@/lib/accounting/expense-sources';
+import {
+  buildCsvContent,
+  downloadCsvFile,
+  escapeCsvValue,
+} from '@/lib/accounting/csv';
+import { filterAndSortExpenses } from '@/lib/accounting/expense-filters';
 import { householdExpenseCategoryOptions } from '@/modules/household/expenses/utils';
-import { escapeCSV } from '@/modules/clothing/ledger';
 import type { HouseholdExpenseCategory } from '@/modules/household/expenses/api';
 import type { HouseholdExpenseDTO } from '@/services/ExpenseService';
 
@@ -272,29 +289,8 @@ export function useHouseholdExpenses() {
     }
   }, [defaultAccountId, editingExpense, formAccountId, isModalOpen]);
 
-  const getSourceLabel = (sourceType?: string): string => {
-    const normalized = (sourceType || 'MANUAL').toUpperCase();
-    switch (normalized) {
-      case 'PRODUCT':
-        return 'Product';
-      case 'PAYROLL':
-        return 'Payroll';
-      case 'MANUAL':
-        return 'Manual';
-      default:
-        return normalized.charAt(0) + normalized.slice(1).toLowerCase();
-    }
-  };
-
-  const getSourceColor = (sourceType?: string): string => {
-    const label = getSourceLabel(sourceType);
-    const map: Record<string, string> = {
-      Product: 'blue',
-      Payroll: 'cyan',
-      Manual: 'gray',
-    };
-    return map[label] || 'gray';
-  };
+  const getSourceLabel = getExpenseSourceLabel;
+  const getSourceColor = getExpenseSourceColor;
 
   const sourceOptions = useMemo(() => {
     const labels = new Set<string>();
@@ -308,145 +304,45 @@ export function useHouseholdExpenses() {
   }, [expenses]);
 
   const filteredExpenses = useMemo(() => {
-    const filtered = expenses.filter((expense) => {
-      const matchesSearch =
-        searchQuery === '' ||
-        expense.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        expense.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        expense.employeeName
-          ?.toLowerCase()
-          .includes(searchQuery.toLowerCase()) ||
-        getSourceLabel(expense.sourceType)
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase());
-
-      const matchesCategory =
-        !filterCategory || expense.category === filterCategory;
-
-      const matchesStatus = !filterStatus || expense.status === filterStatus;
-
-      const matchesSource =
-        !filterSource || getSourceLabel(expense.sourceType) === filterSource;
-
-      return matchesSearch && matchesCategory && matchesStatus && matchesSource;
-    });
-
-    return filtered.sort((a, b) => {
-      const dateA = new Date(a.date).getTime();
-      const dateB = new Date(b.date).getTime();
-      return dateB - dateA;
+    return filterAndSortExpenses(expenses, {
+      searchQuery,
+      filterCategory,
+      filterStatus,
+      filterSource,
+      getSearchTokens: (expense) => [
+        expense.description,
+        expense.category,
+        expense.employeeName,
+        getSourceLabel(expense.sourceType),
+      ],
+      getCategory: (expense) => expense.category,
+      getStatus: (expense) => expense.status,
+      getSourceLabel: (expense) => getSourceLabel(expense.sourceType),
+      getDate: (expense) => expense.date,
     });
   }, [expenses, searchQuery, filterCategory, filterStatus, filterSource]);
 
-  const totalExpenses = useMemo(
-    () => expenses.reduce((sum, exp) => sum + exp.amount, 0),
-    [expenses]
-  );
-
-  const pendingExpenses = useMemo(
-    () => expenses.filter((exp) => exp.status === 'pending').length,
-    [expenses]
-  );
-
-  const approvedExpenses = useMemo(
-    () =>
-      expenses
-        .filter((exp) => exp.status === 'approved')
-        .reduce((sum, exp) => sum + exp.amount, 0),
-    [expenses]
-  );
-
-  const thisMonthExpenses = useMemo(() => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-
-    return expenses
-      .filter((exp) => {
-        const expDate = new Date(exp.date);
-        return (
-          expDate.getMonth() === currentMonth &&
-          expDate.getFullYear() === currentYear
-        );
-      })
-      .reduce((sum, exp) => sum + exp.amount, 0);
-  }, [expenses]);
+  const {
+    total: totalExpenses,
+    pendingCount: pendingExpenses,
+    approvedTotal: approvedExpenses,
+    thisMonthTotal: thisMonthExpenses,
+  } = useMemo(() => computeExpenseTotals(expenses), [expenses]);
 
   const monthlyBreakdown = useMemo((): MonthlyBreakdown[] => {
-    const months: (keyof Omit<
-      MonthlyBreakdown,
-      'category' | 'percentage' | 'total'
-    >)[] = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-
-    const breakdown = categories.map((category) => {
-      const categoryExpenses = expenses.filter(
-        (exp) => exp.category === category
-      );
-
-      const result: MonthlyBreakdown = {
-        category,
-        percentage: 0,
-        total: 0,
-        January: 0,
-        February: 0,
-        March: 0,
-        April: 0,
-        May: 0,
-        June: 0,
-        July: 0,
-        August: 0,
-        September: 0,
-        October: 0,
-        November: 0,
-        December: 0,
-      };
-
-      categoryExpenses.forEach((exp) => {
-        const expDate = new Date(exp.date);
-        const monthName = months[expDate.getMonth()];
-        result[monthName] += exp.amount;
-      });
-
-      const total = categoryExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-      const percentage = totalExpenses > 0 ? (total / totalExpenses) * 100 : 0;
-
-      result.total = total;
-      result.percentage = percentage;
-
-      return result;
-    });
-
-    return breakdown.sort((a, b) => b.total - a.total);
+    return computeMonthlyBreakdownByCategory(
+      expenses,
+      categories,
+      totalExpenses
+    ) as MonthlyBreakdown[];
   }, [expenses, categories, totalExpenses]);
 
   const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
+    return formatLongDateUS(dateString);
   };
 
   const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('en-PH', {
-      style: 'currency',
-      currency: 'PHP',
-    }).format(amount);
+    return formatCurrencyPHP(amount);
   };
 
   const getCategoryColor = (category: string): string => {
@@ -650,25 +546,20 @@ export function useHouseholdExpenses() {
       const sourceLabel = getSourceLabel(e.sourceType);
 
       return [
-        escapeCSV(e.date),
-        escapeCSV(Number(e.amount).toFixed(2)),
-        escapeCSV(e.description),
-        escapeCSV(e.category),
-        escapeCSV(accountLabel),
-        escapeCSV(e.status),
-        escapeCSV(sourceLabel),
-        escapeCSV(e.notes),
-      ].join(',');
+        escapeCsvValue(e.date),
+        escapeCsvValue(Number(e.amount).toFixed(2)),
+        escapeCsvValue(e.description),
+        escapeCsvValue(e.category),
+        escapeCsvValue(accountLabel),
+        escapeCsvValue(e.status),
+        escapeCsvValue(sourceLabel),
+        escapeCsvValue(e.notes),
+      ];
     });
 
-    const csvContent = [headers.join(','), ...rows].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `household-expenses-${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+    const csvContent = buildCsvContent(headers, rows);
+    const filename = `household-expenses-${new Date().toISOString().split('T')[0]}.csv`;
+    downloadCsvFile(filename, csvContent);
 
     showNotification({
       title: 'Export started',

@@ -197,8 +197,6 @@ export async function fetchManualJournalLines(params: {
   try {
     const rows = (await prisma.clothingAccountingJournalLine.findMany({
       where: {
-        sourceType: 'MANUAL',
-        systemGenerated: false,
         date: {
           gte: from,
           ...(to ? { lte: to } : {}),

@@ -5,6 +5,29 @@ import {
   formatCurrencyPHP,
   formatLongDateUS,
 } from '@/lib/accounting/formatters';
+import {
+  computeExpenseTotals,
+  computeMonthlyBreakdownByCategory,
+} from '@/lib/accounting/expenses-utils';
+import {
+  getExpenseSourceColor,
+  getExpenseSourceLabel,
+} from '@/lib/accounting/expense-sources';
+import {
+  buildCsvContent,
+  downloadCsvFile,
+  escapeCsvValue,
+} from '@/lib/accounting/csv';
+import {
+  parseCsvAmount,
+  parseCsvDateToISO,
+  parseCsvText,
+} from '@/lib/accounting/csv-import';
+import { filterAndSortExpenses } from '@/lib/accounting/expense-filters';
+import {
+  buildExpenseImportMissingColumnsMessage,
+  getMissingRequiredColumns,
+} from '@/lib/accounting/expense-import';
 import { useExpenseData } from '@/hooks/useSheetData';
 import { showNotification } from '@mantine/notifications';
 import { getCurrentDateISO } from '@/utils/date';
@@ -207,29 +230,8 @@ export function useExpenses() {
 
   const categories = useMemo<string[]>(() => [...expenseCategoryOptions], []);
 
-  const getSourceLabel = (sourceType?: string): string => {
-    const normalized = (sourceType || 'MANUAL').toUpperCase();
-    switch (normalized) {
-      case 'PRODUCT':
-        return 'Product';
-      case 'PAYROLL':
-        return 'Payroll';
-      case 'MANUAL':
-        return 'Manual';
-      default:
-        return normalized.charAt(0) + normalized.slice(1).toLowerCase();
-    }
-  };
-
-  const getSourceColor = (sourceType?: string): string => {
-    const label = getSourceLabel(sourceType);
-    const map: Record<string, string> = {
-      Product: 'blue',
-      Payroll: 'cyan',
-      Manual: 'gray',
-    };
-    return map[label] || 'gray';
-  };
+  const getSourceLabel = getExpenseSourceLabel;
+  const getSourceColor = getExpenseSourceColor;
 
   const sourceOptions = useMemo(() => {
     const labels = new Set<string>();
@@ -247,128 +249,37 @@ export function useExpenses() {
   // ============================================================================
 
   const filteredExpenses = useMemo(() => {
-    const filtered = expenses.filter((expense) => {
-      const matchesSearch =
-        searchQuery === '' ||
-        expense.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        expense.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        expense.employeeName
-          ?.toLowerCase()
-          .includes(searchQuery.toLowerCase()) ||
-        getSourceLabel(expense.sourceType)
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase());
-
-      const matchesCategory =
-        !filterCategory || expense.category === filterCategory;
-
-      const matchesStatus = !filterStatus || expense.status === filterStatus;
-
-      const matchesSource =
-        !filterSource || getSourceLabel(expense.sourceType) === filterSource;
-
-      return matchesSearch && matchesCategory && matchesStatus && matchesSource;
-    });
-
-    return filtered.sort((a, b) => {
-      const dateA = new Date(a.date).getTime();
-      const dateB = new Date(b.date).getTime();
-      return dateB - dateA;
+    return filterAndSortExpenses(expenses, {
+      searchQuery,
+      filterCategory,
+      filterStatus,
+      filterSource,
+      getSearchTokens: (expense) => [
+        expense.description,
+        expense.category,
+        expense.employeeName,
+        getSourceLabel(expense.sourceType),
+      ],
+      getCategory: (expense) => expense.category,
+      getStatus: (expense) => expense.status,
+      getSourceLabel: (expense) => getSourceLabel(expense.sourceType),
+      getDate: (expense) => expense.date,
     });
   }, [expenses, searchQuery, filterCategory, filterStatus, filterSource]);
 
-  const totalExpenses = useMemo(
-    () => expenses.reduce((sum, exp) => sum + exp.amount, 0),
-    [expenses]
-  );
-
-  const pendingExpenses = useMemo(
-    () => expenses.filter((exp) => exp.status === 'pending').length,
-    [expenses]
-  );
-
-  const approvedExpenses = useMemo(
-    () =>
-      expenses
-        .filter((exp) => exp.status === 'approved')
-        .reduce((sum, exp) => sum + exp.amount, 0),
-    [expenses]
-  );
-
-  const thisMonthExpenses = useMemo(() => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-
-    return expenses
-      .filter((exp) => {
-        const expDate = new Date(exp.date);
-        return (
-          expDate.getMonth() === currentMonth &&
-          expDate.getFullYear() === currentYear
-        );
-      })
-      .reduce((sum, exp) => sum + exp.amount, 0);
-  }, [expenses]);
+  const {
+    total: totalExpenses,
+    pendingCount: pendingExpenses,
+    approvedTotal: approvedExpenses,
+    thisMonthTotal: thisMonthExpenses,
+  } = useMemo(() => computeExpenseTotals(expenses), [expenses]);
 
   const monthlyBreakdown = useMemo((): MonthlyBreakdown[] => {
-    const months: (keyof Omit<
-      MonthlyBreakdown,
-      'category' | 'percentage' | 'total'
-    >)[] = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
-
-    const breakdown = categories.map((category) => {
-      const categoryExpenses = expenses.filter(
-        (exp) => exp.category === category
-      );
-
-      const result: MonthlyBreakdown = {
-        category,
-        percentage: 0,
-        total: 0,
-        January: 0,
-        February: 0,
-        March: 0,
-        April: 0,
-        May: 0,
-        June: 0,
-        July: 0,
-        August: 0,
-        September: 0,
-        October: 0,
-        November: 0,
-        December: 0,
-      };
-
-      categoryExpenses.forEach((exp) => {
-        const expDate = new Date(exp.date);
-        const monthName = months[expDate.getMonth()];
-        result[monthName] += exp.amount;
-      });
-
-      const total = categoryExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-      const percentage = totalExpenses > 0 ? (total / totalExpenses) * 100 : 0;
-
-      result.total = total;
-      result.percentage = percentage;
-
-      return result;
-    });
-
-    return breakdown.sort((a, b) => b.total - a.total);
+    return computeMonthlyBreakdownByCategory(
+      expenses,
+      categories,
+      totalExpenses
+    ) as MonthlyBreakdown[];
   }, [expenses, categories, totalExpenses]);
 
   // ============================================================================
@@ -564,49 +475,24 @@ export function useExpenses() {
     reader.onload = async (e) => {
       try {
         const text = e.target?.result as string;
-        const lines = text.split('\n').filter((line) => line.trim());
+        const parsed = parseCsvText(text);
 
-        if (lines.length < 2) {
+        if (parsed.headers.length === 0 || parsed.rows.length === 0) {
           await showError('CSV file is empty or invalid', 'Import Error');
           setIsImporting(false);
           return;
         }
-
-        const parseCSVLine = (line: string): string[] => {
-          const result: string[] = [];
-          let current = '';
-          let inQuotes = false;
-
-          for (let i = 0; i < line.length; i++) {
-            const char = line[i];
-
-            if (char === '"') {
-              inQuotes = !inQuotes;
-            } else if (char === ',' && !inQuotes) {
-              result.push(current.trim());
-              current = '';
-            } else {
-              current += char;
-            }
-          }
-          result.push(current.trim());
-          return result;
-        };
-
-        const headers = parseCSVLine(lines[0]).map((h) =>
-          h.toLowerCase().replace(/\s+/g, '')
-        );
-
-        const requiredColumns = ['date', 'amount', 'description', 'category'];
-        const missingColumns = requiredColumns.filter(
-          (col) => !headers.includes(col)
-        );
+        const { headers, rows: parsedRows } = parsed;
+        const missingColumns = getMissingRequiredColumns(headers);
 
         if (missingColumns.length > 0) {
           await showError(
-            `Missing required columns: ${missingColumns.join(', ')}\n\n` +
-              'Required columns: date, amount, description, category\n' +
-              'Optional columns: notes, receipt, status, employeeName',
+            buildExpenseImportMissingColumnsMessage(missingColumns, [
+              'notes',
+              'receipt',
+              'status',
+              'employeeName',
+            ]),
             'Import Error'
           );
           setIsImporting(false);
@@ -618,14 +504,9 @@ export function useExpenses() {
         let errorCount = 0;
         const errors: string[] = [];
 
-        for (let i = 1; i < lines.length; i++) {
+        for (let i = 0; i < parsedRows.length; i++) {
           try {
-            const values = parseCSVLine(lines[i]);
-            const row: Record<string, string> = {};
-
-            headers.forEach((header, index) => {
-              row[header] = values[index] || '';
-            });
+            const row = parsedRows[i];
 
             if (!row.date && !row.amount && !row.description) {
               continue;
@@ -637,9 +518,8 @@ export function useExpenses() {
               continue;
             }
 
-            const cleanAmount = row.amount.replace(/[₱$,\s]/g, '');
-            const amount = parseFloat(cleanAmount);
-            if (isNaN(amount)) {
+            const amount = parseCsvAmount(row.amount);
+            if (amount === null) {
               errorCount++;
               errors.push(`Row ${i + 1}: Invalid amount "${row.amount}"`);
               continue;
@@ -651,19 +531,8 @@ export function useExpenses() {
               continue;
             }
 
-            let dateStr = row.date;
-            try {
-              const parsedDate = new Date(dateStr);
-              if (isNaN(parsedDate.getTime())) {
-                errorCount++;
-                errors.push(`Row ${i + 1}: Invalid date "${row.date}"`);
-                continue;
-              }
-              const year = parsedDate.getFullYear();
-              const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
-              const day = String(parsedDate.getDate()).padStart(2, '0');
-              dateStr = `${year}-${month}-${day}`;
-            } catch (dateError) {
+            const dateStr = parseCsvDateToISO(row.date);
+            if (!dateStr) {
               errorCount++;
               errors.push(`Row ${i + 1}: Invalid date format "${row.date}"`);
               continue;
@@ -769,50 +638,22 @@ export function useExpenses() {
       'Employee Name',
     ];
 
-    const escapeCSV = (value: string | number | null | undefined): string => {
-      if (value === null || value === undefined) {
-        return '';
-      }
-      const stringValue = String(value);
-      if (
-        stringValue.includes(',') ||
-        stringValue.includes('"') ||
-        stringValue.includes('\n')
-      ) {
-        return `"${stringValue.replace(/"/g, '""')}"`;
-      }
-      return stringValue;
-    };
-
     const rows = filteredExpenses.map((expense) => [
-      escapeCSV(expense.date),
-      escapeCSV(expense.amount.toFixed(2)),
-      escapeCSV(expense.description),
-      escapeCSV(expense.category),
-      escapeCSV(expense.notes),
-      escapeCSV(expense.receipt || ''),
-      escapeCSV(expense.status),
-      escapeCSV(expense.employeeName || ''),
+      escapeCsvValue(expense.date),
+      escapeCsvValue(expense.amount.toFixed(2)),
+      escapeCsvValue(expense.description),
+      escapeCsvValue(expense.category),
+      escapeCsvValue(expense.notes),
+      escapeCsvValue(expense.receipt || ''),
+      escapeCsvValue(expense.status),
+      escapeCsvValue(expense.employeeName || ''),
     ]);
 
-    const csvContent = [
-      headers.join(','),
-      ...rows.map((row) => row.join(',')),
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-
+    const csvContent = buildCsvContent(headers, rows);
     const date = getCurrentDateISO();
     const filename = `expenses_${date}.csv`;
 
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    downloadCsvFile(filename, csvContent);
   };
 
   // ============================================================================

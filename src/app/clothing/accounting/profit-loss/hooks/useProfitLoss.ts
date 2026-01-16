@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { logger } from '@/lib/logger';
 import { PERIOD_OPTIONS, type PeriodOption } from '@/lib/accounting/constants';
-import { getPeriodRange } from '@/lib/accounting/date-utils';
+import { buildPeriodSearchParams } from '@/lib/accounting/query';
 import { formatCurrencyPHP } from '@/lib/accounting/formatters';
 
 export type ProfitLossRow = {
@@ -23,33 +23,6 @@ export type ProfitLossStats = {
 export const PROFIT_LOSS_PERIOD_OPTIONS = PERIOD_OPTIONS;
 export type ProfitLossPeriodOption = PeriodOption;
 
-const seedRows: ProfitLossRow[] = [
-  {
-    id: 'revenue-sales',
-    category: 'Sales Revenue',
-    type: 'Revenue',
-    amount: 80000,
-  },
-  {
-    id: 'expense-payroll',
-    category: 'Payroll Expense',
-    type: 'Expense',
-    amount: 6923,
-  },
-  {
-    id: 'expense-rent',
-    category: 'Rent Expense',
-    type: 'Expense',
-    amount: 10000,
-  },
-  {
-    id: 'expense-shipping',
-    category: 'Shipping Expense',
-    type: 'Expense',
-    amount: 1275,
-  },
-];
-
 type ProfitLossApiResponse = {
   rows: ProfitLossRow[];
   stats: ProfitLossStats;
@@ -59,7 +32,7 @@ export function useProfitLoss() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<string | null>('list');
   const [period, setPeriod] = useState<ProfitLossPeriodOption>('All Time');
-  const [rows, setRows] = useState<ProfitLossRow[]>(seedRows);
+  const [rows, setRows] = useState<ProfitLossRow[]>([]);
   const [stats, setStats] = useState<ProfitLossStats>({
     revenueTotal: 0,
     cogsTotal: 0,
@@ -74,16 +47,7 @@ export function useProfitLoss() {
 
     async function fetchProfitLoss() {
       try {
-        const params = new URLSearchParams();
-        const { from, to } = getPeriodRange(period);
-        if (from) {
-          params.set('from', from);
-        }
-        if (to) {
-          params.set('to', to);
-        }
-
-        const qs = params.toString();
+        const qs = buildPeriodSearchParams(period).toString();
         const res = await fetch(
           qs
             ? `/api/accounting/profit-loss?${qs}`
@@ -104,25 +68,19 @@ export function useProfitLoss() {
         setRows(data.rows ?? []);
         setStats((prev) => data.stats ?? prev);
       } catch (error) {
-        logger.warn('Profit & Loss fetch failed, falling back to seed data', {
+        logger.warn('Profit & Loss fetch failed, showing empty data', {
           error,
         });
         if (!isMounted) {
           return;
         }
-        const revenueTotal = seedRows
-          .filter((row) => row.type === 'Revenue')
-          .reduce((sum, row) => sum + row.amount, 0);
-        const expenseTotal = seedRows
-          .filter((row) => row.type === 'Expense')
-          .reduce((sum, row) => sum + row.amount, 0);
-        setRows(seedRows);
+        setRows([]);
         setStats({
-          revenueTotal,
+          revenueTotal: 0,
           cogsTotal: 0,
-          grossProfit: revenueTotal,
-          expenseTotal,
-          netProfit: revenueTotal - expenseTotal,
+          grossProfit: 0,
+          expenseTotal: 0,
+          netProfit: 0,
           period: 'All Time',
         });
       }

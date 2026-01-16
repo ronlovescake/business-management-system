@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { showNotification } from '@mantine/notifications';
 import { logger } from '@/lib/logger';
 import { PERIOD_OPTIONS, type PeriodOption } from '@/lib/accounting/constants';
-import { getPeriodRange } from '@/lib/accounting/date-utils';
+import { buildPeriodSearchParams } from '@/lib/accounting/query';
 import {
   formatCurrencyPHP,
   formatLongDateUS,
@@ -12,6 +12,11 @@ import {
   isTaggableAccountParent,
   toTaggableSelection,
 } from '@/lib/accounting/account-tagging';
+import {
+  buildManualEntryFormFromLines,
+  createManualEntryFormState,
+  MANUAL_ENTRY_DEFAULT_DATE,
+} from '@/lib/accounting/manual-entry';
 
 export type LedgerEntry = {
   id: string;
@@ -47,8 +52,6 @@ export type LedgerStats = {
 };
 
 const OPENING_BALANCE_DEFAULT_DATE = '2026-01-01';
-const MANUAL_ENTRY_DEFAULT_DATE = '2026-01-01';
-
 export const LEDGER_PERIOD_OPTIONS = PERIOD_OPTIONS;
 export type LedgerPeriodOption = PeriodOption;
 
@@ -115,16 +118,9 @@ export function useLedger() {
   const [editingManualSourceId, setEditingManualSourceId] = useState<
     string | null
   >(null);
-  const [manualEntryForm, setManualEntryForm] = useState({
-    date: MANUAL_ENTRY_DEFAULT_DATE,
-    ref: '',
-    debitAccount: '',
-    creditAccount: '',
-    debitAccountTag: '',
-    creditAccountTag: '',
-    amount: 0,
-    description: '',
-  });
+  const [manualEntryForm, setManualEntryForm] = useState(
+    createManualEntryFormState()
+  );
 
   const defaultStats = useCallback(
     (): LedgerStats => ({
@@ -138,16 +134,7 @@ export function useLedger() {
   );
 
   const fetchLedgerData = useCallback(async () => {
-    const params = new URLSearchParams();
-    const { from, to } = getPeriodRange(period);
-    if (from) {
-      params.set('from', from);
-    }
-    if (to) {
-      params.set('to', to);
-    }
-
-    const qs = params.toString();
+    const qs = buildPeriodSearchParams(period).toString();
     const res = await fetch(
       qs ? `/api/accounting/ledger?${qs}` : '/api/accounting/ledger'
     );
@@ -816,19 +803,7 @@ export function useLedger() {
 
       setEditingManualSourceId(sourceId);
 
-      const debitSelection = toTaggableSelection(debitLine.account);
-      const creditSelection = toTaggableSelection(creditLine.account);
-
-      setManualEntryForm({
-        date: (debitLine.date || creditLine.date).slice(0, 10),
-        ref: debitLine.ref || creditLine.ref,
-        debitAccount: debitSelection.account,
-        creditAccount: creditSelection.account,
-        debitAccountTag: debitSelection.tag,
-        creditAccountTag: creditSelection.tag,
-        amount: Number(debitLine.debit ?? creditLine.credit ?? 0),
-        description: debitLine.description || creditLine.description || '',
-      });
+      setManualEntryForm(buildManualEntryFormFromLines(debitLine, creditLine));
       setIsManualEntryModalOpen(true);
     },
     [entries]

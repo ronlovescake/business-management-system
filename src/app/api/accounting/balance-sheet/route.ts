@@ -468,13 +468,28 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     .filter(Boolean) as BalanceRow[];
 
   // Manual journal entries affect the balance sheet directly (e.g. Owner Draw).
-  // Each line is already one side of a balanced entry, so include as-is.
+  // Each line is already one side of a balanced entry.
+  // If a line uses a P&L account (e.g. "Utilities Expense"), it should roll into
+  // Retained Earnings on the balance sheet to keep the accounting equation balanced.
   const manualEntries: BalanceRow[] = manualLines
-    .map((line) => ({
-      account: line.account,
-      amount: Number(line.debit ?? 0) - Number(line.credit ?? 0),
-    }))
-    .filter((row) => Number.isFinite(row.amount) && row.amount !== 0);
+    .map((line) => {
+      const account = line.account.trim();
+      const amount = Number(line.debit ?? 0) - Number(line.credit ?? 0);
+      if (!account || !Number.isFinite(amount) || amount === 0) {
+        return null;
+      }
+
+      const type = detectAccountType(account);
+      if (!type) {
+        return {
+          account: 'Retained Earnings',
+          amount,
+        };
+      }
+
+      return { account, amount };
+    })
+    .filter(Boolean) as BalanceRow[];
 
   for (const line of manualLines) {
     const account = line.account.trim();
