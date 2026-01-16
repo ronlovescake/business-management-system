@@ -3,6 +3,13 @@ import { logger } from '@/lib/logger';
 import { PERIOD_OPTIONS, type PeriodOption } from '@/lib/accounting/constants';
 import { buildPeriodSearchParams } from '@/lib/accounting/query';
 import { formatCurrencyPHP } from '@/lib/accounting/formatters';
+import {
+  buildCsvContent,
+  downloadCsvFile,
+  escapeCsvValue,
+} from '@/lib/accounting/csv';
+import { getApiDataOrThrow } from '@/lib/api/response';
+import type { ApiResponse } from '@/types/api';
 
 export type ProfitLossRow = {
   id: string;
@@ -56,13 +63,11 @@ export function useProfitLoss() {
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`);
         }
-        const payload = (await res.json()) as {
-          success?: boolean;
-          data?: ProfitLossApiResponse;
-        };
+        const payload =
+          (await res.json()) as ApiResponse<ProfitLossApiResponse>;
+        const data = getApiDataOrThrow(payload, 'Failed to load profit/loss');
 
-        const data = payload?.data;
-        if (!isMounted || !data) {
+        if (!isMounted) {
           return;
         }
         setRows(data.rows ?? []);
@@ -137,26 +142,14 @@ export function useProfitLoss() {
   const formatCurrency = formatCurrencyPHP;
 
   const handleExportCSV = () => {
-    const header = ['Category', 'Type', 'Amount'];
-    const lines = rows.map((row) => [row.category, row.type, row.amount]);
-    const csv = [header, ...lines]
-      .map((cols) =>
-        cols
-          .map((col) => {
-            const value = typeof col === 'number' ? col.toString() : col;
-            return `"${String(value).replace(/"/g, '""')}"`;
-          })
-          .join(',')
-      )
-      .join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'profit-loss.csv';
-    link.click();
-    URL.revokeObjectURL(url);
+    const headers = ['Category', 'Type', 'Amount'];
+    const rowsData = rows.map((row) => [
+      escapeCsvValue(row.category),
+      escapeCsvValue(row.type),
+      escapeCsvValue(row.amount.toFixed(2)),
+    ]);
+    const csvContent = buildCsvContent(headers, rowsData);
+    downloadCsvFile('profit-loss.csv', csvContent);
   };
 
   const effectiveStats = stats ?? derivedStats;

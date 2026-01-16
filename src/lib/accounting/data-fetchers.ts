@@ -194,8 +194,26 @@ export async function fetchManualJournalLines(params: {
 }): Promise<ManualJournalLine[]> {
   const { from, to } = params;
 
+  const journalModel = (
+    prisma as unknown as {
+      clothingAccountingJournalLine?: {
+        findMany?: (args: unknown) => Promise<unknown>;
+      };
+    }
+  ).clothingAccountingJournalLine;
+
+  if (!journalModel?.findMany) {
+    logger.warn(
+      'Manual journal model is unavailable on Prisma Client; returning no manual journal lines',
+      {
+        hint: 'Run `npx prisma generate` and apply the manual journal migration to enable manual entries.',
+      }
+    );
+    return [];
+  }
+
   try {
-    const rows = (await prisma.clothingAccountingJournalLine.findMany({
+    const rows = (await journalModel.findMany({
       where: {
         date: {
           gte: from,

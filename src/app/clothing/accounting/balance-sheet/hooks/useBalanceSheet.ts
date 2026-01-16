@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { logger } from '@/lib/logger';
 import { formatCurrencyPHP } from '@/lib/accounting/formatters';
+import {
+  buildCsvContent,
+  downloadCsvFile,
+  escapeCsvValue,
+} from '@/lib/accounting/csv';
+import { parseDate } from '@/lib/accounting/date-utils';
+import { getApiDataOrThrow } from '@/lib/api/response';
+import type { ApiResponse } from '@/types/api';
 
 export type BalanceSheetRow = {
   id: string;
@@ -32,16 +40,16 @@ const DEFAULT_STATS: BalanceSheetStats = {
 };
 
 function toIsoDate(asOfLabel: string): string {
-  const parsed = new Date(asOfLabel);
-  if (Number.isNaN(parsed.getTime())) {
+  const parsed = parseDate(asOfLabel);
+  if (!parsed) {
     return '2026-01-31T00:00:00.000Z';
   }
   return parsed.toISOString();
 }
 
 function toDisplayDate(iso: string): string {
-  const parsed = new Date(iso);
-  if (Number.isNaN(parsed.getTime())) {
+  const parsed = parseDate(iso);
+  if (!parsed) {
     return 'January 31, 2026';
   }
   return parsed.toLocaleDateString('en-US', {
@@ -67,10 +75,11 @@ export function useBalanceSheet() {
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
       }
-      const payload = (await res.json()) as { data?: BalanceSheetResponse };
+      const payload = (await res.json()) as ApiResponse<BalanceSheetResponse>;
+      const data = getApiDataOrThrow(payload, 'Failed to load balance sheet');
 
-      setRows(payload.data?.rows ?? []);
-      const nextStats = payload.data?.stats;
+      setRows(data.rows ?? []);
+      const nextStats = data.stats;
       setStats(
         nextStats
           ? {
@@ -111,7 +120,30 @@ export function useBalanceSheet() {
   const formatCurrency = formatCurrencyPHP;
 
   const handleExportCSV = () => {
-    logger.info('Export CSV (balance sheet) not implemented');
+    if (filteredRows.length === 0) {
+      logger.info('No balance sheet rows to export');
+      return;
+    }
+
+    const headers = ['Account', 'Type', 'Amount', 'Details'];
+    const rows = filteredRows.map((row) => {
+      const details = row.details?.length
+        ? row.details
+            .map((detail) => `${detail.label}: ${detail.amount}`)
+            .join(' | ')
+        : '';
+
+      return [
+        escapeCsvValue(row.account),
+        escapeCsvValue(row.type),
+        escapeCsvValue(row.amount.toFixed(2)),
+        escapeCsvValue(details),
+      ];
+    });
+
+    const csvContent = buildCsvContent(headers, rows);
+    const safeAsOf = asOf.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+    downloadCsvFile(`balance-sheet-${safeAsOf}.csv`, csvContent);
   };
 
   return {

@@ -20,6 +20,10 @@ import {
   computeInventorySeedAndShrinkageTotals,
 } from '@/lib/accounting/inventory-cogs';
 import { prisma } from '@/lib/db';
+import {
+  detectAccountType,
+  type AccountType,
+} from '@/lib/accounting/account-classification';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,8 +36,6 @@ function clampAsOf(raw: Date | null): Date {
   return raw < CUTOVER ? CUTOVER : raw;
 }
 
-type AccountType = 'Asset' | 'Liability' | 'Equity';
-
 type BalanceRow = {
   account: string;
   amount: number;
@@ -43,128 +45,6 @@ type BalanceRowDetail = {
   label: string;
   amount: number;
 };
-const ACCOUNT_MAP: Record<AccountType, Set<string>> = {
-  Asset: new Set([
-    'cash',
-    'cash on hand',
-    'bank',
-    'bank account',
-    'e-wallet',
-    'e wallet',
-    'ewallet',
-    'wallet',
-    'inventory',
-    'stock on hand',
-    'inventory in transit',
-    'accounts receivable',
-    'a/r',
-    'prepaid',
-    'prepaid expense',
-    'deposit',
-    'deposits',
-  ]),
-  Liability: new Set([
-    'accounts payable',
-    'a/p',
-    'taxes payable',
-    'withholding payable',
-    'accrued freight',
-    'accrued expense',
-    'accrued expenses',
-    'credit card',
-    'credit card payable',
-    'card payable',
-    'loan',
-    'liability',
-  ]),
-  Equity: new Set([
-    'opening equity',
-    'owner’s equity',
-    "owner's equity",
-    'owner draw',
-    'owner’s draw',
-    "owner's draw",
-    'owners draw',
-    'retained earnings',
-    'capital',
-    'equity',
-  ]),
-};
-
-function detectAccountType(account: string): AccountType | null {
-  const rawName = account.trim();
-  const name = rawName.toLowerCase();
-  if (!name) {
-    return null;
-  }
-
-  for (const type of Object.keys(ACCOUNT_MAP) as AccountType[]) {
-    if (ACCOUNT_MAP[type].has(name)) {
-      return type;
-    }
-  }
-
-  const normalize = (value: string) =>
-    value
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, ' ')
-      .trim()
-      .replace(/\s+/g, ' ');
-
-  const normalizedName = normalize(rawName);
-  if (!normalizedName) {
-    return null;
-  }
-
-  const nameTokens = normalizedName.split(' ').filter(Boolean);
-
-  const matchesKeyword = (normalizedKeyword: string): boolean => {
-    const keywordTokens = normalizedKeyword.split(' ').filter(Boolean);
-    if (keywordTokens.length === 0) {
-      return false;
-    }
-
-    // Single-word keywords must match whole tokens so we don't treat "gcash" as "cash".
-    if (keywordTokens.length === 1) {
-      return nameTokens.includes(keywordTokens[0]);
-    }
-
-    // Multi-word keywords must match as a contiguous phrase in the token stream.
-    for (let i = 0; i <= nameTokens.length - keywordTokens.length; i += 1) {
-      let match = true;
-      for (let j = 0; j < keywordTokens.length; j += 1) {
-        if (nameTokens[i + j] !== keywordTokens[j]) {
-          match = false;
-          break;
-        }
-      }
-      if (match) {
-        return true;
-      }
-    }
-
-    return false;
-  };
-
-  for (const type of Object.keys(ACCOUNT_MAP) as AccountType[]) {
-    for (const keyword of Array.from(ACCOUNT_MAP[type])) {
-      const normalizedKeyword = normalize(keyword);
-      if (!normalizedKeyword) {
-        continue;
-      }
-
-      if (normalizedName === normalizedKeyword) {
-        return type;
-      }
-
-      if (matchesKeyword(normalizedKeyword)) {
-        return type;
-      }
-    }
-  }
-
-  return null;
-}
 
 function aggregateBalancesFromRows(
   rows: Array<BalanceRow & { type: AccountType }>
@@ -280,16 +160,31 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     );
   }
 
-  const reclassRows = await prisma.clothingInventoryReclassEntry.findMany({
-    where: {
-      deletedAt: null,
-      postingDate: {
-        gte: CUTOVER,
-        lte: asOf,
-      },
-    },
-    orderBy: { postingDate: 'asc' },
-  });
+  const reclassModel = (
+    prisma as unknown as {
+      clothingInventoryReclassEntry?: {
+        findMany?: (args: unknown) => Promise<unknown>;
+      };
+    }
+  ).clothingInventoryReclassEntry;
+
+  const reclassRows = reclassModel?.findMany
+    ? ((await reclassModel.findMany({
+        where: {
+          deletedAt: null,
+          postingDate: {
+            gte: CUTOVER,
+            lte: asOf,
+          },
+        },
+        orderBy: { postingDate: 'asc' },
+      })) as Array<{
+        id: string;
+        amount: unknown;
+        toAccount: string;
+        fromAccount: string;
+      }>)
+    : [];
 
   const reclassEntries: BalanceRow[] = reclassRows
     .map((row) => {
@@ -307,17 +202,31 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     .flat()
     .filter(Boolean) as BalanceRow[];
 
-  const transitBuildRows =
-    await prisma.clothingInventoryTransitBuildEntry.findMany({
-      where: {
-        deletedAt: null,
-        postingDate: {
-          gte: CUTOVER,
-          lte: asOf,
+  const transitBuildModel = (
+    prisma as unknown as {
+      clothingInventoryTransitBuildEntry?: {
+        findMany?: (args: unknown) => Promise<unknown>;
+      };
+    }
+  ).clothingInventoryTransitBuildEntry;
+
+  const transitBuildRows = transitBuildModel?.findMany
+    ? ((await transitBuildModel.findMany({
+        where: {
+          deletedAt: null,
+          postingDate: {
+            gte: CUTOVER,
+            lte: asOf,
+          },
         },
-      },
-      orderBy: { postingDate: 'asc' },
-    });
+        orderBy: { postingDate: 'asc' },
+      })) as Array<{
+        id: string;
+        amount: unknown;
+        debitAccount: string;
+        creditAccount: string;
+      }>)
+    : [];
 
   const transitBuildEntries: BalanceRow[] = transitBuildRows
     .map((row) => {

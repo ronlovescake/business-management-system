@@ -90,6 +90,9 @@ export interface MonthlyBreakdown {
   December: number;
 }
 
+const MAX_CSV_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_EXPENSE_IMPORT_ROWS = 1000;
+
 /**
  * Custom Hook: useExpenses
  *
@@ -242,7 +245,7 @@ export function useExpenses() {
       }
     });
     return Array.from(labels).sort((a, b) => a.localeCompare(b));
-  }, [expenses]);
+  }, [expenses, getSourceLabel]);
 
   // ============================================================================
   // COMPUTED VALUES
@@ -265,7 +268,14 @@ export function useExpenses() {
       getSourceLabel: (expense) => getSourceLabel(expense.sourceType),
       getDate: (expense) => expense.date,
     });
-  }, [expenses, searchQuery, filterCategory, filterStatus, filterSource]);
+  }, [
+    expenses,
+    searchQuery,
+    filterCategory,
+    filterStatus,
+    filterSource,
+    getSourceLabel,
+  ]);
 
   const {
     total: totalExpenses,
@@ -469,6 +479,11 @@ export function useExpenses() {
       return;
     }
 
+    if (file.size > MAX_CSV_FILE_SIZE_BYTES) {
+      showError('CSV file is too large (max 5 MB).', 'Import Error');
+      return;
+    }
+
     setIsImporting(true);
     const reader = new FileReader();
 
@@ -482,7 +497,9 @@ export function useExpenses() {
           setIsImporting(false);
           return;
         }
-        const { headers, rows: parsedRows } = parsed;
+        const { headers } = parsed;
+        const parsedRows = parsed.rows.slice(0, MAX_EXPENSE_IMPORT_ROWS);
+        const skippedCount = parsed.rows.length - parsedRows.length;
         const missingColumns = getMissingRequiredColumns(headers);
 
         if (missingColumns.length > 0) {
@@ -595,6 +612,9 @@ export function useExpenses() {
           `Import completed!\n\n` +
           `✅ Successfully imported: ${successCount} expenses\n` +
           (errorCount > 0 ? `⚠️ Failed to import: ${errorCount} rows\n` : '') +
+          (skippedCount > 0
+            ? `⚠️ Skipped: ${skippedCount} rows (limit ${MAX_EXPENSE_IMPORT_ROWS})\n`
+            : '') +
           `\nTotal expenses: ${expenses.length + successCount}`;
 
         if (errors.length > 0 && errors.length <= 10) {

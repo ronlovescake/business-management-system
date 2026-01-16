@@ -438,9 +438,25 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     period: buildPeriodLabel(from, to),
   };
 
-  const sortedEntries = entries.sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-  );
+  const sortedEntries = entries.sort((a, b) => {
+    const aIsPayment = a.id.startsWith('PM-');
+    const bIsPayment = b.id.startsWith('PM-');
+    if (aIsPayment !== bIsPayment) {
+      return aIsPayment ? -1 : 1;
+    }
+
+    if (a.date !== b.date) {
+      return b.date.localeCompare(a.date);
+    }
+
+    const aTime = parseDate(a.date)?.getTime() ?? 0;
+    const bTime = parseDate(b.date)?.getTime() ?? 0;
+    if (aTime !== bTime) {
+      return bTime - aTime;
+    }
+
+    return a.id.localeCompare(b.id);
+  });
 
   return ApiResponse.success({ entries: sortedEntries, stats });
 });

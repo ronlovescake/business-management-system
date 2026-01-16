@@ -301,7 +301,7 @@ export function useHouseholdExpenses() {
       }
     });
     return Array.from(labels).sort((a, b) => a.localeCompare(b));
-  }, [expenses]);
+  }, [expenses, getSourceLabel]);
 
   const filteredExpenses = useMemo(() => {
     return filterAndSortExpenses(expenses, {
@@ -320,7 +320,14 @@ export function useHouseholdExpenses() {
       getSourceLabel: (expense) => getSourceLabel(expense.sourceType),
       getDate: (expense) => expense.date,
     });
-  }, [expenses, searchQuery, filterCategory, filterStatus, filterSource]);
+  }, [
+    expenses,
+    searchQuery,
+    filterCategory,
+    filterStatus,
+    filterSource,
+    getSourceLabel,
+  ]);
 
   const {
     total: totalExpenses,

@@ -15,7 +15,18 @@ import {
   buildManualEntryFormFromLines,
   createManualEntryFormState,
   MANUAL_ENTRY_DEFAULT_DATE,
+  validateManualEntryInput,
 } from '@/lib/accounting/manual-entry';
+import { parseManualEntryCsv } from '@/lib/accounting/manual-entry-import';
+import {
+  buildCsvContent,
+  downloadCsvFile,
+  escapeCsvValue,
+} from '@/lib/accounting/csv';
+import { parseDate } from '@/lib/accounting/date-utils';
+import { getApiDataOrThrow } from '@/lib/api/response';
+import type { ApiResponse } from '@/types/api';
+import { getCurrentDateISO } from '@/utils/date';
 
 export type JournalEntry = {
   id: string;
@@ -41,6 +52,10 @@ export type JournalStats = {
 
 export const JOURNAL_PERIOD_OPTIONS = PERIOD_OPTIONS;
 export type JournalPeriodOption = PeriodOption;
+const MAX_CSV_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_MANUAL_IMPORT_ROWS = 1000;
+
+const getEntryTimestamp = (value: string) => parseDate(value)?.getTime() ?? 0;
 
 export function useJournal() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -73,12 +88,12 @@ export function useJournal() {
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}`);
     }
-    const payload = (await res.json()) as {
-      success?: boolean;
-      data?: { entries: JournalEntry[]; stats: JournalStats };
-    };
+    const payload = (await res.json()) as ApiResponse<{
+      entries: JournalEntry[];
+      stats: JournalStats;
+    }>;
 
-    return payload.data ?? null;
+    return getApiDataOrThrow(payload, 'Failed to load journal');
   }, [period]);
 
   const refreshJournal = useCallback(async () => {
@@ -119,7 +134,7 @@ export function useJournal() {
 
         return matchesSearch && matchesAccount;
       })
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      .sort((a, b) => getEntryTimestamp(b.date) - getEntryTimestamp(a.date));
   }, [entries, filterAccount, searchQuery]);
 
   const accounts = useMemo(() => {
@@ -242,38 +257,17 @@ export function useJournal() {
         )
       : creditAccountSelection;
 
-    if (!ref) {
+    const validationError = validateManualEntryInput({
+      ref,
+      debitAccount,
+      creditAccount,
+      amount,
+    });
+    if (validationError) {
       showNotification({
         color: 'red',
-        title: 'Reference is required',
-        message: 'Add a short reference (e.g., PAYMENT • Customer Name).',
-      });
-      return;
-    }
-
-    if (!debitAccount || !creditAccount) {
-      showNotification({
-        color: 'red',
-        title: 'Accounts are required',
-        message: 'Choose both a debit and credit account.',
-      });
-      return;
-    }
-
-    if (debitAccount === creditAccount) {
-      showNotification({
-        color: 'red',
-        title: 'Accounts must differ',
-        message: 'Debit and credit accounts must be different.',
-      });
-      return;
-    }
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-      showNotification({
-        color: 'red',
-        title: 'Amount must be positive',
-        message: 'Enter a valid amount greater than 0.',
+        title: validationError.title,
+        message: validationError.message,
       });
       return;
     }
@@ -380,11 +374,116 @@ export function useJournal() {
     if (!file) {
       return;
     }
-    logger.info(`Import CSV (journal) not implemented: ${file.name}`);
+    if (file.size > MAX_CSV_FILE_SIZE_BYTES) {
+      showNotification({
+        color: 'red',
+        title: 'Import failed',
+        message: 'CSV file is too large (max 5 MB).',
+      });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const text = event.target?.result as string;
+        const { rows, errors } = parseManualEntryCsv(text);
+
+        if (errors.length > 0) {
+          showNotification({
+            color: 'red',
+            title: 'Import failed',
+            message: errors.slice(0, 5).join('\n'),
+          });
+          return;
+        }
+
+        const cappedRows = rows.slice(0, MAX_MANUAL_IMPORT_ROWS);
+        const skippedCount = rows.length - cappedRows.length;
+
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (const entry of cappedRows) {
+          try {
+            const response = await fetch('/api/accounting/manual-journal', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(entry),
+            });
+            if (!response.ok) {
+              errorCount++;
+              continue;
+            }
+            successCount++;
+          } catch (error) {
+            logger.error('Journal CSV import row failed', { error, entry });
+            errorCount++;
+          }
+        }
+
+        await refreshJournal();
+        showNotification({
+          color: errorCount > 0 ? 'yellow' : 'green',
+          title: 'Journal import complete',
+          message:
+            `Imported ${successCount} entries` +
+            (errorCount > 0 ? `, ${errorCount} failed.` : '.') +
+            (skippedCount > 0
+              ? ` ${skippedCount} rows skipped (limit ${MAX_MANUAL_IMPORT_ROWS}).`
+              : ''),
+        });
+      } catch (error) {
+        logger.error('Journal CSV import failed', { error });
+        showNotification({
+          color: 'red',
+          title: 'Import failed',
+          message: 'Unable to import journal CSV file.',
+        });
+      }
+    };
+    reader.readAsText(file);
   };
 
   const handleExportCSV = () => {
-    logger.info('Export CSV (journal) not implemented');
+    if (filteredEntries.length === 0) {
+      showNotification({
+        color: 'red',
+        title: 'Export failed',
+        message: 'No journal entries to export.',
+      });
+      return;
+    }
+
+    const headers = [
+      'Date',
+      'Ref',
+      'Account',
+      'Debit',
+      'Credit',
+      'Description',
+      'Source Type',
+      'Source Id',
+      'Source Line',
+      'System Generated',
+    ];
+
+    const rows = filteredEntries.map((entry) => [
+      escapeCsvValue(entry.date),
+      escapeCsvValue(entry.ref),
+      escapeCsvValue(entry.account),
+      escapeCsvValue(entry.debit.toFixed(2)),
+      escapeCsvValue(entry.credit.toFixed(2)),
+      escapeCsvValue(entry.description),
+      escapeCsvValue(entry.sourceType || ''),
+      escapeCsvValue(entry.sourceId || ''),
+      escapeCsvValue(entry.sourceLineKey || ''),
+      escapeCsvValue(entry.systemGenerated ? 'yes' : 'no'),
+    ]);
+
+    const csvContent = buildCsvContent(headers, rows);
+    const date = getCurrentDateISO();
+    const filename = `journal_${date}.csv`;
+    downloadCsvFile(filename, csvContent);
   };
 
   return {
