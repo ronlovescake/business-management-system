@@ -4,11 +4,13 @@ import { formatCurrencyPHP } from '@/lib/accounting/formatters';
 import {
   buildCsvContent,
   downloadCsvFile,
+  downloadCsvTemplateFile,
   escapeCsvValue,
 } from '@/lib/accounting/csv';
 import { parseDate } from '@/lib/accounting/date-utils';
 import { getApiDataOrThrow } from '@/lib/api/response';
 import type { ApiResponse } from '@/types/api';
+import { getCurrentDateISO } from '@/utils/date';
 
 export type BalanceSheetRow = {
   id: string;
@@ -146,6 +148,16 @@ export function useBalanceSheet() {
     downloadCsvFile(`balance-sheet-${safeAsOf}.csv`, csvContent);
   };
 
+  const handleDownloadTemplate = () => {
+    const date = getCurrentDateISO();
+    downloadCsvTemplateFile(`balance-sheet_template_${date}.csv`, [
+      'Account',
+      'Type',
+      'Amount',
+      'Details',
+    ]);
+  };
+
   return {
     rows,
     filteredRows,
@@ -158,5 +170,6 @@ export function useBalanceSheet() {
     setActiveTab,
     formatCurrency,
     handleExportCSV,
+    handleDownloadTemplate,
   };
 }

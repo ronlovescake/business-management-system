@@ -6,10 +6,12 @@ import { formatCurrencyPHP } from '@/lib/accounting/formatters';
 import {
   buildCsvContent,
   downloadCsvFile,
+  downloadCsvTemplateFile,
   escapeCsvValue,
 } from '@/lib/accounting/csv';
 import { getApiDataOrThrow } from '@/lib/api/response';
 import type { ApiResponse } from '@/types/api';
+import { getCurrentDateISO } from '@/utils/date';
 
 export type ProfitLossRow = {
   id: string;
@@ -152,6 +154,15 @@ export function useProfitLoss() {
     downloadCsvFile('profit-loss.csv', csvContent);
   };
 
+  const handleDownloadTemplate = () => {
+    const date = getCurrentDateISO();
+    downloadCsvTemplateFile(`profit-loss_template_${date}.csv`, [
+      'Category',
+      'Type',
+      'Amount',
+    ]);
+  };
+
   const effectiveStats = stats ?? derivedStats;
 
   return {
@@ -166,5 +177,6 @@ export function useProfitLoss() {
     setActiveTab,
     formatCurrency,
     handleExportCSV,
+    handleDownloadTemplate,
   };
 }

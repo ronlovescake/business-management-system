@@ -15,6 +15,7 @@ interface BalanceSheetControlsProps {
   asOf: string;
   onAsOfChange: (asOf: string) => void;
   onExportCSV: () => void;
+  onDownloadTemplate: () => void;
 }
 
 export const BalanceSheetControls = memo(function BalanceSheetControls({
@@ -25,6 +26,7 @@ export const BalanceSheetControls = memo(function BalanceSheetControls({
   asOf,
   onAsOfChange,
   onExportCSV,
+  onDownloadTemplate,
 }: BalanceSheetControlsProps) {
   useCtrlFFocus(
     '[data-ctrlf-target="balance-sheet-controls-search"]',
@@ -48,6 +50,7 @@ export const BalanceSheetControls = memo(function BalanceSheetControls({
           onSelectChange={onAsOfChange}
           selectWidth={220}
           onExport={onExportCSV}
+          onDownloadTemplate={onDownloadTemplate}
         />
       ),
     },

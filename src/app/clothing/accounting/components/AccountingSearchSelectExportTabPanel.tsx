@@ -1,6 +1,6 @@
 import React, { memo, useMemo } from 'react';
 import { Group, TextInput, Select, Button } from '@mantine/core';
-import { IconSearch, IconDownload } from '@tabler/icons-react';
+import { IconSearch, IconDownload, IconFileTypeCsv } from '@tabler/icons-react';
 import { actionButtonStyles } from '@/components/shared/styles/actionButtonStyles';
 
 export type AccountingSearchSelectExportTabPanelProps = {
@@ -17,6 +17,9 @@ export type AccountingSearchSelectExportTabPanelProps = {
 
   exportLabel?: string;
   onExport: () => void;
+
+  templateLabel?: string;
+  onDownloadTemplate?: () => void;
 };
 
 export const AccountingSearchSelectExportTabPanel = memo(
@@ -32,6 +35,8 @@ export const AccountingSearchSelectExportTabPanel = memo(
     selectWidth = 220,
     exportLabel = 'Export',
     onExport,
+    templateLabel = 'Download Template',
+    onDownloadTemplate,
   }: AccountingSearchSelectExportTabPanelProps) {
     const options = useMemo(() => {
       // Ensure we don't feed duplicates to Mantine Select.
@@ -62,6 +67,18 @@ export const AccountingSearchSelectExportTabPanel = memo(
           }}
           style={{ width: selectWidth }}
         />
+        {onDownloadTemplate ? (
+          <Button
+            leftSection={<IconFileTypeCsv size={16} />}
+            size="sm"
+            radius="sm"
+            styles={actionButtonStyles}
+            variant="light"
+            onClick={onDownloadTemplate}
+          >
+            {templateLabel}
+          </Button>
+        ) : null}
         <Button
           leftSection={<IconDownload size={16} />}
           size="sm"

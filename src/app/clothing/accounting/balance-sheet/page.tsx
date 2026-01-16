@@ -21,6 +21,7 @@ export default function BalanceSheetPage() {
     setActiveTab,
     formatCurrency,
     handleExportCSV,
+    handleDownloadTemplate,
   } = useBalanceSheet();
 
   return (
@@ -43,6 +44,7 @@ export default function BalanceSheetPage() {
           asOf={asOf}
           onAsOfChange={setAsOf}
           onExportCSV={handleExportCSV}
+          onDownloadTemplate={handleDownloadTemplate}
         />
 
         <BalanceSheetTable

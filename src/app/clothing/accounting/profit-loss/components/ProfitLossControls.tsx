@@ -19,6 +19,7 @@ interface ProfitLossControlsProps {
   period: ProfitLossPeriodOption;
   onPeriodChange: (period: ProfitLossPeriodOption) => void;
   onExportCSV: () => void;
+  onDownloadTemplate: () => void;
 }
 
 export const ProfitLossControls = memo(function ProfitLossControls({
@@ -29,6 +30,7 @@ export const ProfitLossControls = memo(function ProfitLossControls({
   period,
   onPeriodChange,
   onExportCSV,
+  onDownloadTemplate,
 }: ProfitLossControlsProps) {
   useCtrlFFocus(
     '[data-ctrlf-target="profit-loss-controls-search"]',
@@ -60,6 +62,7 @@ export const ProfitLossControls = memo(function ProfitLossControls({
           }}
           selectWidth={220}
           onExport={onExportCSV}
+          onDownloadTemplate={onDownloadTemplate}
         />
       ),
     },

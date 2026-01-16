@@ -21,6 +21,7 @@ export default function ProfitLossPage() {
     setActiveTab,
     formatCurrency,
     handleExportCSV,
+    handleDownloadTemplate,
   } = useProfitLoss();
 
   return (
@@ -44,6 +45,7 @@ export default function ProfitLossPage() {
           period={period}
           onPeriodChange={setPeriod}
           onExportCSV={handleExportCSV}
+          onDownloadTemplate={handleDownloadTemplate}
         />
 
         <ProfitLossTable
