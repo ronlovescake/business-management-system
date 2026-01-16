@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import Swal from 'sweetalert2';
 import { confirmTripleDelete } from '@/utils/confirmTripleDelete';
 import { normalizeText } from '@/utils/text';
-import { parseCSVLine, validateCSVHeaders } from '@/components/expenses';
+import { downloadCsvTemplate, parseCSVLine } from '@/components/expenses';
 import { useHouseholdAccountsData } from './useHouseholdAccountsData';
 import type {
   PersonalAccountDraft,
@@ -10,10 +10,79 @@ import type {
 } from '@/app/personal/accounts/components/AccountFormDialog';
 import type { PersonalAccountRow } from '@/app/personal/accounts/components/AccountsListTable';
 
+const MAX_CSV_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_CSV_ROWS = 1000;
+
+const ACCOUNT_TYPE_NORMALIZATION: Record<string, PersonalAccountType> = {
+  CASH: 'CASH',
+  BANK: 'BANK',
+  EWALLET: 'EWALLET',
+  EWALLETACCOUNT: 'EWALLET',
+  CREDITCARD: 'CREDIT_CARD',
+  CARD: 'CREDIT_CARD',
+  LOAN: 'LOAN',
+};
+
+const VALID_ACCOUNT_TYPES = new Set<PersonalAccountType>([
+  'CASH',
+  'BANK',
+  'EWALLET',
+  'CREDIT_CARD',
+  'LOAN',
+]);
+
+function normalizeAccountType(value: string): PersonalAccountType | null {
+  const raw = value.trim().toUpperCase();
+  if (!raw) {
+    return null;
+  }
+  const compact = raw.replace(/[^A-Z]/g, '');
+  const mapped =
+    ACCOUNT_TYPE_NORMALIZATION[raw] ??
+    ACCOUNT_TYPE_NORMALIZATION[compact] ??
+    null;
+  if (mapped && VALID_ACCOUNT_TYPES.has(mapped)) {
+    return mapped;
+  }
+  if (VALID_ACCOUNT_TYPES.has(raw as PersonalAccountType)) {
+    return raw as PersonalAccountType;
+  }
+  return null;
+}
+
+function isValidLast4(value: string): boolean {
+  if (!value) {
+    return true;
+  }
+  return /^\d{4}$/.test(value);
+}
+
+function normalizeCsvHeader(value: string): string {
+  return value
+    .replace(/^\uFEFF/, '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function firstHeaderIndex(
+  normalizedHeaders: string[],
+  candidates: string[]
+): number {
+  for (const c of candidates) {
+    const idx = normalizedHeaders.indexOf(normalizeCsvHeader(c));
+    if (idx >= 0) {
+      return idx;
+    }
+  }
+  return -1;
+}
+
 export function usePersonalAccountsView() {
   const {
     accounts,
     createAccount,
+    createAccounts,
     updateAccount,
     deleteAccount,
     exportAccountsCSV,
@@ -165,6 +234,11 @@ export function usePersonalAccountsView() {
   const handleSaveAccount = useCallback(() => {
     const name = draft.name.trim();
     if (!name) {
+      void Swal.fire({
+        icon: 'warning',
+        title: 'Missing account name',
+        text: 'Please enter an account name before saving.',
+      });
       return;
     }
 
@@ -200,6 +274,16 @@ export function usePersonalAccountsView() {
       if (!_file) {
         return;
       }
+
+      if (_file.size > MAX_CSV_SIZE_BYTES) {
+        await Swal.fire({
+          icon: 'error',
+          title: 'File too large',
+          text: 'Please upload a CSV file smaller than 5MB.',
+        });
+        return;
+      }
+
       setIsImporting(true);
       try {
         const text = await _file.text();
@@ -217,11 +301,41 @@ export function usePersonalAccountsView() {
           return;
         }
 
-        const headers = parseCSVLine(lines[0]).map((h) =>
-          h.trim().toLowerCase()
-        );
-        const required = ['name', 'type', 'institution', 'last4'];
-        const missing = validateCSVHeaders(headers, required);
+        const dataRows = lines.length - 1;
+        if (dataRows > MAX_CSV_ROWS) {
+          await Swal.fire({
+            icon: 'error',
+            title: 'Too many rows',
+            text: `Please limit the CSV to ${MAX_CSV_ROWS} rows or fewer.`,
+          });
+          return;
+        }
+
+        const rawHeaders = parseCSVLine(lines[0]);
+        const headers = rawHeaders.map(normalizeCsvHeader);
+
+        const idxName = firstHeaderIndex(headers, ['name', 'accountname']);
+        const idxType = firstHeaderIndex(headers, ['type', 'accounttype']);
+        const idxInstitution = firstHeaderIndex(headers, [
+          'institution',
+          'bank',
+          'provider',
+        ]);
+        const idxLast4 = firstHeaderIndex(headers, [
+          'last4',
+          'acctlast4',
+          'accountlast4',
+          'accountnumberlast4',
+          'accountnumber',
+        ]);
+
+        const missing = [
+          idxName < 0 ? 'name' : null,
+          idxType < 0 ? 'type' : null,
+          idxInstitution < 0 ? 'institution' : null,
+          idxLast4 < 0 ? 'last4' : null,
+        ].filter(Boolean);
+
         if (missing.length > 0) {
           await Swal.fire({
             icon: 'error',
@@ -231,14 +345,13 @@ export function usePersonalAccountsView() {
           return;
         }
 
-        const idx = (name: string) => headers.indexOf(name);
-        const idxName = idx('name');
-        const idxType = idx('type');
-        const idxInstitution = idx('institution');
-        const idxLast4 = idx('last4');
-
         let imported = 0;
         let skipped = 0;
+        let skippedInvalidType = 0;
+        let skippedInvalidLast4 = 0;
+        let skippedServerError = 0;
+
+        const pendingCreates: PersonalAccountDraft[] = [];
 
         for (const line of lines.slice(1)) {
           const cols = parseCSVLine(line);
@@ -247,7 +360,7 @@ export function usePersonalAccountsView() {
           }
 
           const name = (cols[idxName] || '').trim();
-          const type = (cols[idxType] || '').trim().toUpperCase();
+          const typeRaw = (cols[idxType] || '').trim();
           const institution = (cols[idxInstitution] || '').trim();
           const last4 = (cols[idxLast4] || '').trim();
 
@@ -256,36 +369,71 @@ export function usePersonalAccountsView() {
             continue;
           }
 
-          try {
-            await createAccount({
-              name,
-              type: type as PersonalAccountType,
-              institution,
-              accountNumberLast4: last4,
-            });
-            imported += 1;
-          } catch (error) {
+          const normalizedType = normalizeAccountType(typeRaw);
+          if (!normalizedType) {
             skipped += 1;
-            // eslint-disable-next-line no-continue
+            skippedInvalidType += 1;
             continue;
+          }
+
+          if (!isValidLast4(last4)) {
+            skipped += 1;
+            skippedInvalidLast4 += 1;
+            continue;
+          }
+
+          pendingCreates.push({
+            name,
+            type: normalizedType,
+            institution,
+            accountNumberLast4: last4,
+          });
+        }
+
+        if (pendingCreates.length > 0) {
+          try {
+            const result = await createAccounts(pendingCreates);
+            imported += result.count;
+          } catch (error) {
+            // Fallback: try row-by-row so we can still import partial data.
+            for (const draft of pendingCreates) {
+              try {
+                await createAccount(draft);
+                imported += 1;
+              } catch {
+                skipped += 1;
+                skippedServerError += 1;
+              }
+            }
           }
         }
 
         await Swal.fire({
           icon: 'success',
           title: 'Import complete',
-          text: `Imported ${imported} rows. Skipped ${skipped}.`,
+          text: `Imported ${imported} rows. Skipped ${skipped}${
+            skippedInvalidType || skippedInvalidLast4 || skippedServerError
+              ? ` (invalid type: ${skippedInvalidType}, invalid last4: ${skippedInvalidLast4}, server errors: ${skippedServerError})`
+              : ''
+          }.`,
         });
       } finally {
         setIsImporting(false);
       }
     },
-    [createAccount]
+    [createAccount, createAccounts]
   );
 
   const handleExportCSV = useCallback(() => {
     exportAccountsCSV();
   }, [exportAccountsCSV]);
+
+  const handleDownloadCSVTemplate = useCallback(() => {
+    downloadCsvTemplate(
+      ['name', 'type', 'institution', 'accountNumberLast4'],
+      'personal-accounts'
+    );
+  }, []);
 
   return {
     accounts,
@@ -322,5 +470,6 @@ export function usePersonalAccountsView() {
     handleSaveAccount,
     handleImportCSV,
     handleExportCSV,
+    handleDownloadCSVTemplate,
   } as const;
 }

@@ -22,6 +22,7 @@ interface JournalControlsProps {
   onPeriodChange: (period: JournalPeriodOption) => void;
   accounts: string[];
   onImportCSV: (file: File | null) => void;
+  onDownloadTemplate: () => void;
   onExportCSV: () => void;
   onAddEntry: () => void;
   isImporting?: boolean;
@@ -38,6 +39,7 @@ export const JournalControls = memo(function JournalControls({
   onPeriodChange,
   accounts,
   onImportCSV,
+  onDownloadTemplate,
   onExportCSV,
   onAddEntry,
   isImporting = false,
@@ -67,6 +69,7 @@ export const JournalControls = memo(function JournalControls({
             onPeriodChange(nextPeriod as JournalPeriodOption)
           }
           onImportCSV={onImportCSV}
+          onDownloadTemplate={onDownloadTemplate}
           onExportCSV={onExportCSV}
           onAddEntry={onAddEntry}
           isImporting={isImporting}

@@ -16,6 +16,7 @@ import {
 import {
   buildCsvContent,
   downloadCsvFile,
+  downloadCsvTemplateFile,
   escapeCsvValue,
 } from '@/lib/accounting/csv';
 import {
@@ -676,6 +677,20 @@ export function useExpenses() {
     downloadCsvFile(filename, csvContent);
   };
 
+  const handleDownloadTemplate = useCallback(() => {
+    const date = getCurrentDateISO();
+    downloadCsvTemplateFile(`expenses_template_${date}.csv`, [
+      'date',
+      'amount',
+      'description',
+      'category',
+      'notes',
+      'receipt',
+      'status',
+      'employeeName',
+    ]);
+  }, []);
+
   // ============================================================================
   // RETURN API
   // ============================================================================
@@ -748,5 +763,6 @@ export function useExpenses() {
     handleViewReceipt,
     handleImportCSV,
     handleExportCSV,
+    handleDownloadTemplate,
   };
 }

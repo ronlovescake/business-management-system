@@ -6,6 +6,7 @@ import {
   IconSearch,
   IconUpload,
   IconDownload,
+  IconFileTypeCsv,
   IconPlus,
   IconRepeat,
 } from '@tabler/icons-react';
@@ -36,6 +37,7 @@ interface ExpenseControlsProps {
   categories: string[];
   sources: string[];
   onImportCSV: (file: File | null) => void;
+  onDownloadTemplate: () => void;
   onExportCSV: () => void;
   onAddExpense: () => void;
   isImporting: boolean;
@@ -66,6 +68,7 @@ export const ExpenseControls = memo(function ExpenseControls({
   categories,
   sources,
   onImportCSV,
+  onDownloadTemplate,
   onExportCSV,
   onAddExpense,
   isImporting,
@@ -134,6 +137,16 @@ export const ExpenseControls = memo(function ExpenseControls({
               </Button>
             )}
           </FileButton>
+          <Button
+            leftSection={<IconFileTypeCsv size={16} />}
+            size="sm"
+            radius="sm"
+            styles={actionButtonStyles}
+            variant="light"
+            onClick={onDownloadTemplate}
+          >
+            Download Template
+          </Button>
           <Button
             leftSection={<IconDownload size={16} />}
             size="sm"

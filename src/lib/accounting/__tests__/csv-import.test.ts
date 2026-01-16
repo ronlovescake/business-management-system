@@ -19,6 +19,20 @@ describe('csv-import helpers', () => {
     });
   });
 
+  it('parses csv text with escaped quotes', () => {
+    const text =
+      'date,amount,description\n2026-01-16,12.50,"Said ""hello"" to team"';
+    const parsed = parseCsvText(text);
+
+    expect(parsed.headers).toEqual(['date', 'amount', 'description']);
+    expect(parsed.rows).toHaveLength(1);
+    expect(parsed.rows[0]).toEqual({
+      date: '2026-01-16',
+      amount: '12.50',
+      description: 'Said "hello" to team',
+    });
+  });
+
   it('parses csv amounts with currency symbols', () => {
     expect(parseCsvAmount('₱ 1,234.56')).toBeCloseTo(1234.56, 2);
     expect(parseCsvAmount('$2,000')).toBe(2000);

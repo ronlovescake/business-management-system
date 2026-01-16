@@ -12,7 +12,12 @@ export function parseCsvLine(line: string): string[] {
     const char = line[i];
 
     if (char === '"') {
-      inQuotes = !inQuotes;
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
     } else if (char === ',' && !inQuotes) {
       result.push(current.trim());
       current = '';
@@ -29,7 +34,10 @@ export function normalizeCsvHeader(header: string): string {
 }
 
 export function parseCsvText(text: string): ParsedCsv {
-  const lines = text.split('\n').filter((line) => line.trim());
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim());
   if (lines.length === 0) {
     return { headers: [], rows: [] };
   }

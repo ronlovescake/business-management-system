@@ -95,6 +95,7 @@ export default function Expenses() {
     handleViewReceipt,
     handleImportCSV,
     handleExportCSV,
+    handleDownloadTemplate,
   } = useExpenses();
 
   return (
@@ -125,6 +126,7 @@ export default function Expenses() {
             categories={categories}
             sources={sourceOptions}
             onImportCSV={handleImportCSV}
+            onDownloadTemplate={handleDownloadTemplate}
             onExportCSV={handleExportCSV}
             onAddExpense={handleAddExpense}
             isImporting={isImporting}

@@ -32,6 +32,7 @@ export default function LedgerPage() {
     formatDate,
     handleAddEntry,
     handleImportCSV,
+    handleDownloadTemplate,
     handleExportCSV,
     editingManualSourceId,
     openManualEntryModalForEdit,
@@ -84,6 +85,7 @@ export default function LedgerPage() {
           onPeriodChange={setPeriod}
           accounts={accounts}
           onImportCSV={handleImportCSV}
+          onDownloadTemplate={handleDownloadTemplate}
           onExportCSV={handleExportCSV}
           onAddEntry={handleAddEntry}
           onAddOpeningEntry={openOpeningEntryModal}

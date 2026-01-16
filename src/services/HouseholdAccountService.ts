@@ -26,6 +26,17 @@ export class HouseholdAccountService extends BaseService {
     return this.post<HouseholdAccountDTO>(this.endpoint, payload);
   }
 
+  static async createMany(
+    payloads: Array<{
+      name: string;
+      type: string;
+      institution?: string | null;
+      accountNumberLast4?: string | null;
+    }>
+  ): Promise<{ count: number }> {
+    return this.post<{ count: number }>(this.endpoint, payloads);
+  }
+
   static async update(
     id: string,
     payload: {

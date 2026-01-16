@@ -39,7 +39,12 @@ export function parseCSVLine(line: string): string[] {
     const char = line[i];
 
     if (char === '"') {
-      inQuotes = !inQuotes;
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
     } else if (char === ',' && !inQuotes) {
       result.push(current.trim());
       current = '';
@@ -94,6 +99,30 @@ export function exportToCSV<T>(
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+}
+
+/**
+ * Download a CSV template (headers only).
+ *
+ * @param headers - Column headers
+ * @param filename - Output filename (without extension)
+ */
+export function downloadCsvTemplate(headers: string[], filename: string): void {
+  const csvContent = `${headers.join(',')}\n`;
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+
+  const date = getCurrentDateISO();
+  const fullFilename = `${filename}_template_${date}.csv`;
+
+  link.setAttribute('href', url);
+  link.setAttribute('download', fullFilename);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
 
 /**

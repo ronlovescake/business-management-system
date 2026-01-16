@@ -56,6 +56,28 @@ export function useHouseholdAccountsData() {
     },
   });
 
+  const createAccounts = useMutation({
+    mutationFn: (drafts: PersonalAccountDraft[]) => {
+      const items = drafts.map((draft) => ({
+        name: draft.name.trim(),
+        type: draft.type,
+        institution: draft.institution.trim(),
+        accountNumberLast4: draft.accountNumberLast4.trim(),
+      }));
+
+      if (items.length === 1) {
+        return HouseholdAccountService.create(items[0]).then(() => ({
+          count: 1,
+        }));
+      }
+
+      return HouseholdAccountService.createMany(items);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['household-accounts'] });
+    },
+  });
+
   const updateAccount = useMutation({
     mutationFn: ({ id, draft }: { id: string; draft: PersonalAccountDraft }) =>
       HouseholdAccountService.update(id, {
@@ -79,21 +101,15 @@ export function useHouseholdAccountsData() {
   const exportAccountsCSV = useCallback(() => {
     exportToCSV(
       accounts,
-      ['name', 'type', 'institution', 'last4', 'status', 'balance'],
+      ['name', 'type', 'institution', 'accountNumberLast4'],
       'personal-accounts',
-      (a) => [
-        a.name,
-        a.type,
-        a.institution,
-        a.accountNumberLast4,
-        a.isActive ? 'active' : 'inactive',
-        a.balance,
-      ]
+      (a) => [a.name, a.type, a.institution, a.accountNumberLast4]
     );
   }, [accounts]);
 
   const isSaving =
     createAccount.isPending ||
+    createAccounts.isPending ||
     updateAccount.isPending ||
     deleteAccount.isPending;
 
@@ -104,6 +120,7 @@ export function useHouseholdAccountsData() {
     isFetching: accountsQuery.isFetching,
     isSaving,
     createAccount: createAccount.mutateAsync,
+    createAccounts: createAccounts.mutateAsync,
     updateAccount: updateAccount.mutateAsync,
     deleteAccount: deleteAccount.mutateAsync,
     exportAccountsCSV,

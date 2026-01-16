@@ -30,6 +30,7 @@ interface LedgerControlsProps {
   onPeriodChange: (period: LedgerPeriodOption) => void;
   accounts: string[];
   onImportCSV: (file: File | null) => void;
+  onDownloadTemplate: () => void;
   onExportCSV: () => void;
   onAddEntry: () => void;
   onAddOpeningEntry?: () => void;
@@ -47,6 +48,7 @@ export const LedgerControls = memo(function LedgerControls({
   onPeriodChange,
   accounts,
   onImportCSV,
+  onDownloadTemplate,
   onExportCSV,
   onAddEntry,
   onAddOpeningEntry,
@@ -77,6 +79,7 @@ export const LedgerControls = memo(function LedgerControls({
             onPeriodChange(nextPeriod as LedgerPeriodOption)
           }
           onImportCSV={onImportCSV}
+          onDownloadTemplate={onDownloadTemplate}
           onExportCSV={onExportCSV}
           onAddEntry={onAddEntry}
           isImporting={isImporting}

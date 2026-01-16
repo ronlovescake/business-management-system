@@ -20,6 +20,7 @@ import {
 import {
   buildCsvContent,
   downloadCsvFile,
+  downloadCsvTemplateFile,
   escapeCsvValue,
 } from '@/lib/accounting/csv';
 import { filterAndSortExpenses } from '@/lib/accounting/expense-filters';
@@ -575,6 +576,20 @@ export function useHouseholdExpenses() {
     });
   };
 
+  const handleDownloadTemplate = () => {
+    const filename = `household-expenses-template-${new Date().toISOString().split('T')[0]}.csv`;
+    downloadCsvTemplateFile(filename, [
+      'date',
+      'amount',
+      'description',
+      'category',
+      'account',
+      'status',
+      'source',
+      'notes',
+    ]);
+  };
+
   return {
     expenses,
     filteredExpenses,
@@ -635,6 +650,7 @@ export function useHouseholdExpenses() {
     handleViewReceipt,
     handleImportCSV,
     handleExportCSV,
+    handleDownloadTemplate,
     isLoadingExpenses,
   };
 }

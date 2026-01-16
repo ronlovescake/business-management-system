@@ -34,3 +34,11 @@ export function downloadCsvFile(filename: string, content: string): void {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+
+export function downloadCsvTemplateFile(
+  filename: string,
+  headers: string[]
+): void {
+  const content = buildCsvContent(headers, []);
+  downloadCsvFile(filename, `${content}\n`);
+}

@@ -22,6 +22,7 @@ import { parseManualEntryCsv } from '@/lib/accounting/manual-entry-import';
 import {
   buildCsvContent,
   downloadCsvFile,
+  downloadCsvTemplateFile,
   escapeCsvValue,
 } from '@/lib/accounting/csv';
 import { parseDate } from '@/lib/accounting/date-utils';
@@ -1126,6 +1127,18 @@ export function useLedger() {
     downloadCsvFile(filename, csvContent);
   };
 
+  const handleDownloadTemplate = () => {
+    const date = getCurrentDateISO();
+    downloadCsvTemplateFile(`ledger_template_${date}.csv`, [
+      'date',
+      'amount',
+      'ref',
+      'debitAccount',
+      'creditAccount',
+      'description',
+    ]);
+  };
+
   return {
     entries,
     filteredEntries,
@@ -1144,6 +1157,7 @@ export function useLedger() {
     formatDate,
     handleAddEntry,
     handleImportCSV,
+    handleDownloadTemplate,
     handleExportCSV,
     isManualEntryModalOpen,
     isSavingManualEntry,

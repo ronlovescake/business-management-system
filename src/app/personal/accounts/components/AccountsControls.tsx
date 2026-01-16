@@ -6,6 +6,7 @@ import {
   IconSearch,
   IconUpload,
   IconDownload,
+  IconFileTypeCsv,
   IconPlus,
 } from '@tabler/icons-react';
 import { actionButtonStyles } from '@/components/shared/styles/actionButtonStyles';
@@ -29,6 +30,7 @@ interface AccountsControlsProps {
   types: string[];
   institutions: string[];
   onImportCSV: (file: File | null) => void;
+  onDownloadTemplate: () => void;
   onExportCSV: () => void;
   onAddAccount: () => void;
   isImporting: boolean;
@@ -48,6 +50,7 @@ export const AccountsControls = memo(function AccountsControls({
   types,
   institutions,
   onImportCSV,
+  onDownloadTemplate,
   onExportCSV,
   onAddAccount,
   isImporting,
@@ -116,6 +119,16 @@ export const AccountsControls = memo(function AccountsControls({
               </Button>
             )}
           </FileButton>
+          <Button
+            leftSection={<IconFileTypeCsv size={16} />}
+            size="sm"
+            radius="sm"
+            styles={actionButtonStyles}
+            variant="light"
+            onClick={onDownloadTemplate}
+          >
+            Download Template
+          </Button>
           <Button
             leftSection={<IconDownload size={16} />}
             size="sm"

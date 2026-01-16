@@ -4,6 +4,7 @@ import {
   IconSearch,
   IconUpload,
   IconDownload,
+  IconFileTypeCsv,
   IconPlus,
 } from '@tabler/icons-react';
 import { actionButtonStyles } from '@/components/shared/styles/actionButtonStyles';
@@ -23,6 +24,7 @@ export type AccountingEntriesListTabPanelProps = {
   onPeriodChange: (period: string) => void;
 
   onImportCSV: (file: File | null) => void;
+  onDownloadTemplate: () => void;
   onExportCSV: () => void;
   onAddEntry: () => void;
   addLabel?: string;
@@ -42,6 +44,7 @@ export const AccountingEntriesListTabPanel = memo(
     period,
     onPeriodChange,
     onImportCSV,
+    onDownloadTemplate,
     onExportCSV,
     onAddEntry,
     addLabel = 'Add Entry',
@@ -95,6 +98,16 @@ export const AccountingEntriesListTabPanel = memo(
             </Button>
           )}
         </FileButton>
+        <Button
+          leftSection={<IconFileTypeCsv size={16} />}
+          size="sm"
+          radius="sm"
+          styles={actionButtonStyles}
+          variant="light"
+          onClick={onDownloadTemplate}
+        >
+          Template
+        </Button>
         <Button
           leftSection={<IconDownload size={16} />}
           size="sm"

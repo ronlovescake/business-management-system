@@ -86,6 +86,7 @@ export default function PersonalExpensesPage() {
     handleViewReceipt,
     handleImportCSV,
     handleExportCSV,
+    handleDownloadTemplate,
   } = usePersonalExpensesView();
 
   return (
@@ -120,6 +121,7 @@ export default function PersonalExpensesPage() {
             categories={categories}
             sources={sourceOptions}
             onImportCSV={handleImportCSV}
+            onDownloadTemplate={handleDownloadTemplate}
             onExportCSV={handleExportCSV}
             onAddExpense={handleAddExpense}
             isImporting={isImporting}

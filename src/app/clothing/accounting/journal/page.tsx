@@ -25,6 +25,7 @@ export default function JournalPage() {
     formatDate,
     handleAddEntry,
     handleImportCSV,
+    handleDownloadTemplate,
     handleExportCSV,
     editingManualSourceId,
     openManualEntryModalForEdit,
@@ -61,6 +62,7 @@ export default function JournalPage() {
           onPeriodChange={setPeriod}
           accounts={accounts}
           onImportCSV={handleImportCSV}
+          onDownloadTemplate={handleDownloadTemplate}
           onExportCSV={handleExportCSV}
           onAddEntry={handleAddEntry}
         />

@@ -47,6 +47,7 @@ export default function PersonalAccountsPage() {
     handleSaveAccount,
     handleImportCSV,
     handleExportCSV,
+    handleDownloadCSVTemplate,
   } = usePersonalAccountsView();
 
   return (
@@ -74,6 +75,7 @@ export default function PersonalAccountsPage() {
           types={types}
           institutions={institutions}
           onImportCSV={handleImportCSV}
+          onDownloadTemplate={handleDownloadCSVTemplate}
           onExportCSV={handleExportCSV}
           onAddAccount={handleAddAccount}
           isImporting={isImporting}
