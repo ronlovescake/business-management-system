@@ -102,6 +102,13 @@ export function detectAccountType(account: string): AccountType | null {
 
   const nameTokens = normalizedName.split(' ').filter(Boolean);
 
+  if (
+    normalizedName.includes('loan payable') ||
+    (nameTokens.includes('loan') && nameTokens.includes('payable'))
+  ) {
+    return 'Liability';
+  }
+
   for (const type of Object.keys(ACCOUNT_MAP) as AccountType[]) {
     for (const keyword of Array.from(ACCOUNT_MAP[type])) {
       const normalizedKeyword = normalize(keyword);

@@ -13,6 +13,7 @@ export type DerivedJournalEntry = {
 
 const COGS_ACCOUNT = 'COGS';
 const INVENTORY_ACCOUNT = 'Stock on Hand';
+const INVENTORY_IN_TRANSIT_ACCOUNT = 'Inventory in Transit';
 const OPENING_EQUITY_ACCOUNT = 'Opening Equity';
 const CURRENT_PERIOD_EARNINGS_ACCOUNT = 'Current Period Earnings';
 
@@ -21,6 +22,15 @@ const INVENTORY_ASSET_BUCKETS = new Set([
   'reserved',
   'damaged_hold',
   'assembly_wip',
+]);
+
+const IN_TRANSIT_STATUSES = new Set([
+  '',
+  'in transit',
+  'manila port',
+  'with pier gatepass',
+  'ph warehouse',
+  'for pickup',
 ]);
 
 function toDateKey(date: Date): string {
@@ -108,6 +118,21 @@ function summarizeSignedTransitions(transitions: Map<string, number>): string {
     .filter(Boolean) as string[];
 
   return parts.join('; ');
+}
+
+function normalizeShipmentStatus(value: string | null | undefined): string {
+  return (value ?? '').trim().toLowerCase();
+}
+
+function isInTransitStatus(value: string | null | undefined): boolean {
+  const normalized = normalizeShipmentStatus(value);
+  if (normalized === 'delivered') {
+    return false;
+  }
+  if (IN_TRANSIT_STATUSES.has(normalized)) {
+    return true;
+  }
+  return normalized.length > 0;
 }
 
 function extractAutoSaleTransactionId(
@@ -228,6 +253,67 @@ async function computeInventorySeedAndShrinkageByDate(params: {
     filtered.map((m) => m.productCode)
   );
 
+  const filteredCodes = Array.from(
+    new Set(filtered.map((m) => (m.productCode ?? '').trim()).filter(Boolean))
+  );
+
+  const productRows =
+    filteredCodes.length > 0
+      ? await prisma.product.findMany({
+          where: {
+            deletedAt: null,
+            productCode: { in: filteredCodes },
+          },
+          select: {
+            productCode: true,
+            shipmentCode: true,
+            shipmentStatus: true,
+          },
+        })
+      : [];
+
+  const shipmentCodes = Array.from(
+    new Set(
+      productRows.map((row) => (row.shipmentCode ?? '').trim()).filter(Boolean)
+    )
+  );
+
+  const shipmentRows =
+    shipmentCodes.length > 0
+      ? await prisma.shipment.findMany({
+          where: { shipmentCode: { in: shipmentCodes } },
+          select: { shipmentCode: true, shipmentStatus: true },
+        })
+      : [];
+
+  const shipmentStatusByCode = new Map<string, string>();
+  for (const row of shipmentRows) {
+    const code = (row.shipmentCode ?? '').trim();
+    if (code && !shipmentStatusByCode.has(code)) {
+      shipmentStatusByCode.set(code, row.shipmentStatus ?? '');
+    }
+  }
+
+  const productStatusByCode = new Map<string, string>();
+  for (const row of productRows) {
+    const code = (row.productCode ?? '').trim();
+    if (!code || productStatusByCode.has(code)) {
+      continue;
+    }
+
+    const directStatus = row.shipmentStatus ?? '';
+    if (directStatus.trim()) {
+      productStatusByCode.set(code, directStatus);
+      continue;
+    }
+
+    const shipmentCode = (row.shipmentCode ?? '').trim();
+    const fallbackStatus = shipmentCode
+      ? (shipmentStatusByCode.get(shipmentCode) ?? '')
+      : '';
+    productStatusByCode.set(code, fallbackStatus);
+  }
+
   const seedByKey = new Map<
     string,
     { value: number; qty: number; label: string }
@@ -255,12 +341,17 @@ async function computeInventorySeedAndShrinkageByDate(params: {
     const dateKey = toDateKey(m.when);
     const productCode = (m.productCode ?? '').trim() || 'Unknown Product';
     const label = `${m.fromBucket}→${m.toBucket}`;
-    const key = `${dateKey}|||${productCode}|||${label}`;
+    const baseKey = `${dateKey}|||${productCode}|||${label}`;
 
     // Inventory seed: scrap -> asset bucket.
     if (m.fromBucket === 'scrap' && INVENTORY_ASSET_BUCKETS.has(m.toBucket)) {
-      const current = seedByKey.get(key) ?? { value: 0, qty: 0, label };
-      seedByKey.set(key, {
+      const status = productStatusByCode.get(code) ?? '';
+      const seedAccount = isInTransitStatus(status)
+        ? INVENTORY_IN_TRANSIT_ACCOUNT
+        : INVENTORY_ACCOUNT;
+      const seedKey = `${baseKey}|||${seedAccount}`;
+      const current = seedByKey.get(seedKey) ?? { value: 0, qty: 0, label };
+      seedByKey.set(seedKey, {
         value: current.value + value,
         qty: current.qty + qty,
         label,
@@ -271,8 +362,12 @@ async function computeInventorySeedAndShrinkageByDate(params: {
 
     // Inventory shrinkage: asset bucket -> scrap.
     if (m.toBucket === 'scrap' && INVENTORY_ASSET_BUCKETS.has(m.fromBucket)) {
-      const current = shrinkageByKey.get(key) ?? { value: 0, qty: 0, label };
-      shrinkageByKey.set(key, {
+      const current = shrinkageByKey.get(baseKey) ?? {
+        value: 0,
+        qty: 0,
+        label,
+      };
+      shrinkageByKey.set(baseKey, {
         value: current.value + value,
         qty: current.qty + qty,
         label,
@@ -536,14 +631,15 @@ export async function buildInventorySeedAndShrinkageEntries(params: {
     await computeInventorySeedAndShrinkageByDate(params);
 
   const parseKey = (key: string) => {
-    const [dateKey = '', productCode = '', label = ''] = key.split('|||');
-    return { dateKey, productCode, label };
+    const [dateKey = '', productCode = '', label = '', account = ''] =
+      key.split('|||');
+    return { dateKey, productCode, label, account };
   };
 
   const seedEntries: DerivedJournalEntry[] = Array.from(seedByKey.entries())
     .sort(([a], [b]) => a.localeCompare(b))
     .flatMap(([key, data]) => {
-      const { dateKey, productCode, label } = parseKey(key);
+      const { dateKey, productCode, label, account } = parseKey(key);
       const seedAmt = Number(data.value ?? 0);
       const seedQty = Number(data.qty ?? 0);
       if (!Number.isFinite(seedAmt) || seedAmt <= 0) {
@@ -555,14 +651,18 @@ export async function buildInventorySeedAndShrinkageEntries(params: {
       const ref = `INV-SEED-${dateKey} ${productCode}${qtyLabel}`;
       const idBase = `INV-SEED-${dateKey}-${normalizeIdSegment(productCode)}-${normalizeIdSegment(label)}`;
 
-      const description = `Inventory seeded (inventory movements) • ${productCode}${qtyLabel} • ${label}`;
+      const seedAccount = account || INVENTORY_ACCOUNT;
+      const description =
+        seedAccount === INVENTORY_IN_TRANSIT_ACCOUNT
+          ? `Inventory in Transit seeded (inventory movements) • ${productCode}${qtyLabel} • ${label}`
+          : `Inventory seeded (inventory movements) • ${productCode}${qtyLabel} • ${label}`;
 
       return [
         {
           id: `${idBase}-inventory-debit`,
           date,
           ref,
-          account: INVENTORY_ACCOUNT,
+          account: seedAccount,
           debit: seedAmt,
           credit: 0,
           description,
@@ -627,6 +727,7 @@ export async function buildInventorySeedAndShrinkageEntries(params: {
 export const ACCOUNTING_INVENTORY_ACCOUNTS = {
   COGS_ACCOUNT,
   INVENTORY_ACCOUNT,
+  INVENTORY_IN_TRANSIT_ACCOUNT,
   OPENING_EQUITY_ACCOUNT,
   CURRENT_PERIOD_EARNINGS_ACCOUNT,
 } as const;

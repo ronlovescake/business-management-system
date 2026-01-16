@@ -16,8 +16,8 @@ import {
 } from '@/lib/accounting/data-fetchers';
 import { normalizeTransactionAmountsForAccounting } from '@/lib/accounting/transaction-normalization';
 import {
+  buildInventorySeedAndShrinkageEntries,
   computeCogsTotal,
-  computeInventorySeedAndShrinkageTotals,
 } from '@/lib/accounting/inventory-cogs';
 import { prisma } from '@/lib/db';
 import {
@@ -333,25 +333,27 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   // Inventory seed/shrinkage proxy valuation.
   // Seed: scrap -> asset bucket (treat as opening equity contribution).
   // Shrinkage: asset bucket -> scrap (treat as reduction to retained earnings).
-  const { seedTotal, shrinkageTotal } =
-    await computeInventorySeedAndShrinkageTotals({
+  const { entries: seedShrinkEntries } =
+    await buildInventorySeedAndShrinkageEntries({
       from: CUTOVER,
       to: asOf,
     });
-  const inventorySeedEntries: BalanceRow[] =
-    Number.isFinite(seedTotal) && seedTotal > 0
-      ? [
-          { account: 'Stock on Hand', amount: seedTotal },
-          { account: 'Opening Equity', amount: -seedTotal },
-        ]
-      : [];
-  const inventoryShrinkageEntries: BalanceRow[] =
-    Number.isFinite(shrinkageTotal) && shrinkageTotal > 0
-      ? [
-          { account: 'Retained Earnings', amount: shrinkageTotal },
-          { account: 'Stock on Hand', amount: -shrinkageTotal },
-        ]
-      : [];
+  const inventorySeedEntries: BalanceRow[] = seedShrinkEntries
+    .filter(
+      (entry) =>
+        entry.description.startsWith('Inventory seeded') ||
+        entry.description.startsWith('Inventory in Transit seeded')
+    )
+    .map((entry) => ({
+      account: entry.account,
+      amount: Number(entry.debit ?? 0) - Number(entry.credit ?? 0),
+    }));
+  const inventoryShrinkageEntries: BalanceRow[] = seedShrinkEntries
+    .filter((entry) => entry.description.startsWith('Inventory shrinkage'))
+    .map((entry) => ({
+      account: entry.account,
+      amount: Number(entry.debit ?? 0) - Number(entry.credit ?? 0),
+    }));
 
   const refundEntries = refunds
     .map((refund) => {

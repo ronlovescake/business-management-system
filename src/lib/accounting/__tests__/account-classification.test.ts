@@ -12,5 +12,6 @@ describe('account classification', () => {
 
   it('classifies loan payable accounts as liabilities', () => {
     expect(detectAccountType('Loan Payable – Truck')).toBe('Liability');
+    expect(detectAccountType('Loan Payable – GCASH 1')).toBe('Liability');
   });
 });
