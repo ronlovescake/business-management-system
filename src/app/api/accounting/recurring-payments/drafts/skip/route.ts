@@ -9,6 +9,9 @@ import {
   ClothingRecurringPaymentSkipSchema,
 } from '@/modules/clothing/ledger/recurringPayments/api';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 const buildValidationErrors = (error: ZodError) => {
   return error.issues.reduce<Record<string, string>>((acc, issue) => {
     const path = issue.path.join('.');
