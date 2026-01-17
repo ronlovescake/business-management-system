@@ -28,12 +28,35 @@ import {
 export const dynamic = 'force-dynamic';
 
 const CUTOVER = new Date(Date.UTC(2026, 0, 1));
+const IN_TRANSIT_ACCOUNT = 'Inventory in Transit';
+const IN_TRANSIT_STATUSES = new Set([
+  'in transit',
+  'manila port',
+  'with pier gatepass',
+  'ph warehouse',
+  'for pickup',
+]);
 
 function clampAsOf(raw: Date | null): Date {
   if (!raw || Number.isNaN(raw.getTime())) {
     return CUTOVER;
   }
   return raw < CUTOVER ? CUTOVER : raw;
+}
+
+function normalizeShipmentStatus(value: string | null | undefined): string {
+  return (value ?? '').trim().toLowerCase();
+}
+
+function isInTransitStatus(value: string | null | undefined): boolean {
+  const normalized = normalizeShipmentStatus(value);
+  if (!normalized) {
+    return false;
+  }
+  if (normalized === 'delivered') {
+    return false;
+  }
+  return IN_TRANSIT_STATUSES.has(normalized);
 }
 
 type BalanceRow = {
@@ -355,6 +378,62 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       amount: Number(entry.debit ?? 0) - Number(entry.credit ?? 0),
     }));
 
+  const products = await prisma.product.findMany({
+    where: { deletedAt: null },
+    select: {
+      productCode: true,
+      shipmentCode: true,
+      shipmentStatus: true,
+      cogs: true,
+    },
+  });
+
+  const shipmentCodes = Array.from(
+    new Set(
+      products.map((row) => (row.shipmentCode ?? '').trim()).filter(Boolean)
+    )
+  );
+
+  const shipmentRows =
+    shipmentCodes.length > 0
+      ? await prisma.shipment.findMany({
+          where: { shipmentCode: { in: shipmentCodes } },
+          select: { shipmentCode: true, shipmentStatus: true },
+        })
+      : [];
+
+  const shipmentStatusByCode = new Map<string, string>();
+  for (const row of shipmentRows) {
+    const code = (row.shipmentCode ?? '').trim();
+    if (code && !shipmentStatusByCode.has(code)) {
+      shipmentStatusByCode.set(code, row.shipmentStatus ?? '');
+    }
+  }
+
+  const inTransitProductTotal = products.reduce((sum, row) => {
+    const productCode = (row.productCode ?? '').trim();
+    if (!productCode) {
+      return sum;
+    }
+
+    const directStatus = row.shipmentStatus ?? '';
+    const shipmentCode = (row.shipmentCode ?? '').trim();
+    const fallbackStatus = shipmentCode
+      ? (shipmentStatusByCode.get(shipmentCode) ?? '')
+      : '';
+    const status = directStatus.trim() ? directStatus : fallbackStatus;
+    if (!shipmentCode || !isInTransitStatus(status)) {
+      return sum;
+    }
+
+    const cogs = Number(row.cogs ?? 0);
+    if (!Number.isFinite(cogs) || cogs <= 0) {
+      return sum;
+    }
+
+    return sum + cogs;
+  }, 0);
+
   const refundEntries = refunds
     .map((refund) => {
       const refundAt = parseDate(refund.refundDate);
@@ -438,6 +517,18 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     ...inventoryShrinkageEntries,
     ...refundEntries,
   ];
+
+  const currentInTransit = combined
+    .filter((row) => row.account.trim() === IN_TRANSIT_ACCOUNT)
+    .reduce((sum, row) => sum + row.amount, 0);
+
+  const inTransitDelta = inTransitProductTotal - currentInTransit;
+  if (Number.isFinite(inTransitDelta) && Math.abs(inTransitDelta) > 0.01) {
+    combined.push(
+      { account: IN_TRANSIT_ACCOUNT, amount: inTransitDelta },
+      { account: 'Opening Equity', amount: -inTransitDelta }
+    );
+  }
 
   const byAccount = combined.reduce<
     Record<string, { amount: number; type: AccountType }>

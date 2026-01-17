@@ -15,10 +15,16 @@ const { mockFetchers, mockPrisma, mockInventoryCogs } = vi.hoisted(() => {
       clothingAccountingOpeningBalance: {
         findMany: vi.fn(),
       },
+      product: {
+        findMany: vi.fn(),
+      },
+      shipment: {
+        findMany: vi.fn(),
+      },
     },
     mockInventoryCogs: {
       computeCogsTotal: vi.fn(),
-      computeInventorySeedAndShrinkageTotals: vi.fn(),
+      buildInventorySeedAndShrinkageEntries: vi.fn(),
     },
   };
 });
@@ -51,8 +57,8 @@ vi.mock('@/lib/accounting/inventory-cogs', async (importOriginal) => {
   return {
     ...actual,
     computeCogsTotal: mockInventoryCogs.computeCogsTotal,
-    computeInventorySeedAndShrinkageTotals:
-      mockInventoryCogs.computeInventorySeedAndShrinkageTotals,
+    buildInventorySeedAndShrinkageEntries:
+      mockInventoryCogs.buildInventorySeedAndShrinkageEntries,
   };
 });
 
@@ -76,11 +82,51 @@ describe('Accounting Balance Sheet API - GET /api/accounting/balance-sheet', () 
     mockFetchers.getPaidAtDate.mockReturnValue(null);
 
     mockPrisma.clothingAccountingOpeningBalance.findMany.mockResolvedValue([]);
+    mockPrisma.product.findMany.mockResolvedValue([]);
+    mockPrisma.shipment.findMany.mockResolvedValue([]);
 
     mockInventoryCogs.computeCogsTotal.mockResolvedValue(100);
-    mockInventoryCogs.computeInventorySeedAndShrinkageTotals.mockResolvedValue({
+    mockInventoryCogs.buildInventorySeedAndShrinkageEntries.mockResolvedValue({
       seedTotal: 500,
       shrinkageTotal: 25,
+      entries: [
+        {
+          id: 'seed-inventory',
+          date: '2026-01-01T00:00:00.000Z',
+          ref: 'INV-SEED-2026-01-01 TEST',
+          account: 'Stock on Hand',
+          debit: 500,
+          credit: 0,
+          description: 'Inventory seeded (inventory movements) • TEST',
+        },
+        {
+          id: 'seed-equity',
+          date: '2026-01-01T00:00:00.000Z',
+          ref: 'INV-SEED-2026-01-01 TEST',
+          account: 'Opening Equity',
+          debit: 0,
+          credit: 500,
+          description: 'Inventory seeded (inventory movements) • TEST • Offset',
+        },
+        {
+          id: 'shrink-retained',
+          date: '2026-01-02T00:00:00.000Z',
+          ref: 'INV-SHRINK-2026-01-02 TEST',
+          account: 'Retained Earnings',
+          debit: 25,
+          credit: 0,
+          description: 'Inventory shrinkage (inventory movements) • TEST',
+        },
+        {
+          id: 'shrink-inventory',
+          date: '2026-01-02T00:00:00.000Z',
+          ref: 'INV-SHRINK-2026-01-02 TEST',
+          account: 'Stock on Hand',
+          debit: 0,
+          credit: 25,
+          description: 'Inventory shrinkage (inventory movements) • TEST',
+        },
+      ],
     });
   });
 

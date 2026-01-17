@@ -19,7 +19,9 @@ export default defineConfig({
   globalSetup: require.resolve('./tests/e2e/setup/global-setup'),
   fullyParallel: true,
   retries: 1,
-  workers: isCI ? 1 : undefined,
+  // Local runs can easily exhaust Postgres connection limits (Prisma) when
+  // Playwright fans out across many workers. Keep this at 1 for stability.
+  workers: 1,
   reporter: isCI
     ? [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]]
     : [
@@ -46,9 +48,10 @@ export default defineConfig({
     env: {
       ...process.env,
       PLAYWRIGHT_ENV_FILE: playwrightEnvFile,
-      // CI runs are more stable on Next.js webpack dev server than Turbopack
-      // (especially with current Sentry + Next.js 14.x warnings).
-      ...(isCI ? { PLAYWRIGHT_DEV_SCRIPT: 'dev:playwright:webpack' } : {}),
+      // Always use the Playwright-specific dev script.
+      // Our default `dev` script may use Turbopack which currently rejects
+      // some Next.js config options used in this repo.
+      PLAYWRIGHT_DEV_SCRIPT: isCI ? 'dev:playwright:webpack' : 'dev:playwright',
       BYPASS_AUTH_FOR_TESTS: process.env.BYPASS_AUTH_FOR_TESTS ?? 'true',
     },
   },

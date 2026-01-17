@@ -20,8 +20,7 @@ const env = {
   PLAYWRIGHT_ENV_FILE: envFile,
   PORT: process.env.PORT || '3100',
   NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'http://localhost:3100',
-  // Force webpack; Turbopack rejects next.config.js (compiler.removeConsole) and exits early.
-  TURBOPACK: '0',
+  // Force webpack; Turbopack rejects some Next.js config options used in this repo.
   NEXT_FORCE_WEBPACK: '1',
   NEXT_PRIVATE_TURBOPACK: '0',
 };
