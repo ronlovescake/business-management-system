@@ -13,6 +13,10 @@ export function normalizeAccountForReporting(account: string): string {
 
   const normalized = trimmed.replace(/\s+/g, ' ').toLowerCase();
 
+  if (normalized.startsWith('loan payable')) {
+    return trimmed;
+  }
+
   // Treat bank + e-wallet (e.g., GCash) as cash equivalents.
   if (
     normalized === 'bank' ||

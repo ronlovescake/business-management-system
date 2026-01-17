@@ -754,13 +754,14 @@ export function useLedger() {
           const dateKey = entry.date.slice(0, 10);
           const refKey = entry.ref;
           const descKey = (entry.description ?? '').trim();
+          const entryAccount = entry.account.trim();
           const amount = entry.debit > 0 ? entry.debit : entry.credit;
           const side: 'debit' | 'credit' = entry.debit > 0 ? 'debit' : 'credit';
 
           const isSameAmount = (value: number) =>
             Math.abs(Number(value ?? 0) - amount) < 0.00001;
 
-          const counterpart = openingEntries.find((candidate) => {
+          const strictMatch = openingEntries.find((candidate) => {
             if (candidate.id === entry.id) {
               return false;
             }
@@ -778,9 +779,37 @@ export function useLedger() {
               ? candidate.credit > 0 && isSameAmount(candidate.credit)
               : candidate.debit > 0 && isSameAmount(candidate.debit);
           });
+          if (strictMatch) {
+            idsToDelete.add(strictMatch.id);
+          } else {
+            const fallbackMatches = openingEntries.filter((candidate) => {
+              if (candidate.id === entry.id) {
+                return false;
+              }
+              if (candidate.date.slice(0, 10) !== dateKey) {
+                return false;
+              }
+              if (candidate.ref !== refKey) {
+                return false;
+              }
 
-          if (counterpart) {
-            idsToDelete.add(counterpart.id);
+              const candidateAccount = candidate.account.trim();
+              if (entryAccount === 'Opening Equity') {
+                if (candidateAccount === 'Opening Equity') {
+                  return false;
+                }
+              } else if (candidateAccount !== 'Opening Equity') {
+                return false;
+              }
+
+              return side === 'debit'
+                ? candidate.credit > 0 && isSameAmount(candidate.credit)
+                : candidate.debit > 0 && isSameAmount(candidate.debit);
+            });
+
+            if (fallbackMatches.length > 0) {
+              idsToDelete.add(fallbackMatches[0].id);
+            }
           }
         }
 
