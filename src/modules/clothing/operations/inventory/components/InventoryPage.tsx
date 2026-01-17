@@ -62,6 +62,19 @@ export function InventoryPage() {
     [getSellableOnHand, selectedProduct]
   );
 
+  const sortedFilteredData = useMemo(() => {
+    return [...filteredData].sort((a, b) => {
+      const aId = Number(a.id);
+      const bId = Number(b.id);
+
+      if (!Number.isNaN(aId) && !Number.isNaN(bId)) {
+        return bId - aId;
+      }
+
+      return b.productCode.localeCompare(a.productCode);
+    });
+  }, [filteredData]);
+
   const productOptions = useMemo(
     () =>
       products
@@ -164,7 +177,7 @@ export function InventoryPage() {
           >
             <InventoryTable
               headers={headers}
-              data={filteredData}
+              data={sortedFilteredData}
               emptyState={emptyStateMessage}
             />
           </StandardTableContainer>
