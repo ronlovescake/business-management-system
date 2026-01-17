@@ -18,10 +18,16 @@ export const InventorySummary = memo(
         </Text>
         <Group gap="lg" wrap="wrap">
           <Text size="sm" c="dimmed">
-            Total Onhand: {numberFormatter.format(totals.onhand)}
+            Total Actual Quantity: {numberFormatter.format(totals.onhand)}
+          </Text>
+          <Text size="sm" c="dimmed">
+            Damaged: {numberFormatter.format(totals.damagedOnHand)}
           </Text>
           <Text size="sm" c="dimmed">
             Available: {numberFormatter.format(totals.availableStock)}
+          </Text>
+          <Text size="sm" c="dimmed">
+            Supplier Short: {numberFormatter.format(totals.supplierShortQty)}
           </Text>
           <Text size="sm" c="dimmed">
             Ending Value:{' '}

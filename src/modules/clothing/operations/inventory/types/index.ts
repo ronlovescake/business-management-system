@@ -56,9 +56,10 @@ export interface InventoryItem {
   quantity: number;
   sellableOnHand: number;
   reservedOnHand: number;
+  damagedOnHand: number;
   onhand: number;
-  totalOrder: number;
   availableStock: number;
+  supplierShortQty: number;
   totalSales: number;
   cogs: number;
   netProfit: number;
@@ -71,8 +72,9 @@ export interface InventoryItem {
 export interface InventoryTotals {
   quantity: number;
   onhand: number;
-  totalOrder: number;
+  damagedOnHand: number;
   availableStock: number;
+  supplierShortQty: number;
   totalSales: number;
   cogs: number;
   netProfit: number;

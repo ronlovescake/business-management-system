@@ -9,10 +9,11 @@ import type {
 import {
   buildSellableDeltaMap,
   buildReservedDeltaMap,
+  buildBucketDeltaMap,
   getSellableOnHand,
   normalizeProductCode,
 } from '@/lib/inventory/movements';
-import { isFulfilledStatus, isReservedStatus } from '@/lib/inventory/statuses';
+import { isFulfilledStatus } from '@/lib/inventory/statuses';
 
 export function extractApiData<T>(payload: unknown): T[] {
   if (Array.isArray(payload)) {
@@ -39,53 +40,12 @@ export function buildInventoryItems(
 ): InventoryItem[] {
   const sellableDeltaByProduct = buildSellableDeltaMap(movements);
   const reservedDeltaByProduct = buildReservedDeltaMap(movements);
-
-  const directDemandByProduct = new Map<string, number>();
-  const bundleDemandBySku = new Map<string, number>();
+  const damagedDeltaByProduct = buildBucketDeltaMap(movements, 'damaged_hold');
   const totalSalesByProduct = new Map<string, number>();
 
-  const bundleComponentsBySku = new Map<
-    string,
-    { componentProductCode: string; includedQuantity: number }[]
-  >();
-
-  bundles.forEach((bundle) => {
-    const normalizedSku = normalizeProductCode(bundle.bundleSku);
-    if (!normalizedSku) {
-      return;
-    }
-
-    const components = (bundle.components || []).filter(
-      (component) =>
-        Boolean(normalizeProductCode(component.componentProductCode)) &&
-        Number.isFinite(component.includedQuantity) &&
-        component.includedQuantity > 0
-    );
-
-    bundleComponentsBySku.set(normalizedSku, components);
-  });
-
-  const productQuantityByCode = new Map<string, number>();
-  products.forEach((product) => {
-    const normalizedCode = normalizeProductCode(product['Product Code']);
-    if (!normalizedCode) {
-      return;
-    }
-
-    productQuantityByCode.set(normalizedCode, product.Quantity || 0);
-  });
-
-  const bundleSellableSupplyBySku = new Map<string, number>();
-  bundleComponentsBySku.forEach((_components, bundleSku) => {
-    bundleSellableSupplyBySku.set(
-      bundleSku,
-      getSellableOnHand({
-        productCode: bundleSku,
-        sellableDeltaByProduct,
-        fallbackQuantity: productQuantityByCode.get(bundleSku) ?? 0,
-      })
-    );
-  });
+  // Bundles are currently unused for inventory availability calculations on this page.
+  // (We intentionally ignore them here to avoid surfacing confusing “reserved qty” logic.)
+  void bundles;
 
   transactions.forEach((transaction) => {
     const productCode = transaction['Product Code'];
@@ -99,35 +59,11 @@ export function buildInventoryItems(
       return;
     }
 
-    const reservedStatus = isReservedStatus(orderStatus);
     const fulfilledStatus = isFulfilledStatus(orderStatus);
-    const shouldCountAsReserved = reservedStatus;
     const shouldCountAsRevenue = fulfilledStatus;
 
-    const bundleComponents = bundleComponentsBySku.get(normalizedProductCode);
-
-    if (bundleComponents?.length) {
-      if (!shouldCountAsReserved) {
-        return;
-      }
-
-      const currentBundleDemand = bundleDemandBySku.get(normalizedProductCode);
-      bundleDemandBySku.set(
-        normalizedProductCode,
-        (currentBundleDemand ?? 0) + quantity
-      );
-
-      return;
-    }
-
-    if (shouldCountAsReserved) {
-      const currentTotalOrder =
-        directDemandByProduct.get(normalizedProductCode) || 0;
-      directDemandByProduct.set(
-        normalizedProductCode,
-        currentTotalOrder + quantity
-      );
-    }
+    // NOTE: We intentionally do not derive “reserved qty” from order statuses.
+    // This inventory view treats sellable availability as the source of truth.
 
     if (shouldCountAsRevenue) {
       const currentTotalSales =
@@ -139,34 +75,6 @@ export function buildInventoryItems(
     }
   });
 
-  const componentDemandByProduct = new Map(directDemandByProduct);
-  bundleDemandBySku.forEach((bundleDemand, bundleSku) => {
-    const bundleSellableSupply = bundleSellableSupplyBySku.get(bundleSku) ?? 0;
-    const overflowBundlesNeeded = Math.max(
-      bundleDemand - bundleSellableSupply,
-      0
-    );
-    if (overflowBundlesNeeded <= 0) {
-      return;
-    }
-
-    const components = bundleComponentsBySku.get(bundleSku) ?? [];
-    components.forEach((component) => {
-      const componentCode = normalizeProductCode(
-        component.componentProductCode
-      );
-      if (!componentCode) {
-        return;
-      }
-
-      const current = componentDemandByProduct.get(componentCode) ?? 0;
-      componentDemandByProduct.set(
-        componentCode,
-        current + overflowBundlesNeeded * component.includedQuantity
-      );
-    });
-  });
-
   return products.map((product) => {
     const productCode = product['Product Code'] || '';
     const normalizedProductCode = normalizeProductCode(productCode);
@@ -176,18 +84,15 @@ export function buildInventoryItems(
       sellableDeltaByProduct,
       fallbackQuantity: quantity,
     });
-    const isBundleSku = bundleComponentsBySku.has(normalizedProductCode);
-    const demandRaw = isBundleSku
-      ? (bundleDemandBySku.get(normalizedProductCode) ?? 0)
-      : (componentDemandByProduct.get(normalizedProductCode) ?? 0);
     const reservedOnHand =
       reservedDeltaByProduct.get(normalizedProductCode) || 0;
-    const reservedQty = Math.max(demandRaw - reservedOnHand, 0);
+    const damagedOnHand = damagedDeltaByProduct.get(normalizedProductCode) || 0;
     const totalSales = totalSalesByProduct.get(normalizedProductCode) || 0;
     const cogs = product.COGS || 0;
     const actualPrice = product['Actual Price'] || 0;
     const onhand = sellableOnHand + reservedOnHand;
-    const availableStock = sellableOnHand - reservedQty;
+    const availableStock = sellableOnHand;
+    const supplierShortQty = Math.max(quantity - (onhand + damagedOnHand), 0);
     const netProfit = totalSales - cogs;
     const percentage = cogs !== 0 ? netProfit / cogs : 0;
     const endingInventoryValue = availableStock * actualPrice;
@@ -198,9 +103,10 @@ export function buildInventoryItems(
       quantity,
       sellableOnHand,
       reservedOnHand,
+      damagedOnHand,
       onhand,
-      totalOrder: reservedQty,
       availableStock,
+      supplierShortQty,
       totalSales,
       cogs,
       netProfit,
@@ -229,8 +135,9 @@ export function filterInventoryData(
       item.shipmentStatus,
       item.quantity,
       item.onhand,
-      item.totalOrder,
+      item.damagedOnHand,
       item.availableStock,
+      item.supplierShortQty,
       item.totalSales,
       item.cogs,
       item.netProfit,
@@ -252,8 +159,9 @@ export function calculateTotals(data: InventoryItem[]): InventoryTotals {
     (acc, item) => ({
       quantity: acc.quantity + item.quantity,
       onhand: acc.onhand + item.onhand,
-      totalOrder: acc.totalOrder + item.totalOrder,
+      damagedOnHand: acc.damagedOnHand + item.damagedOnHand,
       availableStock: acc.availableStock + item.availableStock,
+      supplierShortQty: acc.supplierShortQty + item.supplierShortQty,
       totalSales: acc.totalSales + item.totalSales,
       cogs: acc.cogs + item.cogs,
       netProfit: acc.netProfit + item.netProfit,
@@ -263,8 +171,9 @@ export function calculateTotals(data: InventoryItem[]): InventoryTotals {
     {
       quantity: 0,
       onhand: 0,
-      totalOrder: 0,
+      damagedOnHand: 0,
       availableStock: 0,
+      supplierShortQty: 0,
       totalSales: 0,
       cogs: 0,
       netProfit: 0,

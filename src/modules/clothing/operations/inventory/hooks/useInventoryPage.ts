@@ -19,10 +19,11 @@ import type {
 
 const HEADERS = [
   'PRODUCT CODE',
-  'QUANTITY',
-  'ONHAND',
-  'RESERVED QTY',
+  'P.O. QUANTITY',
+  'ACTUAL QUANTITY',
+  'DAMAGED QTY',
   'AVAILABLE STOCK',
+  'SUPPLIER SHORT',
   'TOTAL SALES',
   'COGS',
   'NET PROFIT',
