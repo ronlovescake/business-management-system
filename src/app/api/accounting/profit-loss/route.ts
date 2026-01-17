@@ -19,10 +19,11 @@ import {
   computeInventorySeedAndShrinkageTotals,
 } from '@/lib/accounting/inventory-cogs';
 import { normalizeTransactionAmountsForAccounting } from '@/lib/accounting/transaction-normalization';
+import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
 
 export const dynamic = 'force-dynamic';
 
-const CUTOVER = new Date(Date.UTC(2026, 0, 1));
+const CUTOVER = getAccountingCutoverDate();
 
 function clampFrom(from: Date | null): Date {
   if (!from) {

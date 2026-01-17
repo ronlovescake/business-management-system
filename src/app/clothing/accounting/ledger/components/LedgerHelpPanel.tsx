@@ -122,19 +122,18 @@ export function LedgerHelpPanel() {
           mt="xs"
         >
           <List.Item>
-            Customer payment (money in): Debit Bank / Credit Sales Revenue
+            Customer payment (money in): Debit Cash / Credit Sales Revenue
           </List.Item>
           <List.Item>
             Pay supplier (money out): Debit Expense or Accounts Payable / Credit
-            Bank
+            Cash
           </List.Item>
           <List.Item>
             Pay a loan: Debit Loan Payable (principal) + Debit Interest Expense
-            (interest) / Credit Bank
+            (interest) / Credit Cash
           </List.Item>
           <List.Item>
-            Transfer (not an expense): Debit E-Wallet / Credit Bank (or Bank /
-            Cash)
+            Transfer (not an expense): Debit Cash / Credit Cash (internal move)
           </List.Item>
         </List>
 

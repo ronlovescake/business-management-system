@@ -54,13 +54,14 @@ export function OpeningBalanceEntryModal({
   accounts,
   isEditing = false,
 }: OpeningBalanceEntryModalProps) {
+  const entryDateLabel = form.date || 'the cutover date';
+
   const accountOptions = collapseTaggableAccountsForOptions(
     Array.from(
       new Set([
         ...accounts,
         'Cash',
-        'Bank',
-        'E-Wallet',
+        // Bank/GCash/E-Wallet are treated as cash equivalents.
         'Inventory',
         'Stock on Hand',
         'Inventory in Transit',
@@ -71,6 +72,12 @@ export function OpeningBalanceEntryModal({
         'Loan Payable',
       ])
     )
+  );
+
+  const accountOptionData = accountOptions.map((account) =>
+    account === 'Cash'
+      ? { value: 'Cash', label: 'Cash (Bank + GCash)' }
+      : account
   );
 
   const debitTaggableParent: TaggableAccountParent | null =
@@ -96,15 +103,15 @@ export function OpeningBalanceEntryModal({
           type="date"
           value={form.date}
           onChange={(event) => onChange('date', event.currentTarget.value)}
-          min="2026-01-01"
-          max="2026-01-01"
+          min={form.date || undefined}
+          max={form.date || undefined}
           disabled
         />
 
         <Text size="sm" c="dimmed">
           {isEditing
-            ? 'This updates a balanced opening entry on 2026-01-01 (one debit line, one credit line).'
-            : 'This creates two opening balance lines on 2026-01-01 (one debit, one credit).'}
+            ? `This updates a balanced opening entry on ${entryDateLabel} (one debit line, one credit line).`
+            : `This creates two opening balance lines on ${entryDateLabel} (one debit, one credit).`}
         </Text>
 
         {isEditing && (!form.debitAccount || !form.creditAccount) && (
@@ -125,7 +132,7 @@ export function OpeningBalanceEntryModal({
           <Select
             label="Debit Account"
             placeholder="Select account"
-            data={accountOptions}
+            data={accountOptionData}
             value={form.debitAccount}
             searchable
             clearable
@@ -134,7 +141,7 @@ export function OpeningBalanceEntryModal({
           <Select
             label="Credit Account"
             placeholder="Select account"
-            data={accountOptions}
+            data={accountOptionData}
             value={form.creditAccount}
             searchable
             clearable

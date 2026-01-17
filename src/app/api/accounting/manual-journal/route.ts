@@ -2,9 +2,10 @@ import type { NextRequest } from 'next/server';
 import { ApiResponse } from '@/core/api';
 import { withErrorHandler } from '@/core/api/middleware';
 import { parseDate } from '@/lib/accounting/date-utils';
+import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { prisma } from '@/lib/db';
 
-const CUTOVER = new Date(Date.UTC(2026, 0, 1));
+const CUTOVER = getAccountingCutoverDate();
 
 type ManualJournalPayload = {
   sourceId?: string;
@@ -75,10 +76,10 @@ function validate(
   }
 
   if (normalizedDate < CUTOVER) {
+    const cutoverLabel = CUTOVER.toISOString().slice(0, 10);
     return {
       ok: false,
-      errorMessage:
-        'Manual journal entries are only allowed from 2026-01-01 onward.',
+      errorMessage: `Manual journal entries are only allowed from ${cutoverLabel} onward.`,
     };
   }
 

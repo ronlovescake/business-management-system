@@ -24,12 +24,15 @@ export const BalanceSheetTable = memo(function BalanceSheetTable({
 
   const detailItems = detailsRow?.details ?? [];
 
+  const toDisplayAmount = (row: BalanceSheetRow, amount: number) =>
+    row.type === 'Asset' ? amount : -amount;
+
   const hasAnyDetails = useMemo(
     () => filteredRows.some((row) => (row.details?.length ?? 0) > 0),
     [filteredRows]
   );
 
-  const totals = filteredRows.reduce(
+  const totalsSigned = filteredRows.reduce(
     (acc, row) => {
       if (row.type === 'Asset') {
         acc.assets += row.amount;
@@ -44,7 +47,17 @@ export const BalanceSheetTable = memo(function BalanceSheetTable({
   );
 
   // With signed balances (debit positive, credit negative): Assets + Liabilities + Equity = 0.
-  const balance = totals.assets + totals.liabilities + totals.equity;
+  const balance =
+    totalsSigned.assets + totalsSigned.liabilities + totalsSigned.equity;
+
+  // Display balances (common accounting view):
+  // - Assets: debit-balance positive
+  // - Liabilities/Equity: credit-balance positive
+  const totalsDisplay = {
+    assets: totalsSigned.assets,
+    liabilities: -totalsSigned.liabilities,
+    equity: -totalsSigned.equity,
+  };
 
   return (
     <Stack gap="md">
@@ -127,7 +140,7 @@ export const BalanceSheetTable = memo(function BalanceSheetTable({
                   )}
                   <Table.Td style={{ textAlign: 'right' }}>
                     <Text fw={600} c={ACCOUNTING_TABLE_TD_TEXT_STYLE.color}>
-                      {formatCurrency(row.amount)}
+                      {formatCurrency(toDisplayAmount(row, row.amount))}
                     </Text>
                   </Table.Td>
                 </Table.Tr>
@@ -162,7 +175,13 @@ export const BalanceSheetTable = memo(function BalanceSheetTable({
                     </Text>
                   </Table.Td>
                   <Table.Td style={{ textAlign: 'right' }}>
-                    <Text fw={600}>{formatCurrency(item.amount)}</Text>
+                    <Text fw={600}>
+                      {formatCurrency(
+                        detailsRow
+                          ? toDisplayAmount(detailsRow, item.amount)
+                          : item.amount
+                      )}
+                    </Text>
                   </Table.Td>
                 </Table.Tr>
               ))}
@@ -174,9 +193,12 @@ export const BalanceSheetTable = memo(function BalanceSheetTable({
       <AccountingTableSummaryCard
         leftText={`Showing ${filteredRows.length} of ${rows.length} accounts`}
         items={[
-          { label: 'Assets:', value: formatCurrency(totals.assets) },
-          { label: 'Liabilities:', value: formatCurrency(totals.liabilities) },
-          { label: 'Equity:', value: formatCurrency(totals.equity) },
+          { label: 'Assets:', value: formatCurrency(totalsDisplay.assets) },
+          {
+            label: 'Liabilities:',
+            value: formatCurrency(totalsDisplay.liabilities),
+          },
+          { label: 'Equity:', value: formatCurrency(totalsDisplay.equity) },
           { label: 'Balance:', value: formatCurrency(balance) },
         ]}
       />

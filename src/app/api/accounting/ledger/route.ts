@@ -20,12 +20,14 @@ import {
   buildCogsAndInventoryEntries,
   buildInventorySeedAndShrinkageEntries,
 } from '@/lib/accounting/inventory-cogs';
+import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
+import { normalizeAccountForReporting } from '@/lib/accounting/account-normalization';
 import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
 // Only show ledger activity from the accounting cutover date forward.
-const CUTOVER = new Date(Date.UTC(2026, 0, 1));
+const CUTOVER = getAccountingCutoverDate();
 
 function clampFrom(from: Date | null): Date {
   if (!from) {
@@ -435,7 +437,12 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     ...manualEntries,
   ];
 
-  const sortedByDate = entries.sort(
+  const normalizedEntries = entries.map((entry) => ({
+    ...entry,
+    account: normalizeAccountForReporting(entry.account),
+  }));
+
+  const sortedByDate = normalizedEntries.sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   );
 
@@ -447,9 +454,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     return { ...entry, balance: next };
   });
 
-  const totalDebits = entries.reduce((sum, e) => sum + e.debit, 0);
-  const totalCredits = entries.reduce((sum, e) => sum + e.credit, 0);
-  const accounts = new Set(entries.map((e) => e.account)).size;
+  const totalDebits = normalizedEntries.reduce((sum, e) => sum + e.debit, 0);
+  const totalCredits = normalizedEntries.reduce((sum, e) => sum + e.credit, 0);
+  const accounts = new Set(normalizedEntries.map((e) => e.account)).size;
 
   const stats = {
     totalDebits,

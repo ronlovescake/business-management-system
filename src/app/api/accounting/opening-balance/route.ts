@@ -3,9 +3,11 @@ import type { Prisma } from '@prisma/client';
 import { ApiResponse } from '@/core/api';
 import { withErrorHandler } from '@/core/api/middleware';
 import { parseDateRangeFromParams } from '@/lib/accounting/date-utils';
+import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
+import { normalizeAccountForReporting } from '@/lib/accounting/account-normalization';
 import { prisma } from '@/lib/db';
 
-const CUTOVER = new Date('2026-01-01T00:00:00.000Z');
+const CUTOVER = getAccountingCutoverDate();
 
 function serialize(entry: {
   id: string;
@@ -20,7 +22,7 @@ function serialize(entry: {
     id: entry.id,
     date: entry.date.toISOString(),
     ref: entry.ref,
-    account: entry.account,
+    account: normalizeAccountForReporting(entry.account),
     debit: entry.debit,
     credit: entry.credit,
     description: entry.description ?? '',
@@ -129,9 +131,7 @@ function normalizedCutoverDate() {
   );
 }
 
-function validateOpeningBalancePayload(
-  body: unknown
-):
+function validateOpeningBalancePayload(body: unknown):
   | {
       ok: true;
       value: {
@@ -145,7 +145,9 @@ function validateOpeningBalancePayload(
   | { ok: false; errorMessage: string } {
   const payload = (body as Record<string, unknown>) ?? {};
 
-  const account = (payload.account ?? '').toString().trim();
+  const account = normalizeAccountForReporting(
+    (payload.account ?? '').toString().trim()
+  ).trim();
   const ref = ((payload.ref as string) ?? '').trim() || 'OPENING';
   const description = ((payload.description as string) ?? '').trim();
   const debit = Number(payload.debit ?? 0);

@@ -24,6 +24,9 @@ export const BalanceSheetStatsCards = memo(function BalanceSheetStatsCards({
   asOf,
   formatCurrency,
 }: BalanceSheetStatsCardsProps) {
+  const liabilitiesDisplay = -liabilities;
+  const equityDisplay = -equity;
+
   const cards: StatCard[] = useMemo(
     () => [
       {
@@ -36,7 +39,7 @@ export const BalanceSheetStatsCards = memo(function BalanceSheetStatsCards({
       },
       {
         title: 'Liabilities',
-        value: formatCurrency(liabilities),
+        value: formatCurrency(liabilitiesDisplay),
         icon: <IconBuildingBank size={24} stroke={1.6} />,
         color: 'red',
         backgroundColor:
@@ -44,7 +47,7 @@ export const BalanceSheetStatsCards = memo(function BalanceSheetStatsCards({
       },
       {
         title: 'Equity',
-        value: formatCurrency(equity),
+        value: formatCurrency(equityDisplay),
         icon: <IconScale size={24} stroke={1.6} />,
         color: 'green',
         backgroundColor:
@@ -67,7 +70,7 @@ export const BalanceSheetStatsCards = memo(function BalanceSheetStatsCards({
           'linear-gradient(135deg, rgba(139, 92, 246, 0.95), rgba(109, 40, 217, 0.95))',
       },
     ],
-    [asOf, assets, balance, equity, formatCurrency, liabilities]
+    [asOf, assets, balance, equityDisplay, formatCurrency, liabilitiesDisplay]
   );
 
   return (

@@ -6,8 +6,9 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { ACCOUNTS_RECEIVABLE_STATUSES, PAID_STATUSES } from './constants';
 import { parseDate } from './date-utils';
+import { getAccountingCutoverDate } from './cutover';
 
-const ACCOUNTING_CUTOVER = new Date(Date.UTC(2026, 0, 1));
+const ACCOUNTING_CUTOVER = getAccountingCutoverDate();
 
 type TransactionWithStatusChanges = Awaited<
   ReturnType<typeof prisma.transaction.findMany>

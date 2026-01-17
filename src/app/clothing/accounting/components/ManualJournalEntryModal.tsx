@@ -56,8 +56,7 @@ export function ManualJournalEntryModal({
       new Set([
         ...accounts,
         'Cash',
-        'Bank',
-        'E-Wallet',
+        // Bank/GCash/E-Wallet are treated as cash equivalents.
         'Accounts Receivable',
         'Stock on Hand',
         'Inventory in Transit',
@@ -73,6 +72,12 @@ export function ManualJournalEntryModal({
         'Interest Expense',
       ])
     )
+  );
+
+  const accountOptionData = accountOptions.map((account) =>
+    account === 'Cash'
+      ? { value: 'Cash', label: 'Cash (Bank + GCash)' }
+      : account
   );
 
   const debitTaggableParent: TaggableAccountParent | null =
@@ -107,7 +112,7 @@ export function ManualJournalEntryModal({
           <Select
             label="Debit Account"
             placeholder="Select account"
-            data={accountOptions}
+            data={accountOptionData}
             value={form.debitAccount}
             searchable
             clearable
@@ -116,7 +121,7 @@ export function ManualJournalEntryModal({
           <Select
             label="Credit Account"
             placeholder="Select account"
-            data={accountOptions}
+            data={accountOptionData}
             value={form.creditAccount}
             searchable
             clearable

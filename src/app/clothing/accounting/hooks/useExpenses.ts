@@ -132,7 +132,8 @@ export function useExpenses() {
     isLoading: isLoadingExpenses,
     create: createExpense,
     update: updateExpense,
-    delete: deleteExpense,
+    delete: _deleteExpense,
+    deleteAsync: deleteExpenseAsync,
     bulkUpdate: _bulkUpdateExpenses,
     bulkCreate: bulkCreateExpenses,
   } = useExpenseData();
@@ -360,12 +361,24 @@ export function useExpenses() {
 
   const handleDeleteExpense = async (id: string) => {
     const confirmed = await showDeleteConfirm('this expense');
-    if (confirmed) {
-      deleteExpense(Number(id));
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await deleteExpenseAsync(Number(id));
       showNotification({
         title: 'Success',
         message: 'Expense deleted successfully',
         color: 'green',
+      });
+    } catch (error) {
+      logger.error('Failed to delete expense', { error, id });
+      showNotification({
+        title: 'Error',
+        message:
+          error instanceof Error ? error.message : 'Failed to delete expense',
+        color: 'red',
       });
     }
   };

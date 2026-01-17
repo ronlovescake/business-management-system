@@ -7,8 +7,9 @@ import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
 import { postExpenseForShipment } from '@/modules/shipments/api/expenses';
 import { parseDate } from '@/lib/accounting/date-utils';
+import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
 
-const ACCOUNTING_CUTOVER = new Date(Date.UTC(2026, 0, 1));
+const ACCOUNTING_CUTOVER = getAccountingCutoverDate();
 
 // Helper function to convert database model to frontend interface
 function convertShipmentDBToData(shipment: ShipmentDB): ShipmentData {

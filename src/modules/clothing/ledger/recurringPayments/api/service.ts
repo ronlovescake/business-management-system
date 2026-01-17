@@ -9,6 +9,7 @@ import {
   buildTaggedAccountName,
   isTaggableAccountParent,
 } from '@/lib/accounting/account-tagging';
+import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
 import type {
   ClothingRecurringPaymentApproveInput,
   ClothingRecurringPaymentDraftListInput,
@@ -19,7 +20,8 @@ import type {
   ClothingRecurringPaymentTemplateUpdateInput,
 } from './schemas';
 
-const CUTOVER = new Date(Date.UTC(2026, 0, 1));
+const CUTOVER = getAccountingCutoverDate();
+const CUTOVER_LABEL = CUTOVER.toISOString().slice(0, 10);
 
 const normalizeUtcMidnight = (date: Date): Date => {
   return new Date(
@@ -82,7 +84,7 @@ export class ClothingRecurringPaymentService {
     const endDate = data.endDate ? normalizeUtcMidnight(data.endDate) : null;
 
     if (nextDueDate < CUTOVER) {
-      throw new Error('nextDueDate must be on or after 2026-01-01');
+      throw new Error(`nextDueDate must be on or after ${CUTOVER_LABEL}`);
     }
 
     if (endDate && endDate < nextDueDate) {
@@ -123,7 +125,7 @@ export class ClothingRecurringPaymentService {
       if (nextDueDate) {
         const normalized = normalizeUtcMidnight(nextDueDate);
         if (normalized < CUTOVER) {
-          throw new Error('nextDueDate must be on or after 2026-01-01');
+          throw new Error(`nextDueDate must be on or after ${CUTOVER_LABEL}`);
         }
         updateData.nextDueDate = normalized;
       }
@@ -153,9 +155,7 @@ export class ClothingRecurringPaymentService {
     });
   }
 
-  async listDrafts(
-    input: ClothingRecurringPaymentDraftListInput
-  ): Promise<
+  async listDrafts(input: ClothingRecurringPaymentDraftListInput): Promise<
     (ClothingRecurringPaymentDraft & {
       template: ClothingRecurringPaymentTemplate;
     })[]
@@ -221,7 +221,7 @@ export class ClothingRecurringPaymentService {
     const upToDate = normalizeUtcMidnight(rawUpTo);
 
     if (upToDate < CUTOVER) {
-      throw new Error('upToDate must be on or after 2026-01-01');
+      throw new Error(`upToDate must be on or after ${CUTOVER_LABEL}`);
     }
 
     const result = await prisma.$transaction(async (tx) => {
@@ -334,7 +334,7 @@ export class ClothingRecurringPaymentService {
 
         const entryDate = normalizeUtcMidnight(draft.dueDate);
         if (entryDate < CUTOVER) {
-          throw new Error('Draft dueDate must be on or after 2026-01-01');
+          throw new Error(`Draft dueDate must be on or after ${CUTOVER_LABEL}`);
         }
 
         const sourceId = draft.id;

@@ -20,6 +20,8 @@ import {
   computeCogsTotal,
 } from '@/lib/accounting/inventory-cogs';
 import { prisma } from '@/lib/db';
+import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
+import { normalizeAccountForReporting } from '@/lib/accounting/account-normalization';
 import {
   detectAccountType,
   type AccountType,
@@ -27,7 +29,7 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-const CUTOVER = new Date(Date.UTC(2026, 0, 1));
+const CUTOVER = getAccountingCutoverDate();
 const IN_TRANSIT_ACCOUNT = 'Inventory in Transit';
 const IN_TRANSIT_STATUSES = new Set([
   'in transit',
@@ -533,7 +535,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const byAccount = combined.reduce<
     Record<string, { amount: number; type: AccountType }>
   >((acc, row) => {
-    const key = row.account.trim();
+    const key = normalizeAccountForReporting(row.account).trim();
     const type = detectAccountType(key);
     if (!key || !type) {
       return acc;

@@ -121,6 +121,9 @@ export function useBalanceSheet() {
 
   const formatCurrency = formatCurrencyPHP;
 
+  const toDisplayAmount = (row: BalanceSheetRow, amount: number) =>
+    row.type === 'Asset' ? amount : -amount;
+
   const handleExportCSV = () => {
     if (filteredRows.length === 0) {
       logger.info('No balance sheet rows to export');
@@ -131,14 +134,17 @@ export function useBalanceSheet() {
     const rows = filteredRows.map((row) => {
       const details = row.details?.length
         ? row.details
-            .map((detail) => `${detail.label}: ${detail.amount}`)
+            .map(
+              (detail) =>
+                `${detail.label}: ${toDisplayAmount(row, detail.amount)}`
+            )
             .join(' | ')
         : '';
 
       return [
         escapeCsvValue(row.account),
         escapeCsvValue(row.type),
-        escapeCsvValue(row.amount.toFixed(2)),
+        escapeCsvValue(toDisplayAmount(row, row.amount).toFixed(2)),
         escapeCsvValue(details),
       ];
     });

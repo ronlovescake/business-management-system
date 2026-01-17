@@ -63,7 +63,7 @@ export type LedgerStats = {
   period: string;
 };
 
-const OPENING_BALANCE_DEFAULT_DATE = '2026-01-01';
+const OPENING_BALANCE_DEFAULT_DATE = getCurrentDateISO();
 export const LEDGER_PERIOD_OPTIONS = PERIOD_OPTIONS;
 export type LedgerPeriodOption = PeriodOption;
 const MAX_CSV_FILE_SIZE_BYTES = 5 * 1024 * 1024;
@@ -747,19 +747,61 @@ export function useLedger() {
   const deleteOpeningEntry = useCallback(
     async (id: string) => {
       try {
-        const res = await fetch(
-          `/api/accounting/opening-balance?id=${encodeURIComponent(id)}`,
-          {
-            method: 'DELETE',
-          }
-        );
+        const entry = openingEntries.find((candidate) => candidate.id === id);
+        const idsToDelete = new Set<string>([id]);
 
-        if (!res.ok) {
-          const payload = await res.json().catch(() => null);
-          const errorMessage =
-            payload?.error || 'Failed to delete opening entry';
-          throw new Error(errorMessage);
+        if (entry) {
+          const dateKey = entry.date.slice(0, 10);
+          const refKey = entry.ref;
+          const descKey = (entry.description ?? '').trim();
+          const amount = entry.debit > 0 ? entry.debit : entry.credit;
+          const side: 'debit' | 'credit' = entry.debit > 0 ? 'debit' : 'credit';
+
+          const isSameAmount = (value: number) =>
+            Math.abs(Number(value ?? 0) - amount) < 0.00001;
+
+          const counterpart = openingEntries.find((candidate) => {
+            if (candidate.id === entry.id) {
+              return false;
+            }
+            if (candidate.date.slice(0, 10) !== dateKey) {
+              return false;
+            }
+            if (candidate.ref !== refKey) {
+              return false;
+            }
+            if ((candidate.description ?? '').trim() !== descKey) {
+              return false;
+            }
+
+            return side === 'debit'
+              ? candidate.credit > 0 && isSameAmount(candidate.credit)
+              : candidate.debit > 0 && isSameAmount(candidate.debit);
+          });
+
+          if (counterpart) {
+            idsToDelete.add(counterpart.id);
+          }
         }
+
+        const deleteIds = Array.from(idsToDelete);
+        await Promise.all(
+          deleteIds.map(async (deleteId) => {
+            const res = await fetch(
+              `/api/accounting/opening-balance?id=${encodeURIComponent(
+                deleteId
+              )}`,
+              { method: 'DELETE' }
+            );
+
+            if (!res.ok) {
+              const payload = await res.json().catch(() => null);
+              const errorMessage =
+                payload?.error || 'Failed to delete opening entry';
+              throw new Error(errorMessage);
+            }
+          })
+        );
 
         await fetchOpeningEntries();
         await refreshLedger();
@@ -767,7 +809,10 @@ export function useLedger() {
         showNotification({
           color: 'green',
           title: 'Opening entry deleted',
-          message: 'The opening balance line was removed.',
+          message:
+            idsToDelete.size > 1
+              ? 'Both opening balance lines were removed.'
+              : 'The opening balance line was removed.',
         });
       } catch (error) {
         logger.error('Opening balance delete failed', { error });
@@ -782,7 +827,7 @@ export function useLedger() {
         throw error;
       }
     },
-    [fetchOpeningEntries, refreshLedger]
+    [fetchOpeningEntries, openingEntries, refreshLedger]
   );
 
   const openManualEntryModal = useCallback(() => {

@@ -40,6 +40,7 @@ import {
   isTaggableAccountParent,
   normalizeAccountTag,
 } from '@/lib/accounting/account-tagging';
+import { normalizeAccountForReporting } from '@/lib/accounting/account-normalization';
 import { formatCurrencyPHP } from '@/lib/accounting/formatters';
 
 type TemplateKind = 'LOAN' | 'EXPENSE';
@@ -68,7 +69,7 @@ const DEFAULT_FORM: TemplateFormState = {
   endDate: '',
   debitAccount: 'Loan Payable',
   debitTag: '',
-  creditAccount: 'Bank',
+  creditAccount: 'Cash',
   creditTag: '',
   notes: '',
   isActive: true,
@@ -143,7 +144,10 @@ export function RecurringPaymentsPanel(props: {
   const [isSavingTemplate, setIsSavingTemplate] = React.useState(false);
 
   const accountOptions = React.useMemo(() => {
-    return collapseTaggableAccountsForOptions(accounts);
+    const normalized = accounts.map((account) =>
+      normalizeAccountForReporting(account)
+    );
+    return collapseTaggableAccountsForOptions(normalized);
   }, [accounts]);
 
   const refresh = React.useCallback(async () => {

@@ -52,7 +52,11 @@ export function OpeningBalancePanel({
   onDeleteEntry,
   isSaving = false,
 }: OpeningBalancePanelProps) {
-  const CUTOVER_DATE = '2026-01-01';
+  const inferredCutoverDate = entries
+    .map((entry) => entry.date?.slice(0, 10))
+    .filter(Boolean)
+    .sort()[0];
+  const cutoverDateLabel = inferredCutoverDate ?? 'the cutover date';
 
   const commonHeaderStyle = {
     padding: '16px 12px',
@@ -62,8 +66,12 @@ export function OpeningBalancePanel({
   } as const;
 
   const cutoverWarnings = (() => {
+    if (!inferredCutoverDate) {
+      return [];
+    }
+
     const cutoverEntries = entries.filter(
-      (entry) => entry.date?.slice(0, 10) === CUTOVER_DATE
+      (entry) => entry.date?.slice(0, 10) === inferredCutoverDate
     );
 
     const byAccount = new Map<
@@ -122,8 +130,8 @@ export function OpeningBalancePanel({
               Opening Balance
             </Text>
             <Text c="dimmed" size="sm">
-              Capture your starting balances as of 2026-01-01 so the ledger and
-              balance sheet begin from a clean cutover.
+              Capture your starting balances as of {cutoverDateLabel} so the
+              ledger and balance sheet begin from a clean cutover.
             </Text>
           </Stack>
           <Button
@@ -148,7 +156,7 @@ export function OpeningBalancePanel({
         >
           <List.Item>
             Use one-time debits/credits (e.g., Cash, Inventory, Opening Equity)
-            dated 2026-01-01.
+            dated {cutoverDateLabel}.
           </List.Item>
           <List.Item>
             Each row is one account line. To set an opening loan balance, add
@@ -172,7 +180,7 @@ export function OpeningBalancePanel({
             mt="sm"
           >
             <Text size="sm">
-              On {CUTOVER_DATE}, these accounts have both debit and credit
+              On {cutoverDateLabel}, these accounts have both debit and credit
               opening lines. This often cancels the starting balance (like a
               loan opening posted twice). Usually you want one side on the
               account, and the offset goes to Opening Equity.
