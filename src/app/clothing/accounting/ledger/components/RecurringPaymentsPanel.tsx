@@ -6,7 +6,6 @@ import {
   Button,
   Divider,
   Group,
-  Modal,
   NumberInput,
   Select,
   Stack,
@@ -42,6 +41,9 @@ import {
 } from '@/lib/accounting/account-tagging';
 import { normalizeAccountForReporting } from '@/lib/accounting/account-normalization';
 import { formatCurrencyPHP } from '@/lib/accounting/formatters';
+import { PolishedModal } from '@/components/modals/PolishedModal';
+import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
+import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 
 type TemplateKind = 'LOAN' | 'EXPENSE';
 
@@ -143,12 +145,27 @@ export function RecurringPaymentsPanel(props: {
   const [form, setForm] = React.useState<TemplateFormState>(DEFAULT_FORM);
   const [isSavingTemplate, setIsSavingTemplate] = React.useState(false);
 
+  const { getFieldProps, getSelectProps } =
+    usePolishedFieldStyles(isCreateModalOpen);
+
   const accountOptions = React.useMemo(() => {
     const normalized = accounts.map((account) =>
       normalizeAccountForReporting(account)
     );
     return collapseTaggableAccountsForOptions(normalized);
   }, [accounts]);
+
+  const nameField = getFieldProps('name');
+  const kindSelect = getSelectProps('kind');
+  const amountField = getFieldProps('amount');
+  const dayOfMonthField = getFieldProps('dayOfMonth');
+  const nextDueDateField = getFieldProps('nextDueDate');
+  const endDateField = getFieldProps('endDate');
+  const debitAccountSelect = getSelectProps('debitAccount');
+  const debitTagField = getFieldProps('debitTag');
+  const creditAccountSelect = getSelectProps('creditAccount');
+  const creditTagField = getFieldProps('creditTag');
+  const notesField = getFieldProps('notes');
 
   const refresh = React.useCallback(async () => {
     setIsLoading(true);
@@ -477,7 +494,7 @@ export function RecurringPaymentsPanel(props: {
         </Table.Tbody>
       </Table>
 
-      <Modal
+      <PolishedModal
         opened={isCreateModalOpen}
         onClose={() => {
           setIsCreateModalOpen(false);
@@ -486,162 +503,202 @@ export function RecurringPaymentsPanel(props: {
         title="New recurring payment template"
         size="lg"
       >
-        <Stack gap="sm">
-          <TextInput
-            label="Name"
-            placeholder="e.g., GCASH Loan 1"
-            value={form.name}
-            onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-          />
-
-          <Group grow align="flex-end">
-            <Select
-              label="Kind"
-              data={[
-                { value: 'LOAN', label: 'Loan (principal only)' },
-                { value: 'EXPENSE', label: 'Expense / Subscription' },
-              ]}
-              value={form.kind}
-              onChange={(value) =>
-                setForm((p) => ({
-                  ...p,
-                  kind: (value as TemplateKind) ?? 'LOAN',
-                }))
-              }
-            />
-            <NumberInput
-              label="Amount"
-              min={0}
-              value={form.amount}
-              onChange={(value) =>
-                setForm((p) => ({
-                  ...p,
-                  amount: typeof value === 'number' ? value : 0,
-                }))
-              }
-            />
-          </Group>
-
-          <Group grow align="flex-end">
-            <NumberInput
-              label="Day of month"
-              description="Used to compute the next due date after generation"
-              min={1}
-              max={31}
-              value={form.dayOfMonth}
-              onChange={(value) =>
-                setForm((p) => ({
-                  ...p,
-                  dayOfMonth: typeof value === 'number' ? value : 1,
-                }))
-              }
-            />
-
-            <DateInput
-              label="Next due date"
-              value={parseDateValue(form.nextDueDate)}
-              onChange={(value) =>
-                setForm((p) => ({
-                  ...p,
-                  nextDueDate: value
-                    ? formatDateForInput(value)
-                    : DEFAULT_FORM.nextDueDate,
-                }))
-              }
-              {...COMMON_DATE_INPUT_PROPS}
-            />
-
-            <DateInput
-              label="End date (optional)"
-              value={parseDateValue(form.endDate)}
-              onChange={(value) =>
-                setForm((p) => ({
-                  ...p,
-                  endDate: value ? formatDateForInput(value) : '',
-                }))
-              }
-              clearable
-              {...COMMON_DATE_INPUT_PROPS}
-            />
-          </Group>
-
-          <Divider />
-
-          <Group grow align="flex-end">
-            <Select
-              label="Debit account"
-              data={accountOptions}
-              searchable
-              value={form.debitAccount}
-              onChange={(value) =>
-                setForm((p) => ({ ...p, debitAccount: value ?? '' }))
-              }
-            />
+        <div style={{ maxHeight: '65vh', overflowY: 'auto' }}>
+          <Stack gap="sm">
             <TextInput
-              label="Debit tag (optional)"
-              disabled={!isTaggableAccountParent(form.debitAccount)}
-              value={form.debitTag}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, debitTag: e.target.value }))
-              }
+              label="Name"
+              placeholder="e.g., GCASH Loan 1"
+              value={form.name}
+              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+              {...nameField.handlers}
+              styles={nameField.styles}
             />
-          </Group>
 
-          <Group grow align="flex-end">
-            <Select
-              label="Credit account"
-              data={accountOptions}
-              searchable
-              value={form.creditAccount}
-              onChange={(value) =>
-                setForm((p) => ({ ...p, creditAccount: value ?? '' }))
-              }
-            />
+            <Group grow align="flex-end">
+              <Select
+                label="Kind"
+                data={[
+                  { value: 'LOAN', label: 'Loan (principal only)' },
+                  { value: 'EXPENSE', label: 'Expense / Subscription' },
+                ]}
+                value={form.kind}
+                onChange={(value) =>
+                  setForm((p) => ({
+                    ...p,
+                    kind: (value as TemplateKind) ?? 'LOAN',
+                  }))
+                }
+                limit={10}
+                maxDropdownHeight={400}
+                {...kindSelect.handlers}
+                styles={kindSelect.styles}
+                withCheckIcon={false}
+                comboboxProps={{ withinPortal: true, zIndex: 500 }}
+              />
+              <NumberInput
+                label="Amount"
+                min={0}
+                value={form.amount}
+                onChange={(value) =>
+                  setForm((p) => ({
+                    ...p,
+                    amount: typeof value === 'number' ? value : 0,
+                  }))
+                }
+                {...amountField.handlers}
+                styles={amountField.styles}
+              />
+            </Group>
+
+            <Group grow align="flex-end">
+              <NumberInput
+                label="Day of month"
+                description="Used to compute the next due date after generation"
+                min={1}
+                max={31}
+                value={form.dayOfMonth}
+                onChange={(value) =>
+                  setForm((p) => ({
+                    ...p,
+                    dayOfMonth: typeof value === 'number' ? value : 1,
+                  }))
+                }
+                {...dayOfMonthField.handlers}
+                styles={dayOfMonthField.styles}
+              />
+
+              <DateInput
+                label="Next due date"
+                value={parseDateValue(form.nextDueDate)}
+                onChange={(value) =>
+                  setForm((p) => ({
+                    ...p,
+                    nextDueDate: value
+                      ? formatDateForInput(value)
+                      : DEFAULT_FORM.nextDueDate,
+                  }))
+                }
+                {...nextDueDateField.handlers}
+                styles={nextDueDateField.styles}
+                {...COMMON_DATE_INPUT_PROPS}
+              />
+
+              <DateInput
+                label="End date (optional)"
+                value={parseDateValue(form.endDate)}
+                onChange={(value) =>
+                  setForm((p) => ({
+                    ...p,
+                    endDate: value ? formatDateForInput(value) : '',
+                  }))
+                }
+                clearable
+                {...endDateField.handlers}
+                styles={endDateField.styles}
+                {...COMMON_DATE_INPUT_PROPS}
+              />
+            </Group>
+
+            <Divider />
+
+            <Group grow align="flex-end">
+              <Select
+                label="Debit account"
+                data={accountOptions}
+                searchable
+                value={form.debitAccount}
+                onChange={(value) =>
+                  setForm((p) => ({ ...p, debitAccount: value ?? '' }))
+                }
+                limit={10}
+                maxDropdownHeight={400}
+                {...debitAccountSelect.handlers}
+                styles={debitAccountSelect.styles}
+                withCheckIcon={false}
+                comboboxProps={{ withinPortal: true, zIndex: 500 }}
+              />
+              <TextInput
+                label="Debit tag (optional)"
+                disabled={!isTaggableAccountParent(form.debitAccount)}
+                value={form.debitTag}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, debitTag: e.target.value }))
+                }
+                {...debitTagField.handlers}
+                styles={debitTagField.styles}
+              />
+            </Group>
+
+            <Group grow align="flex-end">
+              <Select
+                label="Credit account"
+                data={accountOptions}
+                searchable
+                value={form.creditAccount}
+                onChange={(value) =>
+                  setForm((p) => ({ ...p, creditAccount: value ?? '' }))
+                }
+                limit={10}
+                maxDropdownHeight={400}
+                {...creditAccountSelect.handlers}
+                styles={creditAccountSelect.styles}
+                withCheckIcon={false}
+                comboboxProps={{ withinPortal: true, zIndex: 500 }}
+              />
+              <TextInput
+                label="Credit tag (optional)"
+                disabled={!isTaggableAccountParent(form.creditAccount)}
+                value={form.creditTag}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, creditTag: e.target.value }))
+                }
+                {...creditTagField.handlers}
+                styles={creditTagField.styles}
+              />
+            </Group>
+
             <TextInput
-              label="Credit tag (optional)"
-              disabled={!isTaggableAccountParent(form.creditAccount)}
-              value={form.creditTag}
+              label="Notes (optional)"
+              placeholder="Shown as the ledger line description"
+              value={form.notes}
               onChange={(e) =>
-                setForm((p) => ({ ...p, creditTag: e.target.value }))
+                setForm((p) => ({ ...p, notes: e.target.value }))
               }
+              {...notesField.handlers}
+              styles={notesField.styles}
             />
-          </Group>
 
-          <TextInput
-            label="Notes (optional)"
-            placeholder="Shown as the ledger line description"
-            value={form.notes}
-            onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-          />
+            <Switch
+              checked={form.isActive}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, isActive: e.currentTarget.checked }))
+              }
+              label="Active"
+            />
 
-          <Switch
-            checked={form.isActive}
-            onChange={(e) =>
-              setForm((p) => ({ ...p, isActive: e.currentTarget.checked }))
-            }
-            label="Active"
-          />
-
-          <Group justify="flex-end" mt="sm">
-            <Button
-              variant="default"
-              onClick={() => {
-                setIsCreateModalOpen(false);
-                resetForm();
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              color="green"
-              loading={isSavingTemplate}
-              onClick={handleCreateTemplate}
-            >
-              Create
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+            <Group justify="flex-end" mt="sm">
+              <Button
+                radius="md"
+                variant="default"
+                onClick={() => {
+                  setIsCreateModalOpen(false);
+                  resetForm();
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                radius="md"
+                loading={isSavingTemplate}
+                onClick={handleCreateTemplate}
+                styles={polishedPrimaryButtonStyles}
+              >
+                Create
+              </Button>
+            </Group>
+          </Stack>
+        </div>
+      </PolishedModal>
     </Stack>
   );
 }
