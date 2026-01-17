@@ -20,17 +20,17 @@ import type {
 const HEADERS = [
   'PRODUCT CODE',
   'P.O. QUANTITY',
-  'ACTUAL QUANTITY',
   'DAMAGED QTY',
-  'AVAILABLE STOCK',
   'SUPPLIER SHORT',
+  'ACTUAL QUANTITY',
+  'AVAILABLE STOCK',
   'TOTAL SALES',
   'COGS',
   'NET PROFIT',
   'PERCENTAGE',
   'ENDING INVENTORY VALUE',
-  'SHIPMENT CODE',
   'SHIPMENT STATUS',
+  'SHIPMENT CODE',
 ] as const;
 
 export const useInventoryPage = () => {

@@ -36,22 +36,22 @@ export const InventoryTable = memo(
             </Table.Td>
             <Table.Td style={{ textAlign: 'center' }}>
               <Text size="sm" c="#495057">
-                {numberFormatter.format(item.onhand)}
-              </Text>
-            </Table.Td>
-            <Table.Td style={{ textAlign: 'center' }}>
-              <Text size="sm" c="#495057">
                 {numberFormatter.format(item.damagedOnHand)}
               </Text>
             </Table.Td>
             <Table.Td style={{ textAlign: 'center' }}>
               <Text size="sm" c="#495057">
-                {numberFormatter.format(item.availableStock)}
+                {numberFormatter.format(item.supplierShortQty)}
               </Text>
             </Table.Td>
             <Table.Td style={{ textAlign: 'center' }}>
               <Text size="sm" c="#495057">
-                {numberFormatter.format(item.supplierShortQty)}
+                {numberFormatter.format(item.onhand)}
+              </Text>
+            </Table.Td>
+            <Table.Td style={{ textAlign: 'center' }}>
+              <Text size="sm" c="#495057">
+                {numberFormatter.format(item.availableStock)}
               </Text>
             </Table.Td>
             <Table.Td style={{ textAlign: 'center' }}>
@@ -80,17 +80,17 @@ export const InventoryTable = memo(
               </Text>
             </Table.Td>
             <Table.Td style={{ textAlign: 'center' }}>
-              <Text size="sm" c="#495057">
-                {item.shipmentCode}
-              </Text>
-            </Table.Td>
-            <Table.Td style={{ textAlign: 'center' }}>
               <Text
                 size="sm"
                 c={item.shipmentStatus === 'Delivered' ? 'green' : '#495057'}
                 fw={item.shipmentStatus === 'Delivered' ? 600 : 500}
               >
                 {item.shipmentStatus}
+              </Text>
+            </Table.Td>
+            <Table.Td style={{ textAlign: 'center' }}>
+              <Text size="sm" c="#495057">
+                {item.shipmentCode}
               </Text>
             </Table.Td>
           </Table.Tr>
