@@ -14,4 +14,8 @@ describe('account classification', () => {
     expect(detectAccountType('Loan Payable – Truck')).toBe('Liability');
     expect(detectAccountType('Loan Payable – GCASH 1')).toBe('Liability');
   });
+
+  it('classifies owner contribution as equity', () => {
+    expect(detectAccountType('Owner Contribution')).toBe('Equity');
+  });
 });

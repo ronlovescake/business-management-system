@@ -64,6 +64,7 @@ export function ManualJournalEntryModal({
         'Credit Card Payable',
         'Loan Payable',
         'Opening Equity',
+        'Owner Contribution',
         'Owner Draw',
         'Sales Revenue',
         'Sales Returns',
