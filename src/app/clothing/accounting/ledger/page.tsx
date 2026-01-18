@@ -140,7 +140,7 @@ export default function LedgerPage() {
           onChange={handleManualEntryFieldChange}
           accounts={accounts}
           title={
-            editingManualSourceId ? 'Edit Ledger Entry' : 'Add Ledger Entry'
+            editingManualSourceId ? 'Edit Ledger Entry' : 'ADD LEDGER ENTRY'
           }
         />
       </Stack>
