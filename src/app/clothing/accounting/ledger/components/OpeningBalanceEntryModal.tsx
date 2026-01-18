@@ -112,7 +112,7 @@ export function OpeningBalanceEntryModal({
     <PolishedModal
       opened={opened}
       onClose={onClose}
-      title={isEditing ? 'Edit Opening Entry' : 'Add Opening Entry'}
+      title={isEditing ? 'EDIT OPENING ENTRY' : 'ADD OPENING ENTRY'}
       size="lg"
     >
       <div style={{ maxHeight: '65vh', overflowY: 'auto' }}>

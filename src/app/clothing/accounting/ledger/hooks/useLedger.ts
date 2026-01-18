@@ -63,7 +63,7 @@ export type LedgerStats = {
   period: string;
 };
 
-const OPENING_BALANCE_DEFAULT_DATE = getCurrentDateISO();
+const FALLBACK_OPENING_BALANCE_DATE = getCurrentDateISO();
 export const LEDGER_PERIOD_OPTIONS = PERIOD_OPTIONS;
 export type LedgerPeriodOption = PeriodOption;
 const MAX_CSV_FILE_SIZE_BYTES = 5 * 1024 * 1024;
@@ -101,6 +101,9 @@ export function useLedger() {
   const [openingEntries, setOpeningEntries] = useState<OpeningBalanceEntry[]>(
     []
   );
+  const [openingBalanceCutoverDate, setOpeningBalanceCutoverDate] = useState(
+    FALLBACK_OPENING_BALANCE_DATE
+  );
   const [isLoadingOpeningEntries, setIsLoadingOpeningEntries] = useState(false);
   const [isOpeningEntryModalOpen, setIsOpeningEntryModalOpen] = useState(false);
   const [isSavingOpeningEntry, setIsSavingOpeningEntry] = useState(false);
@@ -116,7 +119,7 @@ export function useLedger() {
     'debit' | 'credit' | null
   >(null);
   const [openingEntryForm, setOpeningEntryForm] = useState({
-    date: OPENING_BALANCE_DEFAULT_DATE,
+    date: FALLBACK_OPENING_BALANCE_DATE,
     ref: 'OPENING',
     account: '',
     debit: 0,
@@ -224,12 +227,16 @@ export function useLedger() {
       }
       const payload = (await res.json()) as ApiResponse<{
         entries: OpeningBalanceEntry[];
+        cutoverDate?: string;
       }>;
       const data = getApiDataOrThrow(
         payload,
         'Failed to load opening balances'
       );
       setOpeningEntries(data.entries ?? []);
+      if (data.cutoverDate) {
+        setOpeningBalanceCutoverDate(data.cutoverDate);
+      }
     } catch (error) {
       logger.warn('Opening balance fetch failed', { error });
       setOpeningEntries([]);
@@ -241,6 +248,27 @@ export function useLedger() {
   useEffect(() => {
     fetchOpeningEntries();
   }, [fetchOpeningEntries]);
+
+  useEffect(() => {
+    // Opening balances are always posted on the cutover date; keep the UI aligned
+    // with the server-side cutover configuration.
+    setOpeningEntryForm((prev) => {
+      if (
+        !openingBalanceCutoverDate ||
+        prev.date === openingBalanceCutoverDate
+      ) {
+        return prev;
+      }
+
+      // Only overwrite the date for the create flow. Edit flow preserves the
+      // existing entry date key (which should match cutover anyway).
+      if (editingOpeningEntryId) {
+        return prev;
+      }
+
+      return { ...prev, date: openingBalanceCutoverDate };
+    });
+  }, [openingBalanceCutoverDate, editingOpeningEntryId]);
 
   const handleOpeningEntryFieldChange = useCallback(
     (
@@ -319,7 +347,7 @@ export function useLedger() {
     setEditingOpeningEntryCreditId(null);
     setEditingOpeningEntrySide(null);
     setOpeningEntryForm({
-      date: OPENING_BALANCE_DEFAULT_DATE,
+      date: openingBalanceCutoverDate,
       ref: 'OPENING',
       account: '',
       debit: 0,
@@ -332,7 +360,7 @@ export function useLedger() {
       description: '',
     });
     setIsOpeningEntryModalOpen(true);
-  }, []);
+  }, [openingBalanceCutoverDate]);
 
   const openOpeningEntryModalForEdit = useCallback(
     (entry: OpeningBalanceEntry) => {
@@ -427,7 +455,7 @@ export function useLedger() {
   const saveOpeningEntry = useCallback(async () => {
     const ref = openingEntryForm.ref.trim();
     const description = openingEntryForm.description.trim();
-    const date = OPENING_BALANCE_DEFAULT_DATE;
+    const date = openingEntryForm.date || openingBalanceCutoverDate;
 
     const isEditing = Boolean(editingOpeningEntryId);
 
@@ -740,6 +768,7 @@ export function useLedger() {
     editingOpeningEntryCreditId,
     editingOpeningEntrySide,
     openingEntryForm,
+    openingBalanceCutoverDate,
     fetchOpeningEntries,
     refreshLedger,
   ]);
@@ -1244,6 +1273,7 @@ export function useLedger() {
     saveManualEntry,
     deleteManualEntry,
     openingEntries,
+    openingBalanceCutoverDate,
     isLoadingOpeningEntries,
     isOpeningEntryModalOpen,
     isSavingOpeningEntry,

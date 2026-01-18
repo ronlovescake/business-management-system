@@ -44,6 +44,7 @@ export default function LedgerPage() {
     manualEntryForm,
     handleManualEntryFieldChange,
     openingEntries,
+    openingBalanceCutoverDate,
     isLoadingOpeningEntries,
     isOpeningEntryModalOpen,
     isSavingOpeningEntry,
@@ -101,6 +102,7 @@ export default function LedgerPage() {
         ) : isOpeningBalanceTab ? (
           <OpeningBalancePanel
             onAddOpeningEntry={openOpeningEntryModal}
+            cutoverDate={openingBalanceCutoverDate}
             entries={openingEntries}
             isLoading={isLoadingOpeningEntries}
             formatCurrency={formatCurrency}

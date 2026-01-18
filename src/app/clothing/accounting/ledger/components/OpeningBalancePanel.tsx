@@ -26,6 +26,7 @@ interface OpeningBalanceEntry {
 
 interface OpeningBalancePanelProps {
   onAddOpeningEntry: () => void;
+  cutoverDate?: string;
   entries?: OpeningBalanceEntry[];
   isLoading?: boolean;
   formatCurrency?: (amount: number) => string;
@@ -37,6 +38,7 @@ interface OpeningBalancePanelProps {
 
 export function OpeningBalancePanel({
   onAddOpeningEntry,
+  cutoverDate,
   entries = [],
   isLoading = false,
   formatCurrency = (v) =>
@@ -56,7 +58,8 @@ export function OpeningBalancePanel({
     .map((entry) => entry.date?.slice(0, 10))
     .filter(Boolean)
     .sort()[0];
-  const cutoverDateLabel = inferredCutoverDate ?? 'the cutover date';
+  const effectiveCutoverDate = inferredCutoverDate ?? cutoverDate;
+  const cutoverDateLabel = effectiveCutoverDate ?? 'the cutover date';
 
   const commonHeaderStyle = {
     padding: '16px 12px',
@@ -66,12 +69,12 @@ export function OpeningBalancePanel({
   } as const;
 
   const cutoverWarnings = (() => {
-    if (!inferredCutoverDate) {
+    if (!effectiveCutoverDate) {
       return [];
     }
 
     const cutoverEntries = entries.filter(
-      (entry) => entry.date?.slice(0, 10) === inferredCutoverDate
+      (entry) => entry.date?.slice(0, 10) === effectiveCutoverDate
     );
 
     const byAccount = new Map<

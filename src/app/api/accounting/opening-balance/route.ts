@@ -45,7 +45,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     orderBy: { date: 'asc' },
   });
 
-  return ApiResponse.success({ entries: entries.map(serialize) });
+  return ApiResponse.success({
+    cutoverDate: normalizedCutoverDate().toISOString().slice(0, 10),
+    entries: entries.map(serialize),
+  });
 });
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
