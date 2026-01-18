@@ -556,6 +556,9 @@ async function syncInventoryMovementsForTransaction(
     (transaction.orderStatus ?? '').trim().toLowerCase() === 'prepared' &&
     paidAmount > 0;
 
+  // Ops workflow: "Ready For Dispatch" / "Checked Out" implies shipped the same day.
+  // This is why we treat fulfilled statuses as the trigger to create the sale movement
+  // (.. -> sold), which in turn drives COGS recognition in accounting.
   const fulfilled =
     isFulfilledStatus(transaction.orderStatus) ||
     treatedAsFulfilledBecausePaidAndPrepared;

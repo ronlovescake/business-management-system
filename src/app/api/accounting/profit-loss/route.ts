@@ -37,6 +37,11 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const effectiveFrom = clampFrom(from);
   const effectiveTo = to ?? null;
 
+  // Revenue recognition policy (ops workflow): we treat certain transaction statuses as
+  // "shipped today" signals. In particular, when an order is tagged "Ready For Dispatch"
+  // or "Checked Out", it is expected to be shipped within the same day (not left sitting
+  // in the warehouse for days). Accounting revenue for the P&L is therefore anchored to
+  // paid/shipped statuses and payment events.
   const transactions = await fetchPaidTransactions();
   const expenses = await fetchApprovedExpenses();
   const refunds = await fetchTransactionRefunds();

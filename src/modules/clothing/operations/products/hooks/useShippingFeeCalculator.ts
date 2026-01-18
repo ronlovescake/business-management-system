@@ -137,6 +137,14 @@ export const calculateShippingRows = (
   rows: ShippingFeeRawRow[],
   inputs: ShippingActualInputs
 ): ShippingFeeData[] => {
+  /**
+   * Lot/batch costing helper (Products page → Shipping Fee Calculator):
+   * - We treat each shipment code as a "lot" (e.g. KPC shipments).
+   * - Shipment-level costs (Alibaba shipping, forwarder's fee, lalamove, packaging)
+   *   are allocated across the product codes within that shipment.
+   * - Allocation uses a proxy for weight/volume/value: `aproxQuantity = actualQuantity * multiplier`.
+   *   The per-product percentage is `aproxQuantity / totalAproxQuantity`.
+   */
   const enrichedRows = rows.map((row) => {
     const aproxQuantity =
       row.actualQuantity !== null && row.multiplier !== null
@@ -180,6 +188,8 @@ export const calculateShippingRows = (
       alibabaShippingCost: calculateCost(inputs.alibaba),
       forwardersFee: calculateCost(inputs.forwarders),
       lalamove: lalamoveCost,
+      // Packaging is treated as part of the same last-mile cost bucket as Lalamove.
+      // (If you ever want them split, this is the place to separate allocation logic.)
       packaging: lalamoveCost,
     };
   });

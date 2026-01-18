@@ -6,6 +6,19 @@ import { logger } from '@/lib/logger';
 type MultipliersPayload = Record<string, number>;
 
 /**
+ * Shipping Fee Calculator state (Products page).
+ *
+ * Business context:
+ * - We treat each shipment code as a "lot" containing multiple product codes.
+ * - Shipment-level costs (Alibaba shipping, forwarder's fee, lalamove, packaging)
+ *   are allocated across those product codes using multiplier-based weighting.
+ * - This endpoint only persists calculator inputs/state per shipmentCode so the UI can
+ *   reload and re-run the allocation. The allocated per-product costs are then recorded
+ *   on the Product rows (e.g., `forwardersFee`, `lalamove`, `packagingCost`) via the
+ *   Products workflow.
+ */
+
+/**
  * GET - Load shipping fee calculator data for a shipment code
  */
 export async function GET(request: NextRequest) {

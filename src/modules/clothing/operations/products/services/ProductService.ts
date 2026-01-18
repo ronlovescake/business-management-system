@@ -7,6 +7,14 @@
  * - Validation
  * - Shipment integration
  * - Search functionality
+ *
+ * Costing note (ops workflow):
+ * - We effectively use lot/batch costing by shipment code. Shipment-level costs (e.g.
+ *   forwarder's fee, lalamove, packaging) are allocated across product codes in the same
+ *   shipment (see the Products page "Shipping Fee Calculator").
+ * - Those allocated amounts are saved onto each Product row (forwardersFee/lalamove/
+ *   packagingCost) and included in `basePrice` / `cogs`, which accounting uses as the
+ *   unit-cost basis for COGS and shrinkage.
  */
 
 import type {

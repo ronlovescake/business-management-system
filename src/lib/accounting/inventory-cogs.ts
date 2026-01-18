@@ -68,6 +68,11 @@ function pickUnitCostFromProductRow(row: {
   cogs?: number | null;
   quantity?: number | null;
 }): number {
+  // Unit-cost basis for accounting:
+  // - Prefer `basePrice` (cost per item) as maintained in the Products module.
+  // - Fallback to `cogs / quantity` when basePrice is not available.
+  // In the ops workflow, these values already include lot/batch allocations for
+  // shipment-level costs (forwarder/lalamove/packaging, etc.).
   const base = pickUnitCost(row.basePrice);
   if (base > 0) {
     return base;

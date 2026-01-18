@@ -12,6 +12,12 @@ export const FULFILLED_STATUSES = [
   'Pending Payment',
 ] as const;
 
+/**
+ * Ops workflow note:
+ * - "Ready For Dispatch" and "Checked Out" are used as same-day shipping signals.
+ *   Once a transaction is moved into these statuses, it should be treated as shipped/fulfilled.
+ */
+
 function normalize(value: string | null | undefined): string {
   return (value ?? '').trim().toLowerCase();
 }
