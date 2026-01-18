@@ -41,6 +41,7 @@ export function buildInventoryItems(
   const sellableDeltaByProduct = buildSellableDeltaMap(movements);
   const reservedDeltaByProduct = buildReservedDeltaMap(movements);
   const damagedDeltaByProduct = buildBucketDeltaMap(movements, 'damaged_hold');
+  const scrapQtyByProduct = new Map<string, number>();
   const totalSalesByProduct = new Map<string, number>();
 
   // Bundles are currently unused for inventory availability calculations on this page.
@@ -75,6 +76,25 @@ export function buildInventoryItems(
     }
   });
 
+  // NOTE: In this system, the `scrap` bucket is also used as an external source bucket
+  // (e.g., receipts may move `scrap -> sellable`). Because of that, using net bucket deltas
+  // for `scrap` can go negative and becomes confusing. For UI reporting, we track *write-offs*
+  // as the cumulative quantity moved *into* `scrap` from any non-scrap bucket.
+  movements.forEach((movement) => {
+    const normalizedProductCode = normalizeProductCode(movement.productCode);
+    if (!normalizedProductCode || !Number.isFinite(movement.quantity)) {
+      return;
+    }
+
+    if (movement.toBucket !== 'scrap' || movement.fromBucket === 'scrap') {
+      return;
+    }
+
+    const qty = movement.quantity ?? 0;
+    const current = scrapQtyByProduct.get(normalizedProductCode) ?? 0;
+    scrapQtyByProduct.set(normalizedProductCode, current + qty);
+  });
+
   return products.map((product) => {
     const productCode = product['Product Code'] || '';
     const normalizedProductCode = normalizeProductCode(productCode);
@@ -87,6 +107,7 @@ export function buildInventoryItems(
     const reservedOnHand =
       reservedDeltaByProduct.get(normalizedProductCode) || 0;
     const damagedOnHand = damagedDeltaByProduct.get(normalizedProductCode) || 0;
+    const scrapQty = scrapQtyByProduct.get(normalizedProductCode) || 0;
     const totalSales = totalSalesByProduct.get(normalizedProductCode) || 0;
     const cogs = product.COGS || 0;
     const actualPrice = product['Actual Price'] || 0;
@@ -104,6 +125,7 @@ export function buildInventoryItems(
       sellableOnHand,
       reservedOnHand,
       damagedOnHand,
+      scrapQty,
       onhand,
       availableStock,
       supplierShortQty,

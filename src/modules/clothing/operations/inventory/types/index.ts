@@ -48,6 +48,8 @@ export interface InventoryMovementFromAPI {
   postingDate?: string | null;
   notes?: string | null;
   createdAt?: string;
+  updatedAt?: string;
+  deletedAt?: string | null;
 }
 
 export interface InventoryItem {
@@ -57,6 +59,7 @@ export interface InventoryItem {
   sellableOnHand: number;
   reservedOnHand: number;
   damagedOnHand: number;
+  scrapQty: number;
   onhand: number;
   availableStock: number;
   supplierShortQty: number;

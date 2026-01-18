@@ -207,8 +207,8 @@ export const useInventoryPage = () => {
         'productCode' | 'quantity' | 'fromBucket' | 'toBucket' | 'postingDate'
       > & { notes?: string | null }
     ) => {
+      setIsSubmittingMovement(true);
       try {
-        setIsSubmittingMovement(true);
         const response = await fetch('/api/inventory/movements', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -221,20 +221,75 @@ export const useInventoryPage = () => {
           throw new Error(message);
         }
 
+        const body = await response.json().catch(() => ({}));
         await fetchInventoryData();
-
-        showNotification({
-          title: 'Saved',
-          message: 'Inventory movement recorded',
-          color: 'green',
-        });
+        return body?.data as InventoryMovementFromAPI;
       } catch (error) {
         logger.error('Failed to create inventory movement', { error });
-        showNotification({
-          title: 'Error',
-          message: 'Failed to record movement',
-          color: 'red',
+        throw error;
+      } finally {
+        setIsSubmittingMovement(false);
+      }
+    },
+    [fetchInventoryData]
+  );
+
+  const updateMovement = useCallback(
+    async (params: {
+      id: number;
+      quantity: number;
+      toBucket?: 'damaged_hold' | 'scrap';
+    }) => {
+      setIsSubmittingMovement(true);
+      try {
+        const response = await fetch('/api/inventory/movements', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(params),
         });
+
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          const message = body?.error || 'Failed to update movement';
+          throw new Error(message);
+        }
+
+        const body = await response.json().catch(() => ({}));
+        await fetchInventoryData();
+        return body?.data as InventoryMovementFromAPI;
+      } catch (error) {
+        logger.error('Failed to update inventory movement', { error });
+        throw error;
+      } finally {
+        setIsSubmittingMovement(false);
+      }
+    },
+    [fetchInventoryData]
+  );
+
+  const deleteMovement = useCallback(
+    async (params: { id: number }) => {
+      setIsSubmittingMovement(true);
+      try {
+        const response = await fetch(
+          `/api/inventory/movements?id=${encodeURIComponent(String(params.id))}`,
+          {
+            method: 'DELETE',
+          }
+        );
+
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          const message = body?.error || 'Failed to delete movement';
+          throw new Error(message);
+        }
+
+        const body = await response.json().catch(() => ({}));
+        await fetchInventoryData();
+        return body?.data as InventoryMovementFromAPI;
+      } catch (error) {
+        logger.error('Failed to delete inventory movement', { error });
+        throw error;
       } finally {
         setIsSubmittingMovement(false);
       }
@@ -271,7 +326,10 @@ export const useInventoryPage = () => {
     handleExportCSV,
     handleAddNew,
     products,
+    movements,
     createMovement,
+    updateMovement,
+    deleteMovement,
     getSellableOnHand,
   };
 };
