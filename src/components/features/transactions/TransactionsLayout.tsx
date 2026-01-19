@@ -82,6 +82,7 @@ export interface TransactionsLayoutProps<T = Record<string, unknown>> {
   onGeneratePackingList?: (data: T[]) => void | Promise<void>;
   onGenerateDistribution?: (data: T[]) => void | Promise<void>;
   showActionButtons?: boolean;
+  extraActionButtons?: React.ReactNode;
 
   // Loading States
   isGeneratingInvoice?: boolean;
@@ -118,6 +119,7 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
   onGeneratePackingList,
   onGenerateDistribution,
   showActionButtons = true,
+  extraActionButtons,
   isGeneratingInvoice = false,
   isGeneratingPackingList = false,
   isGeneratingDistribution = false,
@@ -159,7 +161,16 @@ export function TransactionsLayout<T extends object = Record<string, unknown>>({
       onFileChange={onFileChange || (() => {})}
       onCSVImport={onCSVImport}
       searchRightButtons={searchRightButtons}
-      actionButtons={actionButtons}
+      actionButtons={
+        extraActionButtons ? (
+          <>
+            {actionButtons}
+            {extraActionButtons}
+          </>
+        ) : (
+          actionButtons
+        )
+      }
       showFooter={false}
       // scrollToLastNonEmptyRows removed
       stretchColumnId={stretchColumnId}

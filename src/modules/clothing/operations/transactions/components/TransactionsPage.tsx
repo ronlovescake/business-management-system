@@ -27,6 +27,7 @@ import React, {
   useMemo,
   useState,
 } from 'react';
+import { Button } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
@@ -50,6 +51,7 @@ import {
   DistributionGenerationModal,
   CustomerWarningModal,
 } from './TransactionModals';
+import { TransactionPaymentsModal } from './TransactionPaymentsModal';
 import { useChangeLogQuery } from '../../settings/change-log/hooks/useChangeLogQuery';
 import { useInvoiceCustomerLookup } from '../../checkout-links/hooks/useInvoiceCustomerLookup';
 import type { TransactionData } from '../types/transaction.types';
@@ -75,6 +77,8 @@ export function TransactionsPage() {
     'due-dates': '',
     'recently-updated': '',
   });
+
+  const [showPaymentsModal, setShowPaymentsModal] = useState(false);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -495,6 +499,26 @@ export function TransactionsPage() {
     [lookupFacebookLink]
   );
 
+  const paymentsActionButton = useMemo(
+    () => (
+      <Button
+        variant="outline"
+        onClick={() => setShowPaymentsModal(true)}
+        radius="sm"
+        style={{
+          backgroundColor: '#c8e6fd',
+          borderColor: '#7dd3fc',
+          borderWidth: '1.5px',
+          color: '#374151',
+          width: '175px',
+        }}
+      >
+        Record Payment
+      </Button>
+    ),
+    []
+  );
+
   // ============================================================================
   // LOADING STATE
   // ============================================================================
@@ -512,6 +536,13 @@ export function TransactionsPage() {
   return (
     <Profiler id="TransactionsPage" onRender={onRenderCallback}>
       <PageLayout fluid withPadding>
+        <TransactionPaymentsModal
+          opened={showPaymentsModal}
+          onClose={() => setShowPaymentsModal(false)}
+          transactions={transactions}
+          customerNames={customerNames}
+        />
+
         {/* Distribution Generation Modal */}
         <DistributionGenerationModal
           opened={showDistributionModal}
@@ -577,6 +608,7 @@ export function TransactionsPage() {
           isGeneratingInvoice={isGeneratingInvoice}
           isGeneratingPackingList={isGeneratingPackingList}
           isGeneratingDistribution={isGeneratingDistribution}
+          extraActionButtons={paymentsActionButton}
           searchQueries={tabSearchQueries}
           onTabSearch={handleTabSearchChange}
           stretchColumnId={STRETCH_COLUMN_ID}

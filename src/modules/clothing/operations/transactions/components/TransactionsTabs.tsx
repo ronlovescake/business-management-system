@@ -45,6 +45,7 @@ interface MainTransactionsTabProps extends BaseTabProps {
   isGeneratingInvoice: boolean;
   isGeneratingPackingList: boolean;
   isGeneratingDistribution: boolean;
+  extraActionButtons?: React.ReactNode;
 }
 
 const MainTransactionsTab = memo(function MainTransactionsTab({
@@ -64,6 +65,7 @@ const MainTransactionsTab = memo(function MainTransactionsTab({
   isGeneratingInvoice,
   isGeneratingPackingList,
   isGeneratingDistribution,
+  extraActionButtons,
   stretchColumnId,
 }: MainTransactionsTabProps) {
   return (
@@ -87,6 +89,7 @@ const MainTransactionsTab = memo(function MainTransactionsTab({
       isGeneratingInvoice={isGeneratingInvoice}
       isGeneratingPackingList={isGeneratingPackingList}
       isGeneratingDistribution={isGeneratingDistribution}
+      extraActionButtons={extraActionButtons}
       stretchColumnId={stretchColumnId}
     />
   );
@@ -275,6 +278,7 @@ interface TransactionsTabsProps {
   isGeneratingInvoice: boolean;
   isGeneratingPackingList: boolean;
   isGeneratingDistribution: boolean;
+  extraActionButtons?: React.ReactNode;
   searchQueries: Record<TransactionsTabValue, string>;
   onTabSearch: (tab: TransactionsTabValue, query: string) => void;
   stretchColumnId?: string;
@@ -311,6 +315,7 @@ export const TransactionsTabs = memo(function TransactionsTabs({
   isGeneratingInvoice,
   isGeneratingPackingList,
   isGeneratingDistribution,
+  extraActionButtons,
   searchQueries,
   onTabSearch,
   stretchColumnId,
@@ -363,6 +368,7 @@ export const TransactionsTabs = memo(function TransactionsTabs({
           isGeneratingInvoice={isGeneratingInvoice}
           isGeneratingPackingList={isGeneratingPackingList}
           isGeneratingDistribution={isGeneratingDistribution}
+          extraActionButtons={extraActionButtons}
           stretchColumnId={stretchColumnId}
         />
       </Tabs.Panel>

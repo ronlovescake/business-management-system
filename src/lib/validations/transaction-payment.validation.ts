@@ -8,8 +8,23 @@ export const transactionPaymentCreateSchema = z.object({
   notes: z.string().max(2000).nullable().optional(),
 });
 
+export const transactionPaymentBulkCreateSchema = z.object({
+  payments: z
+    .array(
+      transactionPaymentCreateSchema.extend({
+        amount: z.number().positive(),
+      })
+    )
+    .min(1)
+    .max(500),
+});
+
 export type TransactionPaymentCreateInput = z.infer<
   typeof transactionPaymentCreateSchema
+>;
+
+export type TransactionPaymentBulkCreateInput = z.infer<
+  typeof transactionPaymentBulkCreateSchema
 >;
 
 export function formatValidationErrors(

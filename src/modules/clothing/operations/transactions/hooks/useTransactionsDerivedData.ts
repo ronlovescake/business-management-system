@@ -143,7 +143,7 @@ export function useTransactionsDerivedData({
       }
 
       if (column.id === 'adjustment') {
-        return { value: numericValue };
+        return { value: numericValue, readOnly: true };
       }
 
       if (column.id === 'orderStatus') {
