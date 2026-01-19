@@ -253,12 +253,60 @@ export function TransactionPaymentsModal({
             <Table striped withTableBorder withColumnBorders>
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th style={{ width: 90 }}>Tx ID</Table.Th>
-                  <Table.Th style={{ width: 130 }}>Order Date</Table.Th>
-                  <Table.Th style={{ width: 140 }}>Product</Table.Th>
-                  <Table.Th style={{ width: 80 }}>Qty</Table.Th>
-                  <Table.Th style={{ width: 120 }}>Paid (Adj)</Table.Th>
-                  <Table.Th style={{ width: 140 }}>Add payment</Table.Th>
+                  <Table.Th
+                    style={{
+                      width: 90,
+                      textAlign: 'center',
+                      verticalAlign: 'middle',
+                    }}
+                  >
+                    Tx ID
+                  </Table.Th>
+                  <Table.Th
+                    style={{
+                      width: 130,
+                      textAlign: 'center',
+                      verticalAlign: 'middle',
+                    }}
+                  >
+                    Order Date
+                  </Table.Th>
+                  <Table.Th
+                    style={{
+                      width: 140,
+                      textAlign: 'center',
+                      verticalAlign: 'middle',
+                    }}
+                  >
+                    Product
+                  </Table.Th>
+                  <Table.Th
+                    style={{
+                      width: 80,
+                      textAlign: 'center',
+                      verticalAlign: 'middle',
+                    }}
+                  >
+                    Qty
+                  </Table.Th>
+                  <Table.Th
+                    style={{
+                      width: 120,
+                      textAlign: 'center',
+                      verticalAlign: 'middle',
+                    }}
+                  >
+                    Paid (Adj)
+                  </Table.Th>
+                  <Table.Th
+                    style={{
+                      width: 140,
+                      textAlign: 'center',
+                      verticalAlign: 'middle',
+                    }}
+                  >
+                    Add payment
+                  </Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -274,17 +322,40 @@ export function TransactionPaymentsModal({
                       <Table.Td style={{ whiteSpace: 'nowrap' }}>
                         {t['Product Code']}
                       </Table.Td>
-                      <Table.Td>{t.Quantity}</Table.Td>
-                      <Table.Td>₱{paidSoFar.toLocaleString()}</Table.Td>
-                      <Table.Td>
-                        <NumberInput
-                          value={current}
-                          min={0}
-                          step={1}
-                          hideControls
-                          prefix="₱"
-                          onChange={(value) => handleAmountChange(id, value)}
-                        />
+                      <Table.Td
+                        style={{ textAlign: 'center', verticalAlign: 'middle' }}
+                      >
+                        {t.Quantity}
+                      </Table.Td>
+                      <Table.Td
+                        style={{ textAlign: 'right', verticalAlign: 'middle' }}
+                      >
+                        ₱{paidSoFar.toLocaleString()}
+                      </Table.Td>
+                      <Table.Td
+                        style={{ textAlign: 'right', verticalAlign: 'middle' }}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'flex-end',
+                          }}
+                        >
+                          <NumberInput
+                            value={current}
+                            min={0}
+                            step={1}
+                            hideControls
+                            prefix="₱"
+                            onChange={(value) => handleAmountChange(id, value)}
+                            styles={{
+                              input: {
+                                textAlign: 'right',
+                              },
+                            }}
+                            style={{ width: 140 }}
+                          />
+                        </div>
                       </Table.Td>
                     </Table.Tr>
                   );
