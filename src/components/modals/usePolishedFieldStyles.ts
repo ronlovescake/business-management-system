@@ -6,6 +6,7 @@ import {
   polishedSelectDropdownStyles,
   polishedSelectOptionStyles,
 } from './polishedModalTheme';
+import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 
 interface FieldHandlers {
   onFocus: () => void;
@@ -34,6 +35,15 @@ interface SelectProps {
   };
   handlers: SelectHandlers;
 }
+
+export const POLISHED_SELECT_DEFAULTS = {
+  limit: 10,
+  maxDropdownHeight: 400,
+  withCheckIcon: false as const,
+  comboboxProps: { withinPortal: true, zIndex: 500 },
+};
+
+export const POLISHED_DATE_INPUT_PROPS = COMMON_DATE_INPUT_PROPS;
 
 const buildInputStyles = (isFocused: boolean) => ({
   label: polishedLabelStyles,
@@ -157,6 +167,8 @@ export function usePolishedFieldStyles(isModalOpen: boolean) {
       getTextareaProps,
       getAutosizeTextareaProps,
       getSelectProps,
+      selectDefaults: POLISHED_SELECT_DEFAULTS,
+      dateInputDefaults: POLISHED_DATE_INPUT_PROPS,
     }),
     [
       focusedField,

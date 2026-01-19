@@ -23,6 +23,7 @@ export function PolishedModal({
   closeOnEscape = false,
   overlayProps,
   styles,
+  title,
   ...rest
 }: PolishedModalProps) {
   const mergedOverlay = {
@@ -34,6 +35,9 @@ export function PolishedModal({
     ? { ...polishedModalStyles, ...styles }
     : polishedModalStyles;
 
+  const normalizedTitle =
+    typeof title === 'string' ? title.toUpperCase() : title;
+
   return (
     <Modal
       radius={radius}
@@ -43,6 +47,7 @@ export function PolishedModal({
       closeOnEscape={closeOnEscape}
       overlayProps={mergedOverlay}
       styles={mergedStyles}
+      title={normalizedTitle}
       {...rest}
     >
       {children}

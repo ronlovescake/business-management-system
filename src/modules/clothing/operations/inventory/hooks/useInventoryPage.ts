@@ -238,7 +238,7 @@ export const useInventoryPage = () => {
     async (params: {
       id: number;
       quantity: number;
-      toBucket?: 'damaged_hold' | 'scrap';
+      toBucket?: 'damaged_hold' | 'scrap' | 'supplier_short';
     }) => {
       setIsSubmittingMovement(true);
       try {

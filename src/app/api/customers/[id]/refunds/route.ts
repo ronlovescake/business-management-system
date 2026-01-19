@@ -262,6 +262,7 @@ export const POST = withErrorHandler<RouteContext>(
                 | 'reserved'
                 | 'assembly_wip'
                 | 'scrap'
+                | 'supplier_short'
                 | 'sold',
               postingDate: refund.refundDate,
               notes: note,
@@ -296,6 +297,7 @@ function sanitizeCreateInput(input: TransactionRefundCreateInput):
         | 'reserved'
         | 'assembly_wip'
         | 'scrap'
+        | 'supplier_short'
         | 'sold'
         | null;
       notes: string | null;

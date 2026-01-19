@@ -4,7 +4,6 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   Button,
   Group,
-  Modal,
   NumberInput,
   ScrollArea,
   Select,
@@ -17,6 +16,7 @@ import { DateInput } from '@mantine/dates';
 import { showNotification } from '@mantine/notifications';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
+import { PolishedModal } from '@/components/modals/PolishedModal';
 import type { TransactionData } from '../types/transaction.types';
 
 type PaymentDraft = {
@@ -193,11 +193,16 @@ export function TransactionPaymentsModal({
   }, [isSaving, onClose]);
 
   return (
-    <Modal
+    <PolishedModal
       opened={opened}
       onClose={handleClose}
       title="Record Payments"
-      size="xl"
+      size="90%"
+      styles={{
+        content: {
+          maxWidth: '1350px',
+        },
+      }}
       closeOnClickOutside={!isSaving}
       closeOnEscape={!isSaving}
     >
@@ -266,7 +271,9 @@ export function TransactionPaymentsModal({
                     <Table.Tr key={id}>
                       <Table.Td>{id}</Table.Td>
                       <Table.Td>{t['Order Date']}</Table.Td>
-                      <Table.Td>{t['Product Code']}</Table.Td>
+                      <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                        {t['Product Code']}
+                      </Table.Td>
                       <Table.Td>{t.Quantity}</Table.Td>
                       <Table.Td>₱{paidSoFar.toLocaleString()}</Table.Td>
                       <Table.Td>
@@ -301,6 +308,6 @@ export function TransactionPaymentsModal({
           </Group>
         </Group>
       </Stack>
-    </Modal>
+    </PolishedModal>
   );
 }

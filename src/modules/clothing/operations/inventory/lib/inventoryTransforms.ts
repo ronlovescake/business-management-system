@@ -11,6 +11,7 @@ import {
   buildReservedDeltaMap,
   buildBucketDeltaMap,
   getSellableOnHand,
+  buildSellableReceiptCodeSet,
   normalizeProductCode,
 } from '@/lib/inventory/movements';
 import { isFulfilledStatus } from '@/lib/inventory/statuses';
@@ -38,9 +39,29 @@ export function buildInventoryItems(
   bundles: BundleBatchFromAPI[] = [],
   movements: InventoryMovementFromAPI[] = []
 ): InventoryItem[] {
-  const sellableDeltaByProduct = buildSellableDeltaMap(movements);
-  const reservedDeltaByProduct = buildReservedDeltaMap(movements);
-  const damagedDeltaByProduct = buildBucketDeltaMap(movements, 'damaged_hold');
+  // `supplier_short` entries are informational (shortfalls on a PO), not physical stock.
+  // They must not reduce SELLABLE on-hand or availability.
+  const movementsForStockBalances = movements.filter(
+    (movement) => movement.toBucket !== 'supplier_short'
+  );
+
+  const sellableDeltaByProduct = buildSellableDeltaMap(
+    movementsForStockBalances
+  );
+  const reservedDeltaByProduct = buildReservedDeltaMap(
+    movementsForStockBalances
+  );
+  const damagedDeltaByProduct = buildBucketDeltaMap(
+    movementsForStockBalances,
+    'damaged_hold'
+  );
+  const sellableReceiptCodes = buildSellableReceiptCodeSet(
+    movementsForStockBalances
+  );
+  const supplierShortDeltaByProduct = buildBucketDeltaMap(
+    movements,
+    'supplier_short'
+  );
   const scrapQtyByProduct = new Map<string, number>();
   const totalSalesByProduct = new Map<string, number>();
 
@@ -103,17 +124,27 @@ export function buildInventoryItems(
       productCode,
       sellableDeltaByProduct,
       fallbackQuantity: quantity,
+      sellableReceiptCodes,
     });
     const reservedOnHand =
       reservedDeltaByProduct.get(normalizedProductCode) || 0;
     const damagedOnHand = damagedDeltaByProduct.get(normalizedProductCode) || 0;
+    const manualSupplierShortQty =
+      supplierShortDeltaByProduct.get(normalizedProductCode) || 0;
     const scrapQty = scrapQtyByProduct.get(normalizedProductCode) || 0;
     const totalSales = totalSalesByProduct.get(normalizedProductCode) || 0;
     const cogs = product.COGS || 0;
     const actualPrice = product['Actual Price'] || 0;
     const onhand = sellableOnHand + reservedOnHand;
     const availableStock = sellableOnHand;
-    const supplierShortQty = Math.max(quantity - (onhand + damagedOnHand), 0);
+    const computedSupplierShortQty = Math.max(
+      quantity - (onhand + damagedOnHand),
+      0
+    );
+    const supplierShortQty =
+      manualSupplierShortQty > 0
+        ? manualSupplierShortQty
+        : computedSupplierShortQty;
     const netProfit = totalSales - cogs;
     const percentage = cogs !== 0 ? netProfit / cogs : 0;
     const endingInventoryValue = availableStock * actualPrice;

@@ -216,4 +216,75 @@ describe('buildInventoryItems', () => {
     expect(xyz?.scrapQty).toBe(0);
     expect(xyz?.supplierShortQty).toBe(20);
   });
+
+  it('allows recording supplier short via movements and prefers the manual supplier short qty', () => {
+    const products: ProductFromAPI[] = [
+      {
+        id: 'p1',
+        'Product Code': 'XYZ-9',
+        Quantity: 100,
+        COGS: 0,
+        'Actual Price': 2,
+        'Shipment Code': 'S1',
+        'Shipment Status': 'Delivered',
+      },
+    ];
+
+    const movements: InventoryMovementFromAPI[] = [
+      {
+        id: 1,
+        productCode: 'XYZ-9',
+        quantity: 80,
+        fromBucket: 'scrap',
+        toBucket: 'sellable',
+      },
+      {
+        id: 2,
+        productCode: 'XYZ-9',
+        quantity: 5,
+        fromBucket: 'sellable',
+        toBucket: 'supplier_short',
+      },
+    ];
+
+    const items = buildInventoryItems(products, [], [], movements);
+    const xyz = items.find((i) => i.productCode === 'XYZ-9');
+
+    expect(xyz).toBeDefined();
+    // supplier_short is informational and does not reduce on-hand.
+    expect(xyz?.sellableOnHand).toBe(80);
+    // When there is a manual supplier short entry, the UI prefers that value.
+    expect(xyz?.supplierShortQty).toBe(5);
+  });
+
+  it('treats sellable movements as adjustments when there are no sellable receipts', () => {
+    const products: ProductFromAPI[] = [
+      {
+        id: 'p1',
+        'Product Code': 'ABC-1',
+        Quantity: 10,
+        COGS: 0,
+        'Actual Price': 5,
+        'Shipment Code': null,
+        'Shipment Status': null,
+      },
+    ];
+
+    const movements: InventoryMovementFromAPI[] = [
+      {
+        id: 1,
+        productCode: 'ABC-1',
+        quantity: 3,
+        fromBucket: 'sellable',
+        toBucket: 'supplier_short',
+      },
+    ];
+
+    const items = buildInventoryItems(products, [], [], movements);
+    const abc = items.find((i) => i.productCode === 'ABC-1');
+
+    expect(abc).toBeDefined();
+    // supplier_short does not change sellable on-hand.
+    expect(abc?.sellableOnHand).toBe(10);
+  });
 });

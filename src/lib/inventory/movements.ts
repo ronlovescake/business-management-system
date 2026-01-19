@@ -7,6 +7,31 @@ export type MovementLike = {
   toBucket: InventoryBucket;
 };
 
+export function buildSellableReceiptCodeSet(
+  movements: MovementLike[]
+): Set<string> {
+  const codes = new Set<string>();
+
+  movements.forEach((movement) => {
+    const code = normalizeProductCode(movement.productCode);
+    if (!code || !Number.isFinite(movement.quantity)) {
+      return;
+    }
+
+    // If we have any non-sellable -> sellable movement for a product, we treat
+    // sellable deltas as a full ledger (absolute), not a delta on top of the
+    // product's fallback quantity.
+    if (
+      movement.toBucket === 'sellable' &&
+      movement.fromBucket !== 'sellable'
+    ) {
+      codes.add(code);
+    }
+  });
+
+  return codes;
+}
+
 export function normalizeProductCode(value: string | null | undefined): string {
   return (value ?? '').trim().toLowerCase();
 }
@@ -50,8 +75,14 @@ export function getSellableOnHand(params: {
   productCode: string | null | undefined;
   sellableDeltaByProduct: Map<string, number>;
   fallbackQuantity?: number;
+  sellableReceiptCodes?: Set<string>;
 }) {
-  const { productCode, sellableDeltaByProduct, fallbackQuantity = 0 } = params;
+  const {
+    productCode,
+    sellableDeltaByProduct,
+    fallbackQuantity = 0,
+    sellableReceiptCodes,
+  } = params;
   const normalizedCode = normalizeProductCode(productCode);
 
   if (!normalizedCode) {
@@ -59,7 +90,16 @@ export function getSellableOnHand(params: {
   }
 
   if (sellableDeltaByProduct.has(normalizedCode)) {
-    return sellableDeltaByProduct.get(normalizedCode) ?? 0;
+    const delta = sellableDeltaByProduct.get(normalizedCode) ?? 0;
+    const hasReceiptLedger = sellableReceiptCodes?.has(normalizedCode) ?? false;
+
+    // If we have explicit receipts into sellable, treat deltas as absolute.
+    if (hasReceiptLedger) {
+      return delta;
+    }
+
+    // Otherwise, treat movements as adjustments to the product's baseline.
+    return fallbackQuantity + delta;
   }
 
   return fallbackQuantity;

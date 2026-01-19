@@ -19,7 +19,6 @@ import { PolishedModal } from '@/components/modals/PolishedModal';
 import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 import { toDate, toISODate } from '@/utils/date';
-import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 
 export type ManualJournalEntryForm = {
   date: string;
@@ -56,8 +55,13 @@ export function ManualJournalEntryModal({
   accounts,
   title = 'Add Entry',
 }: ManualJournalEntryModalProps) {
-  const { getFieldProps, getSelectProps, getAutosizeTextareaProps } =
-    usePolishedFieldStyles(opened);
+  const {
+    getFieldProps,
+    getSelectProps,
+    getAutosizeTextareaProps,
+    selectDefaults,
+    dateInputDefaults,
+  } = usePolishedFieldStyles(opened);
 
   const accountOptions = collapseTaggableAccountsForOptions(
     Array.from(
@@ -122,7 +126,7 @@ export function ManualJournalEntryModal({
             minDate={new Date('2026-01-01')}
             {...dateField.handlers}
             styles={dateField.styles}
-            {...COMMON_DATE_INPUT_PROPS}
+            {...dateInputDefaults}
           />
 
           <TextInput
@@ -142,13 +146,10 @@ export function ManualJournalEntryModal({
               value={form.debitAccount}
               searchable
               clearable
-              limit={10}
-              maxDropdownHeight={400}
               onChange={(value) => onChange('debitAccount', value || '')}
               {...debitAccountSelect.handlers}
               styles={debitAccountSelect.styles}
-              withCheckIcon={false}
-              comboboxProps={{ withinPortal: true, zIndex: 500 }}
+              {...selectDefaults}
             />
             <Select
               label="Credit Account"
@@ -157,13 +158,10 @@ export function ManualJournalEntryModal({
               value={form.creditAccount}
               searchable
               clearable
-              limit={10}
-              maxDropdownHeight={400}
               onChange={(value) => onChange('creditAccount', value || '')}
               {...creditAccountSelect.handlers}
               styles={creditAccountSelect.styles}
-              withCheckIcon={false}
-              comboboxProps={{ withinPortal: true, zIndex: 500 }}
+              {...selectDefaults}
             />
           </Group>
 

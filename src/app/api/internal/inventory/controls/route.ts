@@ -14,6 +14,7 @@ type Bucket =
   | 'reserved'
   | 'assembly_wip'
   | 'scrap'
+  | 'supplier_short'
   | 'sold';
 
 type Balances = Record<Bucket, number>;
@@ -33,6 +34,7 @@ function emptyBalances(): Balances {
     reserved: 0,
     assembly_wip: 0,
     scrap: 0,
+    supplier_short: 0,
     sold: 0,
   };
 }
@@ -43,6 +45,11 @@ function applyMovement(balances: Balances, movement: MovementLike): void {
   const qty = Number(movement.quantity);
 
   if (!Number.isFinite(qty) || qty <= 0) {
+    return;
+  }
+
+  // `supplier_short` is informational and not part of physical bucket balancing.
+  if (from === 'supplier_short' || to === 'supplier_short') {
     return;
   }
 

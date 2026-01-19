@@ -5,6 +5,7 @@ import { logger } from '@/lib/logger';
 import {
   buildReservedDeltaMap,
   buildSellableDeltaMap,
+  buildSellableReceiptCodeSet,
   getSellableOnHand,
   normalizeProductCode,
 } from '@/lib/inventory/movements';
@@ -45,6 +46,7 @@ type MovementRecord = {
     | 'reserved'
     | 'assembly_wip'
     | 'scrap'
+    | 'supplier_short'
     | 'sold';
   toBucket:
     | 'sellable'
@@ -52,6 +54,7 @@ type MovementRecord = {
     | 'reserved'
     | 'assembly_wip'
     | 'scrap'
+    | 'supplier_short'
     | 'sold';
 };
 
@@ -300,8 +303,16 @@ export async function POST(request: NextRequest) {
           productCode: { in: movementCodes },
         },
       })) as unknown as MovementRecord[];
-      const sellableDelta = buildSellableDeltaMap(movements);
-      const reservedDelta = buildReservedDeltaMap(movements);
+      const movementsForStockBalances = movements.filter(
+        (movement) =>
+          movement.toBucket !== 'supplier_short' &&
+          movement.fromBucket !== 'supplier_short'
+      );
+      const sellableDelta = buildSellableDeltaMap(movementsForStockBalances);
+      const reservedDelta = buildReservedDeltaMap(movementsForStockBalances);
+      const sellableReceiptCodes = buildSellableReceiptCodeSet(
+        movementsForStockBalances
+      );
 
       const transactions = await prisma.transaction.findMany({
         where: {
@@ -343,6 +354,7 @@ export async function POST(request: NextRequest) {
           sellableDeltaByProduct: sellableDelta,
           fallbackQuantity:
             productQuantityMap.get(normalizeProductCode(code)) ?? 0,
+          sellableReceiptCodes,
         });
 
       const bundleSellableSupplyBySku = new Map<string, number>();
@@ -465,8 +477,16 @@ export async function POST(request: NextRequest) {
         productCode: { in: movementCodes },
       },
     })) as unknown as MovementRecord[];
-    const sellableDelta = buildSellableDeltaMap(movements);
-    const reservedDelta = buildReservedDeltaMap(movements);
+    const movementsForStockBalances = movements.filter(
+      (movement) =>
+        movement.toBucket !== 'supplier_short' &&
+        movement.fromBucket !== 'supplier_short'
+    );
+    const sellableDelta = buildSellableDeltaMap(movementsForStockBalances);
+    const sellableReceiptCodes = buildSellableReceiptCodeSet(
+      movementsForStockBalances
+    );
+    const reservedDelta = buildReservedDeltaMap(movementsForStockBalances);
 
     const bundleProducts = bundleSkusThatUseProduct.length
       ? await prisma.product.findMany({
@@ -499,6 +519,7 @@ export async function POST(request: NextRequest) {
           productCode: bundleSku,
           sellableDeltaByProduct: sellableDelta,
           fallbackQuantity: bundleQuantityMap.get(normalizedSku) ?? 0,
+          sellableReceiptCodes,
         })
       );
     });
@@ -518,6 +539,7 @@ export async function POST(request: NextRequest) {
       productCode,
       sellableDeltaByProduct: sellableDelta,
       fallbackQuantity: product.quantity ?? 0,
+      sellableReceiptCodes,
     });
     const availableStock = onhand - totalOrder;
 

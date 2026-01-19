@@ -12,6 +12,7 @@ const movementSchema = z.object({
     'reserved',
     'assembly_wip',
     'scrap',
+    'supplier_short',
     'sold',
   ]),
   toBucket: z.enum([
@@ -20,6 +21,7 @@ const movementSchema = z.object({
     'reserved',
     'assembly_wip',
     'scrap',
+    'supplier_short',
     'sold',
   ]),
   postingDate: z.string().optional(),
@@ -29,7 +31,7 @@ const movementSchema = z.object({
 const movementPatchSchema = z.object({
   id: z.number().int().positive('id is required'),
   quantity: z.number().positive('quantity must be > 0').optional(),
-  toBucket: z.enum(['damaged_hold', 'scrap']).optional(),
+  toBucket: z.enum(['damaged_hold', 'scrap', 'supplier_short']).optional(),
   postingDate: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -126,13 +128,21 @@ export async function PATCH(request: Request) {
     }
 
     // Only allow editing adjustment-style movements (keeps behavior predictable).
+    const allowedDestinations = [
+      'damaged_hold',
+      'scrap',
+      'supplier_short',
+    ] as const;
     if (
       existing.fromBucket !== 'sellable' ||
-      (existing.toBucket !== 'damaged_hold' && existing.toBucket !== 'scrap')
+      !allowedDestinations.includes(
+        existing.toBucket as (typeof allowedDestinations)[number]
+      )
     ) {
       return NextResponse.json(
         {
-          error: 'Only sellable -> damaged_hold/scrap movements can be edited',
+          error:
+            'Only sellable -> damaged_hold/scrap/supplier_short movements can be edited',
         },
         { status: 400 }
       );
@@ -186,13 +196,21 @@ export async function DELETE(request: Request) {
     }
 
     // Only allow deleting adjustment-style movements.
+    const allowedDestinations = [
+      'damaged_hold',
+      'scrap',
+      'supplier_short',
+    ] as const;
     if (
       existing.fromBucket !== 'sellable' ||
-      (existing.toBucket !== 'damaged_hold' && existing.toBucket !== 'scrap')
+      !allowedDestinations.includes(
+        existing.toBucket as (typeof allowedDestinations)[number]
+      )
     ) {
       return NextResponse.json(
         {
-          error: 'Only sellable -> damaged_hold/scrap movements can be deleted',
+          error:
+            'Only sellable -> damaged_hold/scrap/supplier_short movements can be deleted',
         },
         { status: 400 }
       );
