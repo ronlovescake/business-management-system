@@ -11,8 +11,11 @@ const mockPrisma = vi.hoisted(() => ({
   },
   clothingInventoryTransitBuildEntry: {
     create: vi.fn(),
+    findMany: vi.fn(),
     findUnique: vi.fn(),
+    update: vi.fn(),
   },
+  $transaction: vi.fn(),
 }));
 
 vi.mock('@/lib/db', () => ({
@@ -34,6 +37,10 @@ describe('POST /api/shipments/[id]/transit-build', () => {
       { cogs: 100 },
       { cogs: 200 },
     ]);
+
+    mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue(
+      []
+    );
 
     mockPrisma.clothingInventoryTransitBuildEntry.create.mockResolvedValue({
       id: 'tb-1',
@@ -59,9 +66,11 @@ describe('POST /api/shipments/[id]/transit-build', () => {
     expect(response.status).toBe(200);
     expect(body.success).toBe(true);
     expect(body.data.wasDuplicate).toBe(false);
-    expect(body.data.amount).toBe(300);
-    expect(body.data.debitAccount).toBe('Inventory in Transit');
-    expect(body.data.creditAccount).toBe('Cash');
+    expect(body.data.expectedTotalAmount).toBe(300);
+    expect(body.data.entries).toHaveLength(1);
+    expect(body.data.entries[0].amount).toBe(300);
+    expect(body.data.entries[0].debitAccount).toBe('Inventory in Transit');
+    expect(body.data.entries[0].creditAccount).toBe('Cash');
 
     expect(
       mockPrisma.clothingInventoryTransitBuildEntry.create
@@ -75,6 +84,10 @@ describe('POST /api/shipments/[id]/transit-build', () => {
     });
 
     mockPrisma.product.findMany.mockResolvedValue([{ cogs: 300 }]);
+
+    mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue(
+      []
+    );
 
     mockPrisma.clothingInventoryTransitBuildEntry.create.mockRejectedValue({
       code: 'P2002',
@@ -103,7 +116,8 @@ describe('POST /api/shipments/[id]/transit-build', () => {
     expect(response.status).toBe(200);
     expect(body.success).toBe(true);
     expect(body.data.wasDuplicate).toBe(true);
-    expect(body.data.id).toBe('tb-existing');
+    expect(body.data.entries).toHaveLength(1);
+    expect(body.data.entries[0].id).toBe('tb-existing');
   });
 
   it('rejects invalid credit accounts', async () => {

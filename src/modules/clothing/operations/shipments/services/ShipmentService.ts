@@ -439,28 +439,34 @@ export class ShipmentService {
     shipmentId: number,
     input: {
       postingDate: Date;
-      creditAccount:
-        | 'Cash'
-        | 'Bank'
-        | 'E-Wallet'
-        | 'Accounts Payable'
-        | 'Forwarder Payable'
-        | 'Courier Payable';
+      paidAccount: 'Cash' | 'E-Wallet';
+      paidAmount: number;
+      forwarderEstimate: number;
+      courierEstimate: number;
       notes?: string;
     }
   ): Promise<{
-    id: string | null;
     shipmentId: number;
     shipmentCode: string;
     postingDate: string | null;
-    amount: number;
-    debitAccount: string;
-    creditAccount: string;
+    totalAmount: number;
+    expectedTotalAmount: number;
     wasDuplicate: boolean;
+    entries: Array<{
+      id: string | null;
+      amount: number;
+      debitAccount: string;
+      creditAccount: string;
+      idempotencyKey: string;
+      wasDuplicate: boolean;
+    }>;
   }> {
     return await api.post(`/api/shipments/${shipmentId}/transit-build`, {
       postingDate: this.formatDateForApi(input.postingDate),
-      creditAccount: input.creditAccount,
+      paidAccount: input.paidAccount,
+      paidAmount: input.paidAmount,
+      forwarderEstimate: input.forwarderEstimate,
+      courierEstimate: input.courierEstimate,
       notes: input.notes,
     });
   }

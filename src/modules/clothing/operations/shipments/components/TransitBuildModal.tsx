@@ -1,24 +1,30 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Modal, Stack, Group, Button, Select, Textarea } from '@mantine/core';
+import {
+  Modal,
+  Stack,
+  Group,
+  Button,
+  Select,
+  Textarea,
+  NumberInput,
+  Text,
+} from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { IconCurrencyPeso, IconBuildingBank } from '@tabler/icons-react';
 import { useForm } from '@mantine/form';
 import type { ShipmentData } from '../types/shipment.types';
 import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 
-type CreditAccountOption =
-  | 'Cash'
-  | 'Bank'
-  | 'E-Wallet'
-  | 'Accounts Payable'
-  | 'Forwarder Payable'
-  | 'Courier Payable';
+type PaidAccountOption = 'Cash' | 'E-Wallet';
 
 type TransitBuildFormValues = {
   postingDate: Date | null;
-  creditAccount: CreditAccountOption | '';
+  paidAccount: PaidAccountOption | '';
+  paidAmount: number;
+  forwarderEstimate: number;
+  courierEstimate: number;
   notes: string;
 };
 
@@ -28,7 +34,10 @@ interface TransitBuildModalProps {
   shipment: ShipmentData | null;
   onSubmit: (input: {
     postingDate: Date;
-    creditAccount: CreditAccountOption;
+    paidAccount: PaidAccountOption;
+    paidAmount: number;
+    forwarderEstimate: number;
+    courierEstimate: number;
     notes?: string;
   }) => Promise<boolean>;
 }
@@ -41,31 +50,15 @@ export function TransitBuildModal({
 }: TransitBuildModalProps) {
   const shipmentCode = (shipment?.['Shipment Code'] ?? '').trim();
 
-  const creditOptions = useMemo(
+  const paidAccountOptions = useMemo(
     () => [
       {
         value: 'Cash',
-        label: 'Cash',
-      },
-      {
-        value: 'Bank',
-        label: 'Bank',
+        label: 'Cash (Bank + GCash)',
       },
       {
         value: 'E-Wallet',
         label: 'E-Wallet',
-      },
-      {
-        value: 'Accounts Payable',
-        label: 'Accounts Payable',
-      },
-      {
-        value: 'Forwarder Payable',
-        label: 'Forwarder Payable',
-      },
-      {
-        value: 'Courier Payable',
-        label: 'Courier Payable',
       },
     ],
     []
@@ -74,12 +67,27 @@ export function TransitBuildModal({
   const form = useForm<TransitBuildFormValues>({
     initialValues: {
       postingDate: new Date(),
-      creditAccount: 'Cash',
+      paidAccount: 'Cash',
+      paidAmount: 0,
+      forwarderEstimate: 0,
+      courierEstimate: 0,
       notes: '',
     },
     validate: {
       postingDate: (value) => (!value ? 'Posting date is required.' : null),
-      creditAccount: (value) => (!value ? 'Choose a credit account.' : null),
+      paidAccount: (value) => (!value ? 'Choose a paid account.' : null),
+      paidAmount: (value) =>
+        !Number.isFinite(value) || value < 0
+          ? 'Paid amount must be 0 or greater.'
+          : null,
+      forwarderEstimate: (value) =>
+        !Number.isFinite(value) || value < 0
+          ? 'Forwarder estimate must be 0 or greater.'
+          : null,
+      courierEstimate: (value) =>
+        !Number.isFinite(value) || value < 0
+          ? 'Courier estimate must be 0 or greater.'
+          : null,
     },
   });
 
@@ -89,15 +97,42 @@ export function TransitBuildModal({
     }
 
     const postingDate = values.postingDate;
-    const creditAccount = values.creditAccount;
+    const paidAccount = values.paidAccount;
 
-    if (!postingDate || !creditAccount) {
+    if (!postingDate || !paidAccount) {
+      return;
+    }
+
+    const paidAmount = Number(values.paidAmount ?? 0);
+    const forwarderEstimate = Number(values.forwarderEstimate ?? 0);
+    const courierEstimate = Number(values.courierEstimate ?? 0);
+
+    if (
+      !Number.isFinite(paidAmount) ||
+      !Number.isFinite(forwarderEstimate) ||
+      !Number.isFinite(courierEstimate)
+    ) {
+      return;
+    }
+
+    if (paidAmount < 0 || forwarderEstimate < 0 || courierEstimate < 0) {
+      return;
+    }
+
+    if (paidAmount + forwarderEstimate + courierEstimate <= 0) {
+      form.setFieldError(
+        'paidAmount',
+        'Enter at least one amount (paid/forwarder/courier).'
+      );
       return;
     }
 
     const ok = await onSubmit({
       postingDate,
-      creditAccount,
+      paidAccount,
+      paidAmount,
+      forwarderEstimate,
+      courierEstimate,
       notes: values.notes?.trim() ? values.notes.trim() : undefined,
     });
 
@@ -120,13 +155,46 @@ export function TransitBuildModal({
       <form onSubmit={form.onSubmit(handleSubmit)}>
         <Stack gap="md">
           <Select
-            label="Credit Account"
-            placeholder="Select credit account"
+            label="Paid From"
+            placeholder="Select paid account"
             required
-            data={creditOptions}
+            data={paidAccountOptions}
             leftSection={<IconBuildingBank size={16} />}
-            {...form.getInputProps('creditAccount')}
+            {...form.getInputProps('paidAccount')}
           />
+
+          <NumberInput
+            label="Paid Amount (Supplier + Alibaba)"
+            description="This is the portion already paid now."
+            prefix="₱ "
+            decimalScale={2}
+            min={0}
+            {...form.getInputProps('paidAmount')}
+          />
+
+          <NumberInput
+            label="Forwarder Estimate (Unpaid)"
+            description="Creates: Dr Inventory in Transit / Cr Forwarder Payable"
+            prefix="₱ "
+            decimalScale={2}
+            min={0}
+            {...form.getInputProps('forwarderEstimate')}
+          />
+
+          <NumberInput
+            label="Courier Estimate (Unpaid)"
+            description="Creates: Dr Inventory in Transit / Cr Courier Payable"
+            prefix="₱ "
+            decimalScale={2}
+            min={0}
+            {...form.getInputProps('courierEstimate')}
+          />
+
+          <Text size="sm" c="dimmed">
+            Note: The system computes the shipment total from linked Products
+            (sum of Product COGS). Your Paid + Forwarder + Courier amounts must
+            equal that total.
+          </Text>
 
           <DateInput
             label="Posting Date"

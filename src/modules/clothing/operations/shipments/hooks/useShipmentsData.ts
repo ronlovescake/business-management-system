@@ -276,13 +276,10 @@ export function useShipmentsData() {
       shipmentId: number;
       input: {
         postingDate: Date;
-        creditAccount:
-          | 'Cash'
-          | 'Bank'
-          | 'E-Wallet'
-          | 'Accounts Payable'
-          | 'Forwarder Payable'
-          | 'Courier Payable';
+        paidAccount: 'Cash' | 'E-Wallet';
+        paidAmount: number;
+        forwarderEstimate: number;
+        courierEstimate: number;
         notes?: string;
       };
     }) => {
@@ -380,13 +377,10 @@ export function useShipmentsData() {
     shipmentId: number,
     input: {
       postingDate: Date;
-      creditAccount:
-        | 'Cash'
-        | 'Bank'
-        | 'E-Wallet'
-        | 'Accounts Payable'
-        | 'Forwarder Payable'
-        | 'Courier Payable';
+      paidAccount: 'Cash' | 'E-Wallet';
+      paidAmount: number;
+      forwarderEstimate: number;
+      courierEstimate: number;
       notes?: string;
     }
   ): Promise<boolean> => {
