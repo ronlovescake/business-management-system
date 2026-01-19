@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import type { Prisma, Transaction } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import { PAID_STATUSES } from '@/lib/accounting/constants';
 import { isFulfilledStatus, isReservedStatus } from '@/lib/inventory/statuses';
 import { logger } from '@/lib/logger';
 import { getCurrentUser } from '@/lib/auth/session';
@@ -390,6 +391,74 @@ function buildUpdatePayload(values: TransactionUpdateRecord['values']) {
   return data;
 }
 
+function normalizeStatus(value: string | null | undefined): string {
+  return (value ?? '').trim().toLowerCase();
+}
+
+function isPaidStatus(value: string | null | undefined): boolean {
+  const normalized = normalizeStatus(value);
+  return PAID_STATUSES.some((status) => normalizeStatus(status) === normalized);
+}
+
+function toFiniteNumber(value: unknown, fallback = 0): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function computeRemainingBalance(params: {
+  lineTotal: unknown;
+  quantity: unknown;
+  unitPrice: unknown;
+  discount: unknown;
+  adjustment: unknown;
+}): number {
+  const lineTotal = toFiniteNumber(params.lineTotal, Number.NaN);
+  if (Number.isFinite(lineTotal)) {
+    return lineTotal;
+  }
+
+  const quantity = toFiniteNumber(params.quantity, 0);
+  const unitPrice = toFiniteNumber(params.unitPrice, 0);
+  const discount = toFiniteNumber(params.discount, 0);
+  const adjustment = toFiniteNumber(params.adjustment, 0);
+
+  return quantity * unitPrice - discount - adjustment;
+}
+
+type ExistingTransactionForPaidStatusCheck = Pick<
+  Transaction,
+  'lineTotal' | 'quantity' | 'unitPrice' | 'discount' | 'adjustment'
+>;
+
+function assertCanSetPaidStatus(params: {
+  nextStatus: string | null | undefined;
+  existing: ExistingTransactionForPaidStatusCheck;
+  updateValues: TransactionUpdateRecord['values'];
+}) {
+  const { nextStatus, existing, updateValues } = params;
+
+  if (!isPaidStatus(nextStatus)) {
+    return;
+  }
+
+  const remaining = computeRemainingBalance({
+    lineTotal: updateValues['Line Total'] ?? existing.lineTotal,
+    quantity: updateValues.Quantity ?? existing.quantity,
+    unitPrice: updateValues['Unit Price'] ?? existing.unitPrice,
+    discount: updateValues.Discount ?? existing.discount,
+    adjustment: updateValues.Adjustment ?? existing.adjustment,
+  });
+
+  const EPS = 0.01;
+  if (remaining > EPS) {
+    throw new TransactionValidationError(
+      `Cannot set Order Status to "${nextStatus}" while balance is unpaid (remaining: ${remaining.toFixed(
+        2
+      )}). Record full payment first, or use "Pending Payment" for shipped-but-unpaid orders.`
+    );
+  }
+}
+
 function describeChange(
   field: string,
   oldValue: unknown,
@@ -442,7 +511,15 @@ function buildAutoReserveMovementNote(transactionId: number) {
 
 type TransactionForInventorySync = Pick<
   Transaction,
-  'id' | 'productCode' | 'quantity' | 'orderDate' | 'orderStatus' | 'adjustment'
+  | 'id'
+  | 'productCode'
+  | 'quantity'
+  | 'unitPrice'
+  | 'discount'
+  | 'lineTotal'
+  | 'orderDate'
+  | 'orderStatus'
+  | 'adjustment'
 >;
 
 type AutoMovementRecord = {
@@ -482,6 +559,10 @@ async function setAutoMovementActive(params: {
     note,
   } = params;
 
+  const now = new Date();
+
+  let activeId: number | null = null;
+
   if (existing) {
     await client.inventoryMovement.update({
       where: { id: existing.id },
@@ -495,32 +576,47 @@ async function setAutoMovementActive(params: {
         notes: note,
       },
     });
-    return;
+
+    activeId = existing.id;
+  } else {
+    const created = await client.inventoryMovement.create({
+      data: {
+        productCode,
+        quantity,
+        fromBucket,
+        toBucket,
+        postingDate,
+        notes: note,
+      },
+      select: { id: true },
+    });
+
+    activeId = created.id;
   }
 
-  await client.inventoryMovement.create({
-    data: {
-      productCode,
-      quantity,
-      fromBucket,
-      toBucket,
-      postingDate,
-      notes: note,
-    },
-  });
+  // Historical bug/behavior: some workspaces may contain multiple auto movements for the
+  // same txn note. Accounting reads all non-deleted movements, so we must ensure only one
+  // remains active.
+  if (activeId) {
+    await client.inventoryMovement.updateMany({
+      where: {
+        notes: note,
+        deletedAt: null,
+        NOT: { id: activeId },
+      },
+      data: { deletedAt: now },
+    });
+    return;
+  }
 }
 
 async function setAutoMovementInactive(params: {
   client: Prisma.TransactionClient | typeof prisma;
-  existing: AutoMovementRecord | null;
+  note: string;
 }) {
-  const { client, existing } = params;
-  if (!existing || existing.deletedAt) {
-    return;
-  }
-
-  await client.inventoryMovement.update({
-    where: { id: existing.id },
+  const { client, note } = params;
+  await client.inventoryMovement.updateMany({
+    where: { notes: note, deletedAt: null },
     data: { deletedAt: new Date() },
   });
 }
@@ -543,8 +639,8 @@ async function syncInventoryMovementsForTransaction(
   // If SKU/qty is invalid, ensure our auto-movements are inactive.
   if (!productCode || quantity <= 0) {
     await Promise.all([
-      setAutoMovementInactive({ client, existing: existingReserve }),
-      setAutoMovementInactive({ client, existing: existingSale }),
+      setAutoMovementInactive({ client, note: reserveNote }),
+      setAutoMovementInactive({ client, note: saleNote }),
     ]);
     return;
   }
@@ -552,9 +648,20 @@ async function syncInventoryMovementsForTransaction(
   const postingDate = transaction.orderDate ?? null;
   const reserved = isReservedStatus(transaction.orderStatus);
   const paidAmount = transaction.adjustment ?? 0;
+
+  const remaining = computeRemainingBalance({
+    lineTotal: transaction.lineTotal,
+    quantity: transaction.quantity,
+    unitPrice: transaction.unitPrice,
+    discount: transaction.discount,
+    adjustment: transaction.adjustment,
+  });
+  const fullyPaid = remaining <= 0.01;
+
   const treatedAsFulfilledBecausePaidAndPrepared =
     (transaction.orderStatus ?? '').trim().toLowerCase() === 'prepared' &&
-    paidAmount > 0;
+    paidAmount > 0 &&
+    fullyPaid;
 
   // Ops workflow: "Ready For Dispatch" / "Checked Out" implies shipped the same day.
   // This is why we treat fulfilled statuses as the trigger to create the sale movement
@@ -583,7 +690,7 @@ async function syncInventoryMovementsForTransaction(
       note: reserveNote,
     });
   } else {
-    await setAutoMovementInactive({ client, existing: existingReserve });
+    await setAutoMovementInactive({ client, note: reserveNote });
   }
 
   const reserveIsActive = shouldKeepReserveActive;
@@ -604,7 +711,7 @@ async function syncInventoryMovementsForTransaction(
       note: saleNote,
     });
   } else {
-    await setAutoMovementInactive({ client, existing: existingSale });
+    await setAutoMovementInactive({ client, note: saleNote });
   }
 }
 
@@ -756,6 +863,9 @@ export const transactionService: TransactionService = {
         id: true,
         productCode: true,
         quantity: true,
+        unitPrice: true,
+        discount: true,
+        lineTotal: true,
         orderDate: true,
         orderStatus: true,
         adjustment: true,
@@ -832,6 +942,14 @@ export const transactionService: TransactionService = {
           }
 
           const dbData = buildUpdatePayload(update.values);
+
+          if (update.values['Order Status'] !== undefined) {
+            assertCanSetPaidStatus({
+              nextStatus: update.values['Order Status'],
+              existing,
+              updateValues: update.values,
+            });
+          }
           const changes: string[] = [];
 
           if (update.values['Order Date'] !== undefined) {
@@ -1011,6 +1129,14 @@ export const transactionService: TransactionService = {
 
     if (!existing) {
       throw new TransactionNotFoundError('Transaction not found');
+    }
+
+    if (update.values['Order Status'] !== undefined) {
+      assertCanSetPaidStatus({
+        nextStatus: update.values['Order Status'],
+        existing,
+        updateValues: update.values,
+      });
     }
 
     const dbData = buildUpdatePayload(update.values);

@@ -278,7 +278,7 @@ export function TransactionPaymentsModal({
                       verticalAlign: 'middle',
                     }}
                   >
-                    Product
+                    Product Code
                   </Table.Th>
                   <Table.Th
                     style={{
@@ -287,7 +287,7 @@ export function TransactionPaymentsModal({
                       verticalAlign: 'middle',
                     }}
                   >
-                    Qty
+                    Quantity
                   </Table.Th>
                   <Table.Th
                     style={{
@@ -296,7 +296,25 @@ export function TransactionPaymentsModal({
                       verticalAlign: 'middle',
                     }}
                   >
-                    Paid (Adj)
+                    Unit Price
+                  </Table.Th>
+                  <Table.Th
+                    style={{
+                      width: 120,
+                      textAlign: 'center',
+                      verticalAlign: 'middle',
+                    }}
+                  >
+                    Payment
+                  </Table.Th>
+                  <Table.Th
+                    style={{
+                      width: 140,
+                      textAlign: 'center',
+                      verticalAlign: 'middle',
+                    }}
+                  >
+                    Balance Due
                   </Table.Th>
                   <Table.Th
                     style={{
@@ -313,7 +331,18 @@ export function TransactionPaymentsModal({
                 {eligibleTransactions.map((t) => {
                   const id = t.id as number;
                   const paidSoFar = Number(t.Adjustment) || 0;
+                  const quantity = Number(t.Quantity) || 0;
+                  const unitPrice = Number(t['Unit Price']) || 0;
+                  const lineTotalRaw = Number(t['Line Total']);
+                  const discount = Number(t['Discount']) || 0;
+                  const baseTotal = Number.isFinite(lineTotalRaw)
+                    ? lineTotalRaw
+                    : quantity * unitPrice - discount;
                   const current = amountByTransactionId[id] ?? 0;
+                  const balanceDue = Math.max(
+                    baseTotal - paidSoFar - current,
+                    0
+                  );
 
                   return (
                     <Table.Tr key={id}>
@@ -330,7 +359,17 @@ export function TransactionPaymentsModal({
                       <Table.Td
                         style={{ textAlign: 'right', verticalAlign: 'middle' }}
                       >
+                        ₱{unitPrice.toLocaleString()}
+                      </Table.Td>
+                      <Table.Td
+                        style={{ textAlign: 'right', verticalAlign: 'middle' }}
+                      >
                         ₱{paidSoFar.toLocaleString()}
+                      </Table.Td>
+                      <Table.Td
+                        style={{ textAlign: 'right', verticalAlign: 'middle' }}
+                      >
+                        ₱{balanceDue.toLocaleString()}
                       </Table.Td>
                       <Table.Td
                         style={{ textAlign: 'right', verticalAlign: 'middle' }}

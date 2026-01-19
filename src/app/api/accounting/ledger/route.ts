@@ -29,6 +29,22 @@ export const dynamic = 'force-dynamic';
 // Only show ledger activity from the accounting cutover date forward.
 const CUTOVER = getAccountingCutoverDate();
 
+function isCancelledStatus(value: string | null | undefined): boolean {
+  const normalized = (value ?? '').trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return (
+    normalized === 'cancelled' ||
+    normalized === 'canceled' ||
+    normalized === 'void' ||
+    normalized === 'voided' ||
+    normalized.includes('cancel') ||
+    normalized.includes('void')
+  );
+}
+
 function clampFrom(from: Date | null): Date {
   if (!from) {
     return CUTOVER;
@@ -186,6 +202,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const paymentEntries = payments
     .map((payment) => {
+      if (isCancelledStatus(payment.transaction?.orderStatus)) {
+        return null;
+      }
+
       const paymentAt = parseDate(payment.paymentDate);
       if (!isWithinDateRange(paymentAt, effectiveFrom, effectiveTo)) {
         return null;
@@ -199,14 +219,17 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       const dateStr = (paymentAt ?? new Date()).toISOString();
       const idBase = `PM-${payment.id}`;
       const productRef = (payment.transaction?.productCode ?? '').trim();
-      const ref = productRef || `TX-${payment.transactionId}`;
+      const ref = `TX-${payment.transactionId}`;
       const customer = (payment.transaction?.customers ?? '').trim();
 
       const method = (payment.method ?? '').trim();
       const notes = (payment.notes ?? '').trim();
       const suffix = [method, notes].filter(Boolean).join(' • ');
-      const descriptionBase =
-        customer || `Payment for TX-${payment.transactionId}`;
+      const baseParts = [customer || `Payment for TX-${payment.transactionId}`];
+      if (productRef) {
+        baseParts.push(productRef);
+      }
+      const descriptionBase = baseParts.join(' • ');
       const description = suffix
         ? `${descriptionBase} • ${suffix}`
         : descriptionBase;
@@ -246,6 +269,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const legacyTxEntries = transactions
     .filter((tx) => !paymentTransactionIds.has(tx.id))
     .map((tx) => {
+      if (isCancelledStatus(tx.orderStatus)) {
+        return null;
+      }
+
       const { paymentReceived } = normalizeTransactionAmountsForAccounting(tx);
       const amount = paymentReceived;
 

@@ -6,12 +6,15 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import { ProfitLossStatsCards } from './components/ProfitLossStatsCards';
 import { ProfitLossControls } from './components/ProfitLossControls';
 import { ProfitLossTable } from './components/ProfitLossTable';
+import { ProfitLossDetailsTable } from './components/ProfitLossDetailsTable';
 import { useProfitLoss } from './hooks/useProfitLoss';
 
 export default function ProfitLossPage() {
   const {
     rows,
     filteredRows,
+    detailRows,
+    filteredDetailRows,
     stats,
     period,
     setPeriod,
@@ -21,6 +24,7 @@ export default function ProfitLossPage() {
     setActiveTab,
     formatCurrency,
     handleExportCSV,
+    handleExportDetailsCSV,
     handleDownloadTemplate,
   } = useProfitLoss();
 
@@ -45,14 +49,23 @@ export default function ProfitLossPage() {
           period={period}
           onPeriodChange={setPeriod}
           onExportCSV={handleExportCSV}
+          onExportDetailsCSV={handleExportDetailsCSV}
           onDownloadTemplate={handleDownloadTemplate}
         />
 
-        <ProfitLossTable
-          rows={rows}
-          filteredRows={filteredRows}
-          formatCurrency={formatCurrency}
-        />
+        {activeTab === 'details' ? (
+          <ProfitLossDetailsTable
+            rows={detailRows}
+            filteredRows={filteredDetailRows}
+            formatCurrency={formatCurrency}
+          />
+        ) : (
+          <ProfitLossTable
+            rows={rows}
+            filteredRows={filteredRows}
+            formatCurrency={formatCurrency}
+          />
+        )}
       </Stack>
     </PageLayout>
   );

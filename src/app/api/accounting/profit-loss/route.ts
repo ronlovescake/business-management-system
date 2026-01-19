@@ -25,6 +25,22 @@ export const dynamic = 'force-dynamic';
 
 const CUTOVER = getAccountingCutoverDate();
 
+function isCancelledStatus(value: string | null | undefined): boolean {
+  const normalized = (value ?? '').trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return (
+    normalized === 'cancelled' ||
+    normalized === 'canceled' ||
+    normalized === 'void' ||
+    normalized === 'voided' ||
+    normalized.includes('cancel') ||
+    normalized.includes('void')
+  );
+}
+
 function clampFrom(from: Date | null): Date {
   if (!from) {
     return CUTOVER;
@@ -50,6 +66,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const paymentTransactionIds = new Set(payments.map((p) => p.transactionId));
 
   const paymentRevenueTotal = payments.reduce((sum, payment) => {
+    if (isCancelledStatus(payment.transaction?.orderStatus)) {
+      return sum;
+    }
+
     const paymentAt = parseDate(payment.paymentDate);
     if (!isWithinDateRange(paymentAt, effectiveFrom, effectiveTo)) {
       return sum;
@@ -65,6 +85,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const transactionsWithPaidAt = transactions
     .filter((tx) => !paymentTransactionIds.has(tx.id))
+    .filter((tx) => !isCancelledStatus(tx.orderStatus))
     .map((tx) => {
       const paidAt = getPaidAtDate(tx);
       return { ...tx, paidAt };

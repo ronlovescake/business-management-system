@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { IconList } from '@tabler/icons-react';
+import { IconList, IconTable } from '@tabler/icons-react';
 import {
   ControlPanelCard,
   type ControlPanelTabConfig,
@@ -19,6 +19,7 @@ interface ProfitLossControlsProps {
   period: ProfitLossPeriodOption;
   onPeriodChange: (period: ProfitLossPeriodOption) => void;
   onExportCSV: () => void;
+  onExportDetailsCSV: () => void;
   onDownloadTemplate: () => void;
 }
 
@@ -30,11 +31,16 @@ export const ProfitLossControls = memo(function ProfitLossControls({
   period,
   onPeriodChange,
   onExportCSV,
+  onExportDetailsCSV,
   onDownloadTemplate,
 }: ProfitLossControlsProps) {
   useCtrlFFocus(
     '[data-ctrlf-target="profit-loss-controls-search"]',
     activeTab === 'list'
+  );
+  useCtrlFFocus(
+    '[data-ctrlf-target="profit-loss-details-controls-search"]',
+    activeTab === 'details'
   );
 
   const tabs: ControlPanelTabConfig[] = [
@@ -63,6 +69,34 @@ export const ProfitLossControls = memo(function ProfitLossControls({
           selectWidth={220}
           onExport={onExportCSV}
           onDownloadTemplate={onDownloadTemplate}
+        />
+      ),
+    },
+    {
+      value: 'details',
+      label: 'Details',
+      leftSection: <IconTable size={16} />,
+      panel: (
+        <AccountingSearchSelectExportTabPanel
+          searchPlaceholder="Search details..."
+          searchQuery={searchQuery}
+          onSearchChange={onSearchChange}
+          searchCtrlFTarget="profit-loss-details-controls-search"
+          selectPlaceholder="Select period"
+          selectOptions={PROFIT_LOSS_PERIOD_OPTIONS}
+          selectValue={period}
+          onSelectChange={(value) => {
+            if (
+              PROFIT_LOSS_PERIOD_OPTIONS.includes(
+                value as ProfitLossPeriodOption
+              )
+            ) {
+              onPeriodChange(value as ProfitLossPeriodOption);
+            }
+          }}
+          selectWidth={220}
+          exportLabel="Export Details"
+          onExport={onExportDetailsCSV}
         />
       ),
     },

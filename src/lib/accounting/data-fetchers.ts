@@ -43,6 +43,7 @@ type TransactionPaymentWithTransaction = {
     id: number;
     customers: string | null;
     productCode: string | null;
+    orderStatus: string | null;
   };
 };
 
@@ -148,6 +149,7 @@ export async function fetchTransactionRefunds(): Promise<
           id: true,
           customers: true,
           productCode: true,
+          orderStatus: true,
         },
       },
     },
@@ -189,6 +191,7 @@ export async function fetchTransactionPayments(): Promise<
           id: true,
           customers: true,
           productCode: true,
+          orderStatus: true,
         },
       },
     },

@@ -1457,9 +1457,18 @@ export function useTransactionModals(
                     normalizeName(nameVariant)
                   )
               );
-              const orderStatus = isInDispatch
-                ? 'Checked Out'
-                : 'Ready For Dispatch';
+
+              const remainingBalance = Number(t['Line Total']) || 0;
+
+              // Business rule:
+              // - Paid/shipping statuses imply FULLY paid.
+              // - If we ship before payment, use "Pending Payment".
+              const orderStatus =
+                remainingBalance > 0
+                  ? 'Pending Payment'
+                  : isInDispatch
+                    ? 'Checked Out'
+                    : 'Ready For Dispatch';
 
               logger.info(
                 `Customer "${customerName}": ${isInDispatch ? '✅ FOUND in dispatch' : '❌ NOT in dispatch'} → Status: ${orderStatus}`

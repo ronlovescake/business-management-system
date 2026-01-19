@@ -20,6 +20,21 @@ export type ProfitLossRow = {
   amount: number;
 };
 
+export type ProfitLossDetailRow = {
+  id: string;
+  date: string;
+  category: string;
+  type: 'Revenue' | 'Expense';
+  sourceType: string;
+  sourceId: string | null;
+  ref: string | null;
+  description: string;
+  amount: number;
+  customer: string | null;
+  productCode: string | null;
+  method: string | null;
+};
+
 export type ProfitLossStats = {
   revenueTotal: number;
   cogsTotal: number;
@@ -37,11 +52,17 @@ type ProfitLossApiResponse = {
   stats: ProfitLossStats;
 };
 
+type ProfitLossDetailsApiResponse = {
+  rows: ProfitLossDetailRow[];
+  period: string;
+};
+
 export function useProfitLoss() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<string | null>('list');
   const [period, setPeriod] = useState<ProfitLossPeriodOption>('All Time');
   const [rows, setRows] = useState<ProfitLossRow[]>([]);
+  const [detailRows, setDetailRows] = useState<ProfitLossDetailRow[]>([]);
   const [stats, setStats] = useState<ProfitLossStats>({
     revenueTotal: 0,
     cogsTotal: 0,
@@ -100,6 +121,52 @@ export function useProfitLoss() {
     };
   }, [period]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fetchProfitLossDetails() {
+      if (activeTab !== 'details') {
+        return;
+      }
+
+      try {
+        const qs = buildPeriodSearchParams(period).toString();
+        const res = await fetch(
+          qs
+            ? `/api/accounting/profit-loss/details?${qs}`
+            : '/api/accounting/profit-loss/details'
+        );
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        const payload =
+          (await res.json()) as ApiResponse<ProfitLossDetailsApiResponse>;
+        const data = getApiDataOrThrow(payload, 'Failed to load P&L details');
+
+        if (!isMounted) {
+          return;
+        }
+
+        setDetailRows(data.rows ?? []);
+      } catch (error) {
+        logger.warn('Profit & Loss details fetch failed, showing empty data', {
+          error,
+        });
+        if (!isMounted) {
+          return;
+        }
+        setDetailRows([]);
+      }
+    }
+
+    fetchProfitLossDetails();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeTab, period]);
+
   const filteredRows = useMemo(() => {
     const search = searchQuery.trim().toLowerCase();
     return rows
@@ -117,6 +184,30 @@ export function useProfitLoss() {
           a.type.localeCompare(b.type) || a.category.localeCompare(b.category)
       );
   }, [rows, searchQuery]);
+
+  const filteredDetailRows = useMemo(() => {
+    const search = searchQuery.trim().toLowerCase();
+    return detailRows.filter((row) => {
+      if (search === '') {
+        return true;
+      }
+
+      const haystack = [
+        row.category,
+        row.type,
+        row.description,
+        row.sourceType,
+        row.ref ?? '',
+        row.customer ?? '',
+        row.productCode ?? '',
+        row.method ?? '',
+      ]
+        .join(' ')
+        .toLowerCase();
+
+      return haystack.includes(search);
+    });
+  }, [detailRows, searchQuery]);
 
   const derivedStats: ProfitLossStats = useMemo(() => {
     const revenueTotal = rows
@@ -154,6 +245,39 @@ export function useProfitLoss() {
     downloadCsvFile('profit-loss.csv', csvContent);
   };
 
+  const handleExportDetailsCSV = () => {
+    const headers = [
+      'Date',
+      'Type',
+      'Category',
+      'Description',
+      'Amount',
+      'Customer',
+      'Product Code',
+      'Method',
+      'Ref',
+      'Source Type',
+      'Source ID',
+    ];
+
+    const rowsData = detailRows.map((row) => [
+      escapeCsvValue(row.date),
+      escapeCsvValue(row.type),
+      escapeCsvValue(row.category),
+      escapeCsvValue(row.description),
+      escapeCsvValue(row.amount.toFixed(2)),
+      escapeCsvValue(row.customer ?? ''),
+      escapeCsvValue(row.productCode ?? ''),
+      escapeCsvValue(row.method ?? ''),
+      escapeCsvValue(row.ref ?? ''),
+      escapeCsvValue(row.sourceType),
+      escapeCsvValue(row.sourceId ?? ''),
+    ]);
+
+    const csvContent = buildCsvContent(headers, rowsData);
+    downloadCsvFile('profit-loss_details.csv', csvContent);
+  };
+
   const handleDownloadTemplate = () => {
     const date = getCurrentDateISO();
     downloadCsvTemplateFile(`profit-loss_template_${date}.csv`, [
@@ -168,6 +292,8 @@ export function useProfitLoss() {
   return {
     rows,
     filteredRows,
+    detailRows,
+    filteredDetailRows,
     stats: effectiveStats,
     period,
     setPeriod,
@@ -177,6 +303,7 @@ export function useProfitLoss() {
     setActiveTab,
     formatCurrency,
     handleExportCSV,
+    handleExportDetailsCSV,
     handleDownloadTemplate,
   };
 }
