@@ -96,7 +96,16 @@ export async function fetchRecognizedTransactions(): Promise<
 
   const baseWhere = {
     deletedAt: null,
-    orderStatus: { in: [...recognizedStatuses] },
+    NOT: {
+      orderStatus: { in: ['Cancelled', 'Canceled'] },
+    },
+    OR: [
+      { orderStatus: { in: [...recognizedStatuses] } },
+      // Cash-basis support: include any transaction that has recorded payment
+      // so Balance Sheet cash reflects actual receipts even if ops status is
+      // not tagged as Pending Payment / Paid yet.
+      { adjustment: { gt: 0 } },
+    ],
   };
 
   try {

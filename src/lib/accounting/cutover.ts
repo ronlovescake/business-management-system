@@ -1,4 +1,4 @@
-const DEFAULT_ACCOUNTING_CUTOVER = new Date(Date.UTC(2026, 0, 1));
+const DEFAULT_ACCOUNTING_CUTOVER = new Date(Date.UTC(2026, 0, 17));
 
 function parseCutoverDate(raw: string): Date | null {
   const trimmed = raw.trim();
@@ -44,7 +44,7 @@ function parseCutoverDate(raw: string): Date | null {
  * Accounting cutover date in UTC midnight.
  *
  * Configure via env var `ACCOUNTING_CUTOVER_DATE` in `YYYY-MM-DD`.
- * Defaults to 2026-01-01.
+ * Defaults to 2026-01-17.
  */
 export function getAccountingCutoverDate(): Date {
   const raw = process.env.ACCOUNTING_CUTOVER_DATE;
