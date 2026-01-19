@@ -69,6 +69,8 @@ export function ManualJournalEntryModal({
         'Stock on Hand',
         'Inventory in Transit',
         'Accounts Payable',
+        'Forwarder Payable',
+        'Courier Payable',
         'Credit Card Payable',
         'Loan Payable',
         'Opening Equity',

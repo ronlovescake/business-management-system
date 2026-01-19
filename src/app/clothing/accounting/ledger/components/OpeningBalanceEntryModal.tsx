@@ -77,6 +77,8 @@ export function OpeningBalanceEntryModal({
         'Opening Equity',
         'Accounts Receivable',
         'Accounts Payable',
+        'Forwarder Payable',
+        'Courier Payable',
         'Credit Card Payable',
         'Loan Payable',
       ])

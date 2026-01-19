@@ -29,6 +29,8 @@ const ACCOUNT_MAP: Record<AccountType, Set<string>> = {
     'accrued freight',
     'accrued expense',
     'accrued expenses',
+    'forwarder payable',
+    'courier payable',
     'credit card',
     'credit card payable',
     'card payable',

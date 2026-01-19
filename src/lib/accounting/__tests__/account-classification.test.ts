@@ -15,6 +15,14 @@ describe('account classification', () => {
     expect(detectAccountType('Loan Payable – GCASH 1')).toBe('Liability');
   });
 
+  it('classifies courier/forwarder payables as liabilities', () => {
+    expect(detectAccountType('Forwarder Payable')).toBe('Liability');
+    expect(detectAccountType('Courier Payable')).toBe('Liability');
+    expect(detectAccountType('Forwarder Payable – KPC 23930A-00222')).toBe(
+      'Liability'
+    );
+  });
+
   it('classifies owner contribution as equity', () => {
     expect(detectAccountType('Owner Contribution')).toBe('Equity');
   });

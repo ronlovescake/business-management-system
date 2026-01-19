@@ -12,6 +12,8 @@ const ALLOWED_CREDIT_ACCOUNTS = new Set([
   'Bank',
   'E-Wallet',
   'Accounts Payable',
+  'Forwarder Payable',
+  'Courier Payable',
 ]);
 
 type RouteContext = { params: { id: string } };

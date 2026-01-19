@@ -211,6 +211,29 @@ export function useLedger() {
   const accounts = useMemo(() => {
     const set = new Set<string>();
     entries.forEach((e) => set.add(e.account));
+
+    // Ensure common accounts are available in dropdowns even before any
+    // transactions exist for them.
+    [
+      'Cash',
+      'Accounts Receivable',
+      'Stock on Hand',
+      'Inventory in Transit',
+      'Accounts Payable',
+      'Forwarder Payable',
+      'Courier Payable',
+      'Credit Card Payable',
+      'Loan Payable',
+      'Opening Equity',
+      'Owner Contribution',
+      'Owner Draw',
+      'Sales Revenue',
+      'Sales Returns',
+      'COGS',
+      'Inventory Shrinkage',
+      'Interest Expense',
+    ].forEach((account) => set.add(account));
+
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [entries]);
 

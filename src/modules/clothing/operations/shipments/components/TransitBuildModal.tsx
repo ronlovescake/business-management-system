@@ -8,7 +8,13 @@ import { useForm } from '@mantine/form';
 import type { ShipmentData } from '../types/shipment.types';
 import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 
-type CreditAccountOption = 'Cash' | 'Bank' | 'E-Wallet' | 'Accounts Payable';
+type CreditAccountOption =
+  | 'Cash'
+  | 'Bank'
+  | 'E-Wallet'
+  | 'Accounts Payable'
+  | 'Forwarder Payable'
+  | 'Courier Payable';
 
 type TransitBuildFormValues = {
   postingDate: Date | null;
@@ -52,6 +58,14 @@ export function TransitBuildModal({
       {
         value: 'Accounts Payable',
         label: 'Accounts Payable',
+      },
+      {
+        value: 'Forwarder Payable',
+        label: 'Forwarder Payable',
+      },
+      {
+        value: 'Courier Payable',
+        label: 'Courier Payable',
       },
     ],
     []
