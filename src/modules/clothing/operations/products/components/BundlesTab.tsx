@@ -26,7 +26,6 @@ import { PolishedModal } from '@/components/modals/PolishedModal';
 import { BundleService } from '../services/BundleService';
 import { ProductService } from '../services/ProductService';
 import type { BundleBatch, CreateBundleInput } from '../types/bundle.types';
-import { PriceService } from '../../prices/services/PriceService';
 import {
   COMMON_DATE_INPUT_PROPS,
   formatDateForInput,
@@ -135,21 +134,34 @@ export function BundlesTab() {
     staleTime: 30 * 1000,
   });
 
-  const { data: prices = [], isLoading: pricesLoading } = useQuery({
-    queryKey: queryKeys.prices.lists(),
-    queryFn: () => PriceService.loadPrices(),
-    staleTime: 5 * 60 * 1000,
+  const { data: products = [], isLoading: productsLoading } = useQuery({
+    queryKey: queryKeys.products.lists(),
+    queryFn: () => ProductService.loadProducts(),
+    staleTime: 30 * 1000,
   });
 
   const productCodeOptions = useMemo(() => {
     const codes = Array.from(
-      new Set(prices.map((p) => p['Product Code']).filter(Boolean))
-    )
-      .map((code) => String(code))
-      .sort((a, b) => a.localeCompare(b));
+      new Set(
+        products
+          .filter((product) => {
+            const status = (product['Shipment Status'] ?? '')
+              .trim()
+              .toLowerCase();
+            if (status !== 'delivered') {
+              return false;
+            }
+
+            return Number(product.Quantity) > 0;
+          })
+          .map((product) => product['Product Code'])
+          .filter((code): code is string => Boolean(code))
+          .map((code) => String(code))
+      )
+    ).sort((a, b) => a.localeCompare(b));
 
     return codes.map((code) => ({ value: code, label: code }));
-  }, [prices]);
+  }, [products]);
 
   const filteredBundles = useMemo(() => {
     if (!searchQuery.trim()) {
@@ -415,14 +427,7 @@ export function BundlesTab() {
             <TextInput
               label="Bundle SKU"
               value={form.bundleSku}
-              onChange={(e) => {
-                const nextValue = e.currentTarget.value;
-                setForm((prev) => ({
-                  ...prev,
-                  bundleSku: nextValue,
-                }));
-                setIsBundleSkuManual(true);
-              }}
+              readOnly
               placeholder="BUNDLE A (BA-011326)"
             />
 
@@ -473,12 +478,12 @@ export function BundlesTab() {
                     data={productCodeOptions}
                     searchable
                     clearable
-                    disabled={pricesLoading}
+                    disabled={productsLoading}
                     value={c.productCode || null}
                     onChange={(value) =>
                       updateComponent(idx, { productCode: value || '' })
                     }
-                    placeholder={pricesLoading ? 'Loading...' : 'Select SKU'}
+                    placeholder={productsLoading ? 'Loading...' : 'Select SKU'}
                     styles={{ dropdown: { maxHeight: 240 } }}
                   />
 
@@ -537,9 +542,9 @@ export function BundlesTab() {
                 ? 'Loading…'
                 : `Showing ${filteredBundles.length} of ${bundles.length} bundle(s)`}
             </Text>
-            {pricesLoading ? (
+            {productsLoading ? (
               <Text size="xs" c="dimmed">
-                Loading price list for SKU dropdown…
+                Loading product list for SKU dropdown…
               </Text>
             ) : null}
           </Group>
