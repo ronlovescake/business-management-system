@@ -296,7 +296,7 @@ export function BundlesTab() {
             </Alert>
           ) : null}
 
-          <SimpleGrid cols={{ base: 1, sm: 2, md: 5 }} spacing="md">
+          <SimpleGrid cols={{ base: 1, sm: 2, md: 5 }} spacing="md" mt="lg">
             <DateInput
               label="Posting Date"
               value={parseDateValue(form.postingDate)}
