@@ -391,6 +391,21 @@ function buildUpdatePayload(values: TransactionUpdateRecord['values']) {
   return data;
 }
 
+// =============================================================================
+// ⚠️ LINE TOTAL RECALC (UPDATE PATH)
+// =============================================================================
+// Line Total must stay aligned with Quantity × Unit Price - Adjustment on
+// *updates*, even when users do not explicitly edit Line Total.
+// =============================================================================
+function shouldRecalculateLineTotal(values: TransactionUpdateRecord['values']) {
+  return (
+    values.Quantity !== undefined ||
+    values['Unit Price'] !== undefined ||
+    values.Adjustment !== undefined ||
+    values['Line Total'] !== undefined
+  );
+}
+
 function normalizeStatus(value: string | null | undefined): string {
   return (value ?? '').trim().toLowerCase();
 }
@@ -425,6 +440,26 @@ function computeRemainingBalance(params: {
   return quantity * unitPrice - discount - adjustment;
 }
 
+function computeLineTotalForUpdate(params: {
+  existing: ExistingTransactionForPaidStatusCheck;
+  updateValues: TransactionUpdateRecord['values'];
+}): number {
+  const quantity = toFiniteNumber(
+    params.updateValues.Quantity ?? params.existing.quantity,
+    0
+  );
+  const unitPrice = toFiniteNumber(
+    params.updateValues['Unit Price'] ?? params.existing.unitPrice,
+    0
+  );
+  const adjustment = toFiniteNumber(
+    params.updateValues.Adjustment ?? params.existing.adjustment,
+    0
+  );
+
+  return calculateLineTotal(quantity, unitPrice, adjustment);
+}
+
 type ExistingTransactionForPaidStatusCheck = Pick<
   Transaction,
   'lineTotal' | 'quantity' | 'unitPrice' | 'discount' | 'adjustment'
@@ -441,8 +476,14 @@ function assertCanSetPaidStatus(params: {
     return;
   }
 
+  // ========================================================================
+  // ⚠️ PAID STATUS GUARD
+  // ========================================================================
+  // If a paid status is set, ensure the remaining balance is fully settled
+  // using updated inputs (line total will be recalculated on save).
+  // ========================================================================
   const remaining = computeRemainingBalance({
-    lineTotal: updateValues['Line Total'] ?? existing.lineTotal,
+    lineTotal: updateValues['Line Total'],
     quantity: updateValues.Quantity ?? existing.quantity,
     unitPrice: updateValues['Unit Price'] ?? existing.unitPrice,
     discount: updateValues.Discount ?? existing.discount,
@@ -942,6 +983,23 @@ export const transactionService: TransactionService = {
           }
 
           const dbData = buildUpdatePayload(update.values);
+          // ==================================================================
+          // ⚠️ AUTO LINE TOTAL UPDATE
+          // ==================================================================
+          // Keep line total consistent with operational inputs when Quantity,
+          // Unit Price, or Adjustment changes during bulk updates.
+          // ==================================================================
+          const recalcLineTotal = shouldRecalculateLineTotal(update.values);
+          const computedLineTotal = recalcLineTotal
+            ? computeLineTotalForUpdate({
+                existing,
+                updateValues: update.values,
+              })
+            : existing.lineTotal;
+
+          if (recalcLineTotal) {
+            dbData.lineTotal = computedLineTotal;
+          }
 
           if (update.values['Order Status'] !== undefined) {
             assertCanSetPaidStatus({
@@ -1008,11 +1066,14 @@ export const transactionService: TransactionService = {
               );
             }
           }
-          if (update.values['Line Total'] !== undefined) {
-            const newValue = update.values['Line Total'];
-            if ((existing.lineTotal ?? 0) !== newValue) {
+          if (recalcLineTotal) {
+            if ((existing.lineTotal ?? 0) !== computedLineTotal) {
               changes.push(
-                describeChange('lineTotal', existing.lineTotal, newValue)
+                describeChange(
+                  'lineTotal',
+                  existing.lineTotal,
+                  computedLineTotal
+                )
               );
             }
           }
@@ -1140,6 +1201,23 @@ export const transactionService: TransactionService = {
     }
 
     const dbData = buildUpdatePayload(update.values);
+    // ========================================================================
+    // ⚠️ AUTO LINE TOTAL UPDATE
+    // ========================================================================
+    // Keep line total consistent with operational inputs when Quantity,
+    // Unit Price, or Adjustment changes during single-record updates.
+    // ========================================================================
+    const recalcLineTotal = shouldRecalculateLineTotal(update.values);
+    const computedLineTotal = recalcLineTotal
+      ? computeLineTotalForUpdate({
+          existing,
+          updateValues: update.values,
+        })
+      : existing.lineTotal;
+
+    if (recalcLineTotal) {
+      dbData.lineTotal = computedLineTotal;
+    }
 
     const updatedTransaction = await prisma.transaction.update({
       where: { id: update.id },
@@ -1173,6 +1251,16 @@ export const transactionService: TransactionService = {
         });
       }
     });
+
+    if (recalcLineTotal && update.values['Line Total'] === undefined) {
+      if (String(existing.lineTotal ?? '') !== String(computedLineTotal)) {
+        changes.push({
+          field: 'Line Total',
+          oldValue: String(existing.lineTotal ?? 'empty'),
+          newValue: String(computedLineTotal ?? 'empty'),
+        });
+      }
+    }
 
     let description = `Updated transaction #${updatedTransaction.id}`;
     if (updatedTransaction.customers && updatedTransaction.productCode) {

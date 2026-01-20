@@ -13,6 +13,7 @@ import type {
   ColumnIdToKey,
 } from '../types/transaction.types';
 import type { ReadOnlyColumnFlags } from '@/lib/transactions';
+import { normalizeOrderStatus } from '@/lib/transactions/order-status';
 import {
   buildTransactionColumns,
   buildColumnIdToKey,
@@ -249,12 +250,18 @@ export function useTransactionsDerivedData({
   );
 
   const packingListEligibleData = useMemo(() => {
+    // ========================================================================
+    // ⚠️ STATUS NORMALIZATION
+    // ========================================================================
+    // Normalize order status comparisons to avoid casing/whitespace drift in
+    // filtered transaction views (e.g. "Prepared" vs "prepared").
+    // ========================================================================
     const customersWithEligiblePrepared = new Set(
       filteredData
         .filter((transaction) => {
-          const status = transaction['Order Status'];
+          const status = normalizeOrderStatus(transaction['Order Status']);
           const lineTotal = Number(transaction['Line Total']) || 0;
-          return status === 'Prepared' && lineTotal <= 50;
+          return status === 'prepared' && lineTotal <= 50;
         })
         .map((transaction) => transaction.Customers)
         .filter(Boolean)
@@ -262,16 +269,16 @@ export function useTransactionsDerivedData({
 
     return filteredData
       .filter((transaction) => {
-        const status = transaction['Order Status'];
+        const status = normalizeOrderStatus(transaction['Order Status']);
         const lineTotal = Number(transaction['Line Total']) || 0;
         const customerName = transaction.Customers;
 
-        if (status === 'Prepared' && lineTotal <= 50) {
+        if (status === 'prepared' && lineTotal <= 50) {
           return true;
         }
 
         if (
-          status === 'On-Hold' &&
+          status === 'on-hold' &&
           customerName &&
           customersWithEligiblePrepared.has(customerName)
         ) {
@@ -310,16 +317,22 @@ export function useTransactionsDerivedData({
   const dueDateColumns = useMemo(() => buildDueDateColumns(), []);
 
   const dueDatesData = useMemo<DueDateGridRow[]>(() => {
+    // ========================================================================
+    // ⚠️ STATUS NORMALIZATION
+    // ========================================================================
+    // Due-date eligibility depends on the prepared status; normalize before
+    // comparing to avoid silent mismatches.
+    // ========================================================================
     return filteredData
       .filter((transaction) => {
         const invoiceDate = transaction['Invoice Date'];
         const lineTotal = Number(transaction['Line Total']) || 0;
-        const status = transaction['Order Status'];
+        const status = normalizeOrderStatus(transaction['Order Status']);
 
         return (
           Boolean(invoiceDate && invoiceDate.trim()) &&
           lineTotal > 0 &&
-          status === 'Prepared'
+          status === 'prepared'
         );
       })
       .map((transaction, index) => {

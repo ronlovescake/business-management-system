@@ -29,6 +29,18 @@ export const InventorySummary = memo(
           <Text size="sm" c="dimmed">
             Supplier Short: {numberFormatter.format(totals.supplierShortQty)}
           </Text>
+          {/*
+            ========================================================================
+            ⚠️ OPERATIONAL TOTAL SALES (NOT ACCOUNTING REVENUE)
+            ========================================================================
+            This value is derived from fulfillment statuses on the Inventory page
+            and is intended for operations tracking only.
+            ========================================================================
+          */}
+          <Text size="sm" c="dimmed">
+            Total Sales (Operational):{' '}
+            {currencyFormatter.format(totals.totalSales)}
+          </Text>
           <Text size="sm" c="dimmed">
             Ending Value:{' '}
             {currencyFormatter.format(totals.endingInventoryValue)}
