@@ -16,6 +16,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
 import { logger } from '@/lib/logger';
+import Swal from 'sweetalert2';
 import {
   StandardDataTable,
   StandardTableContainer,
@@ -61,6 +62,62 @@ function createEmptyBundle(): BundleFormState {
       { clientId: newClientId(), productCode: '', includedQuantity: 1 },
     ],
   };
+}
+
+async function confirmTripleDeleteBundle(
+  bundleLabel: string
+): Promise<boolean> {
+  const step1 = await Swal.fire({
+    title: 'Delete bundle batch?',
+    text: `This will permanently delete ${bundleLabel}.`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Continue',
+    cancelButtonText: 'Cancel',
+    reverseButtons: true,
+    allowOutsideClick: false,
+  });
+
+  if (!step1.isConfirmed) {
+    return false;
+  }
+
+  const step2 = await Swal.fire({
+    title: 'Are you absolutely sure?',
+    text: 'This will remove the bundle batch and its inventory movements.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, continue',
+    cancelButtonText: 'Cancel',
+    reverseButtons: true,
+    allowOutsideClick: false,
+  });
+
+  if (!step2.isConfirmed) {
+    return false;
+  }
+
+  const step3 = await Swal.fire({
+    title: 'Final confirmation',
+    text: 'Type DELETE to confirm.',
+    icon: 'warning',
+    input: 'text',
+    inputPlaceholder: 'DELETE',
+    inputAttributes: { autocapitalize: 'off' },
+    showCancelButton: true,
+    confirmButtonText: 'Delete',
+    cancelButtonText: 'Cancel',
+    reverseButtons: true,
+    allowOutsideClick: false,
+    inputValidator: (value) => {
+      if ((value || '').trim().toUpperCase() !== 'DELETE') {
+        return 'Please type DELETE to confirm.';
+      }
+      return undefined;
+    },
+  });
+
+  return step3.isConfirmed;
 }
 
 export function BundlesTab() {
@@ -179,6 +236,28 @@ export function BundlesTab() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (bundleId: number) => {
+      return await BundleService.deleteBundle(bundleId);
+    },
+    onSuccess: (_, bundleId) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.bundles.lists() });
+      if (editingBundleId === bundleId) {
+        setEditingBundleId(null);
+        setForm(createEmptyBundle());
+        setIsBundleSkuManual(false);
+        setIsBundleModalOpen(false);
+      }
+      setErrorMessage(null);
+    },
+    onError: (err) => {
+      logger.error('Failed to delete bundle', err);
+      setErrorMessage(
+        err instanceof Error ? err.message : 'Failed to delete bundle'
+      );
+    },
+  });
+
   const canSubmit =
     form.postingDate.trim() &&
     form.bundleName.trim() &&
@@ -279,6 +358,17 @@ export function BundlesTab() {
       bundle.bundleSku.trim().length > 0 && bundle.bundleSku !== autoSku
     );
     setIsBundleModalOpen(true);
+  };
+
+  const handleDeleteBundle = async (bundle: BundleBatch) => {
+    const label =
+      bundle.bundleSku || bundle.bundleName || `Bundle ${bundle.id}`;
+    const confirmed = await confirmTripleDeleteBundle(label);
+    if (!confirmed) {
+      return;
+    }
+
+    await deleteMutation.mutateAsync(bundle.id);
   };
 
   return (
@@ -464,8 +554,9 @@ export function BundlesTab() {
             'Price',
             'Product Code',
             'Left Over Quantity',
+            'Action',
           ]}
-          colSpan={7}
+          colSpan={8}
           emptyState={
             bundlesLoading
               ? 'Loading bundles...'
@@ -504,6 +595,16 @@ export function BundlesTab() {
                     </Text>
                   ))}
                 </Stack>
+              </Table.Td>
+              <Table.Td style={{ textAlign: 'center' }}>
+                <Button
+                  variant="subtle"
+                  color="red"
+                  onClick={() => void handleDeleteBundle(b)}
+                  loading={deleteMutation.isPending}
+                >
+                  Delete
+                </Button>
               </Table.Td>
             </Table.Tr>
           ))}

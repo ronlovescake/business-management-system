@@ -22,4 +22,8 @@ export class BundleService {
   ): Promise<BundleBatch> {
     return await api.patch<BundleBatch>('/api/bundles', bundle);
   }
+
+  static async deleteBundle(bundleId: number): Promise<{ success: true }> {
+    return await api.delete<{ success: true }>(`/api/bundles?id=${bundleId}`);
+  }
 }

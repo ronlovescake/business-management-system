@@ -315,3 +315,47 @@ export async function PATCH(request: NextRequest) {
     );
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const url = new URL(request.url);
+    const idParam = url.searchParams.get('id');
+    const id = idParam ? Number(idParam) : NaN;
+
+    if (!Number.isFinite(id) || id <= 0) {
+      return NextResponse.json({ error: 'id is required' }, { status: 400 });
+    }
+
+    const existing = await prisma.bundleBatch.findUnique({
+      where: { id },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: 'Bundle batch not found' },
+        { status: 404 }
+      );
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const notePrefix = `bundle-assembly batch ${id} `;
+      await tx.inventoryMovement.updateMany({
+        where: {
+          notes: { startsWith: notePrefix },
+          deletedAt: null,
+        },
+        data: { deletedAt: new Date() },
+      });
+
+      await tx.bundleBatch.delete({ where: { id } });
+    });
+
+    return NextResponse.json({ success: true }, { status: 200 });
+  } catch (error) {
+    logger.error('Failed to delete bundle', error);
+    return NextResponse.json(
+      { error: 'Failed to delete bundle' },
+      { status: 500 }
+    );
+  }
+}
