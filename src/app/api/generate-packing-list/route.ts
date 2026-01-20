@@ -43,6 +43,7 @@ import Handlebars from 'handlebars';
 import fs from 'fs';
 import path from 'path';
 import { logger } from '@/lib/logger';
+import { sanitizers } from '@/lib/security/sanitize';
 
 // Register Handlebars helper for empty rows
 Handlebars.registerHelper(
@@ -73,6 +74,30 @@ interface PackingListData {
   note: string;
 }
 
+function sanitizePackingListTransaction(entry: unknown): Transaction | null {
+  if (typeof entry !== 'object' || entry === null) {
+    return null;
+  }
+
+  const record = entry as Record<string, unknown>;
+
+  const customer = sanitizers.name(record.Customers ?? '');
+  const productCode = sanitizers.productCode(record['Product Code'] ?? '');
+  const quantity = sanitizers.number(record.Quantity, { min: 0 }) ?? 0;
+  const notes = sanitizers.notes(record.Notes ?? '');
+
+  if (!customer && !productCode && quantity === 0) {
+    return null;
+  }
+
+  return {
+    Customers: customer || 'Unknown Customer',
+    'Product Code': productCode,
+    Quantity: quantity,
+    Notes: notes,
+  };
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { transactions } = await request.json();
@@ -88,10 +113,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ========================================================================
+    // ⚠️ INPUT SANITIZATION
+    // ========================================================================
+    // Sanitize payload fields to avoid unsafe HTML and malformed values in
+    // PDF generation. Filter out empty rows.
+    // ========================================================================
+    const sanitizedTransactions = transactions
+      .map((transaction) => sanitizePackingListTransaction(transaction))
+      .filter((transaction): transaction is Transaction =>
+        Boolean(transaction)
+      );
+
+    if (sanitizedTransactions.length === 0) {
+      return NextResponse.json(
+        { error: 'No valid transactions provided' },
+        { status: 400 }
+      );
+    }
+
     // Group transactions by customer
     const groupedByCustomer = new Map<string, Transaction[]>();
 
-    transactions.forEach((transaction: Transaction) => {
+    sanitizedTransactions.forEach((transaction: Transaction) => {
       const customer = transaction.Customers || 'Unknown Customer';
       if (!groupedByCustomer.has(customer)) {
         groupedByCustomer.set(customer, []);
@@ -111,69 +155,80 @@ export async function POST(request: NextRequest) {
     const templateSource = fs.readFileSync(templatePath, 'utf-8');
     const template = Handlebars.compile(templateSource);
 
-    const browser = await chromium.launch({
-      headless: true,
-      executablePath: chromium.executablePath(),
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
-
-    const page = await browser.newPage();
+    // ==========================================================================
+    // ⚠️ BROWSER LIFECYCLE
+    // ==========================================================================
+    // Always close Playwright even on errors to prevent leaked processes.
+    // ==========================================================================
     const pdfBuffers: Buffer[] = [];
+    let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;
 
-    // Generate a PDF page for each customer (sorted alphabetically)
-    const collator = new Intl.Collator(undefined, {
-      sensitivity: 'base',
-      ignorePunctuation: true,
-    });
+    try {
+      browser = await chromium.launch({
+        headless: true,
+        executablePath: chromium.executablePath(),
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      });
 
-    const sortedCustomers = Array.from(groupedByCustomer.entries()).sort(
-      ([a], [b]) => collator.compare(a, b)
-    );
+      const page = await browser.newPage();
 
-    for (const [customer, customerTransactions] of sortedCustomers) {
-      // Create rows for this customer's packing list
-      const rows: PackingListRow[] = customerTransactions.map(
-        (transaction: Transaction, index: number) => ({
-          line: index + 1,
-          quantity: transaction.Quantity || 0,
-          productCode: transaction['Product Code'] || '',
-        })
+      // Generate a PDF page for each customer (sorted alphabetically)
+      const collator = new Intl.Collator(undefined, {
+        sensitivity: 'base',
+        ignorePunctuation: true,
+      });
+
+      const sortedCustomers = Array.from(groupedByCustomer.entries()).sort(
+        ([a], [b]) => collator.compare(a, b)
       );
 
-      // Collect notes (use first non-empty note if any)
-      const note =
-        customerTransactions
-          .map((t: Transaction) => t.Notes)
-          .find((n: string | undefined) => n && n.trim()) || '';
+      for (const [customer, customerTransactions] of sortedCustomers) {
+        // Create rows for this customer's packing list
+        const rows: PackingListRow[] = customerTransactions.map(
+          (transaction: Transaction, index: number) => ({
+            line: index + 1,
+            quantity: transaction.Quantity || 0,
+            productCode: transaction['Product Code'] || '',
+          })
+        );
 
-      const packingListData: PackingListData = {
-        customer,
-        rows,
-        note,
-      };
+        // Collect notes (use first non-empty note if any)
+        const note =
+          customerTransactions
+            .map((t: Transaction) => t.Notes)
+            .find((n: string | undefined) => n && n.trim()) || '';
 
-      const html = template(packingListData);
+        const packingListData: PackingListData = {
+          customer,
+          rows,
+          note,
+        };
 
-      await page.setContent(html, {
-        waitUntil: 'domcontentloaded',
-        timeout: 10000,
-      });
+        const html = template(packingListData);
 
-      // Give a moment for fonts to load
-      await new Promise((resolve) => setTimeout(resolve, 500));
+        await page.setContent(html, {
+          waitUntil: 'domcontentloaded',
+          timeout: 10000,
+        });
 
-      // Generate PDF for this customer (A6 landscape)
-      const pdfBuffer = await page.pdf({
-        format: 'A6',
-        landscape: true,
-        printBackground: true,
-        margin: { top: 0, right: 0, bottom: 0, left: 0 },
-      });
+        // Give a moment for fonts to load
+        await new Promise((resolve) => setTimeout(resolve, 500));
 
-      pdfBuffers.push(Buffer.from(pdfBuffer));
+        // Generate PDF for this customer (A6 landscape)
+        const pdfBuffer = await page.pdf({
+          format: 'A6',
+          landscape: true,
+          printBackground: true,
+          margin: { top: 0, right: 0, bottom: 0, left: 0 },
+        });
+
+        pdfBuffers.push(Buffer.from(pdfBuffer));
+      }
+    } finally {
+      if (browser) {
+        await browser.close();
+      }
     }
-
-    await browser.close();
 
     // Merge all PDF buffers into one
     const { PDFDocument } = await import('pdf-lib');

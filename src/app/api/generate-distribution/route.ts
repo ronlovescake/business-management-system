@@ -42,6 +42,37 @@ import Handlebars from 'handlebars';
 import fs from 'fs';
 import path from 'path';
 import { logger } from '@/lib/logger';
+import { sanitizers } from '@/lib/security/sanitize';
+
+interface DistributionTransaction {
+  Customers: string;
+  Quantity: number;
+  'Product Code': string;
+}
+
+function sanitizeDistributionTransaction(
+  entry: unknown
+): DistributionTransaction | null {
+  if (typeof entry !== 'object' || entry === null) {
+    return null;
+  }
+
+  const record = entry as Record<string, unknown>;
+
+  const customer = sanitizers.name(record.Customers ?? '');
+  const productCode = sanitizers.productCode(record['Product Code'] ?? '');
+  const quantity = sanitizers.number(record.Quantity, { min: 0 }) ?? 0;
+
+  if (!customer && !productCode && quantity === 0) {
+    return null;
+  }
+
+  return {
+    Customers: customer || 'Unknown Customer',
+    Quantity: quantity,
+    'Product Code': productCode,
+  };
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -54,6 +85,27 @@ export async function POST(request: NextRequest) {
     ) {
       return NextResponse.json(
         { error: 'No transactions provided' },
+        { status: 400 }
+      );
+    }
+
+    // ========================================================================
+    // ⚠️ INPUT SANITIZATION
+    // ========================================================================
+    // Sanitize payload fields to avoid unsafe HTML and malformed values in
+    // PDF generation. Filter out empty rows.
+    // ========================================================================
+    const sanitizedTransactions = transactions
+      .map((transaction: unknown) =>
+        sanitizeDistributionTransaction(transaction)
+      )
+      .filter((transaction): transaction is DistributionTransaction =>
+        Boolean(transaction)
+      );
+
+    if (sanitizedTransactions.length === 0) {
+      return NextResponse.json(
+        { error: 'No valid transactions provided' },
         { status: 400 }
       );
     }
@@ -80,50 +132,61 @@ export async function POST(request: NextRequest) {
       logoDataUri = `data:image/png;base64,${logoBuffer.toString('base64')}`;
     }
 
-    const browser = await chromium.launch({
-      headless: true,
-      executablePath: chromium.executablePath(),
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
-
-    const page = await browser.newPage();
+    // ==========================================================================
+    // ⚠️ BROWSER LIFECYCLE
+    // ==========================================================================
+    // Always close Playwright even on errors to prevent leaked processes.
+    // ==========================================================================
     const pdfBuffers: Buffer[] = [];
+    let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;
 
-    // Generate a PDF page for each transaction (sorted by quantity ascending)
-    const sortedTransactions = [...transactions].sort((a, b) => {
-      const qtyA = Number(a.Quantity) || 0;
-      const qtyB = Number(b.Quantity) || 0;
-      return qtyA - qtyB;
-    });
-
-    for (const transaction of sortedTransactions) {
-      const html = template({
-        customer: transaction.Customers || '',
-        quantity: transaction.Quantity || 0,
-        productCode: transaction['Product Code'] || '',
-        logoDataUri,
+    try {
+      browser = await chromium.launch({
+        headless: true,
+        executablePath: chromium.executablePath(),
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
       });
 
-      await page.setContent(html, {
-        waitUntil: 'domcontentloaded',
-        timeout: 10000,
+      const page = await browser.newPage();
+
+      // Generate a PDF page for each transaction (sorted by quantity ascending)
+      const sortedTransactions = [...sanitizedTransactions].sort((a, b) => {
+        const qtyA = Number(a.Quantity) || 0;
+        const qtyB = Number(b.Quantity) || 0;
+        return qtyA - qtyB;
       });
 
-      // Give a moment for fonts to load
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      for (const transaction of sortedTransactions) {
+        const html = template({
+          customer: transaction.Customers || '',
+          quantity: transaction.Quantity || 0,
+          productCode: transaction['Product Code'] || '',
+          logoDataUri,
+        });
 
-      // Generate PDF for this single transaction (A6 landscape)
-      const pdfBuffer = await page.pdf({
-        format: 'A6',
-        landscape: true,
-        printBackground: true,
-        margin: { top: 0, right: 0, bottom: 0, left: 0 },
-      });
+        await page.setContent(html, {
+          waitUntil: 'domcontentloaded',
+          timeout: 10000,
+        });
 
-      pdfBuffers.push(Buffer.from(pdfBuffer));
+        // Give a moment for fonts to load
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        // Generate PDF for this single transaction (A6 landscape)
+        const pdfBuffer = await page.pdf({
+          format: 'A6',
+          landscape: true,
+          printBackground: true,
+          margin: { top: 0, right: 0, bottom: 0, left: 0 },
+        });
+
+        pdfBuffers.push(Buffer.from(pdfBuffer));
+      }
+    } finally {
+      if (browser) {
+        await browser.close();
+      }
     }
-
-    await browser.close();
 
     // Merge all PDF buffers into one
     // For simplicity, we'll use PDFLib or return individual PDFs

@@ -16,6 +16,7 @@ import Swal from 'sweetalert2';
 import { TransactionService } from '../services/TransactionService';
 import { api } from '@/lib/api/client';
 import { logger } from '@/lib/logger';
+import { normalizeOrderStatus } from '@/lib/transactions/order-status';
 import type {
   TransactionData,
   InvoiceConfirmationData,
@@ -89,6 +90,15 @@ export function useTransactionModals(
   props: UseTransactionModalsProps
 ): UseTransactionModalsReturn {
   const { transactions, bulkUpdate } = props;
+
+  // ============================================================================
+  // ⚠️ STATUS NORMALIZATION
+  // ============================================================================
+  // Normalize order-status comparisons to avoid casing/whitespace drift across
+  // invoice, packing list, and distribution workflows.
+  // ============================================================================
+  const getNormalizedStatus = (value: string | null | undefined) =>
+    normalizeOrderStatus(value);
 
   // ============================================================================
   // INVOICE GENERATION STATE
@@ -172,7 +182,7 @@ export function useTransactionModals(
       logger.debug('🚚 Preparing In Transit invoice generation...');
 
       const inTransitTransactions = visibleTransactions.filter(
-        (t) => t['Order Status'] === 'In Transit'
+        (t) => getNormalizedStatus(t['Order Status']) === 'in transit'
       );
 
       if (inTransitTransactions.length === 0) {
@@ -366,7 +376,7 @@ export function useTransactionModals(
       // Filter: Only "In Transit" orders with Adjustment = 0.00 (unpaid reservation fees)
       const reservationTransactions = visibleTransactions.filter(
         (t) =>
-          t['Order Status'] === 'In Transit' &&
+          getNormalizedStatus(t['Order Status']) === 'in transit' &&
           (Number(t.Adjustment) === 0 || !t.Adjustment)
       );
 
@@ -670,7 +680,7 @@ export function useTransactionModals(
         logger.debug('📄 Invoice type selected: Onhand');
 
         const warehouseTransactions = visibleTransactions.filter(
-          (t) => t['Order Status'] === 'Warehouse'
+          (t) => getNormalizedStatus(t['Order Status']) === 'warehouse'
         );
 
         if (warehouseTransactions.length === 0) {
@@ -695,15 +705,18 @@ export function useTransactionModals(
         customersWithWarehouse.forEach((customerName) => {
           const customerWarehouse = visibleTransactions.filter(
             (t) =>
-              t.Customers === customerName && t['Order Status'] === 'Warehouse'
+              t.Customers === customerName &&
+              getNormalizedStatus(t['Order Status']) === 'warehouse'
           );
           const customerPrepared = visibleTransactions.filter(
             (t) =>
-              t.Customers === customerName && t['Order Status'] === 'Prepared'
+              t.Customers === customerName &&
+              getNormalizedStatus(t['Order Status']) === 'prepared'
           );
           const customerOnHold = visibleTransactions.filter(
             (t) =>
-              t.Customers === customerName && t['Order Status'] === 'On-Hold'
+              t.Customers === customerName &&
+              getNormalizedStatus(t['Order Status']) === 'on-hold'
           );
 
           totalWarehouse += customerWarehouse.length;
@@ -791,15 +804,18 @@ export function useTransactionModals(
         customersWithWarehouse.forEach((customerName) => {
           const customerWarehouse = visibleTransactions.filter(
             (t) =>
-              t.Customers === customerName && t['Order Status'] === 'Warehouse'
+              t.Customers === customerName &&
+              getNormalizedStatus(t['Order Status']) === 'warehouse'
           );
           const customerPrepared = visibleTransactions.filter(
             (t) =>
-              t.Customers === customerName && t['Order Status'] === 'Prepared'
+              t.Customers === customerName &&
+              getNormalizedStatus(t['Order Status']) === 'prepared'
           );
           const customerOnHold = visibleTransactions.filter(
             (t) =>
-              t.Customers === customerName && t['Order Status'] === 'On-Hold'
+              t.Customers === customerName &&
+              getNormalizedStatus(t['Order Status']) === 'on-hold'
           );
 
           invoiceTransactions.push(
@@ -914,7 +930,10 @@ export function useTransactionModals(
               hasUpdates = true;
             }
 
-            if (processedIds.has(t.id) && t['Order Status'] === 'Warehouse') {
+            if (
+              processedIds.has(t.id) &&
+              getNormalizedStatus(t['Order Status']) === 'warehouse'
+            ) {
               updates['Order Status'] = 'Prepared';
               hasUpdates = true;
             }
@@ -931,7 +950,32 @@ export function useTransactionModals(
             processedIds.has(t.id)
           );
           if (toSave.length > 0) {
-            await Promise.all(toSave.map((t) => saveTransactionToDatabase(t)));
+            // ==================================================================
+            // ⚠️ SAVE RESILIENCE
+            // ==================================================================
+            // Persist updates and surface partial failures without breaking the
+            // user workflow. Encourage refresh if any writes fail.
+            // ==================================================================
+            const results = await Promise.allSettled(
+              toSave.map((t) => saveTransactionToDatabase(t))
+            );
+            const failed = results.filter(
+              (result) => result.status === 'rejected'
+            );
+
+            if (failed.length > 0) {
+              logger.warn('Partial invoice update save failure', {
+                failed: failed.length,
+                total: results.length,
+              });
+              showNotification({
+                title: '⚠️ Some Invoice Updates Failed to Save',
+                message:
+                  'Some records did not persist to the database. Please refresh and retry if needed.',
+                color: 'yellow',
+                autoClose: 8000,
+              });
+            }
           }
         } else {
           const errorData = (await response.json()) as { error?: string };
@@ -979,17 +1023,17 @@ export function useTransactionModals(
     async (visibleTransactions: TransactionData[]) => {
       // Count all "Prepared" orders (regardless of line total)
       const allPrepared = visibleTransactions.filter((t) => {
-        const status = t['Order Status'];
-        return status === 'Prepared';
+        const status = getNormalizedStatus(t['Order Status']);
+        return status === 'prepared';
       });
 
       // Customers with at least one Prepared order ≤ ₱50.00
       const customersWithEligiblePrepared = new Set(
         visibleTransactions
           .filter((t) => {
-            const status = t['Order Status'];
+            const status = getNormalizedStatus(t['Order Status']);
             const lineTotal = Number(t['Line Total']) || 0;
-            return status === 'Prepared' && lineTotal <= 50.0;
+            return status === 'prepared' && lineTotal <= 50.0;
           })
           .map((t) => t.Customers)
           .filter(Boolean)
@@ -997,18 +1041,18 @@ export function useTransactionModals(
 
       // Final eligible set: Prepared ≤ ₱50.00 plus On-Hold for customers who also have Prepared
       const eligible = visibleTransactions.filter((t) => {
-        const status = t['Order Status'];
+        const status = getNormalizedStatus(t['Order Status']);
         const customerName = t.Customers;
         const lineTotal = Number(t['Line Total']) || 0;
 
         // Always apply original Prepared ≤ ₱50 rule
-        if (status === 'Prepared' && lineTotal <= 50.0) {
+        if (status === 'prepared' && lineTotal <= 50.0) {
           return true;
         }
 
         // Include On-Hold only if this customer has at least one Prepared order ≤ ₱50.00
         if (
-          status === 'On-Hold' &&
+          status === 'on-hold' &&
           customerName &&
           customersWithEligiblePrepared.has(customerName)
         ) {
@@ -1161,10 +1205,10 @@ export function useTransactionModals(
 
       // Counts by status for clearer confirmation messaging
       const preparedCount = filteredEligible.filter(
-        (t) => t['Order Status'] === 'Prepared'
+        (t) => getNormalizedStatus(t['Order Status']) === 'prepared'
       ).length;
       const onHoldCount = filteredEligible.filter(
-        (t) => t['Order Status'] === 'On-Hold'
+        (t) => getNormalizedStatus(t['Order Status']) === 'on-hold'
       ).length;
 
       // Show SweetAlert2 confirmation dialog
@@ -1493,7 +1537,32 @@ export function useTransactionModals(
 
           const toSave = updated.filter((t) => processedIds.has(t.id));
           if (toSave.length > 0) {
-            await Promise.all(toSave.map((t) => saveTransactionToDatabase(t)));
+            // ==================================================================
+            // ⚠️ SAVE RESILIENCE
+            // ==================================================================
+            // Persist updates and surface partial failures without breaking the
+            // user workflow. Encourage refresh if any writes fail.
+            // ==================================================================
+            const results = await Promise.allSettled(
+              toSave.map((t) => saveTransactionToDatabase(t))
+            );
+            const failed = results.filter(
+              (result) => result.status === 'rejected'
+            );
+
+            if (failed.length > 0) {
+              logger.warn('Partial packing list update save failure', {
+                failed: failed.length,
+                total: results.length,
+              });
+              showNotification({
+                title: '⚠️ Some Packing List Updates Failed to Save',
+                message:
+                  'Some records did not persist to the database. Please refresh and retry if needed.',
+                color: 'yellow',
+                autoClose: 8000,
+              });
+            }
           }
         } else {
           const errorData = (await response.json()) as { error?: string };
@@ -1534,10 +1603,10 @@ export function useTransactionModals(
 
   const prepareDistributionGeneration = useCallback(
     async (visibleTransactions: TransactionData[]) => {
-      const warehouse = visibleTransactions.filter(
-        (t) =>
-          t['Order Status'] === 'Warehouse' || t['Order Status'] === 'Prepared'
-      );
+      const warehouse = visibleTransactions.filter((t) => {
+        const status = getNormalizedStatus(t['Order Status']);
+        return status === 'warehouse' || status === 'prepared';
+      });
 
       if (warehouse.length === 0) {
         showNotification({
@@ -1590,10 +1659,10 @@ export function useTransactionModals(
     setIsGeneratingDistribution(true);
 
     try {
-      const warehouse = pendingDistributionData.filter(
-        (t) =>
-          t['Order Status'] === 'Warehouse' || t['Order Status'] === 'Prepared'
-      );
+      const warehouse = pendingDistributionData.filter((t) => {
+        const status = getNormalizedStatus(t['Order Status']);
+        return status === 'warehouse' || status === 'prepared';
+      });
 
       // Note: Using raw fetch for blob response (API client doesn't handle blobs yet)
       const response = await fetch('/api/generate-distribution', {

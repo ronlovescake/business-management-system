@@ -1,6 +1,6 @@
 /**
  * OpenAPI 3.0 Specification for Business Management System
- * 
+ *
  * This file contains the complete API documentation spec.
  * Auto-generated types and validation are provided by Zod schemas.
  */
@@ -119,7 +119,10 @@ All endpoints return standardized error responses:
                   items: {
                     type: 'object',
                     properties: {
-                      filename: { type: 'string', example: '2025-10-27-backup.sql' },
+                      filename: {
+                        type: 'string',
+                        example: '2025-10-27-backup.sql',
+                      },
                       timestamp: { type: 'string', format: 'date-time' },
                       size: { type: 'number', example: 1024000 },
                     },
@@ -143,7 +146,10 @@ All endpoints return standardized error responses:
                   type: 'object',
                   properties: {
                     success: { type: 'boolean', example: true },
-                    filename: { type: 'string', example: '2025-10-27-backup.sql' },
+                    filename: {
+                      type: 'string',
+                      example: '2025-10-27-backup.sql',
+                    },
                     message: { type: 'string' },
                   },
                 },
@@ -165,7 +171,10 @@ All endpoints return standardized error responses:
               schema: {
                 type: 'object',
                 properties: {
-                  filename: { type: 'string', example: '2025-10-27-backup.sql' },
+                  filename: {
+                    type: 'string',
+                    example: '2025-10-27-backup.sql',
+                  },
                 },
                 required: ['filename'],
               },
@@ -1076,7 +1085,7 @@ All endpoints return standardized error responses:
       post: {
         tags: ['Reports'],
         summary: 'Generate invoice PDF',
-        description: 'Generate an invoice PDF for a transaction',
+        description: 'Generate invoice PDFs for transactions',
         requestBody: {
           required: true,
           content: {
@@ -1084,9 +1093,45 @@ All endpoints return standardized error responses:
               schema: {
                 type: 'object',
                 properties: {
-                  transactionId: { type: 'string' },
+                  transactions: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'number' },
+                        Customers: { type: 'string' },
+                        'Product Code': { type: 'string' },
+                        Quantity: { type: 'number' },
+                        'Unit Price': { type: 'number' },
+                        Adjustment: { type: 'number' },
+                        'Line Total': { type: 'number' },
+                        'Order Status': { type: 'string' },
+                        'Invoice Date': { type: 'string' },
+                      },
+                    },
+                  },
+                  customers: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        'Customer Name': { type: 'string' },
+                        'Phone Number': { type: 'string' },
+                        Address: { type: 'string' },
+                      },
+                    },
+                  },
+                  invoiceType: {
+                    type: 'string',
+                    enum: [
+                      'Onhand',
+                      'In Transit',
+                      'Reservation Fee',
+                      'Reservation Fee 20',
+                    ],
+                  },
                 },
-                required: ['transactionId'],
+                required: ['transactions'],
               },
             },
           },
@@ -1117,8 +1162,21 @@ All endpoints return standardized error responses:
               schema: {
                 type: 'object',
                 properties: {
-                  shipmentId: { type: 'string' },
+                  transactions: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        Customers: { type: 'string' },
+                        'Product Code': { type: 'string' },
+                        Quantity: { type: 'number' },
+                        Notes: { type: 'string' },
+                      },
+                      required: ['Customers', 'Product Code', 'Quantity'],
+                    },
+                  },
                 },
+                required: ['transactions'],
               },
             },
           },
@@ -1229,7 +1287,10 @@ All endpoints return standardized error responses:
           id: { type: 'string' },
           customerId: { type: 'string' },
           transactionDate: { type: 'string', format: 'date' },
-          status: { type: 'string', enum: ['Pending', 'Completed', 'Cancelled'] },
+          status: {
+            type: 'string',
+            enum: ['Pending', 'Completed', 'Cancelled'],
+          },
           totalAmount: { type: 'number', format: 'decimal' },
           notes: { type: 'string', nullable: true },
           createdAt: { type: 'string', format: 'date-time' },
@@ -1332,7 +1393,13 @@ All endpoints return standardized error responses:
           deductions: { type: 'number', minimum: 0, default: 0 },
           netSalary: { type: 'number', minimum: 0 },
         },
-        required: ['employeeId', 'payPeriodStart', 'payPeriodEnd', 'basicSalary', 'netSalary'],
+        required: [
+          'employeeId',
+          'payPeriodStart',
+          'payPeriodEnd',
+          'basicSalary',
+          'netSalary',
+        ],
       },
       LeaveRequestInput: {
         type: 'object',
@@ -1353,7 +1420,11 @@ All endpoints return standardized error responses:
           amount: { type: 'number', minimum: 0 },
           date: { type: 'string', format: 'date' },
           description: { type: 'string' },
-          receipt: { type: 'string', nullable: true, description: 'Base64 encoded image' },
+          receipt: {
+            type: 'string',
+            nullable: true,
+            description: 'Base64 encoded image',
+          },
         },
         required: ['employeeId', 'category', 'amount', 'date', 'description'],
       },

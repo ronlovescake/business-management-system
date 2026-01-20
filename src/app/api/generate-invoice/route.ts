@@ -243,134 +243,145 @@ export async function POST(request: NextRequest) {
     const logoBuffer = fs.readFileSync(logoPath);
     const logoData = logoBuffer.toString('base64');
 
-    const browser = await chromium.launch({
-      headless: true,
-      executablePath: chromium.executablePath(),
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
-
-    const context = await browser.newContext({
-      viewport: { width: 817, height: 1056 },
-      deviceScaleFactor: settings.pngQuality,
-    });
-
-    const page = await context.newPage();
+    // ==========================================================================
+    // ⚠️ BROWSER LIFECYCLE
+    // ==========================================================================
+    // Always close Playwright even on errors to prevent leaked processes.
+    // ==========================================================================
     const imageBuffers: Buffer[] = [];
+    let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;
 
-    // Calculate dates
-    const now = new Date();
-    const invoiceDate = now.toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    });
-
-    const dueDate = new Date(now);
-    dueDate.setDate(dueDate.getDate() + 3);
-    const dueDateFormatted = dueDate.toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    });
-
-    // Generate a PDF for each customer
-    for (const [customerName, customerTransactions] of Array.from(
-      groupedByCustomer.entries()
-    )) {
-      // Find customer details
-      const customerData = customers?.find(
-        (c: Customer) => c['Customer Name'] === customerName
-      );
-
-      const phone = customerData?.['Phone Number'] || '';
-      const address = customerData?.Address || '';
-
-      // Create invoice items with sanitization
-      const items: InvoiceItem[] = customerTransactions.map(
-        (transaction: Transaction) => ({
-          description: sanitizers.productCode(
-            transaction['Product Code'] || ''
-          ),
-          quantity: transaction.Quantity || 0,
-          unitPrice: transaction['Unit Price'] || 0,
-          adjustment: transaction.Adjustment || 0,
-          lineTotal: transaction['Line Total'] || 0,
-        })
-      );
-
-      // Calculate totals
-      const subTotal = items.reduce(
-        (sum, item) => sum + item.quantity * item.unitPrice,
-        0
-      );
-      const creditAmount = items.reduce(
-        (sum, item) => sum + item.adjustment,
-        0
-      );
-      const orderTotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
-
-      // Sanitize customer data for PDF generation
-      const reservationFeeAmount = reservationInvoiceConfig
-        ? Number((subTotal * reservationInvoiceConfig.rate).toFixed(2))
-        : undefined;
-
-      const invoiceData: InvoiceData = {
-        date: invoiceDate,
-        dueDate: dueDateFormatted,
-        logoData,
-        customerName: sanitizers.name(customerName),
-        phone: sanitizers.phone(phone),
-        address: sanitizers.address(address),
-        items,
-        subTotal,
-        creditAmount,
-        orderTotal,
-        reservationFee: reservationInvoiceConfig
-          ? reservationFeeAmount
-          : undefined,
-      };
-
-      const html = template(invoiceData);
-
-      await page.setContent(html, {
-        waitUntil: 'domcontentloaded',
-        timeout: 10000,
+    try {
+      browser = await chromium.launch({
+        headless: true,
+        executablePath: chromium.executablePath(),
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
       });
 
-      // Give a moment for fonts to load
-      await new Promise((resolve) =>
-        setTimeout(resolve, LOADING_SPINNER_DELAY)
-      );
+      const context = await browser.newContext({
+        viewport: { width: 817, height: 1056 },
+        deviceScaleFactor: settings.pngQuality,
+      });
 
-      // Generate based on settings format
-      if (settings.format === 'png') {
-        // Set viewport for high-definition PNG output
-        await page.setViewportSize({
-          width: 817,
-          height: 1056, // A4 height in pixels
+      const page = await context.newPage();
+
+      // Calculate dates
+      const now = new Date();
+      const invoiceDate = now.toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      });
+
+      const dueDate = new Date(now);
+      dueDate.setDate(dueDate.getDate() + 3);
+      const dueDateFormatted = dueDate.toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      });
+
+      // Generate a PDF for each customer
+      for (const [customerName, customerTransactions] of Array.from(
+        groupedByCustomer.entries()
+      )) {
+        // Find customer details
+        const customerData = customers?.find(
+          (c: Customer) => c['Customer Name'] === customerName
+        );
+
+        const phone = customerData?.['Phone Number'] || '';
+        const address = customerData?.Address || '';
+
+        // Create invoice items with sanitization
+        const items: InvoiceItem[] = customerTransactions.map(
+          (transaction: Transaction) => ({
+            description: sanitizers.productCode(
+              transaction['Product Code'] || ''
+            ),
+            quantity: transaction.Quantity || 0,
+            unitPrice: transaction['Unit Price'] || 0,
+            adjustment: transaction.Adjustment || 0,
+            lineTotal: transaction['Line Total'] || 0,
+          })
+        );
+
+        // Calculate totals
+        const subTotal = items.reduce(
+          (sum, item) => sum + item.quantity * item.unitPrice,
+          0
+        );
+        const creditAmount = items.reduce(
+          (sum, item) => sum + item.adjustment,
+          0
+        );
+        const orderTotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
+
+        // Sanitize customer data for PDF generation
+        const reservationFeeAmount = reservationInvoiceConfig
+          ? Number((subTotal * reservationInvoiceConfig.rate).toFixed(2))
+          : undefined;
+
+        const invoiceData: InvoiceData = {
+          date: invoiceDate,
+          dueDate: dueDateFormatted,
+          logoData,
+          customerName: sanitizers.name(customerName),
+          phone: sanitizers.phone(phone),
+          address: sanitizers.address(address),
+          items,
+          subTotal,
+          creditAmount,
+          orderTotal,
+          reservationFee: reservationInvoiceConfig
+            ? reservationFeeAmount
+            : undefined,
+        };
+
+        const html = template(invoiceData);
+
+        await page.setContent(html, {
+          waitUntil: 'domcontentloaded',
+          timeout: 10000,
         });
 
-        // Generate high-definition PNG screenshot
-        const imageBuffer = await page.screenshot({
-          type: 'png',
-          fullPage: true,
-          omitBackground: false,
-        });
+        // Give a moment for fonts to load
+        await new Promise((resolve) =>
+          setTimeout(resolve, LOADING_SPINNER_DELAY)
+        );
 
-        imageBuffers.push(Buffer.from(imageBuffer));
-      } else {
-        // Generate PDF
-        const pdfBuffer = await page.pdf({
-          width: '817px',
-          printBackground: true,
-          margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' },
-        });
+        // Generate based on settings format
+        if (settings.format === 'png') {
+          // Set viewport for high-definition PNG output
+          await page.setViewportSize({
+            width: 817,
+            height: 1056, // A4 height in pixels
+          });
 
-        imageBuffers.push(Buffer.from(pdfBuffer));
+          // Generate high-definition PNG screenshot
+          const imageBuffer = await page.screenshot({
+            type: 'png',
+            fullPage: true,
+            omitBackground: false,
+          });
+
+          imageBuffers.push(Buffer.from(imageBuffer));
+        } else {
+          // Generate PDF
+          const pdfBuffer = await page.pdf({
+            width: '817px',
+            printBackground: true,
+            margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' },
+          });
+
+          imageBuffers.push(Buffer.from(pdfBuffer));
+        }
+      }
+    } finally {
+      if (browser) {
+        await browser.close();
       }
     }
-
-    await browser.close();
 
     // Determine file extension and content type based on settings
     const fileExtension = settings.format === 'png' ? 'png' : 'pdf';
