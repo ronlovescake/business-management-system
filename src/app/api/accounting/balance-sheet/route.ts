@@ -26,39 +26,18 @@ import {
   detectAccountType,
   type AccountType,
 } from '@/lib/accounting/account-classification';
+import { isInTransitShipmentStatus } from '@/lib/inventory/shipment-status';
 
 export const dynamic = 'force-dynamic';
 
 const CUTOVER = getAccountingCutoverDate();
 const IN_TRANSIT_ACCOUNT = 'Inventory in Transit';
-const IN_TRANSIT_STATUSES = new Set([
-  'in transit',
-  'manila port',
-  'with pier gatepass',
-  'ph warehouse',
-  'for pickup',
-]);
 
 function clampAsOf(raw: Date | null): Date {
   if (!raw || Number.isNaN(raw.getTime())) {
     return CUTOVER;
   }
   return raw < CUTOVER ? CUTOVER : raw;
-}
-
-function normalizeShipmentStatus(value: string | null | undefined): string {
-  return (value ?? '').trim().toLowerCase();
-}
-
-function isInTransitStatus(value: string | null | undefined): boolean {
-  const normalized = normalizeShipmentStatus(value);
-  if (!normalized) {
-    return false;
-  }
-  if (normalized === 'delivered') {
-    return false;
-  }
-  return IN_TRANSIT_STATUSES.has(normalized);
 }
 
 type BalanceRow = {
@@ -424,7 +403,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       ? (shipmentStatusByCode.get(shipmentCode) ?? '')
       : '';
     const status = directStatus.trim() ? directStatus : fallbackStatus;
-    if (!shipmentCode || !isInTransitStatus(status)) {
+    if (!shipmentCode || !isInTransitShipmentStatus(status)) {
       return sum;
     }
 

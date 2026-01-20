@@ -17,6 +17,7 @@ import { showNotification } from '@mantine/notifications';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
 import { PolishedModal } from '@/components/modals/PolishedModal';
+import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
 import type { TransactionData } from '../types/transaction.types';
 
 type PaymentDraft = {
@@ -73,15 +74,18 @@ export function TransactionPaymentsModal({
       return [];
     }
 
-    const excludedStatuses = new Set(['Shipped', 'Cancelled', 'Canceled']);
+    const excludedStatuses = new Set(['Shipped', 'Cancelled']);
 
     return transactions
       .filter((t) => t.id && t.id > 0)
       .filter((t) => (t.Customers ?? '').trim() === selectedCustomer)
       .filter((t) => {
-        const status = (t['Order Status'] ?? '').trim();
+        const status = t['Order Status'] ?? '';
         if (!status) {
           return true;
+        }
+        if (isCancelledOrderStatus(status)) {
+          return false;
         }
         return !excludedStatuses.has(status);
       });
@@ -334,15 +338,11 @@ export function TransactionPaymentsModal({
                   const quantity = Number(t.Quantity) || 0;
                   const unitPrice = Number(t['Unit Price']) || 0;
                   const lineTotalRaw = Number(t['Line Total']);
-                  const discount = Number(t['Discount']) || 0;
                   const baseTotal = Number.isFinite(lineTotalRaw)
                     ? lineTotalRaw
-                    : quantity * unitPrice - discount;
+                    : quantity * unitPrice - paidSoFar;
                   const current = amountByTransactionId[id] ?? 0;
-                  const balanceDue = Math.max(
-                    baseTotal - paidSoFar - current,
-                    0
-                  );
+                  const balanceDue = Math.max(baseTotal - current, 0);
 
                   return (
                     <Table.Tr key={id}>

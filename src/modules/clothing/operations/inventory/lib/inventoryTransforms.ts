@@ -15,6 +15,7 @@ import {
   normalizeProductCode,
 } from '@/lib/inventory/movements';
 import { isFulfilledStatus } from '@/lib/inventory/statuses';
+import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
 
 export function extractApiData<T>(payload: unknown): T[] {
   if (Array.isArray(payload)) {
@@ -76,7 +77,7 @@ export function buildInventoryItems(
     const unitPrice = transaction['Unit Price'] || 0;
     const normalizedProductCode = normalizeProductCode(productCode);
 
-    const isCancelled = normalizeProductCode(orderStatus) === 'cancelled';
+    const isCancelled = isCancelledOrderStatus(orderStatus);
     if (isCancelled || !normalizedProductCode) {
       return;
     }

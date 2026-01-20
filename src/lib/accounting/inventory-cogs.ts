@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db';
 import { parseDate } from '@/lib/accounting/date-utils';
+import { isInTransitShipmentStatus } from '@/lib/inventory/shipment-status';
 
 export type DerivedJournalEntry = {
   id: string;
@@ -22,15 +23,6 @@ const INVENTORY_ASSET_BUCKETS = new Set([
   'reserved',
   'damaged_hold',
   'assembly_wip',
-]);
-
-const IN_TRANSIT_STATUSES = new Set([
-  '',
-  'in transit',
-  'manila port',
-  'with pier gatepass',
-  'ph warehouse',
-  'for pickup',
 ]);
 
 function toDateKey(date: Date): string {
@@ -123,21 +115,6 @@ function summarizeSignedTransitions(transitions: Map<string, number>): string {
     .filter(Boolean) as string[];
 
   return parts.join('; ');
-}
-
-function normalizeShipmentStatus(value: string | null | undefined): string {
-  return (value ?? '').trim().toLowerCase();
-}
-
-function isInTransitStatus(value: string | null | undefined): boolean {
-  const normalized = normalizeShipmentStatus(value);
-  if (normalized === 'delivered') {
-    return false;
-  }
-  if (IN_TRANSIT_STATUSES.has(normalized)) {
-    return true;
-  }
-  return normalized.length > 0;
 }
 
 function extractAutoSaleTransactionId(
@@ -351,7 +328,7 @@ async function computeInventorySeedAndShrinkageByDate(params: {
     // Inventory seed: scrap -> asset bucket.
     if (m.fromBucket === 'scrap' && INVENTORY_ASSET_BUCKETS.has(m.toBucket)) {
       const status = productStatusByCode.get(code) ?? '';
-      const seedAccount = isInTransitStatus(status)
+      const seedAccount = isInTransitShipmentStatus(status)
         ? INVENTORY_IN_TRANSIT_ACCOUNT
         : INVENTORY_ACCOUNT;
       const seedKey = `${baseKey}|||${seedAccount}`;

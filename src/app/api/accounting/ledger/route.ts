@@ -6,6 +6,7 @@ import {
   buildPeriodLabel,
   parseDate,
 } from '@/lib/accounting/date-utils';
+import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
 import {
   fetchPaidTransactions,
   fetchApprovedExpenses,
@@ -28,22 +29,6 @@ export const dynamic = 'force-dynamic';
 
 // Only show ledger activity from the accounting cutover date forward.
 const CUTOVER = getAccountingCutoverDate();
-
-function isCancelledStatus(value: string | null | undefined): boolean {
-  const normalized = (value ?? '').trim().toLowerCase();
-  if (!normalized) {
-    return false;
-  }
-
-  return (
-    normalized === 'cancelled' ||
-    normalized === 'canceled' ||
-    normalized === 'void' ||
-    normalized === 'voided' ||
-    normalized.includes('cancel') ||
-    normalized.includes('void')
-  );
-}
 
 function clampFrom(from: Date | null): Date {
   if (!from) {
@@ -202,7 +187,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const paymentEntries = payments
     .map((payment) => {
-      if (isCancelledStatus(payment.transaction?.orderStatus)) {
+      if (isCancelledOrderStatus(payment.transaction?.orderStatus)) {
         return null;
       }
 
@@ -269,7 +254,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const legacyTxEntries = transactions
     .filter((tx) => !paymentTransactionIds.has(tx.id))
     .map((tx) => {
-      if (isCancelledStatus(tx.orderStatus)) {
+      if (isCancelledOrderStatus(tx.orderStatus)) {
         return null;
       }
 

@@ -6,6 +6,7 @@ import {
   parseDate,
   parseDateRangeFromParams,
 } from '@/lib/accounting/date-utils';
+import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
 import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
 import {
   fetchApprovedExpenses,
@@ -24,22 +25,6 @@ import { normalizeTransactionAmountsForAccounting } from '@/lib/accounting/trans
 export const dynamic = 'force-dynamic';
 
 const CUTOVER = getAccountingCutoverDate();
-
-function isCancelledStatus(value: string | null | undefined): boolean {
-  const normalized = (value ?? '').trim().toLowerCase();
-  if (!normalized) {
-    return false;
-  }
-
-  return (
-    normalized === 'cancelled' ||
-    normalized === 'canceled' ||
-    normalized === 'void' ||
-    normalized === 'voided' ||
-    normalized.includes('cancel') ||
-    normalized.includes('void')
-  );
-}
 
 function clampFrom(from: Date | null): Date {
   if (!from) {
@@ -81,7 +66,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const paymentTransactionIds = new Set(payments.map((p) => p.transactionId));
 
   for (const payment of payments) {
-    if (isCancelledStatus(payment.transaction?.orderStatus)) {
+    if (isCancelledOrderStatus(payment.transaction?.orderStatus)) {
       continue;
     }
 
@@ -117,7 +102,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       continue;
     }
 
-    if (isCancelledStatus(tx.orderStatus)) {
+    if (isCancelledOrderStatus(tx.orderStatus)) {
       continue;
     }
 

@@ -7,6 +7,7 @@ import { logger } from '@/lib/logger';
 import { ACCOUNTS_RECEIVABLE_STATUSES, PAID_STATUSES } from './constants';
 import { parseDate } from './date-utils';
 import { getAccountingCutoverDate } from './cutover';
+import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
 
 const ACCOUNTING_CUTOVER = getAccountingCutoverDate();
 
@@ -98,7 +99,7 @@ export async function fetchRecognizedTransactions(): Promise<
   const baseWhere = {
     deletedAt: null,
     NOT: {
-      orderStatus: { in: ['Cancelled', 'Canceled'] },
+      orderStatus: { equals: 'Cancelled' },
     },
     OR: [
       { orderStatus: { in: [...recognizedStatuses] } },
@@ -110,7 +111,7 @@ export async function fetchRecognizedTransactions(): Promise<
   };
 
   try {
-    return await prisma.transaction.findMany({
+    const rows = await prisma.transaction.findMany({
       where: baseWhere,
       include: {
         statusChanges: {
@@ -119,11 +120,13 @@ export async function fetchRecognizedTransactions(): Promise<
         },
       },
     });
+    return rows.filter((tx) => !isCancelledOrderStatus(tx.orderStatus));
   } catch (error) {
     logger.warn('Falling back to transactions without statusChanges', {
       error,
     });
-    return await prisma.transaction.findMany({ where: baseWhere });
+    const rows = await prisma.transaction.findMany({ where: baseWhere });
+    return rows.filter((tx) => !isCancelledOrderStatus(tx.orderStatus));
   }
 }
 
