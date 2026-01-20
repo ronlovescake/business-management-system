@@ -18,7 +18,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
 import { PolishedModal } from '@/components/modals/PolishedModal';
 import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
-import type { TransactionData } from '../types/transaction.types';
+import {
+  STATUS_FILTER_OPTIONS,
+  type StatusFilterOption,
+  type TransactionData,
+} from '../types/transaction.types';
 
 type PaymentDraft = {
   transactionId: number;
@@ -59,6 +63,8 @@ export function TransactionPaymentsModal({
   const [paymentDate, setPaymentDate] = useState<Date | null>(new Date());
   const [method, setMethod] = useState<string | null>('Cash');
   const [notes, setNotes] = useState<string>('');
+  const [statusFilter, setStatusFilter] =
+    useState<StatusFilterOption>('All Status');
   const [amountByTransactionId, setAmountByTransactionId] = useState<
     Record<number, number>
   >({});
@@ -67,6 +73,15 @@ export function TransactionPaymentsModal({
   const customerOptions = useMemo(
     () => customerNames.map((name) => ({ value: name, label: name })),
     [customerNames]
+  );
+
+  const statusFilterOptions = useMemo(
+    () =>
+      STATUS_FILTER_OPTIONS.map((status) => ({
+        value: status,
+        label: status,
+      })),
+    []
   );
 
   // ============================================================================
@@ -94,8 +109,14 @@ export function TransactionPaymentsModal({
           return false;
         }
         return !excludedStatuses.has(status);
+      })
+      .filter((t) => {
+        if (statusFilter === 'All Status') {
+          return true;
+        }
+        return (t['Order Status'] ?? '') === statusFilter;
       });
-  }, [selectedCustomer, transactions]);
+  }, [selectedCustomer, statusFilter, transactions]);
 
   const handleAmountChange = useCallback(
     (transactionId: number, value: number | string) => {
@@ -228,6 +249,17 @@ export function TransactionPaymentsModal({
             onChange={setSelectedCustomer}
           />
 
+          <Select
+            label="Order status"
+            placeholder="All Status"
+            data={statusFilterOptions}
+            value={statusFilter}
+            onChange={(value) =>
+              setStatusFilter((value as StatusFilterOption) ?? 'All Status')
+            }
+            allowDeselect={false}
+          />
+
           <DateInput
             label="Payment date"
             value={paymentDate}
@@ -333,6 +365,15 @@ export function TransactionPaymentsModal({
                       verticalAlign: 'middle',
                     }}
                   >
+                    Order Status
+                  </Table.Th>
+                  <Table.Th
+                    style={{
+                      width: 140,
+                      textAlign: 'center',
+                      verticalAlign: 'middle',
+                    }}
+                  >
                     Add payment
                   </Table.Th>
                 </Table.Tr>
@@ -382,6 +423,11 @@ export function TransactionPaymentsModal({
                         style={{ textAlign: 'right', verticalAlign: 'middle' }}
                       >
                         ₱{balanceDue.toLocaleString()}
+                      </Table.Td>
+                      <Table.Td
+                        style={{ textAlign: 'center', verticalAlign: 'middle' }}
+                      >
+                        {t['Order Status'] || '—'}
                       </Table.Td>
                       <Table.Td
                         style={{ textAlign: 'right', verticalAlign: 'middle' }}
