@@ -479,8 +479,8 @@ export function useHouseholdExpenses() {
       category: formCategory,
       notes: formNotes || null,
       receipt: formReceipt ? formReceipt.name : null,
-      status: editingExpense?.status || 'paid',
-      loggedBy: editingExpense?.employeeName || currentUserName,
+      status: 'paid',
+      loggedBy: currentUserName,
       accountId: formAccountId,
     };
 
@@ -502,6 +502,50 @@ export function useHouseholdExpenses() {
       }
 
       setIsModalOpen(false);
+      resetForm();
+    } catch (error) {
+      logger.error('Failed to save expense', { error, payload });
+      showError('Failed to save expense');
+    }
+  };
+
+  const handleSaveAndAddExpense = async () => {
+    if (editingExpense) {
+      await handleSaveExpense();
+      return;
+    }
+
+    if (!formDate || !formAmount || !formDescription || !formCategory) {
+      showError('Please fill out all required fields');
+      return;
+    }
+
+    const payload: Partial<HouseholdExpenseDTO> = {
+      date: formDate,
+      amount: Number(formAmount),
+      description: formDescription,
+      category: formCategory,
+      notes: formNotes || null,
+      receipt: formReceipt ? formReceipt.name : null,
+      status: 'paid',
+      loggedBy: currentUserName,
+      accountId: formAccountId,
+    };
+
+    try {
+      // ======================================================================
+      // ⚠️ SAVE + RESET (KEEP MODAL OPEN)
+      // ======================================================================
+      // Create the expense, then clear the form for rapid entry without
+      // dismissing the modal.
+      // ======================================================================
+      createExpense(payload);
+      showNotification({
+        title: 'Expense Added',
+        message: 'The expense has been added successfully.',
+        color: 'green',
+      });
+
       resetForm();
     } catch (error) {
       logger.error('Failed to save expense', { error, payload });
@@ -644,6 +688,7 @@ export function useHouseholdExpenses() {
     handleEditExpense,
     handleDeleteExpense,
     handleSaveExpense,
+    handleSaveAndAddExpense,
     handleApprove,
     handleReject,
     handleMarkPaid,

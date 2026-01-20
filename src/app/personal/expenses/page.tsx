@@ -80,6 +80,7 @@ export default function PersonalExpensesPage() {
     handleEditExpense,
     handleDeleteExpense,
     handleSaveExpense,
+    handleSaveAndAddExpense,
     handleApprove,
     handleReject,
     handleMarkPaid,
@@ -194,6 +195,7 @@ export default function PersonalExpensesPage() {
           setFormReceipt={setFormReceipt}
           showTripId={false}
           onSave={handleSaveExpense}
+          onSaveAndAddNew={handleSaveAndAddExpense}
         />
 
         <ReceiptViewerModal

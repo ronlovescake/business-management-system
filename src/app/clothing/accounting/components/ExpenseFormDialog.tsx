@@ -72,6 +72,7 @@ interface ExpenseFormDialogProps {
 
   // Actions
   onSave: () => void;
+  onSaveAndAddNew?: () => void;
 }
 
 export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
@@ -102,6 +103,7 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
   setFormReceipt,
   showTripId = true,
   onSave,
+  onSaveAndAddNew,
 }: ExpenseFormDialogProps) {
   // Validation
   const isValid = Boolean(
@@ -256,6 +258,21 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
             <Button radius="md" variant="default" onClick={onClose}>
               Cancel
             </Button>
+            {!editingExpense && onSaveAndAddNew && (
+              // =================================================================
+              // ⚠️ SAVE + ADD NEW
+              // =================================================================
+              // Keeps the modal open and clears the form after creating.
+              // =================================================================
+              <Button
+                radius="md"
+                variant="default"
+                onClick={onSaveAndAddNew}
+                disabled={!isValid}
+              >
+                Save and add new
+              </Button>
+            )}
             <Button
               radius="md"
               onClick={onSave}
