@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
@@ -18,7 +18,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
 import { logger } from '@/lib/logger';
 import { BundleService } from '../services/BundleService';
-import type { CreateBundleInput } from '../types/bundle.types';
+import { ProductService } from '../services/ProductService';
+import type { BundleBatch, CreateBundleInput } from '../types/bundle.types';
 import { PriceService } from '../../prices/services/PriceService';
 import {
   COMMON_DATE_INPUT_PROPS,
@@ -61,6 +62,8 @@ export function BundlesTab() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<BundleFormState>(() => createEmptyBundle());
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isBundleSkuManual, setIsBundleSkuManual] = useState(false);
+  const [editingBundleId, setEditingBundleId] = useState<number | null>(null);
 
   const { data: bundles = [], isLoading: bundlesLoading } = useQuery({
     queryKey: queryKeys.bundles.lists(),
@@ -84,6 +87,32 @@ export function BundlesTab() {
     return codes.map((code) => ({ value: code, label: code }));
   }, [prices]);
 
+  const autoBundleSku = useMemo(() => {
+    const bundleName = form.bundleName.trim();
+    const postingDate = form.postingDate.trim();
+    if (!bundleName || !postingDate) {
+      return '';
+    }
+
+    return ProductService.generateProductCode(bundleName, postingDate);
+  }, [form.bundleName, form.postingDate]);
+
+  useEffect(() => {
+    if (isBundleSkuManual) {
+      return;
+    }
+
+    setForm((prev) => {
+      if (prev.bundleSku === autoBundleSku) {
+        return prev;
+      }
+      return {
+        ...prev,
+        bundleSku: autoBundleSku,
+      };
+    });
+  }, [autoBundleSku, isBundleSkuManual]);
+
   const createMutation = useMutation({
     mutationFn: async (payload: CreateBundleInput) => {
       return await BundleService.createBundle(payload);
@@ -91,12 +120,33 @@ export function BundlesTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.bundles.lists() });
       setForm(createEmptyBundle());
+      setIsBundleSkuManual(false);
+      setEditingBundleId(null);
       setErrorMessage(null);
     },
     onError: (err) => {
       logger.error('Failed to create bundle', err);
       setErrorMessage(
         err instanceof Error ? err.message : 'Failed to create bundle'
+      );
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (payload: CreateBundleInput & { id: number }) => {
+      return await BundleService.updateBundle(payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.bundles.lists() });
+      setForm(createEmptyBundle());
+      setIsBundleSkuManual(false);
+      setEditingBundleId(null);
+      setErrorMessage(null);
+    },
+    onError: (err) => {
+      logger.error('Failed to update bundle', err);
+      setErrorMessage(
+        err instanceof Error ? err.message : 'Failed to update bundle'
       );
     },
   });
@@ -108,6 +158,7 @@ export function BundlesTab() {
     form.quantity > 0 &&
     form.price >= 0 &&
     form.components.some((c) => c.productCode.trim() && c.includedQuantity > 0);
+  const isSaving = createMutation.isPending || updateMutation.isPending;
 
   const addComponentRow = () => {
     setForm((prev) => ({
@@ -155,7 +206,35 @@ export function BundlesTab() {
         .filter((c) => c.productCode && c.includedQuantity > 0),
     };
 
-    await createMutation.mutateAsync(payload);
+    if (editingBundleId) {
+      await updateMutation.mutateAsync({ ...payload, id: editingBundleId });
+    } else {
+      await createMutation.mutateAsync(payload);
+    }
+  };
+
+  const handleEditBundle = (bundle: BundleBatch) => {
+    const autoSku = ProductService.generateProductCode(
+      bundle.bundleName,
+      bundle.postingDate
+    );
+
+    setForm({
+      postingDate: bundle.postingDate,
+      bundleName: bundle.bundleName,
+      bundleSku: bundle.bundleSku,
+      quantity: bundle.quantity,
+      price: bundle.price,
+      components: bundle.components.map((c) => ({
+        clientId: newClientId(),
+        productCode: c.componentProductCode,
+        includedQuantity: c.includedQuantity,
+      })),
+    });
+    setEditingBundleId(bundle.id);
+    setIsBundleSkuManual(
+      bundle.bundleSku.trim().length > 0 && bundle.bundleSku !== autoSku
+    );
   };
 
   return (
@@ -171,10 +250,10 @@ export function BundlesTab() {
             </div>
             <Button
               onClick={handleCreate}
-              loading={createMutation.isPending}
+              loading={isSaving}
               disabled={!canSubmit}
             >
-              Save Bundle
+              {editingBundleId ? 'Update Bundle' : 'Save Bundle'}
             </Button>
           </Group>
 
@@ -219,6 +298,7 @@ export function BundlesTab() {
                   ...prev,
                   bundleSku: nextValue,
                 }));
+                setIsBundleSkuManual(true);
               }}
               placeholder="BUNDLE A (BA-011326)"
             />
@@ -330,7 +410,7 @@ export function BundlesTab() {
           </Table.Thead>
           <Table.Tbody>
             {bundles.map((b) => (
-              <Table.Tr key={b.id}>
+              <Table.Tr key={b.id} onDoubleClick={() => handleEditBundle(b)}>
                 <Table.Td>{b.postingDate}</Table.Td>
                 <Table.Td>{b.bundleName}</Table.Td>
                 <Table.Td>{b.bundleSku}</Table.Td>

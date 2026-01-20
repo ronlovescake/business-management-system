@@ -19,6 +19,10 @@ interface CreateBundleRequest {
   components: CreateBundleComponentInput[];
 }
 
+interface UpdateBundleRequest extends CreateBundleRequest {
+  id: number;
+}
+
 export async function GET() {
   try {
     const bundles = await prisma.bundleBatch.findMany({
@@ -157,6 +161,156 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       { error: 'Failed to create bundle' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = (await request.json()) as UpdateBundleRequest;
+
+    const id = Number(body.id);
+    if (!Number.isFinite(id) || id <= 0) {
+      return NextResponse.json({ error: 'id is required' }, { status: 400 });
+    }
+
+    const postingDate = body.postingDate?.trim();
+    const bundleName = body.bundleName?.trim();
+    const bundleSku = body.bundleSku?.trim();
+    const quantity = Number(body.quantity);
+    const price = Number(body.price);
+    const components = Array.isArray(body.components) ? body.components : [];
+
+    if (!postingDate || !bundleName || !bundleSku) {
+      return NextResponse.json(
+        { error: 'postingDate, bundleName, and bundleSku are required' },
+        { status: 400 }
+      );
+    }
+
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      return NextResponse.json(
+        { error: 'quantity must be a number greater than 0' },
+        { status: 400 }
+      );
+    }
+
+    if (!Number.isFinite(price) || price < 0) {
+      return NextResponse.json(
+        { error: 'price must be a number greater than or equal to 0' },
+        { status: 400 }
+      );
+    }
+
+    if (components.length === 0) {
+      return NextResponse.json(
+        { error: 'At least one component is required' },
+        { status: 400 }
+      );
+    }
+
+    const normalizedComponents = components
+      .map((c) => ({
+        productCode: (c.productCode ?? '').trim(),
+        includedQuantity: Number(c.includedQuantity),
+      }))
+      .filter(
+        (c) =>
+          c.productCode.length > 0 &&
+          Number.isFinite(c.includedQuantity) &&
+          c.includedQuantity > 0
+      );
+
+    if (normalizedComponents.length === 0) {
+      return NextResponse.json(
+        { error: 'Components must have productCode and includedQuantity > 0' },
+        { status: 400 }
+      );
+    }
+
+    const existing = await prisma.bundleBatch.findUnique({
+      where: { id },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: 'Bundle batch not found' },
+        { status: 404 }
+      );
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const notePrefix = `bundle-assembly batch ${id} `;
+      await tx.inventoryMovement.updateMany({
+        where: {
+          notes: { startsWith: notePrefix },
+          deletedAt: null,
+        },
+        data: { deletedAt: new Date() },
+      });
+
+      const updatedBatch = await tx.bundleBatch.update({
+        where: { id },
+        data: {
+          postingDate,
+          bundleName,
+          bundleSku,
+          quantity,
+          price,
+          components: {
+            deleteMany: {},
+            create: normalizedComponents.map((c) => ({
+              componentProductCode: c.productCode,
+              includedQuantity: c.includedQuantity,
+            })),
+          },
+        },
+        include: { components: true },
+      });
+
+      const note = `bundle-assembly batch ${updatedBatch.id} sku ${bundleSku}`;
+
+      await tx.inventoryMovement.createMany({
+        data: normalizedComponents.map((component) => ({
+          productCode: component.productCode.trim(),
+          quantity: component.includedQuantity * quantity,
+          fromBucket: 'sellable',
+          toBucket: 'assembly_wip',
+          postingDate,
+          notes: note,
+        })),
+      });
+
+      await tx.inventoryMovement.create({
+        data: {
+          productCode: bundleSku,
+          quantity,
+          fromBucket: 'assembly_wip',
+          toBucket: 'sellable',
+          postingDate,
+          notes: note,
+        },
+      });
+
+      return updatedBatch;
+    });
+
+    return NextResponse.json(updated, { status: 200 });
+  } catch (error) {
+    logger.error('Failed to update bundle', error);
+
+    const message =
+      error instanceof Error ? error.message : 'Failed to update bundle';
+    if (message.toLowerCase().includes('unique')) {
+      return NextResponse.json(
+        { error: 'Bundle SKU already exists' },
+        { status: 409 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: 'Failed to update bundle' },
       { status: 500 }
     );
   }

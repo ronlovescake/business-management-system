@@ -16,4 +16,10 @@ export class BundleService {
   static async createBundle(bundle: CreateBundleInput): Promise<BundleBatch> {
     return await api.post<BundleBatch>('/api/bundles', bundle);
   }
+
+  static async updateBundle(
+    bundle: CreateBundleInput & { id: number }
+  ): Promise<BundleBatch> {
+    return await api.patch<BundleBatch>('/api/bundles', bundle);
+  }
 }
