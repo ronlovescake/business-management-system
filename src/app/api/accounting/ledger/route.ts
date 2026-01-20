@@ -185,6 +185,12 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     description: string;
   }>;
 
+  // ============================================================================
+  // ⚠️ CANCELLED STATUS FILTER (ACCOUNTING REVENUE)
+  // ============================================================================
+  // Only the explicit "Cancelled" order status is excluded from revenue entries.
+  // This keeps accounting aligned with the transactions dropdown.
+  // ============================================================================
   const paymentEntries = payments
     .map((payment) => {
       if (isCancelledOrderStatus(payment.transaction?.orderStatus)) {
@@ -251,6 +257,11 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     description: string;
   }>;
 
+  // ============================================================================
+  // ⚠️ CANCELLED STATUS FILTER (LEGACY PAID TRANSACTIONS)
+  // ============================================================================
+  // Legacy paid entries are excluded only when Order Status is explicitly "Cancelled".
+  // ============================================================================
   const legacyTxEntries = transactions
     .filter((tx) => !paymentTransactionIds.has(tx.id))
     .map((tx) => {

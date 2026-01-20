@@ -110,6 +110,12 @@ export async function fetchRecognizedTransactions(): Promise<
     ],
   };
 
+  // ============================================================================
+  // ⚠️ CANCELLED STATUS FILTER (RECOGNIZED TRANSACTIONS)
+  // ============================================================================
+  // We only treat the explicit "Cancelled" status as cancelled.
+  // This matches the transactions dropdown and avoids filtering other labels.
+  // ============================================================================
   try {
     const rows = await prisma.transaction.findMany({
       where: baseWhere,

@@ -325,6 +325,12 @@ async function computeInventorySeedAndShrinkageByDate(params: {
     const label = `${m.fromBucket}→${m.toBucket}`;
     const baseKey = `${dateKey}|||${productCode}|||${label}`;
 
+    // ========================================================================
+    // ⚠️ INVENTORY SEED (IN-TRANSIT VS ON-HAND)
+    // ========================================================================
+    // Uses shared shipment-status helper so blank/unknown statuses remain in
+    // "Inventory in Transit" and match ops workflow.
+    // ========================================================================
     // Inventory seed: scrap -> asset bucket.
     if (m.fromBucket === 'scrap' && INVENTORY_ASSET_BUCKETS.has(m.toBucket)) {
       const status = productStatusByCode.get(code) ?? '';

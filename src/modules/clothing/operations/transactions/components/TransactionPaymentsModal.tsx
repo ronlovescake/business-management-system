@@ -69,6 +69,12 @@ export function TransactionPaymentsModal({
     [customerNames]
   );
 
+  // ============================================================================
+  // ⚠️ ELIGIBILITY FILTERS (RECORD PAYMENTS)
+  // ============================================================================
+  // - Only explicit "Cancelled" is excluded via shared helper.
+  // - Shipped is excluded for ops workflow (payments should be recorded before shipping).
+  // ============================================================================
   const eligibleTransactions = useMemo(() => {
     if (!selectedCustomer) {
       return [];
@@ -338,6 +344,12 @@ export function TransactionPaymentsModal({
                   const quantity = Number(t.Quantity) || 0;
                   const unitPrice = Number(t['Unit Price']) || 0;
                   const lineTotalRaw = Number(t['Line Total']);
+                  // ========================================================================
+                  // ⚠️ BALANCE DUE (DISCOUNT ALREADY IN UNIT PRICE)
+                  // ========================================================================
+                  // Formula: (Quantity × Unit Price) - Adjustment (paid so far)
+                  // The live Add Payment input is subtracted for preview.
+                  // ========================================================================
                   const baseTotal = Number.isFinite(lineTotalRaw)
                     ? lineTotalRaw
                     : quantity * unitPrice - paidSoFar;

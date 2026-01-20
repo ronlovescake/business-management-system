@@ -62,6 +62,11 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const rows: ProfitLossDetailRow[] = [];
 
+  // ==========================================================================
+  // ⚠️ CANCELLED STATUS FILTER (PAYMENT DETAILS)
+  // ==========================================================================
+  // Only explicit "Cancelled" order status is excluded from revenue details.
+  // ==========================================================================
   // Revenue: payment events
   const paymentTransactionIds = new Set(payments.map((p) => p.transactionId));
 
@@ -96,6 +101,11 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     });
   }
 
+  // ==========================================================================
+  // ⚠️ CANCELLED STATUS FILTER (LEGACY DETAILS)
+  // ==========================================================================
+  // Legacy paid transactions are excluded only when Order Status is "Cancelled".
+  // ==========================================================================
   // Revenue: legacy paid transactions (only if there are no payment events to avoid double counting)
   for (const tx of transactions) {
     if (paymentTransactionIds.has(tx.id)) {

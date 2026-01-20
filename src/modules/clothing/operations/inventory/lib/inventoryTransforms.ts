@@ -70,6 +70,12 @@ export function buildInventoryItems(
   // (We intentionally ignore them here to avoid surfacing confusing “reserved qty” logic.)
   void bundles;
 
+  // ============================================================================
+  // ⚠️ OPERATIONAL SALES (INVENTORY VIEW)
+  // ============================================================================
+  // This view uses operational fulfillment statuses for Total Sales (not payments).
+  // Cancelled orders are excluded using the shared helper ("Cancelled" only).
+  // ============================================================================
   transactions.forEach((transaction) => {
     const productCode = transaction['Product Code'];
     const orderStatus = transaction['Order Status'];

@@ -30,6 +30,10 @@ import type {
   PackingListTransaction,
 } from '../types/transaction.types';
 import { logger } from '@/lib/logger';
+import {
+  isCancelledOrderStatus,
+  normalizeOrderStatus,
+} from '@/lib/transactions/order-status';
 
 export class TransactionService {
   // ============================================================================
@@ -173,6 +177,14 @@ export class TransactionService {
   // ORDER STATUS LOGIC - Auto-populate based on shipment status
   // ============================================================================
 
+  // ============================================================================
+  // ⚠️ STATUS NORMALIZATION & CANCELLATION RULES
+  // ============================================================================
+  // - normalizeOrderStatus() is the single source of truth for comparisons.
+  // - Cancelled means ONLY the explicit "Cancelled" status from the dropdown.
+  // - This prevents accidental filtering of other labels (e.g. typos or legacy values).
+  // ============================================================================
+
   /**
    * Determine Order Status based on Shipment Status
    *
@@ -180,6 +192,10 @@ export class TransactionService {
    * - Blank, "In Transit", "Manila Port", "With Pier Gatepass", "PH Warehouse" → "In Transit"
    * - "For Pickup", "Sorting", "Delivered" → "Warehouse"
    * - Default fallback → "In Transit"
+   *
+   * Note:
+   * - Any unknown shipment status logs a warning and defaults to "In Transit"
+   *   to preserve current operations workflow.
    *
    * @param shipmentStatus - The shipment status
    * @returns The corresponding order status
@@ -190,21 +206,26 @@ export class TransactionService {
     }
 
     const normalizedStatus = shipmentStatus.trim();
+    const normalizedLower = normalizedStatus.toLowerCase();
 
-    const inTransitStatuses = [
-      'In Transit',
-      'Manila Port',
-      'With Pier Gatepass',
-      'PH Warehouse',
-    ];
+    const inTransitStatuses = new Set([
+      'in transit',
+      'manila port',
+      'with pier gatepass',
+      'ph warehouse',
+    ]);
 
-    const warehouseStatuses = ['For Pickup', 'Sorting', 'Delivered'];
+    const warehouseStatuses = new Set(['for pickup', 'sorting', 'delivered']);
 
-    if (inTransitStatuses.includes(normalizedStatus)) {
+    if (inTransitStatuses.has(normalizedLower)) {
       return 'In Transit';
-    } else if (warehouseStatuses.includes(normalizedStatus)) {
+    } else if (warehouseStatuses.has(normalizedLower)) {
       return 'Warehouse';
     }
+
+    logger.warn('Unknown shipment status; defaulting to In Transit', {
+      shipmentStatus: normalizedStatus,
+    });
 
     return 'In Transit'; // Default fallback
   }
@@ -295,7 +316,7 @@ export class TransactionService {
 
     // Exclude cancelled orders from revenue
     const activeTransactions = filteredData.filter(
-      (t) => t['Order Status']?.toLowerCase() !== 'cancelled'
+      (t) => !isCancelledOrderStatus(t['Order Status'])
     );
 
     const totalRevenue = activeTransactions.reduce(
@@ -304,19 +325,21 @@ export class TransactionService {
     );
 
     const inTransitTotal = filteredData
-      .filter((t) => t['Order Status']?.toLowerCase() === 'in transit')
+      .filter((t) => normalizeOrderStatus(t['Order Status']) === 'in transit')
       .reduce((sum, t) => sum + (t['Line Total'] || 0), 0);
 
     const warehouseTotal = filteredData
-      .filter((t) => t['Order Status']?.toLowerCase() === 'warehouse')
+      .filter((t) => normalizeOrderStatus(t['Order Status']) === 'warehouse')
       .reduce((sum, t) => sum + (t['Line Total'] || 0), 0);
 
     const preparedTotal = filteredData
-      .filter((t) => t['Order Status']?.toLowerCase() === 'prepared')
+      .filter((t) => normalizeOrderStatus(t['Order Status']) === 'prepared')
       .reduce((sum, t) => sum + (t['Line Total'] || 0), 0);
 
     const pendingPaymentTotal = filteredData
-      .filter((t) => t['Order Status']?.toLowerCase() === 'pending payment')
+      .filter(
+        (t) => normalizeOrderStatus(t['Order Status']) === 'pending payment'
+      )
       .reduce((sum, t) => sum + (t['Line Total'] || 0), 0);
 
     const uniqueCustomers = new Set(
@@ -329,11 +352,11 @@ export class TransactionService {
     );
 
     const shippedOrders = filteredData.filter(
-      (t) => t['Order Status']?.toLowerCase() === 'shipped'
+      (t) => normalizeOrderStatus(t['Order Status']) === 'shipped'
     ).length;
 
     const lineTotalExcludingCancelled = filteredData
-      .filter((t) => t['Order Status']?.toLowerCase() !== 'cancelled')
+      .filter((t) => !isCancelledOrderStatus(t['Order Status']))
       .reduce((sum, t) => sum + (t['Line Total'] || 0), 0);
 
     return {

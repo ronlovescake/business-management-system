@@ -1,3 +1,8 @@
+// ============================================================================
+// ⚠️ SHIPMENT STATUS NORMALIZATION
+// ============================================================================
+// Single source of truth for shipment-status comparisons.
+// ============================================================================
 function normalizeStatus(value: string | null | undefined): string {
   return (value ?? '').trim().toLowerCase();
 }
@@ -10,6 +15,12 @@ const IN_TRANSIT_STATUSES = new Set([
   'for pickup',
 ]);
 
+// ============================================================================
+// ⚠️ IN-TRANSIT RULE
+// ============================================================================
+// Business rule: blank/unknown shipment statuses are treated as in transit to
+// preserve current ops workflow (transactions default to "In Transit").
+// ============================================================================
 export function isInTransitShipmentStatus(
   value: string | null | undefined
 ): boolean {

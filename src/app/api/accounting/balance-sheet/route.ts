@@ -391,6 +391,12 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     }
   }
 
+  // ============================================================================
+  // ⚠️ INVENTORY IN TRANSIT (SHIPMENT STATUS)
+  // ============================================================================
+  // Uses shared helper to keep "blank = in transit" behavior consistent
+  // with transactions workflow and accounting.
+  // ============================================================================
   const inTransitProductTotal = products.reduce((sum, row) => {
     const productCode = (row.productCode ?? '').trim();
     if (!productCode) {

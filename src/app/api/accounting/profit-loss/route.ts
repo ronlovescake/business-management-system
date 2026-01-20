@@ -50,6 +50,11 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const paymentTransactionIds = new Set(payments.map((p) => p.transactionId));
 
+  // ============================================================================
+  // ⚠️ CANCELLED STATUS FILTER (PAYMENT REVENUE)
+  // ============================================================================
+  // Only the explicit "Cancelled" order status is excluded from revenue totals.
+  // ============================================================================
   const paymentRevenueTotal = payments.reduce((sum, payment) => {
     if (isCancelledOrderStatus(payment.transaction?.orderStatus)) {
       return sum;
@@ -68,6 +73,11 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     return sum + amt;
   }, 0);
 
+  // ============================================================================
+  // ⚠️ CANCELLED STATUS FILTER (LEGACY REVENUE)
+  // ============================================================================
+  // Legacy paid transactions are excluded only when Order Status is "Cancelled".
+  // ============================================================================
   const transactionsWithPaidAt = transactions
     .filter((tx) => !paymentTransactionIds.has(tx.id))
     .filter((tx) => !isCancelledOrderStatus(tx.orderStatus))
