@@ -4,7 +4,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
-  Card,
   Group,
   NumberInput,
   Select,
@@ -17,6 +16,12 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
 import { logger } from '@/lib/logger';
+import {
+  StandardDataTable,
+  StandardTableContainer,
+  StandardTableControls,
+} from '@/components/tables/StandardDataTable';
+import { PolishedModal } from '@/components/modals/PolishedModal';
 import { BundleService } from '../services/BundleService';
 import { ProductService } from '../services/ProductService';
 import type { BundleBatch, CreateBundleInput } from '../types/bundle.types';
@@ -64,6 +69,8 @@ export function BundlesTab() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isBundleSkuManual, setIsBundleSkuManual] = useState(false);
   const [editingBundleId, setEditingBundleId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isBundleModalOpen, setIsBundleModalOpen] = useState(false);
 
   const { data: bundles = [], isLoading: bundlesLoading } = useQuery({
     queryKey: queryKeys.bundles.lists(),
@@ -86,6 +93,27 @@ export function BundlesTab() {
 
     return codes.map((code) => ({ value: code, label: code }));
   }, [prices]);
+
+  const filteredBundles = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return bundles;
+    }
+
+    const query = searchQuery.trim().toLowerCase();
+    return bundles.filter((bundle) => {
+      const componentCodes = (bundle.components ?? [])
+        .map((component) => component.componentProductCode)
+        .join(' ')
+        .toLowerCase();
+
+      return (
+        bundle.postingDate.toLowerCase().includes(query) ||
+        bundle.bundleName.toLowerCase().includes(query) ||
+        bundle.bundleSku.toLowerCase().includes(query) ||
+        componentCodes.includes(query)
+      );
+    });
+  }, [bundles, searchQuery]);
 
   const autoBundleSku = useMemo(() => {
     const bundleName = form.bundleName.trim();
@@ -159,6 +187,21 @@ export function BundlesTab() {
     form.price >= 0 &&
     form.components.some((c) => c.productCode.trim() && c.includedQuantity > 0);
   const isSaving = createMutation.isPending || updateMutation.isPending;
+
+  const handleOpenCreate = () => {
+    setForm(createEmptyBundle());
+    setEditingBundleId(null);
+    setIsBundleSkuManual(false);
+    setErrorMessage(null);
+    setIsBundleModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    if (isSaving) {
+      return;
+    }
+    setIsBundleModalOpen(false);
+  };
 
   const addComponentRow = () => {
     setForm((prev) => ({
@@ -235,28 +278,18 @@ export function BundlesTab() {
     setIsBundleSkuManual(
       bundle.bundleSku.trim().length > 0 && bundle.bundleSku !== autoSku
     );
+    setIsBundleModalOpen(true);
   };
 
   return (
     <Stack gap="md">
-      <Card withBorder radius="md" p="md">
+      <PolishedModal
+        opened={isBundleModalOpen}
+        onClose={handleCloseModal}
+        title={editingBundleId ? 'Update Bundle Batch' : 'Create Bundle Batch'}
+        size="45%"
+      >
         <Stack gap="sm">
-          <Group justify="space-between" align="flex-start">
-            <div>
-              <Text fw={600}>Create Bundle Batch</Text>
-              <Text size="sm" c="dimmed">
-                Log a dated bundle SKU and its component SKUs.
-              </Text>
-            </div>
-            <Button
-              onClick={handleCreate}
-              loading={isSaving}
-              disabled={!canSubmit}
-            >
-              {editingBundleId ? 'Update Bundle' : 'Save Bundle'}
-            </Button>
-          </Group>
-
           {errorMessage ? (
             <Alert color="red" title="Error">
               {errorMessage}
@@ -313,7 +346,6 @@ export function BundlesTab() {
                   quantity: typeof value === 'number' ? value : 1,
                 }))
               }
-              description="Usually 1 (one bundle lot)"
             />
 
             <NumberInput
@@ -385,77 +417,98 @@ export function BundlesTab() {
               ))}
             </Stack>
           </Stack>
+
+          <Group justify="flex-end">
+            <Button
+              onClick={handleCreate}
+              loading={isSaving}
+              disabled={!canSubmit}
+            >
+              {editingBundleId ? 'Update Bundle' : 'Save Bundle'}
+            </Button>
+          </Group>
         </Stack>
-      </Card>
+      </PolishedModal>
 
-      <Card withBorder radius="md" p="md">
-        <Group justify="space-between" mb="sm">
-          <Text fw={600}>Bundles</Text>
-          <Text size="sm" c="dimmed">
-            {bundlesLoading ? 'Loading…' : `${bundles.length} bundle(s)`}
-          </Text>
-        </Group>
+      <StandardTableControls
+        searchPlaceholder="Search bundles..."
+        onSearch={setSearchQuery}
+        onAddNew={handleOpenCreate}
+        addNewLabel="Create Bundle Batch"
+        hideImport
+        hideExport
+      />
 
-        <Table striped highlightOnHover withTableBorder>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Posting Date</Table.Th>
-              <Table.Th>Bundle Name</Table.Th>
-              <Table.Th>Bundle SKU</Table.Th>
-              <Table.Th>Quantity</Table.Th>
-              <Table.Th>Price</Table.Th>
-              <Table.Th>Product Code</Table.Th>
-              <Table.Th>Left Over Quantity</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {bundles.map((b) => (
-              <Table.Tr key={b.id} onDoubleClick={() => handleEditBundle(b)}>
-                <Table.Td>{b.postingDate}</Table.Td>
-                <Table.Td>{b.bundleName}</Table.Td>
-                <Table.Td>{b.bundleSku}</Table.Td>
-                <Table.Td>{b.quantity}</Table.Td>
-                <Table.Td>
-                  {Number.isFinite(b.price) ? b.price.toFixed(2) : b.price}
-                </Table.Td>
-                <Table.Td>
-                  <Stack gap={2}>
-                    {b.components?.map((c) => (
-                      <Text key={c.id} size="sm">
-                        {c.componentProductCode}
-                      </Text>
-                    ))}
-                  </Stack>
-                </Table.Td>
-                <Table.Td>
-                  <Stack gap={2}>
-                    {b.components?.map((c) => (
-                      <Text key={c.id} size="sm">
-                        {c.includedQuantity}
-                      </Text>
-                    ))}
-                  </Stack>
-                </Table.Td>
-              </Table.Tr>
-            ))}
-            {!bundlesLoading && bundles.length === 0 ? (
-              <Table.Tr>
-                <Table.Td colSpan={7}>
-                  <Text c="dimmed" size="sm">
-                    No bundles yet.
-                  </Text>
-                </Table.Td>
-              </Table.Tr>
+      <StandardTableContainer
+        summary={
+          <Group justify="space-between">
+            <Text size="sm" c="dimmed">
+              {bundlesLoading
+                ? 'Loading…'
+                : `Showing ${filteredBundles.length} of ${bundles.length} bundle(s)`}
+            </Text>
+            {pricesLoading ? (
+              <Text size="xs" c="dimmed">
+                Loading price list for SKU dropdown…
+              </Text>
             ) : null}
-          </Table.Tbody>
-        </Table>
-
-        {pricesLoading ? (
-          <Text mt="sm" size="xs" c="dimmed">
-            Loading price list for SKU dropdown…
-          </Text>
-        ) : null}
-      </Card>
+          </Group>
+        }
+      >
+        <StandardDataTable
+          headers={[
+            'Posting Date',
+            'Bundle Name',
+            'Bundle SKU',
+            'Quantity',
+            'Price',
+            'Product Code',
+            'Left Over Quantity',
+          ]}
+          colSpan={7}
+          emptyState={
+            bundlesLoading
+              ? 'Loading bundles...'
+              : searchQuery
+                ? `No bundles found matching "${searchQuery}"`
+                : 'No bundles yet.'
+          }
+        >
+          {filteredBundles.map((b) => (
+            <Table.Tr key={b.id} onDoubleClick={() => handleEditBundle(b)}>
+              <Table.Td style={{ textAlign: 'center' }}>
+                {b.postingDate}
+              </Table.Td>
+              <Table.Td style={{ textAlign: 'center' }}>
+                {b.bundleName}
+              </Table.Td>
+              <Table.Td style={{ textAlign: 'center' }}>{b.bundleSku}</Table.Td>
+              <Table.Td style={{ textAlign: 'center' }}>{b.quantity}</Table.Td>
+              <Table.Td style={{ textAlign: 'center' }}>
+                {Number.isFinite(b.price) ? b.price.toFixed(2) : b.price}
+              </Table.Td>
+              <Table.Td>
+                <Stack gap={2}>
+                  {b.components?.map((c) => (
+                    <Text key={c.id} size="sm">
+                      {c.componentProductCode}
+                    </Text>
+                  ))}
+                </Stack>
+              </Table.Td>
+              <Table.Td>
+                <Stack gap={2}>
+                  {b.components?.map((c) => (
+                    <Text key={c.id} size="sm">
+                      {c.includedQuantity}
+                    </Text>
+                  ))}
+                </Stack>
+              </Table.Td>
+            </Table.Tr>
+          ))}
+        </StandardDataTable>
+      </StandardTableContainer>
     </Stack>
   );
 }
