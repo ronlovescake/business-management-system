@@ -46,7 +46,7 @@ export const InventoryTable = memo(
             </Table.Td>
             <Table.Td style={{ textAlign: 'center' }}>
               <Text size="sm" c="#495057">
-                {numberFormatter.format(item.onhand)}
+                {numberFormatter.format(item.actualQuantityReceived)}
               </Text>
             </Table.Td>
             <Table.Td style={{ textAlign: 'center' }}>

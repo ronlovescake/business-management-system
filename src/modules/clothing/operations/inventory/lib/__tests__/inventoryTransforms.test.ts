@@ -65,6 +65,7 @@ describe('buildInventoryItems', () => {
     expect(abc?.damagedOnHand).toBe(0);
     expect(abc?.scrapQty).toBe(0);
     expect(abc?.onhand).toBe(10);
+    expect(abc?.actualQuantityReceived).toBe(10);
 
     // availability is based on sellableOnHand only
     expect(abc?.availableStock).toBe(8);
@@ -99,6 +100,7 @@ describe('buildInventoryItems', () => {
     expect(xyz?.onhand).toBe(7);
     expect(xyz?.availableStock).toBe(7);
     expect(xyz?.supplierShortQty).toBe(0);
+    expect(xyz?.actualQuantityReceived).toBe(7);
     expect(xyz?.shipmentCode).toBe('S1');
     expect(xyz?.shipmentStatus).toBe('In Transit');
   });
@@ -144,6 +146,7 @@ describe('buildInventoryItems', () => {
     expect(abc?.onhand).toBe(80);
     expect(abc?.availableStock).toBe(80);
     expect(abc?.supplierShortQty).toBe(0);
+    expect(abc?.actualQuantityReceived).toBe(100);
   });
 
   it('counts scrap as cumulative write-offs (incoming to scrap from non-scrap buckets)', () => {
@@ -182,9 +185,10 @@ describe('buildInventoryItems', () => {
     expect(abc).toBeDefined();
     expect(abc?.sellableOnHand).toBe(7);
     expect(abc?.scrapQty).toBe(3);
+    expect(abc?.actualQuantityReceived).toBe(7);
   });
 
-  it('shows supplier short quantity when expected quantity exceeds received (sellable+reserved+damaged)', () => {
+  it('does not auto-create supplier short quantities from PO vs received', () => {
     const products: ProductFromAPI[] = [
       {
         id: 'p1',
@@ -214,7 +218,8 @@ describe('buildInventoryItems', () => {
     expect(xyz?.onhand).toBe(80);
     expect(xyz?.damagedOnHand).toBe(0);
     expect(xyz?.scrapQty).toBe(0);
-    expect(xyz?.supplierShortQty).toBe(20);
+    expect(xyz?.supplierShortQty).toBe(0);
+    expect(xyz?.actualQuantityReceived).toBe(100);
   });
 
   it('allows recording supplier short via movements and prefers the manual supplier short qty', () => {
@@ -255,6 +260,7 @@ describe('buildInventoryItems', () => {
     expect(xyz?.sellableOnHand).toBe(80);
     // When there is a manual supplier short entry, the UI prefers that value.
     expect(xyz?.supplierShortQty).toBe(5);
+    expect(xyz?.actualQuantityReceived).toBe(95);
   });
 
   it('treats sellable movements as adjustments when there are no sellable receipts', () => {
@@ -286,5 +292,6 @@ describe('buildInventoryItems', () => {
     expect(abc).toBeDefined();
     // supplier_short does not change sellable on-hand.
     expect(abc?.sellableOnHand).toBe(10);
+    expect(abc?.actualQuantityReceived).toBe(7);
   });
 });

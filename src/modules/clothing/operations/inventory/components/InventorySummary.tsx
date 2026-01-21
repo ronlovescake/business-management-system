@@ -31,14 +31,16 @@ export const InventorySummary = memo(
           </Text>
           {/*
             ========================================================================
-            ⚠️ OPERATIONAL TOTAL SALES (NOT ACCOUNTING REVENUE)
+            ⚠️ COMPLETED TOTAL SALES (NOT ACCOUNTING REVENUE)
             ========================================================================
-            This value is derived from fulfillment statuses on the Inventory page
-            and is intended for operations tracking only.
+            This value is derived from completed statuses on the Inventory page
+            (Ready For Dispatch, Checked Out, Shipped, Pending Payment).
+            Prepared + fully paid is also treated as completed.
+            Intended for operations tracking only.
             ========================================================================
           */}
           <Text size="sm" c="dimmed">
-            Total Sales (Operational):{' '}
+            Total Sales (Completed Orders):{' '}
             {currencyFormatter.format(totals.totalSales)}
           </Text>
           <Text size="sm" c="dimmed">

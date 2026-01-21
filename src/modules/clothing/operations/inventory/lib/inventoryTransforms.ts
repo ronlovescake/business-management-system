@@ -42,6 +42,7 @@ export function buildInventoryItems(
 ): InventoryItem[] {
   // `supplier_short` entries are informational (shortfalls on a PO), not physical stock.
   // They must not reduce SELLABLE on-hand or availability.
+  // We only surface supplier short qty when explicitly recorded via movements.
   const movementsForStockBalances = movements.filter(
     (movement) => movement.toBucket !== 'supplier_short'
   );
@@ -144,14 +145,11 @@ export function buildInventoryItems(
     const actualPrice = product['Actual Price'] || 0;
     const onhand = sellableOnHand + reservedOnHand;
     const availableStock = sellableOnHand;
-    const computedSupplierShortQty = Math.max(
-      quantity - (onhand + damagedOnHand),
+    const supplierShortQty = manualSupplierShortQty;
+    const actualQuantityReceived = Math.max(
+      quantity - supplierShortQty - scrapQty,
       0
     );
-    const supplierShortQty =
-      manualSupplierShortQty > 0
-        ? manualSupplierShortQty
-        : computedSupplierShortQty;
     const netProfit = totalSales - cogs;
     const percentage = cogs !== 0 ? netProfit / cogs : 0;
     const endingInventoryValue = availableStock * actualPrice;
@@ -160,6 +158,7 @@ export function buildInventoryItems(
       id: product.id,
       productCode,
       quantity,
+      actualQuantityReceived,
       sellableOnHand,
       reservedOnHand,
       damagedOnHand,
@@ -197,6 +196,7 @@ export function filterInventoryData(
       item.onhand,
       item.damagedOnHand,
       item.availableStock,
+      item.actualQuantityReceived,
       item.supplierShortQty,
       item.totalSales,
       item.cogs,

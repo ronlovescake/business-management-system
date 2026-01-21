@@ -167,6 +167,18 @@ export function InventoryPage() {
     return map;
   }, [supplierShortMovements]);
 
+  const supplierShortQtyByProduct = useMemo(() => {
+    const map = new Map<string, number>();
+    supplierShortMovementsByProduct.forEach((rows, code) => {
+      const total = rows.reduce(
+        (sum, movement) => sum + (Number(movement.quantity) || 0),
+        0
+      );
+      map.set(code, total);
+    });
+    return map;
+  }, [supplierShortMovementsByProduct]);
+
   const editingProductMovements = useMemo(() => {
     if (!editingProductCode) {
       return [];
@@ -841,17 +853,25 @@ export function InventoryPage() {
                 colSpan={5}
               >
                 {[...sortedFilteredData]
-                  .filter(
-                    (item) =>
+                  .filter((item) => {
+                    const manualSupplierShortQty =
+                      supplierShortQtyByProduct.get(item.productCode.trim()) ??
+                      0;
+                    return (
                       item.damagedOnHand > 0 ||
                       item.scrapQty > 0 ||
-                      item.supplierShortQty > 0
-                  )
+                      manualSupplierShortQty > 0
+                    );
+                  })
                   .sort((a, b) => {
+                    const aSupplierShortQty =
+                      supplierShortQtyByProduct.get(a.productCode.trim()) ?? 0;
+                    const bSupplierShortQty =
+                      supplierShortQtyByProduct.get(b.productCode.trim()) ?? 0;
                     const aTotal =
-                      a.damagedOnHand + a.scrapQty + a.supplierShortQty;
+                      a.damagedOnHand + a.scrapQty + aSupplierShortQty;
                     const bTotal =
-                      b.damagedOnHand + b.scrapQty + b.supplierShortQty;
+                      b.damagedOnHand + b.scrapQty + bSupplierShortQty;
 
                     if (aTotal !== bTotal) {
                       return bTotal - aTotal;
@@ -878,7 +898,11 @@ export function InventoryPage() {
                       </Table.Td>
                       <Table.Td style={{ textAlign: 'center' }}>
                         <Text size="sm" c="#495057">
-                          {numberFormatter.format(item.supplierShortQty)}
+                          {numberFormatter.format(
+                            supplierShortQtyByProduct.get(
+                              item.productCode.trim()
+                            ) ?? 0
+                          )}
                         </Text>
                       </Table.Td>
                       <Table.Td style={{ textAlign: 'center' }}>
