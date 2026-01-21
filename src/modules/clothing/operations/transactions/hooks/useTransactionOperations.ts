@@ -47,7 +47,7 @@ interface UseTransactionOperationsReturn {
   // Cell editing
   handleCellEdited: (
     edit: CellEditEvent<TransactionData>
-  ) => void | Promise<void>;
+  ) => void | boolean | Promise<void | boolean>;
 
   // Row operations
   handleCSVImport: (file: File) => Promise<void>;

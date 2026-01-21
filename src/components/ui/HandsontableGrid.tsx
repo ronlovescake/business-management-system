@@ -1215,7 +1215,7 @@ export function HandsontableGrid<T extends object>({
               return;
             }
 
-            const changeSource = source ?? 'edit';
+            const changeSource = String(source ?? 'edit');
 
             // -----------------------------------------------------------------
             // REVERT LOOP GUARD

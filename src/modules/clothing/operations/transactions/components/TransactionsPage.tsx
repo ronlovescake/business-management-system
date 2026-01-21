@@ -152,6 +152,11 @@ export function TransactionsPage() {
     [activeTab, handleSearch]
   );
 
+  useEffect(() => {
+    const activeQuery = tabSearchQueries[activeTab] ?? '';
+    handleSearch(activeQuery);
+  }, [activeTab, handleSearch, tabSearchQueries]);
+
   // ============================================================================
   // MODAL HOOKS - All modal state and handlers
   // ============================================================================
