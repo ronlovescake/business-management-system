@@ -551,6 +551,12 @@ export function useDispatchData({
 
     return filteredData.reduce(
       (acc, item) => {
+        const status = (item.orderStatus ?? '').trim().toLowerCase();
+        if (status === 'ready for dispatch' || status === 'checked out') {
+          acc[item.id] = true;
+          return acc;
+        }
+
         const customerKey = item.customerNames?.trim();
         if (!customerKey) {
           return acc;

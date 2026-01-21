@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Button,
   Group,
@@ -69,6 +69,15 @@ export function TransactionPaymentsModal({
     Record<number, number>
   >({});
   const [isSaving, setIsSaving] = useState(false);
+
+  const resetFormState = useCallback(() => {
+    setSelectedCustomer(null);
+    setPaymentDate(new Date());
+    setMethod('Cash');
+    setNotes('');
+    setStatusFilter('All Status');
+    setAmountByTransactionId({});
+  }, []);
 
   const customerOptions = useMemo(
     () => customerNames.map((name) => ({ value: name, label: name })),
@@ -154,6 +163,17 @@ export function TransactionPaymentsModal({
     [payloadDrafts]
   );
 
+  const getBaseTotal = useCallback((transaction: TransactionData) => {
+    const paidSoFar = Number(transaction.Adjustment) || 0;
+    const quantity = Number(transaction.Quantity) || 0;
+    const unitPrice = Number(transaction['Unit Price']) || 0;
+    const lineTotalRaw = Number(transaction['Line Total']);
+
+    return Number.isFinite(lineTotalRaw)
+      ? lineTotalRaw
+      : quantity * unitPrice - paidSoFar;
+  }, []);
+
   const handleSubmit = useCallback(async () => {
     if (!paymentDate) {
       showNotification({
@@ -169,6 +189,26 @@ export function TransactionPaymentsModal({
         title: 'No payments entered',
         message: 'Enter at least one payment amount.',
         color: 'yellow',
+      });
+      return;
+    }
+
+    const overLimitDrafts = payloadDrafts.filter((draft) => {
+      const transaction = eligibleTransactions.find(
+        (t) => Number(t.id) === draft.transactionId
+      );
+      if (!transaction) {
+        return false;
+      }
+      const baseTotal = getBaseTotal(transaction);
+      return draft.amount > baseTotal + 0.01;
+    });
+
+    if (overLimitDrafts.length > 0) {
+      showNotification({
+        title: 'Payment exceeds balance due',
+        message: 'Reduce the payment amount to match the balance due.',
+        color: 'red',
       });
       return;
     }
@@ -195,7 +235,7 @@ export function TransactionPaymentsModal({
         color: 'green',
       });
 
-      setAmountByTransactionId({});
+      resetFormState();
       onClose();
     } catch (error) {
       showNotification({
@@ -207,12 +247,15 @@ export function TransactionPaymentsModal({
       setIsSaving(false);
     }
   }, [
+    eligibleTransactions,
+    getBaseTotal,
     method,
     notes,
     onClose,
     paymentDate,
     payloadDrafts,
     queryClient,
+    resetFormState,
     totalEntered,
   ]);
 
@@ -220,8 +263,15 @@ export function TransactionPaymentsModal({
     if (isSaving) {
       return;
     }
+    resetFormState();
     onClose();
-  }, [isSaving, onClose]);
+  }, [isSaving, onClose, resetFormState]);
+
+  useEffect(() => {
+    if (!opened && !isSaving) {
+      resetFormState();
+    }
+  }, [isSaving, opened, resetFormState]);
 
   return (
     <PolishedModal
@@ -234,8 +284,8 @@ export function TransactionPaymentsModal({
           maxWidth: '1350px',
         },
       }}
-      closeOnClickOutside={!isSaving}
-      closeOnEscape={!isSaving}
+      closeOnClickOutside={false}
+      closeOnEscape={false}
     >
       <Stack gap="md">
         <Group grow align="flex-end">
@@ -382,20 +432,18 @@ export function TransactionPaymentsModal({
                 {eligibleTransactions.map((t) => {
                   const id = t.id as number;
                   const paidSoFar = Number(t.Adjustment) || 0;
-                  const quantity = Number(t.Quantity) || 0;
                   const unitPrice = Number(t['Unit Price']) || 0;
-                  const lineTotalRaw = Number(t['Line Total']);
                   // ========================================================================
                   // ⚠️ BALANCE DUE (DISCOUNT ALREADY IN UNIT PRICE)
                   // ========================================================================
                   // Formula: (Quantity × Unit Price) - Adjustment (paid so far)
                   // The live Add Payment input is subtracted for preview.
                   // ========================================================================
-                  const baseTotal = Number.isFinite(lineTotalRaw)
-                    ? lineTotalRaw
-                    : quantity * unitPrice - paidSoFar;
+                  const baseTotal = getBaseTotal(t);
                   const current = amountByTransactionId[id] ?? 0;
+                  const maxPayable = Math.max(baseTotal, 0);
                   const balanceDue = Math.max(baseTotal - current, 0);
+                  const isOverLimit = current > maxPayable + 0.01;
 
                   return (
                     <Table.Tr key={id}>
@@ -441,9 +489,22 @@ export function TransactionPaymentsModal({
                           <NumberInput
                             value={current}
                             min={0}
+                            max={maxPayable}
                             step={1}
                             hideControls
                             prefix="₱"
+                            error={
+                              isOverLimit
+                                ? 'Payment exceeds balance due'
+                                : undefined
+                            }
+                            onMouseDown={(event) => {
+                              event.preventDefault();
+                              event.currentTarget.focus();
+                            }}
+                            onFocus={(event) => {
+                              event.currentTarget.select();
+                            }}
                             onChange={(value) => handleAmountChange(id, value)}
                             styles={{
                               input: {
