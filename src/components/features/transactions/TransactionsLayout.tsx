@@ -68,7 +68,9 @@ export interface TransactionsLayoutProps<T = Record<string, unknown>> {
 
   // Grid Interaction
   getCellData: GetCellData<T>;
-  onCellEdited?: (edit: CellEditEvent<T>) => void;
+  onCellEdited?: (
+    edit: CellEditEvent<T>
+  ) => void | boolean | Promise<void | boolean>;
   onCellClick?: (event: CellClickEvent<T>) => void;
 
   // CSV Import

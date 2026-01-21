@@ -25,6 +25,7 @@ import Swal from 'sweetalert2';
 import type { TransactionData, PriceTier } from '../types/transaction.types';
 import { queryKeys } from '@/lib/queryKeys';
 import { OperationsNotificationsService } from '../../notifications/services/OperationsNotificationsService';
+import { PAID_STATUSES } from '@/lib/accounting/constants';
 
 interface UseTransactionOperationsProps {
   transactions: TransactionData[];
@@ -121,6 +122,34 @@ export function useTransactionOperations(
     },
     [createEmptyTransaction]
   );
+
+  const normalizeStatus = useCallback((value: string | null | undefined) => {
+    return (value ?? '').trim().toLowerCase();
+  }, []);
+
+  const isPaidStatus = useCallback(
+    (value: string | null | undefined) => {
+      const normalized = normalizeStatus(value);
+      return PAID_STATUSES.some(
+        (status) => normalizeStatus(status) === normalized
+      );
+    },
+    [normalizeStatus]
+  );
+
+  const computeRemainingBalance = useCallback((row: TransactionData) => {
+    const lineTotal = Number(row['Line Total']);
+    if (Number.isFinite(lineTotal)) {
+      return lineTotal;
+    }
+
+    const quantity = Number(row.Quantity) || 0;
+    const unitPrice = Number(row['Unit Price']) || 0;
+    const discount = Number(row.Discount) || 0;
+    const adjustment = Number(row.Adjustment) || 0;
+
+    return quantity * unitPrice - discount - adjustment;
+  }, []);
 
   const hasMinimumCreateFields = useCallback((draft: TransactionData) => {
     const orderDate = (draft['Order Date'] ?? '').trim();
@@ -1450,6 +1479,18 @@ export function useTransactionOperations(
       // ========================================================================
       if (columnId === 'orderStatus') {
         const dropdownValue = getCellValue(newValue);
+
+        const remaining = computeRemainingBalance(transaction);
+        if (isPaidStatus(dropdownValue) && remaining > 0.01) {
+          await Swal.fire({
+            title: 'Payment not complete',
+            html: `Remaining balance: <strong>₱${remaining.toLocaleString()}</strong>.<br />Record full payment first, or use <strong>Pending Payment</strong> for shipped-but-unpaid orders.`,
+            icon: 'warning',
+            confirmButtonColor: '#3085d6',
+            confirmButtonText: 'OK',
+          });
+          return false;
+        }
 
         updateTransactionData({ 'Order Status': dropdownValue });
 

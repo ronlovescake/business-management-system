@@ -35,7 +35,9 @@ interface MainTransactionsTabProps extends BaseTabProps {
   filteredData: TransactionData[];
   columns: HandsontableColumn[];
   getCellData: GetCellData<TransactionData>;
-  onCellEdited: (event: CellEditEvent<TransactionData>) => void;
+  onCellEdited: (
+    event: CellEditEvent<TransactionData>
+  ) => void | boolean | Promise<void | boolean>;
   statusOptions: string[];
   selectedStatuses: Set<string>;
   onStatusFilter: (status: string) => void;

@@ -101,7 +101,9 @@ export interface HandsontableGridProps<T extends object> {
   searchRightButtons?: React.ReactNode;
   onCellClick?: (event: CellClickEvent<T>) => void;
   getCellData: GetCellData<T>;
-  onCellEdited?: (edit: CellEditEvent<T>) => void;
+  onCellEdited?: (
+    edit: CellEditEvent<T>
+  ) => void | boolean | Promise<void | boolean>;
   onSelectionSummaryChange?: (summary: SelectionSummary | null) => void;
   showFooter?: boolean;
   footerLeft?: React.ReactNode;
@@ -156,6 +158,18 @@ export function HandsontableGrid<T extends object>({
   const handleSearchFocus = useCallback(
     (event: React.FocusEvent<HTMLInputElement>) => {
       event.target.select();
+    },
+    []
+  );
+
+  const revertCell = useCallback(
+    (row: number, col: number, oldValue: unknown) => {
+      const instance = hotRef.current?.hotInstance;
+      if (!instance) {
+        return;
+      }
+
+      instance.setDataAtCell(row, col, oldValue ?? '', 'revert');
     },
     []
   );
@@ -1203,6 +1217,19 @@ export function HandsontableGrid<T extends object>({
 
             const changeSource = source ?? 'edit';
 
+            // -----------------------------------------------------------------
+            // REVERT LOOP GUARD
+            // -----------------------------------------------------------------
+            // When we programmatically revert a cell (setDataAtCell with source
+            // "revert"), Handsontable triggers afterChange again. This guard
+            // prevents an infinite loop and keeps the original value stable.
+            // -----------------------------------------------------------------
+            if (changeSource === 'revert') {
+              dropdownEditStateRef.current?.cleanup?.();
+              dropdownEditStateRef.current = null;
+              return;
+            }
+
             logger.debug('📝 afterChange triggered:', {
               source: changeSource,
               changesCount: changes.length,
@@ -1245,6 +1272,12 @@ export function HandsontableGrid<T extends object>({
                   : String(oldValue);
 
               try {
+                // -----------------------------------------------------------------
+                // EDIT VALIDATION HANDSHAKE
+                // -----------------------------------------------------------------
+                // If onCellEdited returns false (or rejects), we revert the cell
+                // to its previous value to keep the UI in sync with validation.
+                // -----------------------------------------------------------------
                 const result = onCellEdited({
                   column,
                   columnId: column.id,
@@ -1260,14 +1293,26 @@ export function HandsontableGrid<T extends object>({
                 const maybePromise = result as Promise<unknown> | undefined;
                 if (maybePromise && typeof maybePromise.then === 'function') {
                   return maybePromise
-                    .then(() => true)
+                    .then((accepted) => {
+                      if (accepted === false) {
+                        revertCell(row, col, oldValue);
+                        return false;
+                      }
+                      return true;
+                    })
                     .catch((error) => {
                       logger.error(
                         'Cell edit failed during batch operation',
                         error
                       );
+                      revertCell(row, col, oldValue);
                       return false;
                     });
+                }
+
+                if (result === false) {
+                  revertCell(row, col, oldValue);
+                  return Promise.resolve(false);
                 }
 
                 return Promise.resolve(true);
@@ -1276,6 +1321,7 @@ export function HandsontableGrid<T extends object>({
                   'Cell edit threw synchronously during batch operation',
                   error
                 );
+                revertCell(row, col, oldValue);
                 return Promise.resolve(false);
               }
             };
