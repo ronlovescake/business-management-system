@@ -559,6 +559,7 @@ type TransactionForInventorySync = Pick<
   | 'discount'
   | 'lineTotal'
   | 'orderDate'
+  | 'packedDate'
   | 'orderStatus'
   | 'adjustment'
 >;
@@ -686,7 +687,7 @@ async function syncInventoryMovementsForTransaction(
     return;
   }
 
-  const postingDate = transaction.orderDate ?? null;
+  const postingDate = transaction.packedDate ?? transaction.orderDate ?? null;
   const reserved = isReservedStatus(transaction.orderStatus);
   const paidAmount = transaction.adjustment ?? 0;
 
@@ -908,6 +909,7 @@ export const transactionService: TransactionService = {
         discount: true,
         lineTotal: true,
         orderDate: true,
+        packedDate: true,
         orderStatus: true,
         adjustment: true,
       },
