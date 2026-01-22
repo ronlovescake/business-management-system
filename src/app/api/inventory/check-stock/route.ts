@@ -47,6 +47,7 @@ type MovementRecord = {
     | 'assembly_wip'
     | 'scrap'
     | 'supplier_short'
+    | 'opening_inventory'
     | 'sold';
   toBucket:
     | 'sellable'
@@ -55,6 +56,7 @@ type MovementRecord = {
     | 'assembly_wip'
     | 'scrap'
     | 'supplier_short'
+    | 'opening_inventory'
     | 'sold';
 };
 
@@ -303,10 +305,10 @@ export async function POST(request: NextRequest) {
           productCode: { in: movementCodes },
         },
       })) as unknown as MovementRecord[];
+      // `supplier_short` movements are informational and must not reduce on-hand.
+      // However, we *do* allow supplier_short -> sellable to represent “additionals”.
       const movementsForStockBalances = movements.filter(
-        (movement) =>
-          movement.toBucket !== 'supplier_short' &&
-          movement.fromBucket !== 'supplier_short'
+        (movement) => movement.toBucket !== 'supplier_short'
       );
       const sellableDelta = buildSellableDeltaMap(movementsForStockBalances);
       const reservedDelta = buildReservedDeltaMap(movementsForStockBalances);
@@ -477,10 +479,10 @@ export async function POST(request: NextRequest) {
         productCode: { in: movementCodes },
       },
     })) as unknown as MovementRecord[];
+    // `supplier_short` movements are informational and must not reduce on-hand.
+    // However, we *do* allow supplier_short -> sellable to represent “additionals”.
     const movementsForStockBalances = movements.filter(
-      (movement) =>
-        movement.toBucket !== 'supplier_short' &&
-        movement.fromBucket !== 'supplier_short'
+      (movement) => movement.toBucket !== 'supplier_short'
     );
     const sellableDelta = buildSellableDeltaMap(movementsForStockBalances);
     const sellableReceiptCodes = buildSellableReceiptCodeSet(

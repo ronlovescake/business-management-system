@@ -29,6 +29,8 @@ import { InventoryTable } from './InventoryTable';
 import { numberFormatter } from '../lib/formatters';
 
 export function InventoryPage() {
+  const ADDITIONALS_NOTE_PREFIX = 'additionals';
+
   const {
     setSearchQuery,
     isImporting,
@@ -57,6 +59,8 @@ export function InventoryPage() {
   const [adjustmentModalOpened, adjustmentModalHandlers] = useDisclosure(false);
   const [supplierShortModalOpened, supplierShortModalHandlers] =
     useDisclosure(false);
+  const [additionalsModalOpened, additionalsModalHandlers] =
+    useDisclosure(false);
   const [editModalOpened, editModalHandlers] = useDisclosure(false);
 
   const [selectedProduct, setSelectedProduct] = useState<string>('');
@@ -74,6 +78,13 @@ export function InventoryPage() {
     useState<string>(new Date().toISOString().slice(0, 10));
   const [supplierShortQty, setSupplierShortQty] = useState<number | ''>(1);
   const [supplierShortNotes, setSupplierShortNotes] = useState('');
+
+  const [additionalsProduct, setAdditionalsProduct] = useState<string>('');
+  const [additionalsPostingDate, setAdditionalsPostingDate] = useState<string>(
+    new Date().toISOString().slice(0, 10)
+  );
+  const [additionalsQty, setAdditionalsQty] = useState<number | ''>(1);
+  const [additionalsNotes, setAdditionalsNotes] = useState('');
 
   const [editingMovementId, setEditingMovementId] = useState<number | null>(
     null
@@ -141,6 +152,23 @@ export function InventoryPage() {
       });
   }, [movements]);
 
+  const additionalsMovements = useMemo(() => {
+    return (movements ?? [])
+      .filter(
+        (m) =>
+          !m.deletedAt &&
+          m.fromBucket === 'supplier_short' &&
+          m.toBucket === 'sellable' &&
+          (m.notes ?? '').toLowerCase().startsWith(ADDITIONALS_NOTE_PREFIX)
+      )
+      .slice()
+      .sort((a, b) => {
+        const aId = Number(a.id);
+        const bId = Number(b.id);
+        return bId - aId;
+      });
+  }, [ADDITIONALS_NOTE_PREFIX, movements]);
+
   const adjustmentMovementsByProduct = useMemo(() => {
     const map = new Map<string, typeof adjustmentMovements>();
     adjustmentMovements.forEach((movement) => {
@@ -167,6 +195,19 @@ export function InventoryPage() {
     return map;
   }, [supplierShortMovements]);
 
+  const additionalsMovementsByProduct = useMemo(() => {
+    const map = new Map<string, typeof additionalsMovements>();
+    additionalsMovements.forEach((movement) => {
+      const code = movement.productCode.trim();
+      if (!code) {
+        return;
+      }
+      const current = map.get(code) ?? [];
+      map.set(code, [...current, movement]);
+    });
+    return map;
+  }, [additionalsMovements]);
+
   const supplierShortQtyByProduct = useMemo(() => {
     const map = new Map<string, number>();
     supplierShortMovementsByProduct.forEach((rows, code) => {
@@ -178,6 +219,18 @@ export function InventoryPage() {
     });
     return map;
   }, [supplierShortMovementsByProduct]);
+
+  const additionalsQtyByProduct = useMemo(() => {
+    const map = new Map<string, number>();
+    additionalsMovementsByProduct.forEach((rows, code) => {
+      const total = rows.reduce(
+        (sum, movement) => sum + (Number(movement.quantity) || 0),
+        0
+      );
+      map.set(code, total);
+    });
+    return map;
+  }, [additionalsMovementsByProduct]);
 
   const editingProductMovements = useMemo(() => {
     if (!editingProductCode) {
@@ -306,6 +359,48 @@ export function InventoryPage() {
           error instanceof Error
             ? error.message
             : 'Failed to record supplier short',
+        color: 'red',
+      });
+    }
+  };
+
+  const handleAdditionalsSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!additionalsProduct || !additionalsQty || additionalsQty <= 0) {
+      return;
+    }
+
+    const trimmedNotes = additionalsNotes.trim();
+    const finalNotes = trimmedNotes
+      ? `${ADDITIONALS_NOTE_PREFIX}: ${trimmedNotes}`
+      : ADDITIONALS_NOTE_PREFIX;
+
+    try {
+      await createMovement({
+        productCode: additionalsProduct,
+        quantity: Number(additionalsQty),
+        fromBucket: 'supplier_short',
+        toBucket: 'sellable',
+        postingDate: additionalsPostingDate.trim() || undefined,
+        notes: finalNotes,
+      });
+
+      showNotification({
+        title: 'Saved',
+        message: 'Additionals recorded',
+        color: 'green',
+      });
+
+      setAdditionalsQty(1);
+      setAdditionalsNotes('');
+      additionalsModalHandlers.close();
+    } catch (error) {
+      showNotification({
+        title: 'Error',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to record additionals',
         color: 'red',
       });
     }
@@ -452,6 +547,18 @@ export function InventoryPage() {
     productCode: string
   ) => {
     const rows = supplierShortMovementsByProduct.get(productCode.trim()) ?? [];
+    const latest = rows[0];
+    if (!latest) {
+      return;
+    }
+
+    await handleDeleteMovement(latest.id);
+  };
+
+  const handleDeleteLatestAdditionalsForProduct = async (
+    productCode: string
+  ) => {
+    const rows = additionalsMovementsByProduct.get(productCode.trim()) ?? [];
     const latest = rows[0];
     if (!latest) {
       return;
@@ -651,6 +758,81 @@ export function InventoryPage() {
       </Modal>
 
       <Modal
+        opened={additionalsModalOpened}
+        onClose={additionalsModalHandlers.close}
+        title="Additionals"
+        size="lg"
+        centered
+        closeOnEscape={!isSubmittingMovement}
+        closeOnClickOutside={!isSubmittingMovement}
+      >
+        <form onSubmit={handleAdditionalsSubmit}>
+          <Stack gap="sm">
+            <Text size="sm" c="dimmed">
+              Record extra supplier quantities by adding them into SELLABLE.
+              This does not change PO costs.
+            </Text>
+
+            <Select
+              label="Product Code"
+              placeholder="Select product code"
+              data={productOptions}
+              searchable
+              required
+              value={additionalsProduct}
+              onChange={(value) => setAdditionalsProduct(value ?? '')}
+            />
+
+            <TextInput
+              label="Posting date"
+              placeholder="YYYY-MM-DD"
+              value={additionalsPostingDate}
+              onChange={(event) =>
+                setAdditionalsPostingDate(event.currentTarget.value)
+              }
+            />
+
+            <NumberInput
+              label="Additional quantity"
+              min={0}
+              required
+              value={additionalsQty}
+              onChange={(value) =>
+                setAdditionalsQty((value as number | '') ?? '')
+              }
+            />
+
+            <Textarea
+              label="Notes"
+              placeholder="Optional notes"
+              minRows={2}
+              value={additionalsNotes}
+              onChange={(event) =>
+                setAdditionalsNotes(event.currentTarget.value)
+              }
+            />
+
+            <Group justify="flex-end" mt="sm">
+              <Button
+                variant="default"
+                onClick={additionalsModalHandlers.close}
+                disabled={isSubmittingMovement}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                loading={isSubmittingMovement}
+                disabled={!additionalsProduct || !additionalsQty}
+              >
+                Save Additionals
+              </Button>
+            </Group>
+          </Stack>
+        </form>
+      </Modal>
+
+      <Modal
         opened={editModalOpened}
         onClose={() => {
           if (!isSubmittingMovement) {
@@ -824,7 +1006,7 @@ export function InventoryPage() {
               <Stack gap="sm">
                 <Text size="sm" c="dimmed">
                   Create an adjustment to move inventory out of SELLABLE into
-                  DAMAGED_HOLD, SCRAP, or SUPPLIER_SHORT.
+                  DAMAGED_HOLD, SCRAP, SUPPLIER_SHORT, or record ADDITIONALS.
                 </Text>
                 <Group justify="flex-end">
                   <Button
@@ -832,6 +1014,12 @@ export function InventoryPage() {
                     onClick={supplierShortModalHandlers.open}
                   >
                     New Supplier Short
+                  </Button>
+                  <Button
+                    variant="default"
+                    onClick={additionalsModalHandlers.open}
+                  >
+                    New Additionals
                   </Button>
                   <Button onClick={adjustmentModalHandlers.open}>
                     New Damaged / Scrap
@@ -847,20 +1035,24 @@ export function InventoryPage() {
                   'DAMAGED HOLD',
                   'SCRAP',
                   'SUPPLIER SHORT',
+                  'ADDITIONALS',
                   'ACTIONS',
                 ]}
                 emptyState="No adjustment entries yet."
-                colSpan={5}
+                colSpan={6}
               >
                 {[...sortedFilteredData]
                   .filter((item) => {
                     const manualSupplierShortQty =
                       supplierShortQtyByProduct.get(item.productCode.trim()) ??
                       0;
+                    const additionalsQty =
+                      additionalsQtyByProduct.get(item.productCode.trim()) ?? 0;
                     return (
                       item.damagedOnHand > 0 ||
                       item.scrapQty > 0 ||
-                      manualSupplierShortQty > 0
+                      manualSupplierShortQty > 0 ||
+                      additionalsQty > 0
                     );
                   })
                   .sort((a, b) => {
@@ -868,10 +1060,20 @@ export function InventoryPage() {
                       supplierShortQtyByProduct.get(a.productCode.trim()) ?? 0;
                     const bSupplierShortQty =
                       supplierShortQtyByProduct.get(b.productCode.trim()) ?? 0;
+                    const aAdditionalsQty =
+                      additionalsQtyByProduct.get(a.productCode.trim()) ?? 0;
+                    const bAdditionalsQty =
+                      additionalsQtyByProduct.get(b.productCode.trim()) ?? 0;
                     const aTotal =
-                      a.damagedOnHand + a.scrapQty + aSupplierShortQty;
+                      a.damagedOnHand +
+                      a.scrapQty +
+                      aSupplierShortQty +
+                      aAdditionalsQty;
                     const bTotal =
-                      b.damagedOnHand + b.scrapQty + bSupplierShortQty;
+                      b.damagedOnHand +
+                      b.scrapQty +
+                      bSupplierShortQty +
+                      bAdditionalsQty;
 
                     if (aTotal !== bTotal) {
                       return bTotal - aTotal;
@@ -900,6 +1102,15 @@ export function InventoryPage() {
                         <Text size="sm" c="#495057">
                           {numberFormatter.format(
                             supplierShortQtyByProduct.get(
+                              item.productCode.trim()
+                            ) ?? 0
+                          )}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'center' }}>
+                        <Text size="sm" c="#495057">
+                          {numberFormatter.format(
+                            additionalsQtyByProduct.get(
                               item.productCode.trim()
                             ) ?? 0
                           )}
@@ -966,6 +1177,26 @@ export function InventoryPage() {
                             disabled={isSubmittingMovement}
                           >
                             Delete Supplier Short
+                          </Button>
+                          <Button
+                            size="xs"
+                            color="red"
+                            variant="light"
+                            onClick={() =>
+                              void handleDeleteLatestAdditionalsForProduct(
+                                item.productCode
+                              )
+                            }
+                            disabled={
+                              isSubmittingMovement ||
+                              (
+                                additionalsMovementsByProduct.get(
+                                  item.productCode.trim()
+                                ) ?? []
+                              ).length === 0
+                            }
+                          >
+                            Delete Additionals
                           </Button>
                         </Group>
                       </Table.Td>

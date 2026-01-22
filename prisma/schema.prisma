@@ -1830,6 +1830,7 @@ enum InventoryBucket {
   assembly_wip
   scrap
   supplier_short
+  opening_inventory
   sold
 }
 

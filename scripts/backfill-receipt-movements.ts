@@ -35,7 +35,6 @@ async function backfillReceiptMovements() {
       where: {
         deletedAt: null,
         productCode: { equals: productCode, mode: 'insensitive' },
-        fromBucket: 'scrap',
         toBucket: 'sellable',
         notes: 'receipt-backfill',
       },
@@ -50,7 +49,7 @@ async function backfillReceiptMovements() {
       data: {
         productCode,
         quantity,
-        fromBucket: 'scrap',
+        fromBucket: 'opening_inventory',
         toBucket: 'sellable',
         postingDate: product.postingDate ?? null,
         notes: 'receipt-backfill',

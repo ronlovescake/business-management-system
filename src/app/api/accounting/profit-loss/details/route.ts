@@ -264,7 +264,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   }
 
   rows.sort((a, b) => {
-    const byDate = a.date.localeCompare(b.date);
+    // Newest-first (ISO timestamps compare correctly lexicographically).
+    const byDate = b.date.localeCompare(a.date);
     if (byDate !== 0) {
       return byDate;
     }

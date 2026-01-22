@@ -38,6 +38,7 @@ export type InventoryBucket =
   | 'assembly_wip'
   | 'scrap'
   | 'supplier_short'
+  | 'opening_inventory'
   | 'sold';
 
 export interface InventoryMovementFromAPI {
