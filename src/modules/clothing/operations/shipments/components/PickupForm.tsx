@@ -8,7 +8,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Stack, Card, Text, Group, Table, Title } from '@mantine/core';
+import { Stack, Card, Text, Group, Table, Title, Button } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import {
   IconUser,
@@ -18,6 +18,7 @@ import {
   IconCurrencyPeso,
   IconBox,
   IconScale,
+  IconCopy,
 } from '@tabler/icons-react';
 import {
   StandardDataTable,
@@ -49,8 +50,7 @@ export function PickupForm({ shipments }: PickupFormProps) {
 
   // Function to copy text to clipboard
   const copyToClipboard = async (text: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
+    const notifySuccess = () => {
       showNotification({
         title: 'Copied!',
         message: `${label} copied to clipboard`,
@@ -58,7 +58,9 @@ export function PickupForm({ shipments }: PickupFormProps) {
         position: 'top-right',
         autoClose: 2000,
       });
-    } catch (err) {
+    };
+
+    const notifyFailure = () => {
       showNotification({
         title: 'Failed to copy',
         message: 'Please try again',
@@ -66,6 +68,41 @@ export function PickupForm({ shipments }: PickupFormProps) {
         position: 'top-right',
         autoClose: 2000,
       });
+    };
+
+    const legacyCopy = () => {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.top = '-9999px';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.select();
+      const success = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      return success;
+    };
+
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        notifySuccess();
+        return;
+      }
+
+      if (legacyCopy()) {
+        notifySuccess();
+        return;
+      }
+
+      notifyFailure();
+    } catch (err) {
+      if (legacyCopy()) {
+        notifySuccess();
+        return;
+      }
+      notifyFailure();
     }
   };
 
@@ -109,13 +146,31 @@ export function PickupForm({ shipments }: PickupFormProps) {
     totalWeight: calculatedData.totalWeight,
   };
 
+  const pickupMessage = `PROVIDE THESE DETAILS AT THE PICKUP LOCATION:
+
+Complete Name: ${formData.completeName}
+KPC Code: ${formData.kpcCode}
+
+CV Number:
+${formData.containerNumber || '-'}
+
+No. Of Sacks: ${formData.howManySacks.toLocaleString()}
+Total CBM: ${formData.totalCBM.toFixed(2)}
+Weight: ${formData.totalWeight.toLocaleString()} kg`;
+
   return (
     <Stack gap="lg">
       {/* Dashboard Section */}
-      <Card shadow="sm" padding="lg" radius="md" withBorder>
-        <Group align="flex-start" gap="xl">
-          {/* Left Side - Customer Information */}
-          <Stack gap="md" style={{ flex: '0 0 auto', minWidth: '400px' }}>
+      <Group align="stretch" gap="xl">
+        {/* Left Side - Customer Information */}
+        <Card
+          shadow="sm"
+          padding="lg"
+          radius="md"
+          withBorder
+          style={{ flex: 1, minWidth: 0, height: '100%' }}
+        >
+          <Stack gap="md">
             <Title order={4} mb="xs">
               Customer Information
             </Title>
@@ -261,13 +316,37 @@ export function PickupForm({ shipments }: PickupFormProps) {
               </div>
             </Group>
           </Stack>
+        </Card>
 
-          {/* Right Side - Reserved for future content */}
-          <div style={{ flex: 1 }}>
-            {/* This space is reserved for future content */}
-          </div>
-        </Group>
-      </Card>
+        {/* Right Side - Message Card */}
+        <Card
+          shadow="sm"
+          padding="lg"
+          radius="md"
+          withBorder
+          style={{ flex: 1, minWidth: 0 }}
+        >
+          <Stack gap="sm">
+            <Group justify="space-between" align="center">
+              <Title order={4}>Pickup Message</Title>
+              <Button
+                size="xs"
+                variant="light"
+                leftSection={<IconCopy size={14} />}
+                onClick={() => copyToClipboard(pickupMessage, 'Pickup Message')}
+              >
+                Copy
+              </Button>
+            </Group>
+            <Text size="sm" c="dimmed">
+              PLEASE FOLLOW THE PINNED ADDRESS (PICKUP POINT / DROP OFF POINT)
+            </Text>
+            <Text size="sm" style={{ whiteSpace: 'pre-line' }}>
+              {pickupMessage}
+            </Text>
+          </Stack>
+        </Card>
+      </Group>
 
       {/* Shipments Table */}
       <div>
