@@ -1195,9 +1195,28 @@ export function useTransactionModals(
         }
       }
 
+      const escapeHtml = (value: string): string =>
+        value
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+
       const uniqueCustomers = new Set(
-        filteredEligible.map((t) => t.Customers).filter(Boolean)
+        filteredEligible.map((t) => t.Customers?.trim()).filter(Boolean)
       );
+
+      const customerList = Array.from(uniqueCustomers).sort((a, b) =>
+        a.localeCompare(b, undefined, { sensitivity: 'base' })
+      );
+
+      const customersHtml =
+        customerList.length > 0
+          ? customerList
+              .map((customer) => `<li>${escapeHtml(customer)}</li>`)
+              .join('')
+          : '<li><em>No customers found</em></li>';
       const totalValue = filteredEligible.reduce(
         (sum, t) => sum + (Number(t['Line Total']) || 0),
         0
@@ -1216,13 +1235,6 @@ export function useTransactionModals(
         title: 'Packing List Generation Confirmation',
         html: `
           <div style="text-align: left;">
-            <div style="padding: 12px 0; margin-bottom: 16px;">
-              <p style="margin: 0; color: #212529; font-weight: 500;">Packing List Generation</p>
-              <p style="margin: 8px 0 0 0; font-size: 14px; color: #495057;">
-                This will generate packing lists for all eligible "Prepared" orders with line total ≤ ₱50.00, plus On-Hold orders for those same customers.
-              </p>
-            </div>
-
             <p style="font-weight: 500; margin-bottom: 12px;">You are about to generate packing lists for:</p>
             
             <div style="margin-bottom: 16px;">
@@ -1242,12 +1254,12 @@ export function useTransactionModals(
 
             <hr style="border: none; border-top: 1px solid #dee2e6; margin: 16px 0;">
 
-            <p style="font-weight: 500; margin-bottom: 12px;">Eligibility Criteria:</p>
-            <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #495057;">
-              <li>Prepared transactions with line total ≤ ₱50.00</li>
-              <li>On-Hold transactions are included only for customers that also have Prepared orders</li>
-              <li>PDF packing lists will be generated and downloaded</li>
-            </ul>
+            <p style="font-weight: 500; margin-bottom: 12px;">Customers:</p>
+            <div style="max-height: 160px; overflow: auto; border: 1px solid #dee2e6; border-radius: 12px; padding: 10px; background: #f8f9fa;">
+              <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #495057;">
+                ${customersHtml}
+              </ul>
+            </div>
 
             <hr style="border: none; border-top: 1px solid #dee2e6; margin: 16px 0;">
 

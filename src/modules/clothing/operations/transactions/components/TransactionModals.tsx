@@ -261,18 +261,6 @@ export const PackingListGenerationModal = React.memo(
         }}
       >
         <Stack gap="lg">
-          <Alert
-            icon={<IconAlertTriangle size={16} />}
-            title="Packing List Generation"
-            color="violet"
-            variant="light"
-          >
-            <Text size="sm">
-              This will generate packing lists for all eligible
-              &ldquo;Prepared&rdquo; orders with line total ≤ ₱50.00.
-            </Text>
-          </Alert>
-
           <div>
             <Text size="md" fw={500} mb="md">
               You are about to generate packing lists for:

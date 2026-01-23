@@ -287,9 +287,9 @@
   --ht-accent-color: #37bc6c;
   --ht-foreground-color: rgb(81, 81, 81);
   --ht-background-color: #ffffff;
-  --ht-wrapper-border-width: 1px;
+  --ht-wrapper-border-width: 0px;
   --ht-wrapper-border-radius: 8px;
-  --ht-wrapper-border-color: #c5c5c5;
+  --ht-wrapper-border-color: transparent;
   --ht-cell-horizontal-border-color: rgba(255, 255, 255, 0);
   --ht-cell-vertical-border-color: #e7e7e9;
   --ht-row-header-odd-background-color: rgba(255, 255, 255, 0);
@@ -497,6 +497,18 @@
   --ht-menu-shadow-color: rgba(35, 35, 38, 0.06);
   --ht-menu-item-hover-color: rgba(55, 188, 108, 0.08);
   --ht-menu-item-active-color: rgba(55, 188, 108, 0.12);
+}
+
+/*
+  When a Mantine Modal is open, the background (Handsontable) is dimmed.
+  The Horizon theme draws a thin wrapper border that can read as a bright
+  outline behind modals (e.g. Record Payments). Remove it while scroll-lock
+  is active to keep the backdrop clean.
+*/
+html[data-mantine-scroll-lock] .transactions-grid .ht-theme-horizon,
+body[data-mantine-scroll-lock] .transactions-grid .ht-theme-horizon {
+  --ht-wrapper-border-width: 0px;
+  --ht-wrapper-border-color: transparent;
 }
 
 .transactions-grid .ht-theme-horizon .handsontable td,
