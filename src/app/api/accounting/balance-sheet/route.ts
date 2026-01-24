@@ -10,6 +10,7 @@ import {
   fetchApprovedExpenses,
   fetchRecognizedTransactions,
   fetchManualJournalLines,
+  fetchTransactionPayments,
   fetchTransactionRefunds,
   getPaidAtDate,
   isWithinDateRange,
@@ -27,6 +28,7 @@ import {
   type AccountType,
 } from '@/lib/accounting/account-classification';
 import { isInTransitShipmentStatus } from '@/lib/inventory/shipment-status';
+import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,12 +69,43 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const asOf = clampAsOf(parseDate(asOfParam));
 
   const transactions = await fetchRecognizedTransactions();
+  const payments = await fetchTransactionPayments();
   const expenses = await fetchApprovedExpenses();
   const refunds = await fetchTransactionRefunds();
   const manualLines = await fetchManualJournalLines({
     from: CUTOVER,
     to: asOf,
   });
+
+  const paymentTotalsByTxId = new Map<number, number>();
+  const earliestPaymentAtByTxId = new Map<number, Date>();
+  for (const payment of payments) {
+    if (isCancelledOrderStatus(payment.transaction?.orderStatus)) {
+      continue;
+    }
+
+    const paymentAt = parseDate(payment.paymentDate);
+    if (!isWithinDateRange(paymentAt, CUTOVER, asOf)) {
+      continue;
+    }
+
+    const amt = Number(payment.amount ?? 0);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      continue;
+    }
+
+    paymentTotalsByTxId.set(
+      payment.transactionId,
+      (paymentTotalsByTxId.get(payment.transactionId) ?? 0) + amt
+    );
+
+    const existingEarliest = earliestPaymentAtByTxId.get(payment.transactionId);
+    if (!existingEarliest || (paymentAt && paymentAt < existingEarliest)) {
+      if (paymentAt) {
+        earliestPaymentAtByTxId.set(payment.transactionId, paymentAt);
+      }
+    }
+  }
 
   const openingBalanceRows =
     await prisma.clothingAccountingOpeningBalance.findMany({
@@ -268,13 +301,39 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     if (isPaidStatus(tx.orderStatus)) {
       return getPaidAtDate(tx);
     }
+
+    const paymentAt = earliestPaymentAtByTxId.get(tx.id);
+    if (paymentAt) {
+      return paymentAt;
+    }
+
     return parseDate(tx.orderDate) ?? null;
   };
 
   const txEntries = transactions
     .map((tx) => {
-      const { paymentReceived, balanceDue } =
-        normalizeTransactionAmountsForAccounting(tx);
+      const normalized = normalizeTransactionAmountsForAccounting(tx);
+      const grossSale = Number(normalized.grossSale ?? 0);
+
+      // If we have explicit payment events, prefer them for cash received for
+      // non-paid statuses to avoid missing cash on the balance sheet.
+      const hasPaymentEvents = paymentTotalsByTxId.has(tx.id);
+      const usePaymentEvents =
+        hasPaymentEvents && !isPaidStatus(tx.orderStatus);
+      const paymentReceived = usePaymentEvents
+        ? Math.min(
+            Math.max(paymentTotalsByTxId.get(tx.id) ?? 0, 0),
+            Math.max(grossSale, 0)
+          )
+        : Number(normalized.paymentReceived ?? 0);
+
+      const derivedBalanceDue = Math.max(
+        Math.max(grossSale, 0) - Math.max(paymentReceived, 0),
+        0
+      );
+      const balanceDue = usePaymentEvents
+        ? derivedBalanceDue
+        : Number(normalized.balanceDue ?? 0);
 
       const recognizedAt = getRecognizedAt(tx);
       if (!isWithinDateRange(recognizedAt, CUTOVER, asOf)) {

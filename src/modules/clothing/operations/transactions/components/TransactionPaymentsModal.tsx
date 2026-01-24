@@ -281,7 +281,7 @@ export function TransactionPaymentsModal({
       size="90%"
       styles={{
         content: {
-          maxWidth: '1350px',
+          maxWidth: '1700px',
         },
       }}
       closeOnClickOutside={false}
@@ -334,194 +334,270 @@ export function TransactionPaymentsModal({
           onChange={(e) => setNotes(e.target.value)}
         />
 
-        {!selectedCustomer ? (
-          <Text c="dimmed">Select a customer to see eligible orders.</Text>
-        ) : eligibleTransactions.length === 0 ? (
+        {selectedCustomer && eligibleTransactions.length === 0 ? (
           <Text c="dimmed">
             No eligible transactions found (Shipped/Cancelled are excluded).
           </Text>
-        ) : (
-          <ScrollArea h={360}>
-            <Table striped withTableBorder withColumnBorders>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th
-                    style={{
-                      width: 90,
-                      textAlign: 'center',
-                      verticalAlign: 'middle',
-                    }}
-                  >
-                    Tx ID
-                  </Table.Th>
-                  <Table.Th
-                    style={{
-                      width: 130,
-                      textAlign: 'center',
-                      verticalAlign: 'middle',
-                    }}
-                  >
-                    Order Date
-                  </Table.Th>
-                  <Table.Th
-                    style={{
-                      width: 140,
-                      textAlign: 'center',
-                      verticalAlign: 'middle',
-                    }}
-                  >
-                    Product Code
-                  </Table.Th>
-                  <Table.Th
-                    style={{
-                      width: 80,
-                      textAlign: 'center',
-                      verticalAlign: 'middle',
-                    }}
-                  >
-                    Quantity
-                  </Table.Th>
-                  <Table.Th
-                    style={{
-                      width: 120,
-                      textAlign: 'center',
-                      verticalAlign: 'middle',
-                    }}
-                  >
-                    Unit Price
-                  </Table.Th>
-                  <Table.Th
-                    style={{
-                      width: 120,
-                      textAlign: 'center',
-                      verticalAlign: 'middle',
-                    }}
-                  >
-                    Payment
-                  </Table.Th>
-                  <Table.Th
-                    style={{
-                      width: 140,
-                      textAlign: 'center',
-                      verticalAlign: 'middle',
-                    }}
-                  >
-                    Balance Due
-                  </Table.Th>
-                  <Table.Th
-                    style={{
-                      width: 140,
-                      textAlign: 'center',
-                      verticalAlign: 'middle',
-                    }}
-                  >
-                    Order Status
-                  </Table.Th>
-                  <Table.Th
-                    style={{
-                      width: 140,
-                      textAlign: 'center',
-                      verticalAlign: 'middle',
-                    }}
-                  >
-                    Add payment
-                  </Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {eligibleTransactions.map((t) => {
-                  const id = t.id as number;
-                  const paidSoFar = Number(t.Adjustment) || 0;
-                  const unitPrice = Number(t['Unit Price']) || 0;
-                  // ========================================================================
-                  // ⚠️ BALANCE DUE (DISCOUNT ALREADY IN UNIT PRICE)
-                  // ========================================================================
-                  // Formula: (Quantity × Unit Price) - Adjustment (paid so far)
-                  // The live Add Payment input is subtracted for preview.
-                  // ========================================================================
-                  const baseTotal = getBaseTotal(t);
-                  const current = amountByTransactionId[id] ?? 0;
-                  const maxPayable = Math.max(baseTotal, 0);
-                  const balanceDue = Math.max(baseTotal - current, 0);
-                  const isOverLimit = current > maxPayable + 0.01;
+        ) : null}
 
-                  return (
-                    <Table.Tr key={id}>
-                      <Table.Td>{id}</Table.Td>
-                      <Table.Td>{t['Order Date']}</Table.Td>
-                      <Table.Td style={{ whiteSpace: 'nowrap' }}>
-                        {t['Product Code']}
-                      </Table.Td>
-                      <Table.Td
-                        style={{ textAlign: 'center', verticalAlign: 'middle' }}
-                      >
-                        {t.Quantity}
-                      </Table.Td>
-                      <Table.Td
-                        style={{ textAlign: 'right', verticalAlign: 'middle' }}
-                      >
-                        ₱{unitPrice.toLocaleString()}
-                      </Table.Td>
-                      <Table.Td
-                        style={{ textAlign: 'right', verticalAlign: 'middle' }}
-                      >
-                        ₱{paidSoFar.toLocaleString()}
-                      </Table.Td>
-                      <Table.Td
-                        style={{ textAlign: 'right', verticalAlign: 'middle' }}
-                      >
-                        ₱{balanceDue.toLocaleString()}
-                      </Table.Td>
-                      <Table.Td
-                        style={{ textAlign: 'center', verticalAlign: 'middle' }}
-                      >
-                        {t['Order Status'] || '—'}
-                      </Table.Td>
-                      <Table.Td
-                        style={{ textAlign: 'right', verticalAlign: 'middle' }}
-                      >
-                        <div
+        {(() => {
+          const RESERVED_VISIBLE_ROWS = 10;
+          const ROW_HEIGHT = 42;
+          const HEADER_HEIGHT = 42;
+          const scrollHeight =
+            HEADER_HEIGHT + RESERVED_VISIBLE_ROWS * ROW_HEIGHT;
+
+          const rows = selectedCustomer ? eligibleTransactions : [];
+
+          const padded =
+            rows.length >= RESERVED_VISIBLE_ROWS
+              ? rows
+              : [
+                  ...rows,
+                  ...Array.from(
+                    { length: RESERVED_VISIBLE_ROWS - rows.length },
+                    () => null
+                  ),
+                ];
+
+          return (
+            <ScrollArea h={scrollHeight}>
+              <Table striped withTableBorder withColumnBorders>
+                <Table.Thead>
+                  <Table.Tr style={{ height: HEADER_HEIGHT }}>
+                    <Table.Th
+                      style={{
+                        width: 90,
+                        textAlign: 'center',
+                        verticalAlign: 'middle',
+                      }}
+                    >
+                      Tx ID
+                    </Table.Th>
+                    <Table.Th
+                      style={{
+                        width: 130,
+                        textAlign: 'center',
+                        verticalAlign: 'middle',
+                      }}
+                    >
+                      Order Date
+                    </Table.Th>
+                    <Table.Th
+                      style={{
+                        width: 140,
+                        textAlign: 'center',
+                        verticalAlign: 'middle',
+                      }}
+                    >
+                      Product Code
+                    </Table.Th>
+                    <Table.Th
+                      style={{
+                        width: 80,
+                        textAlign: 'center',
+                        verticalAlign: 'middle',
+                      }}
+                    >
+                      Quantity
+                    </Table.Th>
+                    <Table.Th
+                      style={{
+                        width: 120,
+                        textAlign: 'center',
+                        verticalAlign: 'middle',
+                      }}
+                    >
+                      Unit Price
+                    </Table.Th>
+                    <Table.Th
+                      style={{
+                        width: 120,
+                        textAlign: 'center',
+                        verticalAlign: 'middle',
+                      }}
+                    >
+                      Payment
+                    </Table.Th>
+                    <Table.Th
+                      style={{
+                        width: 140,
+                        textAlign: 'center',
+                        verticalAlign: 'middle',
+                      }}
+                    >
+                      Balance Due
+                    </Table.Th>
+                    <Table.Th
+                      style={{
+                        width: 140,
+                        textAlign: 'center',
+                        verticalAlign: 'middle',
+                      }}
+                    >
+                      Order Status
+                    </Table.Th>
+                    <Table.Th
+                      style={{
+                        width: 140,
+                        textAlign: 'center',
+                        verticalAlign: 'middle',
+                      }}
+                    >
+                      Add payment
+                    </Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {padded.map((t, index) => {
+                    if (!t) {
+                      const key = `placeholder-${index}`;
+                      return (
+                        <Table.Tr key={key} style={{ height: ROW_HEIGHT }}>
+                          <Table.Td>&nbsp;</Table.Td>
+                          <Table.Td>&nbsp;</Table.Td>
+                          <Table.Td>&nbsp;</Table.Td>
+                          <Table.Td>&nbsp;</Table.Td>
+                          <Table.Td>&nbsp;</Table.Td>
+                          <Table.Td>&nbsp;</Table.Td>
+                          <Table.Td>&nbsp;</Table.Td>
+                          <Table.Td>&nbsp;</Table.Td>
+                          <Table.Td>
+                            <div
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'flex-end',
+                              }}
+                            >
+                              <NumberInput
+                                value={0}
+                                min={0}
+                                step={1}
+                                hideControls
+                                prefix="₱"
+                                disabled
+                                styles={{ input: { textAlign: 'right' } }}
+                                style={{ width: 140 }}
+                              />
+                            </div>
+                          </Table.Td>
+                        </Table.Tr>
+                      );
+                    }
+
+                    const id = t.id as number;
+                    const paidSoFar = Number(t.Adjustment) || 0;
+                    const unitPrice = Number(t['Unit Price']) || 0;
+                    // ========================================================================
+                    // ⚠️ BALANCE DUE (DISCOUNT ALREADY IN UNIT PRICE)
+                    // ========================================================================
+                    // Formula: (Quantity × Unit Price) - Adjustment (paid so far)
+                    // The live Add Payment input is subtracted for preview.
+                    // ========================================================================
+                    const baseTotal = getBaseTotal(t);
+                    const current = amountByTransactionId[id] ?? 0;
+                    const maxPayable = Math.max(baseTotal, 0);
+                    const balanceDue = Math.max(baseTotal - current, 0);
+                    const isOverLimit = current > maxPayable + 0.01;
+
+                    return (
+                      <Table.Tr key={id} style={{ height: ROW_HEIGHT }}>
+                        <Table.Td>{id}</Table.Td>
+                        <Table.Td>{t['Order Date']}</Table.Td>
+                        <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                          {t['Product Code']}
+                        </Table.Td>
+                        <Table.Td
                           style={{
-                            display: 'flex',
-                            justifyContent: 'flex-end',
+                            textAlign: 'center',
+                            verticalAlign: 'middle',
                           }}
                         >
-                          <NumberInput
-                            value={current}
-                            min={0}
-                            max={maxPayable}
-                            step={1}
-                            hideControls
-                            prefix="₱"
-                            error={
-                              isOverLimit
-                                ? 'Payment exceeds balance due'
-                                : undefined
-                            }
-                            onMouseDown={(event) => {
-                              event.preventDefault();
-                              event.currentTarget.focus();
+                          {t.Quantity}
+                        </Table.Td>
+                        <Table.Td
+                          style={{
+                            textAlign: 'right',
+                            verticalAlign: 'middle',
+                          }}
+                        >
+                          ₱{unitPrice.toLocaleString()}
+                        </Table.Td>
+                        <Table.Td
+                          style={{
+                            textAlign: 'right',
+                            verticalAlign: 'middle',
+                          }}
+                        >
+                          ₱{paidSoFar.toLocaleString()}
+                        </Table.Td>
+                        <Table.Td
+                          style={{
+                            textAlign: 'right',
+                            verticalAlign: 'middle',
+                          }}
+                        >
+                          ₱{balanceDue.toLocaleString()}
+                        </Table.Td>
+                        <Table.Td
+                          style={{
+                            textAlign: 'center',
+                            verticalAlign: 'middle',
+                          }}
+                        >
+                          {t['Order Status'] || '—'}
+                        </Table.Td>
+                        <Table.Td
+                          style={{
+                            textAlign: 'right',
+                            verticalAlign: 'middle',
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'flex-end',
                             }}
-                            onFocus={(event) => {
-                              event.currentTarget.select();
-                            }}
-                            onChange={(value) => handleAmountChange(id, value)}
-                            styles={{
-                              input: {
-                                textAlign: 'right',
-                              },
-                            }}
-                            style={{ width: 140 }}
-                          />
-                        </div>
-                      </Table.Td>
-                    </Table.Tr>
-                  );
-                })}
-              </Table.Tbody>
-            </Table>
-          </ScrollArea>
-        )}
+                          >
+                            <NumberInput
+                              value={current}
+                              min={0}
+                              max={maxPayable}
+                              step={1}
+                              hideControls
+                              prefix="₱"
+                              error={
+                                isOverLimit
+                                  ? 'Payment exceeds balance due'
+                                  : undefined
+                              }
+                              onMouseDown={(event) => {
+                                event.preventDefault();
+                                event.currentTarget.focus();
+                              }}
+                              onFocus={(event) => {
+                                event.currentTarget.select();
+                              }}
+                              onChange={(value) =>
+                                handleAmountChange(id, value)
+                              }
+                              styles={{
+                                input: {
+                                  textAlign: 'right',
+                                },
+                              }}
+                              style={{ width: 140 }}
+                            />
+                          </div>
+                        </Table.Td>
+                      </Table.Tr>
+                    );
+                  })}
+                </Table.Tbody>
+              </Table>
+            </ScrollArea>
+          );
+        })()}
 
         <Group justify="space-between">
           <Text>
