@@ -92,6 +92,8 @@ export function useTransactionModals(
   props: UseTransactionModalsProps
 ): UseTransactionModalsReturn {
   const { transactions, bulkUpdate, apiBasePath } = props;
+  const customerLookupBasePath =
+    apiBasePath === '/api/general-merchandise' ? undefined : apiBasePath;
 
   // ============================================================================
   // ⚠️ STATUS NORMALIZATION
@@ -271,7 +273,7 @@ export function useTransactionModals(
         let customersData: Record<string, unknown>[] = [];
         try {
           customersData = await api.get<Record<string, unknown>[]>(
-            buildApiPath(apiBasePath, '/customers')
+            buildApiPath(customerLookupBasePath, '/customers')
           );
         } catch {
           logger.warn('Failed to fetch customers data for In Transit invoices');
@@ -476,7 +478,7 @@ export function useTransactionModals(
         let customersData: Record<string, unknown>[] = [];
         try {
           customersData = await api.get<Record<string, unknown>[]>(
-            buildApiPath(apiBasePath, '/customers')
+            buildApiPath(customerLookupBasePath, '/customers')
           );
         } catch {
           logger.warn(
@@ -839,7 +841,7 @@ export function useTransactionModals(
         let customersData: Record<string, unknown>[] = [];
         try {
           customersData = await api.get<Record<string, unknown>[]>(
-            buildApiPath(apiBasePath, '/customers')
+            buildApiPath(customerLookupBasePath, '/customers')
           );
         } catch {
           // Continue without customer data if it fails

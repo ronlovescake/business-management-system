@@ -32,9 +32,11 @@ async function fetchCustomersWithFacebook(
   apiBasePath?: string
 ): Promise<CustomerData[]> {
   try {
+    const customerLookupBasePath =
+      apiBasePath === '/api/general-merchandise' ? undefined : apiBasePath;
     // The API returns array directly, not wrapped in { success, data }
     const response = await api.get<CustomerDTO[]>(
-      buildApiPath(apiBasePath, '/customers')
+      buildApiPath(customerLookupBasePath, '/customers')
     );
 
     if (!Array.isArray(response)) {
@@ -60,10 +62,13 @@ async function fetchCustomersWithFacebook(
  * Custom hook for invoice customer lookup
  */
 export function useInvoiceCustomerLookup(enabled = true, apiBasePath?: string) {
+  const customerLookupBasePath =
+    apiBasePath === '/api/general-merchandise' ? undefined : apiBasePath;
+  const customerLookupKey = customerLookupBasePath ?? '/api';
   // Fetch all customers with Facebook links
   const { data: customers = [], isLoading } = useQuery({
-    queryKey: ['invoice-customers-facebook', apiBasePath ?? 'default'],
-    queryFn: () => fetchCustomersWithFacebook(apiBasePath),
+    queryKey: ['invoice-customers-facebook', customerLookupKey],
+    queryFn: () => fetchCustomersWithFacebook(customerLookupBasePath),
     staleTime: 10 * 60 * 1000, // 10 minutes
     gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
     refetchOnWindowFocus: false,

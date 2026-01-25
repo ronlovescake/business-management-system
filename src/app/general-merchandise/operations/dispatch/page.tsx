@@ -41,7 +41,7 @@ interface ServerCustomerData {
 }
 
 const gmPrisma = prisma as unknown as {
-  generalMerchandiseCustomer: typeof prisma.customer;
+  customer: typeof prisma.customer;
 };
 
 export default async function DispatchPage() {
@@ -59,30 +59,29 @@ export default async function DispatchPage() {
       '[GM DispatchPage] Fetching customers from DATABASE (server-side)'
     );
 
-    const customersWithShopee =
-      await gmPrisma.generalMerchandiseCustomer.findMany({
-        where: {
-          deletedAt: null,
-        },
-        select: {
-          id: true,
-          customerName: true,
-          businessName: true,
-          facebook: true,
-          address: true,
-          phoneNumber: true,
-          additionalCustomerInfo: {
-            select: {
-              type: true,
-              value: true,
-            },
-            where: {
-              deletedAt: null,
-            },
+    const customersWithShopee = await gmPrisma.customer.findMany({
+      where: {
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        customerName: true,
+        businessName: true,
+        facebook: true,
+        address: true,
+        phoneNumber: true,
+        additionalCustomerInfo: {
+          select: {
+            type: true,
+            value: true,
+          },
+          where: {
+            deletedAt: null,
           },
         },
-        orderBy: { id: 'asc' },
-      });
+      },
+      orderBy: { id: 'asc' },
+    });
 
     serverCustomersData = customersWithShopee.map((customer) => {
       const shopeeUsernames = customer.additionalCustomerInfo

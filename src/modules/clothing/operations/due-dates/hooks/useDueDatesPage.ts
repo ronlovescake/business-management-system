@@ -50,6 +50,8 @@ export const useDueDatesPage = (
 ): UseDueDatesPageResult => {
   const [searchQuery, setSearchQuery] = useState('');
   const isGeneralMerchandise = apiBasePath === '/api/general-merchandise';
+  const customerLookupBasePath = isGeneralMerchandise ? undefined : apiBasePath;
+  const customerLookupKey = customerLookupBasePath ?? '/api';
   const { dueDateItems, stats, isLoading, transactions } = useDueDateData({
     service: isGeneralMerchandise
       ? GeneralMerchandiseTransactionService
@@ -60,10 +62,10 @@ export const useDueDatesPage = (
   });
 
   const { data: customersData = [] } = useQuery<CustomerRecord[]>({
-    queryKey: ['customers-facebook-links', apiBasePath ?? 'default'],
+    queryKey: ['customers-facebook-links', customerLookupKey],
     queryFn: async () => {
       const response = await api.get<CustomerRecord[]>(
-        buildApiPath(apiBasePath, '/customers')
+        buildApiPath(customerLookupBasePath, '/customers')
       );
       return Array.isArray(response) ? response : [];
     },

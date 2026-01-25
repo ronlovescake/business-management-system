@@ -1,10 +1,10 @@
 # General Merchandise (GM) — Implementation Plan (Checklist)
 
-> **Status:** Planning only (no implementation yet)
+> **Status:** In progress (partial implementation)
 >
 > **Goal:** Add **General Merchandise** as a fully separate business (like Trucking) with the same workspace model (Operations / Employees / Accounting), a clearly identifiable database footprint (`general_merchandise.*`), and an optional cross-business transfer feature.
 >
-> **Key constraint:** Businesses remain **isolated** by default. No cross-business data visibility.
+> **Key constraint:** Businesses remain **isolated** by default. No cross-business data visibility, **except** shared customers between Clothing and GM (Phase 1 decision).
 
 ---
 
@@ -16,11 +16,11 @@ Phase 1 is the “GM exists and is usable” milestone. Keep it boring and relia
 
 - [ ] GM selectable in UI alongside Clothing / Trucking / Personal
 - [ ] GM route skeletons exist and load: `/general-merchandise/operations`, `/general-merchandise/employees`, `/general-merchandise/accounting`
-- [ ] GM reuses the same shared UI components as Clothing (tables, action bars, stats cards, modals) so look & feel is consistent
+- [x] GM reuses the same shared UI components as Clothing (tables, action bars, stats cards, modals) so look & feel is consistent
 - [ ] GM access control mirrors the existing role model (USER/ADMIN/SUPER_ADMIN)
-- [ ] Database foundation exists: Postgres schema `general_merchandise` + minimum required GM tables
+- [x] Database foundation exists: Postgres schema `general_merchandise` + minimum required GM tables
 - [ ] GM Operations “Transactions” workflows work end-to-end (create invoice, record payments, create distributions) using GM-owned tables
-- [ ] Migrations run **non-destructively** (no drops/deletes, no prompts that could remove existing data)
+- [x] Migrations run **non-destructively** (no drops/deletes, no prompts that could remove existing data)
 - [ ] Hardcoded `/clothing/...` navigation issues addressed where they break GM (so GM doesn’t redirect into Clothing)
 - [ ] Data isolation verified with smoke tests (GM data never appears in Clothing/Trucking and vice versa)
 
@@ -29,6 +29,8 @@ Phase 1 is the “GM exists and is usable” milestone. Keep it boring and relia
 - [ ] Cross-business transfers (“Business Draw”) automation
 - [ ] Full parity of every Clothing module and report in GM (only implement what’s needed to run GM safely)
 - [ ] Data import/migration from Clothing into GM (GM starts empty unless you explicitly decide otherwise)
+- [ ] GM Operations Settings isolation (transactions settings + invoice settings)
+- [ ] GM Operations Dashboard GM-scoped data
 
 ---
 
@@ -41,6 +43,7 @@ Phase 1 is the “GM exists and is usable” milestone. Keep it boring and relia
 - [x] Use a dedicated Postgres schema: `general_merchandise`.
 - [x] Plan for cross-business transfers (implement later).
 - [x] UI parity with Clothing is achieved by **reusing shared components** (no copy/paste pages solely for styling parity).
+- [x] Customers are shared between Clothing + GM (shared API for `/operations/customers` and GM transactions dropdown).
 
 ---
 
@@ -83,7 +86,7 @@ This is a **planning inventory** to lock scope and table ownership. It’s based
 
 Operations (Phase 1 minimum — explicitly required for “Transactions” workflows):
 
-- customers (GM copy of existing `customers`)
+- customers (shared with Clothing in Phase 1; GM table exists but not used yet)
 - additional_customer_info (if the UI/workflow expects it; otherwise Phase 1.5)
 - products
 - prices
@@ -178,11 +181,12 @@ Shared across all businesses:
 - [ ] Users/auth/session
 - [ ] Roles/permissions
 - [ ] Workspace selection state
+- [x] Customers (shared between Clothing + GM in Phase 1)
 
 ### 3.2 Enforced isolation (acceptance criteria)
 
-- [ ] GM records never appear in Clothing/Trucking views.
-- [ ] Clothing/Trucking records never appear in GM views.
+- [ ] GM records never appear in Clothing/Trucking views (except shared customers).
+- [ ] Clothing/Trucking records never appear in GM views (except shared customers).
 - [ ] API routes reject cross-business access even if a user can access multiple businesses.
 
 ---
@@ -253,24 +257,24 @@ This checklist is grounded in the current route structure under `src/app/clothin
 
 **Operations parity (routes to mirror)**
 
-- [ ] `/clothing/operations/dashboard`
-- [ ] `/clothing/operations/transactions`
-- [ ] `/clothing/operations/products`
-- [ ] `/clothing/operations/prices`
-- [ ] `/clothing/operations/customers`
-- [ ] `/clothing/operations/inventory`
-- [ ] `/clothing/operations/shipments`
-- [ ] `/clothing/operations/sorting-distribution`
-- [ ] `/clothing/operations/dispatch`
-- [ ] `/clothing/operations/dispatching`
-- [ ] `/clothing/operations/checkout-links`
-- [ ] `/clothing/operations/due-dates`
-- [ ] `/clothing/operations/notifications`
-- [ ] `/clothing/operations/messaging`
-- [ ] `/clothing/operations/message-templates`
-- [ ] `/clothing/operations/post-template`
-- [ ] `/clothing/operations/business-intelligence`
-- [ ] `/clothing/operations/settings`
+- [x] `/clothing/operations/dashboard`
+- [x] `/clothing/operations/transactions`
+- [x] `/clothing/operations/products`
+- [x] `/clothing/operations/prices`
+- [x] `/clothing/operations/customers`
+- [x] `/clothing/operations/inventory`
+- [x] `/clothing/operations/shipments`
+- [x] `/clothing/operations/sorting-distribution`
+- [x] `/clothing/operations/dispatch`
+- [x] `/clothing/operations/dispatching`
+- [x] `/clothing/operations/checkout-links`
+- [x] `/clothing/operations/due-dates`
+- [x] `/clothing/operations/notifications`
+- [x] `/clothing/operations/messaging`
+- [x] `/clothing/operations/message-templates`
+- [x] `/clothing/operations/post-template`
+- [x] `/clothing/operations/business-intelligence`
+- [x] `/clothing/operations/settings`
 
 **Operations parity (workflows/actions to mirror)**
 
