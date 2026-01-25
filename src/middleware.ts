@@ -14,6 +14,17 @@ const routePermissions: Record<string, string[]> = {
   '/clothing/operations/transactions': ['USER', 'ADMIN', 'SUPER_ADMIN'],
   '/clothing/operations/sorting': ['USER', 'ADMIN', 'SUPER_ADMIN'],
 
+  // General Merchandise operations routes - All authenticated users
+  '/general-merchandise/operations': ['USER', 'ADMIN', 'SUPER_ADMIN'],
+  '/general-merchandise/operations/customers': ['USER', 'ADMIN', 'SUPER_ADMIN'],
+  '/general-merchandise/operations/dispatch': ['USER', 'ADMIN', 'SUPER_ADMIN'],
+  '/general-merchandise/operations/transactions': [
+    'USER',
+    'ADMIN',
+    'SUPER_ADMIN',
+  ],
+  '/general-merchandise/operations/sorting': ['USER', 'ADMIN', 'SUPER_ADMIN'],
+
   // Employees routes - Admin and Super Admin only
   '/clothing/employees': ['ADMIN', 'SUPER_ADMIN'],
   '/clothing/employees/management': ['ADMIN', 'SUPER_ADMIN'],
@@ -26,6 +37,19 @@ const routePermissions: Record<string, string[]> = {
   '/clothing/employees/expenses': ['ADMIN', 'SUPER_ADMIN'],
   '/clothing/accounting': ['ADMIN', 'SUPER_ADMIN'],
   '/clothing/ledger': ['ADMIN', 'SUPER_ADMIN'],
+
+  // General Merchandise employees/accounting routes - Admin and Super Admin only
+  '/general-merchandise/employees': ['ADMIN', 'SUPER_ADMIN'],
+  '/general-merchandise/employees/management': ['ADMIN', 'SUPER_ADMIN'],
+  '/general-merchandise/employees/attendance': ['ADMIN', 'SUPER_ADMIN'],
+  '/general-merchandise/employees/schedule': ['ADMIN', 'SUPER_ADMIN'],
+  '/general-merchandise/employees/payroll': ['ADMIN', 'SUPER_ADMIN'],
+  '/general-merchandise/employees/leave-requests': ['ADMIN', 'SUPER_ADMIN'],
+  '/general-merchandise/employees/cash-advances': ['ADMIN', 'SUPER_ADMIN'],
+  '/general-merchandise/employees/thirteenth-month': ['ADMIN', 'SUPER_ADMIN'],
+  '/general-merchandise/employees/expenses': ['ADMIN', 'SUPER_ADMIN'],
+  '/general-merchandise/accounting': ['ADMIN', 'SUPER_ADMIN'],
+  '/general-merchandise/ledger': ['ADMIN', 'SUPER_ADMIN'],
 
   // Settings/Admin routes - Super Admin only
   '/clothing/settings': ['SUPER_ADMIN'],
@@ -72,6 +96,9 @@ export async function middleware(req: NextRequest) {
 
   // Check route permissions
   const userRole = token.role as string;
+  const unauthorizedRedirect = pathname.startsWith('/general-merchandise')
+    ? '/general-merchandise/operations'
+    : '/clothing/operations';
 
   // Find matching route permission
   for (const [route, allowedRoles] of Object.entries(routePermissions)) {
@@ -84,7 +111,7 @@ export async function middleware(req: NextRequest) {
           );
         }
         // Redirect to unauthorized page or home
-        return NextResponse.redirect(new URL('/clothing/operations', req.url));
+        return NextResponse.redirect(new URL(unauthorizedRedirect, req.url));
       }
     }
   }
