@@ -69,7 +69,7 @@ export function DispatchComponent({
     lookupFacebookLink,
     lookupFacebookLinkById,
     isLoading: loadingCustomers,
-  } = useDispatchCustomerLookup(true, serverCustomersData);
+  } = useDispatchCustomerLookup(true, serverCustomersData, apiBasePath);
 
   // Main data management hook
   const {

@@ -9,6 +9,7 @@
  */
 
 import { logger } from '@/lib/logger';
+import { buildApiPath } from '@/lib/api/paths';
 import { useEffect, useMemo, useState, useCallback } from 'react';
 
 interface CustomerData {
@@ -29,7 +30,8 @@ interface CustomerWithShopee extends CustomerData {
  */
 export function useDispatchCustomerLookup(
   enabled = true,
-  serverData?: CustomerWithShopee[]
+  serverData?: CustomerWithShopee[],
+  apiBasePath?: string
 ) {
   // State for client-side fetched data (only used if no server data provided)
   const [customersData, setCustomersData] = useState<CustomerWithShopee[]>([]);
@@ -57,7 +59,7 @@ export function useDispatchCustomerLookup(
       setHasFetched(true);
       setIsLoading(false);
     }
-  }, [serverData]);
+  }, [apiBasePath, serverData]);
 
   // CRITICAL: Manual fetch that completely bypasses all caching layers
   // Only runs if NO server data is provided (development mode)
@@ -76,7 +78,10 @@ export function useDispatchCustomerLookup(
       const timestamp = Date.now();
       const random = Math.random().toString(36).substring(7);
       const perfNow = Math.floor(performance.now());
-      const url = `/api/customers/with-shopee?nocache=${timestamp}-${random}-${perfNow}&t=${new Date().toISOString()}`;
+      const url = `${buildApiPath(
+        apiBasePath,
+        '/customers/with-shopee'
+      )}?nocache=${timestamp}-${random}-${perfNow}&t=${new Date().toISOString()}`;
 
       logger.debug('DispatchCustomerLookup', 'Fetching URL:', url);
 
@@ -141,7 +146,7 @@ export function useDispatchCustomerLookup(
     } finally {
       setIsLoading(false);
     }
-  }, [serverData]);
+  }, [apiBasePath, serverData]);
 
   // Fetch on mount
   useEffect(() => {

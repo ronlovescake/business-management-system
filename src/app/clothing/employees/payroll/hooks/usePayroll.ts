@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import { queryKeys } from '@/lib/queryKeys';
 import type { Payroll, PayrollFormData } from '../types';
 import { getCurrentDateISO } from '@/utils/date';
@@ -22,8 +23,13 @@ interface EmployeeDirectoryEntry {
 const normalizeIdentifier = (value: string | undefined | null) =>
   (value ?? '').toString().trim().replace(/\s+/g, ' ').toLowerCase();
 
-export function usePayroll() {
+export function usePayroll(apiBasePath?: string) {
   const queryClient = useQueryClient();
+
+  const resolveApiPath = useCallback(
+    (path: string) => buildApiPath(apiBasePath, path),
+    [apiBasePath]
+  );
 
   // State Management
   const [employees, setEmployees] = useState<EmployeeDirectoryEntry[]>([]);
@@ -47,6 +53,11 @@ export function usePayroll() {
       period: payPeriodFilter,
     }),
     [searchQuery, statusFilter, payPeriodFilter]
+  );
+
+  const payrollQueryKey = useMemo(
+    () => [...queryKeys.payroll.lists(), { filters, apiBasePath }],
+    [filters, apiBasePath]
   );
 
   const employeeOptions = useMemo(() => {
@@ -99,7 +110,7 @@ export function usePayroll() {
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        const data = await api.get<unknown[]>('/api/employees');
+        const data = await api.get<unknown[]>(resolveApiPath('/employees'));
         const toOptionalNumber = (value: unknown) => {
           const parsed = Number(value);
           return Number.isFinite(parsed) ? parsed : undefined;
@@ -137,7 +148,7 @@ export function usePayroll() {
     };
 
     fetchEmployees();
-  }, []);
+  }, [resolveApiPath]);
 
   // Fetch payrolls with React Query
   const {
@@ -145,9 +156,11 @@ export function usePayroll() {
     isLoading: loading,
     error,
   } = useQuery({
-    queryKey: queryKeys.payroll.list(filters),
+    queryKey: payrollQueryKey,
     queryFn: async () => {
-      const data = await api.get<Record<string, unknown>[]>('/api/payroll');
+      const data = await api.get<Record<string, unknown>[]>(
+        resolveApiPath('/payroll')
+      );
 
       const toNumber = (value: unknown): number => {
         if (value === null || value === undefined) {
@@ -400,17 +413,20 @@ export function usePayroll() {
       setIsGeneratingPayslips(true);
 
       try {
-        const response = await fetch('/api/payroll/generate-payslips', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            periodStart,
-            periodEnd,
-            payPeriodLabel,
-          }),
-        });
+        const response = await fetch(
+          resolveApiPath('/payroll/generate-payslips'),
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              periodStart,
+              periodEnd,
+              payPeriodLabel,
+            }),
+          }
+        );
 
         if (!response.ok) {
           const errorData = (await response.json().catch(() => null)) as {
@@ -471,25 +487,23 @@ export function usePayroll() {
         setIsGeneratingPayslips(false);
       }
     },
-    [isGeneratingPayslips]
+    [isGeneratingPayslips, resolveApiPath]
   );
 
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await api.delete(`/api/payroll?id=${id}`);
+      await api.delete(`${resolveApiPath('/payroll')}?id=${id}`);
       return id;
     },
     onMutate: async (deletedId) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.payroll.lists() });
+      await queryClient.cancelQueries({ queryKey: payrollQueryKey });
 
-      const previous = queryClient.getQueryData<Payroll[]>(
-        queryKeys.payroll.list(filters)
-      );
+      const previous = queryClient.getQueryData<Payroll[]>(payrollQueryKey);
 
       if (previous) {
         queryClient.setQueryData<Payroll[]>(
-          queryKeys.payroll.list(filters),
+          payrollQueryKey,
           previous.filter((p) => p.id !== deletedId)
         );
       }
@@ -498,10 +512,7 @@ export function usePayroll() {
     },
     onError: (error, deletedId, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(
-          queryKeys.payroll.list(filters),
-          context.previous
-        );
+        queryClient.setQueryData(payrollQueryKey, context.previous);
       }
       logger.error('Error deleting payroll:', error);
       void Swal.fire({
@@ -514,7 +525,7 @@ export function usePayroll() {
       });
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.payroll.lists() });
+      queryClient.invalidateQueries({ queryKey: payrollQueryKey });
     },
   });
 
@@ -522,17 +533,15 @@ export function usePayroll() {
   const createMutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
       const newPayroll = await api.post<Record<string, unknown>>(
-        '/api/payroll',
+        resolveApiPath('/payroll'),
         payload
       );
       return newPayroll;
     },
     onMutate: async (newPayroll) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.payroll.lists() });
+      await queryClient.cancelQueries({ queryKey: payrollQueryKey });
 
-      const previous = queryClient.getQueryData<Payroll[]>(
-        queryKeys.payroll.list(filters)
-      );
+      const previous = queryClient.getQueryData<Payroll[]>(payrollQueryKey);
 
       if (previous) {
         const tempPayroll = {
@@ -562,7 +571,7 @@ export function usePayroll() {
           bankGcash: String(newPayroll.bankGcash ?? ''),
         } as Payroll;
 
-        queryClient.setQueryData<Payroll[]>(queryKeys.payroll.list(filters), [
+        queryClient.setQueryData<Payroll[]>(payrollQueryKey, [
           tempPayroll,
           ...previous,
         ]);
@@ -572,10 +581,7 @@ export function usePayroll() {
     },
     onError: (error, variables, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(
-          queryKeys.payroll.list(filters),
-          context.previous
-        );
+        queryClient.setQueryData(payrollQueryKey, context.previous);
       }
       logger.error('Error saving payroll:', error);
       void Swal.fire({
@@ -592,7 +598,7 @@ export function usePayroll() {
       setEditingPayroll(null);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.payroll.lists() });
+      queryClient.invalidateQueries({ queryKey: payrollQueryKey });
     },
   });
 
@@ -600,21 +606,19 @@ export function usePayroll() {
   const updateMutation = useMutation({
     mutationFn: async (payload: { id: string } & Record<string, unknown>) => {
       const updated = await api.put<Record<string, unknown>>(
-        '/api/payroll',
+        resolveApiPath('/payroll'),
         payload
       );
       return { id: payload.id, updated };
     },
     onMutate: async ({ id, ...updates }) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.payroll.lists() });
+      await queryClient.cancelQueries({ queryKey: payrollQueryKey });
 
-      const previous = queryClient.getQueryData<Payroll[]>(
-        queryKeys.payroll.list(filters)
-      );
+      const previous = queryClient.getQueryData<Payroll[]>(payrollQueryKey);
 
       if (previous) {
         queryClient.setQueryData<Payroll[]>(
-          queryKeys.payroll.list(filters),
+          payrollQueryKey,
           previous.map((p) =>
             p.id === id
               ? {
@@ -701,10 +705,7 @@ export function usePayroll() {
     },
     onError: (error, variables, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(
-          queryKeys.payroll.list(filters),
-          context.previous
-        );
+        queryClient.setQueryData(payrollQueryKey, context.previous);
       }
       logger.error('Error updating payroll:', error);
       void Swal.fire({
@@ -721,7 +722,7 @@ export function usePayroll() {
       setEditingPayroll(null);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.payroll.lists() });
+      queryClient.invalidateQueries({ queryKey: payrollQueryKey });
     },
   });
 
@@ -997,7 +998,10 @@ export function usePayroll() {
         payload.payPeriodLabel = payPeriodLabel;
       }
 
-      const result = await api.post<unknown>('/api/payroll/generate', payload);
+      const result = await api.post<unknown>(
+        resolveApiPath('/payroll/generate'),
+        payload
+      );
 
       const normalized =
         typeof result === 'object' && result !== null
@@ -1045,12 +1049,12 @@ export function usePayroll() {
             if (period?.start && period?.end) {
               // Clean up soft-deleted records
               await api.delete(
-                `/api/payroll/cleanup?periodStart=${period.start}&periodEnd=${period.end}`
+                `${resolveApiPath('/payroll/cleanup')}?periodStart=${period.start}&periodEnd=${period.end}`
               );
 
               // Try generating again
               const retryResult = await api.post<unknown>(
-                '/api/payroll/generate',
+                resolveApiPath('/payroll/generate'),
                 payload
               );
               const retryNormalized =
@@ -1068,7 +1072,7 @@ export function usePayroll() {
 
               // Success after cleanup
               queryClient.invalidateQueries({
-                queryKey: queryKeys.payroll.lists(),
+                queryKey: payrollQueryKey,
               });
               const count = Number(retryNormalized.count ?? 0);
               const safeCount = Number.isFinite(count) ? count : 0;
@@ -1095,7 +1099,7 @@ export function usePayroll() {
       }
 
       // Invalidate cache to refetch
-      queryClient.invalidateQueries({ queryKey: queryKeys.payroll.lists() });
+      queryClient.invalidateQueries({ queryKey: payrollQueryKey });
 
       // Success prompt with details
       const count = Number(normalized.count ?? 0);
@@ -1435,7 +1439,7 @@ export function usePayroll() {
 
     try {
       await api.patch(
-        `/api/thirteenth-month-pay/${thirteenthMonthRecordId}/status`,
+        `${resolveApiPath('/thirteenth-month-pay')}/${thirteenthMonthRecordId}/status`,
         {
           status: 'paid',
           paidDate,
@@ -1718,10 +1722,10 @@ export function usePayroll() {
           return;
         }
 
-        await api.post('/api/payroll', payload);
+        await api.post(resolveApiPath('/payroll'), payload);
 
         // Invalidate cache to refetch
-        queryClient.invalidateQueries({ queryKey: queryKeys.payroll.lists() });
+        queryClient.invalidateQueries({ queryKey: payrollQueryKey });
 
         if (unmatchedEmployees.size > 0) {
           await Swal.fire({
@@ -1871,7 +1875,7 @@ export function usePayroll() {
         synced: number;
         total: number;
         error?: string;
-      }>('/api/payroll/sync-lwop?all=true');
+      }>(`${resolveApiPath('/payroll/sync-lwop')}?all=true`);
 
       await Swal.fire({
         title: 'LWOP Synced',
@@ -1883,7 +1887,7 @@ export function usePayroll() {
       });
 
       // Invalidate cache to refetch
-      queryClient.invalidateQueries({ queryKey: queryKeys.payroll.lists() });
+      queryClient.invalidateQueries({ queryKey: payrollQueryKey });
     } catch (error) {
       logger.error('Error syncing LWOP:', error);
       const errorMessage =

@@ -293,11 +293,17 @@ export interface ChangeLogPageProps {
    * When provided, this value is used for filtering the logs instead of the internal search box.
    */
   externalSearch?: string;
+
+  /**
+   * Optional API base path override (e.g. /api/general-merchandise).
+   */
+  apiBasePath?: string;
 }
 
 export function ChangeLogPage({
   hideFilters: _hideFilters = false,
   externalSearch,
+  apiBasePath,
 }: ChangeLogPageProps) {
   const [limit, setLimit] = useState(DEFAULT_LIMIT.toString());
   const [activeTab, setActiveTab] = useState<string | null>('transactions');
@@ -311,7 +317,11 @@ export function ChangeLogPage({
     [limit, externalSearch]
   );
 
-  const { data, isLoading, error } = useChangeLogQuery(queryParams);
+  const { data, isLoading, error } = useChangeLogQuery(
+    queryParams,
+    undefined,
+    apiBasePath
+  );
   const logs = useMemo(() => data?.logs ?? [], [data]);
   const pagination = data?.pagination;
   const totalRecords = pagination?.total;

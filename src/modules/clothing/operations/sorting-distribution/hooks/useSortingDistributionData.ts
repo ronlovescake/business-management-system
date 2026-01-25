@@ -439,7 +439,7 @@ export function useSortingDistributionData({
         saveTimeoutRef.current = null;
       }
     };
-  }, [productCode, rows, selectedQuantity]);
+  }, [apiBasePath, productCode, rows, selectedQuantity]);
 
   /**
    * Auto-calculate derived fields when dependencies change

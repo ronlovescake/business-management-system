@@ -17,6 +17,7 @@ import {
 } from '@mantine/core';
 import { IconAlertCircle, IconCheck } from '@tabler/icons-react';
 import { PageLayout } from '../../../../components/layout/PageLayout';
+import { buildApiPath } from '@/lib/api/paths';
 import type {
   EmployeeAutomationSettings,
   EmployeeAutomationSettingsUpdate,
@@ -31,9 +32,16 @@ const FALLBACK_SETTINGS: EmployeeAutomationSettings = {
 
 type SettingsKey = keyof EmployeeAutomationSettings;
 
-const SETTINGS_API_PATH = '/api/employee-automation-settings';
+const SETTINGS_API_PATH = '/employee-automation-settings';
 
-export default function EmployeeSettings() {
+type EmployeeSettingsPageProps = {
+  apiBasePath?: string;
+};
+
+export function EmployeesSettingsPage({
+  apiBasePath,
+}: EmployeeSettingsPageProps) {
+  const settingsApiPath = buildApiPath(apiBasePath, SETTINGS_API_PATH);
   const [draft, setDraft] =
     useState<EmployeeAutomationSettings>(FALLBACK_SETTINGS);
   const [initial, setInitial] = useState<EmployeeAutomationSettings | null>(
@@ -50,7 +58,7 @@ export default function EmployeeSettings() {
     setError(null);
 
     try {
-      const response = await fetch(SETTINGS_API_PATH, {
+      const response = await fetch(settingsApiPath, {
         cache: 'no-store',
       });
 
@@ -73,7 +81,7 @@ export default function EmployeeSettings() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [settingsApiPath]);
 
   useEffect(() => {
     void fetchSettings();
@@ -160,7 +168,7 @@ export default function EmployeeSettings() {
           draft.stayInAutoPresenceGraceMinutes;
       }
 
-      const response = await fetch(SETTINGS_API_PATH, {
+      const response = await fetch(settingsApiPath, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -316,7 +324,7 @@ export default function EmployeeSettings() {
                   setRunning(true);
 
                   try {
-                    const response = await fetch(SETTINGS_API_PATH, {
+                    const response = await fetch(settingsApiPath, {
                       method: 'POST',
                     });
 
@@ -401,4 +409,8 @@ export default function EmployeeSettings() {
       </form>
     </PageLayout>
   );
+}
+
+export default function EmployeeSettings() {
+  return <EmployeesSettingsPage />;
 }

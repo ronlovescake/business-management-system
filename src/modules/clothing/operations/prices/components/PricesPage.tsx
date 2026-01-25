@@ -599,7 +599,10 @@ export function PricesPage({ apiBasePath }: PricesPageProps) {
     }
 
     // Add all tiers at once
-    const success = await PriceService.addMultiplePrices(priceDataArray);
+    const success = await PriceService.addMultiplePrices(
+      priceDataArray,
+      apiBasePath
+    );
 
     if (!success) {
       throw new Error('Failed to add prices');
@@ -626,7 +629,8 @@ export function PricesPage({ apiBasePath }: PricesPageProps) {
     // Update all tiers for this product code
     const success = await PriceService.updateProductPrices(
       formForSubmit.productCode,
-      priceDataArray
+      priceDataArray,
+      apiBasePath
     );
 
     if (!success) {

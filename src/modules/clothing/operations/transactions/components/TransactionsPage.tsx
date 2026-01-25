@@ -34,6 +34,7 @@ import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import type { CellClickEvent } from '@/components/ui/HandsontableGrid';
 import { onRenderCallback } from '@/lib/performance/monitoring';
 import { logger } from '@/lib/logger';
+import { buildApiPath } from '@/lib/api/paths';
 import { useTransactionsData } from '../hooks/useTransactionsData';
 import { useTransactionOperations } from '../hooks/useTransactionOperations';
 import { useTransactionModals } from '../hooks/useTransactionModals';
@@ -88,7 +89,7 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
     const fetchSettings = async () => {
       try {
         const response = await fetch(
-          `${apiBasePath ?? '/api'}/settings/transactions`
+          buildApiPath(undefined, '/settings/transactions')
         );
         if (response.ok) {
           const data = await response.json();
@@ -225,7 +226,8 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
     },
     {
       enabled: true,
-    }
+    },
+    apiBasePath
   );
 
   const transactionUpdateMap = useMemo(() => {

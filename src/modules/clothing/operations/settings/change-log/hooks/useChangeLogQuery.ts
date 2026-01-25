@@ -1,5 +1,6 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import { unwrapApiData } from '@/lib/api/normalize';
 import { logger } from '@/lib/logger';
 import type { ApiResponse } from '@/types/api';
@@ -60,7 +61,8 @@ function isApiResponse<T>(payload: unknown): payload is ApiResponse<T> {
 }
 
 async function fetchChangeLogs(
-  params: ChangeLogQueryParams
+  params: ChangeLogQueryParams,
+  apiBasePath?: string
 ): Promise<ChangeLogQueryResponse> {
   const query = new URLSearchParams();
 
@@ -95,9 +97,12 @@ async function fetchChangeLogs(
     query.set('includeFilters', 'false');
   }
 
+  const basePath = apiBasePath ?? '/api/clothing';
   const payload = await api.get<
     ApiResponse<ChangeLogQueryResponse> | ChangeLogQueryResponse
-  >(`/api/clothing/operations/settings/change-log?${query.toString()}`);
+  >(
+    `${buildApiPath(basePath, '/operations/settings/change-log')}?${query.toString()}`
+  );
 
   if (isApiResponse<ChangeLogQueryResponse>(payload) && !payload.success) {
     const errorMessage =
@@ -125,11 +130,12 @@ async function fetchChangeLogs(
 
 export function useChangeLogQuery(
   params: ChangeLogQueryParams,
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean },
+  apiBasePath?: string
 ) {
   return useQuery({
-    queryKey: ['change-log', params],
-    queryFn: () => fetchChangeLogs(params),
+    queryKey: ['change-log', apiBasePath ?? 'default', params],
+    queryFn: () => fetchChangeLogs(params, apiBasePath),
     placeholderData: keepPreviousData,
     staleTime: 30 * 1000,
     gcTime: 5 * 60 * 1000,

@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ThirteenthMonthPay, ThirteenthMonthPayFormData } from '../types';
 import { getCurrentDateISO, formatDisplayDate } from '@/utils/date';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import { queryKeys } from '@/lib/queryKeys';
 import Swal from 'sweetalert2';
 
@@ -216,8 +217,12 @@ interface AggregatedThirteenthData {
   monthsWorked: Set<number>;
 }
 
-export function useThirteenthMonthPay() {
+export function useThirteenthMonthPay(apiBasePath?: string) {
   const queryClient = useQueryClient();
+  const resolveApiPath = useCallback(
+    (path: string) => buildApiPath(apiBasePath, path),
+    [apiBasePath]
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [yearFilter, setYearFilter] = useState<string>('all');
@@ -231,20 +236,31 @@ export function useThirteenthMonthPay() {
     [yearFilter, statusFilter]
   );
 
+  const thirteenthQueryKey = useMemo(
+    () => ({
+      lists: () => [...queryKeys.thirteenthMonthPay.lists(), { apiBasePath }],
+      list: (currentFilters: typeof filters) => [
+        ...queryKeys.thirteenthMonthPay.list(currentFilters),
+        { apiBasePath },
+      ],
+    }),
+    [apiBasePath]
+  );
+
   // Main query - fetches and calculates 13th month pay records
   const { data: records = [], isLoading } = useQuery({
-    queryKey: queryKeys.thirteenthMonthPay.list(filters),
+    queryKey: thirteenthQueryKey.list(filters),
     queryFn: async () => {
       const [activeEmployees, payrollRecords, persistedRecords] =
         await Promise.all([
           api.get<Array<Record<string, unknown>>>(
-            '/api/employees?status=active'
+            `${resolveApiPath('/employees')}?status=active`
           ),
-          api.get<Array<Record<string, unknown>>>('/api/payroll'),
+          api.get<Array<Record<string, unknown>>>(resolveApiPath('/payroll')),
           (async () => {
             try {
               return await api.get<Array<Record<string, unknown>>>(
-                '/api/thirteenth-month-pay'
+                resolveApiPath('/thirteenth-month-pay')
               );
             } catch (error) {
               logger.error('Failed to fetch 13th month pay records:', error);
@@ -563,17 +579,17 @@ export function useThirteenthMonthPay() {
       };
 
       const payload = buildPersistencePayload(updatedRecord);
-      await api.patch('/api/thirteenth-month-pay', payload);
+      await api.patch(resolveApiPath('/thirteenth-month-pay'), payload);
 
       return updatedRecord;
     },
     onMutate: async ({ id, data }) => {
       await queryClient.cancelQueries({
-        queryKey: queryKeys.thirteenthMonthPay.lists(),
+        queryKey: thirteenthQueryKey.lists(),
       });
 
       const previous = queryClient.getQueryData<ThirteenthMonthPay[]>(
-        queryKeys.thirteenthMonthPay.list(filters)
+        thirteenthQueryKey.list(filters)
       );
 
       if (previous) {
@@ -586,7 +602,7 @@ export function useThirteenthMonthPay() {
         );
 
         queryClient.setQueryData<ThirteenthMonthPay[]>(
-          queryKeys.thirteenthMonthPay.list(filters),
+          thirteenthQueryKey.list(filters),
           previous.map((r) =>
             r.id === id
               ? {
@@ -610,7 +626,7 @@ export function useThirteenthMonthPay() {
     onError: (error, variables, context) => {
       if (context?.previous) {
         queryClient.setQueryData(
-          queryKeys.thirteenthMonthPay.list(filters),
+          thirteenthQueryKey.list(filters),
           context.previous
         );
       }
@@ -618,7 +634,7 @@ export function useThirteenthMonthPay() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({
-        queryKey: queryKeys.thirteenthMonthPay.lists(),
+        queryKey: thirteenthQueryKey.lists(),
       });
     },
   });
@@ -627,22 +643,22 @@ export function useThirteenthMonthPay() {
   const deleteRecordMutation = useMutation({
     mutationFn: async (id: string) => {
       await api.delete(
-        `/api/thirteenth-month-pay?recordId=${encodeURIComponent(id)}`
+        `${resolveApiPath('/thirteenth-month-pay')}?recordId=${encodeURIComponent(id)}`
       );
       return id;
     },
     onMutate: async (deletedId) => {
       await queryClient.cancelQueries({
-        queryKey: queryKeys.thirteenthMonthPay.lists(),
+        queryKey: thirteenthQueryKey.lists(),
       });
 
       const previous = queryClient.getQueryData<ThirteenthMonthPay[]>(
-        queryKeys.thirteenthMonthPay.list(filters)
+        thirteenthQueryKey.list(filters)
       );
 
       if (previous) {
         queryClient.setQueryData<ThirteenthMonthPay[]>(
-          queryKeys.thirteenthMonthPay.list(filters),
+          thirteenthQueryKey.list(filters),
           previous.filter((record) => record.id !== deletedId)
         );
       }
@@ -652,7 +668,7 @@ export function useThirteenthMonthPay() {
     onError: (error, variables, context) => {
       if (context?.previous) {
         queryClient.setQueryData(
-          queryKeys.thirteenthMonthPay.list(filters),
+          thirteenthQueryKey.list(filters),
           context.previous
         );
       }
@@ -660,7 +676,7 @@ export function useThirteenthMonthPay() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({
-        queryKey: queryKeys.thirteenthMonthPay.lists(),
+        queryKey: thirteenthQueryKey.lists(),
       });
     },
   });
@@ -679,23 +695,23 @@ export function useThirteenthMonthPay() {
         approvedDate,
       });
 
-      await api.patch('/api/thirteenth-month-pay', payload);
+      await api.patch(resolveApiPath('/thirteenth-month-pay'), payload);
 
       return { id, approvedDate };
     },
     onMutate: async (id) => {
       await queryClient.cancelQueries({
-        queryKey: queryKeys.thirteenthMonthPay.lists(),
+        queryKey: thirteenthQueryKey.lists(),
       });
 
       const previous = queryClient.getQueryData<ThirteenthMonthPay[]>(
-        queryKeys.thirteenthMonthPay.list(filters)
+        thirteenthQueryKey.list(filters)
       );
 
       if (previous) {
         const approvedDate = getCurrentDateISO();
         queryClient.setQueryData<ThirteenthMonthPay[]>(
-          queryKeys.thirteenthMonthPay.list(filters),
+          thirteenthQueryKey.list(filters),
           previous.map((r) =>
             r.id === id
               ? {
@@ -713,7 +729,7 @@ export function useThirteenthMonthPay() {
     onError: (error, variables, context) => {
       if (context?.previous) {
         queryClient.setQueryData(
-          queryKeys.thirteenthMonthPay.list(filters),
+          thirteenthQueryKey.list(filters),
           context.previous
         );
       }
@@ -738,7 +754,7 @@ export function useThirteenthMonthPay() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({
-        queryKey: queryKeys.thirteenthMonthPay.lists(),
+        queryKey: thirteenthQueryKey.lists(),
       });
     },
   });
@@ -757,23 +773,23 @@ export function useThirteenthMonthPay() {
         paidDate,
       });
 
-      await api.patch('/api/thirteenth-month-pay', payload);
+      await api.patch(resolveApiPath('/thirteenth-month-pay'), payload);
 
       return { id, paidDate };
     },
     onMutate: async (id) => {
       await queryClient.cancelQueries({
-        queryKey: queryKeys.thirteenthMonthPay.lists(),
+        queryKey: thirteenthQueryKey.lists(),
       });
 
       const previous = queryClient.getQueryData<ThirteenthMonthPay[]>(
-        queryKeys.thirteenthMonthPay.list(filters)
+        thirteenthQueryKey.list(filters)
       );
 
       if (previous) {
         const paidDate = getCurrentDateISO();
         queryClient.setQueryData<ThirteenthMonthPay[]>(
-          queryKeys.thirteenthMonthPay.list(filters),
+          thirteenthQueryKey.list(filters),
           previous.map((r) =>
             r.id === id
               ? {
@@ -791,7 +807,7 @@ export function useThirteenthMonthPay() {
     onError: (error, variables, context) => {
       if (context?.previous) {
         queryClient.setQueryData(
-          queryKeys.thirteenthMonthPay.list(filters),
+          thirteenthQueryKey.list(filters),
           context.previous
         );
       }
@@ -816,7 +832,7 @@ export function useThirteenthMonthPay() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({
-        queryKey: queryKeys.thirteenthMonthPay.lists(),
+        queryKey: thirteenthQueryKey.lists(),
       });
     },
   });

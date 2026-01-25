@@ -26,7 +26,7 @@ import type { Payroll as PayrollType } from './types';
 import { PayrollErrorBoundary } from './components/PayrollErrorBoundary';
 import { PayrollFormDialog } from './components/PayrollFormDialog';
 
-function PayrollContent() {
+function PayrollContent({ apiBasePath }: { apiBasePath?: string }) {
   const [columnWidths, setColumnWidths] = React.useState<number[]>([]);
 
   const formatPayPeriodDisplay = React.useCallback((period: string) => {
@@ -96,7 +96,7 @@ function PayrollContent() {
     getEmployeeMonthlyContributions,
     isBulkApproving,
     isBulkPaying,
-  } = usePayroll();
+  } = usePayroll(apiBasePath);
 
   const resolveContributionValue = React.useCallback(
     (item: PayrollType, field: 'sss' | 'philHealth' | 'pagIbig' | 'tax') => {
@@ -602,10 +602,18 @@ function PayrollContent() {
   );
 }
 
-export default function Payroll() {
+export function EmployeesPayrollPage({
+  apiBasePath,
+}: {
+  apiBasePath?: string;
+}) {
   return (
     <PayrollErrorBoundary>
-      <PayrollContent />
+      <PayrollContent apiBasePath={apiBasePath} />
     </PayrollErrorBoundary>
   );
+}
+
+export default function Payroll() {
+  return <EmployeesPayrollPage />;
 }

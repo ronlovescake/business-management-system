@@ -192,7 +192,11 @@ export function SettingsPage({ apiBasePath }: SettingsPageProps) {
           </Tabs.Panel>
 
           <Tabs.Panel value="change-log" pt="md">
-            <ChangeLogPage hideFilters externalSearch={searchQuery} />
+            <ChangeLogPage
+              hideFilters
+              externalSearch={searchQuery}
+              apiBasePath={apiBasePath}
+            />
           </Tabs.Panel>
         </Tabs>
       </Stack>

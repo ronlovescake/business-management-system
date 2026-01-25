@@ -12,7 +12,7 @@
  * - Distribution generation
  */
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { showNotification } from '@mantine/notifications';
 import type { NotificationData } from '@mantine/notifications';
@@ -80,10 +80,10 @@ export function useTransactionOperations(
   } = props;
 
   const queryClient = useQueryClient();
-  const operationsNotificationsQueryKey = [
-    ...queryKeys.operationsNotifications.all,
-    apiBasePath ?? 'default',
-  ];
+  const operationsNotificationsQueryKey = useMemo(
+    () => [...queryKeys.operationsNotifications.all, apiBasePath ?? 'default'],
+    [apiBasePath]
+  );
 
   const draftRowsRef = useRef<Map<number, TransactionData>>(new Map());
   const creatingDraftRowsRef = useRef<Set<number>>(new Set());

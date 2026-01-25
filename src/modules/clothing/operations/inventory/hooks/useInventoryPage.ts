@@ -235,7 +235,7 @@ export const useInventoryPage = (apiBasePath?: string) => {
         setIsSubmittingMovement(false);
       }
     },
-    [fetchInventoryData]
+    [apiBasePath, fetchInventoryData]
   );
 
   const updateMovement = useCallback(
@@ -271,7 +271,7 @@ export const useInventoryPage = (apiBasePath?: string) => {
         setIsSubmittingMovement(false);
       }
     },
-    [fetchInventoryData]
+    [apiBasePath, fetchInventoryData]
   );
 
   const deleteMovement = useCallback(
@@ -301,7 +301,7 @@ export const useInventoryPage = (apiBasePath?: string) => {
         setIsSubmittingMovement(false);
       }
     },
-    [fetchInventoryData]
+    [apiBasePath, fetchInventoryData]
   );
 
   const handleExportCSV = useCallback(() => {

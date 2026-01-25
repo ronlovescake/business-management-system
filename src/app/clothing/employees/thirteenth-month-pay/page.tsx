@@ -23,7 +23,13 @@ import {
 } from '@tabler/icons-react';
 import { ThirteenthMonthPayControls } from './components/ThirteenthMonthPayControls';
 
-export default function ThirteenthMonthPayPage() {
+type ThirteenthMonthPayPageProps = {
+  apiBasePath?: string;
+};
+
+export function EmployeesThirteenthMonthPayPage({
+  apiBasePath,
+}: ThirteenthMonthPayPageProps) {
   const {
     records,
     isLoading,
@@ -44,7 +50,7 @@ export default function ThirteenthMonthPayPage() {
     markAsPaid,
     importFromCSV,
     exportToCSV,
-  } = useThirteenthMonthPay();
+  } = useThirteenthMonthPay(apiBasePath);
 
   const [dialogOpened, setDialogOpened] = useState(false);
   const [editingRecord, setEditingRecord] = useState<ThirteenthMonthPay | null>(
@@ -283,4 +289,8 @@ export default function ThirteenthMonthPayPage() {
       </Stack>
     </PageLayout>
   );
+}
+
+export default function ThirteenthMonthPayPage() {
+  return <EmployeesThirteenthMonthPayPage />;
 }

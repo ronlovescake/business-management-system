@@ -259,7 +259,10 @@ export function useDispatchData({
     }) => {
       // Add Shopee username
       const usernameResponse = (await apiClient.post(
-        `/api/customers/${customerId}/additional-info/add`,
+        buildApiPath(
+          apiBasePath,
+          `/customers/${customerId}/additional-info/add`
+        ),
         {
           type: 'shopee_username',
           value: username.toLowerCase().trim(),
@@ -271,7 +274,10 @@ export function useDispatchData({
       // If address match is 80% or below, also add the delivery address
       if (addressScore <= 80) {
         addressResponse = (await apiClient.post(
-          `/api/customers/${customerId}/additional-info/add`,
+          buildApiPath(
+            apiBasePath,
+            `/customers/${customerId}/additional-info/add`
+          ),
           {
             type: 'address',
             value: deliveryAddress,

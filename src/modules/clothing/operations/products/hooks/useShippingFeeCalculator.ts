@@ -269,48 +269,52 @@ export function useShippingFeeCalculator({
     ).sort();
   }, [shipments]);
 
-  const loadSavedState = useCallback(async (shipmentCode: string) => {
-    try {
-      const response = await fetch(
-        `${buildApiPath(
-          apiBasePath ?? '/api/clothing',
-          '/operations/products/shipping-fee-calculator'
-        )}?shipmentCode=${encodeURIComponent(shipmentCode)}`
-      );
+  const loadSavedState = useCallback(
+    async (shipmentCode: string) => {
+      try {
+        const response = await fetch(
+          `${buildApiPath(
+            apiBasePath ?? '/api/clothing',
+            '/operations/products/shipping-fee-calculator'
+          )}?shipmentCode=${encodeURIComponent(shipmentCode)}`
+        );
 
-      if (!response.ok) {
-        throw new Error('Request failed');
+        if (!response.ok) {
+          throw new Error('Request failed');
+        }
+
+        const result = await response.json();
+
+        if (result.data) {
+          const rawMultipliers =
+            (result.data.multipliers as Record<string, unknown>) || {};
+
+          const normalizedMultipliers = normalizeMultipliers(rawMultipliers);
+
+          const savedState: ShippingFeeStateResponse = {
+            shipmentCode: result.data.shipmentCode,
+            actualAlibabaShipping:
+              Number(result.data.actualAlibabaShipping) || 0,
+            actualForwardersFee: Number(result.data.actualForwardersFee) || 0,
+            actualLalamove: Number(result.data.actualLalamove) || 0,
+            multipliers: normalizedMultipliers,
+          };
+
+          return savedState;
+        }
+
+        return null;
+      } catch (error) {
+        showNotification({
+          title: 'Error',
+          message: 'Failed to load saved data',
+          color: 'red',
+        });
+        return null;
       }
-
-      const result = await response.json();
-
-      if (result.data) {
-        const rawMultipliers =
-          (result.data.multipliers as Record<string, unknown>) || {};
-
-        const normalizedMultipliers = normalizeMultipliers(rawMultipliers);
-
-        const savedState: ShippingFeeStateResponse = {
-          shipmentCode: result.data.shipmentCode,
-          actualAlibabaShipping: Number(result.data.actualAlibabaShipping) || 0,
-          actualForwardersFee: Number(result.data.actualForwardersFee) || 0,
-          actualLalamove: Number(result.data.actualLalamove) || 0,
-          multipliers: normalizedMultipliers,
-        };
-
-        return savedState;
-      }
-
-      return null;
-    } catch (error) {
-      showNotification({
-        title: 'Error',
-        message: 'Failed to load saved data',
-        color: 'red',
-      });
-      return null;
-    }
-  }, []);
+    },
+    [apiBasePath]
+  );
 
   const saveData = useCallback(
     async (
@@ -384,7 +388,7 @@ export function useShippingFeeCalculator({
         });
       }
     },
-    []
+    [apiBasePath]
   );
 
   const handleShipmentCodeChange = useCallback((value: string | null) => {
