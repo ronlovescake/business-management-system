@@ -10,6 +10,7 @@ import {
   IconSettings,
   IconTruck,
   IconUsers,
+  IconReceipt,
 } from '@tabler/icons-react';
 import { closeAlert, showCustomAlert } from '@/lib/alerts';
 import type { WorkspaceIconKey, WorkspaceOption } from './workspaces.types';
@@ -23,6 +24,7 @@ const iconMap: Record<WorkspaceIconKey, typeof IconSettings> = {
   settings: IconSettings,
   users: IconUsers,
   truck: IconTruck,
+  receipt: IconReceipt,
 };
 
 interface WorkspaceContentProps extends WorkspaceModalProps {

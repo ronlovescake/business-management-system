@@ -22,7 +22,11 @@ export type WorkspaceType =
   | 'accounting'
   | 'expenses'
   | 'personal';
-export type BusinessType = 'clothing' | 'trucking' | 'personal';
+export type BusinessType =
+  | 'clothing'
+  | 'trucking'
+  | 'general-merchandise'
+  | 'personal';
 
 export interface WorkspaceDefinition {
   value: WorkspaceType;
@@ -39,13 +43,17 @@ export const BUSINESS_OPTIONS: ReadonlyArray<{
 }> = [
   { value: 'clothing', label: 'Czarlie & Ron Clothing' },
   { value: 'trucking', label: 'Czarlie & Ron Trucking' },
+  { value: 'general-merchandise', label: 'General Merchandise' },
   { value: 'personal', label: 'Personal / Household Finance' },
 ];
 
 export const isBusiness = (
   value: string | null | undefined
 ): value is BusinessType =>
-  value === 'clothing' || value === 'trucking' || value === 'personal';
+  value === 'clothing' ||
+  value === 'trucking' ||
+  value === 'general-merchandise' ||
+  value === 'personal';
 
 const WORKSPACE_DEFINITIONS: WorkspaceDefinition[] = [
   {
@@ -53,21 +61,21 @@ const WORKSPACE_DEFINITIONS: WorkspaceDefinition[] = [
     label: 'Operations',
     icon: IconSettings as IconComponent,
     color: 'blue',
-    businesses: ['clothing', 'trucking'],
+    businesses: ['clothing', 'trucking', 'general-merchandise'],
   },
   {
     value: 'employees',
     label: 'Employees',
     icon: IconUsers as IconComponent,
     color: 'green',
-    businesses: ['clothing', 'trucking'],
+    businesses: ['clothing', 'trucking', 'general-merchandise'],
   },
   {
     value: 'accounting',
     label: 'Accounting',
     icon: IconReceipt as IconComponent,
     color: 'violet',
-    businesses: ['clothing'],
+    businesses: ['clothing', 'general-merchandise'],
     description: 'Accounting workspace with ledger/journal views',
   },
   {

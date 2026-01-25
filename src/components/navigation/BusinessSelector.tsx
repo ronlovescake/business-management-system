@@ -7,6 +7,7 @@ import { useBusinessStore } from '../../lib/store';
 const businesses = [
   { value: 'clothing', label: 'Czarlie & Ron Clothing' },
   { value: 'trucking', label: 'Czarlie & Ron Trucking' },
+  { value: 'general-merchandise', label: 'General Merchandise' },
   { value: 'personal', label: 'Personal / Household Finance' },
 ];
 

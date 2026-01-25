@@ -25,10 +25,12 @@ import {
   IconChartBar,
   IconTruck,
   IconShirt,
+  IconBoxSeam,
   IconArrowRight,
   IconDashboard,
   IconUserCheck,
   IconShieldCheck,
+  IconReceipt,
 } from '@tabler/icons-react';
 import { useBusinessStore } from '../lib/store';
 import { LogoutButton } from '@/components/auth/LogoutButton';
@@ -82,6 +84,28 @@ export default function HomePage() {
         description: 'Streamline daily operations',
       },
     ],
+    'general-merchandise': [
+      {
+        icon: IconSettings,
+        title: 'Operational Control',
+        description: 'Run GM transactions and workflows',
+      },
+      {
+        icon: IconUsers,
+        title: 'Workforce Management',
+        description: 'Manage GM employees and schedules',
+      },
+      {
+        icon: IconChartBar,
+        title: 'Accounting Insights',
+        description: 'Track GM financial performance',
+      },
+      {
+        icon: IconBoxSeam,
+        title: 'Merchandise Ops',
+        description: 'Oversee products and stock movement',
+      },
+    ],
   } as const;
 
   type BusinessFeature =
@@ -97,6 +121,11 @@ export default function HomePage() {
       color: 'green' as const,
       icon: IconUsers,
       description: 'Human Resources',
+    },
+    accounting: {
+      color: 'violet' as const,
+      icon: IconReceipt,
+      description: 'Accounting & Reports',
     },
   } as const;
 
@@ -182,8 +211,9 @@ export default function HomePage() {
 
             <Text size="lg" ta="center" c="dimmed" maw={600}>
               Comprehensive management solution for clothing and trucking
-              operations. Manage employees, track inventory, monitor shipments,
-              and analyze business performance.
+              operations, now including general merchandise. Manage employees,
+              track inventory, monitor shipments, and analyze business
+              performance.
             </Text>
           </Stack>
         </Center>
@@ -236,21 +266,35 @@ export default function HomePage() {
                   radius="md"
                   variant="gradient"
                   gradient={{
-                    from: selectedBusiness === 'clothing' ? 'pink' : 'blue',
-                    to: selectedBusiness === 'clothing' ? 'orange' : 'cyan',
+                    from:
+                      selectedBusiness === 'clothing'
+                        ? 'pink'
+                        : selectedBusiness === 'trucking'
+                          ? 'blue'
+                          : 'orange',
+                    to:
+                      selectedBusiness === 'clothing'
+                        ? 'orange'
+                        : selectedBusiness === 'trucking'
+                          ? 'cyan'
+                          : 'yellow',
                   }}
                 >
                   {selectedBusiness === 'clothing' ? (
                     <IconShirt size={24} />
-                  ) : (
+                  ) : selectedBusiness === 'trucking' ? (
                     <IconTruck size={24} />
+                  ) : (
+                    <IconBoxSeam size={24} />
                   )}
                 </ThemeIcon>
                 <Stack gap={4}>
                   <Title order={3}>
                     {selectedBusiness === 'clothing'
                       ? 'Czarlie & Ron Clothing'
-                      : 'Czarlie & Ron Trucking'}
+                      : selectedBusiness === 'trucking'
+                        ? 'Czarlie & Ron Trucking'
+                        : 'General Merchandise'}
                   </Title>
                   <Group gap="xs">
                     <Badge

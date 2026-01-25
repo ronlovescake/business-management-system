@@ -150,9 +150,24 @@ export function useProductData() {
 /**
  * Transaction Data Hook
  */
-export function useTransactionData() {
+type TransactionServiceLike = {
+  getAll: () => Promise<TransactionDTO[]>;
+  update: (
+    id: string | number,
+    data: Partial<TransactionDTO>
+  ) => Promise<TransactionDTO>;
+  bulkUpdate: (data: TransactionDTO[]) => Promise<{ count: number }>;
+};
+
+export function useTransactionData({
+  service = TransactionService,
+  queryKey = ['transactions'],
+}: {
+  service?: TransactionServiceLike;
+  queryKey?: QueryKey;
+} = {}) {
   const queryClient = useQueryClient();
-  const queryKey = ['transactions'];
+  const resolvedQueryKey = queryKey;
 
   const {
     data = [],
@@ -160,8 +175,8 @@ export function useTransactionData() {
     error,
     refetch,
   } = useQuery({
-    queryKey,
-    queryFn: () => TransactionService.getAll(),
+    queryKey: resolvedQueryKey,
+    queryFn: () => service.getAll(),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -172,21 +187,24 @@ export function useTransactionData() {
     }: {
       id: string | number;
       data: Partial<TransactionDTO>;
-    }) => TransactionService.update(id, data),
+    }) => service.update(id, data),
     onMutate: async ({ id, data }) => {
       // Cancel any outgoing refetches so they don't overwrite our optimistic update
-      await queryClient.cancelQueries({ queryKey });
+      await queryClient.cancelQueries({ queryKey: resolvedQueryKey });
 
       // Snapshot the previous value
       const previousTransactions =
-        queryClient.getQueryData<TransactionDTO[]>(queryKey);
+        queryClient.getQueryData<TransactionDTO[]>(resolvedQueryKey);
 
       // Optimistically update to the new value
-      queryClient.setQueryData<TransactionDTO[]>(queryKey, (old = []) => {
-        return old.map((transaction) =>
-          transaction.id === id ? { ...transaction, ...data } : transaction
-        );
-      });
+      queryClient.setQueryData<TransactionDTO[]>(
+        resolvedQueryKey,
+        (old = []) => {
+          return old.map((transaction) =>
+            transaction.id === id ? { ...transaction, ...data } : transaction
+          );
+        }
+      );
 
       // Return context with the previous value
       return { previousTransactions };
@@ -194,7 +212,10 @@ export function useTransactionData() {
     onError: (_err, _variables, context) => {
       // If the mutation fails, rollback to the previous value
       if (context?.previousTransactions) {
-        queryClient.setQueryData(queryKey, context.previousTransactions);
+        queryClient.setQueryData(
+          resolvedQueryKey,
+          context.previousTransactions
+        );
       }
     },
     // Removed onSettled - optimistic updates are sufficient for single edits
@@ -202,33 +223,38 @@ export function useTransactionData() {
   });
 
   const bulkUpdateMutation = useMutation({
-    mutationFn: (newData: TransactionDTO[]) =>
-      TransactionService.bulkUpdate(newData),
+    mutationFn: (newData: TransactionDTO[]) => service.bulkUpdate(newData),
     onMutate: async (newData) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey });
+      await queryClient.cancelQueries({ queryKey: resolvedQueryKey });
 
       // Snapshot the previous value
       const previousTransactions =
-        queryClient.getQueryData<TransactionDTO[]>(queryKey);
+        queryClient.getQueryData<TransactionDTO[]>(resolvedQueryKey);
 
       // Create a map for quick lookups
       const updateMap = new Map(newData.map((t) => [t.id, t]));
 
       // Optimistically update transactions
-      queryClient.setQueryData<TransactionDTO[]>(queryKey, (old = []) => {
-        return old.map((transaction) => {
-          const update = updateMap.get(transaction.id);
-          return update ? { ...transaction, ...update } : transaction;
-        });
-      });
+      queryClient.setQueryData<TransactionDTO[]>(
+        resolvedQueryKey,
+        (old = []) => {
+          return old.map((transaction) => {
+            const update = updateMap.get(transaction.id);
+            return update ? { ...transaction, ...update } : transaction;
+          });
+        }
+      );
 
       return { previousTransactions };
     },
     onError: (_err, _variables, context) => {
       // Rollback on error
       if (context?.previousTransactions) {
-        queryClient.setQueryData(queryKey, context.previousTransactions);
+        queryClient.setQueryData(
+          resolvedQueryKey,
+          context.previousTransactions
+        );
       }
     },
     // Removed onSettled - optimistic updates are sufficient for bulk edits

@@ -15,6 +15,7 @@ import { showNotification } from '@mantine/notifications';
 import Swal from 'sweetalert2';
 import { TransactionService } from '../services/TransactionService';
 import { api } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import { logger } from '@/lib/logger';
 import { normalizeOrderStatus } from '@/lib/transactions/order-status';
 import type {
@@ -28,6 +29,7 @@ import type {
 interface UseTransactionModalsProps {
   transactions: TransactionData[];
   bulkUpdate: (data: TransactionData[]) => void;
+  apiBasePath?: string;
 }
 
 interface UseTransactionModalsReturn {
@@ -89,7 +91,7 @@ type InvoiceSelection =
 export function useTransactionModals(
   props: UseTransactionModalsProps
 ): UseTransactionModalsReturn {
-  const { transactions, bulkUpdate } = props;
+  const { transactions, bulkUpdate, apiBasePath } = props;
 
   // ============================================================================
   // ⚠️ STATUS NORMALIZATION
@@ -166,7 +168,7 @@ export function useTransactionModals(
     async (transaction: TransactionData) => {
       try {
         return await api.patch<TransactionData>(
-          '/api/transactions',
+          buildApiPath(apiBasePath, '/transactions'),
           transaction
         );
       } catch (error) {
@@ -174,7 +176,7 @@ export function useTransactionModals(
         throw error;
       }
     },
-    []
+    [apiBasePath]
   );
 
   const handleInTransitInvoiceGeneration = useCallback(
@@ -268,22 +270,26 @@ export function useTransactionModals(
       try {
         let customersData: Record<string, unknown>[] = [];
         try {
-          customersData =
-            await api.get<Record<string, unknown>[]>('/api/customers');
+          customersData = await api.get<Record<string, unknown>[]>(
+            buildApiPath(apiBasePath, '/customers')
+          );
         } catch {
           logger.warn('Failed to fetch customers data for In Transit invoices');
         }
 
-        const response = await fetch('/api/generate-in-transit-invoice', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            transactions: inTransitTransactions,
-            customers: customersData,
-          }),
-        });
+        const response = await fetch(
+          buildApiPath(apiBasePath, '/generate-in-transit-invoice'),
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              transactions: inTransitTransactions,
+              customers: customersData,
+            }),
+          }
+        );
 
         if (!response.ok) {
           const errorData = (await response.json()) as { error?: string };
@@ -360,7 +366,7 @@ export function useTransactionModals(
         setIsGeneratingInvoice(false);
       }
     },
-    []
+    [apiBasePath]
   );
 
   const runReservationInvoiceWorkflow = useCallback(
@@ -469,25 +475,29 @@ export function useTransactionModals(
       try {
         let customersData: Record<string, unknown>[] = [];
         try {
-          customersData =
-            await api.get<Record<string, unknown>[]>('/api/customers');
+          customersData = await api.get<Record<string, unknown>[]>(
+            buildApiPath(apiBasePath, '/customers')
+          );
         } catch {
           logger.warn(
             'Failed to fetch customers data for reservation invoices'
           );
         }
 
-        const response = await fetch('/api/generate-invoice', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            transactions: reservationTransactions,
-            customers: customersData,
-            invoiceType: config.invoiceType,
-          }),
-        });
+        const response = await fetch(
+          buildApiPath(apiBasePath, '/generate-invoice'),
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              transactions: reservationTransactions,
+              customers: customersData,
+              invoiceType: config.invoiceType,
+            }),
+          }
+        );
 
         if (!response.ok) {
           const errorData = (await response.json()) as { error?: string };
@@ -564,7 +574,7 @@ export function useTransactionModals(
         setIsGeneratingInvoice(false);
       }
     },
-    []
+    [apiBasePath]
   );
 
   const handleReservationInvoiceGeneration = useCallback(
@@ -828,25 +838,29 @@ export function useTransactionModals(
         // Fetch customers for invoice
         let customersData: Record<string, unknown>[] = [];
         try {
-          customersData =
-            await api.get<Record<string, unknown>[]>('/api/customers');
+          customersData = await api.get<Record<string, unknown>[]>(
+            buildApiPath(apiBasePath, '/customers')
+          );
         } catch {
           // Continue without customer data if it fails
           logger.warn('Failed to fetch customers data');
         }
 
         // Call invoice generation API
-        const response = await fetch('/api/generate-invoice', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            transactions: invoiceTransactions,
-            customers: customersData,
-            invoiceType,
-          }),
-        });
+        const response = await fetch(
+          buildApiPath(apiBasePath, '/generate-invoice'),
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              transactions: invoiceTransactions,
+              customers: customersData,
+              invoiceType,
+            }),
+          }
+        );
 
         if (response.ok) {
           const blob = await response.blob();
@@ -1003,6 +1017,7 @@ export function useTransactionModals(
       handleInTransitInvoiceGeneration,
       handleReservationInvoiceGeneration,
       handleTwentyPercentReservationInvoiceGeneration,
+      apiBasePath,
     ]
   );
 
@@ -1306,13 +1321,16 @@ export function useTransactionModals(
         }));
 
         // Note: Using raw fetch for blob response (API client doesn't handle blobs yet)
-        const response = await fetch('/api/generate-packing-list', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ transactions: transformed }),
-        });
+        const response = await fetch(
+          buildApiPath(apiBasePath, '/generate-packing-list'),
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ transactions: transformed }),
+          }
+        );
 
         if (response.ok) {
           const pdfBlob = await response.blob();
@@ -1380,7 +1398,9 @@ export function useTransactionModals(
           };
           try {
             // Step 1: Fetch dispatch orders to get usernames
-            const dispatchResponse = await fetch('/api/dispatch/orders');
+            const dispatchResponse = await fetch(
+              buildApiPath(apiBasePath, '/dispatch/orders')
+            );
             logger.info('Dispatch response status:', dispatchResponse.status);
 
             if (dispatchResponse.ok) {
@@ -1411,7 +1431,7 @@ export function useTransactionModals(
               if (dispatchUsernames.length > 0) {
                 // Step 2: Fetch customers with Shopee usernames for matching
                 const customersResponse = await fetch(
-                  '/api/customers/with-shopee'
+                  buildApiPath(apiBasePath, '/customers/with-shopee')
                 );
                 logger.info(
                   'Customers with Shopee response status:',
@@ -1597,7 +1617,7 @@ export function useTransactionModals(
         setIsGeneratingPackingList(false);
       }
     },
-    [transactions, bulkUpdate, saveTransactionToDatabase]
+    [transactions, bulkUpdate, saveTransactionToDatabase, apiBasePath]
   );
 
   // Dummy functions for backward compatibility (no longer used with SweetAlert)
@@ -1677,13 +1697,16 @@ export function useTransactionModals(
       });
 
       // Note: Using raw fetch for blob response (API client doesn't handle blobs yet)
-      const response = await fetch('/api/generate-distribution', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ transactions: warehouse }),
-      });
+      const response = await fetch(
+        buildApiPath(apiBasePath, '/generate-distribution'),
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ transactions: warehouse }),
+        }
+      );
 
       if (response.ok) {
         const pdfBlob = await response.blob();
@@ -1729,7 +1752,7 @@ export function useTransactionModals(
       setIsGeneratingDistribution(false);
       setPendingDistributionData(null);
     }
-  }, [pendingDistributionData]);
+  }, [apiBasePath, pendingDistributionData]);
 
   const cancelDistributionGeneration = useCallback(() => {
     setShowDistributionModal(false);

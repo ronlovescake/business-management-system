@@ -85,7 +85,7 @@ describe('Accounting Journal API - GET /api/accounting/journal', () => {
         quantity: 1,
         unitPrice: 100,
         adjustment: 100,
-        orderDate: '2026-01-05',
+        orderDate: '2026-01-20',
       },
       {
         id: 2,
@@ -94,7 +94,7 @@ describe('Accounting Journal API - GET /api/accounting/journal', () => {
         quantity: 1,
         unitPrice: 75,
         adjustment: 75,
-        orderDate: '2026-01-05',
+        orderDate: '2026-01-20',
       },
     ]);
 
@@ -102,7 +102,7 @@ describe('Accounting Journal API - GET /api/accounting/journal', () => {
       {
         id: 10,
         transactionId: 1,
-        paymentDate: '2026-01-10',
+        paymentDate: '2026-01-22',
         amount: 50,
         method: 'cash',
         notes: 'partial',

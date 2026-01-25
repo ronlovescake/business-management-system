@@ -12,10 +12,13 @@ import { useQueries } from '@tanstack/react-query';
 import { useTransactionData } from '@/hooks/useSheetData';
 import { useDataTable } from '@/components/ui';
 import { TransactionService } from '../services/TransactionService';
+import { TransactionService as TransactionApiService } from '@/services/TransactionService';
+import { GeneralMerchandiseTransactionService } from '@/services/GeneralMerchandiseTransactionService';
 import { ALL_STATUS_CONTROLLED_STATUSES } from '../types/transaction.types';
 import { MAX_PLACEHOLDER_ROWS } from '@/lib/transactions';
 import { queryKeys } from '@/lib/queryKeys';
 import { api } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import { ensureArray } from '@/lib/api/normalize';
 import { logger } from '@/lib/logger';
 import type {
@@ -114,7 +117,20 @@ const loadSavedSearchQuery = (): string => {
 /**
  * Main hook
  */
-export function useTransactionsData(): UseTransactionsDataReturn {
+export function useTransactionsData({
+  apiBasePath,
+}: {
+  apiBasePath?: string;
+} = {}): UseTransactionsDataReturn {
+  const resolvedApiBasePath = apiBasePath ?? '/api';
+  const transactionQueryKey = useMemo(
+    () => [...queryKeys.transactions.all, resolvedApiBasePath],
+    [resolvedApiBasePath]
+  );
+  const transactionService =
+    resolvedApiBasePath === '/api/general-merchandise'
+      ? GeneralMerchandiseTransactionService
+      : TransactionApiService;
   // ============================================================================
   // DATA FETCHING - Using abstraction layer
   // ============================================================================
@@ -124,7 +140,10 @@ export function useTransactionsData(): UseTransactionsDataReturn {
     isLoading: transactionsLoading,
     bulkUpdate: bulkUpdateTransactions,
     update: updateTransaction,
-  } = useTransactionData();
+  } = useTransactionData({
+    service: transactionService,
+    queryKey: transactionQueryKey,
+  });
 
   // logger.debug(`Loaded ${transactions.length} transactions from service layer`);
 
@@ -137,11 +156,12 @@ export function useTransactionsData(): UseTransactionsDataReturn {
     queries: [
       // Query 1: Customer names from customers API
       {
-        queryKey: queryKeys.customers.lists(),
+        queryKey: [...queryKeys.customers.lists(), resolvedApiBasePath],
         queryFn: async () => {
           try {
-            const customersData =
-              await api.get<Record<string, unknown>[]>('/api/customers');
+            const customersData = await api.get<Record<string, unknown>[]>(
+              buildApiPath(apiBasePath, '/customers')
+            );
             // Extract customer names from the API data
             return customersData
               .map((customer) => {
@@ -163,10 +183,12 @@ export function useTransactionsData(): UseTransactionsDataReturn {
       },
       // Query 2: Price tiers from prices API
       {
-        queryKey: queryKeys.prices.lists(),
+        queryKey: [...queryKeys.prices.lists(), resolvedApiBasePath],
         queryFn: async () => {
           try {
-            return await api.get<PriceTier[]>('/api/prices');
+            return await api.get<PriceTier[]>(
+              buildApiPath(apiBasePath, '/prices')
+            );
           } catch (error) {
             logger.error('Error loading product codes:', error);
             return [];
@@ -176,10 +198,12 @@ export function useTransactionsData(): UseTransactionsDataReturn {
       },
       // Query 3: Products data for shipment mappings
       {
-        queryKey: queryKeys.products.lists(),
+        queryKey: [...queryKeys.products.lists(), resolvedApiBasePath],
         queryFn: async () => {
           try {
-            return await fetchArray<Record<string, unknown>>('/api/products');
+            return await fetchArray<Record<string, unknown>>(
+              buildApiPath(apiBasePath, '/products')
+            );
           } catch (error) {
             logger.error('Error loading products:', error);
             return [];
@@ -189,10 +213,12 @@ export function useTransactionsData(): UseTransactionsDataReturn {
       },
       // Query 4: Shipments data for shipment status mappings
       {
-        queryKey: queryKeys.shipments.lists(),
+        queryKey: [...queryKeys.shipments.lists(), resolvedApiBasePath],
         queryFn: async () => {
           try {
-            return await fetchArray<Record<string, unknown>>('/api/shipments');
+            return await fetchArray<Record<string, unknown>>(
+              buildApiPath(apiBasePath, '/shipments')
+            );
           } catch (error) {
             logger.error('Error loading shipments:', error);
             return [];

@@ -19,6 +19,7 @@ import type { NotificationData } from '@mantine/notifications';
 import type { CellEditEvent } from '@/components/ui/HandsontableGrid';
 import { TransactionService } from '../services/TransactionService';
 import { api, ApiError } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import { logger } from '@/lib/logger';
 import { showConfirm } from '@/lib/alerts';
 import Swal from 'sweetalert2';
@@ -35,6 +36,7 @@ interface UseTransactionOperationsProps {
   productToShipmentStatusMap: Record<string, string>;
   bulkUpdate: (data: TransactionData[]) => void;
   update: (data: { id: number; data: Partial<TransactionData> }) => void;
+  apiBasePath?: string;
   onCustomerWarning?: (data: {
     customerName: string;
     warnings: string[];
@@ -73,6 +75,7 @@ export function useTransactionOperations(
     productToShipmentStatusMap,
     bulkUpdate,
     update,
+    apiBasePath,
     onCustomerWarning,
   } = props;
 
@@ -191,7 +194,7 @@ export function useTransactionOperations(
           'Shipment Code': draft['Shipment Code'] || '',
         };
 
-        await api.post('/api/transactions', [payload]);
+        await api.post(buildApiPath(apiBasePath, '/transactions'), [payload]);
 
         // Optimistically add the newly created transaction to the cache so the
         // grid shows values immediately (no blank flash) while we wait for the
@@ -326,7 +329,7 @@ export function useTransactionOperations(
         creatingDraftRowsRef.current.delete(rowIndex);
       }
     },
-    [hasMinimumCreateFields, queryClient, createEmptyTransaction]
+    [apiBasePath, hasMinimumCreateFields, queryClient, createEmptyTransaction]
   );
 
   const logNotification = useCallback(
@@ -750,16 +753,19 @@ export function useTransactionOperations(
             // If Quantity is not set yet, don't block SKU selection.
             // Stock will be validated when Quantity is entered/changed.
             if (currentQuantity > 0) {
-              const stockResponse = await fetch('/api/inventory/check-stock', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  productCode: dropdownValue.trim(),
-                  requestedQuantity: currentQuantity,
-                }),
-              });
+              const stockResponse = await fetch(
+                buildApiPath(apiBasePath, '/inventory/check-stock'),
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    productCode: dropdownValue.trim(),
+                    requestedQuantity: currentQuantity,
+                  }),
+                }
+              );
 
               if (stockResponse.ok) {
                 const stockInfo = (await stockResponse.json()) as {
@@ -1090,16 +1096,19 @@ export function useTransactionOperations(
           !isBatchModeRef.current
         ) {
           try {
-            const stockResponse = await fetch('/api/inventory/check-stock', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                productCode: currentProductCode.trim(),
-                requestedQuantity: quantityChange, // Only check the ADDITIONAL quantity needed
-              }),
-            });
+            const stockResponse = await fetch(
+              buildApiPath(apiBasePath, '/inventory/check-stock'),
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  productCode: currentProductCode.trim(),
+                  requestedQuantity: quantityChange, // Only check the ADDITIONAL quantity needed
+                }),
+              }
+            );
 
             if (stockResponse.ok) {
               const stockInfo = (await stockResponse.json()) as {
@@ -1640,6 +1649,9 @@ export function useTransactionOperations(
       createDraftTransaction,
       hasMinimumCreateFields,
       formatToday,
+      apiBasePath,
+      computeRemainingBalance,
+      isPaidStatus,
     ]
   );
 
@@ -1670,13 +1682,14 @@ export function useTransactionOperations(
 
         // Send to API
         const result = await api.post<{ count: number }>(
-          '/api/transactions',
+          buildApiPath(apiBasePath, '/transactions'),
           importedTransactions
         );
 
         // Reload transactions
-        const reloadedData =
-          await api.get<TransactionData[]>('/api/transactions');
+        const reloadedData = await api.get<TransactionData[]>(
+          buildApiPath(apiBasePath, '/transactions')
+        );
         bulkUpdate(reloadedData);
 
         showNotification({
@@ -1704,7 +1717,7 @@ export function useTransactionOperations(
         });
       }
     },
-    [bulkUpdate, logNotification]
+    [apiBasePath, bulkUpdate, logNotification]
   );
 
   // ============================================================================

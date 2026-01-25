@@ -43,6 +43,9 @@ import { truckingTripsModule } from './trucking/operations/trips';
 import { vehicleAssignmentsModule } from './trucking/operations/vehicle-assignments';
 import { fleetRegistryModule } from './trucking/operations/fleet-registry';
 
+// General Merchandise
+import { generalMerchandiseTransactionsModule } from './general-merchandise/operations/transactions';
+
 // Employees
 // import { expensesModule } from './trucking/employees/expenses';
 // import { timesheetsModule } from './trucking/employees/timesheets';
@@ -73,6 +76,9 @@ moduleRegistry.register(settingsModule); // ✅ REGISTERED!
 // moduleRegistry.register(payrollModule);
 // moduleRegistry.register(productsModule);
 // moduleRegistry.register(stockModule);
+
+// General Merchandise
+moduleRegistry.register(generalMerchandiseTransactionsModule);
 
 // Trucking
 // moduleRegistry.register(deliveriesModule);

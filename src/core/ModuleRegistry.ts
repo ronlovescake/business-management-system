@@ -12,7 +12,7 @@
 import type { ComponentType } from 'react';
 import { logger } from '@/lib/logger';
 
-type ModuleBusiness = 'clothing' | 'trucking';
+type ModuleBusiness = 'clothing' | 'trucking' | 'general-merchandise';
 type ModuleWorkspace = 'operations' | 'employees' | 'expenses' | 'accounting';
 
 export type IconComponent = ComponentType<{ size?: number; stroke?: number }>;

@@ -15,6 +15,7 @@ import {
   IconShirt,
   IconTruck,
   IconCurrencyPeso,
+  IconBoxSeam,
 } from '@tabler/icons-react';
 import { useBusinessStore } from '../../lib/store';
 import { usePathname } from 'next/navigation';
@@ -116,13 +117,17 @@ export function BreadcrumbNavigation() {
                         ? 'pink'
                         : business.value === 'trucking'
                           ? 'blue'
-                          : 'teal'
+                          : business.value === 'general-merchandise'
+                            ? 'orange'
+                            : 'teal'
                     }
                   >
                     {business.value === 'clothing' ? (
                       <IconShirt size={14} />
                     ) : business.value === 'trucking' ? (
                       <IconTruck size={14} />
+                    ) : business.value === 'general-merchandise' ? (
+                      <IconBoxSeam size={14} />
                     ) : (
                       <IconCurrencyPeso size={14} />
                     )}
@@ -147,12 +152,24 @@ export function BreadcrumbNavigation() {
                     size="sm"
                     radius="sm"
                     variant="light"
-                    color={business.value === 'clothing' ? 'pink' : 'blue'}
+                    color={
+                      business.value === 'clothing'
+                        ? 'pink'
+                        : business.value === 'trucking'
+                          ? 'blue'
+                          : business.value === 'general-merchandise'
+                            ? 'orange'
+                            : 'teal'
+                    }
                   >
                     {business.value === 'clothing' ? (
                       <IconShirt size={14} />
-                    ) : (
+                    ) : business.value === 'trucking' ? (
                       <IconTruck size={14} />
+                    ) : business.value === 'general-merchandise' ? (
+                      <IconBoxSeam size={14} />
+                    ) : (
+                      <IconCurrencyPeso size={14} />
                     )}
                   </ThemeIcon>
                 }

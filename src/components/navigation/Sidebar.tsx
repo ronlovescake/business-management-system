@@ -9,7 +9,12 @@ import {
   Badge,
   Divider,
 } from '@mantine/core';
-import { IconShirt, IconTruck, IconCurrencyPeso } from '@tabler/icons-react';
+import {
+  IconShirt,
+  IconTruck,
+  IconCurrencyPeso,
+  IconBoxSeam,
+} from '@tabler/icons-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
@@ -71,19 +76,25 @@ export function Sidebar() {
                 ? 'pink'
                 : selectedBusiness === 'trucking'
                   ? 'blue'
-                  : 'teal',
+                  : selectedBusiness === 'general-merchandise'
+                    ? 'orange'
+                    : 'teal',
             to:
               selectedBusiness === 'clothing'
                 ? 'orange'
                 : selectedBusiness === 'trucking'
                   ? 'cyan'
-                  : 'green',
+                  : selectedBusiness === 'general-merchandise'
+                    ? 'yellow'
+                    : 'green',
           }}
         >
           {selectedBusiness === 'clothing' ? (
             <IconShirt size={20} />
           ) : selectedBusiness === 'trucking' ? (
             <IconTruck size={20} />
+          ) : selectedBusiness === 'general-merchandise' ? (
+            <IconBoxSeam size={20} />
           ) : (
             <IconCurrencyPeso size={20} />
           )}
@@ -94,7 +105,9 @@ export function Sidebar() {
               ? 'Clothing'
               : selectedBusiness === 'trucking'
                 ? 'Trucking'
-                : 'Personal Finance'}
+                : selectedBusiness === 'general-merchandise'
+                  ? 'General Merchandise'
+                  : 'Personal Finance'}
           </Text>
           <Badge
             size="xs"

@@ -33,7 +33,7 @@ describe('accounting data-fetchers - getPaidAtDate', () => {
 
   it('for post-cutover transactions, prefers the paid-status change timestamp over orderDate', () => {
     const tx = {
-      orderDate: '2026-01-06',
+      orderDate: '2026-01-20',
       statusChanges: [
         { newStatus: 'shipped', changedAt: new Date('2026-02-10') },
       ],

@@ -58,7 +58,11 @@ import type { TransactionData } from '../types/transaction.types';
 
 const STRETCH_COLUMN_ID = 'notes';
 
-export function TransactionsPage() {
+interface TransactionsPageProps {
+  apiBasePath?: string;
+}
+
+export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
   // ============================================================================
   // SETTINGS STATE - Fetch read-only config
   // ============================================================================
@@ -83,7 +87,9 @@ export function TransactionsPage() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const response = await fetch('/api/settings/transactions');
+        const response = await fetch(
+          `${apiBasePath ?? '/api'}/settings/transactions`
+        );
         if (response.ok) {
           const data = await response.json();
           setReadOnlyColumns({
@@ -105,7 +111,7 @@ export function TransactionsPage() {
       }
     };
     fetchSettings();
-  }, []);
+  }, [apiBasePath]);
 
   // ============================================================================
   // DATA HOOKS - All data fetching and filtering
@@ -125,7 +131,7 @@ export function TransactionsPage() {
     handleStatusFilter,
     bulkUpdate,
     update,
-  } = useTransactionsData();
+  } = useTransactionsData({ apiBasePath });
 
   const handleTabChange = useCallback(
     (value: TransactionsTabValue) => {
@@ -175,7 +181,7 @@ export function TransactionsPage() {
     customerWarningData,
     setCustomerWarningData,
     setShowCustomerWarningModal,
-  } = useTransactionModals({ transactions, bulkUpdate });
+  } = useTransactionModals({ transactions, bulkUpdate, apiBasePath });
 
   // ============================================================================
   // OPERATIONS HOOK - Cell edits and validation
@@ -188,6 +194,7 @@ export function TransactionsPage() {
     productToShipmentStatusMap,
     bulkUpdate,
     update,
+    apiBasePath,
     onCustomerWarning: (data) => {
       setCustomerWarningData({
         ...data,
@@ -546,6 +553,7 @@ export function TransactionsPage() {
           onClose={() => setShowPaymentsModal(false)}
           transactions={transactions}
           customerNames={customerNames}
+          apiBasePath={apiBasePath}
         />
 
         {/* Distribution Generation Modal */}

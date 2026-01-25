@@ -16,6 +16,7 @@ import { DateInput } from '@mantine/dates';
 import { showNotification } from '@mantine/notifications';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import { PolishedModal } from '@/components/modals/PolishedModal';
 import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
 import {
@@ -51,11 +52,13 @@ export function TransactionPaymentsModal({
   onClose,
   transactions,
   customerNames,
+  apiBasePath,
 }: {
   opened: boolean;
   onClose: () => void;
   transactions: TransactionData[];
   customerNames: string[];
+  apiBasePath?: string;
 }) {
   const queryClient = useQueryClient();
 
@@ -225,7 +228,10 @@ export function TransactionPaymentsModal({
 
     setIsSaving(true);
     try {
-      await api.post('/api/transactions/payments/bulk', requestPayload);
+      await api.post(
+        buildApiPath(apiBasePath, '/transactions/payments/bulk'),
+        requestPayload
+      );
 
       await queryClient.invalidateQueries({ queryKey: ['transactions'] });
 
@@ -247,6 +253,7 @@ export function TransactionPaymentsModal({
       setIsSaving(false);
     }
   }, [
+    apiBasePath,
     eligibleTransactions,
     getBaseTotal,
     method,

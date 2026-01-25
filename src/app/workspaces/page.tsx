@@ -38,6 +38,36 @@ const workspaceCatalog: WorkspaceDefinition[] = [
     requiredPaths: ['/trucking/employees/dashboard'],
     icon: 'truck',
   },
+  {
+    id: 'gm-operations',
+    title: 'General Merchandise Operations',
+    subtitle: 'Transactions • Inventory • Dispatch',
+    badge: 'Operations',
+    highlights: ['Transactions', 'Inventory', 'Dispatch'],
+    href: '/general-merchandise/operations/transactions',
+    requiredPaths: ['/general-merchandise/operations/transactions'],
+    icon: 'settings',
+  },
+  {
+    id: 'gm-employees',
+    title: 'General Merchandise Employees',
+    subtitle: 'Payroll • Leave • Workforce',
+    badge: 'HR & Payroll',
+    highlights: ['Payroll', 'Leave Tracker', 'Schedules'],
+    href: '/general-merchandise/employees/dashboard',
+    requiredPaths: ['/general-merchandise/employees/dashboard'],
+    icon: 'users',
+  },
+  {
+    id: 'gm-accounting',
+    title: 'General Merchandise Accounting',
+    subtitle: 'Expenses • Ledger • Reports',
+    badge: 'Accounting',
+    highlights: ['Expenses', 'Ledger', 'Reports'],
+    href: '/general-merchandise/accounting/expenses',
+    requiredPaths: ['/general-merchandise/accounting/expenses'],
+    icon: 'receipt',
+  },
 ];
 
 function resolveWorkspaces(accessiblePaths: string[], role: string) {

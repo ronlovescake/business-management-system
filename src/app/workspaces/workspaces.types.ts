@@ -1,4 +1,4 @@
-export type WorkspaceIconKey = 'settings' | 'users' | 'truck';
+export type WorkspaceIconKey = 'settings' | 'users' | 'truck' | 'receipt';
 
 export interface WorkspaceOption {
   id: string;

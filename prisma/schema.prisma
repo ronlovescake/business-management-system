@@ -1,16 +1,19 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  schemas  = ["public", "general_merchandise"]
 }
 
 model HealthCheck {
   id        Int      @id @default(autoincrement())
   status    String   @default("ok")
   createdAt DateTime @default(now())
+  @@schema("public")
 }
 
 model Customer {
@@ -37,6 +40,7 @@ model Customer {
   @@index([customerName])
   @@index([phoneNumber])
   @@index([customerStatus])
+  @@schema("public")
 }
 
 model AdditionalCustomerInfo {
@@ -52,6 +56,7 @@ model AdditionalCustomerInfo {
   @@index([customerId])
   @@index([type])
   @@map("additional_customer_info")
+  @@schema("public")
 }
 
 model Price {
@@ -72,6 +77,7 @@ model Price {
   @@index([productCode, lowerLimit, upperLimit])
   @@index([isActive])
   @@map("prices")
+  @@schema("public")
 }
 
 model Product {
@@ -127,6 +133,7 @@ model Product {
   @@index([paymentCardId])
   @@index([ageRange])
   @@map("products")
+  @@schema("public")
 }
 
 model BundleBatch {
@@ -143,6 +150,7 @@ model BundleBatch {
   @@index([bundleSku])
   @@index([postingDate])
   @@map("bundle_batches")
+  @@schema("public")
 }
 
 model BundleBatchComponent {
@@ -156,6 +164,7 @@ model BundleBatchComponent {
   @@index([bundleBatchId])
   @@index([componentProductCode])
   @@map("bundle_batch_components")
+  @@schema("public")
 }
 
 model InventoryMovement {
@@ -176,6 +185,7 @@ model InventoryMovement {
   @@index([createdAt])
   @@index([deletedAt])
   @@map("inventory_movements")
+  @@schema("public")
 }
 
 model PaymentCard {
@@ -192,6 +202,7 @@ model PaymentCard {
   @@index([bank])
   @@index([label])
   @@map("payment_cards")
+  @@schema("public")
 }
 
 model ShippingFeeCalculatorState {
@@ -206,6 +217,7 @@ model ShippingFeeCalculatorState {
   deletedAt             DateTime?
 
   @@map("shipping_fee_calculator_states")
+  @@schema("public")
 }
 
 model Shipment {
@@ -228,6 +240,7 @@ model Shipment {
   @@index([shipmentCode])
   @@index([shipmentStatus])
   @@map("shipments")
+  @@schema("public")
 }
 
 model TruckingFleetRegistry {
@@ -270,6 +283,7 @@ model TruckingFleetRegistry {
   @@index([vehicleType])
   @@index([fuelType])
   @@map("trucking_fleet_registry")
+  @@schema("public")
 }
 
 model TruckingTrip {
@@ -306,6 +320,7 @@ model TruckingTrip {
   @@index([status])
   @@index([customerId, date])
   @@map("trucking_trips")
+  @@schema("public")
 }
 
 model TruckingVehicleAssignment {
@@ -327,6 +342,7 @@ model TruckingVehicleAssignment {
   @@index([status])
   @@index([createdAt])
   @@map("trucking_vehicle_assignments")
+  @@schema("public")
 }
 
 model Transaction {
@@ -364,6 +380,7 @@ model Transaction {
   @@index([productCode, deletedAt])
   @@index([orderDate, deletedAt])
   @@map("transactions")
+  @@schema("public")
 }
 
 model TransactionPayment {
@@ -382,6 +399,7 @@ model TransactionPayment {
   @@index([paymentDate])
   @@index([deletedAt])
   @@map("transaction_payments")
+  @@schema("public")
 }
 
 model TransactionRefund {
@@ -402,6 +420,7 @@ model TransactionRefund {
   @@index([refundDate])
   @@index([deletedAt])
   @@map("transaction_refunds")
+  @@schema("public")
 }
 
 model TransactionStatusChange {
@@ -414,6 +433,7 @@ model TransactionStatusChange {
 
   @@index([transactionId, changedAt])
   @@map("transaction_status_changes")
+  @@schema("public")
 }
 
 model OperationsNotification {
@@ -427,6 +447,7 @@ model OperationsNotification {
   @@index([createdAt])
   @@index([category, createdAt])
   @@map("operations_notifications")
+  @@schema("public")
 }
 
 model SortingDistribution {
@@ -447,6 +468,7 @@ model SortingDistribution {
   @@index([productCode])
   @@index([groupNumber])
   @@map("sorting_distributions")
+  @@schema("public")
 }
 
 model InstalledModule {
@@ -466,6 +488,7 @@ model InstalledModule {
   @@index([enabled])
   @@index([source])
   @@map("installed_modules")
+  @@schema("public")
 }
 
 model ModuleMarketplace {
@@ -495,6 +518,7 @@ model ModuleMarketplace {
   @@index([author])
   @@index([downloads])
   @@map("module_marketplace")
+  @@schema("public")
 }
 
 model AuditLog {
@@ -509,6 +533,7 @@ model AuditLog {
   @@index([model])
   @@index([timestamp])
   @@map("audit_logs")
+  @@schema("public")
 }
 
 model ChangeLog {
@@ -529,6 +554,7 @@ model ChangeLog {
   @@index([entityType])
   @@index([userId])
   @@map("change_log")
+  @@schema("public")
 }
 
 model Expense {
@@ -564,6 +590,7 @@ model Expense {
   @@index([employeeName, status])
   @@index([category, status])
   @@map("expenses")
+  @@schema("public")
 }
 
 model ClothingAccountingOpeningBalance {
@@ -581,6 +608,7 @@ model ClothingAccountingOpeningBalance {
   @@index([account])
   @@index([ref])
   @@map("ClothingAccountingOpeningBalance")
+  @@schema("public")
 }
 
 model ClothingInventoryReclassEntry {
@@ -605,6 +633,7 @@ model ClothingInventoryReclassEntry {
   @@index([shipmentId])
   @@index([deletedAt])
   @@map("clothing_inventory_reclass_entries")
+  @@schema("public")
 }
 
 model ClothingInventoryTransitBuildEntry {
@@ -627,6 +656,7 @@ model ClothingInventoryTransitBuildEntry {
   @@index([creditAccount])
   @@index([deletedAt])
   @@map("clothing_inventory_transit_build_entries")
+  @@schema("public")
 }
 
 model ClothingAccountingJournalLine {
@@ -651,6 +681,7 @@ model ClothingAccountingJournalLine {
   @@index([sourceType])
   @@index([sourceId])
   @@map("clothing_accounting_journal_lines")
+  @@schema("public")
 }
 
 model ClothingRecurringPaymentTemplate {
@@ -677,6 +708,7 @@ model ClothingRecurringPaymentTemplate {
   @@index([nextDueDate])
   @@index([kind])
   @@map("clothing_recurring_payment_templates")
+  @@schema("public")
 }
 
 model ClothingRecurringPaymentDraft {
@@ -702,6 +734,7 @@ model ClothingRecurringPaymentDraft {
   @@index([dueDate])
   @@index([templateId])
   @@map("clothing_recurring_payment_drafts")
+  @@schema("public")
 }
 
 model HouseholdExpense {
@@ -739,6 +772,7 @@ model HouseholdExpense {
   @@index([loggedBy, status])
   @@index([category, status])
   @@map("household_expenses")
+  @@schema("public")
 }
 
 model HouseholdAccount {
@@ -760,6 +794,7 @@ model HouseholdAccount {
   @@index([type])
   @@index([isActive])
   @@map("HouseholdAccounts")
+  @@schema("public")
 }
 
 model HouseholdRecurringPayment {
@@ -783,6 +818,7 @@ model HouseholdRecurringPayment {
   @@index([isActive], map: "household_recurring_payments_is_active_idx")
   @@index([startDate], map: "household_recurring_payments_start_date_idx")
   @@map("household_recurring_payments")
+  @@schema("public")
 }
 
 model HouseholdIncome {
@@ -802,6 +838,7 @@ model HouseholdIncome {
   @@index([account])
   @@index([accountId])
   @@map("HouseholdIncome")
+  @@schema("public")
 }
 
 model HouseholdBudget {
@@ -823,6 +860,7 @@ model HouseholdBudget {
   @@index([year, month])
   @@index([accountId])
   @@map("HouseholdBudget")
+  @@schema("public")
 }
 
 model Employee {
@@ -886,6 +924,7 @@ model Employee {
   @@index([status, deletedAt])
   @@index([department, deletedAt])
   @@map("employees")
+  @@schema("public")
 }
 
 model LeaveRequest {
@@ -916,6 +955,7 @@ model LeaveRequest {
   @@index([employeeId, status])
   @@index([status, startDate])
   @@map("leave_requests")
+  @@schema("public")
 }
 
 model CashAdvanceRecord {
@@ -949,6 +989,7 @@ model CashAdvanceRecord {
   @@index([employeeId, status])
   @@index([status, requestDate])
   @@map("cash_advances")
+  @@schema("public")
 }
 
 model CashAdvanceDeduction {
@@ -965,6 +1006,7 @@ model CashAdvanceDeduction {
   @@index([cashAdvanceId])
   @@index([employeeId])
   @@map("cash_advance_deductions")
+  @@schema("public")
 }
 
 model Schedule {
@@ -1001,6 +1043,7 @@ model Schedule {
   @@index([date, status, deletedAt])
   @@index([department, date, deletedAt])
   @@map("schedules")
+  @@schema("public")
 }
 
 model Attendance {
@@ -1036,6 +1079,7 @@ model Attendance {
   @@index([employeeId, date, deletedAt])
   @@index([deletedAt, employeeId])
   @@map("attendance")
+  @@schema("public")
 }
 
 model EmployeeAutomationSetting {
@@ -1049,6 +1093,7 @@ model EmployeeAutomationSetting {
   stayInAutoPresenceGraceMinutes Int      @default(0)
 
   @@map("employee_automation_settings")
+  @@schema("public")
 }
 
 model Payroll {
@@ -1097,6 +1142,7 @@ model Payroll {
   @@index([employeeId, periodStart, deletedAt])
   @@index([status, deletedAt])
   @@map("payrolls")
+  @@schema("public")
 }
 
 model ThirteenthMonthPayRecord {
@@ -1122,6 +1168,7 @@ model ThirteenthMonthPayRecord {
   @@index([year])
   @@index([status])
   @@map("thirteenth_month_pay_records")
+  @@schema("public")
 }
 
 model TruckingEmployee {
@@ -1185,6 +1232,7 @@ model TruckingEmployee {
   @@index([status, deletedAt])
   @@index([department, deletedAt])
   @@map("trucking_employees")
+  @@schema("public")
 }
 
 model TruckingLeaveRequest {
@@ -1215,6 +1263,7 @@ model TruckingLeaveRequest {
   @@index([employeeId, status])
   @@index([status, startDate])
   @@map("trucking_leave_requests")
+  @@schema("public")
 }
 
 model TruckingCashAdvanceRecord {
@@ -1248,6 +1297,7 @@ model TruckingCashAdvanceRecord {
   @@index([employeeId, status])
   @@index([status, requestDate])
   @@map("trucking_cash_advances")
+  @@schema("public")
 }
 
 model TruckingCashAdvanceDeduction {
@@ -1264,6 +1314,7 @@ model TruckingCashAdvanceDeduction {
   @@index([cashAdvanceId])
   @@index([employeeId])
   @@map("trucking_cash_advance_deductions")
+  @@schema("public")
 }
 
 model TruckingSchedule {
@@ -1300,6 +1351,7 @@ model TruckingSchedule {
   @@index([date, status, deletedAt])
   @@index([department, date, deletedAt])
   @@map("trucking_schedules")
+  @@schema("public")
 }
 
 model TruckingAttendance {
@@ -1335,6 +1387,7 @@ model TruckingAttendance {
   @@index([employeeId, date, deletedAt])
   @@index([deletedAt, employeeId])
   @@map("trucking_attendance")
+  @@schema("public")
 }
 
 model TruckingPayroll {
@@ -1383,6 +1436,7 @@ model TruckingPayroll {
   @@index([employeeId, periodStart, deletedAt])
   @@index([status, deletedAt])
   @@map("trucking_payrolls")
+  @@schema("public")
 }
 
 model TruckingThirteenthMonthPayRecord {
@@ -1408,6 +1462,7 @@ model TruckingThirteenthMonthPayRecord {
   @@index([year])
   @@index([status])
   @@map("trucking_thirteenth_month_pay_records")
+  @@schema("public")
 }
 
 model TruckingExpense {
@@ -1440,6 +1495,7 @@ model TruckingExpense {
   @@index([employeeName, status])
   @@index([category, status])
   @@map("trucking_expenses")
+  @@schema("public")
 }
 
 model TruckingInvoice {
@@ -1461,6 +1517,7 @@ model TruckingInvoice {
   @@index([customerId, cutoffStart, cutoffEnd])
   @@index([status])
   @@map("trucking_invoices")
+  @@schema("public")
 }
 
 model TruckingPayment {
@@ -1478,6 +1535,7 @@ model TruckingPayment {
 
   @@index([customerId, paymentDate])
   @@map("trucking_payments")
+  @@schema("public")
 }
 
 model TruckingPaymentAllocation {
@@ -1490,6 +1548,7 @@ model TruckingPaymentAllocation {
   @@id([paymentId, invoiceId])
   @@index([invoiceId])
   @@map("trucking_payment_allocations")
+  @@schema("public")
 }
 
 model TruckingSalaryHistory {
@@ -1510,6 +1569,7 @@ model TruckingSalaryHistory {
   @@index([employeeId])
   @@index([effectiveDate])
   @@map("trucking_salary_history")
+  @@schema("public")
 }
 
 model User {
@@ -1533,6 +1593,7 @@ model User {
   @@index([role])
   @@index([isActive])
   @@map("users")
+  @@schema("public")
 }
 
 model PasswordResetToken {
@@ -1551,6 +1612,7 @@ model PasswordResetToken {
   @@index([expiresAt])
   @@index([tokenHash])
   @@map("password_reset_tokens")
+  @@schema("public")
 }
 
 model Module {
@@ -1574,6 +1636,7 @@ model Module {
   @@index([parentId])
   @@index([isActive])
   @@map("modules")
+  @@schema("public")
 }
 
 model UserPermission {
@@ -1590,6 +1653,7 @@ model UserPermission {
   @@index([userId])
   @@index([moduleId])
   @@map("user_permissions")
+  @@schema("public")
 }
 
 model CheckoutLink {
@@ -1609,6 +1673,7 @@ model CheckoutLink {
   @@index([deletedAt])
   @@index([weight, width, length, height])
   @@map("checkout_links")
+  @@schema("public")
 }
 
 model ItemWeight {
@@ -1624,6 +1689,7 @@ model ItemWeight {
   @@index([itemName])
   @@index([deletedAt])
   @@map("item_weights")
+  @@schema("public")
 }
 
 model Invoice {
@@ -1643,6 +1709,7 @@ model Invoice {
   @@index([customerName])
   @@index([deletedAt])
   @@map("invoices")
+  @@schema("public")
 }
 
 model DispatchOrder {
@@ -1700,6 +1767,7 @@ model DispatchOrder {
   @@index([linkedCustomerId])
   @@index([importedAt])
   @@map("dispatch_orders")
+  @@schema("public")
 }
 
 model SalaryHistory {
@@ -1720,6 +1788,7 @@ model SalaryHistory {
   @@index([employeeId])
   @@index([effectiveDate])
   @@map("salary_history")
+  @@schema("public")
 }
 
 model Conversation {
@@ -1736,6 +1805,7 @@ model Conversation {
   @@index([deletedAt])
   @@index([createdAt])
   @@map("conversations")
+  @@schema("public")
 }
 
 model ConversationParticipant {
@@ -1753,6 +1823,7 @@ model ConversationParticipant {
   @@index([conversationId])
   @@index([lastReadAt])
   @@map("conversation_participants")
+  @@schema("public")
 }
 
 model Message {
@@ -1774,6 +1845,7 @@ model Message {
   @@index([createdAt])
   @@index([deletedAt])
   @@map("messages")
+  @@schema("public")
 }
 
 model InvoiceSettings {
@@ -1784,6 +1856,7 @@ model InvoiceSettings {
   updatedAt          DateTime @updatedAt
 
   @@map("invoice_settings")
+  @@schema("public")
 }
 
 model MessageTemplate {
@@ -1796,6 +1869,7 @@ model MessageTemplate {
   updatedAt  DateTime @updatedAt
 
   @@map("message_templates")
+  @@schema("public")
 }
 
 model PostTemplateNotice {
@@ -1807,6 +1881,7 @@ model PostTemplateNotice {
   updatedAt       DateTime @updatedAt
 
   @@map("post_template_notice")
+  @@schema("public")
 }
 
 model TransactionsSettings {
@@ -1821,6 +1896,366 @@ model TransactionsSettings {
   minSpareRows         Int      @default(50)
 
   @@map("transactions_settings")
+  @@schema("public")
+}
+
+// ============================================================================
+// GENERAL MERCHANDISE (GM) SCHEMA MODELS
+// ============================================================================
+
+model GeneralMerchandiseCustomer {
+  id                     Int      @id @default(autoincrement())
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  date                   String   @db.VarChar(50)
+  customerName           String   @db.VarChar(255)
+  phoneNumber            String   @db.VarChar(100)
+  address                String   @db.VarChar(500)
+  facebook               String   @db.VarChar(255)
+  emailAddress           String   @db.VarChar(255)
+  businessName           String   @db.VarChar(255)
+  taxNumber              String   @db.VarChar(100)
+  businessAddress        String   @db.VarChar(500)
+  businessContactNumber  String   @db.VarChar(100)
+  customerStatus         String   @db.VarChar(50)
+  deletedAt              DateTime?
+  additionalCustomerInfo GeneralMerchandiseAdditionalCustomerInfo[]
+
+  @@index([customerName])
+  @@index([phoneNumber])
+  @@index([customerStatus])
+  @@map("customers")
+  @@schema("general_merchandise")
+}
+
+model GeneralMerchandiseAdditionalCustomerInfo {
+  id         Int      @id @default(autoincrement())
+  customerId Int
+  type       String   @db.VarChar(50)
+  value      String   @db.VarChar(500)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+  customer   GeneralMerchandiseCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([type])
+  @@map("additional_customer_info")
+  @@schema("general_merchandise")
+}
+
+model GeneralMerchandisePrice {
+  id              Int      @id @default(autoincrement())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now()) @updatedAt
+  productCode     String   @db.VarChar(100)
+  lowerLimit      Int
+  upperLimit      Int
+  currentPrice    Int
+  priceAdjustment Int      @default(0)
+  description     String?  @db.VarChar(500)
+  category        String?  @db.VarChar(100)
+  isActive        Boolean  @default(true)
+  deletedAt       DateTime?
+
+  @@index([productCode])
+  @@index([productCode, lowerLimit, upperLimit])
+  @@index([isActive])
+  @@map("prices")
+  @@schema("general_merchandise")
+}
+
+model GeneralMerchandiseProduct {
+  id                     Int          @id @default(autoincrement())
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+  shipmentCode           String?      @db.VarChar(100)
+  cvNumber               String?      @db.VarChar(100)
+  noOfSacks              Float        @default(0)
+  totalCBM               Float        @default(0)
+  weight                 Float        @default(0)
+  shipmentStatus         String?      @db.VarChar(100)
+  postingDate            String?      @db.VarChar(50)
+  orderDate              String?      @db.VarChar(50)
+  payment                String?      @db.VarChar(100)
+  product                String?      @db.VarChar(500)
+  productCode            String?      @db.VarChar(100)
+  ageRange               String?      @db.VarChar(100)
+  unit                   String?      @db.VarChar(50)
+  unitPrice              Float        @default(0)
+  quantity               Float        @default(0)
+  alibabaShippingCost    Float        @default(0)
+  exchangeRates          Float        @default(0)
+  php                    Float        @default(0)
+  subTotalPHP            Float        @default(0)
+  transactionFee         Float        @default(0)
+  grandTotal             Float        @default(0)
+  forwardersFee          Float        @default(0)
+  lalamove               Float        @default(0)
+  packagingCost          Float        @default(0)
+  suggestedPrice         Float        @default(0)
+  actualPrice            Float        @default(0)
+  basePrice              Float        @default(0)
+  cogs                   Float        @default(0)
+  projectedSales         Float        @default(0)
+  projectedProfit        Float        @default(0)
+  projectedProfitPercent Float        @default(0)
+  totalMarkup            Float        @default(0)
+  deletedAt              DateTime?
+  linkToPost             String?      @db.VarChar(1000)
+  bulkQuantity           Float        @default(0)
+  bulkWeight             Float        @default(0)
+  weightPerPiece         Float        @default(0)
+  paymentCardId          String?      @db.VarChar(100)
+  paymentMethod          String?      @db.VarChar(50)
+
+  @@index([productCode])
+  @@index([shipmentCode])
+  @@index([shipmentStatus])
+  @@index([payment])
+  @@index([paymentMethod])
+  @@index([paymentCardId])
+  @@index([ageRange])
+  @@map("products")
+  @@schema("general_merchandise")
+}
+
+model GeneralMerchandiseBundleBatch {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  postingDate String   @db.VarChar(50)
+  bundleName  String   @db.VarChar(255)
+  bundleSku   String   @unique @db.VarChar(255)
+  quantity    Float    @default(0)
+  price       Float    @default(0)
+  components  GeneralMerchandiseBundleBatchComponent[]
+
+  @@index([bundleSku])
+  @@index([postingDate])
+  @@map("bundle_batches")
+  @@schema("general_merchandise")
+}
+
+model GeneralMerchandiseBundleBatchComponent {
+  id                   Int      @id @default(autoincrement())
+  createdAt            DateTime @default(now()) @db.Timestamptz(6)
+  bundleBatchId        Int
+  componentProductCode String   @db.VarChar(100)
+  includedQuantity     Float    @default(0)
+  bundleBatch          GeneralMerchandiseBundleBatch @relation(fields: [bundleBatchId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([bundleBatchId])
+  @@index([componentProductCode])
+  @@map("bundle_batch_components")
+  @@schema("general_merchandise")
+}
+
+model GeneralMerchandiseInventoryMovement {
+  id          Int             @id @default(autoincrement())
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @default(now()) @updatedAt
+  postingDate String?         @db.VarChar(50)
+  productCode String          @db.VarChar(100)
+  quantity    Float
+  fromBucket  InventoryBucket
+  toBucket    InventoryBucket
+  notes       String?
+  deletedAt   DateTime?
+
+  @@index([productCode])
+  @@index([fromBucket])
+  @@index([toBucket])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@map("inventory_movements")
+  @@schema("general_merchandise")
+}
+
+model GeneralMerchandiseShipment {
+  id             Int      @id @default(autoincrement())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  shipmentCode   String   @db.VarChar(100)
+  cvNumber       String?  @db.VarChar(100)
+  noOfSacks      Int      @default(0)
+  totalCBM       Float    @default(0)
+  weight         Float    @default(0)
+  fee            Float    @default(0)
+  shipmentStatus String   @db.VarChar(100)
+  dateCreated    String?  @db.VarChar(50)
+  dateDelivered  String?  @db.VarChar(50)
+  duration       String?  @db.VarChar(20)
+  notes          String?
+  deletedAt      DateTime?
+
+  @@index([shipmentCode])
+  @@index([shipmentStatus])
+  @@map("shipments")
+  @@schema("general_merchandise")
+}
+
+model GeneralMerchandiseTransaction {
+  id            Int      @id @default(autoincrement())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  orderDate     String?  @db.VarChar(50)
+  customers     String?  @db.VarChar(255)
+  productCode   String?  @db.VarChar(100)
+  quantity      Float?
+  unitPrice     Float?
+  discount      Float?
+  adjustment    Float?
+  lineTotal     Float?
+  refundQty     Float?
+  refundAmount  Float?
+  refundDate    String?  @db.VarChar(50)
+  orderStatus   String?  @db.VarChar(100)
+  notes         String?
+  invoiceDate   String?  @db.VarChar(50)
+  packedDate    String?  @db.VarChar(50)
+  shipmentCode  String?  @db.VarChar(100)
+  deletedAt     DateTime?
+  statusChanges GeneralMerchandiseTransactionStatusChange[]
+  refunds       GeneralMerchandiseTransactionRefund[]
+  payments      GeneralMerchandiseTransactionPayment[]
+
+  @@index([orderDate])
+  @@index([customers])
+  @@index([productCode])
+  @@index([orderStatus])
+  @@index([shipmentCode])
+  @@index([customers, deletedAt])
+  @@index([orderStatus, deletedAt])
+  @@index([productCode, deletedAt])
+  @@index([orderDate, deletedAt])
+  @@map("transactions")
+  @@schema("general_merchandise")
+}
+
+model GeneralMerchandiseTransactionPayment {
+  id            Int      @id @default(autoincrement())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  transactionId Int
+  paymentDate   String   @db.VarChar(50)
+  amount        Float    @default(0)
+  method        String?  @db.VarChar(100)
+  notes         String?
+  deletedAt     DateTime?
+  transaction   GeneralMerchandiseTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([transactionId])
+  @@index([paymentDate])
+  @@index([deletedAt])
+  @@map("transaction_payments")
+  @@schema("general_merchandise")
+}
+
+model GeneralMerchandiseTransactionRefund {
+  id              Int             @id @default(autoincrement())
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  transactionId    Int
+  refundDate       String          @db.VarChar(50)
+  amount           Float           @default(0)
+  reason           String?         @db.VarChar(255)
+  returnedQuantity Float?
+  restockBucket    InventoryBucket?
+  notes            String?
+  deletedAt        DateTime?
+  transaction      GeneralMerchandiseTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([transactionId])
+  @@index([refundDate])
+  @@index([deletedAt])
+  @@map("transaction_refunds")
+  @@schema("general_merchandise")
+}
+
+model GeneralMerchandiseTransactionStatusChange {
+  id             Int      @id @default(autoincrement())
+  transactionId  Int
+  previousStatus String?  @db.VarChar(100)
+  newStatus      String?  @db.VarChar(100)
+  changedAt      DateTime @default(now())
+  transaction    GeneralMerchandiseTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([transactionId, changedAt])
+  @@map("transaction_status_changes")
+  @@schema("general_merchandise")
+}
+
+model GeneralMerchandiseOperationsNotification {
+  id        String   @id @default(cuid())
+  category  String   @db.VarChar(50)
+  user      String?  @db.VarChar(100)
+  changes   String   @db.VarChar(1000)
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([category, createdAt])
+  @@map("operations_notifications")
+  @@schema("general_merchandise")
+}
+
+model GeneralMerchandiseDispatchOrder {
+  id                      String   @id @default(cuid())
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  orderId                 String   @db.VarChar(100)
+  orderStatus             String?  @db.VarChar(100)
+  returnRefundStatus      String?  @db.VarChar(100)
+  trackingNumber          String?  @db.VarChar(100)
+  shippingOption          String?  @db.VarChar(100)
+  shipmentMethod          String?  @db.VarChar(100)
+  estimatedShipOutDate    String?  @db.VarChar(50)
+  shipTime                String?  @db.VarChar(50)
+  orderCreationDate       String?  @db.VarChar(50)
+  orderPaidTime           String?  @db.VarChar(50)
+  parentSkuReferenceNo    String?  @db.VarChar(100)
+  productName             String?  @db.VarChar(500)
+  skuReferenceNo          String?  @db.VarChar(100)
+  variationName           String?  @db.VarChar(500)
+  originalPrice           Float?
+  dealPrice               Float?
+  quantity                Int?
+  productSubtotal         Float?
+  totalDiscount           Float?
+  priceDiscountFromSeller Float?
+  shopeeRebate            Float?
+  skuTotalWeight          Float?
+  numberOfProductsSeller  Int?
+  originalShippingFee     Float?
+  shippingFeeRebateSeller Float?
+  reverseShippingFee      Float?
+  serviceFee              Float?
+  grandTotal              Float?
+  estimatedShippingFee    Float?
+  usernameBuyer           String?  @db.VarChar(100)
+  receiverName            String?  @db.VarChar(255)
+  phoneNumber             String?  @db.VarChar(50)
+  deliveryAddress         String?
+  town                    String?  @db.VarChar(255)
+  district                String?  @db.VarChar(255)
+  province                String?  @db.VarChar(255)
+  region                  String?  @db.VarChar(255)
+  country                 String?  @db.VarChar(100)
+  zipCode                 String?  @db.VarChar(20)
+  remarkFromBuyer         String?
+  orderCompleteTime       String?  @db.VarChar(50)
+  note                    String?
+  linkedCustomerId        Int?
+  importedAt              DateTime @default(now())
+
+  @@index([orderId])
+  @@index([usernameBuyer])
+  @@index([orderStatus])
+  @@index([linkedCustomerId])
+  @@index([importedAt])
+  @@map("dispatch_orders")
+  @@schema("general_merchandise")
 }
 
 enum InventoryBucket {
@@ -1832,6 +2267,7 @@ enum InventoryBucket {
   supplier_short
   opening_inventory
   sold
+  @@schema("public")
 }
 
 enum TruckingVehicleAssignmentStatus {
@@ -1839,6 +2275,7 @@ enum TruckingVehicleAssignmentStatus {
   active
   completed
   cancelled
+  @@schema("public")
 }
 
 enum TruckingInvoiceStatus {
@@ -1847,6 +2284,7 @@ enum TruckingInvoiceStatus {
   PARTIAL
   PAID
   VOID
+  @@schema("public")
 }
 
 enum TruckingPaymentMethod {
@@ -1855,15 +2293,18 @@ enum TruckingPaymentMethod {
   GCASH
   CHECK
   OTHER
+  @@schema("public")
 }
 
 enum CashAdvanceCycle {
   FIRST_HALF
   SECOND_HALF
+  @@schema("public")
 }
 
 enum UserRole {
   USER
   ADMIN
   SUPER_ADMIN
+  @@schema("public")
 }

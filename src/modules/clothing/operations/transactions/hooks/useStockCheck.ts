@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { logger } from '@/lib/logger';
+import { buildApiPath } from '@/lib/api/paths';
 
 interface StockCheckResponse {
   productCode: string;
@@ -15,6 +16,7 @@ interface UseStockCheckOptions {
   requestedQuantity?: number;
   enabled?: boolean;
   debounceMs?: number;
+  apiBasePath?: string;
 }
 
 interface UseStockCheckResult {
@@ -32,6 +34,7 @@ export function useStockCheck({
   requestedQuantity = 0,
   enabled = true,
   debounceMs = 500,
+  apiBasePath,
 }: UseStockCheckOptions): UseStockCheckResult {
   const [stockInfo, setStockInfo] = useState<StockCheckResponse | null>(null);
   const [isChecking, setIsChecking] = useState(false);
@@ -48,16 +51,19 @@ export function useStockCheck({
     setError(null);
 
     try {
-      const response = await fetch('/api/inventory/check-stock', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          productCode: productCode.trim(),
-          requestedQuantity,
-        }),
-      });
+      const response = await fetch(
+        buildApiPath(apiBasePath, '/inventory/check-stock'),
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            productCode: productCode.trim(),
+            requestedQuantity,
+          }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error('Failed to check stock');
@@ -72,7 +78,7 @@ export function useStockCheck({
     } finally {
       setIsChecking(false);
     }
-  }, [productCode, requestedQuantity]);
+  }, [apiBasePath, productCode, requestedQuantity]);
 
   // Debounced stock check
   useEffect(() => {
