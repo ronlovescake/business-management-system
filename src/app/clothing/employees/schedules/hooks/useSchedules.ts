@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Swal from 'sweetalert2';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import { queryKeys } from '@/lib/queryKeys';
 import { getCurrentDateISO, toISODate } from '@/utils/date';
 import { dateFormatterShort, formatTimeString } from '@/utils/dateFormatters';
@@ -81,8 +82,13 @@ const toDateKey = (date: Date) => {
  * - Event handlers (CRUD operations, CSV import/export)
  * - Utility functions (formatters, validators)
  */
-export function useSchedules() {
+export function useSchedules(apiBasePath?: string) {
   const queryClient = useQueryClient();
+
+  const resolveApiPath = useCallback(
+    (path: string) => buildApiPath(apiBasePath, path),
+    [apiBasePath]
+  );
 
   // ============================================================================
   // STATE MANAGEMENT
@@ -117,9 +123,24 @@ export function useSchedules() {
     [filterShiftType, filterStatus]
   );
 
+  const employeesQueryKey = useMemo(
+    () => [...queryKeys.employees.lists(), { status: 'active', apiBasePath }],
+    [apiBasePath]
+  );
+
+  const schedulesQueryKey = useMemo(
+    () => [...queryKeys.schedules.lists(), { filters, apiBasePath }],
+    [filters, apiBasePath]
+  );
+
+  const leaveRequestsQueryKey = useMemo(
+    () => [...queryKeys.leaveRequests.lists(), { apiBasePath }],
+    [apiBasePath]
+  );
+
   // Fetch employees
   const { data: employees = [], isLoading: isLoadingEmployees } = useQuery({
-    queryKey: queryKeys.employees.list({ status: 'active' }),
+    queryKey: employeesQueryKey,
     queryFn: async () => {
       const data = await api.get<
         Array<{
@@ -130,7 +151,7 @@ export function useSchedules() {
           department: string;
           employeeType?: string;
         }>
-      >('/api/employees?status=active');
+      >(`${resolveApiPath('/employees')}?status=active`);
 
       const transformed: EmployeeSummary[] = (data || []).map((emp) => ({
         id: String(emp.id),
@@ -148,9 +169,9 @@ export function useSchedules() {
 
   // Fetch schedules
   const { data: schedules = [] } = useQuery({
-    queryKey: queryKeys.schedules.list(filters),
+    queryKey: schedulesQueryKey,
     queryFn: async () => {
-      const data = await api.get<Schedule[]>('/api/schedules');
+      const data = await api.get<Schedule[]>(resolveApiPath('/schedules'));
       return data || [];
     },
     staleTime: 30 * 1000,
@@ -158,7 +179,7 @@ export function useSchedules() {
 
   // Fetch leave requests
   const { data: leaveRequests = [] } = useQuery({
-    queryKey: queryKeys.leaveRequests.lists(),
+    queryKey: leaveRequestsQueryKey,
     queryFn: async () => {
       const data = await api.get<
         Array<{
@@ -170,7 +191,7 @@ export function useSchedules() {
           endDate: string;
           status: string;
         }>
-      >('/api/leave-requests');
+      >(resolveApiPath('/leave-requests'));
       return data || [];
     },
     staleTime: 60 * 1000,
@@ -469,12 +490,12 @@ export function useSchedules() {
   // Delete schedule mutation
   const deleteScheduleMutation = useMutation({
     mutationFn: async (id: string) => {
-      await api.delete(`/api/schedules?id=${id}`);
+      await api.delete(`${resolveApiPath('/schedules')}?id=${id}`);
       return id;
     },
     onMutate: async (deletedId) => {
       await queryClient.cancelQueries({
-        queryKey: queryKeys.schedules.lists(),
+        queryKey: schedulesQueryKey,
       });
 
       const previous = queryClient.getQueryData<Schedule[]>(
@@ -501,7 +522,7 @@ export function useSchedules() {
       alert('Failed to delete schedule. Please try again.');
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.schedules.lists() });
+      queryClient.invalidateQueries({ queryKey: schedulesQueryKey });
     },
   });
 
@@ -515,14 +536,14 @@ export function useSchedules() {
       if (scheduleData.isEdit && scheduleData.editId) {
         // Update existing schedule
         const result = await api.patch<{ schedule: Schedule }>(
-          '/api/schedules',
+          resolveApiPath('/schedules'),
           { ...scheduleData.data, id: scheduleData.editId }
         );
         return { schedule: result.schedule, isEdit: true };
       } else {
         // Create new schedule
         const result = await api.post<{ schedules: Schedule[] }>(
-          '/api/schedules',
+          resolveApiPath('/schedules'),
           scheduleData.data
         );
         return { schedules: result.schedules, isEdit: false };
@@ -530,7 +551,7 @@ export function useSchedules() {
     },
     onMutate: async ({ data, isEdit, editId }) => {
       await queryClient.cancelQueries({
-        queryKey: queryKeys.schedules.lists(),
+        queryKey: schedulesQueryKey,
       });
 
       const previous = queryClient.getQueryData<Schedule[]>(
@@ -577,7 +598,7 @@ export function useSchedules() {
       setIsModalOpen(false);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.schedules.lists() });
+      queryClient.invalidateQueries({ queryKey: schedulesQueryKey });
     },
   });
 
@@ -590,12 +611,12 @@ export function useSchedules() {
       id: string;
       status: ScheduleStatus;
     }) => {
-      await api.patch('/api/schedules', { id, status });
+      await api.patch(resolveApiPath('/schedules'), { id, status });
       return { id, status };
     },
     onMutate: async ({ id, status }) => {
       await queryClient.cancelQueries({
-        queryKey: queryKeys.schedules.lists(),
+        queryKey: schedulesQueryKey,
       });
 
       const previous = queryClient.getQueryData<Schedule[]>(
@@ -624,7 +645,7 @@ export function useSchedules() {
       alert('Failed to update schedule status. Please try again.');
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.schedules.lists() });
+      queryClient.invalidateQueries({ queryKey: schedulesQueryKey });
     },
   });
 
@@ -632,7 +653,7 @@ export function useSchedules() {
   const bulkImportMutation = useMutation({
     mutationFn: async (importedSchedules: Schedule[]) => {
       const result = await api.post<{ schedules: Schedule[] }>(
-        '/api/schedules',
+        resolveApiPath('/schedules'),
         importedSchedules
       );
       return result.schedules;
@@ -650,7 +671,7 @@ export function useSchedules() {
       setIsImporting(false);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.schedules.lists() });
+      queryClient.invalidateQueries({ queryKey: schedulesQueryKey });
     },
   });
 
@@ -863,9 +884,9 @@ export function useSchedules() {
     // Save schedules to database
     if (generatedSchedules.length > 0) {
       try {
-        await api.post('/api/schedules', generatedSchedules);
+        await api.post(resolveApiPath('/schedules'), generatedSchedules);
         queryClient.invalidateQueries({
-          queryKey: queryKeys.schedules.lists(),
+          queryKey: schedulesQueryKey,
         });
       } catch (error) {
         logger.error('Error saving generated schedules:', error);
@@ -887,7 +908,7 @@ export function useSchedules() {
     setRecurringRules((prev) => prev.filter((rule) => rule.id !== ruleId));
 
     // This would need to be refactored to use mutations for proper React Query integration
-    queryClient.invalidateQueries({ queryKey: queryKeys.schedules.lists() });
+    queryClient.invalidateQueries({ queryKey: schedulesQueryKey });
   };
 
   // ============================================================================

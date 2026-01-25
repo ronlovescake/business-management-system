@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import { dayjs } from '@/utils/date';
 import type { DashboardViewMode, EmployeeDashboardResponse } from '../types';
 
@@ -18,7 +19,7 @@ const defaultDate = defaultDay.toDate();
 const defaultMonth = defaultDay.startOf('month').toDate();
 const defaultYear = defaultDay.startOf('year').toDate();
 
-export function useEmployeeDashboard() {
+export function useEmployeeDashboard(apiBasePath?: string) {
   const [viewMode, setViewMode] = useState<DashboardViewMode>('month');
   const [selectedDate, setSelectedDate] = useState<Date>(defaultDate);
   const [selectedMonth, setSelectedMonth] = useState<Date>(defaultMonth);
@@ -49,27 +50,30 @@ export function useEmployeeDashboard() {
     };
   }, []);
 
-  const fetchData = useCallback(async (targetRange: typeof range) => {
-    setLoading(true);
-    setError(null);
+  const fetchData = useCallback(
+    async (targetRange: typeof range) => {
+      setLoading(true);
+      setError(null);
 
-    try {
-      const query = new URLSearchParams({
-        from: targetRange.from,
-        to: targetRange.to,
-      }).toString();
+      try {
+        const query = new URLSearchParams({
+          from: targetRange.from,
+          to: targetRange.to,
+        }).toString();
 
-      const response = await api.get<EmployeeDashboardResponse>(
-        `/api/clothing/employees/dashboard?${query}`
-      );
+        const response = await api.get<EmployeeDashboardResponse>(
+          `${buildApiPath(apiBasePath ?? '/api/clothing', '/employees/dashboard')}?${query}`
+        );
 
-      setData(response);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load metrics');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+        setData(response);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load metrics');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [apiBasePath]
+  );
 
   useEffect(() => {
     fetchData(range);

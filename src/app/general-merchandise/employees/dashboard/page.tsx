@@ -1,10 +1,9 @@
-import { PageLayout } from '@/components/layout/PageLayout';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import {
   hasModuleAccess,
   getFirstAccessibleModule,
 } from '@/lib/auth/permissions';
-import { Text, Stack } from '@mantine/core';
+import { EmployeesDashboard } from '@/app/clothing/employees/dashboard/page';
 
 export default async function GeneralMerchandiseEmployeesDashboard() {
   const hasAccess = await hasModuleAccess(
@@ -14,15 +13,7 @@ export default async function GeneralMerchandiseEmployeesDashboard() {
 
   return (
     <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
-      <PageLayout title="General Merchandise Employees">
-        <Stack gap="sm">
-          <Text fw={600}>Employees workspace is being set up.</Text>
-          <Text c="dimmed">
-            This is a placeholder dashboard for General Merchandise. Phase 1
-            focuses on Operations → Transactions.
-          </Text>
-        </Stack>
-      </PageLayout>
+      <EmployeesDashboard apiBasePath="/api/general-merchandise" />
     </PermissionGuard>
   );
 }

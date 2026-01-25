@@ -26,7 +26,7 @@ import type { AttendanceRecord } from './types';
 import { AttendanceFormDialog } from './components/AttendanceFormDialog';
 import { AttendanceErrorBoundary } from './components/AttendanceErrorBoundary';
 
-function AttendanceContent() {
+function AttendanceContent({ apiBasePath }: { apiBasePath?: string }) {
   const {
     filteredRecords,
     searchQuery,
@@ -52,7 +52,7 @@ function AttendanceContent() {
     isRecordModalOpen,
     handleImportCSV,
     handleExportCSV,
-  } = useAttendance();
+  } = useAttendance(apiBasePath);
 
   const getInitials = (record: AttendanceRecord) => {
     const [first = '', second = ''] = record.employeeName.split(' ');
@@ -267,10 +267,20 @@ function AttendanceContent() {
   );
 }
 
-export default function Attendance() {
+export function EmployeesAttendancePage({
+  apiBasePath,
+}: {
+  apiBasePath?: string;
+}) {
   return (
-    <AttendanceErrorBoundary>
-      <AttendanceContent />
-    </AttendanceErrorBoundary>
+    <PageLayout title="Attendance">
+      <AttendanceErrorBoundary>
+        <AttendanceContent apiBasePath={apiBasePath} />
+      </AttendanceErrorBoundary>
+    </PageLayout>
   );
+}
+
+export default function AttendancePage() {
+  return <EmployeesAttendancePage />;
 }

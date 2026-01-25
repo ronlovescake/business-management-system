@@ -26,7 +26,11 @@ import { CalendarBulkActions } from './components/CalendarBulkActions';
  * - Calendar view (placeholder)
  * - Stats dashboard
  */
-export default function SchedulesPage() {
+export function EmployeesSchedulesPage({
+  apiBasePath,
+}: {
+  apiBasePath?: string;
+}) {
   const {
     // State
     schedules,
@@ -72,7 +76,7 @@ export default function SchedulesPage() {
     isLoadingEmployees,
     shiftConfig,
     dayLabels,
-  } = useSchedules();
+  } = useSchedules(apiBasePath);
 
   const bulkActionProps = {
     recurringRules,
@@ -149,4 +153,8 @@ export default function SchedulesPage() {
       </Stack>
     </PageLayout>
   );
+}
+
+export default function SchedulesPage() {
+  return <EmployeesSchedulesPage />;
 }

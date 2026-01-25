@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import { showNotification } from '@mantine/notifications';
 import Swal from 'sweetalert2';
 import { queryKeys } from '@/lib/queryKeys';
@@ -70,8 +71,13 @@ const createEmptyFormValues = (): AttendanceFormValues => ({
   notes: '',
 });
 
-export function useAttendance() {
+export function useAttendance(apiBasePath?: string) {
   const queryClient = useQueryClient();
+
+  const resolveApiPath = useCallback(
+    (path: string) => buildApiPath(apiBasePath, path),
+    [apiBasePath]
+  );
 
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
   const [recordForm, setRecordForm] = useState<AttendanceFormValues>(
@@ -89,15 +95,22 @@ export function useAttendance() {
     [searchQuery, statusFilter]
   );
 
+  const attendanceQueryKey = useMemo(
+    () => [...queryKeys.attendance.lists(), { filters, apiBasePath }],
+    [filters, apiBasePath]
+  );
+
   // Fetch attendance records with React Query
   const {
     data: records = [],
     isLoading,
     error,
   } = useQuery({
-    queryKey: queryKeys.attendance.list(filters),
+    queryKey: attendanceQueryKey,
     queryFn: async () => {
-      const data = await api.get<AttendanceRecord[]>('/api/attendance');
+      const data = await api.get<AttendanceRecord[]>(
+        resolveApiPath('/attendance')
+      );
       return data || [];
     },
     staleTime: 30 * 1000, // 30 seconds
@@ -201,24 +214,23 @@ export function useAttendance() {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await api.delete(`/api/attendance?id=${id}`);
+      await api.delete(`${resolveApiPath('/attendance')}?id=${id}`);
       return id;
     },
     onMutate: async (deletedId) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({
-        queryKey: queryKeys.attendance.lists(),
+        queryKey: attendanceQueryKey,
       });
 
       // Snapshot previous value
-      const previous = queryClient.getQueryData<AttendanceRecord[]>(
-        queryKeys.attendance.list(filters)
-      );
+      const previous =
+        queryClient.getQueryData<AttendanceRecord[]>(attendanceQueryKey);
 
       // Optimistically remove from cache
       if (previous) {
         queryClient.setQueryData<AttendanceRecord[]>(
-          queryKeys.attendance.list(filters),
+          attendanceQueryKey,
           previous.filter((record) => record.id !== deletedId)
         );
       }
@@ -228,10 +240,7 @@ export function useAttendance() {
     onError: (error, deletedId, context) => {
       // Rollback on error
       if (context?.previous) {
-        queryClient.setQueryData(
-          queryKeys.attendance.list(filters),
-          context.previous
-        );
+        queryClient.setQueryData(attendanceQueryKey, context.previous);
       }
       logger.error('Error deleting attendance:', error);
       showNotification({
@@ -249,7 +258,7 @@ export function useAttendance() {
     },
     onSettled: () => {
       // Refetch to ensure consistency
-      queryClient.invalidateQueries({ queryKey: queryKeys.attendance.lists() });
+      queryClient.invalidateQueries({ queryKey: attendanceQueryKey });
     },
   });
 
@@ -262,25 +271,27 @@ export function useAttendance() {
       id: string;
       status: AttendanceStatus;
     }) => {
-      const updated = await api.patch<AttendanceRecord>('/api/attendance', {
-        id,
-        status,
-      });
+      const updated = await api.patch<AttendanceRecord>(
+        resolveApiPath('/attendance'),
+        {
+          id,
+          status,
+        }
+      );
       return updated;
     },
     onMutate: async ({ id, status }) => {
       await queryClient.cancelQueries({
-        queryKey: queryKeys.attendance.lists(),
+        queryKey: attendanceQueryKey,
       });
 
-      const previous = queryClient.getQueryData<AttendanceRecord[]>(
-        queryKeys.attendance.list(filters)
-      );
+      const previous =
+        queryClient.getQueryData<AttendanceRecord[]>(attendanceQueryKey);
 
       // Optimistically update
       if (previous) {
         queryClient.setQueryData<AttendanceRecord[]>(
-          queryKeys.attendance.list(filters),
+          attendanceQueryKey,
           previous.map((record) =>
             record.id === id ? { ...record, status } : record
           )
@@ -291,10 +302,7 @@ export function useAttendance() {
     },
     onError: (error, variables, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(
-          queryKeys.attendance.list(filters),
-          context.previous
-        );
+        queryClient.setQueryData(attendanceQueryKey, context.previous);
       }
       logger.error('Error updating status:', error);
       showNotification({
@@ -311,7 +319,7 @@ export function useAttendance() {
       });
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.attendance.lists() });
+      queryClient.invalidateQueries({ queryKey: attendanceQueryKey });
     },
   });
 
@@ -319,39 +327,32 @@ export function useAttendance() {
   const createRecordMutation = useMutation({
     mutationFn: async (payload: Omit<AttendanceRecord, 'id'>) => {
       const saved = await api.post<AttendanceRecord>(
-        '/api/attendance',
+        resolveApiPath('/attendance'),
         payload
       );
       return saved;
     },
     onMutate: async (newRecord) => {
       await queryClient.cancelQueries({
-        queryKey: queryKeys.attendance.lists(),
+        queryKey: attendanceQueryKey,
       });
 
-      const previous = queryClient.getQueryData<AttendanceRecord[]>(
-        queryKeys.attendance.list(filters)
-      );
+      const previous =
+        queryClient.getQueryData<AttendanceRecord[]>(attendanceQueryKey);
 
       // Optimistically add with temp ID
       if (previous) {
-        queryClient.setQueryData<AttendanceRecord[]>(
-          queryKeys.attendance.list(filters),
-          [
-            { ...newRecord, id: 'temp-' + Date.now() } as AttendanceRecord,
-            ...previous,
-          ]
-        );
+        queryClient.setQueryData<AttendanceRecord[]>(attendanceQueryKey, [
+          { ...newRecord, id: 'temp-' + Date.now() } as AttendanceRecord,
+          ...previous,
+        ]);
       }
 
       return { previous };
     },
     onError: (error, variables, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(
-          queryKeys.attendance.list(filters),
-          context.previous
-        );
+        queryClient.setQueryData(attendanceQueryKey, context.previous);
       }
       logger.error('Error saving attendance:', error);
       showNotification({
@@ -377,7 +378,7 @@ export function useAttendance() {
       });
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.attendance.lists() });
+      queryClient.invalidateQueries({ queryKey: attendanceQueryKey });
     },
   });
 
@@ -385,19 +386,18 @@ export function useAttendance() {
   const bulkCreateMutation = useMutation({
     mutationFn: async (payload: Array<Omit<AttendanceRecord, 'id'>>) => {
       const result = await api.post<{ records: AttendanceRecord[] }>(
-        '/api/attendance',
+        resolveApiPath('/attendance'),
         payload
       );
       return result.records || [];
     },
     onMutate: async (newRecords) => {
       await queryClient.cancelQueries({
-        queryKey: queryKeys.attendance.lists(),
+        queryKey: attendanceQueryKey,
       });
 
-      const previous = queryClient.getQueryData<AttendanceRecord[]>(
-        queryKeys.attendance.list(filters)
-      );
+      const previous =
+        queryClient.getQueryData<AttendanceRecord[]>(attendanceQueryKey);
 
       // Optimistically add bulk records
       if (previous) {
@@ -406,20 +406,17 @@ export function useAttendance() {
           id: `temp-${Date.now()}-${index}`,
         })) as AttendanceRecord[];
 
-        queryClient.setQueryData<AttendanceRecord[]>(
-          queryKeys.attendance.list(filters),
-          [...previous, ...tempRecords]
-        );
+        queryClient.setQueryData<AttendanceRecord[]>(attendanceQueryKey, [
+          ...previous,
+          ...tempRecords,
+        ]);
       }
 
       return { previous };
     },
     onError: (error, variables, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(
-          queryKeys.attendance.list(filters),
-          context.previous
-        );
+        queryClient.setQueryData(attendanceQueryKey, context.previous);
       }
       logger.error('Error auto-recording attendance:', error);
       Swal.fire({
@@ -484,7 +481,7 @@ export function useAttendance() {
       });
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.attendance.lists() });
+      queryClient.invalidateQueries({ queryKey: attendanceQueryKey });
     },
   });
 
@@ -596,7 +593,7 @@ export function useAttendance() {
           status: string;
           notes?: string;
         }>
-      >('/api/schedules');
+      >(resolveApiPath('/schedules'));
 
       // Filter schedules for the rolling window that are not cancelled
       const relevantSchedules = allSchedules.filter(
@@ -617,7 +614,9 @@ export function useAttendance() {
       // Fetch existing attendance for the entire lookback window
       const existingAttendance = await api.get<
         Array<{ employeeId: string; date: string }>
-      >(`/api/attendance?startDate=${oldestDateISO}&endDate=${todayISO}`);
+      >(
+        `${resolveApiPath('/attendance')}?startDate=${oldestDateISO}&endDate=${todayISO}`
+      );
 
       // Create a map of existing attendance by employeeId and date
       const existingAttendanceMap = new Map<string, Set<string>>();
@@ -656,7 +655,7 @@ export function useAttendance() {
           leaveType: string;
           reason: string;
         }>
-      >('/api/leave-requests');
+      >(resolveApiPath('/leave-requests'));
 
       // Helper function to check if employee is on leave
       const isOnLeave = (employeeId: string, date: string) => {

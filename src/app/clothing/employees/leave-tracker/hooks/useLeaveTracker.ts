@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import type {
   LeaveRequest,
   LeaveType,
@@ -35,7 +36,12 @@ export const employeeKeys = {
   lists: () => [...employeeKeys.all, 'list'] as const,
 };
 
-export default function useLeaveTracker() {
+export default function useLeaveTracker(apiBasePath?: string) {
+  const resolveApiPath = useCallback(
+    (path: string) => buildApiPath(apiBasePath, path),
+    [apiBasePath]
+  );
+
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [filterLeaveType, setFilterLeaveType] = useState<string | null>('all');
@@ -68,20 +74,35 @@ export default function useLeaveTracker() {
 
   const queryClient = useQueryClient();
 
+  const leaveRequestsQueryKey = useMemo(
+    () => [...leaveKeys.lists(), apiBasePath],
+    [apiBasePath]
+  );
+  const schedulesQueryKey = useMemo(
+    () => [...scheduleKeys.lists(), apiBasePath],
+    [apiBasePath]
+  );
+  const employeesQueryKey = useMemo(
+    () => [...employeeKeys.lists(), apiBasePath],
+    [apiBasePath]
+  );
+
   // Fetch leave requests
   const { data: leaveRequests = [], isLoading } = useQuery({
-    queryKey: leaveKeys.lists(),
+    queryKey: leaveRequestsQueryKey,
     queryFn: async () => {
-      const data = await api.get<LeaveRequest[]>('/api/leave-requests');
+      const data = await api.get<LeaveRequest[]>(
+        resolveApiPath('/leave-requests')
+      );
       return data;
     },
   });
 
   // Fetch schedules for day counting
   const { data: schedules = [] } = useQuery({
-    queryKey: scheduleKeys.lists(),
+    queryKey: schedulesQueryKey,
     queryFn: async () => {
-      const data = await api.get<Schedule[]>('/api/schedules');
+      const data = await api.get<Schedule[]>(resolveApiPath('/schedules'));
       return data;
     },
   });
@@ -89,7 +110,7 @@ export default function useLeaveTracker() {
   // Fetch employees for dropdown
   const { data: employeeOptions = [], isLoading: isLoadingEmployees } =
     useQuery({
-      queryKey: employeeKeys.lists(),
+      queryKey: employeesQueryKey,
       queryFn: async () => {
         const data = await api.get<
           Array<{
@@ -98,7 +119,7 @@ export default function useLeaveTracker() {
             lastName: string;
             status?: string | null;
           }>
-        >('/api/employees');
+        >(resolveApiPath('/employees'));
         return data
           .filter((emp) => {
             const normalizedStatus = (emp.status || '').toLowerCase();
@@ -133,19 +154,19 @@ export default function useLeaveTracker() {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await api.delete(`/api/leave-requests/${id}`);
+      await api.delete(`${resolveApiPath('/leave-requests')}/${id}`);
     },
     onMutate: async (id) => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: leaveKeys.lists() });
+      await queryClient.cancelQueries({ queryKey: leaveRequestsQueryKey });
 
       // Snapshot previous value
       const previousLeaveRequests = queryClient.getQueryData<LeaveRequest[]>(
-        leaveKeys.lists()
+        leaveRequestsQueryKey
       );
 
       // Optimistically update
-      queryClient.setQueryData<LeaveRequest[]>(leaveKeys.lists(), (old) => {
+      queryClient.setQueryData<LeaveRequest[]>(leaveRequestsQueryKey, (old) => {
         return old ? old.filter((req) => req.id !== id) : [];
       });
 
@@ -155,7 +176,7 @@ export default function useLeaveTracker() {
       // Rollback on error
       if (context?.previousLeaveRequests) {
         queryClient.setQueryData(
-          leaveKeys.lists(),
+          leaveRequestsQueryKey,
           context.previousLeaveRequests
         );
       }
@@ -165,7 +186,7 @@ export default function useLeaveTracker() {
     },
     onSettled: () => {
       // Refetch to ensure consistency
-      queryClient.invalidateQueries({ queryKey: leaveKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: leaveRequestsQueryKey });
     },
   });
 
@@ -177,11 +198,14 @@ export default function useLeaveTracker() {
         | Omit<LeaveRequest, 'id'>[]
         | (Omit<LeaveRequest, 'id'> & { id?: string })
     ) => {
-      const response = await api.post('/api/leave-requests', payload);
+      const response = await api.post(
+        resolveApiPath('/leave-requests'),
+        payload
+      );
       return response;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: leaveKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: leaveRequestsQueryKey });
     },
     onError: (err) => {
       logger.error('Error saving leave request:', err);
@@ -192,7 +216,7 @@ export default function useLeaveTracker() {
   // Approve mutation (with attendance sync)
   const approveMutation = useMutation({
     mutationFn: async (id: string) => {
-      await api.patch('/api/leave-requests', {
+      await api.patch(resolveApiPath('/leave-requests'), {
         id,
         status: 'approved',
         approvedBy: 'System Admin',
@@ -200,13 +224,13 @@ export default function useLeaveTracker() {
       return id;
     },
     onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: leaveKeys.lists() });
+      await queryClient.cancelQueries({ queryKey: leaveRequestsQueryKey });
 
       const previousLeaveRequests = queryClient.getQueryData<LeaveRequest[]>(
-        leaveKeys.lists()
+        leaveRequestsQueryKey
       );
 
-      queryClient.setQueryData<LeaveRequest[]>(leaveKeys.lists(), (old) => {
+      queryClient.setQueryData<LeaveRequest[]>(leaveRequestsQueryKey, (old) => {
         return old
           ? old.map((req) =>
               req.id === id
@@ -232,7 +256,7 @@ export default function useLeaveTracker() {
         targetRequest.endDate
       ) {
         try {
-          await api.post('/api/attendance/apply-leave', {
+          await api.post(resolveApiPath('/attendance/apply-leave'), {
             employeeId: targetRequest.employeeId,
             employeeName: targetRequest.employeeName,
             leaveType: targetRequest.leaveType,
@@ -250,7 +274,7 @@ export default function useLeaveTracker() {
     onError: (err, _id, context) => {
       if (context?.previousLeaveRequests) {
         queryClient.setQueryData(
-          leaveKeys.lists(),
+          leaveRequestsQueryKey,
           context.previousLeaveRequests
         );
       }
@@ -259,26 +283,26 @@ export default function useLeaveTracker() {
       alert(`Failed to approve leave request: ${errorMessage}`);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: leaveKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: leaveRequestsQueryKey });
     },
   });
 
   // Reject mutation
   const rejectMutation = useMutation({
     mutationFn: async (id: string) => {
-      await api.patch('/api/leave-requests', {
+      await api.patch(resolveApiPath('/leave-requests'), {
         id,
         status: 'rejected',
       });
     },
     onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: leaveKeys.lists() });
+      await queryClient.cancelQueries({ queryKey: leaveRequestsQueryKey });
 
       const previousLeaveRequests = queryClient.getQueryData<LeaveRequest[]>(
-        leaveKeys.lists()
+        leaveRequestsQueryKey
       );
 
-      queryClient.setQueryData<LeaveRequest[]>(leaveKeys.lists(), (old) => {
+      queryClient.setQueryData<LeaveRequest[]>(leaveRequestsQueryKey, (old) => {
         return old
           ? old.map((req) =>
               req.id === id
@@ -293,7 +317,7 @@ export default function useLeaveTracker() {
     onError: (err, _id, context) => {
       if (context?.previousLeaveRequests) {
         queryClient.setQueryData(
-          leaveKeys.lists(),
+          leaveRequestsQueryKey,
           context.previousLeaveRequests
         );
       }
@@ -302,7 +326,7 @@ export default function useLeaveTracker() {
       alert(`Failed to reject leave request: ${errorMessage}`);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: leaveKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: leaveRequestsQueryKey });
     },
   });
 

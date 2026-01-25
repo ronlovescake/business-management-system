@@ -25,7 +25,11 @@ import useLeaveTracker from './hooks/useLeaveTracker';
  * - UI can be easily swapped (e.g., switching from Mantine to another library)
  * - Clear separation of concerns
  */
-export default function LeaveTracker() {
+export function EmployeesLeaveTrackerPage({
+  apiBasePath,
+}: {
+  apiBasePath?: string;
+}) {
   // Use the custom hook for all business logic
   const {
     // State
@@ -96,7 +100,7 @@ export default function LeaveTracker() {
 
     // Form helpers
     isClearDisabled,
-  } = useLeaveTracker();
+  } = useLeaveTracker(apiBasePath);
 
   return (
     <PageLayout fluid withPadding>
@@ -186,4 +190,8 @@ export default function LeaveTracker() {
       />
     </PageLayout>
   );
+}
+
+export default function LeaveTracker() {
+  return <EmployeesLeaveTrackerPage />;
 }

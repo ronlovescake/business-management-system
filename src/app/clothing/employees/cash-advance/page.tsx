@@ -25,7 +25,11 @@ import { RequestFormDialog } from './components/RequestFormDialog';
 import type { CashAdvance as CashAdvanceType } from './types';
 import { CashAdvanceErrorBoundary } from './components/CashAdvanceErrorBoundary';
 
-function CashAdvance() {
+export function EmployeesCashAdvancePage({
+  apiBasePath,
+}: {
+  apiBasePath?: string;
+}) {
   const {
     // State
     cashAdvances,
@@ -61,7 +65,7 @@ function CashAdvance() {
     handleReject,
     handleImportCSV,
     handleExportCSV,
-  } = useCashAdvance();
+  } = useCashAdvance(apiBasePath);
 
   const getResolvedSettledAmount = (item: CashAdvanceType) => {
     if (typeof item.settledAmount === 'number') {
@@ -329,12 +333,14 @@ function CashAdvance() {
   );
 }
 
-function CashAdvanceWrapper() {
+function CashAdvance() {
+  return <EmployeesCashAdvancePage />;
+}
+
+export default function CashAdvanceWrapper() {
   return (
     <CashAdvanceErrorBoundary>
       <CashAdvance />
     </CashAdvanceErrorBoundary>
   );
 }
-
-export { CashAdvanceWrapper as default };

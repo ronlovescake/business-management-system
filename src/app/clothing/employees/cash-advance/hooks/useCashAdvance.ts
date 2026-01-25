@@ -1,7 +1,8 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import { queryKeys } from '@/lib/queryKeys';
 import { showError, showDeleteConfirm } from '@/lib/alerts';
 import type {
@@ -129,8 +130,13 @@ const getRemainingBalanceFromRecord = (record: CashAdvance) => {
   return Math.max(record.amount - settled, 0);
 };
 
-export function useCashAdvance() {
+export function useCashAdvance(apiBasePath?: string) {
   const queryClient = useQueryClient();
+
+  const resolveApiPath = useCallback(
+    (path: string) => buildApiPath(apiBasePath, path),
+    [apiBasePath]
+  );
 
   // State Management
   const autoMarkingRef = useRef<Set<string>>(new Set());
@@ -150,15 +156,22 @@ export function useCashAdvance() {
     [searchQuery, statusFilter]
   );
 
+  const cashAdvanceQueryKey = useMemo(
+    () => [...queryKeys.cashAdvances.lists(), { filters, apiBasePath }],
+    [filters, apiBasePath]
+  );
+
   // Fetch cash advances with React Query
   const {
     data: cashAdvances = [],
     isLoading: isLoadingRequests,
     error,
   } = useQuery({
-    queryKey: queryKeys.cashAdvances.list(filters),
+    queryKey: cashAdvanceQueryKey,
     queryFn: async () => {
-      const data = await api.get<CashAdvanceApiRecord[]>('/api/cash-advances');
+      const data = await api.get<CashAdvanceApiRecord[]>(
+        resolveApiPath('/cash-advances')
+      );
 
       if (!Array.isArray(data)) {
         throw new Error('Cash advance response was not an array');
@@ -230,7 +243,7 @@ export function useCashAdvance() {
             firstName?: string;
             lastName?: string;
           }>
-        >('/api/employees');
+        >(resolveApiPath('/employees'));
 
         if (!Array.isArray(data)) {
           setEmployeeOptions([]);
@@ -272,28 +285,27 @@ export function useCashAdvance() {
     };
 
     fetchEmployees();
-  }, []);
+  }, [resolveApiPath]);
 
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const response = await api.delete<{ id: string }>(
-        `/api/cash-advances?id=${id}`
+        `${resolveApiPath('/cash-advances')}?id=${id}`
       );
       return response?.id ?? id;
     },
     onMutate: async (deletedId) => {
       await queryClient.cancelQueries({
-        queryKey: queryKeys.cashAdvances.lists(),
+        queryKey: cashAdvanceQueryKey,
       });
 
-      const previous = queryClient.getQueryData<CashAdvance[]>(
-        queryKeys.cashAdvances.list(filters)
-      );
+      const previous =
+        queryClient.getQueryData<CashAdvance[]>(cashAdvanceQueryKey);
 
       if (previous) {
         queryClient.setQueryData<CashAdvance[]>(
-          queryKeys.cashAdvances.list(filters),
+          cashAdvanceQueryKey,
           previous.filter((r) => r.id !== deletedId)
         );
       }
@@ -302,10 +314,7 @@ export function useCashAdvance() {
     },
     onError: (error, deletedId, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(
-          queryKeys.cashAdvances.list(filters),
-          context.previous
-        );
+        queryClient.setQueryData(cashAdvanceQueryKey, context.previous);
       }
       logger.error('Error deleting cash advance request:', error);
       void showError(
@@ -315,7 +324,7 @@ export function useCashAdvance() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({
-        queryKey: queryKeys.cashAdvances.lists(),
+        queryKey: cashAdvanceQueryKey,
       });
     },
   });
@@ -331,13 +340,13 @@ export function useCashAdvance() {
     }) => {
       if (isUpdate) {
         const updated = await api.put<CashAdvanceApiRecord>(
-          '/api/cash-advances',
+          resolveApiPath('/cash-advances'),
           payload
         );
         return mapApiRecordToCashAdvance(updated);
       } else {
         const created = await api.post<CashAdvanceApiRecord>(
-          '/api/cash-advances',
+          resolveApiPath('/cash-advances'),
           payload
         );
         return mapApiRecordToCashAdvance(created);
@@ -345,18 +354,17 @@ export function useCashAdvance() {
     },
     onMutate: async ({ isUpdate, payload }) => {
       await queryClient.cancelQueries({
-        queryKey: queryKeys.cashAdvances.lists(),
+        queryKey: cashAdvanceQueryKey,
       });
 
-      const previous = queryClient.getQueryData<CashAdvance[]>(
-        queryKeys.cashAdvances.list(filters)
-      );
+      const previous =
+        queryClient.getQueryData<CashAdvance[]>(cashAdvanceQueryKey);
 
       if (previous) {
         if (isUpdate && payload.id) {
           // Optimistic update
           queryClient.setQueryData<CashAdvance[]>(
-            queryKeys.cashAdvances.list(filters),
+            cashAdvanceQueryKey,
             previous.map((r) =>
               r.id === payload.id
                 ? { ...r, ...payload, updatedAt: new Date().toISOString() }
@@ -383,10 +391,10 @@ export function useCashAdvance() {
             updatedAt: new Date().toISOString(),
           };
 
-          queryClient.setQueryData<CashAdvance[]>(
-            queryKeys.cashAdvances.list(filters),
-            [tempRecord, ...previous]
-          );
+          queryClient.setQueryData<CashAdvance[]>(cashAdvanceQueryKey, [
+            tempRecord,
+            ...previous,
+          ]);
         }
       }
 
@@ -394,10 +402,7 @@ export function useCashAdvance() {
     },
     onError: (error, variables, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(
-          queryKeys.cashAdvances.list(filters),
-          context.previous
-        );
+        queryClient.setQueryData(cashAdvanceQueryKey, context.previous);
       }
       logger.error('Error saving cash advance request:', error);
       void showError(
@@ -411,7 +416,7 @@ export function useCashAdvance() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({
-        queryKey: queryKeys.cashAdvances.lists(),
+        queryKey: cashAdvanceQueryKey,
       });
     },
   });
@@ -420,23 +425,22 @@ export function useCashAdvance() {
   const updateStatusMutation = useMutation({
     mutationFn: async (payload: { id: string } & Record<string, unknown>) => {
       const updated = await api.put<CashAdvanceApiRecord>(
-        '/api/cash-advances',
+        resolveApiPath('/cash-advances'),
         payload
       );
       return mapApiRecordToCashAdvance(updated);
     },
     onMutate: async ({ id, ...updates }) => {
       await queryClient.cancelQueries({
-        queryKey: queryKeys.cashAdvances.lists(),
+        queryKey: cashAdvanceQueryKey,
       });
 
-      const previous = queryClient.getQueryData<CashAdvance[]>(
-        queryKeys.cashAdvances.list(filters)
-      );
+      const previous =
+        queryClient.getQueryData<CashAdvance[]>(cashAdvanceQueryKey);
 
       if (previous) {
         queryClient.setQueryData<CashAdvance[]>(
-          queryKeys.cashAdvances.list(filters),
+          cashAdvanceQueryKey,
           previous.map((r) =>
             r.id === id
               ? { ...r, ...updates, updatedAt: new Date().toISOString() }
@@ -449,10 +453,7 @@ export function useCashAdvance() {
     },
     onError: (error, variables, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(
-          queryKeys.cashAdvances.list(filters),
-          context.previous
-        );
+        queryClient.setQueryData(cashAdvanceQueryKey, context.previous);
       }
       logger.error('Error updating cash advance:', error);
       void showError(
@@ -462,7 +463,7 @@ export function useCashAdvance() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({
-        queryKey: queryKeys.cashAdvances.lists(),
+        queryKey: cashAdvanceQueryKey,
       });
     },
   });
@@ -674,12 +675,15 @@ export function useCashAdvance() {
       // Bulk create via API
       try {
         for (const record of imported) {
-          await api.post<CashAdvanceApiRecord>('/api/cash-advances', record);
+          await api.post<CashAdvanceApiRecord>(
+            resolveApiPath('/cash-advances'),
+            record
+          );
         }
 
         // Invalidate to refetch
         queryClient.invalidateQueries({
-          queryKey: queryKeys.cashAdvances.lists(),
+          queryKey: cashAdvanceQueryKey,
         });
       } catch (error) {
         logger.error('Error importing cash advances:', error);

@@ -30,7 +30,7 @@ import { EMPLOYEE_STATUS_LABELS, type Employee as EmployeeType } from './types';
 const formatStatusLabel = (status: EmployeeType['status']) =>
   EMPLOYEE_STATUS_LABELS[status] || status;
 
-export default function Team() {
+export function EmployeesTeamPage({ apiBasePath }: { apiBasePath?: string }) {
   const router = useRouter();
   const {
     // State
@@ -70,7 +70,7 @@ export default function Team() {
     handleSaveEmployee,
     handleImportCSV,
     handleExportCSV,
-  } = useTeam();
+  } = useTeam(apiBasePath);
 
   const getInitials = (employee: EmployeeType) => {
     const firstInitial =
@@ -309,4 +309,8 @@ export default function Team() {
       />
     </PageLayout>
   );
+}
+
+export default function Team() {
+  return <EmployeesTeamPage />;
 }

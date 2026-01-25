@@ -112,7 +112,7 @@ function ChartEmptyState({ message }: { message: string }) {
   );
 }
 
-function DashboardContent() {
+function DashboardContent({ apiBasePath }: { apiBasePath?: string }) {
   const {
     data,
     loading,
@@ -122,7 +122,7 @@ function DashboardContent() {
     range,
     actions,
     selections,
-  } = useEmployeeDashboard();
+  } = useEmployeeDashboard(apiBasePath);
 
   const statsCards = useMemo(() => {
     if (!data) {
@@ -730,10 +730,14 @@ function DashboardContent() {
   );
 }
 
-export default function EmployeeDashboard() {
+export function EmployeesDashboard({ apiBasePath }: { apiBasePath?: string }) {
   return (
     <DashboardErrorBoundary>
-      <DashboardContent />
+      <DashboardContent apiBasePath={apiBasePath} />
     </DashboardErrorBoundary>
   );
+}
+
+export default function EmployeeDashboard() {
+  return <EmployeesDashboard />;
 }

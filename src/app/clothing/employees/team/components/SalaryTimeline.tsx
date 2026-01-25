@@ -27,6 +27,7 @@ import {
 } from '@tabler/icons-react';
 import { DateInput } from '@mantine/dates';
 import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
+import { buildApiPath } from '@/lib/api/paths';
 import { showNotification } from '@mantine/notifications';
 import type { ApiResponse } from '@/types/api';
 
@@ -47,12 +48,14 @@ interface SalaryTimelineProps {
   employeeId: string;
   currentBasicSalary: number;
   currentAllowance: number;
+  apiBasePath?: string;
 }
 
 export function SalaryTimeline({
   employeeId,
   currentBasicSalary,
   currentAllowance,
+  apiBasePath,
 }: SalaryTimelineProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [effectiveDate, setEffectiveDate] = useState<Date | null>(new Date());
@@ -73,7 +76,7 @@ export function SalaryTimeline({
     try {
       setIsLoading(true);
       const response = await fetch(
-        `/api/employees/${employeeId}/salary-history`
+        buildApiPath(apiBasePath, `/employees/${employeeId}/salary-history`)
       );
       const result = (await response.json()) as ApiResponse<
         SalaryHistoryRecord[]
@@ -141,7 +144,7 @@ export function SalaryTimeline({
 
     try {
       const response = await fetch(
-        `/api/employees/${employeeId}/salary-history`,
+        buildApiPath(apiBasePath, `/employees/${employeeId}/salary-history`),
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

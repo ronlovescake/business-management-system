@@ -11,15 +11,21 @@ import {
 import { getCurrentDateISO } from '@/utils/date';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import { queryKeys } from '@/lib/queryKeys';
 
 /**
  * Generate a unique employee ID
  * Format: EMP-XXXX (e.g., EMP-0001)
  */
-const generateEmployeeId = async (retryOffset = 0): Promise<string> => {
+const generateEmployeeId = async (
+  apiBasePath: string | undefined,
+  retryOffset = 0
+): Promise<string> => {
   // Fetch existing employees to find the next available number
-  const employees = await api.get<Employee[]>('/api/employees');
+  const employees = await api.get<Employee[]>(
+    buildApiPath(apiBasePath, '/employees')
+  );
 
   const prefix = 'EMP-';
   const existingNumbers = employees
@@ -109,8 +115,12 @@ const transformEmployeePayload = (
       : editingEmployee?.profilePhoto || null,
 });
 
-export function useTeam() {
+export function useTeam(apiBasePath?: string) {
   const queryClient = useQueryClient();
+  const resolveApiPath = useCallback(
+    (path: string) => buildApiPath(apiBasePath, path),
+    [apiBasePath]
+  );
 
   // UI State
   const [searchQuery, setSearchQuery] = useState('');
@@ -132,6 +142,11 @@ export function useTeam() {
     [departmentFilter, statusFilter, searchQuery]
   );
 
+  const employeesQueryKey = useMemo(
+    () => [...queryKeys.employees.lists(), { filters, apiBasePath }],
+    [filters, apiBasePath]
+  );
+
   /**
    * Fetch employees using React Query
    */
@@ -140,7 +155,7 @@ export function useTeam() {
     isLoading,
     error: queryError,
   } = useQuery({
-    queryKey: queryKeys.employees.list(filters),
+    queryKey: employeesQueryKey,
     queryFn: async () => {
       const params = new URLSearchParams();
       if (filters.department) {
@@ -154,7 +169,7 @@ export function useTeam() {
       }
 
       const data = await api.get<Array<Omit<Employee, 'id'> & { id: number }>>(
-        `/api/employees?${params.toString()}`
+        `${resolveApiPath('/employees')}?${params.toString()}`
       );
 
       // Transform database IDs to strings for UI compatibility
@@ -206,12 +221,15 @@ export function useTeam() {
 
       const employeeId = isValidFormat
         ? payload.employeeId.trim()
-        : await generateEmployeeId();
+        : await generateEmployeeId(apiBasePath);
 
       const finalPayload = { ...payload, employeeId };
 
       try {
-        return await api.post<Employee>('/api/employees', finalPayload);
+        return await api.post<Employee>(
+          resolveApiPath('/employees'),
+          finalPayload
+        );
       } catch (error) {
         // Handle duplicate employee ID with retries
         if (
@@ -220,11 +238,17 @@ export function useTeam() {
         ) {
           const maxRetries = 5;
           for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
-            const newEmployeeId = await generateEmployeeId(attempt);
+            const newEmployeeId = await generateEmployeeId(
+              apiBasePath,
+              attempt
+            );
             const retryPayload = { ...finalPayload, employeeId: newEmployeeId };
 
             try {
-              return await api.post<Employee>('/api/employees', retryPayload);
+              return await api.post<Employee>(
+                resolveApiPath('/employees'),
+                retryPayload
+              );
             } catch (retryError) {
               logger.error(`Retry attempt ${attempt} failed:`, retryError);
 
@@ -244,13 +268,12 @@ export function useTeam() {
     onMutate: async (newEmployee) => {
       // Cancel outgoing queries
       await queryClient.cancelQueries({
-        queryKey: queryKeys.employees.lists(),
+        queryKey: employeesQueryKey,
       });
 
       // Snapshot previous value
-      const previousEmployees = queryClient.getQueryData<Employee[]>(
-        queryKeys.employees.list(filters)
-      );
+      const previousEmployees =
+        queryClient.getQueryData<Employee[]>(employeesQueryKey);
 
       // Optimistically update - add to beginning of list
       if (previousEmployees) {
@@ -259,10 +282,10 @@ export function useTeam() {
           id: 'temp-' + Date.now(), // Temporary ID
         } as Employee;
 
-        queryClient.setQueryData<Employee[]>(
-          queryKeys.employees.list(filters),
-          [optimisticEmployee, ...previousEmployees]
-        );
+        queryClient.setQueryData<Employee[]>(employeesQueryKey, [
+          optimisticEmployee,
+          ...previousEmployees,
+        ]);
       }
 
       return { previousEmployees };
@@ -270,10 +293,7 @@ export function useTeam() {
     onError: (error, _variables, context) => {
       // Rollback on error
       if (context?.previousEmployees) {
-        queryClient.setQueryData(
-          queryKeys.employees.list(filters),
-          context.previousEmployees
-        );
+        queryClient.setQueryData(employeesQueryKey, context.previousEmployees);
       }
       logger.error('Failed to create employee:', error);
       alert('Failed to save employee. Please try again.');
@@ -285,7 +305,7 @@ export function useTeam() {
     },
     onSettled: () => {
       // Always refetch to ensure consistency
-      queryClient.invalidateQueries({ queryKey: queryKeys.employees.lists() });
+      queryClient.invalidateQueries({ queryKey: employeesQueryKey });
     },
   });
 
@@ -300,23 +320,25 @@ export function useTeam() {
       id: string;
       payload: ReturnType<typeof transformEmployeePayload>;
     }) => {
-      return await api.put<Employee>(`/api/employees/${id}`, payload);
+      return await api.put<Employee>(
+        `${resolveApiPath('/employees')}/${id}`,
+        payload
+      );
     },
     onMutate: async ({ id, payload }) => {
       // Cancel outgoing queries
       await queryClient.cancelQueries({
-        queryKey: queryKeys.employees.lists(),
+        queryKey: employeesQueryKey,
       });
 
       // Snapshot previous value
-      const previousEmployees = queryClient.getQueryData<Employee[]>(
-        queryKeys.employees.list(filters)
-      );
+      const previousEmployees =
+        queryClient.getQueryData<Employee[]>(employeesQueryKey);
 
       // Optimistically update
       if (previousEmployees) {
         queryClient.setQueryData<Employee[]>(
-          queryKeys.employees.list(filters),
+          employeesQueryKey,
           previousEmployees.map((emp) =>
             emp.id === id ? ({ ...payload, id } as Employee) : emp
           )
@@ -328,10 +350,7 @@ export function useTeam() {
     onError: (error, _variables, context) => {
       // Rollback on error
       if (context?.previousEmployees) {
-        queryClient.setQueryData(
-          queryKeys.employees.list(filters),
-          context.previousEmployees
-        );
+        queryClient.setQueryData(employeesQueryKey, context.previousEmployees);
       }
       logger.error('Failed to update employee:', error);
       alert('Failed to save employee. Please try again.');
@@ -343,7 +362,7 @@ export function useTeam() {
     },
     onSettled: () => {
       // Always refetch to ensure consistency
-      queryClient.invalidateQueries({ queryKey: queryKeys.employees.lists() });
+      queryClient.invalidateQueries({ queryKey: employeesQueryKey });
     },
   });
 
@@ -352,23 +371,22 @@ export function useTeam() {
    */
   const deleteEmployeeMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await api.delete(`/api/employees/${id}`);
+      return await api.delete(`${resolveApiPath('/employees')}/${id}`);
     },
     onMutate: async (id) => {
       // Cancel outgoing queries
       await queryClient.cancelQueries({
-        queryKey: queryKeys.employees.lists(),
+        queryKey: employeesQueryKey,
       });
 
       // Snapshot previous value
-      const previousEmployees = queryClient.getQueryData<Employee[]>(
-        queryKeys.employees.list(filters)
-      );
+      const previousEmployees =
+        queryClient.getQueryData<Employee[]>(employeesQueryKey);
 
       // Optimistically update - remove from list
       if (previousEmployees) {
         queryClient.setQueryData<Employee[]>(
-          queryKeys.employees.list(filters),
+          employeesQueryKey,
           previousEmployees.filter((emp) => emp.id !== id)
         );
       }
@@ -378,17 +396,14 @@ export function useTeam() {
     onError: (error, _variables, context) => {
       // Rollback on error
       if (context?.previousEmployees) {
-        queryClient.setQueryData(
-          queryKeys.employees.list(filters),
-          context.previousEmployees
-        );
+        queryClient.setQueryData(employeesQueryKey, context.previousEmployees);
       }
       logger.error('Failed to delete employee:', error);
       alert('Failed to delete employee. Please try again.');
     },
     onSettled: () => {
       // Always refetch to ensure consistency
-      queryClient.invalidateQueries({ queryKey: queryKeys.employees.lists() });
+      queryClient.invalidateQueries({ queryKey: employeesQueryKey });
     },
   });
 
@@ -580,7 +595,7 @@ export function useTeam() {
 
               // Call API to create employee
               const response = await api.post<Employee>(
-                '/api/employees',
+                resolveApiPath('/employees'),
                 employee
               );
 
@@ -595,7 +610,7 @@ export function useTeam() {
 
           // Refetch employees after import
           await queryClient.invalidateQueries({
-            queryKey: queryKeys.employees.lists(),
+            queryKey: employeesQueryKey,
           });
 
           alert(
@@ -608,7 +623,7 @@ export function useTeam() {
       };
       reader.readAsText(file);
     },
-    [queryClient]
+    [employeesQueryKey, queryClient, resolveApiPath]
   );
 
   const handleExportCSV = useCallback(() => {
