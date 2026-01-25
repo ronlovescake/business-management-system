@@ -4,6 +4,7 @@ import { showNotification } from '@mantine/notifications';
 import Swal from 'sweetalert2';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import { useInvoiceCustomerLookup } from './useInvoiceCustomerLookup';
 import { calculateFinalWeight } from '../utils/finalWeightCalculator';
 import { findCheckoutLinkByWeight } from '../utils/checkoutLinkMatcher';
@@ -31,7 +32,7 @@ const CUSTOMER_ORDER_ELIGIBLE_STATUSES: string[] = [
   'ready for dispatch',
 ];
 
-export const useCheckoutLinksPage = () => {
+export const useCheckoutLinksPage = (apiBasePath?: string) => {
   const [activeTab, setActiveTab] = useState<string | null>('invoicing');
   const [invoicingSearchQuery, setInvoicingSearchQuery] = useState('');
   const [localInvoicingSearchQuery, setLocalInvoicingSearchQuery] =
@@ -62,11 +63,18 @@ export const useCheckoutLinksPage = () => {
     useState<CheckoutLinkData | null>(null);
   const [isSavingCheckoutLink, setIsSavingCheckoutLink] = useState(false);
 
-  const { lookupFacebookLink, hasFacebookLink } = useInvoiceCustomerLookup();
+  const { lookupFacebookLink, hasFacebookLink } = useInvoiceCustomerLookup(
+    true,
+    apiBasePath
+  );
+  const resolveApiPath = useCallback(
+    (path: string) => buildApiPath(apiBasePath, path),
+    [apiBasePath]
+  );
   const queryClient = useQueryClient();
 
   const { data: invoiceSettings } = useQuery<InvoiceSettingsResponse>({
-    queryKey: ['invoice-settings'],
+    queryKey: ['invoice-settings', apiBasePath ?? 'default'],
     queryFn: async () => {
       return api.get<InvoiceSettingsResponse>('/api/invoice-settings');
     },
@@ -101,9 +109,11 @@ export const useCheckoutLinksPage = () => {
 
   const { data: customerOrders = [], isFetching: isCustomerOrdersLoading } =
     useQuery<CustomerOrderData[]>({
-      queryKey: ['customer-orders'],
+      queryKey: ['customer-orders', apiBasePath ?? 'default'],
       queryFn: async () => {
-        const response = await fetch('/api/invoices/customer-orders');
+        const response = await fetch(
+          resolveApiPath('/invoices/customer-orders')
+        );
         const result = await response.json();
 
         if (!response.ok || result?.success !== true) {
@@ -123,12 +133,15 @@ export const useCheckoutLinksPage = () => {
 
   const handleCalculateWeights = useCallback(async () => {
     try {
-      const response = await fetch('/api/invoices/calculate-weights', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await fetch(
+        resolveApiPath('/invoices/calculate-weights'),
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
       const result = await response.json();
 
@@ -163,7 +176,9 @@ export const useCheckoutLinksPage = () => {
         color: 'green',
       });
 
-      await queryClient.invalidateQueries({ queryKey: ['customer-orders'] });
+      await queryClient.invalidateQueries({
+        queryKey: ['customer-orders', apiBasePath ?? 'default'],
+      });
     } catch (error) {
       showNotification({
         title: 'Calculation Failed',
@@ -174,11 +189,11 @@ export const useCheckoutLinksPage = () => {
         color: 'red',
       });
     }
-  }, [queryClient]);
+  }, [queryClient, apiBasePath, resolveApiPath]);
 
   const loadCheckoutLinks = useCallback(async () => {
     try {
-      const response = await fetch('/api/checkout-links');
+      const response = await fetch(resolveApiPath('/checkout-links'));
       const result = await response.json();
 
       if (result.data) {
@@ -193,11 +208,11 @@ export const useCheckoutLinksPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [resolveApiPath]);
 
   const loadInvoices = useCallback(async () => {
     try {
-      const response = await fetch('/api/invoices');
+      const response = await fetch(resolveApiPath('/invoices'));
       const result = await response.json();
 
       if (result.data) {
@@ -214,14 +229,14 @@ export const useCheckoutLinksPage = () => {
         color: 'red',
       });
     }
-  }, [handleCalculateWeights]);
+  }, [handleCalculateWeights, resolveApiPath]);
 
   const loadProductWeights = useCallback(async () => {
     setIsItemWeightLoading(true);
     setItemWeightError(null);
 
     try {
-      const response = await fetch('/api/products');
+      const response = await fetch(resolveApiPath('/products'));
 
       if (!response.ok) {
         throw new Error('Failed to load product weights');
@@ -257,11 +272,11 @@ export const useCheckoutLinksPage = () => {
     } finally {
       setIsItemWeightLoading(false);
     }
-  }, []);
+  }, [resolveApiPath]);
 
   const loadTransactionsWithInvoiceDate = useCallback(async () => {
     try {
-      const response = await fetch('/api/transactions');
+      const response = await fetch(resolveApiPath('/transactions'));
 
       if (!response.ok) {
         throw new Error('Failed to load transactions');
@@ -300,7 +315,7 @@ export const useCheckoutLinksPage = () => {
         color: 'red',
       });
     }
-  }, []);
+  }, [resolveApiPath]);
 
   useEffect(() => {
     void loadCheckoutLinks();
@@ -660,7 +675,7 @@ export const useCheckoutLinksPage = () => {
 
       try {
         const response = await fetch(
-          `/api/checkout-links?id=${encodeURIComponent(item.id)}`,
+          `${resolveApiPath('/checkout-links')}?id=${encodeURIComponent(item.id)}`,
           { method: 'DELETE' }
         );
         const result: { success?: boolean; error?: string } = await response
@@ -695,7 +710,7 @@ export const useCheckoutLinksPage = () => {
 
       return wasDeleted;
     },
-    []
+    [resolveApiPath]
   );
 
   const handleUpdateCheckoutLink = useCallback(
@@ -718,7 +733,7 @@ export const useCheckoutLinksPage = () => {
           productNames: values.productNames.trim() || null,
         };
 
-        const response = await fetch('/api/checkout-links', {
+        const response = await fetch(resolveApiPath('/checkout-links'), {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -775,168 +790,175 @@ export const useCheckoutLinksPage = () => {
         setIsSavingCheckoutLink(false);
       }
     },
-    [closeEditModal, editingCheckoutLink]
+    [closeEditModal, editingCheckoutLink, resolveApiPath]
   );
 
-  const handleImportCSV = useCallback((file: File | null) => {
-    if (!file) {
-      return;
-    }
+  const handleImportCSV = useCallback(
+    (file: File | null) => {
+      if (!file) {
+        return;
+      }
 
-    if (!file.name.endsWith('.csv')) {
-      showNotification({
-        title: 'Invalid File Type',
-        message: 'Please upload a CSV file',
-        color: 'red',
-      });
-      return;
-    }
+      if (!file.name.endsWith('.csv')) {
+        showNotification({
+          title: 'Invalid File Type',
+          message: 'Please upload a CSV file',
+          color: 'red',
+        });
+        return;
+      }
 
-    setIsImporting(true);
+      setIsImporting(true);
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const text = e.target?.result as string;
-        const lines = text.split('\n').filter((line) => line.trim());
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const text = e.target?.result as string;
+          const lines = text.split('\n').filter((line) => line.trim());
 
-        if (lines.length < 2) {
-          throw new Error('CSV file is empty or invalid');
-        }
+          if (lines.length < 2) {
+            throw new Error('CSV file is empty or invalid');
+          }
 
-        const headers = lines[0].split(',').map((h) => h.trim().toUpperCase());
-        const expectedHeaders = [
-          'WEIGHT',
-          'WIDTH',
-          'LENGTH',
-          'HEIGHT',
-          'CHECKOUT LINKS',
-          'PRODUCT PORTALS',
-          'PRODUCT NAMES',
-        ];
+          const headers = lines[0]
+            .split(',')
+            .map((h) => h.trim().toUpperCase());
+          const expectedHeaders = [
+            'WEIGHT',
+            'WIDTH',
+            'LENGTH',
+            'HEIGHT',
+            'CHECKOUT LINKS',
+            'PRODUCT PORTALS',
+            'PRODUCT NAMES',
+          ];
 
-        const hasValidHeaders = expectedHeaders.every((header) =>
-          headers.includes(header)
-        );
-
-        if (!hasValidHeaders) {
-          throw new Error(
-            'Invalid CSV format. Expected headers: WEIGHT, WIDTH, LENGTH, HEIGHT, CHECKOUT LINKS, PRODUCT PORTALS, PRODUCT NAMES'
+          const hasValidHeaders = expectedHeaders.every((header) =>
+            headers.includes(header)
           );
-        }
 
-        const parsedData: CheckoutLinkData[] = [];
-        for (let i = 1; i < lines.length; i++) {
-          const line = lines[i];
-          const values: string[] = [];
-          let currentValue = '';
-          let insideQuotes = false;
+          if (!hasValidHeaders) {
+            throw new Error(
+              'Invalid CSV format. Expected headers: WEIGHT, WIDTH, LENGTH, HEIGHT, CHECKOUT LINKS, PRODUCT PORTALS, PRODUCT NAMES'
+            );
+          }
 
-          for (let j = 0; j < line.length; j++) {
-            const char = line[j];
-            if (char === '"') {
-              insideQuotes = !insideQuotes;
-            } else if (char === ',' && !insideQuotes) {
-              values.push(currentValue.trim());
-              currentValue = '';
-            } else {
-              currentValue += char;
+          const parsedData: CheckoutLinkData[] = [];
+          for (let i = 1; i < lines.length; i++) {
+            const line = lines[i];
+            const values: string[] = [];
+            let currentValue = '';
+            let insideQuotes = false;
+
+            for (let j = 0; j < line.length; j++) {
+              const char = line[j];
+              if (char === '"') {
+                insideQuotes = !insideQuotes;
+              } else if (char === ',' && !insideQuotes) {
+                values.push(currentValue.trim());
+                currentValue = '';
+              } else {
+                currentValue += char;
+              }
             }
-          }
-          values.push(currentValue.trim());
+            values.push(currentValue.trim());
 
-          if (values.length >= 7) {
-            const [
-              weight,
-              width,
-              length,
-              height,
-              checkoutLinksValue,
-              productPortals,
-              productNames,
-            ] = values;
+            if (values.length >= 7) {
+              const [
+                weight,
+                width,
+                length,
+                height,
+                checkoutLinksValue,
+                productPortals,
+                productNames,
+              ] = values;
 
-            parsedData.push({
-              id: `${weight}-${width}-${length}-${height}-${Date.now()}-${i}`,
-              weight: weight || '',
-              width: width || '',
-              length: length || '',
-              height: height || '',
-              checkoutLinks: checkoutLinksValue || '',
-              productPortals: productPortals || '',
-              productNames: productNames || '',
-            });
-          }
-        }
-
-        setCheckoutLinks(parsedData);
-
-        fetch('/api/checkout-links', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            items: parsedData.map((item) => ({
-              weight: item.weight || '',
-              width: item.width || '',
-              length: item.length || '',
-              height: item.height || '',
-              checkoutLinks: item.checkoutLinks || null,
-              productPortals: item.productPortals || null,
-              productNames: item.productNames || null,
-            })),
-          }),
-        })
-          .then((response) => response.json())
-          .then((result) => {
-            if (result.success) {
-              showNotification({
-                title: 'Import Successful',
-                message:
-                  result.message ||
-                  `Successfully imported ${parsedData.length} checkout links`,
-                color: 'green',
+              parsedData.push({
+                id: `${weight}-${width}-${length}-${height}-${Date.now()}-${i}`,
+                weight: weight || '',
+                width: width || '',
+                length: length || '',
+                height: height || '',
+                checkoutLinks: checkoutLinksValue || '',
+                productPortals: productPortals || '',
+                productNames: productNames || '',
               });
-            } else {
-              throw new Error(result.error || 'Failed to save to database');
             }
+          }
+
+          setCheckoutLinks(parsedData);
+
+          fetch(resolveApiPath('/checkout-links'), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              items: parsedData.map((item) => ({
+                weight: item.weight || '',
+                width: item.width || '',
+                length: item.length || '',
+                height: item.height || '',
+                checkoutLinks: item.checkoutLinks || null,
+                productPortals: item.productPortals || null,
+                productNames: item.productNames || null,
+              })),
+            }),
           })
-          .catch((error) => {
-            showNotification({
-              title: 'Database Error',
-              message:
-                error instanceof Error
-                  ? error.message
-                  : 'Failed to save to database',
-              color: 'orange',
+            .then((response) => response.json())
+            .then((result) => {
+              if (result.success) {
+                showNotification({
+                  title: 'Import Successful',
+                  message:
+                    result.message ||
+                    `Successfully imported ${parsedData.length} checkout links`,
+                  color: 'green',
+                });
+              } else {
+                throw new Error(result.error || 'Failed to save to database');
+              }
+            })
+            .catch((error) => {
+              showNotification({
+                title: 'Database Error',
+                message:
+                  error instanceof Error
+                    ? error.message
+                    : 'Failed to save to database',
+                color: 'orange',
+              });
+            })
+            .finally(() => {
+              setIsImporting(false);
             });
-          })
-          .finally(() => {
-            setIsImporting(false);
+        } catch (error) {
+          showNotification({
+            title: 'Import Failed',
+            message:
+              error instanceof Error
+                ? error.message
+                : 'Failed to parse CSV file',
+            color: 'red',
           });
-      } catch (error) {
+          setIsImporting(false);
+        }
+      };
+
+      reader.onerror = () => {
         showNotification({
           title: 'Import Failed',
-          message:
-            error instanceof Error ? error.message : 'Failed to parse CSV file',
+          message: 'Failed to read file',
           color: 'red',
         });
         setIsImporting(false);
-      }
-    };
+      };
 
-    reader.onerror = () => {
-      showNotification({
-        title: 'Import Failed',
-        message: 'Failed to read file',
-        color: 'red',
-      });
-      setIsImporting(false);
-    };
-
-    reader.readAsText(file);
-  }, []);
+      reader.readAsText(file);
+    },
+    [resolveApiPath]
+  );
 
   const handleExportCSV = useCallback(() => {
     // TODO: Implement CSV export functionality
@@ -994,7 +1016,7 @@ export const useCheckoutLinksPage = () => {
         })
       );
 
-      const saveResponse = await fetch('/api/invoices', {
+      const saveResponse = await fetch(resolveApiPath('/invoices'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1031,24 +1053,31 @@ export const useCheckoutLinksPage = () => {
     } finally {
       setIsSyncing(false);
     }
-  }, [handleCalculateWeights]);
+  }, [handleCalculateWeights, resolveApiPath]);
 
   const handleOpenProductsModule = useCallback(() => {
     if (typeof window !== 'undefined') {
-      window.open('/clothing/operations/products', '_blank');
+      const productsPath =
+        apiBasePath === '/api/general-merchandise'
+          ? '/general-merchandise/operations/products'
+          : '/clothing/operations/products';
+      window.open(productsPath, '_blank');
     }
-  }, []);
+  }, [apiBasePath]);
 
   const updateInvoiceTickbox = useCallback(
     async (invoiceId: string, tickbox: boolean) => {
       try {
-        const response = await fetch(`/api/invoices/${invoiceId}/tickbox`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ tickbox }),
-        });
+        const response = await fetch(
+          `${resolveApiPath('/invoices')}/${invoiceId}/tickbox`,
+          {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ tickbox }),
+          }
+        );
 
         if (!response.ok) {
           throw new Error('Failed to update tickbox');
@@ -1064,7 +1093,7 @@ export const useCheckoutLinksPage = () => {
         return false;
       }
     },
-    []
+    [resolveApiPath]
   );
 
   const handleInvoiceTickboxChange = useCallback(

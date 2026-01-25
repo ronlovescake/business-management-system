@@ -9,7 +9,11 @@ import { LocalInvoicingTab } from './tabs/LocalInvoicingTab';
 import { CustomerOrdersTab } from './tabs/CustomerOrdersTab';
 import { useCheckoutLinksPage } from '../hooks/useCheckoutLinksPage';
 
-export function CheckoutLinksComponent() {
+export function CheckoutLinksComponent({
+  apiBasePath,
+}: {
+  apiBasePath?: string;
+} = {}) {
   const {
     activeTab,
     setActiveTab,
@@ -20,7 +24,7 @@ export function CheckoutLinksComponent() {
     itemWeightsState,
     modalState,
     utilities,
-  } = useCheckoutLinksPage();
+  } = useCheckoutLinksPage(apiBasePath);
 
   const noop = () => {};
 

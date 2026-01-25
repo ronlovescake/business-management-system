@@ -30,7 +30,13 @@ import { EMPLOYEE_STATUS_LABELS, type Employee as EmployeeType } from './types';
 const formatStatusLabel = (status: EmployeeType['status']) =>
   EMPLOYEE_STATUS_LABELS[status] || status;
 
-export function EmployeesTeamPage({ apiBasePath }: { apiBasePath?: string }) {
+export function EmployeesTeamPage({
+  apiBasePath,
+  businessPath = '/clothing',
+}: {
+  apiBasePath?: string;
+  businessPath?: string;
+}) {
   const router = useRouter();
   const {
     // State
@@ -219,7 +225,7 @@ export function EmployeesTeamPage({ apiBasePath }: { apiBasePath?: string }) {
 
   // Handle double-click on employee row
   const handleRowDoubleClick = (employee: EmployeeType) => {
-    router.push(`/clothing/employees/team/${employee.employeeId}`);
+    router.push(`${businessPath}/employees/team/${employee.employeeId}`);
   };
 
   // Table Actions Configuration

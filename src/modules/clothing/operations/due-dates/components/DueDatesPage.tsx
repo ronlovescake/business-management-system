@@ -10,7 +10,11 @@ import { DueDatesToolbar } from './DueDatesToolbar';
 import { DueDatesSummary } from './DueDatesSummary';
 import { DueDatesTable } from './DueDatesTable';
 
-export function DueDatesPage() {
+export function DueDatesPage({
+  apiBasePath,
+}: {
+  apiBasePath?: string;
+} = {}) {
   const {
     setSearchQuery,
     isLoading,
@@ -21,7 +25,7 @@ export function DueDatesPage() {
     emptyStateMessage,
     getCustomerOrders,
     getFacebookLink,
-  } = useDueDatesPage();
+  } = useDueDatesPage(apiBasePath);
 
   if (isLoading) {
     return (

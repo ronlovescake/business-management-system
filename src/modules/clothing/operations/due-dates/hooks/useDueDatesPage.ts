@@ -1,6 +1,7 @@
 import { useMemo, useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import { useDueDateData } from './useDueDateData';
 import { DueDateService } from '../services/DueDateService';
 import type {
@@ -8,6 +9,8 @@ import type {
   DueDateStats,
   DueDateTransaction,
 } from '../types/dueDate.types';
+import { GeneralMerchandiseTransactionService } from '@/services/GeneralMerchandiseTransactionService';
+import { queryKeys } from '@/lib/queryKeys';
 
 interface CustomerRecord {
   id: number;
@@ -42,14 +45,26 @@ export interface UseDueDatesPageResult {
   getFacebookLink: (customerName: string) => string;
 }
 
-export const useDueDatesPage = (): UseDueDatesPageResult => {
+export const useDueDatesPage = (
+  apiBasePath?: string
+): UseDueDatesPageResult => {
   const [searchQuery, setSearchQuery] = useState('');
-  const { dueDateItems, stats, isLoading, transactions } = useDueDateData();
+  const isGeneralMerchandise = apiBasePath === '/api/general-merchandise';
+  const { dueDateItems, stats, isLoading, transactions } = useDueDateData({
+    service: isGeneralMerchandise
+      ? GeneralMerchandiseTransactionService
+      : undefined,
+    queryKey: isGeneralMerchandise
+      ? [...queryKeys.transactions.lists(), apiBasePath]
+      : undefined,
+  });
 
   const { data: customersData = [] } = useQuery<CustomerRecord[]>({
-    queryKey: ['customers-facebook-links'],
+    queryKey: ['customers-facebook-links', apiBasePath ?? 'default'],
     queryFn: async () => {
-      const response = await api.get<CustomerRecord[]>('/api/customers');
+      const response = await api.get<CustomerRecord[]>(
+        buildApiPath(apiBasePath, '/customers')
+      );
       return Array.isArray(response) ? response : [];
     },
     staleTime: 10 * 60 * 1000,

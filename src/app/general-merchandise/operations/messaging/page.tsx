@@ -3,20 +3,17 @@ import {
   hasModuleAccess,
   getFirstAccessibleModule,
 } from '@/lib/auth/permissions';
-import { EmployeesTeamPage } from '@/app/clothing/employees/team/page';
+import { MessagingClientPage } from '@/app/clothing/operations/messaging/MessagingClientPage';
 
-export default async function GeneralMerchandiseEmployeesTeam() {
+export default async function GeneralMerchandiseMessagingPage() {
   const hasAccess = await hasModuleAccess(
-    '/general-merchandise/employees/team'
+    '/general-merchandise/operations/messaging'
   );
   const redirectTo = await getFirstAccessibleModule();
 
   return (
     <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
-      <EmployeesTeamPage
-        apiBasePath="/api/general-merchandise"
-        businessPath="/general-merchandise"
-      />
+      <MessagingClientPage />
     </PermissionGuard>
   );
 }

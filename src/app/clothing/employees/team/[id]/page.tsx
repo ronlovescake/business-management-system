@@ -24,7 +24,13 @@ import { LeaveRequestsTab } from '../components/tabs/LeaveRequestsTab';
 import { CashAdvanceTab } from '../components/tabs/CashAdvanceTab';
 import { StatutoryDetailsTab } from '../components/tabs/StatutoryDetailsTab';
 
-export default function EmployeeDetailPage() {
+export function EmployeeDetailPage({
+  apiBasePath,
+  businessPath = '/clothing',
+}: {
+  apiBasePath?: string;
+  businessPath?: string;
+}) {
   const params = useParams();
   const router = useRouter();
 
@@ -57,7 +63,7 @@ export default function EmployeeDetailPage() {
     leaveHistory,
     cashAdvanceRecords,
     outstandingCashAdvance,
-  } = useEmployeeDetail(employeeId);
+  } = useEmployeeDetail(employeeId, apiBasePath);
 
   const MAX_PROFILE_PHOTO_SIZE = 2 * 1024 * 1024; // 2MB
 
@@ -162,7 +168,7 @@ export default function EmployeeDetailPage() {
                 leftSection={<IconArrowLeft size={16} />}
                 variant="light"
                 mt="md"
-                onClick={() => router.push('/clothing/employees/team')}
+                onClick={() => router.push(`${businessPath}/employees/team`)}
               >
                 Back to Team
               </Button>
@@ -582,7 +588,7 @@ export default function EmployeeDetailPage() {
       subtitle="Complete employee information"
       backAction={{
         label: 'Back to team list',
-        onClick: () => router.push('/clothing/employees/team'),
+        onClick: () => router.push(`${businessPath}/employees/team`),
       }}
       primaryAction={{
         label: 'Edit Employee',
@@ -731,4 +737,8 @@ export default function EmployeeDetailPage() {
       />
     </>
   );
+}
+
+export default function EmployeeDetailPageRoute() {
+  return <EmployeeDetailPage />;
 }

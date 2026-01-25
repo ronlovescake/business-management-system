@@ -2362,6 +2362,42 @@ model GeneralMerchandiseCheckoutLink {
   @@schema("general_merchandise")
 }
 
+model GeneralMerchandiseItemWeight {
+  id                   String    @id @default(cuid())
+  itemName             String    @db.VarChar(255)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  deletedAt            DateTime?
+  bulkQuantity         Decimal   @db.Decimal(12, 2)
+  bulkWeight           Decimal   @db.Decimal(12, 2)
+  approxWeightPerPiece Decimal   @db.Decimal(12, 2)
+
+  @@index([itemName])
+  @@index([deletedAt])
+  @@map("item_weights")
+  @@schema("general_merchandise")
+}
+
+model GeneralMerchandiseInvoice {
+  id                  String    @id @default(cuid())
+  customerName        String    @db.VarChar(255)
+  actualWeight        String?   @db.VarChar(100)
+  finalWeight         String?   @db.VarChar(100)
+  shopeeCheckoutLinks String?   @db.VarChar(500)
+  driveFiles          String?   @db.VarChar(500)
+  message             String?   @db.VarChar(1000)
+  chat                String?   @db.VarChar(500)
+  tickbox             Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  deletedAt           DateTime?
+
+  @@index([customerName])
+  @@index([deletedAt])
+  @@map("invoices")
+  @@schema("general_merchandise")
+}
+
 model GeneralMerchandiseMessageTemplate {
   id         String   @id @default(cuid())
   slug       String   @unique @db.VarChar(100)

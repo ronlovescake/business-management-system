@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
 import { logger } from '@/lib/logger';
 import { useMemo } from 'react';
+import { buildApiPath } from '@/lib/api/paths';
 
 interface CustomerData {
   id: number;
@@ -27,10 +28,14 @@ interface CustomerDTO {
 /**
  * Fetch all customers with Facebook links
  */
-async function fetchCustomersWithFacebook(): Promise<CustomerData[]> {
+async function fetchCustomersWithFacebook(
+  apiBasePath?: string
+): Promise<CustomerData[]> {
   try {
     // The API returns array directly, not wrapped in { success, data }
-    const response = await api.get<CustomerDTO[]>('/api/customers');
+    const response = await api.get<CustomerDTO[]>(
+      buildApiPath(apiBasePath, '/customers')
+    );
 
     if (!Array.isArray(response)) {
       throw new Error('Invalid response from API');
@@ -54,11 +59,11 @@ async function fetchCustomersWithFacebook(): Promise<CustomerData[]> {
 /**
  * Custom hook for invoice customer lookup
  */
-export function useInvoiceCustomerLookup(enabled = true) {
+export function useInvoiceCustomerLookup(enabled = true, apiBasePath?: string) {
   // Fetch all customers with Facebook links
   const { data: customers = [], isLoading } = useQuery({
-    queryKey: ['invoice-customers-facebook'],
-    queryFn: fetchCustomersWithFacebook,
+    queryKey: ['invoice-customers-facebook', apiBasePath ?? 'default'],
+    queryFn: () => fetchCustomersWithFacebook(apiBasePath),
     staleTime: 10 * 60 * 1000, // 10 minutes
     gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
     refetchOnWindowFocus: false,

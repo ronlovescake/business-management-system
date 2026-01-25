@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
 import { getApiDataOrThrow } from '@/lib/api/response';
 import { queryKeys } from '@/lib/queryKeys';
+import { buildApiPath } from '@/lib/api/paths';
 import type { AttendanceRecord } from '@/app/clothing/employees/attendance/types';
 import type { LeaveRequest } from '@/app/clothing/employees/leave-tracker/types';
 import type { CashAdvance } from '@/app/clothing/employees/cash-advance/types';
@@ -61,10 +62,15 @@ export interface EmployeeThirteenthMonthRecord {
   notes?: string;
 }
 
-export function useEmployeeDetail(employeeId: string) {
+export function useEmployeeDetail(employeeId: string, apiBasePath?: string) {
   const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isPhotoUploading, setIsPhotoUploading] = useState(false);
+
+  const resolveApiPath = useCallback(
+    (path: string) => buildApiPath(apiBasePath, path),
+    [apiBasePath]
+  );
 
   const extractSuffixFromName = (fullName?: string | null) => {
     if (!fullName) {
@@ -81,10 +87,17 @@ export function useEmployeeDetail(employeeId: string) {
   };
 
   // Main employee query
+  const employeeDetailQueryKey = useMemo(
+    () => [...queryKeys.employees.detail(employeeId), apiBasePath ?? 'default'],
+    [employeeId, apiBasePath]
+  );
+
   const { data: employee = null, isLoading } = useQuery({
-    queryKey: queryKeys.employees.detail(employeeId),
+    queryKey: employeeDetailQueryKey,
     queryFn: async () => {
-      const data = await api.get<Employee>(`/api/employees/${employeeId}`);
+      const data = await api.get<Employee>(
+        resolveApiPath(`/employees/${employeeId}`)
+      );
 
       // Transform database response to match Employee type
       const toOptionalNumber = (value: unknown) => {
@@ -179,13 +192,21 @@ export function useEmployeeDetail(employeeId: string) {
   );
 
   // Parallel queries for related data (enabled only when employee data is available)
+  const payrollHistoryQueryKey = useMemo(
+    () => [
+      ...queryKeys.payroll.byEmployee(normalizedEmployeeId),
+      apiBasePath ?? 'default',
+    ],
+    [normalizedEmployeeId, apiBasePath]
+  );
+
   const { data: payrollHistory = [], isLoading: isLoadingPayroll } = useQuery({
-    queryKey: queryKeys.payroll.byEmployee(normalizedEmployeeId),
+    queryKey: payrollHistoryQueryKey,
     queryFn: async () => {
       const query = encodeURIComponent(normalizedEmployeeId);
       const payrollJson = await api.get<
         Array<EmployeePayrollRecord & { employeeId?: string }>
-      >(`/api/payroll?employeeId=${query}`);
+      >(resolveApiPath(`/payroll?employeeId=${query}`));
 
       const payrollData: EmployeePayrollRecord[] = Array.isArray(payrollJson)
         ? payrollJson
@@ -228,13 +249,21 @@ export function useEmployeeDetail(employeeId: string) {
     staleTime: 30 * 1000,
   });
 
+  const attendanceQueryKey = useMemo(
+    () => [
+      ...queryKeys.attendance.byEmployee(normalizedEmployeeId),
+      apiBasePath ?? 'default',
+    ],
+    [normalizedEmployeeId, apiBasePath]
+  );
+
   const { data: attendanceHistory = [], isLoading: isLoadingAttendance } =
     useQuery({
-      queryKey: ['attendance', 'byEmployee', normalizedEmployeeId],
+      queryKey: attendanceQueryKey,
       queryFn: async () => {
         const query = encodeURIComponent(normalizedEmployeeId);
         const attendanceJson = await api.get<AttendanceRecord[]>(
-          `/api/attendance?employeeId=${query}`
+          resolveApiPath(`/attendance?employeeId=${query}`)
         );
 
         const attendanceData: AttendanceRecord[] = Array.isArray(attendanceJson)
@@ -279,14 +308,20 @@ export function useEmployeeDetail(employeeId: string) {
       staleTime: 30 * 1000,
     });
 
+  const leaveRequestsQueryKey = useMemo(
+    () => [
+      ...queryKeys.leaveRequests.list({ employeeId: normalizedEmployeeId }),
+      apiBasePath ?? 'default',
+    ],
+    [normalizedEmployeeId, apiBasePath]
+  );
+
   const { data: leaveHistory = [], isLoading: isLoadingLeaves } = useQuery({
-    queryKey: queryKeys.leaveRequests.list({
-      employeeId: normalizedEmployeeId,
-    }),
+    queryKey: leaveRequestsQueryKey,
     queryFn: async () => {
       const query = encodeURIComponent(normalizedEmployeeId);
       const leaveJson = await api.get<LeaveRequest[]>(
-        `/api/leave-requests?employeeId=${query}`
+        resolveApiPath(`/leave-requests?employeeId=${query}`)
       );
 
       const leaveData: LeaveRequest[] = Array.isArray(leaveJson)
@@ -335,16 +370,22 @@ export function useEmployeeDetail(employeeId: string) {
     staleTime: 30 * 1000,
   });
 
+  const cashAdvancesQueryKey = useMemo(
+    () => [
+      ...queryKeys.cashAdvances.list({ employeeId: normalizedEmployeeId }),
+      apiBasePath ?? 'default',
+    ],
+    [normalizedEmployeeId, apiBasePath]
+  );
+
   const { data: cashAdvanceRecords = [], isLoading: isLoadingCashAdvances } =
     useQuery({
-      queryKey: queryKeys.cashAdvances.list({
-        employeeId: normalizedEmployeeId,
-      }),
+      queryKey: cashAdvancesQueryKey,
       queryFn: async () => {
         const query = encodeURIComponent(normalizedEmployeeId);
         const response = await api.get<
           ApiResponse<Array<CashAdvance & { employeeName?: string }>>
-        >(`/api/cash-advances?employeeId=${query}`);
+        >(resolveApiPath(`/cash-advances?employeeId=${query}`));
         const cashAdvanceJson = getApiDataOrThrow(
           response,
           'Failed to fetch cash advances'
@@ -411,13 +452,21 @@ export function useEmployeeDetail(employeeId: string) {
       staleTime: 30 * 1000,
     });
 
+  const schedulesQueryKey = useMemo(
+    () => [
+      ...queryKeys.schedules.byEmployee(normalizedEmployeeId),
+      apiBasePath ?? 'default',
+    ],
+    [normalizedEmployeeId, apiBasePath]
+  );
+
   const { data: scheduleHistory = [], isLoading: isLoadingSchedules } =
     useQuery({
-      queryKey: queryKeys.schedules.byEmployee(normalizedEmployeeId),
+      queryKey: schedulesQueryKey,
       queryFn: async () => {
         const query = encodeURIComponent(normalizedEmployeeId);
         const scheduleJson = await api.get<Schedule[]>(
-          `/api/schedules?employeeId=${query}`
+          resolveApiPath(`/schedules?employeeId=${query}`)
         );
 
         const scheduleData: Schedule[] = Array.isArray(scheduleJson)
@@ -462,17 +511,25 @@ export function useEmployeeDetail(employeeId: string) {
       staleTime: 30 * 1000,
     });
 
+  const thirteenthMonthQueryKey = useMemo(
+    () => [
+      ...queryKeys.thirteenthMonthPay.list({
+        employeeId: normalizedEmployeeKey,
+      }),
+      apiBasePath ?? 'default',
+    ],
+    [normalizedEmployeeKey, apiBasePath]
+  );
+
   const {
     data: thirteenthMonthRecords = [],
     isLoading: isLoadingThirteenthMonth,
   } = useQuery({
-    queryKey: queryKeys.thirteenthMonthPay.list({
-      employeeId: normalizedEmployeeKey,
-    }),
+    queryKey: thirteenthMonthQueryKey,
     queryFn: async () => {
       const query = encodeURIComponent(normalizedEmployeeKey);
       const response = await api.get<Array<Record<string, unknown>>>(
-        `/api/thirteenth-month-pay?employeeId=${query}`
+        resolveApiPath(`/thirteenth-month-pay?employeeId=${query}`)
       );
 
       if (!Array.isArray(response)) {
@@ -738,7 +795,7 @@ export function useEmployeeDetail(employeeId: string) {
       };
 
       const updatedEmployee = await api.put<Employee>(
-        `/api/employees/${employee.id}`,
+        resolveApiPath(`/employees/${employee.id}`),
         payload
       );
 
@@ -771,12 +828,12 @@ export function useEmployeeDetail(employeeId: string) {
     onMutate: async (formData) => {
       // Cancel outgoing queries
       await queryClient.cancelQueries({
-        queryKey: queryKeys.employees.detail(employeeId),
+        queryKey: employeeDetailQueryKey,
       });
 
       // Snapshot previous value
       const previous = queryClient.getQueryData<Employee>(
-        queryKeys.employees.detail(employeeId)
+        employeeDetailQueryKey
       );
 
       // Optimistically update
@@ -814,7 +871,7 @@ export function useEmployeeDetail(employeeId: string) {
         };
 
         queryClient.setQueryData<Employee>(
-          queryKeys.employees.detail(employeeId),
+          employeeDetailQueryKey,
           optimisticUpdate
         );
       }
@@ -824,10 +881,7 @@ export function useEmployeeDetail(employeeId: string) {
     onError: (error, variables, context) => {
       // Rollback on error
       if (context?.previous) {
-        queryClient.setQueryData(
-          queryKeys.employees.detail(employeeId),
-          context.previous
-        );
+        queryClient.setQueryData(employeeDetailQueryKey, context.previous);
       }
       logger.error('Error updating employee:', error);
       alert('Failed to update employee. Please try again.');
@@ -839,9 +893,11 @@ export function useEmployeeDetail(employeeId: string) {
     onSettled: () => {
       // Invalidate and refetch
       queryClient.invalidateQueries({
-        queryKey: queryKeys.employees.detail(employeeId),
+        queryKey: employeeDetailQueryKey,
       });
-      queryClient.invalidateQueries({ queryKey: queryKeys.employees.lists() });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.employees.lists(),
+      });
     },
   });
 
@@ -907,7 +963,7 @@ export function useEmployeeDetail(employeeId: string) {
       };
 
       const updatedEmployee = await api.put<Employee>(
-        `/api/employees/${employee.id}`,
+        resolveApiPath(`/employees/${employee.id}`),
         payload
       );
 
@@ -937,23 +993,20 @@ export function useEmployeeDetail(employeeId: string) {
 
       // Cancel outgoing queries
       await queryClient.cancelQueries({
-        queryKey: queryKeys.employees.detail(employeeId),
+        queryKey: employeeDetailQueryKey,
       });
 
       // Snapshot previous value
       const previous = queryClient.getQueryData<Employee>(
-        queryKeys.employees.detail(employeeId)
+        employeeDetailQueryKey
       );
 
       // Optimistically update photo
       if (previous) {
-        queryClient.setQueryData<Employee>(
-          queryKeys.employees.detail(employeeId),
-          {
-            ...previous,
-            profilePhoto: base64Photo,
-          }
-        );
+        queryClient.setQueryData<Employee>(employeeDetailQueryKey, {
+          ...previous,
+          profilePhoto: base64Photo,
+        });
       }
 
       return { previous };
@@ -961,10 +1014,7 @@ export function useEmployeeDetail(employeeId: string) {
     onError: (error, variables, context) => {
       // Rollback on error
       if (context?.previous) {
-        queryClient.setQueryData(
-          queryKeys.employees.detail(employeeId),
-          context.previous
-        );
+        queryClient.setQueryData(employeeDetailQueryKey, context.previous);
       }
       logger.error('Error uploading photo:', error);
       alert('Failed to upload profile photo. Please try again.');
@@ -973,7 +1023,7 @@ export function useEmployeeDetail(employeeId: string) {
       setIsPhotoUploading(false);
       // Invalidate and refetch
       queryClient.invalidateQueries({
-        queryKey: queryKeys.employees.detail(employeeId),
+        queryKey: employeeDetailQueryKey,
       });
       queryClient.invalidateQueries({ queryKey: queryKeys.employees.lists() });
     },

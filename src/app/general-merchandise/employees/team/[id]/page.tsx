@@ -3,9 +3,9 @@ import {
   hasModuleAccess,
   getFirstAccessibleModule,
 } from '@/lib/auth/permissions';
-import { EmployeesTeamPage } from '@/app/clothing/employees/team/page';
+import { EmployeeDetailPage } from '@/app/clothing/employees/team/[id]/page';
 
-export default async function GeneralMerchandiseEmployeesTeam() {
+export default async function GeneralMerchandiseEmployeeDetailPage() {
   const hasAccess = await hasModuleAccess(
     '/general-merchandise/employees/team'
   );
@@ -13,7 +13,7 @@ export default async function GeneralMerchandiseEmployeesTeam() {
 
   return (
     <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
-      <EmployeesTeamPage
+      <EmployeeDetailPage
         apiBasePath="/api/general-merchandise"
         businessPath="/general-merchandise"
       />
