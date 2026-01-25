@@ -9,6 +9,7 @@ import {
   PriceService,
   ExpenseService,
   TruckingExpenseService,
+  GeneralMerchandiseExpenseService,
   HouseholdExpenseService,
 } from '../services';
 import type {
@@ -355,6 +356,12 @@ export function useExpenseData() {
 
 export function useTruckingExpenseData() {
   return useExpenseDataFactory(TruckingExpenseService, ['trucking-expenses']);
+}
+
+export function useGeneralMerchandiseExpenseData() {
+  return useExpenseDataFactory(GeneralMerchandiseExpenseService, [
+    'general-merchandise-expenses',
+  ]);
 }
 
 export function useHouseholdExpenseData() {

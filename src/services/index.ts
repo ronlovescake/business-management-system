@@ -6,6 +6,7 @@ import { PriceService } from './PriceService';
 import {
   ExpenseService,
   TruckingExpenseService,
+  GeneralMerchandiseExpenseService,
   HouseholdExpenseService,
 } from './ExpenseService';
 import { HouseholdRecurringPaymentService } from './HouseholdRecurringPaymentService';
@@ -56,6 +57,9 @@ export class ServiceFactory {
   static getTruckingExpenseService() {
     return TruckingExpenseService;
   }
+  static getGeneralMerchandiseExpenseService() {
+    return GeneralMerchandiseExpenseService;
+  }
   static getHouseholdExpenseService() {
     return HouseholdExpenseService;
   }
@@ -79,6 +83,7 @@ export {
   PriceService,
   ExpenseService,
   TruckingExpenseService,
+  GeneralMerchandiseExpenseService,
   HouseholdExpenseService,
   HouseholdRecurringPaymentService,
   FormatterService,

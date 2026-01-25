@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { logger } from '@/lib/logger';
 import { PERIOD_OPTIONS, type PeriodOption } from '@/lib/accounting/constants';
 import { buildPeriodSearchParams } from '@/lib/accounting/query';
@@ -10,6 +10,7 @@ import {
   escapeCsvValue,
 } from '@/lib/accounting/csv';
 import { getApiDataOrThrow } from '@/lib/api/response';
+import { buildApiPath } from '@/lib/api/paths';
 import type { ApiResponse } from '@/types/api';
 import { getCurrentDateISO } from '@/utils/date';
 
@@ -57,7 +58,12 @@ type ProfitLossDetailsApiResponse = {
   period: string;
 };
 
-export function useProfitLoss() {
+export function useProfitLoss(options: { apiBasePath?: string } = {}) {
+  const { apiBasePath } = options;
+  const apiPath = useCallback(
+    (path: string) => buildApiPath(apiBasePath, path),
+    [apiBasePath]
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<string | null>('list');
   const [period, setPeriod] = useState<ProfitLossPeriodOption>('All Time');
@@ -78,11 +84,8 @@ export function useProfitLoss() {
     async function fetchProfitLoss() {
       try {
         const qs = buildPeriodSearchParams(period).toString();
-        const res = await fetch(
-          qs
-            ? `/api/accounting/profit-loss?${qs}`
-            : '/api/accounting/profit-loss'
-        );
+        const endpoint = apiPath('/accounting/profit-loss');
+        const res = await fetch(qs ? `${endpoint}?${qs}` : endpoint);
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`);
         }
@@ -119,7 +122,7 @@ export function useProfitLoss() {
     return () => {
       isMounted = false;
     };
-  }, [period]);
+  }, [apiPath, period]);
 
   useEffect(() => {
     let isMounted = true;
@@ -131,11 +134,8 @@ export function useProfitLoss() {
 
       try {
         const qs = buildPeriodSearchParams(period).toString();
-        const res = await fetch(
-          qs
-            ? `/api/accounting/profit-loss/details?${qs}`
-            : '/api/accounting/profit-loss/details'
-        );
+        const endpoint = apiPath('/accounting/profit-loss/details');
+        const res = await fetch(qs ? `${endpoint}?${qs}` : endpoint);
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`);
         }
@@ -165,7 +165,7 @@ export function useProfitLoss() {
     return () => {
       isMounted = false;
     };
-  }, [activeTab, period]);
+  }, [activeTab, apiPath, period]);
 
   const filteredRows = useMemo(() => {
     const search = searchQuery.trim().toLowerCase();

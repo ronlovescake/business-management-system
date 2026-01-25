@@ -26,6 +26,7 @@ import {
 } from '@/lib/accounting/csv';
 import { parseDate } from '@/lib/accounting/date-utils';
 import { getApiDataOrThrow } from '@/lib/api/response';
+import { buildApiPath } from '@/lib/api/paths';
 import type { ApiResponse } from '@/types/api';
 import { getCurrentDateISO } from '@/utils/date';
 
@@ -58,7 +59,12 @@ const MAX_MANUAL_IMPORT_ROWS = 1000;
 
 const getEntryTimestamp = (value: string) => parseDate(value)?.getTime() ?? 0;
 
-export function useJournal() {
+export function useJournal(options: { apiBasePath?: string } = {}) {
+  const { apiBasePath } = options;
+  const apiPath = useCallback(
+    (path: string) => buildApiPath(apiBasePath, path),
+    [apiBasePath]
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [filterAccount, setFilterAccount] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string | null>('list');
@@ -83,9 +89,8 @@ export function useJournal() {
 
   const fetchJournalData = useCallback(async () => {
     const qs = buildPeriodSearchParams(period).toString();
-    const res = await fetch(
-      qs ? `/api/accounting/journal?${qs}` : '/api/accounting/journal'
-    );
+    const endpoint = apiPath('/accounting/journal');
+    const res = await fetch(qs ? `${endpoint}?${qs}` : endpoint);
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}`);
     }
@@ -95,7 +100,7 @@ export function useJournal() {
     }>;
 
     return getApiDataOrThrow(payload, 'Failed to load journal');
-  }, [period]);
+  }, [apiPath, period]);
 
   const refreshJournal = useCallback(async () => {
     try {
@@ -285,7 +290,7 @@ export function useJournal() {
         description,
       };
 
-      const res = await fetch('/api/accounting/manual-journal', {
+      const res = await fetch(apiPath('/accounting/manual-journal'), {
         method: editingManualSourceId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -318,7 +323,7 @@ export function useJournal() {
     } finally {
       setIsSavingManualEntry(false);
     }
-  }, [manualEntryForm, refreshJournal, editingManualSourceId]);
+  }, [apiPath, manualEntryForm, refreshJournal, editingManualSourceId]);
 
   const deleteManualEntry = useCallback(
     async (entry: JournalEntry) => {
@@ -336,7 +341,7 @@ export function useJournal() {
 
       try {
         const res = await fetch(
-          `/api/accounting/manual-journal?sourceId=${encodeURIComponent(sourceId)}`,
+          `${apiPath('/accounting/manual-journal')}?sourceId=${encodeURIComponent(sourceId)}`,
           { method: 'DELETE' }
         );
 
@@ -366,7 +371,7 @@ export function useJournal() {
         throw error;
       }
     },
-    [refreshJournal]
+    [apiPath, refreshJournal]
   );
 
   const handleAddEntry = openManualEntryModal;
@@ -406,11 +411,14 @@ export function useJournal() {
 
         for (const entry of cappedRows) {
           try {
-            const response = await fetch('/api/accounting/manual-journal', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(entry),
-            });
+            const response = await fetch(
+              apiPath('/accounting/manual-journal'),
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(entry),
+              }
+            );
             if (!response.ok) {
               errorCount++;
               continue;

@@ -9,6 +9,7 @@ import {
 } from '@/lib/accounting/csv';
 import { parseDate } from '@/lib/accounting/date-utils';
 import { getApiDataOrThrow } from '@/lib/api/response';
+import { buildApiPath } from '@/lib/api/paths';
 import type { ApiResponse } from '@/types/api';
 import { getCurrentDateISO } from '@/utils/date';
 
@@ -61,7 +62,12 @@ function toDisplayDate(iso: string): string {
   });
 }
 
-export function useBalanceSheet() {
+export function useBalanceSheet(options: { apiBasePath?: string } = {}) {
+  const { apiBasePath } = options;
+  const apiPath = useCallback(
+    (path: string) => buildApiPath(apiBasePath, path),
+    [apiBasePath]
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<string | null>('list');
   const [asOf, setAsOf] = useState('January 31, 2026');
@@ -71,9 +77,8 @@ export function useBalanceSheet() {
   const fetchBalanceSheet = useCallback(async () => {
     const iso = toIsoDate(asOf);
     try {
-      const res = await fetch(
-        `/api/accounting/balance-sheet?asOf=${encodeURIComponent(iso)}`
-      );
+      const endpoint = apiPath('/accounting/balance-sheet');
+      const res = await fetch(`${endpoint}?asOf=${encodeURIComponent(iso)}`);
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
       }
@@ -95,7 +100,7 @@ export function useBalanceSheet() {
       setRows([]);
       setStats({ ...DEFAULT_STATS, asOf: toDisplayDate(iso) });
     }
-  }, [asOf]);
+  }, [apiPath, asOf]);
 
   useEffect(() => {
     fetchBalanceSheet();

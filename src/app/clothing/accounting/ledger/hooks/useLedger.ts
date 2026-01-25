@@ -27,6 +27,7 @@ import {
 } from '@/lib/accounting/csv';
 import { parseDate } from '@/lib/accounting/date-utils';
 import { getApiDataOrThrow } from '@/lib/api/response';
+import { buildApiPath } from '@/lib/api/paths';
 import type { ApiResponse } from '@/types/api';
 import { getCurrentDateISO } from '@/utils/date';
 
@@ -85,7 +86,12 @@ function computeRunningBalances(entries: LedgerEntry[]): LedgerEntry[] {
   });
 }
 
-export function useLedger() {
+export function useLedger(options: { apiBasePath?: string } = {}) {
+  const { apiBasePath } = options;
+  const apiPath = useCallback(
+    (path: string) => buildApiPath(apiBasePath, path),
+    [apiBasePath]
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [filterAccount, setFilterAccount] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string | null>('list');
@@ -154,9 +160,8 @@ export function useLedger() {
 
   const fetchLedgerData = useCallback(async () => {
     const qs = buildPeriodSearchParams(period).toString();
-    const res = await fetch(
-      qs ? `/api/accounting/ledger?${qs}` : '/api/accounting/ledger'
-    );
+    const endpoint = apiPath('/accounting/ledger');
+    const res = await fetch(qs ? `${endpoint}?${qs}` : endpoint);
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}`);
     }
@@ -169,7 +174,7 @@ export function useLedger() {
       entries: data.entries ?? [],
       stats: data.stats ?? defaultStats(),
     };
-  }, [period, defaultStats]);
+  }, [apiPath, period, defaultStats]);
 
   const refreshLedger = useCallback(async () => {
     try {
@@ -244,7 +249,7 @@ export function useLedger() {
   const fetchOpeningEntries = useCallback(async () => {
     setIsLoadingOpeningEntries(true);
     try {
-      const res = await fetch('/api/accounting/opening-balance');
+      const res = await fetch(apiPath('/accounting/opening-balance'));
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
       }
@@ -266,7 +271,7 @@ export function useLedger() {
     } finally {
       setIsLoadingOpeningEntries(false);
     }
-  }, []);
+  }, [apiPath]);
 
   useEffect(() => {
     fetchOpeningEntries();
@@ -533,7 +538,7 @@ export function useLedger() {
         debit: number;
         credit: number;
       }) => {
-        const res = await fetch('/api/accounting/opening-balance', {
+        const res = await fetch(apiPath('/accounting/opening-balance'), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -593,18 +598,21 @@ export function useLedger() {
                   credit: 0,
                 };
 
-          const createRes = await fetch('/api/accounting/opening-balance', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              date,
-              ref,
-              account: missingPayload.account,
-              debit: missingPayload.debit,
-              credit: missingPayload.credit,
-              description,
-            }),
-          });
+          const createRes = await fetch(
+            apiPath('/accounting/opening-balance'),
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                date,
+                ref,
+                account: missingPayload.account,
+                debit: missingPayload.debit,
+                credit: missingPayload.credit,
+                description,
+              }),
+            }
+          );
 
           const createBody = await createRes.json().catch(() => null);
           if (!createRes.ok) {
@@ -633,7 +641,7 @@ export function useLedger() {
           } catch (error) {
             if (createdId) {
               await fetch(
-                `/api/accounting/opening-balance?id=${encodeURIComponent(
+                `${apiPath('/accounting/opening-balance')}?id=${encodeURIComponent(
                   createdId
                 )}`,
                 { method: 'DELETE' }
@@ -714,7 +722,7 @@ export function useLedger() {
     setIsSavingOpeningEntry(true);
     try {
       // Create a balanced opening entry as two lines.
-      const debitRes = await fetch('/api/accounting/opening-balance', {
+      const debitRes = await fetch(apiPath('/accounting/opening-balance'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -736,7 +744,7 @@ export function useLedger() {
 
       const createdDebitId = debitBody?.entry?.id as string | undefined;
 
-      const creditRes = await fetch('/api/accounting/opening-balance', {
+      const creditRes = await fetch(apiPath('/accounting/opening-balance'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -753,7 +761,7 @@ export function useLedger() {
       if (!creditRes.ok) {
         if (createdDebitId) {
           await fetch(
-            `/api/accounting/opening-balance?id=${encodeURIComponent(
+            `${apiPath('/accounting/opening-balance')}?id=${encodeURIComponent(
               createdDebitId
             )}`,
             { method: 'DELETE' }
@@ -786,6 +794,7 @@ export function useLedger() {
       setIsSavingOpeningEntry(false);
     }
   }, [
+    apiPath,
     editingOpeningEntryId,
     editingOpeningEntryDebitId,
     editingOpeningEntryCreditId,
@@ -869,7 +878,7 @@ export function useLedger() {
         await Promise.all(
           deleteIds.map(async (deleteId) => {
             const res = await fetch(
-              `/api/accounting/opening-balance?id=${encodeURIComponent(
+              `${apiPath('/accounting/opening-balance')}?id=${encodeURIComponent(
                 deleteId
               )}`,
               { method: 'DELETE' }
@@ -908,7 +917,7 @@ export function useLedger() {
         throw error;
       }
     },
-    [fetchOpeningEntries, openingEntries, refreshLedger]
+    [apiPath, fetchOpeningEntries, openingEntries, refreshLedger]
   );
 
   const openManualEntryModal = useCallback(() => {
@@ -1050,7 +1059,7 @@ export function useLedger() {
         description,
       };
 
-      const res = await fetch('/api/accounting/manual-journal', {
+      const res = await fetch(apiPath('/accounting/manual-journal'), {
         method: editingManualSourceId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -1083,7 +1092,7 @@ export function useLedger() {
     } finally {
       setIsSavingManualEntry(false);
     }
-  }, [manualEntryForm, refreshLedger, editingManualSourceId]);
+  }, [apiPath, manualEntryForm, refreshLedger, editingManualSourceId]);
 
   const deleteManualEntry = useCallback(
     async (entry: LedgerEntry) => {
@@ -1101,7 +1110,7 @@ export function useLedger() {
 
       try {
         const res = await fetch(
-          `/api/accounting/manual-journal?sourceId=${encodeURIComponent(sourceId)}`,
+          `${apiPath('/accounting/manual-journal')}?sourceId=${encodeURIComponent(sourceId)}`,
           { method: 'DELETE' }
         );
 
@@ -1131,7 +1140,7 @@ export function useLedger() {
         throw error;
       }
     },
-    [refreshLedger]
+    [apiPath, refreshLedger]
   );
 
   const handleAddEntry = openManualEntryModal;
@@ -1172,11 +1181,14 @@ export function useLedger() {
 
         for (const entry of cappedRows) {
           try {
-            const response = await fetch('/api/accounting/manual-journal', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(entry),
-            });
+            const response = await fetch(
+              apiPath('/accounting/manual-journal'),
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(entry),
+              }
+            );
             if (!response.ok) {
               errorCount++;
               continue;

@@ -2787,6 +2787,102 @@ model GeneralMerchandiseExpense {
   @@schema("general_merchandise")
 }
 
+model GeneralMerchandiseAccountingOpeningBalance {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  date        DateTime @db.Timestamptz(6)
+  ref         String   @db.VarChar(120)
+  account     String   @db.VarChar(255)
+  debit       Float    @default(0)
+  credit      Float    @default(0)
+  description String?  @db.VarChar(1000)
+
+  @@index([date])
+  @@index([account])
+  @@index([ref])
+  @@map("accounting_opening_balance")
+  @@schema("general_merchandise")
+}
+
+model GeneralMerchandiseAccountingJournalLine {
+  id              String   @id @default(cuid())
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  date            DateTime @db.Timestamptz(6)
+  ref             String   @db.VarChar(120)
+  account         String   @db.VarChar(255)
+  debit           Float    @default(0)
+  credit          Float    @default(0)
+  description     String?  @db.VarChar(1000)
+  sourceType      String   @db.VarChar(50)
+  sourceId        String?  @db.VarChar(100)
+  sourceLineKey   String   @db.VarChar(150)
+  systemGenerated Boolean  @default(true)
+
+  @@unique([sourceType, sourceId, sourceLineKey])
+  @@index([date])
+  @@index([account])
+  @@index([ref])
+  @@index([sourceType])
+  @@index([sourceId])
+  @@map("accounting_journal_lines")
+  @@schema("general_merchandise")
+}
+
+model GeneralMerchandiseRecurringPaymentTemplate {
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  name          String   @db.VarChar(255)
+  kind          String   @db.VarChar(30)
+  amount        Float    @default(0)
+  frequency     String   @default("MONTHLY") @db.VarChar(30)
+  dayOfMonth    Int
+  nextDueDate   DateTime @db.Timestamptz(6)
+  endDate       DateTime? @db.Timestamptz(6)
+  debitAccount  String   @db.VarChar(255)
+  debitTag      String?  @db.VarChar(255)
+  creditAccount String   @db.VarChar(255)
+  creditTag     String?  @db.VarChar(255)
+  notes         String?  @db.VarChar(1000)
+  isActive      Boolean  @default(true)
+
+  drafts GeneralMerchandiseRecurringPaymentDraft[]
+
+  @@index([isActive])
+  @@index([nextDueDate])
+  @@index([kind])
+  @@map("recurring_payment_templates")
+  @@schema("general_merchandise")
+}
+
+model GeneralMerchandiseRecurringPaymentDraft {
+  id            String   @id @default(cuid())
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  templateId    String
+  dueDate       DateTime @db.Timestamptz(6)
+  amount        Float    @default(0)
+  debitAccount  String   @db.VarChar(255)
+  debitTag      String?  @db.VarChar(255)
+  creditAccount String   @db.VarChar(255)
+  creditTag     String?  @db.VarChar(255)
+  ref           String   @db.VarChar(120)
+  description   String?  @db.VarChar(1000)
+  status        String   @default("DRAFT") @db.VarChar(30)
+  approvedAt    DateTime? @db.Timestamptz(6)
+
+  template GeneralMerchandiseRecurringPaymentTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, dueDate])
+  @@index([status])
+  @@index([dueDate])
+  @@index([templateId])
+  @@map("recurring_payment_drafts")
+  @@schema("general_merchandise")
+}
+
 enum InventoryBucket {
   sellable
   damaged_hold

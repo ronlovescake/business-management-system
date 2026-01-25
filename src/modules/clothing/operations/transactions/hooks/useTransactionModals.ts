@@ -368,7 +368,7 @@ export function useTransactionModals(
         setIsGeneratingInvoice(false);
       }
     },
-    [apiBasePath]
+    [apiBasePath, customerLookupBasePath]
   );
 
   const runReservationInvoiceWorkflow = useCallback(
@@ -576,7 +576,7 @@ export function useTransactionModals(
         setIsGeneratingInvoice(false);
       }
     },
-    [apiBasePath]
+    [apiBasePath, customerLookupBasePath]
   );
 
   const handleReservationInvoiceGeneration = useCallback(
@@ -1020,6 +1020,7 @@ export function useTransactionModals(
       handleReservationInvoiceGeneration,
       handleTwentyPercentReservationInvoiceGeneration,
       apiBasePath,
+      customerLookupBasePath,
     ]
   );
 

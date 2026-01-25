@@ -94,6 +94,10 @@ export interface MonthlyBreakdown {
 const MAX_CSV_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_EXPENSE_IMPORT_ROWS = 1000;
 
+type UseExpensesOptions = {
+  expenseDataHook?: () => ReturnType<typeof useExpenseData>;
+};
+
 /**
  * Custom Hook: useExpenses
  *
@@ -108,8 +112,9 @@ const MAX_EXPENSE_IMPORT_ROWS = 1000;
  * - Reusable across different UI implementations
  * - Easier to maintain and debug
  */
-export function useExpenses() {
+export function useExpenses(options: UseExpensesOptions = {}) {
   const { data: session } = useSession();
+  const expenseDataHook = options.expenseDataHook ?? useExpenseData;
   const currentUserName = useMemo(() => {
     const name = session?.user?.name?.trim();
     if (name) {
@@ -136,7 +141,7 @@ export function useExpenses() {
     deleteAsync: deleteExpenseAsync,
     bulkUpdate: _bulkUpdateExpenses,
     bulkCreate: bulkCreateExpenses,
-  } = useExpenseData();
+  } = expenseDataHook();
 
   // The Accounting Expenses page is intended for operational expenses only.
   // Product costs/COGS are handled in the ledger and should not be shown here.

@@ -120,6 +120,10 @@ export class TruckingExpenseService extends ExpenseService {
   protected static override endpoint = '/trucking/expenses';
 }
 
+export class GeneralMerchandiseExpenseService extends ExpenseService {
+  protected static override endpoint = '/general-merchandise/expenses';
+}
+
 export class HouseholdExpenseService extends BaseService {
   protected static endpoint = '/household/expenses';
 

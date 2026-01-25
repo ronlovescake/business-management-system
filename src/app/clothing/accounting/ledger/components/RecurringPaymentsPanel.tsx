@@ -23,11 +23,7 @@ import {
   IconRefresh,
   IconX,
 } from '@tabler/icons-react';
-import {
-  ClothingRecurringPaymentService,
-  type ClothingRecurringPaymentDraftDTO,
-  type ClothingRecurringPaymentTemplateDTO,
-} from '@/services/ClothingRecurringPaymentService';
+import { ClothingRecurringPaymentService } from '@/services/ClothingRecurringPaymentService';
 import {
   COMMON_DATE_INPUT_PROPS,
   formatDateForInput,
@@ -46,6 +42,97 @@ import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTh
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 
 type TemplateKind = 'LOAN' | 'EXPENSE';
+
+export type RecurringPaymentTemplateDTO = {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  name: string;
+  kind: TemplateKind;
+  amount: number;
+  frequency: 'MONTHLY';
+  dayOfMonth: number;
+  nextDueDate: string;
+  endDate: string | null;
+  debitAccount: string;
+  debitTag: string | null;
+  creditAccount: string;
+  creditTag: string | null;
+  notes: string | null;
+  isActive: boolean;
+};
+
+export type RecurringPaymentDraftDTO = {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  templateId: string;
+  dueDate: string;
+  amount: number;
+  debitAccount: string;
+  debitTag: string | null;
+  creditAccount: string;
+  creditTag: string | null;
+  ref: string;
+  description: string | null;
+  status: 'DRAFT' | 'APPROVED' | 'SKIPPED';
+  approvedAt: string | null;
+  template: RecurringPaymentTemplateDTO;
+};
+
+export type RecurringPaymentService = {
+  getTemplates: () => Promise<RecurringPaymentTemplateDTO[]>;
+  createTemplate: (payload: {
+    name: string;
+    kind: TemplateKind;
+    amount: number;
+    frequency?: 'MONTHLY';
+    dayOfMonth: number;
+    nextDueDate: string;
+    endDate?: string | null;
+    debitAccount: string;
+    debitTag?: string | null;
+    creditAccount: string;
+    creditTag?: string | null;
+    notes?: string | null;
+    isActive?: boolean;
+  }) => Promise<RecurringPaymentTemplateDTO>;
+  updateTemplate: (
+    id: string,
+    payload: Partial<{
+      name: string;
+      kind: TemplateKind;
+      amount: number;
+      frequency: 'MONTHLY';
+      dayOfMonth: number;
+      nextDueDate: string;
+      endDate: string | null;
+      debitAccount: string;
+      debitTag: string | null;
+      creditAccount: string;
+      creditTag: string | null;
+      notes: string | null;
+      isActive: boolean;
+    }>
+  ) => Promise<RecurringPaymentTemplateDTO>;
+  deleteTemplateById: (id: string) => Promise<RecurringPaymentTemplateDTO>;
+  generate: (payload?: { upToDate?: string }) => Promise<{
+    created: number;
+    skipped: number;
+    upToDate: string;
+  }>;
+  getDrafts: (params?: {
+    status?: 'DRAFT' | 'APPROVED' | 'SKIPPED';
+    dueOnOrBefore?: string;
+    dueFrom?: string;
+    dueTo?: string;
+  }) => Promise<RecurringPaymentDraftDTO[]>;
+  approveDraft: (draftId: string) => Promise<{
+    draftId: string;
+    journalSourceId: string;
+  }>;
+  skipDraft: (draftId: string) => Promise<{ draftId: string }>;
+};
 
 type TemplateFormState = {
   name: string;
@@ -84,9 +171,7 @@ const monthDiff = (from: Date, to: Date): number => {
   );
 };
 
-const paymentsLeft = (
-  tpl: ClothingRecurringPaymentTemplateDTO
-): number | null => {
+const paymentsLeft = (tpl: RecurringPaymentTemplateDTO): number | null => {
   if (!tpl.endDate) {
     return null;
   }
@@ -107,7 +192,7 @@ const paymentsLeft = (
   return monthDiff(fromMonth, toMonth) + 1;
 };
 
-const statusBadge = (status: ClothingRecurringPaymentDraftDTO['status']) => {
+const statusBadge = (status: RecurringPaymentDraftDTO['status']) => {
   switch (status) {
     case 'DRAFT':
       return <Badge color="blue">Draft</Badge>;
@@ -123,15 +208,15 @@ const statusBadge = (status: ClothingRecurringPaymentDraftDTO['status']) => {
 export function RecurringPaymentsPanel(props: {
   accounts: string[];
   onLedgerUpdated: () => void;
+  service?: RecurringPaymentService;
 }) {
-  const { accounts, onLedgerUpdated } = props;
+  const { accounts, onLedgerUpdated, service } = props;
+  const apiService = service ?? ClothingRecurringPaymentService;
 
   const [templates, setTemplates] = React.useState<
-    ClothingRecurringPaymentTemplateDTO[]
+    RecurringPaymentTemplateDTO[]
   >([]);
-  const [drafts, setDrafts] = React.useState<
-    ClothingRecurringPaymentDraftDTO[]
-  >([]);
+  const [drafts, setDrafts] = React.useState<RecurringPaymentDraftDTO[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [isApproving, setIsApproving] = React.useState<string | null>(null);
@@ -171,8 +256,8 @@ export function RecurringPaymentsPanel(props: {
     setIsLoading(true);
     try {
       const [tpls, drs] = await Promise.all([
-        ClothingRecurringPaymentService.getTemplates(),
-        ClothingRecurringPaymentService.getDrafts({
+        apiService.getTemplates(),
+        apiService.getDrafts({
           status: 'DRAFT',
           dueOnOrBefore,
         }),
@@ -190,7 +275,7 @@ export function RecurringPaymentsPanel(props: {
     } finally {
       setIsLoading(false);
     }
-  }, [dueOnOrBefore]);
+  }, [apiService, dueOnOrBefore]);
 
   React.useEffect(() => {
     void refresh();
@@ -199,7 +284,7 @@ export function RecurringPaymentsPanel(props: {
   const handleGenerate = async () => {
     setIsGenerating(true);
     try {
-      const result = await ClothingRecurringPaymentService.generate({
+      const result = await apiService.generate({
         upToDate: dueOnOrBefore,
       });
 
@@ -226,7 +311,7 @@ export function RecurringPaymentsPanel(props: {
   const handleApprove = async (draftId: string) => {
     setIsApproving(draftId);
     try {
-      await ClothingRecurringPaymentService.approveDraft(draftId);
+      await apiService.approveDraft(draftId);
       showNotification({
         title: 'Recurring payments',
         message: 'Draft approved and posted to ledger',
@@ -249,7 +334,7 @@ export function RecurringPaymentsPanel(props: {
   const handleSkip = async (draftId: string) => {
     setIsSkipping(draftId);
     try {
-      await ClothingRecurringPaymentService.skipDraft(draftId);
+      await apiService.skipDraft(draftId);
       showNotification({
         title: 'Recurring payments',
         message: 'Draft skipped',
@@ -285,7 +370,7 @@ export function RecurringPaymentsPanel(props: {
           ? normalizeAccountTag(form.creditTag)
           : null;
 
-      await ClothingRecurringPaymentService.createTemplate({
+      await apiService.createTemplate({
         name: form.name.trim(),
         kind: form.kind,
         amount: form.amount,
@@ -344,7 +429,7 @@ export function RecurringPaymentsPanel(props: {
             checked={tpl.isActive}
             onChange={async (e) => {
               try {
-                await ClothingRecurringPaymentService.updateTemplate(tpl.id, {
+                await apiService.updateTemplate(tpl.id, {
                   isActive: e.currentTarget.checked,
                 });
                 await refresh();
