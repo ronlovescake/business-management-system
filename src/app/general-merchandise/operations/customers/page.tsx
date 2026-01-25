@@ -19,7 +19,7 @@ export default async function Page() {
   return (
     <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
       <CustomersErrorBoundary>
-        <CustomersPage apiBasePath="/api/general-merchandise" />
+        <CustomersPage />
       </CustomersErrorBoundary>
     </PermissionGuard>
   );

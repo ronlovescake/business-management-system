@@ -15,10 +15,7 @@ export default function CustomerDetailsPage() {
 
   return (
     <PageLayout fluid withPadding>
-      <CustomerDetailsView
-        customerId={customerId}
-        apiBasePath="/api/general-merchandise"
-      />
+      <CustomerDetailsView customerId={customerId} />
     </PageLayout>
   );
 }

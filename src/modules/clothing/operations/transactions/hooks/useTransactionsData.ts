@@ -123,6 +123,9 @@ export function useTransactionsData({
   apiBasePath?: string;
 } = {}): UseTransactionsDataReturn {
   const resolvedApiBasePath = apiBasePath ?? '/api';
+  const customerLookupBasePath =
+    apiBasePath === '/api/general-merchandise' ? undefined : apiBasePath;
+  const customerLookupKey = customerLookupBasePath ?? '/api';
   const transactionQueryKey = useMemo(
     () => [...queryKeys.transactions.all, resolvedApiBasePath],
     [resolvedApiBasePath]
@@ -156,11 +159,11 @@ export function useTransactionsData({
     queries: [
       // Query 1: Customer names from customers API
       {
-        queryKey: [...queryKeys.customers.lists(), resolvedApiBasePath],
+        queryKey: [...queryKeys.customers.lists(), customerLookupKey],
         queryFn: async () => {
           try {
             const customersData = await api.get<Record<string, unknown>[]>(
-              buildApiPath(apiBasePath, '/customers')
+              buildApiPath(customerLookupBasePath, '/customers')
             );
             // Extract customer names from the API data
             return customersData
