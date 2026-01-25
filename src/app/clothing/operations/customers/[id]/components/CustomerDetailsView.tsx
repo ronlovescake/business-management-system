@@ -30,10 +30,12 @@ import { getIconButtonLabel } from '@/lib/accessibility';
 
 interface CustomerDetailsViewProps {
   customerId: string;
+  apiBasePath?: string;
 }
 
 export const CustomerDetailsView = memo(function CustomerDetailsView({
   customerId,
+  apiBasePath,
 }: CustomerDetailsViewProps) {
   const router = useRouter();
   const {
@@ -47,7 +49,7 @@ export const CustomerDetailsView = memo(function CustomerDetailsView({
     setEditModalOpen,
     setEditForm,
     handleUpdateCustomer,
-  } = useCustomerDetails(customerId);
+  } = useCustomerDetails(customerId, apiBasePath);
 
   // ============================================================================
   // LOADING STATE
@@ -140,7 +142,10 @@ export const CustomerDetailsView = memo(function CustomerDetailsView({
         {/* Customer Info */}
         <Stack gap="lg">
           <CustomerInfoCard customer={customer} />
-          <AdditionalCustomerInfoCard customerId={customerId} />
+          <AdditionalCustomerInfoCard
+            customerId={customerId}
+            apiBasePath={apiBasePath}
+          />
         </Stack>
 
         {/* Orders and Transactions */}
@@ -149,6 +154,7 @@ export const CustomerDetailsView = memo(function CustomerDetailsView({
           orders={orders}
           transactions={transactions}
           stats={stats}
+          apiBasePath={apiBasePath}
         />
       </SimpleGrid>
 

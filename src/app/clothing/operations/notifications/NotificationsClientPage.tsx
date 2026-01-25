@@ -47,6 +47,7 @@ const TABLE_HEADERS = ['Date', 'Time', 'User', 'Changes'];
 interface NotificationsPanelProps {
   category: OperationsNotificationCategory;
   label: string;
+  apiBasePath?: string;
 }
 
 interface GroupedNotification {
@@ -59,10 +60,18 @@ interface GroupedNotification {
   isOpen: boolean;
 }
 
-function NotificationsPanel({ category, label }: NotificationsPanelProps) {
+function NotificationsPanel({
+  category,
+  label,
+  apiBasePath,
+}: NotificationsPanelProps) {
   const { data, isLoading, error } = useQuery({
-    queryKey: queryKeys.operationsNotifications.byCategory(category),
-    queryFn: () => OperationsNotificationsService.fetchList({ category }),
+    queryKey: [
+      ...queryKeys.operationsNotifications.byCategory(category),
+      apiBasePath ?? 'default',
+    ],
+    queryFn: () =>
+      OperationsNotificationsService.fetchList({ category }, apiBasePath),
     staleTime: 0,
     refetchOnMount: true,
   });
@@ -336,7 +345,11 @@ function NotificationsPanel({ category, label }: NotificationsPanelProps) {
   );
 }
 
-export function NotificationsClientPage() {
+export function NotificationsClientPage({
+  apiBasePath,
+}: {
+  apiBasePath?: string;
+}) {
   return (
     <PageLayout title="Notifications">
       <Tabs defaultValue="transactions">
@@ -353,6 +366,7 @@ export function NotificationsClientPage() {
             <NotificationsPanel
               category={tab.value as OperationsNotificationCategory}
               label={tab.label}
+              apiBasePath={apiBasePath}
             />
           </Tabs.Panel>
         ))}

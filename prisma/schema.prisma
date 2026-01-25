@@ -2095,6 +2095,54 @@ model GeneralMerchandiseShipment {
   @@schema("general_merchandise")
 }
 
+model GeneralMerchandiseInventoryReclassEntry {
+  id             String    @id @default(cuid())
+  createdAt      DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  postingDate    DateTime  @db.Timestamptz(6)
+  shipmentId     Int?
+  shipmentCode   String    @db.VarChar(100)
+  productCode    String    @db.VarChar(100)
+  amount         Float     @default(0)
+  fromAccount    String    @db.VarChar(255)
+  toAccount      String    @db.VarChar(255)
+  triggerStatus  String    @db.VarChar(100)
+  idempotencyKey String    @unique @db.VarChar(220)
+  notes          String?   @db.VarChar(1000)
+  deletedAt      DateTime? @db.Timestamptz(6)
+
+  @@index([postingDate])
+  @@index([shipmentCode])
+  @@index([productCode])
+  @@index([shipmentId])
+  @@index([deletedAt])
+  @@map("inventory_reclass_entries")
+  @@schema("general_merchandise")
+}
+
+model GeneralMerchandiseInventoryTransitBuildEntry {
+  id             String    @id @default(cuid())
+  createdAt      DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  postingDate    DateTime  @db.Timestamptz(6)
+  shipmentId     Int?
+  shipmentCode   String    @db.VarChar(100)
+  amount         Float     @default(0)
+  debitAccount   String    @db.VarChar(255)
+  creditAccount  String    @db.VarChar(255)
+  idempotencyKey String    @unique @db.VarChar(220)
+  notes          String?   @db.VarChar(1000)
+  deletedAt      DateTime? @db.Timestamptz(6)
+
+  @@index([postingDate])
+  @@index([shipmentCode])
+  @@index([shipmentId])
+  @@index([creditAccount])
+  @@index([deletedAt])
+  @@map("inventory_transit_build_entries")
+  @@schema("general_merchandise")
+}
+
 model GeneralMerchandiseTransaction {
   id            Int      @id @default(autoincrement())
   createdAt     DateTime @default(now())
@@ -2255,6 +2303,87 @@ model GeneralMerchandiseDispatchOrder {
   @@index([linkedCustomerId])
   @@index([importedAt])
   @@map("dispatch_orders")
+  @@schema("general_merchandise")
+}
+
+model GeneralMerchandiseSortingDistribution {
+  id               Int       @id @default(autoincrement())
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  productCode      String    @db.VarChar(100)
+  selectedQuantity Int?
+  rowNumber        Int
+  quantity         Float     @default(0)
+  percentage       Float     @default(0)
+  groupNumber      String    @default("") @db.VarChar(50)
+  distribution     Float     @default(0)
+  checked          Boolean   @default(false)
+  deletedAt        DateTime?
+
+  @@unique([productCode, rowNumber])
+  @@index([productCode])
+  @@index([groupNumber])
+  @@map("sorting_distributions")
+  @@schema("general_merchandise")
+}
+
+model GeneralMerchandiseShippingFeeCalculatorState {
+  id                    Int       @id @default(autoincrement())
+  shipmentCode          String    @unique @db.VarChar(100)
+  actualAlibabaShipping Float     @default(0)
+  actualForwardersFee   Float     @default(0)
+  actualLalamove        Float     @default(0)
+  multipliers           Json
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  deletedAt             DateTime?
+
+  @@map("shipping_fee_calculator_states")
+  @@schema("general_merchandise")
+}
+
+model GeneralMerchandiseCheckoutLink {
+  id             String    @id @default(cuid())
+  weight         String    @db.VarChar(50)
+  width          String    @db.VarChar(50)
+  length         String    @db.VarChar(50)
+  height         String    @db.VarChar(50)
+  checkoutLinks  String?   @db.VarChar(500)
+  productPortals String?   @db.VarChar(500)
+  productNames   String?   @db.VarChar(500)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  @@index([weight])
+  @@index([deletedAt])
+  @@index([weight, width, length, height])
+  @@map("checkout_links")
+  @@schema("general_merchandise")
+}
+
+model GeneralMerchandiseMessageTemplate {
+  id         String   @id @default(cuid())
+  slug       String   @unique @db.VarChar(100)
+  title      String   @db.VarChar(255)
+  badge      String   @db.VarChar(100)
+  paragraphs Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("message_templates")
+  @@schema("general_merchandise")
+}
+
+model GeneralMerchandisePostTemplateNotice {
+  id              String   @id @default(cuid())
+  slug            String   @unique @db.VarChar(100)
+  introParagraphs Json
+  bulletPoints    Json
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("post_template_notice")
   @@schema("general_merchandise")
 }
 

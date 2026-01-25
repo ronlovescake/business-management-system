@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-query';
 import { showNotification } from '@mantine/notifications';
 import { apiClient } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import { logger } from '@/lib/logger';
 import type { DispatchItem, RawOrderData } from '../types';
 
@@ -24,6 +25,7 @@ interface UseDispatchDataParams {
     additionalAddresses: string[];
   }>;
   lookupCustomerName: (username: string) => string;
+  apiBasePath?: string;
 }
 
 interface UseDispatchDataResult {
@@ -97,6 +99,7 @@ type TransactionRecord = {
 export function useDispatchData({
   _serverCustomersData,
   lookupCustomerName,
+  apiBasePath,
 }: UseDispatchDataParams): UseDispatchDataResult {
   const [activeTab, setActiveTab] = useState<string | null>('match');
   const [searchQuery, setSearchQuery] = useState('');
@@ -119,9 +122,11 @@ export function useDispatchData({
     isLoading: loadingSavedOrders,
     error: fetchError,
   } = useQuery({
-    queryKey: ['dispatch-orders'],
+    queryKey: ['dispatch-orders', apiBasePath ?? 'default'],
     queryFn: async () => {
-      const response = (await apiClient.get('/api/dispatch/orders')) as {
+      const response = (await apiClient.get(
+        buildApiPath(apiBasePath, '/dispatch/orders')
+      )) as {
         success: boolean;
         data: RawOrderData[];
         count: number;
@@ -132,9 +137,11 @@ export function useDispatchData({
   });
 
   const { data: transactions = [] } = useQuery<TransactionRecord[]>({
-    queryKey: ['transactions', 'dispatch'],
+    queryKey: ['transactions', 'dispatch', apiBasePath ?? 'default'],
     queryFn: async () =>
-      (await apiClient.get('/api/transactions')) as TransactionRecord[],
+      (await apiClient.get(
+        buildApiPath(apiBasePath, '/transactions')
+      )) as TransactionRecord[],
     staleTime: 60 * 1000,
   });
 
@@ -189,7 +196,7 @@ export function useDispatchData({
   >({
     mutationFn: async (orders: RawOrderData[]) => {
       const response = (await apiClient.post(
-        '/api/dispatch/orders',
+        buildApiPath(apiBasePath, '/dispatch/orders'),
         {
           orders,
         },
@@ -203,7 +210,9 @@ export function useDispatchData({
     },
     onSuccess: (response) => {
       logger.info('Orders saved to database', response.data);
-      queryClient.invalidateQueries({ queryKey: ['dispatch-orders'] });
+      queryClient.invalidateQueries({
+        queryKey: ['dispatch-orders', apiBasePath ?? 'default'],
+      });
       showNotification({
         title: 'Success',
         message: `${response.data.created} orders saved to database (replaced ${response.data.deleted} previous orders)`,

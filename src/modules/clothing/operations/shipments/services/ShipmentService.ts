@@ -20,11 +20,15 @@ import type {
 import { FORM_VALIDATION_RULES } from '../types/shipment.types';
 import { api } from '@/lib/api/client';
 import { logger } from '@/lib/logger';
+import { buildApiPath } from '@/lib/api/paths';
 
 /**
  * ShipmentService - Static methods for shipment business logic
  */
 export class ShipmentService {
+  private static buildPath(apiBasePath: string | undefined, path: string) {
+    return buildApiPath(apiBasePath, path);
+  }
   // ==========================================================================
   // VALIDATION
   // ==========================================================================
@@ -318,8 +322,10 @@ export class ShipmentService {
    * @returns Array of shipment data
    * @throws Error if fetch fails
    */
-  static async loadShipments(): Promise<ShipmentData[]> {
-    return await api.get<ShipmentData[]>('/api/shipments');
+  static async loadShipments(apiBasePath?: string): Promise<ShipmentData[]> {
+    return await api.get<ShipmentData[]>(
+      ShipmentService.buildPath(apiBasePath, '/shipments')
+    );
   }
 
   /**
@@ -329,7 +335,10 @@ export class ShipmentService {
    * @returns Created shipment data
    * @throws Error if creation fails
    */
-  static async addShipment(formData: ShipmentFormData): Promise<ShipmentData> {
+  static async addShipment(
+    formData: ShipmentFormData,
+    apiBasePath?: string
+  ): Promise<ShipmentData> {
     // Create shipment object from form data
     const newShipment: ShipmentData = {
       id: Date.now(), // Temporary ID (will be replaced by server)
@@ -354,15 +363,18 @@ export class ShipmentService {
     };
 
     // Send to API
-    const createdShipment = await api.post<ShipmentData>('/api/shipments', {
-      ...newShipment,
-      'Date Created': formData.dateCreated
-        ? this.formatDateForApi(formData.dateCreated)
-        : '',
-      'Date Delivered': formData.dateDelivered
-        ? this.formatDateForApi(formData.dateDelivered)
-        : '',
-    });
+    const createdShipment = await api.post<ShipmentData>(
+      ShipmentService.buildPath(apiBasePath, '/shipments'),
+      {
+        ...newShipment,
+        'Date Created': formData.dateCreated
+          ? this.formatDateForApi(formData.dateCreated)
+          : '',
+        'Date Delivered': formData.dateDelivered
+          ? this.formatDateForApi(formData.dateDelivered)
+          : '',
+      }
+    );
 
     // Show success notification
     showNotification({
@@ -386,7 +398,8 @@ export class ShipmentService {
   static async updateShipment(
     id: number,
     formData: ShipmentFormData,
-    existingShipment: ShipmentData
+    existingShipment: ShipmentData,
+    apiBasePath?: string
   ): Promise<ShipmentData> {
     // Update shipment object
     const updatedShipment: ShipmentData = {
@@ -413,7 +426,7 @@ export class ShipmentService {
 
     // Send to API
     const updatedShipmentFromAPI = await api.put<ShipmentData>(
-      `/api/shipments/${id}`,
+      ShipmentService.buildPath(apiBasePath, `/shipments/${id}`),
       {
         ...updatedShipment,
         'Date Created': formData.dateCreated
@@ -444,7 +457,8 @@ export class ShipmentService {
       forwarderEstimate: number;
       courierEstimate: number;
       notes?: string;
-    }
+    },
+    apiBasePath?: string
   ): Promise<{
     shipmentId: number;
     shipmentCode: string;
@@ -461,14 +475,20 @@ export class ShipmentService {
       wasDuplicate: boolean;
     }>;
   }> {
-    return await api.post(`/api/shipments/${shipmentId}/transit-build`, {
-      postingDate: this.formatDateForApi(input.postingDate),
-      paidAccount: input.paidAccount,
-      paidAmount: input.paidAmount,
-      forwarderEstimate: input.forwarderEstimate,
-      courierEstimate: input.courierEstimate,
-      notes: input.notes,
-    });
+    return await api.post(
+      ShipmentService.buildPath(
+        apiBasePath,
+        `/shipments/${shipmentId}/transit-build`
+      ),
+      {
+        postingDate: this.formatDateForApi(input.postingDate),
+        paidAccount: input.paidAccount,
+        paidAmount: input.paidAmount,
+        forwarderEstimate: input.forwarderEstimate,
+        courierEstimate: input.courierEstimate,
+        notes: input.notes,
+      }
+    );
   }
 
   /**
@@ -537,9 +557,13 @@ export class ShipmentService {
    * @throws Error if import fails
    */
   static async bulkImportShipments(
-    shipments: ShipmentData[]
+    shipments: ShipmentData[],
+    apiBasePath?: string
   ): Promise<ShipmentData[]> {
-    await api.post('/api/shipments', shipments);
+    await api.post(
+      ShipmentService.buildPath(apiBasePath, '/shipments'),
+      shipments
+    );
 
     // Show success notification
     showNotification({

@@ -119,7 +119,10 @@ export function useCustomersData(apiBasePath?: string) {
       queryClient.invalidateQueries({ queryKey: customersQueryKey });
       // Also invalidate dispatch page customer cache
       queryClient.invalidateQueries({
-        queryKey: queryKeys.customers.withShopee(),
+        queryKey: [
+          ...queryKeys.customers.withShopee(),
+          apiBasePath ?? 'default',
+        ],
       });
 
       // CRITICAL: Broadcast update to other tabs/pages (like dispatch page)
@@ -170,7 +173,10 @@ export function useCustomersData(apiBasePath?: string) {
       queryClient.invalidateQueries({ queryKey: customersQueryKey });
       // Also invalidate dispatch page customer cache
       queryClient.invalidateQueries({
-        queryKey: queryKeys.customers.withShopee(),
+        queryKey: [
+          ...queryKeys.customers.withShopee(),
+          apiBasePath ?? 'default',
+        ],
       });
 
       // CRITICAL: Broadcast update to other tabs/pages (like dispatch page)

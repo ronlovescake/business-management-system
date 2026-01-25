@@ -27,6 +27,7 @@ import type { ServerCustomerData } from '../types';
 
 interface DispatchComponentProps {
   serverCustomersData?: ServerCustomerData[];
+  apiBasePath?: string;
 }
 
 type DispatchTabValue =
@@ -50,6 +51,7 @@ const isSearchableDispatchTab = (
 
 export function DispatchComponent({
   serverCustomersData,
+  apiBasePath,
 }: DispatchComponentProps = {}) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [rawDataSearch, setRawDataSearch] = useState('');
@@ -99,6 +101,7 @@ export function DispatchComponent({
   } = useDispatchData({
     _serverCustomersData: serverCustomersData,
     lookupCustomerName,
+    apiBasePath,
   });
 
   const handleTabSearchChange = useCallback(
@@ -149,7 +152,8 @@ export function DispatchComponent({
   } = usePossibleMatches(
     unmatchedOrders,
     activeTab === 'possible-match' || activeTab === 'match',
-    possibleMatchesSource
+    possibleMatchesSource,
+    apiBasePath
   );
 
   // Import/Export hook
@@ -172,6 +176,7 @@ export function DispatchComponent({
     effectiveRawData,
     lookupCustomerName,
     updateOrderCompletion,
+    apiBasePath,
   });
 
   // Handle add new - triggers update shipped orders for checkout-update tab

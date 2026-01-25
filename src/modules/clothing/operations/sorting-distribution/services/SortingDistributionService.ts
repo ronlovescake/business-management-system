@@ -20,6 +20,7 @@ import {
 } from '../types/sortingDistribution.types';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 
 /**
  * Sorting Distribution Service
@@ -191,13 +192,16 @@ export class SortingDistributionService {
    * Load products from API
    * Filters by shipment status "Sorting"
    */
-  static async loadProducts(includeAllProducts = false): Promise<{
+  static async loadProducts(
+    includeAllProducts = false,
+    apiBasePath?: string
+  ): Promise<{
     productOptions: string[];
     allProducts: Product[];
   }> {
     try {
       const rawProducts = await api.get<Product[] | Product | null | undefined>(
-        '/api/products'
+        buildApiPath(apiBasePath, '/products')
       );
       const products = this.ensureArray<Product>(rawProducts);
 
@@ -275,9 +279,11 @@ export class SortingDistributionService {
   /**
    * Load transactions from API
    */
-  static async loadTransactions(): Promise<Transaction[]> {
+  static async loadTransactions(apiBasePath?: string): Promise<Transaction[]> {
     try {
-      return await api.get<Transaction[]>('/api/transactions');
+      return await api.get<Transaction[]>(
+        buildApiPath(apiBasePath, '/transactions')
+      );
     } catch (error) {
       logger.error('Failed to load transactions:', error);
       return [];
@@ -362,7 +368,10 @@ export class SortingDistributionService {
   /**
    * Load saved distribution data from API
    */
-  static async loadDistributionData(productCode: string): Promise<{
+  static async loadDistributionData(
+    productCode: string,
+    apiBasePath?: string
+  ): Promise<{
     rows: DistributionRow[];
     selectedQuantity: number | null;
   }> {
@@ -387,7 +396,7 @@ export class SortingDistributionService {
         data: SavedDistributionRow[];
         selectedQuantity: number | null;
       }>(
-        `/api/sorting-distribution?productCode=${encodeURIComponent(productCode)}`
+        `${buildApiPath(apiBasePath, '/sorting-distribution')}?productCode=${encodeURIComponent(productCode)}`
       );
 
       logger.debug('Loaded distribution data', {
@@ -452,7 +461,8 @@ export class SortingDistributionService {
   static async saveDistributionData(
     productCode: string,
     selectedQuantity: number | null,
-    rows: DistributionRow[]
+    rows: DistributionRow[],
+    apiBasePath?: string
   ): Promise<SortingDistributionSaveResponse> {
     try {
       logger.debug('Saving distribution data to API', {
@@ -462,7 +472,7 @@ export class SortingDistributionService {
       });
 
       const response = await api.post<SortingDistributionSaveResponse>(
-        '/api/sorting-distribution',
+        buildApiPath(apiBasePath, '/sorting-distribution'),
         {
           productCode,
           selectedQuantity,

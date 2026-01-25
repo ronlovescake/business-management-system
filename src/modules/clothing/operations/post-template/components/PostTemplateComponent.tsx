@@ -22,6 +22,7 @@ import { showNotification } from '@mantine/notifications';
 import Swal from 'sweetalert2';
 import { DEFAULT_POST_TEMPLATE_NOTICE } from '@/modules/clothing/operations/post-template/notice.data';
 import type { PostTemplateNotice } from '@/modules/clothing/operations/post-template/notice.types';
+import { buildApiPath } from '@/lib/api/paths';
 
 interface Product {
   id: string;
@@ -49,7 +50,13 @@ const normalizeProductCode = (code: Product['Product Code']) => {
   return trimmed.length > 0 ? trimmed : null;
 };
 
-export function PostTemplateComponent() {
+interface PostTemplateComponentProps {
+  apiBasePath?: string;
+}
+
+export function PostTemplateComponent({
+  apiBasePath,
+}: PostTemplateComponentProps) {
   const [selectedProductCode, setSelectedProductCode] = useState<string | null>(
     null
   );
@@ -95,9 +102,9 @@ export function PostTemplateComponent() {
     async function fetchData() {
       try {
         const [productsRes, pricesRes, noticeRes] = await Promise.all([
-          fetch('/api/products'),
-          fetch('/api/prices'),
-          fetch('/api/post-template-notice'),
+          fetch(buildApiPath(apiBasePath, '/products')),
+          fetch(buildApiPath(apiBasePath, '/prices')),
+          fetch(buildApiPath(apiBasePath, '/post-template-notice')),
         ]);
 
         if (!productsRes.ok || !pricesRes.ok) {
@@ -158,7 +165,7 @@ export function PostTemplateComponent() {
       }
     }
     fetchData();
-  }, []);
+  }, [apiBasePath]);
 
   // Find selected product based on product code
   const selectedProduct =
@@ -359,11 +366,14 @@ Arrives In: ${arrivesInText}
 
     try {
       setSavingNotice(true);
-      const response = await fetch('/api/post-template-notice', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ introParagraphs, bulletPoints }),
-      });
+      const response = await fetch(
+        buildApiPath(apiBasePath, '/post-template-notice'),
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ introParagraphs, bulletPoints }),
+        }
+      );
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));

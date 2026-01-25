@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import { showNotification } from '@mantine/notifications';
 import Swal from 'sweetalert2';
 import { apiClient } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import { logger } from '@/lib/logger';
 import type { RawOrderData } from '../types';
 
@@ -11,12 +12,14 @@ interface UseDispatchActionsParams {
   effectiveRawData: RawOrderData[];
   lookupCustomerName: (username: string) => string;
   updateOrderCompletion: (orderId: string, completed: boolean) => void;
+  apiBasePath?: string;
 }
 
 export function useDispatchActions({
   effectiveRawData,
   lookupCustomerName,
   updateOrderCompletion,
+  apiBasePath,
 }: UseDispatchActionsParams) {
   // Handler for clicking customer name - copy and open Facebook
   const handleCustomerNameClick = useCallback(
@@ -113,7 +116,9 @@ export function useDispatchActions({
       }
 
       // Fetch all transactions
-      const transactions = (await apiClient.get('/api/transactions')) as Array<{
+      const transactions = (await apiClient.get(
+        buildApiPath(apiBasePath, '/transactions')
+      )) as Array<{
         id: number;
         Customers: string;
         'Order Status': string | null;
@@ -235,7 +240,7 @@ export function useDispatchActions({
 
       for (const transaction of matchingTransactions) {
         try {
-          await apiClient.patch('/api/transactions', {
+          await apiClient.patch(buildApiPath(apiBasePath, '/transactions'), {
             id: transaction.id,
             'Order Status': 'Shipped',
           });
@@ -274,7 +279,7 @@ export function useDispatchActions({
         confirmButtonColor: '#d33',
       });
     }
-  }, [effectiveRawData, lookupCustomerName]);
+  }, [apiBasePath, effectiveRawData, lookupCustomerName]);
 
   // Link customer handler
   const handleLinkCustomer = useCallback(

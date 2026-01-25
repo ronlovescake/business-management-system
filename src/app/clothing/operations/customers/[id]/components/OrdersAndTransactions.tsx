@@ -20,6 +20,7 @@ import Swal from 'sweetalert2';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { showNotification } from '@mantine/notifications';
 import { api, ApiError } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import { queryKeys } from '@/lib/queryKeys';
 import { logger } from '@/lib/logger';
 import type {
@@ -44,6 +45,7 @@ interface OrdersAndTransactionsProps {
   orders: Order[];
   transactions: Transaction[];
   stats: CustomerStats;
+  apiBasePath?: string;
 }
 
 export const OrdersAndTransactions = memo(function OrdersAndTransactions({
@@ -51,6 +53,7 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
   orders,
   transactions,
   stats,
+  apiBasePath,
 }: OrdersAndTransactionsProps) {
   const queryClient = useQueryClient();
   const [refundModalOpen, setRefundModalOpen] = useState(false);
@@ -72,8 +75,13 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
   }, [transactions]);
 
   const refundQueryKey = useMemo(
-    () => [...queryKeys.customers.detail(customerId), 'refunds'] as const,
-    [customerId]
+    () =>
+      [
+        ...queryKeys.customers.detail(customerId),
+        'refunds',
+        apiBasePath ?? 'default',
+      ] as const,
+    [apiBasePath, customerId]
   );
 
   const {
@@ -85,7 +93,7 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
     queryFn: async (): Promise<TransactionRefund[]> => {
       try {
         return await api.get<TransactionRefund[]>(
-          `/api/customers/${customerId}/refunds`
+          buildApiPath(apiBasePath, `/customers/${customerId}/refunds`)
         );
       } catch (error) {
         logger.error('Failed to fetch customer refunds:', error);
@@ -149,7 +157,7 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
       }
 
       return api.post<TransactionRefund>(
-        `/api/customers/${customerId}/refunds`,
+        buildApiPath(apiBasePath, `/customers/${customerId}/refunds`),
         {
           transactionId,
           refundDate,
@@ -192,7 +200,12 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
 
   const deleteRefundMutation = useMutation({
     mutationFn: async (refundId: number): Promise<void> => {
-      await api.delete(`/api/customers/${customerId}/refunds/${refundId}`);
+      await api.delete(
+        buildApiPath(
+          apiBasePath,
+          `/customers/${customerId}/refunds/${refundId}`
+        )
+      );
     },
     onSuccess: async () => {
       showNotification({

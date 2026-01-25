@@ -15,9 +15,13 @@ import { ShippingFeeCalculator } from './ShippingFeeCalculator';
 import { ProductStatsCards } from './ProductStatsCards';
 import { BundlesTab } from './BundlesTab';
 
-export function ProductsPage() {
+interface ProductsPageProps {
+  apiBasePath?: string;
+}
+
+export function ProductsPage({ apiBasePath }: ProductsPageProps) {
   const [activeTab, setActiveTab] = useState<string | null>('products');
-  const { isLoading, statistics } = useProductsData();
+  const { isLoading, statistics } = useProductsData(apiBasePath);
 
   return (
     <PageLayout fluid withPadding>
@@ -38,15 +42,15 @@ export function ProductsPage() {
             </Tabs.List>
 
             <Tabs.Panel value="products" pt="md">
-              <ProductsGrid />
+              <ProductsGrid apiBasePath={apiBasePath} />
             </Tabs.Panel>
 
             <Tabs.Panel value="bundles" pt="md">
-              <BundlesTab />
+              <BundlesTab apiBasePath={apiBasePath} />
             </Tabs.Panel>
 
             <Tabs.Panel value="shipping-calculator" pt="md">
-              <ShippingFeeCalculator />
+              <ShippingFeeCalculator apiBasePath={apiBasePath} />
             </Tabs.Panel>
           </Tabs>
         </Stack>

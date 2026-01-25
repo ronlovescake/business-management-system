@@ -8,6 +8,7 @@ import {
   buildInventoryItems,
   filterInventoryData,
 } from '../lib/inventoryTransforms';
+import { buildApiPath } from '@/lib/api/paths';
 import type {
   InventoryItem,
   InventoryTotals,
@@ -33,7 +34,7 @@ const HEADERS = [
   'SHIPMENT CODE',
 ] as const;
 
-export const useInventoryPage = () => {
+export const useInventoryPage = (apiBasePath?: string) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,10 +54,10 @@ export const useInventoryPage = () => {
         bundlesResponse,
         movementsResponse,
       ] = await Promise.all([
-        fetch('/api/products'),
-        fetch('/api/transactions'),
-        fetch('/api/bundles'),
-        fetch('/api/inventory/movements'),
+        fetch(buildApiPath(apiBasePath, '/products')),
+        fetch(buildApiPath(apiBasePath, '/transactions')),
+        fetch(buildApiPath(apiBasePath, '/bundles')),
+        fetch(buildApiPath(apiBasePath, '/inventory/movements')),
       ]);
 
       if (!productsResponse.ok) {
@@ -129,7 +130,7 @@ export const useInventoryPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [apiBasePath]);
 
   useEffect(() => {
     void fetchInventoryData();
@@ -209,11 +210,14 @@ export const useInventoryPage = () => {
     ) => {
       setIsSubmittingMovement(true);
       try {
-        const response = await fetch('/api/inventory/movements', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
+        const response = await fetch(
+          buildApiPath(apiBasePath, '/inventory/movements'),
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          }
+        );
 
         if (!response.ok) {
           const body = await response.json().catch(() => ({}));
@@ -242,11 +246,14 @@ export const useInventoryPage = () => {
     }) => {
       setIsSubmittingMovement(true);
       try {
-        const response = await fetch('/api/inventory/movements', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(params),
-        });
+        const response = await fetch(
+          buildApiPath(apiBasePath, '/inventory/movements'),
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(params),
+          }
+        );
 
         if (!response.ok) {
           const body = await response.json().catch(() => ({}));
@@ -272,7 +279,7 @@ export const useInventoryPage = () => {
       setIsSubmittingMovement(true);
       try {
         const response = await fetch(
-          `/api/inventory/movements?id=${encodeURIComponent(String(params.id))}`,
+          `${buildApiPath(apiBasePath, '/inventory/movements')}?id=${encodeURIComponent(String(params.id))}`,
           {
             method: 'DELETE',
           }

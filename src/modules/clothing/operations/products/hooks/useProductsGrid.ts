@@ -57,7 +57,13 @@ interface UseProductsGridResult {
   isLoading: boolean;
 }
 
-export function useProductsGrid(): UseProductsGridResult {
+interface UseProductsGridParams {
+  apiBasePath?: string;
+}
+
+export function useProductsGrid({
+  apiBasePath,
+}: UseProductsGridParams = {}): UseProductsGridResult {
   const {
     products,
     filteredProducts,
@@ -68,7 +74,7 @@ export function useProductsGrid(): UseProductsGridResult {
     addProduct,
     updateProduct,
     bulkUpdateProducts,
-  } = useProductsData();
+  } = useProductsData(apiBasePath);
 
   const productForm = useProductForm();
 

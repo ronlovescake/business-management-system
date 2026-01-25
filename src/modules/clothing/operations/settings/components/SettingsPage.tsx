@@ -43,7 +43,11 @@ const QUICK_ACTION_BUTTONS: Array<{
   { id: 'transactions', label: 'Transactions', tab: 'transactions' },
 ];
 
-export function SettingsPage() {
+interface SettingsPageProps {
+  apiBasePath?: string;
+}
+
+export function SettingsPage({ apiBasePath }: SettingsPageProps) {
   const searchParams = useSearchParams();
   const getInitialTab = () => {
     const param = searchParams?.get('tab');
@@ -177,7 +181,10 @@ export function SettingsPage() {
           </Tabs.Panel>
 
           <Tabs.Panel value="message" pt="md">
-            <InvoiceMessageTab initialSubTab={initialTemplateSubTab} />
+            <InvoiceMessageTab
+              initialSubTab={initialTemplateSubTab}
+              apiBasePath={apiBasePath}
+            />
           </Tabs.Panel>
 
           <Tabs.Panel value="transactions" pt="md">

@@ -46,7 +46,11 @@ import {
 } from '../types/shipment.types';
 import { operationsActionButtonStyles } from '../../common/buttonStyles';
 
-export function ShipmentsPage() {
+interface ShipmentsPageProps {
+  apiBasePath?: string;
+}
+
+export function ShipmentsPage({ apiBasePath }: ShipmentsPageProps) {
   // ==========================================================================
   // STATE
   // ==========================================================================
@@ -74,7 +78,7 @@ export function ShipmentsPage() {
     addShipment,
     updateShipment,
     createTransitBuildEntry,
-  } = useShipmentsData();
+  } = useShipmentsData({ apiBasePath });
 
   const {
     addModalOpened,

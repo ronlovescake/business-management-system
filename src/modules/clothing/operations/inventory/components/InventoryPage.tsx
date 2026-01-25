@@ -28,7 +28,11 @@ import { InventorySummary } from './InventorySummary';
 import { InventoryTable } from './InventoryTable';
 import { numberFormatter } from '../lib/formatters';
 
-export function InventoryPage() {
+interface InventoryPageProps {
+  apiBasePath?: string;
+}
+
+export function InventoryPage({ apiBasePath }: InventoryPageProps) {
   const ADDITIONALS_NOTE_PREFIX = 'additionals';
 
   const {
@@ -50,7 +54,7 @@ export function InventoryPage() {
     updateMovement,
     deleteMovement,
     getSellableOnHand,
-  } = useInventoryPage();
+  } = useInventoryPage(apiBasePath);
 
   const [activeTab, setActiveTab] = useState<'inventory' | 'adjustments'>(
     'inventory'

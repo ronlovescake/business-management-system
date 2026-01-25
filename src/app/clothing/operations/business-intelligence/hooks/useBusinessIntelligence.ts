@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import { queryKeys } from '@/lib/queryKeys';
 import { logger } from '@/lib/logger';
 import type {
@@ -82,8 +83,9 @@ export function formatNumber(value: number): string {
 // CUSTOM HOOK
 // ============================================================================
 
-export function useBusinessIntelligence() {
+export function useBusinessIntelligence(apiBasePath?: string) {
   const [dateFilter, setDateFilter] = useState<DateFilterType>('ytd');
+  const cacheSuffix = apiBasePath ?? 'default';
 
   // ============================================================================
   // DATA FETCHING WITH REACT QUERY
@@ -92,23 +94,27 @@ export function useBusinessIntelligence() {
   const [transactionsQuery, productsQuery, shipmentsQuery] = useQueries({
     queries: [
       {
-        queryKey: queryKeys.transactions.all,
+        queryKey: [...queryKeys.transactions.all, cacheSuffix],
         queryFn: async (): Promise<TransactionData[]> => {
-          return api.get<TransactionData[]>('/api/transactions');
+          return api.get<TransactionData[]>(
+            buildApiPath(apiBasePath, '/transactions')
+          );
         },
         staleTime: 30 * 1000, // 30 seconds
       },
       {
-        queryKey: queryKeys.products.all,
+        queryKey: [...queryKeys.products.all, cacheSuffix],
         queryFn: async (): Promise<ProductData[]> => {
-          return api.get<ProductData[]>('/api/products');
+          return api.get<ProductData[]>(buildApiPath(apiBasePath, '/products'));
         },
         staleTime: 30 * 1000,
       },
       {
-        queryKey: queryKeys.shipments.all,
+        queryKey: [...queryKeys.shipments.all, cacheSuffix],
         queryFn: async (): Promise<ShipmentData[]> => {
-          return api.get<ShipmentData[]>('/api/shipments');
+          return api.get<ShipmentData[]>(
+            buildApiPath(apiBasePath, '/shipments')
+          );
         },
         staleTime: 30 * 1000,
       },

@@ -31,6 +31,7 @@ import { MessageTemplatesBoard } from '@/app/clothing/operations/message-templat
 import { DEFAULT_MESSAGE_TEMPLATES } from '@/modules/clothing/operations/message-templates/templates.data';
 import type { MessageTemplate } from '@/modules/clothing/operations/message-templates/types';
 import { PostTemplatesTab } from './PostTemplatesTab';
+import { buildApiPath } from '@/lib/api/paths';
 
 interface InvoiceSettings {
   id: string;
@@ -44,10 +45,12 @@ export type TemplateSubTab = 'invoice' | 'message-templates' | 'post-templates';
 
 interface InvoiceMessageTabProps {
   initialSubTab?: TemplateSubTab;
+  apiBasePath?: string;
 }
 
 export default function InvoiceMessageTab({
   initialSubTab = 'invoice',
+  apiBasePath,
 }: InvoiceMessageTabProps) {
   const [loading, setLoading] = useState(false);
   const [fetchingSettings, setFetchingSettings] = useState(true);
@@ -115,7 +118,9 @@ export default function InvoiceMessageTab({
   const fetchMessageTemplates = async () => {
     try {
       setLoadingMessageTemplates(true);
-      const response = await fetch('/api/message-templates');
+      const response = await fetch(
+        buildApiPath(apiBasePath, '/message-templates')
+      );
 
       if (!response.ok) {
         throw new Error('Failed to load message templates');
@@ -144,13 +149,16 @@ export default function InvoiceMessageTab({
   const handleTemplateSave = async (
     template: MessageTemplate
   ): Promise<MessageTemplate> => {
-    const response = await fetch('/api/message-templates', {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(template),
-    });
+    const response = await fetch(
+      buildApiPath(apiBasePath, '/message-templates'),
+      {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(template),
+      }
+    );
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
@@ -173,13 +181,16 @@ export default function InvoiceMessageTab({
   const handleTemplateCreate = async (
     template: Omit<MessageTemplate, 'id'>
   ): Promise<MessageTemplate> => {
-    const response = await fetch('/api/message-templates', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(template),
-    });
+    const response = await fetch(
+      buildApiPath(apiBasePath, '/message-templates'),
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(template),
+      }
+    );
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
@@ -558,7 +569,7 @@ export default function InvoiceMessageTab({
           </Stack>
         </Tabs.Panel>
         <Tabs.Panel value="post-templates" pt="md">
-          <PostTemplatesTab />
+          <PostTemplatesTab apiBasePath={apiBasePath} />
         </Tabs.Panel>
       </Tabs>
     </Paper>

@@ -37,7 +37,13 @@ registerAllModules();
 /**
  * Sorting Distribution Page Component
  */
-export function SortingDistributionPage() {
+interface SortingDistributionPageProps {
+  apiBasePath?: string;
+}
+
+export function SortingDistributionPage({
+  apiBasePath,
+}: SortingDistributionPageProps) {
   const hotTableRef = useRef<HotTableClass | null>(null);
   const isEffectivelyEmpty = useCallback((value: unknown) => {
     if (value === null || value === undefined) {
@@ -346,6 +352,7 @@ export function SortingDistributionPage() {
     selectedQuantity,
     onSelectedQuantityChange: setSelectedQuantity,
     includeAllProducts,
+    apiBasePath,
   });
 
   const { totalDistribution, availableStock } = dataHook.statistics;

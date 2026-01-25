@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { showNotification } from '@mantine/notifications';
 import { api } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import { queryKeys } from '@/lib/queryKeys';
 import { logger } from '@/lib/logger';
 import type { CustomerData, Order, Transaction, CustomerStats } from '../types';
@@ -32,7 +33,8 @@ interface UseCustomerDetailsReturn {
 }
 
 export function useCustomerDetails(
-  customerId: string
+  customerId: string,
+  apiBasePath?: string
 ): UseCustomerDetailsReturn {
   const queryClient = useQueryClient();
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -48,9 +50,14 @@ export function useCustomerDetails(
     isLoading: customerLoading,
     refetch: refetchCustomer,
   } = useQuery({
-    queryKey: queryKeys.customers.detail(customerId),
+    queryKey: [
+      ...queryKeys.customers.detail(customerId),
+      apiBasePath ?? 'default',
+    ],
     queryFn: async (): Promise<CustomerData> => {
-      return api.get<CustomerData>(`/api/customers/${customerId}`);
+      return api.get<CustomerData>(
+        buildApiPath(apiBasePath, `/customers/${customerId}`)
+      );
     },
     enabled: !!customerId,
     staleTime: 30 * 1000,
@@ -58,10 +65,16 @@ export function useCustomerDetails(
 
   // Fetch orders
   const { data: orders = [], isLoading: ordersLoading } = useQuery({
-    queryKey: [...queryKeys.customers.detail(customerId), 'orders'],
+    queryKey: [
+      ...queryKeys.customers.detail(customerId),
+      'orders',
+      apiBasePath ?? 'default',
+    ],
     queryFn: async (): Promise<Order[]> => {
       try {
-        return await api.get<Order[]>(`/api/customers/${customerId}/orders`);
+        return await api.get<Order[]>(
+          buildApiPath(apiBasePath, `/customers/${customerId}/orders`)
+        );
       } catch (error) {
         logger.error('Failed to fetch orders:', error);
         return [];
@@ -73,11 +86,15 @@ export function useCustomerDetails(
 
   // Fetch transactions
   const { data: transactions = [], isLoading: transactionsLoading } = useQuery({
-    queryKey: [...queryKeys.customers.detail(customerId), 'transactions'],
+    queryKey: [
+      ...queryKeys.customers.detail(customerId),
+      'transactions',
+      apiBasePath ?? 'default',
+    ],
     queryFn: async (): Promise<Transaction[]> => {
       try {
         return await api.get<Transaction[]>(
-          `/api/customers/${customerId}/transactions`
+          buildApiPath(apiBasePath, `/customers/${customerId}/transactions`)
         );
       } catch (error) {
         logger.error('Failed to fetch transactions:', error);
@@ -105,23 +122,30 @@ export function useCustomerDetails(
     mutationFn: async (
       updatedData: Partial<CustomerData>
     ): Promise<CustomerData> => {
-      return api.put<CustomerData>(`/api/customers/${customerId}`, updatedData);
+      return api.put<CustomerData>(
+        buildApiPath(apiBasePath, `/customers/${customerId}`),
+        updatedData
+      );
     },
     onMutate: async (updatedData) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({
-        queryKey: queryKeys.customers.detail(customerId),
+        queryKey: [
+          ...queryKeys.customers.detail(customerId),
+          apiBasePath ?? 'default',
+        ],
       });
 
       // Snapshot previous value
-      const previousCustomer = queryClient.getQueryData<CustomerData>(
-        queryKeys.customers.detail(customerId)
-      );
+      const previousCustomer = queryClient.getQueryData<CustomerData>([
+        ...queryKeys.customers.detail(customerId),
+        apiBasePath ?? 'default',
+      ]);
 
       // Optimistically update to the new value
       if (previousCustomer) {
         queryClient.setQueryData<CustomerData>(
-          queryKeys.customers.detail(customerId),
+          [...queryKeys.customers.detail(customerId), apiBasePath ?? 'default'],
           { ...previousCustomer, ...updatedData }
         );
       }
@@ -132,7 +156,7 @@ export function useCustomerDetails(
       // Rollback on error
       if (context?.previousCustomer) {
         queryClient.setQueryData(
-          queryKeys.customers.detail(customerId),
+          [...queryKeys.customers.detail(customerId), apiBasePath ?? 'default'],
           context.previousCustomer
         );
       }
@@ -157,14 +181,20 @@ export function useCustomerDetails(
     onSettled: () => {
       // Invalidate and refetch
       void queryClient.invalidateQueries({
-        queryKey: queryKeys.customers.detail(customerId),
+        queryKey: [
+          ...queryKeys.customers.detail(customerId),
+          apiBasePath ?? 'default',
+        ],
       });
       void queryClient.invalidateQueries({
-        queryKey: queryKeys.customers.all,
+        queryKey: [...queryKeys.customers.all, apiBasePath ?? 'default'],
       });
       // Also invalidate dispatch page customer cache
       void queryClient.invalidateQueries({
-        queryKey: queryKeys.customers.withShopee(),
+        queryKey: [
+          ...queryKeys.customers.withShopee(),
+          apiBasePath ?? 'default',
+        ],
       });
 
       // CRITICAL: Broadcast update to other tabs/pages (like dispatch page)
@@ -186,10 +216,18 @@ export function useCustomerDetails(
     await Promise.all([
       refetchCustomer(),
       queryClient.invalidateQueries({
-        queryKey: [...queryKeys.customers.detail(customerId), 'orders'],
+        queryKey: [
+          ...queryKeys.customers.detail(customerId),
+          'orders',
+          apiBasePath ?? 'default',
+        ],
       }),
       queryClient.invalidateQueries({
-        queryKey: [...queryKeys.customers.detail(customerId), 'transactions'],
+        queryKey: [
+          ...queryKeys.customers.detail(customerId),
+          'transactions',
+          apiBasePath ?? 'default',
+        ],
       }),
     ]);
   };

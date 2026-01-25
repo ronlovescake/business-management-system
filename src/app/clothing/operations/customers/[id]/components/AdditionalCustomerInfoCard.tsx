@@ -21,6 +21,7 @@ import {
 import { showNotification } from '@mantine/notifications';
 import Swal from 'sweetalert2';
 import { logger } from '@/lib/logger';
+import { buildApiPath } from '@/lib/api/paths';
 
 // ============================================================================
 // ADDITIONAL CUSTOMER INFO CARD
@@ -33,6 +34,7 @@ interface AdditionalInfo {
 
 interface AdditionalCustomerInfoCardProps {
   customerId: string;
+  apiBasePath?: string;
 }
 
 interface AdditionalInfoState {
@@ -61,6 +63,7 @@ const normalizeAdditionalInfo = (payload: unknown): AdditionalInfoState => {
 export const AdditionalCustomerInfoCard = memo(
   function AdditionalCustomerInfoCard({
     customerId,
+    apiBasePath,
   }: AdditionalCustomerInfoCardProps) {
     const [addresses, setAddresses] = useState<AdditionalInfo[]>([]);
     const [phones, setPhones] = useState<AdditionalInfo[]>([]);
@@ -90,7 +93,7 @@ export const AdditionalCustomerInfoCard = memo(
     const fetchAdditionalInfo = async () => {
       try {
         const response = await fetch(
-          `/api/customers/${customerId}/additional-info`
+          buildApiPath(apiBasePath, `/customers/${customerId}/additional-info`)
         );
         if (response.ok) {
           const payload = await response.json();
@@ -116,7 +119,7 @@ export const AdditionalCustomerInfoCard = memo(
     useEffect(() => {
       fetchAdditionalInfo();
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [customerId]);
+    }, [customerId, apiBasePath]);
 
     // ============================================================================
     // SAVE DATA
@@ -126,7 +129,7 @@ export const AdditionalCustomerInfoCard = memo(
       setLoading(true);
       try {
         const response = await fetch(
-          `/api/customers/${customerId}/additional-info`,
+          buildApiPath(apiBasePath, `/customers/${customerId}/additional-info`),
           {
             method: 'POST',
             headers: {

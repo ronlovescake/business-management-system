@@ -45,6 +45,15 @@ import { fleetRegistryModule } from './trucking/operations/fleet-registry';
 
 // General Merchandise
 import { generalMerchandiseTransactionsModule } from './general-merchandise/operations/transactions';
+import { generalMerchandiseDashboardModule } from './general-merchandise/operations/dashboard';
+import { generalMerchandiseCustomersModule } from './general-merchandise/operations/customers';
+import { generalMerchandiseProductsModule } from './general-merchandise/operations/products';
+import { generalMerchandisePricesModule } from './general-merchandise/operations/prices';
+import { generalMerchandiseInventoryModule } from './general-merchandise/operations/inventory';
+import { generalMerchandiseShipmentsModule } from './general-merchandise/operations/shipments';
+import { generalMerchandiseSortingDistributionModule } from './general-merchandise/operations/sorting-distribution';
+import { generalMerchandiseDispatchModule } from './general-merchandise/operations/dispatch';
+import { generalMerchandiseSettingsModule } from './general-merchandise/operations/settings';
 
 // Employees
 // import { expensesModule } from './trucking/employees/expenses';
@@ -79,6 +88,15 @@ moduleRegistry.register(settingsModule); // ✅ REGISTERED!
 
 // General Merchandise
 moduleRegistry.register(generalMerchandiseTransactionsModule);
+moduleRegistry.register(generalMerchandiseDashboardModule);
+moduleRegistry.register(generalMerchandiseCustomersModule);
+moduleRegistry.register(generalMerchandiseProductsModule);
+moduleRegistry.register(generalMerchandisePricesModule);
+moduleRegistry.register(generalMerchandiseInventoryModule);
+moduleRegistry.register(generalMerchandiseShipmentsModule);
+moduleRegistry.register(generalMerchandiseSortingDistributionModule);
+moduleRegistry.register(generalMerchandiseDispatchModule);
+moduleRegistry.register(generalMerchandiseSettingsModule);
 
 // Trucking
 // moduleRegistry.register(deliveriesModule);

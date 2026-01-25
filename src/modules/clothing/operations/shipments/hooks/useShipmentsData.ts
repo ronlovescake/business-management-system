@@ -28,7 +28,9 @@ import { SEARCH_FIELDS } from '../types/shipment.types';
 /**
  * Hook for managing shipments data and operations
  */
-export function useShipmentsData() {
+export function useShipmentsData({
+  apiBasePath,
+}: { apiBasePath?: string } = {}) {
   const queryClient = useQueryClient();
 
   // ==========================================================================
@@ -41,15 +43,20 @@ export function useShipmentsData() {
   // LOAD DATA using React Query
   // ==========================================================================
 
+  const shipmentsQueryKey = useMemo(
+    () => [...queryKeys.shipments.lists(), apiBasePath ?? 'default'],
+    [apiBasePath]
+  );
+
   const {
     data: shipments = [],
     isLoading: loading,
     refetch: loadShipments,
   } = useQuery({
-    queryKey: queryKeys.shipments.lists(),
+    queryKey: shipmentsQueryKey,
     queryFn: async () => {
       try {
-        return await ShipmentService.loadShipments();
+        return await ShipmentService.loadShipments(apiBasePath);
       } catch (error) {
         logger.error('Failed to load shipments:', error);
         showNotification({
@@ -112,18 +119,17 @@ export function useShipmentsData() {
    */
   const addShipmentMutation = useMutation({
     mutationFn: async (formData: ShipmentFormData) => {
-      return await ShipmentService.addShipment(formData);
+      return await ShipmentService.addShipment(formData, apiBasePath);
     },
     onMutate: async (formData) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({
-        queryKey: queryKeys.shipments.lists(),
+        queryKey: shipmentsQueryKey,
       });
 
       // Snapshot previous value
-      const previousShipments = queryClient.getQueryData<ShipmentData[]>(
-        queryKeys.shipments.lists()
-      );
+      const previousShipments =
+        queryClient.getQueryData<ShipmentData[]>(shipmentsQueryKey);
 
       // Create temporary shipment for optimistic update
       // Note: We use a placeholder since we don't know the real ID yet
@@ -152,7 +158,7 @@ export function useShipmentsData() {
 
       // Optimistically update
       if (previousShipments) {
-        queryClient.setQueryData<ShipmentData[]>(queryKeys.shipments.lists(), [
+        queryClient.setQueryData<ShipmentData[]>(shipmentsQueryKey, [
           ...previousShipments,
           tempShipment,
         ]);
@@ -163,10 +169,7 @@ export function useShipmentsData() {
     onError: (_error, _variables, context) => {
       // Rollback on error
       if (context?.previousShipments) {
-        queryClient.setQueryData(
-          queryKeys.shipments.lists(),
-          context.previousShipments
-        );
+        queryClient.setQueryData(shipmentsQueryKey, context.previousShipments);
       }
       logger.error('Error adding shipment:', _error);
       showNotification({
@@ -177,7 +180,7 @@ export function useShipmentsData() {
     },
     onSettled: () => {
       // Always refetch after error or success
-      queryClient.invalidateQueries({ queryKey: queryKeys.shipments.lists() });
+      queryClient.invalidateQueries({ queryKey: shipmentsQueryKey });
     },
   });
 
@@ -197,24 +200,24 @@ export function useShipmentsData() {
       return await ShipmentService.updateShipment(
         id,
         formData,
-        existingShipment
+        existingShipment,
+        apiBasePath
       );
     },
     onMutate: async ({ id, formData }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({
-        queryKey: queryKeys.shipments.lists(),
+        queryKey: shipmentsQueryKey,
       });
 
       // Snapshot previous value
-      const previousShipments = queryClient.getQueryData<ShipmentData[]>(
-        queryKeys.shipments.lists()
-      );
+      const previousShipments =
+        queryClient.getQueryData<ShipmentData[]>(shipmentsQueryKey);
 
       // Optimistically update
       if (previousShipments) {
         queryClient.setQueryData<ShipmentData[]>(
-          queryKeys.shipments.lists(),
+          shipmentsQueryKey,
           previousShipments.map((s) => {
             if (s.id !== id) {
               return s;
@@ -250,10 +253,7 @@ export function useShipmentsData() {
     onError: (_error, _variables, context) => {
       // Rollback on error
       if (context?.previousShipments) {
-        queryClient.setQueryData(
-          queryKeys.shipments.lists(),
-          context.previousShipments
-        );
+        queryClient.setQueryData(shipmentsQueryKey, context.previousShipments);
       }
       logger.error('Error updating shipment:', _error);
       showNotification({
@@ -264,7 +264,7 @@ export function useShipmentsData() {
     },
     onSettled: () => {
       // Always refetch after error or success
-      queryClient.invalidateQueries({ queryKey: queryKeys.shipments.lists() });
+      queryClient.invalidateQueries({ queryKey: shipmentsQueryKey });
     },
   });
 
@@ -283,7 +283,11 @@ export function useShipmentsData() {
         notes?: string;
       };
     }) => {
-      return await ShipmentService.createTransitBuildEntry(shipmentId, input);
+      return await ShipmentService.createTransitBuildEntry(
+        shipmentId,
+        input,
+        apiBasePath
+      );
     },
   });
 
@@ -293,19 +297,18 @@ export function useShipmentsData() {
   const csvImportMutation = useMutation({
     mutationFn: async (file: File) => {
       const importedShipments = await ShipmentService.parseCSVFile(file);
-      await ShipmentService.bulkImportShipments(importedShipments);
+      await ShipmentService.bulkImportShipments(importedShipments, apiBasePath);
       return importedShipments;
     },
     onMutate: async () => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({
-        queryKey: queryKeys.shipments.lists(),
+        queryKey: shipmentsQueryKey,
       });
 
       // Snapshot previous value
-      const previousShipments = queryClient.getQueryData<ShipmentData[]>(
-        queryKeys.shipments.lists()
-      );
+      const previousShipments =
+        queryClient.getQueryData<ShipmentData[]>(shipmentsQueryKey);
 
       return { previousShipments };
     },
@@ -316,10 +319,7 @@ export function useShipmentsData() {
     onError: (_error, _variables, context) => {
       // Rollback on error
       if (context?.previousShipments) {
-        queryClient.setQueryData(
-          queryKeys.shipments.lists(),
-          context.previousShipments
-        );
+        queryClient.setQueryData(shipmentsQueryKey, context.previousShipments);
       }
       const errorMessage =
         _error instanceof Error ? _error.message : 'Unknown error occurred';
@@ -333,7 +333,7 @@ export function useShipmentsData() {
     },
     onSettled: () => {
       // Always refetch after error or success
-      queryClient.invalidateQueries({ queryKey: queryKeys.shipments.lists() });
+      queryClient.invalidateQueries({ queryKey: shipmentsQueryKey });
     },
   });
 

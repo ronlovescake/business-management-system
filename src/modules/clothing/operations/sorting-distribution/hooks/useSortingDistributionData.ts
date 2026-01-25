@@ -22,6 +22,7 @@ import {
   normalizeProductCode,
   type MovementLike,
 } from '@/lib/inventory/movements';
+import { buildApiPath } from '@/lib/api/paths';
 
 const cloneRows = (rows: DistributionRow[]): DistributionRow[] =>
   rows.map((row) => ({ ...row }));
@@ -87,6 +88,7 @@ export interface UseSortingDistributionDataProps {
   selectedQuantity: number | null;
   onSelectedQuantityChange: (quantity: number | null) => void;
   includeAllProducts: boolean;
+  apiBasePath?: string;
 }
 
 /**
@@ -97,6 +99,7 @@ export function useSortingDistributionData({
   selectedQuantity,
   onSelectedQuantityChange,
   includeAllProducts,
+  apiBasePath,
 }: UseSortingDistributionDataProps): UseSortingDistributionDataReturn {
   const defaultRowsRef = useRef<DistributionRow[]>(
     SortingDistributionService.createDefaultRows()
@@ -130,14 +133,17 @@ export function useSortingDistributionData({
     const loadProducts = async () => {
       setIsLoading(true);
       const { productOptions: options, allProducts: products } =
-        await SortingDistributionService.loadProducts(includeAllProducts);
+        await SortingDistributionService.loadProducts(
+          includeAllProducts,
+          apiBasePath
+        );
       setProductOptions(options);
       setAllProducts(products);
       setIsLoading(false);
     };
 
     loadProducts();
-  }, [includeAllProducts]);
+  }, [apiBasePath, includeAllProducts]);
 
   /**
    * Load transactions on mount
@@ -145,11 +151,11 @@ export function useSortingDistributionData({
   useEffect(() => {
     const loadTransactions = async () => {
       const transactionsData =
-        await SortingDistributionService.loadTransactions();
+        await SortingDistributionService.loadTransactions(apiBasePath);
       setTransactions(transactionsData);
     };
     loadTransactions();
-  }, []);
+  }, [apiBasePath]);
 
   /**
    * Load inventory movements once (used to compute movement-based sellable on-hand).
@@ -159,7 +165,9 @@ export function useSortingDistributionData({
   useEffect(() => {
     const loadMovements = async () => {
       try {
-        const response = await fetch('/api/inventory/movements');
+        const response = await fetch(
+          buildApiPath(apiBasePath, '/inventory/movements')
+        );
         if (!response.ok) {
           throw new Error(`Failed to fetch movements: ${response.statusText}`);
         }
@@ -189,7 +197,7 @@ export function useSortingDistributionData({
     };
 
     loadMovements();
-  }, []);
+  }, [apiBasePath]);
 
   const sellableDeltaByProduct = useMemo(() => {
     return buildSellableDeltaMap(movements);
@@ -266,7 +274,10 @@ export function useSortingDistributionData({
       logger.info('🔄 LOADING distribution data for:', code);
       setIsLoading(true);
       const { rows: loadedRows, selectedQuantity: savedQuantity } =
-        await SortingDistributionService.loadDistributionData(code);
+        await SortingDistributionService.loadDistributionData(
+          code,
+          apiBasePath
+        );
 
       lastSavedRowsRef.current = cloneRows(loadedRows);
       lastSavedSelectedQuantityRef.current = savedQuantity ?? null;
@@ -286,7 +297,7 @@ export function useSortingDistributionData({
       onSelectedQuantityChange(savedQuantity);
       setIsLoading(false);
     },
-    [onSelectedQuantityChange]
+    [apiBasePath, onSelectedQuantityChange]
   );
 
   /**
@@ -403,7 +414,8 @@ export function useSortingDistributionData({
         const result = await SortingDistributionService.saveDistributionData(
           productCode,
           selectedQuantity,
-          rows
+          rows,
+          apiBasePath
         );
         logger.info('✅ AUTO-SAVE successful:', result);
         if (result.success) {

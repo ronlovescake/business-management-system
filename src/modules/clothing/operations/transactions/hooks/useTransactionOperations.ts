@@ -80,6 +80,10 @@ export function useTransactionOperations(
   } = props;
 
   const queryClient = useQueryClient();
+  const operationsNotificationsQueryKey = [
+    ...queryKeys.operationsNotifications.all,
+    apiBasePath ?? 'default',
+  ];
 
   const draftRowsRef = useRef<Map<number, TransactionData>>(new Map());
   const creatingDraftRowsRef = useRef<Set<number>>(new Set());
@@ -334,21 +338,24 @@ export function useTransactionOperations(
 
   const logNotification = useCallback(
     (message: string, metadata?: Record<string, unknown>) => {
-      OperationsNotificationsService.log({
-        category: 'transactions',
-        changes: message,
-        metadata,
-      })
+      OperationsNotificationsService.log(
+        {
+          category: 'transactions',
+          changes: message,
+          metadata,
+        },
+        apiBasePath
+      )
         .then(() => {
           queryClient.invalidateQueries({
-            queryKey: queryKeys.operationsNotifications.all,
+            queryKey: operationsNotificationsQueryKey,
           });
         })
         .catch((error) => {
           logger.error('Failed to log transaction notification:', error);
         });
     },
-    [queryClient]
+    [apiBasePath, operationsNotificationsQueryKey, queryClient]
   );
 
   const describeTransaction = useCallback((transaction: TransactionData) => {

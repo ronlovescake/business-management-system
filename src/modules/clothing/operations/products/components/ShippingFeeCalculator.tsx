@@ -235,7 +235,13 @@ const HANDSONTABLE_THEME = `
   }
 `;
 
-export function ShippingFeeCalculator() {
+interface ShippingFeeCalculatorProps {
+  apiBasePath?: string;
+}
+
+export function ShippingFeeCalculator({
+  apiBasePath,
+}: ShippingFeeCalculatorProps) {
   const {
     data,
     gridHeight,
@@ -252,7 +258,7 @@ export function ShippingFeeCalculator() {
     handleShipmentCodeChange,
     handleAfterChange,
     resultSummary,
-  } = useShippingFeeCalculator();
+  } = useShippingFeeCalculator({ apiBasePath });
 
   return (
     <Stack gap="md">

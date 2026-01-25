@@ -81,7 +81,6 @@ const customGridStyles = `
     font-size: 20px !important;
     font-weight: 600 !important;
     text-align: center !important;
-    apiBasePath,
     justify-content: center !important;
     display: flex !important;
     align-items: center !important;

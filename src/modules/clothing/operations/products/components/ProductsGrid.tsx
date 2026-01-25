@@ -23,7 +23,11 @@ const AddProductModal = dynamic(
   }
 );
 
-export function ProductsGrid() {
+interface ProductsGridProps {
+  apiBasePath?: string;
+}
+
+export function ProductsGrid({ apiBasePath }: ProductsGridProps) {
   const {
     searchQuery,
     handleSearch,
@@ -42,7 +46,7 @@ export function ProductsGrid() {
     products,
     statistics,
     productForm,
-  } = useProductsGrid();
+  } = useProductsGrid({ apiBasePath });
 
   return (
     <>

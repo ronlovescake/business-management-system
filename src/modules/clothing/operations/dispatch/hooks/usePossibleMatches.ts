@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
 import { logger } from '@/lib/logger';
 import { useMemo, useEffect } from 'react';
+import { buildApiPath } from '@/lib/api/paths';
 import {
   calculateAddressSimilarity,
   calculatePhoneSimilarity,
@@ -50,9 +51,9 @@ interface UnmatchedOrder {
  * Fetch all customers with ALL their addresses in a single optimized query
  * This prevents the N+1 query problem of fetching addresses individually
  */
-async function fetchCustomersWithAllAddresses(): Promise<
-  DispatchCustomerWithAddresses[]
-> {
+async function fetchCustomersWithAllAddresses(
+  apiBasePath?: string
+): Promise<DispatchCustomerWithAddresses[]> {
   try {
     type CustomerRecord = {
       id: number;
@@ -68,7 +69,9 @@ async function fetchCustomersWithAllAddresses(): Promise<
       data?: {
         customers: CustomerRecord[];
       };
-    }>('/api/customers/with-all-addresses', { unwrapApiResponse: false });
+    }>(buildApiPath(apiBasePath, '/customers/with-all-addresses'), {
+      unwrapApiResponse: false,
+    });
 
     if (!response.success || !response.data) {
       throw new Error('Invalid response from API');
@@ -193,7 +196,8 @@ async function findPossibleMatches(
 export function usePossibleMatches(
   unmatchedOrders: UnmatchedOrder[],
   enabled = false,
-  serverCustomersWithAddresses?: DispatchCustomerWithAddresses[]
+  serverCustomersWithAddresses?: DispatchCustomerWithAddresses[],
+  apiBasePath?: string
 ) {
   const shouldFetchCustomers = enabled && !serverCustomersWithAddresses;
 
@@ -203,8 +207,11 @@ export function usePossibleMatches(
     isLoading: loadingCustomers,
     refetch: refetchCustomers,
   } = useQuery({
-    queryKey: ['possible-match-customers-with-addresses'],
-    queryFn: fetchCustomersWithAllAddresses,
+    queryKey: [
+      'possible-match-customers-with-addresses',
+      apiBasePath ?? 'default',
+    ],
+    queryFn: () => fetchCustomersWithAllAddresses(apiBasePath),
     staleTime: 30 * 1000, // 30 seconds - catch customer updates quickly
     refetchOnWindowFocus: true, // Refetch when user returns to tab
     refetchOnMount: true, // Refetch when component mounts

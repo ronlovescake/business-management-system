@@ -17,6 +17,7 @@ import Swal from 'sweetalert2';
 import { DEFAULT_POST_TEMPLATE_NOTICE } from '@/modules/clothing/operations/post-template/notice.data';
 import type { PostTemplateNotice } from '@/modules/clothing/operations/post-template/notice.types';
 import { logger } from '@/lib/logger';
+import { buildApiPath } from '@/lib/api/paths';
 
 const serializeNotice = (notice: PostTemplateNotice) => ({
   paragraphs: notice.introParagraphs.join('\n\n'),
@@ -35,7 +36,7 @@ const parseBullets = (value: string) =>
     .map((item) => item.trim())
     .filter(Boolean);
 
-export function PostTemplatesTab() {
+export function PostTemplatesTab({ apiBasePath }: { apiBasePath?: string }) {
   const [loading, setLoading] = useState(true);
   const [editingEnabled, setEditingEnabled] = useState(false);
   const [noticeValues, setNoticeValues] = useState(() =>
@@ -49,12 +50,14 @@ export function PostTemplatesTab() {
   useEffect(() => {
     fetchNotice();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [apiBasePath]);
 
   const fetchNotice = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/post-template-notice');
+      const response = await fetch(
+        buildApiPath(apiBasePath, '/post-template-notice')
+      );
       if (!response.ok) {
         throw new Error('Failed to load post template notice');
       }
@@ -136,11 +139,14 @@ export function PostTemplatesTab() {
 
     try {
       setSaving(true);
-      const response = await fetch('/api/post-template-notice', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ introParagraphs, bulletPoints }),
-      });
+      const response = await fetch(
+        buildApiPath(apiBasePath, '/post-template-notice'),
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ introParagraphs, bulletPoints }),
+        }
+      );
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));

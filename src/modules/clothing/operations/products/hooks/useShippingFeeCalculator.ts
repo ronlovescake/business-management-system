@@ -8,6 +8,7 @@ import type Handsontable from 'handsontable';
 type ColumnSettings = Handsontable.ColumnSettings;
 import { useShipmentsData } from '../../shipments/hooks/useShipmentsData';
 import { useProductsData } from './useProductsData';
+import { buildApiPath } from '@/lib/api/paths';
 
 const PERSISTED_SHIPMENT_CODE_KEY =
   'shippingFeeCalculator:selectedShipmentCode';
@@ -230,9 +231,15 @@ const extractRawRows = (rows: ShippingFeeData[]): ShippingFeeRawRow[] =>
     multiplier: row.multiplier,
   }));
 
-export function useShippingFeeCalculator() {
-  const { shipments } = useShipmentsData();
-  const { products } = useProductsData();
+interface UseShippingFeeCalculatorParams {
+  apiBasePath?: string;
+}
+
+export function useShippingFeeCalculator({
+  apiBasePath,
+}: UseShippingFeeCalculatorParams = {}) {
+  const { shipments } = useShipmentsData({ apiBasePath });
+  const { products } = useProductsData(apiBasePath);
 
   const [data, setData] = useState<ShippingFeeData[]>([createEmptyRow()]);
   const [gridHeight, setGridHeight] = useState(600);
@@ -265,7 +272,10 @@ export function useShippingFeeCalculator() {
   const loadSavedState = useCallback(async (shipmentCode: string) => {
     try {
       const response = await fetch(
-        `/api/clothing/operations/products/shipping-fee-calculator?shipmentCode=${encodeURIComponent(shipmentCode)}`
+        `${buildApiPath(
+          apiBasePath ?? '/api/clothing',
+          '/operations/products/shipping-fee-calculator'
+        )}?shipmentCode=${encodeURIComponent(shipmentCode)}`
       );
 
       if (!response.ok) {
@@ -338,7 +348,10 @@ export function useShippingFeeCalculator() {
 
       try {
         const response = await fetch(
-          '/api/clothing/operations/products/shipping-fee-calculator',
+          buildApiPath(
+            apiBasePath ?? '/api/clothing',
+            '/operations/products/shipping-fee-calculator'
+          ),
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

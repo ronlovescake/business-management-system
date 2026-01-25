@@ -119,7 +119,11 @@ async function confirmTripleDeleteBundle(
   return step3.isConfirmed;
 }
 
-export function BundlesTab() {
+interface BundlesTabProps {
+  apiBasePath?: string;
+}
+
+export function BundlesTab({ apiBasePath }: BundlesTabProps) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<BundleFormState>(() => createEmptyBundle());
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -128,15 +132,25 @@ export function BundlesTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isBundleModalOpen, setIsBundleModalOpen] = useState(false);
 
+  const bundlesQueryKey = useMemo(
+    () => [...queryKeys.bundles.lists(), apiBasePath ?? 'default'],
+    [apiBasePath]
+  );
+
+  const productsQueryKey = useMemo(
+    () => [...queryKeys.products.lists(), apiBasePath ?? 'default'],
+    [apiBasePath]
+  );
+
   const { data: bundles = [], isLoading: bundlesLoading } = useQuery({
-    queryKey: queryKeys.bundles.lists(),
-    queryFn: () => BundleService.loadBundles(),
+    queryKey: bundlesQueryKey,
+    queryFn: () => BundleService.loadBundles(apiBasePath),
     staleTime: 30 * 1000,
   });
 
   const { data: products = [], isLoading: productsLoading } = useQuery({
-    queryKey: queryKeys.products.lists(),
-    queryFn: () => ProductService.loadProducts(),
+    queryKey: productsQueryKey,
+    queryFn: () => ProductService.loadProducts(apiBasePath),
     staleTime: 30 * 1000,
   });
 
@@ -212,10 +226,10 @@ export function BundlesTab() {
 
   const createMutation = useMutation({
     mutationFn: async (payload: CreateBundleInput) => {
-      return await BundleService.createBundle(payload);
+      return await BundleService.createBundle(payload, apiBasePath);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.bundles.lists() });
+      queryClient.invalidateQueries({ queryKey: bundlesQueryKey });
       setForm(createEmptyBundle());
       setIsBundleSkuManual(false);
       setEditingBundleId(null);
@@ -231,10 +245,10 @@ export function BundlesTab() {
 
   const updateMutation = useMutation({
     mutationFn: async (payload: CreateBundleInput & { id: number }) => {
-      return await BundleService.updateBundle(payload);
+      return await BundleService.updateBundle(payload, apiBasePath);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.bundles.lists() });
+      queryClient.invalidateQueries({ queryKey: bundlesQueryKey });
       setForm(createEmptyBundle());
       setIsBundleSkuManual(false);
       setEditingBundleId(null);
@@ -250,10 +264,10 @@ export function BundlesTab() {
 
   const deleteMutation = useMutation({
     mutationFn: async (bundleId: number) => {
-      return await BundleService.deleteBundle(bundleId);
+      return await BundleService.deleteBundle(bundleId, apiBasePath);
     },
     onSuccess: (_, bundleId) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.bundles.lists() });
+      queryClient.invalidateQueries({ queryKey: bundlesQueryKey });
       if (editingBundleId === bundleId) {
         setEditingBundleId(null);
         setForm(createEmptyBundle());
