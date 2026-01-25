@@ -4,12 +4,13 @@ import { useState, useCallback, useEffect } from 'react';
 import type { PriceFormData, PriceData } from '../types/price.types';
 import { PriceService } from '../services/PriceService';
 import { api } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import { logger } from '@/lib/logger';
 
 /**
  * Custom hook for managing price form state and operations
  */
-export function usePriceForm() {
+export function usePriceForm(apiBasePath?: string) {
   // Form state
   const [form, setForm] = useState<PriceFormData>(
     PriceService.createEmptyForm()
@@ -26,15 +27,19 @@ export function usePriceForm() {
   const fetchProductCodes = useCallback(async () => {
     try {
       // Fetch all products
-      const products =
-        await api.get<Array<Record<string, unknown>>>('/api/products');
+      const products = await api.get<Array<Record<string, unknown>>>(
+        buildApiPath(apiBasePath, '/products')
+      );
 
       // Fetch bundle batches so bundle SKUs can also be priced
-      const bundles =
-        await api.get<Array<Record<string, unknown>>>('/api/bundles');
+      const bundles = await api.get<Array<Record<string, unknown>>>(
+        buildApiPath(apiBasePath, '/bundles')
+      );
 
       // Fetch existing prices to filter out product codes that already have prices
-      const prices = await api.get<PriceData[]>('/api/prices');
+      const prices = await api.get<PriceData[]>(
+        buildApiPath(apiBasePath, '/prices')
+      );
       const existingProductCodes = new Set(
         prices.map((p) => p['Product Code'])
       );
@@ -71,7 +76,7 @@ export function usePriceForm() {
       logger.error('Failed to fetch product codes:', error);
       setProductCodeOptions([]);
     }
-  }, []);
+  }, [apiBasePath]);
 
   /**
    * Fetch product codes on mount
@@ -105,8 +110,12 @@ export function usePriceForm() {
 
       try {
         const [products, bundles] = await Promise.all([
-          api.get<Array<Record<string, unknown>>>('/api/products'),
-          api.get<Array<Record<string, unknown>>>('/api/bundles'),
+          api.get<Array<Record<string, unknown>>>(
+            buildApiPath(apiBasePath, '/products')
+          ),
+          api.get<Array<Record<string, unknown>>>(
+            buildApiPath(apiBasePath, '/bundles')
+          ),
         ]);
 
         const product = products.find(
@@ -174,7 +183,7 @@ export function usePriceForm() {
         logger.error('Failed to fetch product:', error);
       }
     },
-    []
+    [apiBasePath]
   );
 
   /**

@@ -7,6 +7,8 @@ import {
   type Item,
 } from '@glideapps/glide-data-grid';
 import type { CustomerData } from '../types/customer.types';
+import { useBusinessStore } from '@/lib/store';
+import { buildWorkspacePath } from '@/lib/routes';
 
 interface UseCustomersGridProps {
   filteredCustomers: CustomerData[];
@@ -14,6 +16,7 @@ interface UseCustomersGridProps {
 
 export function useCustomersGrid({ filteredCustomers }: UseCustomersGridProps) {
   const router = useRouter();
+  const { selectedBusiness } = useBusinessStore();
   const lastClickRef = useRef<{ cell: Item; time: number } | null>(null);
 
   // Customer columns
@@ -174,7 +177,12 @@ export function useCustomersGrid({ filteredCustomers }: UseCustomersGridProps) {
         ) {
           const customer = filteredCustomers[row];
           if (customer?.id) {
-            router.push(`/clothing/operations/customers/${customer.id}`);
+            const target = buildWorkspacePath(
+              selectedBusiness,
+              'operations',
+              `/customers/${customer.id}`
+            );
+            router.push(target);
           }
           lastClickRef.current = null;
         } else {
@@ -182,7 +190,7 @@ export function useCustomersGrid({ filteredCustomers }: UseCustomersGridProps) {
         }
       }
     },
-    [columns, filteredCustomers, router]
+    [columns, filteredCustomers, router, selectedBusiness]
   );
 
   return {

@@ -15,8 +15,12 @@ import { PriceService } from '../services/PriceService';
 /**
  * Custom hook for managing prices data, search, and statistics
  */
-export function usePricesData() {
+export function usePricesData(apiBasePath?: string) {
   const queryClient = useQueryClient();
+  const pricesQueryKey = useMemo(
+    () => [...queryKeys.prices.lists(), apiBasePath ?? 'default'],
+    [apiBasePath]
+  );
 
   // State
   const [searchQuery, setSearchQuery] = useState('');
@@ -30,10 +34,10 @@ export function usePricesData() {
     error: queryError,
     refetch: reloadPrices,
   } = useQuery({
-    queryKey: queryKeys.prices.lists(),
+    queryKey: pricesQueryKey,
     queryFn: async () => {
       try {
-        return await PriceService.loadPrices();
+        return await PriceService.loadPrices(apiBasePath);
       } catch (error) {
         logger.error('Error loading prices:', error);
         throw error;
@@ -71,7 +75,7 @@ export function usePricesData() {
    */
   const addPriceMutation = useMutation({
     mutationFn: async (price: PriceData) => {
-      const success = await PriceService.addPrice(price);
+      const success = await PriceService.addPrice(price, apiBasePath);
       if (!success) {
         throw new Error('Failed to save price');
       }
@@ -79,16 +83,15 @@ export function usePricesData() {
     },
     onMutate: async (newPrice) => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: queryKeys.prices.lists() });
+      await queryClient.cancelQueries({ queryKey: pricesQueryKey });
 
       // Snapshot previous value
-      const previousPrices = queryClient.getQueryData<PriceData[]>(
-        queryKeys.prices.lists()
-      );
+      const previousPrices =
+        queryClient.getQueryData<PriceData[]>(pricesQueryKey);
 
       // Optimistically update
       if (previousPrices) {
-        queryClient.setQueryData<PriceData[]>(queryKeys.prices.lists(), [
+        queryClient.setQueryData<PriceData[]>(pricesQueryKey, [
           ...previousPrices,
           newPrice,
         ]);
@@ -99,13 +102,13 @@ export function usePricesData() {
     onError: (_error, _variables, context) => {
       // Rollback on error
       if (context?.previousPrices) {
-        queryClient.setQueryData(queryKeys.prices.lists(), context.previousPrices);
+        queryClient.setQueryData(pricesQueryKey, context.previousPrices);
       }
       logger.error('Error adding price:', _error);
     },
     onSettled: () => {
       // Always refetch after error or success
-      queryClient.invalidateQueries({ queryKey: queryKeys.prices.lists() });
+      queryClient.invalidateQueries({ queryKey: pricesQueryKey });
     },
   });
 
@@ -114,7 +117,10 @@ export function usePricesData() {
    */
   const bulkUpdatePricesMutation = useMutation({
     mutationFn: async (updatedPrices: PriceData[]) => {
-      const success = await PriceService.bulkUpdatePrices(updatedPrices);
+      const success = await PriceService.bulkUpdatePrices(
+        updatedPrices,
+        apiBasePath
+      );
       if (!success) {
         throw new Error('Failed to update prices');
       }
@@ -122,31 +128,27 @@ export function usePricesData() {
     },
     onMutate: async (updatedPrices) => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: queryKeys.prices.lists() });
+      await queryClient.cancelQueries({ queryKey: pricesQueryKey });
 
       // Snapshot previous value
-      const previousPrices = queryClient.getQueryData<PriceData[]>(
-        queryKeys.prices.lists()
-      );
+      const previousPrices =
+        queryClient.getQueryData<PriceData[]>(pricesQueryKey);
 
       // Optimistically update
-      queryClient.setQueryData<PriceData[]>(
-        queryKeys.prices.lists(),
-        updatedPrices
-      );
+      queryClient.setQueryData<PriceData[]>(pricesQueryKey, updatedPrices);
 
       return { previousPrices };
     },
     onError: (_error, _variables, context) => {
       // Rollback on error
       if (context?.previousPrices) {
-        queryClient.setQueryData(queryKeys.prices.lists(), context.previousPrices);
+        queryClient.setQueryData(pricesQueryKey, context.previousPrices);
       }
       logger.error('Error updating prices:', _error);
     },
     onSettled: () => {
       // Always refetch after error or success
-      queryClient.invalidateQueries({ queryKey: queryKeys.prices.lists() });
+      queryClient.invalidateQueries({ queryKey: pricesQueryKey });
     },
   });
 
@@ -155,7 +157,7 @@ export function usePricesData() {
    */
   const replaceAllPricesMutation = useMutation({
     mutationFn: async (newPrices: PriceData[]) => {
-      return await PriceService.replaceAllPrices(newPrices);
+      return await PriceService.replaceAllPrices(newPrices, apiBasePath);
     },
     onMutate: async (newPrices) => {
       // Cancel outgoing refetches
@@ -167,14 +169,20 @@ export function usePricesData() {
       );
 
       // Optimistically update
-      queryClient.setQueryData<PriceData[]>(queryKeys.prices.lists(), newPrices);
+      queryClient.setQueryData<PriceData[]>(
+        queryKeys.prices.lists(),
+        newPrices
+      );
 
       return { previousPrices };
     },
     onError: (_error, _variables, context) => {
       // Rollback on error
       if (context?.previousPrices) {
-        queryClient.setQueryData(queryKeys.prices.lists(), context.previousPrices);
+        queryClient.setQueryData(
+          queryKeys.prices.lists(),
+          context.previousPrices
+        );
       }
       logger.error('Error replacing prices:', _error);
     },

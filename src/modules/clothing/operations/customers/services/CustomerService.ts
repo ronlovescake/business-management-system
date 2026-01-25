@@ -8,6 +8,7 @@ import type {
 } from '../types/customer.types';
 import type { ApiResponse } from '@/types/api';
 import { api } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import { ensureArray } from '@/lib/api/normalize';
 import { logger } from '@/lib/logger';
 
@@ -73,6 +74,9 @@ type CustomerImportApiResponse = ApiResponse<{
  * CSV import/export, validation, and statistics calculation
  */
 class CustomerService {
+  private static buildPath(apiBasePath: string | undefined, path: string) {
+    return buildApiPath(apiBasePath, path);
+  }
   /**
    * Customer status options for dropdown
    */
@@ -333,12 +337,13 @@ class CustomerService {
    */
   static async exportToCSVDetailed(
     filename = 'customers-detailed.csv',
-    maxColumns = 5
+    maxColumns = 5,
+    apiBasePath?: string
   ): Promise<{ success: boolean; warning?: string }> {
     try {
       // Fetch customers with all additional info
       const response = await api.get<CustomerExportApiResponse>(
-        '/api/customers/export',
+        CustomerService.buildPath(apiBasePath, '/customers/export'),
         { unwrapApiResponse: false }
       );
 
@@ -506,13 +511,14 @@ class CustomerService {
    * This format is ideal for analysis/reporting when customers have many additional items
    */
   static async exportToCSVDuplicateRows(
-    filename = 'customers-analysis.csv'
+    filename = 'customers-analysis.csv',
+    apiBasePath?: string
   ): Promise<void> {
     try {
       // Fetch customers with all additional info
 
       const response = await api.get<CustomerExportApiResponse>(
-        '/api/customers/export',
+        CustomerService.buildPath(apiBasePath, '/customers/export'),
         { unwrapApiResponse: false }
       );
 
@@ -647,7 +653,10 @@ class CustomerService {
   /**
    * Import customers from CSV file (Detailed format with numbered columns)
    */
-  static async importFromCSV(file: File): Promise<{
+  static async importFromCSV(
+    file: File,
+    apiBasePath?: string
+  ): Promise<{
     success: boolean;
     stats?: CustomerImportStats;
     error?: string;
@@ -657,11 +666,14 @@ class CustomerService {
       formData.append('file', file);
 
       // Use fetch directly for FormData to avoid JSON.stringify in api.post
-      const fetchResponse = await fetch('/api/customers/import', {
-        method: 'POST',
-        body: formData,
-        // Don't set Content-Type header - browser will set it with boundary
-      });
+      const fetchResponse = await fetch(
+        CustomerService.buildPath(apiBasePath, '/customers/import'),
+        {
+          method: 'POST',
+          body: formData,
+          // Don't set Content-Type header - browser will set it with boundary
+        }
+      );
 
       if (!fetchResponse.ok) {
         const errorData = await fetchResponse.json();
@@ -758,11 +770,11 @@ class CustomerService {
   /**
    * API: Load all customers
    */
-  static async loadCustomers(): Promise<CustomerData[]> {
+  static async loadCustomers(apiBasePath?: string): Promise<CustomerData[]> {
     try {
       const response = await api.get<
         CustomerData[] | ApiResponse<CustomerData[]>
-      >('/api/customers');
+      >(CustomerService.buildPath(apiBasePath, '/customers'));
       return ensureArray<CustomerData>(response);
     } catch (error) {
       logger.error('Failed to load customers', error);
@@ -773,9 +785,15 @@ class CustomerService {
   /**
    * API: Add new customer
    */
-  static async addCustomer(customer: CustomerData): Promise<void> {
+  static async addCustomer(
+    customer: CustomerData,
+    apiBasePath?: string
+  ): Promise<void> {
     try {
-      await api.post('/api/customers', customer);
+      await api.post(
+        CustomerService.buildPath(apiBasePath, '/customers'),
+        customer
+      );
     } catch (error) {
       logger.error('Failed to add customer', error);
       throw error;
@@ -785,7 +803,10 @@ class CustomerService {
   /**
    * API: Bulk update customers (for CSV import or paste mode)
    */
-  static async bulkUpdateCustomers(customers: CustomerData[]): Promise<{
+  static async bulkUpdateCustomers(
+    customers: CustomerData[],
+    apiBasePath?: string
+  ): Promise<{
     created: number;
     updated: number;
     skipped: number;
@@ -805,7 +826,7 @@ class CustomerService {
           customerName: string;
           issues: Record<string, string>;
         }>;
-      }>('/api/customers', customers);
+      }>(CustomerService.buildPath(apiBasePath, '/customers'), customers);
 
       // Log skipped customers if any
       if (json.skipped > 0 && json.skippedDetails) {

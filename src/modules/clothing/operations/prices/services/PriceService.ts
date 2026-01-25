@@ -7,12 +7,16 @@ import type {
   CSVImportResult,
 } from '../types/price.types';
 import { api } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import { logger } from '@/lib/logger';
 
 /**
  * Service for managing price data and operations
  */
 class PriceService {
+  private static buildPath(apiBasePath: string | undefined, path: string) {
+    return buildApiPath(apiBasePath, path);
+  }
   /**
    * Validate price data
    */
@@ -360,9 +364,11 @@ class PriceService {
   /**
    * Load prices from API
    */
-  static async loadPrices(): Promise<PriceData[]> {
+  static async loadPrices(apiBasePath?: string): Promise<PriceData[]> {
     try {
-      const data = await api.get<PriceData[]>('/api/prices');
+      const data = await api.get<PriceData[]>(
+        PriceService.buildPath(apiBasePath, '/prices')
+      );
       return Array.isArray(data) ? data : [];
     } catch (error) {
       logger.error('Error loading prices:', error);
@@ -373,9 +379,12 @@ class PriceService {
   /**
    * Add a single price
    */
-  static async addPrice(price: PriceData): Promise<boolean> {
+  static async addPrice(
+    price: PriceData,
+    apiBasePath?: string
+  ): Promise<boolean> {
     try {
-      await api.post('/api/prices', [price]); // Send as array
+      await api.post(PriceService.buildPath(apiBasePath, '/prices'), [price]); // Send as array
       return true;
     } catch (error) {
       logger.error('Error adding price:', error);
@@ -386,9 +395,12 @@ class PriceService {
   /**
    * Add multiple prices (for multi-tier pricing)
    */
-  static async addMultiplePrices(prices: PriceData[]): Promise<boolean> {
+  static async addMultiplePrices(
+    prices: PriceData[],
+    apiBasePath?: string
+  ): Promise<boolean> {
     try {
-      await api.post('/api/prices', prices);
+      await api.post(PriceService.buildPath(apiBasePath, '/prices'), prices);
       return true;
     } catch (error) {
       logger.error('Error adding multiple prices:', error);
@@ -399,9 +411,12 @@ class PriceService {
   /**
    * Bulk update prices
    */
-  static async bulkUpdatePrices(prices: PriceData[]): Promise<boolean> {
+  static async bulkUpdatePrices(
+    prices: PriceData[],
+    apiBasePath?: string
+  ): Promise<boolean> {
     try {
-      await api.post('/api/prices', prices);
+      await api.post(PriceService.buildPath(apiBasePath, '/prices'), prices);
       return true;
     } catch (error) {
       logger.error('Error updating prices:', error);
@@ -412,9 +427,15 @@ class PriceService {
   /**
    * Replace all prices (used after CSV import)
    */
-  static async replaceAllPrices(prices: PriceData[]): Promise<number> {
+  static async replaceAllPrices(
+    prices: PriceData[],
+    apiBasePath?: string
+  ): Promise<number> {
     try {
-      const result = await api.post<{ count: number }>('/api/prices', prices);
+      const result = await api.post<{ count: number }>(
+        PriceService.buildPath(apiBasePath, '/prices'),
+        prices
+      );
       return result.count || prices.length;
     } catch (error) {
       logger.error('Error replacing prices:', error);
@@ -428,11 +449,16 @@ class PriceService {
    */
   static async updateProductPrices(
     productCode: string,
-    prices: PriceData[]
+    prices: PriceData[],
+    apiBasePath?: string
   ): Promise<boolean> {
     try {
       // Use PUT endpoint to update specific product
-      await api.put(`/api/prices?productCode=${encodeURIComponent(productCode)}`, prices);
+      const path = PriceService.buildPath(apiBasePath, '/prices');
+      await api.put(
+        `${path}?productCode=${encodeURIComponent(productCode)}`,
+        prices
+      );
       return true;
     } catch (error) {
       logger.error('Error updating product prices:', error);
@@ -444,9 +470,7 @@ class PriceService {
    * Convert existing price data to form data for editing
    * Groups all tiers by product code and populates form
    */
-  static priceDataToForm(
-    allPricesForProduct: PriceData[]
-  ): PriceFormData {
+  static priceDataToForm(allPricesForProduct: PriceData[]): PriceFormData {
     // Sort by lower limit to get proper tier order
     const sortedTiers = [...allPricesForProduct].sort(
       (a, b) => a['Lower Limit'] - b['Lower Limit']

@@ -11,8 +11,12 @@ import { CustomerService } from '../services/CustomerService';
  * Custom hook for managing customers data
  * Handles data fetching, search, filtering, and statistics
  */
-export function useCustomersData() {
+export function useCustomersData(apiBasePath?: string) {
   const queryClient = useQueryClient();
+  const customersQueryKey = useMemo(
+    () => [...queryKeys.customers.lists(), apiBasePath ?? 'default'],
+    [apiBasePath]
+  );
 
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -24,10 +28,10 @@ export function useCustomersData() {
     isLoading,
     error: queryError,
   } = useQuery({
-    queryKey: queryKeys.customers.lists(),
+    queryKey: customersQueryKey,
     queryFn: async () => {
       try {
-        return await CustomerService.loadCustomers();
+        return await CustomerService.loadCustomers(apiBasePath);
       } catch (error) {
         logger.error('Failed to load customers:', error);
         throw error;
@@ -81,22 +85,21 @@ export function useCustomersData() {
    */
   const addCustomerMutation = useMutation({
     mutationFn: async (newCustomer: CustomerData) => {
-      return await CustomerService.addCustomer(newCustomer);
+      return await CustomerService.addCustomer(newCustomer, apiBasePath);
     },
     onMutate: async (newCustomer) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({
-        queryKey: queryKeys.customers.lists(),
+        queryKey: customersQueryKey,
       });
 
       // Snapshot previous value
-      const previousCustomers = queryClient.getQueryData<CustomerData[]>(
-        queryKeys.customers.lists()
-      );
+      const previousCustomers =
+        queryClient.getQueryData<CustomerData[]>(customersQueryKey);
 
       // Optimistically update
       if (previousCustomers) {
-        queryClient.setQueryData<CustomerData[]>(queryKeys.customers.lists(), [
+        queryClient.setQueryData<CustomerData[]>(customersQueryKey, [
           newCustomer,
           ...previousCustomers,
         ]);
@@ -107,16 +110,13 @@ export function useCustomersData() {
     onError: (_error, _variables, context) => {
       // Rollback on error
       if (context?.previousCustomers) {
-        queryClient.setQueryData(
-          queryKeys.customers.lists(),
-          context.previousCustomers
-        );
+        queryClient.setQueryData(customersQueryKey, context.previousCustomers);
       }
       logger.error('Failed to add customer:', _error);
     },
     onSettled: () => {
       // Always refetch after error or success
-      queryClient.invalidateQueries({ queryKey: queryKeys.customers.lists() });
+      queryClient.invalidateQueries({ queryKey: customersQueryKey });
       // Also invalidate dispatch page customer cache
       queryClient.invalidateQueries({
         queryKey: queryKeys.customers.withShopee(),
@@ -138,40 +138,36 @@ export function useCustomersData() {
    */
   const bulkUpdateCustomersMutation = useMutation({
     mutationFn: async (newCustomers: CustomerData[]) => {
-      return await CustomerService.bulkUpdateCustomers(newCustomers);
+      return await CustomerService.bulkUpdateCustomers(
+        newCustomers,
+        apiBasePath
+      );
     },
     onMutate: async (newCustomers) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({
-        queryKey: queryKeys.customers.lists(),
+        queryKey: customersQueryKey,
       });
 
       // Snapshot previous value
-      const previousCustomers = queryClient.getQueryData<CustomerData[]>(
-        queryKeys.customers.lists()
-      );
+      const previousCustomers =
+        queryClient.getQueryData<CustomerData[]>(customersQueryKey);
 
       // Optimistically update
-      queryClient.setQueryData<CustomerData[]>(
-        queryKeys.customers.lists(),
-        newCustomers
-      );
+      queryClient.setQueryData<CustomerData[]>(customersQueryKey, newCustomers);
 
       return { previousCustomers };
     },
     onError: (_error, _variables, context) => {
       // Rollback on error
       if (context?.previousCustomers) {
-        queryClient.setQueryData(
-          queryKeys.customers.lists(),
-          context.previousCustomers
-        );
+        queryClient.setQueryData(customersQueryKey, context.previousCustomers);
       }
       logger.error('Failed to bulk update customers:', _error);
     },
     onSettled: () => {
       // Always refetch after error or success
-      queryClient.invalidateQueries({ queryKey: queryKeys.customers.lists() });
+      queryClient.invalidateQueries({ queryKey: customersQueryKey });
       // Also invalidate dispatch page customer cache
       queryClient.invalidateQueries({
         queryKey: queryKeys.customers.withShopee(),

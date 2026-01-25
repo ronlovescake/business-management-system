@@ -36,6 +36,10 @@ import { CustomerStatsCards } from './CustomerStatsCards';
 import { operationsActionButtonStyles } from '../../common/buttonStyles';
 import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
 
+interface CustomersPageProps {
+  apiBasePath?: string;
+}
+
 // Lazy load modal component
 const AddCustomerModal = dynamic(
   () =>
@@ -77,6 +81,7 @@ const customGridStyles = `
     font-size: 20px !important;
     font-weight: 600 !important;
     text-align: center !important;
+    apiBasePath,
     justify-content: center !important;
     display: flex !important;
     align-items: center !important;
@@ -101,7 +106,7 @@ const customGridStyles = `
  * Customers Page Component
  * Main component for customer management with grid view, search, CSV import, and CRUD operations
  */
-export function CustomersPage() {
+export function CustomersPage({ apiBasePath }: CustomersPageProps) {
   // Data hooks
   const {
     customers,
@@ -111,7 +116,7 @@ export function CustomersPage() {
     isLoading,
     handleSearch,
     addCustomer,
-  } = useCustomersData();
+  } = useCustomersData(apiBasePath);
 
   const {
     formData,
@@ -123,7 +128,7 @@ export function CustomersPage() {
     getValidatedCustomerData,
   } = useCustomerForm(customers);
 
-  const { checkForDuplicates } = useCustomerDuplicateCheck();
+  const { checkForDuplicates } = useCustomerDuplicateCheck(apiBasePath);
 
   // Grid logic hook
   const { columns, getData, getRowCount, drawHeader, handleCellClick } =
@@ -137,7 +142,7 @@ export function CustomersPage() {
     handleExportCSV,
     handleExportDetailedCSV,
     handleExportAnalysisCSV,
-  } = useCustomersCSV({ customers, filteredCustomers });
+  } = useCustomersCSV({ customers, filteredCustomers, apiBasePath });
 
   // Local state for responsive grid height
   const [gridHeight, setGridHeight] = useState<number>(600);

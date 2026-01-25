@@ -1,11 +1,14 @@
 import { api } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import { logger } from '@/lib/logger';
 import type { BundleBatch, CreateBundleInput } from '../types/bundle.types';
 
 export class BundleService {
-  static async loadBundles(): Promise<BundleBatch[]> {
+  static async loadBundles(apiBasePath?: string): Promise<BundleBatch[]> {
     try {
-      const data = await api.get<BundleBatch[]>('/api/bundles');
+      const data = await api.get<BundleBatch[]>(
+        buildApiPath(apiBasePath, '/bundles')
+      );
       return Array.isArray(data) ? data : [];
     } catch (error) {
       logger.error('Error loading bundles:', error);
@@ -13,17 +16,32 @@ export class BundleService {
     }
   }
 
-  static async createBundle(bundle: CreateBundleInput): Promise<BundleBatch> {
-    return await api.post<BundleBatch>('/api/bundles', bundle);
+  static async createBundle(
+    bundle: CreateBundleInput,
+    apiBasePath?: string
+  ): Promise<BundleBatch> {
+    return await api.post<BundleBatch>(
+      buildApiPath(apiBasePath, '/bundles'),
+      bundle
+    );
   }
 
   static async updateBundle(
-    bundle: CreateBundleInput & { id: number }
+    bundle: CreateBundleInput & { id: number },
+    apiBasePath?: string
   ): Promise<BundleBatch> {
-    return await api.patch<BundleBatch>('/api/bundles', bundle);
+    return await api.patch<BundleBatch>(
+      buildApiPath(apiBasePath, '/bundles'),
+      bundle
+    );
   }
 
-  static async deleteBundle(bundleId: number): Promise<{ success: true }> {
-    return await api.delete<{ success: true }>(`/api/bundles?id=${bundleId}`);
+  static async deleteBundle(
+    bundleId: number,
+    apiBasePath?: string
+  ): Promise<{ success: true }> {
+    return await api.delete<{ success: true }>(
+      `${buildApiPath(apiBasePath, '/bundles')}?id=${bundleId}`
+    );
   }
 }

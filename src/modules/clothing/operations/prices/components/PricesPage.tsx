@@ -29,6 +29,7 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import { usePricesData } from '../hooks/usePricesData';
 import { usePriceForm } from '../hooks/usePriceForm';
 import { PriceService } from '../services/PriceService';
@@ -88,7 +89,11 @@ const applyActualPriceToTiers = (
 /**
  * Main Prices page component
  */
-export function PricesPage() {
+interface PricesPageProps {
+  apiBasePath?: string;
+}
+
+export function PricesPage({ apiBasePath }: PricesPageProps) {
   // Hooks
   const {
     prices,
@@ -100,7 +105,7 @@ export function PricesPage() {
     isLoading,
     replaceAllPrices,
     reloadPrices,
-  } = usePricesData();
+  } = usePricesData(apiBasePath);
 
   const {
     form,
@@ -113,7 +118,7 @@ export function PricesPage() {
     openAddModal,
     closeAddModal,
     resetForm,
-  } = usePriceForm();
+  } = usePriceForm(apiBasePath);
 
   // Edit modal state and form
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -136,8 +141,9 @@ export function PricesPage() {
       }
 
       try {
-        const products =
-          await api.get<Array<Record<string, unknown>>>('/api/products');
+        const products = await api.get<Array<Record<string, unknown>>>(
+          buildApiPath(apiBasePath, '/products')
+        );
 
         const product = products.find((p) => {
           const rawCode =
@@ -164,7 +170,7 @@ export function PricesPage() {
         return null;
       }
     },
-    []
+    [apiBasePath]
   );
 
   const syncEditFormWithProductPrice = useCallback(
@@ -263,7 +269,9 @@ export function PricesPage() {
               setTimeout(async () => {
                 try {
                   // Fetch all products
-                  const response = await fetch('/api/products');
+                  const response = await fetch(
+                    buildApiPath(apiBasePath, '/products')
+                  );
                   const products = await response.json();
 
                   // Find the product by product code
@@ -358,7 +366,7 @@ export function PricesPage() {
         void syncEditFormWithProductPrice(formNeedingPriceSync);
       }
     },
-    [syncEditFormWithProductPrice]
+    [apiBasePath, syncEditFormWithProductPrice]
   );
 
   const setEditPriceAdjustment = useCallback((value: number) => {

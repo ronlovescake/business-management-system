@@ -41,6 +41,7 @@ import {
 
 import { calculateProductFinancials } from '@/lib/productCalculations';
 import { api } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import { ensureArray } from '@/lib/api/normalize';
 import { logger } from '@/lib/logger';
 import type { ApiResponse } from '@/types/api';
@@ -766,12 +767,12 @@ export class ProductService {
    * Fetches products and enriches with shipment data
    * Sorted by newest first (highest ID first)
    */
-  static async loadProducts(): Promise<ProductData[]> {
+  static async loadProducts(apiBasePath?: string): Promise<ProductData[]> {
     try {
       // Fetch products from API
       const productResponse = await api.get<
         ProductData[] | ApiResponse<ProductData[]>
-      >('/api/products');
+      >(buildApiPath(apiBasePath, '/products'));
       const products = ensureArray<ProductData>(productResponse);
 
       // Fetch shipments for lookup
@@ -779,7 +780,7 @@ export class ProductService {
       try {
         const shipmentResponse = await api.get<
           ShipmentData[] | ApiResponse<ShipmentData[]>
-        >('/api/shipments');
+        >(buildApiPath(apiBasePath, '/shipments'));
         shipments = ensureArray<ShipmentData>(shipmentResponse);
       } catch (error) {
         // Continue without shipment data if API fails
@@ -877,14 +878,17 @@ export class ProductService {
    * Lookup shipment by code
    */
   static async lookupShipment(
-    shipmentCode: string
+    shipmentCode: string,
+    apiBasePath?: string
   ): Promise<ShipmentData | null> {
     if (!shipmentCode.trim()) {
       return null;
     }
 
     try {
-      const shipments = await api.get<ShipmentData[]>('/api/shipments');
+      const shipments = await api.get<ShipmentData[]>(
+        buildApiPath(apiBasePath, '/shipments')
+      );
       return shipments.find((s) => s['Shipment Code'] === shipmentCode) || null;
     } catch (error) {
       logger.error('Failed to lookup shipment:', error);
@@ -896,10 +900,11 @@ export class ProductService {
    * Add new product to database
    */
   static async addProduct(
-    product: ProductData
+    product: ProductData,
+    apiBasePath?: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      await api.post('/api/products', [product]);
+      await api.post(buildApiPath(apiBasePath, '/products'), [product]);
       return { success: true };
     } catch (error) {
       return {
@@ -917,10 +922,12 @@ export class ProductService {
    */
   static async updateProduct(
     productId: number,
-    product: Partial<ProductData>
+    product: Partial<ProductData>,
+    apiBasePath?: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      await api.put(`/api/products/${productId}`, product);
+      const path = buildApiPath(apiBasePath, '/products');
+      await api.put(`${path}/${productId}`, product);
       return { success: true };
     } catch (error) {
       return {
@@ -937,10 +944,11 @@ export class ProductService {
    * Bulk update products (for paste operations)
    */
   static async bulkUpdateProducts(
-    products: ProductData[]
+    products: ProductData[],
+    apiBasePath?: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      await api.put('/api/products', products);
+      await api.put(buildApiPath(apiBasePath, '/products'), products);
       return { success: true };
     } catch (error) {
       return {

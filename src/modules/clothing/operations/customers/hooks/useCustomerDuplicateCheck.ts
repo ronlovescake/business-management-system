@@ -7,6 +7,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
+import { buildApiPath } from '@/lib/api/paths';
 import { logger } from '@/lib/logger';
 import {
   calculateAddressSimilarity,
@@ -59,10 +60,12 @@ interface NewCustomerData {
 /**
  * Fetch all customers with addresses for duplicate checking
  */
-async function fetchCustomersForDuplicateCheck(): Promise<CustomerData[]> {
+async function fetchCustomersForDuplicateCheck(
+  apiBasePath?: string
+): Promise<CustomerData[]> {
   try {
     const response = await api.get<CustomerWithAddressesApiResponse>(
-      '/api/customers/with-all-addresses',
+      buildApiPath(apiBasePath, '/customers/with-all-addresses'),
       { unwrapApiResponse: false }
     );
 
@@ -340,11 +343,11 @@ export function closeCheckingDialog(): void {
 /**
  * Custom hook for customer duplicate checking
  */
-export function useCustomerDuplicateCheck() {
+export function useCustomerDuplicateCheck(apiBasePath?: string) {
   // Fetch all customers for duplicate checking
   const { data: customers = [], isLoading } = useQuery({
-    queryKey: ['customers-duplicate-check'],
-    queryFn: fetchCustomersForDuplicateCheck,
+    queryKey: ['customers-duplicate-check', apiBasePath ?? 'default'],
+    queryFn: () => fetchCustomersForDuplicateCheck(apiBasePath),
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 

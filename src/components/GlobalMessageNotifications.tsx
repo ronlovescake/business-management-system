@@ -11,6 +11,8 @@ import {
   initializeAudioContext,
 } from '@/lib/notificationSound';
 import { useNotificationPreferences } from '@/hooks/useNotificationPreferences';
+import { useBusinessStore } from '@/lib/store';
+import { getMessagingPath } from '@/lib/routes';
 
 const STORAGE_KEY = 'seenMessageNotifications';
 
@@ -18,9 +20,9 @@ export function GlobalMessageNotifications() {
   const { data: session } = useSession();
   const currentUserId = session?.user?.id;
   const pathname = usePathname();
-  const isMessagingPage = pathname?.startsWith(
-    '/clothing/operations/messaging'
-  );
+  const { selectedBusiness } = useBusinessStore();
+  const messagingPath = getMessagingPath(selectedBusiness);
+  const isMessagingPage = pathname?.startsWith(messagingPath);
   const { preferences } = useNotificationPreferences();
 
   // Load seen message IDs from localStorage on mount
@@ -147,7 +149,7 @@ export function GlobalMessageNotifications() {
           position: 'top-right',
           autoClose: 5000,
           onClick: () => {
-            window.location.href = '/clothing/operations/messaging';
+            window.location.href = messagingPath;
           },
           style: { cursor: 'pointer' },
         });
@@ -162,7 +164,13 @@ export function GlobalMessageNotifications() {
     if (shouldPersist) {
       persistSeenMessages();
     }
-  }, [conversations, currentUserId, isMessagingPage, preferences.soundEnabled]);
+  }, [
+    conversations,
+    currentUserId,
+    isMessagingPage,
+    messagingPath,
+    preferences.soundEnabled,
+  ]);
 
   return null; // This component doesn't render anything
 }

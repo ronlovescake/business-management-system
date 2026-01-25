@@ -9,11 +9,13 @@ import type { CustomerData } from '../types/customer.types';
 interface UseCustomersCSVProps {
   customers: CustomerData[];
   filteredCustomers: CustomerData[];
+  apiBasePath?: string;
 }
 
 export function useCustomersCSV({
   customers,
   filteredCustomers,
+  apiBasePath,
 }: UseCustomersCSVProps) {
   const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
@@ -34,7 +36,7 @@ export function useCustomersCSV({
         autoClose: false,
       });
 
-      const result = await CustomerService.importFromCSV(file);
+      const result = await CustomerService.importFromCSV(file, apiBasePath);
 
       hideNotification('import-progress');
 
@@ -113,7 +115,11 @@ export function useCustomersCSV({
       const timestamp = new Date().toISOString().slice(0, 10);
       const filename = `customers-detailed-${timestamp}.csv`;
 
-      const result = await CustomerService.exportToCSVDetailed(filename, 5);
+      const result = await CustomerService.exportToCSVDetailed(
+        filename,
+        5,
+        apiBasePath
+      );
 
       if (result.warning) {
         showNotification({
@@ -146,7 +152,7 @@ export function useCustomersCSV({
       const timestamp = new Date().toISOString().slice(0, 10);
       const filename = `customers-analysis-${timestamp}.csv`;
 
-      await CustomerService.exportToCSVDuplicateRows(filename);
+      await CustomerService.exportToCSVDuplicateRows(filename, apiBasePath);
 
       showNotification({
         title: 'Export Successful',

@@ -63,6 +63,7 @@ import type { Session } from 'next-auth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
 import { useBusinessStore } from '@/lib/store';
+import { getMessagingPath } from '@/lib/routes';
 import {
   messagingService,
   type Conversation,
@@ -321,6 +322,10 @@ export function HeaderQuickActions({
   const router = useRouter();
   const { selectedBusiness, selectedWorkspace, initializeFromPath } =
     useBusinessStore();
+  const messagingPath = useMemo(
+    () => getMessagingPath(selectedBusiness),
+    [selectedBusiness]
+  );
   const currentUserId = session?.user?.id ?? null;
   const currentUserEmail = session?.user?.email ?? null;
 
@@ -472,6 +477,7 @@ export function HeaderQuickActions({
         currentUserEmail={currentUserEmail}
         onConversationSelect={handleOpenConversation}
         onViewAll={handleViewAllMessages}
+        messagingPath={messagingPath}
       />
       <NotificationsMenu unreadNotifications={unreadNotifications} />
       <SettingsButton />
@@ -489,6 +495,7 @@ export function HeaderQuickActions({
         currentUserEmail={currentUserEmail}
         onClose={handleCloseConversation}
         onToggleMinimize={handleToggleMinimize}
+        messagingPath={messagingPath}
       />
     </Group>
   );
@@ -641,6 +648,7 @@ interface MessagesMenuProps {
   currentUserEmail?: string | null;
   onConversationSelect: (conversationId: string) => void;
   onViewAll: () => void;
+  messagingPath: string;
 }
 
 const MessagesMenu = memo(function MessagesMenu({
@@ -659,6 +667,7 @@ const MessagesMenu = memo(function MessagesMenu({
   currentUserEmail,
   onConversationSelect,
   onViewAll,
+  messagingPath,
 }: MessagesMenuProps) {
   const statusLabel = loadingConversations
     ? 'Loading conversations…'
@@ -819,7 +828,7 @@ const MessagesMenu = memo(function MessagesMenu({
 
           <Button
             component="a"
-            href="/clothing/operations/messaging"
+            href={messagingPath}
             variant="light"
             size="xs"
             radius="md"
@@ -996,6 +1005,7 @@ interface ChatWindowProps {
   currentUserEmail?: string | null;
   onClose: (conversationId: string) => void;
   onToggleMinimize: (conversationId: string) => void;
+  messagingPath: string;
 }
 
 const ChatWindow = memo(function ChatWindow({
@@ -1008,6 +1018,7 @@ const ChatWindow = memo(function ChatWindow({
   currentUserEmail,
   onClose,
   onToggleMinimize,
+  messagingPath,
 }: ChatWindowProps) {
   const [draft, setDraft] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -1160,7 +1171,7 @@ const ChatWindow = memo(function ChatWindow({
                 leftSection={<IconMessages size={16} />}
                 onClick={() => {
                   if (typeof window !== 'undefined') {
-                    window.location.href = '/clothing/operations/messaging';
+                    window.location.href = messagingPath;
                   }
                 }}
               >
@@ -1333,6 +1344,7 @@ interface ChatWindowsProps {
   currentUserEmail?: string | null;
   onClose: (conversationId: string) => void;
   onToggleMinimize: (conversationId: string) => void;
+  messagingPath: string;
 }
 
 const ChatWindows = memo(function ChatWindows({
@@ -1342,6 +1354,7 @@ const ChatWindows = memo(function ChatWindows({
   currentUserEmail,
   onClose,
   onToggleMinimize,
+  messagingPath,
 }: ChatWindowsProps) {
   if (openChats.length === 0) {
     return null;
@@ -1379,6 +1392,7 @@ const ChatWindows = memo(function ChatWindows({
             currentUserEmail={currentUserEmail}
             onClose={onClose}
             onToggleMinimize={onToggleMinimize}
+            messagingPath={messagingPath}
           />
         );
       })}
