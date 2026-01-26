@@ -14,8 +14,8 @@ Phase 1 is the “GM exists and is usable” milestone. Keep it boring and relia
 
 **In scope (Phase 1):**
 
-- [ ] GM selectable in UI alongside Clothing / Trucking / Personal
-- [ ] GM route skeletons exist and load: `/general-merchandise/operations`, `/general-merchandise/employees`, `/general-merchandise/accounting`
+- [x] GM selectable in UI alongside Clothing / Trucking / Personal
+- [x] GM route skeletons exist and load: `/general-merchandise/operations`, `/general-merchandise/employees`, `/general-merchandise/accounting`
 - [x] GM reuses the same shared UI components as Clothing (tables, action bars, stats cards, modals) so look & feel is consistent
 - [ ] GM access control mirrors the existing role model (USER/ADMIN/SUPER_ADMIN)
 - [x] Database foundation exists: Postgres schema `general_merchandise` + minimum required GM tables
@@ -224,11 +224,11 @@ Decision:
 
 ### 4.2 Migration mechanics
 
-- [ ] Add migration to create schema `general_merchandise`.
-- [ ] Add migrations to create GM tables (employees/ops/accounting).
+- [x] Add migration to create schema `general_merchandise`.
+- [x] Add migrations to create GM tables (employees/ops/accounting).
 - [ ] Decide whether GM starts empty (recommended) or needs data import.
 - [ ] Create required indexes/constraints per table.
-- [ ] Use **safe, additive migrations only** (no destructive DDL; no prompts that ask to drop/delete existing tables).
+- [x] Use **safe, additive migrations only** (no destructive DDL; no prompts that ask to drop/delete existing tables).
 
 **Acceptance criteria:** DB browser clearly shows `general_merchandise` schema with GM tables.
 
@@ -239,15 +239,15 @@ Decision:
 ### 5.1 Routes
 
 - [ ] Add top-level entry route: `/general-merchandise`
-- [ ] Add workspace base routes:
-  - [ ] `/general-merchandise/operations`
-  - [ ] `/general-merchandise/employees`
-  - [ ] `/general-merchandise/accounting`
+- [x] Add workspace base routes:
+  - [x] `/general-merchandise/operations`
+  - [x] `/general-merchandise/employees`
+  - [x] `/general-merchandise/accounting`
 
-- [ ] Add the major subroutes mirroring Clothing (exact list to be confirmed):
-  - [ ] Operations pages: dashboard, transactions, customers, prices, products, inventory, sorting/distribution, shipments, dispatch, templates, invoicing, settings
-  - [ ] Employees pages: dashboard, attendance, schedules, calendar, payroll, leave tracker, cash advance, loans, 13th month, team, settings
-  - [ ] Accounting pages: expenses, journal, ledger, profit/loss, balance sheet
+- [x] Add the major subroutes mirroring Clothing (exact list to be confirmed):
+  - [x] Operations pages: dashboard, transactions, customers, prices, products, inventory, sorting/distribution, shipments, dispatch, templates, invoicing, settings
+  - [x] Employees pages: dashboard, attendance, schedules, calendar, payroll, leave tracker, cash advance, loans, 13th month, team, settings
+  - [x] Accounting pages: expenses, journal, ledger, profit/loss, balance sheet
 
 ### 5.5 Clothing → GM parity checklist (do not miss workflows)
 
@@ -279,38 +279,38 @@ This checklist is grounded in the current route structure under `src/app/clothin
 **Operations parity (workflows/actions to mirror)**
 
 - [ ] Transactions: create invoice, record payments, refunds, status changes
-- [ ] Transactions: **generate packing list** (currently uses `/api/generate-packing-list`)
+- [x] Transactions: **generate packing list** (currently uses `/api/generate-packing-list`)
 - [ ] Products: full products workflow (create/edit/list/search + any import/export logic used today)
 - [ ] Prices: manage prices (same rules/inputs)
 - [ ] Customers: manage customers + additional info
 - [ ] Inventory: movements + views (same buckets/logic as Clothing)
 - [ ] Shipments: create/edit + status flows
-- [ ] Sorting/Distribution: create/edit distributions + auto-calcs
+- [x] Sorting/Distribution: create/edit distributions + auto-calcs
 - [ ] Dispatch/Dispatching: whatever Clothing uses here (confirm exact responsibilities per page)
 - [ ] Messaging + templates + post-template: maintain same composition workflows
 
 **Employees parity (routes to mirror)**
 
-- [ ] `/clothing/employees/dashboard`
-- [ ] `/clothing/employees/attendance`
-- [ ] `/clothing/employees/schedules`
-- [ ] `/clothing/employees/calendar`
-- [ ] `/clothing/employees/payroll`
-- [ ] `/clothing/employees/leave-tracker`
-- [ ] `/clothing/employees/cash-advance`
-- [ ] `/clothing/employees/employee-loans`
-- [ ] `/clothing/employees/thirteenth-month-pay`
-- [ ] `/clothing/employees/team`
-- [ ] `/clothing/employees/notifications`
-- [ ] `/clothing/employees/settings`
+- [x] `/clothing/employees/dashboard`
+- [x] `/clothing/employees/attendance`
+- [x] `/clothing/employees/schedules`
+- [x] `/clothing/employees/calendar`
+- [x] `/clothing/employees/payroll`
+- [x] `/clothing/employees/leave-tracker`
+- [x] `/clothing/employees/cash-advance`
+- [x] `/clothing/employees/employee-loans`
+- [x] `/clothing/employees/thirteenth-month-pay`
+- [x] `/clothing/employees/team`
+- [x] `/clothing/employees/notifications`
+- [x] `/clothing/employees/settings`
 
 **Accounting parity (routes to mirror)**
 
-- [ ] `/clothing/accounting/expenses`
-- [ ] `/clothing/accounting/journal`
-- [ ] `/clothing/accounting/ledger`
-- [ ] `/clothing/accounting/profit-loss`
-- [ ] `/clothing/accounting/balance-sheet`
+- [x] `/clothing/accounting/expenses`
+- [x] `/clothing/accounting/journal`
+- [x] `/clothing/accounting/ledger`
+- [x] `/clothing/accounting/profit-loss`
+- [x] `/clothing/accounting/balance-sheet`
 
 **Also note (Clothing has an additional ledger area outside accounting)**
 
@@ -318,7 +318,7 @@ This checklist is grounded in the current route structure under `src/app/clothin
 
 **API parity (workflows must have GM equivalents)**
 
-- [ ] Packing list generation (currently `/api/generate-packing-list`, uses template `templates/packinglist.hbs`)
+- [x] Packing list generation (currently `/api/generate-packing-list`, uses template `templates/packinglist.hbs`)
 - [ ] Any invoice generation endpoints used by Clothing workflows (to be enumerated)
 - [ ] Any distribution generation endpoints used by Clothing workflows (to be enumerated)
 
@@ -400,9 +400,9 @@ This section records **exact module entry points, UI behaviors (actions/modals/t
 
 ### 5.2 Business selector + sidebar
 
-- [ ] Add `general-merchandise` as a selectable business in the business selector.
-- [ ] Ensure the workspace selector works with GM.
-- [ ] Ensure sidebar navigation items render for GM + chosen workspace.
+- [x] Add `general-merchandise` as a selectable business in the business selector.
+- [x] Ensure the workspace selector works with GM.
+- [x] Ensure sidebar navigation items render for GM + chosen workspace.
 
 ### 5.3 Remove hardcoded business paths (required for cleanliness)
 
@@ -441,8 +441,8 @@ The goal is that the GM equivalents of Clothing pages (e.g. transactions → cre
 
 ### 7.1 API URL scheme
 
-- [ ] Confirm API path strategy:
-  - [ ] `/api/general-merchandise/...` (recommended for symmetry with existing patterns)
+- [x] Confirm API path strategy:
+  - [x] `/api/general-merchandise/...` (recommended for symmetry with existing patterns)
   - [ ] or shared `/api/...` with business inferred from route/session
 
 ### 7.2 Query scoping

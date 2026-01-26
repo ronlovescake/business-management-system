@@ -9,6 +9,8 @@ import {
   GeneralMerchandiseRecurringPaymentDraftListSchema,
 } from '@/modules/general-merchandise/ledger/recurringPayments/api';
 
+export const dynamic = 'force-dynamic';
+
 const buildValidationErrors = (error: ZodError) => {
   return error.issues.reduce<Record<string, string>>((acc, issue) => {
     const path = issue.path.join('.');

@@ -111,9 +111,11 @@ export default function UserManagementPage() {
       role: 'USER' as 'USER' | 'ADMIN' | 'SUPER_ADMIN',
     },
     validate: {
-      email: (value) => (/^\S+@\S+$/.test(value) ? null : 'Invalid email'),
-      name: (value) => (value.trim().length < 1 ? 'Name is required' : null),
-      password: (value) =>
+      email: (value: string) =>
+        /^\S+@\S+$/.test(value) ? null : 'Invalid email',
+      name: (value: string) =>
+        value.trim().length < 1 ? 'Name is required' : null,
+      password: (value: string) =>
         value.length < 6 ? 'Password must be at least 6 characters' : null,
     },
   });
@@ -126,8 +128,9 @@ export default function UserManagementPage() {
       password: '',
     },
     validate: {
-      name: (value) => (value.trim().length < 1 ? 'Name is required' : null),
-      password: (value) =>
+      name: (value: string) =>
+        value.trim().length < 1 ? 'Name is required' : null,
+      password: (value: string) =>
         value && value.length < 6
           ? 'Password must be at least 6 characters'
           : null,

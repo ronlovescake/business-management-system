@@ -69,7 +69,8 @@ export function createTransactionRoutes(config: TransactionRouteConfig) {
         return ApiResponse.error(
           'Reference integrity violation',
           HTTP_STATUS.CONFLICT,
-          JSON.stringify(error.details)
+          error.message,
+          { meta: error.details }
         );
       }
 

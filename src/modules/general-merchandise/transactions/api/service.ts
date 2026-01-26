@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import type { TransactionDTO } from '@/modules/transactions/api/dto';
 import { mapToDTO } from '@/modules/transactions/api/dto';
+import { isFulfilledStatus, isReservedStatus } from '@/lib/inventory/statuses';
 import {
   EMPTY_SHIPMENT_MARKER,
   isEmptyRow,
@@ -48,6 +49,12 @@ const gmPrisma = prisma as unknown as {
     update: (args: unknown) => Promise<unknown>;
     updateMany: (args: unknown) => Promise<{ count: number }>;
   };
+  generalMerchandiseInventoryMovement: {
+    findFirst: (args: unknown) => Promise<unknown | null>;
+    update: (args: unknown) => Promise<unknown>;
+    updateMany: (args: unknown) => Promise<{ count: number }>;
+    create: (args: unknown) => Promise<unknown>;
+  };
   generalMerchandiseCustomer: {
     findMany: (args: unknown) => Promise<Array<{ customerName: string }>>;
   };
@@ -92,6 +99,232 @@ function calculateLineTotal(
   adjustment: number
 ): number {
   return quantity * unitPrice - adjustment;
+}
+
+function toFiniteNumber(value: unknown, fallback = 0): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function computeRemainingBalance(params: {
+  lineTotal: unknown;
+  quantity: unknown;
+  unitPrice: unknown;
+  discount: unknown;
+  adjustment: unknown;
+}): number {
+  const lineTotal = toFiniteNumber(params.lineTotal, Number.NaN);
+  if (Number.isFinite(lineTotal)) {
+    return lineTotal;
+  }
+
+  const quantity = toFiniteNumber(params.quantity, 0);
+  const unitPrice = toFiniteNumber(params.unitPrice, 0);
+  const discount = toFiniteNumber(params.discount, 0);
+  const adjustment = toFiniteNumber(params.adjustment, 0);
+
+  return quantity * unitPrice - discount - adjustment;
+}
+
+function normalizeProductCode(value: string | null | undefined): string {
+  return (value ?? '').trim();
+}
+
+function buildAutoSaleMovementNote(transactionId: number) {
+  return `auto-sale txn ${transactionId}`;
+}
+
+function buildAutoReserveMovementNote(transactionId: number) {
+  return `auto-reserve txn ${transactionId}`;
+}
+
+type TransactionForInventorySync = {
+  id: number;
+  productCode: string | null;
+  quantity: number | null;
+  unitPrice: number | null;
+  discount: number | null;
+  lineTotal: number | null;
+  orderDate: string | null;
+  packedDate: string | null;
+  orderStatus: string | null;
+  adjustment: number | null;
+};
+
+type AutoMovementRecord = {
+  id: number;
+  deletedAt: Date | null;
+};
+
+async function findLatestAutoMovement(
+  client: typeof gmPrisma,
+  note: string
+): Promise<AutoMovementRecord | null> {
+  return client.generalMerchandiseInventoryMovement.findFirst({
+    where: { notes: note },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, deletedAt: true },
+  }) as Promise<AutoMovementRecord | null>;
+}
+
+async function setAutoMovementActive(params: {
+  client: typeof gmPrisma;
+  existing: AutoMovementRecord | null;
+  productCode: string;
+  quantity: number;
+  fromBucket: Prisma.InventoryMovementCreateInput['fromBucket'];
+  toBucket: Prisma.InventoryMovementCreateInput['toBucket'];
+  postingDate: string | null;
+  note: string;
+}) {
+  const {
+    client,
+    existing,
+    productCode,
+    quantity,
+    fromBucket,
+    toBucket,
+    postingDate,
+    note,
+  } = params;
+
+  const now = new Date();
+  let activeId: number | null = null;
+
+  if (existing) {
+    await client.generalMerchandiseInventoryMovement.update({
+      where: { id: existing.id },
+      data: {
+        deletedAt: null,
+        productCode,
+        quantity,
+        fromBucket,
+        toBucket,
+        postingDate,
+        notes: note,
+      },
+    });
+
+    activeId = existing.id;
+  } else {
+    const created = (await client.generalMerchandiseInventoryMovement.create({
+      data: {
+        productCode,
+        quantity,
+        fromBucket,
+        toBucket,
+        postingDate,
+        notes: note,
+      },
+      select: { id: true },
+    })) as { id: number };
+
+    activeId = created.id;
+  }
+
+  if (activeId) {
+    await client.generalMerchandiseInventoryMovement.updateMany({
+      where: {
+        notes: note,
+        deletedAt: null,
+        NOT: { id: activeId },
+      },
+      data: { deletedAt: now },
+    });
+  }
+}
+
+async function setAutoMovementInactive(params: {
+  client: typeof gmPrisma;
+  note: string;
+}) {
+  const { client, note } = params;
+  await client.generalMerchandiseInventoryMovement.updateMany({
+    where: { notes: note, deletedAt: null },
+    data: { deletedAt: new Date() },
+  });
+}
+
+async function syncInventoryMovementsForTransaction(
+  client: typeof gmPrisma,
+  transaction: TransactionForInventorySync
+) {
+  const productCode = normalizeProductCode(transaction.productCode);
+  const quantity = transaction.quantity ?? 0;
+
+  const reserveNote = buildAutoReserveMovementNote(transaction.id);
+  const saleNote = buildAutoSaleMovementNote(transaction.id);
+
+  const [existingReserve, existingSale] = await Promise.all([
+    findLatestAutoMovement(client, reserveNote),
+    findLatestAutoMovement(client, saleNote),
+  ]);
+
+  if (!productCode || quantity <= 0) {
+    await Promise.all([
+      setAutoMovementInactive({ client, note: reserveNote }),
+      setAutoMovementInactive({ client, note: saleNote }),
+    ]);
+    return;
+  }
+
+  const postingDate = transaction.packedDate ?? transaction.orderDate ?? null;
+  const reserved = isReservedStatus(transaction.orderStatus);
+  const paidAmount = transaction.adjustment ?? 0;
+
+  const remaining = computeRemainingBalance({
+    lineTotal: transaction.lineTotal,
+    quantity: transaction.quantity,
+    unitPrice: transaction.unitPrice,
+    discount: transaction.discount,
+    adjustment: transaction.adjustment,
+  });
+  const fullyPaid = remaining <= 0.01;
+
+  const treatedAsFulfilledBecausePaidAndPrepared =
+    (transaction.orderStatus ?? '').trim().toLowerCase() === 'prepared' &&
+    paidAmount > 0 &&
+    fullyPaid;
+
+  const fulfilled =
+    isFulfilledStatus(transaction.orderStatus) ||
+    treatedAsFulfilledBecausePaidAndPrepared;
+
+  const shouldKeepReserveActive =
+    reserved ||
+    (fulfilled && Boolean(existingReserve && !existingReserve.deletedAt));
+
+  if (shouldKeepReserveActive) {
+    await setAutoMovementActive({
+      client,
+      existing: existingReserve,
+      productCode,
+      quantity,
+      fromBucket: 'sellable',
+      toBucket: 'reserved',
+      postingDate,
+      note: reserveNote,
+    });
+  } else {
+    await setAutoMovementInactive({ client, note: reserveNote });
+  }
+
+  const reserveIsActive = shouldKeepReserveActive;
+
+  if (fulfilled) {
+    await setAutoMovementActive({
+      client,
+      existing: existingSale,
+      productCode,
+      quantity,
+      fromBucket: reserveIsActive ? 'reserved' : 'sellable',
+      toBucket: 'sold',
+      postingDate,
+      note: saleNote,
+    });
+  } else {
+    await setAutoMovementInactive({ client, note: saleNote });
+  }
 }
 
 function buildCreateInput(
@@ -165,14 +398,22 @@ async function validateReferences(rows: Prisma.TransactionCreateManyInput[]) {
     new Set(
       rows
         .map((t) => t.shipmentCode)
-        .filter((s): s is string => Boolean(s) && s !== EMPTY_SHIPMENT_MARKER)
+        .filter((s): s is string => {
+          if (!s) {
+            return false;
+          }
+          if (s === EMPTY_SHIPMENT_MARKER) {
+            return false;
+          }
+          return s.trim().toLowerCase() !== 'domestic';
+        })
     )
   );
 
-  const existingCustomers = await gmPrisma.generalMerchandiseCustomer.findMany({
+  const existingCustomers = await prisma.customer.findMany({
     where: { customerName: { in: uniqueCustomers } },
     select: { customerName: true },
-  } as unknown as Prisma.CustomerFindManyArgs);
+  });
 
   const existingCustomerNames = new Set(
     existingCustomers.map((c) => c.customerName)
@@ -307,9 +548,39 @@ export const generalMerchandiseTransactionService: TransactionService = {
 
     await validateReferences(preparedRows);
 
+    const importStartedAt = new Date();
     const result = await gmPrisma.generalMerchandiseTransaction.createMany({
       data: preparedRows,
     });
+
+    const createdTransactions =
+      (await gmPrisma.generalMerchandiseTransaction.findMany({
+        where: {
+          deletedAt: null,
+          createdAt: { gte: importStartedAt },
+        },
+        select: {
+          id: true,
+          productCode: true,
+          quantity: true,
+          unitPrice: true,
+          discount: true,
+          lineTotal: true,
+          orderDate: true,
+          packedDate: true,
+          orderStatus: true,
+          adjustment: true,
+        },
+      } as unknown as Prisma.TransactionFindManyArgs)) as TransactionForInventorySync[];
+
+    const needsMovementSync = createdTransactions.filter(
+      (tx) =>
+        isReservedStatus(tx.orderStatus) || isFulfilledStatus(tx.orderStatus)
+    );
+
+    for (const created of needsMovementSync) {
+      await syncInventoryMovementsForTransaction(gmPrisma, created);
+    }
 
     return {
       count: result.count,
@@ -332,7 +603,7 @@ export const generalMerchandiseTransactionService: TransactionService = {
         continue;
       }
 
-      await gmPrisma.generalMerchandiseTransaction.update({
+      const updated = (await gmPrisma.generalMerchandiseTransaction.update({
         where: { id: updateRecord.id },
         data: {
           orderDate: updateRecord.values['Order Date'],
@@ -349,7 +620,9 @@ export const generalMerchandiseTransactionService: TransactionService = {
           packedDate: updateRecord.values['Packed Date'],
           shipmentCode: updateRecord.values['Shipment Code'],
         },
-      } as unknown as Prisma.TransactionUpdateArgs);
+      } as unknown as Prisma.TransactionUpdateArgs)) as TransactionForInventorySync;
+
+      await syncInventoryMovementsForTransaction(gmPrisma, updated);
       updatedCount += 1;
     }
 
@@ -383,6 +656,11 @@ export const generalMerchandiseTransactionService: TransactionService = {
     } as unknown as Prisma.TransactionUpdateArgs)) as Parameters<
       typeof mapToDTO
     >[0];
+
+    await syncInventoryMovementsForTransaction(
+      gmPrisma,
+      updated as unknown as TransactionForInventorySync
+    );
 
     return { transaction: mapToDTO(updated) };
   },

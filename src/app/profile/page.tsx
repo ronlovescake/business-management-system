@@ -66,14 +66,18 @@ export default function ProfilePage() {
       confirmPassword: '',
     },
     validate: {
-      name: (value) => (value.trim().length < 1 ? 'Name is required' : null),
-      newPassword: (value) => {
+      name: (value: string) =>
+        value.trim().length < 1 ? 'Name is required' : null,
+      newPassword: (value: string) => {
         if (value && value.length < 6) {
           return 'Password must be at least 6 characters';
         }
         return null;
       },
-      confirmPassword: (value, values) => {
+      confirmPassword: (
+        value: string,
+        values: { newPassword: string; confirmPassword: string }
+      ) => {
         if (values.newPassword && value !== values.newPassword) {
           return 'Passwords do not match';
         }

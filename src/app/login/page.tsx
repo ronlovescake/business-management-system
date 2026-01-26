@@ -38,9 +38,9 @@ export default function LoginPage() {
       remember: true,
     },
     validate: {
-      email: (value) =>
+      email: (value: string) =>
         /^\S+@\S+$/.test(value) ? null : 'Enter a valid email address',
-      password: (value) =>
+      password: (value: string) =>
         value.trim().length >= 6
           ? null
           : 'Password must be at least 6 characters long',

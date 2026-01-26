@@ -567,7 +567,11 @@ export function useDispatchData({
     return filteredData.reduce(
       (acc, item) => {
         const status = (item.orderStatus ?? '').trim().toLowerCase();
-        if (status === 'ready for dispatch' || status === 'checked out') {
+        if (
+          status === 'ready for dispatch' ||
+          status === 'checked out' ||
+          status === 'pending payment'
+        ) {
           acc[item.id] = true;
           return acc;
         }

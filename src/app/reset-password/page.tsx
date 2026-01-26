@@ -36,12 +36,14 @@ function ResetPasswordContent() {
       confirmPassword: '',
     },
     validate: {
-      password: (value) =>
+      password: (value: string) =>
         value.trim().length >= 8
           ? null
           : 'Password must be at least 8 characters long',
-      confirmPassword: (value, values) =>
-        value === values.password ? null : 'Passwords do not match',
+      confirmPassword: (
+        value: string,
+        values: { password: string; confirmPassword: string }
+      ) => (value === values.password ? null : 'Passwords do not match'),
     },
   });
 

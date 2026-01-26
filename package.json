@@ -117,6 +117,7 @@
     "@vitejs/plugin-react": "^4.0.0",
     "@vitest/coverage-v8": "^1.6.1",
     "autoprefixer": "^10.4.0",
+    "baseline-browser-mapping": "^2.9.18",
     "cross-env": "^7.0.0",
     "eslint": "^8.48.0",
     "eslint-config-next": "^14.2.33",
@@ -131,7 +132,7 @@
     "prisma": "^5.0.0",
     "tailwindcss": "^3.3.0",
     "tsx": "4.19.2",
-    "typescript": "^5.0.0",
+    "typescript": "5.3.3",
     "vitest": "^1.0.0"
   },
   "prisma": {

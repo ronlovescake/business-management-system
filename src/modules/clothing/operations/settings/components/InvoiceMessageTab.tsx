@@ -77,7 +77,7 @@ export default function InvoiceMessageTab({
       paymentChannelsUrl: '',
     },
     validate: {
-      messageTemplate: (value) => {
+      messageTemplate: (value: string) => {
         if (!value || value.trim().length === 0) {
           return 'Message template is required';
         }
@@ -93,7 +93,7 @@ export default function InvoiceMessageTab({
 
         return null;
       },
-      paymentChannelsUrl: (value) => {
+      paymentChannelsUrl: (value: string) => {
         if (!value || value.trim().length === 0) {
           return 'Payment channels URL is required';
         }

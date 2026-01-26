@@ -17,6 +17,8 @@ delete env.NEXT_FORCE_TURBOPACK_DEV;
 
 // Signal explicitly that we want Webpack for builds.
 env.NEXT_FORCE_WEBPACK_BUILDS = '1';
+// Disable Next.js font optimization to avoid build-time network fetches.
+env.NEXT_DISABLE_FONT_OPTIMIZATION = '1';
 
 const child = spawn('next', ['build'], {
   stdio: 'inherit',

@@ -23,7 +23,7 @@ export default function ForgotPasswordPage() {
   const form = useForm({
     initialValues: { email: '' },
     validate: {
-      email: (value) =>
+      email: (value: string) =>
         /^\S+@\S+\.\S+$/.test(value.trim())
           ? null
           : 'Enter a valid email address',

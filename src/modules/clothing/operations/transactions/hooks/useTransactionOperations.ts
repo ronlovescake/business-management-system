@@ -248,6 +248,7 @@ export function useTransactionOperations(
               : undefined;
 
           const rawDetails = apiPayload?.details;
+          const rawMeta = apiPayload?.meta;
           const rawPayloadString = apiPayload
             ? (() => {
                 try {
@@ -282,9 +283,31 @@ export function useTransactionOperations(
             return undefined;
           })();
 
+          const parsedMeta = (() => {
+            if (!rawMeta) {
+              return undefined;
+            }
+            if (typeof rawMeta === 'object') {
+              return rawMeta as Record<string, unknown>;
+            }
+            if (typeof rawMeta === 'string') {
+              try {
+                return JSON.parse(rawMeta) as Record<string, unknown>;
+              } catch (parseError) {
+                logger.warn(
+                  'Failed to parse conflict meta payload',
+                  parseError
+                );
+                return undefined;
+              }
+            }
+            return undefined;
+          })();
+
+          const missingSource = parsedMeta ?? parsedDetails;
           const missing =
-            parsedDetails && 'missing' in parsedDetails
-              ? (parsedDetails.missing as {
+            missingSource && 'missing' in missingSource
+              ? (missingSource.missing as {
                   customers?: string[];
                   products?: string[];
                   shipments?: string[];
@@ -309,7 +332,7 @@ export function useTransactionOperations(
 
           if (missingPieces.length > 0) {
             friendlyMessage = `Missing references – ${missingPieces.join('; ')}`;
-          } else if (parsedDetails) {
+          } else if (parsedMeta || parsedDetails) {
             friendlyMessage = serverMessage;
           } else if (serverMessage) {
             friendlyMessage = serverMessage;
