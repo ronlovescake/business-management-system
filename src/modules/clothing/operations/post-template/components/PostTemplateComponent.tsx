@@ -23,6 +23,7 @@ import Swal from 'sweetalert2';
 import { DEFAULT_POST_TEMPLATE_NOTICE } from '@/modules/clothing/operations/post-template/notice.data';
 import type { PostTemplateNotice } from '@/modules/clothing/operations/post-template/notice.types';
 import { buildApiPath } from '@/lib/api/paths';
+import { logger } from '@/lib/logger';
 
 interface Product {
   id: string;
@@ -216,6 +217,29 @@ export function PostTemplateComponent({
     return 'OPEN FOR RESERVATION';
   };
 
+  const copyTextToClipboard = async (text: string): Promise<boolean> => {
+    if (navigator?.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch (error) {
+        logger.warn('Clipboard writeText failed, using fallback', error);
+      }
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    textarea.style.pointerEvents = 'none';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const successful = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    return successful;
+  };
+
   const handleCopyCanvas = async () => {
     if (!selectedProduct) {
       return;
@@ -253,7 +277,10 @@ Arrives In: ${arrivesInText}
   ${bulletList}`;
 
     try {
-      await navigator.clipboard.writeText(canvasText);
+      const copied = await copyTextToClipboard(canvasText);
+      if (!copied) {
+        throw new Error('copy_failed');
+      }
       showNotification({
         title: 'Success',
         message: 'Canvas content copied to clipboard!',
@@ -262,7 +289,7 @@ Arrives In: ${arrivesInText}
     } catch (error) {
       showNotification({
         title: 'Error',
-        message: 'Failed to copy to clipboard',
+        message: 'Failed to copy to clipboard. Please try again.',
         color: 'red',
       });
     }

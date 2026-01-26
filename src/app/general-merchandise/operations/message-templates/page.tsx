@@ -22,27 +22,37 @@ async function loadTemplates(): Promise<MessageTemplate[]> {
       orderBy: { createdAt: 'asc' },
     });
 
-    if (records.length > 0) {
-      return records.map((record) => ({
-        id: record.slug,
-        title: record.title,
-        badge: record.badge,
-        paragraphs: Array.isArray(record.paragraphs)
-          ? (record.paragraphs as string[])
-          : [],
-      }));
+    const existing = records.map((record) => ({
+      id: record.slug,
+      title: record.title,
+      badge: record.badge,
+      paragraphs: Array.isArray(record.paragraphs)
+        ? (record.paragraphs as string[])
+        : [],
+    }));
+
+    const existingIds = new Set(existing.map((record) => record.id));
+    const missingTemplates = DEFAULT_MESSAGE_TEMPLATES.filter(
+      (template) => !existingIds.has(template.id)
+    );
+
+    if (missingTemplates.length > 0) {
+      await gmPrisma.generalMerchandiseMessageTemplate.createMany({
+        data: missingTemplates.map((template) => ({
+          slug: template.id,
+          title: template.title,
+          badge: template.badge,
+          paragraphs: template.paragraphs,
+        })),
+        skipDuplicates: true,
+      });
     }
 
-    await gmPrisma.generalMerchandiseMessageTemplate.createMany({
-      data: DEFAULT_MESSAGE_TEMPLATES.map((template) => ({
-        slug: template.id,
-        title: template.title,
-        badge: template.badge,
-        paragraphs: template.paragraphs,
-      })),
-    });
+    if (existing.length === 0) {
+      return DEFAULT_MESSAGE_TEMPLATES;
+    }
 
-    return DEFAULT_MESSAGE_TEMPLATES;
+    return [...existing, ...missingTemplates];
   } catch (error) {
     logger.error(
       'Failed to load GM message templates for operations page',

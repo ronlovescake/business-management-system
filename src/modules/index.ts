@@ -54,6 +54,9 @@ import { generalMerchandiseShipmentsModule } from './general-merchandise/operati
 import { generalMerchandiseSortingDistributionModule } from './general-merchandise/operations/sorting-distribution';
 import { generalMerchandiseDispatchModule } from './general-merchandise/operations/dispatch';
 import { generalMerchandiseSettingsModule } from './general-merchandise/operations/settings';
+import { generalMerchandiseCheckoutLinksModule } from './general-merchandise/operations/checkout-links/module.config';
+import { generalMerchandisePostTemplateModule } from './general-merchandise/operations/post-template/module.config';
+import { generalMerchandiseMessageTemplatesModule } from './general-merchandise/operations/message-templates/module.config';
 
 // Employees
 // import { expensesModule } from './trucking/employees/expenses';
@@ -97,6 +100,9 @@ moduleRegistry.register(generalMerchandiseShipmentsModule);
 moduleRegistry.register(generalMerchandiseSortingDistributionModule);
 moduleRegistry.register(generalMerchandiseDispatchModule);
 moduleRegistry.register(generalMerchandiseSettingsModule);
+moduleRegistry.register(generalMerchandiseCheckoutLinksModule);
+moduleRegistry.register(generalMerchandisePostTemplateModule);
+moduleRegistry.register(generalMerchandiseMessageTemplatesModule);
 
 // Trucking
 // moduleRegistry.register(deliveriesModule);

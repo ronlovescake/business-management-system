@@ -26,6 +26,7 @@ import {
 import { useClipboard } from '@mantine/hooks';
 import type { MessageTemplate } from '@/modules/clothing/operations/message-templates/types';
 import { MESSAGE_TEMPLATE_TITLE_ORDER } from '@/modules/clothing/operations/message-templates/templates.data';
+import { logger } from '@/lib/logger';
 import Swal from 'sweetalert2';
 
 interface MessageTemplatesBoardProps {
@@ -145,9 +146,45 @@ export function MessageTemplatesBoard({
     setTemplateList(sortTemplatesByOrder(cloneTemplates(templates)));
   }, [templates, sortTemplatesByOrder]);
 
-  const handleCopy = (template: MessageTemplate) => {
-    clipboard.copy(template.paragraphs.join('\n\n'));
-    setCopiedTemplateId(template.id);
+  const copyTextToClipboard = async (text: string): Promise<boolean> => {
+    if (navigator?.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch (error) {
+        logger.warn('Clipboard writeText failed, using fallback', error);
+      }
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    textarea.style.pointerEvents = 'none';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const successful = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    return successful;
+  };
+
+  const handleCopy = async (template: MessageTemplate) => {
+    const payload = template.paragraphs.join('\n\n');
+    const copied = await copyTextToClipboard(payload);
+
+    if (copied) {
+      clipboard.copy(payload);
+      setCopiedTemplateId(template.id);
+      return;
+    }
+
+    await Swal.fire({
+      title: 'Copy failed',
+      text: 'Unable to copy to clipboard. Please try again or copy manually.',
+      icon: 'error',
+      confirmButtonColor: '#ef4444',
+    });
   };
 
   const openEditor = async (template: MessageTemplate) => {
@@ -636,3 +673,5 @@ export function MessageTemplatesBoard({
     </Stack>
   );
 }
+
+export type { MessageTemplatesBoardProps };
