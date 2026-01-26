@@ -26,10 +26,11 @@ import {
   IconClock,
   IconFileTypeCsv,
   IconAlertCircle,
-  IconEye,
   IconFileSpreadsheet,
+  IconFileText,
   IconHistory,
   IconTable,
+  IconDownload,
 } from '@tabler/icons-react';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -54,6 +55,7 @@ import { BackupTablesBrowser } from './backup-restore/BackupTablesBrowser';
 import { BackupPreviewModal } from './backup-restore/BackupPreviewModal';
 import { RestorePreviewModal } from './backup-restore/RestorePreviewModal';
 import { useBackupRestoreSidebarStore } from './backup-restore/backupRestoreSidebarStore';
+import { StandardTableControls } from '@/components/tables/StandardDataTable';
 
 export function BackupRestoreTab() {
   const pathname = usePathname();
@@ -108,6 +110,7 @@ export function BackupRestoreTab() {
   const [selectedTableName, setSelectedTableName] = useState<string | null>(
     null
   );
+  const [tableSearchQuery, setTableSearchQuery] = useState('');
   const [previewJsonFile, setPreviewJsonFile] = useState<string | null>(null);
   const [restoreSelection, setRestoreSelection] = useState<string[]>([]);
   const [forceOverwrite, setForceOverwrite] = useState(false);
@@ -186,6 +189,16 @@ export function BackupRestoreTab() {
     []
   );
   const isLogStrategy = backupStrategy === 'log';
+  const backupDateOptions = useMemo(
+    () =>
+      [...backups]
+        .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+        .map((backup) => ({
+          value: backup.timestamp,
+          label: formatBackupTimestamp(backup.timestamp),
+        })),
+    [backups]
+  );
 
   const fetchBackups = useCallback(async () => {
     setLoading(true);
@@ -371,55 +384,71 @@ export function BackupRestoreTab() {
     }
   };
 
-  const handlePreviewBackup = async (backup: Backup) => {
-    setSelectedBackup(backup);
-    const shouldOpenModal = pageTab !== 'tables';
-    setPreviewModalOpen(shouldOpenModal);
-    setPreviewLoading(true);
-    setRestoreResults(null);
+  const handlePreviewBackup = useCallback(
+    async (backup: Backup) => {
+      setSelectedBackup(backup);
+      const shouldOpenModal = pageTab !== 'tables';
+      setPreviewModalOpen(shouldOpenModal);
+      setPreviewLoading(true);
+      setRestoreResults(null);
 
-    try {
-      const jsonFile =
-        backup.files.find(
-          (f) => f.startsWith('backup-') && f.endsWith('.json')
-        ) || backup.files.find((f) => f.endsWith('.json'));
-      if (!jsonFile) {
-        throw new Error('No JSON file found');
-      }
+      try {
+        const jsonFile =
+          backup.files.find(
+            (f) => f.startsWith('backup-') && f.endsWith('.json')
+          ) || backup.files.find((f) => f.endsWith('.json'));
+        if (!jsonFile) {
+          throw new Error('No JSON file found');
+        }
 
-      // Fetch lightweight summary (counts only), then load a small sample for the first table.
-      const response = await fetch(
-        `/api/backup/${encodeURIComponent(backup.timestamp)}/${encodeURIComponent(jsonFile)}?mode=summary`
-      );
-      if (!response.ok) {
-        throw new Error(
-          `Failed to fetch backup summary: ${response.statusText}`
+        // Fetch lightweight summary (counts only), then load a small sample for the first table.
+        const response = await fetch(
+          `/api/backup/${encodeURIComponent(backup.timestamp)}/${encodeURIComponent(jsonFile)}?mode=summary`
         );
-      }
-      const summary: BackupData = await response.json();
-      setPreviewData(summary);
-      const [firstTable] = Object.keys(summary.tables);
-      setSelectedTableName(firstTable ?? null);
-      setRestoreSelection([]);
-      setForceOverwrite(false);
-      setPreviewJsonFile(jsonFile);
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch backup summary: ${response.statusText}`
+          );
+        }
+        const summary: BackupData = await response.json();
+        setPreviewData(summary);
+        const [firstTable] = Object.keys(summary.tables);
+        setSelectedTableName(firstTable ?? null);
+        setRestoreSelection([]);
+        setForceOverwrite(false);
+        setPreviewJsonFile(jsonFile);
 
-      if (firstTable) {
-        await fetchTableSample(backup.timestamp, jsonFile, firstTable);
+        if (firstTable) {
+          await fetchTableSample(backup.timestamp, jsonFile, firstTable);
+        }
+      } catch (error) {
+        showNotification({
+          title: 'Preview Failed',
+          message: error instanceof Error ? error.message : 'Unknown error',
+          color: 'red',
+        });
+        setPreviewModalOpen(false);
+        setSelectedTableName(null);
+        setPreviewJsonFile(null);
+      } finally {
+        setPreviewLoading(false);
       }
-    } catch (error) {
-      showNotification({
-        title: 'Preview Failed',
-        message: error instanceof Error ? error.message : 'Unknown error',
-        color: 'red',
-      });
-      setPreviewModalOpen(false);
-      setSelectedTableName(null);
-      setPreviewJsonFile(null);
-    } finally {
-      setPreviewLoading(false);
-    }
-  };
+    },
+    [fetchTableSample, pageTab]
+  );
+
+  const handleBackupDateFilterChange = useCallback(
+    (value: string | null) => {
+      if (!value) {
+        return;
+      }
+      const backup = backups.find((item) => item.timestamp === value);
+      if (backup) {
+        void handlePreviewBackup(backup);
+      }
+    },
+    [backups, handlePreviewBackup]
+  );
 
   const handleSelectPreviewTable = useCallback(
     async (table: string) => {
@@ -1711,48 +1740,108 @@ export function BackupRestoreTab() {
         <Tabs.Panel value="tables" pt="md">
           <Stack gap="lg">
             <Card shadow="sm" padding="lg" radius="md" withBorder>
-              <Group justify="space-between" align="flex-start">
-                <div>
-                  <Title order={3}>Tables Explorer</Title>
-                  <Text size="sm" c="dimmed">
-                    {selectedBackup && previewData
-                      ? `Viewing ${formatBackupTimestamp(selectedBackup.timestamp)}`
-                      : 'Select a backup below and click Preview to load its tables.'}
-                  </Text>
-                </div>
-                <Badge color={previewData ? 'indigo' : 'gray'}>
-                  {previewData ? 'Preview loaded' : 'Waiting for preview'}
-                </Badge>
-              </Group>
+              <Stack gap="sm">
+                <Group justify="space-between" align="center">
+                  <div>
+                    <Title order={3}>Tables Explorer</Title>
+                    <Text size="sm" c="dimmed">
+                      {selectedBackup && previewData
+                        ? `Viewing ${formatBackupTimestamp(selectedBackup.timestamp)}`
+                        : 'Select a backup date to load its tables.'}
+                    </Text>
+                  </div>
+                  <Badge color={previewData ? 'indigo' : 'gray'}>
+                    {previewData ? 'Preview loaded' : 'Waiting for preview'}
+                  </Badge>
+                </Group>
 
-              <Group gap="sm" mt="md" wrap="wrap">
-                <Button
-                  leftSection={<IconFileTypeCsv size={16} />}
-                  variant="light"
-                  color="green"
-                  onClick={() => void handleDownloadAllCSV()}
-                  disabled={!previewData}
-                >
-                  Download all CSV
-                </Button>
-                <Button
-                  leftSection={<IconFileSpreadsheet size={16} />}
-                  variant="light"
-                  color="teal"
-                  onClick={() => void handleDownloadAllXLSX()}
-                  disabled={!previewData}
-                >
-                  Download all XLSX
-                </Button>
-                <Button
-                  leftSection={<IconEye size={16} />}
-                  variant="outline"
-                  onClick={() => previewData && setPreviewModalOpen(true)}
-                  disabled={!previewData}
-                >
-                  Open preview modal
-                </Button>
-              </Group>
+                <Group gap="sm" align="center" wrap="wrap">
+                  <div style={{ flex: 1, minWidth: 240 }}>
+                    <StandardTableControls
+                      searchPlaceholder="Search rows..."
+                      onSearch={setTableSearchQuery}
+                      searchValue={tableSearchQuery}
+                      hideImport
+                      hideExport
+                      hideAddNew
+                      expandSearch
+                      searchAddon={
+                        <Select
+                          placeholder="Backup date"
+                          data={backupDateOptions}
+                          value={selectedBackup?.timestamp ?? null}
+                          onChange={handleBackupDateFilterChange}
+                          clearable
+                          style={{ minWidth: 220 }}
+                        />
+                      }
+                    />
+                  </div>
+
+                  <Group gap="xs" wrap="wrap">
+                    <Button
+                      leftSection={<IconFileTypeCsv size={16} />}
+                      onClick={() =>
+                        selectedTableName
+                          ? void handleDownloadCSV(selectedTableName)
+                          : undefined
+                      }
+                      disabled={!selectedTableName || !previewData}
+                    >
+                      Download CSV
+                    </Button>
+                    <Button
+                      leftSection={<IconFileSpreadsheet size={16} />}
+                      onClick={() =>
+                        selectedTableName
+                          ? void handleDownloadXLSX(selectedTableName)
+                          : undefined
+                      }
+                      disabled={!selectedTableName || !previewData}
+                    >
+                      Download XLSX
+                    </Button>
+                    <Button
+                      leftSection={<IconDatabase size={16} />}
+                      onClick={() =>
+                        selectedBackup
+                          ? void handleDownloadJSON(selectedBackup)
+                          : undefined
+                      }
+                      disabled={!selectedBackup}
+                    >
+                      Download JSON
+                    </Button>
+                    <Button
+                      leftSection={<IconFileText size={16} />}
+                      onClick={() =>
+                        selectedBackup
+                          ? void handleDownloadSQL(selectedBackup)
+                          : undefined
+                      }
+                      disabled={!selectedBackup}
+                    >
+                      Download SQL
+                    </Button>
+                    <Button
+                      leftSection={<IconDownload size={16} />}
+                      color="green"
+                      onClick={() => {
+                        if (!selectedBackup || !previewData) {
+                          return;
+                        }
+                        void handleDownloadAllCSV();
+                        void handleDownloadAllXLSX();
+                        void handleDownloadJSON(selectedBackup);
+                        void handleDownloadSQL(selectedBackup);
+                      }}
+                      disabled={!selectedBackup || !previewData}
+                    >
+                      Download All
+                    </Button>
+                  </Group>
+                </Group>
+              </Stack>
             </Card>
 
             {previewLoading ? (
@@ -1763,6 +1852,7 @@ export function BackupRestoreTab() {
                 selectedTableName={selectedTableName}
                 selectedTableDetails={selectedTableDetails}
                 onSelectTable={handleSelectPreviewTable}
+                searchQuery={tableSearchQuery}
                 height="65vh"
                 showTableList={!isAdminBackupRestore}
               />

@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import {
   Alert,
   Badge,
@@ -7,10 +7,14 @@ import {
   Group,
   ScrollArea,
   Stack,
-  Table as MantineTable,
+  Table,
   Text,
 } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
+import {
+  StandardDataTable,
+  StandardTableContainer,
+} from '@/components/tables/StandardDataTable';
 import type { BackupData } from '../../backup/types';
 import {
   createCellKey,
@@ -30,6 +34,7 @@ interface BackupTablesBrowserProps {
   selectedTableName: string | null;
   selectedTableDetails: TableDetails;
   onSelectTable: (table: string) => void | Promise<void>;
+  searchQuery?: string;
   height?: number | string;
   showTableList?: boolean;
 }
@@ -40,9 +45,36 @@ export const BackupTablesBrowser = memo(
     selectedTableName,
     selectedTableDetails,
     onSelectTable,
+    searchQuery = '',
     height = 'calc(83vh - 220px)',
     showTableList = true,
   }: BackupTablesBrowserProps) => {
+    const tableHeight = typeof height === 'number' ? `${height}px` : height;
+    const tableEntries = useMemo(
+      () => Object.entries(previewData?.tables ?? {}),
+      [previewData]
+    );
+    const filteredRows = useMemo(() => {
+      if (!selectedTableDetails?.data) {
+        return [];
+      }
+
+      const query = searchQuery.trim().toLowerCase();
+      if (!query) {
+        return selectedTableDetails.data;
+      }
+
+      return selectedTableDetails.data.filter((row) =>
+        selectedTableDetails.columns.some((column) => {
+          const value = row[column];
+          if (value === null || value === undefined) {
+            return false;
+          }
+          return String(value).toLowerCase().includes(query);
+        })
+      );
+    }, [searchQuery, selectedTableDetails]);
+
     if (!previewData) {
       return (
         <Alert icon={<IconAlertCircle size={16} />} color="yellow">
@@ -51,7 +83,6 @@ export const BackupTablesBrowser = memo(
       );
     }
 
-    const tableEntries = Object.entries(previewData.tables ?? {});
     if (!tableEntries.length) {
       return (
         <Alert icon={<IconAlertCircle size={16} />} color="yellow">
@@ -115,72 +146,49 @@ export const BackupTablesBrowser = memo(
 
         <Stack gap="md" style={{ flex: 1, minWidth: 0, height: '100%' }}>
           {selectedTableDetails ? (
-            selectedTableDetails.data.length ? (
-              <Box style={{ flex: 1, minHeight: 0 }}>
-                <ScrollArea
-                  style={{ height: '100%' }}
-                  offsetScrollbars
-                  scrollbarSize={8}
+            <StandardTableContainer>
+              <Box style={{ flex: 1, minHeight: 0, overflowX: 'auto' }}>
+                <div
+                  style={{
+                    minWidth: Math.max(
+                      selectedTableDetails.columns.length * 160,
+                      600
+                    ),
+                  }}
                 >
-                  <div
-                    style={{
-                      minWidth: Math.max(
-                        selectedTableDetails.columns.length * 160,
-                        400
-                      ),
-                    }}
+                  <StandardDataTable
+                    headers={selectedTableDetails.columns}
+                    height={tableHeight}
+                    emptyState={
+                      searchQuery
+                        ? 'No matching rows for this search.'
+                        : 'No data available for this table.'
+                    }
                   >
-                    <MantineTable striped highlightOnHover stickyHeader>
-                      <MantineTable.Thead>
-                        <MantineTable.Tr>
-                          {selectedTableDetails.columns.map((column) => (
-                            <MantineTable.Th
-                              key={`${selectedTableDetails.name}-${column}`}
-                              style={{
-                                backgroundColor: 'var(--mantine-color-body)',
-                                position: 'sticky',
-                                top: 0,
-                                zIndex: 1,
-                              }}
-                            >
-                              {column}
-                            </MantineTable.Th>
-                          ))}
-                        </MantineTable.Tr>
-                      </MantineTable.Thead>
-                      <MantineTable.Tbody>
-                        {selectedTableDetails.data.map((row) => {
+                    {filteredRows.length
+                      ? filteredRows.map((row) => {
                           const rowKey = createRowKey(
                             selectedTableDetails.name,
                             row
                           );
 
                           return (
-                            <MantineTable.Tr key={rowKey}>
+                            <Table.Tr key={rowKey}>
                               {selectedTableDetails.columns.map((column) => (
-                                <MantineTable.Td
-                                  key={createCellKey(rowKey, column)}
-                                >
+                                <Table.Td key={createCellKey(rowKey, column)}>
                                   <Text size="sm">
                                     {formatCellValue(row[column])}
                                   </Text>
-                                </MantineTable.Td>
+                                </Table.Td>
                               ))}
-                            </MantineTable.Tr>
+                            </Table.Tr>
                           );
-                        })}
-                      </MantineTable.Tbody>
-                    </MantineTable>
-                  </div>
-                </ScrollArea>
+                        })
+                      : null}
+                  </StandardDataTable>
+                </div>
               </Box>
-            ) : (
-              <Alert icon={<IconAlertCircle size={16} />} color="gray">
-                <Text size="sm" c="dimmed">
-                  No data available for this table.
-                </Text>
-              </Alert>
-            )
+            </StandardTableContainer>
           ) : (
             <Alert icon={<IconAlertCircle size={16} />} color="blue">
               <Text size="sm">Select a table to view its full backup.</Text>

@@ -1,93 +1,79 @@
-# Development Compliance Instructions
+1. Scope & Authorization
 
-## 1. Scope & Instruction Adherence
+Follow instructions exactly; do not expand scope or make unrequested changes.
 
-- Follow the exact instructions provided; do not expand or alter scope.
-- Modify only the specified module or component.
-- Avoid assumptions and unrequested changes.
+Modify only the specified module or component.
 
-## 2. Issue Resolution
+Do not commit, push, or trigger builds without explicit authorization.
 
-- Apply **permanent**, root-cause fixes.
-- No shortcuts, temporary patches, or workarounds.
-- All fixes must meet **TypeScript strict mode** and **linting** requirements.
-- Ensure no regressions or side effects.
+Never initiate production builds.
 
-## 3. Feature Implementation
+2. Code Quality & Standards
 
-- Follow best practices and coding standards.
-- New code must pass TypeScript strict checks, ESLint, and Prettier.
-- Only add dependencies when necessary, secure, and version-locked.
-- Maintain consistency with existing architecture.
-- When introducing new Prisma fields, create a migration or run `npx prisma db push` against the test environment so schemas stay aligned.
+All changes must be permanent, root-cause fixes (no hacks or workarounds).
 
-## 4. Commit & Push Policy
+Code must pass TypeScript strict mode, ESLint, and Prettier.
 
-- Do not commit or push without explicit authorization.
-- All commits must pass linting, TypeScript, and test validations.
-- Never bypass pre-commit or pre-push hooks.
-- Write clear and descriptive commit messages.
+Follow existing architecture, naming conventions, and file structure.
 
-## 5. Production Builds
+Add dependencies only when necessary, secure, and version-locked.
 
-- Never trigger a production build without authorization.
-- Only authorized personnel may execute production builds.
-- AI or automation tools must not initiate builds.
+3. Database & Schema Changes
 
-## 6. Testing & Validation
+Prisma schema changes must be non-destructive.
 
-- Fully test all fixes and features.
-- Run unit, integration, and E2E tests before submitting code.
-- Fix all failed tests before marking tasks complete.
-- Manual testing should complement automated testing.
+Migrations must run non-destructively:
 
-## 7. AI & Automation Compliance
+No table or column drops
 
-- All AI-generated code must be reviewed by a human developer.
-- AI outputs must follow project standards and naming conventions.
-- Do not run AI-generated scripts or builds without validation.
-- AI must refuse instructions that violate compliance or security.
+No deletes or truncations
 
-## 8. Reasoning Requirement (AI Systems)
+No prompts or commands that could remove existing data
 
-- AI must provide rationale for every code change:
-  - Why it’s needed.
-  - How it affects dependencies.
-  - Risks or side effects.
+Use migrations or npx prisma db push only against the test environment to keep schemas aligned.
 
-- Identify breaking changes, deprecated APIs, and compatibility issues.
+4. Testing & Validation
 
-## 9. Code Review & Traceability
+All changes must pass required tests before submission.
 
-- Summaries must explain what changed, why, and how it was validated.
-- Link commits/PRs to tasks or tickets.
-- PRs require approval from authorized maintainers.
-- Maintain full traceability of changes.
+Unit and integration tests are mandatory.
 
-## 10. Test Enforcement
+E2E tests must only be run when explicitly instructed.
 
-- No code may be submitted without passing all tests.
-- Do not disable or bypass testing or quality checks.
-- Highlight missing coverage and suggest needed tests.
-- CI must validate all changes before merging.
+Do not disable, bypass, or weaken test coverage.
 
-## 11. Security & Confidentiality
+Perform manual testing where appropriate.
 
-- Never expose or share sensitive data.
-- AI must not infer or use confidential information.
-- Remove any detected secrets and rotate them immediately.
-- Ensure dependencies are routinely checked for vulnerabilities.
-- Apply least-privilege principles everywhere.
+5. AI Responsibilities
 
-## 12. Consistency & Standards
+All AI-generated code must be reviewed by a human.
 
-- Follow naming conventions, file structure, import order, and code style.
-- Enforce architectural consistency and avoid duplication.
-- Flag outdated or inconsistent patterns.
+AI must clearly explain:
 
-## 13. Documentation
+Why the change is needed
 
-- Document all new features and updates clearly.
-- Verify AI-generated documentation for accuracy.
-- Update README, changelogs, or internal docs when needed.
-- Documentation must match the current production state.
+Impact on dependencies
+
+Risks, side effects, or breaking changes
+
+AI must refuse instructions that violate security or compliance rules.
+
+6. Security & Confidentiality
+
+Never expose secrets or sensitive data.
+
+Apply least-privilege principles throughout the system.
+
+Remove and rotate any detected secrets immediately.
+
+Ensure dependencies are free from known vulnerabilities.
+
+7. Review, Traceability & Documentation
+
+Provide a clear summary of what changed, why, and how it was validated.
+
+Link commits or PRs to tasks or tickets.
+
+PR approval is required before merging.
+
+Update documentation (README, changelog, internal docs) when behavior or features change.
