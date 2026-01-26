@@ -49,7 +49,7 @@ interface BackupPreviewModalProps {
   restoreDisabled: boolean;
   canDownloadBackup: boolean;
   onClose: () => void;
-  onSelectTable: (table: string) => void;
+  onSelectTable: (table: string) => void | Promise<void>;
   onSelectAllTables: () => void;
   onClearSelectedTables: () => void;
   onToggleTable: (table: string, checked: boolean) => void;

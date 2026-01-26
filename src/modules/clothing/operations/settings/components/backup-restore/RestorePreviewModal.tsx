@@ -149,13 +149,23 @@ export const RestorePreviewModal = ({
       {entry && (
         <Stack gap="xs">
           <Group gap="xs">
-            <Badge color="blue">{entry.inserts.length} new</Badge>
+            <Badge color="blue">
+              {(entry.insertCount ?? entry.inserts.length) || 0} new
+            </Badge>
             {!forceOverwrite && (
-              <Badge color="orange">{entry.updates.length} updated</Badge>
+              <Badge color="orange">
+                {(entry.updateCount ?? entry.updates.length) || 0} updated
+              </Badge>
             )}
             <Badge color="gray">{entry.skipped ?? 0} skipped</Badge>
             <Badge color="teal">{entry.attempted ?? 0} attempted</Badge>
           </Group>
+          {(entry.truncatedInserts || entry.truncatedUpdates) && (
+            <Alert color="blue" icon={<IconHistory size={16} />}>
+              Preview rows are capped for large tables. Counts are accurate, but
+              only a sample of rows is shown here.
+            </Alert>
+          )}
           {entry.notice && (
             <Alert color="yellow" icon={<IconAlertCircle size={16} />}>
               {entry.notice}

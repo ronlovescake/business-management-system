@@ -11,11 +11,51 @@ import { prisma } from '@/lib/db';
 import fs from 'fs';
 import path from 'path';
 import { logger } from '@/lib/logger';
+import { sortTablesForRestore } from './restore-order';
 const BACKUP_DIR = path.resolve(process.cwd(), 'backups');
 
 type RowRecord = Record<string, unknown>;
 
 const FIELDS_TO_IGNORE_IN_COMPARISON = new Set(['id', 'updatedAt']);
+
+const PREVIEW_SAMPLE_LIMIT = 200;
+const FIND_MANY_CHUNK_SIZE = 2000;
+const CREATE_MANY_CHUNK_SIZE = 1000;
+
+const chunkArray = <T>(items: T[], chunkSize: number) => {
+  if (chunkSize <= 0) {
+    return [items];
+  }
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += chunkSize) {
+    chunks.push(items.slice(i, i + chunkSize));
+  }
+  return chunks;
+};
+
+const ensureModelSupportsDeletedAt = async (
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  modelDelegate: any,
+  tableName: string
+) => {
+  try {
+    // This validates the field exists even when the table is empty.
+    await modelDelegate.findFirst({ select: { deletedAt: true } });
+    return { ok: true } as const;
+  } catch (error) {
+    logger.warn('Soft-delete restore requested for unsupported table', {
+      tableName,
+      error,
+    });
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Table does not support deletedAt',
+    } as const;
+  }
+};
 
 type PreviewChange = {
   id: number | string | null;
@@ -26,11 +66,43 @@ type PreviewChange = {
 
 type PreviewTableResult = {
   attempted: number;
+  insertCount?: number;
   inserts: RowRecord[];
+  truncatedInserts?: boolean;
+  updateCount?: number;
   updates: PreviewChange[];
+  truncatedUpdates?: boolean;
   skipped: number;
   notice?: string;
   deletedCount?: number;
+};
+
+const fetchExistingByIds = async (
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  modelDelegate: any,
+  ids: Array<number | string>
+): Promise<Map<number | string, RowRecord>> => {
+  const map = new Map<number | string, RowRecord>();
+  const uniqueIds = Array.from(new Set(ids));
+
+  for (const chunk of chunkArray(uniqueIds, FIND_MANY_CHUNK_SIZE)) {
+    if (!chunk.length) {
+      continue;
+    }
+
+    const rows = await modelDelegate.findMany({
+      where: { id: { in: chunk } },
+    });
+
+    for (const row of rows as RowRecord[]) {
+      const id = row.id as number | string | undefined;
+      if (id !== undefined && id !== null) {
+        map.set(id, row);
+      }
+    }
+  }
+
+  return map;
 };
 
 const normalizeValue = (value: unknown): unknown => {
@@ -132,10 +204,18 @@ const processTablePreview = async (
 ): Promise<PreviewTableResult> => {
   if (forceOverwrite) {
     const beforeCount = await modelDelegate.count();
+    const sample = tableData.data
+      .slice(0, PREVIEW_SAMPLE_LIMIT)
+      .map((row) => normalizeRecord(row));
+    const insertCount = tableData.data.length;
     return {
-      attempted: tableData.data.length,
-      inserts: tableData.data.map((row) => normalizeRecord(row)),
+      attempted: insertCount,
+      insertCount,
+      inserts: sample,
+      truncatedInserts: insertCount > PREVIEW_SAMPLE_LIMIT,
+      updateCount: 0,
       updates: [],
+      truncatedUpdates: false,
       skipped: 0,
       notice:
         'Force overwrite is enabled. Existing records will be deleted before applying this backup.',
@@ -145,26 +225,52 @@ const processTablePreview = async (
 
   const preview: PreviewTableResult = {
     attempted: tableData.data.length,
+    insertCount: 0,
     inserts: [],
+    truncatedInserts: false,
+    updateCount: 0,
     updates: [],
+    truncatedUpdates: false,
     skipped: 0,
   };
 
+  const ids: Array<number | string> = [];
+  const normalizedIncoming: RowRecord[] = [];
   for (const rawRecord of tableData.data as RowRecord[]) {
     const record = normalizeRecord(rawRecord);
+    normalizedIncoming.push(record);
+    const recordId = record.id as number | string | null | undefined;
+    if (recordId !== null && recordId !== undefined) {
+      ids.push(recordId);
+    }
+  }
+
+  const existingById = ids.length
+    ? await fetchExistingByIds(modelDelegate, ids)
+    : new Map<number | string, RowRecord>();
+
+  for (const record of normalizedIncoming) {
     const recordId = record.id as number | string | null | undefined;
 
     if (recordId === null || recordId === undefined) {
-      preview.inserts.push(record);
+      preview.insertCount = (preview.insertCount ?? 0) + 1;
+      if (preview.inserts.length < PREVIEW_SAMPLE_LIMIT) {
+        preview.inserts.push(record);
+      } else {
+        preview.truncatedInserts = true;
+      }
       continue;
     }
 
-    const existing = await modelDelegate.findUnique({
-      where: { id: recordId },
-    });
+    const existing = existingById.get(recordId);
 
     if (!existing) {
-      preview.inserts.push(record);
+      preview.insertCount = (preview.insertCount ?? 0) + 1;
+      if (preview.inserts.length < PREVIEW_SAMPLE_LIMIT) {
+        preview.inserts.push(record);
+      } else {
+        preview.truncatedInserts = true;
+      }
       continue;
     }
 
@@ -175,12 +281,17 @@ const processTablePreview = async (
       continue;
     }
 
-    preview.updates.push({
-      id: recordId,
-      changes: getChangedFields(normalizedExisting, record),
-      incoming: record,
-      existing: normalizedExisting,
-    });
+    preview.updateCount = (preview.updateCount ?? 0) + 1;
+    if (preview.updates.length < PREVIEW_SAMPLE_LIMIT) {
+      preview.updates.push({
+        id: recordId,
+        changes: getChangedFields(normalizedExisting, record),
+        incoming: record,
+        existing: normalizedExisting,
+      });
+    } else {
+      preview.truncatedUpdates = true;
+    }
   }
 
   return preview;
@@ -189,7 +300,7 @@ const processTablePreview = async (
 const processTableRestore = async (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   modelDelegate: any,
-  modelName: string,
+  _modelName: string,
   tableData: { data: RowRecord[] },
   forceOverwrite: boolean
 ) => {
@@ -197,14 +308,21 @@ const processTableRestore = async (
 
   if (forceOverwrite) {
     await modelDelegate.deleteMany({});
-    const createdResult = await modelDelegate.createMany({
-      data: tableData.data,
-      skipDuplicates: false,
-    });
+    let createdTotal = 0;
+    for (const chunk of chunkArray(tableData.data, CREATE_MANY_CHUNK_SIZE)) {
+      if (!chunk.length) {
+        continue;
+      }
+      const createdResult = await modelDelegate.createMany({
+        data: chunk,
+        skipDuplicates: false,
+      });
+      createdTotal += createdResult.count;
+    }
     const afterCount = await modelDelegate.count();
 
     return {
-      count: createdResult.count,
+      count: createdTotal,
       updated: 0,
       beforeCount,
       afterCount,
@@ -213,57 +331,60 @@ const processTableRestore = async (
     };
   }
 
-  const { created, updated, skipped } = await prisma.$transaction(
-    async (tx) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const transactionalDelegate = (tx as any)[modelName];
-      let createdCount = 0;
-      let updatedCount = 0;
-      let skippedCount = 0;
-
-      for (const rawRecord of tableData.data as RowRecord[]) {
-        const record = { ...rawRecord };
-        const recordId = record.id as number | string | null | undefined;
-
-        if (recordId === null || recordId === undefined) {
-          await transactionalDelegate.create({ data: record });
-          createdCount++;
-          continue;
-        }
-
-        const existing = await transactionalDelegate.findUnique({
-          where: { id: recordId },
-        });
-
-        if (!existing) {
-          await transactionalDelegate.create({ data: record });
-          createdCount++;
-          continue;
-        }
-
-        if (recordsMatch(existing as RowRecord, record)) {
-          skippedCount++;
-          continue;
-        }
-
-        const dataToUpdate = { ...record };
-        delete dataToUpdate.id;
-        delete dataToUpdate.updatedAt;
-
-        await transactionalDelegate.update({
-          where: { id: recordId },
-          data: dataToUpdate,
-        });
-        updatedCount++;
-      }
-
-      return {
-        created: createdCount,
-        updated: updatedCount,
-        skipped: skippedCount,
-      };
+  // Bulk insert new rows efficiently, then update only those that differ.
+  let created = 0;
+  for (const chunk of chunkArray(tableData.data, CREATE_MANY_CHUNK_SIZE)) {
+    if (!chunk.length) {
+      continue;
     }
-  );
+    const createdResult = await modelDelegate.createMany({
+      data: chunk,
+      skipDuplicates: true,
+    });
+    created += createdResult.count;
+  }
+
+  const rowsWithId: Array<{ id: number | string; incoming: RowRecord }> = [];
+  const ids: Array<number | string> = [];
+  for (const rawRecord of tableData.data as RowRecord[]) {
+    const record = rawRecord as RowRecord;
+    const recordId = record.id as number | string | null | undefined;
+    if (recordId === null || recordId === undefined) {
+      continue;
+    }
+    ids.push(recordId);
+    rowsWithId.push({ id: recordId, incoming: record });
+  }
+
+  const existingById = ids.length
+    ? await fetchExistingByIds(modelDelegate, ids)
+    : new Map<number | string, RowRecord>();
+
+  let updated = 0;
+
+  for (const row of rowsWithId) {
+    const existing = existingById.get(row.id);
+    if (!existing) {
+      continue;
+    }
+
+    const incomingNormalized = normalizeRecord(row.incoming);
+    const existingNormalized = normalizeRecord(existing);
+
+    if (recordsMatch(existingNormalized, incomingNormalized)) {
+      continue;
+    }
+
+    const dataToUpdate = { ...(row.incoming as RowRecord) };
+    delete dataToUpdate.id;
+    delete dataToUpdate.updatedAt;
+
+    await modelDelegate.update({
+      where: { id: row.id },
+      data: dataToUpdate,
+    });
+    updated++;
+  }
 
   const afterCount = await modelDelegate.count();
 
@@ -273,7 +394,7 @@ const processTableRestore = async (
     beforeCount,
     afterCount,
     attempted: tableData.data.length,
-    skipped,
+    skipped: Math.max(0, tableData.data.length - created - updated),
   };
 };
 
@@ -287,7 +408,10 @@ export async function POST(request: NextRequest) {
       tables,
       forceOverwrite = false,
       previewOnly = false,
+      stopOnError = true,
     } = body;
+
+    const shouldAbortOnError = stopOnError && !previewOnly;
 
     if (!timestamp || !file) {
       return NextResponse.json(
@@ -327,16 +451,71 @@ export async function POST(request: NextRequest) {
 
     const modelMap: Record<string, string> = {
       transactions: 'transaction',
+      transaction_payments: 'transactionPayment',
+      transaction_refunds: 'transactionRefund',
+      transaction_status_changes: 'transactionStatusChange',
       customers: 'customer',
       products: 'product',
       prices: 'price',
       shipments: 'shipment',
       employees: 'employee',
+      employee_automation_settings: 'employeeAutomationSetting',
       schedules: 'schedule',
       attendance: 'attendance',
       payrolls: 'payroll',
+      thirteenth_month_pay_records: 'thirteenthMonthPayRecord',
+      salary_history: 'salaryHistory',
       leave_requests: 'leaveRequest',
       expenses: 'expense',
+      cash_advances: 'cashAdvanceRecord',
+      cash_advance_deductions: 'cashAdvanceDeduction',
+      clothing_accounting_opening_balances: 'clothingAccountingOpeningBalance',
+      clothing_accounting_journal_lines: 'clothingAccountingJournalLine',
+      clothing_recurring_payment_templates: 'clothingRecurringPaymentTemplate',
+      clothing_recurring_payment_drafts: 'clothingRecurringPaymentDraft',
+      clothing_inventory_reclass_entries: 'clothingInventoryReclassEntry',
+      clothing_inventory_transit_build_entries:
+        'clothingInventoryTransitBuildEntry',
+      invoices: 'invoice',
+      checkout_links: 'checkoutLink',
+      item_weights: 'itemWeight',
+
+      general_merchandise_transactions: 'generalMerchandiseTransaction',
+      general_merchandise_transaction_payments:
+        'generalMerchandiseTransactionPayment',
+      general_merchandise_transaction_refunds:
+        'generalMerchandiseTransactionRefund',
+      general_merchandise_transaction_status_changes:
+        'generalMerchandiseTransactionStatusChange',
+      general_merchandise_customers: 'generalMerchandiseCustomer',
+      general_merchandise_products: 'generalMerchandiseProduct',
+      general_merchandise_prices: 'generalMerchandisePrice',
+      general_merchandise_shipments: 'generalMerchandiseShipment',
+      general_merchandise_employees: 'generalMerchandiseEmployee',
+      general_merchandise_employee_automation_settings:
+        'generalMerchandiseEmployeeAutomationSetting',
+      general_merchandise_schedules: 'generalMerchandiseSchedule',
+      general_merchandise_attendance: 'generalMerchandiseAttendance',
+      general_merchandise_payrolls: 'generalMerchandisePayroll',
+      general_merchandise_thirteenth_month_pay_records:
+        'generalMerchandiseThirteenthMonthPayRecord',
+      general_merchandise_salary_history: 'generalMerchandiseSalaryHistory',
+      general_merchandise_leave_requests: 'generalMerchandiseLeaveRequest',
+      general_merchandise_expenses: 'generalMerchandiseExpense',
+      general_merchandise_cash_advances: 'generalMerchandiseCashAdvanceRecord',
+      general_merchandise_cash_advance_deductions:
+        'generalMerchandiseCashAdvanceDeduction',
+      general_merchandise_accounting_opening_balances:
+        'generalMerchandiseAccountingOpeningBalance',
+      general_merchandise_accounting_journal_lines:
+        'generalMerchandiseAccountingJournalLine',
+      general_merchandise_recurring_payment_templates:
+        'generalMerchandiseRecurringPaymentTemplate',
+      general_merchandise_recurring_payment_drafts:
+        'generalMerchandiseRecurringPaymentDraft',
+      general_merchandise_invoices: 'generalMerchandiseInvoice',
+      general_merchandise_checkout_links: 'generalMerchandiseCheckoutLink',
+      general_merchandise_item_weights: 'generalMerchandiseItemWeight',
     };
 
     const results: Record<
@@ -352,7 +531,9 @@ export async function POST(request: NextRequest) {
       }
     > = {};
     const previewResults: Record<string, PreviewTableResult> = {};
-    const tablesToRestore = tables || Object.keys(backupData.tables);
+    const requestedTables = (tables ||
+      Object.keys(backupData.tables)) as string[];
+    const tablesToRestore = sortTablesForRestore(requestedTables);
 
     for (const tableName of tablesToRestore) {
       const tableData = backupData.tables[tableName];
@@ -365,6 +546,17 @@ export async function POST(request: NextRequest) {
       const modelName = modelMap[tableName];
       if (!modelName) {
         results[tableName] = { count: 0, error: 'Unknown table' };
+        if (shouldAbortOnError) {
+          return NextResponse.json(
+            {
+              success: false,
+              message: 'Restore aborted due to unknown table',
+              abortedAt: tableName,
+              results,
+            },
+            { status: 400 }
+          );
+        }
         continue;
       }
 
@@ -406,6 +598,18 @@ export async function POST(request: NextRequest) {
             count: 0,
             error: error instanceof Error ? error.message : String(error),
           };
+
+          if (shouldAbortOnError) {
+            return NextResponse.json(
+              {
+                success: false,
+                message: 'Restore aborted due to table restore error',
+                abortedAt: tableName,
+                results,
+              },
+              { status: 500 }
+            );
+          }
         }
       }
     }
@@ -453,6 +657,8 @@ export async function GET(request: NextRequest) {
 
     const modelMap: Record<string, string> = {
       transactions: 'transaction',
+      transaction_payments: 'transactionPayment',
+      transaction_refunds: 'transactionRefund',
       customers: 'customer',
       products: 'product',
       prices: 'price',
@@ -461,6 +667,26 @@ export async function GET(request: NextRequest) {
       schedules: 'schedule',
       attendance: 'attendance',
       payrolls: 'payroll',
+      invoices: 'invoice',
+      checkout_links: 'checkoutLink',
+      item_weights: 'itemWeight',
+
+      general_merchandise_transactions: 'generalMerchandiseTransaction',
+      general_merchandise_transaction_payments:
+        'generalMerchandiseTransactionPayment',
+      general_merchandise_transaction_refunds:
+        'generalMerchandiseTransactionRefund',
+      general_merchandise_customers: 'generalMerchandiseCustomer',
+      general_merchandise_products: 'generalMerchandiseProduct',
+      general_merchandise_prices: 'generalMerchandisePrice',
+      general_merchandise_shipments: 'generalMerchandiseShipment',
+      general_merchandise_employees: 'generalMerchandiseEmployee',
+      general_merchandise_schedules: 'generalMerchandiseSchedule',
+      general_merchandise_attendance: 'generalMerchandiseAttendance',
+      general_merchandise_payrolls: 'generalMerchandisePayroll',
+      general_merchandise_invoices: 'generalMerchandiseInvoice',
+      general_merchandise_checkout_links: 'generalMerchandiseCheckoutLink',
+      general_merchandise_item_weights: 'generalMerchandiseItemWeight',
     };
 
     const modelName = modelMap[table];
@@ -482,7 +708,23 @@ export async function GET(request: NextRequest) {
     // Dynamic model access requires 'any' type due to Prisma's runtime model resolution
     // The modelName is validated against modelMap above
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const deletedRecords = await (prisma as any)[modelName].findMany({
+    const modelDelegate = (prisma as any)[modelName];
+    const supportsDeletedAt = await ensureModelSupportsDeletedAt(
+      modelDelegate,
+      table
+    );
+    if (!supportsDeletedAt.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Table does not support soft-delete restore',
+          details: supportsDeletedAt.error,
+        },
+        { status: 400 }
+      );
+    }
+
+    const deletedRecords = await modelDelegate.findMany({
       where,
       orderBy: { deletedAt: 'desc' },
       take: 100, // Limit to 100 records
@@ -524,6 +766,8 @@ export async function PATCH(request: NextRequest) {
 
     const modelMap: Record<string, string> = {
       transactions: 'transaction',
+      transaction_payments: 'transactionPayment',
+      transaction_refunds: 'transactionRefund',
       customers: 'customer',
       products: 'product',
       prices: 'price',
@@ -532,6 +776,26 @@ export async function PATCH(request: NextRequest) {
       schedules: 'schedule',
       attendance: 'attendance',
       payrolls: 'payroll',
+      invoices: 'invoice',
+      checkout_links: 'checkoutLink',
+      item_weights: 'itemWeight',
+
+      general_merchandise_transactions: 'generalMerchandiseTransaction',
+      general_merchandise_transaction_payments:
+        'generalMerchandiseTransactionPayment',
+      general_merchandise_transaction_refunds:
+        'generalMerchandiseTransactionRefund',
+      general_merchandise_customers: 'generalMerchandiseCustomer',
+      general_merchandise_products: 'generalMerchandiseProduct',
+      general_merchandise_prices: 'generalMerchandisePrice',
+      general_merchandise_shipments: 'generalMerchandiseShipment',
+      general_merchandise_employees: 'generalMerchandiseEmployee',
+      general_merchandise_schedules: 'generalMerchandiseSchedule',
+      general_merchandise_attendance: 'generalMerchandiseAttendance',
+      general_merchandise_payrolls: 'generalMerchandisePayroll',
+      general_merchandise_invoices: 'generalMerchandiseInvoice',
+      general_merchandise_checkout_links: 'generalMerchandiseCheckoutLink',
+      general_merchandise_item_weights: 'generalMerchandiseItemWeight',
     };
 
     const modelName = modelMap[table];
@@ -545,7 +809,23 @@ export async function PATCH(request: NextRequest) {
     // Dynamic model access requires 'any' type due to Prisma's runtime model resolution
     // The modelName is validated against modelMap above
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await (prisma as any)[modelName].updateMany({
+    const modelDelegate = (prisma as any)[modelName];
+    const supportsDeletedAt = await ensureModelSupportsDeletedAt(
+      modelDelegate,
+      table
+    );
+    if (!supportsDeletedAt.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Table does not support soft-delete restore',
+          details: supportsDeletedAt.error,
+        },
+        { status: 400 }
+      );
+    }
+
+    const result = await modelDelegate.updateMany({
       where: { id: { in: ids } },
       data: { deletedAt: null },
     });

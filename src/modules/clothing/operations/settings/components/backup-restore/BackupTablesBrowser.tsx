@@ -29,7 +29,7 @@ interface BackupTablesBrowserProps {
   previewData: BackupData | null;
   selectedTableName: string | null;
   selectedTableDetails: TableDetails;
-  onSelectTable: (table: string) => void;
+  onSelectTable: (table: string) => void | Promise<void>;
   height?: number | string;
 }
 

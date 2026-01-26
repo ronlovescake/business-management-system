@@ -95,6 +95,48 @@ export function BackupRestoreTab() {
   const [pageTab, setPageTab] = useState<'backup' | 'restore' | 'tables'>(
     'backup'
   );
+
+  const TABLE_SAMPLE_LIMIT = 250;
+  const MAX_CLIENT_EXPORT_ROWS = 5000;
+
+  const fetchTableSample = useCallback(
+    async (
+      timestamp: string,
+      jsonFile: string,
+      table: string,
+      {
+        limit = TABLE_SAMPLE_LIMIT,
+        offset = 0,
+      }: { limit?: number; offset?: number } = {}
+    ) => {
+      const response = await fetch(
+        `/api/backup/${encodeURIComponent(timestamp)}/${encodeURIComponent(jsonFile)}?mode=table&table=${encodeURIComponent(table)}&limit=${encodeURIComponent(String(limit))}&offset=${encodeURIComponent(String(offset))}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch table sample: ${response.statusText}`);
+      }
+
+      const payload = (await response.json()) as BackupData;
+
+      setPreviewData((prev) => {
+        if (!prev) {
+          return payload;
+        }
+        return {
+          ...prev,
+          metadata: prev.metadata ?? payload.metadata,
+          tables: {
+            ...prev.tables,
+            ...(payload.tables || {}),
+          },
+        };
+      });
+
+      return payload;
+    },
+    [TABLE_SAMPLE_LIMIT]
+  );
   const autoBackupIntervalRef = useRef<NodeJS.Timeout>();
   const strategyOptions = useMemo(
     () =>
@@ -306,20 +348,26 @@ export function BackupRestoreTab() {
         throw new Error('No JSON file found');
       }
 
-      // Use API route to fetch the file
+      // Fetch lightweight summary (counts only), then load a small sample for the first table.
       const response = await fetch(
-        `/api/backup/${backup.timestamp}/${jsonFile}`
+        `/api/backup/${encodeURIComponent(backup.timestamp)}/${encodeURIComponent(jsonFile)}?mode=summary`
       );
       if (!response.ok) {
-        throw new Error(`Failed to fetch backup: ${response.statusText}`);
+        throw new Error(
+          `Failed to fetch backup summary: ${response.statusText}`
+        );
       }
-      const data: BackupData = await response.json();
-      setPreviewData(data);
-      const [firstTable] = Object.keys(data.tables);
+      const summary: BackupData = await response.json();
+      setPreviewData(summary);
+      const [firstTable] = Object.keys(summary.tables);
       setSelectedTableName(firstTable ?? null);
       setRestoreSelection([]);
       setForceOverwrite(false);
       setPreviewJsonFile(jsonFile);
+
+      if (firstTable) {
+        await fetchTableSample(backup.timestamp, jsonFile, firstTable);
+      }
     } catch (error) {
       showNotification({
         title: 'Preview Failed',
@@ -333,6 +381,39 @@ export function BackupRestoreTab() {
       setPreviewLoading(false);
     }
   };
+
+  const handleSelectPreviewTable = useCallback(
+    async (table: string) => {
+      setSelectedTableName(table);
+
+      if (!selectedBackup || !previewJsonFile) {
+        return;
+      }
+
+      const alreadyLoaded = previewData?.tables?.[table]?.data;
+      if (Array.isArray(alreadyLoaded) && alreadyLoaded.length > 0) {
+        return;
+      }
+
+      try {
+        setPreviewLoading(true);
+        await fetchTableSample(
+          selectedBackup.timestamp,
+          previewJsonFile,
+          table
+        );
+      } catch (error) {
+        showNotification({
+          title: 'Preview Failed',
+          message: error instanceof Error ? error.message : 'Unknown error',
+          color: 'red',
+        });
+      } finally {
+        setPreviewLoading(false);
+      }
+    },
+    [selectedBackup, previewJsonFile, previewData, fetchTableSample]
+  );
 
   const handleDownloadJSON = async (backup: Backup) => {
     try {
@@ -418,7 +499,52 @@ export function BackupRestoreTab() {
 
     try {
       const tableData = previewData.tables[tableName];
-      if (!tableData?.data?.length) {
+      if (!tableData) {
+        return;
+      }
+
+      if (tableData.count > MAX_CLIENT_EXPORT_ROWS) {
+        showNotification({
+          title: 'Too large for browser export',
+          message: `Table has ${tableData.count} rows. Use Download JSON or SQL for large exports.`,
+          color: 'yellow',
+        });
+        return;
+      }
+
+      if (!tableData.data || tableData.data.length !== tableData.count) {
+        if (!selectedBackup || !previewJsonFile) {
+          throw new Error('Backup file context missing');
+        }
+        const payload = await fetchTableSample(
+          selectedBackup.timestamp,
+          previewJsonFile,
+          tableName,
+          {
+            limit: tableData.count,
+            offset: 0,
+          }
+        );
+
+        const resolved = payload.tables?.[tableName]?.data;
+        if (!resolved?.length) {
+          return;
+        }
+
+        const ws = XLSX.utils.json_to_sheet(resolved);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, tableName);
+        XLSX.writeFile(wb, `${tableName}-${selectedBackup?.timestamp}.xlsx`);
+
+        showNotification({
+          title: 'Downloaded',
+          message: `${tableName}.xlsx`,
+          color: 'green',
+        });
+        return;
+      }
+
+      if (!tableData.data?.length) {
         return;
       }
 
@@ -452,8 +578,45 @@ export function BackupRestoreTab() {
     try {
       const wb = XLSX.utils.book_new();
       let sheetCount = 0;
+      let skipped = 0;
 
       for (const [tableName, tableData] of Object.entries(previewData.tables)) {
+        if (!tableData?.count) {
+          continue;
+        }
+
+        if (tableData.count > MAX_CLIENT_EXPORT_ROWS) {
+          skipped++;
+          continue;
+        }
+
+        if (!tableData.data || tableData.data.length !== tableData.count) {
+          if (!selectedBackup || !previewJsonFile) {
+            skipped++;
+            continue;
+          }
+          const payload = await fetchTableSample(
+            selectedBackup.timestamp,
+            previewJsonFile,
+            tableName,
+            {
+              limit: tableData.count,
+              offset: 0,
+            }
+          );
+
+          const resolved = payload.tables?.[tableName]?.data;
+          if (!resolved?.length) {
+            continue;
+          }
+
+          const ws = XLSX.utils.json_to_sheet(resolved);
+          const sheetName = tableName.substring(0, 31);
+          XLSX.utils.book_append_sheet(wb, ws, sheetName);
+          sheetCount++;
+          continue;
+        }
+
         if (tableData.data?.length) {
           const ws = XLSX.utils.json_to_sheet(tableData.data);
           const sheetName = tableName.substring(0, 31);
@@ -469,7 +632,9 @@ export function BackupRestoreTab() {
         );
         showNotification({
           title: 'Downloaded',
-          message: `${sheetCount} tables in workbook`,
+          message: skipped
+            ? `${sheetCount} tables in workbook (${skipped} skipped)`
+            : `${sheetCount} tables in workbook`,
           color: 'green',
         });
       }
@@ -489,7 +654,56 @@ export function BackupRestoreTab() {
 
     try {
       const tableData = previewData.tables[tableName];
-      if (!tableData?.data?.length) {
+      if (!tableData) {
+        return;
+      }
+
+      if (tableData.count > MAX_CLIENT_EXPORT_ROWS) {
+        showNotification({
+          title: 'Too large for browser export',
+          message: `Table has ${tableData.count} rows. Use Download JSON or SQL for large exports.`,
+          color: 'yellow',
+        });
+        return;
+      }
+
+      if (!tableData.data || tableData.data.length !== tableData.count) {
+        if (!selectedBackup || !previewJsonFile) {
+          throw new Error('Backup file context missing');
+        }
+        const payload = await fetchTableSample(
+          selectedBackup.timestamp,
+          previewJsonFile,
+          tableName,
+          {
+            limit: tableData.count,
+            offset: 0,
+          }
+        );
+
+        const resolved = payload.tables?.[tableName]?.data;
+        if (!resolved?.length) {
+          return;
+        }
+
+        const csv = Papa.unparse(resolved);
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${tableName}-${selectedBackup?.timestamp}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        showNotification({
+          title: 'Downloaded',
+          message: `${tableName}.csv`,
+          color: 'green',
+        });
+        return;
+      }
+
+      if (!tableData.data?.length) {
         return;
       }
 
@@ -522,7 +736,50 @@ export function BackupRestoreTab() {
     }
 
     let count = 0;
+    let skipped = 0;
     for (const [tableName, tableData] of Object.entries(previewData.tables)) {
+      if (!tableData?.count) {
+        continue;
+      }
+
+      if (tableData.count > MAX_CLIENT_EXPORT_ROWS) {
+        skipped++;
+        continue;
+      }
+
+      if (!tableData.data || tableData.data.length !== tableData.count) {
+        if (!selectedBackup || !previewJsonFile) {
+          skipped++;
+          continue;
+        }
+        const payload = await fetchTableSample(
+          selectedBackup.timestamp,
+          previewJsonFile,
+          tableName,
+          {
+            limit: tableData.count,
+            offset: 0,
+          }
+        );
+
+        const resolved = payload.tables?.[tableName]?.data;
+        if (!resolved?.length) {
+          continue;
+        }
+
+        const csv = Papa.unparse(resolved);
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${tableName}-${selectedBackup?.timestamp}.csv`;
+        await new Promise((r) => setTimeout(r, 100));
+        a.click();
+        URL.revokeObjectURL(url);
+        count++;
+        continue;
+      }
+
       if (tableData.data?.length) {
         const csv = Papa.unparse(tableData.data);
         const blob = new Blob([csv], { type: 'text/csv' });
@@ -539,7 +796,9 @@ export function BackupRestoreTab() {
 
     showNotification({
       title: 'Downloaded',
-      message: `${count} CSV files`,
+      message: skipped
+        ? `${count} CSV files (${skipped} skipped)`
+        : `${count} CSV files`,
       color: 'green',
     });
   };
@@ -646,10 +905,12 @@ export function BackupRestoreTab() {
 
       if (initialTable && previewResponse.preview[initialTable]) {
         const entry = previewResponse.preview[initialTable];
+        const insertCount = entry.insertCount ?? entry.inserts.length;
+        const updateCount = entry.updateCount ?? entry.updates.length;
         const defaultChangeType =
-          entry.inserts.length > 0
+          insertCount > 0
             ? 'insert'
-            : !forceOverwrite && entry.updates.length > 0
+            : !forceOverwrite && updateCount > 0
               ? 'update'
               : 'insert';
         setRestorePreviewChangeType(defaultChangeType);
@@ -836,9 +1097,10 @@ export function BackupRestoreTab() {
       return;
     }
 
-    const hasInserts = entry.inserts.length > 0;
+    const hasInserts = (entry.insertCount ?? entry.inserts.length) > 0;
     const hasUpdates =
-      !restorePreviewForceOverwrite && entry.updates.length > 0;
+      !restorePreviewForceOverwrite &&
+      (entry.updateCount ?? entry.updates.length) > 0;
 
     if (restorePreviewChangeType === 'insert' && !hasInserts && hasUpdates) {
       setRestorePreviewChangeType('update');
@@ -934,6 +1196,10 @@ export function BackupRestoreTab() {
       return null;
     }
 
+    if (!table.data) {
+      return null;
+    }
+
     const columns: string[] = [];
     (table.data || []).forEach((row) => {
       Object.keys(row).forEach((key) => {
@@ -967,10 +1233,14 @@ export function BackupRestoreTab() {
       .filter((table) => restorePreviewData[table])
       .map((table) => {
         const entry = restorePreviewData[table];
-        const insertCount = entry?.inserts.length ?? 0;
+        const insertCount = entry
+          ? (entry.insertCount ?? entry.inserts.length)
+          : 0;
         const updateCount = restorePreviewForceOverwrite
           ? 0
-          : (entry?.updates.length ?? 0);
+          : entry
+            ? (entry.updateCount ?? entry.updates.length)
+            : 0;
         const labels: string[] = [];
         if (insertCount) {
           labels.push(`${insertCount} insert${insertCount === 1 ? '' : 's'}`);
@@ -993,19 +1263,21 @@ export function BackupRestoreTab() {
       return [];
     }
     const options: Array<{ value: 'insert' | 'update'; label: string }> = [];
-    if (restorePreviewEntry.inserts.length > 0) {
+    const insertCount =
+      restorePreviewEntry.insertCount ?? restorePreviewEntry.inserts.length;
+    const updateCount =
+      restorePreviewEntry.updateCount ?? restorePreviewEntry.updates.length;
+
+    if (insertCount > 0) {
       options.push({
         value: 'insert',
-        label: `New rows (${restorePreviewEntry.inserts.length})`,
+        label: `New rows (${insertCount})`,
       });
     }
-    if (
-      !restorePreviewForceOverwrite &&
-      restorePreviewEntry.updates.length > 0
-    ) {
+    if (!restorePreviewForceOverwrite && updateCount > 0) {
       options.push({
         value: 'update',
-        label: `Updates (${restorePreviewEntry.updates.length})`,
+        label: `Updates (${updateCount})`,
       });
     }
     if (!options.length) {
@@ -1361,7 +1633,7 @@ export function BackupRestoreTab() {
                 previewData={previewData}
                 selectedTableName={selectedTableName}
                 selectedTableDetails={selectedTableDetails}
-                onSelectTable={setSelectedTableName}
+                onSelectTable={handleSelectPreviewTable}
                 height="65vh"
               />
             ) : (
@@ -1399,7 +1671,7 @@ export function BackupRestoreTab() {
         restoreDisabled={restoreDisabled}
         canDownloadBackup={Boolean(selectedBackup)}
         onClose={() => setPreviewModalOpen(false)}
-        onSelectTable={(table) => setSelectedTableName(table)}
+        onSelectTable={(table) => void handleSelectPreviewTable(table)}
         onSelectAllTables={handleSelectAllTables}
         onClearSelectedTables={handleClearSelectedTables}
         onToggleTable={toggleTableSelection}

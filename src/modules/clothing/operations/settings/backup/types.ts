@@ -50,7 +50,12 @@ export interface BackupData {
     string,
     {
       count: number;
-      data: Array<Record<string, unknown>>;
+      data?: Array<Record<string, unknown>>;
+      sample?: {
+        offset: number;
+        limit: number;
+        total: number;
+      };
     }
   >;
 }
@@ -72,13 +77,17 @@ export type RestorePreviewResults = Record<
   string,
   {
     attempted: number;
+    insertCount?: number;
     inserts: Array<Record<string, unknown>>;
+    truncatedInserts?: boolean;
+    updateCount?: number;
     updates: Array<{
       id: number | string | null;
       changes: Record<string, { before: unknown; after: unknown }>;
       incoming: Record<string, unknown>;
       existing?: Record<string, unknown>;
     }>;
+    truncatedUpdates?: boolean;
     skipped: number;
     notice?: string;
     deletedCount?: number;
@@ -226,10 +235,12 @@ export const hasTableChanges = (
   if (!entry) {
     return false;
   }
+  const insertCount = entry.insertCount ?? entry.inserts.length;
+  const updateCount = entry.updateCount ?? entry.updates.length;
   if (forceOverwrite) {
-    return entry.inserts.length > 0 || (entry.deletedCount ?? 0) > 0;
+    return insertCount > 0 || (entry.deletedCount ?? 0) > 0;
   }
-  return entry.inserts.length > 0 || entry.updates.length > 0;
+  return insertCount > 0 || updateCount > 0;
 };
 
 export const previewHasChanges = (

@@ -20,6 +20,11 @@ export async function GET(
 ) {
   try {
     const { timestamp, filename } = params;
+    const url = new URL(request.url);
+    const mode = url.searchParams.get('mode');
+    const requestedTable = url.searchParams.get('table');
+    const rawLimit = url.searchParams.get('limit');
+    const rawOffset = url.searchParams.get('offset');
 
     logger.info('Backup file request:', { timestamp, filename, BACKUP_DIR });
 
@@ -63,6 +68,130 @@ export async function GET(
         fs.readdirSync(path.join(BACKUP_DIR, timestamp))
       );
       return NextResponse.json({ error: 'File not found' }, { status: 404 });
+    }
+
+    // Lightweight JSON modes for large backups
+    if (
+      filename.endsWith('.json') &&
+      (mode === 'summary' || mode === 'table')
+    ) {
+      const maxLimit = 5000;
+      const limit = Math.max(
+        1,
+        Math.min(maxLimit, Number.parseInt(rawLimit || '200', 10) || 200)
+      );
+      const offset = Math.max(0, Number.parseInt(rawOffset || '0', 10) || 0);
+
+      if (mode === 'table') {
+        if (!requestedTable) {
+          return NextResponse.json(
+            { error: 'Missing table parameter' },
+            { status: 400 }
+          );
+        }
+
+        // Basic validation (tables are JSON keys; still avoid weird inputs)
+        if (!/^[a-z0-9_]+$/i.test(requestedTable)) {
+          return NextResponse.json(
+            { error: 'Invalid table parameter' },
+            { status: 400 }
+          );
+        }
+      }
+
+      const raw = fs.readFileSync(filePath, 'utf8');
+      const parsed = JSON.parse(raw) as {
+        metadata?: unknown;
+        tables?: Record<string, { count?: number; data?: unknown[] }>;
+      };
+
+      const metadata = parsed.metadata;
+      const tables = parsed.tables;
+
+      if (!tables || typeof tables !== 'object') {
+        return NextResponse.json(
+          { error: 'Invalid backup file format' },
+          { status: 400 }
+        );
+      }
+
+      if (mode === 'summary') {
+        const summaryPath = path.join(
+          BACKUP_DIR,
+          timestamp,
+          `${filename}.summary.json`
+        );
+        if (fs.existsSync(summaryPath)) {
+          const cached = fs.readFileSync(summaryPath, 'utf8');
+          return NextResponse.json(JSON.parse(cached), {
+            headers: { 'Cache-Control': 'no-store' },
+          });
+        }
+
+        const summary = {
+          metadata,
+          tables: Object.fromEntries(
+            Object.entries(tables).map(([name, table]) => [
+              name,
+              {
+                count:
+                  typeof table?.count === 'number'
+                    ? table.count
+                    : Array.isArray(table?.data)
+                      ? table.data.length
+                      : 0,
+              },
+            ])
+          ),
+        };
+
+        try {
+          fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
+        } catch (error) {
+          logger.warn('Failed to write backup summary cache', {
+            summaryPath,
+            error,
+          });
+        }
+
+        return NextResponse.json(summary, {
+          headers: { 'Cache-Control': 'no-store' },
+        });
+      }
+
+      // mode === 'table'
+      const tableName = requestedTable as string;
+      const table = tables[tableName];
+
+      if (!table || !Array.isArray(table.data)) {
+        return NextResponse.json({ error: 'Table not found' }, { status: 404 });
+      }
+
+      const total =
+        typeof table.count === 'number'
+          ? table.count
+          : (table.data?.length ?? 0);
+      const sliced = table.data.slice(offset, offset + limit);
+
+      return NextResponse.json(
+        {
+          metadata,
+          tables: {
+            [tableName]: {
+              count: total,
+              data: sliced,
+              sample: {
+                offset,
+                limit,
+                total,
+              },
+            },
+          },
+        },
+        {
+          headers: { 'Cache-Control': 'no-store' },
+        }
+      );
     }
 
     // Read the file

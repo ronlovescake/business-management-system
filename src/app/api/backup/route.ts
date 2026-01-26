@@ -158,20 +158,142 @@ function findLatestBackupByStrategy(
 // Tables to backup
 const TABLES = [
   { name: 'transactions', model: 'transaction' },
+  { name: 'transaction_payments', model: 'transactionPayment' },
+  { name: 'transaction_refunds', model: 'transactionRefund' },
+  { name: 'transaction_status_changes', model: 'transactionStatusChange' },
   { name: 'customers', model: 'customer' },
   { name: 'products', model: 'product' },
   { name: 'prices', model: 'price' },
   { name: 'shipments', model: 'shipment' },
   { name: 'employees', model: 'employee' },
+  { name: 'employee_automation_settings', model: 'employeeAutomationSetting' },
   { name: 'schedules', model: 'schedule' },
   { name: 'attendance', model: 'attendance' },
   { name: 'payrolls', model: 'payroll' },
+  { name: 'thirteenth_month_pay_records', model: 'thirteenthMonthPayRecord' },
+  { name: 'salary_history', model: 'salaryHistory' },
   { name: 'leave_requests', model: 'leaveRequest' },
   { name: 'expenses', model: 'expense' },
   { name: 'cash_advances', model: 'cashAdvanceRecord' },
   { name: 'cash_advance_deductions', model: 'cashAdvanceDeduction' },
+  {
+    name: 'clothing_accounting_opening_balances',
+    model: 'clothingAccountingOpeningBalance',
+  },
+  {
+    name: 'clothing_accounting_journal_lines',
+    model: 'clothingAccountingJournalLine',
+  },
+  {
+    name: 'clothing_recurring_payment_templates',
+    model: 'clothingRecurringPaymentTemplate',
+  },
+  {
+    name: 'clothing_recurring_payment_drafts',
+    model: 'clothingRecurringPaymentDraft',
+  },
+  {
+    name: 'clothing_inventory_reclass_entries',
+    model: 'clothingInventoryReclassEntry',
+  },
+  {
+    name: 'clothing_inventory_transit_build_entries',
+    model: 'clothingInventoryTransitBuildEntry',
+  },
+  { name: 'invoices', model: 'invoice' },
   { name: 'checkout_links', model: 'checkoutLink' },
   { name: 'item_weights', model: 'itemWeight' },
+
+  // General Merchandise (separate schema)
+  {
+    name: 'general_merchandise_transactions',
+    model: 'generalMerchandiseTransaction',
+  },
+  {
+    name: 'general_merchandise_transaction_payments',
+    model: 'generalMerchandiseTransactionPayment',
+  },
+  {
+    name: 'general_merchandise_transaction_refunds',
+    model: 'generalMerchandiseTransactionRefund',
+  },
+  {
+    name: 'general_merchandise_transaction_status_changes',
+    model: 'generalMerchandiseTransactionStatusChange',
+  },
+  {
+    name: 'general_merchandise_customers',
+    model: 'generalMerchandiseCustomer',
+  },
+  { name: 'general_merchandise_products', model: 'generalMerchandiseProduct' },
+  { name: 'general_merchandise_prices', model: 'generalMerchandisePrice' },
+  {
+    name: 'general_merchandise_shipments',
+    model: 'generalMerchandiseShipment',
+  },
+  {
+    name: 'general_merchandise_employees',
+    model: 'generalMerchandiseEmployee',
+  },
+  {
+    name: 'general_merchandise_employee_automation_settings',
+    model: 'generalMerchandiseEmployeeAutomationSetting',
+  },
+  {
+    name: 'general_merchandise_schedules',
+    model: 'generalMerchandiseSchedule',
+  },
+  {
+    name: 'general_merchandise_attendance',
+    model: 'generalMerchandiseAttendance',
+  },
+  { name: 'general_merchandise_payrolls', model: 'generalMerchandisePayroll' },
+  {
+    name: 'general_merchandise_thirteenth_month_pay_records',
+    model: 'generalMerchandiseThirteenthMonthPayRecord',
+  },
+  {
+    name: 'general_merchandise_salary_history',
+    model: 'generalMerchandiseSalaryHistory',
+  },
+  {
+    name: 'general_merchandise_leave_requests',
+    model: 'generalMerchandiseLeaveRequest',
+  },
+  { name: 'general_merchandise_expenses', model: 'generalMerchandiseExpense' },
+  {
+    name: 'general_merchandise_cash_advances',
+    model: 'generalMerchandiseCashAdvanceRecord',
+  },
+  {
+    name: 'general_merchandise_cash_advance_deductions',
+    model: 'generalMerchandiseCashAdvanceDeduction',
+  },
+  {
+    name: 'general_merchandise_accounting_opening_balances',
+    model: 'generalMerchandiseAccountingOpeningBalance',
+  },
+  {
+    name: 'general_merchandise_accounting_journal_lines',
+    model: 'generalMerchandiseAccountingJournalLine',
+  },
+  {
+    name: 'general_merchandise_recurring_payment_templates',
+    model: 'generalMerchandiseRecurringPaymentTemplate',
+  },
+  {
+    name: 'general_merchandise_recurring_payment_drafts',
+    model: 'generalMerchandiseRecurringPaymentDraft',
+  },
+  { name: 'general_merchandise_invoices', model: 'generalMerchandiseInvoice' },
+  {
+    name: 'general_merchandise_checkout_links',
+    model: 'generalMerchandiseCheckoutLink',
+  },
+  {
+    name: 'general_merchandise_item_weights',
+    model: 'generalMerchandiseItemWeight',
+  },
 ] as const;
 
 type GenericRecord = Record<string, unknown>;
