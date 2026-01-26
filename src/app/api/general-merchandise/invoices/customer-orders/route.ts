@@ -51,10 +51,14 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const customerName = searchParams.get('customerName') ?? undefined;
+    const requireInvoiceDateParam = searchParams.get('requireInvoiceDate');
+    const requireInvoiceDate = requireInvoiceDateParam
+      ? !['0', 'false', 'no'].includes(requireInvoiceDateParam.toLowerCase())
+      : false;
 
     const results = await calculateCustomerOrdersFromTransactions({
       customerName,
-      requireInvoiceDate: true,
+      requireInvoiceDate,
     });
 
     const orders = mapResultsToCustomerOrders(results);
