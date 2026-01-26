@@ -344,7 +344,7 @@ export function buildNavigationItems(
   }
 
   if (workspace === 'accounting') {
-    if (business === 'clothing') {
+    if (business === 'clothing' || business === 'general-merchandise') {
       additionalItems.push(
         {
           label: 'Expenses',
