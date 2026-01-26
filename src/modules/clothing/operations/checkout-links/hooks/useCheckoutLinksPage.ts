@@ -32,7 +32,15 @@ const CUSTOMER_ORDER_ELIGIBLE_STATUSES: string[] = [
   'ready for dispatch',
 ];
 
-export const useCheckoutLinksPage = (apiBasePath?: string) => {
+type CheckoutLinksApiConfig = {
+  apiBasePath?: string;
+  checkoutLinksApiBasePath?: string;
+};
+
+export const useCheckoutLinksPage = ({
+  apiBasePath,
+  checkoutLinksApiBasePath,
+}: CheckoutLinksApiConfig = {}) => {
   const [activeTab, setActiveTab] = useState<string | null>('invoicing');
   const [invoicingSearchQuery, setInvoicingSearchQuery] = useState('');
   const [localInvoicingSearchQuery, setLocalInvoicingSearchQuery] =
@@ -70,6 +78,11 @@ export const useCheckoutLinksPage = (apiBasePath?: string) => {
   const resolveApiPath = useCallback(
     (path: string) => buildApiPath(apiBasePath, path),
     [apiBasePath]
+  );
+  const resolveCheckoutLinksApiPath = useCallback(
+    (path: string) =>
+      buildApiPath(checkoutLinksApiBasePath ?? apiBasePath, path),
+    [checkoutLinksApiBasePath, apiBasePath]
   );
   const queryClient = useQueryClient();
 
@@ -193,7 +206,9 @@ export const useCheckoutLinksPage = (apiBasePath?: string) => {
 
   const loadCheckoutLinks = useCallback(async () => {
     try {
-      const response = await fetch(resolveApiPath('/checkout-links'));
+      const response = await fetch(
+        resolveCheckoutLinksApiPath('/checkout-links')
+      );
       const result = await response.json();
 
       if (result.data) {
@@ -208,7 +223,7 @@ export const useCheckoutLinksPage = (apiBasePath?: string) => {
     } finally {
       setIsLoading(false);
     }
-  }, [resolveApiPath]);
+  }, [resolveCheckoutLinksApiPath]);
 
   const loadInvoices = useCallback(async () => {
     try {
@@ -675,7 +690,7 @@ export const useCheckoutLinksPage = (apiBasePath?: string) => {
 
       try {
         const response = await fetch(
-          `${resolveApiPath('/checkout-links')}?id=${encodeURIComponent(item.id)}`,
+          `${resolveCheckoutLinksApiPath('/checkout-links')}?id=${encodeURIComponent(item.id)}`,
           { method: 'DELETE' }
         );
         const result: { success?: boolean; error?: string } = await response
@@ -710,7 +725,7 @@ export const useCheckoutLinksPage = (apiBasePath?: string) => {
 
       return wasDeleted;
     },
-    [resolveApiPath]
+    [resolveCheckoutLinksApiPath]
   );
 
   const handleUpdateCheckoutLink = useCallback(
@@ -733,13 +748,16 @@ export const useCheckoutLinksPage = (apiBasePath?: string) => {
           productNames: values.productNames.trim() || null,
         };
 
-        const response = await fetch(resolveApiPath('/checkout-links'), {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        });
+        const response = await fetch(
+          resolveCheckoutLinksApiPath('/checkout-links'),
+          {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+          }
+        );
 
         const result = await response.json();
 
@@ -790,7 +808,7 @@ export const useCheckoutLinksPage = (apiBasePath?: string) => {
         setIsSavingCheckoutLink(false);
       }
     },
-    [closeEditModal, editingCheckoutLink, resolveApiPath]
+    [closeEditModal, editingCheckoutLink, resolveCheckoutLinksApiPath]
   );
 
   const handleImportCSV = useCallback(
@@ -889,7 +907,7 @@ export const useCheckoutLinksPage = (apiBasePath?: string) => {
 
           setCheckoutLinks(parsedData);
 
-          fetch(resolveApiPath('/checkout-links'), {
+          fetch(resolveCheckoutLinksApiPath('/checkout-links'), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -957,7 +975,7 @@ export const useCheckoutLinksPage = (apiBasePath?: string) => {
 
       reader.readAsText(file);
     },
-    [resolveApiPath]
+    [resolveCheckoutLinksApiPath]
   );
 
   const handleExportCSV = useCallback(() => {

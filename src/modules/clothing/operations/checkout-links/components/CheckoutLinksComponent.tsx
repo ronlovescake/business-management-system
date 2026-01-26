@@ -11,8 +11,10 @@ import { useCheckoutLinksPage } from '../hooks/useCheckoutLinksPage';
 
 export function CheckoutLinksComponent({
   apiBasePath,
+  checkoutLinksApiBasePath,
 }: {
   apiBasePath?: string;
+  checkoutLinksApiBasePath?: string;
 } = {}) {
   const {
     activeTab,
@@ -24,7 +26,7 @@ export function CheckoutLinksComponent({
     itemWeightsState,
     modalState,
     utilities,
-  } = useCheckoutLinksPage(apiBasePath);
+  } = useCheckoutLinksPage({ apiBasePath, checkoutLinksApiBasePath });
 
   const noop = () => {};
 

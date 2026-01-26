@@ -15,7 +15,10 @@ export default async function GeneralMerchandiseCheckoutLinksPage() {
   return (
     <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
       <PageLayout fluid withPadding>
-        <CheckoutLinksComponent apiBasePath="/api/general-merchandise" />
+        <CheckoutLinksComponent
+          apiBasePath="/api/general-merchandise"
+          checkoutLinksApiBasePath="/api"
+        />
       </PageLayout>
     </PermissionGuard>
   );
