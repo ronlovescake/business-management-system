@@ -19,6 +19,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
 import { useBusinessStore } from '../../lib/store';
+import { BackupRestoreSidebarPanel } from '@/modules/clothing/operations/settings/components/backup-restore/BackupRestoreSidebarPanel';
 import {
   buildNavigationItems,
   getWorkspaceDefinition,
@@ -30,6 +31,8 @@ export function Sidebar() {
   const pathname = usePathname();
   const { selectedBusiness, selectedWorkspace, initializeFromPath } =
     useBusinessStore();
+
+  const isAdminBackupRestore = pathname?.startsWith('/admin/backup-restore');
 
   // Initialize from current path on component mount
   useEffect(() => {
@@ -46,6 +49,14 @@ export function Sidebar() {
   }, [selectedBusiness, selectedWorkspace]);
 
   const workspaceMeta = getWorkspaceDefinition(selectedWorkspace);
+
+  if (isAdminBackupRestore) {
+    return (
+      <Stack gap="sm" style={{ height: '100%' }}>
+        <BackupRestoreSidebarPanel />
+      </Stack>
+    );
+  }
 
   if (!isBusiness(selectedBusiness) || !isWorkspace(selectedWorkspace)) {
     return (
@@ -121,46 +132,52 @@ export function Sidebar() {
 
       <Divider />
 
-      {/* Navigation Items */}
-      <Stack gap="xs">
-        {navigationItems.map((item) => {
-          const isActive = pathname === item.path;
-          const IconComponent = item.icon;
+      {isAdminBackupRestore ? (
+        <BackupRestoreSidebarPanel />
+      ) : (
+        /* Navigation Items */
+        <Stack gap="xs">
+          {navigationItems.map((item) => {
+            const isActive = pathname === item.path;
+            const IconComponent = item.icon;
 
-          return (
-            <NavLink
-              key={item.path}
-              component={Link}
-              href={item.path}
-              label={item.label}
-              leftSection={
-                <ThemeIcon
-                  size="md"
-                  radius="sm"
-                  variant={isActive ? 'filled' : 'light'}
-                  color="gray"
-                >
-                  <IconComponent size={24} />
-                </ThemeIcon>
-              }
-              active={isActive}
-              style={{
-                borderRadius: '8px',
-                fontWeight: isActive ? 600 : 500,
-                backgroundColor: isActive
-                  ? 'rgba(255, 255, 255, 0.9)'
-                  : 'transparent',
-                backdropFilter: isActive ? 'blur(10px)' : 'none',
-                WebkitBackdropFilter: isActive ? 'blur(10px)' : 'none',
-                border: isActive
-                  ? '1px solid rgba(255, 255, 255, 0.3)'
-                  : 'none',
-                boxShadow: isActive ? '0 4px 12px rgba(0, 0, 0, 0.1)' : 'none',
-              }}
-            />
-          );
-        })}
-      </Stack>
+            return (
+              <NavLink
+                key={item.path}
+                component={Link}
+                href={item.path}
+                label={item.label}
+                leftSection={
+                  <ThemeIcon
+                    size="md"
+                    radius="sm"
+                    variant={isActive ? 'filled' : 'light'}
+                    color="gray"
+                  >
+                    <IconComponent size={24} />
+                  </ThemeIcon>
+                }
+                active={isActive}
+                style={{
+                  borderRadius: '8px',
+                  fontWeight: isActive ? 600 : 500,
+                  backgroundColor: isActive
+                    ? 'rgba(255, 255, 255, 0.9)'
+                    : 'transparent',
+                  backdropFilter: isActive ? 'blur(10px)' : 'none',
+                  WebkitBackdropFilter: isActive ? 'blur(10px)' : 'none',
+                  border: isActive
+                    ? '1px solid rgba(255, 255, 255, 0.3)'
+                    : 'none',
+                  boxShadow: isActive
+                    ? '0 4px 12px rgba(0, 0, 0, 0.1)'
+                    : 'none',
+                }}
+              />
+            );
+          })}
+        </Stack>
+      )}
     </Stack>
   );
 }

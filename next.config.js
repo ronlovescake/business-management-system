@@ -166,8 +166,11 @@ const sentryWebpackPluginOptions = {
   // https://github.com/getsentry/sentry-webpack-plugin#options
 };
 
+const isTurbopackDev =
+  process.env.TURBOPACK === '1' && process.env.NODE_ENV !== 'production';
+const enableSentry = !isTurbopackDev && process.env.NEXT_DISABLE_SENTRY !== '1';
+
 // Make sure adding Sentry options is the last code to run before exporting
-module.exports = withSentryConfig(
-  withBundleAnalyzer(nextConfig),
-  sentryWebpackPluginOptions
-);
+module.exports = enableSentry
+  ? withSentryConfig(withBundleAnalyzer(nextConfig), sentryWebpackPluginOptions)
+  : withBundleAnalyzer(nextConfig);

@@ -31,6 +31,7 @@ interface BackupTablesBrowserProps {
   selectedTableDetails: TableDetails;
   onSelectTable: (table: string) => void | Promise<void>;
   height?: number | string;
+  showTableList?: boolean;
 }
 
 export const BackupTablesBrowser = memo(
@@ -40,6 +41,7 @@ export const BackupTablesBrowser = memo(
     selectedTableDetails,
     onSelectTable,
     height = 'calc(83vh - 220px)',
+    showTableList = true,
   }: BackupTablesBrowserProps) => {
     if (!previewData) {
       return (
@@ -66,44 +68,50 @@ export const BackupTablesBrowser = memo(
           gap: 'var(--mantine-spacing-md)',
         }}
       >
-        <Box style={{ width: 240, height: '100%' }}>
-          <ScrollArea
-            style={{ height: '100%' }}
-            offsetScrollbars
-            scrollbarSize={6}
-          >
-            <Stack gap="xs">
-              {tableEntries.map(([name, data]) => {
-                const isActive = name === selectedTableName;
+        {showTableList && (
+          <Box style={{ width: 240, height: '100%' }}>
+            <ScrollArea
+              style={{ height: '100%' }}
+              offsetScrollbars
+              scrollbarSize={6}
+            >
+              <Stack gap="xs">
+                {tableEntries.map(([name, data]) => {
+                  const isActive = name === selectedTableName;
 
-                return (
-                  <Card
-                    key={name}
-                    withBorder
-                    padding="sm"
-                    radius="sm"
-                    shadow={isActive ? 'sm' : 'xs'}
-                    onClick={() => onSelectTable(name)}
-                    style={{
-                      cursor: 'pointer',
-                      backgroundColor: isActive ? '#edf2ff' : undefined,
-                      borderColor: isActive ? '#4dabf7' : undefined,
-                    }}
-                  >
-                    <Group justify="space-between" align="center">
-                      <Text size="sm" fw={isActive ? 600 : 500} tt="capitalize">
-                        {name}
-                      </Text>
-                      <Badge color={isActive ? 'blue' : 'gray'}>
-                        {data.count} {data.count === 1 ? 'record' : 'records'}
-                      </Badge>
-                    </Group>
-                  </Card>
-                );
-              })}
-            </Stack>
-          </ScrollArea>
-        </Box>
+                  return (
+                    <Card
+                      key={name}
+                      withBorder
+                      padding="sm"
+                      radius="sm"
+                      shadow={isActive ? 'sm' : 'xs'}
+                      onClick={() => void onSelectTable(name)}
+                      style={{
+                        cursor: 'pointer',
+                        backgroundColor: isActive ? '#edf2ff' : undefined,
+                        borderColor: isActive ? '#4dabf7' : undefined,
+                      }}
+                    >
+                      <Group justify="space-between" align="center">
+                        <Text
+                          size="sm"
+                          fw={isActive ? 600 : 500}
+                          tt="capitalize"
+                        >
+                          {name}
+                        </Text>
+                        <Badge color={isActive ? 'blue' : 'gray'}>
+                          {data.count} {data.count === 1 ? 'record' : 'records'}
+                        </Badge>
+                      </Group>
+                    </Card>
+                  );
+                })}
+              </Stack>
+            </ScrollArea>
+          </Box>
+        )}
 
         <Stack gap="md" style={{ flex: 1, minWidth: 0, height: '100%' }}>
           {selectedTableDetails ? (
@@ -175,9 +183,7 @@ export const BackupTablesBrowser = memo(
             )
           ) : (
             <Alert icon={<IconAlertCircle size={16} />} color="blue">
-              <Text size="sm">
-                Select a table from the list to view its full backup.
-              </Text>
+              <Text size="sm">Select a table to view its full backup.</Text>
             </Alert>
           )}
         </Stack>

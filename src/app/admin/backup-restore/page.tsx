@@ -1,4 +1,4 @@
-import { Stack, Title, Text, Card } from '@mantine/core';
+import { Stack } from '@mantine/core';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { PageLayout } from '@/components/layout/PageLayout';
 import {
@@ -17,15 +17,6 @@ export default async function AdminBackupRestorePage() {
     <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
       <PageLayout fluid withPadding>
         <Stack gap="lg">
-          <Card withBorder padding="lg" radius="md">
-            <Stack gap={4}>
-              <Title order={2}>Backup &amp; Restore</Title>
-              <Text c="dimmed" size="sm">
-                Create backups, review tables, and restore data safely.
-              </Text>
-            </Stack>
-          </Card>
-
           <BackupRestoreTab />
         </Stack>
       </PageLayout>

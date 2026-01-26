@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "clean:next": "bash scripts/clean-dev-cache.sh",
-    "dev": "TURBOPACK=1 next dev --turbo -H 0.0.0.0 -p 5001",
+    "dev": "next dev -H 0.0.0.0 -p 5001",
+    "dev:turbo": "TURBOPACK=1 next dev --turbo -H 0.0.0.0 -p 5001",
     "dev:webpack": "next dev -H 0.0.0.0 -p 5001",
     "dev:playwright": "next dev -H 0.0.0.0 -p 3100",
     "dev:playwright:webpack": "next dev -H 0.0.0.0 -p 3100",

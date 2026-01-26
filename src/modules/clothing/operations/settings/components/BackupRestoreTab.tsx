@@ -20,6 +20,7 @@ import {
 import { showNotification } from '@mantine/notifications';
 import Swal from 'sweetalert2';
 import { api } from '@/lib/api/client';
+import { usePathname } from 'next/navigation';
 import {
   IconDatabase,
   IconClock,
@@ -52,8 +53,46 @@ import { BackupListCard } from './backup-restore/BackupListCard';
 import { BackupTablesBrowser } from './backup-restore/BackupTablesBrowser';
 import { BackupPreviewModal } from './backup-restore/BackupPreviewModal';
 import { RestorePreviewModal } from './backup-restore/RestorePreviewModal';
+import { useBackupRestoreSidebarStore } from './backup-restore/backupRestoreSidebarStore';
 
 export function BackupRestoreTab() {
+  const pathname = usePathname();
+  const isAdminBackupRestore = pathname?.startsWith('/admin/backup-restore');
+
+  const {
+    tables: sidebarTables,
+    selectedTable: sidebarSelectedTable,
+    setTables: setSidebarTables,
+    setSelectedTable: setSidebarSelectedTable,
+    clear: clearSidebar,
+  } = useBackupRestoreSidebarStore();
+
+  const areSidebarTablesEqual = useCallback(
+    (
+      nextTables: Array<{ name: string; count: number }>,
+      currentTables: Array<{ name: string; count: number }>
+    ) => {
+      if (nextTables.length !== currentTables.length) {
+        return false;
+      }
+
+      for (let i = 0; i < nextTables.length; i += 1) {
+        const next = nextTables[i];
+        const current = currentTables[i];
+        if (
+          !current ||
+          next.name !== current.name ||
+          next.count !== current.count
+        ) {
+          return false;
+        }
+      }
+
+      return true;
+    },
+    []
+  );
+
   const [backups, setBackups] = useState<Backup[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -384,7 +423,10 @@ export function BackupRestoreTab() {
 
   const handleSelectPreviewTable = useCallback(
     async (table: string) => {
-      setSelectedTableName(table);
+      const isSameTable = table === selectedTableName;
+      if (!isSameTable) {
+        setSelectedTableName(table);
+      }
 
       if (!selectedBackup || !previewJsonFile) {
         return;
@@ -412,8 +454,95 @@ export function BackupRestoreTab() {
         setPreviewLoading(false);
       }
     },
-    [selectedBackup, previewJsonFile, previewData, fetchTableSample]
+    [
+      selectedBackup,
+      previewJsonFile,
+      previewData,
+      fetchTableSample,
+      selectedTableName,
+    ]
   );
+
+  useEffect(() => {
+    if (!isAdminBackupRestore) {
+      return;
+    }
+
+    if (!previewData?.tables) {
+      if (sidebarTables.length > 0) {
+        setSidebarTables([]);
+      }
+      if (sidebarSelectedTable !== null) {
+        setSidebarSelectedTable(null);
+      }
+      return;
+    }
+
+    const summaries = Object.entries(previewData.tables)
+      .map(([name, table]) => ({ name, count: table.count }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    if (!areSidebarTablesEqual(summaries, sidebarTables)) {
+      setSidebarTables(summaries);
+    }
+
+    const validTableNames = summaries.map((t) => t.name);
+    if (validTableNames.length === 0) {
+      if (sidebarSelectedTable !== null) {
+        setSidebarSelectedTable(null);
+      }
+      return;
+    }
+
+    if (
+      !sidebarSelectedTable ||
+      !validTableNames.includes(sidebarSelectedTable)
+    ) {
+      const preferred =
+        selectedTableName && validTableNames.includes(selectedTableName)
+          ? selectedTableName
+          : validTableNames[0];
+
+      if (preferred !== sidebarSelectedTable) {
+        setSidebarSelectedTable(preferred);
+      }
+    }
+  }, [
+    isAdminBackupRestore,
+    previewData,
+    selectedTableName,
+    sidebarSelectedTable,
+    sidebarTables,
+    setSidebarSelectedTable,
+    setSidebarTables,
+    areSidebarTablesEqual,
+  ]);
+
+  useEffect(() => {
+    if (!isAdminBackupRestore) {
+      return;
+    }
+
+    if (!sidebarSelectedTable || sidebarSelectedTable === selectedTableName) {
+      return;
+    }
+
+    void handleSelectPreviewTable(sidebarSelectedTable);
+  }, [
+    isAdminBackupRestore,
+    sidebarSelectedTable,
+    selectedTableName,
+    handleSelectPreviewTable,
+  ]);
+
+  useEffect(() => {
+    if (!isAdminBackupRestore) {
+      return;
+    }
+    return () => {
+      clearSidebar();
+    };
+  }, [isAdminBackupRestore, clearSidebar]);
 
   const handleDownloadJSON = async (backup: Backup) => {
     try {
@@ -1635,6 +1764,7 @@ export function BackupRestoreTab() {
                 selectedTableDetails={selectedTableDetails}
                 onSelectTable={handleSelectPreviewTable}
                 height="65vh"
+                showTableList={!isAdminBackupRestore}
               />
             ) : (
               <Alert icon={<IconAlertCircle size={16} />} color="yellow">
