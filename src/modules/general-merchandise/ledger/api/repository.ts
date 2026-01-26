@@ -1,10 +1,9 @@
 import { BaseRepository, type WhereInput } from '@/core/database/repository';
 import type { PrismaModelName } from '@/types/prisma';
 import type {
-  GeneralMerchandiseExpenseCreateInput,
-  GeneralMerchandiseExpenseUpdateInput,
-  GeneralMerchandiseExpenseQuery,
   GeneralMerchandiseExpenseCreateDbInput,
+  GeneralMerchandiseExpenseUpdateDbInput,
+  GeneralMerchandiseExpenseQuery,
 } from './schemas';
 
 export type GeneralMerchandiseExpenseEntity = {
@@ -39,8 +38,8 @@ type GeneralMerchandiseExpenseWhere = {
 
 export class GeneralMerchandiseExpenseRepository extends BaseRepository<
   GeneralMerchandiseExpenseEntity,
-  GeneralMerchandiseExpenseCreateInput,
-  GeneralMerchandiseExpenseUpdateInput
+  GeneralMerchandiseExpenseCreateDbInput,
+  GeneralMerchandiseExpenseUpdateDbInput
 > {
   protected readonly modelName = 'generalMerchandiseExpense' as PrismaModelName;
 

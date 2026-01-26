@@ -87,3 +87,10 @@ export type GeneralMerchandiseExpenseCreateDbInput = Omit<
   receipt?: string | null;
   employeeName?: string | null;
 };
+
+export type GeneralMerchandiseExpenseUpdateDbInput = Omit<
+  GeneralMerchandiseExpenseUpdateInput,
+  'id' | 'date'
+> & {
+  date?: string;
+};

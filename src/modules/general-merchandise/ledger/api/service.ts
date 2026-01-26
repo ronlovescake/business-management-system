@@ -8,11 +8,17 @@ import type {
   GeneralMerchandiseExpenseUpdateInput,
   GeneralMerchandiseExpenseQuery,
   GeneralMerchandiseExpenseCreateDbInput,
+  GeneralMerchandiseExpenseUpdateDbInput,
 } from './schemas';
 
 export class GeneralMerchandiseExpenseService {
   private normalizeSourceFields(
-    data: Partial<GeneralMerchandiseExpenseCreateInput>
+    data: Partial<{
+      sourceType?: string | null;
+      sourceId?: string | null;
+      sourceLineKey?: string | null;
+      systemGenerated?: boolean;
+    }>
   ): Pick<
     GeneralMerchandiseExpenseCreateDbInput,
     'sourceType' | 'sourceId' | 'sourceLineKey' | 'systemGenerated'
@@ -36,7 +42,10 @@ export class GeneralMerchandiseExpenseService {
   }
 
   private normalizePaymentFields(
-    data: Partial<GeneralMerchandiseExpenseCreateInput>
+    data: Partial<{
+      paymentMethod?: string | null;
+      paymentCardId?: string | null;
+    }>
   ): Pick<
     GeneralMerchandiseExpenseCreateDbInput,
     'paymentMethod' | 'paymentCardId'
@@ -109,10 +118,7 @@ export class GeneralMerchandiseExpenseService {
   ): Promise<GeneralMerchandiseExpenseEntity> {
     try {
       const expenseData = this.normalizeCreateInput(data);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return await generalMerchandiseExpenseRepository.create(
-        expenseData as any
-      );
+      return await generalMerchandiseExpenseRepository.create(expenseData);
     } catch (error) {
       logger.error('Failed to create GM expense', { error, data });
       throw new Error('Failed to create GM expense');
@@ -126,10 +132,7 @@ export class GeneralMerchandiseExpenseService {
       const expenses = data.map((expense) =>
         this.normalizeCreateInput(expense)
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return await generalMerchandiseExpenseRepository.createMany(
-        expenses as any
-      );
+      return await generalMerchandiseExpenseRepository.createMany(expenses);
     } catch (error) {
       logger.error('Failed to create GM expenses', {
         error,
@@ -150,10 +153,15 @@ export class GeneralMerchandiseExpenseService {
       }
 
       const { id: _, ...updateFields } = data;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const updateData: Record<string, any> = { ...updateFields };
+      const updateData: Omit<GeneralMerchandiseExpenseUpdateInput, 'id'> & {
+        date?: Date | string;
+      } = { ...updateFields };
+
+      let normalizedDate: string | undefined;
       if (updateData.date instanceof Date) {
-        updateData.date = updateData.date.toISOString().split('T')[0];
+        normalizedDate = updateData.date.toISOString().split('T')[0];
+      } else if (typeof updateData.date === 'string') {
+        normalizedDate = updateData.date;
       }
 
       const shouldNormalizeSource =
@@ -191,9 +199,15 @@ export class GeneralMerchandiseExpenseService {
         }
       }
 
+      const { date: _rawDate, ...updateFieldsRest } = updateData;
+      const normalizedUpdate: GeneralMerchandiseExpenseUpdateDbInput = {
+        ...updateFieldsRest,
+        ...(normalizedDate ? { date: normalizedDate } : {}),
+      };
+
       const updated = await generalMerchandiseExpenseRepository.update(
         id,
-        updateData as GeneralMerchandiseExpenseUpdateInput
+        normalizedUpdate
       );
 
       const { recordChange } = await import('@/core/change-log');
