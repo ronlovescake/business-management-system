@@ -13,6 +13,7 @@ const mockPrisma = vi.hoisted(() => ({
     create: vi.fn(),
     findMany: vi.fn(),
     findUnique: vi.fn(),
+    upsert: vi.fn(),
     update: vi.fn(),
   },
   $transaction: vi.fn(),
@@ -138,5 +139,125 @@ describe('POST /api/shipments/[id]/transit-build', () => {
     expect(response.status).toBe(400);
     expect(body.success).toBe(false);
     expect(body.error).toBe('Invalid credit account');
+  });
+
+  it('creates split-mode entries including supplier payable', async () => {
+    mockPrisma.shipment.findUnique.mockResolvedValue({
+      id: 1,
+      shipmentCode: 'KPC-001',
+    });
+
+    mockPrisma.product.findMany.mockResolvedValue([
+      { cogs: 100 },
+      { cogs: 200 },
+    ]);
+
+    // No existing parts
+    mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue(
+      []
+    );
+
+    type UpsertCreate = {
+      idempotencyKey: string;
+      shipmentId: number;
+      shipmentCode: string;
+      amount: number;
+      creditAccount: string;
+    };
+    type UpsertArgs = { create: UpsertCreate };
+
+    mockPrisma.clothingInventoryTransitBuildEntry.upsert.mockImplementation(
+      async ({ create }: UpsertArgs) => ({
+        id: `tb-${create.idempotencyKey}`,
+        postingDate: new Date('2026-01-14T00:00:00.000Z'),
+        shipmentId: create.shipmentId,
+        shipmentCode: create.shipmentCode,
+        amount: create.amount,
+        creditAccount: create.creditAccount,
+        idempotencyKey: create.idempotencyKey,
+        deletedAt: null,
+      })
+    );
+
+    mockPrisma.$transaction.mockImplementation(
+      async (ops: Array<Promise<unknown>>) => Promise.all(ops)
+    );
+
+    const request = mockNextRequest({
+      method: 'POST',
+      url: getTestApiUrl('/api/shipments/1/transit-build'),
+      body: {
+        postingDate: '2026-01-14',
+        paidAccount: 'Cash',
+        paidAmount: 100,
+        supplierEstimate: 200,
+        forwarderEstimate: 0,
+        courierEstimate: 0,
+        notes: 'Partially paid supplier',
+      },
+    });
+
+    const context: { params: { id: string } } = { params: { id: '1' } };
+
+    const response = await POST(request, context);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.data.expectedTotalAmount).toBe(300);
+    expect(body.data.totalAmount).toBe(300);
+    expect(body.data.entries).toHaveLength(2);
+
+    const creditAccounts = (
+      body.data.entries as Array<{ creditAccount: string }>
+    ).map((entry) => entry.creditAccount);
+    expect(creditAccounts).toContain('Cash');
+    expect(creditAccounts).toContain('Accounts Payable');
+  });
+
+  it('falls back to derived COGS when cogs is missing', async () => {
+    mockPrisma.shipment.findUnique.mockResolvedValue({
+      id: 1,
+      shipmentCode: 'KPC-001',
+    });
+
+    mockPrisma.product.findMany.mockResolvedValue([
+      {
+        cogs: 0,
+        grandTotal: 100,
+        forwardersFee: 10,
+        lalamove: 5,
+        packagingCost: 0,
+      },
+    ]);
+
+    mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue(
+      []
+    );
+
+    mockPrisma.clothingInventoryTransitBuildEntry.create.mockResolvedValue({
+      id: 'tb-1',
+      postingDate: new Date('2026-01-14T00:00:00.000Z'),
+      amount: 115,
+    });
+
+    const request = mockNextRequest({
+      method: 'POST',
+      url: getTestApiUrl('/api/shipments/1/transit-build'),
+      body: {
+        postingDate: '2026-01-14',
+        creditAccount: 'Cash',
+      },
+    });
+
+    const context: { params: { id: string } } = { params: { id: '1' } };
+
+    const response = await POST(request, context);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.data.expectedTotalAmount).toBe(115);
+    expect(body.data.entries[0].amount).toBe(115);
   });
 });

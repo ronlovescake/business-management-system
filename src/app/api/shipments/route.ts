@@ -412,7 +412,7 @@ export const GET = withErrorHandler(async () => {
       )
     );
 
-    const linkedProductCounts = shipmentCodes.length
+    const linkedProductAggregates = shipmentCodes.length
       ? await prisma.product.groupBy({
           by: ['shipmentCode'],
           where: {
@@ -420,16 +420,30 @@ export const GET = withErrorHandler(async () => {
             deletedAt: null,
           },
           _count: { _all: true },
+          _sum: {
+            grandTotal: true,
+            forwardersFee: true,
+            lalamove: true,
+            packagingCost: true,
+          },
         })
       : [];
 
     const linkedProductCountByShipmentCode = new Map<string, number>();
-    for (const entry of linkedProductCounts) {
+    const linkedProductCogsByShipmentCode = new Map<string, number>();
+    for (const entry of linkedProductAggregates) {
       const code = (entry.shipmentCode ?? '').trim();
       if (!code) {
         continue;
       }
       linkedProductCountByShipmentCode.set(code, entry._count._all);
+      linkedProductCogsByShipmentCode.set(
+        code,
+        Number(entry._sum.grandTotal ?? 0) +
+          Number(entry._sum.forwardersFee ?? 0) +
+          Number(entry._sum.lalamove ?? 0) +
+          Number(entry._sum.packagingCost ?? 0)
+      );
     }
 
     const convertedShipments = shipments.map((shipment) => {
@@ -437,11 +451,15 @@ export const GET = withErrorHandler(async () => {
       const linkedProductCount = shipmentCode
         ? (linkedProductCountByShipmentCode.get(shipmentCode) ?? 0)
         : 0;
+      const linkedProductCogsTotal = shipmentCode
+        ? (linkedProductCogsByShipmentCode.get(shipmentCode) ?? 0)
+        : 0;
 
       return {
         ...convertShipmentDBToData(shipment as ShipmentDB),
         linkedProductCount,
         hasLinkedProducts: linkedProductCount > 0,
+        linkedProductCogsTotal,
       };
     });
     logger.info('Shipments fetched', { count: convertedShipments.length });

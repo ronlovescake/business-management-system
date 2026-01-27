@@ -162,11 +162,28 @@ export async function fetchGeneralMerchandiseApprovedExpenses(): Promise<
     return [];
   }
 
-  return (await expenseModel.findMany({
-    where: {
-      status: { in: ['approved', 'paid'] },
-    },
-  })) as GeneralMerchandiseExpenseRow[];
+  try {
+    return (await expenseModel.findMany({
+      where: {
+        status: { in: ['approved', 'paid'] },
+      },
+    })) as GeneralMerchandiseExpenseRow[];
+  } catch (error) {
+    const isMissingTable =
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: string }).code === 'P2021';
+
+    if (isMissingTable) {
+      logger.warn('GM expenses table is missing; returning no expenses', {
+        hint: 'Apply the GM expenses migration to enable General Merchandise expenses.',
+      });
+      return [];
+    }
+
+    throw error;
+  }
 }
 
 export async function fetchGeneralMerchandiseTransactionRefunds(): Promise<

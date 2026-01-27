@@ -454,6 +454,7 @@ export class ShipmentService {
       postingDate: Date;
       paidAccount: 'Cash' | 'E-Wallet';
       paidAmount: number;
+      supplierEstimate: number;
       forwarderEstimate: number;
       courierEstimate: number;
       notes?: string;
@@ -484,6 +485,7 @@ export class ShipmentService {
         postingDate: this.formatDateForApi(input.postingDate),
         paidAccount: input.paidAccount,
         paidAmount: input.paidAmount,
+        supplierEstimate: input.supplierEstimate,
         forwarderEstimate: input.forwarderEstimate,
         courierEstimate: input.courierEstimate,
         notes: input.notes,

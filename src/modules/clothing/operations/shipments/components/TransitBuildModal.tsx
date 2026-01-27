@@ -23,6 +23,7 @@ type TransitBuildFormValues = {
   postingDate: Date | null;
   paidAccount: PaidAccountOption | '';
   paidAmount: number;
+  supplierEstimate: number;
   forwarderEstimate: number;
   courierEstimate: number;
   notes: string;
@@ -36,6 +37,7 @@ interface TransitBuildModalProps {
     postingDate: Date;
     paidAccount: PaidAccountOption;
     paidAmount: number;
+    supplierEstimate: number;
     forwarderEstimate: number;
     courierEstimate: number;
     notes?: string;
@@ -49,6 +51,7 @@ export function TransitBuildModal({
   onSubmit,
 }: TransitBuildModalProps) {
   const shipmentCode = (shipment?.['Shipment Code'] ?? '').trim();
+  const linkedProductCogsTotal = shipment?.linkedProductCogsTotal;
 
   const paidAccountOptions = useMemo(
     () => [
@@ -69,6 +72,7 @@ export function TransitBuildModal({
       postingDate: new Date(),
       paidAccount: 'Cash',
       paidAmount: 0,
+      supplierEstimate: 0,
       forwarderEstimate: 0,
       courierEstimate: 0,
       notes: '',
@@ -79,6 +83,10 @@ export function TransitBuildModal({
       paidAmount: (value) =>
         !Number.isFinite(value) || value < 0
           ? 'Paid amount must be 0 or greater.'
+          : null,
+      supplierEstimate: (value) =>
+        !Number.isFinite(value) || value < 0
+          ? 'Supplier balance must be 0 or greater.'
           : null,
       forwarderEstimate: (value) =>
         !Number.isFinite(value) || value < 0
@@ -104,25 +112,35 @@ export function TransitBuildModal({
     }
 
     const paidAmount = Number(values.paidAmount ?? 0);
+    const supplierEstimate = Number(values.supplierEstimate ?? 0);
     const forwarderEstimate = Number(values.forwarderEstimate ?? 0);
     const courierEstimate = Number(values.courierEstimate ?? 0);
 
     if (
       !Number.isFinite(paidAmount) ||
+      !Number.isFinite(supplierEstimate) ||
       !Number.isFinite(forwarderEstimate) ||
       !Number.isFinite(courierEstimate)
     ) {
       return;
     }
 
-    if (paidAmount < 0 || forwarderEstimate < 0 || courierEstimate < 0) {
+    if (
+      paidAmount < 0 ||
+      supplierEstimate < 0 ||
+      forwarderEstimate < 0 ||
+      courierEstimate < 0
+    ) {
       return;
     }
 
-    if (paidAmount + forwarderEstimate + courierEstimate <= 0) {
+    if (
+      paidAmount + supplierEstimate + forwarderEstimate + courierEstimate <=
+      0
+    ) {
       form.setFieldError(
         'paidAmount',
-        'Enter at least one amount (paid/forwarder/courier).'
+        'Enter at least one amount (paid/supplier/forwarder/courier).'
       );
       return;
     }
@@ -131,6 +149,7 @@ export function TransitBuildModal({
       postingDate,
       paidAccount,
       paidAmount,
+      supplierEstimate,
       forwarderEstimate,
       courierEstimate,
       notes: values.notes?.trim() ? values.notes.trim() : undefined,
@@ -173,6 +192,15 @@ export function TransitBuildModal({
           />
 
           <NumberInput
+            label="Supplier Balance (Unpaid)"
+            description="Creates: Dr Inventory in Transit / Cr Accounts Payable"
+            prefix="₱ "
+            decimalScale={2}
+            min={0}
+            {...form.getInputProps('supplierEstimate')}
+          />
+
+          <NumberInput
             label="Forwarder Estimate (Unpaid)"
             description="Creates: Dr Inventory in Transit / Cr Forwarder Payable"
             prefix="₱ "
@@ -192,9 +220,16 @@ export function TransitBuildModal({
 
           <Text size="sm" c="dimmed">
             Note: The system computes the shipment total from linked Products
-            (sum of Product COGS). Your Paid + Forwarder + Courier amounts must
-            equal that total.
+            (sum of Product COGS). Your Paid + Supplier + Forwarder + Courier
+            amounts must equal that total.
           </Text>
+
+          {Number.isFinite(linkedProductCogsTotal) ? (
+            <Text size="sm" c="dimmed">
+              Shipment total (linked Product COGS): ₱
+              {Number(linkedProductCogsTotal).toFixed(2)}
+            </Text>
+          ) : null}
 
           <DateInput
             label="Posting Date"

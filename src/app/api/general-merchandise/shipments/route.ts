@@ -215,9 +215,64 @@ export const GET = withErrorHandler(async () => {
     orderBy: { createdAt: 'desc' },
   });
 
-  const payload = shipments.map((shipment) =>
-    convertShipmentDBToData(shipment as ShipmentDB)
+  const shipmentCodes = Array.from(
+    new Set(
+      shipments
+        .map((shipment) => (shipment.shipmentCode ?? '').trim())
+        .filter((code): code is string => Boolean(code))
+    )
   );
+
+  const linkedProductAggregates = shipmentCodes.length
+    ? await gmPrisma.generalMerchandiseProduct.groupBy({
+        by: ['shipmentCode'],
+        where: {
+          shipmentCode: { in: shipmentCodes },
+          deletedAt: null,
+        },
+        _count: { _all: true },
+        _sum: {
+          grandTotal: true,
+          forwardersFee: true,
+          lalamove: true,
+          packagingCost: true,
+        },
+      })
+    : [];
+
+  const linkedProductCountByShipmentCode = new Map<string, number>();
+  const linkedProductCogsByShipmentCode = new Map<string, number>();
+  for (const entry of linkedProductAggregates) {
+    const code = (entry.shipmentCode ?? '').trim();
+    if (!code) {
+      continue;
+    }
+    linkedProductCountByShipmentCode.set(code, entry._count._all);
+    linkedProductCogsByShipmentCode.set(
+      code,
+      Number(entry._sum.grandTotal ?? 0) +
+        Number(entry._sum.forwardersFee ?? 0) +
+        Number(entry._sum.lalamove ?? 0) +
+        Number(entry._sum.packagingCost ?? 0)
+    );
+  }
+
+  const payload = shipments.map((shipment) => {
+    const shipmentCode = (shipment.shipmentCode ?? '').trim();
+    const linkedProductCount = shipmentCode
+      ? (linkedProductCountByShipmentCode.get(shipmentCode) ?? 0)
+      : 0;
+    const linkedProductCogsTotal = shipmentCode
+      ? (linkedProductCogsByShipmentCode.get(shipmentCode) ?? 0)
+      : 0;
+
+    return {
+      ...convertShipmentDBToData(shipment as ShipmentDB),
+      linkedProductCount,
+      hasLinkedProducts: linkedProductCount > 0,
+      linkedProductCogsTotal,
+    };
+  });
 
   return ApiResponse.success(payload, 'Shipments fetched');
 });

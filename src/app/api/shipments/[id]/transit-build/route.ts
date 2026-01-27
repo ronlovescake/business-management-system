@@ -27,6 +27,7 @@ type TransitBuildRequestBody = {
   creditAccount?: string | null;
   paidAccount?: string | null;
   paidAmount?: number | null;
+  supplierEstimate?: number | null;
   forwarderEstimate?: number | null;
   courierEstimate?: number | null;
   notes?: string | null;
@@ -99,6 +100,10 @@ export const POST = withErrorHandler<RouteContext>(
       },
       select: {
         cogs: true,
+        grandTotal: true,
+        forwardersFee: true,
+        lalamove: true,
+        packagingCost: true,
       },
     });
 
@@ -110,7 +115,14 @@ export const POST = withErrorHandler<RouteContext>(
     }
 
     const amount = products.reduce((sum, product) => {
-      const value = Number(product.cogs ?? 0);
+      const rawCogs = Number(product.cogs ?? 0);
+      const derivedCogs =
+        Number(product.grandTotal ?? 0) +
+        Number(product.forwardersFee ?? 0) +
+        Number(product.lalamove ?? 0) +
+        Number(product.packagingCost ?? 0);
+
+      const value = rawCogs > 0 ? rawCogs : derivedCogs;
       if (!Number.isFinite(value) || value <= 0) {
         return sum;
       }
@@ -120,7 +132,7 @@ export const POST = withErrorHandler<RouteContext>(
     if (!Number.isFinite(amount) || amount <= 0) {
       return ApiResponse.badRequest('No valued products found for shipment', {
         shipmentCode:
-          'Ensure Products linked to this Shipment Code have valid COGS values.',
+          "Ensure Products linked to this Shipment Code have valid cost values (COGS, or Grand Total + Forwarder's Fee + Lalamove + Packaging Cost).",
       });
     }
 
@@ -236,21 +248,28 @@ export const POST = withErrorHandler<RouteContext>(
     }
 
     const paidAmount = Number(body?.paidAmount ?? 0);
+    const supplierEstimate = Number(body?.supplierEstimate ?? 0);
     const forwarderEstimate = Number(body?.forwarderEstimate ?? 0);
     const courierEstimate = Number(body?.courierEstimate ?? 0);
 
     if (
       !Number.isFinite(paidAmount) ||
+      !Number.isFinite(supplierEstimate) ||
       !Number.isFinite(forwarderEstimate) ||
       !Number.isFinite(courierEstimate)
     ) {
       return ApiResponse.badRequest('Invalid split amounts', {
         paidAmount:
-          'Provide numeric amounts for paid, forwarder estimate, and courier estimate.',
+          'Provide numeric amounts for paid, supplier estimate, forwarder estimate, and courier estimate.',
       });
     }
 
-    if (paidAmount < 0 || forwarderEstimate < 0 || courierEstimate < 0) {
+    if (
+      paidAmount < 0 ||
+      supplierEstimate < 0 ||
+      forwarderEstimate < 0 ||
+      courierEstimate < 0
+    ) {
       return ApiResponse.badRequest('Invalid split amounts', {
         paidAmount: 'Amounts must be 0 or greater.',
       });
@@ -259,6 +278,7 @@ export const POST = withErrorHandler<RouteContext>(
     const expectedTotalCents = toCents(amount);
     const splitTotalCents =
       toCents(paidAmount) +
+      toCents(supplierEstimate) +
       toCents(forwarderEstimate) +
       toCents(courierEstimate);
 
@@ -268,6 +288,7 @@ export const POST = withErrorHandler<RouteContext>(
         {
           expectedTotalAmount: `₱${amount.toFixed(2)} (sum of linked Product COGS)`,
           providedTotalAmount: `₱${(splitTotalCents / 100).toFixed(2)}`,
+          splitBreakdown: `Paid ₱${paidAmount.toFixed(2)} + Supplier ₱${supplierEstimate.toFixed(2)} + Forwarder ₱${forwarderEstimate.toFixed(2)} + Courier ₱${courierEstimate.toFixed(2)}`,
         }
       );
     }
@@ -282,6 +303,13 @@ export const POST = withErrorHandler<RouteContext>(
         key: `SHIPMENT_TRANSIT_BUILD:${shipmentCode}:SPLIT:PAID`,
         creditAccount: paidAccountRaw,
         partAmount: paidAmount,
+      });
+    }
+    if (supplierEstimate > 0) {
+      parts.push({
+        key: `SHIPMENT_TRANSIT_BUILD:${shipmentCode}:SPLIT:SUPPLIER_PAYABLE`,
+        creditAccount: 'Accounts Payable',
+        partAmount: supplierEstimate,
       });
     }
     if (forwarderEstimate > 0) {

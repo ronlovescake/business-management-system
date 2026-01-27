@@ -45,6 +45,8 @@ export interface ShipmentData {
   linkedProductCount?: number;
   /** Convenience flag derived from linkedProductCount. */
   hasLinkedProducts?: boolean;
+  /** Derived from Products table: sum of Product COGS for this shipmentCode. */
+  linkedProductCogsTotal?: number;
 }
 
 /**

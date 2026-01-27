@@ -245,6 +245,7 @@ export function ShipmentsPage({ apiBasePath }: ShipmentsPageProps) {
     postingDate: Date;
     paidAccount: 'Cash' | 'E-Wallet';
     paidAmount: number;
+    supplierEstimate: number;
     forwarderEstimate: number;
     courierEstimate: number;
     notes?: string;

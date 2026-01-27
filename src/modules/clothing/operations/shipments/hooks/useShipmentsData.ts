@@ -17,6 +17,7 @@ import { showNotification } from '@mantine/notifications';
 import { useDataTable } from '@/hooks/useDataTable';
 import { queryKeys } from '@/lib/queryKeys';
 import { logger } from '@/lib/logger';
+import { ApiError } from '@/lib/api/client';
 import { ShipmentService } from '../services/ShipmentService';
 import type {
   ShipmentData,
@@ -278,6 +279,7 @@ export function useShipmentsData({
         postingDate: Date;
         paidAccount: 'Cash' | 'E-Wallet';
         paidAmount: number;
+        supplierEstimate: number;
         forwarderEstimate: number;
         courierEstimate: number;
         notes?: string;
@@ -379,6 +381,7 @@ export function useShipmentsData({
       postingDate: Date;
       paidAccount: 'Cash' | 'E-Wallet';
       paidAmount: number;
+      supplierEstimate: number;
       forwarderEstimate: number;
       courierEstimate: number;
       notes?: string;
@@ -408,9 +411,28 @@ export function useShipmentsData({
       return true;
     } catch (error) {
       logger.error('Error creating transit build-up entry:', error);
+      let message =
+        'Failed to create transit build-up entry. Please try again.';
+
+      if (error instanceof ApiError && error.data) {
+        const data = error.data as {
+          error?: string;
+          details?: string;
+          validationErrors?: Record<string, string>;
+        };
+
+        const validationMessage = data.validationErrors
+          ? Object.values(data.validationErrors).find(Boolean)
+          : undefined;
+
+        message = validationMessage || data.error || data.details || message;
+      } else if (error instanceof Error && error.message) {
+        message = error.message;
+      }
+
       showNotification({
         title: '❌ Error',
-        message: 'Failed to create transit build-up entry. Please try again.',
+        message,
         color: 'red',
       });
       return false;
