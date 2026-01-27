@@ -14,7 +14,6 @@ import {
   Alert,
   Progress,
   Divider,
-  Tabs,
   NumberInput,
 } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
@@ -56,6 +55,10 @@ import { BackupPreviewModal } from './backup-restore/BackupPreviewModal';
 import { RestorePreviewModal } from './backup-restore/RestorePreviewModal';
 import { useBackupRestoreSidebarStore } from './backup-restore/backupRestoreSidebarStore';
 import { StandardTableControls } from '@/components/tables/StandardDataTable';
+import {
+  ControlPanelCard,
+  type ControlPanelTabConfig,
+} from '@/components/ui/ControlPanelCard';
 
 export function BackupRestoreTab() {
   const pathname = usePathname();
@@ -1501,381 +1504,336 @@ export function BackupRestoreTab() {
 
   const { strategySchedule } = useBackupSchedule(backups);
 
+  const controlTabs: ControlPanelTabConfig[] = [
+    {
+      value: 'backup',
+      label: 'Backup',
+      leftSection: <IconDatabase size={16} />,
+    },
+    {
+      value: 'restore',
+      label: 'Restore',
+      leftSection: <IconHistory size={16} />,
+    },
+    {
+      value: 'tables',
+      label: 'Tables',
+      leftSection: <IconTable size={16} />,
+      panel: (
+        <Group gap="sm" align="center" wrap="wrap">
+          <div style={{ flex: 1, minWidth: 240 }}>
+            <StandardTableControls
+              searchPlaceholder="Search rows..."
+              onSearch={setTableSearchQuery}
+              searchValue={tableSearchQuery}
+              hideImport
+              hideExport
+              hideAddNew
+              expandSearch
+              searchAddon={
+                <Select
+                  placeholder="Backup date"
+                  data={backupDateOptions}
+                  value={selectedBackup?.timestamp ?? null}
+                  onChange={handleBackupDateFilterChange}
+                  clearable
+                  style={{ minWidth: 220 }}
+                />
+              }
+            />
+          </div>
+
+          <Group gap="xs" wrap="wrap">
+            <Button
+              leftSection={<IconFileTypeCsv size={16} />}
+              onClick={() =>
+                selectedTableName
+                  ? void handleDownloadCSV(selectedTableName)
+                  : undefined
+              }
+              disabled={!selectedTableName || !previewData}
+            >
+              Download CSV
+            </Button>
+            <Button
+              leftSection={<IconFileSpreadsheet size={16} />}
+              onClick={() =>
+                selectedTableName
+                  ? void handleDownloadXLSX(selectedTableName)
+                  : undefined
+              }
+              disabled={!selectedTableName || !previewData}
+            >
+              Download XLSX
+            </Button>
+            <Button
+              leftSection={<IconDatabase size={16} />}
+              onClick={() =>
+                selectedBackup
+                  ? void handleDownloadJSON(selectedBackup)
+                  : undefined
+              }
+              disabled={!selectedBackup}
+            >
+              Download JSON
+            </Button>
+            <Button
+              leftSection={<IconFileText size={16} />}
+              onClick={() =>
+                selectedBackup
+                  ? void handleDownloadSQL(selectedBackup)
+                  : undefined
+              }
+              disabled={!selectedBackup}
+            >
+              Download SQL
+            </Button>
+            <Button
+              leftSection={<IconDownload size={16} />}
+              color="green"
+              onClick={() => {
+                if (!selectedBackup || !previewData) {
+                  return;
+                }
+                void handleDownloadAllCSV();
+                void handleDownloadAllXLSX();
+                void handleDownloadJSON(selectedBackup);
+                void handleDownloadSQL(selectedBackup);
+              }}
+              disabled={!selectedBackup || !previewData}
+            >
+              Download All
+            </Button>
+          </Group>
+        </Group>
+      ),
+    },
+  ];
+
   return (
     <Stack gap="lg">
-      <Tabs
-        value={pageTab}
-        onChange={(value) =>
+      <ControlPanelCard
+        title="Backup Records"
+        tabs={controlTabs}
+        activeTab={pageTab}
+        onTabChange={(value) =>
           setPageTab((value as 'backup' | 'restore' | 'tables') ?? 'backup')
         }
-        radius="md"
-      >
-        <Tabs.List>
-          <Tabs.Tab value="backup">Backup</Tabs.Tab>
-          <Tabs.Tab value="restore">Restore</Tabs.Tab>
-          <Tabs.Tab value="tables" leftSection={<IconTable size={16} />}>
-            Tables
-          </Tabs.Tab>
-        </Tabs.List>
+      />
 
-        <Tabs.Panel value="backup" pt="md">
-          <Stack gap="lg">
-            <Card shadow="sm" padding="lg" radius="md" withBorder>
-              <Group justify="space-between" mb="md">
-                <Title order={3}>Create Backup</Title>
-                <Badge color="blue">Manual</Badge>
-              </Group>
+      {pageTab === 'backup' && (
+        <Stack gap="lg">
+          <Card shadow="sm" padding="lg" radius="md" withBorder>
+            <Group justify="space-between" mb="md">
+              <Title order={3}>Create Backup</Title>
+              <Badge color="blue">Manual</Badge>
+            </Group>
 
-              <Stack gap="md">
-                <Select
-                  label="Backup strategy"
-                  data={strategyOptions}
-                  value={backupStrategy}
-                  onChange={(value) =>
-                    setBackupStrategy((value as BackupStrategy) ?? 'full')
-                  }
-                  description="Full weekly baseline, daily differential, or log stream"
-                />
-                <Select
-                  label="Format"
-                  data={[
-                    { value: 'json', label: 'JSON only' },
-                    { value: 'csv', label: 'CSV only' },
-                    { value: 'xlsx', label: 'XLSX only' },
-                    { value: 'sql', label: 'SQL dump only' },
-                    {
-                      value: 'all',
-                      label: 'JSON + CSV + XLSX + SQL (recommended)',
-                    },
-                  ]}
-                  value={isLogStrategy ? 'json' : backupFormat}
-                  onChange={(v) =>
-                    !isLogStrategy && setBackupFormat(v || 'all')
-                  }
-                  disabled={isLogStrategy}
-                />
-                {isLogStrategy ? (
-                  <Alert icon={<IconHistory size={16} />} color="blue">
-                    <Text size="sm">
-                      Log captures always export JSON change events so you can
-                      replay them during restore.
-                    </Text>
-                  </Alert>
-                ) : null}
-
-                <Switch
-                  label="Include deleted records"
-                  checked={includeSoftDeleted}
-                  onChange={(e) =>
-                    setIncludeSoftDeleted(e.currentTarget.checked)
-                  }
-                />
-
-                <Button
-                  leftSection={<IconDatabase size={16} />}
-                  onClick={() => void handleCreateBackup()}
-                  loading={creating}
-                  fullWidth
-                >
-                  {creating ? 'Creating...' : 'Create Backup Now'}
-                </Button>
-              </Stack>
-            </Card>
-
-            <Card shadow="sm" padding="lg" radius="md" withBorder>
-              <Group justify="space-between" mb="md" align="flex-start">
-                <div>
-                  <Title order={3}>Strategy Schedule</Title>
-                  <Text size="sm" c="dimmed">
-                    Weekly full baseline, daily differential snapshots, and
-                    continuous log capture.
-                  </Text>
-                </div>
-                <Badge color="teal">Planner</Badge>
-              </Group>
-
-              <Stack gap="sm">
-                {strategySchedule.map(({ key, meta, last, next }) => (
-                  <Card key={key} withBorder padding="sm" radius="md">
-                    <Group
-                      justify="space-between"
-                      align="center"
-                      gap="md"
-                      wrap="wrap"
-                    >
-                      <Group gap="sm" align="center">
-                        <Badge color={meta.color}>{meta.label}</Badge>
-                        <Text size="sm" c="dimmed">
-                          {meta.cadence}
-                        </Text>
-                      </Group>
-                      <Group gap="lg" align="center" wrap="wrap">
-                        <div>
-                          <Text size="xs" fw={600} c="dimmed">
-                            Last run
-                          </Text>
-                          <Text size="sm">
-                            {last
-                              ? `${formatBackupTimestamp(last.toISOString())} (${formatRelativeTime(last)})`
-                              : 'Never'}
-                          </Text>
-                        </div>
-                        <div>
-                          <Text size="xs" fw={600} c="dimmed">
-                            Next due
-                          </Text>
-                          <Text size="sm">
-                            {key === 'log'
-                              ? 'Streaming'
-                              : next
-                                ? formatBackupTimestamp(next.toISOString())
-                                : 'Ready now'}
-                          </Text>
-                        </div>
-                        <Button
-                          size="xs"
-                          variant="light"
-                          leftSection={<IconHistory size={14} />}
-                          onClick={() =>
-                            void handleCreateBackup({ strategy: key })
-                          }
-                          loading={creating}
-                        >
-                          Run {meta.label}
-                        </Button>
-                      </Group>
-                    </Group>
-                  </Card>
-                ))}
-              </Stack>
-            </Card>
-
-            <Card shadow="sm" padding="lg" radius="md" withBorder>
-              <Group justify="space-between" mb="md">
-                <Title order={3}>Auto-Backup</Title>
-                <Badge color={autoBackupEnabled ? 'green' : 'gray'}>
-                  {autoBackupEnabled ? 'ON' : 'OFF'}
-                </Badge>
-              </Group>
-
-              <Stack gap="md">
-                <Switch
-                  label="Enable automatic backups"
-                  checked={autoBackupEnabled}
-                  onChange={(e) =>
-                    setAutoBackupEnabled(e.currentTarget.checked)
-                  }
-                />
-
-                {autoBackupEnabled && (
-                  <>
-                    <NumberInput
-                      label="Interval (minutes)"
-                      value={autoBackupInterval}
-                      onChange={(v) => setAutoBackupInterval(Number(v) || 30)}
-                      min={5}
-                      max={1440}
-                    />
-
-                    <Alert icon={<IconClock size={16} />} color="green">
-                      Backups every {autoBackupInterval} minutes while page is
-                      open
-                    </Alert>
-                  </>
-                )}
-              </Stack>
-            </Card>
-
-            <Divider />
-
-            <BackupListCard
-              backups={backups}
-              loading={loading}
-              onRefresh={() => void fetchBackups()}
-              onPreview={handlePreviewBackup}
-              onDownloadJSON={handleDownloadJSON}
-              onDownloadSQL={handleDownloadSQL}
-              onDelete={(backup) => void handleDeleteBackup(backup.timestamp)}
-            />
-          </Stack>
-        </Tabs.Panel>
-
-        <Tabs.Panel value="restore" pt="md">
-          <Stack gap="lg">
-            <Card shadow="sm" padding="lg" radius="md" withBorder>
-              <Group justify="space-between" mb="sm">
-                <Title order={3}>Restore Workflow</Title>
-                <Badge color="indigo">Step-by-step</Badge>
-              </Group>
-              <Text size="sm" c="dimmed" mb="sm">
-                Use the steps below to bring data back safely. Restore controls
-                live in the backup preview dialog.
-              </Text>
-              <Stack gap={6}>
-                <Text size="sm">1. Preview a backup from the list.</Text>
-                <Text size="sm">
-                  2. Select the tables you want to restore and review the change
-                  summary.
-                </Text>
-                <Text size="sm">
-                  3. Confirm the restore and monitor the results summary.
-                </Text>
-              </Stack>
-            </Card>
-
-            <BackupListCard
-              backups={backups}
-              loading={loading}
-              title={`Available Backups (${backups.length})`}
-              subtitle="Preview a backup to open the Restore controls."
-              onRefresh={() => void fetchBackups()}
-              onPreview={handlePreviewBackup}
-              onDownloadJSON={handleDownloadJSON}
-              onDownloadSQL={handleDownloadSQL}
-              onDelete={(backup) => void handleDeleteBackup(backup.timestamp)}
-            />
-          </Stack>
-        </Tabs.Panel>
-
-        <Tabs.Panel value="tables" pt="md">
-          <Stack gap="lg">
-            <Card shadow="sm" padding="lg" radius="md" withBorder>
-              <Stack gap="sm">
-                <Group justify="space-between" align="center">
-                  <div>
-                    <Title order={3}>Tables Explorer</Title>
-                    <Text size="sm" c="dimmed">
-                      {selectedBackup && previewData
-                        ? `Viewing ${formatBackupTimestamp(selectedBackup.timestamp)}`
-                        : 'Select a backup date to load its tables.'}
-                    </Text>
-                  </div>
-                  <Badge color={previewData ? 'indigo' : 'gray'}>
-                    {previewData ? 'Preview loaded' : 'Waiting for preview'}
-                  </Badge>
-                </Group>
-
-                <Group gap="sm" align="center" wrap="wrap">
-                  <div style={{ flex: 1, minWidth: 240 }}>
-                    <StandardTableControls
-                      searchPlaceholder="Search rows..."
-                      onSearch={setTableSearchQuery}
-                      searchValue={tableSearchQuery}
-                      hideImport
-                      hideExport
-                      hideAddNew
-                      expandSearch
-                      searchAddon={
-                        <Select
-                          placeholder="Backup date"
-                          data={backupDateOptions}
-                          value={selectedBackup?.timestamp ?? null}
-                          onChange={handleBackupDateFilterChange}
-                          clearable
-                          style={{ minWidth: 220 }}
-                        />
-                      }
-                    />
-                  </div>
-
-                  <Group gap="xs" wrap="wrap">
-                    <Button
-                      leftSection={<IconFileTypeCsv size={16} />}
-                      onClick={() =>
-                        selectedTableName
-                          ? void handleDownloadCSV(selectedTableName)
-                          : undefined
-                      }
-                      disabled={!selectedTableName || !previewData}
-                    >
-                      Download CSV
-                    </Button>
-                    <Button
-                      leftSection={<IconFileSpreadsheet size={16} />}
-                      onClick={() =>
-                        selectedTableName
-                          ? void handleDownloadXLSX(selectedTableName)
-                          : undefined
-                      }
-                      disabled={!selectedTableName || !previewData}
-                    >
-                      Download XLSX
-                    </Button>
-                    <Button
-                      leftSection={<IconDatabase size={16} />}
-                      onClick={() =>
-                        selectedBackup
-                          ? void handleDownloadJSON(selectedBackup)
-                          : undefined
-                      }
-                      disabled={!selectedBackup}
-                    >
-                      Download JSON
-                    </Button>
-                    <Button
-                      leftSection={<IconFileText size={16} />}
-                      onClick={() =>
-                        selectedBackup
-                          ? void handleDownloadSQL(selectedBackup)
-                          : undefined
-                      }
-                      disabled={!selectedBackup}
-                    >
-                      Download SQL
-                    </Button>
-                    <Button
-                      leftSection={<IconDownload size={16} />}
-                      color="green"
-                      onClick={() => {
-                        if (!selectedBackup || !previewData) {
-                          return;
-                        }
-                        void handleDownloadAllCSV();
-                        void handleDownloadAllXLSX();
-                        void handleDownloadJSON(selectedBackup);
-                        void handleDownloadSQL(selectedBackup);
-                      }}
-                      disabled={!selectedBackup || !previewData}
-                    >
-                      Download All
-                    </Button>
-                  </Group>
-                </Group>
-              </Stack>
-            </Card>
-
-            {previewLoading ? (
-              <Progress value={100} animated />
-            ) : previewData ? (
-              <BackupTablesBrowser
-                previewData={previewData}
-                selectedTableName={selectedTableName}
-                selectedTableDetails={selectedTableDetails}
-                onSelectTable={handleSelectPreviewTable}
-                searchQuery={tableSearchQuery}
-                height="65vh"
-                showTableList={!isAdminBackupRestore}
+            <Stack gap="md">
+              <Select
+                label="Backup strategy"
+                data={strategyOptions}
+                value={backupStrategy}
+                onChange={(value) =>
+                  setBackupStrategy((value as BackupStrategy) ?? 'full')
+                }
+                description="Full weekly baseline, daily differential, or log stream"
               />
-            ) : (
-              <Alert icon={<IconAlertCircle size={16} />} color="yellow">
-                Preview any backup from the list below to see its tables here.
-              </Alert>
-            )}
+              <Select
+                label="Format"
+                data={[
+                  { value: 'json', label: 'JSON only' },
+                  { value: 'csv', label: 'CSV only' },
+                  { value: 'xlsx', label: 'XLSX only' },
+                  { value: 'sql', label: 'SQL dump only' },
+                  {
+                    value: 'all',
+                    label: 'JSON + CSV + XLSX + SQL (recommended)',
+                  },
+                ]}
+                value={isLogStrategy ? 'json' : backupFormat}
+                onChange={(v) => !isLogStrategy && setBackupFormat(v || 'all')}
+                disabled={isLogStrategy}
+              />
+              {isLogStrategy ? (
+                <Alert icon={<IconHistory size={16} />} color="blue">
+                  <Text size="sm">
+                    Log captures always export JSON change events so you can
+                    replay them during restore.
+                  </Text>
+                </Alert>
+              ) : null}
 
-            <BackupListCard
-              backups={backups}
-              loading={loading}
-              title={`Available Backups (${backups.length})`}
-              subtitle="Use Preview to load tables into the explorer."
-              onRefresh={() => void fetchBackups()}
-              onPreview={handlePreviewBackup}
-              onDownloadJSON={handleDownloadJSON}
-              onDownloadSQL={handleDownloadSQL}
-              onDelete={(backup) => void handleDeleteBackup(backup.timestamp)}
+              <Switch
+                label="Include deleted records"
+                checked={includeSoftDeleted}
+                onChange={(e) => setIncludeSoftDeleted(e.currentTarget.checked)}
+              />
+
+              <Button
+                leftSection={<IconDatabase size={16} />}
+                onClick={() => void handleCreateBackup()}
+                loading={creating}
+                fullWidth
+              >
+                {creating ? 'Creating...' : 'Create Backup Now'}
+              </Button>
+            </Stack>
+          </Card>
+
+          <Card shadow="sm" padding="lg" radius="md" withBorder>
+            <Group justify="space-between" mb="md" align="flex-start">
+              <div>
+                <Title order={3}>Strategy Schedule</Title>
+                <Text size="sm" c="dimmed">
+                  Weekly full baseline, daily differential snapshots, and
+                  continuous log capture.
+                </Text>
+              </div>
+              <Badge color="teal">Planner</Badge>
+            </Group>
+
+            <Stack gap="sm">
+              {strategySchedule.map(({ key, meta, last, next }) => (
+                <Card key={key} withBorder padding="sm" radius="md">
+                  <Group
+                    justify="space-between"
+                    align="center"
+                    gap="md"
+                    wrap="wrap"
+                  >
+                    <Group gap="sm" align="center">
+                      <Badge color={meta.color}>{meta.label}</Badge>
+                      <Text size="sm" c="dimmed">
+                        {meta.cadence}
+                      </Text>
+                    </Group>
+                    <Group gap="lg" align="center" wrap="wrap">
+                      <div>
+                        <Text size="xs" fw={600} c="dimmed">
+                          Last run
+                        </Text>
+                        <Text size="sm">
+                          {last
+                            ? `${formatBackupTimestamp(last.toISOString())} (${formatRelativeTime(last)})`
+                            : 'Never'}
+                        </Text>
+                      </div>
+                      <div>
+                        <Text size="xs" fw={600} c="dimmed">
+                          Next due
+                        </Text>
+                        <Text size="sm">
+                          {key === 'log'
+                            ? 'Streaming'
+                            : next
+                              ? formatBackupTimestamp(next.toISOString())
+                              : 'Ready now'}
+                        </Text>
+                      </div>
+                      <Button
+                        size="xs"
+                        variant="light"
+                        leftSection={<IconHistory size={14} />}
+                        onClick={() =>
+                          void handleCreateBackup({ strategy: key })
+                        }
+                        loading={creating}
+                      >
+                        Run {meta.label}
+                      </Button>
+                    </Group>
+                  </Group>
+                </Card>
+              ))}
+            </Stack>
+          </Card>
+
+          <Card shadow="sm" padding="lg" radius="md" withBorder>
+            <Group justify="space-between" mb="md">
+              <Title order={3}>Auto-Backup</Title>
+              <Badge color={autoBackupEnabled ? 'green' : 'gray'}>
+                {autoBackupEnabled ? 'ON' : 'OFF'}
+              </Badge>
+            </Group>
+
+            <Stack gap="md">
+              <Switch
+                label="Enable automatic backups"
+                checked={autoBackupEnabled}
+                onChange={(e) => setAutoBackupEnabled(e.currentTarget.checked)}
+              />
+
+              {autoBackupEnabled && (
+                <>
+                  <NumberInput
+                    label="Interval (minutes)"
+                    value={autoBackupInterval}
+                    onChange={(v) => setAutoBackupInterval(Number(v) || 30)}
+                    min={5}
+                    max={1440}
+                  />
+
+                  <Alert icon={<IconClock size={16} />} color="green">
+                    Backups every {autoBackupInterval} minutes while page is
+                    open
+                  </Alert>
+                </>
+              )}
+            </Stack>
+          </Card>
+
+          <Divider />
+
+          <BackupListCard
+            backups={backups}
+            loading={loading}
+            onRefresh={() => void fetchBackups()}
+            onPreview={handlePreviewBackup}
+            onDownloadJSON={handleDownloadJSON}
+            onDownloadSQL={handleDownloadSQL}
+            onDelete={(backup) => void handleDeleteBackup(backup.timestamp)}
+          />
+        </Stack>
+      )}
+
+      {pageTab === 'restore' && (
+        <Stack gap="lg">
+          <BackupListCard
+            backups={backups}
+            loading={loading}
+            title={`Available Backups (${backups.length})`}
+            subtitle="Preview a backup to open the Restore controls."
+            onRefresh={() => void fetchBackups()}
+            onPreview={handlePreviewBackup}
+            onDownloadJSON={handleDownloadJSON}
+            onDownloadSQL={handleDownloadSQL}
+            onDelete={(backup) => void handleDeleteBackup(backup.timestamp)}
+          />
+        </Stack>
+      )}
+
+      {pageTab === 'tables' && (
+        <Stack gap="lg">
+          {previewLoading ? (
+            <Progress value={100} animated />
+          ) : previewData ? (
+            <BackupTablesBrowser
+              previewData={previewData}
+              selectedTableName={selectedTableName}
+              selectedTableDetails={selectedTableDetails}
+              onSelectTable={handleSelectPreviewTable}
+              searchQuery={tableSearchQuery}
+              height="65vh"
+              showTableList={!isAdminBackupRestore}
             />
-          </Stack>
-        </Tabs.Panel>
-      </Tabs>
+          ) : (
+            <Alert icon={<IconAlertCircle size={16} />} color="yellow">
+              Preview any backup from the list below to see its tables here.
+            </Alert>
+          )}
+        </Stack>
+      )}
 
       <BackupPreviewModal
         opened={previewModalOpen}
