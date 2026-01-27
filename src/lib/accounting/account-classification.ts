@@ -36,6 +36,8 @@ const ACCOUNT_MAP: Record<AccountType, Set<string>> = {
     'card payable',
     'loan',
     'liability',
+    'customer deposit',
+    'customer deposits',
   ]),
   Equity: new Set([
     'opening equity',

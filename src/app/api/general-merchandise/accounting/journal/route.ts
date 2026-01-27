@@ -13,6 +13,7 @@ import {
   fetchGeneralMerchandiseTransactionPayments,
   fetchGeneralMerchandiseManualJournalLines,
   getPaidAtDate,
+  getCancelledAtDate,
   isWithinDateRange,
 } from '@/lib/accounting/general-merchandise/data-fetchers';
 import { normalizeTransactionAmountsForAccounting } from '@/lib/accounting/transaction-normalization';
@@ -23,6 +24,7 @@ import {
 import { prisma } from '@/lib/db';
 import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { normalizeAccountForReporting } from '@/lib/accounting/account-normalization';
+import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,6 +50,48 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     from: effectiveFrom,
     to: effectiveTo,
   });
+
+  const paidAtByTxId = new Map<number, Date | null>();
+  for (const tx of transactions) {
+    paidAtByTxId.set(tx.id, getPaidAtDate(tx));
+  }
+
+  const reservationPayments = payments.filter(
+    (p) => (p as unknown as { isReservation?: boolean }).isReservation === true
+  );
+
+  const cancelledReservationTxIds = Array.from(
+    new Set(
+      reservationPayments
+        .filter((p) => isCancelledOrderStatus(p.transaction?.orderStatus))
+        .map((p) => p.transactionId)
+    )
+  );
+
+  const cancelledAtByTxId = new Map<number, Date | null>();
+  if (cancelledReservationTxIds.length > 0) {
+    const cancelledTxRows = await prisma.generalMerchandiseTransaction.findMany(
+      {
+        where: {
+          id: { in: cancelledReservationTxIds },
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          updatedAt: true,
+          statusChanges: {
+            where: { newStatus: { equals: 'Cancelled' } },
+            orderBy: { changedAt: 'asc' },
+            select: { newStatus: true, changedAt: true },
+          },
+        },
+      }
+    );
+
+    for (const tx of cancelledTxRows) {
+      cancelledAtByTxId.set(tx.id, getCancelledAtDate(tx));
+    }
+  }
 
   const reclassModel = (
     prisma as unknown as {
@@ -82,6 +126,18 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const paymentEntries = payments
     .map((payment) => {
+      const isReservation =
+        (payment as unknown as { isReservation?: boolean }).isReservation ===
+        true;
+
+      // For cancelled orders, only reservation/deposit payments are included.
+      if (
+        isCancelledOrderStatus(payment.transaction?.orderStatus) &&
+        !isReservation
+      ) {
+        return null;
+      }
+
       const paymentAt = parseDate(payment.paymentDate);
       if (!isWithinDateRange(paymentAt, effectiveFrom, effectiveTo)) {
         return null;
@@ -107,6 +163,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         ? `${descriptionBase} • ${suffix}`
         : descriptionBase;
 
+      const creditAccount = isReservation
+        ? 'Customer Deposits'
+        : 'Sales Revenue';
+
       return [
         {
           id: `${idBase}-cash`,
@@ -118,10 +178,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
           description,
         },
         {
-          id: `${idBase}-sales`,
+          id: `${idBase}-credit`,
           date: dateStr,
           ref,
-          account: 'Sales Revenue',
+          account: creditAccount,
           debit: 0,
           credit: Math.max(amt, 0),
           description,
@@ -179,6 +239,84 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
           debit: 0,
           credit: Math.max(amt, 0),
           description: customer || 'Unknown customer',
+        },
+      ];
+    })
+    .flat()
+    .filter(Boolean) as Array<{
+    id: string;
+    date: string;
+    ref: string;
+    account: string;
+    debit: number;
+    credit: number;
+    description: string;
+  }>;
+
+  const reservationReclassEntries = Array.from(
+    new Set(reservationPayments.map((p) => p.transactionId))
+  )
+    .map((txId) => {
+      const paidAt = paidAtByTxId.get(txId) ?? null;
+      const cancelledAt = cancelledAtByTxId.get(txId) ?? null;
+      const recognizeAt = cancelledAt ?? paidAt;
+      if (!isWithinDateRange(recognizeAt, effectiveFrom, effectiveTo)) {
+        return null;
+      }
+
+      const refPayment = reservationPayments.find(
+        (p) => p.transactionId === txId
+      );
+      const customer = (refPayment?.transaction?.customers ?? '').trim();
+      const productRef = (refPayment?.transaction?.productCode ?? '').trim();
+      const ref = productRef || `TX-${txId}`;
+      const dateStr = (recognizeAt ?? new Date()).toISOString();
+
+      const depositTotal = reservationPayments
+        .filter((p) => p.transactionId === txId)
+        .reduce((sum, p) => {
+          const paidAtPayment = parseDate(p.paymentDate);
+          if (!paidAtPayment) {
+            return sum;
+          }
+          if (recognizeAt && paidAtPayment > recognizeAt) {
+            return sum;
+          }
+          const amt = Number(p.amount ?? 0);
+          return Number.isFinite(amt) && amt > 0 ? sum + amt : sum;
+        }, 0);
+
+      if (!Number.isFinite(depositTotal) || depositTotal <= 0) {
+        return null;
+      }
+
+      const targetCredit = cancelledAt ? 'Forfeited Deposits' : 'Sales Revenue';
+      const description = cancelledAt
+        ? `${customer || 'Unknown customer'} • Reservation fee forfeited`
+        : `${customer || 'Unknown customer'} • Reservation fee recognized`;
+
+      const idBase = cancelledAt
+        ? `DEP-FORFEIT-TX-${txId}`
+        : `DEP-REVENUE-TX-${txId}`;
+
+      return [
+        {
+          id: `${idBase}-debit`,
+          date: dateStr,
+          ref,
+          account: 'Customer Deposits',
+          debit: Math.max(depositTotal, 0),
+          credit: 0,
+          description,
+        },
+        {
+          id: `${idBase}-credit`,
+          date: dateStr,
+          ref,
+          account: targetCredit,
+          debit: 0,
+          credit: Math.max(depositTotal, 0),
+          description,
         },
       ];
     })
@@ -443,6 +581,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const allEntries = [
     ...paymentEntries,
+    ...reservationReclassEntries,
     ...legacyTxEntries,
     ...expenseEntries,
     ...refundEntries,

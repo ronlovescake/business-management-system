@@ -14,6 +14,7 @@ import {
   fetchGeneralMerchandiseTransactionPayments,
   fetchGeneralMerchandiseTransactionRefunds,
   getPaidAtDate,
+  getCancelledAtDate,
   isWithinDateRange,
 } from '@/lib/accounting/general-merchandise/data-fetchers';
 import {
@@ -21,6 +22,7 @@ import {
   buildInventorySeedAndShrinkageEntries,
 } from '@/lib/accounting/general-merchandise/inventory-cogs';
 import { normalizeTransactionAmountsForAccounting } from '@/lib/accounting/transaction-normalization';
+import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,6 +64,48 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const rows: ProfitLossDetailRow[] = [];
 
+  const paidAtByTxId = new Map<number, Date | null>();
+  for (const tx of transactions) {
+    paidAtByTxId.set(tx.id, getPaidAtDate(tx));
+  }
+
+  const reservationPayments = payments.filter(
+    (p) => (p as unknown as { isReservation?: boolean }).isReservation === true
+  );
+
+  const cancelledReservationTxIds = Array.from(
+    new Set(
+      reservationPayments
+        .filter((p) => isCancelledOrderStatus(p.transaction?.orderStatus))
+        .map((p) => p.transactionId)
+    )
+  );
+
+  const cancelledAtByTxId = new Map<number, Date | null>();
+  if (cancelledReservationTxIds.length > 0) {
+    const cancelledTxRows = await prisma.generalMerchandiseTransaction.findMany(
+      {
+        where: {
+          id: { in: cancelledReservationTxIds },
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          updatedAt: true,
+          statusChanges: {
+            where: { newStatus: { equals: 'Cancelled' } },
+            orderBy: { changedAt: 'asc' },
+            select: { newStatus: true, changedAt: true },
+          },
+        },
+      }
+    );
+
+    for (const tx of cancelledTxRows) {
+      cancelledAtByTxId.set(tx.id, getCancelledAtDate(tx));
+    }
+  }
+
   // ==========================================================================
   // ⚠️ CANCELLED STATUS FILTER (PAYMENT DETAILS)
   // ==========================================================================
@@ -73,7 +117,16 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   );
 
   for (const payment of payments) {
+    const isReservation =
+      (payment as unknown as { isReservation?: boolean }).isReservation ===
+      true;
+
     if (isCancelledOrderStatus(payment.transaction?.orderStatus)) {
+      continue;
+    }
+
+    // Reservation/deposit payments are not revenue when received.
+    if (isReservation) {
       continue;
     }
 
@@ -100,6 +153,62 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       customer: payment.transaction.customers ?? null,
       productCode: payment.transaction.productCode ?? null,
       method: payment.method ?? null,
+    });
+  }
+
+  // Revenue: reservation payments recognized on completion / forfeiture on cancellation.
+  for (const txId of Array.from(
+    new Set(reservationPayments.map((p) => p.transactionId))
+  )) {
+    const paidAt = paidAtByTxId.get(txId) ?? null;
+    const cancelledAt = cancelledAtByTxId.get(txId) ?? null;
+    const recognizeAt = cancelledAt ?? paidAt;
+    if (!isWithinDateRange(recognizeAt, effectiveFrom, effectiveTo)) {
+      continue;
+    }
+
+    const refPayment = reservationPayments.find(
+      (p) => p.transactionId === txId
+    );
+    const customer = refPayment?.transaction?.customers ?? null;
+    const productCode = refPayment?.transaction?.productCode ?? null;
+
+    const depositTotal = reservationPayments
+      .filter((p) => p.transactionId === txId)
+      .reduce((sum, p) => {
+        const paymentAt = parseDate(p.paymentDate);
+        if (!paymentAt) {
+          return sum;
+        }
+        if (recognizeAt && paymentAt > recognizeAt) {
+          return sum;
+        }
+        const amt = Number(p.amount ?? 0);
+        return Number.isFinite(amt) && amt > 0 ? sum + amt : sum;
+      }, 0);
+
+    if (!Number.isFinite(depositTotal) || depositTotal === 0) {
+      continue;
+    }
+
+    const isForfeit = Boolean(cancelledAt);
+    rows.push({
+      id: isForfeit ? `forfeit-${txId}` : `deposit-recognized-${txId}`,
+      date: (recognizeAt ?? new Date()).toISOString(),
+      category: isForfeit ? 'Forfeited Deposits' : 'Sales Revenue',
+      type: 'Revenue',
+      sourceType: isForfeit
+        ? 'ReservationDepositForfeit'
+        : 'ReservationDepositRecognition',
+      sourceId: String(txId),
+      ref: `TX-${txId}`,
+      description: isForfeit
+        ? 'Reservation fee forfeited (Cancelled)'
+        : 'Reservation fee recognized (Completed)',
+      amount: depositTotal,
+      customer,
+      productCode,
+      method: null,
     });
   }
 

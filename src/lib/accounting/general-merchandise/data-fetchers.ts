@@ -38,6 +38,7 @@ type TransactionPaymentWithTransaction = {
   amount: number;
   method: string | null;
   notes: string | null;
+  isReservation?: boolean;
   createdAt: Date;
   transaction: {
     id: number;
@@ -46,6 +47,26 @@ type TransactionPaymentWithTransaction = {
     orderStatus: string | null;
   };
 };
+
+async function gmPaymentHasReservationColumn(): Promise<boolean> {
+  try {
+    const rows = (await prisma.$queryRaw<Array<{ one: number }>>`
+      SELECT 1 as one
+      FROM information_schema.columns
+      WHERE table_schema = 'general_merchandise'
+        AND table_name = 'transaction_payments'
+        AND column_name = 'isReservation'
+      LIMIT 1
+    `) as Array<{ one: number }>;
+
+    return rows.length > 0;
+  } catch (error) {
+    logger.warn('GM: Failed checking isReservation column existence', {
+      error,
+    });
+    return false;
+  }
+}
 
 export type GeneralMerchandiseExpenseRow = {
   id: number;
@@ -94,6 +115,37 @@ export async function fetchGeneralMerchandisePaidTransactions(): Promise<
     logger.warn('GM: Falling back to transactions without statusChanges', {
       error,
     });
+    return await prisma.generalMerchandiseTransaction.findMany({
+      where: baseWhere,
+    });
+  }
+}
+
+export async function fetchGeneralMerchandiseCancelledTransactions(): Promise<
+  TransactionWithStatusChanges[]
+> {
+  const baseWhere = {
+    deletedAt: null,
+    orderStatus: { equals: 'Cancelled' },
+  };
+
+  try {
+    return await prisma.generalMerchandiseTransaction.findMany({
+      where: baseWhere,
+      include: {
+        statusChanges: {
+          where: { newStatus: { equals: 'Cancelled' } },
+          orderBy: { changedAt: 'asc' },
+        },
+      },
+    });
+  } catch (error) {
+    logger.warn(
+      'GM: Falling back to cancelled transactions without statusChanges',
+      {
+        error,
+      }
+    );
     return await prisma.generalMerchandiseTransaction.findMany({
       where: baseWhere,
     });
@@ -231,12 +283,22 @@ export async function fetchGeneralMerchandiseTransactionPayments(): Promise<
     return [];
   }
 
+  const hasReservationColumn = await gmPaymentHasReservationColumn();
+
   const rows = (await transactionPayment.findMany({
     where: {
       deletedAt: null,
       transaction: { deletedAt: null },
     },
-    include: {
+    select: {
+      id: true,
+      transactionId: true,
+      paymentDate: true,
+      amount: true,
+      method: true,
+      notes: true,
+      createdAt: true,
+      ...(hasReservationColumn ? { isReservation: true } : {}),
       transaction: {
         select: {
           id: true,
@@ -322,6 +384,22 @@ export function getPaidAtDate(tx: {
   );
 
   return paid?.changedAt ?? tx.updatedAt ?? null;
+}
+
+export function getCancelledAtDate(tx: {
+  statusChanges?: { newStatus: string | null; changedAt: Date }[];
+  orderStatus?: string | null;
+  updatedAt?: Date;
+}): Date | null {
+  if (!tx.statusChanges || tx.statusChanges.length === 0) {
+    return tx.updatedAt ?? null;
+  }
+
+  const cancelled = tx.statusChanges.find(
+    (status) => (status.newStatus ?? '').trim() === 'Cancelled'
+  );
+
+  return cancelled?.changedAt ?? tx.updatedAt ?? null;
 }
 
 export function isWithinDateRange(

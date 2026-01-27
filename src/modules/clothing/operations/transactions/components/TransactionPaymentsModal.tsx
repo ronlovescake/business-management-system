@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Button,
+  Checkbox,
   Group,
   NumberInput,
   ScrollArea,
@@ -37,6 +38,7 @@ type BulkPaymentsRequest = {
     amount: number;
     method?: string | null;
     notes?: string | null;
+    isReservation?: boolean;
   }>;
 };
 
@@ -66,6 +68,7 @@ export function TransactionPaymentsModal({
   const [paymentDate, setPaymentDate] = useState<Date | null>(new Date());
   const [method, setMethod] = useState<string | null>('Cash');
   const [notes, setNotes] = useState<string>('');
+  const [isReservation, setIsReservation] = useState(false);
   const [statusFilter, setStatusFilter] =
     useState<StatusFilterOption>('All Status');
   const [amountByTransactionId, setAmountByTransactionId] = useState<
@@ -78,9 +81,15 @@ export function TransactionPaymentsModal({
     setPaymentDate(new Date());
     setMethod('Cash');
     setNotes('');
+    setIsReservation(false);
     setStatusFilter('All Status');
     setAmountByTransactionId({});
   }, []);
+
+  const isGeneralMerchandise = useMemo(
+    () => (apiBasePath ?? '').includes('/general-merchandise'),
+    [apiBasePath]
+  );
 
   const customerOptions = useMemo(
     () => customerNames.map((name) => ({ value: name, label: name })),
@@ -223,6 +232,7 @@ export function TransactionPaymentsModal({
         paymentDate: paymentDate.toISOString().slice(0, 10),
         method,
         notes: notes.trim() ? notes.trim() : null,
+        ...(isGeneralMerchandise ? { isReservation } : {}),
       })),
     };
 
@@ -256,6 +266,8 @@ export function TransactionPaymentsModal({
     apiBasePath,
     eligibleTransactions,
     getBaseTotal,
+    isGeneralMerchandise,
+    isReservation,
     method,
     notes,
     onClose,
@@ -340,6 +352,14 @@ export function TransactionPaymentsModal({
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
         />
+
+        {isGeneralMerchandise ? (
+          <Checkbox
+            label="Reservation fee (customer deposit)"
+            checked={isReservation}
+            onChange={(e) => setIsReservation(e.currentTarget.checked)}
+          />
+        ) : null}
 
         {selectedCustomer && eligibleTransactions.length === 0 ? (
           <Text c="dimmed">

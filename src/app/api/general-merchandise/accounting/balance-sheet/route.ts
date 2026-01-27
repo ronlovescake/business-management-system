@@ -13,6 +13,7 @@ import {
   fetchGeneralMerchandiseTransactionPayments,
   fetchGeneralMerchandiseTransactionRefunds,
   getPaidAtDate,
+  getCancelledAtDate,
   isWithinDateRange,
 } from '@/lib/accounting/general-merchandise/data-fetchers';
 import { normalizeTransactionAmountsForAccounting } from '@/lib/accounting/transaction-normalization';
@@ -87,12 +88,17 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     to: asOf,
   });
 
+  // Non-reservation payments contribute to revenue/cash recognition for in-progress orders.
   const paymentTotalsByTxId = new Map<number, number>();
   const earliestPaymentAtByTxId = new Map<number, Date>();
+
+  // Reservation payments are tracked separately as Customer Deposits.
+  const reservationTotalsByTxId = new Map<number, number>();
+
   for (const payment of payments) {
-    if (isCancelledOrderStatus(payment.transaction?.orderStatus)) {
-      continue;
-    }
+    const isReservation =
+      (payment as unknown as { isReservation?: boolean }).isReservation ===
+      true;
 
     const paymentAt = parseDate(payment.paymentDate);
     if (!isWithinDateRange(paymentAt, CUTOVER, asOf)) {
@@ -101,6 +107,18 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
     const amt = Number(payment.amount ?? 0);
     if (!Number.isFinite(amt) || amt <= 0) {
+      continue;
+    }
+
+    if (isReservation) {
+      reservationTotalsByTxId.set(
+        payment.transactionId,
+        (reservationTotalsByTxId.get(payment.transactionId) ?? 0) + amt
+      );
+      continue;
+    }
+
+    if (isCancelledOrderStatus(payment.transaction?.orderStatus)) {
       continue;
     }
 
@@ -381,6 +399,70 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     .flat()
     .filter(Boolean) as BalanceRow[];
 
+  // Reservation payments (deposits) appear as Cash + Customer Deposits (liability)
+  // until the order is either completed (then they are part of the sale recognition)
+  // or cancelled (then they become Forfeited Deposits -> Retained Earnings).
+  const reservationTxIds = Array.from(reservationTotalsByTxId.keys());
+  const reservationEntries: BalanceRow[] = [];
+
+  if (reservationTxIds.length > 0) {
+    const txRows = await prisma.generalMerchandiseTransaction.findMany({
+      where: {
+        id: { in: reservationTxIds },
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        orderStatus: true,
+        updatedAt: true,
+        statusChanges: {
+          where: {
+            newStatus: { in: [...PAID_STATUSES, 'Cancelled'] },
+          },
+          orderBy: { changedAt: 'asc' },
+          select: { newStatus: true, changedAt: true },
+        },
+      },
+    });
+
+    const txById = new Map(txRows.map((t) => [t.id, t]));
+
+    for (const txId of reservationTxIds) {
+      const depositTotal = reservationTotalsByTxId.get(txId) ?? 0;
+      if (!Number.isFinite(depositTotal) || depositTotal <= 0) {
+        continue;
+      }
+
+      const tx = txById.get(txId);
+      if (!tx) {
+        continue;
+      }
+
+      // If the order is already completed/paid, the cash is already reflected
+      // via the sale recognition entry and no deposit liability remains.
+      if (isPaidStatus(tx.orderStatus)) {
+        continue;
+      }
+
+      const cancelledAt = isCancelledOrderStatus(tx.orderStatus)
+        ? getCancelledAtDate(tx)
+        : null;
+
+      if (cancelledAt && isWithinDateRange(cancelledAt, CUTOVER, asOf)) {
+        reservationEntries.push(
+          { account: 'Cash', amount: depositTotal },
+          { account: 'Retained Earnings', amount: -depositTotal }
+        );
+        continue;
+      }
+
+      reservationEntries.push(
+        { account: 'Cash', amount: depositTotal },
+        { account: 'Customer Deposits', amount: -depositTotal }
+      );
+    }
+  }
+
   // COGS reduces equity and reduces the inventory asset.
   // This makes old stock depletion visible on the balance sheet even in cash-basis mode.
   const cogsTotal = await computeCogsTotal({ from: CUTOVER, to: asOf });
@@ -583,6 +665,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     ...reclassEntries,
     ...transitBuildEntries,
     ...txEntries,
+    ...reservationEntries,
     ...expenseEntries,
     ...manualEntries,
     ...cogsEntries,

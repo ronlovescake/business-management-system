@@ -13,6 +13,7 @@ import {
   fetchGeneralMerchandiseTransactionRefunds,
   fetchGeneralMerchandiseTransactionPayments,
   getPaidAtDate,
+  getCancelledAtDate,
   isWithinDateRange,
 } from '@/lib/accounting/general-merchandise/data-fetchers';
 import {
@@ -21,6 +22,7 @@ import {
 } from '@/lib/accounting/general-merchandise/inventory-cogs';
 import { normalizeTransactionAmountsForAccounting } from '@/lib/accounting/transaction-normalization';
 import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
+import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,13 +52,64 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const paymentTransactionIds = new Set(payments.map((p) => p.transactionId));
 
+  const paidAtByTxId = new Map<number, Date | null>();
+  for (const tx of transactions) {
+    paidAtByTxId.set(tx.id, getPaidAtDate(tx));
+  }
+
+  const reservationPayments = payments.filter(
+    (p) => (p as unknown as { isReservation?: boolean }).isReservation === true
+  );
+
+  const cancelledReservationTxIds = Array.from(
+    new Set(
+      reservationPayments
+        .filter((p) => isCancelledOrderStatus(p.transaction?.orderStatus))
+        .map((p) => p.transactionId)
+    )
+  );
+
+  const cancelledAtByTxId = new Map<number, Date | null>();
+  if (cancelledReservationTxIds.length > 0) {
+    const cancelledTxRows = await prisma.generalMerchandiseTransaction.findMany(
+      {
+        where: {
+          id: { in: cancelledReservationTxIds },
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          updatedAt: true,
+          statusChanges: {
+            where: { newStatus: { equals: 'Cancelled' } },
+            orderBy: { changedAt: 'asc' },
+            select: { newStatus: true, changedAt: true },
+          },
+        },
+      }
+    );
+
+    for (const tx of cancelledTxRows) {
+      cancelledAtByTxId.set(tx.id, getCancelledAtDate(tx));
+    }
+  }
+
   // ============================================================================
   // ⚠️ CANCELLED STATUS FILTER (PAYMENT REVENUE)
   // ============================================================================
   // Only the explicit "Cancelled" order status is excluded from revenue totals.
   // ============================================================================
   const paymentRevenueTotal = payments.reduce((sum, payment) => {
+    const isReservation =
+      (payment as unknown as { isReservation?: boolean }).isReservation ===
+      true;
+
     if (isCancelledOrderStatus(payment.transaction?.orderStatus)) {
+      return sum;
+    }
+
+    // Reservation/deposit payments are not Sales Revenue when paid.
+    if (isReservation) {
       return sum;
     }
 
@@ -71,6 +124,60 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     }
 
     return sum + amt;
+  }, 0);
+
+  const recognizedDepositRevenueTotal = Array.from(
+    new Set(reservationPayments.map((p) => p.transactionId))
+  ).reduce((sum, txId) => {
+    const paidAt = paidAtByTxId.get(txId) ?? null;
+    if (!isWithinDateRange(paidAt, effectiveFrom, effectiveTo)) {
+      return sum;
+    }
+
+    const depositTotal = reservationPayments
+      .filter((p) => p.transactionId === txId)
+      .reduce((sub, p) => {
+        const paidAtPayment = parseDate(p.paymentDate);
+        if (!paidAtPayment) {
+          return sub;
+        }
+        if (paidAt && paidAtPayment > paidAt) {
+          return sub;
+        }
+        const amt = Number(p.amount ?? 0);
+        return Number.isFinite(amt) && amt > 0 ? sub + amt : sub;
+      }, 0);
+
+    return Number.isFinite(depositTotal) && depositTotal > 0
+      ? sum + depositTotal
+      : sum;
+  }, 0);
+
+  const forfeitedDepositsTotal = Array.from(
+    new Set(reservationPayments.map((p) => p.transactionId))
+  ).reduce((sum, txId) => {
+    const cancelledAt = cancelledAtByTxId.get(txId) ?? null;
+    if (!isWithinDateRange(cancelledAt, effectiveFrom, effectiveTo)) {
+      return sum;
+    }
+
+    const depositTotal = reservationPayments
+      .filter((p) => p.transactionId === txId)
+      .reduce((sub, p) => {
+        const paidAtPayment = parseDate(p.paymentDate);
+        if (!paidAtPayment) {
+          return sub;
+        }
+        if (cancelledAt && paidAtPayment > cancelledAt) {
+          return sub;
+        }
+        const amt = Number(p.amount ?? 0);
+        return Number.isFinite(amt) && amt > 0 ? sub + amt : sub;
+      }, 0);
+
+    return Number.isFinite(depositTotal) && depositTotal > 0
+      ? sum + depositTotal
+      : sum;
   }, 0);
 
   // ============================================================================
@@ -95,7 +202,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     return sum + paymentReceived;
   }, 0);
 
-  const revenueTotal = paymentRevenueTotal + legacyRevenueTotal;
+  const salesRevenueTotal =
+    paymentRevenueTotal + legacyRevenueTotal + recognizedDepositRevenueTotal;
+  const revenueTotal = salesRevenueTotal + forfeitedDepositsTotal;
 
   const refundTotal = refunds.reduce((sum, refund) => {
     const refundAt = parseDate(refund.refundDate);
@@ -132,12 +241,21 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     amount: number;
   }>;
 
-  if (revenueTotal !== 0) {
+  if (salesRevenueTotal !== 0) {
     rows.push({
       id: 'revenue-sales',
       category: 'Sales Revenue',
       type: 'Revenue',
-      amount: revenueTotal,
+      amount: salesRevenueTotal,
+    });
+  }
+
+  if (forfeitedDepositsTotal !== 0) {
+    rows.push({
+      id: 'revenue-forfeited-deposits',
+      category: 'Forfeited Deposits',
+      type: 'Revenue',
+      amount: forfeitedDepositsTotal,
     });
   }
 

@@ -24,6 +24,7 @@ type PaymentRow = {
   amount: number;
   method: string | null;
   notes: string | null;
+  isReservation: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -33,6 +34,20 @@ const gmPrisma = prisma as unknown as {
   generalMerchandiseTransaction: typeof prisma.transaction;
   generalMerchandiseTransactionPayment: TransactionPaymentDelegate;
 };
+
+async function supportsReservationFlag(): Promise<boolean> {
+  try {
+    const rows = (await prisma.$queryRaw<
+      Array<{ exists: number }>
+    >`SELECT 1 as exists FROM information_schema.columns WHERE table_schema = 'general_merchandise' AND table_name = 'transaction_payments' AND column_name = 'isReservation' LIMIT 1;`) as Array<{
+      exists: number;
+    }>;
+
+    return rows.length > 0;
+  } catch {
+    return false;
+  }
+}
 
 function parseCustomerId(
   context?: RouteContext
@@ -58,6 +73,7 @@ function sanitizeCreateInput(input: TransactionPaymentCreateInput):
       amount: number;
       method: string | null;
       notes: string | null;
+      isReservation: boolean;
     }
   | { error: ReturnType<typeof ApiResponse.badRequest> } {
   const paymentDate = sanitizers.date(input.paymentDate);
@@ -81,12 +97,15 @@ function sanitizeCreateInput(input: TransactionPaymentCreateInput):
       ? null
       : sanitizers.notes(input.notes) || null;
 
+  const isReservation = Boolean(input.isReservation);
+
   return {
     transactionId: input.transactionId,
     paymentDate,
     amount,
     method,
     notes,
+    isReservation,
   };
 }
 
@@ -137,6 +156,7 @@ export const GET = withErrorHandler<RouteContext>(
           amount: true,
           method: true,
           notes: true,
+          isReservation: true,
           createdAt: true,
           updatedAt: true,
         },
@@ -188,6 +208,8 @@ export const POST = withErrorHandler<RouteContext>(
       return sanitized.error;
     }
 
+    const hasReservationFlag = await supportsReservationFlag();
+
     const tx = await gmPrisma.generalMerchandiseTransaction.findFirst({
       where: {
         id: sanitized.transactionId,
@@ -210,6 +232,9 @@ export const POST = withErrorHandler<RouteContext>(
         amount: sanitized.amount,
         method: sanitized.method,
         notes: sanitized.notes,
+        ...(hasReservationFlag
+          ? { isReservation: sanitized.isReservation }
+          : {}),
       },
     });
 

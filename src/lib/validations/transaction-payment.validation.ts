@@ -6,6 +6,9 @@ export const transactionPaymentCreateSchema = z.object({
   amount: z.number().min(0),
   method: z.string().max(100).nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
+  // When true, this payment is a reservation fee / customer deposit.
+  // Accounting can treat it differently from sales revenue.
+  isReservation: z.boolean().optional(),
 });
 
 export const transactionPaymentBulkCreateSchema = z.object({
