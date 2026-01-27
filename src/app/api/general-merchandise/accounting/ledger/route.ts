@@ -456,31 +456,46 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     description: string;
   }>;
 
-  const manualEntries = manualLines.flatMap((line) => {
-    if (!Number.isFinite(line.debit) && !Number.isFinite(line.credit)) {
-      return [];
-    }
+  const manualEntries = manualLines
+    .map((line) => {
+      const debit = Number(line.debit ?? 0);
+      const credit = Number(line.credit ?? 0);
 
-    const amount = Number.isFinite(line.debit)
-      ? Math.max(line.debit, 0)
-      : -Math.max(line.credit, 0);
+      if (!Number.isFinite(debit) || !Number.isFinite(credit)) {
+        return null;
+      }
 
-    if (!Number.isFinite(amount) || amount === 0) {
-      return [];
-    }
+      if (debit === 0 && credit === 0) {
+        return null;
+      }
 
-    return [
-      {
+      return {
         id: line.id,
         date: line.date.toISOString(),
         ref: line.ref,
         account: line.account,
-        debit: line.debit,
-        credit: line.credit,
+        debit,
+        credit,
         description: line.description ?? '',
-      },
-    ];
-  });
+        sourceType: line.sourceType,
+        sourceId: line.sourceId,
+        sourceLineKey: line.sourceLineKey,
+        systemGenerated: line.systemGenerated,
+      };
+    })
+    .filter(Boolean) as Array<{
+    id: string;
+    date: string;
+    ref: string;
+    account: string;
+    debit: number;
+    credit: number;
+    description: string;
+    sourceType: string;
+    sourceId: string | null;
+    sourceLineKey: string;
+    systemGenerated: boolean;
+  }>;
 
   const { entries: cogsEntries } = await buildCogsAndInventoryEntries({
     from: effectiveFrom,
