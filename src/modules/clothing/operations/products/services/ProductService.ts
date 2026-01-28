@@ -203,6 +203,7 @@ export class ProductService {
       lalamove: form.lalamove,
       packagingCost: form.packagingCost,
       actualPrice: form.actualPrice,
+      applyTransactionFee: form.applyTransactionFee,
       bulkWeight: form.bulkWeight,
       bulkQuantity: form.bulkQuantity,
     });
@@ -309,6 +310,7 @@ export class ProductService {
       lalamove: 0,
       packagingCost: 0,
       actualPrice: 0,
+      applyTransactionFee: true,
       linkToPost: '',
       bulkQuantity: 0,
       bulkWeight: 0,
@@ -337,6 +339,7 @@ export class ProductService {
     }
 
     const exchangeRates = this.toSafeNumber(product['Exchange Rates']);
+    const transactionFee = this.toSafeNumber(product['Transaction Fee']);
 
     return {
       shipmentCode: this.toSafeString(product['Shipment Code']),
@@ -360,6 +363,7 @@ export class ProductService {
       lalamove: this.toSafeNumber(product.Lalamove),
       packagingCost: this.toSafeNumber(product['Packaging Cost']),
       actualPrice: this.toSafeNumber(product['Actual Price']),
+      applyTransactionFee: transactionFee > 0,
       linkToPost: this.toSafeString(product['Link To Post']),
       bulkQuantity: this.toSafeNumber(product['Bulk Quantity']),
       bulkWeight: this.toSafeNumber(product['Bulk Weight']),

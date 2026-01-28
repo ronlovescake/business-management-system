@@ -68,6 +68,7 @@ export function useProductForm(initialProduct?: ProductData) {
       lalamove: form.lalamove,
       packagingCost: form.packagingCost,
       actualPrice: form.actualPrice,
+      applyTransactionFee: form.applyTransactionFee,
       bulkWeight: form.bulkWeight,
       bulkQuantity: form.bulkQuantity,
     });

@@ -299,7 +299,7 @@ export const AddProductModal = memo(function AddProductModal({
 
         {/* Pricing & Quantity Section */}
         <div>
-          <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
+          <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="lg">
             <NumberInput
               label="Unit Price"
               size="md"
@@ -335,6 +335,21 @@ export const AddProductModal = memo(function AddProductModal({
               onChange={(value) =>
                 updateField('exchangeRates', Number(value) || 1)
               }
+            />
+
+            <Select
+              label="Transaction Fee"
+              description="Applies 2.99% when enabled"
+              size="md"
+              radius="md"
+              data={[
+                { value: 'YES', label: 'Yes' },
+                { value: 'NO', label: 'No' },
+              ]}
+              value={form.applyTransactionFee ? 'YES' : 'NO'}
+              onChange={(value) => {
+                updateField('applyTransactionFee', value !== 'NO');
+              }}
             />
           </SimpleGrid>
         </div>

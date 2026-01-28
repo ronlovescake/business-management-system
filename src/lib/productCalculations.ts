@@ -16,6 +16,7 @@ export interface ProductCalculationInput {
   lalamove: number;
   packagingCost: number;
   actualPrice: number;
+  applyTransactionFee?: boolean;
   bulkWeight?: number;
   bulkQuantity?: number;
 }
@@ -57,6 +58,7 @@ export function calculateProductFinancials(
   const lalamove = product.lalamove || 0;
   const packagingCost = product.packagingCost || 0;
   const actualPrice = product.actualPrice || 0;
+  const applyTransactionFee = product.applyTransactionFee !== false;
   const bulkWeight = product.bulkWeight || 0;
   const bulkQuantity = product.bulkQuantity || 0;
 
@@ -64,7 +66,7 @@ export function calculateProductFinancials(
   const php = unitPrice * exchangeRates;
   const subTotalPHP =
     (unitPrice * quantity + alibabaShippingCost) * exchangeRates;
-  const transactionFee = subTotalPHP * 0.0299;
+  const transactionFee = applyTransactionFee ? subTotalPHP * 0.0299 : 0;
   const grandTotal = subTotalPHP + transactionFee;
 
   // Cost calculations

@@ -76,6 +76,7 @@ export interface ProductFormData {
   lalamove: number;
   packagingCost: number;
   actualPrice: number;
+  applyTransactionFee: boolean;
   linkToPost: string;
   bulkQuantity: number;
   bulkWeight: number;
@@ -158,6 +159,7 @@ export interface ProductCalculationInputs {
   lalamove: number;
   packagingCost: number;
   actualPrice: number;
+  applyTransactionFee?: boolean;
   bulkWeight?: number;
   bulkQuantity?: number;
 }
