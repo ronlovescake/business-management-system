@@ -24,7 +24,10 @@ import {
 import { prisma } from '@/lib/db';
 import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { normalizeAccountForReporting } from '@/lib/accounting/account-normalization';
-import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
+import {
+  isCancelledOrderStatus,
+  isDepositForfeitureOrderStatus,
+} from '@/lib/transactions/order-status';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,7 +66,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const cancelledReservationTxIds = Array.from(
     new Set(
       reservationPayments
-        .filter((p) => isCancelledOrderStatus(p.transaction?.orderStatus))
+        .filter((p) =>
+          isDepositForfeitureOrderStatus(p.transaction?.orderStatus)
+        )
         .map((p) => p.transactionId)
     )
   );
@@ -80,7 +85,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
           id: true,
           updatedAt: true,
           statusChanges: {
-            where: { newStatus: { equals: 'Cancelled' } },
+            where: { newStatus: { in: ['Cancelled', 'Forfeited'] } },
             orderBy: { changedAt: 'asc' },
             select: { newStatus: true, changedAt: true },
           },

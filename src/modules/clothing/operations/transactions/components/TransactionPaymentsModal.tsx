@@ -108,7 +108,7 @@ export function TransactionPaymentsModal({
   // ============================================================================
   // ⚠️ ELIGIBILITY FILTERS (RECORD PAYMENTS)
   // ============================================================================
-  // - Only explicit "Cancelled" is excluded via shared helper.
+  // - Cancellation-like statuses are excluded via shared helper.
   // - Shipped is excluded for ops workflow (payments should be recorded before shipping).
   // ============================================================================
   const eligibleTransactions = useMemo(() => {
@@ -116,7 +116,7 @@ export function TransactionPaymentsModal({
       return [];
     }
 
-    const excludedStatuses = new Set(['Shipped', 'Cancelled']);
+    const excludedStatuses = new Set(['Shipped']);
 
     return transactions
       .filter((t) => t.id && t.id > 0)
@@ -363,7 +363,8 @@ export function TransactionPaymentsModal({
 
         {selectedCustomer && eligibleTransactions.length === 0 ? (
           <Text c="dimmed">
-            No eligible transactions found (Shipped/Cancelled are excluded).
+            No eligible transactions found (Shipped/cancelled statuses are
+            excluded).
           </Text>
         ) : null}
 

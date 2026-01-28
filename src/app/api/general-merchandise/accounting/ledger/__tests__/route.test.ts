@@ -211,4 +211,73 @@ describe('GET /api/general-merchandise/accounting/ledger', () => {
       )
     ).toBe(true);
   });
+
+  it('reclasses reservation fee to Forfeited Deposits on forfeiture date', async () => {
+    const paymentAt = new Date('2026-01-10T00:00:00.000Z');
+    const forfeitedAt = new Date('2026-01-29T00:00:00.000Z');
+
+    mockFetchers.fetchGeneralMerchandisePaidTransactions.mockResolvedValue([]);
+
+    mockFetchers.fetchGeneralMerchandiseTransactionPayments.mockResolvedValue([
+      {
+        id: 3,
+        transactionId: 502,
+        paymentDate: '2026-01-10',
+        amount: 500,
+        method: 'Cash',
+        notes: 'Reservation fee',
+        isReservation: true,
+        createdAt: paymentAt,
+        transaction: {
+          id: 502,
+          customers: 'Test Customer',
+          productCode: 'P-502',
+          orderStatus: 'Forfeited',
+        },
+      },
+    ]);
+
+    mockPrisma.generalMerchandiseTransaction.findMany.mockResolvedValue([
+      {
+        id: 502,
+        updatedAt: forfeitedAt,
+        statusChanges: [{ newStatus: 'Forfeited', changedAt: forfeitedAt }],
+      },
+    ]);
+
+    mockFetchers.getCancelledAtDate.mockReturnValue(forfeitedAt);
+
+    const { GET } = await import(
+      '@/app/api/general-merchandise/accounting/ledger/route'
+    );
+
+    const request = mockNextRequest({
+      method: 'GET',
+      url: getTestApiUrl(
+        '/api/general-merchandise/accounting/ledger?from=2026-01-01&to=2026-01-31'
+      ),
+    });
+
+    const response = await GET(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+
+    const entries = body.data.entries as Array<{
+      date: string;
+      account: string;
+      debit: number;
+      credit: number;
+    }>;
+
+    expect(
+      entries.some(
+        (e) =>
+          e.account === 'Forfeited Deposits' &&
+          e.credit === 500 &&
+          new Date(e.date).toISOString() === forfeitedAt.toISOString()
+      )
+    ).toBe(true);
+  });
 });

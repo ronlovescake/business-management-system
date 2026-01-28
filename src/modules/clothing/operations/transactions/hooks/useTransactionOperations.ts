@@ -27,6 +27,7 @@ import type { TransactionData, PriceTier } from '../types/transaction.types';
 import { queryKeys } from '@/lib/queryKeys';
 import { OperationsNotificationsService } from '../../notifications/services/OperationsNotificationsService';
 import { PAID_STATUSES } from '@/lib/accounting/constants';
+import { isVoidedOrderStatus } from '@/lib/transactions/order-status';
 
 interface UseTransactionOperationsProps {
   transactions: TransactionData[];
@@ -1529,6 +1530,41 @@ export function useTransactionOperations(
             confirmButtonText: 'OK',
           });
           return false;
+        }
+
+        const recordedPayment = Number(transaction.Adjustment) || 0;
+        if (isVoidedOrderStatus(dropdownValue) && recordedPayment > 0.01) {
+          const marker = '/operations/transactions';
+          const pathname = window.location.pathname;
+          const basePath = pathname.includes(marker)
+            ? pathname.slice(0, pathname.indexOf(marker))
+            : '';
+          const customersPath = basePath
+            ? `${basePath}/operations/customers`
+            : '/clothing/operations/customers';
+
+          const result = await Swal.fire({
+            title: 'Refund reminder',
+            html:
+              `This transaction has <strong>${formatCurrencyValue(recordedPayment)}</strong> recorded as a payment/deposit.<br /><br />` +
+              `If you mark it as <strong>Voided</strong>, remember to record any required refunds from the <strong>Customers</strong> page.`,
+            icon: 'warning',
+            showDenyButton: true,
+            showCancelButton: true,
+            confirmButtonText: 'Mark as Voided',
+            denyButtonText: 'Open Customers',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#d33',
+          });
+
+          if (result.isDenied) {
+            window.open(customersPath, '_blank', 'noopener,noreferrer');
+            return false;
+          }
+
+          if (!result.isConfirmed) {
+            return false;
+          }
         }
 
         updateTransactionData({ 'Order Status': dropdownValue });

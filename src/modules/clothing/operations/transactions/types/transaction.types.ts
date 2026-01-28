@@ -164,6 +164,8 @@ export const ORDER_STATUS_OPTIONS = [
   'Pending Payment',
   'Shipped',
   'Cancelled',
+  'Forfeited',
+  'Voided',
 ] as const;
 
 export type OrderStatus = (typeof ORDER_STATUS_OPTIONS)[number];

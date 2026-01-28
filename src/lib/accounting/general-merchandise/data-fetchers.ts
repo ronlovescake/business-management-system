@@ -395,6 +395,14 @@ export function getCancelledAtDate(tx: {
     return tx.updatedAt ?? null;
   }
 
+  const forfeited = tx.statusChanges.find(
+    (status) => (status.newStatus ?? '').trim() === 'Forfeited'
+  );
+
+  if (forfeited?.changedAt) {
+    return forfeited.changedAt;
+  }
+
   const cancelled = tx.statusChanges.find(
     (status) => (status.newStatus ?? '').trim() === 'Cancelled'
   );

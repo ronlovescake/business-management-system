@@ -1,5 +1,6 @@
 import { api } from '@/lib/api/client';
 import { logger } from '@/lib/logger';
+import { isBuyerFaultCancellationStatus } from '@/lib/transactions/order-status';
 
 /**
  * Validation Service - Centralized Validation Logic
@@ -91,9 +92,7 @@ export class ValidationService {
           if (customerTransactions.length > 0) {
             const cancelledTransactions = customerTransactions.filter(
               (t: Record<string, unknown>) =>
-                String(t.orderStatus || '')
-                  .toLowerCase()
-                  .includes('cancel')
+                isBuyerFaultCancellationStatus(String(t.orderStatus || ''))
             ).length;
 
             const cancellationRate = Math.round(

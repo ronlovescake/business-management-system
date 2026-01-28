@@ -272,6 +272,135 @@ describe('GET /api/general-merchandise/accounting/balance-sheet (reservation dep
     );
   });
 
+  it('moves forfeited reservation fee into Retained Earnings (forfeited) on forfeiture date', async () => {
+    const forfeitedAt = new Date('2026-01-29T00:00:00.000Z');
+
+    mockFetchers.fetchGeneralMerchandiseTransactionPayments.mockResolvedValue([
+      {
+        id: 1,
+        transactionId: 603,
+        paymentDate: '2026-01-10',
+        amount: 500,
+        method: 'Cash',
+        notes: 'Reservation fee',
+        isReservation: true,
+        createdAt: new Date('2026-01-10T00:00:00.000Z'),
+        transaction: {
+          id: 603,
+          customers: 'Test Customer',
+          productCode: 'P-603',
+          orderStatus: 'Forfeited',
+        },
+      },
+    ]);
+
+    mockPrisma.generalMerchandiseTransaction.findMany.mockResolvedValue([
+      {
+        id: 603,
+        orderStatus: 'Forfeited',
+        updatedAt: forfeitedAt,
+        statusChanges: [{ newStatus: 'Forfeited', changedAt: forfeitedAt }],
+      },
+    ]);
+
+    mockFetchers.getCancelledAtDate.mockReturnValue(forfeitedAt);
+
+    const { GET } = await import(
+      '@/app/api/general-merchandise/accounting/balance-sheet/route'
+    );
+
+    const request = mockNextRequest({
+      method: 'GET',
+      url: getTestApiUrl(
+        '/api/general-merchandise/accounting/balance-sheet?asOf=2026-01-31'
+      ),
+    });
+
+    const response = await GET(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+
+    const rows = body.data.rows as Array<{
+      account: string;
+      amount: number;
+      details?: Array<{ label: string; amount: number }>;
+    }>;
+
+    const cash = rows.find((r) => r.account === 'Cash');
+    const retained = rows.find((r) => r.account === 'Retained Earnings');
+
+    expect(cash?.amount).toBe(500);
+    expect(retained?.amount).toBe(-500);
+
+    expect(cash?.details).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: 'Reservation Deposits (forfeited)',
+          amount: 500,
+        }),
+      ])
+    );
+  });
+
+  it('does not forfeit reservation deposits when order is Voided (keeps Customer Deposits)', async () => {
+    mockFetchers.fetchGeneralMerchandiseTransactionPayments.mockResolvedValue([
+      {
+        id: 1,
+        transactionId: 604,
+        paymentDate: '2026-01-10',
+        amount: 500,
+        method: 'Cash',
+        notes: 'Reservation fee',
+        isReservation: true,
+        createdAt: new Date('2026-01-10T00:00:00.000Z'),
+        transaction: {
+          id: 604,
+          customers: 'Test Customer',
+          productCode: 'P-604',
+          orderStatus: 'Voided',
+        },
+      },
+    ]);
+
+    mockPrisma.generalMerchandiseTransaction.findMany.mockResolvedValue([
+      {
+        id: 604,
+        orderStatus: 'Voided',
+        updatedAt: new Date('2026-01-29T00:00:00.000Z'),
+        statusChanges: [],
+      },
+    ]);
+
+    const { GET } = await import(
+      '@/app/api/general-merchandise/accounting/balance-sheet/route'
+    );
+
+    const request = mockNextRequest({
+      method: 'GET',
+      url: getTestApiUrl(
+        '/api/general-merchandise/accounting/balance-sheet?asOf=2026-01-31'
+      ),
+    });
+
+    const response = await GET(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+
+    const rows = body.data.rows as Array<{ account: string; amount: number }>;
+
+    const cash = rows.find((r) => r.account === 'Cash');
+    const deposits = rows.find((r) => r.account === 'Customer Deposits');
+    const retained = rows.find((r) => r.account === 'Retained Earnings');
+
+    expect(cash?.amount).toBe(500);
+    expect(deposits?.amount).toBe(-500);
+    expect(retained?.amount ?? 0).toBe(0);
+  });
+
   it('adds Cash breakdown details for expenses (can show negative Cash)', async () => {
     mockFetchers.fetchGeneralMerchandiseTransactionPayments.mockResolvedValue(
       []

@@ -29,7 +29,10 @@ import {
   type AccountType,
 } from '@/lib/accounting/account-classification';
 import { isInTransitShipmentStatus } from '@/lib/inventory/shipment-status';
-import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
+import {
+  isCancelledOrderStatus,
+  isDepositForfeitureOrderStatus,
+} from '@/lib/transactions/order-status';
 
 export const dynamic = 'force-dynamic';
 
@@ -484,7 +487,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         updatedAt: true,
         statusChanges: {
           where: {
-            newStatus: { in: [...PAID_STATUSES, 'Cancelled'] },
+            newStatus: { in: [...PAID_STATUSES, 'Cancelled', 'Forfeited'] },
           },
           orderBy: { changedAt: 'asc' },
           select: { newStatus: true, changedAt: true },
@@ -511,7 +514,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         continue;
       }
 
-      const cancelledAt = isCancelledOrderStatus(tx.orderStatus)
+      const cancelledAt = isDepositForfeitureOrderStatus(tx.orderStatus)
         ? getCancelledAtDate(tx)
         : null;
 

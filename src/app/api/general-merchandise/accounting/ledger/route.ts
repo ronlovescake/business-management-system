@@ -6,7 +6,10 @@ import {
   buildPeriodLabel,
   parseDate,
 } from '@/lib/accounting/date-utils';
-import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
+import {
+  isCancelledOrderStatus,
+  isDepositForfeitureOrderStatus,
+} from '@/lib/transactions/order-status';
 import {
   fetchGeneralMerchandisePaidTransactions,
   fetchGeneralMerchandiseApprovedExpenses,
@@ -64,7 +67,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const cancelledReservationTxIds = Array.from(
     new Set(
       reservationPayments
-        .filter((p) => isCancelledOrderStatus(p.transaction?.orderStatus))
+        .filter((p) =>
+          isDepositForfeitureOrderStatus(p.transaction?.orderStatus)
+        )
         .map((p) => p.transactionId)
     )
   );
@@ -81,7 +86,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
           id: true,
           updatedAt: true,
           statusChanges: {
-            where: { newStatus: { equals: 'Cancelled' } },
+            where: { newStatus: { in: ['Cancelled', 'Forfeited'] } },
             orderBy: { changedAt: 'asc' },
             select: { newStatus: true, changedAt: true },
           },

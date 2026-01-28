@@ -229,4 +229,89 @@ describe('GET /api/general-merchandise/accounting/profit-loss', () => {
     expect(forfeited?.amount).toBe(500);
     expect(body.data.stats.revenueTotal).toBe(500);
   });
+
+  it('recognizes forfeited reservation payments as Forfeited Deposits on forfeiture date', async () => {
+    mockPrisma.$queryRaw.mockResolvedValue([{ one: 1 }]);
+
+    mockPrisma.generalMerchandiseTransactionPayment.findMany.mockResolvedValue([
+      {
+        id: 1,
+        transactionId: 124,
+        paymentDate: '2026-01-05',
+        amount: 500,
+        method: 'Cash',
+        notes: 'Reservation fee',
+        createdAt: new Date('2026-01-05T00:00:00.000Z'),
+        isReservation: true,
+        transaction: {
+          id: 124,
+          customers: 'Test Customer',
+          productCode: 'P-2',
+          orderStatus: 'Forfeited',
+        },
+      },
+    ]);
+
+    mockPrisma.generalMerchandiseTransactionRefund.findMany.mockResolvedValue(
+      []
+    );
+
+    const forfeitedAt = new Date('2026-01-29T00:00:00.000Z');
+
+    mockPrisma.generalMerchandiseTransaction.findMany.mockImplementation(
+      async (args: unknown) => {
+        const typed = args as {
+          where?: {
+            orderStatus?: { in?: string[]; equals?: string };
+            id?: { in?: number[] };
+          };
+          select?: unknown;
+          include?: unknown;
+        };
+
+        // Paid transactions fetch
+        if (Array.isArray(typed.where?.orderStatus?.in)) {
+          return [];
+        }
+
+        // Forfeited status change lookup
+        if (Array.isArray(typed.where?.id?.in)) {
+          return [
+            {
+              id: 124,
+              updatedAt: forfeitedAt,
+              statusChanges: [
+                {
+                  newStatus: 'Forfeited',
+                  changedAt: forfeitedAt,
+                },
+              ],
+            },
+          ];
+        }
+
+        return [];
+      }
+    );
+
+    const request = mockNextRequest({
+      method: 'GET',
+      url: getTestApiUrl(
+        '/api/general-merchandise/accounting/profit-loss?from=2026-01-01&to=2026-01-31'
+      ),
+    });
+
+    const response = await GET(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+
+    const forfeited = (
+      body.data.rows as Array<{ category: string; amount: number }>
+    ).find((row) => row.category === 'Forfeited Deposits');
+
+    expect(forfeited?.amount).toBe(500);
+    expect(body.data.stats.revenueTotal).toBe(500);
+  });
 });
