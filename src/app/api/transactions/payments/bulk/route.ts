@@ -32,7 +32,23 @@ type PaymentCreateRow = {
   amount: number;
   method: string | null;
   notes: string | null;
+  isReservation: boolean;
 };
+
+async function supportsReservationFlag(): Promise<boolean> {
+  try {
+    const rows = (await prisma.$queryRaw<
+      Array<{ exists: number }>
+    >`SELECT 1 as exists FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'transaction_payments' AND column_name = 'isReservation' LIMIT 1;`) as Array<{
+      exists: number;
+    }>;
+
+    return rows.length > 0;
+  } catch {
+    // If we can't detect (permissions, etc), be conservative.
+    return false;
+  }
+}
 
 function sanitizeBulkInput(
   input: TransactionPaymentBulkCreateInput
@@ -67,12 +83,15 @@ function sanitizeBulkInput(
         ? null
         : sanitizers.notes(payment.notes) || null;
 
+    const isReservation = Boolean(payment.isReservation);
+
     sanitizedPayments.push({
       transactionId: payment.transactionId,
       paymentDate,
       amount,
       method,
       notes,
+      isReservation,
     });
   });
 
@@ -138,6 +157,8 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     existingTransactions.map((t) => [t.id, t] as const)
   );
 
+  const hasReservationFlag = await supportsReservationFlag();
+
   const result = await prisma.$transaction(async (tx) => {
     const txDelegate = tx as unknown as {
       transaction: TransactionDelegate;
@@ -151,6 +172,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
         amount: p.amount,
         method: p.method,
         notes: p.notes,
+        ...(hasReservationFlag ? { isReservation: p.isReservation } : {}),
       })),
     });
 

@@ -232,7 +232,7 @@ export function TransactionPaymentsModal({
         paymentDate: paymentDate.toISOString().slice(0, 10),
         method,
         notes: notes.trim() ? notes.trim() : null,
-        ...(isGeneralMerchandise ? { isReservation } : {}),
+        isReservation,
       })),
     };
 
@@ -353,13 +353,11 @@ export function TransactionPaymentsModal({
           onChange={(e) => setNotes(e.target.value)}
         />
 
-        {isGeneralMerchandise ? (
-          <Checkbox
-            label="Reservation fee (customer deposit)"
-            checked={isReservation}
-            onChange={(e) => setIsReservation(e.currentTarget.checked)}
-          />
-        ) : null}
+        <Checkbox
+          label="Reservation fee (customer deposit)"
+          checked={isReservation}
+          onChange={(e) => setIsReservation(e.currentTarget.checked)}
+        />
 
         {selectedCustomer && eligibleTransactions.length === 0 ? (
           <Text c="dimmed">

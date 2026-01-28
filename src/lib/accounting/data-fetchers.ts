@@ -39,6 +39,7 @@ type TransactionPaymentWithTransaction = {
   amount: number;
   method: string | null;
   notes: string | null;
+  isReservation?: boolean | null;
   createdAt: Date;
   transaction: {
     id: number;
@@ -277,6 +278,30 @@ export function getPaidAtDate(
   // Post-cutover legacy transactions: prefer the paid-status change timestamp so
   // preorders/reservations don't recognize revenue until marked paid.
   return paidStatusChangedAt ?? orderDate ?? null;
+}
+
+export function getCancelledAtDate(tx: {
+  statusChanges?: { newStatus: string | null; changedAt: Date }[];
+  orderStatus?: string | null;
+  updatedAt?: Date;
+}): Date | null {
+  if (!tx.statusChanges || tx.statusChanges.length === 0) {
+    return tx.updatedAt ?? null;
+  }
+
+  const forfeited = tx.statusChanges.find(
+    (status) => (status.newStatus ?? '').trim() === 'Forfeited'
+  );
+
+  if (forfeited?.changedAt) {
+    return forfeited.changedAt;
+  }
+
+  const cancelled = tx.statusChanges.find(
+    (status) => (status.newStatus ?? '').trim() === 'Cancelled'
+  );
+
+  return cancelled?.changedAt ?? tx.updatedAt ?? null;
 }
 
 export function isWithinDateRange(

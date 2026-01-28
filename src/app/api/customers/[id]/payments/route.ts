@@ -24,9 +24,24 @@ type PaymentRow = {
   amount: number;
   method: string | null;
   notes: string | null;
+  isReservation?: boolean | null;
   createdAt: Date;
   updatedAt: Date;
 };
+
+async function supportsReservationFlag(): Promise<boolean> {
+  try {
+    const rows = (await prisma.$queryRaw<
+      Array<{ exists: number }>
+    >`SELECT 1 as exists FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'transaction_payments' AND column_name = 'isReservation' LIMIT 1;`) as Array<{
+      exists: number;
+    }>;
+
+    return rows.length > 0;
+  } catch {
+    return false;
+  }
+}
 
 function parseCustomerId(
   context?: RouteContext
@@ -52,6 +67,7 @@ function sanitizeCreateInput(input: TransactionPaymentCreateInput):
       amount: number;
       method: string | null;
       notes: string | null;
+      isReservation: boolean;
     }
   | { error: ReturnType<typeof ApiResponse.badRequest> } {
   const paymentDate = sanitizers.date(input.paymentDate);
@@ -81,6 +97,7 @@ function sanitizeCreateInput(input: TransactionPaymentCreateInput):
     amount,
     method,
     notes,
+    isReservation: Boolean(input.isReservation),
   };
 }
 
@@ -117,6 +134,8 @@ export const GET = withErrorHandler<RouteContext>(
       prisma as unknown as { transactionPayment: TransactionPaymentDelegate }
     ).transactionPayment;
 
+    const hasReservationFlag = await supportsReservationFlag();
+
     const payments = (await transactionPayment.findMany({
       where: {
         deletedAt: null,
@@ -134,6 +153,7 @@ export const GET = withErrorHandler<RouteContext>(
         amount: true,
         method: true,
         notes: true,
+        ...(hasReservationFlag ? { isReservation: true } : {}),
         createdAt: true,
         updatedAt: true,
       },
@@ -204,6 +224,8 @@ export const POST = withErrorHandler<RouteContext>(
       prisma as unknown as { transactionPayment: TransactionPaymentDelegate }
     ).transactionPayment;
 
+    const hasReservationFlag = await supportsReservationFlag();
+
     const created = (await transactionPayment.create({
       data: {
         transactionId: sanitized.transactionId,
@@ -211,6 +233,9 @@ export const POST = withErrorHandler<RouteContext>(
         amount: sanitized.amount,
         method: sanitized.method,
         notes: sanitized.notes,
+        ...(hasReservationFlag
+          ? { isReservation: sanitized.isReservation }
+          : {}),
       },
       select: {
         id: true,
@@ -219,6 +244,7 @@ export const POST = withErrorHandler<RouteContext>(
         amount: true,
         method: true,
         notes: true,
+        ...(hasReservationFlag ? { isReservation: true } : {}),
         createdAt: true,
         updatedAt: true,
       },

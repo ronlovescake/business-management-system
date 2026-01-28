@@ -1,8 +1,8 @@
 
 > business-management@1.0.0 dev
-> next dev --turbo -H 0.0.0.0 -p 5001
+> next dev -H 0.0.0.0 -p 5001
 
-  ▲ Next.js 14.2.33 (turbo)
+  ▲ Next.js 14.2.33
   - Local:        http://localhost:5001
   - Network:      http://0.0.0.0:5001
   - Environments: .env.local, .env
@@ -10,18 +10,10 @@
     · instrumentationHook
 
  ✓ Starting...
- ✓ Compiled in 790ms
-✅ Environment variables validated successfully
- ✓ Ready in 1770ms
-✅ Environment variables validated successfully
-✅ Environment variables validated successfully
- PATCH /api/household/recurring-payments 500 in 344ms
- GET /api/conversations 200 in 469ms
- ○ Compiling /api/conversations ...
- PATCH /api/household/recurring-payments 500 in 20ms
- GET /api/conversations 200 in 156ms
- PATCH /api/household/recurring-payments 500 in 20ms
- ✓ Compiled /api/conversations in 7.6s
+ ✓ Ready in 1729ms
+ ✓ Compiled /src/middleware in 283ms (492 modules)
+ ○ Compiling /clothing/accounting/balance-sheet ...
+ ✓ Compiled /clothing/accounting/balance-sheet in 31.9s (10541 modules)
 [✅ Module registered: Dashboard (v1.0.0)]
 [✅ Module registered: Customers (v1.0.0)]
 [✅ Module registered: Transactions (v1.0.0)]
@@ -32,9 +24,23 @@
 [✅ Module registered: Sorting Distribution (v1.0.0)]
 [✅ Module registered: Dispatch (v1.0.0)]
 [✅ Module registered: Settings (v1.0.0)]
+[✅ Module registered: Transactions (v1.0.0)]
+[✅ Module registered: Dashboard (v1.0.0)]
+[✅ Module registered: Customers (v1.0.0)]
+[✅ Module registered: Products (v1.0.0)]
+[✅ Module registered: Prices (v1.0.0)]
+[✅ Module registered: Inventory (v1.0.0)]
+[✅ Module registered: Shipments (v1.0.0)]
+[✅ Module registered: Sorting Distribution (v1.0.0)]
+[✅ Module registered: Dispatch (v1.0.0)]
+[✅ Module registered: Settings (v1.0.0)]
+[✅ Module registered: Invoicing (v1.0.0)]
+[✅ Module registered: Post Template (v1.0.0)]
+[✅ Module registered: Message Templates (v1.0.0)]
 [✅ Module registered: Trips (v0.1.0)]
 [✅ Module registered: Vehicle Assignments (v1.0.0)]
 [✅ Module registered: Fleet Registry (v1.0.0)]
+✅ Environment variables validated successfully
 ✅ Environment variables validated successfully
 [✅ Module registered: Dashboard (v1.0.0)]
 [✅ Module registered: Customers (v1.0.0)]
@@ -46,53 +52,131 @@
 [✅ Module registered: Sorting Distribution (v1.0.0)]
 [✅ Module registered: Dispatch (v1.0.0)]
 [✅ Module registered: Settings (v1.0.0)]
+[✅ Module registered: Transactions (v1.0.0)]
+[✅ Module registered: Dashboard (v1.0.0)]
+[✅ Module registered: Customers (v1.0.0)]
+[✅ Module registered: Products (v1.0.0)]
+[✅ Module registered: Prices (v1.0.0)]
+[✅ Module registered: Inventory (v1.0.0)]
+[✅ Module registered: Shipments (v1.0.0)]
+[✅ Module registered: Sorting Distribution (v1.0.0)]
+[✅ Module registered: Dispatch (v1.0.0)]
+[✅ Module registered: Settings (v1.0.0)]
+[✅ Module registered: Invoicing (v1.0.0)]
+[✅ Module registered: Post Template (v1.0.0)]
+[✅ Module registered: Message Templates (v1.0.0)]
 [✅ Module registered: Trips (v0.1.0)]
 [✅ Module registered: Vehicle Assignments (v1.0.0)]
 [✅ Module registered: Fleet Registry (v1.0.0)]
- GET /personal/expenses 200 in 8280ms
- GET /icon.svg?icon.8c4bbc9b.svg 200 in 165ms
- GET /api/conversations 200 in 111ms
- ✓ Compiled /icon.svg in 185ms
-[householdAccount.findMany] { count: 1, options: { orderBy: { createdAt: 'desc' } } }
- GET /api/household/accounts 200 in 113ms
-[householdAccount.findMany] { count: 1, options: { orderBy: { createdAt: 'desc' } } }
- GET /api/household/accounts 200 in 435ms
-[householdExpense.findMany] { count: 24, options: { orderBy: { date: 'desc' } } }
-ℹ️  Household expenses fetched { count: 24, filtered: false }
- GET /api/household/expenses 200 in 462ms
+ GET /clothing/accounting/balance-sheet 200 in 33534ms
+ GET /clothing/operations/transactions 200 in 33534ms
+ GET /clothing/accounting/balance-sheet 200 in 13575ms
+ GET /clothing/operations/transactions 200 in 11532ms
+ GET /clothing/accounting/balance-sheet 200 in 113ms
+ ○ Compiling /api/customers ...
+ ✓ Compiled /api/customers in 5.5s (6343 modules)
+ ✓ Compiled (6394 modules)
 ✅ Environment variables validated successfully
- GET /api/auth/session 200 in 663ms
- GET /api/auth/session 200 in 254ms
- GET /api/auth/session 200 in 30ms
- GET /api/auth/session 200 in 22ms
+ GET /icon.svg?3875e56a114a536b 200 in 7339ms
+ℹ️  [Transactions] Transactions fetched { count: 974 }
+ GET /api/transactions 200 in 7162ms
+ GET /api/settings/transactions 200 in 7239ms
+ℹ️  [Customers] Customers fetched { count: 1148 }
+ GET /api/customers 200 in 6985ms
+ GET /api/conversations 200 in 7254ms
 ✅ Environment variables validated successfully
+ ○ Compiling /api/accounting/balance-sheet ...
+ GET /api/auth/session 200 in 7734ms
+ ✓ Compiled /api/accounting/balance-sheet in 1189ms (6401 modules)
+ ✓ Compiled (6430 modules)
+✅ Environment variables validated successfully
+[✅ Module registered: Dashboard (v1.0.0)]
+[✅ Module registered: Customers (v1.0.0)]
+[✅ Module registered: Transactions (v1.0.0)]
+[✅ Module registered: Shipments (v1.0.0)]
+[✅ Module registered: Products (v1.0.0)]
+[✅ Module registered: Inventory (v1.0.0)]
+[✅ Module registered: Prices (v1.0.0)]
+[✅ Module registered: Sorting Distribution (v1.0.0)]
+[✅ Module registered: Dispatch (v1.0.0)]
+[✅ Module registered: Settings (v1.0.0)]
+[✅ Module registered: Transactions (v1.0.0)]
+[✅ Module registered: Dashboard (v1.0.0)]
+[✅ Module registered: Customers (v1.0.0)]
+[✅ Module registered: Products (v1.0.0)]
+[✅ Module registered: Prices (v1.0.0)]
+[✅ Module registered: Inventory (v1.0.0)]
+[✅ Module registered: Shipments (v1.0.0)]
+[✅ Module registered: Sorting Distribution (v1.0.0)]
+[✅ Module registered: Dispatch (v1.0.0)]
+[✅ Module registered: Settings (v1.0.0)]
+[✅ Module registered: Invoicing (v1.0.0)]
+[✅ Module registered: Post Template (v1.0.0)]
+[✅ Module registered: Message Templates (v1.0.0)]
+[✅ Module registered: Trips (v0.1.0)]
+[✅ Module registered: Vehicle Assignments (v1.0.0)]
+[✅ Module registered: Fleet Registry (v1.0.0)]
+ GET /clothing/operations/transactions?_rsc=1mb40 200 in 2482ms
+ℹ️  Prices fetched { count: 124 }
+ GET /api/prices 200 in 3198ms
+ GET /api/clothing/operations/settings/change-log?page=1&limit=200&entityType=transaction&includeFilters=false 200 in 3031ms
+ℹ️  [Products] Products fetched { count: 115 }
+ GET /api/products 200 in 3034ms
+ℹ️  Shipments fetched { count: 59 }
+ GET /api/shipments 200 in 3045ms
+ GET /icon.svg?3875e56a114a536b 200 in 67ms
+ GET /api/settings/transactions 200 in 177ms
+ℹ️  [Customers] Customers fetched { count: 1148 }
+ GET /api/customers 200 in 182ms
+ GET /clothing/accounting/balance-sheet?_rsc=1ncv5 200 in 190ms
+ GET /api/conversations 200 in 202ms
+ GET /api/auth/session 200 in 207ms
+ GET /api/accounting/balance-sheet?asOf=2026-01-31T00%3A00%3A00.000Z 200 in 3433ms
+ GET /clothing/accounting/balance-sheet?_rsc=1ncv5 200 in 104ms
+ GET /clothing/operations/transactions?_rsc=1mb40 200 in 113ms
+ GET /api/auth/session 200 in 89ms
+ GET /api/auth/session 200 in 42ms
+ GET /api/auth/session 200 in 32ms
+ GET /api/auth/session 200 in 53ms
+ GET /api/auth/session 200 in 45ms
+ GET /api/auth/session 200 in 36ms
+ GET /api/auth/session 200 in 32ms
+✅ Environment variables validated successfully
+ GET /api/accounting/balance-sheet?asOf=2026-01-31T00%3A00%3A00.000Z 200 in 554ms
+ GET /api/conversations 200 in 28ms
+ GET /api/conversations 200 in 34ms
+ GET /api/auth/session 200 in 87ms
+ GET /api/auth/session 200 in 19ms
+ GET /api/conversations 200 in 104ms
+✅ Environment variables validated successfully
+ GET /api/conversations 200 in 30ms
+ GET /api/conversations 200 in 28ms
+ GET /api/conversations 200 in 24ms
  GET /api/conversations 200 in 22ms
  GET /api/conversations 200 in 28ms
- GET /api/household/recurring-payments 200 in 27ms
- GET /api/conversations 200 in 25ms
- PATCH /api/household/recurring-payments 500 in 22ms
- PATCH /api/household/recurring-payments 500 in 18ms
- GET /api/conversations 200 in 22ms
- PATCH /api/household/recurring-payments 500 in 22ms
- GET /api/conversations 200 in 21ms
- PATCH /api/household/recurring-payments 500 in 18ms
- PATCH /api/household/recurring-payments 500 in 20ms
- PATCH /api/household/recurring-payments 500 in 16ms
- GET /api/conversations 200 in 23ms
- PATCH /api/household/recurring-payments 500 in 18ms
- GET /api/conversations 200 in 23ms
- PATCH /api/household/recurring-payments 500 in 20ms
- GET /api/conversations 200 in 25ms
- GET /api/conversations 200 in 26ms
+ GET /api/conversations 200 in 27ms
+ GET /api/auth/session 200 in 87ms
+ GET /api/auth/session 200 in 19ms
+ GET /api/conversations 200 in 34ms
+✅ Environment variables validated successfully
  GET /api/conversations 200 in 37ms
- GET /api/conversations 200 in 24ms
- GET /api/conversations 200 in 23ms
- GET /api/conversations 200 in 22ms
- GET /api/conversations 200 in 22ms
- GET /api/conversations 200 in 20ms
- GET /api/conversations 200 in 22ms
- GET /api/conversations 200 in 24ms
- GET /api/conversations 200 in 20ms
- GET /api/conversations 200 in 20ms
- GET /api/conversations 200 in 24ms
- GET /api/conversations 200 in 25ms
+ ○ Compiling /api/operations/notifications ...
+ ✓ Compiled /api/operations/notifications in 842ms (6432 modules)
+ ✓ Compiled in 1ms (6432 modules)
+ ✓ Compiled in 1ms (6432 modules)
+ ✓ Compiled in 0ms (6432 modules)
+✅ Environment variables validated successfully
+ POST /api/operations/notifications 201 in 3564ms
+ PATCH /api/transactions 200 in 3706ms
+✅ Environment variables validated successfully
+ GET /api/conversations 200 in 3644ms
+ GET /api/conversations 200 in 43ms
+ GET /api/conversations 200 in 32ms
+ POST /api/operations/notifications 201 in 70ms
+ PUT /api/transactions 200 in 158ms
+ GET /api/conversations 200 in 32ms
+ GET /api/conversations 200 in 28ms
+ GET /api/conversations 200 in 27ms
+ GET /api/conversations 200 in 34ms
+ GET /api/conversations 200 in 31ms
+ GET /api/conversations 200 in 34ms

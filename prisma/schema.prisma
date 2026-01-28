@@ -392,6 +392,7 @@ model TransactionPayment {
   amount        Float       @default(0)
   method        String?     @db.VarChar(100)
   notes         String?
+  isReservation Boolean     @default(false)
   deletedAt     DateTime?
   transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 

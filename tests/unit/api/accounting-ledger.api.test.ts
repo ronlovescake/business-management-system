@@ -10,6 +10,7 @@ const { mockFetchers, mockPrisma, mockInventoryCogs } = vi.hoisted(() => {
       fetchApprovedExpenses: vi.fn(),
       fetchTransactionRefunds: vi.fn(),
       getPaidAtDate: vi.fn(),
+      getCancelledAtDate: vi.fn(),
       isWithinDateRange: vi.fn(),
     },
     mockPrisma: {
@@ -20,6 +21,9 @@ const { mockFetchers, mockPrisma, mockInventoryCogs } = vi.hoisted(() => {
         findMany: vi.fn(),
       },
       clothingInventoryTransitBuildEntry: {
+        findMany: vi.fn(),
+      },
+      transaction: {
         findMany: vi.fn(),
       },
     },
@@ -40,6 +44,7 @@ vi.mock('@/lib/accounting/data-fetchers', async (importOriginal) => {
     fetchApprovedExpenses: mockFetchers.fetchApprovedExpenses,
     fetchTransactionRefunds: mockFetchers.fetchTransactionRefunds,
     getPaidAtDate: mockFetchers.getPaidAtDate,
+    getCancelledAtDate: mockFetchers.getCancelledAtDate,
     isWithinDateRange: mockFetchers.isWithinDateRange,
   };
 });
@@ -84,12 +89,20 @@ describe('Accounting Ledger API - GET /api/accounting/ledger', () => {
     // Ledger route checks date range for each entry.
     mockFetchers.isWithinDateRange.mockReturnValue(true);
     mockFetchers.getPaidAtDate.mockReturnValue(null);
+    mockFetchers.getCancelledAtDate.mockImplementation((tx: unknown) => {
+      const typed = tx as {
+        statusChanges?: { newStatus: string | null; changedAt: Date }[];
+        updatedAt?: Date;
+      };
+      return typed.statusChanges?.[0]?.changedAt ?? typed.updatedAt ?? null;
+    });
 
     mockPrisma.clothingAccountingOpeningBalance.findMany.mockResolvedValue([]);
     mockPrisma.clothingInventoryReclassEntry.findMany.mockResolvedValue([]);
     mockPrisma.clothingInventoryTransitBuildEntry.findMany.mockResolvedValue(
       []
     );
+    mockPrisma.transaction.findMany.mockResolvedValue([]);
 
     mockInventoryCogs.buildCogsAndInventoryEntries.mockResolvedValue({
       entries: [],
@@ -166,5 +179,124 @@ describe('Accounting Ledger API - GET /api/accounting/ledger', () => {
 
     // Seed increases inventory to 100, then shrinkage reduces it to 80.
     expect(stockBalances[stockBalances.length - 1]).toBe(80);
+  });
+
+  it('includes reservation payment (Customer Deposits) and reclass to Sales Revenue on paid status', async () => {
+    mockFetchers.fetchPaidTransactions.mockResolvedValue([
+      {
+        id: 1,
+        productCode: 'P-100',
+        customers: 'Alice',
+        quantity: 1,
+        unitPrice: 100,
+        discount: 0,
+        adjustment: 100,
+        lineTotal: 0,
+        orderDate: '2026-01-20',
+        orderStatus: 'Checked Out',
+      },
+    ]);
+
+    mockFetchers.getPaidAtDate.mockReturnValue(
+      new Date('2026-01-20T00:00:00.000Z')
+    );
+
+    mockFetchers.fetchTransactionPayments.mockResolvedValue([
+      {
+        id: 10,
+        transactionId: 1,
+        paymentDate: '2026-01-10',
+        amount: 50,
+        method: 'cash',
+        notes: 'reservation',
+        isReservation: true,
+        transaction: {
+          productCode: 'P-100',
+          customers: 'Alice',
+          orderStatus: 'Checked Out',
+        },
+      },
+    ]);
+
+    const res = await GET(
+      buildRequest('/api/accounting/ledger?from=2026-01-01&to=2026-01-31')
+    );
+
+    expect(res.status).toBe(200);
+    const payload = await res.json();
+    expect(payload.success).toBe(true);
+
+    const entries: Array<{
+      id: string;
+      account: string;
+      debit: number;
+      credit: number;
+    }> = payload.data.entries;
+
+    expect(entries.some((e) => e.id === 'PM-10-deposits')).toBe(true);
+    expect(entries.some((e) => e.id === 'DEP-REVENUE-TX-1-debit')).toBe(true);
+    expect(entries.some((e) => e.id === 'DEP-REVENUE-TX-1-credit')).toBe(true);
+
+    const credit = entries.find((e) => e.id === 'DEP-REVENUE-TX-1-credit');
+    expect(credit?.account).toBe('Sales Revenue');
+    expect(credit?.credit).toBe(50);
+  });
+
+  it('reclasses reservation deposits to Forfeited Deposits when forfeited', async () => {
+    mockFetchers.fetchPaidTransactions.mockResolvedValue([]);
+
+    mockFetchers.fetchTransactionPayments.mockResolvedValue([
+      {
+        id: 11,
+        transactionId: 2,
+        paymentDate: '2026-01-10',
+        amount: 75,
+        method: 'cash',
+        notes: 'reservation',
+        isReservation: true,
+        transaction: {
+          productCode: 'P-200',
+          customers: 'Bob',
+          orderStatus: 'Forfeited',
+        },
+      },
+    ]);
+
+    mockPrisma.transaction.findMany.mockResolvedValue([
+      {
+        id: 2,
+        updatedAt: new Date('2026-01-22T00:00:00.000Z'),
+        statusChanges: [
+          {
+            newStatus: 'Forfeited',
+            changedAt: new Date('2026-01-15T00:00:00.000Z'),
+          },
+        ],
+      },
+    ]);
+
+    mockFetchers.getCancelledAtDate.mockReturnValue(
+      new Date('2026-01-15T00:00:00.000Z')
+    );
+
+    const res = await GET(
+      buildRequest('/api/accounting/ledger?from=2026-01-01&to=2026-01-31')
+    );
+
+    expect(res.status).toBe(200);
+    const payload = await res.json();
+    expect(payload.success).toBe(true);
+
+    const entries: Array<{
+      id: string;
+      account: string;
+      debit: number;
+      credit: number;
+    }> = payload.data.entries;
+
+    expect(entries.some((e) => e.id === 'DEP-FORFEIT-TX-2-credit')).toBe(true);
+    const credit = entries.find((e) => e.id === 'DEP-FORFEIT-TX-2-credit');
+    expect(credit?.account).toBe('Forfeited Deposits');
+    expect(credit?.credit).toBe(75);
   });
 });
