@@ -63,6 +63,8 @@ type OpeningBalanceRow = {
   description: string | null;
 };
 
+const CASH_ACCOUNT = 'Cash';
+
 function aggregateBalancesFromRows(
   rows: Array<BalanceRow & { type: AccountType }>
 ) {
@@ -164,6 +166,36 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     loanDetailsByLabel.set(key, (loanDetailsByLabel.get(key) ?? 0) + amount);
   };
 
+  const cashDetailsByLabel = new Map<string, number>();
+  const addCashDetail = (label: string, account: string, amount: number) => {
+    const key = label.trim();
+    if (!key || !Number.isFinite(amount) || amount === 0) {
+      return;
+    }
+
+    const normalizedAccount = normalizeAccountForReporting(account).trim();
+    if (normalizedAccount !== CASH_ACCOUNT) {
+      return;
+    }
+
+    cashDetailsByLabel.set(key, (cashDetailsByLabel.get(key) ?? 0) + amount);
+  };
+
+  const detailLabelFromRefDescription = (input: {
+    ref?: string | null;
+    description?: string | null;
+  }): string | null => {
+    const ref = (input.ref ?? '').trim();
+    if (ref) {
+      return ref;
+    }
+    const desc = (input.description ?? '').trim();
+    if (desc) {
+      return desc;
+    }
+    return null;
+  };
+
   const parseLoanSuffix = (account: string): string | null => {
     const trimmed = account.trim();
     const prefix = 'Loan Payable';
@@ -207,6 +239,29 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     account: entry.account,
     amount: entry.debit - entry.credit,
   }));
+
+  for (const entry of openingBalanceRows) {
+    const account = entry.account.trim();
+    if (!account) {
+      continue;
+    }
+
+    const amount = Number(entry.debit ?? 0) - Number(entry.credit ?? 0);
+    if (!Number.isFinite(amount) || amount === 0) {
+      continue;
+    }
+
+    const tag = detailLabelFromRefDescription({
+      ref: entry.ref,
+      description: entry.description,
+    });
+
+    addCashDetail(
+      tag ? `Opening Balance – ${tag}` : 'Opening Balance',
+      account,
+      amount
+    );
+  }
 
   // Capture per-loan breakdown only when the account is the generic Loan Payable
   // (or when using suffixed loan payable accounts), using description/ref as the tag.
@@ -268,6 +323,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       }
 
       const value = Math.max(amount, 0);
+
+      addCashDetail('Inventory Reclass', row.toAccount, value);
+      addCashDetail('Inventory Reclass', row.fromAccount, -value);
+
       return [
         { account: row.toAccount, amount: value },
         { account: row.fromAccount, amount: -value },
@@ -310,6 +369,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       }
 
       const value = Math.max(amount, 0);
+
+      addCashDetail('Inventory Transit Build', row.debitAccount, value);
+      addCashDetail('Inventory Transit Build', row.creditAccount, -value);
+
       return [
         { account: row.debitAccount, amount: value },
         { account: row.creditAccount, amount: -value },
@@ -389,6 +452,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         return null;
       }
 
+      if (cash > 0) {
+        addCashDetail('Sales (cash received)', CASH_ACCOUNT, cash);
+      }
+
       return [
         ...(cash > 0 ? [{ account: 'Cash', amount: cash }] : []),
         ...(ar > 0 ? [{ account: 'Accounts Receivable', amount: ar }] : []),
@@ -449,12 +516,19 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         : null;
 
       if (cancelledAt && isWithinDateRange(cancelledAt, CUTOVER, asOf)) {
+        addCashDetail(
+          'Reservation Deposits (forfeited)',
+          CASH_ACCOUNT,
+          depositTotal
+        );
         reservationEntries.push(
           { account: 'Cash', amount: depositTotal },
           { account: 'Retained Earnings', amount: -depositTotal }
         );
         continue;
       }
+
+      addCashDetail('Reservation Deposits (open)', CASH_ACCOUNT, depositTotal);
 
       reservationEntries.push(
         { account: 'Cash', amount: depositTotal },
@@ -575,6 +649,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
       const value = Math.max(amt, 0);
 
+      addCashDetail('Refunds', CASH_ACCOUNT, -value);
+
       // Refunds reduce Equity and reduce the Cash asset.
       return [
         { account: 'Retained Earnings', amount: value },
@@ -597,6 +673,15 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       }
 
       const value = Math.max(amount, 0);
+
+      const category = (exp.category ?? '').trim();
+      const method = (exp.paymentMethod ?? '').trim() || 'Cash';
+      const label = category
+        ? `Expense – ${category} (${method})`
+        : `Expense (${method})`;
+
+      addCashDetail(label, exp.paymentMethod ?? 'Cash', -value);
+
       return [
         { account: exp.paymentMethod ?? 'Cash', amount: -value },
         { account: 'Retained Earnings', amount: value },
@@ -641,11 +726,25 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     if (!account) {
       continue;
     }
+
+    const amount = Number(line.debit ?? 0) - Number(line.credit ?? 0);
+    if (Number.isFinite(amount) && amount !== 0) {
+      const tag = detailLabelFromRefDescription({
+        ref: line.ref,
+        description: line.description,
+      });
+
+      addCashDetail(
+        tag ? `Manual Journal – ${tag}` : 'Manual Journal',
+        account,
+        amount
+      );
+    }
+
     if (!account.toLowerCase().startsWith('loan payable')) {
       continue;
     }
 
-    const amount = Number(line.debit ?? 0) - Number(line.credit ?? 0);
     if (!Number.isFinite(amount) || amount === 0) {
       continue;
     }
@@ -714,17 +813,47 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     .filter((item) => Number.isFinite(item.amount) && item.amount !== 0)
     .sort((a, b) => a.label.localeCompare(b.label));
 
+  const maxCashDetails = 30;
+  const cashDetailsAll: BalanceRowDetail[] = Array.from(cashDetailsByLabel)
+    .map(([label, amount]) => ({ label, amount }))
+    .filter((item) => Number.isFinite(item.amount) && item.amount !== 0)
+    .sort((a, b) => {
+      const diff = Math.abs(b.amount) - Math.abs(a.amount);
+      if (diff !== 0) {
+        return diff;
+      }
+      return a.label.localeCompare(b.label);
+    });
+
+  const cashDetails: BalanceRowDetail[] =
+    cashDetailsAll.length > maxCashDetails
+      ? (() => {
+          const head = cashDetailsAll.slice(0, maxCashDetails);
+          const tail = cashDetailsAll.slice(maxCashDetails);
+          const otherSum = tail.reduce((sum, item) => sum + item.amount, 0);
+          const otherLabel = `Other (${tail.length})`;
+          return Number.isFinite(otherSum) && otherSum !== 0
+            ? [...head, { label: otherLabel, amount: otherSum }]
+            : head;
+        })()
+      : cashDetailsAll;
+
   const rowsWithDetails = rows.map((row) => {
-    if (row.account !== 'Loan Payable') {
-      return row;
+    if (row.account === 'Loan Payable' && loanDetails.length > 0) {
+      return {
+        ...row,
+        details: loanDetails,
+      };
     }
-    if (loanDetails.length === 0) {
-      return row;
+
+    if (row.account === CASH_ACCOUNT && cashDetails.length > 0) {
+      return {
+        ...row,
+        details: cashDetails,
+      };
     }
-    return {
-      ...row,
-      details: loanDetails,
-    };
+
+    return row;
   });
 
   const totals = aggregateBalancesFromRows(rows);

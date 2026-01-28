@@ -123,13 +123,26 @@ describe('GET /api/general-merchandise/accounting/balance-sheet (reservation dep
     expect(response.status).toBe(200);
     expect(body.success).toBe(true);
 
-    const rows = body.data.rows as Array<{ account: string; amount: number }>;
+    const rows = body.data.rows as Array<{
+      account: string;
+      amount: number;
+      details?: Array<{ label: string; amount: number }>;
+    }>;
 
     const cash = rows.find((r) => r.account === 'Cash');
     const deposits = rows.find((r) => r.account === 'Customer Deposits');
 
     expect(cash?.amount).toBe(500);
     expect(deposits?.amount).toBe(-500);
+
+    expect(cash?.details).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: 'Reservation Deposits (open)',
+          amount: 500,
+        }),
+      ])
+    );
   });
 
   it('does not show Customer Deposits for a paid/completed reservation order', async () => {
@@ -237,12 +250,79 @@ describe('GET /api/general-merchandise/accounting/balance-sheet (reservation dep
     expect(response.status).toBe(200);
     expect(body.success).toBe(true);
 
-    const rows = body.data.rows as Array<{ account: string; amount: number }>;
+    const rows = body.data.rows as Array<{
+      account: string;
+      amount: number;
+      details?: Array<{ label: string; amount: number }>;
+    }>;
 
     const cash = rows.find((r) => r.account === 'Cash');
     const retained = rows.find((r) => r.account === 'Retained Earnings');
 
     expect(cash?.amount).toBe(500);
     expect(retained?.amount).toBe(-500);
+
+    expect(cash?.details).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: 'Reservation Deposits (forfeited)',
+          amount: 500,
+        }),
+      ])
+    );
+  });
+
+  it('adds Cash breakdown details for expenses (can show negative Cash)', async () => {
+    mockFetchers.fetchGeneralMerchandiseTransactionPayments.mockResolvedValue(
+      []
+    );
+    mockPrisma.generalMerchandiseTransaction.findMany.mockResolvedValue([]);
+
+    mockFetchers.fetchGeneralMerchandiseApprovedExpenses.mockResolvedValue([
+      {
+        id: 10,
+        date: '2026-01-20',
+        amount: 1000,
+        description: 'Box tape and supplies',
+        category: 'Supplies',
+        paymentMethod: 'GCash',
+        employeeName: null,
+        sourceId: null,
+      },
+    ]);
+
+    const { GET } = await import(
+      '@/app/api/general-merchandise/accounting/balance-sheet/route'
+    );
+
+    const request = mockNextRequest({
+      method: 'GET',
+      url: getTestApiUrl(
+        '/api/general-merchandise/accounting/balance-sheet?asOf=2026-01-31'
+      ),
+    });
+
+    const response = await GET(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+
+    const rows = body.data.rows as Array<{
+      account: string;
+      amount: number;
+      details?: Array<{ label: string; amount: number }>;
+    }>;
+
+    const cash = rows.find((r) => r.account === 'Cash');
+    expect(cash?.amount).toBe(-1000);
+    expect(cash?.details).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: 'Expense – Supplies (GCash)',
+          amount: -1000,
+        }),
+      ])
+    );
   });
 });
