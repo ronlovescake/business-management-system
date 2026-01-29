@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
 import { AppLayout } from '../components/layout/AppLayout';
 import { ReactQueryProvider } from '../lib/query-client';
@@ -10,8 +9,6 @@ import { GlobalMessageNotifications } from '../components/GlobalMessageNotificat
 
 // Initialize module registry
 import '@/modules';
-
-const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'Business Management System',
@@ -25,7 +22,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body>
         <ErrorBoundary>
           <AuthProvider>
             <ReactQueryProvider>

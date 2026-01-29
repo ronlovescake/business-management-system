@@ -69,6 +69,7 @@ pdf_output/
 # Temporary files and scripts
 tmp-*.js
 tmp-*.ts
+tmp-*.csv
 temp-*.js
 temp-*.ts
 *-tmp.js
