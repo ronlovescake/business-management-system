@@ -5,9 +5,13 @@
 import type { PeriodOption } from './constants';
 import type { DateRange } from './types';
 
-export function parseDate(value?: string | null): Date | null {
+export function parseDate(value?: string | Date | null): Date | null {
   if (!value) {
     return null;
+  }
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
   }
 
   const trimmed = value.trim();

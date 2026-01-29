@@ -116,4 +116,53 @@ describe('GM buildCogsAndInventoryEntries', () => {
     expect(cogs?.credit).toBe(100);
     expect(cogs?.debit).toBe(0);
   });
+
+  it('posts auto-sale inventory to COGS and dates by completion (createdAt) when postingDate is pre-cutover', async () => {
+    prismaMock.generalMerchandiseInventoryMovement.findMany.mockResolvedValue([
+      {
+        id: 1,
+        createdAt: new Date('2026-01-20T01:00:00.000Z'),
+        postingDate: '2026-01-01',
+        productCode: 'SKU-1',
+        quantity: 1,
+        fromBucket: 'sellable',
+        toBucket: 'sold',
+        notes: 'auto-sale txn 123',
+      },
+    ]);
+
+    prismaMock.generalMerchandiseProduct.findMany.mockResolvedValue([
+      {
+        productCode: 'SKU-1',
+        basePrice: 100,
+        cogs: 0,
+        quantity: 0,
+        updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      },
+    ]);
+
+    prismaMock.generalMerchandiseTransaction.findMany.mockResolvedValue([
+      {
+        id: 123,
+        customers: 'Legacy Customer',
+        packedDate: null,
+      },
+    ]);
+
+    const result = await buildCogsAndInventoryEntries({
+      from: new Date('2026-01-17T00:00:00.000Z'),
+      to: null,
+    });
+
+    expect(result.entries).toHaveLength(2);
+
+    const cogs = result.entries.find((e) => e.account === 'COGS');
+    const inv = result.entries.find((e) => e.account === 'Stock on Hand');
+
+    expect(cogs?.debit).toBe(100);
+    expect(cogs?.credit).toBe(0);
+    expect(inv?.credit).toBe(100);
+    expect(inv?.debit).toBe(0);
+  });
 });

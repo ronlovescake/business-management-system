@@ -44,6 +44,7 @@ type TransactionPaymentWithTransaction = {
     id: number;
     customers: string | null;
     productCode: string | null;
+    orderDate: string | Date | null;
     orderStatus: string | null;
   };
 };
@@ -252,6 +253,7 @@ export async function fetchGeneralMerchandiseTransactionRefunds(): Promise<
           id: true,
           customers: true,
           productCode: true,
+          orderDate: true,
           orderStatus: true,
         },
       },

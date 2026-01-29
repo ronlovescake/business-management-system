@@ -6,10 +6,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { ACCOUNTS_RECEIVABLE_STATUSES, PAID_STATUSES } from './constants';
 import { parseDate } from './date-utils';
-import { getAccountingCutoverDate } from './cutover';
 import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
-
-const ACCOUNTING_CUTOVER = getAccountingCutoverDate();
 
 type TransactionWithStatusChanges = Awaited<
   ReturnType<typeof prisma.transaction.findMany>
@@ -45,6 +42,7 @@ type TransactionPaymentWithTransaction = {
     id: number;
     customers: string | null;
     productCode: string | null;
+    orderDate: string | Date | null;
     orderStatus: string | null;
   };
 };
@@ -108,6 +106,9 @@ export async function fetchRecognizedTransactions(): Promise<
       // so Balance Sheet cash reflects actual receipts even if ops status is
       // not tagged as Pending Payment / Paid yet.
       { adjustment: { gt: 0 } },
+      // Prefer real payment events over legacy adjustment fields.
+      // This keeps balance sheet cash aligned with transaction_payments.
+      { payments: { some: { deletedAt: null, amount: { gt: 0 } } } },
     ],
   };
 
@@ -159,7 +160,6 @@ export async function fetchTransactionRefunds(): Promise<
           id: true,
           customers: true,
           productCode: true,
-          orderStatus: true,
         },
       },
     },
@@ -201,6 +201,7 @@ export async function fetchTransactionPayments(): Promise<
           id: true,
           customers: true,
           productCode: true,
+          orderDate: true,
           orderStatus: true,
         },
       },
@@ -266,18 +267,17 @@ export async function fetchManualJournalLines(params: {
 export function getPaidAtDate(
   transaction: TransactionWithStatusChanges
 ): Date | null {
-  const orderDate = parseDate(transaction.orderDate);
+  const packedDate = parseDate(
+    (transaction as unknown as { packedDate?: string | Date | null }).packedDate
+  );
+
+  // Status changes are sorted ascending in fetchers; first is the earliest paid timestamp.
   const paidStatusChangedAt = transaction.statusChanges?.[0]?.changedAt ?? null;
+  const orderDate = parseDate(transaction.orderDate);
 
-  // Pre-cutover transactions: anchor to orderDate to avoid retroactive status edits
-  // moving historical revenue into the cutover period.
-  if (orderDate && orderDate < ACCOUNTING_CUTOVER) {
-    return orderDate;
-  }
-
-  // Post-cutover legacy transactions: prefer the paid-status change timestamp so
-  // preorders/reservations don't recognize revenue until marked paid.
-  return paidStatusChangedAt ?? orderDate ?? null;
+  // Cutover policy: recognition is based on completion, not order date.
+  // Prefer packedDate (ops completion), then paid status-change timestamp, then orderDate.
+  return packedDate ?? paidStatusChangedAt ?? orderDate ?? null;
 }
 
 export function getCancelledAtDate(tx: {

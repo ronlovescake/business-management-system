@@ -383,9 +383,6 @@ export async function buildCogsAndInventoryEntries(params: {
         // Returns/restocks: move from SOLD back into a stock bucket
         { fromBucket: 'sold' },
       ],
-      createdAt: {
-        gte: from,
-      },
     },
     select: {
       id: true,
@@ -400,12 +397,41 @@ export async function buildCogsAndInventoryEntries(params: {
     orderBy: { createdAt: 'asc' },
   });
 
+  const autoSaleTxnIds = Array.from(
+    new Set(
+      movements
+        .map((m) => extractAutoSaleTransactionId(m.notes))
+        .filter((id): id is number => typeof id === 'number' && id > 0)
+    )
+  );
+
+  const customerNameByTransactionId = new Map<number, string>();
+  const completionAtByTransactionId = new Map<number, Date | null>();
+  if (autoSaleTxnIds.length > 0) {
+    const transactions = await prisma.transaction.findMany({
+      where: { id: { in: autoSaleTxnIds } },
+      select: { id: true, customers: true, packedDate: true },
+    });
+
+    for (const tx of transactions) {
+      const name = (tx.customers ?? '').trim();
+      if (name) {
+        customerNameByTransactionId.set(tx.id, name);
+      }
+
+      completionAtByTransactionId.set(tx.id, parseDate(tx.packedDate ?? null));
+    }
+  }
+
   const filtered = movements
     .map((m) => {
-      const when = pickMovementDate({
-        postingDate: m.postingDate ?? null,
-        createdAt: m.createdAt,
-      });
+      const txnId = extractAutoSaleTransactionId(m.notes);
+      const when = txnId
+        ? (completionAtByTransactionId.get(txnId) ?? m.createdAt)
+        : pickMovementDate({
+            postingDate: m.postingDate ?? null,
+            createdAt: m.createdAt,
+          });
       return { ...m, when };
     })
     .filter((m) => isWithin(m.when, from, to));
@@ -418,34 +444,12 @@ export async function buildCogsAndInventoryEntries(params: {
     filtered.map((m) => m.productCode)
   );
 
-  const autoSaleTxnIds = Array.from(
-    new Set(
-      filtered
-        .map((m) => extractAutoSaleTransactionId(m.notes))
-        .filter((id): id is number => typeof id === 'number' && id > 0)
-    )
-  );
-
-  const customerNameByTransactionId = new Map<number, string>();
-  if (autoSaleTxnIds.length > 0) {
-    const transactions = await prisma.transaction.findMany({
-      where: { id: { in: autoSaleTxnIds } },
-      select: { id: true, customers: true },
-    });
-
-    for (const tx of transactions) {
-      const name = (tx.customers ?? '').trim();
-      if (name) {
-        customerNameByTransactionId.set(tx.id, name);
-      }
-    }
-  }
-
   const cogsByGroup = new Map<
     string,
     {
       dateKey: string;
       productCode: string;
+      debitAccount: string;
       netQty: number;
       netCost: number;
       transitions: Map<string, number>;
@@ -478,6 +482,10 @@ export async function buildCogsAndInventoryEntries(params: {
 
     const dateKey = toDateKey(m.when);
     const productCode = code || 'Unknown Product';
+
+    const txnId = extractAutoSaleTransactionId(m.notes);
+    const debitAccount = COGS_ACCOUNT;
+
     const groupKey = `${dateKey}|||${productCode}`;
 
     const transitionLabel = `${m.fromBucket}→${m.toBucket}`;
@@ -485,6 +493,7 @@ export async function buildCogsAndInventoryEntries(params: {
     const group = cogsByGroup.get(groupKey) ?? {
       dateKey,
       productCode,
+      debitAccount,
       netQty: 0,
       netCost: 0,
       transitions: new Map<string, number>(),
@@ -498,7 +507,6 @@ export async function buildCogsAndInventoryEntries(params: {
       (group.transitions.get(transitionLabel) ?? 0) + sign * qty
     );
 
-    const txnId = extractAutoSaleTransactionId(m.notes);
     if (txnId) {
       const customerName = customerNameByTransactionId.get(txnId);
       if (customerName) {
@@ -555,7 +563,7 @@ export async function buildCogsAndInventoryEntries(params: {
             id: `${idBase}-cogs-debit`,
             date,
             ref,
-            account: COGS_ACCOUNT,
+            account: group.debitAccount,
             debit: abs,
             credit: 0,
             description,
@@ -587,7 +595,7 @@ export async function buildCogsAndInventoryEntries(params: {
           id: `${idBase}-cogs-credit`,
           date,
           ref,
-          account: COGS_ACCOUNT,
+          account: group.debitAccount,
           debit: 0,
           credit: abs,
           description,
