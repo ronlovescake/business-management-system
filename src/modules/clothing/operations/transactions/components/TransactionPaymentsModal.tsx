@@ -86,11 +86,6 @@ export function TransactionPaymentsModal({
     setAmountByTransactionId({});
   }, []);
 
-  const isGeneralMerchandise = useMemo(
-    () => (apiBasePath ?? '').includes('/general-merchandise'),
-    [apiBasePath]
-  );
-
   const customerOptions = useMemo(
     () => customerNames.map((name) => ({ value: name, label: name })),
     [customerNames]
@@ -266,7 +261,6 @@ export function TransactionPaymentsModal({
     apiBasePath,
     eligibleTransactions,
     getBaseTotal,
-    isGeneralMerchandise,
     isReservation,
     method,
     notes,
