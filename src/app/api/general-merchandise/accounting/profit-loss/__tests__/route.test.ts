@@ -49,6 +49,7 @@ describe('GET /api/general-merchandise/accounting/profit-loss', () => {
           id: 200,
           customers: 'Test Customer',
           productCode: 'P-200',
+          orderDate: null,
           orderStatus: 'Paid',
         },
       },

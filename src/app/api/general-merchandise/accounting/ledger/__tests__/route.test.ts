@@ -95,6 +95,7 @@ describe('GET /api/general-merchandise/accounting/ledger', () => {
           id: 500,
           customers: 'Test Customer',
           productCode: 'P-500',
+          orderDate: null,
           orderStatus: 'Paid',
         },
       },

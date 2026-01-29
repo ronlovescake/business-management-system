@@ -97,8 +97,15 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const paymentTotalsByTxId = new Map<number, number>();
   const earliestPaymentAtByTxId = new Map<number, Date>();
 
+  // All payments (including reservation deposits) so paid orders can reflect full cash received.
+  const paymentTotalsAllByTxId = new Map<number, number>();
+  const earliestIncludedPaymentAtByTxId = new Map<number, Date>();
+
   // Reservation payments are tracked separately as Customer Deposits.
   const reservationTotalsByTxId = new Map<number, number>();
+
+  // Track any payment activity so we can prefer payment events over legacy adjustment fields.
+  const paymentEventTxIds = new Set<number>();
 
   for (const payment of payments) {
     const isReservation =
@@ -115,15 +122,38 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       continue;
     }
 
+    paymentEventTxIds.add(payment.transactionId);
+
+    // Mirror ledger behavior: for cancelled orders, only reservation/deposit payments count.
+    if (
+      isCancelledOrderStatus(payment.transaction?.orderStatus) &&
+      !isReservation
+    ) {
+      continue;
+    }
+
+    paymentTotalsAllByTxId.set(
+      payment.transactionId,
+      (paymentTotalsAllByTxId.get(payment.transactionId) ?? 0) + amt
+    );
+
+    const existingEarliestIncluded = earliestIncludedPaymentAtByTxId.get(
+      payment.transactionId
+    );
+    if (
+      !existingEarliestIncluded ||
+      (paymentAt && paymentAt < existingEarliestIncluded)
+    ) {
+      if (paymentAt) {
+        earliestIncludedPaymentAtByTxId.set(payment.transactionId, paymentAt);
+      }
+    }
+
     if (isReservation) {
       reservationTotalsByTxId.set(
         payment.transactionId,
         (reservationTotalsByTxId.get(payment.transactionId) ?? 0) + amt
       );
-      continue;
-    }
-
-    if (isCancelledOrderStatus(payment.transaction?.orderStatus)) {
       continue;
     }
 
@@ -422,30 +452,40 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
       // If we have explicit payment events, prefer them for cash received for
       // non-paid statuses to avoid missing cash on the balance sheet.
-      const hasPaymentEvents = paymentTotalsByTxId.has(tx.id);
-      const usePaymentEvents =
-        hasPaymentEvents && !isPaidStatus(tx.orderStatus);
+      const hasPaymentEvents = paymentEventTxIds.has(tx.id);
+      const usePaymentEvents = hasPaymentEvents;
+
       const paymentReceived = usePaymentEvents
-        ? Math.min(
-            Math.max(paymentTotalsByTxId.get(tx.id) ?? 0, 0),
-            Math.max(grossSale, 0)
-          )
+        ? Math.max(paymentTotalsByTxId.get(tx.id) ?? 0, 0)
         : Number(normalized.paymentReceived ?? 0);
 
+      const paymentReceivedAll = usePaymentEvents
+        ? Math.max(paymentTotalsAllByTxId.get(tx.id) ?? 0, 0)
+        : paymentReceived;
+
+      const resolvedPaymentReceived = isPaidStatus(tx.orderStatus)
+        ? paymentReceivedAll
+        : paymentReceived;
+
       const derivedBalanceDue = Math.max(
-        Math.max(grossSale, 0) - Math.max(paymentReceived, 0),
+        Math.max(grossSale, 0) - Math.max(resolvedPaymentReceived, 0),
         0
       );
       const balanceDue = usePaymentEvents
         ? derivedBalanceDue
         : Number(normalized.balanceDue ?? 0);
 
-      const recognizedAt = getRecognizedAt(tx);
+      const paymentAnchor =
+        (isPaidStatus(tx.orderStatus)
+          ? earliestIncludedPaymentAtByTxId.get(tx.id)
+          : earliestPaymentAtByTxId.get(tx.id)) ?? null;
+      const recognizedAt =
+        usePaymentEvents && paymentAnchor ? paymentAnchor : getRecognizedAt(tx);
       if (!isWithinDateRange(recognizedAt, CUTOVER, asOf)) {
         return null;
       }
 
-      const cash = Math.max(Number(paymentReceived) || 0, 0);
+      const cash = Math.max(Number(resolvedPaymentReceived) || 0, 0);
       const ar = isReceivableStatus(tx.orderStatus)
         ? Math.max(Number(balanceDue) || 0, 0)
         : 0;

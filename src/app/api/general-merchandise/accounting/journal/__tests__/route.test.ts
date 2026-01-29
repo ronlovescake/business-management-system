@@ -95,6 +95,7 @@ describe('GET /api/general-merchandise/accounting/journal', () => {
           id: 400,
           customers: 'Test Customer',
           productCode: 'P-400',
+          orderDate: null,
           orderStatus: 'Paid',
         },
       },
