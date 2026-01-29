@@ -64,11 +64,16 @@ export function TransactionPaymentsModal({
 }) {
   const queryClient = useQueryClient();
 
+  const isGeneralMerchandise =
+    typeof apiBasePath === 'string' &&
+    apiBasePath.includes('general-merchandise');
+
   const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null);
   const [paymentDate, setPaymentDate] = useState<Date | null>(new Date());
   const [method, setMethod] = useState<string | null>('Cash');
   const [notes, setNotes] = useState<string>('');
   const [isReservation, setIsReservation] = useState(false);
+  const [reservationTouched, setReservationTouched] = useState(false);
   const [statusFilter, setStatusFilter] =
     useState<StatusFilterOption>('All Status');
   const [amountByTransactionId, setAmountByTransactionId] = useState<
@@ -82,6 +87,7 @@ export function TransactionPaymentsModal({
     setMethod('Cash');
     setNotes('');
     setIsReservation(false);
+    setReservationTouched(false);
     setStatusFilter('All Status');
     setAmountByTransactionId({});
   }, []);
@@ -133,6 +139,31 @@ export function TransactionPaymentsModal({
         return (t['Order Status'] ?? '') === statusFilter;
       });
   }, [selectedCustomer, statusFilter, transactions]);
+
+  useEffect(() => {
+    if (!isGeneralMerchandise) {
+      return;
+    }
+
+    if (!opened) {
+      return;
+    }
+
+    if (reservationTouched) {
+      return;
+    }
+
+    // Convenience default: when recording payments for Prepared/Pending orders,
+    // default to treating them as reservation deposits unless the user overrides.
+    const shouldDefaultToReservation =
+      statusFilter === 'Prepared' || statusFilter === 'Pending Payment';
+
+    setIsReservation(shouldDefaultToReservation);
+
+    if (shouldDefaultToReservation && !notes.trim()) {
+      setNotes('Reservation fee');
+    }
+  }, [isGeneralMerchandise, notes, opened, reservationTouched, statusFilter]);
 
   const handleAmountChange = useCallback(
     (transactionId: number, value: number | string) => {
@@ -227,7 +258,7 @@ export function TransactionPaymentsModal({
         paymentDate: paymentDate.toISOString().slice(0, 10),
         method,
         notes: notes.trim() ? notes.trim() : null,
-        isReservation,
+        isReservation: isGeneralMerchandise ? isReservation : undefined,
       })),
     };
 
@@ -262,6 +293,7 @@ export function TransactionPaymentsModal({
     eligibleTransactions,
     getBaseTotal,
     isReservation,
+    isGeneralMerchandise,
     method,
     notes,
     onClose,
@@ -347,11 +379,34 @@ export function TransactionPaymentsModal({
           onChange={(e) => setNotes(e.target.value)}
         />
 
-        <Checkbox
-          label="Reservation fee (customer deposit)"
-          checked={isReservation}
-          onChange={(e) => setIsReservation(e.currentTarget.checked)}
-        />
+        {isGeneralMerchandise ? (
+          <Stack gap={6}>
+            <Checkbox
+              label="Reservation fee (customer deposit)"
+              checked={isReservation}
+              onChange={(e) => {
+                setReservationTouched(true);
+                setIsReservation(e.currentTarget.checked);
+
+                if (e.currentTarget.checked && !notes.trim()) {
+                  setNotes('Reservation fee');
+                }
+              }}
+            />
+            {isReservation ? (
+              <Text size="sm" c="dimmed">
+                Reservation deposits increase Cash but will not hit Sales
+                Revenue until completion.
+              </Text>
+            ) : null}
+          </Stack>
+        ) : null}
+
+        {isGeneralMerchandise && isReservation ? (
+          <Text size="sm" c="dimmed">
+            Tip: use the per-row “Reservation Fee” button to auto-fill 10%.
+          </Text>
+        ) : null}
 
         {selectedCustomer && eligibleTransactions.length === 0 ? (
           <Text c="dimmed">
@@ -457,6 +512,27 @@ export function TransactionPaymentsModal({
                     >
                       Order Status
                     </Table.Th>
+
+                    <Table.Th
+                      style={{
+                        width: 180,
+                        textAlign: 'center',
+                        verticalAlign: 'middle',
+                      }}
+                    >
+                      Reservation Fee
+                    </Table.Th>
+
+                    <Table.Th
+                      style={{
+                        width: 160,
+                        textAlign: 'center',
+                        verticalAlign: 'middle',
+                      }}
+                    >
+                      Full Payment
+                    </Table.Th>
+
                     <Table.Th
                       style={{
                         width: 140,
@@ -474,6 +550,8 @@ export function TransactionPaymentsModal({
                       const key = `placeholder-${index}`;
                       return (
                         <Table.Tr key={key} style={{ height: ROW_HEIGHT }}>
+                          <Table.Td>&nbsp;</Table.Td>
+                          <Table.Td>&nbsp;</Table.Td>
                           <Table.Td>&nbsp;</Table.Td>
                           <Table.Td>&nbsp;</Table.Td>
                           <Table.Td>&nbsp;</Table.Td>
@@ -519,6 +597,16 @@ export function TransactionPaymentsModal({
                     const maxPayable = Math.max(baseTotal, 0);
                     const balanceDue = Math.max(baseTotal - current, 0);
                     const isOverLimit = current > maxPayable + 0.01;
+
+                    const quantity = Number(t.Quantity) || 0;
+                    const grossTotal = quantity * unitPrice;
+                    const reservationFeeRaw = grossTotal * 0.1;
+                    const reservationFee =
+                      Math.round(reservationFeeRaw * 100) / 100;
+                    const reservationFeePayable = Math.min(
+                      Math.max(reservationFee, 0),
+                      maxPayable
+                    );
 
                     return (
                       <Table.Tr key={id} style={{ height: ROW_HEIGHT }}>
@@ -567,6 +655,53 @@ export function TransactionPaymentsModal({
                         >
                           {t['Order Status'] || '—'}
                         </Table.Td>
+
+                        <Table.Td style={{ textAlign: 'center' }}>
+                          <Button
+                            size="xs"
+                            variant="light"
+                            disabled={reservationFeePayable <= 0}
+                            onClick={() => {
+                              if (isGeneralMerchandise) {
+                                setReservationTouched(true);
+                                setIsReservation(true);
+                              }
+
+                              if (!notes.trim()) {
+                                setNotes('Reservation fee');
+                              }
+
+                              setAmountByTransactionId((prev) => ({
+                                ...prev,
+                                [id]: reservationFeePayable,
+                              }));
+                            }}
+                          >
+                            ₱{reservationFeePayable.toLocaleString()}
+                          </Button>
+                        </Table.Td>
+
+                        <Table.Td style={{ textAlign: 'center' }}>
+                          <Button
+                            size="xs"
+                            variant="light"
+                            disabled={maxPayable <= 0}
+                            onClick={() => {
+                              if (isGeneralMerchandise) {
+                                setReservationTouched(true);
+                                setIsReservation(false);
+                              }
+
+                              setAmountByTransactionId((prev) => ({
+                                ...prev,
+                                [id]: maxPayable,
+                              }));
+                            }}
+                          >
+                            ₱{maxPayable.toLocaleString()}
+                          </Button>
+                        </Table.Td>
+
                         <Table.Td
                           style={{
                             textAlign: 'right',
