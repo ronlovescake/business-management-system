@@ -43,6 +43,8 @@ type BulkPaymentsRequest = {
   }>;
 };
 
+type AfterSaveMode = 'close' | 'continue';
+
 const PAYMENT_METHOD_OPTIONS = [
   { value: 'Cash', label: 'Cash' },
   { value: 'GCash', label: 'GCash' },
@@ -90,6 +92,10 @@ export function TransactionPaymentsModal({
     setIsReservation(false);
     setReservationTouched(false);
     setStatusFilter('All Status');
+    setAmountByTransactionId({});
+  }, []);
+
+  const resetAmountsOnly = useCallback(() => {
     setAmountByTransactionId({});
   }, []);
 
@@ -213,97 +219,104 @@ export function TransactionPaymentsModal({
       : quantity * unitPrice - paidSoFar;
   }, []);
 
-  const handleSubmit = useCallback(async () => {
-    if (!paymentDate) {
-      showNotification({
-        title: 'Missing payment date',
-        message: 'Select a payment date.',
-        color: 'yellow',
-      });
-      return;
-    }
-
-    if (payloadDrafts.length === 0) {
-      showNotification({
-        title: 'No payments entered',
-        message: 'Enter at least one payment amount.',
-        color: 'yellow',
-      });
-      return;
-    }
-
-    const overLimitDrafts = payloadDrafts.filter((draft) => {
-      const transaction = eligibleTransactions.find(
-        (t) => Number(t.id) === draft.transactionId
-      );
-      if (!transaction) {
-        return false;
+  const handleSubmit = useCallback(
+    async (mode: AfterSaveMode) => {
+      if (!paymentDate) {
+        showNotification({
+          title: 'Missing payment date',
+          message: 'Select a payment date.',
+          color: 'yellow',
+        });
+        return;
       }
-      const baseTotal = getBaseTotal(transaction);
-      return draft.amount > baseTotal + 0.01;
-    });
 
-    if (overLimitDrafts.length > 0) {
-      showNotification({
-        title: 'Payment exceeds balance due',
-        message: 'Reduce the payment amount to match the balance due.',
-        color: 'red',
-      });
-      return;
-    }
+      if (payloadDrafts.length === 0) {
+        showNotification({
+          title: 'No payments entered',
+          message: 'Enter at least one payment amount.',
+          color: 'yellow',
+        });
+        return;
+      }
 
-    const requestPayload: BulkPaymentsRequest = {
-      payments: payloadDrafts.map((draft) => ({
-        transactionId: draft.transactionId,
-        amount: draft.amount,
-        paymentDate: paymentDate.toISOString().slice(0, 10),
-        method,
-        notes: notes.trim() ? notes.trim() : null,
-        isReservation,
-      })),
-    };
-
-    setIsSaving(true);
-    try {
-      await api.post(
-        buildApiPath(apiBasePath, '/transactions/payments/bulk'),
-        requestPayload
-      );
-
-      await queryClient.invalidateQueries({ queryKey: ['transactions'] });
-
-      showNotification({
-        title: 'Payment recorded',
-        message: `Saved ${payloadDrafts.length} payment${payloadDrafts.length === 1 ? '' : 's'} (₱${totalEntered.toLocaleString()}).`,
-        color: 'green',
+      const overLimitDrafts = payloadDrafts.filter((draft) => {
+        const transaction = eligibleTransactions.find(
+          (t) => Number(t.id) === draft.transactionId
+        );
+        if (!transaction) {
+          return false;
+        }
+        const baseTotal = getBaseTotal(transaction);
+        return draft.amount > baseTotal + 0.01;
       });
 
-      resetFormState();
-      onClose();
-    } catch (error) {
-      showNotification({
-        title: 'Failed to save payments',
-        message: error instanceof Error ? error.message : 'Unknown error',
-        color: 'red',
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  }, [
-    apiBasePath,
-    eligibleTransactions,
-    getBaseTotal,
-    isReservation,
-    isGeneralMerchandise,
-    method,
-    notes,
-    onClose,
-    paymentDate,
-    payloadDrafts,
-    queryClient,
-    resetFormState,
-    totalEntered,
-  ]);
+      if (overLimitDrafts.length > 0) {
+        showNotification({
+          title: 'Payment exceeds balance due',
+          message: 'Reduce the payment amount to match the balance due.',
+          color: 'red',
+        });
+        return;
+      }
+
+      const requestPayload: BulkPaymentsRequest = {
+        payments: payloadDrafts.map((draft) => ({
+          transactionId: draft.transactionId,
+          amount: draft.amount,
+          paymentDate: paymentDate.toISOString().slice(0, 10),
+          method,
+          notes: notes.trim() ? notes.trim() : null,
+          isReservation,
+        })),
+      };
+
+      setIsSaving(true);
+      try {
+        await api.post(
+          buildApiPath(apiBasePath, '/transactions/payments/bulk'),
+          requestPayload
+        );
+
+        await queryClient.invalidateQueries({ queryKey: ['transactions'] });
+
+        showNotification({
+          title: 'Payment recorded',
+          message: `Saved ${payloadDrafts.length} payment${payloadDrafts.length === 1 ? '' : 's'} (₱${totalEntered.toLocaleString()}).`,
+          color: 'green',
+        });
+
+        if (mode === 'close') {
+          resetFormState();
+          onClose();
+        } else {
+          resetAmountsOnly();
+        }
+      } catch (error) {
+        showNotification({
+          title: 'Failed to save payments',
+          message: error instanceof Error ? error.message : 'Unknown error',
+          color: 'red',
+        });
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [
+      apiBasePath,
+      eligibleTransactions,
+      getBaseTotal,
+      isReservation,
+      method,
+      notes,
+      onClose,
+      paymentDate,
+      payloadDrafts,
+      queryClient,
+      resetAmountsOnly,
+      resetFormState,
+      totalEntered,
+    ]
+  );
 
   const handleClose = useCallback(() => {
     if (isSaving) {
@@ -313,59 +326,67 @@ export function TransactionPaymentsModal({
     onClose();
   }, [isSaving, onClose, resetFormState]);
 
-  const handleConfirmAndSubmit = useCallback(async () => {
-    if (isSaving) {
-      return;
-    }
+  const handleConfirmAndSubmit = useCallback(
+    async (mode: AfterSaveMode) => {
+      if (isSaving) {
+        return;
+      }
 
-    if (!paymentDate) {
-      showNotification({
-        title: 'Missing payment date',
-        message: 'Select a payment date.',
-        color: 'yellow',
+      if (!paymentDate) {
+        showNotification({
+          title: 'Missing payment date',
+          message: 'Select a payment date.',
+          color: 'yellow',
+        });
+        return;
+      }
+
+      if (payloadDrafts.length === 0) {
+        showNotification({
+          title: 'No payments entered',
+          message: 'Enter at least one payment amount.',
+          color: 'yellow',
+        });
+        return;
+      }
+
+      const reservationLabel = isReservation
+        ? 'These will be recorded as Reservation fee (Customer Deposits), not Sales Revenue.'
+        : 'These will be recorded as normal payments.';
+
+      const afterSaveLabel =
+        mode === 'close'
+          ? 'The modal will close after saving.'
+          : 'The modal will stay open after saving.';
+
+      const result = await Swal.fire({
+        title: 'Save payments?',
+        html: `You are about to save <b>${payloadDrafts.length}</b> payment${
+          payloadDrafts.length === 1 ? '' : 's'
+        } totaling <b>₱${totalEntered.toLocaleString()}</b>.<br/><br/><span style="color:#6b7280">${reservationLabel}<br/>${afterSaveLabel}</span>`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, save',
+        cancelButtonText: 'Cancel',
+        reverseButtons: true,
+        focusCancel: true,
       });
-      return;
-    }
 
-    if (payloadDrafts.length === 0) {
-      showNotification({
-        title: 'No payments entered',
-        message: 'Enter at least one payment amount.',
-        color: 'yellow',
-      });
-      return;
-    }
+      if (!result.isConfirmed) {
+        return;
+      }
 
-    const reservationLabel = isReservation
-      ? 'These will be recorded as Reservation fee (Customer Deposits), not Sales Revenue.'
-      : 'These will be recorded as normal payments.';
-
-    const result = await Swal.fire({
-      title: 'Save payments?',
-      html: `You are about to save <b>${payloadDrafts.length}</b> payment${
-        payloadDrafts.length === 1 ? '' : 's'
-      } totaling <b>₱${totalEntered.toLocaleString()}</b>.<br/><br/><span style="color:#6b7280">${reservationLabel}</span>`,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Yes, save',
-      cancelButtonText: 'Cancel',
-      reverseButtons: true,
-      focusCancel: true,
-    });
-
-    if (!result.isConfirmed) {
-      return;
-    }
-
-    await handleSubmit();
-  }, [
-    handleSubmit,
-    isReservation,
-    isSaving,
-    payloadDrafts.length,
-    paymentDate,
-    totalEntered,
-  ]);
+      await handleSubmit(mode);
+    },
+    [
+      handleSubmit,
+      isReservation,
+      isSaving,
+      payloadDrafts.length,
+      paymentDate,
+      totalEntered,
+    ]
+  );
 
   useEffect(() => {
     if (!opened && !isSaving) {
@@ -834,8 +855,20 @@ export function TransactionPaymentsModal({
             <Button variant="default" onClick={handleClose} disabled={isSaving}>
               Cancel
             </Button>
-            <Button onClick={handleConfirmAndSubmit} loading={isSaving}>
-              Save payments
+            <Button
+              variant="default"
+              onClick={() => handleConfirmAndSubmit('continue')}
+              loading={isSaving}
+              disabled={isSaving}
+            >
+              Save and continue
+            </Button>
+            <Button
+              onClick={() => handleConfirmAndSubmit('close')}
+              loading={isSaving}
+              disabled={isSaving}
+            >
+              Save and close
             </Button>
           </Group>
         </Group>
