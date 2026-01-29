@@ -11,6 +11,7 @@ const mockPrisma = vi.hoisted(() => ({
     createMany: vi.fn(),
     groupBy: vi.fn(),
   },
+  $queryRaw: vi.fn(),
   $transaction: vi.fn(),
 }));
 
@@ -141,5 +142,63 @@ describe('POST /api/transactions/payments/bulk', () => {
     expect(response.status).toBe(400);
     expect(body.success).toBe(false);
     expect(body.error).toBe('Invalid transaction IDs');
+  });
+
+  it('persists isReservation when supported by schema', async () => {
+    mockPrisma.$queryRaw.mockResolvedValue([{ exists: 1 }]);
+
+    mockPrisma.transaction.findMany.mockResolvedValue([
+      { id: 10, quantity: 2, unitPrice: 100 },
+    ]);
+
+    mockPrisma.$transaction.mockImplementation(
+      async (callback: (tx: unknown) => unknown) => {
+        const tx = {
+          transaction: mockPrisma.transaction,
+          transactionPayment: mockPrisma.transactionPayment,
+        };
+        return callback(tx);
+      }
+    );
+
+    mockPrisma.transactionPayment.createMany.mockResolvedValue({ count: 1 });
+    mockPrisma.transactionPayment.groupBy.mockResolvedValue([
+      { transactionId: 10, _sum: { amount: 25 } },
+    ]);
+
+    mockPrisma.transaction.update.mockResolvedValue({
+      id: 10,
+      adjustment: 25,
+      lineTotal: 2 * 100 - 25,
+    });
+
+    const request = mockNextRequest({
+      method: 'POST',
+      url: getTestApiUrl('/api/transactions/payments/bulk'),
+      body: {
+        payments: [
+          {
+            transactionId: 10,
+            paymentDate: '2026-01-17',
+            amount: 25,
+            method: 'Cash',
+            notes: 'Reservation fee',
+            isReservation: true,
+          },
+        ],
+      },
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(200);
+
+    const createManyArgs = mockPrisma.transactionPayment.createMany.mock
+      .calls[0]?.[0] as { data?: Array<Record<string, unknown>> } | undefined;
+
+    expect(createManyArgs?.data?.[0]).toMatchObject({
+      transactionId: 10,
+      amount: 25,
+      isReservation: true,
+    });
   });
 });

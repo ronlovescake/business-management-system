@@ -16,6 +16,7 @@ import {
 import { DateInput } from '@mantine/dates';
 import { showNotification } from '@mantine/notifications';
 import { useQueryClient } from '@tanstack/react-query';
+import Swal from 'sweetalert2';
 import { api } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import { PolishedModal } from '@/components/modals/PolishedModal';
@@ -258,7 +259,7 @@ export function TransactionPaymentsModal({
         paymentDate: paymentDate.toISOString().slice(0, 10),
         method,
         notes: notes.trim() ? notes.trim() : null,
-        isReservation: isGeneralMerchandise ? isReservation : undefined,
+        isReservation,
       })),
     };
 
@@ -311,6 +312,60 @@ export function TransactionPaymentsModal({
     resetFormState();
     onClose();
   }, [isSaving, onClose, resetFormState]);
+
+  const handleConfirmAndSubmit = useCallback(async () => {
+    if (isSaving) {
+      return;
+    }
+
+    if (!paymentDate) {
+      showNotification({
+        title: 'Missing payment date',
+        message: 'Select a payment date.',
+        color: 'yellow',
+      });
+      return;
+    }
+
+    if (payloadDrafts.length === 0) {
+      showNotification({
+        title: 'No payments entered',
+        message: 'Enter at least one payment amount.',
+        color: 'yellow',
+      });
+      return;
+    }
+
+    const reservationLabel = isReservation
+      ? 'These will be recorded as Reservation fee (Customer Deposits), not Sales Revenue.'
+      : 'These will be recorded as normal payments.';
+
+    const result = await Swal.fire({
+      title: 'Save payments?',
+      html: `You are about to save <b>${payloadDrafts.length}</b> payment${
+        payloadDrafts.length === 1 ? '' : 's'
+      } totaling <b>₱${totalEntered.toLocaleString()}</b>.<br/><br/><span style="color:#6b7280">${reservationLabel}</span>`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, save',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      focusCancel: true,
+    });
+
+    if (!result.isConfirmed) {
+      return;
+    }
+
+    await handleSubmit();
+  }, [
+    handleSubmit,
+    isReservation,
+    isSaving,
+    payloadDrafts.length,
+    paymentDate,
+    totalEntered,
+  ]);
 
   useEffect(() => {
     if (!opened && !isSaving) {
@@ -400,9 +455,30 @@ export function TransactionPaymentsModal({
               </Text>
             ) : null}
           </Stack>
-        ) : null}
+        ) : (
+          <Stack gap={6}>
+            <Checkbox
+              label="Reservation fee (customer deposit)"
+              checked={isReservation}
+              onChange={(e) => {
+                setReservationTouched(true);
+                setIsReservation(e.currentTarget.checked);
 
-        {isGeneralMerchandise && isReservation ? (
+                if (e.currentTarget.checked && !notes.trim()) {
+                  setNotes('Reservation fee');
+                }
+              }}
+            />
+            {isReservation ? (
+              <Text size="sm" c="dimmed">
+                Reservation deposits increase Cash but will not hit Sales
+                Revenue until completion.
+              </Text>
+            ) : null}
+          </Stack>
+        )}
+
+        {isReservation ? (
           <Text size="sm" c="dimmed">
             Tip: use the per-row “Reservation Fee” button to auto-fill 10%.
           </Text>
@@ -662,10 +738,8 @@ export function TransactionPaymentsModal({
                             variant="light"
                             disabled={reservationFeePayable <= 0}
                             onClick={() => {
-                              if (isGeneralMerchandise) {
-                                setReservationTouched(true);
-                                setIsReservation(true);
-                              }
+                              setReservationTouched(true);
+                              setIsReservation(true);
 
                               if (!notes.trim()) {
                                 setNotes('Reservation fee');
@@ -687,10 +761,8 @@ export function TransactionPaymentsModal({
                             variant="light"
                             disabled={maxPayable <= 0}
                             onClick={() => {
-                              if (isGeneralMerchandise) {
-                                setReservationTouched(true);
-                                setIsReservation(false);
-                              }
+                              setReservationTouched(true);
+                              setIsReservation(false);
 
                               setAmountByTransactionId((prev) => ({
                                 ...prev,
@@ -762,7 +834,7 @@ export function TransactionPaymentsModal({
             <Button variant="default" onClick={handleClose} disabled={isSaving}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit} loading={isSaving}>
+            <Button onClick={handleConfirmAndSubmit} loading={isSaving}>
               Save payments
             </Button>
           </Group>
