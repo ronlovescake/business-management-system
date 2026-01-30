@@ -468,8 +468,10 @@ async function computeInventoryMovementEntries(params: {
 export async function buildCogsAndInventoryEntries(params: {
   from: Date;
   to: Date | null;
+  cogsDescriptionStyle?: 'verbose' | 'short';
 }): Promise<{ entries: DerivedJournalEntry[] }> {
   const { from, to } = params;
+  const cogsDescriptionStyle = params.cogsDescriptionStyle ?? 'verbose';
 
   const movements = await prisma.generalMerchandiseInventoryMovement.findMany({
     where: {
@@ -646,7 +648,10 @@ export async function buildCogsAndInventoryEntries(params: {
       const abs = Math.abs(amt);
       const idBase = `COGS-${group.dateKey}-${normalizeIdSegment(group.productCode)}`;
 
-      const baseDescription = `Cost of goods sold (inventory movements) • ${group.productCode}${qtyLabel}`;
+      const baseDescription =
+        cogsDescriptionStyle === 'short'
+          ? `${group.productCode}${qtyLabel}`
+          : `Cost of goods sold (inventory movements) • ${group.productCode}${qtyLabel}`;
       const description = details
         ? `${baseDescription} • ${details}`
         : baseDescription;
@@ -734,10 +739,11 @@ export async function buildInventorySeedAndShrinkageEntries(params: {
       const idBase = `INV-SEED-${dateKey}-${normalizeIdSegment(productCode)}-${normalizeIdSegment(label)}`;
 
       const seedAccount = account || INVENTORY_ACCOUNT;
-      const description =
-        seedAccount === INVENTORY_IN_TRANSIT_ACCOUNT
-          ? `Inventory in Transit seeded (inventory movements) • ${productCode}${qtyLabel} • ${label}`
-          : `Inventory seeded (inventory movements) • ${productCode}${qtyLabel} • ${label}`;
+      const displayLabel = label.startsWith('scrap→')
+        ? `opening→${label.slice('scrap→'.length)}`
+        : label;
+
+      const description = `${productCode}${qtyLabel} • ${displayLabel}`;
 
       return [
         {

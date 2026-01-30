@@ -317,7 +317,11 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   // Inventory/COGS derived entries
   const [{ entries: cogsEntries }, { entries: seedEntries }] =
     await Promise.all([
-      buildCogsAndInventoryEntries({ from: effectiveFrom, to: effectiveTo }),
+      buildCogsAndInventoryEntries({
+        from: effectiveFrom,
+        to: effectiveTo,
+        cogsDescriptionStyle: 'short',
+      }),
       buildInventorySeedAndShrinkageEntries({
         from: effectiveFrom,
         to: effectiveTo,

@@ -577,6 +577,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const { entries: inventoryEntries } = await buildCogsAndInventoryEntries({
     from: effectiveFrom,
     to: effectiveTo,
+    cogsDescriptionStyle: 'short',
   });
 
   const { entries: seedEntries } = await buildInventorySeedAndShrinkageEntries({
