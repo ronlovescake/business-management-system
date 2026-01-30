@@ -33,6 +33,101 @@ type TransitBuildRequestBody = {
   notes?: string | null;
 };
 
+export const GET = withErrorHandler<RouteContext>(
+  async (_request: NextRequest, context) => {
+    const idResult = parseShipmentId(context);
+    if ('error' in idResult) {
+      return idResult.error;
+    }
+
+    const shipment = await prisma.shipment.findUnique({
+      where: { id: idResult.id },
+      select: { id: true, shipmentCode: true },
+    });
+
+    if (!shipment) {
+      return ApiResponse.notFound('Shipment');
+    }
+
+    const shipmentCode = (shipment.shipmentCode ?? '').trim();
+    if (!shipmentCode) {
+      return ApiResponse.badRequest('Shipment has no shipment code', {
+        shipmentCode:
+          'Add a Shipment Code before querying transit build-up entries.',
+      });
+    }
+
+    const buildEntries =
+      await prisma.clothingInventoryTransitBuildEntry.findMany({
+        where: {
+          shipmentCode,
+          deletedAt: null,
+        },
+        orderBy: [{ postingDate: 'asc' }, { createdAt: 'asc' }],
+        select: {
+          id: true,
+          postingDate: true,
+          amount: true,
+          debitAccount: true,
+          creditAccount: true,
+          idempotencyKey: true,
+          notes: true,
+        },
+      });
+
+    const products = await prisma.product.findMany({
+      where: {
+        shipmentCode,
+        deletedAt: null,
+      },
+      select: {
+        cogs: true,
+        grandTotal: true,
+        forwardersFee: true,
+        lalamove: true,
+        packagingCost: true,
+      },
+    });
+
+    const expectedTotalAmount = products.reduce((sum, product) => {
+      const rawCogs = Number(product.cogs ?? 0);
+      const derivedCogs =
+        Number(product.grandTotal ?? 0) +
+        Number(product.forwardersFee ?? 0) +
+        Number(product.lalamove ?? 0) +
+        Number(product.packagingCost ?? 0);
+
+      const value = rawCogs > 0 ? rawCogs : derivedCogs;
+      if (!Number.isFinite(value) || value <= 0) {
+        return sum;
+      }
+      return sum + value;
+    }, 0);
+
+    return ApiResponse.success(
+      {
+        shipmentId: shipment.id,
+        shipmentCode,
+        expectedTotalAmount,
+        totalAmount: buildEntries.reduce(
+          (sum, row) => sum + Number(row.amount ?? 0),
+          0
+        ),
+        entries: buildEntries.map((row) => ({
+          id: row.id,
+          postingDate: row.postingDate.toISOString(),
+          amount: row.amount,
+          debitAccount: row.debitAccount,
+          creditAccount: row.creditAccount,
+          idempotencyKey: row.idempotencyKey,
+          notes: row.notes,
+        })),
+      },
+      'Transit build-up entries fetched'
+    );
+  }
+);
+
 export const POST = withErrorHandler<RouteContext>(
   async (request: NextRequest, context) => {
     const idResult = parseShipmentId(context);

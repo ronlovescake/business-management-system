@@ -28,13 +28,11 @@ import {
 import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { normalizeAccountForReporting } from '@/lib/accounting/account-normalization';
 import { prisma } from '@/lib/db';
-import { isInTransitShipmentStatus } from '@/lib/inventory/shipment-status';
 
 export const dynamic = 'force-dynamic';
 
 // Only show ledger activity from the accounting cutover date forward.
 const CUTOVER = getAccountingCutoverDate();
-const IN_TRANSIT_ACCOUNT = 'Inventory in Transit';
 
 function clampFrom(from: Date | null): Date {
   if (!from) {
@@ -587,164 +585,6 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     systemGenerated: line.systemGenerated,
   }));
 
-  // --------------------------------------------------------------------------
-  // Inventory in Transit snapshot adjustment
-  // --------------------------------------------------------------------------
-  // Balance Sheet forces Inventory in Transit to match shipment-status valuation
-  // (products marked in-transit). To keep Ledger aligned (when viewing from
-  // cutover through an as-of date), we add a system-generated offset to Opening
-  // Equity.
-  // --------------------------------------------------------------------------
-  const snapshotAdjustments: Array<{
-    id: string;
-    date: string;
-    ref: string;
-    account: string;
-    debit: number;
-    credit: number;
-    description: string;
-    systemGenerated?: boolean;
-  }> = [];
-
-  const shouldApplySnapshotAdjustment =
-    effectiveFrom.getTime() === CUTOVER.getTime() && !!effectiveTo;
-
-  if (shouldApplySnapshotAdjustment) {
-    const asOf = effectiveTo as Date;
-
-    const products = await prisma.product.findMany({
-      where: { deletedAt: null },
-      select: {
-        shipmentCode: true,
-        shipmentStatus: true,
-        cogs: true,
-      },
-    });
-
-    const shipmentCodes = Array.from(
-      new Set(
-        products.map((row) => (row.shipmentCode ?? '').trim()).filter(Boolean)
-      )
-    );
-
-    const shipmentRows =
-      shipmentCodes.length > 0
-        ? await prisma.shipment.findMany({
-            where: { shipmentCode: { in: shipmentCodes } },
-            select: { shipmentCode: true, shipmentStatus: true },
-          })
-        : [];
-
-    const shipmentStatusByCode = new Map<string, string>();
-    for (const row of shipmentRows) {
-      const code = (row.shipmentCode ?? '').trim();
-      if (code && !shipmentStatusByCode.has(code)) {
-        shipmentStatusByCode.set(code, row.shipmentStatus ?? '');
-      }
-    }
-
-    const inTransitProductTotal = products.reduce((sum, row) => {
-      const shipmentCode = (row.shipmentCode ?? '').trim();
-      if (!shipmentCode) {
-        return sum;
-      }
-
-      const directStatus = row.shipmentStatus ?? '';
-      const fallbackStatus = shipmentCode
-        ? (shipmentStatusByCode.get(shipmentCode) ?? '')
-        : '';
-      const status = directStatus.trim() ? directStatus : fallbackStatus;
-      if (!isInTransitShipmentStatus(status)) {
-        return sum;
-      }
-
-      const cogs = Number(row.cogs ?? 0);
-      if (!Number.isFinite(cogs) || cogs <= 0) {
-        return sum;
-      }
-
-      return sum + cogs;
-    }, 0);
-
-    const currentInTransit = [
-      ...openingEntries,
-      ...reclassEntries,
-      ...transitBuildEntries,
-      ...paymentEntries,
-      ...reservationReclassEntries,
-      ...legacyTxEntries,
-      ...refundEntries,
-      ...expenseEntries,
-      ...cogsEntries,
-      ...inventorySeedShrinkageEntries,
-      ...manualEntries,
-    ].reduce((sum, entry) => {
-      const account = normalizeAccountForReporting(entry.account).trim();
-      if (account !== IN_TRANSIT_ACCOUNT) {
-        return sum;
-      }
-      return sum + (Number(entry.debit ?? 0) - Number(entry.credit ?? 0));
-    }, 0);
-
-    const delta = inTransitProductTotal - currentInTransit;
-    if (Number.isFinite(delta) && Math.abs(delta) > 0.01) {
-      const dateStr = asOf.toISOString();
-      const ref = 'INV-TRANSIT-STATUS-ADJ';
-      const description =
-        'Inventory in Transit adjustment (shipment status snapshot)';
-      const idBase = `INV-TRANSIT-STATUS-ADJ-${asOf.toISOString().slice(0, 10)}`;
-
-      if (delta > 0) {
-        snapshotAdjustments.push(
-          {
-            id: `${idBase}-inv-debit`,
-            date: dateStr,
-            ref,
-            account: IN_TRANSIT_ACCOUNT,
-            debit: delta,
-            credit: 0,
-            description,
-            systemGenerated: true,
-          },
-          {
-            id: `${idBase}-equity-credit`,
-            date: dateStr,
-            ref,
-            account: 'Opening Equity',
-            debit: 0,
-            credit: delta,
-            description,
-            systemGenerated: true,
-          }
-        );
-      } else {
-        const abs = Math.abs(delta);
-        snapshotAdjustments.push(
-          {
-            id: `${idBase}-equity-debit`,
-            date: dateStr,
-            ref,
-            account: 'Opening Equity',
-            debit: abs,
-            credit: 0,
-            description,
-            systemGenerated: true,
-          },
-          {
-            id: `${idBase}-inv-credit`,
-            date: dateStr,
-            ref,
-            account: IN_TRANSIT_ACCOUNT,
-            debit: 0,
-            credit: abs,
-            description,
-            systemGenerated: true,
-          }
-        );
-      }
-    }
-  }
-
   const entries = [
     ...openingEntries,
     ...reclassEntries,
@@ -756,7 +596,6 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     ...expenseEntries,
     ...cogsEntries,
     ...inventorySeedShrinkageEntries,
-    ...snapshotAdjustments,
     ...manualEntries,
   ];
 

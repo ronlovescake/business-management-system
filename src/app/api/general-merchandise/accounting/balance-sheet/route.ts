@@ -28,7 +28,6 @@ import {
   detectAccountType,
   type AccountType,
 } from '@/lib/accounting/account-classification';
-import { isInTransitShipmentStatus } from '@/lib/inventory/shipment-status';
 import {
   isCancelledOrderStatus,
   isDepositForfeitureOrderStatus,
@@ -37,7 +36,6 @@ import {
 export const dynamic = 'force-dynamic';
 
 const CUTOVER = getAccountingCutoverDate();
-const IN_TRANSIT_ACCOUNT = 'Inventory in Transit';
 
 function clampAsOf(raw: Date | null): Date {
   if (!raw || Number.isNaN(raw.getTime())) {
@@ -602,83 +600,17 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       to: asOf,
     });
   const inventorySeedEntries: BalanceRow[] = seedShrinkEntries
-    .filter(
-      (entry) =>
-        entry.description.startsWith('Inventory seeded') ||
-        entry.description.startsWith('Inventory in Transit seeded')
-    )
+    .filter((entry) => entry.ref.startsWith('INV-SEED-'))
     .map((entry) => ({
       account: entry.account,
       amount: Number(entry.debit ?? 0) - Number(entry.credit ?? 0),
     }));
   const inventoryShrinkageEntries: BalanceRow[] = seedShrinkEntries
-    .filter((entry) => entry.description.startsWith('Inventory shrinkage'))
+    .filter((entry) => entry.ref.startsWith('INV-SHRINK-'))
     .map((entry) => ({
       account: entry.account,
       amount: Number(entry.debit ?? 0) - Number(entry.credit ?? 0),
     }));
-
-  const products = await prisma.generalMerchandiseProduct.findMany({
-    where: { deletedAt: null },
-    select: {
-      productCode: true,
-      shipmentCode: true,
-      shipmentStatus: true,
-      cogs: true,
-    },
-  });
-
-  const shipmentCodes = Array.from(
-    new Set(
-      products.map((row) => (row.shipmentCode ?? '').trim()).filter(Boolean)
-    )
-  );
-
-  const shipmentRows =
-    shipmentCodes.length > 0
-      ? await prisma.generalMerchandiseShipment.findMany({
-          where: { shipmentCode: { in: shipmentCodes } },
-          select: { shipmentCode: true, shipmentStatus: true },
-        })
-      : [];
-
-  const shipmentStatusByCode = new Map<string, string>();
-  for (const row of shipmentRows) {
-    const code = (row.shipmentCode ?? '').trim();
-    if (code && !shipmentStatusByCode.has(code)) {
-      shipmentStatusByCode.set(code, row.shipmentStatus ?? '');
-    }
-  }
-
-  // ==========================================================================
-  // ⚠️ INVENTORY IN TRANSIT (SHIPMENT STATUS)
-  // ==========================================================================
-  // Uses shared helper to keep "blank = in transit" behavior consistent
-  // with transactions workflow and accounting.
-  // ==========================================================================
-  const inTransitProductTotal = products.reduce((sum, row) => {
-    const productCode = (row.productCode ?? '').trim();
-    if (!productCode) {
-      return sum;
-    }
-
-    const directStatus = row.shipmentStatus ?? '';
-    const shipmentCode = (row.shipmentCode ?? '').trim();
-    const fallbackStatus = shipmentCode
-      ? (shipmentStatusByCode.get(shipmentCode) ?? '')
-      : '';
-    const status = directStatus.trim() ? directStatus : fallbackStatus;
-    if (!shipmentCode || !isInTransitShipmentStatus(status)) {
-      return sum;
-    }
-
-    const cogs = Number(row.cogs ?? 0);
-    if (!Number.isFinite(cogs) || cogs <= 0) {
-      return sum;
-    }
-
-    return sum + cogs;
-  }, 0);
 
   const refundEntries = refunds
     .map((refund) => {
@@ -817,18 +749,6 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     ...inventoryShrinkageEntries,
     ...refundEntries,
   ];
-
-  const currentInTransit = combined
-    .filter((row) => row.account.trim() === IN_TRANSIT_ACCOUNT)
-    .reduce((sum, row) => sum + row.amount, 0);
-
-  const inTransitDelta = inTransitProductTotal - currentInTransit;
-  if (Number.isFinite(inTransitDelta) && Math.abs(inTransitDelta) > 0.01) {
-    combined.push(
-      { account: IN_TRANSIT_ACCOUNT, amount: inTransitDelta },
-      { account: 'Opening Equity', amount: -inTransitDelta }
-    );
-  }
 
   const byAccount = combined.reduce<
     Record<string, { amount: number; type: AccountType }>

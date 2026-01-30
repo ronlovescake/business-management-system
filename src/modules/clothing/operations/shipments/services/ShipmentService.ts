@@ -493,6 +493,62 @@ export class ShipmentService {
     );
   }
 
+  static async fetchTransitBuildEntries(
+    shipmentId: number,
+    apiBasePath?: string
+  ): Promise<{
+    shipmentId: number;
+    shipmentCode: string;
+    expectedTotalAmount: number;
+    totalAmount: number;
+    entries: Array<{
+      id: string;
+      postingDate: string;
+      amount: number;
+      debitAccount: string;
+      creditAccount: string;
+      idempotencyKey: string;
+      notes: string | null;
+    }>;
+  }> {
+    return await api.get(
+      ShipmentService.buildPath(
+        apiBasePath,
+        `/shipments/${shipmentId}/transit-build`
+      )
+    );
+  }
+
+  static async createTransitReclassEntries(
+    shipmentId: number,
+    input: {
+      postingDate: Date;
+      selectedIdempotencyKeys: string[];
+      notes?: string;
+    },
+    apiBasePath?: string
+  ): Promise<{
+    shipmentId: number;
+    shipmentCode: string;
+    postingDate: string;
+    selectedTransitTotalAmount: number;
+    expectedTotalAmount: number;
+    createdCount: number;
+    skippedCount: number;
+  }> {
+    return await api.post(
+      ShipmentService.buildPath(
+        apiBasePath,
+        `/shipments/${shipmentId}/transit-reclass`
+      ),
+      {
+        postingDate: this.formatDateForApi(input.postingDate),
+        selectedIdempotencyKeys: input.selectedIdempotencyKeys,
+        notes: input.notes,
+      }
+    );
+  }
+
   /**
    * Parse CSV file and import shipments
    *

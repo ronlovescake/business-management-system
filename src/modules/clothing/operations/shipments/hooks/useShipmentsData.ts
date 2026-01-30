@@ -293,6 +293,26 @@ export function useShipmentsData({
     },
   });
 
+  const transitReclassMutation = useMutation({
+    mutationFn: async ({
+      shipmentId,
+      input,
+    }: {
+      shipmentId: number;
+      input: {
+        postingDate: Date;
+        selectedIdempotencyKeys: string[];
+        notes?: string;
+      };
+    }) => {
+      return await ShipmentService.createTransitReclassEntries(
+        shipmentId,
+        input,
+        apiBasePath
+      );
+    },
+  });
+
   /**
    * CSV import mutation
    */
@@ -439,6 +459,65 @@ export function useShipmentsData({
     }
   };
 
+  const createTransitReclassEntries = async (
+    shipmentId: number,
+    input: {
+      postingDate: Date;
+      selectedIdempotencyKeys: string[];
+      notes?: string;
+    }
+  ): Promise<boolean> => {
+    try {
+      const result = await transitReclassMutation.mutateAsync({
+        shipmentId,
+        input,
+      });
+
+      if (result.createdCount === 0) {
+        showNotification({
+          title: 'ℹ️ Already reclassed',
+          message: 'Inventory reclass entries already exist for this shipment.',
+          color: 'blue',
+        });
+      } else {
+        showNotification({
+          title: '✅ Success',
+          message: 'Reclass entries created successfully!',
+          color: 'green',
+        });
+      }
+
+      return true;
+    } catch (error) {
+      logger.error('Error creating transit reclass entries:', error);
+      let message =
+        'Failed to create reclass entries. Please verify transit build-up totals and try again.';
+
+      if (error instanceof ApiError && error.data) {
+        const data = error.data as {
+          error?: string;
+          details?: string;
+          validationErrors?: Record<string, string>;
+        };
+
+        const validationMessage = data.validationErrors
+          ? Object.values(data.validationErrors).find(Boolean)
+          : undefined;
+
+        message = validationMessage || data.error || data.details || message;
+      } else if (error instanceof Error && error.message) {
+        message = error.message;
+      }
+
+      showNotification({
+        title: '❌ Error',
+        message,
+        color: 'red',
+      });
+      return false;
+    }
+  };
+
   // ==========================================================================
   // RETURN
   // ==========================================================================
@@ -466,6 +545,7 @@ export function useShipmentsData({
     addShipment,
     updateShipment,
     createTransitBuildEntry,
+    createTransitReclassEntries,
 
     // Reload
     loadShipments,
