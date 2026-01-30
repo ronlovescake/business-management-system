@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
+import { postGmSupplierSettlementForProductPaymentChange } from '@/modules/general-merchandise/products/api/service';
 
 const gmPrisma = prisma as unknown as {
   generalMerchandiseProduct: typeof prisma.product;
@@ -20,6 +21,13 @@ export async function PUT(
         { status: 400 }
       );
     }
+
+    const existingProduct = await gmPrisma.generalMerchandiseProduct.findUnique(
+      {
+        where: { id },
+        select: { payment: true, productCode: true, shipmentCode: true },
+      }
+    );
 
     const productData = await request.json();
 
@@ -150,6 +158,26 @@ export async function PUT(
           }) || 0,
       },
     });
+
+    if (existingProduct) {
+      try {
+        await postGmSupplierSettlementForProductPaymentChange({
+          productId: id,
+          prevPayment: existingProduct.payment,
+          nextPayment: updatedProduct.payment,
+          productCode: updatedProduct.productCode,
+          shipmentCode: updatedProduct.shipmentCode,
+        });
+      } catch (error) {
+        logger.warn(
+          'Failed to post GM supplier settlement after product update',
+          {
+            error,
+            productId: id,
+          }
+        );
+      }
+    }
 
     return NextResponse.json({
       message: 'Product updated successfully',

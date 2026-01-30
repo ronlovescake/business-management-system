@@ -2,6 +2,8 @@ import { randomUUID } from 'crypto';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
+import { parseDate } from '@/lib/accounting/date-utils';
 import { mapFromDTO, mapToDTO } from './dto';
 import type { ProductDTO } from './dto';
 import { expenseService } from '@/modules/clothing/ledger/api/service';
@@ -14,6 +16,284 @@ const isOnOrAfterCutover = (date: Date) => date >= EXPENSE_CUTOVER_DATE;
 // Accounting policy: product costs/COGS are handled in the ledger; the Expenses
 // module is reserved for operational expenses.
 const ENABLE_PRODUCT_EXPENSE_POSTING = false;
+
+const ACCOUNTING_CUTOVER_DATE = getAccountingCutoverDate();
+
+const INVENTORY_IN_TRANSIT_ACCOUNT = 'Inventory in Transit';
+const CASH_ACCOUNT = 'Cash';
+const SUPPLIER_PAYABLE_ACCOUNT = 'Supplier Payable';
+
+function normalizeToUtcMidnight(date: Date): Date {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+  );
+}
+
+function isOnOrAfterAccountingCutover(date: Date): boolean {
+  return date >= ACCOUNTING_CUTOVER_DATE;
+}
+
+function normalizeDateOrNull(raw: unknown): Date | null {
+  const parsed = parseDate(typeof raw === 'string' ? raw : null);
+  if (!parsed) {
+    return null;
+  }
+  return normalizeToUtcMidnight(parsed);
+}
+
+function resolveProductValuationAmount(dto: ProductDTO): number {
+  const grandTotal = Number(dto['Grand Total'] ?? 0);
+  if (Number.isFinite(grandTotal) && grandTotal > 0) {
+    return grandTotal;
+  }
+
+  return 0;
+}
+
+function buildProductTransitBuildIdempotencyKey(productId: number): string {
+  return `PRODUCT_TRANSIT_BUILD:${productId}`;
+}
+
+async function postTransitBuildForProduct(params: {
+  productId: number;
+  dto: ProductDTO;
+}) {
+  const { productId, dto } = params;
+
+  const shipmentCode = (dto['Shipment Code'] ?? '').toString().trim();
+  if (!shipmentCode) {
+    logger.info('Skip product transit build-up: missing shipment code', {
+      productId,
+    });
+    return;
+  }
+
+  const payment = (dto.Payment ?? '').toString().trim();
+  if (!payment) {
+    logger.info('Skip product transit build-up: missing payment', {
+      productId,
+      shipmentCode,
+    });
+    return;
+  }
+
+  const postingDate =
+    normalizeDateOrNull(dto['Posting Date']) ??
+    normalizeDateOrNull(dto['Order Date']);
+  if (!postingDate) {
+    logger.info('Skip product transit build-up: missing/invalid posting date', {
+      productId,
+      shipmentCode,
+      postingDate: dto['Posting Date'],
+      orderDate: dto['Order Date'],
+    });
+    return;
+  }
+
+  if (!isOnOrAfterAccountingCutover(postingDate)) {
+    logger.info('Skip product transit build-up: before accounting cutover', {
+      productId,
+      shipmentCode,
+      date: postingDate.toISOString().slice(0, 10),
+      cutover: ACCOUNTING_CUTOVER_DATE.toISOString().slice(0, 10),
+    });
+    return;
+  }
+
+  const amount = resolveProductValuationAmount(dto);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    logger.info('Skip product transit build-up: amount not positive', {
+      productId,
+      shipmentCode,
+      amount,
+    });
+    return;
+  }
+
+  const creditAccount = isPaid(payment)
+    ? CASH_ACCOUNT
+    : SUPPLIER_PAYABLE_ACCOUNT;
+  const productCode = (dto['Product Code'] ?? '').toString().trim();
+  const productName = (dto.Product ?? '').toString().trim();
+  const notesParts = [
+    `Product #${productId}`,
+    productCode ? `Code: ${productCode}` : null,
+    productName ? `Name: ${productName}` : null,
+    `Payment: ${payment}`,
+  ].filter(Boolean);
+
+  try {
+    await prisma.clothingInventoryTransitBuildEntry.create({
+      data: {
+        postingDate,
+        shipmentId: null,
+        shipmentCode,
+        amount,
+        debitAccount: INVENTORY_IN_TRANSIT_ACCOUNT,
+        creditAccount,
+        idempotencyKey: buildProductTransitBuildIdempotencyKey(productId),
+        notes: notesParts.join(' | '),
+      },
+    });
+  } catch (error) {
+    const code = (error as { code?: string })?.code;
+    if (code === 'P2002') {
+      logger.info('Product transit build-up already exists; skip duplicate', {
+        productId,
+        shipmentCode,
+      });
+      return;
+    }
+
+    logger.warn('Failed to post product transit build-up', {
+      error,
+      productId,
+      shipmentCode,
+      amount,
+      creditAccount,
+    });
+  }
+}
+
+async function postSupplierSettlementForProduct(params: {
+  productId: number;
+  productCode: string | null;
+  shipmentCode: string | null;
+}): Promise<void> {
+  const { productId, productCode, shipmentCode } = params;
+
+  const today = normalizeToUtcMidnight(new Date());
+  if (!isOnOrAfterAccountingCutover(today)) {
+    return;
+  }
+
+  const transitBuild = await prisma.clothingInventoryTransitBuildEntry
+    .findUnique({
+      where: {
+        idempotencyKey: buildProductTransitBuildIdempotencyKey(productId),
+      },
+      select: { amount: true, creditAccount: true },
+    })
+    .catch(() => null);
+
+  if (!transitBuild) {
+    logger.info('Skip supplier settlement: missing transit build-up entry', {
+      productId,
+      productCode,
+      shipmentCode,
+    });
+    return;
+  }
+
+  const amount = Number(transitBuild.amount ?? 0);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return;
+  }
+
+  if (transitBuild.creditAccount !== SUPPLIER_PAYABLE_ACCOUNT) {
+    logger.info(
+      'Skip supplier settlement: transit build-up not payable-based',
+      {
+        productId,
+        productCode,
+        shipmentCode,
+        creditAccount: transitBuild.creditAccount,
+      }
+    );
+    return;
+  }
+
+  const ref = productCode ? `PRODUCT:${productCode}` : `PRODUCT:${productId}`;
+  const descriptionParts = [
+    'Supplier payment settlement',
+    productCode ? `Product ${productCode}` : `Product #${productId}`,
+    shipmentCode ? `Shipment ${shipmentCode}` : null,
+  ].filter(Boolean);
+  const description = descriptionParts.join(' | ');
+
+  await prisma.$transaction(async (tx) => {
+    await tx.clothingAccountingJournalLine.upsert({
+      where: {
+        sourceType_sourceId_sourceLineKey: {
+          sourceType: 'PRODUCT',
+          sourceId: String(productId),
+          sourceLineKey: 'SUPPLIER_SETTLEMENT:debit',
+        },
+      },
+      create: {
+        date: today,
+        ref,
+        account: SUPPLIER_PAYABLE_ACCOUNT,
+        debit: amount,
+        credit: 0,
+        description,
+        sourceType: 'PRODUCT',
+        sourceId: String(productId),
+        sourceLineKey: 'SUPPLIER_SETTLEMENT:debit',
+        systemGenerated: true,
+      },
+      update: {
+        date: today,
+        ref,
+        account: SUPPLIER_PAYABLE_ACCOUNT,
+        debit: amount,
+        credit: 0,
+        description,
+        systemGenerated: true,
+      },
+    });
+
+    await tx.clothingAccountingJournalLine.upsert({
+      where: {
+        sourceType_sourceId_sourceLineKey: {
+          sourceType: 'PRODUCT',
+          sourceId: String(productId),
+          sourceLineKey: 'SUPPLIER_SETTLEMENT:credit',
+        },
+      },
+      create: {
+        date: today,
+        ref,
+        account: CASH_ACCOUNT,
+        debit: 0,
+        credit: amount,
+        description,
+        sourceType: 'PRODUCT',
+        sourceId: String(productId),
+        sourceLineKey: 'SUPPLIER_SETTLEMENT:credit',
+        systemGenerated: true,
+      },
+      update: {
+        date: today,
+        ref,
+        account: CASH_ACCOUNT,
+        debit: 0,
+        credit: amount,
+        description,
+        systemGenerated: true,
+      },
+    });
+  });
+}
+
+export async function postSupplierSettlementForProductPaymentChange(params: {
+  productId: number;
+  prevPayment: string | null | undefined;
+  nextPayment: string | null | undefined;
+  productCode: string | null;
+  shipmentCode: string | null;
+}): Promise<void> {
+  const { productId, prevPayment, nextPayment, productCode, shipmentCode } =
+    params;
+
+  if (isPaid(nextPayment) && !isPaid(prevPayment)) {
+    await postSupplierSettlementForProduct({
+      productId,
+      productCode,
+      shipmentCode,
+    });
+  }
+}
 
 async function logOperationNotification(
   category: string,
@@ -234,12 +514,19 @@ export const productService: ProductService = {
       quantity: created.quantity,
       postingDate: created.postingDate ?? created.orderDate ?? null,
     });
+    await postTransitBuildForProduct({ productId: created.id, dto: payload });
     await postExpenseForProduct(created.id, payload);
     return mapToDTO(created);
   },
 
   async bulkImport(payload) {
     const postings: Array<{ productId: number; dto: ProductDTO }> = [];
+    const transitBuilds: Array<{ productId: number; dto: ProductDTO }> = [];
+    const settlements: Array<{
+      productId: number;
+      productCode: string | null;
+      shipmentCode: string | null;
+    }> = [];
 
     const result = await prisma.$transaction(async (tx) => {
       let created = 0;
@@ -258,12 +545,23 @@ export const productService: ProductService = {
         });
 
         if (existing) {
+          const prevPayment = (existing as { payment?: string | null }).payment;
           const wasDeleted = existing.deletedAt !== null;
           await tx.product.update({
             where: { id: existing.id },
             data: buildUpdateData(dto),
           });
           postings.push({ productId: existing.id, dto });
+
+          const nextPayment = dto.Payment;
+          if (isPaid(nextPayment) && !isPaid(prevPayment)) {
+            settlements.push({
+              productId: existing.id,
+              productCode: existing.productCode,
+              shipmentCode: existing.shipmentCode,
+            });
+          }
+
           if (wasDeleted) {
             restored++;
           } else {
@@ -272,6 +570,7 @@ export const productService: ProductService = {
         } else {
           const createdProduct = await tx.product.create({ data });
           postings.push({ productId: createdProduct.id, dto });
+          transitBuilds.push({ productId: createdProduct.id, dto });
           created++;
         }
       }
@@ -282,6 +581,22 @@ export const productService: ProductService = {
     await Promise.all(
       postings.map(({ productId, dto }) =>
         postExpenseForProduct(productId, dto)
+      )
+    );
+
+    await Promise.all(
+      transitBuilds.map(({ productId, dto }) =>
+        postTransitBuildForProduct({ productId, dto })
+      )
+    );
+
+    await Promise.all(
+      settlements.map(({ productId, productCode, shipmentCode }) =>
+        postSupplierSettlementForProduct({
+          productId,
+          productCode,
+          shipmentCode,
+        })
       )
     );
 
@@ -303,6 +618,12 @@ export const productService: ProductService = {
 
   async bulkUpdate(payload) {
     const postings: Array<{ productId: number; dto: ProductDTO }> = [];
+    const transitBuilds: Array<{ productId: number; dto: ProductDTO }> = [];
+    const settlements: Array<{
+      productId: number;
+      productCode: string | null;
+      shipmentCode: string | null;
+    }> = [];
 
     const result = await prisma.$transaction(async (tx) => {
       let created = 0;
@@ -327,6 +648,7 @@ export const productService: ProductService = {
         });
 
         if (existing) {
+          const prevPayment = (existing as { payment?: string | null }).payment;
           const changes: string[] = [];
 
           const compare = <T>(label: string, prevValue: T, nextValue: T) => {
@@ -367,6 +689,15 @@ export const productService: ProductService = {
           });
           postings.push({ productId: existing.id, dto });
 
+          const nextPayment = dto.Payment;
+          if (isPaid(nextPayment) && !isPaid(prevPayment)) {
+            settlements.push({
+              productId: existing.id,
+              productCode: existing.productCode,
+              shipmentCode: existing.shipmentCode,
+            });
+          }
+
           if (changes.length > 0) {
             changeTracking.push({
               productId: existing.id,
@@ -384,6 +715,7 @@ export const productService: ProductService = {
         } else {
           const createdProduct = await tx.product.create({ data });
           postings.push({ productId: createdProduct.id, dto });
+          transitBuilds.push({ productId: createdProduct.id, dto });
           created++;
 
           const changes: string[] = [];
@@ -423,6 +755,22 @@ export const productService: ProductService = {
     await Promise.all(
       postings.map(({ productId, dto }) =>
         postExpenseForProduct(productId, dto)
+      )
+    );
+
+    await Promise.all(
+      transitBuilds.map(({ productId, dto }) =>
+        postTransitBuildForProduct({ productId, dto })
+      )
+    );
+
+    await Promise.all(
+      settlements.map(({ productId, productCode, shipmentCode }) =>
+        postSupplierSettlementForProduct({
+          productId,
+          productCode,
+          shipmentCode,
+        })
       )
     );
 

@@ -9,6 +9,12 @@
 
 ---
 
+# 📚 Operational Docs
+
+- Operational workflow & accounting policy: [docs/OPERATIONAL_WORKFLOW_AND_ACCOUNTING_POLICY.md](docs/OPERATIONAL_WORKFLOW_AND_ACCOUNTING_POLICY.md)
+
+---
+
 # 🧪 Testing Suite
 - **Vitest** → Unit tests
 - **Playwright** → E2E tests

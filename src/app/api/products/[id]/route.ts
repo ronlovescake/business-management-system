@@ -4,7 +4,10 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
 import { mapToDTO } from '@/modules/products/api/dto';
-import { postExpenseForProduct } from '@/modules/products/api/service';
+import {
+  postExpenseForProduct,
+  postSupplierSettlementForProductPaymentChange,
+} from '@/modules/products/api/service';
 
 export async function PUT(
   request: NextRequest,
@@ -18,6 +21,11 @@ export async function PUT(
         { status: 400 }
       );
     }
+
+    const existingProduct = await prisma.product.findUnique({
+      where: { id },
+      select: { payment: true, productCode: true, shipmentCode: true },
+    });
 
     const productData = await request.json();
 
@@ -156,6 +164,23 @@ export async function PUT(
           }) || 0,
       },
     });
+
+    if (existingProduct) {
+      try {
+        await postSupplierSettlementForProductPaymentChange({
+          productId: id,
+          prevPayment: existingProduct.payment,
+          nextPayment: updatedProduct.payment,
+          productCode: updatedProduct.productCode,
+          shipmentCode: updatedProduct.shipmentCode,
+        });
+      } catch (error) {
+        logger.warn('Failed to post supplier settlement after product update', {
+          error,
+          productId: id,
+        });
+      }
+    }
 
     try {
       const dto = mapToDTO(updatedProduct);

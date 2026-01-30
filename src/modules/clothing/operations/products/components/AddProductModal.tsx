@@ -62,6 +62,45 @@ export const AddProductModal = memo(function AddProductModal({
   isEditMode,
   isSubmitting = false,
 }: AddProductModalProps) {
+  const handleSubmitClick = async () => {
+    if (isSubmitting) {
+      return;
+    }
+
+    const { showAlert, showConfirm } = await import('@/lib/alerts');
+
+    // Guardrail: confirm Paid vs Unpaid before creating a product because it
+    // drives accounting postings.
+    if (!isEditMode) {
+      const payment = (form.payment ?? '').trim();
+      if (payment !== 'Paid' && payment !== 'Unpaid') {
+        await showAlert({
+          title: 'Payment required',
+          message: 'Please choose Paid or Unpaid before saving this product.',
+          type: 'warning',
+        });
+        return;
+      }
+
+      const confirmed = await showConfirm({
+        title: 'Confirm payment status',
+        message:
+          payment === 'Paid'
+            ? 'You are adding a new product that is already PAID to the supplier.'
+            : 'You are adding a new product that is UNPAID (supplier will be paid later).',
+        confirmButtonText: 'Yes, save product',
+        cancelButtonText: 'Cancel',
+        type: 'question',
+      });
+
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    onSubmit();
+  };
+
   const handleDateChange =
     (field: 'postingDate' | 'orderDate') => (value: Date | null) => {
       updateField(field, formatDateForInput(value));
@@ -722,7 +761,7 @@ export const AddProductModal = memo(function AddProductModal({
             radius="md"
             gradient={{ from: 'green', to: 'green.6', deg: 45 }}
             disabled={!form.product.trim() || isSubmitting}
-            onClick={onSubmit}
+            onClick={handleSubmitClick}
             loading={isSubmitting}
             styles={{
               root: {

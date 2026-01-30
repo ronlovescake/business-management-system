@@ -1,8 +1,42 @@
 import path from 'path';
 import { config as loadEnv } from 'dotenv';
-import { beforeAll } from 'vitest';
+import { beforeAll, vi } from 'vitest';
 import { execSync } from 'child_process';
 import { PrismaClient } from '@prisma/client';
+
+vi.mock('sweetalert2', () => {
+  const fire = vi.fn(async () => ({
+    isConfirmed: true,
+    isDenied: false,
+    isDismissed: false,
+    dismiss: undefined,
+    value: true,
+  }));
+
+  const mixin = vi.fn(() => ({ fire }));
+
+  return {
+    default: {
+      fire,
+      mixin,
+      stopTimer: vi.fn(),
+      resumeTimer: vi.fn(),
+      close: vi.fn(),
+      isVisible: vi.fn(() => false),
+      showLoading: vi.fn(),
+      hideLoading: vi.fn(),
+      showValidationMessage: vi.fn(),
+      getHtmlContainer: vi.fn(() => null),
+      DismissReason: {
+        cancel: 'cancel',
+        close: 'close',
+        timer: 'timer',
+        backdrop: 'backdrop',
+        esc: 'esc',
+      },
+    },
+  };
+});
 
 const envFile = process.env.INTEGRATION_ENV_FILE || '.env.test';
 loadEnv({ path: path.resolve(process.cwd(), envFile) });
