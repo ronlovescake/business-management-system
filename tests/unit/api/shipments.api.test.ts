@@ -119,7 +119,16 @@ describe('Shipments API - /api/shipments', () => {
       );
 
       vi.mocked(prisma.product.groupBy).mockResolvedValue([
-        { shipmentCode: 'SH-001', _count: { _all: 2 } },
+        {
+          shipmentCode: 'SH-001',
+          _count: { _all: 2 },
+          _sum: {
+            grandTotal: 0,
+            forwardersFee: 0,
+            lalamove: 0,
+            packagingCost: 0,
+          },
+        },
       ] as any);
 
       const response = await getShipments(buildRequest('/api/shipments'));
@@ -138,6 +147,12 @@ describe('Shipments API - /api/shipments', () => {
           deletedAt: null,
         },
         _count: { _all: true },
+        _sum: {
+          grandTotal: true,
+          forwardersFee: true,
+          lalamove: true,
+          packagingCost: true,
+        },
       });
       expect(data).toHaveLength(2);
       expect(data[0]).toEqual({
@@ -155,6 +170,7 @@ describe('Shipments API - /api/shipments', () => {
         Notes: 'Test shipment',
         linkedProductCount: 2,
         hasLinkedProducts: true,
+        linkedProductCogsTotal: 0,
       });
     });
 

@@ -14,6 +14,12 @@ const { mockFetchers, mockPrisma, mockInventoryCogs } = vi.hoisted(() => {
       isWithinDateRange: vi.fn(),
     },
     mockPrisma: {
+      product: {
+        findMany: vi.fn(),
+      },
+      shipment: {
+        findMany: vi.fn(),
+      },
       clothingAccountingOpeningBalance: {
         findMany: vi.fn(),
       },
@@ -103,6 +109,11 @@ describe('Accounting Ledger API - GET /api/accounting/ledger', () => {
       []
     );
     mockPrisma.transaction.findMany.mockResolvedValue([]);
+
+    // Ledger route may apply a post-cutover Inventory in Transit snapshot adjustment
+    // which requires these models even when returning empty data.
+    mockPrisma.product.findMany.mockResolvedValue([]);
+    mockPrisma.shipment.findMany.mockResolvedValue([]);
 
     mockInventoryCogs.buildCogsAndInventoryEntries.mockResolvedValue({
       entries: [],

@@ -5,6 +5,7 @@ import {
   PAID_STATUSES,
 } from '@/lib/accounting/constants';
 import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
+import { parseDate } from '@/lib/accounting/date-utils';
 import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
 
 const ACCOUNTING_CUTOVER = getAccountingCutoverDate();
@@ -372,20 +373,27 @@ export async function fetchGeneralMerchandiseManualJournalLines(params: {
 
 export function getPaidAtDate(tx: {
   statusChanges?: { newStatus: string | null; changedAt: Date }[];
+  packedDate?: string | Date | null;
+  orderDate?: string | Date | null;
   orderStatus?: string | null;
   updatedAt?: Date;
 }): Date | null {
-  if (!tx.statusChanges || tx.statusChanges.length === 0) {
-    return tx.updatedAt ?? null;
+  const packedAt = parseDate(tx.packedDate ?? null);
+  if (packedAt) {
+    return packedAt;
   }
 
-  const paid = tx.statusChanges.find((status) =>
-    (PAID_STATUSES as readonly string[]).includes(
-      (status.newStatus ?? '').trim()
-    )
-  );
+  const paidStatusChangedAt =
+    tx.statusChanges?.find((status) =>
+      (PAID_STATUSES as readonly string[]).includes(
+        (status.newStatus ?? '').trim()
+      )
+    )?.changedAt ?? null;
 
-  return paid?.changedAt ?? tx.updatedAt ?? null;
+  const orderAt = parseDate(tx.orderDate ?? null);
+
+  // Prefer ops completion date, then paid status-change timestamp, then order date.
+  return paidStatusChangedAt ?? orderAt ?? tx.updatedAt ?? null;
 }
 
 export function getCancelledAtDate(tx: {

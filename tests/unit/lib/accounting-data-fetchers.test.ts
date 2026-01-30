@@ -4,7 +4,21 @@ import { getPaidAtDate } from '@/lib/accounting/data-fetchers';
 // This is intentionally a minimal shape to avoid DB coupling.
 
 describe('accounting data-fetchers - getPaidAtDate', () => {
-  it('prefers orderDate over paid-status change timestamps', () => {
+  it('prefers packedDate (completion) over other dates', () => {
+    const tx = {
+      orderDate: '2025-12-07',
+      packedDate: '2026-01-15',
+      statusChanges: [
+        { newStatus: 'shipped', changedAt: new Date('2026-01-14') },
+      ],
+    } as unknown as Parameters<typeof getPaidAtDate>[0];
+
+    const paidAt = getPaidAtDate(tx);
+
+    expect(paidAt?.toISOString().slice(0, 10)).toBe('2026-01-15');
+  });
+
+  it('prefers paid-status change timestamps over orderDate when packedDate is missing', () => {
     const tx = {
       orderDate: '2025-12-07',
       statusChanges: [
@@ -14,7 +28,7 @@ describe('accounting data-fetchers - getPaidAtDate', () => {
 
     const paidAt = getPaidAtDate(tx);
 
-    expect(paidAt?.toISOString().slice(0, 10)).toBe('2025-12-07');
+    expect(paidAt?.toISOString().slice(0, 10)).toBe('2026-01-14');
   });
 
   it('falls back to earliest paid-status change when orderDate is missing', () => {

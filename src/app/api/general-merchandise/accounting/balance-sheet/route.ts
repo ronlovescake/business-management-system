@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { ApiResponse } from '@/core/api';
 import { withErrorHandler } from '@/core/api/middleware';
-import { parseDate } from '@/lib/accounting/date-utils';
+import { endOfDay, parseDate } from '@/lib/accounting/date-utils';
 import {
   ACCOUNTS_RECEIVABLE_STATUSES,
   PAID_STATUSES,
@@ -82,7 +82,9 @@ function aggregateBalancesFromRows(
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
   const asOfParam = req.nextUrl.searchParams.get('asOf');
-  const asOf = clampAsOf(parseDate(asOfParam));
+  const asOfRaw = parseDate(asOfParam);
+  const asOfDateOnly = !!asOfParam && /^\d{4}-\d{2}-\d{2}$/.test(asOfParam);
+  const asOf = clampAsOf(asOfDateOnly && asOfRaw ? endOfDay(asOfRaw) : asOfRaw);
 
   const transactions = await fetchGeneralMerchandiseRecognizedTransactions();
   const payments = await fetchGeneralMerchandiseTransactionPayments();
