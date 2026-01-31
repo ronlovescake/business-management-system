@@ -20,10 +20,7 @@ import {
   getCancelledAtDate,
   isWithinDateRange,
 } from '@/lib/accounting/general-merchandise/data-fetchers';
-import {
-  buildCogsAndInventoryEntries,
-  buildInventorySeedAndShrinkageEntries,
-} from '@/lib/accounting/general-merchandise/inventory-cogs';
+import { buildCogsAndInventoryEntries } from '@/lib/accounting/general-merchandise/inventory-cogs';
 import { normalizeTransactionAmountsForAccounting } from '@/lib/accounting/transaction-normalization';
 import { prisma } from '@/lib/db';
 
@@ -315,18 +312,13 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   }
 
   // Inventory/COGS derived entries
-  const [{ entries: cogsEntries }, { entries: seedEntries }] =
-    await Promise.all([
-      buildCogsAndInventoryEntries({
-        from: effectiveFrom,
-        to: effectiveTo,
-        cogsDescriptionStyle: 'short',
-      }),
-      buildInventorySeedAndShrinkageEntries({
-        from: effectiveFrom,
-        to: effectiveTo,
-      }),
-    ]);
+  const [{ entries: cogsEntries }] = await Promise.all([
+    buildCogsAndInventoryEntries({
+      from: effectiveFrom,
+      to: effectiveTo,
+      cogsDescriptionStyle: 'short',
+    }),
+  ]);
 
   for (const entry of cogsEntries) {
     rows.push({
@@ -345,22 +337,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     });
   }
 
-  for (const entry of seedEntries) {
-    rows.push({
-      id: entry.id,
-      date: entry.date,
-      category: entry.account,
-      type: 'Expense',
-      sourceType: 'InventorySeed',
-      sourceId: entry.ref,
-      ref: entry.ref,
-      description: entry.description,
-      amount: entry.debit - entry.credit,
-      customer: null,
-      productCode: null,
-      method: null,
-    });
-  }
+  // Derived inventory seed/shrink entries are intentionally excluded.
 
   rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 

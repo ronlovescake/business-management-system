@@ -17,10 +17,7 @@ import {
   isWithinDateRange,
 } from '@/lib/accounting/general-merchandise/data-fetchers';
 import { normalizeTransactionAmountsForAccounting } from '@/lib/accounting/transaction-normalization';
-import {
-  buildCogsAndInventoryEntries,
-  buildInventorySeedAndShrinkageEntries,
-} from '@/lib/accounting/general-merchandise/inventory-cogs';
+import { buildCogsAndInventoryEntries } from '@/lib/accounting/general-merchandise/inventory-cogs';
 import { prisma } from '@/lib/db';
 import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { normalizeAccountForReporting } from '@/lib/accounting/account-normalization';
@@ -580,10 +577,17 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     cogsDescriptionStyle: 'short',
   });
 
-  const { entries: seedEntries } = await buildInventorySeedAndShrinkageEntries({
-    from: effectiveFrom,
-    to: effectiveTo,
-  });
+  // Derived inventory seed/shrink entries are intentionally excluded.
+  // Inventory accounts should reflect explicit postings only.
+  const seedEntries: Array<{
+    id: string;
+    date: string;
+    ref: string;
+    account: string;
+    debit: number;
+    credit: number;
+    description: string;
+  }> = [];
 
   const allEntries = [
     ...paymentEntries,

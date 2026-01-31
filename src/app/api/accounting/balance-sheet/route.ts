@@ -17,10 +17,7 @@ import {
   isWithinDateRange,
 } from '@/lib/accounting/data-fetchers';
 import { normalizeTransactionAmountsForAccounting } from '@/lib/accounting/transaction-normalization';
-import {
-  buildInventorySeedAndShrinkageEntries,
-  computeCogsTotal,
-} from '@/lib/accounting/inventory-cogs';
+import { computeCogsTotal } from '@/lib/accounting/inventory-cogs';
 import { prisma } from '@/lib/db';
 import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { normalizeAccountForReporting } from '@/lib/accounting/account-normalization';
@@ -586,25 +583,11 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       : [];
 
   // Inventory seed/shrinkage proxy valuation.
-  // Seed: scrap -> asset bucket (treat as opening equity contribution).
-  // Shrinkage: asset bucket -> scrap (treat as reduction to retained earnings).
-  const { entries: seedShrinkEntries } =
-    await buildInventorySeedAndShrinkageEntries({
-      from: CUTOVER,
-      to: asOf,
-    });
-  const inventorySeedEntries: BalanceRow[] = seedShrinkEntries
-    .filter((entry) => entry.ref.startsWith('INV-SEED-'))
-    .map((entry) => ({
-      account: entry.account,
-      amount: Number(entry.debit ?? 0) - Number(entry.credit ?? 0),
-    }));
-  const inventoryShrinkageEntries: BalanceRow[] = seedShrinkEntries
-    .filter((entry) => entry.ref.startsWith('INV-SHRINK-'))
-    .map((entry) => ({
-      account: entry.account,
-      amount: Number(entry.debit ?? 0) - Number(entry.credit ?? 0),
-    }));
+  // NOTE: This is intentionally excluded from the balance sheet so that
+  // inventory assets (Stock on Hand / Inventory in Transit) reflect only
+  // explicit, user-entered accounting postings.
+  const inventorySeedEntries: BalanceRow[] = [];
+  const inventoryShrinkageEntries: BalanceRow[] = [];
 
   const refundEntries = refunds
     .map((refund) => {
