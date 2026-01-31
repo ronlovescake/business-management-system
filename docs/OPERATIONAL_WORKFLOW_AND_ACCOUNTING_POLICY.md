@@ -145,30 +145,70 @@ These costs are paid separately from the supplier items:
 
 When creating products, forwarder/lalamove/packaging fields are **estimates** (usually within ~1–2%). We include estimates early so we can compute unit pricing and accept reseller preorders immediately.
 
-### Accounting pattern (estimate → actual → settlement)
+### Chosen policy: Pattern B (capitalize logistics only when Delivered)
 
-We create an estimated payable while in transit, then adjust to the actual amount once known, then settle when paid.
+We intentionally **do not** add forwarder/courier/packaging estimates into **Inventory in Transit**.
+
+Instead, we track logistics costs in a separate temporary asset account until delivery, then capitalize into **Stock on Hand** when the shipment arrives.
+
+Why:
+
+- Keeps **Inventory in Transit** representing supplier item cost (Grand Total) only.
+- Still keeps landed costs **on the balance sheet** (not P&L) while waiting for delivery.
+- Makes delivery day the moment inventory becomes “all-in landed cost”.
+
+#### Accounts needed for Pattern B
+
+- **Landed Cost Clearing** (Asset) — temporary holding account for logistics costs not yet capitalized into inventory.
+  - Name can be whatever you prefer (e.g., “Logistics Clearing”, “Freight Clearing”, “Landed Cost Holding”).
+
+#### Checklist: Forwarder/Courier/Packaging (Pattern B)
 
 Example: Forwarder estimate ₱1,000, actual ₱950
 
-1. Estimate payable (while in transit)
+1. Record estimate (while in transit)
 
-- Dr **Inventory in Transit** ₱1,000
+- Dr **Landed Cost Clearing** ₱1,000
 - Cr **Forwarder Payable** ₱1,000
 
-2. Adjust estimate down to actual (recommended as an adjustment entry)
+2. Adjust estimate to actual (recommended as an adjustment entry)
 
-- Dr **Forwarder Payable** ₱50
-- Cr **Inventory in Transit** ₱50
+- If actual is lower (₱950):
+  - Dr **Forwarder Payable** ₱50
+  - Cr **Landed Cost Clearing** ₱50
 
-3. Settlement when paid
+3. Settle when paid (money-out date)
 
 - Dr **Forwarder Payable** ₱950
 - Cr **Cash** ₱950
 
+4. Capitalize at delivery (Delivered / received date)
+
+- Dr **Stock on Hand** ₱950
+- Cr **Landed Cost Clearing** ₱950
+
+Courier (Lalamove) and Packaging follow the exact same pattern, using their respective payable accounts.
+
 Operational note:
 
-- We also update the **Products page COGS** to reflect the final actual landed cost once these actual amounts are known.
+- We still update the **Products page COGS** to reflect the final actual landed cost once these actual amounts are known.
+
+#### Important: don’t reclass by crediting the payable again
+
+In Pattern B, the delivery capitalization step credits **Landed Cost Clearing**, not the payable.
+
+- The payable is only cleared by: Dr Payable / Cr Cash.
+
+### Special case: opening balances for already-delivered shipments
+
+If a shipment’s forwarder/courier payable was introduced via **OPENING** entries (Dr Opening Equity / Cr Payable), then you should not create a second payable.
+
+For those historical shipments, the “capitalization” step is:
+
+- Dr **Stock on Hand**
+- Cr **Opening Equity**
+
+This moves the opening-balance debit into inventory so Stock on Hand reflects landed cost.
 
 ### Per-product posting preference
 
