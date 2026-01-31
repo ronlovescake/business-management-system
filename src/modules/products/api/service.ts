@@ -370,8 +370,11 @@ async function ensureReceiptMovementForProduct(params: {
         equals: normalizedCode,
         mode: 'insensitive',
       },
-      fromBucket: 'scrap',
       toBucket: 'sellable',
+      // Any non-sellable -> sellable movement counts as a receipt ledger.
+      // This prevents accidental double-receipts (e.g., opening_inventory->sellable
+      // backfill plus an auto-receipt).
+      fromBucket: { not: 'sellable' },
     },
     select: { id: true },
   });
@@ -385,7 +388,9 @@ async function ensureReceiptMovementForProduct(params: {
       data: {
         productCode: normalizedCode,
         quantity: qty,
-        fromBucket: 'scrap',
+        // Use opening_inventory as the canonical source bucket for receipts.
+        // (We keep `scrap` reserved for actual write-offs, not receiving.)
+        fromBucket: 'opening_inventory',
         toBucket: 'sellable',
         postingDate: postingDate ?? null,
         notes: buildAutoReceiptMovementNote(productId),
