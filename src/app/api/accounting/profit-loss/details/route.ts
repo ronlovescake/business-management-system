@@ -20,10 +20,7 @@ import {
   getCancelledAtDate,
   isWithinDateRange,
 } from '@/lib/accounting/data-fetchers';
-import {
-  buildCogsAndInventoryEntries,
-  buildInventorySeedAndShrinkageEntries,
-} from '@/lib/accounting/inventory-cogs';
+import { buildCogsAndInventoryEntries } from '@/lib/accounting/inventory-cogs';
 import { normalizeTransactionAmountsForAccounting } from '@/lib/accounting/transaction-normalization';
 import { prisma } from '@/lib/db';
 
@@ -336,39 +333,6 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       sourceId: entry.id,
       ref: entry.ref,
       description: entry.description ?? 'COGS (inventory movements)',
-      amount: amt,
-      customer: null,
-      productCode: null,
-      method: null,
-    });
-  }
-
-  // Expenses: Inventory shrinkage (derived from inventory movements)
-  const { entries: invSeedShrinkEntries } =
-    await buildInventorySeedAndShrinkageEntries({
-      from: effectiveFrom,
-      to: effectiveTo,
-    });
-
-  for (const entry of invSeedShrinkEntries) {
-    if (entry.account !== 'Retained Earnings') {
-      continue;
-    }
-
-    const amt = Number(entry.debit ?? 0) - Number(entry.credit ?? 0);
-    if (!Number.isFinite(amt) || amt === 0) {
-      continue;
-    }
-
-    rows.push({
-      id: `shrink-${entry.id}`,
-      date: entry.date,
-      category: 'Inventory Shrinkage',
-      type: 'Expense',
-      sourceType: 'InventoryMovement',
-      sourceId: entry.id,
-      ref: entry.ref,
-      description: entry.description ?? 'Inventory shrinkage',
       amount: amt,
       customer: null,
       productCode: null,

@@ -21,9 +21,6 @@ vi.mock('@/lib/db', () => ({
 
 vi.mock('@/lib/accounting/general-merchandise/inventory-cogs', () => ({
   computeCogsTotal: vi.fn().mockResolvedValue(0),
-  computeInventorySeedAndShrinkageTotals: vi.fn().mockResolvedValue({
-    shrinkageTotal: 0,
-  }),
 }));
 
 describe('GET /api/general-merchandise/accounting/profit-loss', () => {

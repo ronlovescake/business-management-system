@@ -19,10 +19,7 @@ import {
   getCancelledAtDate,
   isWithinDateRange,
 } from '@/lib/accounting/data-fetchers';
-import {
-  computeCogsTotal,
-  computeInventorySeedAndShrinkageTotals,
-} from '@/lib/accounting/inventory-cogs';
+import { computeCogsTotal } from '@/lib/accounting/inventory-cogs';
 import { normalizeTransactionAmountsForAccounting } from '@/lib/accounting/transaction-normalization';
 import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { prisma } from '@/lib/db';
@@ -290,11 +287,6 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     to: effectiveTo,
   });
 
-  const { shrinkageTotal } = await computeInventorySeedAndShrinkageTotals({
-    from: effectiveFrom,
-    to: effectiveTo,
-  });
-
   if (cogsTotal !== 0) {
     rows.push({
       id: 'expense-cogs',
@@ -304,16 +296,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     });
   }
 
-  if (shrinkageTotal !== 0) {
-    rows.push({
-      id: 'expense-inventory-shrinkage',
-      category: 'Inventory Shrinkage',
-      type: 'Expense',
-      amount: shrinkageTotal,
-    });
-  }
-
-  const totalExpenses = expenseTotal + cogsTotal + shrinkageTotal;
+  const totalExpenses = expenseTotal + cogsTotal;
   const grossProfit = netRevenueTotal - cogsTotal;
 
   const stats = {
