@@ -58,6 +58,9 @@ snapshots/
 # Generated documents
 pdf_output/
 
+# CSV exports (generated)
+csv/
+
 # User settings
 /settings/*
 !/settings/invoice-settings.json
