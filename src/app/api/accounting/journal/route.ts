@@ -17,10 +17,7 @@ import {
   isWithinDateRange,
 } from '@/lib/accounting/data-fetchers';
 import { normalizeTransactionAmountsForAccounting } from '@/lib/accounting/transaction-normalization';
-import {
-  buildCogsAndInventoryEntries,
-  buildInventorySeedAndShrinkageEntries,
-} from '@/lib/accounting/inventory-cogs';
+import { buildCogsAndInventoryEntries } from '@/lib/accounting/inventory-cogs';
 import { prisma } from '@/lib/db';
 import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { normalizeAccountForReporting } from '@/lib/accounting/account-normalization';
@@ -530,12 +527,6 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     cogsDescriptionStyle: 'short',
   });
 
-  const { entries: inventorySeedShrinkageEntries } =
-    await buildInventorySeedAndShrinkageEntries({
-      from: effectiveFrom,
-      to: effectiveTo,
-    });
-
   const manualEntries = manualLines.map((line) => ({
     id: line.id,
     date: line.date.toISOString(),
@@ -559,7 +550,6 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     ...refundEntries,
     ...expenseEntries,
     ...cogsEntries,
-    ...inventorySeedShrinkageEntries,
     ...manualEntries,
   ];
 
