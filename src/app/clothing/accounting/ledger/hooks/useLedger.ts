@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { showNotification } from '@mantine/notifications';
+import Swal from 'sweetalert2';
 import { logger } from '@/lib/logger';
 import { PERIOD_OPTIONS, type PeriodOption } from '@/lib/accounting/constants';
 import { buildPeriodSearchParams } from '@/lib/accounting/query';
@@ -1101,10 +1102,19 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
         return;
       }
 
-      const ok = window.confirm(
-        `Delete this manual entry?\n\n${entry.ref}\n${entry.account}`
-      );
-      if (!ok) {
+      const confirmResult = await Swal.fire({
+        title: 'Delete manual entry?',
+        text: `${entry.ref}\n${entry.account}`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Delete',
+        cancelButtonText: 'Cancel',
+        reverseButtons: true,
+        focusCancel: true,
+        allowOutsideClick: false,
+      });
+
+      if (!confirmResult.isConfirmed) {
         return;
       }
 

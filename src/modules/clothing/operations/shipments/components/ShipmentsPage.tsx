@@ -39,6 +39,7 @@ import { TransitBuildModal } from './TransitBuildModal';
 import { TransitReclassModal } from './TransitReclassModal';
 import { ShipmentsDashboard } from './ShipmentsDashboard';
 import { PickupForm } from './PickupForm';
+import { LogisticsCostsTab } from './LogisticsCostsTab';
 import type { ShipmentData } from '../types/shipment.types';
 import {
   GRID_COLUMNS,
@@ -378,6 +379,7 @@ export function ShipmentsPage({ apiBasePath }: ShipmentsPageProps) {
           <Tabs.Tab value="shipments">Shipments</Tabs.Tab>
           <Tabs.Tab value="dashboard">Shipments Dashboard</Tabs.Tab>
           <Tabs.Tab value="pickup">Pickup Form</Tabs.Tab>
+          <Tabs.Tab value="logistics">Logistics Costs</Tabs.Tab>
         </Tabs.List>
 
         {/* Shipments Tab */}
@@ -491,6 +493,11 @@ export function ShipmentsPage({ apiBasePath }: ShipmentsPageProps) {
         {/* Pickup Form Tab */}
         <Tabs.Panel value="pickup" pt="md">
           <PickupForm shipments={shipments} />
+        </Tabs.Panel>
+
+        {/* Logistics Costs Tab */}
+        <Tabs.Panel value="logistics" pt="md">
+          <LogisticsCostsTab shipments={shipments} apiBasePath={apiBasePath} />
         </Tabs.Panel>
       </Tabs>
     </PageLayout>
