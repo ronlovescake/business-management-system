@@ -140,8 +140,10 @@ export function OpeningBalanceEntryModal({
 
           {isEditing && (!form.debitAccount || !form.creditAccount) && (
             <Text size="sm" c="orange.7">
-              This entry looks like a single opening line. Choose both accounts
-              to make it a balanced opening entry.
+              This looks like a single opening line. The editor expects a
+              matching debit/credit pair with the same Date, Ref, Description,
+              and Amount. Choose both accounts to make it a balanced opening
+              entry.
             </Text>
           )}
 

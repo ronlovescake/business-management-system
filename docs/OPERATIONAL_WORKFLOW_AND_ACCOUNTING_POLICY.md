@@ -272,3 +272,77 @@ Example shipment code: `KPC 23930A-00222`
 - Zippered Frogsuit (ZF-010326)
 
 These may be created early for preorder selling while they are still in transit.
+
+## Monthly reset / New cutover (practical)
+
+If you want to start fresh for a new month (e.g., Feb 1) because the prior month is confusing or mismatched, do not rewrite history.
+Instead:
+
+1. Set a new accounting cutover date
+
+- Set `ACCOUNTING_CUTOVER_DATE_CLOTHING` (UTC midnight).
+- Example: `ACCOUNTING_CUTOVER_DATE_CLOTHING="2026-02-01"`
+- Leave `ACCOUNTING_CUTOVER_DATE_GM` empty so GM stays on the original default cutover (2026-01-17).
+- Leave `ACCOUNTING_CUTOVER_DATE` empty to avoid changing both modules accidentally.
+
+2. Enter a clean Opening Balance snapshot (full Balance Sheet)
+
+- Add balances you want the books to start with: `Cash`, `Stock on Hand`, `Inventory in Transit`, and any non-zero liabilities.
+- If a liability account is 0, omit it (no entry = 0 balance). This is how we exclude zero-balance loan payables.
+
+### Editing opening balances (important)
+
+In the Ledger UI, the “Edit Opening Entry” modal treats an opening entry as a **two-line pair** (one debit, one credit).
+It finds the counterpart line by matching:
+
+- **Date**
+- **Ref**
+- **Description**
+- **Amount**
+
+So, for anything you may want to edit later (especially loans), prefer creating **explicit debit/credit pairs** with a
+**unique Description per pair** (critical when two loans share the same amount).
+
+Notes:
+
+- The bulk opening-balance script auto-adds a balancing **Opening Equity** line. That’s correct accounting-wise, but if you bulk-load many liabilities under one ref/description, each line may appear “unpaired” in the editor.
+- To keep things editable, either enter pairs via the UI, or apply openings in separate batches where each pair has its own description (e.g., per loan).
+
+Recommended (scripted, with dry-run preview):
+
+- Create `tmp/opening-balances-2026-02-01.json`:
+
+  {
+  "Cash": 80990,
+  "Stock on Hand": 0,
+  "Inventory in Transit": 0,
+  "Customer Deposits": 0,
+  "Loan Payable – Interest-free borrowing": 0,
+  "Loan Payable – Unionbank Personal Loan": 0,
+  "Loan Payable – BPI Business Loan 1": 0
+  }
+
+- Dry run:
+
+  npx tsx scripts/set-opening-balances.ts --module clothing --date 2026-02-01 --ref OPENING-2026-02-01 --input tmp/opening-balances-2026-02-01.json
+
+- Apply:
+
+  npx tsx scripts/set-opening-balances.ts --module clothing --date 2026-02-01 --ref OPENING-2026-02-01 --input tmp/opening-balances-2026-02-01.json --apply
+
+The script:
+
+- Skips 0-balance lines automatically
+- Auto-adds a balancing `Opening Equity` line so debits = credits
+
+### Practical approach we used (Feb 1, 2026 Clothing)
+
+Instead of one giant opening import, we applied separate refs for clarity and safer editing:
+
+- `OPENING-STOCK` (Dr Stock on Hand / Cr Opening Equity)
+- `OPENING-LOANS` (per-loan paired entries for editability)
+- `OPENING-CASH` (Dr Cash / Cr Opening Equity)
+
+3. Verify
+
+- Re-check Balance Sheet and Ledger as-of the cutover date.

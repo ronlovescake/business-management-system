@@ -1,5 +1,7 @@
 const DEFAULT_ACCOUNTING_CUTOVER = new Date(Date.UTC(2026, 0, 17));
 
+export type AccountingModule = 'clothing' | 'generalMerchandise';
+
 function parseCutoverDate(raw: string): Date | null {
   const trimmed = raw.trim();
   const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -44,10 +46,20 @@ function parseCutoverDate(raw: string): Date | null {
  * Accounting cutover date in UTC midnight.
  *
  * Configure via env var `ACCOUNTING_CUTOVER_DATE` in `YYYY-MM-DD`.
+ *
+ * Optional per-module overrides:
+ * - Clothing: `ACCOUNTING_CUTOVER_DATE_CLOTHING`
+ * - General Merchandise: `ACCOUNTING_CUTOVER_DATE_GM`
  * Defaults to 2026-01-17.
  */
-export function getAccountingCutoverDate(): Date {
-  const raw = process.env.ACCOUNTING_CUTOVER_DATE;
+export function getAccountingCutoverDate(
+  module: AccountingModule = 'clothing'
+): Date {
+  const raw =
+    (module === 'generalMerchandise'
+      ? process.env.ACCOUNTING_CUTOVER_DATE_GM
+      : process.env.ACCOUNTING_CUTOVER_DATE_CLOTHING) ??
+    process.env.ACCOUNTING_CUTOVER_DATE;
   if (!raw) {
     return DEFAULT_ACCOUNTING_CUTOVER;
   }

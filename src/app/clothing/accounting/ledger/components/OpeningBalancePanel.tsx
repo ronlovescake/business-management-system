@@ -167,6 +167,12 @@ export function OpeningBalancePanel({
             (same amount).
           </List.Item>
           <List.Item>
+            Tip: If you want “Edit Opening Entry” to show both sides together,
+            keep each debit/credit pair on the same date with the same Ref and
+            Description. For multiple loans, use a unique Description per loan
+            (especially if two loans have the same amount).
+          </List.Item>
+          <List.Item>
             These entries are manual only; they will not flow through P&L.
           </List.Item>
           <List.Item>

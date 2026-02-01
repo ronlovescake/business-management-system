@@ -8,7 +8,7 @@ import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { parseDate } from '@/lib/accounting/date-utils';
 import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
 
-const ACCOUNTING_CUTOVER = getAccountingCutoverDate();
+const ACCOUNTING_CUTOVER = getAccountingCutoverDate('generalMerchandise');
 
 type TransactionWithStatusChanges = Awaited<
   ReturnType<typeof prisma.generalMerchandiseTransaction.findMany>

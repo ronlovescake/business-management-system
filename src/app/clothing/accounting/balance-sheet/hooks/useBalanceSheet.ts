@@ -39,13 +39,13 @@ const DEFAULT_STATS: BalanceSheetStats = {
   liabilities: 0,
   equity: 0,
   balance: 0,
-  asOf: '2026-01-31',
+  asOf: getCurrentDateISO(),
 };
 
 function toIsoDate(asOfLabel: string): string {
   const parsed = parseDate(asOfLabel);
   if (!parsed) {
-    return '2026-01-31T00:00:00.000Z';
+    return new Date().toISOString();
   }
   return parsed.toISOString();
 }
@@ -53,7 +53,11 @@ function toIsoDate(asOfLabel: string): string {
 function toDisplayDate(iso: string): string {
   const parsed = parseDate(iso);
   if (!parsed) {
-    return 'January 31, 2026';
+    return new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
   }
   return parsed.toLocaleDateString('en-US', {
     year: 'numeric',
@@ -70,7 +74,7 @@ export function useBalanceSheet(options: { apiBasePath?: string } = {}) {
   );
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<string | null>('list');
-  const [asOf, setAsOf] = useState('January 31, 2026');
+  const [asOf, setAsOf] = useState(() => toDisplayDate(getCurrentDateISO()));
   const [rows, setRows] = useState<BalanceSheetRow[]>([]);
   const [stats, setStats] = useState<BalanceSheetStats>(DEFAULT_STATS);
 

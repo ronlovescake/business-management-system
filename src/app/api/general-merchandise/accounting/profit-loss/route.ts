@@ -26,7 +26,7 @@ import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-const CUTOVER = getAccountingCutoverDate();
+const CUTOVER = getAccountingCutoverDate('generalMerchandise');
 
 function clampFrom(from: Date | null): Date {
   if (!from) {

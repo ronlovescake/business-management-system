@@ -6,7 +6,7 @@ import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { normalizeAccountForReporting } from '@/lib/accounting/account-normalization';
 import { prisma } from '@/lib/db';
 
-const CUTOVER = getAccountingCutoverDate();
+const CUTOVER = getAccountingCutoverDate('generalMerchandise');
 
 function serialize(entry: {
   id: string;

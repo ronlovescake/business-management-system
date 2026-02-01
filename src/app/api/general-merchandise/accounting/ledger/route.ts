@@ -29,7 +29,7 @@ import { prisma } from '@/lib/db';
 export const dynamic = 'force-dynamic';
 
 // Only show ledger activity from the accounting cutover date forward.
-const CUTOVER = getAccountingCutoverDate();
+const CUTOVER = getAccountingCutoverDate('generalMerchandise');
 
 function clampFrom(from: Date | null): Date {
   if (!from) {

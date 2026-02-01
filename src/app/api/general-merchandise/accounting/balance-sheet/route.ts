@@ -32,7 +32,7 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-const CUTOVER = getAccountingCutoverDate();
+const CUTOVER = getAccountingCutoverDate('generalMerchandise');
 
 function clampAsOf(raw: Date | null): Date {
   if (!raw || Number.isNaN(raw.getTime())) {

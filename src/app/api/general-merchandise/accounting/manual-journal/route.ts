@@ -5,7 +5,7 @@ import { parseDate } from '@/lib/accounting/date-utils';
 import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { prisma } from '@/lib/db';
 
-const CUTOVER = getAccountingCutoverDate();
+const CUTOVER = getAccountingCutoverDate('generalMerchandise');
 
 type ManualJournalPayload = {
   sourceId?: string;

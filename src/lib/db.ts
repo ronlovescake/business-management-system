@@ -8,6 +8,8 @@ import { isProduction, isFeatureEnabled } from '@/lib/env';
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
+  auditClient: PrismaClient | undefined;
+  middlewaresApplied: boolean | undefined;
 };
 
 // ============================================================================
@@ -89,15 +91,21 @@ if (typeof prisma.$on === 'function') {
   });
 }
 
-// Separate client for audit logging to prevent recursion
-const auditClient = new PrismaClient();
+// Separate client for audit logging to prevent recursion.
+// IMPORTANT: In Next.js dev/HMR, modules can be re-evaluated; if we create a new
+// PrismaClient each time, we can exhaust Postgres connections.
+const auditClient = globalForPrisma.auditClient ?? new PrismaClient();
 
-// Apply middleware
-applySoftDeleteMiddleware(prisma);
-applyAuditLogMiddleware(prisma, auditClient);
+// Apply middleware (guarded to avoid stacking middleware in dev/HMR).
+if (!globalForPrisma.middlewaresApplied) {
+  applySoftDeleteMiddleware(prisma);
+  applyAuditLogMiddleware(prisma, auditClient);
+  globalForPrisma.middlewaresApplied = true;
+}
 
 if (!isProduction) {
   globalForPrisma.prisma = prisma;
+  globalForPrisma.auditClient = auditClient;
 }
 
 // ============================================================================
@@ -128,7 +136,10 @@ export function getDatabaseStats() {
   return {
     totalQueries,
     slowQueries,
-    slowQueryPercentage: totalQueries > 0 ? ((slowQueries / totalQueries) * 100).toFixed(2) + '%' : '0%',
+    slowQueryPercentage:
+      totalQueries > 0
+        ? ((slowQueries / totalQueries) * 100).toFixed(2) + '%'
+        : '0%',
     slowQueryThreshold: '100ms',
   };
 }
