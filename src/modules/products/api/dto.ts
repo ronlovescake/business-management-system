@@ -30,7 +30,7 @@ export type ProductDTO = {
   'Packaging Cost': number;
   'Suggested Price': number;
   'Actual Price': number;
-  'Base Price': number;
+  'Landed Unit Cost': number;
   COGS: number;
   'Projected Sales': number;
   'Projected Profit': number;
@@ -76,7 +76,7 @@ export function mapToDTO(product: Product): ProductDTO {
     'Packaging Cost': product.packagingCost ?? 0,
     'Suggested Price': product.suggestedPrice ?? 0,
     'Actual Price': product.actualPrice ?? 0,
-    'Base Price': product.basePrice ?? 0,
+    'Landed Unit Cost': product.landedUnitCost ?? 0,
     COGS: product.cogs ?? 0,
     'Projected Sales': product.projectedSales ?? 0,
     'Projected Profit': product.projectedProfit ?? 0,
@@ -122,7 +122,7 @@ export function mapFromDTO(payload: ProductDTO): Prisma.ProductCreateInput {
     packagingCost: payload['Packaging Cost'],
     suggestedPrice: payload['Suggested Price'],
     actualPrice: payload['Actual Price'],
-    basePrice: payload['Base Price'],
+    landedUnitCost: payload['Landed Unit Cost'],
     cogs: payload.COGS,
     projectedSales: payload['Projected Sales'],
     projectedProfit: payload['Projected Profit'],

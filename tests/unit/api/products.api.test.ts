@@ -50,7 +50,7 @@ const sampleProduct = {
   'Packaging Cost': 0,
   'Suggested Price': 12,
   'Actual Price': 10,
-  'Base Price': 8,
+  'Landed Unit Cost': 8,
   COGS: 7,
   'Projected Sales': 20,
   'Projected Profit': 5,

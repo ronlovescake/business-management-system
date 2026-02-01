@@ -13,7 +13,7 @@
  *   forwarder's fee, lalamove, packaging) are allocated across product codes in the same
  *   shipment (see the Products page "Shipping Fee Calculator").
  * - Those allocated amounts are saved onto each Product row (forwardersFee/lalamove/
- *   packagingCost) and included in `basePrice` / `cogs`, which accounting uses as the
+ *   packagingCost) and included in the landed unit cost / `cogs`, which accounting uses as the
  *   unit-cost basis for COGS and shrinkage.
  */
 
@@ -271,7 +271,7 @@ export class ProductService {
       'Packaging Cost': form.packagingCost,
       'Suggested Price': calculations.suggestedPrice,
       'Actual Price': form.actualPrice,
-      'Base Price': calculations.basePrice,
+      'Landed Unit Cost': calculations.basePrice,
       COGS: calculations.cogs,
       'Projected Sales': calculations.projectedSales,
       'Projected Profit': calculations.projectedProfit,
@@ -576,7 +576,7 @@ export class ProductService {
                 : 0) * SUGGESTED_PRICE_MARKUP
             ),
             'Actual Price': parseNumeric(values[25]),
-            'Base Price':
+            'Landed Unit Cost':
               parseNumeric(values[14]) > 0
                 ? ((parseNumeric(values[13]) * parseNumeric(values[14]) +
                     parseNumeric(values[15])) *

@@ -42,7 +42,7 @@ describe('GM buildCogsAndInventoryEntries', () => {
     prismaMock.generalMerchandiseProduct.findMany.mockResolvedValue([
       {
         productCode: 'SKU-1',
-        basePrice: 100,
+        landedUnitCost: 100,
         cogs: 0,
         quantity: 0,
         updatedAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -93,7 +93,7 @@ describe('GM buildCogsAndInventoryEntries', () => {
     prismaMock.generalMerchandiseProduct.findMany.mockResolvedValue([
       {
         productCode: 'SKU-1',
-        basePrice: 100,
+        landedUnitCost: 100,
         cogs: 0,
         quantity: 0,
         updatedAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -134,7 +134,7 @@ describe('GM buildCogsAndInventoryEntries', () => {
     prismaMock.generalMerchandiseProduct.findMany.mockResolvedValue([
       {
         productCode: 'SKU-1',
-        basePrice: 100,
+        landedUnitCost: 100,
         cogs: 0,
         quantity: 0,
         updatedAt: new Date('2026-01-01T00:00:00.000Z'),

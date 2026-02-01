@@ -120,7 +120,7 @@ export function useProductsGrid({
         product['Packaging Cost'],
         product['Suggested Price'],
         product['Actual Price'],
-        product['Base Price'],
+        product['Landed Unit Cost'],
         product.COGS,
         product['Projected Sales'],
         product['Projected Profit'],
@@ -320,7 +320,7 @@ export function useProductsGrid({
       },
       {
         data: 26,
-        title: 'BASE PRICE',
+        title: 'LANDED UNIT COST',
         width: 180,
         type: 'numeric',
         numericFormat: { pattern: '0,0.00' },

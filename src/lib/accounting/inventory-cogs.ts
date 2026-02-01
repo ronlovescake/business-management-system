@@ -56,16 +56,14 @@ function pickUnitCost(actualPrice: number | null | undefined): number {
 }
 
 function pickUnitCostFromProductRow(row: {
-  basePrice?: number | null;
+  landedUnitCost?: number | null;
   cogs?: number | null;
   quantity?: number | null;
 }): number {
   // Unit-cost basis for accounting:
-  // - Prefer `basePrice` (cost per item) as maintained in the Products module.
-  // - Fallback to `cogs / quantity` when basePrice is not available.
-  // In the ops workflow, these values already include lot/batch allocations for
-  // shipment-level costs (forwarder/lalamove/packaging, etc.).
-  const base = pickUnitCost(row.basePrice);
+  // - Prefer `landedUnitCost` (cost per item) as maintained in the Products module.
+  // - Fallback to `cogs / quantity` when landedUnitCost is not available.
+  const base = pickUnitCost(row.landedUnitCost);
   if (base > 0) {
     return base;
   }
@@ -159,7 +157,7 @@ async function getUnitCostByProductCode(productCodes: string[]) {
     },
     select: {
       productCode: true,
-      basePrice: true,
+      landedUnitCost: true,
       cogs: true,
       quantity: true,
       updatedAt: true,

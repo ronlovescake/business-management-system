@@ -29,7 +29,7 @@ export const productDataSchema = z.object({
   'Packaging Cost': z.number().min(0),
   'Suggested Price': z.number().min(0),
   'Actual Price': z.number().min(0),
-  'Base Price': z.number().min(0),
+  'Landed Unit Cost': z.number().min(0),
   COGS: z.number().min(0),
   'Projected Sales': z.number().min(0),
   'Projected Profit': z.number().min(0),

@@ -50,7 +50,7 @@ describe('buildCogsAndInventoryEntries', () => {
     prismaMock.product.findMany.mockResolvedValue([
       {
         productCode: 'SKU-1',
-        basePrice: 100,
+        landedUnitCost: 100,
         updatedAt: new Date('2026-01-01T00:00:00.000Z'),
         createdAt: new Date('2026-01-01T00:00:00.000Z'),
       },
@@ -98,7 +98,7 @@ describe('buildCogsAndInventoryEntries', () => {
     prismaMock.product.findMany.mockResolvedValue([
       {
         productCode: 'SKU-1',
-        basePrice: 100,
+        landedUnitCost: 100,
         updatedAt: new Date('2026-01-01T00:00:00.000Z'),
         createdAt: new Date('2026-01-01T00:00:00.000Z'),
       },
@@ -138,7 +138,7 @@ describe('buildCogsAndInventoryEntries', () => {
     prismaMock.product.findMany.mockResolvedValue([
       {
         productCode: 'SKU-1',
-        basePrice: 100,
+        landedUnitCost: 100,
         updatedAt: new Date('2026-01-01T00:00:00.000Z'),
         createdAt: new Date('2026-01-01T00:00:00.000Z'),
       },

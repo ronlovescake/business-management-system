@@ -43,7 +43,7 @@ export const PRODUCT_COLUMN_KEYS: (keyof ProductData)[] = [
   'Packaging Cost',
   'Suggested Price',
   'Actual Price',
-  'Base Price',
+  'Landed Unit Cost',
   'COGS',
   'Projected Sales',
   'Projected Profit',

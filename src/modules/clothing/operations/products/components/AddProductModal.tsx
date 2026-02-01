@@ -669,7 +669,7 @@ export const AddProductModal = memo(function AddProductModal({
               }}
             >
               <Text size="sm" fw={500} c="gray.7" mb="md">
-                Base Price
+                Landed Unit Cost
               </Text>
               <Text size="xl" fw={700} c="gray.8" ta="center" mb="xs">
                 ₱

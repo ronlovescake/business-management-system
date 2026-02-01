@@ -66,7 +66,7 @@ function buildDto(overrides: Partial<ProductDTO> = {}): ProductDTO {
     'Packaging Cost': 0,
     'Suggested Price': 0,
     'Actual Price': 0,
-    'Base Price': 0,
+    'Landed Unit Cost': 0,
     COGS: 999,
     'Projected Sales': 0,
     'Projected Profit': 0,

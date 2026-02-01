@@ -38,7 +38,7 @@ export interface ProductData {
   'Packaging Cost': number;
   'Suggested Price': number;
   'Actual Price': number;
-  'Base Price': number;
+  'Landed Unit Cost': number;
   COGS: number;
   'Projected Sales': number;
   'Projected Profit': number;

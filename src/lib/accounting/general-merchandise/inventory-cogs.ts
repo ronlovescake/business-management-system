@@ -56,11 +56,11 @@ function pickUnitCost(actualPrice: number | null | undefined): number {
 }
 
 function pickUnitCostFromProductRow(row: {
-  basePrice?: number | null;
+  landedUnitCost?: number | null;
   cogs?: number | null;
   quantity?: number | null;
 }): number {
-  const base = pickUnitCost(row.basePrice);
+  const base = pickUnitCost(row.landedUnitCost);
   if (base > 0) {
     return base;
   }
@@ -154,7 +154,7 @@ async function getUnitCostByProductCode(productCodes: string[]) {
     },
     select: {
       productCode: true,
-      basePrice: true,
+      landedUnitCost: true,
       cogs: true,
       quantity: true,
       updatedAt: true,

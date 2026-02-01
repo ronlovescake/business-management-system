@@ -120,8 +120,8 @@ export async function PUT(
             min: 0,
             decimals: 2,
           }) || 0,
-        basePrice:
-          sanitizers.number(productData['Base Price'], {
+        landedUnitCost:
+          sanitizers.number(productData['Landed Unit Cost'], {
             min: 0,
             decimals: 2,
           }) || 0,
