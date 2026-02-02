@@ -6,6 +6,7 @@ import {
   Checkbox,
   Group,
   NumberInput,
+  Pill,
   ScrollArea,
   Select,
   Stack,
@@ -26,6 +27,19 @@ import {
   type StatusFilterOption,
   type TransactionData,
 } from '../types/transaction.types';
+
+const HIDDEN_STATUS_PILLS = new Set<StatusFilterOption>([
+  'Shipped',
+  'Cancelled',
+  'Forfeited',
+  'Voided',
+]);
+
+function buildAllStatusesSelectedSet(
+  controlledStatuses: StatusFilterOption[]
+): Set<StatusFilterOption> {
+  return new Set<StatusFilterOption>(['All Status', ...controlledStatuses]);
+}
 
 type PaymentDraft = {
   transactionId: number;
@@ -72,28 +86,97 @@ export function TransactionPaymentsModal({
     apiBasePath.includes('general-merchandise');
 
   const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null);
+  const [selectedProductCode, setSelectedProductCode] = useState<string | null>(
+    null
+  );
   const [paymentDate, setPaymentDate] = useState<Date | null>(new Date());
   const [method, setMethod] = useState<string | null>('Cash');
   const [notes, setNotes] = useState<string>('');
   const [isReservation, setIsReservation] = useState(false);
   const [reservationTouched, setReservationTouched] = useState(false);
-  const [statusFilter, setStatusFilter] =
-    useState<StatusFilterOption>('All Status');
+  const visibleStatusFilterOptions = useMemo(() => {
+    return STATUS_FILTER_OPTIONS.filter((status) => {
+      if (status === 'All Status') {
+        return true;
+      }
+      return !HIDDEN_STATUS_PILLS.has(status);
+    });
+  }, []);
+
+  const allStatusControlledStatuses = useMemo(() => {
+    return visibleStatusFilterOptions.filter(
+      (status): status is Exclude<StatusFilterOption, 'All Status'> =>
+        status !== 'All Status'
+    );
+  }, [visibleStatusFilterOptions]);
+
+  const [selectedStatuses, setSelectedStatuses] = useState<
+    Set<StatusFilterOption>
+  >(() => buildAllStatusesSelectedSet(allStatusControlledStatuses));
+
   const [amountByTransactionId, setAmountByTransactionId] = useState<
     Record<number, number>
   >({});
   const [isSaving, setIsSaving] = useState(false);
 
+  const handleStatusFilter = useCallback(
+    (status: StatusFilterOption) => {
+      setSelectedStatuses((prev) => {
+        const newSet = new Set(prev);
+
+        if (status === 'All Status') {
+          if (newSet.has('All Status')) {
+            // Toggle off All Status and all controlled statuses
+            newSet.delete('All Status');
+            allStatusControlledStatuses.forEach((s) => newSet.delete(s));
+          } else {
+            // Toggle on All Status and all controlled statuses
+            newSet.add('All Status');
+            allStatusControlledStatuses.forEach((s) => newSet.add(s));
+          }
+        } else {
+          // Handle individual status toggle
+          if (newSet.has(status)) {
+            newSet.delete(status);
+            // If this was one of the controlled statuses, also remove All Status
+            if (allStatusControlledStatuses.includes(status as never)) {
+              newSet.delete('All Status');
+            }
+          } else {
+            newSet.add(status);
+            // Check if all controlled statuses are now selected
+            if (
+              allStatusControlledStatuses.every(
+                (s) => newSet.has(s) || s === status
+              )
+            ) {
+              newSet.add('All Status');
+            }
+          }
+        }
+
+        // Safety: never allow hidden statuses to be selected.
+        HIDDEN_STATUS_PILLS.forEach((s) => newSet.delete(s));
+
+        return newSet;
+      });
+    },
+    [allStatusControlledStatuses]
+  );
+
   const resetFormState = useCallback(() => {
     setSelectedCustomer(null);
+    setSelectedProductCode(null);
     setPaymentDate(new Date());
     setMethod('Cash');
     setNotes('');
     setIsReservation(false);
     setReservationTouched(false);
-    setStatusFilter('All Status');
+    setSelectedStatuses(
+      buildAllStatusesSelectedSet(allStatusControlledStatuses)
+    );
     setAmountByTransactionId({});
-  }, []);
+  }, [allStatusControlledStatuses]);
 
   const resetAmountsOnly = useCallback(() => {
     setAmountByTransactionId({});
@@ -104,14 +187,86 @@ export function TransactionPaymentsModal({
     [customerNames]
   );
 
-  const statusFilterOptions = useMemo(
-    () =>
-      STATUS_FILTER_OPTIONS.map((status) => ({
-        value: status,
-        label: status,
-      })),
-    []
-  );
+  const productCodeOptions = useMemo(() => {
+    const unique = new Set<string>();
+
+    for (const t of transactions) {
+      const code = (t['Product Code'] ?? '').trim();
+      if (!code) {
+        continue;
+      }
+      unique.add(code);
+    }
+
+    return Array.from(unique)
+      .sort((a, b) => a.localeCompare(b))
+      .map((code) => ({ value: code, label: code }));
+  }, [transactions]);
+
+  const statusFilterPills = useMemo(() => {
+    return (
+      <Stack gap={4} style={{ flex: 1 }}>
+        <Text size="sm" fw={500}>
+          Order status
+        </Text>
+        <Group gap="xs" wrap="wrap">
+          {visibleStatusFilterOptions.map((status) => {
+            const isSelected = selectedStatuses.has(status);
+            return (
+              <Pill
+                key={status}
+                size="md"
+                withRemoveButton={false}
+                onClick={() => handleStatusFilter(status)}
+                style={{
+                  backgroundColor: isSelected ? '#228be6' : '#e9ecef',
+                  color: isSelected ? '#ffffff' : '#495057',
+                  cursor: 'pointer',
+                  fontWeight: isSelected ? 600 : 400,
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
+                  if (!isSelected) {
+                    e.currentTarget.style.backgroundColor = '#dee2e6';
+                  }
+                }}
+                onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => {
+                  if (!isSelected) {
+                    e.currentTarget.style.backgroundColor = '#e9ecef';
+                  }
+                }}
+              >
+                {status}
+              </Pill>
+            );
+          })}
+        </Group>
+      </Stack>
+    );
+  }, [handleStatusFilter, selectedStatuses, visibleStatusFilterOptions]);
+
+  useEffect(() => {
+    setSelectedStatuses((prev) => {
+      const newSet = new Set(prev);
+      let changed = false;
+
+      HIDDEN_STATUS_PILLS.forEach((s) => {
+        if (newSet.delete(s)) {
+          changed = true;
+        }
+      });
+
+      if (!changed) {
+        return prev;
+      }
+
+      if (newSet.size === 0) {
+        return buildAllStatusesSelectedSet(allStatusControlledStatuses);
+      }
+
+      return newSet;
+    });
+  }, [allStatusControlledStatuses]);
 
   // ============================================================================
   // ⚠️ ELIGIBILITY FILTERS (RECORD PAYMENTS)
@@ -120,7 +275,7 @@ export function TransactionPaymentsModal({
   // - Shipped is excluded for ops workflow (payments should be recorded before shipping).
   // ============================================================================
   const eligibleTransactions = useMemo(() => {
-    if (!selectedCustomer) {
+    if (!selectedCustomer && !selectedProductCode) {
       return [];
     }
 
@@ -128,7 +283,18 @@ export function TransactionPaymentsModal({
 
     return transactions
       .filter((t) => t.id && t.id > 0)
-      .filter((t) => (t.Customers ?? '').trim() === selectedCustomer)
+      .filter((t) => {
+        if (!selectedCustomer) {
+          return true;
+        }
+        return (t.Customers ?? '').trim() === selectedCustomer;
+      })
+      .filter((t) => {
+        if (!selectedProductCode) {
+          return true;
+        }
+        return (t['Product Code'] ?? '').trim() === selectedProductCode;
+      })
       .filter((t) => {
         const status = t['Order Status'] ?? '';
         if (!status) {
@@ -140,12 +306,28 @@ export function TransactionPaymentsModal({
         return !excludedStatuses.has(status);
       })
       .filter((t) => {
-        if (statusFilter === 'All Status') {
-          return true;
+        const status = (t['Order Status'] ?? '').trim();
+        const individual = Array.from(selectedStatuses).filter(
+          (s) => s !== 'All Status'
+        );
+
+        // Match Transactions page behavior:
+        // - No individual statuses selected -> show only rows without Order Status.
+        // - Otherwise filter by selected statuses OR rows without status.
+        if (individual.length === 0) {
+          return !status;
         }
-        return (t['Order Status'] ?? '') === statusFilter;
+
+        return !status || individual.includes(status as StatusFilterOption);
       });
-  }, [selectedCustomer, statusFilter, transactions]);
+  }, [selectedCustomer, selectedProductCode, selectedStatuses, transactions]);
+
+  const singleSelectedStatusForDefaults = useMemo(() => {
+    const individual = Array.from(selectedStatuses).filter(
+      (s) => s !== 'All Status'
+    );
+    return individual.length === 1 ? individual[0] : null;
+  }, [selectedStatuses]);
 
   useEffect(() => {
     if (!isGeneralMerchandise) {
@@ -163,14 +345,21 @@ export function TransactionPaymentsModal({
     // Convenience default: when recording payments for Prepared/Pending orders,
     // default to treating them as reservation deposits unless the user overrides.
     const shouldDefaultToReservation =
-      statusFilter === 'Prepared' || statusFilter === 'Pending Payment';
+      singleSelectedStatusForDefaults === 'Prepared' ||
+      singleSelectedStatusForDefaults === 'Pending Payment';
 
     setIsReservation(shouldDefaultToReservation);
 
     if (shouldDefaultToReservation && !notes.trim()) {
       setNotes('Reservation fee');
     }
-  }, [isGeneralMerchandise, notes, opened, reservationTouched, statusFilter]);
+  }, [
+    isGeneralMerchandise,
+    notes,
+    opened,
+    reservationTouched,
+    singleSelectedStatusForDefaults,
+  ]);
 
   const handleAmountChange = useCallback(
     (transactionId: number, value: number | string) => {
@@ -399,54 +588,71 @@ export function TransactionPaymentsModal({
       opened={opened}
       onClose={handleClose}
       title="Record Payments"
-      size="90%"
+      size="100%"
       styles={{
         content: {
-          maxWidth: '1700px',
+          // Increase width ~25% (1700px -> 2125px) while still respecting viewport.
+          maxWidth: '2125px',
+        },
+        header: {
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+          backgroundColor: '#ffffff',
+        },
+        body: {
+          // Increase usable height and keep header fixed.
+          maxHeight: 'calc(100vh - 120px)',
+          overflowY: 'auto',
         },
       }}
       closeOnClickOutside={false}
       closeOnEscape={false}
     >
       <Stack gap="md">
-        <Group grow align="flex-end">
-          <Select
-            label="Customer"
-            placeholder="Select a customer"
-            searchable
-            nothingFoundMessage="No matching customers"
-            data={customerOptions}
-            value={selectedCustomer}
-            onChange={setSelectedCustomer}
-          />
+        <Stack gap={6}>
+          <Group grow align="flex-end">
+            <Select
+              label="Customer"
+              placeholder="Select a customer"
+              searchable
+              nothingFoundMessage="No matching customers"
+              data={customerOptions}
+              value={selectedCustomer}
+              onChange={setSelectedCustomer}
+              clearable
+            />
 
-          <Select
-            label="Order status"
-            placeholder="All Status"
-            data={statusFilterOptions}
-            value={statusFilter}
-            onChange={(value) =>
-              setStatusFilter((value as StatusFilterOption) ?? 'All Status')
-            }
-            allowDeselect={false}
-          />
+            <Select
+              label="Product code"
+              placeholder="Select a product"
+              searchable
+              nothingFoundMessage="No matching products"
+              data={productCodeOptions}
+              value={selectedProductCode}
+              onChange={setSelectedProductCode}
+              clearable
+            />
 
-          <DateInput
-            label="Payment date"
-            value={paymentDate}
-            onChange={setPaymentDate}
-            valueFormat="YYYY-MM-DD"
-            clearable={false}
-          />
+            <DateInput
+              label="Payment date"
+              value={paymentDate}
+              onChange={setPaymentDate}
+              valueFormat="YYYY-MM-DD"
+              clearable={false}
+            />
 
-          <Select
-            label="Method"
-            data={PAYMENT_METHOD_OPTIONS}
-            value={method}
-            onChange={setMethod}
-            allowDeselect
-          />
-        </Group>
+            <Select
+              label="Method"
+              data={PAYMENT_METHOD_OPTIONS}
+              value={method}
+              onChange={setMethod}
+              allowDeselect
+            />
+          </Group>
+
+          {statusFilterPills}
+        </Stack>
 
         <TextInput
           label="Notes (optional)"
@@ -505,21 +711,16 @@ export function TransactionPaymentsModal({
           </Text>
         ) : null}
 
-        {selectedCustomer && eligibleTransactions.length === 0 ? (
-          <Text c="dimmed">
-            No eligible transactions found (Shipped/cancelled statuses are
-            excluded).
-          </Text>
-        ) : null}
-
         {(() => {
-          const RESERVED_VISIBLE_ROWS = 10;
+          // Increase table viewport height ~25% (10 -> 13 rows).
+          const RESERVED_VISIBLE_ROWS = 13;
           const ROW_HEIGHT = 42;
           const HEADER_HEIGHT = 42;
           const scrollHeight =
             HEADER_HEIGHT + RESERVED_VISIBLE_ROWS * ROW_HEIGHT;
 
-          const rows = selectedCustomer ? eligibleTransactions : [];
+          const rows =
+            selectedCustomer || selectedProductCode ? eligibleTransactions : [];
 
           const padded =
             rows.length >= RESERVED_VISIBLE_ROWS
@@ -534,14 +735,27 @@ export function TransactionPaymentsModal({
 
           return (
             <ScrollArea h={scrollHeight}>
-              <Table striped withTableBorder withColumnBorders>
-                <Table.Thead>
-                  <Table.Tr style={{ height: HEADER_HEIGHT }}>
+              <Table striped withTableBorder>
+                <Table.Thead
+                  style={{
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 2,
+                    backgroundColor: '#f1f3f5',
+                  }}
+                >
+                  <Table.Tr
+                    style={{
+                      height: HEADER_HEIGHT,
+                      backgroundColor: '#f1f3f5',
+                    }}
+                  >
                     <Table.Th
                       style={{
                         width: 90,
                         textAlign: 'center',
                         verticalAlign: 'middle',
+                        backgroundColor: '#f1f3f5',
                       }}
                     >
                       Tx ID
@@ -551,15 +765,28 @@ export function TransactionPaymentsModal({
                         width: 130,
                         textAlign: 'center',
                         verticalAlign: 'middle',
+                        backgroundColor: '#f1f3f5',
                       }}
                     >
                       Order Date
+                    </Table.Th>
+
+                    <Table.Th
+                      style={{
+                        width: 220,
+                        textAlign: 'center',
+                        verticalAlign: 'middle',
+                        backgroundColor: '#f1f3f5',
+                      }}
+                    >
+                      Customer
                     </Table.Th>
                     <Table.Th
                       style={{
                         width: 140,
                         textAlign: 'center',
                         verticalAlign: 'middle',
+                        backgroundColor: '#f1f3f5',
                       }}
                     >
                       Product Code
@@ -569,6 +796,7 @@ export function TransactionPaymentsModal({
                         width: 80,
                         textAlign: 'center',
                         verticalAlign: 'middle',
+                        backgroundColor: '#f1f3f5',
                       }}
                     >
                       Quantity
@@ -578,6 +806,7 @@ export function TransactionPaymentsModal({
                         width: 120,
                         textAlign: 'center',
                         verticalAlign: 'middle',
+                        backgroundColor: '#f1f3f5',
                       }}
                     >
                       Unit Price
@@ -587,6 +816,7 @@ export function TransactionPaymentsModal({
                         width: 120,
                         textAlign: 'center',
                         verticalAlign: 'middle',
+                        backgroundColor: '#f1f3f5',
                       }}
                     >
                       Payment
@@ -596,6 +826,7 @@ export function TransactionPaymentsModal({
                         width: 140,
                         textAlign: 'center',
                         verticalAlign: 'middle',
+                        backgroundColor: '#f1f3f5',
                       }}
                     >
                       Balance Due
@@ -605,6 +836,7 @@ export function TransactionPaymentsModal({
                         width: 140,
                         textAlign: 'center',
                         verticalAlign: 'middle',
+                        backgroundColor: '#f1f3f5',
                       }}
                     >
                       Order Status
@@ -615,6 +847,7 @@ export function TransactionPaymentsModal({
                         width: 180,
                         textAlign: 'center',
                         verticalAlign: 'middle',
+                        backgroundColor: '#f1f3f5',
                       }}
                     >
                       Reservation Fee
@@ -625,6 +858,7 @@ export function TransactionPaymentsModal({
                         width: 160,
                         textAlign: 'center',
                         verticalAlign: 'middle',
+                        backgroundColor: '#f1f3f5',
                       }}
                     >
                       Full Payment
@@ -635,6 +869,7 @@ export function TransactionPaymentsModal({
                         width: 140,
                         textAlign: 'center',
                         verticalAlign: 'middle',
+                        backgroundColor: '#f1f3f5',
                       }}
                     >
                       Add payment
@@ -647,6 +882,7 @@ export function TransactionPaymentsModal({
                       const key = `placeholder-${index}`;
                       return (
                         <Table.Tr key={key} style={{ height: ROW_HEIGHT }}>
+                          <Table.Td>&nbsp;</Table.Td>
                           <Table.Td>&nbsp;</Table.Td>
                           <Table.Td>&nbsp;</Table.Td>
                           <Table.Td>&nbsp;</Table.Td>
@@ -709,6 +945,9 @@ export function TransactionPaymentsModal({
                       <Table.Tr key={id} style={{ height: ROW_HEIGHT }}>
                         <Table.Td>{id}</Table.Td>
                         <Table.Td>{t['Order Date']}</Table.Td>
+                        <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                          {t.Customers || '—'}
+                        </Table.Td>
                         <Table.Td style={{ whiteSpace: 'nowrap' }}>
                           {t['Product Code']}
                         </Table.Td>
