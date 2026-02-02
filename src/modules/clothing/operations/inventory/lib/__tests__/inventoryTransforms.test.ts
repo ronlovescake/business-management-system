@@ -16,7 +16,7 @@ describe('buildInventoryItems', () => {
         COGS: 0,
         'Actual Price': 5,
         'Shipment Code': null,
-        'Shipment Status': null,
+        'Shipment Status': 'Delivered',
       },
     ];
 
@@ -62,6 +62,10 @@ describe('buildInventoryItems', () => {
     // sellable: 10 received - 2 moved to reserved = 8
     expect(abc?.sellableOnHand).toBe(8);
     expect(abc?.reservedOnHand).toBe(2);
+    expect(abc?.onHandSellable).toBe(8);
+    expect(abc?.onHandReserved).toBe(2);
+    expect(abc?.inTransitUnreserved).toBe(0);
+    expect(abc?.inTransitReserved).toBe(0);
     expect(abc?.damagedOnHand).toBe(0);
     expect(abc?.scrapQty).toBe(0);
     expect(abc?.onhand).toBe(10);
@@ -95,10 +99,14 @@ describe('buildInventoryItems', () => {
     expect(xyz).toBeDefined();
     expect(xyz?.sellableOnHand).toBe(7);
     expect(xyz?.reservedOnHand).toBe(0);
+    expect(xyz?.onHandSellable).toBe(0);
+    expect(xyz?.onHandReserved).toBe(0);
+    expect(xyz?.inTransitUnreserved).toBe(7);
+    expect(xyz?.inTransitReserved).toBe(0);
     expect(xyz?.damagedOnHand).toBe(0);
     expect(xyz?.scrapQty).toBe(0);
-    expect(xyz?.onhand).toBe(7);
-    expect(xyz?.availableStock).toBe(7);
+    expect(xyz?.onhand).toBe(0);
+    expect(xyz?.availableStock).toBe(0);
     expect(xyz?.supplierShortQty).toBe(0);
     expect(xyz?.actualQuantityReceived).toBe(7);
     expect(xyz?.shipmentCode).toBe('S1');
@@ -114,7 +122,7 @@ describe('buildInventoryItems', () => {
         COGS: 0,
         'Actual Price': 5,
         'Shipment Code': null,
-        'Shipment Status': null,
+        'Shipment Status': 'Delivered',
       },
     ];
 
@@ -158,7 +166,7 @@ describe('buildInventoryItems', () => {
         COGS: 0,
         'Actual Price': 5,
         'Shipment Code': null,
-        'Shipment Status': null,
+        'Shipment Status': 'Delivered',
       },
     ];
 
@@ -272,7 +280,7 @@ describe('buildInventoryItems', () => {
         COGS: 0,
         'Actual Price': 5,
         'Shipment Code': null,
-        'Shipment Status': null,
+        'Shipment Status': 'Delivered',
       },
     ];
 

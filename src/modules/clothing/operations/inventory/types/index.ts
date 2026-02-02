@@ -61,6 +61,11 @@ export interface InventoryItem {
   actualQuantityReceived: number;
   sellableOnHand: number;
   reservedOnHand: number;
+  // Split view (derived from shipment status)
+  onHandSellable: number;
+  onHandReserved: number;
+  inTransitUnreserved: number;
+  inTransitReserved: number;
   damagedOnHand: number;
   scrapQty: number;
   onhand: number;
@@ -78,6 +83,10 @@ export interface InventoryItem {
 export interface InventoryTotals {
   quantity: number;
   onhand: number;
+  onHandSellable: number;
+  onHandReserved: number;
+  inTransitUnreserved: number;
+  inTransitReserved: number;
   damagedOnHand: number;
   availableStock: number;
   supplierShortQty: number;

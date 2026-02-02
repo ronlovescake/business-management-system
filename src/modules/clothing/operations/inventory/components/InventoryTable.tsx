@@ -51,7 +51,22 @@ export const InventoryTable = memo(
             </Table.Td>
             <Table.Td style={{ textAlign: 'center' }}>
               <Text size="sm" c="#495057">
-                {numberFormatter.format(item.availableStock)}
+                {numberFormatter.format(item.onHandSellable)}
+              </Text>
+            </Table.Td>
+            <Table.Td style={{ textAlign: 'center' }}>
+              <Text size="sm" c="#495057">
+                {numberFormatter.format(item.onHandReserved)}
+              </Text>
+            </Table.Td>
+            <Table.Td style={{ textAlign: 'center' }}>
+              <Text size="sm" c="#495057">
+                {numberFormatter.format(item.inTransitUnreserved)}
+              </Text>
+            </Table.Td>
+            <Table.Td style={{ textAlign: 'center' }}>
+              <Text size="sm" c="#495057">
+                {numberFormatter.format(item.inTransitReserved)}
               </Text>
             </Table.Td>
             <Table.Td style={{ textAlign: 'center' }}>

@@ -15,6 +15,7 @@ import {
   normalizeProductCode,
 } from '@/lib/inventory/movements';
 import { isFulfilledStatus } from '@/lib/inventory/statuses';
+import { isInTransitShipmentStatus } from '@/lib/inventory/shipment-status';
 import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
 
 export function extractApiData<T>(payload: unknown): T[] {
@@ -143,8 +144,18 @@ export function buildInventoryItems(
     const totalSales = totalSalesByProduct.get(normalizedProductCode) || 0;
     const cogs = product.COGS || 0;
     const actualPrice = product['Actual Price'] || 0;
-    const onhand = sellableOnHand + reservedOnHand;
-    const availableStock = sellableOnHand;
+    const shipmentStatus = product['Shipment Status'] || '';
+    const isInTransit = isInTransitShipmentStatus(shipmentStatus);
+
+    // Option B behavior (your request): reservations allocate from incoming shipments,
+    // but anything still in transit must NOT be counted as on-hand.
+    const onHandSellable = isInTransit ? 0 : sellableOnHand;
+    const onHandReserved = isInTransit ? 0 : reservedOnHand;
+    const inTransitUnreserved = isInTransit ? sellableOnHand : 0;
+    const inTransitReserved = isInTransit ? reservedOnHand : 0;
+
+    const onhand = onHandSellable + onHandReserved;
+    const availableStock = onHandSellable;
     const supplierShortQty = manualSupplierShortQty;
     const actualQuantityReceived = Math.max(
       quantity - supplierShortQty - scrapQty,
@@ -161,6 +172,10 @@ export function buildInventoryItems(
       actualQuantityReceived,
       sellableOnHand,
       reservedOnHand,
+      onHandSellable,
+      onHandReserved,
+      inTransitUnreserved,
+      inTransitReserved,
       damagedOnHand,
       scrapQty,
       onhand,
@@ -172,7 +187,7 @@ export function buildInventoryItems(
       percentage,
       endingInventoryValue,
       shipmentCode: product['Shipment Code'] || '',
-      shipmentStatus: product['Shipment Status'] || '',
+      shipmentStatus,
     };
   });
 }
@@ -219,6 +234,10 @@ export function calculateTotals(data: InventoryItem[]): InventoryTotals {
     (acc, item) => ({
       quantity: acc.quantity + item.quantity,
       onhand: acc.onhand + item.onhand,
+      onHandSellable: acc.onHandSellable + item.onHandSellable,
+      onHandReserved: acc.onHandReserved + item.onHandReserved,
+      inTransitUnreserved: acc.inTransitUnreserved + item.inTransitUnreserved,
+      inTransitReserved: acc.inTransitReserved + item.inTransitReserved,
       damagedOnHand: acc.damagedOnHand + item.damagedOnHand,
       availableStock: acc.availableStock + item.availableStock,
       supplierShortQty: acc.supplierShortQty + item.supplierShortQty,
@@ -231,6 +250,10 @@ export function calculateTotals(data: InventoryItem[]): InventoryTotals {
     {
       quantity: 0,
       onhand: 0,
+      onHandSellable: 0,
+      onHandReserved: 0,
+      inTransitUnreserved: 0,
+      inTransitReserved: 0,
       damagedOnHand: 0,
       availableStock: 0,
       supplierShortQty: 0,
