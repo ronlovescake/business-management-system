@@ -216,6 +216,23 @@ For traceability, entries should be **per product** (not only grouped by shipmen
 
 ## Guardrails (to prevent costly mistakes)
 
+### Reseller payments (Transactions module): no legacy adjustments
+
+On `*/operations/transactions`, the **Adjustment** column is treated as a **legacy field**.
+
+Policy:
+
+- All reseller payments must be recorded as payment rows in `transaction_payments` (or the GM equivalent).
+- The transactions grid **must not** allow direct editing of the Adjustment column.
+  - This prevents accidentally encoding payments as a raw number with no payment date/method/notes.
+- If we need to change unit pricing behavior without touching the Prices module, we use the **Discount** column.
+
+Implementation guardrails:
+
+- UI: Adjustment is read-only in the transactions grid.
+- API: transaction update endpoints ignore/deny writes to the legacy Adjustment field.
+- Payments: use the “Record Payment” flow (bulk payments endpoint) which writes payment rows and updates totals consistently.
+
 ### Confirmation on product creation
 
 When the user clicks **Add Product**, show a SweetAlert confirmation based on the Payment selection:
@@ -261,6 +278,50 @@ On refund date, reverse the in-transit asset for that product:
 - Products are operational truth (editable for workflow).
 - Ledger entries are financial truth (auditability, stable historical reporting).
 - If we need edits after posting, we should prefer **adjustment entries** (delta changes) over rewriting history.
+
+## Operational inventory reporting: on-hand vs in-transit (4-number split)
+
+We accept preorders while items are still traveling.
+Operationally, we still want to allocate/reserve those items, but we must not report them as **Stock on Hand** until they are physically received.
+
+To make this explicit, the Inventory page/report uses a **4-number split** per product code:
+
+1. **On-hand sellable**
+
+- Quantity that is physically received and currently sellable.
+
+2. **On-hand reserved**
+
+- Quantity that is physically received but currently reserved for orders.
+
+3. **In-transit unreserved**
+
+- Quantity that exists in the system (often from product quantity / receipts) but the shipment is still in transit and not reserved.
+
+4. **In-transit reserved**
+
+- Quantity reserved for orders, but the shipment is still in transit.
+
+### Source of truth for “on-hand” vs “in-transit”
+
+- We treat **Shipment Status = Delivered** as _on-hand_.
+- Any other status (including blank/unknown) is treated as _in-transit_ for reporting.
+
+This matches the accounting policy:
+
+- **Delivered / received** is when we can reclass inventory:
+  - Dr **Stock on Hand**
+  - Cr **Inventory in Transit**
+
+### Important: reservations can exist while in transit
+
+- Reservations may be created before delivery (preorder allocation).
+- Reporting will show those reservations under **In-transit reserved** until the shipment is Delivered.
+
+### “Available stock” meaning
+
+- **Available (On-hand Sellable)** is derived from _on-hand sellable only_.
+- This avoids treating in-transit items as available/ready to fulfill.
 
 ## Appendix: Example shipment scenario
 

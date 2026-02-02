@@ -68,6 +68,7 @@ export const buildTransactionColumns = ({
     id: 'adjustment',
     type: 'numeric',
     align: 'right',
+    readOnly: true,
     numericFormat: '0,0.00',
   },
   {

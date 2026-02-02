@@ -366,9 +366,6 @@ function buildUpdatePayload(values: TransactionUpdateRecord['values']) {
   if (values.Discount !== undefined) {
     data.discount = values.Discount;
   }
-  if (values.Adjustment !== undefined) {
-    data.adjustment = values.Adjustment;
-  }
   if (values['Line Total'] !== undefined) {
     data.lineTotal = values['Line Total'];
   }
@@ -401,7 +398,6 @@ function shouldRecalculateLineTotal(values: TransactionUpdateRecord['values']) {
   return (
     values.Quantity !== undefined ||
     values['Unit Price'] !== undefined ||
-    values.Adjustment !== undefined ||
     values['Line Total'] !== undefined
   );
 }
@@ -452,10 +448,7 @@ function computeLineTotalForUpdate(params: {
     params.updateValues['Unit Price'] ?? params.existing.unitPrice,
     0
   );
-  const adjustment = toFiniteNumber(
-    params.updateValues.Adjustment ?? params.existing.adjustment,
-    0
-  );
+  const adjustment = toFiniteNumber(params.existing.adjustment, 0);
 
   return calculateLineTotal(quantity, unitPrice, adjustment);
 }

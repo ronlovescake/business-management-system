@@ -45,9 +45,17 @@ const DEFAULT_STATS: BalanceSheetStats = {
 function toIsoDate(asOfLabel: string): string {
   const parsed = parseDate(asOfLabel);
   if (!parsed) {
-    return new Date().toISOString();
+    return getCurrentDateISO();
   }
-  return parsed.toISOString();
+
+  // IMPORTANT:
+  // This endpoint treats `asOf=YYYY-MM-DD` as a calendar date and clamps to end-of-day.
+  // If we send a full ISO timestamp (e.g. 2026-02-02T00:00:00.000Z), the server will
+  // *not* apply end-of-day clamping and the balance sheet can look like “start of day”.
+  const yyyy = parsed.getUTCFullYear();
+  const mm = String(parsed.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(parsed.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 function toDisplayDate(iso: string): string {
