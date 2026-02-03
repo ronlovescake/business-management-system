@@ -15,7 +15,10 @@ type RouteContext = { params: { id: string } };
 type TransactionPaymentDelegate = {
   findMany: (args: unknown) => Promise<unknown>;
   create: (args: unknown) => Promise<unknown>;
+  groupBy: (args: unknown) => Promise<unknown>;
 };
+
+type TransactionMetaRow = { id: number; quantity: number; unitPrice: number };
 
 type PaymentRow = {
   id: number;
@@ -235,6 +238,35 @@ export const POST = withErrorHandler<RouteContext>(
         ...(hasReservationFlag
           ? { isReservation: sanitized.isReservation }
           : {}),
+      },
+    });
+
+    // Keep transaction totals consistent with payment rows.
+    const meta = (await gmPrisma.generalMerchandiseTransaction.findUnique({
+      where: { id: sanitized.transactionId },
+      select: { id: true, quantity: true, unitPrice: true },
+    })) as TransactionMetaRow | null;
+
+    const sums = (await gmPrisma.generalMerchandiseTransactionPayment.groupBy({
+      by: ['transactionId'],
+      where: {
+        transactionId: sanitized.transactionId,
+        deletedAt: null,
+      },
+      _sum: {
+        amount: true,
+      },
+    })) as Array<{ transactionId: number; _sum: { amount: number | null } }>;
+
+    const paid = sums[0]?._sum?.amount ?? 0;
+    const gross = (meta?.quantity ?? 0) * (meta?.unitPrice ?? 0);
+    const balance = gross - paid;
+
+    await gmPrisma.generalMerchandiseTransaction.update({
+      where: { id: sanitized.transactionId },
+      data: {
+        adjustment: paid,
+        lineTotal: balance,
       },
     });
 

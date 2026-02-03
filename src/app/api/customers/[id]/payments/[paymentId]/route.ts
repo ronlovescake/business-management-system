@@ -9,9 +9,17 @@ type RouteContext = { params: { id: string; paymentId: string } };
 type TransactionPaymentDelegate = {
   findFirst: (args: unknown) => Promise<unknown>;
   update: (args: unknown) => Promise<unknown>;
+  groupBy: (args: unknown) => Promise<unknown>;
 };
 
-type PaymentRow = { id: number };
+type TransactionDelegate = {
+  update: (args: unknown) => Promise<unknown>;
+  findUnique: (args: unknown) => Promise<unknown>;
+};
+
+type TransactionMetaRow = { id: number; quantity: number; unitPrice: number };
+
+type PaymentRow = { id: number; transactionId: number };
 
 function parseIds(
   context?: RouteContext
@@ -61,7 +69,10 @@ export const DELETE = withErrorHandler<RouteContext>(
     }
 
     const transactionPayment = (
-      prisma as unknown as { transactionPayment: TransactionPaymentDelegate }
+      prisma as unknown as {
+        transactionPayment: TransactionPaymentDelegate;
+        transaction: TransactionDelegate;
+      }
     ).transactionPayment;
 
     const existing = (await transactionPayment.findFirst({
@@ -73,16 +84,51 @@ export const DELETE = withErrorHandler<RouteContext>(
           customers: customer.customerName,
         },
       },
-      select: { id: true },
+      select: { id: true, transactionId: true },
     })) as PaymentRow | null;
 
     if (!existing) {
       return ApiResponse.notFound('Payment');
     }
 
-    await transactionPayment.update({
-      where: { id: parsed.paymentId },
-      data: { deletedAt: new Date() },
+    await prisma.$transaction(async (txp) => {
+      const delegates = txp as unknown as {
+        transactionPayment: TransactionPaymentDelegate;
+        transaction: TransactionDelegate;
+      };
+
+      await delegates.transactionPayment.update({
+        where: { id: parsed.paymentId },
+        data: { deletedAt: new Date() },
+      });
+
+      const meta = (await delegates.transaction.findUnique({
+        where: { id: existing.transactionId },
+        select: { id: true, quantity: true, unitPrice: true },
+      })) as TransactionMetaRow | null;
+
+      const sums = (await delegates.transactionPayment.groupBy({
+        by: ['transactionId'],
+        where: {
+          transactionId: existing.transactionId,
+          deletedAt: null,
+        },
+        _sum: {
+          amount: true,
+        },
+      })) as Array<{ transactionId: number; _sum: { amount: number | null } }>;
+
+      const paid = sums[0]?._sum?.amount ?? 0;
+      const gross = (meta?.quantity ?? 0) * (meta?.unitPrice ?? 0);
+      const balance = gross - paid;
+
+      await delegates.transaction.update({
+        where: { id: existing.transactionId },
+        data: {
+          adjustment: paid,
+          lineTotal: balance,
+        },
+      });
     });
 
     logger.info('Transaction payment deleted (soft)', {

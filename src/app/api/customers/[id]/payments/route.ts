@@ -15,7 +15,15 @@ type RouteContext = { params: { id: string } };
 type TransactionPaymentDelegate = {
   findMany: (args: unknown) => Promise<unknown>;
   create: (args: unknown) => Promise<unknown>;
+  groupBy: (args: unknown) => Promise<unknown>;
 };
+
+type TransactionDelegate = {
+  update: (args: unknown) => Promise<unknown>;
+  findUnique: (args: unknown) => Promise<unknown>;
+};
+
+type TransactionMetaRow = { id: number; quantity: number; unitPrice: number };
 
 type PaymentRow = {
   id: number;
@@ -220,34 +228,67 @@ export const POST = withErrorHandler<RouteContext>(
       });
     }
 
-    const transactionPayment = (
-      prisma as unknown as { transactionPayment: TransactionPaymentDelegate }
-    ).transactionPayment;
-
     const hasReservationFlag = await supportsReservationFlag();
 
-    const created = (await transactionPayment.create({
-      data: {
-        transactionId: sanitized.transactionId,
-        paymentDate: sanitized.paymentDate,
-        amount: sanitized.amount,
-        method: sanitized.method,
-        notes: sanitized.notes,
-        ...(hasReservationFlag
-          ? { isReservation: sanitized.isReservation }
-          : {}),
-      },
-      select: {
-        id: true,
-        transactionId: true,
-        paymentDate: true,
-        amount: true,
-        method: true,
-        notes: true,
-        ...(hasReservationFlag ? { isReservation: true } : {}),
-        createdAt: true,
-        updatedAt: true,
-      },
+    const created = (await prisma.$transaction(async (txp) => {
+      const txDelegates = txp as unknown as {
+        transactionPayment: TransactionPaymentDelegate;
+        transaction: TransactionDelegate;
+      };
+
+      const createdRow = (await txDelegates.transactionPayment.create({
+        data: {
+          transactionId: sanitized.transactionId,
+          paymentDate: sanitized.paymentDate,
+          amount: sanitized.amount,
+          method: sanitized.method,
+          notes: sanitized.notes,
+          ...(hasReservationFlag
+            ? { isReservation: sanitized.isReservation }
+            : {}),
+        },
+        select: {
+          id: true,
+          transactionId: true,
+          paymentDate: true,
+          amount: true,
+          method: true,
+          notes: true,
+          ...(hasReservationFlag ? { isReservation: true } : {}),
+          createdAt: true,
+          updatedAt: true,
+        },
+      })) as PaymentRow;
+
+      const meta = (await txDelegates.transaction.findUnique({
+        where: { id: sanitized.transactionId },
+        select: { id: true, quantity: true, unitPrice: true },
+      })) as TransactionMetaRow | null;
+
+      const sums = (await txDelegates.transactionPayment.groupBy({
+        by: ['transactionId'],
+        where: {
+          transactionId: sanitized.transactionId,
+          deletedAt: null,
+        },
+        _sum: {
+          amount: true,
+        },
+      })) as Array<{ transactionId: number; _sum: { amount: number | null } }>;
+
+      const paid = sums[0]?._sum?.amount ?? 0;
+      const gross = (meta?.quantity ?? 0) * (meta?.unitPrice ?? 0);
+      const balance = gross - paid;
+
+      await txDelegates.transaction.update({
+        where: { id: sanitized.transactionId },
+        data: {
+          adjustment: paid,
+          lineTotal: balance,
+        },
+      });
+
+      return createdRow;
     })) as PaymentRow;
 
     logger.info('Transaction payment created', {
