@@ -23,18 +23,17 @@ import { api, ApiError } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import { queryKeys } from '@/lib/queryKeys';
 import { logger } from '@/lib/logger';
+import {
+  isCancelledOrderStatus,
+  normalizeOrderStatus,
+} from '@/lib/transactions/order-status';
 import type {
   Order,
   Transaction,
   CustomerStats,
   TransactionRefund,
 } from '../types';
-import {
-  getStatusColor,
-  getStatusIcon,
-  formatCurrency,
-  formatDate,
-} from '../utils';
+import { formatCurrency, formatDate } from '../utils';
 
 // ============================================================================
 // ORDERS AND TRANSACTIONS TABS
@@ -50,9 +49,9 @@ interface OrdersAndTransactionsProps {
 
 export const OrdersAndTransactions = memo(function OrdersAndTransactions({
   customerId,
-  orders,
+  orders: _orders,
   transactions,
-  stats,
+  stats: _stats,
   apiBasePath,
 }: OrdersAndTransactionsProps) {
   const queryClient = useQueryClient();
@@ -254,6 +253,111 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
     await deleteRefundMutation.mutateAsync(refund.id);
   };
 
+  const shippedTransactions = useMemo(() => {
+    return transactions.filter((transaction) => {
+      const status = normalizeOrderStatus(transaction.orderStatus);
+      return status === 'shipped' || status === 'delivered';
+    });
+  }, [transactions]);
+
+  const cancelledTransactions = useMemo(() => {
+    return transactions.filter((transaction) => {
+      return isCancelledOrderStatus(transaction.orderStatus);
+    });
+  }, [transactions]);
+
+  const otherTransactions = useMemo(() => {
+    return transactions.filter((transaction) => {
+      const status = normalizeOrderStatus(transaction.orderStatus);
+      if (isCancelledOrderStatus(status)) {
+        return false;
+      }
+      return status !== 'shipped' && status !== 'delivered';
+    });
+  }, [transactions]);
+
+  const otherTransactionsTotal = useMemo(() => {
+    return otherTransactions.reduce((sum, transaction) => {
+      return sum + (transaction.lineTotal ?? 0);
+    }, 0);
+  }, [otherTransactions]);
+
+  const renderTransactionsTable = (rows: Transaction[]) => {
+    if (rows.length === 0) {
+      return (
+        <Text ta="center" c="dimmed" py="xl">
+          No transactions found for this customer
+        </Text>
+      );
+    }
+
+    return (
+      <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+        <Table striped highlightOnHover>
+          <Table.Thead
+            style={{
+              position: 'sticky',
+              top: 0,
+              backgroundColor: 'var(--mantine-color-body)',
+              zIndex: 1,
+            }}
+          >
+            <Table.Tr>
+              <Table.Th>Order Date</Table.Th>
+              <Table.Th>Product Code</Table.Th>
+              <Table.Th>Quantity</Table.Th>
+              <Table.Th>Unit Price</Table.Th>
+              <Table.Th>Line Total</Table.Th>
+              <Table.Th>Status</Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {rows.map((transaction) => (
+              <Table.Tr key={transaction.id}>
+                <Table.Td>
+                  <Text size="sm">{transaction.orderDate || '-'}</Text>
+                </Table.Td>
+                <Table.Td>
+                  <Text size="sm">{transaction.productCode || '-'}</Text>
+                </Table.Td>
+                <Table.Td>
+                  <Text size="sm">{transaction.quantity || 0}</Text>
+                </Table.Td>
+                <Table.Td>
+                  <Text size="sm">
+                    {formatCurrency(transaction.unitPrice || 0)}
+                  </Text>
+                </Table.Td>
+                <Table.Td>
+                  <Text fw={500}>
+                    {formatCurrency(transaction.lineTotal || 0)}
+                  </Text>
+                </Table.Td>
+                <Table.Td>
+                  <Badge
+                    color={
+                      normalizeOrderStatus(transaction.orderStatus) ===
+                        'shipped' ||
+                      normalizeOrderStatus(transaction.orderStatus) ===
+                        'delivered'
+                        ? 'green'
+                        : isCancelledOrderStatus(transaction.orderStatus)
+                          ? 'red'
+                          : 'blue'
+                    }
+                    variant="light"
+                  >
+                    {transaction.orderStatus || 'Pending'}
+                  </Badge>
+                </Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      </div>
+    );
+  };
+
   return (
     <Card
       shadow="sm"
@@ -266,9 +370,9 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
         <Tabs.List grow>
           <Tabs.Tab value="transactions">
             <Stack gap={2} align="center">
-              <Text size="sm">Transactions ({transactions.length})</Text>
+              <Text size="sm">Transactions ({otherTransactions.length})</Text>
               <Text size="xs" c="dimmed">
-                {formatCurrency(stats.totalSpent)} total
+                {formatCurrency(otherTransactionsTotal)} total
               </Text>
             </Stack>
           </Tabs.Tab>
@@ -282,7 +386,7 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
           </Tabs.Tab>
           <Tabs.Tab value="shipped">
             <Stack gap={2} align="center">
-              <Text size="sm">Shipped ({stats.shippedOrders})</Text>
+              <Text size="sm">Shipped ({shippedTransactions.length})</Text>
               <Text size="xs" c="dimmed">
                 Orders in transit
               </Text>
@@ -290,7 +394,7 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
           </Tabs.Tab>
           <Tabs.Tab value="cancelled">
             <Stack gap={2} align="center">
-              <Text size="sm">Cancelled ({stats.cancelledOrders})</Text>
+              <Text size="sm">Cancelled ({cancelledTransactions.length})</Text>
               <Text size="xs" c="dimmed">
                 Cancelled orders
               </Text>
@@ -300,79 +404,7 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
 
         {/* Transactions Tab */}
         <Tabs.Panel value="transactions" pt="md">
-          {transactions.length === 0 ? (
-            <Text ta="center" c="dimmed" py="xl">
-              No transactions found for this customer
-            </Text>
-          ) : (
-            <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-              <Table striped highlightOnHover>
-                <Table.Thead
-                  style={{
-                    position: 'sticky',
-                    top: 0,
-                    backgroundColor: 'var(--mantine-color-body)',
-                    zIndex: 1,
-                  }}
-                >
-                  <Table.Tr>
-                    <Table.Th>Order Date</Table.Th>
-                    <Table.Th>Product Code</Table.Th>
-                    <Table.Th>Quantity</Table.Th>
-                    <Table.Th>Unit Price</Table.Th>
-                    <Table.Th>Line Total</Table.Th>
-                    <Table.Th>Status</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {transactions.map((transaction) => (
-                    <Table.Tr key={transaction.id}>
-                      <Table.Td>
-                        <Text size="sm">{transaction.orderDate || '-'}</Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm">{transaction.productCode || '-'}</Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm">{transaction.quantity || 0}</Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm">
-                          {formatCurrency(transaction.unitPrice || 0)}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text fw={500}>
-                          {formatCurrency(transaction.lineTotal || 0)}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Badge
-                          color={
-                            transaction.orderStatus
-                              ?.toLowerCase()
-                              .includes('shipped') ||
-                            transaction.orderStatus
-                              ?.toLowerCase()
-                              .includes('delivered')
-                              ? 'green'
-                              : transaction.orderStatus
-                                    ?.toLowerCase()
-                                    .includes('cancel')
-                                ? 'red'
-                                : 'blue'
-                          }
-                          variant="light"
-                        >
-                          {transaction.orderStatus || 'Pending'}
-                        </Badge>
-                      </Table.Td>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-            </div>
-          )}
+          {renderTransactionsTable(otherTransactions)}
         </Tabs.Panel>
 
         {/* Return/Refund Tab */}
@@ -596,155 +628,12 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
 
         {/* Shipped Tab */}
         <Tabs.Panel value="shipped" pt="md">
-          {orders.filter((order) => order.status === 'shipped').length === 0 ? (
-            <Text ta="center" c="dimmed" py="xl">
-              No shipped orders found for this customer
-            </Text>
-          ) : (
-            <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-              <Table striped highlightOnHover>
-                <Table.Thead
-                  style={{
-                    position: 'sticky',
-                    top: 0,
-                    backgroundColor: 'var(--mantine-color-body)',
-                    zIndex: 1,
-                  }}
-                >
-                  <Table.Tr>
-                    <Table.Th>Order #</Table.Th>
-                    <Table.Th>Date</Table.Th>
-                    <Table.Th>Status</Table.Th>
-                    <Table.Th>Amount</Table.Th>
-                    <Table.Th>Items</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {orders
-                    .filter((order) => order.status === 'shipped')
-                    .map((order) => (
-                      <Table.Tr key={order.id}>
-                        <Table.Td>
-                          <Text fw={500}>{order.orderNumber}</Text>
-                          {order.notes && (
-                            <Text size="xs" c="dimmed" truncate="end" maw={200}>
-                              {order.notes}
-                            </Text>
-                          )}
-                        </Table.Td>
-                        <Table.Td>
-                          <Text size="sm">{formatDate(order.orderDate)}</Text>
-                        </Table.Td>
-                        <Table.Td>
-                          <Badge
-                            color={getStatusColor(order.status)}
-                            leftSection={getStatusIcon(order.status)}
-                            variant="light"
-                          >
-                            {order.status}
-                          </Badge>
-                        </Table.Td>
-                        <Table.Td>
-                          <Text fw={500}>
-                            {formatCurrency(order.totalAmount)}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td>
-                          <Text size="sm">
-                            {order.items.length} item
-                            {order.items.length !== 1 ? 's' : ''}
-                          </Text>
-                          {order.items.length > 0 && (
-                            <Text size="xs" c="dimmed" truncate="end" maw={150}>
-                              {order.items[0].productName}
-                              {order.items.length > 1 &&
-                                ` +${order.items.length - 1} more`}
-                            </Text>
-                          )}
-                        </Table.Td>
-                      </Table.Tr>
-                    ))}
-                </Table.Tbody>
-              </Table>
-            </div>
-          )}
+          {renderTransactionsTable(shippedTransactions)}
         </Tabs.Panel>
 
         {/* Cancelled Tab */}
         <Tabs.Panel value="cancelled" pt="md">
-          {orders.filter((order) => order.status === 'cancelled').length ===
-          0 ? (
-            <Text ta="center" c="dimmed" py="xl">
-              No cancelled orders found for this customer
-            </Text>
-          ) : (
-            <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-              <Table striped highlightOnHover>
-                <Table.Thead
-                  style={{
-                    position: 'sticky',
-                    top: 0,
-                    backgroundColor: 'var(--mantine-color-body)',
-                    zIndex: 1,
-                  }}
-                >
-                  <Table.Tr>
-                    <Table.Th>Order #</Table.Th>
-                    <Table.Th>Date</Table.Th>
-                    <Table.Th>Status</Table.Th>
-                    <Table.Th>Amount</Table.Th>
-                    <Table.Th>Items</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {orders
-                    .filter((order) => order.status === 'cancelled')
-                    .map((order) => (
-                      <Table.Tr key={order.id}>
-                        <Table.Td>
-                          <Text fw={500}>{order.orderNumber}</Text>
-                          {order.notes && (
-                            <Text size="xs" c="dimmed" truncate="end" maw={200}>
-                              {order.notes}
-                            </Text>
-                          )}
-                        </Table.Td>
-                        <Table.Td>
-                          <Text size="sm">{formatDate(order.orderDate)}</Text>
-                        </Table.Td>
-                        <Table.Td>
-                          <Badge
-                            color={getStatusColor(order.status)}
-                            leftSection={getStatusIcon(order.status)}
-                            variant="light"
-                          >
-                            {order.status}
-                          </Badge>
-                        </Table.Td>
-                        <Table.Td>
-                          <Text fw={500} c="red">
-                            {formatCurrency(order.totalAmount)}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td>
-                          <Text size="sm">
-                            {order.items.length} item
-                            {order.items.length !== 1 ? 's' : ''}
-                          </Text>
-                          {order.items.length > 0 && (
-                            <Text size="xs" c="dimmed" truncate="end" maw={150}>
-                              {order.items[0].productName}
-                              {order.items.length > 1 &&
-                                ` +${order.items.length - 1} more`}
-                            </Text>
-                          )}
-                        </Table.Td>
-                      </Table.Tr>
-                    ))}
-                </Table.Tbody>
-              </Table>
-            </div>
-          )}
+          {renderTransactionsTable(cancelledTransactions)}
         </Tabs.Panel>
       </Tabs>
     </Card>

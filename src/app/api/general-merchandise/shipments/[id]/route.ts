@@ -10,7 +10,52 @@ import { postExpenseForShipment } from '@/modules/shipments/api/expenses';
 const gmPrisma = prisma as unknown as {
   generalMerchandiseShipment: typeof prisma.shipment;
   generalMerchandiseProduct: typeof prisma.product;
+  generalMerchandiseTransaction: typeof prisma.transaction;
 };
+
+function getOrderStatusFromShipmentStatus(
+  shipmentStatus: string
+): 'In Transit' | 'Warehouse' {
+  // IMPORTANT: For Pickup / Sorting / Delivered MUST map to "Warehouse".
+  // Do not change this mapping without explicit business approval.
+  const normalized = (shipmentStatus ?? '').trim().toLowerCase();
+
+  if (!normalized) {
+    return 'In Transit';
+  }
+
+  const inTransitStatuses = new Set([
+    'in transit',
+    'manila port',
+    'with pier gatepass',
+    'ph warehouse',
+  ]);
+
+  const warehouseStatuses = new Set([
+    'for pickup',
+    'pickup',
+    'sorting',
+    'delivered',
+  ]);
+
+  if (warehouseStatuses.has(normalized)) {
+    return 'Warehouse';
+  }
+
+  if (inTransitStatuses.has(normalized)) {
+    return 'In Transit';
+  }
+
+  // Preserve existing ops behavior: unknown shipment statuses treated as in-transit.
+  logger.warn(
+    'Unknown shipment status; defaulting transaction status to In Transit',
+    {
+      shipmentStatus,
+    }
+  );
+
+  return 'In Transit';
+}
 
 // Helper function to convert database model to frontend interface
 function convertShipmentDBToData(shipment: ShipmentDB): ShipmentData {
@@ -165,6 +210,65 @@ export const PUT = withErrorHandler<RouteContext>(
         `GM updated products with shipment code: ${currentShipment.shipmentCode}`,
         `Updated fields: cvNumber, noOfSacks, totalCBM, weight, shipmentStatus`
       );
+
+      // Keep GM Transactions order status in sync with Shipment status.
+      // Only update auto-managed statuses (blank / In Transit / Warehouse) to avoid overriding manual progress.
+      const nextOrderStatus = getOrderStatusFromShipmentStatus(
+        shipmentData.shipmentStatus
+      );
+
+      const productsForShipment =
+        await gmPrisma.generalMerchandiseProduct.findMany({
+          where: {
+            shipmentCode: currentShipment.shipmentCode,
+          },
+          select: {
+            productCode: true,
+          },
+        });
+
+      const productCodes = productsForShipment
+        .map((product) => product.productCode)
+        .filter((code): code is string => Boolean(code));
+
+      const updateResult =
+        await gmPrisma.generalMerchandiseTransaction.updateMany({
+          where: {
+            deletedAt: null,
+            AND: [
+              {
+                OR: [
+                  { shipmentCode: currentShipment.shipmentCode },
+                  ...(productCodes.length > 0
+                    ? [{ productCode: { in: productCodes } }]
+                    : []),
+                ],
+              },
+              {
+                OR: [
+                  { orderStatus: null },
+                  { orderStatus: '' },
+                  {
+                    orderStatus: { equals: 'In Transit', mode: 'insensitive' },
+                  },
+                  { orderStatus: { equals: 'Warehouse', mode: 'insensitive' } },
+                ],
+              },
+            ],
+          },
+          data: {
+            orderStatus: nextOrderStatus,
+          },
+        });
+
+      if (updateResult.count > 0) {
+        logger.info('Synced GM transaction orderStatus from shipment status', {
+          shipmentCode: currentShipment.shipmentCode,
+          shipmentStatus: shipmentData.shipmentStatus,
+          orderStatus: nextOrderStatus,
+          updatedCount: updateResult.count,
+        });
+      }
     }
 
     await postExpenseForShipment(updatedShipment as ShipmentDB);

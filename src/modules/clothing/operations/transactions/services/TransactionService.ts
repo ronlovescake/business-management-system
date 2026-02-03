@@ -400,9 +400,17 @@ export class TransactionService {
 
       const currentOrderStatus = transaction['Order Status'] || '';
 
-      // Only auto-populate if order status is blank or "In Transit"
-      // Don't overwrite manual statuses
-      if (currentOrderStatus !== '' && currentOrderStatus !== 'In Transit') {
+      const normalizedCurrentOrderStatus =
+        normalizeOrderStatus(currentOrderStatus);
+
+      const isAutoStatus =
+        normalizedCurrentOrderStatus === '' ||
+        normalizedCurrentOrderStatus === 'in transit' ||
+        normalizedCurrentOrderStatus === 'warehouse';
+
+      // Only auto-populate if order status is blank / In Transit / Warehouse.
+      // Don't overwrite manual statuses (e.g. Shipped, Cancelled, Prepared, etc.)
+      if (!isAutoStatus) {
         return transaction;
       }
 
@@ -415,7 +423,10 @@ export class TransactionService {
         ? this.getOrderStatusFromShipmentStatus(currentShipmentStatus)
         : 'In Transit';
 
-      if (currentOrderStatus !== newOrderStatus) {
+      if (
+        normalizeOrderStatus(currentOrderStatus) !==
+        normalizeOrderStatus(newOrderStatus)
+      ) {
         updatedCount++;
         logger.debug(
           `Syncing transaction: ${productCode} -> ${currentOrderStatus} to ${newOrderStatus} (shipment status: ${currentShipmentStatus || 'none'})`
