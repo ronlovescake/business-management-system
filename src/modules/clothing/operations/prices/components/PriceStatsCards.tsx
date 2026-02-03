@@ -5,6 +5,7 @@ import {
   IconTrendingUp,
   IconTrendingDown,
 } from '@tabler/icons-react';
+import { formatNumber } from '@/lib/formatters';
 import type { PriceStats } from '../types/price.types';
 
 interface PriceStatsCardsProps {
@@ -26,7 +27,7 @@ export function PriceStatsCards({ stats }: PriceStatsCardsProps) {
       },
       {
         title: 'Average Price',
-        value: `₱${stats.avgPrice.toLocaleString()}`,
+        value: `₱${formatNumber(stats.avgPrice)}`,
         icon: <IconTrendingUp size={20} stroke={1.6} />,
         color: 'green',
         backgroundColor: 'var(--mantine-color-green-6)',

@@ -1,6 +1,7 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { Prisma } from '@prisma/client';
+import { mockLogger } from '@/core/testing/test-helpers';
 
 // Helper to create Prisma error
 const createPrismaError = (code: string, message: string) => {
@@ -31,10 +32,7 @@ vi.mock('@/lib/db', () => ({
 
 // Mock logger
 vi.mock('@/lib/logger', () => ({
-  logger: {
-    error: vi.fn(),
-    info: vi.fn(),
-  },
+  logger: mockLogger,
 }));
 
 // Mock sanitizers

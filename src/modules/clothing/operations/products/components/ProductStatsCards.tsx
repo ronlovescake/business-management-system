@@ -12,6 +12,7 @@ import {
   IconTrendingUp,
   IconAdjustments,
 } from '@tabler/icons-react';
+import { formatNumber } from '@/lib/formatters';
 import type { ProductStatistics } from '../types/product.types';
 
 interface ProductStatsCardsProps {
@@ -30,21 +31,21 @@ export function ProductStatsCards({ statistics }: ProductStatsCardsProps) {
       },
       {
         title: 'Total Value',
-        value: `₱${statistics.totalValue.toLocaleString()}`,
+        value: `₱${formatNumber(statistics.totalValue)}`,
         icon: <IconTrendingUp size={20} stroke={1.6} />,
         color: 'green',
         backgroundColor: 'var(--mantine-color-green-6)',
       },
       {
         title: 'Average Value',
-        value: `₱${statistics.avgValue.toLocaleString()}`,
+        value: `₱${formatNumber(statistics.avgValue)}`,
         icon: <IconAdjustments size={20} stroke={1.6} />,
         color: 'orange',
         backgroundColor: '#fd7e14',
       },
       {
         title: 'Total Profit',
-        value: `₱${statistics.totalProfit.toLocaleString()}`,
+        value: `₱${formatNumber(statistics.totalProfit)}`,
         icon: <IconTrendingUp size={20} stroke={1.6} />,
         color: 'purple',
         backgroundColor: '#9775fa',

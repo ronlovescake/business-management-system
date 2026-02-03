@@ -102,28 +102,3 @@ export function calculateProductFinancials(
     weightPerPiece,
   };
 }
-
-/**
- * Format currency value for display
- *
- * @param value - Number to format
- * @param decimals - Number of decimal places (default: 2)
- * @returns Formatted string
- */
-export function formatCurrency(value: number, decimals: number = 2): string {
-  return value.toLocaleString('en-US', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-}
-
-/**
- * Format percentage value for display
- *
- * @param value - Number to format as percentage
- * @param decimals - Number of decimal places (default: 2)
- * @returns Formatted string with % symbol
- */
-export function formatPercentage(value: number, decimals: number = 2): string {
-  return `${value.toFixed(decimals)}%`;
-}

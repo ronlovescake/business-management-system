@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { NextRequest } from 'next/server';
+import { mockLogger } from '@/core/testing/test-helpers';
 
 const { mockPrisma } = vi.hoisted(() => {
   return {
@@ -21,9 +22,7 @@ vi.mock('@/lib/db', () => ({
 }));
 
 vi.mock('@/lib/logger', () => ({
-  logger: {
-    error: vi.fn(),
-  },
+  logger: mockLogger,
 }));
 
 import { POST } from '@/app/api/attendance/apply-leave/route';
@@ -31,6 +30,7 @@ import { POST } from '@/app/api/attendance/apply-leave/route';
 describe('Attendance Apply Leave API', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useRealTimers();
     // Mock current date to Oct 22, 2025 for consistent date filtering
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-10-22T08:00:00.000Z'));

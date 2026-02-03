@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { NextRequest } from 'next/server';
+import { mockLogger } from '@/core/testing/test-helpers';
 
 import type { POST as GeneratePayslipsPOST } from '@/app/api/payroll/generate-payslips/route';
 
@@ -17,7 +18,6 @@ const {
   mockRegisterHelper,
   mockCompile,
   mockTemplate,
-  mockLogger,
 } = vi.hoisted(() => {
   const mockPage = {
     emulateMedia: vi.fn().mockResolvedValue(undefined),
@@ -58,12 +58,6 @@ const {
   const mockTemplate = vi.fn().mockReturnValue('<html>payslip</html>');
   const mockCompile = vi.fn().mockReturnValue(mockTemplate);
 
-  const mockLogger = {
-    warn: vi.fn(),
-    error: vi.fn(),
-    info: vi.fn(),
-  };
-
   return {
     mockPrisma,
     mockLaunch,
@@ -76,7 +70,6 @@ const {
     mockRegisterHelper,
     mockCompile,
     mockTemplate,
-    mockLogger,
   };
 });
 

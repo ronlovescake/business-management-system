@@ -17,28 +17,15 @@
  */
 
 import { IconReceipt } from '@tabler/icons-react';
-import type { ModuleConfig } from '@/core/ModuleRegistry';
+import { createOperationsModuleConfig } from '@/modules/shared/operations/moduleConfig';
 
-export const transactionsModule: ModuleConfig = {
+export const transactionsModule = createOperationsModuleConfig({
   id: 'clothing-transactions',
   name: 'Transactions',
-  version: '1.0.0',
-  enabled: true,
-
-  navigation: [
-    {
-      label: 'Transactions',
-      path: '/clothing/operations/transactions',
-      icon: IconReceipt as unknown as React.FC<{
-        size?: number;
-        stroke?: number;
-      }>,
-      order: 1,
-      business: ['clothing'],
-      workspace: ['operations'],
-    },
-  ],
-
+  path: '/clothing/operations/transactions',
+  icon: IconReceipt,
+  order: 1,
+  business: ['clothing'],
   routes: [
     {
       path: '/clothing/operations/transactions',
@@ -51,12 +38,10 @@ export const transactionsModule: ModuleConfig = {
       protected: true,
     },
   ],
-
   permissions: ['admin', 'manager', 'operations', 'finance'],
-
   metadata: {
     description:
       'Manage transactions with invoice generation, packing lists, and distribution slips',
     tags: ['transactions', 'invoices', 'orders', 'critical', 'operations'],
   },
-};
+});

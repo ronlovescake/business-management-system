@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { logger } from '@/lib/logger';
+import { ApiResponseUtil } from '@/core/api/response';
 import {
   createMessageTemplate,
   getMessageTemplatesFromDb,
@@ -14,7 +15,7 @@ export const fetchCache = 'default-no-store';
 export async function GET() {
   try {
     const templates = await getMessageTemplatesFromDb();
-    return NextResponse.json({ success: true, data: templates });
+    return ApiResponseUtil.success(templates);
   } catch (error) {
     logger.error('Failed to load message templates', error);
     return NextResponse.json(
@@ -77,7 +78,7 @@ export async function PUT(request: NextRequest) {
       paragraphs: sanitizedParagraphs,
     });
 
-    return NextResponse.json({ success: true, data: template });
+    return ApiResponseUtil.success(template);
   } catch (error) {
     logger.error('Failed to update template', error);
     return NextResponse.json(
@@ -132,10 +133,7 @@ export async function POST(request: NextRequest) {
       paragraphs: sanitizedParagraphs,
     });
 
-    return NextResponse.json(
-      { success: true, data: template },
-      { status: 201 }
-    );
+    return ApiResponseUtil.success(template, undefined, 201);
   } catch (error) {
     logger.error('Failed to create template', error);
     return NextResponse.json(

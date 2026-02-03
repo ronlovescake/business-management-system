@@ -3,13 +3,10 @@ import { NextRequest } from 'next/server';
 import { GET, POST } from '@/app/api/customers/[id]/orders/route';
 import { getTestApiUrl } from '@/core/testing/test-helpers';
 
-vi.mock('@/lib/logger', () => ({
-  logger: {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  },
-}));
+vi.mock('@/lib/logger', async () => {
+  const { mockLogger } = await import('@/core/testing/test-helpers');
+  return { logger: mockLogger };
+});
 
 describe('Customer Orders API Routes', () => {
   beforeEach(() => {

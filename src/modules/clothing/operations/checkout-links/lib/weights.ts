@@ -1,7 +1,8 @@
 import type { ProductData } from '../../products/types/product.types';
 import type { ItemWeightData } from '../types';
+import { formatNumber } from '@/lib/formatters';
 
-const formatNumber = (value: number | undefined | null): number => {
+const normalizeNumber = (value: number | undefined | null): number => {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
   }
@@ -9,25 +10,25 @@ const formatNumber = (value: number | undefined | null): number => {
 };
 
 export const formatWeightValue = (value: number | undefined | null): string => {
-  const numeric = formatNumber(value);
-  return numeric.toLocaleString('en-US', {
+  const numeric = normalizeNumber(value);
+  return formatNumber(numeric, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 };
 
 export const hasWeightData = (product: ProductData): boolean => {
-  const bulkQuantity = formatNumber(product['Bulk Quantity']);
-  const bulkWeight = formatNumber(product['Bulk Weight']);
-  const weightPerPiece = formatNumber(product['Weight Per Piece']);
+  const bulkQuantity = normalizeNumber(product['Bulk Quantity']);
+  const bulkWeight = normalizeNumber(product['Bulk Weight']);
+  const weightPerPiece = normalizeNumber(product['Weight Per Piece']);
   return bulkQuantity > 0 || bulkWeight > 0 || weightPerPiece > 0;
 };
 
 export const mapProductToItemWeight = (
   product: ProductData
 ): ItemWeightData => {
-  const bulkQuantity = formatNumber(product['Bulk Quantity']);
-  const bulkWeight = formatNumber(product['Bulk Weight']);
+  const bulkQuantity = normalizeNumber(product['Bulk Quantity']);
+  const bulkWeight = normalizeNumber(product['Bulk Weight']);
   const weightPerPieceCandidate = product['Weight Per Piece'];
   const weightPerPiece =
     typeof weightPerPieceCandidate === 'number'

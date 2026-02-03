@@ -17,6 +17,7 @@ import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyl
 import type { AttendanceFormValues, AttendanceStatus } from '../types';
 import { toDate, toISODate } from '@/utils/date';
 import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
+import { ATTENDANCE_STATUS_OPTIONS } from '@/shared/constants/attendance';
 
 interface AttendanceFormDialogProps {
   opened: boolean;
@@ -28,13 +29,6 @@ interface AttendanceFormDialogProps {
   ) => void;
   onSubmit: () => void;
 }
-
-const statusOptions = [
-  { value: 'present', label: 'Present' },
-  { value: 'late', label: 'Late' },
-  { value: 'absent', label: 'Absent' },
-  { value: 'on-leave', label: 'On Leave' },
-];
 
 export const AttendanceFormDialog = memo(function AttendanceFormDialog({
   opened,
@@ -170,7 +164,7 @@ export const AttendanceFormDialog = memo(function AttendanceFormDialog({
 
           <Select
             label="Status"
-            data={statusOptions}
+            data={ATTENDANCE_STATUS_OPTIONS}
             value={formValues.status}
             onChange={handleStatusChange}
             required

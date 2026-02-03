@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import { logger } from '@/lib/logger';
+import { ApiResponseUtil } from '@/core/api/response';
 
 /**
  * POST /api/conversations/[id]/read
@@ -33,7 +34,7 @@ export async function POST(
       },
     });
 
-    return NextResponse.json({ success: true });
+    return ApiResponseUtil.ok();
   } catch (error) {
     logger.error('Error marking conversation as read:', error);
     return NextResponse.json(

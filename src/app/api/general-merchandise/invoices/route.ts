@@ -3,9 +3,9 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { ApiResponseUtil } from '@/core/api/response';
 
 const gmPrisma = prisma as unknown as {
   generalMerchandiseInvoice: typeof prisma.invoice;
@@ -23,13 +23,10 @@ export async function GET() {
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json({ data: invoices });
+    return ApiResponseUtil.success(invoices);
   } catch (error) {
     logger.error('Error fetching GM invoices', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch invoices' },
-      { status: 500 }
-    );
+    return ApiResponseUtil.error('Failed to fetch invoices', 500);
   }
 }
 
@@ -44,9 +41,9 @@ export async function POST(request: NextRequest) {
     const { invoices } = body;
 
     if (!Array.isArray(invoices)) {
-      return NextResponse.json(
-        { error: 'Invalid request: invoices must be an array' },
-        { status: 400 }
+      return ApiResponseUtil.error(
+        'Invalid request: invoices must be an array',
+        400
       );
     }
 
@@ -85,17 +82,13 @@ export async function POST(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json({
-      success: true,
+    return ApiResponseUtil.success({
       count: created.count,
       data: newInvoices,
     });
   } catch (error) {
     logger.error('Error replacing GM invoices', error);
-    return NextResponse.json(
-      { error: 'Failed to replace invoices' },
-      { status: 500 }
-    );
+    return ApiResponseUtil.error('Failed to replace invoices', 500);
   }
 }
 
@@ -110,7 +103,7 @@ export async function PUT(request: NextRequest) {
     const { id, ...data } = body;
 
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 });
+      return ApiResponseUtil.error('ID is required', 400);
     }
 
     const updated = await gmPrisma.generalMerchandiseInvoice.update({
@@ -127,13 +120,10 @@ export async function PUT(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ success: true, data: updated });
+    return ApiResponseUtil.success(updated);
   } catch (error) {
     logger.error('Error updating GM invoice', error);
-    return NextResponse.json(
-      { error: 'Failed to update invoice' },
-      { status: 500 }
-    );
+    return ApiResponseUtil.error('Failed to update invoice', 500);
   }
 }
 
@@ -148,7 +138,7 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 });
+      return ApiResponseUtil.error('ID is required', 400);
     }
 
     await gmPrisma.generalMerchandiseInvoice.update({
@@ -156,12 +146,9 @@ export async function DELETE(request: NextRequest) {
       data: { deletedAt: new Date() },
     });
 
-    return NextResponse.json({ success: true });
+    return ApiResponseUtil.ok();
   } catch (error) {
     logger.error('Error deleting GM invoice', error);
-    return NextResponse.json(
-      { error: 'Failed to delete invoice' },
-      { status: 500 }
-    );
+    return ApiResponseUtil.error('Failed to delete invoice', 500);
   }
 }

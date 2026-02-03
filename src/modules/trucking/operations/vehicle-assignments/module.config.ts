@@ -1,21 +1,13 @@
 import { IconTruckDelivery } from '@tabler/icons-react';
-import type { ModuleConfig, IconComponent } from '@/core/ModuleRegistry';
+import { createOperationsModuleConfig } from '@/modules/shared/operations/moduleConfig';
 
-export const vehicleAssignmentsModule: ModuleConfig = {
+export const vehicleAssignmentsModule = createOperationsModuleConfig({
   id: 'trucking-operations-vehicle-assignments',
   name: 'Vehicle Assignments',
-  version: '1.0.0',
-  enabled: true,
-  navigation: [
-    {
-      label: 'Vehicle Assignments',
-      path: '/trucking/operations/vehicle-assignments',
-      icon: IconTruckDelivery as IconComponent,
-      order: 2,
-      business: ['trucking'],
-      workspace: ['operations'],
-    },
-  ],
+  path: '/trucking/operations/vehicle-assignments',
+  icon: IconTruckDelivery,
+  order: 2,
+  business: ['trucking'],
   routes: [
     {
       path: '/trucking/operations/vehicle-assignments',
@@ -32,4 +24,4 @@ export const vehicleAssignmentsModule: ModuleConfig = {
       'Manage and review vehicle assignment schedules, drivers, and helpers.',
     tags: ['trucking', 'operations', 'assignments', 'scheduling'],
   },
-};
+});

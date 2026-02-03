@@ -3,25 +3,13 @@
  */
 
 import { IconAnchor } from '@tabler/icons-react';
-import type { ModuleConfig } from '@/core/ModuleRegistry';
+import { createOperationsModuleConfig } from '@/modules/shared/operations/moduleConfig';
 
-export const generalMerchandiseShipmentsModule: ModuleConfig = {
+export const generalMerchandiseShipmentsModule = createOperationsModuleConfig({
   id: 'general-merchandise-operations-shipments',
   name: 'Shipments',
-  version: '1.0.0',
-  enabled: true,
-
-  navigation: [
-    {
-      label: 'Shipments',
-      path: '/general-merchandise/operations/shipments',
-      icon: IconAnchor as unknown as React.FC<{
-        size?: number;
-        stroke?: number;
-      }>,
-      order: 6,
-      business: ['general-merchandise'],
-      workspace: ['operations'],
-    },
-  ],
-};
+  path: '/general-merchandise/operations/shipments',
+  icon: IconAnchor,
+  order: 6,
+  business: ['general-merchandise'],
+});

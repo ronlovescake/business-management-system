@@ -1,4 +1,5 @@
 import { Group, Text } from '@mantine/core';
+import { formatNumber } from '@/lib/formatters';
 
 interface ProductsGridFooterProps {
   filteredCount: number;
@@ -19,8 +20,8 @@ export function ProductsGridFooter({
         Showing {filteredCount} of {totalCount} products
       </Text>
       <Text size="sm" c="dimmed">
-        Total Value: ₱{totalValue.toLocaleString()} | Total Profit: ₱
-        {totalProfit.toLocaleString()}
+        Total Value: ₱{formatNumber(totalValue)} | Total Profit: ₱
+        {formatNumber(totalProfit)}
       </Text>
     </Group>
   );

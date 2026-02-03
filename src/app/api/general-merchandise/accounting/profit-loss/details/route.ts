@@ -339,7 +339,21 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   // Derived inventory seed/shrink entries are intentionally excluded.
 
-  rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  rows.sort((a, b) => {
+    const byDate = b.date.localeCompare(a.date);
+    if (byDate !== 0) {
+      return byDate;
+    }
+    const byType = a.type.localeCompare(b.type);
+    if (byType !== 0) {
+      return byType;
+    }
+    const byCategory = a.category.localeCompare(b.category);
+    if (byCategory !== 0) {
+      return byCategory;
+    }
+    return a.id.localeCompare(b.id);
+  });
 
   return ApiResponse.success({
     rows,

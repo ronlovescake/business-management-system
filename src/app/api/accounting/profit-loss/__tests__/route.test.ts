@@ -8,6 +8,9 @@ vi.mock('@/lib/accounting/cutover', () => ({
 
 vi.mock('@/lib/accounting/inventory-cogs', () => ({
   computeCogsTotal: vi.fn().mockResolvedValue(0),
+  computeInventorySeedAndShrinkageTotals: vi
+    .fn()
+    .mockResolvedValue({ seedTotal: 0, shrinkageTotal: 0 }),
 }));
 
 const mockFetchers = vi.hoisted(() => ({

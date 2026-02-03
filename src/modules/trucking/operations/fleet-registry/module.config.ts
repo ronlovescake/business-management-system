@@ -1,21 +1,13 @@
 import { IconTruck } from '@tabler/icons-react';
-import type { ModuleConfig, IconComponent } from '@/core/ModuleRegistry';
+import { createOperationsModuleConfig } from '@/modules/shared/operations/moduleConfig';
 
-export const fleetRegistryModule: ModuleConfig = {
+export const fleetRegistryModule = createOperationsModuleConfig({
   id: 'trucking-operations-fleet-registry',
   name: 'Fleet Registry',
-  version: '1.0.0',
-  enabled: true,
-  navigation: [
-    {
-      label: 'Fleet Registry',
-      path: '/trucking/operations/fleet-registry',
-      icon: IconTruck as IconComponent,
-      order: 3,
-      business: ['trucking'],
-      workspace: ['operations'],
-    },
-  ],
+  path: '/trucking/operations/fleet-registry',
+  icon: IconTruck,
+  order: 3,
+  business: ['trucking'],
   routes: [
     {
       path: '/trucking/operations/fleet-registry',
@@ -31,4 +23,4 @@ export const fleetRegistryModule: ModuleConfig = {
     description: 'Registry of fleet units with statuses, documents, and specs.',
     tags: ['fleet', 'trucking', 'registry', 'operations'],
   },
-};
+});

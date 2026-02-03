@@ -6,6 +6,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { ApiResponseUtil } from '@/core/api/response';
 
 /**
  * GET /api/invoices
@@ -126,7 +127,7 @@ export async function PUT(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ success: true, data: updated });
+    return ApiResponseUtil.success(updated);
   } catch (error) {
     logger.error('Error updating invoice', error);
     return NextResponse.json(
@@ -155,7 +156,7 @@ export async function DELETE(request: NextRequest) {
       data: { deletedAt: new Date() },
     });
 
-    return NextResponse.json({ success: true });
+    return ApiResponseUtil.ok();
   } catch (error) {
     logger.error('Error deleting invoice', error);
     return NextResponse.json(

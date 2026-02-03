@@ -9,6 +9,7 @@ import {
   type GroupProps,
 } from '@mantine/core';
 import type { ThemeIconProps } from '@mantine/core';
+import { formatNumber } from '@/lib/formatters';
 
 export interface StatCard {
   title: string;
@@ -97,7 +98,7 @@ const variantConfigMap: Record<StatsCardVariant, VariantConfig> = {
 
 const formatValue = (value: StatCard['value']): string | number => {
   if (typeof value === 'number') {
-    return value.toLocaleString();
+    return formatNumber(value);
   }
   return value;
 };

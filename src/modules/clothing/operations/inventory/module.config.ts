@@ -5,28 +5,15 @@
  */
 
 import { IconBuildingWarehouse } from '@tabler/icons-react';
-import type { ModuleConfig } from '@/core/ModuleRegistry';
+import { createOperationsModuleConfig } from '@/modules/shared/operations/moduleConfig';
 
-export const inventoryModule: ModuleConfig = {
+export const inventoryModule = createOperationsModuleConfig({
   id: 'clothing-inventory',
   name: 'Inventory',
-  version: '1.0.0',
-  enabled: true,
-
-  navigation: [
-    {
-      label: 'Inventory',
-      path: '/clothing/operations/inventory',
-      icon: IconBuildingWarehouse as unknown as React.FC<{
-        size?: number;
-        stroke?: number;
-      }>,
-      order: 4.2, // After Products (4) and before Sorting Distribution (5)
-      business: ['clothing'],
-      workspace: ['operations'],
-    },
-  ],
-
+  path: '/clothing/operations/inventory',
+  icon: IconBuildingWarehouse,
+  order: 4.2,
+  business: ['clothing'],
   routes: [
     {
       path: '/clothing/operations/inventory',
@@ -37,12 +24,10 @@ export const inventoryModule: ModuleConfig = {
       protected: true,
     },
   ],
-
   permissions: ['admin', 'manager', 'operations'],
-
   metadata: {
     description:
       'Inventory analytics for tracking stock levels, sales, and profitability by product.',
     tags: ['inventory', 'operations', 'stock', 'analytics'],
   },
-};
+});

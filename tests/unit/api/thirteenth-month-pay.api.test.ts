@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { NextRequest } from 'next/server';
 import { Prisma } from '@prisma/client';
-import { mockNextRequest } from '@/core/testing/test-helpers';
+import { mockNextRequest, mockLogger } from '@/core/testing/test-helpers';
 
 // Mock thirteenth month pay service
 const mockThirteenthMonthPayService = vi.hoisted(() => ({
@@ -36,9 +36,7 @@ vi.mock('@/lib/db', () => ({
 }));
 
 vi.mock('@/lib/logger', () => ({
-  logger: {
-    error: vi.fn(),
-  },
+  logger: mockLogger,
 }));
 
 // Mock sanitizers

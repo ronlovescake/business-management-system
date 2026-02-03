@@ -3,25 +3,13 @@
  */
 
 import { IconPackage } from '@tabler/icons-react';
-import type { ModuleConfig } from '@/core/ModuleRegistry';
+import { createOperationsModuleConfig } from '@/modules/shared/operations/moduleConfig';
 
-export const generalMerchandiseProductsModule: ModuleConfig = {
+export const generalMerchandiseProductsModule = createOperationsModuleConfig({
   id: 'general-merchandise-products',
   name: 'Products',
-  version: '1.0.0',
-  enabled: true,
-
-  navigation: [
-    {
-      label: 'Products',
-      path: '/general-merchandise/operations/products',
-      icon: IconPackage as unknown as React.FC<{
-        size?: number;
-        stroke?: number;
-      }>,
-      order: 4,
-      business: ['general-merchandise'],
-      workspace: ['operations'],
-    },
-  ],
-};
+  path: '/general-merchandise/operations/products',
+  icon: IconPackage,
+  order: 4,
+  business: ['general-merchandise'],
+});

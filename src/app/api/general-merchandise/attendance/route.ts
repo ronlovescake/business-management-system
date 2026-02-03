@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { ApiResponseUtil } from '@/core/api/response';
 import { sanitizers } from '@/lib/security/sanitize';
 import {
   validateAttendance,
@@ -76,16 +76,13 @@ export async function GET(request: NextRequest) {
       orderBy: [{ date: 'desc' }, { employeeName: 'asc' }],
     });
 
-    return NextResponse.json(attendance);
+    return ApiResponseUtil.success(attendance);
   } catch (error) {
     logger.error('Failed to fetch GM attendance records', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
 
-    return NextResponse.json(
-      { error: 'Failed to fetch attendance records' },
-      { status: 500 }
-    );
+    return ApiResponseUtil.error('Failed to fetch attendance records', 500);
   }
 }
 
@@ -95,14 +92,14 @@ export async function POST(request: NextRequest) {
 
     if (Array.isArray(body)) {
       if (body.length > 10000) {
-        return NextResponse.json(
+        return ApiResponseUtil.error(
+          'Batch size limit exceeded',
+          413,
+          `You are trying to import ${body.length} records. Maximum is 10,000 records per import.`,
           {
-            error: 'Batch size limit exceeded',
-            details: `You are trying to import ${body.length} records. Maximum is 10,000 records per import.`,
             suggestion:
               'Please split your import into smaller batches of 10,000 records or less.',
-          },
-          { status: 413 }
+          }
         );
       }
 
@@ -131,14 +128,17 @@ export async function POST(request: NextRequest) {
       }
 
       if (validationErrors.length > 0) {
-        return NextResponse.json(
+        return ApiResponseUtil.error(
+          'Validation failed for multiple records',
+          400,
+          undefined,
           {
-            error: 'Validation failed for multiple records',
-            details: validationErrors,
-            validCount: validatedRecords.length,
-            invalidCount: validationErrors.length,
-          },
-          { status: 400 }
+            meta: {
+              details: validationErrors,
+              validCount: validatedRecords.length,
+              invalidCount: validationErrors.length,
+            },
+          }
         );
       }
 
@@ -158,15 +158,15 @@ export async function POST(request: NextRequest) {
         );
 
         if (missingIds.length > 0) {
-          return NextResponse.json(
+          return ApiResponseUtil.error(
+            'Referenced employees not found',
+            409,
+            `The following employee IDs do not exist: ${missingIds.join(', ')}`,
             {
-              error: 'Referenced employees not found',
-              details: `The following employee IDs do not exist: ${missingIds.join(', ')}`,
-              missingEmployeeIds: missingIds,
               suggestion:
                 'Please ensure all employees exist before importing attendance records',
-            },
-            { status: 409 }
+              meta: { missingEmployeeIds: missingIds },
+            }
           );
         }
       }
@@ -183,22 +183,17 @@ export async function POST(request: NextRequest) {
         count: records.length,
       });
 
-      return NextResponse.json({
-        success: true,
+      return ApiResponseUtil.success({
         count: records.length,
-        records: records,
+        records,
       });
     }
 
     const validation = validateAttendance(body);
     if (!validation.success) {
-      return NextResponse.json(
-        {
-          error: 'Validation failed',
-          details: formatValidationErrors(validation.error),
-        },
-        { status: 400 }
-      );
+      return ApiResponseUtil.error('Validation failed', 400, undefined, {
+        validationErrors: formatValidationErrors(validation.error),
+      });
     }
 
     const validatedData = validation.data;
@@ -212,12 +207,10 @@ export async function POST(request: NextRequest) {
       });
 
       if (!employee) {
-        return NextResponse.json(
-          {
-            error: 'Employee not found',
-            details: `Employee ID ${validatedData.employeeId} does not exist`,
-          },
-          { status: 409 }
+        return ApiResponseUtil.error(
+          'Employee not found',
+          409,
+          `Employee ID ${validatedData.employeeId} does not exist`
         );
       }
     }
@@ -226,16 +219,13 @@ export async function POST(request: NextRequest) {
       data: validatedData as Prisma.AttendanceCreateInput,
     });
 
-    return NextResponse.json(record, { status: 201 });
+    return ApiResponseUtil.success(record, undefined, 201);
   } catch (error) {
     logger.error('Failed to create GM attendance record', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
 
-    return NextResponse.json(
-      { error: 'Failed to create attendance record' },
-      { status: 500 }
-    );
+    return ApiResponseUtil.error('Failed to create attendance record', 500);
   }
 }
 
@@ -246,21 +236,14 @@ export async function PATCH(request: NextRequest) {
     const id = typeof body?.id === 'string' ? body.id : '';
 
     if (!id) {
-      return NextResponse.json(
-        { error: 'Attendance ID is required' },
-        { status: 400 }
-      );
+      return ApiResponseUtil.error('Attendance ID is required', 400);
     }
 
     const validation = validateAttendanceUpdate(body);
     if (!validation.success) {
-      return NextResponse.json(
-        {
-          error: 'Validation failed',
-          details: formatValidationErrors(validation.error),
-        },
-        { status: 400 }
-      );
+      return ApiResponseUtil.error('Validation failed', 400, undefined, {
+        validationErrors: formatValidationErrors(validation.error),
+      });
     }
 
     const updates = validation.data;
@@ -270,16 +253,13 @@ export async function PATCH(request: NextRequest) {
       data: updates as Prisma.AttendanceUpdateInput,
     });
 
-    return NextResponse.json(record);
+    return ApiResponseUtil.success(record);
   } catch (error) {
     logger.error('Failed to update GM attendance record', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
 
-    return NextResponse.json(
-      { error: 'Failed to update attendance record' },
-      { status: 500 }
-    );
+    return ApiResponseUtil.error('Failed to update attendance record', 500);
   }
 }
 
@@ -289,10 +269,7 @@ export async function DELETE(request: NextRequest) {
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json(
-        { error: 'Attendance ID is required' },
-        { status: 400 }
-      );
+      return ApiResponseUtil.error('Attendance ID is required', 400);
     }
 
     await gmPrisma.generalMerchandiseAttendance.update({
@@ -300,15 +277,12 @@ export async function DELETE(request: NextRequest) {
       data: { deletedAt: new Date() },
     });
 
-    return NextResponse.json({ success: true });
+    return ApiResponseUtil.ok();
   } catch (error) {
     logger.error('Failed to delete GM attendance record', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
 
-    return NextResponse.json(
-      { error: 'Failed to delete attendance record' },
-      { status: 500 }
-    );
+    return ApiResponseUtil.error('Failed to delete attendance record', 500);
   }
 }

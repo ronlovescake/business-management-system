@@ -10,6 +10,7 @@
 
 import { useState } from 'react';
 import { useBatchImport } from '@/hooks/useBatchImport';
+import { formatNumber } from '@/lib/formatters';
 
 interface TransactionImport extends Record<string, unknown> {
   'Order Date': string;
@@ -95,7 +96,7 @@ export function TransactionImportExample() {
         />
         {records.length > 0 && (
           <p className="mt-2 text-sm text-gray-600">
-            Loaded {records.length.toLocaleString()} records
+            Loaded {formatNumber(records.length)} records
           </p>
         )}
       </div>
@@ -154,7 +155,7 @@ export function TransactionImportExample() {
             <div className="p-3 bg-white rounded border">
               <p className="text-sm text-gray-600">Total Records</p>
               <p className="text-2xl font-bold">
-                {result.totalRecords.toLocaleString()}
+                {formatNumber(result.totalRecords)}
               </p>
             </div>
 
@@ -168,7 +169,7 @@ export function TransactionImportExample() {
             <div className="p-3 bg-green-50 rounded border border-green-200">
               <p className="text-sm text-green-700">✅ Successful</p>
               <p className="text-2xl font-bold text-green-800">
-                {result.summary.recordsImported.toLocaleString()}
+                {formatNumber(result.summary.recordsImported)}
               </p>
               <p className="text-xs text-green-600">
                 {result.summary.successfulBatches} batches
@@ -178,7 +179,7 @@ export function TransactionImportExample() {
             <div className="p-3 bg-red-50 rounded border border-red-200">
               <p className="text-sm text-red-700">❌ Failed</p>
               <p className="text-2xl font-bold text-red-800">
-                {result.summary.recordsFailed.toLocaleString()}
+                {formatNumber(result.summary.recordsFailed)}
               </p>
               <p className="text-xs text-red-600">
                 {result.summary.failedBatches} batches

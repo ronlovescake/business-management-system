@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { ApiResponseUtil } from '@/core/api/response';
 
 type MultipliersPayload = Record<string, number>;
 
@@ -27,10 +27,7 @@ export async function GET(request: NextRequest) {
     const shipmentCode = searchParams.get('shipmentCode');
 
     if (!shipmentCode) {
-      return NextResponse.json(
-        { error: 'Shipment code is required' },
-        { status: 400 }
-      );
+      return ApiResponseUtil.error('Shipment code is required', 400);
     }
 
     const record = await prisma.shippingFeeCalculatorState.findUnique({
@@ -40,24 +37,22 @@ export async function GET(request: NextRequest) {
     });
 
     if (!record || record.deletedAt) {
-      return NextResponse.json({ data: null });
+      return ApiResponseUtil.success(null);
     }
 
-    return NextResponse.json({
-      data: {
-        id: record.id,
-        shipmentCode: record.shipmentCode,
-        actualAlibabaShipping: record.actualAlibabaShipping,
-        actualForwardersFee: record.actualForwardersFee,
-        actualLalamove: record.actualLalamove,
-        multipliers: (record.multipliers as MultipliersPayload) || {},
-        createdAt: record.createdAt,
-        updatedAt: record.updatedAt,
-      },
+    return ApiResponseUtil.success({
+      id: record.id,
+      shipmentCode: record.shipmentCode,
+      actualAlibabaShipping: record.actualAlibabaShipping,
+      actualForwardersFee: record.actualForwardersFee,
+      actualLalamove: record.actualLalamove,
+      multipliers: (record.multipliers as MultipliersPayload) || {},
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
     });
   } catch (error) {
     logger.error('Error loading shipping fee calculator data:', error);
-    return NextResponse.json({ error: 'Failed to load data' }, { status: 500 });
+    return ApiResponseUtil.error('Failed to load data', 500);
   }
 }
 
@@ -70,19 +65,13 @@ export async function POST(request: NextRequest) {
     const { shipmentCode, multipliers, actualInputs } = body ?? {};
 
     if (!shipmentCode || !actualInputs) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
+      return ApiResponseUtil.error('Missing required fields', 400);
     }
 
     const trimmedShipmentCode = String(shipmentCode).trim();
 
     if (!trimmedShipmentCode) {
-      return NextResponse.json(
-        { error: 'Shipment code is required' },
-        { status: 400 }
-      );
+      return ApiResponseUtil.error('Shipment code is required', 400);
     }
 
     const toNumber = (value: unknown): number => {
@@ -129,9 +118,9 @@ export async function POST(request: NextRequest) {
       update: payload,
     });
 
-    return NextResponse.json({ success: true });
+    return ApiResponseUtil.ok();
   } catch (error) {
     logger.error('Error saving shipping fee calculator data:', error);
-    return NextResponse.json({ error: 'Failed to save data' }, { status: 500 });
+    return ApiResponseUtil.error('Failed to save data', 500);
   }
 }

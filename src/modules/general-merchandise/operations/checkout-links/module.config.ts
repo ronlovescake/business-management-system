@@ -3,25 +3,14 @@
  */
 
 import { IconLink } from '@tabler/icons-react';
-import type { ModuleConfig } from '@/core/ModuleRegistry';
+import { createOperationsModuleConfig } from '@/modules/shared/operations/moduleConfig';
 
-export const generalMerchandiseCheckoutLinksModule: ModuleConfig = {
-  id: 'general-merchandise-checkout-links',
-  name: 'Invoicing',
-  version: '1.0.0',
-  enabled: true,
-
-  navigation: [
-    {
-      label: 'Invoicing',
-      path: '/general-merchandise/operations/checkout-links',
-      icon: IconLink as unknown as React.FC<{
-        size?: number;
-        stroke?: number;
-      }>,
-      order: 8,
-      business: ['general-merchandise'],
-      workspace: ['operations'],
-    },
-  ],
-};
+export const generalMerchandiseCheckoutLinksModule =
+  createOperationsModuleConfig({
+    id: 'general-merchandise-checkout-links',
+    name: 'Invoicing',
+    path: '/general-merchandise/operations/checkout-links',
+    icon: IconLink,
+    order: 8,
+    business: ['general-merchandise'],
+  });

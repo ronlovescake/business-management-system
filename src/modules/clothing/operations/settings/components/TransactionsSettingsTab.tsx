@@ -23,6 +23,7 @@ import {
 import { IconDeviceFloppy } from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
 import { logger } from '@/lib/logger';
+import { formatDateTime } from '@/lib/formatters';
 import Swal from 'sweetalert2';
 
 interface TransactionsSettings {
@@ -351,7 +352,7 @@ export function TransactionsSettingsTab() {
           {settings && (
             <Text size="xs" c="dimmed" ta="right">
               Last updated:{' '}
-              {new Date(settings.updatedAt).toLocaleString('en-US', {
+              {formatDateTime(settings.updatedAt, {
                 month: 'short',
                 day: 'numeric',
                 year: 'numeric',

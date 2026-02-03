@@ -222,7 +222,7 @@ function AttendanceContent({ apiBasePath }: { apiBasePath?: string }) {
   ];
 
   return (
-    <PageLayout fluid withPadding>
+    <PageLayout title="Attendance" fluid withPadding>
       <Stack gap="lg">
         <StatsCardGrid cards={stats} variant="vibrant" />
 
@@ -273,11 +273,9 @@ export function EmployeesAttendancePage({
   apiBasePath?: string;
 }) {
   return (
-    <PageLayout title="Attendance">
-      <AttendanceErrorBoundary>
-        <AttendanceContent apiBasePath={apiBasePath} />
-      </AttendanceErrorBoundary>
-    </PageLayout>
+    <AttendanceErrorBoundary>
+      <AttendanceContent apiBasePath={apiBasePath} />
+    </AttendanceErrorBoundary>
   );
 }
 

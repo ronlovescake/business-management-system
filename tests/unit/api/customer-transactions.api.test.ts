@@ -20,13 +20,10 @@ vi.mock('@/lib/db', () => ({
   prisma: mockPrisma,
 }));
 
-vi.mock('@/lib/logger', () => ({
-  logger: {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  },
-}));
+vi.mock('@/lib/logger', async () => {
+  const { mockLogger } = await import('@/core/testing/test-helpers');
+  return { logger: mockLogger };
+});
 
 describe('Customer Transactions API Routes', () => {
   beforeEach(() => {

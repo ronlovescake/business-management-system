@@ -28,8 +28,19 @@ export function withErrorHandler<T = unknown>(
     try {
       return await handler(request, context);
     } catch (error) {
+      const path = (() => {
+        if (request?.nextUrl?.pathname) {
+          return request.nextUrl.pathname;
+        }
+        try {
+          return new URL(request.url).pathname;
+        } catch {
+          return 'unknown';
+        }
+      })();
+
       logger.error('API Route Error', {
-        path: request.nextUrl.pathname,
+        path,
         method: request.method,
         error,
       });

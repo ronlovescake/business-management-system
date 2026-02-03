@@ -5,6 +5,7 @@ import { TruckingInvoiceStatus } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sanitizers } from '@/lib/security/sanitize';
+import { ApiResponseUtil } from '@/core/api/response';
 
 const toDateOnly = (value?: string | null): Date | null => {
   if (!value) {
@@ -275,7 +276,7 @@ export async function DELETE(request: NextRequest) {
     });
     await prisma.truckingInvoice.delete({ where: { id } });
 
-    return NextResponse.json({ success: true });
+    return ApiResponseUtil.ok();
   } catch (error) {
     logger.error('Failed to delete trucking invoice', { error });
     return NextResponse.json(

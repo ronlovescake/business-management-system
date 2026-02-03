@@ -6,6 +6,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { ApiResponseUtil } from '@/core/api/response';
 import {
   BulkCreateCheckoutLinksSchema,
   CheckoutLinksQuerySchema,
@@ -179,7 +180,7 @@ export async function DELETE(request: NextRequest) {
       data: { deletedAt: new Date() },
     });
 
-    return NextResponse.json({ success: true });
+    return ApiResponseUtil.ok();
   } catch (error) {
     logger.error('Error deleting GM checkout link', error);
     return NextResponse.json(

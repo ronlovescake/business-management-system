@@ -2,22 +2,12 @@
  * GM Dashboard Page Route Handler
  */
 
-import { PermissionGuard } from '@/components/auth/PermissionGuard';
-import {
-  hasModuleAccess,
-  getFirstAccessibleModule,
-} from '@/lib/auth/permissions';
 import { DashboardPage } from '@/modules/clothing/operations/dashboard/components/DashboardPage';
+import { renderGmOperationsPage } from '@/app/general-merchandise/operations/_shared/renderGmOperationsPage';
 
 export default async function Page() {
-  const hasAccess = await hasModuleAccess(
-    '/general-merchandise/operations/dashboard'
-  );
-  const redirectTo = await getFirstAccessibleModule();
-
-  return (
-    <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
-      <DashboardPage />
-    </PermissionGuard>
+  return renderGmOperationsPage(
+    '/general-merchandise/operations/dashboard',
+    <DashboardPage />
   );
 }

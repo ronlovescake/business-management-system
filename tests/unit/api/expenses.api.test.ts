@@ -1,6 +1,6 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
-import { mockNextRequest } from '@/core/testing/test-helpers';
+import { mockNextRequest, mockLogger } from '@/core/testing/test-helpers';
 
 // Mock expense service before importing the route
 const mockExpenseService = vi.hoisted(() => ({
@@ -71,11 +71,7 @@ vi.mock('@/lib/db', () => ({
 
 // Mock logger
 vi.mock('@/lib/logger', () => ({
-  logger: {
-    error: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-  },
+  logger: mockLogger,
 }));
 
 // Mock mass deletion safety check

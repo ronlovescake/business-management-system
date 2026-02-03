@@ -6,11 +6,7 @@ import { redirect } from 'next/navigation';
 
 import { SettingsPage } from '@/modules/clothing/operations/settings/components/SettingsPage';
 import { SettingsErrorBoundary } from '@/app/clothing/operations/settings/components/SettingsErrorBoundary';
-import { PermissionGuard } from '@/components/auth/PermissionGuard';
-import {
-  hasModuleAccess,
-  getFirstAccessibleModule,
-} from '@/lib/auth/permissions';
+import { renderGmOperationsPage } from '@/app/general-merchandise/operations/_shared/renderGmOperationsPage';
 
 export default async function Settings({
   searchParams,
@@ -24,16 +20,10 @@ export default async function Settings({
     redirect('/admin/backup-restore');
   }
 
-  const hasAccess = await hasModuleAccess(
-    '/general-merchandise/operations/settings'
-  );
-  const redirectTo = await getFirstAccessibleModule();
-
-  return (
-    <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
-      <SettingsErrorBoundary>
-        <SettingsPage apiBasePath="/api/general-merchandise" />
-      </SettingsErrorBoundary>
-    </PermissionGuard>
+  return renderGmOperationsPage(
+    '/general-merchandise/operations/settings',
+    <SettingsErrorBoundary>
+      <SettingsPage apiBasePath="/api/general-merchandise" />
+    </SettingsErrorBoundary>
   );
 }

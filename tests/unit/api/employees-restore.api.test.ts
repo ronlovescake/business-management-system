@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NextRequest } from 'next/server';
+import { mockLogger } from '@/core/testing/test-helpers';
 
 const mockRestoreRecord = vi.hoisted(() => vi.fn());
 const mockBulkRestore = vi.hoisted(() => vi.fn());
@@ -12,13 +13,7 @@ vi.mock('@/lib/safety/restore', () => ({
 }));
 
 vi.mock('@/lib/logger', () => ({
-  logger: {
-    info: vi.fn(),
-    error: vi.fn(),
-    warn: vi.fn(),
-    debug: vi.fn(),
-    success: vi.fn(),
-  },
+  logger: mockLogger,
 }));
 
 import { POST, GET, PUT } from '@/app/api/employees/restore/route';

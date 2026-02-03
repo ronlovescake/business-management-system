@@ -24,7 +24,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Prisma } from '@prisma/client';
 import { NextRequest } from 'next/server';
-import { getTestApiUrl } from '@/core/testing/test-helpers';
+import { getTestApiUrl, mockLogger } from '@/core/testing/test-helpers';
 import {
   GET as getShipments,
   POST as createShipments,
@@ -59,6 +59,10 @@ vi.mock('@/lib/db', () => ({
     },
     product: {
       groupBy: vi.fn(),
+      findMany: vi.fn(),
+      updateMany: vi.fn(),
+    },
+    transaction: {
       updateMany: vi.fn(),
     },
     $transaction: vi.fn(),
@@ -67,13 +71,11 @@ vi.mock('@/lib/db', () => ({
 
 // Mock logger
 vi.mock('@/lib/logger', () => ({
-  logger: {
-    error: vi.fn(),
-    warn: vi.fn(),
-    info: vi.fn(),
-    debug: vi.fn(),
-    success: vi.fn(),
-  },
+  logger: mockLogger,
+}));
+
+vi.mock('@/modules/shipments/api/expenses', () => ({
+  postExpenseForShipment: vi.fn().mockResolvedValue(undefined),
 }));
 
 describe('Shipments API - /api/shipments', () => {
@@ -655,6 +657,12 @@ describe('Shipments API - /api/shipments/[id]', () => {
       );
       vi.mocked(prisma.product.updateMany).mockResolvedValue({
         count: 5,
+      } as any);
+      vi.mocked(prisma.product.findMany).mockResolvedValue([
+        { productCode: 'P-001' },
+      ] as any);
+      vi.mocked(prisma.transaction.updateMany).mockResolvedValue({
+        count: 0,
       } as any);
 
       const request = new Request('http://localhost/api/shipments/1', {

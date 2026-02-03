@@ -1,18 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NextRequest } from 'next/server';
-import { getTestApiUrl } from '@/core/testing/test-helpers';
+import { getTestApiUrl, mockLogger } from '@/core/testing/test-helpers';
 
-const { mockPrisma, mockLogger } = vi.hoisted(() => {
+const { mockPrisma } = vi.hoisted(() => {
   return {
     mockPrisma: {
       payroll: {
         deleteMany: vi.fn(),
       },
-    },
-    mockLogger: {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
     },
   };
 });

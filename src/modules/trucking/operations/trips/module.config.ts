@@ -1,19 +1,12 @@
 import { IconRoute } from '@tabler/icons-react';
-import type { ModuleConfig, IconComponent } from '@/core/ModuleRegistry';
+import { createOperationsModuleConfig } from '@/modules/shared/operations/moduleConfig';
 
-export const truckingTripsModule: ModuleConfig = {
+export const truckingTripsModule = createOperationsModuleConfig({
   id: 'trucking-operations-trips',
   name: 'Trips',
+  path: '/trucking/operations/trips',
+  icon: IconRoute,
+  order: 1,
+  business: ['trucking'],
   version: '0.1.0',
-  enabled: true,
-  navigation: [
-    {
-      label: 'Trips',
-      path: '/trucking/operations/trips',
-      icon: IconRoute as IconComponent,
-      order: 1,
-      business: ['trucking'],
-      workspace: ['operations'],
-    },
-  ],
-};
+});

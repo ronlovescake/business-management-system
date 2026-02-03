@@ -22,14 +22,10 @@ vi.mock('@/lib/db', () => ({
   prisma: mockPrisma,
 }));
 
-vi.mock('@/lib/logger', () => ({
-  logger: {
-    error: vi.fn(),
-    warn: vi.fn(),
-    info: vi.fn(),
-    debug: vi.fn(),
-  },
-}));
+vi.mock('@/lib/logger', async () => {
+  const { mockLogger } = await import('@/core/testing/test-helpers');
+  return { logger: mockLogger };
+});
 
 const createRequest = (options: Parameters<typeof mockNextRequest>[0]) =>
   mockNextRequest(options) as NextRequest;

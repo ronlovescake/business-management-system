@@ -20,6 +20,7 @@ import {
   IconAdjustments,
   IconPlus,
 } from '@tabler/icons-react';
+import { formatNumber } from '@/lib/formatters';
 import { GridView } from '@/components/grid';
 import type {
   GridColumn,
@@ -159,7 +160,7 @@ export function ProductsLayout<T = Record<string, unknown>>({
                 Total Value
               </Text>
               <Title order={3} c="white">
-                ₱{stats.totalValue.toLocaleString()}
+                ₱{formatNumber(stats.totalValue)}
               </Title>
             </div>
             <ThemeIcon variant="white" color="green" size="lg" radius="md">
@@ -180,7 +181,7 @@ export function ProductsLayout<T = Record<string, unknown>>({
                 Average Value
               </Text>
               <Title order={3} c="white">
-                ₱{stats.avgValue.toLocaleString()}
+                ₱{formatNumber(stats.avgValue)}
               </Title>
             </div>
             <ThemeIcon variant="white" color="orange" size="lg" radius="md">
@@ -201,7 +202,7 @@ export function ProductsLayout<T = Record<string, unknown>>({
                 Total Profit
               </Text>
               <Title order={3} c="white">
-                ₱{stats.totalProfit.toLocaleString()}
+                ₱{formatNumber(stats.totalProfit)}
               </Title>
             </div>
             <ThemeIcon variant="white" color="purple" size="lg" radius="md">

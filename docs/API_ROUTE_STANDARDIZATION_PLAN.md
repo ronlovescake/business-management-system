@@ -18,6 +18,8 @@ Generated: 2025-12-02
 - `src/app/api/trucking/employees/[id]/salary-history/route.ts`
 - `src/app/api/products/route.ts`
 - `src/app/api/transactions/route.ts`
+- `src/app/api/clothing/operations/products/shipping-fee-calculator/route.ts`
+- `src/app/api/general-merchandise/operations/products/shipping-fee-calculator/route.ts`
 
 ## Additional Candidate Routes (current repo)
 
@@ -108,7 +110,6 @@ src/app/api/expenses/route.ts
 src/app/api/settings/transactions/route.ts
 src/app/api/settings/invoice/route.ts
 src/app/api/health/route.ts
-src/app/api/clothing/operations/products/shipping-fee-calculator/route.ts
 src/app/api/clothing/operations/settings/change-log/route.ts
 src/app/api/clothing/employees/dashboard/route.ts
 src/app/api/clothing-attendance/route.ts

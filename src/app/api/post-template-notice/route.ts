@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { logger } from '@/lib/logger';
+import { ApiResponseUtil } from '@/core/api/response';
 import {
   getPostTemplateNotice,
   upsertPostTemplateNotice,
@@ -9,7 +10,7 @@ import {
 export async function GET() {
   try {
     const notice = await getPostTemplateNotice();
-    return NextResponse.json({ success: true, data: notice });
+    return ApiResponseUtil.success(notice);
   } catch (error) {
     logger.error('Failed to load post template notice', error);
     return NextResponse.json(
@@ -57,7 +58,7 @@ export async function PUT(request: NextRequest) {
       bulletPoints: sanitizedBullets,
     });
 
-    return NextResponse.json({ success: true, data: notice });
+    return ApiResponseUtil.success(notice);
   } catch (error) {
     logger.error('Failed to update post template notice', error);
     return NextResponse.json(

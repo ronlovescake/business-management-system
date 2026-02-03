@@ -3,24 +3,13 @@
  */
 
 import { IconTruckDelivery } from '@tabler/icons-react';
-import type { ModuleConfig } from '@/core/ModuleRegistry';
+import { createOperationsModuleConfig } from '@/modules/shared/operations/moduleConfig';
 
-export const generalMerchandiseDispatchModule: ModuleConfig = {
+export const generalMerchandiseDispatchModule = createOperationsModuleConfig({
   id: 'general-merchandise-dispatch',
   name: 'Dispatch',
-  version: '1.0.0',
-  enabled: true,
-  navigation: [
-    {
-      label: 'Dispatch',
-      path: '/general-merchandise/operations/dispatch',
-      icon: IconTruckDelivery as unknown as React.FC<{
-        size?: number;
-        stroke?: number;
-      }>,
-      order: 7,
-      business: ['general-merchandise'],
-      workspace: ['operations'],
-    },
-  ],
-};
+  path: '/general-merchandise/operations/dispatch',
+  icon: IconTruckDelivery,
+  order: 7,
+  business: ['general-merchandise'],
+});

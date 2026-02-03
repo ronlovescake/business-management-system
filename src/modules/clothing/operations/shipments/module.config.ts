@@ -5,25 +5,13 @@
  */
 
 import { IconAnchor } from '@tabler/icons-react';
-import type { ModuleConfig } from '@/core/ModuleRegistry';
+import { createOperationsModuleConfig } from '@/modules/shared/operations/moduleConfig';
 
-export const shipmentsModule: ModuleConfig = {
+export const shipmentsModule = createOperationsModuleConfig({
   id: 'clothing-operations-shipments',
   name: 'Shipments',
-  version: '1.0.0',
-  enabled: true,
-
-  navigation: [
-    {
-      label: 'Shipments',
-      path: '/clothing/operations/shipments',
-      icon: IconAnchor as unknown as React.FC<{
-        size?: number;
-        stroke?: number;
-      }>,
-      order: 6, // After Products (4), Sorting Distribution (5)
-      business: ['clothing'],
-      workspace: ['operations'],
-    },
-  ],
-};
+  path: '/clothing/operations/shipments',
+  icon: IconAnchor,
+  order: 6,
+  business: ['clothing'],
+});

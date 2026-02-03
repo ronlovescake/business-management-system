@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { ApiResponseUtil } from '@/core/api/response';
 import { syncTruckingPayrollDeductions } from '@/lib/payroll/trucking/deductions';
 import { sanitizers } from '@/lib/security/sanitize';
 import {
@@ -536,7 +537,7 @@ export async function DELETE(request: NextRequest) {
       logger.info('Payroll record soft deleted', { id });
     }
 
-    return NextResponse.json({ success: true });
+    return ApiResponseUtil.ok();
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === 'P2025') {

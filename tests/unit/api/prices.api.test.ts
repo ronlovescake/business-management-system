@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NextRequest } from 'next/server';
+import { getTestApiUrl, mockLogger } from '@/core/testing/test-helpers';
 
 const { mockPrisma } = vi.hoisted(() => {
   return {
@@ -34,17 +35,11 @@ vi.mock('@/lib/db', () => ({
 }));
 
 vi.mock('@/lib/logger', () => ({
-  logger: {
-    error: vi.fn(),
-    warn: vi.fn(),
-    info: vi.fn(),
-    debug: vi.fn(),
-  },
+  logger: mockLogger,
 }));
 
 import { GET, POST, DELETE } from '@/app/api/prices/route';
 import { PUT, DELETE as DELETE_BY_ID } from '@/app/api/prices/[id]/route';
-import { getTestApiUrl } from '@/core/testing/test-helpers';
 
 type NextRequestInit = ConstructorParameters<typeof NextRequest>[1];
 

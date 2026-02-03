@@ -1,5 +1,6 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { mockLogger } from '@/core/testing/test-helpers';
 
 // Mock Prisma before importing the route
 const mockPrisma = vi.hoisted(() => ({
@@ -18,13 +19,7 @@ vi.mock('@/lib/db', () => ({
 
 // Mock logger
 vi.mock('@/lib/logger', () => ({
-  logger: {
-    info: vi.fn(),
-    error: vi.fn(),
-    warn: vi.fn(),
-    debug: vi.fn(),
-    success: vi.fn(),
-  },
+  logger: mockLogger,
 }));
 
 // Mock environment variables

@@ -212,7 +212,7 @@ async function handleBulkShipmentImport(
 export const GET = withErrorHandler(async () => {
   const shipments = await gmPrisma.generalMerchandiseShipment.findMany({
     where: { deletedAt: null },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { id: 'asc' },
   });
 
   const shipmentCodes = Array.from(

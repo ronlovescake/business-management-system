@@ -14,28 +14,15 @@
  */
 
 import { IconDashboard } from '@tabler/icons-react';
-import type { ModuleConfig } from '@/core/ModuleRegistry';
+import { createOperationsModuleConfig } from '@/modules/shared/operations/moduleConfig';
 
-export const dashboardModule: ModuleConfig = {
+export const dashboardModule = createOperationsModuleConfig({
   id: 'clothing-dashboard',
   name: 'Dashboard',
-  version: '1.0.0',
-  enabled: true,
-
-  navigation: [
-    {
-      label: 'Dashboard',
-      path: '/clothing/operations/dashboard',
-      icon: IconDashboard as unknown as React.FC<{
-        size?: number;
-        stroke?: number;
-      }>,
-      order: 0, // First item in navigation
-      business: ['clothing'],
-      workspace: ['operations'],
-    },
-  ],
-
+  path: '/clothing/operations/dashboard',
+  icon: IconDashboard,
+  order: 0,
+  business: ['clothing'],
   routes: [
     {
       path: '/clothing/operations/dashboard',
@@ -46,12 +33,10 @@ export const dashboardModule: ModuleConfig = {
       protected: true,
     },
   ],
-
   permissions: ['admin', 'manager', 'operations'],
-
   metadata: {
     description:
       'Operations dashboard with real-time metrics and business intelligence',
     tags: ['dashboard', 'metrics', 'kpis', 'operations', 'analytics'],
   },
-};
+});

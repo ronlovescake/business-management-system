@@ -6,25 +6,15 @@
  */
 
 import { IconCalendarDue } from '@tabler/icons-react';
-import type { ModuleConfig, IconComponent } from '@/core/ModuleRegistry';
+import { createOperationsModuleConfig } from '@/modules/shared/operations/moduleConfig';
 
-export const dueDatesModule: ModuleConfig = {
+export const dueDatesModule = createOperationsModuleConfig({
   id: 'clothing-due-dates',
   name: 'Due Dates',
-  version: '1.0.0',
-  enabled: true,
-
-  navigation: [
-    {
-      label: 'Due Dates',
-      path: '/clothing/operations/due-dates',
-      icon: IconCalendarDue as unknown as IconComponent,
-      order: 3,
-      business: ['clothing'],
-      workspace: ['operations'],
-    },
-  ],
-
+  path: '/clothing/operations/due-dates',
+  icon: IconCalendarDue,
+  order: 3,
+  business: ['clothing'],
   routes: [
     {
       path: '/clothing/operations/due-dates',
@@ -35,13 +25,11 @@ export const dueDatesModule: ModuleConfig = {
       protected: true,
     },
   ],
-
   permissions: ['admin', 'manager', 'operations'],
-
   metadata: {
     description:
       'Track customers with unpaid invoices, view due dates, and contact buyers',
     author: 'Business Management System',
     tags: ['operations', 'invoices', 'due-dates', 'payments'],
   },
-};
+});

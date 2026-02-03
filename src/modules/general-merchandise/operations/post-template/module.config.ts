@@ -3,25 +3,14 @@
  */
 
 import { IconTemplate } from '@tabler/icons-react';
-import type { ModuleConfig } from '@/core/ModuleRegistry';
+import { createOperationsModuleConfig } from '@/modules/shared/operations/moduleConfig';
 
-export const generalMerchandisePostTemplateModule: ModuleConfig = {
-  id: 'general-merchandise-post-template',
-  name: 'Post Template',
-  version: '1.0.0',
-  enabled: true,
-
-  navigation: [
-    {
-      label: 'Post Template',
-      path: '/general-merchandise/operations/post-template',
-      icon: IconTemplate as unknown as React.FC<{
-        size?: number;
-        stroke?: number;
-      }>,
-      order: 9,
-      business: ['general-merchandise'],
-      workspace: ['operations'],
-    },
-  ],
-};
+export const generalMerchandisePostTemplateModule =
+  createOperationsModuleConfig({
+    id: 'general-merchandise-post-template',
+    name: 'Post Template',
+    path: '/general-merchandise/operations/post-template',
+    icon: IconTemplate,
+    order: 9,
+    business: ['general-merchandise'],
+  });

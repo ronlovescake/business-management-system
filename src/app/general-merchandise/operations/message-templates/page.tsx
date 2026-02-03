@@ -1,14 +1,10 @@
-import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { MessageTemplatesBoard } from '@/app/clothing/operations/message-templates/MessageTemplatesBoard';
-import {
-  getFirstAccessibleModule,
-  hasModuleAccess,
-} from '@/lib/auth/permissions';
 import { DEFAULT_MESSAGE_TEMPLATES } from '@/modules/clothing/operations/message-templates/templates.data';
 import { logger } from '@/lib/logger';
 import type { MessageTemplate } from '@/modules/clothing/operations/message-templates/types';
 import { prisma } from '@/lib/db';
+import { renderGmOperationsPage } from '@/app/general-merchandise/operations/_shared/renderGmOperationsPage';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,20 +60,17 @@ async function loadTemplates(): Promise<MessageTemplate[]> {
 
 export default async function MessageTemplatesPage() {
   const modulePath = '/general-merchandise/operations/message-templates';
-  const hasAccess = await hasModuleAccess(modulePath);
-  const redirectTo = await getFirstAccessibleModule();
   const templates = await loadTemplates();
 
-  return (
-    <PermissionGuard hasAccess={hasAccess} redirectTo={redirectTo}>
-      <PageLayout size="xl">
-        <MessageTemplatesBoard
-          templates={templates}
-          showHeader={false}
-          showUsageHint={false}
-          addTemplateCtaHref="/general-merchandise/operations/settings?tab=message&subTab=message-templates"
-        />
-      </PageLayout>
-    </PermissionGuard>
+  return renderGmOperationsPage(
+    modulePath,
+    <PageLayout size="xl">
+      <MessageTemplatesBoard
+        templates={templates}
+        showHeader={false}
+        showUsageHint={false}
+        addTemplateCtaHref="/general-merchandise/operations/settings?tab=message&subTab=message-templates"
+      />
+    </PageLayout>
   );
 }

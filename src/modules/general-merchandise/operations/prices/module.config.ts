@@ -3,25 +3,13 @@
  */
 
 import { IconTag } from '@tabler/icons-react';
-import type { ModuleConfig } from '@/core/ModuleRegistry';
+import { createOperationsModuleConfig } from '@/modules/shared/operations/moduleConfig';
 
-export const generalMerchandisePricesModule: ModuleConfig = {
+export const generalMerchandisePricesModule = createOperationsModuleConfig({
   id: 'general-merchandise-prices',
   name: 'Prices',
-  version: '1.0.0',
-  enabled: true,
-
-  navigation: [
-    {
-      label: 'Prices',
-      path: '/general-merchandise/operations/prices',
-      icon: IconTag as unknown as React.FC<{
-        size?: number;
-        stroke?: number;
-      }>,
-      order: 3,
-      business: ['general-merchandise'],
-      workspace: ['operations'],
-    },
-  ],
-};
+  path: '/general-merchandise/operations/prices',
+  icon: IconTag,
+  order: 3,
+  business: ['general-merchandise'],
+});

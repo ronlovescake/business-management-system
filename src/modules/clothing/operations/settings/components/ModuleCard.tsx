@@ -22,6 +22,7 @@ import {
   IconPackage,
   IconCheck,
 } from '@tabler/icons-react';
+import { formatNumber } from '@/lib/formatters';
 import type { ModulePackage } from '../types';
 
 interface ModuleCardProps {
@@ -80,7 +81,7 @@ export function ModuleCard({
             <Tooltip label="Downloads">
               <Group gap={4}>
                 <IconDownload size={16} />
-                <Text size="xs">{module.downloads.toLocaleString()}</Text>
+                <Text size="xs">{formatNumber(module.downloads)}</Text>
               </Group>
             </Tooltip>
           )}

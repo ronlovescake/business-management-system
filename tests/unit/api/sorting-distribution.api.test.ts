@@ -17,6 +17,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Mock } from 'vitest';
+import { mockLogger } from '@/core/testing/test-helpers';
 
 type MockFn<Args extends unknown[] = unknown[], Return = unknown> = Mock<
   Args,
@@ -72,12 +73,7 @@ vi.mock('@/lib/db', () => {
 });
 
 vi.mock('@/lib/logger', () => ({
-  logger: {
-    error: vi.fn(),
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-  },
+  logger: mockLogger,
 }));
 
 import { GET, POST, DELETE } from '@/app/api/sorting-distribution/route';

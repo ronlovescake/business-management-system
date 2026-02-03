@@ -4,8 +4,9 @@ import {
   buildSalaryHistoryRouteParams,
   ensureTestDatabaseUrl,
 } from './helpers/salaryHistoryTestUtils';
+import { mockLogger } from '@/core/testing/test-helpers';
 
-const { mockPrisma, salaryHistoryDelegate, mockLogger } = vi.hoisted(() => {
+const { mockPrisma, salaryHistoryDelegate } = vi.hoisted(() => {
   const salaryHistoryDelegate = {
     findMany: vi.fn(),
     create: vi.fn(),
@@ -19,12 +20,6 @@ const { mockPrisma, salaryHistoryDelegate, mockLogger } = vi.hoisted(() => {
       salaryHistory: salaryHistoryDelegate,
     },
     salaryHistoryDelegate,
-    mockLogger: {
-      error: vi.fn(),
-      warn: vi.fn(),
-      info: vi.fn(),
-      debug: vi.fn(),
-    },
   };
 });
 

@@ -4,6 +4,7 @@ import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
 import { DEFAULT_POST_TEMPLATE_NOTICE } from '@/modules/clothing/operations/post-template/notice.data';
 import type { PostTemplateNotice } from '@/modules/clothing/operations/post-template/notice.types';
+import { ApiResponseUtil } from '@/core/api/response';
 
 const NOTICE_SLUG = 'post-template-notice';
 
@@ -74,7 +75,7 @@ async function upsertPostTemplateNotice(
 export async function GET() {
   try {
     const notice = await getPostTemplateNotice();
-    return NextResponse.json({ success: true, data: notice });
+    return ApiResponseUtil.success(notice);
   } catch (error) {
     logger.error('Failed to load GM post template notice', error);
     return NextResponse.json(
@@ -122,7 +123,7 @@ export async function PUT(request: NextRequest) {
       bulletPoints: sanitizedBullets,
     });
 
-    return NextResponse.json({ success: true, data: notice });
+    return ApiResponseUtil.success(notice);
   } catch (error) {
     logger.error('Failed to update GM post template notice', error);
     return NextResponse.json(

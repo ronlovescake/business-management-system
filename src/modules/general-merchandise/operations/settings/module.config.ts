@@ -3,28 +3,15 @@
  */
 
 import { IconSettings } from '@tabler/icons-react';
-import type { ModuleConfig } from '@/core/ModuleRegistry';
+import { createOperationsModuleConfig } from '@/modules/shared/operations/moduleConfig';
 
-export const generalMerchandiseSettingsModule: ModuleConfig = {
+export const generalMerchandiseSettingsModule = createOperationsModuleConfig({
   id: 'general-merchandise-settings',
   name: 'Settings',
-  version: '1.0.0',
-  enabled: true,
-
-  navigation: [
-    {
-      label: 'Settings',
-      path: '/general-merchandise/operations/settings',
-      icon: IconSettings as unknown as React.ComponentType<{
-        size?: number;
-        stroke?: number;
-      }>,
-      order: 999,
-      business: ['general-merchandise'],
-      workspace: ['operations'],
-    },
-  ],
-
+  path: '/general-merchandise/operations/settings',
+  icon: IconSettings,
+  order: 999,
+  business: ['general-merchandise'],
   routes: [
     {
       path: '/general-merchandise/operations/settings',
@@ -37,12 +24,10 @@ export const generalMerchandiseSettingsModule: ModuleConfig = {
       protected: true,
     },
   ],
-
   permissions: ['admin', 'manager'],
-
   metadata: {
     description: 'System settings and module marketplace for managing plugins',
     author: 'Business Management System',
     tags: ['settings', 'marketplace', 'modules', 'plugins', 'configuration'],
   },
-};
+});

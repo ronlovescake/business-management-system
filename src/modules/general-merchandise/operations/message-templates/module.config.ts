@@ -3,25 +3,14 @@
  */
 
 import { IconMessage } from '@tabler/icons-react';
-import type { ModuleConfig } from '@/core/ModuleRegistry';
+import { createOperationsModuleConfig } from '@/modules/shared/operations/moduleConfig';
 
-export const generalMerchandiseMessageTemplatesModule: ModuleConfig = {
-  id: 'general-merchandise-message-templates',
-  name: 'Message Templates',
-  version: '1.0.0',
-  enabled: true,
-
-  navigation: [
-    {
-      label: 'Message Templates',
-      path: '/general-merchandise/operations/message-templates',
-      icon: IconMessage as unknown as React.FC<{
-        size?: number;
-        stroke?: number;
-      }>,
-      order: 9.5,
-      business: ['general-merchandise'],
-      workspace: ['operations'],
-    },
-  ],
-};
+export const generalMerchandiseMessageTemplatesModule =
+  createOperationsModuleConfig({
+    id: 'general-merchandise-message-templates',
+    name: 'Message Templates',
+    path: '/general-merchandise/operations/message-templates',
+    icon: IconMessage,
+    order: 9.5,
+    business: ['general-merchandise'],
+  });

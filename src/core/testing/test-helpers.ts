@@ -183,6 +183,7 @@ export const mockLogger = {
   warn: vi.fn(),
   error: vi.fn(),
   debug: vi.fn(),
+  success: vi.fn(),
 };
 
 /**

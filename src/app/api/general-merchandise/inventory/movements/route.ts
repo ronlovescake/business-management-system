@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { ApiResponseUtil } from '@/core/api/response';
 import { z } from 'zod';
 
 const movementSchema = z.object({
@@ -52,13 +52,10 @@ export async function GET() {
         orderBy: { createdAt: 'desc' },
       });
 
-    return NextResponse.json({ data: movements });
+    return ApiResponseUtil.success(movements);
   } catch (error) {
     logger.error('Failed to fetch GM inventory movements', { error });
-    return NextResponse.json(
-      { error: 'Failed to fetch inventory movements' },
-      { status: 500 }
-    );
+    return ApiResponseUtil.error('Failed to fetch inventory movements', 500);
   }
 }
 
@@ -68,20 +65,16 @@ export async function POST(request: Request) {
     const parsed = movementSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Invalid payload', details: parsed.error.flatten() },
-        { status: 400 }
-      );
+      return ApiResponseUtil.error('Invalid payload', 400, undefined, {
+        meta: parsed.error.flatten(),
+      });
     }
 
     const { productCode, quantity, fromBucket, toBucket, postingDate, notes } =
       parsed.data;
 
     if (fromBucket === toBucket) {
-      return NextResponse.json(
-        { error: 'fromBucket and toBucket must differ' },
-        { status: 400 }
-      );
+      return ApiResponseUtil.error('fromBucket and toBucket must differ', 400);
     }
 
     const normalizedCode = normalizeProductCode(productCode);
@@ -97,13 +90,10 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json({ data: created }, { status: 201 });
+    return ApiResponseUtil.success(created, undefined, 201);
   } catch (error) {
     logger.error('Failed to create GM inventory movement', { error });
-    return NextResponse.json(
-      { error: 'Failed to create inventory movement' },
-      { status: 500 }
-    );
+    return ApiResponseUtil.error('Failed to create inventory movement', 500);
   }
 }
 
@@ -113,10 +103,9 @@ export async function PATCH(request: Request) {
     const parsed = movementPatchSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Invalid payload', details: parsed.error.flatten() },
-        { status: 400 }
-      );
+      return ApiResponseUtil.error('Invalid payload', 400, undefined, {
+        meta: parsed.error.flatten(),
+      });
     }
 
     const { id, quantity, toBucket, postingDate, notes } = parsed.data;
@@ -127,10 +116,7 @@ export async function PATCH(request: Request) {
       });
 
     if (!existing) {
-      return NextResponse.json(
-        { error: 'Movement not found' },
-        { status: 404 }
-      );
+      return ApiResponseUtil.error('Movement not found', 404);
     }
 
     const allowedDestinations = [
@@ -144,12 +130,9 @@ export async function PATCH(request: Request) {
         existing.toBucket as (typeof allowedDestinations)[number]
       )
     ) {
-      return NextResponse.json(
-        {
-          error:
-            'Only sellable -> damaged_hold/scrap/supplier_short movements can be edited',
-        },
-        { status: 400 }
+      return ApiResponseUtil.error(
+        'Only sellable -> damaged_hold/scrap/supplier_short movements can be edited',
+        400
       );
     }
 
@@ -166,13 +149,10 @@ export async function PATCH(request: Request) {
       },
     });
 
-    return NextResponse.json({ data: updated });
+    return ApiResponseUtil.success(updated);
   } catch (error) {
     logger.error('Failed to update GM inventory movement', { error });
-    return NextResponse.json(
-      { error: 'Failed to update inventory movement' },
-      { status: 500 }
-    );
+    return ApiResponseUtil.error('Failed to update inventory movement', 500);
   }
 }
 
@@ -183,7 +163,7 @@ export async function DELETE(request: Request) {
     const id = idParam ? Number(idParam) : NaN;
 
     if (!Number.isFinite(id)) {
-      return NextResponse.json({ error: 'id is required' }, { status: 400 });
+      return ApiResponseUtil.error('id is required', 400);
     }
 
     const existing =
@@ -192,10 +172,7 @@ export async function DELETE(request: Request) {
       });
 
     if (!existing) {
-      return NextResponse.json(
-        { error: 'Movement not found' },
-        { status: 404 }
-      );
+      return ApiResponseUtil.error('Movement not found', 404);
     }
 
     const allowedDestinations = [
@@ -209,12 +186,9 @@ export async function DELETE(request: Request) {
         existing.toBucket as (typeof allowedDestinations)[number]
       )
     ) {
-      return NextResponse.json(
-        {
-          error:
-            'Only sellable -> damaged_hold/scrap/supplier_short movements can be deleted',
-        },
-        { status: 400 }
+      return ApiResponseUtil.error(
+        'Only sellable -> damaged_hold/scrap/supplier_short movements can be deleted',
+        400
       );
     }
 
@@ -223,12 +197,9 @@ export async function DELETE(request: Request) {
       data: { deletedAt: new Date() },
     });
 
-    return NextResponse.json({ success: true });
+    return ApiResponseUtil.ok();
   } catch (error) {
     logger.error('Failed to delete GM inventory movement', { error });
-    return NextResponse.json(
-      { error: 'Failed to delete inventory movement' },
-      { status: 500 }
-    );
+    return ApiResponseUtil.error('Failed to delete inventory movement', 500);
   }
 }

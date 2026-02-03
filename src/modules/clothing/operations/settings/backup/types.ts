@@ -1,3 +1,5 @@
+import { formatDateTime } from '@/lib/formatters';
+
 export type BackupStrategy = 'full' | 'differential' | 'log';
 
 export interface BackupManifest {
@@ -255,7 +257,7 @@ export const formatBackupTimestamp = (timestamp: string) => {
     if (!date) {
       return timestamp;
     }
-    return date.toLocaleString('en-US', {
+    return formatDateTime(date, {
       year: 'numeric',
       month: 'short',
       day: '2-digit',

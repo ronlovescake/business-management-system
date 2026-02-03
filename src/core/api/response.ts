@@ -50,6 +50,13 @@ export class ApiResponseUtil {
   }
 
   /**
+   * Create a simple success response with no payload
+   */
+  static ok(status: number = HTTP_STATUS.OK): NextResponse<{ success: true }> {
+    return NextResponse.json({ success: true }, { status });
+  }
+
+  /**
    * Create an error response
    */
   static error(
