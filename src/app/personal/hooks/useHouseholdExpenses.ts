@@ -50,6 +50,23 @@ type HouseholdAccountOption = {
   label: string;
 };
 
+type ExpenseDateFilterOption =
+  | 'All Time'
+  | 'This Month'
+  | 'Last Month'
+  | 'Last 30 Days'
+  | 'This Year'
+  | 'Last Year';
+
+const EXPENSE_DATE_FILTER_OPTIONS: ExpenseDateFilterOption[] = [
+  'All Time',
+  'This Month',
+  'Last Month',
+  'Last 30 Days',
+  'This Year',
+  'Last Year',
+];
+
 const DEFAULT_HOUSEHOLD_ACCOUNT_NAME = 'Ronald Allan Balnig';
 
 function resolveDefaultAccountId(
@@ -65,6 +82,45 @@ function resolveDefaultAccountId(
   );
 
   return (exact ?? options[0])?.value ?? null;
+}
+
+function buildDateRange(
+  filter: ExpenseDateFilterOption | null
+): { start?: Date; end?: Date } | null {
+  if (!filter || filter === 'All Time') {
+    return null;
+  }
+
+  const now = new Date();
+  const end = new Date(now);
+
+  switch (filter) {
+    case 'This Month': {
+      return { start: new Date(now.getFullYear(), now.getMonth(), 1), end };
+    }
+    case 'Last Month': {
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastDayPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+      lastDayPrevMonth.setHours(23, 59, 59, 999);
+      return { start, end: lastDayPrevMonth };
+    }
+    case 'Last 30 Days': {
+      const start = new Date(now);
+      start.setDate(now.getDate() - 30);
+      return { start, end };
+    }
+    case 'This Year': {
+      return { start: new Date(now.getFullYear(), 0, 1), end };
+    }
+    case 'Last Year': {
+      const start = new Date(now.getFullYear() - 1, 0, 1);
+      const endOfLastYear = new Date(now.getFullYear(), 0, 0);
+      endOfLastYear.setHours(23, 59, 59, 999);
+      return { start, end: endOfLastYear };
+    }
+    default:
+      return null;
+  }
 }
 
 async function confirmTripleDeleteExpense(): Promise<boolean> {
@@ -195,6 +251,9 @@ export function useHouseholdExpenses() {
   }, [expensesFromDB]);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [dateFilter, setDateFilter] = useState<ExpenseDateFilterOption | null>(
+    'This Month'
+  );
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [filterSource, setFilterSource] = useState<string | null>(null);
@@ -305,8 +364,10 @@ export function useHouseholdExpenses() {
   }, [expenses, getSourceLabel]);
 
   const filteredExpenses = useMemo(() => {
+    const dateRange = buildDateRange(dateFilter);
     return filterAndSortExpenses(expenses, {
       searchQuery,
+      filterDateRange: dateRange,
       filterCategory,
       filterStatus,
       filterSource,
@@ -324,6 +385,7 @@ export function useHouseholdExpenses() {
   }, [
     expenses,
     searchQuery,
+    dateFilter,
     filterCategory,
     filterStatus,
     filterSource,
@@ -639,6 +701,9 @@ export function useHouseholdExpenses() {
     filteredExpenses,
     searchQuery,
     setSearchQuery,
+    dateFilter,
+    setDateFilter,
+    dateFilterOptions: EXPENSE_DATE_FILTER_OPTIONS,
     filterCategory,
     setFilterCategory,
     filterStatus,

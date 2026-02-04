@@ -1,5 +1,6 @@
 import { memo, useMemo, useState } from 'react';
-import { Stack, Table, Text, Badge, Button, Modal } from '@mantine/core';
+import { Stack, Table, Text, Badge, Button } from '@mantine/core';
+import { PolishedModal } from '@/components/modals/PolishedModal';
 import type { BalanceSheetRow } from '../hooks/useBalanceSheet';
 import { AccountingTableCard } from '../../components/AccountingTableCard';
 import { AccountingTableSummaryCard } from '../../components/AccountingTableSummaryCard';
@@ -150,7 +151,7 @@ export const BalanceSheetTable = memo(function BalanceSheetTable({
         </Table>
       </AccountingTableCard>
 
-      <Modal
+      <PolishedModal
         opened={Boolean(detailsRow)}
         onClose={() => setDetailsRow(null)}
         title={detailsRow ? `${detailsRow.account} details` : 'Details'}
@@ -188,7 +189,7 @@ export const BalanceSheetTable = memo(function BalanceSheetTable({
             </Table.Tbody>
           </Table>
         )}
-      </Modal>
+      </PolishedModal>
 
       <AccountingTableSummaryCard
         leftText={`Showing ${filteredRows.length} of ${rows.length} accounts`}

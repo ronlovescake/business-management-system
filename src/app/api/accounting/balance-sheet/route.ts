@@ -37,6 +37,7 @@ export const dynamic = 'force-dynamic';
 
 const CUTOVER = getAccountingCutoverDate();
 const CASH_ACCOUNT = 'Cash';
+const STOCK_ON_HAND_ACCOUNT = 'Stock on Hand';
 
 function clampAsOf(raw: Date | null): Date {
   if (!raw || Number.isNaN(raw.getTime())) {
@@ -193,6 +194,21 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     cashDetailsByLabel.set(key, (cashDetailsByLabel.get(key) ?? 0) + amount);
   };
 
+  const stockDetailsByLabel = new Map<string, number>();
+  const addStockDetail = (label: string, account: string, amount: number) => {
+    const key = label.trim();
+    if (!key || !Number.isFinite(amount) || amount === 0) {
+      return;
+    }
+
+    const normalizedAccount = normalizeAccountForReporting(account).trim();
+    if (normalizedAccount !== STOCK_ON_HAND_ACCOUNT) {
+      return;
+    }
+
+    stockDetailsByLabel.set(key, (stockDetailsByLabel.get(key) ?? 0) + amount);
+  };
+
   const detailLabelFromRefDescription = (input: {
     ref?: string | null;
     description?: string | null;
@@ -273,6 +289,12 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       account,
       amount
     );
+
+    addStockDetail(
+      tag ? `Opening Balance – ${tag}` : 'Opening Balance',
+      account,
+      amount
+    );
   }
 
   // Capture per-loan breakdown only when the account is the generic Loan Payable
@@ -335,6 +357,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       }
 
       const value = Math.max(amount, 0);
+      addStockDetail(`Reclass In – ${row.fromAccount}`, row.toAccount, value);
+      addStockDetail(`Reclass Out – ${row.toAccount}`, row.fromAccount, -value);
       return [
         { account: row.toAccount, amount: value },
         { account: row.fromAccount, amount: -value },
@@ -377,6 +401,16 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       }
 
       const value = Math.max(amount, 0);
+      addStockDetail(
+        `Transit Build In – ${row.creditAccount}`,
+        row.debitAccount,
+        value
+      );
+      addStockDetail(
+        `Transit Build Out – ${row.debitAccount}`,
+        row.creditAccount,
+        -value
+      );
       return [
         { account: row.debitAccount, amount: value },
         { account: row.creditAccount, amount: -value },
@@ -585,6 +619,14 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         ]
       : [];
 
+  if (Number.isFinite(cogsTotal) && cogsTotal > 0) {
+    addStockDetail(
+      'COGS (inventory movements)',
+      STOCK_ON_HAND_ACCOUNT,
+      -cogsTotal
+    );
+  }
+
   const { entries: inventorySeedAndShrinkEntries } =
     await buildInventorySeedAndShrinkageEntries({
       from: CUTOVER,
@@ -595,6 +637,20 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     account: entry.account,
     amount: Number(entry.debit ?? 0) - Number(entry.credit ?? 0),
   }));
+
+  for (const entry of inventorySeedAndShrinkEntries) {
+    const amount = Number(entry.debit ?? 0) - Number(entry.credit ?? 0);
+    if (!Number.isFinite(amount) || amount === 0) {
+      continue;
+    }
+
+    const label = entry.description?.trim() || entry.ref?.trim();
+    addStockDetail(
+      label ? `Inventory – ${label}` : 'Inventory Movement',
+      entry.account,
+      amount
+    );
+  }
 
   const refundEntries = refunds
     .map((refund) => {
@@ -745,6 +801,18 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       return a.label.localeCompare(b.label);
     });
 
+  const maxStockDetails = 30;
+  const stockDetailsAll: BalanceRowDetail[] = Array.from(stockDetailsByLabel)
+    .map(([label, amount]) => ({ label, amount }))
+    .filter((item) => Number.isFinite(item.amount) && item.amount !== 0)
+    .sort((a, b) => {
+      const diff = Math.abs(b.amount) - Math.abs(a.amount);
+      if (diff !== 0) {
+        return diff;
+      }
+      return a.label.localeCompare(b.label);
+    });
+
   const cashDetails: BalanceRowDetail[] =
     cashDetailsAll.length > maxCashDetails
       ? (() => {
@@ -758,6 +826,19 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         })()
       : cashDetailsAll;
 
+  const stockDetails: BalanceRowDetail[] =
+    stockDetailsAll.length > maxStockDetails
+      ? (() => {
+          const head = stockDetailsAll.slice(0, maxStockDetails);
+          const tail = stockDetailsAll.slice(maxStockDetails);
+          const otherSum = tail.reduce((sum, item) => sum + item.amount, 0);
+          const otherLabel = `Other (${tail.length})`;
+          return Number.isFinite(otherSum) && otherSum !== 0
+            ? [...head, { label: otherLabel, amount: otherSum }]
+            : head;
+        })()
+      : stockDetailsAll;
+
   const rowsWithDetails = rows.map((row) => {
     if (row.account === 'Loan Payable' && loanDetails.length > 0) {
       return {
@@ -770,6 +851,13 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       return {
         ...row,
         details: cashDetails,
+      };
+    }
+
+    if (row.account === STOCK_ON_HAND_ACCOUNT && stockDetails.length > 0) {
+      return {
+        ...row,
+        details: stockDetails,
       };
     }
 

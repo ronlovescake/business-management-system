@@ -28,6 +28,9 @@ interface ExpenseControlsProps {
   onGenerateRecurring?: () => void;
   isGeneratingRecurring?: boolean;
   onAddRecurring?: () => void;
+  dateFilter?: string | null;
+  onDateFilterChange?: (value: string | null) => void;
+  dateFilterOptions?: string[];
   filterCategory: string | null;
   onCategoryFilterChange: (category: string | null) => void;
   filterStatus: string | null;
@@ -59,6 +62,9 @@ export const ExpenseControls = memo(function ExpenseControls({
   onGenerateRecurring,
   isGeneratingRecurring = false,
   onAddRecurring,
+  dateFilter,
+  onDateFilterChange,
+  dateFilterOptions,
   filterCategory,
   onCategoryFilterChange,
   filterStatus,
@@ -93,6 +99,18 @@ export const ExpenseControls = memo(function ExpenseControls({
             style={{ flex: 1, minWidth: 220 }}
             data-ctrlf-target="expense-controls-search"
           />
+          {dateFilterOptions && dateFilterOptions.length > 0 ? (
+            <Select
+              placeholder="Filter by date"
+              data={dateFilterOptions}
+              value={dateFilter ?? 'All Time'}
+              onChange={(value) =>
+                onDateFilterChange?.(value === 'All Time' ? null : value)
+              }
+              clearable={false}
+              style={{ width: 200 }}
+            />
+          ) : null}
           <Select
             placeholder="Filter by category"
             data={['All', ...categories]}

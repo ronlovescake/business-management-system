@@ -96,14 +96,14 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterAccount, setFilterAccount] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string | null>('list');
-  const [period, setPeriod] = useState<LedgerPeriodOption>('All Time');
+  const [period, setPeriod] = useState<LedgerPeriodOption>('This Month');
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
   const [stats, setStats] = useState<LedgerStats>({
     totalDebits: 0,
     totalCredits: 0,
     netChange: 0,
     accounts: 0,
-    period: 'All Time',
+    period: 'This Month',
   });
   const [openingEntries, setOpeningEntries] = useState<OpeningBalanceEntry[]>(
     []

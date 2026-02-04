@@ -26,6 +26,9 @@ export default function PersonalExpensesPage() {
     filteredExpenses,
     searchQuery,
     setSearchQuery,
+    dateFilter,
+    setDateFilter,
+    dateFilterOptions,
     filterCategory,
     setFilterCategory,
     filterStatus,
@@ -108,6 +111,11 @@ export default function PersonalExpensesPage() {
             showRecurringPaymentsTab
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
+            dateFilter={dateFilter}
+            onDateFilterChange={(value) =>
+              setDateFilter(value as typeof dateFilter)
+            }
+            dateFilterOptions={dateFilterOptions}
             recurringSearchQuery={recurringSearchQuery}
             onRecurringSearchChange={setRecurringSearchQuery}
             onGenerateRecurring={() => generateRecurringMutation.mutate()}
