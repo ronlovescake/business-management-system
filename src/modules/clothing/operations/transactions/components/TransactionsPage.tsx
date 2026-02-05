@@ -171,6 +171,18 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
     [activeTab, handleSearch]
   );
 
+  const syncCustomerFilter = useCallback(
+    (customerName: string | null) => {
+      const query = customerName?.trim() ?? '';
+      setTabSearchQueries((prev) => {
+        const next = { ...prev, main: query, [activeTab]: query };
+        return next;
+      });
+      handleSearch(query);
+    },
+    [activeTab, handleSearch]
+  );
+
   useEffect(() => {
     const activeQuery = tabSearchQueries[activeTab] ?? '';
     handleSearch(activeQuery);
@@ -545,6 +557,16 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
     []
   );
 
+  const defaultPaymentsCustomer = useMemo(() => {
+    const candidates = cappedFilteredTransactions
+      .filter((transaction) => transaction.id && transaction.Customers)
+      .map((transaction) => transaction.Customers.trim())
+      .filter((name) => name.length > 0);
+
+    const unique = Array.from(new Set(candidates));
+    return unique.length === 1 ? unique[0] : null;
+  }, [cappedFilteredTransactions]);
+
   const customerLookupBasePath =
     apiBasePath === '/api/general-merchandise' ? apiBasePath : apiBasePath;
 
@@ -681,6 +703,8 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
           onClose={() => setShowPaymentsModal(false)}
           transactions={transactions}
           customerNames={customerNames}
+          defaultCustomerName={defaultPaymentsCustomer}
+          onCustomerChange={syncCustomerFilter}
           apiBasePath={apiBasePath}
         />
 

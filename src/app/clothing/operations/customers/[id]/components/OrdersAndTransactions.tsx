@@ -292,7 +292,7 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
     }
 
     return (
-      <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+      <div style={{ maxHeight: '50vh', overflowY: 'auto' }}>
         <Table striped highlightOnHover>
           <Table.Thead
             style={{
@@ -438,7 +438,7 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
               No refunds recorded for this customer
             </Text>
           ) : (
-            <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+            <div style={{ maxHeight: '50vh', overflowY: 'auto' }}>
               <Table striped highlightOnHover>
                 <Table.Thead
                   style={{

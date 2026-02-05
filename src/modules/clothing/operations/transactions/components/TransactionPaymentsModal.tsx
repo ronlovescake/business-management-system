@@ -71,12 +71,16 @@ export function TransactionPaymentsModal({
   onClose,
   transactions,
   customerNames,
+  defaultCustomerName,
+  onCustomerChange,
   apiBasePath,
 }: {
   opened: boolean;
   onClose: () => void;
   transactions: TransactionData[];
   customerNames: string[];
+  defaultCustomerName?: string | null;
+  onCustomerChange?: (customerName: string | null) => void;
   apiBasePath?: string;
 }) {
   const queryClient = useQueryClient();
@@ -177,6 +181,44 @@ export function TransactionPaymentsModal({
     );
     setAmountByTransactionId({});
   }, [allStatusControlledStatuses]);
+
+  const handleCustomerChange = useCallback(
+    (value: string | null) => {
+      setSelectedCustomer(value);
+      onCustomerChange?.(value);
+    },
+    [onCustomerChange]
+  );
+
+  useEffect(() => {
+    if (!opened) {
+      return;
+    }
+
+    if (!defaultCustomerName || selectedCustomer) {
+      return;
+    }
+
+    const normalizedDefault = defaultCustomerName.trim().toLowerCase();
+    if (!normalizedDefault) {
+      return;
+    }
+
+    const match = customerNames.find(
+      (name) => name.trim().toLowerCase() === normalizedDefault
+    );
+
+    if (match) {
+      setSelectedCustomer(match);
+      onCustomerChange?.(match);
+    }
+  }, [
+    customerNames,
+    defaultCustomerName,
+    onCustomerChange,
+    opened,
+    selectedCustomer,
+  ]);
 
   const resetAmountsOnly = useCallback(() => {
     setAmountByTransactionId({});
@@ -619,7 +661,7 @@ export function TransactionPaymentsModal({
               nothingFoundMessage="No matching customers"
               data={customerOptions}
               value={selectedCustomer}
-              onChange={setSelectedCustomer}
+              onChange={handleCustomerChange}
               clearable
             />
 
