@@ -22,6 +22,8 @@ export default function GeneralMerchandiseLedgerPage() {
     refreshLedger,
     period,
     setPeriod,
+    openingBalancePeriod,
+    setOpeningBalancePeriod,
     accounts,
     searchQuery,
     setSearchQuery,
@@ -85,6 +87,8 @@ export default function GeneralMerchandiseLedgerPage() {
           onAccountFilterChange={setFilterAccount}
           period={period}
           onPeriodChange={setPeriod}
+          openingBalancePeriod={openingBalancePeriod}
+          onOpeningBalancePeriodChange={setOpeningBalancePeriod}
           accounts={accounts}
           onImportCSV={handleImportCSV}
           onDownloadTemplate={handleDownloadTemplate}
@@ -106,6 +110,8 @@ export default function GeneralMerchandiseLedgerPage() {
             onAddOpeningEntry={openOpeningEntryModal}
             cutoverDate={openingBalanceCutoverDate}
             entries={openingEntries}
+            searchQuery={searchQuery}
+            openingBalancePeriod={openingBalancePeriod}
             isLoading={isLoadingOpeningEntries}
             formatCurrency={formatCurrency}
             formatDate={formatDate}

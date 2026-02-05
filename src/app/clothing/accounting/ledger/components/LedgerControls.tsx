@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Group, TextInput, Button } from '@mantine/core';
+import { Group, TextInput, Button, Select } from '@mantine/core';
 import {
   IconList,
   IconPlus,
@@ -16,6 +16,8 @@ import { AccountingEntriesListTabPanel } from '../../components/AccountingEntrie
 import {
   LEDGER_PERIOD_OPTIONS,
   type LedgerPeriodOption,
+  OPENING_BALANCE_PERIOD_OPTIONS,
+  type OpeningBalancePeriodOption,
 } from '../hooks/useLedger';
 import { LedgerHelpPanel } from './LedgerHelpPanel';
 
@@ -28,6 +30,8 @@ interface LedgerControlsProps {
   onAccountFilterChange: (account: string | null) => void;
   period: LedgerPeriodOption;
   onPeriodChange: (period: LedgerPeriodOption) => void;
+  openingBalancePeriod: OpeningBalancePeriodOption;
+  onOpeningBalancePeriodChange: (period: OpeningBalancePeriodOption) => void;
   accounts: string[];
   onImportCSV: (file: File | null) => void;
   onDownloadTemplate: () => void;
@@ -46,6 +50,8 @@ export const LedgerControls = memo(function LedgerControls({
   onAccountFilterChange,
   period,
   onPeriodChange,
+  openingBalancePeriod,
+  onOpeningBalancePeriodChange,
   accounts,
   onImportCSV,
   onDownloadTemplate,
@@ -56,7 +62,7 @@ export const LedgerControls = memo(function LedgerControls({
 }: LedgerControlsProps) {
   useCtrlFFocus(
     '[data-ctrlf-target="ledger-controls-search"]',
-    activeTab === 'list'
+    activeTab === 'list' || activeTab === 'opening-balance'
   );
 
   const tabs: ControlPanelTabConfig[] = [
@@ -93,10 +99,23 @@ export const LedgerControls = memo(function LedgerControls({
       panel: (
         <Group wrap="wrap" gap="sm">
           <TextInput
-            placeholder="Opening balances are managed below"
-            value=""
-            readOnly
+            placeholder="Search opening balances..."
+            value={searchQuery}
+            onChange={(event) => onSearchChange(event.target.value)}
             style={{ flex: 1, minWidth: 220 }}
+            data-ctrlf-target="ledger-controls-search"
+          />
+          <Select
+            placeholder="All Time"
+            data={OPENING_BALANCE_PERIOD_OPTIONS}
+            value={openingBalancePeriod}
+            onChange={(value) => {
+              if (!value) {
+                return;
+              }
+              onOpeningBalancePeriodChange(value as OpeningBalancePeriodOption);
+            }}
+            style={{ minWidth: 180 }}
           />
           <Button
             leftSection={<IconPlus size={16} />}

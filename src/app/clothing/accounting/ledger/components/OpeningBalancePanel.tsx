@@ -13,6 +13,8 @@ import {
 import { IconAlertTriangle, IconBulb, IconPlus } from '@tabler/icons-react';
 import { confirmTripleDelete } from '@/utils/confirmTripleDelete';
 import { logger } from '@/lib/logger';
+import { endOfDay, parseDate, startOfDay } from '@/lib/accounting/date-utils';
+import type { OpeningBalancePeriodOption } from '../hooks/useLedger';
 
 interface OpeningBalanceEntry {
   id: string;
@@ -28,6 +30,8 @@ interface OpeningBalancePanelProps {
   onAddOpeningEntry: () => void;
   cutoverDate?: string;
   entries?: OpeningBalanceEntry[];
+  searchQuery?: string;
+  openingBalancePeriod?: OpeningBalancePeriodOption;
   isLoading?: boolean;
   formatCurrency?: (amount: number) => string;
   formatDate?: (date: string) => string;
@@ -40,6 +44,8 @@ export function OpeningBalancePanel({
   onAddOpeningEntry,
   cutoverDate,
   entries = [],
+  searchQuery,
+  openingBalancePeriod = 'This Month',
   isLoading = false,
   formatCurrency = (v) =>
     v.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' }),
@@ -54,6 +60,87 @@ export function OpeningBalancePanel({
   onDeleteEntry,
   isSaving = false,
 }: OpeningBalancePanelProps) {
+  const getOpeningBalanceRange = (period: OpeningBalancePeriodOption) => {
+    const now = new Date();
+
+    switch (period) {
+      case 'This Month': {
+        return {
+          from: startOfDay(new Date(now.getFullYear(), now.getMonth(), 1)),
+          to: endOfDay(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
+        };
+      }
+      case 'Last Month': {
+        return {
+          from: startOfDay(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
+          to: endOfDay(new Date(now.getFullYear(), now.getMonth(), 0)),
+        };
+      }
+      case 'Last 30 Days': {
+        const to = endOfDay(now);
+        const from = startOfDay(
+          new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000)
+        );
+        return { from, to };
+      }
+      case 'Last 90 Days': {
+        const to = endOfDay(now);
+        const from = startOfDay(
+          new Date(now.getTime() - 89 * 24 * 60 * 60 * 1000)
+        );
+        return { from, to };
+      }
+      case 'This Year': {
+        return {
+          from: startOfDay(new Date(now.getFullYear(), 0, 1)),
+          to: endOfDay(new Date(now.getFullYear(), 11, 31)),
+        };
+      }
+      case 'Last Year': {
+        const year = now.getFullYear() - 1;
+        return {
+          from: startOfDay(new Date(year, 0, 1)),
+          to: endOfDay(new Date(year, 11, 31)),
+        };
+      }
+      default:
+        return {};
+    }
+  };
+
+  const { from: dateFrom, to: dateTo } =
+    getOpeningBalanceRange(openingBalancePeriod);
+  const hasDateFilter = Boolean(dateFrom || dateTo);
+
+  const normalizedSearch = searchQuery?.trim().toLowerCase() ?? '';
+  const filteredEntries = entries.filter((entry) => {
+    if (hasDateFilter) {
+      const entryDate = parseDate(entry.date);
+      if (!entryDate) {
+        return false;
+      }
+      if (dateFrom && entryDate < dateFrom) {
+        return false;
+      }
+      if (dateTo && entryDate > dateTo) {
+        return false;
+      }
+    }
+
+    if (!normalizedSearch) {
+      return true;
+    }
+
+    const description = entry.description ?? '';
+    return (
+      entry.account.toLowerCase().includes(normalizedSearch) ||
+      entry.ref.toLowerCase().includes(normalizedSearch) ||
+      entry.date.toLowerCase().includes(normalizedSearch) ||
+      description.toLowerCase().includes(normalizedSearch)
+    );
+  });
+  const hasActiveSearch = normalizedSearch.length > 0;
+
   const inferredCutoverDate = entries
     .map((entry) => entry.date?.slice(0, 10))
     .filter(Boolean)
@@ -277,17 +364,18 @@ export function OpeningBalancePanel({
                     </Text>
                   </Table.Td>
                 </Table.Tr>
-              ) : entries.length === 0 ? (
+              ) : filteredEntries.length === 0 ? (
                 <Table.Tr>
                   <Table.Td colSpan={7} style={{ textAlign: 'center' }}>
                     <Text c="dimmed" py="xl">
-                      No opening balance entries yet. Click &quot;Add Opening
-                      Entry&quot; to create the starting lines for 2026.
+                      {hasActiveSearch
+                        ? 'No opening balance entries match your search.'
+                        : 'No opening balance entries yet. Click "Add Opening Entry" to create the starting lines for 2026.'}
                     </Text>
                   </Table.Td>
                 </Table.Tr>
               ) : (
-                entries.map((entry) => (
+                filteredEntries.map((entry) => (
                   <Table.Tr key={entry.id}>
                     <Table.Td style={{ color: '#495057', textAlign: 'center' }}>
                       {formatDate(entry.date)}

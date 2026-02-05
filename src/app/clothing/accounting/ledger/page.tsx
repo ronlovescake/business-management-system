@@ -21,6 +21,8 @@ export default function LedgerPage() {
     refreshLedger,
     period,
     setPeriod,
+    openingBalancePeriod,
+    setOpeningBalancePeriod,
     accounts,
     searchQuery,
     setSearchQuery,
@@ -84,6 +86,8 @@ export default function LedgerPage() {
           onAccountFilterChange={setFilterAccount}
           period={period}
           onPeriodChange={setPeriod}
+          openingBalancePeriod={openingBalancePeriod}
+          onOpeningBalancePeriodChange={setOpeningBalancePeriod}
           accounts={accounts}
           onImportCSV={handleImportCSV}
           onDownloadTemplate={handleDownloadTemplate}
@@ -104,6 +108,8 @@ export default function LedgerPage() {
             onAddOpeningEntry={openOpeningEntryModal}
             cutoverDate={openingBalanceCutoverDate}
             entries={openingEntries}
+            searchQuery={searchQuery}
+            openingBalancePeriod={openingBalancePeriod}
             isLoading={isLoadingOpeningEntries}
             formatCurrency={formatCurrency}
             formatDate={formatDate}

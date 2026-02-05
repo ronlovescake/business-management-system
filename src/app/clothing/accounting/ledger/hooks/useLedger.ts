@@ -68,6 +68,17 @@ export type LedgerStats = {
 const FALLBACK_OPENING_BALANCE_DATE = getCurrentDateISO();
 export const LEDGER_PERIOD_OPTIONS = PERIOD_OPTIONS;
 export type LedgerPeriodOption = PeriodOption;
+export const OPENING_BALANCE_PERIOD_OPTIONS = [
+  'All Time',
+  'This Month',
+  'Last Month',
+  'Last 30 Days',
+  'Last 90 Days',
+  'This Year',
+  'Last Year',
+] as const;
+export type OpeningBalancePeriodOption =
+  (typeof OPENING_BALANCE_PERIOD_OPTIONS)[number];
 const MAX_CSV_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_MANUAL_IMPORT_ROWS = 1000;
 
@@ -97,6 +108,8 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
   const [filterAccount, setFilterAccount] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string | null>('list');
   const [period, setPeriod] = useState<LedgerPeriodOption>('This Month');
+  const [openingBalancePeriod, setOpeningBalancePeriod] =
+    useState<OpeningBalancePeriodOption>('This Month');
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
   const [stats, setStats] = useState<LedgerStats>({
     totalDebits: 0,
@@ -1294,6 +1307,8 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
     refreshLedger,
     period,
     setPeriod,
+    openingBalancePeriod,
+    setOpeningBalancePeriod,
     accounts,
     searchQuery,
     setSearchQuery,
