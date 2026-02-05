@@ -31,13 +31,16 @@ import { getIconButtonLabel } from '@/lib/accessibility';
 interface CustomerDetailsViewProps {
   customerId: string;
   apiBasePath?: string;
+  onBack?: () => void;
 }
 
 export const CustomerDetailsView = memo(function CustomerDetailsView({
   customerId,
   apiBasePath,
+  onBack,
 }: CustomerDetailsViewProps) {
   const router = useRouter();
+  const handleBack = onBack ?? (() => router.back());
   const {
     customer,
     orders,
@@ -74,10 +77,7 @@ export const CustomerDetailsView = memo(function CustomerDetailsView({
           The customer you&apos;re looking for doesn&apos;t exist or has been
           deleted.
         </Alert>
-        <Button
-          leftSection={<IconArrowLeft size={16} />}
-          onClick={() => router.back()}
-        >
+        <Button leftSection={<IconArrowLeft size={16} />} onClick={handleBack}>
           Go Back
         </Button>
       </Stack>
@@ -95,7 +95,7 @@ export const CustomerDetailsView = memo(function CustomerDetailsView({
         <Group>
           <ActionIcon
             variant="light"
-            onClick={() => router.back()}
+            onClick={handleBack}
             size="lg"
             {...getIconButtonLabel('Go back to customers list')}
           >

@@ -38,6 +38,7 @@ interface MainTransactionsTabProps extends BaseTabProps {
   onCellEdited: (
     event: CellEditEvent<TransactionData>
   ) => void | boolean | Promise<void | boolean>;
+  onCellClick?: (event: CellClickEvent<TransactionData>) => void;
   statusOptions: string[];
   selectedStatuses: Set<string>;
   onStatusFilter: (status: string) => void;
@@ -56,6 +57,7 @@ const MainTransactionsTab = memo(function MainTransactionsTab({
   columns,
   getCellData,
   onCellEdited,
+  onCellClick,
   statusOptions,
   selectedStatuses,
   onStatusFilter,
@@ -80,6 +82,7 @@ const MainTransactionsTab = memo(function MainTransactionsTab({
       searchPlaceholder="Search transactions by customer, product code, status, notes, or shipment code..."
       getCellData={getCellData}
       onCellEdited={onCellEdited}
+      onCellClick={onCellClick}
       enableCSVImport={false}
       enableCtrlF={true}
       statusOptions={statusOptions}
@@ -255,6 +258,7 @@ interface TransactionsTabsProps {
   onWarehousePreparedCustomerClick?: (
     event: CellClickEvent<TransactionData>
   ) => void;
+  onMainCustomerClick?: (event: CellClickEvent<TransactionData>) => void;
   columns: HandsontableColumn[];
   getCellData: GetCellData<TransactionData>;
   onCellEdited: (event: CellEditEvent<TransactionData>) => void;
@@ -326,6 +330,7 @@ export const TransactionsTabs = memo(function TransactionsTabs({
   warehousePreparedTransactions,
   warehousePreparedFilteredTransactions,
   onWarehousePreparedCustomerClick,
+  onMainCustomerClick,
 }: TransactionsTabsProps) {
   const readOnlyTransactionsColumns = useMemo(
     () => columns.map((column) => ({ ...column, readOnly: true })),
@@ -359,6 +364,7 @@ export const TransactionsTabs = memo(function TransactionsTabs({
           columns={columns}
           getCellData={getCellData}
           onCellEdited={onCellEdited}
+          onCellClick={onMainCustomerClick}
           statusOptions={statusOptions}
           selectedStatuses={selectedStatuses}
           onStatusFilter={onStatusFilter}

@@ -25,6 +25,7 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import { Button } from '@mantine/core';
@@ -34,6 +35,7 @@ import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import type { CellClickEvent } from '@/components/ui/HandsontableGrid';
 import { onRenderCallback } from '@/lib/performance/monitoring';
 import { logger } from '@/lib/logger';
+import { api } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import { useTransactionsData } from '../hooks/useTransactionsData';
 import { useTransactionOperations } from '../hooks/useTransactionOperations';
@@ -55,6 +57,7 @@ import {
 import { TransactionPaymentsModal } from './TransactionPaymentsModal';
 import { useChangeLogQuery } from '../../settings/change-log/hooks/useChangeLogQuery';
 import { useInvoiceCustomerLookup } from '../../checkout-links/hooks/useInvoiceCustomerLookup';
+import { CustomerDetailsModal } from '@/app/clothing/operations/customers/[id]/components/CustomerDetailsModal';
 import type { TransactionData } from '../types/transaction.types';
 
 const STRETCH_COLUMN_ID = 'notes';
@@ -84,6 +87,15 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
   });
 
   const [showPaymentsModal, setShowPaymentsModal] = useState(false);
+  const [customerDetailsId, setCustomerDetailsId] = useState<string | null>(
+    null
+  );
+  const [isCustomerDetailsOpen, setIsCustomerDetailsOpen] = useState(false);
+  const lastCustomerClickRef = useRef<{
+    row: number;
+    columnId: string;
+    time: number;
+  } | null>(null);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -533,6 +545,120 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
     []
   );
 
+  const customerLookupBasePath =
+    apiBasePath === '/api/general-merchandise' ? apiBasePath : apiBasePath;
+
+  const resolveCustomerIdByName = useCallback(
+    async (customerName: string): Promise<string | null> => {
+      const normalizedTarget = customerName.trim().toLowerCase();
+      if (!normalizedTarget) {
+        return null;
+      }
+
+      const response = await api.get<Record<string, unknown>[]>(
+        buildApiPath(
+          customerLookupBasePath,
+          `/customers?search=${encodeURIComponent(customerName)}`
+        )
+      );
+
+      if (!Array.isArray(response) || response.length === 0) {
+        return null;
+      }
+
+      const normalize = (value: unknown) =>
+        typeof value === 'string' ? value.trim().toLowerCase() : '';
+
+      for (const customer of response) {
+        const customerNameValue =
+          customer['Customer Name'] ||
+          customer.customerName ||
+          customer.Name ||
+          customer.name ||
+          '';
+        const businessNameValue =
+          customer['Business Name'] || customer.businessName || '';
+
+        const normalizedName = normalize(customerNameValue);
+        const normalizedBusiness = normalize(businessNameValue);
+        const normalizedCombined = normalizedBusiness
+          ? `${normalizedName} | ${normalizedBusiness}`
+          : '';
+
+        if (
+          normalizedTarget === normalizedName ||
+          normalizedTarget === normalizedBusiness ||
+          (normalizedCombined && normalizedTarget === normalizedCombined)
+        ) {
+          const idValue = customer.id ?? customer.ID;
+          if (idValue !== null && idValue !== undefined) {
+            return String(idValue);
+          }
+        }
+      }
+
+      const fallback = response[0]?.id ?? response[0]?.ID;
+      return fallback !== null && fallback !== undefined
+        ? String(fallback)
+        : null;
+    },
+    [customerLookupBasePath]
+  );
+
+  const handleCustomerCellClick = useCallback(
+    async (event: CellClickEvent<TransactionData>) => {
+      if (event.column.id !== 'customers') {
+        return;
+      }
+
+      const customerName = event.rowData.Customers?.trim();
+      if (!customerName) {
+        return;
+      }
+
+      const now = Date.now();
+      const lastClick = lastCustomerClickRef.current;
+      if (
+        !lastClick ||
+        lastClick.row !== event.row ||
+        lastClick.columnId !== event.column.id ||
+        now - lastClick.time >= 500
+      ) {
+        lastCustomerClickRef.current = {
+          row: event.row,
+          columnId: event.column.id,
+          time: now,
+        };
+        return;
+      }
+
+      lastCustomerClickRef.current = null;
+
+      try {
+        const customerId = await resolveCustomerIdByName(customerName);
+        if (!customerId) {
+          showNotification({
+            title: 'Customer not found',
+            message: `No customer record found for ${customerName}.`,
+            color: 'yellow',
+          });
+          return;
+        }
+
+        setCustomerDetailsId(customerId);
+        setIsCustomerDetailsOpen(true);
+      } catch (error) {
+        logger.error('Failed to open customer details modal', error);
+        showNotification({
+          title: 'Unable to open customer',
+          message: 'Please try again in a moment.',
+          color: 'red',
+        });
+      }
+    },
+    [resolveCustomerIdByName]
+  );
+
   // ============================================================================
   // LOADING STATE
   // ============================================================================
@@ -555,6 +681,16 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
           onClose={() => setShowPaymentsModal(false)}
           transactions={transactions}
           customerNames={customerNames}
+          apiBasePath={apiBasePath}
+        />
+
+        <CustomerDetailsModal
+          opened={isCustomerDetailsOpen}
+          onClose={() => {
+            setIsCustomerDetailsOpen(false);
+            setCustomerDetailsId(null);
+          }}
+          customerId={customerDetailsId ?? ''}
           apiBasePath={apiBasePath}
         />
 
@@ -598,6 +734,7 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
           onWarehousePreparedCustomerClick={
             handleWarehousePreparedCustomerClick
           }
+          onMainCustomerClick={handleCustomerCellClick}
           columns={columns}
           getCellData={getCellData}
           onCellEdited={handleCellEdited}
