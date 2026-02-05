@@ -7,6 +7,7 @@ import { logger } from '@/lib/logger';
 import { ACCOUNTS_RECEIVABLE_STATUSES, PAID_STATUSES } from './constants';
 import { parseDate } from './date-utils';
 import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
+import { fetchWithStatusChangesFallback } from './fetcher-helpers';
 
 type TransactionWithStatusChanges = Awaited<
   ReturnType<typeof prisma.transaction.findMany>
@@ -69,22 +70,21 @@ export async function fetchPaidTransactions(): Promise<
     orderStatus: { in: [...PAID_STATUSES] },
   };
 
-  try {
-    return await prisma.transaction.findMany({
-      where: baseWhere,
-      include: {
-        statusChanges: {
-          where: { newStatus: { in: [...PAID_STATUSES] } },
-          orderBy: { changedAt: 'asc' },
+  return await fetchWithStatusChangesFallback({
+    fetchWithChanges: () =>
+      prisma.transaction.findMany({
+        where: baseWhere,
+        include: {
+          statusChanges: {
+            where: { newStatus: { in: [...PAID_STATUSES] } },
+            orderBy: { changedAt: 'asc' },
+          },
         },
-      },
-    });
-  } catch (error) {
-    logger.warn('Falling back to transactions without statusChanges', {
-      error,
-    });
-    return await prisma.transaction.findMany({ where: baseWhere });
-  }
+      }),
+    fetchWithoutChanges: () =>
+      prisma.transaction.findMany({ where: baseWhere }),
+    logMessage: 'Falling back to transactions without statusChanges',
+  });
 }
 
 export async function fetchRecognizedTransactions(): Promise<
@@ -118,24 +118,23 @@ export async function fetchRecognizedTransactions(): Promise<
   // We only treat the explicit "Cancelled" status as cancelled.
   // This matches the transactions dropdown and avoids filtering other labels.
   // ============================================================================
-  try {
-    const rows = await prisma.transaction.findMany({
-      where: baseWhere,
-      include: {
-        statusChanges: {
-          where: { newStatus: { in: [...PAID_STATUSES] } },
-          orderBy: { changedAt: 'asc' },
+  const rows = await fetchWithStatusChangesFallback({
+    fetchWithChanges: () =>
+      prisma.transaction.findMany({
+        where: baseWhere,
+        include: {
+          statusChanges: {
+            where: { newStatus: { in: [...PAID_STATUSES] } },
+            orderBy: { changedAt: 'asc' },
+          },
         },
-      },
-    });
-    return rows.filter((tx) => !isCancelledOrderStatus(tx.orderStatus));
-  } catch (error) {
-    logger.warn('Falling back to transactions without statusChanges', {
-      error,
-    });
-    const rows = await prisma.transaction.findMany({ where: baseWhere });
-    return rows.filter((tx) => !isCancelledOrderStatus(tx.orderStatus));
-  }
+      }),
+    fetchWithoutChanges: () =>
+      prisma.transaction.findMany({ where: baseWhere }),
+    logMessage: 'Falling back to transactions without statusChanges',
+  });
+
+  return rows.filter((tx) => !isCancelledOrderStatus(tx.orderStatus));
 }
 
 export async function fetchApprovedExpenses() {

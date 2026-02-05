@@ -1,36 +1,33 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useMemo, useCallback } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
 import { queryKeys } from '@/lib/queryKeys';
+import { usePayrollBase } from '@/hooks/usePayrollBase';
+import {
+  formatPayrollCurrency,
+  formatPayrollDate,
+  getPayrollStatusColor,
+} from '@/lib/payroll/formatters';
 import type { Payroll, PayrollFormData } from '../types';
 import { getCurrentDateISO } from '@/utils/date';
 import Swal from 'sweetalert2';
 
-interface EmployeeDirectoryEntry {
-  id: string;
-  employeeId: string;
-  name: string;
-  firstName?: string | null;
-  lastName?: string | null;
-  sssMonthlyContribution?: number | null;
-  philHealthMonthlyContribution?: number | null;
-  pagibigMonthlyContribution?: number | null;
-  taxMonthlyContribution?: number | null;
-}
-
-const normalizeIdentifier = (value: string | undefined | null) =>
-  (value ?? '').toString().trim().replace(/\s+/g, ' ').toLowerCase();
-
 export function usePayroll() {
   const queryClient = useQueryClient();
 
-  // State Management
-  const [employees, setEmployees] = useState<EmployeeDirectoryEntry[]>([]);
+  const resolveApiPath = useCallback(
+    (path: string) => `/api/trucking${path}`,
+    []
+  );
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [payPeriodFilter, setPayPeriodFilter] = useState<string>('all');
+  const createPayrollQueryKey = useCallback(
+    (filters: { search: string; status: string; period: string }) =>
+      queryKeys.payroll.list(filters),
+    []
+  );
+
+  // State Management
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingPayroll, setEditingPayroll] = useState<Payroll | null>(null);
   const [isGeneratingPayroll, setIsGeneratingPayroll] = useState(false);
@@ -39,231 +36,25 @@ export function usePayroll() {
   const [isBulkApproving, setIsBulkApproving] = useState(false);
   const [isBulkPaying, setIsBulkPaying] = useState(false);
 
-  // Filters for cache key
-  const filters = useMemo(
-    () => ({
-      search: searchQuery,
-      status: statusFilter,
-      period: payPeriodFilter,
-    }),
-    [searchQuery, statusFilter, payPeriodFilter]
-  );
-
-  const employeeOptions = useMemo(() => {
-    const names = new Set<string>();
-    employees.forEach((entry) => {
-      const resolvedName = (entry.name || '').trim();
-      if (resolvedName) {
-        names.add(resolvedName);
-        return;
-      }
-
-      const fallback =
-        `${entry.firstName ?? ''} ${entry.lastName ?? ''}`.trim();
-      if (fallback) {
-        names.add(fallback);
-      }
-    });
-
-    return Array.from(names).sort((a, b) => a.localeCompare(b));
-  }, [employees]);
-
-  const resolveEmployeeRecord = useCallback(
-    (identifier: string | undefined | null) => {
-      const normalized = normalizeIdentifier(identifier);
-      if (!normalized) {
-        return undefined;
-      }
-
-      return employees.find((entry) => {
-        if (entry.id && normalizeIdentifier(entry.id) === normalized) {
-          return true;
-        }
-
-        if (normalizeIdentifier(entry.employeeId) === normalized) {
-          return true;
-        }
-
-        if (normalizeIdentifier(entry.name) === normalized) {
-          return true;
-        }
-
-        const combined = `${entry.firstName ?? ''} ${entry.lastName ?? ''}`;
-        return normalizeIdentifier(combined) === normalized;
-      });
-    },
-    [employees]
-  );
-
-  // Fetch employees for directory
-  useEffect(() => {
-    const fetchEmployees = async () => {
-      try {
-        const data = await api.get<unknown[]>('/api/trucking/employees');
-        const toOptionalNumber = (value: unknown) => {
-          const parsed = Number(value);
-          return Number.isFinite(parsed) ? parsed : undefined;
-        };
-        const directory = Array.isArray(data)
-          ? data.map((item: unknown) => {
-              const record = item as Record<string, unknown>;
-              return {
-                id:
-                  record.id !== undefined && record.id !== null
-                    ? String(record.id)
-                    : '',
-                employeeId: String(record.employeeId ?? ''),
-                name:
-                  record.name ??
-                  `${record.firstName ?? ''} ${record.lastName ?? ''}`,
-                firstName: record.firstName ?? null,
-                lastName: record.lastName ?? null,
-                sssMonthlyContribution:
-                  toOptionalNumber(record.sssMonthlyContribution) ?? null,
-                philHealthMonthlyContribution:
-                  toOptionalNumber(record.philHealthMonthlyContribution) ??
-                  null,
-                pagibigMonthlyContribution:
-                  toOptionalNumber(record.pagibigMonthlyContribution) ?? null,
-                taxMonthlyContribution:
-                  toOptionalNumber(record.taxMonthlyContribution) ?? null,
-              };
-            })
-          : [];
-        setEmployees(directory as EmployeeDirectoryEntry[]);
-      } catch (error) {
-        logger.error('Error fetching employees for payroll directory:', error);
-      }
-    };
-
-    fetchEmployees();
-  }, []);
-
-  // Fetch payrolls with React Query
   const {
-    data: payrolls = [],
-    isLoading: loading,
-    error,
-  } = useQuery({
-    queryKey: queryKeys.payroll.list(filters),
-    queryFn: async () => {
-      const data = await api.get<Record<string, unknown>[]>(
-        '/api/trucking/payroll'
-      );
-
-      const toNumber = (value: unknown): number => {
-        if (value === null || value === undefined) {
-          return 0;
-        }
-        if (typeof value === 'number') {
-          return value;
-        }
-        if (typeof value === 'string') {
-          const parsed = parseFloat(value);
-          return isNaN(parsed) ? 0 : parsed;
-        }
-        if (typeof value === 'object' && 'toString' in (value as object)) {
-          const parsed = parseFloat(
-            (value as { toString(): string }).toString()
-          );
-          return isNaN(parsed) ? 0 : parsed;
-        }
-        return 0;
-      };
-
-      // Map database records to Payroll type
-      const mappedPayrolls = data.map((record: Record<string, unknown>) => {
-        const basicSalary = toNumber(record.basicSalary);
-        const allowance = toNumber(record.allowance);
-        const overtime = toNumber(record.overtime);
-        const bonuses = toNumber(record.bonuses);
-        const thirteenthMonth = toNumber(record.thirteenthMonth);
-        const grossPay = toNumber(record.grossPay);
-        const sss = toNumber(record.sss);
-        const philHealth = toNumber(record.philHealth);
-        const pagIbig = toNumber(record.pagIbig);
-        const tax = toNumber(record.tax);
-        const loans = toNumber(record.loans);
-        const cashAdvance = toNumber(record.cashAdvance);
-        const lwop = toNumber(
-          record.lwop !== undefined && record.lwop !== null
-            ? record.lwop
-            : record.deduction
-        );
-        const absentsLates = toNumber(record.absentsLates);
-
-        const derivedTotalDeductions =
-          sss +
-          philHealth +
-          pagIbig +
-          tax +
-          loans +
-          cashAdvance +
-          lwop +
-          absentsLates;
-        const derivedNetPay = Math.max(0, grossPay - derivedTotalDeductions);
-
-        const totalDeductions = toNumber(record.totalDeductions);
-        const netPay = toNumber(record.netPay);
-
-        return {
-          id: String(record.id ?? ''),
-          employee: String(record.employeeName ?? ''),
-          employeeId: record.employeeId ? String(record.employeeId) : null,
-          payPeriod: String(record.payPeriod ?? ''),
-          basicSalary,
-          allowance,
-          overtime,
-          bonuses,
-          grossPay,
-          thirteenthMonth,
-          sss,
-          philHealth,
-          pagIbig,
-          tax,
-          loans,
-          cashAdvance,
-          lwop,
-          absentsLates,
-          totalDeductions:
-            totalDeductions > 0 ? totalDeductions : derivedTotalDeductions,
-          netPay: netPay > 0 ? netPay : derivedNetPay,
-          status: record.status as 'pending' | 'approved' | 'paid',
-          bankGcash: String(record.bankGcash ?? ''),
-          approvedBy: record.approvedBy,
-          approvedDate: record.approvedDate,
-          paidDate: record.paidDate,
-        };
-      });
-
-      return mappedPayrolls as Payroll[];
-    },
-    staleTime: 30 * 1000,
+    employeeOptions,
+    resolveEmployeeRecord,
+    payrollQueryKey,
+    payrolls,
+    filteredPayrolls,
+    loading,
+    searchQuery,
+    setSearchQuery,
+    statusFilter,
+    setStatusFilter,
+    payPeriodFilter,
+    setPayPeriodFilter,
+  } = usePayrollBase({
+    resolveApiPath,
+    createPayrollQueryKey,
   });
 
-  // Log errors
-  if (error) {
-    logger.error('Error fetching payrolls:', error);
-  }
-
   // Computed Values
-  const filteredPayrolls = useMemo(() => {
-    return payrolls.filter((payroll) => {
-      const matchesSearch =
-        payroll.employee.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        payroll.payPeriod.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        payroll.bankGcash.toLowerCase().includes(searchQuery.toLowerCase());
-
-      const matchesStatus =
-        statusFilter === 'all' || payroll.status === statusFilter;
-
-      const matchesPayPeriod =
-        payPeriodFilter === 'all' || payroll.payPeriod === payPeriodFilter;
-
-      return matchesSearch && matchesStatus && matchesPayPeriod;
-    });
-  }, [payrolls, searchQuery, statusFilter, payPeriodFilter]);
-
   const totalPayrolls = payrolls.length;
   const pendingPayrolls = payrolls.filter((p) => p.status === 'pending').length;
   const approvedPayrolls = payrolls.filter(
@@ -285,33 +76,9 @@ export function usePayroll() {
   );
 
   // Utility Functions
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-PH', {
-      style: 'currency',
-      currency: 'PHP',
-    }).format(amount);
-  };
-
-  const getStatusColor = (status: Payroll['status']) => {
-    switch (status) {
-      case 'pending':
-        return 'orange';
-      case 'approved':
-        return 'green';
-      case 'paid':
-        return 'blue';
-      default:
-        return 'gray';
-    }
-  };
+  const formatDate = formatPayrollDate;
+  const formatCurrency = formatPayrollCurrency;
+  const getStatusColor = getPayrollStatusColor;
 
   const parsePayPeriodLabel = useCallback((label: string) => {
     if (!label) {
@@ -488,13 +255,11 @@ export function usePayroll() {
     onMutate: async (deletedId) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.payroll.lists() });
 
-      const previous = queryClient.getQueryData<Payroll[]>(
-        queryKeys.payroll.list(filters)
-      );
+      const previous = queryClient.getQueryData<Payroll[]>(payrollQueryKey);
 
       if (previous) {
         queryClient.setQueryData<Payroll[]>(
-          queryKeys.payroll.list(filters),
+          payrollQueryKey,
           previous.filter((p) => p.id !== deletedId)
         );
       }
@@ -503,10 +268,7 @@ export function usePayroll() {
     },
     onError: (error, deletedId, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(
-          queryKeys.payroll.list(filters),
-          context.previous
-        );
+        queryClient.setQueryData(payrollQueryKey, context.previous);
       }
       logger.error('Error deleting payroll:', error);
       void Swal.fire({
@@ -535,9 +297,7 @@ export function usePayroll() {
     onMutate: async (newPayroll) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.payroll.lists() });
 
-      const previous = queryClient.getQueryData<Payroll[]>(
-        queryKeys.payroll.list(filters)
-      );
+      const previous = queryClient.getQueryData<Payroll[]>(payrollQueryKey);
 
       if (previous) {
         const tempPayroll = {
@@ -567,7 +327,7 @@ export function usePayroll() {
           bankGcash: String(newPayroll.bankGcash ?? ''),
         } as Payroll;
 
-        queryClient.setQueryData<Payroll[]>(queryKeys.payroll.list(filters), [
+        queryClient.setQueryData<Payroll[]>(payrollQueryKey, [
           tempPayroll,
           ...previous,
         ]);
@@ -577,10 +337,7 @@ export function usePayroll() {
     },
     onError: (error, variables, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(
-          queryKeys.payroll.list(filters),
-          context.previous
-        );
+        queryClient.setQueryData(payrollQueryKey, context.previous);
       }
       logger.error('Error saving payroll:', error);
       void Swal.fire({
@@ -613,13 +370,11 @@ export function usePayroll() {
     onMutate: async ({ id, ...updates }) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.payroll.lists() });
 
-      const previous = queryClient.getQueryData<Payroll[]>(
-        queryKeys.payroll.list(filters)
-      );
+      const previous = queryClient.getQueryData<Payroll[]>(payrollQueryKey);
 
       if (previous) {
         queryClient.setQueryData<Payroll[]>(
-          queryKeys.payroll.list(filters),
+          payrollQueryKey,
           previous.map((p) =>
             p.id === id
               ? {
@@ -706,10 +461,7 @@ export function usePayroll() {
     },
     onError: (error, variables, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(
-          queryKeys.payroll.list(filters),
-          context.previous
-        );
+        queryClient.setQueryData(payrollQueryKey, context.previous);
       }
       logger.error('Error updating payroll:', error);
       void Swal.fire({

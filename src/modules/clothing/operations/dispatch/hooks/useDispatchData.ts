@@ -11,6 +11,9 @@ import { showNotification } from '@mantine/notifications';
 import { apiClient } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import { logger } from '@/lib/logger';
+import { normalizeOrderStatus } from '@/lib/transactions/order-status';
+import { parseLineTotal } from '@/lib/transactions';
+import { runMicroBenchmark } from '@/lib/performance/benchmarks';
 import type { DispatchItem, RawOrderData } from '../types';
 
 interface UseDispatchDataParams {
@@ -145,44 +148,39 @@ export function useDispatchData({
     staleTime: 60 * 1000,
   });
 
-  const preparedLineTotalsByCustomer = useMemo(() => {
-    if (transactions.length === 0) {
-      return {};
-    }
-
-    return transactions.reduce(
-      (acc, transaction) => {
-        const status = transaction['Order Status'];
-        if (!status || status.toLowerCase() !== 'prepared') {
-          return acc;
-        }
-
-        const customerName = transaction.Customers?.trim();
-        if (!customerName) {
-          return acc;
-        }
-
-        const rawLineTotal = transaction['Line Total'];
-        const numericValue = (() => {
-          if (typeof rawLineTotal === 'number') {
-            return rawLineTotal;
+  const preparedLineTotalsByCustomer = useMemo(
+    () =>
+      runMicroBenchmark(
+        'useDispatchData.preparedLineTotalsByCustomer',
+        () => {
+          if (transactions.length === 0) {
+            return {};
           }
 
-          if (typeof rawLineTotal === 'string') {
-            const sanitized = rawLineTotal.replace(/[^\d.-]/g, '');
-            const parsed = Number(sanitized);
-            return Number.isNaN(parsed) ? 0 : parsed;
-          }
+          return transactions.reduce(
+            (acc, transaction) => {
+              const status = normalizeOrderStatus(transaction['Order Status']);
+              if (status !== 'prepared') {
+                return acc;
+              }
 
-          return 0;
-        })();
+              const customerName = transaction.Customers?.trim();
+              if (!customerName) {
+                return acc;
+              }
 
-        acc[customerName] = (acc[customerName] ?? 0) + numericValue;
-        return acc;
-      },
-      {} as Record<string, number>
-    );
-  }, [transactions]);
+              const numericValue = parseLineTotal(transaction['Line Total']);
+
+              acc[customerName] = (acc[customerName] ?? 0) + numericValue;
+              return acc;
+            },
+            {} as Record<string, number>
+          );
+        },
+        { metadata: { transactions: transactions.length } }
+      ),
+    [transactions]
+  );
 
   // Mutation to save orders to database
   const saveOrdersMutation = useMutation<

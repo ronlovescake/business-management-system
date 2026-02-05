@@ -18,6 +18,7 @@ import { useDataTable } from '@/hooks/useDataTable';
 import { queryKeys } from '@/lib/queryKeys';
 import { logger } from '@/lib/logger';
 import { ApiError } from '@/lib/api/client';
+import { runMicroBenchmark } from '@/lib/performance/benchmarks';
 import { ShipmentService } from '../services/ShipmentService';
 import type {
   ShipmentData,
@@ -75,27 +76,35 @@ export function useShipmentsData({
   // DATA TABLE INTEGRATION
   // ==========================================================================
 
-  const sortedShipments = useMemo(() => {
-    return [...shipments].sort((a, b) => {
-      const codeA = (a['Shipment Code'] ?? '').toString();
-      const codeB = (b['Shipment Code'] ?? '').toString();
+  const sortedShipments = useMemo(
+    () =>
+      runMicroBenchmark(
+        'useShipmentsData.sortedShipments',
+        () => {
+          return [...shipments].sort((a, b) => {
+            const codeA = (a['Shipment Code'] ?? '').toString();
+            const codeB = (b['Shipment Code'] ?? '').toString();
 
-      if (!codeA && !codeB) {
-        return 0;
-      }
-      if (!codeA) {
-        return 1;
-      }
-      if (!codeB) {
-        return -1;
-      }
+            if (!codeA && !codeB) {
+              return 0;
+            }
+            if (!codeA) {
+              return 1;
+            }
+            if (!codeB) {
+              return -1;
+            }
 
-      return codeB.localeCompare(codeA, undefined, {
-        numeric: true,
-        sensitivity: 'base',
-      });
-    });
-  }, [shipments]);
+            return codeB.localeCompare(codeA, undefined, {
+              numeric: true,
+              sensitivity: 'base',
+            });
+          });
+        },
+        { metadata: { shipments: shipments.length } }
+      ),
+    [shipments]
+  );
 
   const { searchQuery, filteredData, handleSearch, getCellContent } =
     useDataTable({
@@ -107,9 +116,15 @@ export function useShipmentsData({
   // MEMOIZED STATISTICS
   // ==========================================================================
 
-  const statistics: ShipmentStatistics = useMemo(() => {
-    return ShipmentService.calculateStatistics(filteredData);
-  }, [filteredData]);
+  const statistics: ShipmentStatistics = useMemo(
+    () =>
+      runMicroBenchmark(
+        'useShipmentsData.statistics',
+        () => ShipmentService.calculateStatistics(filteredData),
+        { metadata: { filtered: filteredData.length } }
+      ),
+    [filteredData]
+  );
 
   // ==========================================================================
   // CRUD OPERATIONS

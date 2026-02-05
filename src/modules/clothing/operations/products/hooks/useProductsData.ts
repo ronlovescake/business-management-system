@@ -10,6 +10,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useDebouncedValue } from '@mantine/hooks';
 import { queryKeys } from '@/lib/queryKeys';
 import { logger } from '@/lib/logger';
+import { createOptimisticUpdateHandlers } from '@/lib/react-query/optimistic';
 import type { ProductData, ProductStatistics } from '../types/product.types';
 import { ProductService } from '../services/ProductService';
 
@@ -73,34 +74,24 @@ export function useProductsData(apiBasePath?: string) {
   /**
    * Add new product mutation
    */
+  const addProductOptimistic = createOptimisticUpdateHandlers<
+    ProductData,
+    ProductData
+  >({
+    queryClient,
+    queryKey: productsQueryKey,
+    updater: (previousProducts, newProduct) =>
+      previousProducts ? [newProduct, ...previousProducts] : previousProducts,
+  });
+
   const addProductMutation = useMutation({
     mutationFn: async (product: ProductData) => {
       return await ProductService.addProduct(product, apiBasePath);
     },
-    onMutate: async (newProduct) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: productsQueryKey });
-
-      // Snapshot previous value
-      const previousProducts =
-        queryClient.getQueryData<ProductData[]>(productsQueryKey);
-
-      // Optimistically update
-      if (previousProducts) {
-        queryClient.setQueryData<ProductData[]>(productsQueryKey, [
-          newProduct,
-          ...previousProducts,
-        ]);
-      }
-
-      return { previousProducts };
-    },
-    onError: (_error, _variables, context) => {
-      // Rollback on error
-      if (context?.previousProducts) {
-        queryClient.setQueryData(productsQueryKey, context.previousProducts);
-      }
-      logger.error('Failed to add product:', _error);
+    onMutate: addProductOptimistic.onMutate,
+    onError: (error, variables, context) => {
+      addProductOptimistic.onError(error, variables, context);
+      logger.error('Failed to add product:', error);
     },
     onSettled: () => {
       // Always refetch after error or success
@@ -111,6 +102,22 @@ export function useProductsData(apiBasePath?: string) {
   /**
    * Update existing product mutation
    */
+  const updateProductOptimistic = createOptimisticUpdateHandlers<
+    ProductData,
+    { productId: number; productData: Partial<ProductData> }
+  >({
+    queryClient,
+    queryKey: productsQueryKey,
+    updater: (previousProducts, { productId, productData }) =>
+      previousProducts
+        ? previousProducts.map((product) =>
+            product.id === productId
+              ? { ...product, ...productData, id: productId }
+              : product
+          )
+        : previousProducts,
+  });
+
   const updateProductMutation = useMutation({
     mutationFn: async ({
       productId,
@@ -125,32 +132,10 @@ export function useProductsData(apiBasePath?: string) {
         apiBasePath
       );
     },
-    onMutate: async ({ productId, productData }) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: productsQueryKey });
-
-      // Snapshot previous value
-      const previousProducts =
-        queryClient.getQueryData<ProductData[]>(productsQueryKey);
-
-      // Optimistically update
-      if (previousProducts) {
-        queryClient.setQueryData<ProductData[]>(
-          productsQueryKey,
-          previousProducts.map((p) =>
-            p.id === productId ? { ...p, ...productData, id: productId } : p
-          )
-        );
-      }
-
-      return { previousProducts };
-    },
-    onError: (_error, _variables, context) => {
-      // Rollback on error
-      if (context?.previousProducts) {
-        queryClient.setQueryData(productsQueryKey, context.previousProducts);
-      }
-      logger.error('Failed to update product:', _error);
+    onMutate: updateProductOptimistic.onMutate,
+    onError: (error, variables, context) => {
+      updateProductOptimistic.onError(error, variables, context);
+      logger.error('Failed to update product:', error);
     },
     onSettled: () => {
       // Always refetch after error or success
@@ -161,6 +146,15 @@ export function useProductsData(apiBasePath?: string) {
   /**
    * Bulk update products mutation
    */
+  const bulkUpdateProductsOptimistic = createOptimisticUpdateHandlers<
+    ProductData,
+    ProductData[]
+  >({
+    queryClient,
+    queryKey: productsQueryKey,
+    updater: (_previousProducts, updatedProducts) => updatedProducts,
+  });
+
   const bulkUpdateProductsMutation = useMutation({
     mutationFn: async (updatedProducts: ProductData[]) => {
       return await ProductService.bulkUpdateProducts(
@@ -168,28 +162,10 @@ export function useProductsData(apiBasePath?: string) {
         apiBasePath
       );
     },
-    onMutate: async (updatedProducts) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: productsQueryKey });
-
-      // Snapshot previous value
-      const previousProducts =
-        queryClient.getQueryData<ProductData[]>(productsQueryKey);
-
-      // Optimistically update
-      queryClient.setQueryData<ProductData[]>(
-        productsQueryKey,
-        updatedProducts
-      );
-
-      return { previousProducts };
-    },
-    onError: (_error, _variables, context) => {
-      // Rollback on error
-      if (context?.previousProducts) {
-        queryClient.setQueryData(productsQueryKey, context.previousProducts);
-      }
-      logger.error('Failed to bulk update products:', _error);
+    onMutate: bulkUpdateProductsOptimistic.onMutate,
+    onError: (error, variables, context) => {
+      bulkUpdateProductsOptimistic.onError(error, variables, context);
+      logger.error('Failed to bulk update products:', error);
     },
     onSettled: () => {
       // Always refetch after error or success

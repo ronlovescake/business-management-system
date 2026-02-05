@@ -162,7 +162,7 @@ type TransactionServiceLike = {
 
 export function useTransactionData({
   service = TransactionService,
-  queryKey = ['transactions'],
+  queryKey = queryKeys.transactions.lists(),
 }: {
   service?: TransactionServiceLike;
   queryKey?: QueryKey;
@@ -312,7 +312,7 @@ export function useShipmentData() {
  */
 export function usePriceData() {
   const queryClient = useQueryClient();
-  const queryKey = ['prices'];
+  const queryKey = queryKeys.prices.lists();
 
   const {
     data = [],

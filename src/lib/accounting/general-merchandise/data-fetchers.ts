@@ -7,6 +7,7 @@ import {
 import { getAccountingCutoverDate } from '@/lib/accounting/cutover';
 import { parseDate } from '@/lib/accounting/date-utils';
 import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
+import { fetchWithStatusChangesFallback } from '@/lib/accounting/fetcher-helpers';
 
 const ACCOUNTING_CUTOVER = getAccountingCutoverDate('generalMerchandise');
 
@@ -70,6 +71,16 @@ async function gmPaymentHasReservationColumn(): Promise<boolean> {
   }
 }
 
+let gmReservationColumnPromise: Promise<boolean> | null = null;
+
+const getGmReservationColumnAvailability = (): Promise<boolean> => {
+  if (!gmReservationColumnPromise) {
+    gmReservationColumnPromise = gmPaymentHasReservationColumn();
+  }
+
+  return gmReservationColumnPromise;
+};
+
 export type GeneralMerchandiseExpenseRow = {
   id: number;
   date: string;
@@ -103,24 +114,23 @@ export async function fetchGeneralMerchandisePaidTransactions(): Promise<
     orderStatus: { in: [...PAID_STATUSES] },
   };
 
-  try {
-    return await prisma.generalMerchandiseTransaction.findMany({
-      where: baseWhere,
-      include: {
-        statusChanges: {
-          where: { newStatus: { in: [...PAID_STATUSES] } },
-          orderBy: { changedAt: 'asc' },
+  return await fetchWithStatusChangesFallback({
+    fetchWithChanges: () =>
+      prisma.generalMerchandiseTransaction.findMany({
+        where: baseWhere,
+        include: {
+          statusChanges: {
+            where: { newStatus: { in: [...PAID_STATUSES] } },
+            orderBy: { changedAt: 'asc' },
+          },
         },
-      },
-    });
-  } catch (error) {
-    logger.warn('GM: Falling back to transactions without statusChanges', {
-      error,
-    });
-    return await prisma.generalMerchandiseTransaction.findMany({
-      where: baseWhere,
-    });
-  }
+      }),
+    fetchWithoutChanges: () =>
+      prisma.generalMerchandiseTransaction.findMany({
+        where: baseWhere,
+      }),
+    logMessage: 'GM: Falling back to transactions without statusChanges',
+  });
 }
 
 export async function fetchGeneralMerchandiseCancelledTransactions(): Promise<
@@ -131,27 +141,24 @@ export async function fetchGeneralMerchandiseCancelledTransactions(): Promise<
     orderStatus: { equals: 'Cancelled' },
   };
 
-  try {
-    return await prisma.generalMerchandiseTransaction.findMany({
-      where: baseWhere,
-      include: {
-        statusChanges: {
-          where: { newStatus: { equals: 'Cancelled' } },
-          orderBy: { changedAt: 'asc' },
+  return await fetchWithStatusChangesFallback({
+    fetchWithChanges: () =>
+      prisma.generalMerchandiseTransaction.findMany({
+        where: baseWhere,
+        include: {
+          statusChanges: {
+            where: { newStatus: { equals: 'Cancelled' } },
+            orderBy: { changedAt: 'asc' },
+          },
         },
-      },
-    });
-  } catch (error) {
-    logger.warn(
+      }),
+    fetchWithoutChanges: () =>
+      prisma.generalMerchandiseTransaction.findMany({
+        where: baseWhere,
+      }),
+    logMessage:
       'GM: Falling back to cancelled transactions without statusChanges',
-      {
-        error,
-      }
-    );
-    return await prisma.generalMerchandiseTransaction.findMany({
-      where: baseWhere,
-    });
-  }
+  });
 }
 
 export async function fetchGeneralMerchandiseRecognizedTransactions(): Promise<
@@ -173,26 +180,25 @@ export async function fetchGeneralMerchandiseRecognizedTransactions(): Promise<
     ],
   };
 
-  try {
-    const rows = await prisma.generalMerchandiseTransaction.findMany({
-      where: baseWhere,
-      include: {
-        statusChanges: {
-          where: { newStatus: { in: [...PAID_STATUSES] } },
-          orderBy: { changedAt: 'asc' },
+  const rows = await fetchWithStatusChangesFallback({
+    fetchWithChanges: () =>
+      prisma.generalMerchandiseTransaction.findMany({
+        where: baseWhere,
+        include: {
+          statusChanges: {
+            where: { newStatus: { in: [...PAID_STATUSES] } },
+            orderBy: { changedAt: 'asc' },
+          },
         },
-      },
-    });
-    return rows.filter((tx) => !isCancelledOrderStatus(tx.orderStatus));
-  } catch (error) {
-    logger.warn('GM: Falling back to transactions without statusChanges', {
-      error,
-    });
-    const rows = await prisma.generalMerchandiseTransaction.findMany({
-      where: baseWhere,
-    });
-    return rows.filter((tx) => !isCancelledOrderStatus(tx.orderStatus));
-  }
+      }),
+    fetchWithoutChanges: () =>
+      prisma.generalMerchandiseTransaction.findMany({
+        where: baseWhere,
+      }),
+    logMessage: 'GM: Falling back to transactions without statusChanges',
+  });
+
+  return rows.filter((tx) => !isCancelledOrderStatus(tx.orderStatus));
 }
 
 export async function fetchGeneralMerchandiseApprovedExpenses(): Promise<
@@ -286,7 +292,7 @@ export async function fetchGeneralMerchandiseTransactionPayments(): Promise<
     return [];
   }
 
-  const hasReservationColumn = await gmPaymentHasReservationColumn();
+  const hasReservationColumn = await getGmReservationColumnAvailability();
 
   const rows = (await transactionPayment.findMany({
     where: {

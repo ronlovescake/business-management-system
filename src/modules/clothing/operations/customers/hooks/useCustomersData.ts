@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
 import { logger } from '@/lib/logger';
+import { createOptimisticUpdateHandlers } from '@/lib/react-query/optimistic';
 import type { CustomerData, CustomerStats } from '../types/customer.types';
 import { CustomerService } from '../services/CustomerService';
 
@@ -83,36 +84,26 @@ export function useCustomersData(apiBasePath?: string) {
   /**
    * Add customer mutation
    */
+  const addCustomerOptimistic = createOptimisticUpdateHandlers<
+    CustomerData,
+    CustomerData
+  >({
+    queryClient,
+    queryKey: customersQueryKey,
+    updater: (previousCustomers, newCustomer) =>
+      previousCustomers
+        ? [newCustomer, ...previousCustomers]
+        : previousCustomers,
+  });
+
   const addCustomerMutation = useMutation({
     mutationFn: async (newCustomer: CustomerData) => {
       return await CustomerService.addCustomer(newCustomer, apiBasePath);
     },
-    onMutate: async (newCustomer) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({
-        queryKey: customersQueryKey,
-      });
-
-      // Snapshot previous value
-      const previousCustomers =
-        queryClient.getQueryData<CustomerData[]>(customersQueryKey);
-
-      // Optimistically update
-      if (previousCustomers) {
-        queryClient.setQueryData<CustomerData[]>(customersQueryKey, [
-          newCustomer,
-          ...previousCustomers,
-        ]);
-      }
-
-      return { previousCustomers };
-    },
-    onError: (_error, _variables, context) => {
-      // Rollback on error
-      if (context?.previousCustomers) {
-        queryClient.setQueryData(customersQueryKey, context.previousCustomers);
-      }
-      logger.error('Failed to add customer:', _error);
+    onMutate: addCustomerOptimistic.onMutate,
+    onError: (error, variables, context) => {
+      addCustomerOptimistic.onError(error, variables, context);
+      logger.error('Failed to add customer:', error);
     },
     onSettled: () => {
       // Always refetch after error or success
@@ -139,6 +130,15 @@ export function useCustomersData(apiBasePath?: string) {
   /**
    * Bulk update customers mutation
    */
+  const bulkUpdateCustomersOptimistic = createOptimisticUpdateHandlers<
+    CustomerData,
+    CustomerData[]
+  >({
+    queryClient,
+    queryKey: customersQueryKey,
+    updater: (_previousCustomers, newCustomers) => newCustomers,
+  });
+
   const bulkUpdateCustomersMutation = useMutation({
     mutationFn: async (newCustomers: CustomerData[]) => {
       return await CustomerService.bulkUpdateCustomers(
@@ -146,27 +146,10 @@ export function useCustomersData(apiBasePath?: string) {
         apiBasePath
       );
     },
-    onMutate: async (newCustomers) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({
-        queryKey: customersQueryKey,
-      });
-
-      // Snapshot previous value
-      const previousCustomers =
-        queryClient.getQueryData<CustomerData[]>(customersQueryKey);
-
-      // Optimistically update
-      queryClient.setQueryData<CustomerData[]>(customersQueryKey, newCustomers);
-
-      return { previousCustomers };
-    },
-    onError: (_error, _variables, context) => {
-      // Rollback on error
-      if (context?.previousCustomers) {
-        queryClient.setQueryData(customersQueryKey, context.previousCustomers);
-      }
-      logger.error('Failed to bulk update customers:', _error);
+    onMutate: bulkUpdateCustomersOptimistic.onMutate,
+    onError: (error, variables, context) => {
+      bulkUpdateCustomersOptimistic.onError(error, variables, context);
+      logger.error('Failed to bulk update customers:', error);
     },
     onSettled: () => {
       // Always refetch after error or success

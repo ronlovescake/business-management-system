@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useDebouncedValue } from '@mantine/hooks';
 import { queryKeys } from '@/lib/queryKeys';
 import { logger } from '@/lib/logger';
+import { createOptimisticUpdateHandlers } from '@/lib/react-query/optimistic';
 import type {
   PriceData,
   PriceStats,
@@ -73,6 +74,16 @@ export function usePricesData(apiBasePath?: string) {
   /**
    * Add price mutation
    */
+  const addPriceOptimistic = createOptimisticUpdateHandlers<
+    PriceData,
+    PriceData
+  >({
+    queryClient,
+    queryKey: pricesQueryKey,
+    updater: (previousPrices, newPrice) =>
+      previousPrices ? [...previousPrices, newPrice] : previousPrices,
+  });
+
   const addPriceMutation = useMutation({
     mutationFn: async (price: PriceData) => {
       const success = await PriceService.addPrice(price, apiBasePath);
@@ -81,40 +92,26 @@ export function usePricesData(apiBasePath?: string) {
       }
       return success;
     },
-    onMutate: async (newPrice) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: pricesQueryKey });
-
-      // Snapshot previous value
-      const previousPrices =
-        queryClient.getQueryData<PriceData[]>(pricesQueryKey);
-
-      // Optimistically update
-      if (previousPrices) {
-        queryClient.setQueryData<PriceData[]>(pricesQueryKey, [
-          ...previousPrices,
-          newPrice,
-        ]);
-      }
-
-      return { previousPrices };
+    onMutate: addPriceOptimistic.onMutate,
+    onError: (error, variables, context) => {
+      addPriceOptimistic.onError(error, variables, context);
+      logger.error('Error adding price:', error);
     },
-    onError: (_error, _variables, context) => {
-      // Rollback on error
-      if (context?.previousPrices) {
-        queryClient.setQueryData(pricesQueryKey, context.previousPrices);
-      }
-      logger.error('Error adding price:', _error);
-    },
-    onSettled: () => {
-      // Always refetch after error or success
-      queryClient.invalidateQueries({ queryKey: pricesQueryKey });
-    },
+    onSettled: addPriceOptimistic.onSettled,
   });
 
   /**
    * Bulk update prices mutation
    */
+  const bulkUpdatePricesOptimistic = createOptimisticUpdateHandlers<
+    PriceData,
+    PriceData[]
+  >({
+    queryClient,
+    queryKey: pricesQueryKey,
+    updater: (_previousPrices, updatedPrices) => updatedPrices,
+  });
+
   const bulkUpdatePricesMutation = useMutation({
     mutationFn: async (updatedPrices: PriceData[]) => {
       const success = await PriceService.bulkUpdatePrices(
@@ -126,70 +123,36 @@ export function usePricesData(apiBasePath?: string) {
       }
       return success;
     },
-    onMutate: async (updatedPrices) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: pricesQueryKey });
-
-      // Snapshot previous value
-      const previousPrices =
-        queryClient.getQueryData<PriceData[]>(pricesQueryKey);
-
-      // Optimistically update
-      queryClient.setQueryData<PriceData[]>(pricesQueryKey, updatedPrices);
-
-      return { previousPrices };
+    onMutate: bulkUpdatePricesOptimistic.onMutate,
+    onError: (error, variables, context) => {
+      bulkUpdatePricesOptimistic.onError(error, variables, context);
+      logger.error('Error updating prices:', error);
     },
-    onError: (_error, _variables, context) => {
-      // Rollback on error
-      if (context?.previousPrices) {
-        queryClient.setQueryData(pricesQueryKey, context.previousPrices);
-      }
-      logger.error('Error updating prices:', _error);
-    },
-    onSettled: () => {
-      // Always refetch after error or success
-      queryClient.invalidateQueries({ queryKey: pricesQueryKey });
-    },
+    onSettled: bulkUpdatePricesOptimistic.onSettled,
   });
 
   /**
    * Replace all prices mutation
    */
+  const replaceAllPricesOptimistic = createOptimisticUpdateHandlers<
+    PriceData,
+    PriceData[]
+  >({
+    queryClient,
+    queryKey: [pricesQueryKey, queryKeys.prices.lists()],
+    updater: (_previousPrices, newPrices) => newPrices,
+  });
+
   const replaceAllPricesMutation = useMutation({
     mutationFn: async (newPrices: PriceData[]) => {
       return await PriceService.replaceAllPrices(newPrices, apiBasePath);
     },
-    onMutate: async (newPrices) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: queryKeys.prices.lists() });
-
-      // Snapshot previous value
-      const previousPrices = queryClient.getQueryData<PriceData[]>(
-        queryKeys.prices.lists()
-      );
-
-      // Optimistically update
-      queryClient.setQueryData<PriceData[]>(
-        queryKeys.prices.lists(),
-        newPrices
-      );
-
-      return { previousPrices };
+    onMutate: replaceAllPricesOptimistic.onMutate,
+    onError: (error, variables, context) => {
+      replaceAllPricesOptimistic.onError(error, variables, context);
+      logger.error('Error replacing prices:', error);
     },
-    onError: (_error, _variables, context) => {
-      // Rollback on error
-      if (context?.previousPrices) {
-        queryClient.setQueryData(
-          queryKeys.prices.lists(),
-          context.previousPrices
-        );
-      }
-      logger.error('Error replacing prices:', _error);
-    },
-    onSettled: () => {
-      // Always refetch after error or success
-      queryClient.invalidateQueries({ queryKey: queryKeys.prices.lists() });
-    },
+    onSettled: replaceAllPricesOptimistic.onSettled,
   });
 
   // Wrapper functions to maintain API compatibility

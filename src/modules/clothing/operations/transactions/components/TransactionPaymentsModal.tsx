@@ -22,6 +22,7 @@ import { api } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import { PolishedModal } from '@/components/modals/PolishedModal';
 import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
+import { queryKeys } from '@/lib/queryKeys';
 import {
   STATUS_FILTER_OPTIONS,
   type StatusFilterOption,
@@ -83,6 +84,10 @@ export function TransactionPaymentsModal({
   onCustomerChange?: (customerName: string | null) => void;
   apiBasePath?: string;
 }) {
+  const transactionsQueryKey = useMemo(
+    () => [...queryKeys.transactions.lists(), apiBasePath ?? '/api'],
+    [apiBasePath]
+  );
   const queryClient = useQueryClient();
 
   const isGeneralMerchandise =
@@ -508,7 +513,9 @@ export function TransactionPaymentsModal({
           requestPayload
         );
 
-        await queryClient.invalidateQueries({ queryKey: ['transactions'] });
+        await queryClient.invalidateQueries({
+          queryKey: transactionsQueryKey,
+        });
 
         showNotification({
           title: 'Payment recorded',
@@ -543,6 +550,7 @@ export function TransactionPaymentsModal({
       paymentDate,
       payloadDrafts,
       queryClient,
+      transactionsQueryKey,
       resetAmountsOnly,
       resetFormState,
       totalEntered,

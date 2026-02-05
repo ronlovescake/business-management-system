@@ -27,7 +27,11 @@ import type { TransactionData, PriceTier } from '../types/transaction.types';
 import { queryKeys } from '@/lib/queryKeys';
 import { OperationsNotificationsService } from '../../notifications/services/OperationsNotificationsService';
 import { PAID_STATUSES } from '@/lib/accounting/constants';
-import { isVoidedOrderStatus } from '@/lib/transactions/order-status';
+import {
+  isVoidedOrderStatus,
+  normalizeOrderStatus,
+} from '@/lib/transactions/order-status';
+import { confirmCustomerReplacement } from './confirmCustomerReplace';
 
 interface UseTransactionOperationsProps {
   transactions: TransactionData[];
@@ -85,6 +89,10 @@ export function useTransactionOperations(
     () => [...queryKeys.operationsNotifications.all, apiBasePath ?? 'default'],
     [apiBasePath]
   );
+  const transactionsQueryKey = useMemo(
+    () => [...queryKeys.transactions.lists(), apiBasePath ?? '/api'],
+    [apiBasePath]
+  );
 
   const draftRowsRef = useRef<Map<number, TransactionData>>(new Map());
   const creatingDraftRowsRef = useRef<Set<number>>(new Set());
@@ -131,19 +139,12 @@ export function useTransactionOperations(
     [createEmptyTransaction]
   );
 
-  const normalizeStatus = useCallback((value: string | null | undefined) => {
-    return (value ?? '').trim().toLowerCase();
+  const isPaidStatus = useCallback((value: string | null | undefined) => {
+    const normalized = normalizeOrderStatus(value);
+    return PAID_STATUSES.some(
+      (status) => normalizeOrderStatus(status) === normalized
+    );
   }, []);
-
-  const isPaidStatus = useCallback(
-    (value: string | null | undefined) => {
-      const normalized = normalizeStatus(value);
-      return PAID_STATUSES.some(
-        (status) => normalizeStatus(status) === normalized
-      );
-    },
-    [normalizeStatus]
-  );
 
   const computeRemainingBalance = useCallback((row: TransactionData) => {
     const lineTotal = Number(row['Line Total']);
@@ -211,7 +212,7 @@ export function useTransactionOperations(
         } as TransactionData;
 
         queryClient.setQueryData<TransactionData[] | undefined>(
-          ['transactions'],
+          transactionsQueryKey,
           (existing) =>
             existing
               ? [...existing, optimisticTransaction]
@@ -228,7 +229,9 @@ export function useTransactionOperations(
         draftRowsRef.current.delete(rowIndex);
 
         // Refresh shared cache so the new row arrives with a real ID
-        await queryClient.invalidateQueries({ queryKey: ['transactions'] });
+        await queryClient.invalidateQueries({
+          queryKey: transactionsQueryKey,
+        });
 
         showNotification({
           title: 'Success',
@@ -357,7 +360,13 @@ export function useTransactionOperations(
         creatingDraftRowsRef.current.delete(rowIndex);
       }
     },
-    [apiBasePath, hasMinimumCreateFields, queryClient, createEmptyTransaction]
+    [
+      apiBasePath,
+      hasMinimumCreateFields,
+      queryClient,
+      createEmptyTransaction,
+      transactionsQueryKey,
+    ]
   );
 
   const logNotification = useCallback(
@@ -657,6 +666,18 @@ export function useTransactionOperations(
       // ========================================================================
       if (columnId === 'customers') {
         const dropdownValue = getCellValue(newValue);
+        const previousCustomerInput =
+          typeof edit.oldValue === 'string' ? edit.oldValue.trim() : '';
+        const nextCustomer = dropdownValue.trim();
+        const shouldProceed = await confirmCustomerReplacement({
+          previousCustomerInput,
+          nextCustomer,
+          source: edit.source,
+        });
+
+        if (!shouldProceed) {
+          return false;
+        }
 
         // Validate customer
         if (dropdownValue && dropdownValue.trim() !== '') {
@@ -698,13 +719,7 @@ export function useTransactionOperations(
           dropdownValue.trim() !== '' &&
           (!currentOrderDate || currentOrderDate.trim() === '')
         ) {
-          const now = new Date();
-          autoPopulatedOrderDate = now.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            timeZone: 'Asia/Manila',
-          });
+          autoPopulatedOrderDate = formatToday();
         }
 
         updateTransactionData({

@@ -21,6 +21,7 @@ import { api } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import { ensureArray } from '@/lib/api/normalize';
 import { logger } from '@/lib/logger';
+import { runMicroBenchmark } from '@/lib/performance/benchmarks';
 import type {
   TransactionData,
   PriceTier,
@@ -34,6 +35,18 @@ async function fetchArray<T>(url: string): Promise<T[]> {
   const response = await api.get<T[] | ApiResponse<T[]>>(url);
   return ensureArray<T>(response);
 }
+
+const extractCustomerName = (
+  customer: Record<string, unknown>
+): string | undefined => {
+  const name =
+    customer.name ||
+    customer.Name ||
+    customer.customerName ||
+    customer['Customer Name'];
+
+  return name ? String(name) : undefined;
+};
 
 /**
  * Safely parse an order date string and return the timestamp for comparisons.
@@ -127,7 +140,7 @@ export function useTransactionsData({
     apiBasePath === '/api/general-merchandise' ? undefined : apiBasePath;
   const customerLookupKey = customerLookupBasePath ?? '/api';
   const transactionQueryKey = useMemo(
-    () => [...queryKeys.transactions.all, resolvedApiBasePath],
+    () => [...queryKeys.transactions.lists(), resolvedApiBasePath],
     [resolvedApiBasePath]
   );
   const transactionService =
@@ -167,14 +180,7 @@ export function useTransactionsData({
             );
             // Extract customer names from the API data
             return customersData
-              .map((customer) => {
-                return (
-                  customer.name ||
-                  customer.Name ||
-                  customer.customerName ||
-                  customer['Customer Name']
-                );
-              })
+              .map(extractCustomerName)
               .filter(Boolean)
               .map(String);
           } catch (error) {
@@ -255,105 +261,141 @@ export function useTransactionsData({
   );
 
   // Compute customer names from API + transactions
-  const customerNames = useMemo(() => {
-    const normalizedMap = new Map<string, string>();
+  const customerNames = useMemo(
+    () =>
+      runMicroBenchmark(
+        'useTransactionsData.customerNames',
+        () => {
+          const normalizedMap = new Map<string, string>();
 
-    const addCustomerName = (rawName: unknown) => {
-      if (typeof rawName !== 'string') {
-        return;
-      }
+          const addCustomerName = (rawName: unknown) => {
+            if (typeof rawName !== 'string') {
+              return;
+            }
 
-      const sanitized = rawName.trim();
-      if (!sanitized) {
-        return;
-      }
+            const sanitized = rawName.trim();
+            if (!sanitized) {
+              return;
+            }
 
-      const key = sanitized.toLowerCase();
-      if (!normalizedMap.has(key)) {
-        normalizedMap.set(key, sanitized);
-      }
-    };
+            const key = sanitized.toLowerCase();
+            if (!normalizedMap.has(key)) {
+              normalizedMap.set(key, sanitized);
+            }
+          };
 
-    customersQueryData.forEach(addCustomerName);
-    transactions.forEach((transaction) =>
-      addCustomerName(transaction.Customers)
-    );
+          customersQueryData.forEach(addCustomerName);
+          transactions.forEach((transaction) =>
+            addCustomerName(transaction.Customers)
+          );
 
-    const collator = new Intl.Collator(undefined, {
-      sensitivity: 'base',
-      numeric: false,
-    });
+          const collator = new Intl.Collator(undefined, {
+            sensitivity: 'base',
+            numeric: false,
+          });
 
-    return Array.from(normalizedMap.values()).sort((a, b) =>
-      collator.compare(a, b)
-    );
-  }, [customersQueryData, transactions]);
+          return Array.from(normalizedMap.values()).sort((a, b) =>
+            collator.compare(a, b)
+          );
+        },
+        {
+          metadata: {
+            customers: customersQueryData.length,
+            transactions: transactions.length,
+          },
+        }
+      ),
+    [customersQueryData, transactions]
+  );
 
   // Compute product codes and price tiers from prices API
-  const { productCodes, priceTiers } = useMemo(() => {
-    // 🚀 PERFORMANCE: Use Set for O(n) deduplication
-    const codes = Array.from(
-      new Set(
-        pricesQueryData.map((price) => price['Product Code']).filter(Boolean)
-      )
-    ).sort();
+  const { productCodes, priceTiers } = useMemo(
+    () =>
+      runMicroBenchmark(
+        'useTransactionsData.productCodes',
+        () => {
+          // 🚀 PERFORMANCE: Use Set for O(n) deduplication
+          const codes = Array.from(
+            new Set(
+              pricesQueryData
+                .map((price) => price['Product Code'])
+                .filter(Boolean)
+            )
+          ).sort();
 
-    return {
-      productCodes: codes,
-      priceTiers: pricesQueryData,
-    };
-  }, [pricesQueryData]);
+          return {
+            productCodes: codes,
+            priceTiers: pricesQueryData,
+          };
+        },
+        { metadata: { prices: pricesQueryData.length } }
+      ),
+    [pricesQueryData]
+  );
 
   // Compute product-to-shipment and product-to-shipment-status mappings
-  const { productToShipmentMap, productToShipmentStatusMap } = useMemo(() => {
-    // Create mapping from Shipment Code to Shipment Status
-    const shipmentCodeToStatus: Record<string, string> = {};
+  const { productToShipmentMap, productToShipmentStatusMap } = useMemo(
+    () =>
+      runMicroBenchmark(
+        'useTransactionsData.productToShipmentMap',
+        () => {
+          // Create mapping from Shipment Code to Shipment Status
+          const shipmentCodeToStatus: Record<string, string> = {};
 
-    shipmentsQueryData.forEach((shipment) => {
-      const shipmentCode = String(
-        shipment['Shipment Code'] || shipment.shipmentCode || ''
-      );
-      const shipmentStatus = String(
-        shipment['Shipment Status'] || shipment.shipmentStatus || ''
-      );
+          shipmentsQueryData.forEach((shipment) => {
+            const shipmentCode = String(
+              shipment['Shipment Code'] || shipment.shipmentCode || ''
+            );
+            const shipmentStatus = String(
+              shipment['Shipment Status'] || shipment.shipmentStatus || ''
+            );
 
-      if (shipmentCode) {
-        shipmentCodeToStatus[shipmentCode] = shipmentStatus;
-      }
-    });
+            if (shipmentCode) {
+              shipmentCodeToStatus[shipmentCode] = shipmentStatus;
+            }
+          });
 
-    // Create mappings from Product Code to Shipment Code and Status
-    const shipmentMapping: Record<string, string> = {};
-    const statusMapping: Record<string, string> = {};
+          // Create mappings from Product Code to Shipment Code and Status
+          const shipmentMapping: Record<string, string> = {};
+          const statusMapping: Record<string, string> = {};
 
-    productsQueryData.forEach((product) => {
-      const productCode = String(
-        product.productCode || product['Product Code'] || ''
-      );
-      const shipmentCode = String(
-        product.shipmentCode || product['Shipment Code'] || ''
-      );
+          productsQueryData.forEach((product) => {
+            const productCode = String(
+              product.productCode || product['Product Code'] || ''
+            );
+            const shipmentCode = String(
+              product.shipmentCode || product['Shipment Code'] || ''
+            );
 
-      if (productCode && shipmentCode) {
-        shipmentMapping[productCode] = shipmentCode;
+            if (productCode && shipmentCode) {
+              shipmentMapping[productCode] = shipmentCode;
 
-        const correspondingShipmentStatus =
-          shipmentCodeToStatus[shipmentCode] || '';
-        statusMapping[productCode] = correspondingShipmentStatus;
-      }
-    });
+              const correspondingShipmentStatus =
+                shipmentCodeToStatus[shipmentCode] || '';
+              statusMapping[productCode] = correspondingShipmentStatus;
+            }
+          });
 
-    if (Object.keys(statusMapping).length > 0) {
-      logger.log(
-        `✅ Loaded product-to-shipment mappings: ${Object.keys(statusMapping).length} products mapped`
-      );
-    }
+          if (Object.keys(statusMapping).length > 0) {
+            logger.log(
+              `✅ Loaded product-to-shipment mappings: ${Object.keys(statusMapping).length} products mapped`
+            );
+          }
 
-    return {
-      productToShipmentMap: shipmentMapping,
-      productToShipmentStatusMap: statusMapping,
-    };
-  }, [productsQueryData, shipmentsQueryData]);
+          return {
+            productToShipmentMap: shipmentMapping,
+            productToShipmentStatusMap: statusMapping,
+          };
+        },
+        {
+          metadata: {
+            products: productsQueryData.length,
+            shipments: shipmentsQueryData.length,
+          },
+        }
+      ),
+    [productsQueryData, shipmentsQueryData]
+  );
 
   // ============================================================================
   // STATUS FILTERING
