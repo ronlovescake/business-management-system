@@ -32,7 +32,10 @@ import { Button } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
-import type { CellClickEvent } from '@/components/ui/HandsontableGrid';
+import type {
+  CellClickEvent,
+  CellEditEvent,
+} from '@/components/ui/HandsontableGrid';
 import { onRenderCallback } from '@/lib/performance/monitoring';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
@@ -94,6 +97,11 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
   const lastCustomerClickRef = useRef<{
     row: number;
     columnId: string;
+    time: number;
+  } | null>(null);
+
+  const lastCustomerPasteRef = useRef<{
+    row: number;
     time: number;
   } | null>(null);
 
@@ -237,6 +245,24 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
       setShowCustomerWarningModal(true);
     },
   });
+
+  const handleCellEditedWithPasteTracking = useCallback(
+    (edit: CellEditEvent<TransactionData>) => {
+      if (
+        edit.columnId === 'customers' &&
+        typeof edit.source === 'string' &&
+        edit.source.toLowerCase().includes('paste')
+      ) {
+        lastCustomerPasteRef.current = {
+          row: edit.row,
+          time: Date.now(),
+        };
+      }
+
+      return handleCellEdited(edit);
+    },
+    [handleCellEdited]
+  );
 
   // ============================================================================
   // CHANGE LOG DATA
@@ -633,12 +659,22 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
         return;
       }
 
+      const now = Date.now();
+      const lastPaste = lastCustomerPasteRef.current;
+      if (
+        lastPaste &&
+        lastPaste.row === event.row &&
+        now - lastPaste.time < 1000
+      ) {
+        lastCustomerClickRef.current = null;
+        return;
+      }
+
       const customerName = event.rowData.Customers?.trim();
       if (!customerName) {
         return;
       }
 
-      const now = Date.now();
       const lastClick = lastCustomerClickRef.current;
       if (
         !lastClick ||
@@ -761,7 +797,7 @@ export function TransactionsPage({ apiBasePath }: TransactionsPageProps) {
           onMainCustomerClick={handleCustomerCellClick}
           columns={columns}
           getCellData={getCellData}
-          onCellEdited={handleCellEdited}
+          onCellEdited={handleCellEditedWithPasteTracking}
           packingListEligibleData={packingListEligibleData}
           packingListColumns={packingListColumns}
           packedTransactionsData={packedTransactionsData}
