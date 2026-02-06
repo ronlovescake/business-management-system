@@ -147,12 +147,21 @@ export function buildInventoryItems(
     const shipmentStatus = product['Shipment Status'] || '';
     const isInTransit = isInTransitShipmentStatus(shipmentStatus);
 
+    const clampedReservedForTransit = Math.min(
+      Math.max(reservedOnHand, 0),
+      Math.max(quantity, 0)
+    );
+
     // Option B behavior (your request): reservations allocate from incoming shipments,
     // but anything still in transit must NOT be counted as on-hand.
     const onHandSellable = isInTransit ? 0 : sellableOnHand;
     const onHandReserved = isInTransit ? 0 : reservedOnHand;
-    const inTransitUnreserved = isInTransit ? sellableOnHand : 0;
-    const inTransitReserved = isInTransit ? reservedOnHand : 0;
+    // IMPORTANT: for in-transit rows, we want “unreserved” to reflect the PO quantity
+    // that is still inbound but not reserved, not the physical sellable ledger qty.
+    const inTransitReserved = isInTransit ? clampedReservedForTransit : 0;
+    const inTransitUnreserved = isInTransit
+      ? Math.max(quantity - inTransitReserved, 0)
+      : 0;
 
     const onhand = onHandSellable + onHandReserved;
     const availableStock = onHandSellable;

@@ -113,6 +113,48 @@ describe('buildInventoryItems', () => {
     expect(xyz?.shipmentStatus).toBe('In Transit');
   });
 
+  it('derives in-transit unreserved from PO quantity even when sellable receipt ledger exists', () => {
+    const products: ProductFromAPI[] = [
+      {
+        id: 'p1',
+        'Product Code': 'GPF-012426',
+        Quantity: 2800,
+        COGS: 0,
+        'Actual Price': 0,
+        'Shipment Code': 'S1',
+        'Shipment Status': 'In Transit',
+      },
+    ];
+
+    const movements: InventoryMovementFromAPI[] = [
+      // Receipt ledger into sellable (would otherwise override fallbackQuantity).
+      {
+        id: 1,
+        productCode: 'GPF-012426',
+        quantity: 296,
+        fromBucket: 'scrap',
+        toBucket: 'sellable',
+      },
+      // Reservations against incoming shipment.
+      {
+        id: 2,
+        productCode: 'GPF-012426',
+        quantity: 1230,
+        fromBucket: 'scrap',
+        toBucket: 'reserved',
+      },
+    ];
+
+    const items = buildInventoryItems(products, [], [], movements);
+    const gpf = items.find((i) => i.productCode === 'GPF-012426');
+
+    expect(gpf).toBeDefined();
+    expect(gpf?.onHandSellable).toBe(0);
+    expect(gpf?.onHandReserved).toBe(0);
+    expect(gpf?.inTransitReserved).toBe(1230);
+    expect(gpf?.inTransitUnreserved).toBe(1570);
+  });
+
   it('tracks damaged quantity separately and keeps onhand as sellable+reserved', () => {
     const products: ProductFromAPI[] = [
       {
