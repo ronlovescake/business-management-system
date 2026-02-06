@@ -26,6 +26,69 @@ import type {
   CustomerWarningData,
 } from '../types/transaction.types';
 
+const PACKING_LIST_MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
+function formatPackingListDatePart(date: Date) {
+  const month = PACKING_LIST_MONTHS[date.getMonth()] ?? 'UnknownMonth';
+  return `${month}_${date.getDate()}`;
+}
+
+function toSafeFilenamePart(value: string) {
+  return (value || '')
+    .trim()
+    .replace(/\s*\|\s*/g, '_')
+    .replace(/[\\/:*?"<>|]/g, '')
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/\s+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+function buildPackingListFilename(params: {
+  customerNames: Array<string | null | undefined>;
+  now?: Date;
+}) {
+  const now = params.now ?? new Date();
+  const datePart = formatPackingListDatePart(now);
+
+  const uniqueCustomersByNormalized = new Map<string, string>();
+
+  for (const rawName of params.customerNames) {
+    const name = (rawName || '').trim();
+    if (!name) {
+      continue;
+    }
+
+    const normalized = name.replace(/\s+/g, ' ').trim().toLowerCase();
+    if (!uniqueCustomersByNormalized.has(normalized)) {
+      uniqueCustomersByNormalized.set(normalized, name);
+    }
+  }
+
+  if (uniqueCustomersByNormalized.size === 1) {
+    const onlyCustomerName = Array.from(
+      uniqueCustomersByNormalized.values()
+    )[0];
+    const safeCustomer = toSafeFilenamePart(onlyCustomerName) || 'Customer';
+    return `${safeCustomer}_${datePart}.pdf`;
+  }
+
+  return `Packing_lists_${datePart}.pdf`;
+}
+
 interface UseTransactionModalsProps {
   transactions: TransactionData[];
   bulkUpdate: (data: TransactionData[]) => void;
@@ -1341,11 +1404,9 @@ export function useTransactionModals(
           const link = document.createElement('a');
           link.href = url;
 
-          const timestamp = new Date()
-            .toISOString()
-            .slice(0, 19)
-            .replace(/[:-]/g, '');
-          link.download = `packing-lists-${timestamp}.pdf`;
+          link.download = buildPackingListFilename({
+            customerNames: filteredEligible.map((t) => t.Customers),
+          });
 
           document.body.appendChild(link);
           link.click();
