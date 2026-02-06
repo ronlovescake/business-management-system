@@ -128,7 +128,7 @@ export function useProfitLoss(options: { apiBasePath?: string } = {}) {
     let isMounted = true;
 
     async function fetchProfitLossDetails() {
-      if (activeTab !== 'details') {
+      if (activeTab !== 'details' && activeTab !== 'breakdowns') {
         return;
       }
 

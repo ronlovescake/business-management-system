@@ -7,6 +7,7 @@ import { ProfitLossStatsCards } from './components/ProfitLossStatsCards';
 import { ProfitLossControls } from './components/ProfitLossControls';
 import { ProfitLossTable } from './components/ProfitLossTable';
 import { ProfitLossDetailsTable } from './components/ProfitLossDetailsTable';
+import { ProfitLossBreakdownsPanel } from './components/ProfitLossBreakdownsPanel';
 import { useProfitLoss } from './hooks/useProfitLoss';
 
 export default function ProfitLossPage() {
@@ -57,6 +58,11 @@ export default function ProfitLossPage() {
           <ProfitLossDetailsTable
             rows={detailRows}
             filteredRows={filteredDetailRows}
+            formatCurrency={formatCurrency}
+          />
+        ) : activeTab === 'breakdowns' ? (
+          <ProfitLossBreakdownsPanel
+            rows={detailRows}
             formatCurrency={formatCurrency}
           />
         ) : (

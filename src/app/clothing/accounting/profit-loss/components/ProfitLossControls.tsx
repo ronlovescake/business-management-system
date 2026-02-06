@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
-import { IconList, IconTable } from '@tabler/icons-react';
+import { Stack, Text } from '@mantine/core';
+import { IconChartBar, IconList, IconTable } from '@tabler/icons-react';
 import {
   ControlPanelCard,
   type ControlPanelTabConfig,
@@ -98,6 +99,19 @@ export const ProfitLossControls = memo(function ProfitLossControls({
           exportLabel="Export Details"
           onExport={onExportDetailsCSV}
         />
+      ),
+    },
+    {
+      value: 'breakdowns',
+      label: 'P&L Breakdowns',
+      leftSection: <IconChartBar size={16} />,
+      panel: (
+        <Stack gap={4}>
+          <Text fw={600}>Breakdowns</Text>
+          <Text size="sm" c="dimmed">
+            Controls will appear here once breakdown views are available.
+          </Text>
+        </Stack>
       ),
     },
   ];
