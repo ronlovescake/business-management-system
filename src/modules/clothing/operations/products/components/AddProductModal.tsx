@@ -26,8 +26,6 @@ import type {
   ProductCalculationResults,
 } from '../types/product.types';
 import {
-  AGE_RANGE_START_OPTIONS,
-  AGE_RANGE_END_OPTIONS,
   AGE_RANGE_UNIT_OPTIONS,
   UNIT_OPTIONS,
   PAYMENT_STATUS_OPTIONS,
@@ -199,36 +197,56 @@ export const AddProductModal = memo(function AddProductModal({
                 Age Range
               </Text>
               <Group gap="xs" align="flex-start">
-                <Select
+                <NumberInput
                   placeholder="Start"
                   size="md"
                   radius="md"
-                  data={AGE_RANGE_START_OPTIONS.map((opt) => ({
-                    value: opt.value,
-                    label: opt.label,
-                  }))}
-                  allowDeselect
-                  clearable
-                  searchable
-                  value={form.ageRangeStart || null}
-                  onChange={(value) =>
-                    updateField('ageRangeStart', value || '')
+                  hideControls
+                  allowDecimal={false}
+                  allowNegative={false}
+                  value={
+                    form.ageRangeStart.trim()
+                      ? Number(form.ageRangeStart)
+                      : undefined
                   }
+                  onChange={(value) => {
+                    if (value === '' || value === undefined) {
+                      updateField('ageRangeStart', '');
+                      return;
+                    }
+
+                    const num = Number(value);
+                    updateField(
+                      'ageRangeStart',
+                      Number.isFinite(num) ? String(num) : ''
+                    );
+                  }}
                   style={{ flex: 1 }}
                 />
-                <Select
+                <NumberInput
                   placeholder="End"
                   size="md"
                   radius="md"
-                  data={AGE_RANGE_END_OPTIONS.map((opt) => ({
-                    value: opt.value,
-                    label: opt.label,
-                  }))}
-                  allowDeselect
-                  clearable
-                  searchable
-                  value={form.ageRangeEnd || null}
-                  onChange={(value) => updateField('ageRangeEnd', value || '')}
+                  hideControls
+                  allowDecimal={false}
+                  allowNegative={false}
+                  value={
+                    form.ageRangeEnd.trim()
+                      ? Number(form.ageRangeEnd)
+                      : undefined
+                  }
+                  onChange={(value) => {
+                    if (value === '' || value === undefined) {
+                      updateField('ageRangeEnd', '');
+                      return;
+                    }
+
+                    const num = Number(value);
+                    updateField(
+                      'ageRangeEnd',
+                      Number.isFinite(num) ? String(num) : ''
+                    );
+                  }}
                   style={{ flex: 1 }}
                 />
                 <Select
