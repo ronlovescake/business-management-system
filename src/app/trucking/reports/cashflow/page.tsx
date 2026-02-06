@@ -1,16 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import {
-  Alert,
-  Card,
-  Group,
-  Stack,
-  Text,
-  TextInput,
-  Title,
-} from '@mantine/core';
+import { Alert, Card, Group, Stack, Text, Title } from '@mantine/core';
+import { DateInput } from '@mantine/dates';
 import { IconAlertCircle } from '@tabler/icons-react';
+import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 
 interface Expense {
   id: string;
@@ -31,15 +25,15 @@ const formatCurrency = (value: number) =>
     value
   );
 
-const inRange = (date: string, start: string, end: string) => {
+const inRange = (date: string, start: Date | null, end: Date | null) => {
   if (!start && !end) {
     return true;
   }
   const ts = new Date(date).getTime();
-  if (start && ts < new Date(start).getTime()) {
+  if (start && ts < start.getTime()) {
     return false;
   }
-  if (end && ts > new Date(end).getTime()) {
+  if (end && ts > end.getTime()) {
     return false;
   }
   return true;
@@ -49,8 +43,8 @@ export default function CashflowReportPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState<Date | null>(new Date());
+  const [endDate, setEndDate] = useState<Date | null>(new Date());
 
   useEffect(() => {
     const load = async () => {
@@ -104,17 +98,19 @@ export default function CashflowReportPage() {
 
       <Card withBorder padding="md">
         <Group grow>
-          <TextInput
+          <DateInput
             label="Start Date"
-            type="date"
             value={startDate}
-            onChange={(e) => setStartDate(e.currentTarget.value)}
+            onChange={setStartDate}
+            valueFormat="YYYY-MM-DD"
+            {...COMMON_DATE_INPUT_PROPS}
           />
-          <TextInput
+          <DateInput
             label="End Date"
-            type="date"
             value={endDate}
-            onChange={(e) => setEndDate(e.currentTarget.value)}
+            onChange={setEndDate}
+            valueFormat="YYYY-MM-DD"
+            {...COMMON_DATE_INPUT_PROPS}
           />
         </Group>
       </Card>

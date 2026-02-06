@@ -186,7 +186,12 @@ export function OpeningBalancePanel({
 
     return Array.from(byAccount.entries())
       .map(([account, totals]) => ({ account, ...totals }))
-      .filter((row) => row.debitTotal > 0 && row.creditTotal > 0)
+      .filter(
+        (row) =>
+          row.account !== 'Opening Equity' &&
+          row.debitTotal > 0 &&
+          row.creditTotal > 0
+      )
       .sort((a, b) => a.account.localeCompare(b.account));
   })();
 

@@ -8,12 +8,17 @@ import {
   Select,
   Stack,
   Text,
-  TextInput,
   Textarea,
 } from '@mantine/core';
+import { DateInput } from '@mantine/dates';
 import { PolishedModal } from '@/components/modals/PolishedModal';
 import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
+import {
+  COMMON_DATE_INPUT_PROPS,
+  formatDateForInput,
+  parseDateValue,
+} from '@/lib/dateInputConfig';
 
 export type PersonalIncomeType =
   | 'BUSINESS_DRAW'
@@ -87,12 +92,15 @@ export const IncomeFormDialog = React.memo(function IncomeFormDialog({
         </Text>
 
         <Group grow align="flex-start">
-          <TextInput
+          <DateInput
             label="Date"
-            type="date"
-            value={initial.date}
-            onChange={(e) => onChange({ ...initial, date: e.target.value })}
+            value={parseDateValue(initial.date)}
+            onChange={(value) =>
+              onChange({ ...initial, date: formatDateForInput(value) })
+            }
+            valueFormat="YYYY-MM-DD"
             required
+            {...COMMON_DATE_INPUT_PROPS}
             {...dateField.handlers}
             styles={dateField.styles}
           />

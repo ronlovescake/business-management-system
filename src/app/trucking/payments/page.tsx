@@ -14,7 +14,12 @@ import {
   TextInput,
   Title,
 } from '@mantine/core';
+import { DateInput } from '@mantine/dates';
 import { IconAlertCircle, IconPlus, IconRefresh } from '@tabler/icons-react';
+import {
+  COMMON_DATE_INPUT_PROPS,
+  formatDateForInput,
+} from '@/lib/dateInputConfig';
 
 interface Allocation {
   id: string;
@@ -44,7 +49,7 @@ export default function TruckingPaymentsPage() {
   const [loading, setLoading] = useState(false);
 
   const [customerId, setCustomerId] = useState('');
-  const [paymentDate, setPaymentDate] = useState('');
+  const [paymentDate, setPaymentDate] = useState<Date | null>(new Date());
   const [amount, setAmount] = useState<number | ''>('');
   const [method, setMethod] = useState('cash');
   const [referenceNo, setReferenceNo] = useState('');
@@ -95,7 +100,7 @@ export default function TruckingPaymentsPage() {
           : [];
       const payload = {
         customerId,
-        paymentDate,
+        paymentDate: formatDateForInput(paymentDate),
         amount: amount === '' ? 0 : amount,
         method,
         referenceNo: referenceNo || null,
@@ -147,11 +152,12 @@ export default function TruckingPaymentsPage() {
               value={customerId}
               onChange={(e) => setCustomerId(e.currentTarget.value)}
             />
-            <TextInput
+            <DateInput
               label="Payment Date"
-              type="date"
               value={paymentDate}
-              onChange={(e) => setPaymentDate(e.currentTarget.value)}
+              onChange={setPaymentDate}
+              valueFormat="YYYY-MM-DD"
+              {...COMMON_DATE_INPUT_PROPS}
             />
             <NumberInput
               label="Amount"

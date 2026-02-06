@@ -1,6 +1,9 @@
+import { getCurrentDateISO } from '@/utils/date';
 import { toTaggableSelection } from './account-tagging';
 
-export const MANUAL_ENTRY_DEFAULT_DATE = '2026-01-01';
+export function getManualEntryDefaultDate(): string {
+  return getCurrentDateISO();
+}
 
 export type ManualEntryFormState = {
   date: string;
@@ -28,7 +31,7 @@ export type ManualEntryValidationError = {
 };
 
 export function createManualEntryFormState(
-  date: string = MANUAL_ENTRY_DEFAULT_DATE
+  date: string = getManualEntryDefaultDate()
 ): ManualEntryFormState {
   return {
     date,

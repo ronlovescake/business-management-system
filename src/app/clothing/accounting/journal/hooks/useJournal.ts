@@ -14,7 +14,7 @@ import {
 import {
   buildManualEntryFormFromLines,
   createManualEntryFormState,
-  MANUAL_ENTRY_DEFAULT_DATE,
+  getManualEntryDefaultDate,
   validateManualEntryInput,
 } from '@/lib/accounting/manual-entry';
 import { parseManualEntryCsv } from '@/lib/accounting/manual-entry-import';
@@ -157,7 +157,7 @@ export function useJournal(options: { apiBasePath?: string } = {}) {
     setEditingManualSourceId(null);
     setManualEntryForm((prev) => ({
       ...prev,
-      date: prev.date || MANUAL_ENTRY_DEFAULT_DATE,
+      date: prev.date || getManualEntryDefaultDate(),
     }));
     setIsManualEntryModalOpen(true);
   }, []);
@@ -243,7 +243,7 @@ export function useJournal(options: { apiBasePath?: string } = {}) {
   );
 
   const saveManualEntry = useCallback(async () => {
-    const date = manualEntryForm.date || MANUAL_ENTRY_DEFAULT_DATE;
+    const date = manualEntryForm.date || getManualEntryDefaultDate();
     const ref = manualEntryForm.ref.trim();
     const debitAccountSelection = manualEntryForm.debitAccount.trim();
     const creditAccountSelection = manualEntryForm.creditAccount.trim();

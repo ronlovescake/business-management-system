@@ -14,7 +14,12 @@ import {
   Badge,
   Alert,
 } from '@mantine/core';
+import { DateInput } from '@mantine/dates';
 import { IconAlertCircle, IconPlus, IconRefresh } from '@tabler/icons-react';
+import {
+  COMMON_DATE_INPUT_PROPS,
+  formatDateForInput,
+} from '@/lib/dateInputConfig';
 
 interface Allocation {
   id: string;
@@ -48,18 +53,18 @@ export default function TruckingInvoicesPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [customerId, setCustomerId] = useState('');
-  const [cutoffStart, setCutoffStart] = useState('');
-  const [cutoffEnd, setCutoffEnd] = useState('');
-  const [invoiceDate, setInvoiceDate] = useState('');
-  const [dueDate, setDueDate] = useState('');
+  const [cutoffStart, setCutoffStart] = useState<Date | null>(new Date());
+  const [cutoffEnd, setCutoffEnd] = useState<Date | null>(new Date());
+  const [invoiceDate, setInvoiceDate] = useState<Date | null>(new Date());
+  const [dueDate, setDueDate] = useState<Date | null>(new Date());
   const [status, setStatus] = useState('DRAFT');
   const [totalAmount, setTotalAmount] = useState<number | ''>('');
 
   const [genCustomerId, setGenCustomerId] = useState('');
-  const [genCutoffStart, setGenCutoffStart] = useState('');
-  const [genCutoffEnd, setGenCutoffEnd] = useState('');
-  const [genInvoiceDate, setGenInvoiceDate] = useState('');
-  const [genDueDate, setGenDueDate] = useState('');
+  const [genCutoffStart, setGenCutoffStart] = useState<Date | null>(new Date());
+  const [genCutoffEnd, setGenCutoffEnd] = useState<Date | null>(new Date());
+  const [genInvoiceDate, setGenInvoiceDate] = useState<Date | null>(new Date());
+  const [genDueDate, setGenDueDate] = useState<Date | null>(new Date());
 
   const loadInvoices = async () => {
     setLoading(true);
@@ -103,10 +108,10 @@ export default function TruckingInvoicesPage() {
     try {
       const payload = {
         customerId,
-        cutoffStart,
-        cutoffEnd,
-        invoiceDate,
-        dueDate: dueDate || null,
+        cutoffStart: formatDateForInput(cutoffStart),
+        cutoffEnd: formatDateForInput(cutoffEnd),
+        invoiceDate: formatDateForInput(invoiceDate),
+        dueDate: formatDateForInput(dueDate) || null,
         status,
         totalAmount: totalAmount === '' ? 0 : totalAmount,
       };
@@ -133,10 +138,10 @@ export default function TruckingInvoicesPage() {
     try {
       const payload = {
         customerId: genCustomerId,
-        cutoffStart: genCutoffStart,
-        cutoffEnd: genCutoffEnd,
-        invoiceDate: genInvoiceDate,
-        dueDate: genDueDate || null,
+        cutoffStart: formatDateForInput(genCutoffStart),
+        cutoffEnd: formatDateForInput(genCutoffEnd),
+        invoiceDate: formatDateForInput(genInvoiceDate),
+        dueDate: formatDateForInput(genDueDate) || null,
         status: 'DRAFT',
       };
 
@@ -188,29 +193,34 @@ export default function TruckingInvoicesPage() {
               value={customerId}
               onChange={(e) => setCustomerId(e.currentTarget.value)}
             />
-            <TextInput
+            <DateInput
               label="Cutoff Start"
-              type="date"
               value={cutoffStart}
-              onChange={(e) => setCutoffStart(e.currentTarget.value)}
+              onChange={setCutoffStart}
+              valueFormat="YYYY-MM-DD"
+              {...COMMON_DATE_INPUT_PROPS}
             />
-            <TextInput
+            <DateInput
               label="Cutoff End"
-              type="date"
               value={cutoffEnd}
-              onChange={(e) => setCutoffEnd(e.currentTarget.value)}
+              onChange={setCutoffEnd}
+              valueFormat="YYYY-MM-DD"
+              {...COMMON_DATE_INPUT_PROPS}
             />
-            <TextInput
+            <DateInput
               label="Invoice Date"
-              type="date"
               value={invoiceDate}
-              onChange={(e) => setInvoiceDate(e.currentTarget.value)}
+              onChange={setInvoiceDate}
+              valueFormat="YYYY-MM-DD"
+              {...COMMON_DATE_INPUT_PROPS}
             />
-            <TextInput
+            <DateInput
               label="Due Date"
-              type="date"
               value={dueDate}
-              onChange={(e) => setDueDate(e.currentTarget.value)}
+              onChange={setDueDate}
+              valueFormat="YYYY-MM-DD"
+              clearable
+              {...COMMON_DATE_INPUT_PROPS}
             />
           </Group>
           <Group grow>
@@ -254,29 +264,34 @@ export default function TruckingInvoicesPage() {
               value={genCustomerId}
               onChange={(e) => setGenCustomerId(e.currentTarget.value)}
             />
-            <TextInput
+            <DateInput
               label="Cutoff Start"
-              type="date"
               value={genCutoffStart}
-              onChange={(e) => setGenCutoffStart(e.currentTarget.value)}
+              onChange={setGenCutoffStart}
+              valueFormat="YYYY-MM-DD"
+              {...COMMON_DATE_INPUT_PROPS}
             />
-            <TextInput
+            <DateInput
               label="Cutoff End"
-              type="date"
               value={genCutoffEnd}
-              onChange={(e) => setGenCutoffEnd(e.currentTarget.value)}
+              onChange={setGenCutoffEnd}
+              valueFormat="YYYY-MM-DD"
+              {...COMMON_DATE_INPUT_PROPS}
             />
-            <TextInput
+            <DateInput
               label="Invoice Date"
-              type="date"
               value={genInvoiceDate}
-              onChange={(e) => setGenInvoiceDate(e.currentTarget.value)}
+              onChange={setGenInvoiceDate}
+              valueFormat="YYYY-MM-DD"
+              {...COMMON_DATE_INPUT_PROPS}
             />
-            <TextInput
+            <DateInput
               label="Due Date"
-              type="date"
               value={genDueDate}
-              onChange={(e) => setGenDueDate(e.currentTarget.value)}
+              onChange={setGenDueDate}
+              valueFormat="YYYY-MM-DD"
+              clearable
+              {...COMMON_DATE_INPUT_PROPS}
             />
           </Group>
           <Group justify="flex-end">
