@@ -238,6 +238,7 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
       'Accounts Receivable',
       'Stock on Hand',
       'Inventory in Transit',
+      'Landed Cost Clearing',
       'Accounts Payable',
       'Forwarder Payable',
       'Courier Payable',

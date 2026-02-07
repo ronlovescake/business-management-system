@@ -20,8 +20,11 @@ const ENABLE_PRODUCT_EXPENSE_POSTING = false;
 const ACCOUNTING_CUTOVER_DATE = getAccountingCutoverDate();
 
 const INVENTORY_IN_TRANSIT_ACCOUNT = 'Inventory in Transit';
+const LANDED_COST_CLEARING_ACCOUNT = 'Landed Cost Clearing';
 const CASH_ACCOUNT = 'Cash';
 const SUPPLIER_PAYABLE_ACCOUNT = 'Supplier Payable';
+const FORWARDER_PAYABLE_ACCOUNT = 'Forwarder Payable';
+const COURIER_PAYABLE_ACCOUNT = 'Courier Payable';
 
 function normalizeToUtcMidnight(date: Date): Date {
   return new Date(
@@ -33,126 +36,8 @@ function isOnOrAfterAccountingCutover(date: Date): boolean {
   return date >= ACCOUNTING_CUTOVER_DATE;
 }
 
-function normalizeDateOrNull(raw: unknown): Date | null {
-  const parsed = parseDate(typeof raw === 'string' ? raw : null);
-  if (!parsed) {
-    return null;
-  }
-  return normalizeToUtcMidnight(parsed);
-}
-
-function resolveProductValuationAmount(dto: ProductDTO): number {
-  const grandTotal = Number(dto['Grand Total'] ?? 0);
-  if (Number.isFinite(grandTotal) && grandTotal > 0) {
-    return grandTotal;
-  }
-
-  return 0;
-}
-
 function buildProductTransitBuildIdempotencyKey(productId: number): string {
   return `PRODUCT_TRANSIT_BUILD:${productId}`;
-}
-
-async function postTransitBuildForProduct(params: {
-  productId: number;
-  dto: ProductDTO;
-}) {
-  const { productId, dto } = params;
-
-  const shipmentCode = (dto['Shipment Code'] ?? '').toString().trim();
-  if (!shipmentCode) {
-    logger.info('Skip product transit build-up: missing shipment code', {
-      productId,
-    });
-    return;
-  }
-
-  const payment = (dto.Payment ?? '').toString().trim();
-  if (!payment) {
-    logger.info('Skip product transit build-up: missing payment', {
-      productId,
-      shipmentCode,
-    });
-    return;
-  }
-
-  const postingDate =
-    normalizeDateOrNull(dto['Posting Date']) ??
-    normalizeDateOrNull(dto['Order Date']);
-  if (!postingDate) {
-    logger.info('Skip product transit build-up: missing/invalid posting date', {
-      productId,
-      shipmentCode,
-      postingDate: dto['Posting Date'],
-      orderDate: dto['Order Date'],
-    });
-    return;
-  }
-
-  if (!isOnOrAfterAccountingCutover(postingDate)) {
-    logger.info('Skip product transit build-up: before accounting cutover', {
-      productId,
-      shipmentCode,
-      date: postingDate.toISOString().slice(0, 10),
-      cutover: ACCOUNTING_CUTOVER_DATE.toISOString().slice(0, 10),
-    });
-    return;
-  }
-
-  const amount = resolveProductValuationAmount(dto);
-  if (!Number.isFinite(amount) || amount <= 0) {
-    logger.info('Skip product transit build-up: amount not positive', {
-      productId,
-      shipmentCode,
-      amount,
-    });
-    return;
-  }
-
-  const creditAccount = isPaid(payment)
-    ? CASH_ACCOUNT
-    : SUPPLIER_PAYABLE_ACCOUNT;
-  const productCode = (dto['Product Code'] ?? '').toString().trim();
-  const productName = (dto.Product ?? '').toString().trim();
-  const notesParts = [
-    `Product #${productId}`,
-    productCode ? `Code: ${productCode}` : null,
-    productName ? `Name: ${productName}` : null,
-    `Payment: ${payment}`,
-  ].filter(Boolean);
-
-  try {
-    await prisma.clothingInventoryTransitBuildEntry.create({
-      data: {
-        postingDate,
-        shipmentId: null,
-        shipmentCode,
-        amount,
-        debitAccount: INVENTORY_IN_TRANSIT_ACCOUNT,
-        creditAccount,
-        idempotencyKey: buildProductTransitBuildIdempotencyKey(productId),
-        notes: notesParts.join(' | '),
-      },
-    });
-  } catch (error) {
-    const code = (error as { code?: string })?.code;
-    if (code === 'P2002') {
-      logger.info('Product transit build-up already exists; skip duplicate', {
-        productId,
-        shipmentCode,
-      });
-      return;
-    }
-
-    logger.warn('Failed to post product transit build-up', {
-      error,
-      productId,
-      shipmentCode,
-      amount,
-      creditAccount,
-    });
-  }
 }
 
 async function postSupplierSettlementForProduct(params: {
@@ -167,16 +52,20 @@ async function postSupplierSettlementForProduct(params: {
     return;
   }
 
-  const transitBuild = await prisma.clothingInventoryTransitBuildEntry
-    .findUnique({
+  const transitBuildRows = await prisma.clothingInventoryTransitBuildEntry
+    .findMany({
       where: {
-        idempotencyKey: buildProductTransitBuildIdempotencyKey(productId),
+        deletedAt: null,
+        idempotencyKey: {
+          startsWith: buildProductTransitBuildIdempotencyKey(productId),
+        },
+        creditAccount: SUPPLIER_PAYABLE_ACCOUNT,
       },
-      select: { amount: true, creditAccount: true },
+      select: { amount: true },
     })
-    .catch(() => null);
+    .catch(() => []);
 
-  if (!transitBuild) {
+  if (transitBuildRows.length === 0) {
     logger.info('Skip supplier settlement: missing transit build-up entry', {
       productId,
       productCode,
@@ -185,21 +74,11 @@ async function postSupplierSettlementForProduct(params: {
     return;
   }
 
-  const amount = Number(transitBuild.amount ?? 0);
+  const amount = transitBuildRows.reduce(
+    (sum, row) => sum + Number(row.amount ?? 0),
+    0
+  );
   if (!Number.isFinite(amount) || amount <= 0) {
-    return;
-  }
-
-  if (transitBuild.creditAccount !== SUPPLIER_PAYABLE_ACCOUNT) {
-    logger.info(
-      'Skip supplier settlement: transit build-up not payable-based',
-      {
-        productId,
-        productCode,
-        shipmentCode,
-        creditAccount: transitBuild.creditAccount,
-      }
-    );
     return;
   }
 
@@ -327,6 +206,9 @@ export interface ProductService {
     restored: number;
     notifications: number;
   }>;
+  postManualTransitBuildUpByShipmentCode: (params: {
+    shipmentCode: string;
+  }) => Promise<{ created: number; skipped: number; products: number }>;
   softDeleteAll: () => Promise<{ deleted: number; alreadyDeleted: number }>;
 }
 
@@ -341,6 +223,17 @@ function isPaid(payment?: string | null): boolean {
 
 function normalizeProductCode(value: string | null | undefined): string {
   return (value ?? '').trim();
+}
+
+function resolvePostingDateFromProduct(params: {
+  postingDate: string | null;
+  orderDate: string | null;
+}): Date | null {
+  const parsed = parseDate(params.postingDate) ?? parseDate(params.orderDate);
+  if (!parsed) {
+    return null;
+  }
+  return normalizeToUtcMidnight(parsed);
 }
 
 function buildAutoReceiptMovementNote(productId: number): string {
@@ -519,14 +412,12 @@ export const productService: ProductService = {
       quantity: created.quantity,
       postingDate: created.postingDate ?? created.orderDate ?? null,
     });
-    await postTransitBuildForProduct({ productId: created.id, dto: payload });
     await postExpenseForProduct(created.id, payload);
     return mapToDTO(created);
   },
 
   async bulkImport(payload) {
     const postings: Array<{ productId: number; dto: ProductDTO }> = [];
-    const transitBuilds: Array<{ productId: number; dto: ProductDTO }> = [];
     const settlements: Array<{
       productId: number;
       productCode: string | null;
@@ -575,7 +466,6 @@ export const productService: ProductService = {
         } else {
           const createdProduct = await tx.product.create({ data });
           postings.push({ productId: createdProduct.id, dto });
-          transitBuilds.push({ productId: createdProduct.id, dto });
           created++;
         }
       }
@@ -586,12 +476,6 @@ export const productService: ProductService = {
     await Promise.all(
       postings.map(({ productId, dto }) =>
         postExpenseForProduct(productId, dto)
-      )
-    );
-
-    await Promise.all(
-      transitBuilds.map(({ productId, dto }) =>
-        postTransitBuildForProduct({ productId, dto })
       )
     );
 
@@ -623,7 +507,6 @@ export const productService: ProductService = {
 
   async bulkUpdate(payload) {
     const postings: Array<{ productId: number; dto: ProductDTO }> = [];
-    const transitBuilds: Array<{ productId: number; dto: ProductDTO }> = [];
     const settlements: Array<{
       productId: number;
       productCode: string | null;
@@ -720,7 +603,6 @@ export const productService: ProductService = {
         } else {
           const createdProduct = await tx.product.create({ data });
           postings.push({ productId: createdProduct.id, dto });
-          transitBuilds.push({ productId: createdProduct.id, dto });
           created++;
 
           const changes: string[] = [];
@@ -760,12 +642,6 @@ export const productService: ProductService = {
     await Promise.all(
       postings.map(({ productId, dto }) =>
         postExpenseForProduct(productId, dto)
-      )
-    );
-
-    await Promise.all(
-      transitBuilds.map(({ productId, dto }) =>
-        postTransitBuildForProduct({ productId, dto })
       )
     );
 
@@ -818,6 +694,198 @@ export const productService: ProductService = {
       updated: result.updated,
       restored: result.restored,
       notifications,
+    };
+  },
+
+  async postManualTransitBuildUpByShipmentCode(params) {
+    const shipmentCode = (params.shipmentCode ?? '').toString().trim();
+    if (!shipmentCode) {
+      return { created: 0, skipped: 0, products: 0 };
+    }
+
+    const products = await prisma.product.findMany({
+      where: {
+        deletedAt: null,
+        shipmentCode: {
+          equals: shipmentCode,
+          mode: 'insensitive',
+        },
+      },
+      select: {
+        id: true,
+        productCode: true,
+        product: true,
+        payment: true,
+        postingDate: true,
+        orderDate: true,
+        grandTotal: true,
+        forwardersFee: true,
+        lalamove: true,
+      },
+      orderBy: { id: 'asc' },
+    });
+
+    const existingBuildKeys = await prisma.clothingInventoryTransitBuildEntry
+      .findMany({
+        where: {
+          deletedAt: null,
+          shipmentCode: {
+            equals: shipmentCode,
+            mode: 'insensitive',
+          },
+          idempotencyKey: {
+            startsWith: 'PRODUCT_TRANSIT_BUILD:',
+          },
+        },
+        select: { idempotencyKey: true },
+      })
+      .catch(() => []);
+
+    const alreadyPostedProductIds = new Set<number>();
+    for (const row of existingBuildKeys) {
+      const parts = (row.idempotencyKey ?? '').split(':');
+      const productId = Number(parts[1] ?? NaN);
+      if (Number.isFinite(productId)) {
+        alreadyPostedProductIds.add(productId);
+      }
+    }
+
+    const entries: Prisma.ClothingInventoryTransitBuildEntryCreateManyInput[] =
+      [];
+
+    const toAmount = (value: unknown) => Number(value ?? 0);
+    const addEntry = (params: {
+      productId: number;
+      productCode: string | null;
+      productName: string | null;
+      payment: string;
+      postingDate: Date;
+      debitAccount: string;
+      creditAccount: string;
+      componentKey: 'GRAND_TOTAL' | 'FORWARDER_FEE' | 'LALAMOVE';
+      componentLabel: string;
+      amount: number;
+    }) => {
+      if (!Number.isFinite(params.amount) || params.amount <= 0) {
+        return;
+      }
+
+      const notesParts = [
+        `Product #${params.productId}`,
+        params.productCode ? `Code: ${params.productCode}` : null,
+        params.productName ? `Name: ${params.productName}` : null,
+        `Component: ${params.componentLabel}`,
+        `Payment: ${params.payment}`,
+      ].filter(Boolean);
+
+      entries.push({
+        postingDate: params.postingDate,
+        shipmentId: null,
+        shipmentCode,
+        amount: params.amount,
+        debitAccount: params.debitAccount,
+        creditAccount: params.creditAccount,
+        idempotencyKey: `PRODUCT_TRANSIT_BUILD:${params.productId}:${params.componentKey}`,
+        notes: notesParts.join(' | '),
+      });
+    };
+
+    let skippedProducts = 0;
+
+    for (const product of products) {
+      if (alreadyPostedProductIds.has(product.id)) {
+        skippedProducts += 1;
+        continue;
+      }
+
+      const payment = (product.payment ?? '').toString().trim();
+      if (!payment) {
+        continue;
+      }
+
+      const postingDate = resolvePostingDateFromProduct({
+        postingDate: product.postingDate,
+        orderDate: product.orderDate,
+      });
+      if (!postingDate) {
+        continue;
+      }
+
+      if (!isOnOrAfterAccountingCutover(postingDate)) {
+        continue;
+      }
+
+      const supplierCreditAccount = isPaid(payment)
+        ? CASH_ACCOUNT
+        : SUPPLIER_PAYABLE_ACCOUNT;
+
+      const forwarderCreditAccount = isPaid(payment)
+        ? CASH_ACCOUNT
+        : FORWARDER_PAYABLE_ACCOUNT;
+
+      const courierCreditAccount = isPaid(payment)
+        ? CASH_ACCOUNT
+        : COURIER_PAYABLE_ACCOUNT;
+
+      addEntry({
+        productId: product.id,
+        productCode: product.productCode,
+        productName: product.product,
+        payment,
+        postingDate,
+        debitAccount: INVENTORY_IN_TRANSIT_ACCOUNT,
+        creditAccount: supplierCreditAccount,
+        componentKey: 'GRAND_TOTAL',
+        componentLabel: 'Grand Total',
+        amount: toAmount(product.grandTotal),
+      });
+
+      addEntry({
+        productId: product.id,
+        productCode: product.productCode,
+        productName: product.product,
+        payment,
+        postingDate,
+        debitAccount: LANDED_COST_CLEARING_ACCOUNT,
+        creditAccount: forwarderCreditAccount,
+        componentKey: 'FORWARDER_FEE',
+        componentLabel: "Forwarder's Fee",
+        amount: toAmount(product.forwardersFee),
+      });
+
+      addEntry({
+        productId: product.id,
+        productCode: product.productCode,
+        productName: product.product,
+        payment,
+        postingDate,
+        debitAccount: LANDED_COST_CLEARING_ACCOUNT,
+        creditAccount: courierCreditAccount,
+        componentKey: 'LALAMOVE',
+        componentLabel: 'Lalamove',
+        amount: toAmount(product.lalamove),
+      });
+    }
+
+    if (entries.length === 0) {
+      return {
+        created: 0,
+        skipped: skippedProducts,
+        products: products.length,
+      };
+    }
+
+    const result = await prisma.clothingInventoryTransitBuildEntry.createMany({
+      data: entries,
+      skipDuplicates: true,
+    });
+
+    const skippedEntries = Math.max(0, entries.length - result.count);
+
+    return {
+      created: result.count,
+      skipped: skippedProducts + skippedEntries,
+      products: products.length,
     };
   },
 

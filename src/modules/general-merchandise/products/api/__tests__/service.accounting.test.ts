@@ -14,6 +14,7 @@ const mockPrisma = vi.hoisted(() => ({
   generalMerchandiseInventoryTransitBuildEntry: {
     create: vi.fn(),
     findUnique: vi.fn(),
+    findMany: vi.fn(),
   },
   generalMerchandiseAccountingJournalLine: {
     upsert: vi.fn(),
@@ -79,7 +80,7 @@ describe('generalMerchandiseProductService accounting automation', () => {
     );
   });
 
-  it('posts a transit build-up entry when creating a PAID product', async () => {
+  it('does not auto-post transit build-up when creating a PAID product', async () => {
     const { generalMerchandiseProductService } = await import('../service');
 
     mockPrisma.generalMerchandiseProduct.create.mockResolvedValue({
@@ -90,32 +91,16 @@ describe('generalMerchandiseProductService accounting automation', () => {
       orderDate: null,
     });
 
-    mockPrisma.generalMerchandiseInventoryTransitBuildEntry.create.mockResolvedValue(
-      {
-        id: 'tb-1',
-      }
-    );
-
     await generalMerchandiseProductService.createSingle(
       buildDto({ Payment: 'Paid', 'Grand Total': 123, COGS: 999 })
     );
 
     expect(
       mockPrisma.generalMerchandiseInventoryTransitBuildEntry.create
-    ).toHaveBeenCalledTimes(1);
-
-    const call =
-      mockPrisma.generalMerchandiseInventoryTransitBuildEntry.create.mock
-        .calls[0][0];
-
-    expect(call.data.debitAccount).toBe('Inventory in Transit');
-    expect(call.data.creditAccount).toBe('Cash');
-    expect(call.data.amount).toBe(123);
-    expect(call.data.shipmentCode).toBe('GM-001');
-    expect(call.data.idempotencyKey).toBe('PRODUCT_TRANSIT_BUILD:123');
+    ).not.toHaveBeenCalled();
   });
 
-  it('posts a transit build-up entry when creating an UNPAID product', async () => {
+  it('does not auto-post transit build-up when creating an UNPAID product', async () => {
     const { generalMerchandiseProductService } = await import('../service');
 
     mockPrisma.generalMerchandiseProduct.create.mockResolvedValue({
@@ -126,12 +111,6 @@ describe('generalMerchandiseProductService accounting automation', () => {
       orderDate: null,
     });
 
-    mockPrisma.generalMerchandiseInventoryTransitBuildEntry.create.mockResolvedValue(
-      {
-        id: 'tb-2',
-      }
-    );
-
     await generalMerchandiseProductService.createSingle(
       buildDto({
         Payment: 'Unpaid',
@@ -141,13 +120,9 @@ describe('generalMerchandiseProductService accounting automation', () => {
       })
     );
 
-    const call =
-      mockPrisma.generalMerchandiseInventoryTransitBuildEntry.create.mock
-        .calls[0][0];
-
-    expect(call.data.creditAccount).toBe('Supplier Payable');
-    expect(call.data.amount).toBe(250);
-    expect(call.data.idempotencyKey).toBe('PRODUCT_TRANSIT_BUILD:456');
+    expect(
+      mockPrisma.generalMerchandiseInventoryTransitBuildEntry.create
+    ).not.toHaveBeenCalled();
   });
 
   it('posts a supplier settlement when payment changes Unpaid → Paid', async () => {
@@ -163,11 +138,12 @@ describe('generalMerchandiseProductService accounting automation', () => {
 
     mockPrisma.generalMerchandiseProduct.update.mockResolvedValue({ id: 789 });
 
-    mockPrisma.generalMerchandiseInventoryTransitBuildEntry.findUnique.mockResolvedValue(
-      {
-        amount: 155.5,
-        creditAccount: 'Supplier Payable',
-      }
+    mockPrisma.generalMerchandiseInventoryTransitBuildEntry.findMany.mockResolvedValue(
+      [
+        {
+          amount: 155.5,
+        },
+      ]
     );
 
     mockPrisma.generalMerchandiseAccountingJournalLine.upsert.mockResolvedValue(

@@ -965,6 +965,41 @@ export class ProductService {
     }
   }
 
+  static async postTransitBuildUpByShipmentCode(
+    shipmentCode: string,
+    apiBasePath?: string
+  ): Promise<
+    | {
+        success: true;
+        data: { created: number; skipped: number; products: number };
+      }
+    | { success: false; error: string }
+  > {
+    const normalized = (shipmentCode ?? '').toString().trim();
+    if (!normalized) {
+      return { success: false, error: 'Shipment Code is required' };
+    }
+
+    try {
+      const data = await api.post<{
+        created: number;
+        skipped: number;
+        products: number;
+      }>(buildApiPath(apiBasePath, '/products/transit-build'), {
+        shipmentCode: normalized,
+      });
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to post transit build-up',
+      };
+    }
+  }
+
   /**
    * Get column alignment
    */

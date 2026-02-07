@@ -23,6 +23,10 @@ describe('account classification', () => {
     );
   });
 
+  it('classifies landed cost clearing as an asset', () => {
+    expect(detectAccountType('Landed Cost Clearing')).toBe('Asset');
+  });
+
   it('classifies owner contribution as equity', () => {
     expect(detectAccountType('Owner Contribution')).toBe('Equity');
   });

@@ -20,6 +20,7 @@ const ACCOUNT_MAP: Record<AccountType, Set<string>> = {
     'prepaid expense',
     'deposit',
     'deposits',
+    'landed cost clearing',
   ]),
   Liability: new Set([
     'accounts payable',

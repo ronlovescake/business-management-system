@@ -18,6 +18,9 @@ export interface ProductService {
     restored: number;
     notifications: number;
   }>;
+  postManualTransitBuildUpByShipmentCode: (params: {
+    shipmentCode: string;
+  }) => Promise<{ created: number; skipped: number; products: number }>;
   softDeleteAll: () => Promise<{ deleted: number; alreadyDeleted: number }>;
 }
 
@@ -28,8 +31,11 @@ const gmPrisma = prisma as unknown as {
 const ACCOUNTING_CUTOVER_DATE = getAccountingCutoverDate();
 
 const INVENTORY_IN_TRANSIT_ACCOUNT = 'Inventory in Transit';
+const LANDED_COST_CLEARING_ACCOUNT = 'Landed Cost Clearing';
 const CASH_ACCOUNT = 'Cash';
 const SUPPLIER_PAYABLE_ACCOUNT = 'Supplier Payable';
+const FORWARDER_PAYABLE_ACCOUNT = 'Forwarder Payable';
+const COURIER_PAYABLE_ACCOUNT = 'Courier Payable';
 
 function normalizeToUtcMidnight(date: Date): Date {
   return new Date(
@@ -53,127 +59,18 @@ function normalizeDateOrNull(raw: unknown): Date | null {
   return normalizeToUtcMidnight(parsed);
 }
 
-function resolveProductValuationAmount(dto: ProductDTO): number {
-  const grandTotal = Number(dto['Grand Total'] ?? 0);
-  if (Number.isFinite(grandTotal) && grandTotal > 0) {
-    return grandTotal;
-  }
-
-  return 0;
+function resolvePostingDateFromProduct(params: {
+  postingDate: string | null;
+  orderDate: string | null;
+}): Date | null {
+  return (
+    normalizeDateOrNull(params.postingDate) ??
+    normalizeDateOrNull(params.orderDate)
+  );
 }
 
 function buildProductTransitBuildIdempotencyKey(productId: number): string {
   return `PRODUCT_TRANSIT_BUILD:${productId}`;
-}
-
-async function postTransitBuildForProduct(params: {
-  productId: number;
-  dto: ProductDTO;
-}) {
-  const { productId, dto } = params;
-
-  const shipmentCode = (dto['Shipment Code'] ?? '').toString().trim();
-  if (!shipmentCode) {
-    logger.info('GM: skip product transit build-up: missing shipment code', {
-      productId,
-    });
-    return;
-  }
-
-  const payment = (dto.Payment ?? '').toString().trim();
-  if (!payment) {
-    logger.info('GM: skip product transit build-up: missing payment', {
-      productId,
-      shipmentCode,
-    });
-    return;
-  }
-
-  const postingDate =
-    normalizeDateOrNull(dto['Posting Date']) ??
-    normalizeDateOrNull(dto['Order Date']);
-  if (!postingDate) {
-    logger.info(
-      'GM: skip product transit build-up: missing/invalid posting date',
-      {
-        productId,
-        shipmentCode,
-        postingDate: dto['Posting Date'],
-        orderDate: dto['Order Date'],
-      }
-    );
-    return;
-  }
-
-  if (!isOnOrAfterAccountingCutover(postingDate)) {
-    logger.info(
-      'GM: skip product transit build-up: before accounting cutover',
-      {
-        productId,
-        shipmentCode,
-        date: postingDate.toISOString().slice(0, 10),
-        cutover: ACCOUNTING_CUTOVER_DATE.toISOString().slice(0, 10),
-      }
-    );
-    return;
-  }
-
-  const amount = resolveProductValuationAmount(dto);
-  if (!Number.isFinite(amount) || amount <= 0) {
-    logger.info('GM: skip product transit build-up: amount not positive', {
-      productId,
-      shipmentCode,
-      amount,
-    });
-    return;
-  }
-
-  const creditAccount = isPaid(payment)
-    ? CASH_ACCOUNT
-    : SUPPLIER_PAYABLE_ACCOUNT;
-  const productCode = (dto['Product Code'] ?? '').toString().trim();
-  const productName = (dto.Product ?? '').toString().trim();
-  const notesParts = [
-    `GM Product #${productId}`,
-    productCode ? `Code: ${productCode}` : null,
-    productName ? `Name: ${productName}` : null,
-    `Payment: ${payment}`,
-  ].filter(Boolean);
-
-  try {
-    await prisma.generalMerchandiseInventoryTransitBuildEntry.create({
-      data: {
-        postingDate,
-        shipmentId: null,
-        shipmentCode,
-        amount,
-        debitAccount: INVENTORY_IN_TRANSIT_ACCOUNT,
-        creditAccount,
-        idempotencyKey: buildProductTransitBuildIdempotencyKey(productId),
-        notes: notesParts.join(' | '),
-      },
-    });
-  } catch (error) {
-    const code = (error as { code?: string })?.code;
-    if (code === 'P2002') {
-      logger.info(
-        'GM: product transit build-up already exists; skip duplicate',
-        {
-          productId,
-          shipmentCode,
-        }
-      );
-      return;
-    }
-
-    logger.warn('GM: failed to post product transit build-up', {
-      error,
-      productId,
-      shipmentCode,
-      amount,
-      creditAccount,
-    });
-  }
 }
 
 async function postSupplierSettlementForProduct(params: {
@@ -188,16 +85,21 @@ async function postSupplierSettlementForProduct(params: {
     return;
   }
 
-  const transitBuild = await prisma.generalMerchandiseInventoryTransitBuildEntry
-    .findUnique({
-      where: {
-        idempotencyKey: buildProductTransitBuildIdempotencyKey(productId),
-      },
-      select: { amount: true, creditAccount: true },
-    })
-    .catch(() => null);
+  const transitBuildRows =
+    await prisma.generalMerchandiseInventoryTransitBuildEntry
+      .findMany({
+        where: {
+          deletedAt: null,
+          idempotencyKey: {
+            startsWith: buildProductTransitBuildIdempotencyKey(productId),
+          },
+          creditAccount: SUPPLIER_PAYABLE_ACCOUNT,
+        },
+        select: { amount: true },
+      })
+      .catch(() => []);
 
-  if (!transitBuild) {
+  if (transitBuildRows.length === 0) {
     logger.info(
       'GM: skip supplier settlement: missing transit build-up entry',
       {
@@ -209,21 +111,11 @@ async function postSupplierSettlementForProduct(params: {
     return;
   }
 
-  const amount = Number(transitBuild.amount ?? 0);
+  const amount = transitBuildRows.reduce(
+    (sum, row) => sum + Number(row.amount ?? 0),
+    0
+  );
   if (!Number.isFinite(amount) || amount <= 0) {
-    return;
-  }
-
-  if (transitBuild.creditAccount !== SUPPLIER_PAYABLE_ACCOUNT) {
-    logger.info(
-      'GM: skip supplier settlement: transit build-up not payable-based',
-      {
-        productId,
-        productCode,
-        shipmentCode,
-        creditAccount: transitBuild.creditAccount,
-      }
-    );
     return;
   }
 
@@ -339,12 +231,10 @@ export const generalMerchandiseProductService: ProductService = {
     const created = await gmPrisma.generalMerchandiseProduct.create({
       data: mapFromDTO(payload),
     });
-    await postTransitBuildForProduct({ productId: created.id, dto: payload });
     return mapToDTO(created);
   },
 
   async bulkImport(payload) {
-    const transitBuilds: Array<{ productId: number; dto: ProductDTO }> = [];
     const settlements: Array<{
       productId: number;
       productCode: string | null;
@@ -387,8 +277,6 @@ export const generalMerchandiseProductService: ProductService = {
                 shipmentCode: existing.shipmentCode,
               });
             }
-          } else {
-            transitBuilds.push({ productId: dto.id, dto });
           }
 
           updated += 1;
@@ -430,21 +318,14 @@ export const generalMerchandiseProductService: ProductService = {
           }
         }
 
-        const createdProduct = await (
+        await (
           tx as unknown as typeof gmPrisma
         ).generalMerchandiseProduct.create({ data });
-        transitBuilds.push({ productId: createdProduct.id, dto });
         created += 1;
       }
 
       return { created, updated, restored };
     });
-
-    await Promise.all(
-      transitBuilds.map(({ productId, dto }) =>
-        postTransitBuildForProduct({ productId, dto })
-      )
-    );
 
     await Promise.all(
       settlements.map(({ productId, productCode, shipmentCode }) =>
@@ -457,6 +338,201 @@ export const generalMerchandiseProductService: ProductService = {
     );
 
     return result;
+  },
+
+  async postManualTransitBuildUpByShipmentCode(params) {
+    const shipmentCode = (params.shipmentCode ?? '').toString().trim();
+    if (!shipmentCode) {
+      return { created: 0, skipped: 0, products: 0 };
+    }
+
+    const products = await gmPrisma.generalMerchandiseProduct.findMany({
+      where: {
+        deletedAt: null,
+        shipmentCode: {
+          equals: shipmentCode,
+          mode: 'insensitive',
+        },
+      },
+      select: {
+        id: true,
+        productCode: true,
+        product: true,
+        payment: true,
+        postingDate: true,
+        orderDate: true,
+        grandTotal: true,
+        forwardersFee: true,
+        lalamove: true,
+      },
+      orderBy: { id: 'asc' },
+    });
+
+    const existingBuildKeys =
+      await prisma.generalMerchandiseInventoryTransitBuildEntry
+        .findMany({
+          where: {
+            deletedAt: null,
+            shipmentCode: {
+              equals: shipmentCode,
+              mode: 'insensitive',
+            },
+            idempotencyKey: {
+              startsWith: 'PRODUCT_TRANSIT_BUILD:',
+            },
+          },
+          select: { idempotencyKey: true },
+        })
+        .catch(() => []);
+
+    const alreadyPostedProductIds = new Set<number>();
+    for (const row of existingBuildKeys) {
+      const parts = (row.idempotencyKey ?? '').split(':');
+      const productId = Number(parts[1] ?? NaN);
+      if (Number.isFinite(productId)) {
+        alreadyPostedProductIds.add(productId);
+      }
+    }
+
+    const entries: Prisma.GeneralMerchandiseInventoryTransitBuildEntryCreateManyInput[] =
+      [];
+
+    const toAmount = (value: unknown) => Number(value ?? 0);
+    const addEntry = (params: {
+      productId: number;
+      productCode: string | null;
+      productName: string | null;
+      payment: string;
+      postingDate: Date;
+      debitAccount: string;
+      creditAccount: string;
+      componentKey: 'GRAND_TOTAL' | 'FORWARDER_FEE' | 'LALAMOVE';
+      componentLabel: string;
+      amount: number;
+    }) => {
+      if (!Number.isFinite(params.amount) || params.amount <= 0) {
+        return;
+      }
+
+      const notesParts = [
+        `GM Product #${params.productId}`,
+        params.productCode ? `Code: ${params.productCode}` : null,
+        params.productName ? `Name: ${params.productName}` : null,
+        `Component: ${params.componentLabel}`,
+        `Payment: ${params.payment}`,
+      ].filter(Boolean);
+
+      const baseKey = buildProductTransitBuildIdempotencyKey(params.productId);
+
+      entries.push({
+        postingDate: params.postingDate,
+        shipmentId: null,
+        shipmentCode,
+        amount: params.amount,
+        debitAccount: params.debitAccount,
+        creditAccount: params.creditAccount,
+        idempotencyKey: `${baseKey}:${params.componentKey}`,
+        notes: notesParts.join(' | '),
+      });
+    };
+
+    let skippedProducts = 0;
+    for (const product of products) {
+      if (alreadyPostedProductIds.has(product.id)) {
+        skippedProducts += 1;
+        continue;
+      }
+
+      const payment = (product.payment ?? '').toString().trim();
+      if (!payment) {
+        continue;
+      }
+
+      const postingDate = resolvePostingDateFromProduct({
+        postingDate: product.postingDate,
+        orderDate: product.orderDate,
+      });
+      if (!postingDate) {
+        continue;
+      }
+
+      if (!isOnOrAfterAccountingCutover(postingDate)) {
+        continue;
+      }
+
+      const supplierCreditAccount = isPaid(payment)
+        ? CASH_ACCOUNT
+        : SUPPLIER_PAYABLE_ACCOUNT;
+
+      const forwarderCreditAccount = isPaid(payment)
+        ? CASH_ACCOUNT
+        : FORWARDER_PAYABLE_ACCOUNT;
+
+      const courierCreditAccount = isPaid(payment)
+        ? CASH_ACCOUNT
+        : COURIER_PAYABLE_ACCOUNT;
+
+      addEntry({
+        productId: product.id,
+        productCode: product.productCode,
+        productName: product.product,
+        payment,
+        postingDate,
+        debitAccount: INVENTORY_IN_TRANSIT_ACCOUNT,
+        creditAccount: supplierCreditAccount,
+        componentKey: 'GRAND_TOTAL',
+        componentLabel: 'Grand Total',
+        amount: toAmount(product.grandTotal),
+      });
+
+      addEntry({
+        productId: product.id,
+        productCode: product.productCode,
+        productName: product.product,
+        payment,
+        postingDate,
+        debitAccount: LANDED_COST_CLEARING_ACCOUNT,
+        creditAccount: forwarderCreditAccount,
+        componentKey: 'FORWARDER_FEE',
+        componentLabel: "Forwarder's Fee",
+        amount: toAmount(product.forwardersFee),
+      });
+
+      addEntry({
+        productId: product.id,
+        productCode: product.productCode,
+        productName: product.product,
+        payment,
+        postingDate,
+        debitAccount: LANDED_COST_CLEARING_ACCOUNT,
+        creditAccount: courierCreditAccount,
+        componentKey: 'LALAMOVE',
+        componentLabel: 'Lalamove',
+        amount: toAmount(product.lalamove),
+      });
+    }
+
+    if (entries.length === 0) {
+      return {
+        created: 0,
+        skipped: skippedProducts,
+        products: products.length,
+      };
+    }
+
+    const result =
+      await prisma.generalMerchandiseInventoryTransitBuildEntry.createMany({
+        data: entries,
+        skipDuplicates: true,
+      });
+
+    const skippedEntries = Math.max(0, entries.length - result.count);
+
+    return {
+      created: result.count,
+      skipped: skippedProducts + skippedEntries,
+      products: products.length,
+    };
   },
 
   async bulkUpdate(payload) {
