@@ -45,7 +45,20 @@ export type LedgerEntry = {
   sourceId?: string | null;
   sourceLineKey?: string;
   systemGenerated?: boolean;
+  transitBuildShipmentId?: number | null;
+  transitBuildEntryIds?: string[];
+  transitBuildDebitAccount?: string;
+  transitBuildCreditAccount?: string;
 };
+
+const TRANSIT_BUILD_ALLOWED_CREDIT_ACCOUNTS = [
+  'Cash',
+  'Bank',
+  'E-Wallet',
+  'Accounts Payable',
+  'Forwarder Payable',
+  'Courier Payable',
+] as const;
 
 export type OpeningBalanceEntry = {
   id: string;
@@ -201,6 +214,188 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
       setStats(defaultStats());
     }
   }, [fetchLedgerData, defaultStats]);
+
+  const deleteTransitBuildEntry = useCallback(
+    async (entry: LedgerEntry) => {
+      const shipmentId = entry.transitBuildShipmentId ?? null;
+      const entryIds = entry.transitBuildEntryIds ?? [];
+      if (entryIds.length === 0) {
+        showNotification({
+          title: 'Delete failed',
+          message: 'This transit build-up line is missing identifiers.',
+          color: 'red',
+        });
+        return;
+      }
+
+      const result = await Swal.fire({
+        title: 'Delete transit build-up?',
+        text:
+          entryIds.length === 1
+            ? 'This will remove the transit build-up entry from the ledger.'
+            : 'This will remove all grouped transit build-up entries from the ledger.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Delete',
+        cancelButtonText: 'Cancel',
+      });
+
+      if (!result.isConfirmed) {
+        return;
+      }
+
+      try {
+        for (const entryId of entryIds) {
+          const endpoint = shipmentId
+            ? apiPath(`/shipments/${shipmentId}/transit-build`)
+            : apiPath('/accounting/transit-build');
+
+          const res = await fetch(
+            `${endpoint}?entryId=${encodeURIComponent(entryId)}`,
+            { method: 'DELETE' }
+          );
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+          }
+        }
+
+        showNotification({
+          title: 'Deleted',
+          message: 'Transit build-up entry deleted.',
+          color: 'green',
+        });
+
+        await refreshLedger();
+      } catch (error) {
+        logger.error('Transit build-up delete failed', { error, entry });
+        showNotification({
+          title: 'Delete failed',
+          message: 'Unable to delete transit build-up entry.',
+          color: 'red',
+        });
+      }
+    },
+    [apiPath, refreshLedger]
+  );
+
+  const editTransitBuildEntry = useCallback(
+    async (entry: LedgerEntry) => {
+      const shipmentId = entry.transitBuildShipmentId ?? null;
+      const entryIds = entry.transitBuildEntryIds ?? [];
+      if (entryIds.length !== 1) {
+        showNotification({
+          title: 'Edit unavailable',
+          message:
+            entryIds.length > 1
+              ? 'This line is grouped; edit it from Shipments instead.'
+              : 'This transit build-up line is missing identifiers.',
+          color: 'yellow',
+        });
+        return;
+      }
+
+      const entryId = entryIds[0];
+      const currentAmount = Math.max(entry.debit, entry.credit);
+      const currentDate = (entry.date ?? '').slice(0, 10);
+      const currentCreditAccount =
+        entry.transitBuildCreditAccount ??
+        (entry.credit > 0 ? entry.account : '');
+
+      const result = await Swal.fire({
+        title: 'Edit transit build-up',
+        html: `
+          <div style="text-align:left">
+            <label style="display:block;margin:0 0 6px 0;font-weight:600">Posting date</label>
+            <input id="tb-posting-date" type="date" class="swal2-input" style="margin:0 0 12px 0;width:100%" value="${currentDate}" />
+
+            <label style="display:block;margin:0 0 6px 0;font-weight:600">Amount</label>
+            <input id="tb-amount" type="number" step="0.01" class="swal2-input" style="margin:0 0 12px 0;width:100%" value="${Number.isFinite(currentAmount) ? currentAmount : 0}" />
+
+            <label style="display:block;margin:0 0 6px 0;font-weight:600">Credit account</label>
+            <select id="tb-credit-account" class="swal2-select" style="margin:0;width:100%">
+              ${TRANSIT_BUILD_ALLOWED_CREDIT_ACCOUNTS.map((a) => `<option value="${a}" ${a === currentCreditAccount ? 'selected' : ''}>${a}</option>`).join('')}
+            </select>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Save',
+        cancelButtonText: 'Cancel',
+        focusConfirm: false,
+        preConfirm: () => {
+          const postingDate = (
+            document.getElementById(
+              'tb-posting-date'
+            ) as HTMLInputElement | null
+          )?.value;
+          const amountRaw = (
+            document.getElementById('tb-amount') as HTMLInputElement | null
+          )?.value;
+          const creditAccount = (
+            document.getElementById(
+              'tb-credit-account'
+            ) as HTMLSelectElement | null
+          )?.value;
+
+          const amount = Number(amountRaw ?? 0);
+          if (!postingDate) {
+            Swal.showValidationMessage('Posting date is required.');
+            return;
+          }
+          if (!Number.isFinite(amount) || amount < 0) {
+            Swal.showValidationMessage('Amount must be 0 or greater.');
+            return;
+          }
+          if (!creditAccount) {
+            Swal.showValidationMessage('Credit account is required.');
+            return;
+          }
+
+          return { postingDate, amount, creditAccount };
+        },
+      });
+
+      if (!result.isConfirmed || !result.value) {
+        return;
+      }
+
+      try {
+        const endpoint = shipmentId
+          ? apiPath(`/shipments/${shipmentId}/transit-build`)
+          : apiPath('/accounting/transit-build');
+
+        const res = await fetch(endpoint, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            entryId,
+            postingDate: result.value.postingDate,
+            amount: result.value.amount,
+            creditAccount: result.value.creditAccount,
+          }),
+        });
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        showNotification({
+          title: 'Saved',
+          message: 'Transit build-up entry updated.',
+          color: 'green',
+        });
+
+        await refreshLedger();
+      } catch (error) {
+        logger.error('Transit build-up edit failed', { error, entry });
+        showNotification({
+          title: 'Save failed',
+          message: 'Unable to update transit build-up entry.',
+          color: 'red',
+        });
+      }
+    },
+    [apiPath, refreshLedger]
+  );
 
   useEffect(() => {
     refreshLedger();
@@ -1333,6 +1528,8 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
     closeManualEntryModal,
     saveManualEntry,
     deleteManualEntry,
+    editTransitBuildEntry,
+    deleteTransitBuildEntry,
     openingEntries,
     openingBalanceCutoverDate,
     isLoadingOpeningEntries,

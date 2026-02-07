@@ -519,6 +519,67 @@ export class ShipmentService {
     );
   }
 
+  static async updateTransitBuildEntry(
+    shipmentId: number,
+    input: {
+      entryId: string;
+      postingDate?: Date;
+      amount?: number;
+      creditAccount?: string;
+      notes?: string | null;
+    },
+    apiBasePath?: string
+  ): Promise<{
+    shipmentId: number;
+    shipmentCode: string;
+    entry: {
+      id: string;
+      postingDate: string;
+      amount: number;
+      debitAccount: string;
+      creditAccount: string;
+      idempotencyKey: string;
+      notes: string | null;
+    };
+  }> {
+    return await api.patch(
+      ShipmentService.buildPath(
+        apiBasePath,
+        `/shipments/${shipmentId}/transit-build`
+      ),
+      {
+        entryId: input.entryId,
+        postingDate: input.postingDate
+          ? this.formatDateForApi(input.postingDate)
+          : undefined,
+        amount: input.amount,
+        creditAccount: input.creditAccount,
+        notes: 'notes' in input ? input.notes : undefined,
+      }
+    );
+  }
+
+  static async deleteTransitBuildEntry(
+    shipmentId: number,
+    entryId: string,
+    apiBasePath?: string
+  ): Promise<{
+    shipmentId: number;
+    shipmentCode: string;
+    entryId: string;
+    idempotencyKey: string;
+    deletedAt: string;
+  }> {
+    const url = ShipmentService.buildPath(
+      apiBasePath,
+      `/shipments/${shipmentId}/transit-build?entryId=${encodeURIComponent(
+        entryId
+      )}`
+    );
+
+    return await api.delete(url);
+  }
+
   static async createTransitReclassEntries(
     shipmentId: number,
     input: {

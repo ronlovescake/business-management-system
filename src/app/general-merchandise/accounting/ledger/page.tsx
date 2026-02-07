@@ -40,6 +40,8 @@ export default function GeneralMerchandiseLedgerPage() {
     editingManualSourceId,
     openManualEntryModalForEdit,
     deleteManualEntry,
+    editTransitBuildEntry,
+    deleteTransitBuildEntry,
     isManualEntryModalOpen,
     closeManualEntryModal,
     saveManualEntry,
@@ -127,6 +129,8 @@ export default function GeneralMerchandiseLedgerPage() {
             formatCurrency={formatCurrency}
             onEditManualEntry={openManualEntryModalForEdit}
             onDeleteManualEntry={deleteManualEntry}
+            onEditTransitBuildEntry={editTransitBuildEntry}
+            onDeleteTransitBuildEntry={deleteTransitBuildEntry}
           />
         )}
 

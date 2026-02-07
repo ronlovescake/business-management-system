@@ -19,6 +19,8 @@ interface LedgerListTableProps {
   formatCurrency: (amount: number) => string;
   onEditManualEntry?: (entry: LedgerEntry) => void;
   onDeleteManualEntry?: (entry: LedgerEntry) => void;
+  onEditTransitBuildEntry?: (entry: LedgerEntry) => void;
+  onDeleteTransitBuildEntry?: (entry: LedgerEntry) => void;
 }
 
 export const LedgerListTable = memo(function LedgerListTable({
@@ -28,6 +30,8 @@ export const LedgerListTable = memo(function LedgerListTable({
   formatCurrency,
   onEditManualEntry,
   onDeleteManualEntry,
+  onEditTransitBuildEntry,
+  onDeleteTransitBuildEntry,
 }: LedgerListTableProps) {
   const totals = filteredEntries.reduce(
     (acc, entry) => {
@@ -164,6 +168,49 @@ export const LedgerListTable = memo(function LedgerListTable({
                                 {...getActionLabel(
                                   'Delete',
                                   'manual journal entry',
+                                  entry.ref
+                                )}
+                              >
+                                <IconTrash size={16} />
+                              </ActionIcon>
+                            </Tooltip>
+                          </>
+                        )}
+
+                      {entry.sourceType === 'TRANSIT_BUILD' &&
+                        (entry.transitBuildEntryIds?.length ?? 0) > 0 && (
+                          <>
+                            {(entry.transitBuildEntryIds?.length ?? 0) ===
+                              1 && (
+                              <Tooltip label="Edit">
+                                <ActionIcon
+                                  color="blue"
+                                  variant="light"
+                                  size="sm"
+                                  onClick={() =>
+                                    onEditTransitBuildEntry?.(entry)
+                                  }
+                                  {...getActionLabel(
+                                    'Edit',
+                                    'transit build-up entry',
+                                    entry.ref
+                                  )}
+                                >
+                                  <IconEdit size={16} />
+                                </ActionIcon>
+                              </Tooltip>
+                            )}
+                            <Tooltip label="Delete">
+                              <ActionIcon
+                                color="red"
+                                variant="light"
+                                size="sm"
+                                onClick={() =>
+                                  onDeleteTransitBuildEntry?.(entry)
+                                }
+                                {...getActionLabel(
+                                  'Delete',
+                                  'transit build-up entry',
                                   entry.ref
                                 )}
                               >

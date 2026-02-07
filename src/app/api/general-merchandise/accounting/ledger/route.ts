@@ -240,6 +240,40 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       }>)
     : [];
 
+  const shipmentIdByCode = new Map<string, number>();
+  const missingShipmentCodes = Array.from(
+    new Set(
+      transitBuildRows
+        .filter((r) => !r.shipmentId)
+        .map((r) => (r.shipmentCode ?? '').trim())
+        .filter(Boolean)
+    )
+  );
+
+  if (missingShipmentCodes.length > 0) {
+    const shipmentModel = (
+      prisma as unknown as {
+        generalMerchandiseShipment?: {
+          findMany?: (args: unknown) => Promise<unknown>;
+        };
+      }
+    ).generalMerchandiseShipment;
+
+    if (shipmentModel?.findMany) {
+      const shipments = (await shipmentModel.findMany({
+        where: { shipmentCode: { in: missingShipmentCodes } },
+        select: { id: true, shipmentCode: true },
+      })) as Array<{ id: number; shipmentCode: string | null }>;
+
+      for (const s of shipments) {
+        const code = (s.shipmentCode ?? '').trim();
+        if (code) {
+          shipmentIdByCode.set(code, s.id);
+        }
+      }
+    }
+  }
+
   const extractTransitIdentityFromNotes = (
     notes: unknown
   ): { name: string | null; code: string | null } => {
@@ -283,6 +317,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const transitBuildRowsForExport = (() => {
     type RowForExport = {
       exportId: string;
+      entryIds: string[];
       amount: number;
       postingDate: Date;
       shipmentCode: string | null;
@@ -310,8 +345,14 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         (row as unknown as { idempotencyKey?: unknown }).idempotencyKey
       );
       const postingDay = row.postingDate.toISOString().slice(0, 10);
+
+      const resolvedShipmentId =
+        row.shipmentId ??
+        shipmentIdByCode.get((row.shipmentCode ?? '').trim()) ??
+        null;
+
       const shipmentLabel =
-        (row.shipmentCode ?? '').trim() || `SHIP-${row.shipmentId}`;
+        (row.shipmentCode ?? '').trim() || `SHIP-${resolvedShipmentId}`;
 
       if (component && groupedComponents.has(component)) {
         const groupKey = [
@@ -325,6 +366,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         const existing = grouped.get(groupKey);
         if (existing) {
           existing.amount += amount;
+          existing.entryIds.push(row.id);
           if (row.postingDate < existing.postingDate) {
             existing.postingDate = row.postingDate;
           }
@@ -333,10 +375,11 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
         grouped.set(groupKey, {
           exportId: `GROUP-${shipmentLabel}-${postingDay}-${row.debitAccount}-${row.creditAccount}-${component}`,
+          entryIds: [row.id],
           amount,
           postingDate: row.postingDate,
           shipmentCode: row.shipmentCode,
-          shipmentId: row.shipmentId,
+          shipmentId: resolvedShipmentId,
           debitAccount: row.debitAccount,
           creditAccount: row.creditAccount,
           idempotencyKey:
@@ -350,10 +393,11 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
       directRows.push({
         exportId: row.id,
+        entryIds: [row.id],
         amount,
         postingDate: row.postingDate,
         shipmentCode: row.shipmentCode,
-        shipmentId: row.shipmentId,
+        shipmentId: resolvedShipmentId,
         debitAccount: row.debitAccount,
         creditAccount: row.creditAccount,
         idempotencyKey:
@@ -400,6 +444,10 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
       const idBase = `TB-${row.exportId}`;
 
+      const transitBuildEntryIds = row.entryIds;
+      const transitBuildSourceId =
+        transitBuildEntryIds.length === 1 ? transitBuildEntryIds[0] : null;
+
       return [
         {
           id: `${idBase}-debit`,
@@ -409,6 +457,13 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
           debit: Math.max(amount, 0),
           credit: 0,
           description,
+          sourceType: 'TRANSIT_BUILD',
+          sourceId: transitBuildSourceId,
+          systemGenerated: false,
+          transitBuildShipmentId: row.shipmentId,
+          transitBuildEntryIds,
+          transitBuildDebitAccount: row.debitAccount,
+          transitBuildCreditAccount: row.creditAccount,
         },
         {
           id: `${idBase}-credit`,
@@ -418,6 +473,13 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
           debit: 0,
           credit: Math.max(amount, 0),
           description,
+          sourceType: 'TRANSIT_BUILD',
+          sourceId: transitBuildSourceId,
+          systemGenerated: false,
+          transitBuildShipmentId: row.shipmentId,
+          transitBuildEntryIds,
+          transitBuildDebitAccount: row.debitAccount,
+          transitBuildCreditAccount: row.creditAccount,
         },
       ];
     })
@@ -429,6 +491,13 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     debit: number;
     credit: number;
     description: string;
+    sourceType?: string;
+    sourceId?: string | null;
+    systemGenerated?: boolean;
+    transitBuildShipmentId?: number | null;
+    transitBuildEntryIds?: string[];
+    transitBuildDebitAccount?: string;
+    transitBuildCreditAccount?: string;
   }>;
 
   // ============================================================================

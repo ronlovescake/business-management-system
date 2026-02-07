@@ -33,6 +33,14 @@ type TransitBuildRequestBody = {
   notes?: string | null;
 };
 
+type TransitBuildPatchRequestBody = {
+  entryId?: string | null;
+  postingDate?: string | null;
+  amount?: number | null;
+  creditAccount?: string | null;
+  notes?: string | null;
+};
+
 export const GET = withErrorHandler<RouteContext>(
   async (_request: NextRequest, context) => {
     const idResult = parseShipmentId(context);
@@ -488,6 +496,215 @@ export const POST = withErrorHandler<RouteContext>(
       results.every((row) => row.wasDuplicate)
         ? 'Transit build-up entries updated'
         : 'Transit build-up entries created'
+    );
+  }
+);
+
+export const PATCH = withErrorHandler<RouteContext>(
+  async (request: NextRequest, context) => {
+    const idResult = parseShipmentId(context);
+    if ('error' in idResult) {
+      return idResult.error;
+    }
+
+    const body = (await request
+      .json()
+      .catch(() => null)) as TransitBuildPatchRequestBody | null;
+
+    const entryId = (body?.entryId ?? '').trim();
+    if (!entryId) {
+      return ApiResponse.badRequest('Missing entryId', {
+        entryId: 'Provide the transit build-up entry id to update.',
+      });
+    }
+
+    const shipment = await prisma.shipment.findUnique({
+      where: { id: idResult.id },
+      select: { id: true, shipmentCode: true },
+    });
+
+    if (!shipment) {
+      return ApiResponse.notFound('Shipment');
+    }
+
+    const shipmentCode = (shipment.shipmentCode ?? '').trim();
+    if (!shipmentCode) {
+      return ApiResponse.badRequest('Shipment has no shipment code', {
+        shipmentCode: 'Add a Shipment Code before updating a transit entry.',
+      });
+    }
+
+    const existing = await prisma.clothingInventoryTransitBuildEntry.findFirst({
+      where: {
+        id: entryId,
+        shipmentCode,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        idempotencyKey: true,
+        debitAccount: true,
+      },
+    });
+
+    if (!existing) {
+      return ApiResponse.notFound('Transit build-up entry');
+    }
+
+    const next: {
+      postingDate?: Date;
+      amount?: number;
+      creditAccount?: string;
+      notes?: string | null;
+    } = {};
+
+    if (body?.postingDate !== null && body?.postingDate !== undefined) {
+      const postingDate = parseDate(body.postingDate) ?? new Date();
+      if (Number.isNaN(postingDate.getTime())) {
+        return ApiResponse.badRequest('Invalid posting date', {
+          postingDate: 'Provide a valid date string (YYYY-MM-DD recommended).',
+        });
+      }
+
+      if (postingDate < ACCOUNTING_CUTOVER) {
+        return ApiResponse.badRequest('Posting date is before cutover', {
+          postingDate: `Posting date must be on or after ${ACCOUNTING_CUTOVER.toISOString().slice(0, 10)}. Use opening balances for pre-cutover values.`,
+        });
+      }
+
+      next.postingDate = postingDate;
+    }
+
+    if (body?.amount !== null && body?.amount !== undefined) {
+      const amount = Number(body.amount);
+      if (!Number.isFinite(amount) || amount < 0) {
+        return ApiResponse.badRequest('Invalid amount', {
+          amount: 'Provide a numeric amount that is 0 or greater.',
+        });
+      }
+
+      next.amount = amount;
+    }
+
+    if (body?.creditAccount !== null && body?.creditAccount !== undefined) {
+      const creditAccount = (body.creditAccount ?? '').trim();
+      if (!ALLOWED_CREDIT_ACCOUNTS.has(creditAccount)) {
+        return ApiResponse.badRequest('Invalid credit account', {
+          creditAccount: `Allowed values: ${Array.from(ALLOWED_CREDIT_ACCOUNTS).join(', ')}`,
+        });
+      }
+
+      next.creditAccount = creditAccount;
+    }
+
+    if ('notes' in (body ?? {})) {
+      next.notes = body?.notes ? sanitizers.notes(body.notes) : null;
+    }
+
+    if (Object.keys(next).length === 0) {
+      return ApiResponse.badRequest('No updates provided', {
+        entryId: 'Provide at least one field to update.',
+      });
+    }
+
+    const updated = await prisma.clothingInventoryTransitBuildEntry.update({
+      where: { id: existing.id },
+      data: {
+        ...next,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        postingDate: true,
+        amount: true,
+        debitAccount: true,
+        creditAccount: true,
+        idempotencyKey: true,
+        notes: true,
+      },
+    });
+
+    return ApiResponse.success(
+      {
+        shipmentId: shipment.id,
+        shipmentCode,
+        entry: {
+          id: updated.id,
+          postingDate: updated.postingDate.toISOString(),
+          amount: updated.amount,
+          debitAccount: updated.debitAccount,
+          creditAccount: updated.creditAccount,
+          idempotencyKey: updated.idempotencyKey,
+          notes: updated.notes,
+        },
+      },
+      'Transit build-up entry updated'
+    );
+  }
+);
+
+export const DELETE = withErrorHandler<RouteContext>(
+  async (request: NextRequest, context) => {
+    const idResult = parseShipmentId(context);
+    if ('error' in idResult) {
+      return idResult.error;
+    }
+
+    const entryId = (request.nextUrl.searchParams.get('entryId') ?? '').trim();
+    if (!entryId) {
+      return ApiResponse.badRequest('Missing entryId', {
+        entryId: 'Provide the transit build-up entry id to delete.',
+      });
+    }
+
+    const shipment = await prisma.shipment.findUnique({
+      where: { id: idResult.id },
+      select: { id: true, shipmentCode: true },
+    });
+
+    if (!shipment) {
+      return ApiResponse.notFound('Shipment');
+    }
+
+    const shipmentCode = (shipment.shipmentCode ?? '').trim();
+    if (!shipmentCode) {
+      return ApiResponse.badRequest('Shipment has no shipment code', {
+        shipmentCode: 'Add a Shipment Code before deleting a transit entry.',
+      });
+    }
+
+    const existing = await prisma.clothingInventoryTransitBuildEntry.findFirst({
+      where: {
+        id: entryId,
+        shipmentCode,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        idempotencyKey: true,
+      },
+    });
+
+    if (!existing) {
+      return ApiResponse.notFound('Transit build-up entry');
+    }
+
+    const deletedAt = new Date();
+
+    await prisma.clothingInventoryTransitBuildEntry.update({
+      where: { id: existing.id },
+      data: { deletedAt },
+    });
+
+    return ApiResponse.success(
+      {
+        shipmentId: shipment.id,
+        shipmentCode,
+        entryId: existing.id,
+        idempotencyKey: existing.idempotencyKey,
+        deletedAt: deletedAt.toISOString(),
+      },
+      'Transit build-up entry deleted'
     );
   }
 );

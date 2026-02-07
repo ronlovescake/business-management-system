@@ -58,6 +58,8 @@ export default function LedgerPage() {
     openOpeningEntryModalForEdit,
     deleteOpeningEntry,
     editingOpeningEntryId,
+    editTransitBuildEntry,
+    deleteTransitBuildEntry,
   } = useLedger();
 
   const isOpeningBalanceTab = activeTab === 'opening-balance';
@@ -125,6 +127,8 @@ export default function LedgerPage() {
             formatCurrency={formatCurrency}
             onEditManualEntry={openManualEntryModalForEdit}
             onDeleteManualEntry={deleteManualEntry}
+            onEditTransitBuildEntry={editTransitBuildEntry}
+            onDeleteTransitBuildEntry={deleteTransitBuildEntry}
           />
         )}
 

@@ -637,7 +637,7 @@ export function useProductsGrid({
       title: `Post Transit Build-Up • ${selectedShipmentCode}`,
       html: detailHtml,
       icon: 'question',
-      width: '72vw',
+      width: '54vw',
       showCancelButton: true,
       confirmButtonText: 'Post Transit Build-Up',
       cancelButtonText: 'Cancel',
