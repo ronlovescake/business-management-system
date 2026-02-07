@@ -46,6 +46,9 @@ export function ProductsGrid({ apiBasePath }: ProductsGridProps) {
     products,
     statistics,
     productForm,
+    selectedShipmentCode,
+    selectedProductCode,
+    handleTransitBuildUp,
   } = useProductsGrid({ apiBasePath });
 
   return (
@@ -142,6 +145,9 @@ export function ProductsGrid({ apiBasePath }: ProductsGridProps) {
           isEditMode={isEditMode}
           onToggleEditMode={toggleEditMode}
           onAddProduct={openCreateProductModal}
+          selectedShipmentCode={selectedShipmentCode}
+          selectedProductCode={selectedProductCode}
+          onTransitBuildUp={handleTransitBuildUp}
         />
 
         <AddProductModal

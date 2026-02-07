@@ -12,6 +12,7 @@ import { showNotification } from '@mantine/notifications';
 import { IconCheck } from '@tabler/icons-react';
 import type { CellChange, ChangeSource } from 'handsontable/common';
 import { useCtrlFFocus } from '@/hooks/useCtrlFFocus';
+import { showCustomAlert } from '@/lib/alerts';
 import { useProductsData } from './useProductsData';
 import { useProductForm } from './useProductForm';
 import type { ProductData } from '../types/product.types';
@@ -55,6 +56,9 @@ interface UseProductsGridResult {
   };
   productForm: ReturnType<typeof useProductForm>;
   isLoading: boolean;
+  selectedShipmentCode: string | null;
+  selectedProductCode: string | null;
+  handleTransitBuildUp: () => Promise<void>;
 }
 
 interface UseProductsGridParams {
@@ -74,6 +78,7 @@ export function useProductsGrid({
     addProduct,
     updateProduct,
     bulkUpdateProducts,
+    refreshProducts,
   } = useProductsData(apiBasePath);
 
   const productForm = useProductForm();
@@ -81,7 +86,30 @@ export function useProductsGrid({
   const [addProductOpen, setAddProductOpen] = useState(false);
   const [gridHeight, setGridHeight] = useState(600);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const lastClickRef = useRef<LastClick | null>(null);
+
+  const selectedProduct = useMemo(() => {
+    if (selectedRow === null) {
+      return null;
+    }
+    if (selectedRow < 0 || selectedRow >= filteredProducts.length) {
+      return null;
+    }
+    return filteredProducts[selectedRow] ?? null;
+  }, [filteredProducts, selectedRow]);
+
+  const selectedShipmentCode = useMemo(() => {
+    const raw = selectedProduct?.['Shipment Code'];
+    const normalized = (raw ?? '').toString().trim();
+    return normalized.length ? normalized : null;
+  }, [selectedProduct]);
+
+  const selectedProductCode = useMemo(() => {
+    const raw = selectedProduct?.['Product Code'];
+    const normalized = (raw ?? '').toString().trim();
+    return normalized.length ? normalized : null;
+  }, [selectedProduct]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -450,6 +478,10 @@ export function useProductsGrid({
 
   const handleCellClick = useCallback(
     (event: MouseEvent, coords: { row: number; col: number }) => {
+      if (coords.row >= 0 && coords.row < filteredProducts.length) {
+        setSelectedRow(coords.row);
+      }
+
       const now = Date.now();
       const lastClick = lastClickRef.current;
 
@@ -481,6 +513,166 @@ export function useProductsGrid({
     },
     [filteredProducts, productForm]
   );
+
+  const handleTransitBuildUp = useCallback(async () => {
+    if (!selectedShipmentCode) {
+      showNotification({
+        title: 'Select a Shipment Code',
+        message: 'Click a product row with a Shipment Code first.',
+        color: 'red',
+      });
+      return;
+    }
+
+    const normalizeShipmentCode = (value: unknown) =>
+      (value ?? '').toString().trim().toLowerCase();
+
+    const shipmentProducts = products.filter(
+      (p) =>
+        normalizeShipmentCode(p['Shipment Code']) ===
+        normalizeShipmentCode(selectedShipmentCode)
+    );
+
+    if (shipmentProducts.length === 0) {
+      showNotification({
+        title: 'No Products Found',
+        message: `No products are linked to shipment ${selectedShipmentCode}.`,
+        color: 'red',
+      });
+      return;
+    }
+
+    const toAmount = (value: unknown) => Number(value ?? 0);
+    const formatPhp = (amount: number) =>
+      new Intl.NumberFormat('en-PH', {
+        style: 'currency',
+        currency: 'PHP',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      }).format(amount);
+
+    const escapeHtml = (value: unknown) => {
+      const input = (value ?? '').toString();
+      return input.replace(/[&<>'"]/g, (character) => {
+        switch (character) {
+          case '&':
+            return '&amp;';
+          case '<':
+            return '&lt;';
+          case '>':
+            return '&gt;';
+          case "'":
+            return '&#39;';
+          case '"':
+            return '&quot;';
+          default:
+            return character;
+        }
+      });
+    };
+
+    const rowsHtml = shipmentProducts
+      .map((product) => {
+        const grandTotal = toAmount(product['Grand Total']);
+        const forwardersFee = toAmount(product["Forwarder's Fee"]);
+        const lalamove = toAmount(product.Lalamove);
+        const packaging = toAmount(product['Packaging Cost']);
+        const sum = grandTotal + forwardersFee + lalamove;
+        const postingDate =
+          (product['Posting Date'] ?? '').toString().trim() ||
+          (product['Order Date'] ?? '').toString().trim() ||
+          '—';
+
+        const tdBaseStyle =
+          'padding: 6px 8px; border-top: 1px solid #dee2e6; vertical-align: top;';
+        const tdLeftNoWrapStyle = `${tdBaseStyle} text-align: left; white-space: nowrap;`;
+        const tdRightNoWrapStyle = `${tdBaseStyle} text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums;`;
+
+        return `
+          <tr>
+            <td style="${tdLeftNoWrapStyle} min-width: 240px;">${escapeHtml(product['Product Code'] || '—')}</td>
+            <td style="${tdLeftNoWrapStyle}">${escapeHtml(product.Payment || '—')}</td>
+            <td style="${tdLeftNoWrapStyle}">${escapeHtml(postingDate)}</td>
+            <td style="${tdRightNoWrapStyle}">${escapeHtml(formatPhp(grandTotal))}</td>
+            <td style="${tdRightNoWrapStyle}">${escapeHtml(formatPhp(forwardersFee))}</td>
+            <td style="${tdRightNoWrapStyle}">${escapeHtml(formatPhp(lalamove))}</td>
+            <td style="${tdRightNoWrapStyle}">${escapeHtml(formatPhp(sum))}</td>
+            <td style="${tdRightNoWrapStyle}">${escapeHtml(formatPhp(packaging))}</td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    const detailHtml = `
+      <div style="text-align: left;">
+        <div style="max-height: 360px; overflow: auto; border: 1px solid #dee2e6; border-radius: 8px;">
+          <table style="min-width: 980px; width: 100%; border-collapse: collapse; font-size: 13px;">
+            <thead>
+              <tr style="text-align: left; background: #f8f9fa;">
+                <th style="padding: 8px;">Product Code</th>
+                <th style="padding: 8px;">Payment</th>
+                <th style="padding: 8px;">Posting Date</th>
+                <th style="padding: 8px; text-align: right;">Grand Total</th>
+                <th style="padding: 8px; text-align: right;">Forwarder's Fee</th>
+                <th style="padding: 8px; text-align: right;">Lalamove</th>
+                <th style="padding: 8px; text-align: right;">Total</th>
+                <th style="padding: 8px; text-align: right;">Packaging (excluded)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
+
+        <p style="margin: 12px 0 0; font-size: 13px; color: #495057;">
+          <small>
+            Already-posted products may be skipped (idempotent). Products with missing payment/date or before cutover will not be posted.
+          </small>
+        </p>
+      </div>
+    `;
+
+    const modalResult = await showCustomAlert({
+      title: `Post Transit Build-Up • ${selectedShipmentCode}`,
+      html: detailHtml,
+      icon: 'question',
+      width: '72vw',
+      showCancelButton: true,
+      confirmButtonText: 'Post Transit Build-Up',
+      cancelButtonText: 'Cancel',
+      focusCancel: true,
+    });
+
+    const shouldConfirm = modalResult.isConfirmed;
+
+    if (!shouldConfirm) {
+      return;
+    }
+
+    const { ProductService } = await import('../services/ProductService');
+    const result = await ProductService.postTransitBuildUpByShipmentCode(
+      selectedShipmentCode,
+      apiBasePath
+    );
+
+    if (result.success) {
+      showNotification({
+        title: '✅ Transit Build-Up Posted',
+        message: `Created ${result.data.created} entries (skipped ${result.data.skipped}) across ${result.data.products} products.`,
+        color: 'green',
+        icon: createElement(IconCheck, { size: 18 }),
+      });
+      await refreshProducts();
+      return;
+    }
+
+    showNotification({
+      title: '❌ Transit Build-Up Failed',
+      message: result.error,
+      color: 'red',
+    });
+  }, [apiBasePath, products, refreshProducts, selectedShipmentCode]);
 
   const handleSubmitProduct = useCallback(async () => {
     const validation = productForm.validate();
@@ -595,5 +787,8 @@ export function useProductsGrid({
     statistics,
     productForm,
     isLoading,
+    selectedShipmentCode,
+    selectedProductCode,
+    handleTransitBuildUp,
   };
 }
