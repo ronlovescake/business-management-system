@@ -235,20 +235,170 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         shipmentId: number | null;
         debitAccount: string;
         creditAccount: string;
+        idempotencyKey?: string;
+        notes?: unknown;
       }>)
     : [];
 
-  const transitBuildEntries = transitBuildRows
-    .map((row) => {
-      const amount = Number(row.amount ?? 0);
+  const extractTransitIdentityFromNotes = (
+    notes: unknown
+  ): { name: string | null; code: string | null } => {
+    if (typeof notes !== 'string') {
+      return { name: null, code: null };
+    }
+
+    const codeMatch = notes.match(/\bCode:\s*([^|\n]+)/);
+    const nameMatch = notes.match(/\bName:\s*([^|\n]+)/);
+
+    const code = codeMatch?.[1]?.trim() ?? null;
+    const name = nameMatch?.[1]?.trim() ?? null;
+
+    return {
+      name: name && name.length ? name : null,
+      code: code && code.length ? code : null,
+    };
+  };
+
+  const parseTransitBuildComponent = (
+    idempotencyKey: unknown
+  ): string | null => {
+    if (typeof idempotencyKey !== 'string') {
+      return null;
+    }
+    if (!idempotencyKey.startsWith('PRODUCT_TRANSIT_BUILD:')) {
+      return null;
+    }
+    const parts = idempotencyKey.split(':');
+    const component = parts[parts.length - 1]?.trim();
+    return component && component.length ? component : null;
+  };
+
+  const groupedComponentLabels: Record<string, string> = {
+    FORWARDER_FEE: 'Forwarder',
+    LALAMOVE: 'Lalamove',
+  };
+
+  const groupedComponents = new Set(['FORWARDER_FEE', 'LALAMOVE']);
+
+  const transitBuildRowsForExport = (() => {
+    type RowForExport = {
+      exportId: string;
+      amount: number;
+      postingDate: Date;
+      shipmentCode: string | null;
+      shipmentId: number | null;
+      debitAccount: string;
+      creditAccount: string;
+      idempotencyKey: string | null;
+      notes: unknown;
+      component: string | null;
+      isGroupedComponent: boolean;
+    };
+
+    const directRows: RowForExport[] = [];
+    const grouped = new Map<string, RowForExport>();
+
+    for (const row of transitBuildRows) {
+      const amount = Number(
+        (row as unknown as { amount?: unknown }).amount ?? 0
+      );
       if (!Number.isFinite(amount) || amount <= 0) {
-        return null;
+        continue;
       }
 
+      const component = parseTransitBuildComponent(
+        (row as unknown as { idempotencyKey?: unknown }).idempotencyKey
+      );
+      const postingDay = row.postingDate.toISOString().slice(0, 10);
+      const shipmentLabel =
+        (row.shipmentCode ?? '').trim() || `SHIP-${row.shipmentId}`;
+
+      if (component && groupedComponents.has(component)) {
+        const groupKey = [
+          shipmentLabel,
+          postingDay,
+          row.debitAccount,
+          row.creditAccount,
+          component,
+        ].join('|');
+
+        const existing = grouped.get(groupKey);
+        if (existing) {
+          existing.amount += amount;
+          if (row.postingDate < existing.postingDate) {
+            existing.postingDate = row.postingDate;
+          }
+          continue;
+        }
+
+        grouped.set(groupKey, {
+          exportId: `GROUP-${shipmentLabel}-${postingDay}-${row.debitAccount}-${row.creditAccount}-${component}`,
+          amount,
+          postingDate: row.postingDate,
+          shipmentCode: row.shipmentCode,
+          shipmentId: row.shipmentId,
+          debitAccount: row.debitAccount,
+          creditAccount: row.creditAccount,
+          idempotencyKey:
+            typeof row.idempotencyKey === 'string' ? row.idempotencyKey : null,
+          notes: row.notes,
+          component,
+          isGroupedComponent: true,
+        });
+        continue;
+      }
+
+      directRows.push({
+        exportId: row.id,
+        amount,
+        postingDate: row.postingDate,
+        shipmentCode: row.shipmentCode,
+        shipmentId: row.shipmentId,
+        debitAccount: row.debitAccount,
+        creditAccount: row.creditAccount,
+        idempotencyKey:
+          typeof row.idempotencyKey === 'string' ? row.idempotencyKey : null,
+        notes: row.notes,
+        component,
+        isGroupedComponent: false,
+      });
+    }
+
+    return [...directRows, ...Array.from(grouped.values())].sort(
+      (a, b) => a.postingDate.getTime() - b.postingDate.getTime()
+    );
+  })();
+
+  const transitBuildEntries = transitBuildRowsForExport
+    .flatMap((row) => {
+      const amount = row.amount;
       const dateStr = row.postingDate.toISOString();
       const ref = (row.shipmentCode ?? '').trim() || `SHIP-${row.shipmentId}`;
-      const description = `Transit build-up • ${row.shipmentCode}`;
-      const idBase = `TB-${row.id}`;
+
+      const shipmentLabel = (row.shipmentCode ?? '').trim() || ref;
+      const isProductTransitBuild =
+        typeof row.idempotencyKey === 'string' &&
+        row.idempotencyKey.startsWith('PRODUCT_TRANSIT_BUILD:');
+
+      const identity = isProductTransitBuild
+        ? extractTransitIdentityFromNotes(row.notes)
+        : { name: null, code: null };
+
+      const description =
+        row.isGroupedComponent && row.component
+          ? `${shipmentLabel} • ${groupedComponentLabels[row.component] ?? row.component}`
+          : (() => {
+              const descriptionBase = `Transit build-up • ${shipmentLabel}`;
+              return identity.name && identity.code
+                ? `${descriptionBase} • ${identity.name} (${identity.code})`
+                : identity.name
+                  ? `${descriptionBase} • ${identity.name}`
+                  : identity.code
+                    ? `${descriptionBase} • ${identity.code}`
+                    : descriptionBase;
+            })();
+
+      const idBase = `TB-${row.exportId}`;
 
       return [
         {
@@ -271,7 +421,6 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         },
       ];
     })
-    .flat()
     .filter(Boolean) as Array<{
     id: string;
     date: string;
