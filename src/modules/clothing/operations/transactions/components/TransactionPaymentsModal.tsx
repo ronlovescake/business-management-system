@@ -20,7 +20,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import Swal from 'sweetalert2';
 import { api } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
-import { PolishedModal } from '@/components/modals/PolishedModal';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 import { isCancelledOrderStatus } from '@/lib/transactions/order-status';
 import { queryKeys } from '@/lib/queryKeys';
 import {
@@ -634,7 +634,7 @@ export function TransactionPaymentsModal({
   }, [isSaving, opened, resetFormState]);
 
   return (
-    <PolishedModal
+    <UniversalModal
       opened={opened}
       onClose={handleClose}
       title="Record Payments"
@@ -1162,6 +1162,6 @@ export function TransactionPaymentsModal({
           </Group>
         </Group>
       </Stack>
-    </PolishedModal>
+    </UniversalModal>
   );
 }

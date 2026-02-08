@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   polishedFocusRingStyles,
   polishedInputBaseStyles,
+  polishedInputWrapperStyles,
   polishedLabelStyles,
   polishedSelectDropdownStyles,
   polishedSelectOptionStyles,
-} from './polishedModalTheme';
+} from './UniversalModal';
 import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 
 interface FieldHandlers {
@@ -20,6 +21,7 @@ interface SelectHandlers extends FieldHandlers {
 
 interface FieldProps {
   styles: {
+    wrapper?: Record<string, unknown>;
     label: typeof polishedLabelStyles;
     input: Record<string, unknown>;
   };
@@ -28,6 +30,7 @@ interface FieldProps {
 
 interface SelectProps {
   styles: {
+    wrapper?: Record<string, unknown>;
     label: typeof polishedLabelStyles;
     input: Record<string, unknown>;
     dropdown: Record<string, unknown>;
@@ -46,6 +49,7 @@ export const POLISHED_SELECT_DEFAULTS = {
 export const POLISHED_DATE_INPUT_PROPS = COMMON_DATE_INPUT_PROPS;
 
 const buildInputStyles = (isFocused: boolean) => ({
+  wrapper: polishedInputWrapperStyles,
   label: polishedLabelStyles,
   input: isFocused
     ? { ...polishedInputBaseStyles, ...polishedFocusRingStyles }
@@ -56,6 +60,7 @@ const { minHeight: _polishedMinHeight, ...polishedInputBaseNoMinHeight } =
   polishedInputBaseStyles;
 
 const buildTextareaStyles = (isFocused: boolean) => ({
+  wrapper: polishedInputWrapperStyles,
   label: polishedLabelStyles,
   input: {
     ...polishedInputBaseStyles,
@@ -66,6 +71,7 @@ const buildTextareaStyles = (isFocused: boolean) => ({
 });
 
 const buildAutosizeTextareaStyles = (isFocused: boolean) => ({
+  wrapper: polishedInputWrapperStyles,
   label: polishedLabelStyles,
   input: {
     ...polishedInputBaseNoMinHeight,
@@ -75,6 +81,7 @@ const buildAutosizeTextareaStyles = (isFocused: boolean) => ({
 });
 
 const buildSelectStyles = (isFocused: boolean) => ({
+  wrapper: polishedInputWrapperStyles,
   label: polishedLabelStyles,
   input: isFocused
     ? { ...polishedInputBaseStyles, ...polishedFocusRingStyles }
