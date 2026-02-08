@@ -22,8 +22,7 @@ import {
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { IconReceipt } from '@tabler/icons-react';
-import { PolishedModal } from '@/components/modals/PolishedModal';
-import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 import { toDate, toISODate } from '@/utils/date';
 import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
@@ -128,29 +127,18 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
   const titleText = editingExpense ? editTitle : addTitle;
   const subtitleText = editingExpense ? editSubtitle : addSubtitle;
 
-  const modalTitle = (
-    <Group gap="sm" align="center">
-      <IconReceipt size={26} color="#65ab58" />
-      <Stack gap={2}>
-        <Text fw={700} fz="lg" c="#101828">
-          {titleText}
-        </Text>
-        <Text fz="sm" c="#667085">
-          {subtitleText}
-        </Text>
-      </Stack>
-    </Group>
-  );
-
   return (
-    <PolishedModal
+    <UniversalModal
       opened={opened}
       onClose={onClose}
-      title={modalTitle}
+      title={titleText}
       size="lg"
     >
       <div style={{ maxHeight: '65vh', overflowY: 'auto' }}>
         <Stack gap="lg">
+          <Text size="sm" c="dimmed" style={{ textAlign: 'center' }}>
+            {subtitleText}
+          </Text>
           <Group grow align="flex-start">
             <DateInput
               label="Date"
@@ -244,8 +232,7 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
                 {...props}
                 fullWidth
                 leftSection={<IconReceipt size={16} />}
-                radius="md"
-                styles={polishedPrimaryButtonStyles}
+                variant="default"
               >
                 {formReceipt
                   ? `Selected: ${formReceipt.name}`
@@ -255,7 +242,7 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
           </FileButton>
 
           <Group justify="flex-end" gap="sm" mt="sm">
-            <Button radius="md" variant="default" onClick={onClose}>
+            <Button variant="default" onClick={onClose}>
               Cancel
             </Button>
             {!editingExpense && onSaveAndAddNew && (
@@ -265,7 +252,6 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
               // Keeps the modal open and clears the form after creating.
               // =================================================================
               <Button
-                radius="md"
                 variant="default"
                 onClick={onSaveAndAddNew}
                 disabled={!isValid}
@@ -273,17 +259,12 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
                 Save and add new
               </Button>
             )}
-            <Button
-              radius="md"
-              onClick={onSave}
-              disabled={!isValid}
-              styles={polishedPrimaryButtonStyles}
-            >
+            <Button onClick={onSave} disabled={!isValid}>
               {editingExpense ? 'Update Expense' : 'Add Expense'}
             </Button>
           </Group>
         </Stack>
       </div>
-    </PolishedModal>
+    </UniversalModal>
   );
 });

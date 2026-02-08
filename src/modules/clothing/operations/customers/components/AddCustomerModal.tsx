@@ -11,10 +11,7 @@ import {
   SimpleGrid,
   ThemeIcon,
 } from '@mantine/core';
-import {
-  UniversalModal,
-  polishedPrimaryButtonStyles,
-} from '@/components/modals/UniversalModal';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 import {
   IconPlus,
   IconUser,
@@ -196,7 +193,6 @@ export const AddCustomerModal = React.memo(function AddCustomerModal({
           <Button
             disabled={!formData.customerName.trim()}
             leftSection={<IconPlus size={18} />}
-            styles={polishedPrimaryButtonStyles}
             onClick={onSubmit}
           >
             Add Customer

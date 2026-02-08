@@ -27,7 +27,7 @@ export const polishedModalStyles: NonNullable<ModalProps['styles']> = {
   title: {
     fontSize: '1.5rem',
     fontWeight: 700,
-    color: '#101828',
+    color: '#545454',
     width: '100%',
     display: 'flex',
     justifyContent: 'center',
@@ -68,15 +68,9 @@ const POLISHED_INPUT_PADDING_X = '0.95rem';
  */
 export const polishedInputWrapperStyles: Record<string, unknown> = {
   '--input-padding-y': POLISHED_INPUT_PADDING_Y,
-  '--input-padding-inline-start': POLISHED_INPUT_PADDING_X,
-  '--input-padding-inline-end': POLISHED_INPUT_PADDING_X,
+  '--input-padding-inline-start': `calc(${POLISHED_INPUT_PADDING_X} + var(--input-left-section-size, 0px))`,
+  '--input-padding-inline-end': `calc(${POLISHED_INPUT_PADDING_X} + var(--input-right-section-size, 0px))`,
   '--input-placeholder-color': 'transparent',
-  '&[data-with-left-section]': {
-    '--input-padding-inline-start': `calc(var(--input-left-section-size) + ${POLISHED_INPUT_PADDING_X})`,
-  },
-  '&[data-with-right-section]': {
-    '--input-padding-inline-end': `calc(var(--input-right-section-size) + ${POLISHED_INPUT_PADDING_X})`,
-  },
 };
 
 export const polishedFocusRingStyles = {
@@ -103,22 +97,16 @@ export const polishedReadOnlyFieldStyles = {
   },
 };
 
-export const polishedPrimaryButtonStyles = {
-  root: {
-    backgroundColor: '#29A829',
-    color: '#ffffff',
-    borderColor: '#29A829',
-    borderRadius: 'calc(var(--mantine-radius-sm) - 2px)',
-    '&:hover': {
-      backgroundColor: '#228b22',
-    },
-    '&:disabled': {
-      backgroundColor: '#94d494',
-      borderColor: '#94d494',
-      color: '#ffffff',
-    },
-  },
-};
+const UNIVERSAL_PRIMARY_BUTTON_COLOR = '#228be6';
+const UNIVERSAL_PRIMARY_BUTTON_HOVER_COLOR = '#1c7ed6';
+const UNIVERSAL_PRIMARY_BUTTON_DISABLED_COLOR = '#74c0fc';
+
+// Match SweetAlert2 default confirm button sizing:
+// padding: 0.625em 1.1em; font-size: 1em; font-weight: 500
+// With line-height: 1, total height becomes 2.25em.
+const UNIVERSAL_BUTTON_FONT_SIZE = '1em';
+const UNIVERSAL_BUTTON_HEIGHT = '2.25em';
+const UNIVERSAL_BUTTON_PADDING_X = '1.1em';
 
 type UniversalModalProps = Omit<ModalProps, 'children'> & {
   children: React.ReactNode;
@@ -127,9 +115,39 @@ type UniversalModalProps = Omit<ModalProps, 'children'> & {
 const universalModalTheme = {
   components: {
     Button: {
+      vars: (
+        _theme: unknown,
+        props: { variant?: string; disabled?: boolean }
+      ) => {
+        const rootVars: Record<string, unknown> = {
+          '--button-fz': UNIVERSAL_BUTTON_FONT_SIZE,
+          '--button-height': UNIVERSAL_BUTTON_HEIGHT,
+          '--button-padding-x': UNIVERSAL_BUTTON_PADDING_X,
+        };
+
+        if (props.variant && props.variant !== 'filled') {
+          return { root: rootVars };
+        }
+
+        return {
+          root: {
+            ...rootVars,
+            '--button-bg': props.disabled
+              ? UNIVERSAL_PRIMARY_BUTTON_DISABLED_COLOR
+              : UNIVERSAL_PRIMARY_BUTTON_COLOR,
+            '--button-hover': UNIVERSAL_PRIMARY_BUTTON_HOVER_COLOR,
+            '--button-bd': props.disabled
+              ? UNIVERSAL_PRIMARY_BUTTON_DISABLED_COLOR
+              : UNIVERSAL_PRIMARY_BUTTON_COLOR,
+            '--button-color': '#ffffff',
+          },
+        };
+      },
       styles: {
         root: {
           borderRadius: 'calc(var(--mantine-radius-sm) - 2px)',
+          fontFamily: 'inherit',
+          fontWeight: 500,
         },
       },
     },
@@ -244,6 +262,11 @@ function mergeModalStyles(
         : {}),
     };
   });
+
+  merged.title = {
+    ...(merged.title as Record<string, unknown>),
+    color: polishedModalStyles.title?.color,
+  };
 
   return merged as NonNullable<ModalProps['styles']>;
 }
