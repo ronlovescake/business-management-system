@@ -22,9 +22,9 @@
  * ```
  */
 
-import { Modal } from '@mantine/core';
 import { CrudForm } from './CrudForm';
 import type { CrudFormProps } from './CrudForm';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 /**
  * Props for CrudModal component
@@ -83,7 +83,7 @@ export function CrudModal<T extends Record<string, unknown>>({
   };
 
   return (
-    <Modal
+    <UniversalModal
       opened={opened}
       onClose={onClose}
       title={title}
@@ -110,6 +110,6 @@ export function CrudModal<T extends Record<string, unknown>>({
         validate={validate}
         customActions={customActions}
       />
-    </Modal>
+    </UniversalModal>
   );
 }

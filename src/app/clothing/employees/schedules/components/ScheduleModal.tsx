@@ -1,6 +1,5 @@
 import React, { memo } from 'react';
 import {
-  Modal,
   Stack,
   Group,
   Select,
@@ -19,6 +18,7 @@ import {
   parseDateValue,
 } from '@/lib/dateInputConfig';
 import type { EmployeeSummary, Schedule, ShiftType } from '../types';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 interface ScheduleModalProps {
   opened: boolean;
@@ -129,7 +129,7 @@ export const ScheduleModal = memo(function ScheduleModal({
     : null;
 
   return (
-    <Modal
+    <UniversalModal
       opened={opened}
       onClose={onClose}
       title={editingSchedule ? 'Edit Schedule' : 'Add Schedule'}
@@ -329,6 +329,6 @@ export const ScheduleModal = memo(function ScheduleModal({
           </>
         )}
       </Stack>
-    </Modal>
+    </UniversalModal>
   );
 });

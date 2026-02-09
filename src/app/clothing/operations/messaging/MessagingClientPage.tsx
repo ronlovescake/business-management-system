@@ -20,7 +20,6 @@ import {
   Alert,
   Center,
   Loader,
-  Modal,
   MultiSelect,
   Tooltip,
   ActionIcon,
@@ -48,6 +47,7 @@ import {
   initializeAudioContext,
 } from '@/lib/notificationSound';
 import { useNotificationPreferences } from '@/hooks/useNotificationPreferences';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 export function MessagingClientPage() {
   const { data: session } = useSession();
@@ -791,7 +791,7 @@ export function MessagingClientPage() {
       </Flex>
 
       {/* New Message Modal */}
-      <Modal
+      <UniversalModal
         opened={newMessageModalOpen}
         onClose={() => {
           setNewMessageModalOpen(false);
@@ -844,7 +844,7 @@ export function MessagingClientPage() {
             </Button>
           </Group>
         </Stack>
-      </Modal>
+      </UniversalModal>
     </PageLayout>
   );
 }

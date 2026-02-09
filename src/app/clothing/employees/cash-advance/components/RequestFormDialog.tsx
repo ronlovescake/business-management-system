@@ -13,8 +13,8 @@ import {
 import { IconCurrencyPeso } from '@tabler/icons-react';
 import { useForm } from '@mantine/form';
 import { DateInput } from '@mantine/dates';
-import { PolishedModal } from '@/components/modals/PolishedModal';
-import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
+import { UniversalModal } from '@/components/modals/UniversalModal';
+
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 import { getCurrentDateISO, toDate, toISODate } from '@/utils/date';
 import { FormatterService } from '@/services/FormatterService';
@@ -203,7 +203,7 @@ export const RequestFormDialog = React.memo(function RequestFormDialog({
   );
 
   return (
-    <PolishedModal
+    <UniversalModal
       opened={opened}
       onClose={onClose}
       title={modalTitle}
@@ -373,16 +373,11 @@ export const RequestFormDialog = React.memo(function RequestFormDialog({
           <Button radius="md" variant="default" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            radius="md"
-            onClick={handleSave}
-            disabled={isSubmitDisabled}
-            styles={polishedPrimaryButtonStyles}
-          >
+          <Button radius="md" onClick={handleSave} disabled={isSubmitDisabled}>
             {editingRequest ? 'Update' : 'Submit'}
           </Button>
         </Group>
       </Stack>
-    </PolishedModal>
+    </UniversalModal>
   );
 });

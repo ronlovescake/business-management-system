@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Modal,
   Stack,
   Group,
   Button,
@@ -25,6 +24,7 @@ import type { ShipmentData } from '../types/shipment.types';
 import { ShipmentService } from '../services/ShipmentService';
 import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 import { showConfirm } from '@/lib/alerts';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 type TransitBuildEntry = {
   id: string;
@@ -280,7 +280,7 @@ export function TransitReclassModal({
 
   return (
     <>
-      <Modal
+      <UniversalModal
         opened={opened}
         onClose={onClose}
         title={
@@ -400,9 +400,9 @@ export function TransitReclassModal({
             </Button>
           </Group>
         </Stack>
-      </Modal>
+      </UniversalModal>
 
-      <Modal
+      <UniversalModal
         opened={editOpened}
         onClose={closeEdit}
         title="Edit Transit Build-Up Entry"
@@ -456,7 +456,7 @@ export function TransitReclassModal({
             </Button>
           </Group>
         </Stack>
-      </Modal>
+      </UniversalModal>
     </>
   );
 }

@@ -6,7 +6,6 @@
 
 import React from 'react';
 import {
-  Modal,
   Stack,
   Group,
   TextInput,
@@ -21,6 +20,7 @@ import type { UseFormReturnType } from '@mantine/form';
 import type { ShipmentFormData } from '../types/shipment.types';
 import { SHIPMENT_STATUS_OPTIONS } from '../types/shipment.types';
 import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 interface AddShipmentModalProps {
   opened: boolean;
@@ -41,12 +41,11 @@ export const AddShipmentModal = React.memo(function AddShipmentModal({
   };
 
   return (
-    <Modal
+    <UniversalModal
       opened={opened}
       onClose={onClose}
       title="Add New Shipment"
       size="lg"
-      centered
     >
       <form onSubmit={form.onSubmit(handleSubmit)}>
         <Stack gap="md">
@@ -148,6 +147,6 @@ export const AddShipmentModal = React.memo(function AddShipmentModal({
           </Group>
         </Stack>
       </form>
-    </Modal>
+    </UniversalModal>
   );
 });

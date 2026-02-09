@@ -14,8 +14,8 @@ import {
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
-import { PolishedModal } from '@/components/modals/PolishedModal';
-import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
+import { UniversalModal } from '@/components/modals/UniversalModal';
+
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 import { IconUserPlus, IconUserEdit } from '@tabler/icons-react';
 import { getCurrentDateISO, toDate, toISODate } from '@/utils/date';
@@ -254,7 +254,7 @@ export const EmployeeFormDialog = React.memo(function EmployeeFormDialog({
   );
 
   return (
-    <PolishedModal
+    <UniversalModal
       opened={opened}
       onClose={onClose}
       title={modalTitle}
@@ -886,17 +886,12 @@ export const EmployeeFormDialog = React.memo(function EmployeeFormDialog({
             <Button radius="md" variant="default" onClick={onClose}>
               Cancel
             </Button>
-            <Button
-              radius="md"
-              onClick={handleSave}
-              disabled={!form.isValid()}
-              styles={polishedPrimaryButtonStyles}
-            >
+            <Button radius="md" onClick={handleSave} disabled={!form.isValid()}>
               {editingEmployee ? 'Update Employee' : 'Add Employee'}
             </Button>
           </Group>
         </Stack>
       </div>
-    </PolishedModal>
+    </UniversalModal>
   );
 });

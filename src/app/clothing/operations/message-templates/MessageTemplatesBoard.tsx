@@ -7,7 +7,6 @@ import {
   Button,
   Badge,
   Group,
-  Modal,
   Paper,
   Stack,
   Text,
@@ -28,6 +27,7 @@ import type { MessageTemplate } from '@/modules/clothing/operations/message-temp
 import { MESSAGE_TEMPLATE_TITLE_ORDER } from '@/modules/clothing/operations/message-templates/templates.data';
 import { logger } from '@/lib/logger';
 import Swal from 'sweetalert2';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 interface MessageTemplatesBoardProps {
   templates: MessageTemplate[];
@@ -551,7 +551,7 @@ export function MessageTemplatesBoard({
 
       {editingEnabled && (
         <>
-          <Modal
+          <UniversalModal
             opened={createModalOpen}
             onClose={() => {
               setCreateModalOpen(false);
@@ -612,9 +612,9 @@ export function MessageTemplatesBoard({
                 </Button>
               </Group>
             </Stack>
-          </Modal>
+          </UniversalModal>
 
-          <Modal
+          <UniversalModal
             opened={editingTemplateId !== null}
             onClose={closeEditor}
             title="Edit Template"
@@ -667,7 +667,7 @@ export function MessageTemplatesBoard({
                 </Button>
               </Group>
             </Stack>
-          </Modal>
+          </UniversalModal>
         </>
       )}
     </Stack>

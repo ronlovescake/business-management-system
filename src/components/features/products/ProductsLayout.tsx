@@ -10,7 +10,6 @@ import {
   SimpleGrid,
   ThemeIcon,
   Title,
-  Modal,
 } from '@mantine/core';
 import {
   IconUpload,
@@ -20,6 +19,7 @@ import {
   IconAdjustments,
   IconPlus,
 } from '@tabler/icons-react';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 import { formatNumber } from '@/lib/formatters';
 import { GridView } from '@/components/grid';
 import type {
@@ -278,7 +278,7 @@ export function ProductsLayout<T = Record<string, unknown>>({
 
       {/* Add Product Modal */}
       {addProductForm && onAddProductOpenChange && (
-        <Modal
+        <UniversalModal
           opened={addProductOpen}
           onClose={() => onAddProductOpenChange(false)}
           closeOnClickOutside={false}
@@ -314,7 +314,7 @@ export function ProductsLayout<T = Record<string, unknown>>({
           }}
         >
           {addProductForm}
-        </Modal>
+        </UniversalModal>
       )}
 
       {/* Grid View */}

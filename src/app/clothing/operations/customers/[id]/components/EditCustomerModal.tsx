@@ -1,6 +1,5 @@
 import { memo } from 'react';
 import {
-  Modal,
   Stack,
   Group,
   Text,
@@ -21,6 +20,7 @@ import {
 } from '@tabler/icons-react';
 import type { CustomerData } from '../types';
 import { CustomerService } from '@/modules/clothing/operations/customers';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 // ============================================================================
 // EDIT CUSTOMER MODAL
@@ -46,7 +46,7 @@ export const EditCustomerModal = memo(function EditCustomerModal({
   const statusOptions = CustomerService.getStatusOptions();
 
   return (
-    <Modal
+    <UniversalModal
       opened={opened}
       onClose={onClose}
       closeOnClickOutside={false}
@@ -407,6 +407,6 @@ export const EditCustomerModal = memo(function EditCustomerModal({
           </Button>
         </Group>
       </Stack>
-    </Modal>
+    </UniversalModal>
   );
 });

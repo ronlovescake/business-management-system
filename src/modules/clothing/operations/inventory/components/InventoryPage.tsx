@@ -8,7 +8,6 @@ import {
   Button,
   Card,
   Group,
-  Modal,
   NumberInput,
   Select,
   Stack,
@@ -27,6 +26,7 @@ import { InventoryTableControls } from './InventoryTableControls';
 import { InventorySummary } from './InventorySummary';
 import { InventoryTable } from './InventoryTable';
 import { numberFormatter } from '../lib/formatters';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 interface InventoryPageProps {
   apiBasePath?: string;
@@ -597,7 +597,7 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
 
   return (
     <Stack gap="md">
-      <Modal
+      <UniversalModal
         opened={adjustmentModalOpened}
         onClose={adjustmentModalHandlers.close}
         title="Damaged / Scrap Adjustment"
@@ -684,9 +684,9 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
             </Group>
           </Stack>
         </form>
-      </Modal>
+      </UniversalModal>
 
-      <Modal
+      <UniversalModal
         opened={supplierShortModalOpened}
         onClose={supplierShortModalHandlers.close}
         title="Supplier Short"
@@ -759,9 +759,9 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
             </Group>
           </Stack>
         </form>
-      </Modal>
+      </UniversalModal>
 
-      <Modal
+      <UniversalModal
         opened={additionalsModalOpened}
         onClose={additionalsModalHandlers.close}
         title="Additionals"
@@ -834,9 +834,9 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
             </Group>
           </Stack>
         </form>
-      </Modal>
+      </UniversalModal>
 
-      <Modal
+      <UniversalModal
         opened={editModalOpened}
         onClose={() => {
           if (!isSubmittingMovement) {
@@ -943,7 +943,7 @@ export function InventoryPage({ apiBasePath }: InventoryPageProps) {
             Select an adjustment to edit.
           </Text>
         )}
-      </Modal>
+      </UniversalModal>
 
       <Tabs
         value={activeTab}

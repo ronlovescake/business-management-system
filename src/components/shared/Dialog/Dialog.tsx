@@ -55,11 +55,12 @@
  * ```
  */
 
-import { Modal, Stack, Loader, Center } from '@mantine/core';
+import { Stack, Loader, Center } from '@mantine/core';
 import type { DialogProps, ComposedDialogProps } from './Dialog.types';
 import { DialogHeader } from './DialogHeader';
 import { DialogBody } from './DialogBody';
 import { DialogFooter } from './DialogFooter';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 /**
  * Base Dialog Component
@@ -86,7 +87,7 @@ export function Dialog({
   loading = false,
 }: DialogProps) {
   return (
-    <Modal
+    <UniversalModal
       opened={opened}
       onClose={onClose}
       title={title}
@@ -111,7 +112,7 @@ export function Dialog({
       ) : (
         children
       )}
-    </Modal>
+    </UniversalModal>
   );
 }
 

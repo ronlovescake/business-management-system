@@ -3,7 +3,6 @@ import {
   Button,
   Card,
   Group,
-  Modal,
   Pill,
   Select,
   Stack,
@@ -15,6 +14,7 @@ import { DateInput } from '@mantine/dates';
 import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 import Swal from 'sweetalert2';
 import type { EmployeeSummary, RecurringRule, ShiftType } from '../types';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 interface CalendarBulkActionsProps {
   recurringRules: RecurringRule[];
@@ -180,7 +180,7 @@ export const CalendarBulkActions = memo(function CalendarBulkActions({
 
   return (
     <>
-      <Modal
+      <UniversalModal
         opened={ruleModalOpen}
         onClose={() => setRuleModalOpen(false)}
         title="Add Schedule"
@@ -399,7 +399,7 @@ export const CalendarBulkActions = memo(function CalendarBulkActions({
             </Stack>
           </Card>
         </Stack>
-      </Modal>
+      </UniversalModal>
     </>
   );
 });

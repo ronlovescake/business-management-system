@@ -12,7 +12,6 @@ import {
   ActionIcon,
   Text,
   Paper,
-  Modal,
   Textarea,
   Button,
   Group,
@@ -24,6 +23,7 @@ import { DEFAULT_POST_TEMPLATE_NOTICE } from '@/modules/clothing/operations/post
 import type { PostTemplateNotice } from '@/modules/clothing/operations/post-template/notice.types';
 import { buildApiPath } from '@/lib/api/paths';
 import { logger } from '@/lib/logger';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 interface Product {
   id: string;
@@ -568,7 +568,7 @@ Arrives In: ${arrivesInText}
         </>
       )}
 
-      <Modal
+      <UniversalModal
         opened={noticeModalOpen}
         onClose={closeNoticeEditor}
         title="Edit notice copy"
@@ -616,7 +616,7 @@ Arrives In: ${arrivesInText}
             </Button>
           </Group>
         </Stack>
-      </Modal>
+      </UniversalModal>
     </Stack>
   );
 }

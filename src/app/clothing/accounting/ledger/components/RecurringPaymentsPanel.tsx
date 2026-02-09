@@ -37,8 +37,8 @@ import {
 } from '@/lib/accounting/account-tagging';
 import { normalizeAccountForReporting } from '@/lib/accounting/account-normalization';
 import { formatCurrencyPHP } from '@/lib/accounting/formatters';
-import { PolishedModal } from '@/components/modals/PolishedModal';
-import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
+import { UniversalModal } from '@/components/modals/UniversalModal';
+
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 
 type TemplateKind = 'LOAN' | 'EXPENSE';
@@ -579,7 +579,7 @@ export function RecurringPaymentsPanel(props: {
         </Table.Tbody>
       </Table>
 
-      <PolishedModal
+      <UniversalModal
         opened={isCreateModalOpen}
         onClose={() => {
           setIsCreateModalOpen(false);
@@ -776,14 +776,13 @@ export function RecurringPaymentsPanel(props: {
                 radius="md"
                 loading={isSavingTemplate}
                 onClick={handleCreateTemplate}
-                styles={polishedPrimaryButtonStyles}
               >
                 Create
               </Button>
             </Group>
           </Stack>
         </div>
-      </PolishedModal>
+      </UniversalModal>
     </Stack>
   );
 }

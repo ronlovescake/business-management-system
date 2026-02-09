@@ -1,43 +1,3 @@
-import type { ModalProps } from '@mantine/core';
-
-/**
- * Shared design tokens for the polished modal experience used across the app.
- * Centralising these values guarantees identical spacing, colour, typography
- * and border radii for every modal that opts into the polished look.
- */
-export const polishedModalOverlayProps: NonNullable<
-  ModalProps['overlayProps']
-> = {
-  color: '#0b1120',
-  opacity: 1,
-  blur: 0,
-};
-
-export const polishedModalStyles: NonNullable<ModalProps['styles']> = {
-  content: {
-    borderRadius: '12px',
-    border: '1px solid #ebedf2',
-    boxShadow: '0 32px 60px rgba(15, 23, 42, 0.18)',
-  },
-  header: {
-    padding: '1.5rem 1.75rem 0.75rem',
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: '1.5rem',
-    fontWeight: 700,
-    color: '#101828',
-    width: '100%',
-    display: 'flex',
-    justifyContent: 'center',
-    textAlign: 'center',
-  },
-  body: {
-    padding: '0 1.75rem 1.85rem',
-    overflowY: 'visible',
-  },
-};
-
 export const polishedLabelStyles = {
   fontWeight: 600,
   fontSize: '1rem',
@@ -61,42 +21,9 @@ export const polishedInputBaseStyles = {
   },
 };
 
-export const polishedFocusRingStyles = {
-  borderColor: '#65ab58',
-  boxShadow: '0 0 0 3px rgba(255, 255, 255, 0.25)',
-};
-
-export const polishedSelectDropdownStyles = {
-  borderRadius: 12,
-  border: '1px solid #65ab58',
-  boxShadow: '0 18px 40px hsla(0, 0%, 100%, 0.08)',
-};
-
-export const polishedSelectOptionStyles = {
-  borderRadius: 10,
-  fontSize: '0.95rem',
-  padding: '0.5rem 0.75rem',
-};
-
 export const polishedReadOnlyFieldStyles = {
   label: polishedLabelStyles,
   input: {
     ...polishedInputBaseStyles,
-  },
-};
-
-export const polishedPrimaryButtonStyles = {
-  root: {
-    backgroundColor: '#29A829',
-    color: '#ffffff',
-    borderColor: '#29A829',
-    '&:hover': {
-      backgroundColor: '#228b22',
-    },
-    '&:disabled': {
-      backgroundColor: '#94d494',
-      borderColor: '#94d494',
-      color: '#ffffff',
-    },
   },
 };

@@ -2,8 +2,8 @@
 
 import React from 'react';
 import { Button, Group, Select, Stack, Text, TextInput } from '@mantine/core';
-import { PolishedModal } from '@/components/modals/PolishedModal';
-import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
+import { UniversalModal } from '@/components/modals/UniversalModal';
+
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 
 export type PersonalAccountType =
@@ -60,7 +60,7 @@ export const AccountFormDialog = React.memo(function AccountFormDialog({
   const last4Field = getFieldProps('accountLast4');
 
   return (
-    <PolishedModal opened={opened} onClose={onClose} title={title} size="lg">
+    <UniversalModal opened={opened} onClose={onClose} title={title} size="lg">
       <Stack gap="md">
         <Text size="sm" c="dimmed">
           {description}
@@ -119,16 +119,11 @@ export const AccountFormDialog = React.memo(function AccountFormDialog({
           <Button radius="md" variant="default" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            radius="md"
-            onClick={onSave}
-            disabled={!isValid}
-            styles={polishedPrimaryButtonStyles}
-          >
+          <Button radius="md" onClick={onSave} disabled={!isValid}>
             Save Account
           </Button>
         </Group>
       </Stack>
-    </PolishedModal>
+    </UniversalModal>
   );
 });

@@ -2,6 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 process.env.ACCOUNTING_CUTOVER_DATE = '2026-01-17';
 
+type TransitBuildEntry = {
+  idempotencyKey: string;
+  debitAccount: string;
+  creditAccount: string;
+  amount: number;
+};
+
 const mockPrisma = vi.hoisted(() => ({
   product: {
     findMany: vi.fn(),
@@ -60,7 +67,7 @@ describe('productService manual transit build-up (by shipment code)', () => {
     });
 
     const createManyCalls = mockPrisma.clothingInventoryTransitBuildEntry
-      .createMany.mock.calls as Array<[{ data: any[] }]>;
+      .createMany.mock.calls as Array<[{ data: TransitBuildEntry[] }]>;
 
     expect(createManyCalls).toHaveLength(1);
 
@@ -123,7 +130,7 @@ describe('productService manual transit build-up (by shipment code)', () => {
     });
 
     const createManyCalls = mockPrisma.clothingInventoryTransitBuildEntry
-      .createMany.mock.calls as Array<[{ data: any[] }]>;
+      .createMany.mock.calls as Array<[{ data: TransitBuildEntry[] }]>;
 
     const data = createManyCalls[0]?.[0]?.data ?? [];
 

@@ -18,8 +18,8 @@ import {
 } from '@mantine/core';
 import { IconCurrencyPeso } from '@tabler/icons-react';
 import { useForm } from '@mantine/form';
-import { PolishedModal } from '@/components/modals/PolishedModal';
-import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
+import { UniversalModal } from '@/components/modals/UniversalModal';
+
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 import type { Payroll, PayrollFormData } from '../types';
 
@@ -188,7 +188,7 @@ export const PayrollFormDialog = React.memo(function PayrollFormDialog({
   );
 
   return (
-    <PolishedModal
+    <UniversalModal
       opened={opened}
       onClose={onClose}
       size="70rem"
@@ -398,16 +398,11 @@ export const PayrollFormDialog = React.memo(function PayrollFormDialog({
           <Button radius="md" variant="default" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            radius="md"
-            onClick={handleSave}
-            disabled={!canSave}
-            styles={polishedPrimaryButtonStyles}
-          >
+          <Button radius="md" onClick={handleSave} disabled={!canSave}>
             {editingPayroll ? 'Update Payroll' : 'Create Payroll'}
           </Button>
         </Group>
       </Stack>
-    </PolishedModal>
+    </UniversalModal>
   );
 });

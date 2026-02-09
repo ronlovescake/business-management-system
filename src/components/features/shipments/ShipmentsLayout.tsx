@@ -1,9 +1,10 @@
 import React from 'react';
-import { Group, Button, Modal, Stack } from '@mantine/core';
+import { Group, Button, Stack } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import { DataTable } from '@/components/ui/DataTable';
 import type { StatCard } from '@/components/ui';
 import type { GridColumn, Item, GridCell } from '@glideapps/glide-data-grid';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 /**
  * ShipmentsLayout Component
@@ -118,7 +119,7 @@ export function ShipmentsLayout<T = Record<string, unknown>>({
 
       {/* Add Shipment Modal */}
       {addShipmentForm && onAddModalOpenChange && (
-        <Modal
+        <UniversalModal
           opened={addModalOpen}
           onClose={() => onAddModalOpenChange(false)}
           title="Add New Shipment"
@@ -126,12 +127,12 @@ export function ShipmentsLayout<T = Record<string, unknown>>({
           centered
         >
           <Stack gap="md">{addShipmentForm}</Stack>
-        </Modal>
+        </UniversalModal>
       )}
 
       {/* Edit Shipment Modal */}
       {editShipmentForm && onEditModalOpenChange && (
-        <Modal
+        <UniversalModal
           opened={editModalOpen}
           onClose={() => onEditModalOpenChange(false)}
           title="Edit Shipment"
@@ -139,7 +140,7 @@ export function ShipmentsLayout<T = Record<string, unknown>>({
           centered
         >
           <Stack gap="md">{editShipmentForm}</Stack>
-        </Modal>
+        </UniversalModal>
       )}
     </>
   );

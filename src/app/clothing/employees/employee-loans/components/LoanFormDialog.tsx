@@ -12,8 +12,8 @@ import {
 import { useForm } from '@mantine/form';
 import { DateInput } from '@mantine/dates';
 import { IconPigMoney } from '@tabler/icons-react';
-import { PolishedModal } from '@/components/modals/PolishedModal';
-import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
+import { UniversalModal } from '@/components/modals/UniversalModal';
+
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 import { FormatterService } from '@/services/FormatterService';
 import { getCurrentDateISO, toDate, toISODate } from '@/utils/date';
@@ -205,7 +205,7 @@ export const LoanFormDialog = React.memo(function LoanFormDialog({
     : Number(monthlyPayment.toFixed(2));
 
   return (
-    <PolishedModal
+    <UniversalModal
       opened={opened}
       onClose={onClose}
       title={modalTitle}
@@ -401,16 +401,11 @@ export const LoanFormDialog = React.memo(function LoanFormDialog({
           <Button radius="md" variant="default" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            radius="md"
-            onClick={handleSave}
-            disabled={isSubmitDisabled}
-            styles={polishedPrimaryButtonStyles}
-          >
+          <Button radius="md" onClick={handleSave} disabled={isSubmitDisabled}>
             {editingLoan ? 'Update Loan' : 'Submit Application'}
           </Button>
         </Group>
       </Stack>
-    </PolishedModal>
+    </UniversalModal>
   );
 });

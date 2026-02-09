@@ -9,15 +9,7 @@
  */
 
 import React from 'react';
-import {
-  Modal,
-  Button,
-  Text,
-  Group,
-  Stack,
-  Alert,
-  Divider,
-} from '@mantine/core';
+import { Button, Text, Group, Stack, Alert, Divider } from '@mantine/core';
 import {
   IconReceipt,
   IconCurrencyPeso,
@@ -30,6 +22,7 @@ import {
   IconClipboardList,
   IconX,
 } from '@tabler/icons-react';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 import type {
   InvoiceConfirmationData,
   PackingListConfirmationData,
@@ -58,7 +51,7 @@ export const InvoiceGenerationModal = React.memo(
     isGenerating,
   }: InvoiceModalProps) {
     return (
-      <Modal
+      <UniversalModal
         opened={opened}
         onClose={onClose}
         title={
@@ -202,7 +195,7 @@ export const InvoiceGenerationModal = React.memo(
             </Button>
           </Group>
         </Stack>
-      </Modal>
+      </UniversalModal>
     );
   }
 );
@@ -228,7 +221,7 @@ export const PackingListGenerationModal = React.memo(
     isGenerating,
   }: PackingListModalProps) {
     return (
-      <Modal
+      <UniversalModal
         opened={opened}
         onClose={onClose}
         title={
@@ -342,7 +335,7 @@ export const PackingListGenerationModal = React.memo(
             </Button>
           </Group>
         </Stack>
-      </Modal>
+      </UniversalModal>
     );
   }
 );
@@ -368,7 +361,7 @@ export const DistributionGenerationModal = React.memo(
     isGenerating,
   }: DistributionModalProps) {
     return (
-      <Modal
+      <UniversalModal
         opened={opened}
         onClose={onClose}
         title={
@@ -512,7 +505,7 @@ export const DistributionGenerationModal = React.memo(
             </Button>
           </Group>
         </Stack>
-      </Modal>
+      </UniversalModal>
     );
   }
 );
@@ -537,7 +530,7 @@ export const CustomerWarningModal = React.memo(function CustomerWarningModal({
   }
 
   return (
-    <Modal
+    <UniversalModal
       opened={opened}
       onClose={onClose}
       title={
@@ -651,6 +644,6 @@ export const CustomerWarningModal = React.memo(function CustomerWarningModal({
           </Button>
         </Group>
       </Stack>
-    </Modal>
+    </UniversalModal>
   );
 });

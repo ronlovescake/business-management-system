@@ -11,11 +11,8 @@ import {
 } from '@mantine/core';
 import { IconInfoCircle, IconAlertTriangle } from '@tabler/icons-react';
 import { DateInput } from '@mantine/dates';
-import { PolishedModal } from '@/components/modals/PolishedModal';
-import {
-  polishedPrimaryButtonStyles,
-  polishedReadOnlyFieldStyles,
-} from '@/components/modals/polishedModalTheme';
+import { UniversalModal } from '@/components/modals/UniversalModal';
+import { polishedReadOnlyFieldStyles } from '@/components/modals/polishedModalTheme';
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 import type { LeaveRequest, LeaveType } from '../types';
 import { toDate, toISODate } from '@/utils/date';
@@ -167,7 +164,7 @@ export const LeaveFormDialog = React.memo(function LeaveFormDialog({
   })();
 
   return (
-    <PolishedModal
+    <UniversalModal
       opened={opened}
       onClose={onClose}
       title={editingRequest ? 'Edit Leave Request' : 'Add Leave Request'}
@@ -295,31 +292,17 @@ export const LeaveFormDialog = React.memo(function LeaveFormDialog({
         />
 
         <Group justify="flex-end" gap="sm" mt="sm">
-          <Button
-            radius="md"
-            onClick={onClose}
-            styles={polishedPrimaryButtonStyles}
-          >
+          <Button radius="md" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            radius="md"
-            onClick={onClear}
-            disabled={isClearDisabled}
-            styles={polishedPrimaryButtonStyles}
-          >
+          <Button radius="md" onClick={onClear} disabled={isClearDisabled}>
             Clear
           </Button>
-          <Button
-            radius="md"
-            onClick={onSave}
-            disabled={isSubmitDisabled}
-            styles={polishedPrimaryButtonStyles}
-          >
+          <Button radius="md" onClick={onSave} disabled={isSubmitDisabled}>
             {editingRequest ? 'Update' : 'Submit'}
           </Button>
         </Group>
       </Stack>
-    </PolishedModal>
+    </UniversalModal>
   );
 });

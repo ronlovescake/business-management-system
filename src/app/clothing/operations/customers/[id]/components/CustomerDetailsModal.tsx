@@ -1,6 +1,6 @@
 'use client';
 
-import { PolishedModal } from '@/components/modals/PolishedModal';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 import { CustomerDetailsView } from './CustomerDetailsView';
 
 interface CustomerDetailsModalProps {
@@ -17,7 +17,7 @@ export function CustomerDetailsModal({
   apiBasePath,
 }: CustomerDetailsModalProps) {
   return (
-    <PolishedModal
+    <UniversalModal
       opened={opened}
       onClose={onClose}
       title={null}
@@ -33,6 +33,6 @@ export function CustomerDetailsModal({
           onBack={onClose}
         />
       </div>
-    </PolishedModal>
+    </UniversalModal>
   );
 }

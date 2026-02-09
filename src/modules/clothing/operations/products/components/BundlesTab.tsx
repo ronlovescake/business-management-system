@@ -22,7 +22,7 @@ import {
   StandardTableContainer,
   StandardTableControls,
 } from '@/components/tables/StandardDataTable';
-import { PolishedModal } from '@/components/modals/PolishedModal';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 import { BundleService } from '../services/BundleService';
 import { ProductService } from '../services/ProductService';
 import type { BundleBatch, CreateBundleInput } from '../types/bundle.types';
@@ -399,7 +399,7 @@ export function BundlesTab({ apiBasePath }: BundlesTabProps) {
 
   return (
     <Stack gap="md">
-      <PolishedModal
+      <UniversalModal
         opened={isBundleModalOpen}
         onClose={handleCloseModal}
         title={editingBundleId ? 'Update Bundle Batch' : 'Create Bundle Batch'}
@@ -537,7 +537,7 @@ export function BundlesTab({ apiBasePath }: BundlesTabProps) {
             </Button>
           </Group>
         </Stack>
-      </PolishedModal>
+      </UniversalModal>
 
       <StandardTableControls
         searchPlaceholder="Search bundles..."

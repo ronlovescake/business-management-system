@@ -78,6 +78,20 @@ export const polishedFocusRingStyles = {
   boxShadow: '0 0 0 3px rgba(255, 255, 255, 0.25)',
 };
 
+const buildInputStyles = (inputOverrides?: Record<string, unknown>) => ({
+  wrapper: polishedInputWrapperStyles,
+  label: polishedLabelStyles,
+  input: {
+    ...polishedInputBaseStyles,
+    ...inputOverrides,
+    '&:focus': {
+      ...polishedFocusRingStyles,
+    },
+  },
+});
+
+const sharedInputStyles = buildInputStyles();
+
 export const polishedSelectDropdownStyles = {
   borderRadius: 12,
   border: '1px solid #65ab58',
@@ -152,41 +166,17 @@ const universalModalTheme = {
       },
     },
     TextInput: {
-      styles: {
-        wrapper: polishedInputWrapperStyles,
-        label: polishedLabelStyles,
-        input: {
-          ...polishedInputBaseStyles,
-          '&:focus': {
-            ...polishedFocusRingStyles,
-          },
-        },
-      },
+      styles: sharedInputStyles,
     },
     NumberInput: {
-      styles: {
-        wrapper: polishedInputWrapperStyles,
-        label: polishedLabelStyles,
-        input: {
-          ...polishedInputBaseStyles,
-          '&:focus': {
-            ...polishedFocusRingStyles,
-          },
-        },
-      },
+      styles: sharedInputStyles,
     },
     Textarea: {
       styles: {
-        wrapper: polishedInputWrapperStyles,
-        label: polishedLabelStyles,
-        input: {
-          ...polishedInputBaseStyles,
+        ...buildInputStyles({
           minHeight: 108,
           resize: 'vertical' as const,
-          '&:focus': {
-            ...polishedFocusRingStyles,
-          },
-        },
+        }),
       },
     },
     Select: {
@@ -196,14 +186,7 @@ const universalModalTheme = {
         comboboxProps: { withinPortal: true, zIndex: 500 },
       },
       styles: {
-        wrapper: polishedInputWrapperStyles,
-        label: polishedLabelStyles,
-        input: {
-          ...polishedInputBaseStyles,
-          '&:focus': {
-            ...polishedFocusRingStyles,
-          },
-        },
+        ...buildInputStyles(),
         dropdown: polishedSelectDropdownStyles,
         option: polishedSelectOptionStyles,
         rightSection: {
@@ -214,16 +197,7 @@ const universalModalTheme = {
       },
     },
     DateInput: {
-      styles: {
-        wrapper: polishedInputWrapperStyles,
-        label: polishedLabelStyles,
-        input: {
-          ...polishedInputBaseStyles,
-          '&:focus': {
-            ...polishedFocusRingStyles,
-          },
-        },
-      },
+      styles: sharedInputStyles,
     },
   },
 } as const;
@@ -285,17 +259,14 @@ export function UniversalModal({
   centered = true,
   closeOnClickOutside = false,
   closeOnEscape = false,
-  overlayProps,
-  styles,
+  overlayProps: _overlayProps,
+  styles: _styles,
+  classNames: _classNames,
   title,
   ...rest
 }: UniversalModalProps) {
-  const mergedOverlay = {
-    ...polishedModalOverlayProps,
-    ...overlayProps,
-  };
-
-  const mergedStyles = mergeModalStyles(styles);
+  const mergedOverlay = polishedModalOverlayProps;
+  const mergedStyles = mergeModalStyles();
 
   const normalizedTitle =
     typeof title === 'string' ? title.toUpperCase() : title;

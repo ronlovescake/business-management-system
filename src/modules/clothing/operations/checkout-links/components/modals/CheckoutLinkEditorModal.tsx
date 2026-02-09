@@ -1,6 +1,7 @@
-import { Modal, Stack, Group, TextInput, Button } from '@mantine/core';
+import { Stack, Group, TextInput, Button } from '@mantine/core';
 import type { UseFormReturnType } from '@mantine/form';
 import type { CheckoutLinkFormValues } from '../../types';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 interface CheckoutLinkEditorModalProps {
   opened: boolean;
@@ -18,7 +19,7 @@ export function CheckoutLinkEditorModal({
   isSaving,
 }: CheckoutLinkEditorModalProps) {
   return (
-    <Modal
+    <UniversalModal
       opened={opened}
       onClose={onClose}
       title="Edit Checkout Link"
@@ -93,6 +94,6 @@ export function CheckoutLinkEditorModal({
           </Group>
         </Stack>
       </form>
-    </Modal>
+    </UniversalModal>
   );
 }

@@ -7,7 +7,6 @@ import {
   Checkbox,
   Divider,
   Group,
-  Modal,
   Progress,
   ScrollArea,
   Stack,
@@ -27,6 +26,7 @@ import {
 import type { BackupData, RestoreResults } from '../../backup/types';
 import { formatBackupTimestamp } from '../../backup/types';
 import { BackupTablesBrowser } from './BackupTablesBrowser';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 type SelectedTableDetails = {
   name: string;
@@ -90,7 +90,7 @@ export const BackupPreviewModal = ({
   onDownloadXLSX,
   onRestore,
 }: BackupPreviewModalProps) => (
-  <Modal
+  <UniversalModal
     opened={opened}
     onClose={onClose}
     title="Backup Preview"
@@ -410,5 +410,5 @@ export const BackupPreviewModal = ({
         </Text>
       </Alert>
     )}
-  </Modal>
+  </UniversalModal>
 );

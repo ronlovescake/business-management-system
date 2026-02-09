@@ -1,6 +1,5 @@
 import { memo } from 'react';
 import {
-  Modal,
   Stack,
   Group,
   Text,
@@ -18,6 +17,7 @@ import {
 import { showNotification } from '@mantine/notifications';
 import type { PriceFormData } from '../types/price.types';
 import { logger } from '@/lib/logger';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 interface EditPriceModalProps {
   opened: boolean;
@@ -93,7 +93,7 @@ export const EditPriceModal = memo(function EditPriceModal({
     );
 
   return (
-    <Modal
+    <UniversalModal
       opened={opened}
       onClose={handleClose}
       closeOnClickOutside={false}
@@ -369,6 +369,6 @@ export const EditPriceModal = memo(function EditPriceModal({
           </Button>
         </Group>
       </Stack>
-    </Modal>
+    </UniversalModal>
   );
 });

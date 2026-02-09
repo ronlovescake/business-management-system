@@ -1,6 +1,5 @@
 import type { FormEventHandler } from 'react';
 import {
-  Modal,
   Stack,
   TextInput,
   PasswordInput,
@@ -10,6 +9,7 @@ import {
 } from '@mantine/core';
 import { IconMail, IconUser, IconLock, IconShield } from '@tabler/icons-react';
 import type { CreateUserForm } from '../types';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 interface CreateUserModalProps {
   opened: boolean;
@@ -25,7 +25,7 @@ export function CreateUserModal({
   onSubmit,
 }: CreateUserModalProps) {
   return (
-    <Modal
+    <UniversalModal
       opened={opened}
       onClose={() => {
         onClose();
@@ -80,6 +80,6 @@ export function CreateUserModal({
           </Group>
         </Stack>
       </form>
-    </Modal>
+    </UniversalModal>
   );
 }

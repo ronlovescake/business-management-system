@@ -4,7 +4,6 @@ import {
   Button,
   Card,
   Group,
-  Modal,
   ScrollArea,
   Select,
   Stack,
@@ -14,6 +13,7 @@ import {
 import { IconAlertCircle, IconHistory } from '@tabler/icons-react';
 import type { RestorePreviewResults } from '../../backup/types';
 import { guessRowLabel } from '../../backup/types';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 type RestorePreviewEntry = RestorePreviewResults[string] | null;
 type RestorePreviewRow =
@@ -96,7 +96,7 @@ export const RestorePreviewModal = ({
   onClose,
   onConfirm,
 }: RestorePreviewModalProps) => (
-  <Modal
+  <UniversalModal
     opened={opened}
     onClose={onClose}
     title="Review rows before restoring"
@@ -287,5 +287,5 @@ export const RestorePreviewModal = ({
         </Group>
       </Group>
     </Stack>
-  </Modal>
+  </UniversalModal>
 );

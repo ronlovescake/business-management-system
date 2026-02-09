@@ -11,8 +11,8 @@ import {
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { IconClipboardCheck } from '@tabler/icons-react';
-import { PolishedModal } from '@/components/modals/PolishedModal';
-import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
+import { UniversalModal } from '@/components/modals/UniversalModal';
+
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 import type { AttendanceFormValues, AttendanceStatus } from '../types';
 import { toDate, toISODate } from '@/utils/date';
@@ -97,7 +97,7 @@ export const AttendanceFormDialog = memo(function AttendanceFormDialog({
   );
 
   return (
-    <PolishedModal
+    <UniversalModal
       opened={opened}
       onClose={onClose}
       title={modalTitle}
@@ -302,15 +302,11 @@ export const AttendanceFormDialog = memo(function AttendanceFormDialog({
           <Button variant="default" radius="md" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            radius="md"
-            onClick={onSubmit}
-            styles={polishedPrimaryButtonStyles}
-          >
+          <Button radius="md" onClick={onSubmit}>
             Record Attendance
           </Button>
         </Group>
       </Stack>
-    </PolishedModal>
+    </UniversalModal>
   );
 });

@@ -6,7 +6,6 @@ import {
   TextInput,
   Select,
   FileButton,
-  Modal,
   NumberInput,
   Textarea,
   Text,
@@ -34,6 +33,7 @@ import {
   IconList,
   IconChartPie,
 } from '@tabler/icons-react';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 import { getActionLabel } from '@/lib/accessibility';
 import {
   COMMON_DATE_INPUT_PROPS,
@@ -705,7 +705,7 @@ export function ExpensesLayout({
       )}
 
       {/* Add/Edit Expense Modal */}
-      <Modal
+      <UniversalModal
         opened={isModalOpen}
         onClose={onModalClose}
         title={editingExpense ? 'Edit Expense' : 'Add New Expense'}
@@ -769,7 +769,7 @@ export function ExpensesLayout({
             </Button>
           </Group>
         </Stack>
-      </Modal>
+      </UniversalModal>
     </Stack>
   );
 }

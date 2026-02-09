@@ -10,7 +10,6 @@ import {
   Divider,
   Button,
   Timeline,
-  Modal,
   TextInput,
   NumberInput,
   Textarea,
@@ -30,6 +29,7 @@ import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 import { buildApiPath } from '@/lib/api/paths';
 import { showNotification } from '@mantine/notifications';
 import type { ApiResponse } from '@/types/api';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 interface SalaryHistoryRecord {
   id: string;
@@ -344,7 +344,7 @@ export function SalaryTimeline({
         </Card>
       </Stack>
 
-      <Modal
+      <UniversalModal
         opened={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title="Add Salary Adjustment"
@@ -412,7 +412,7 @@ export function SalaryTimeline({
             </Button>
           </Group>
         </Stack>
-      </Modal>
+      </UniversalModal>
     </>
   );
 }

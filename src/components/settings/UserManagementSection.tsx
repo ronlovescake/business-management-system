@@ -11,7 +11,6 @@ import {
   Badge,
   Table,
   ActionIcon,
-  Modal,
   TextInput,
   PasswordInput,
   Select,
@@ -44,6 +43,7 @@ import {
   IconKey,
 } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 interface User {
   id: string;
@@ -862,7 +862,7 @@ export function UserManagementSection() {
       </Stack>
 
       {/* Create User Modal */}
-      <Modal
+      <UniversalModal
         opened={createModalOpen}
         onClose={() => {
           setCreateModalOpen(false);
@@ -924,10 +924,10 @@ export function UserManagementSection() {
             </Group>
           </Stack>
         </form>
-      </Modal>
+      </UniversalModal>
 
       {/* Edit User Modal */}
-      <Modal
+      <UniversalModal
         opened={editModalOpen}
         onClose={() => {
           setEditModalOpen(false);
@@ -996,7 +996,7 @@ export function UserManagementSection() {
             </Group>
           </Stack>
         </form>
-      </Modal>
+      </UniversalModal>
     </Box>
   );
 }

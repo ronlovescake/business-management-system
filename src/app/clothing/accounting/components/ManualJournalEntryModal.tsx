@@ -15,8 +15,8 @@ import {
   isTaggableAccountParent,
   type TaggableAccountParent,
 } from '@/lib/accounting/account-tagging';
-import { PolishedModal } from '@/components/modals/PolishedModal';
-import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
+import { UniversalModal } from '@/components/modals/UniversalModal';
+
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 import { toDate, toISODate } from '@/utils/date';
 
@@ -115,7 +115,7 @@ export function ManualJournalEntryModal({
   };
 
   return (
-    <PolishedModal opened={opened} onClose={onClose} title={title} size="lg">
+    <UniversalModal opened={opened} onClose={onClose} title={title} size="lg">
       <div style={{ maxHeight: '65vh', overflowY: 'auto' }}>
         <Stack gap="md">
           <DateInput
@@ -260,17 +260,12 @@ export function ManualJournalEntryModal({
             >
               Cancel
             </Button>
-            <Button
-              radius="md"
-              onClick={onSubmit}
-              loading={isSaving}
-              styles={polishedPrimaryButtonStyles}
-            >
+            <Button radius="md" onClick={onSubmit} loading={isSaving}>
               Save Entry
             </Button>
           </Group>
         </Stack>
       </div>
-    </PolishedModal>
+    </UniversalModal>
   );
 }

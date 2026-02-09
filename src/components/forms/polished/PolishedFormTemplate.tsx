@@ -1,8 +1,8 @@
 import { forwardRef } from 'react';
 import { Button, Group, Stack, Text } from '@mantine/core';
-import { PolishedModal } from '@/components/modals/PolishedModal';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
-import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
+
 import { PolishedFormStylesProvider } from './PolishedFormContext';
 import './polishedFormTemplate.css';
 
@@ -45,7 +45,7 @@ type PolishedFormChildren =
 
 interface PolishedFormTemplateProps
   extends Omit<
-    React.ComponentProps<typeof PolishedModal>,
+    React.ComponentProps<typeof UniversalModal>,
     'title' | 'children'
   > {
   title: React.ReactNode;
@@ -116,7 +116,7 @@ export function PolishedFormTemplate({
 
   return (
     <PolishedFormStylesProvider value={fieldStyles}>
-      <PolishedModal
+      <UniversalModal
         opened={opened}
         onClose={onClose}
         title={headerContent}
@@ -155,14 +155,13 @@ export function PolishedFormTemplate({
                 onClick={primaryAction.onClick}
                 disabled={primaryAction.disabled}
                 loading={primaryAction.loading}
-                styles={polishedPrimaryButtonStyles}
               >
                 {primaryAction.label}
               </Button>
             ) : null}
           </Group>
         </Stack>
-      </PolishedModal>
+      </UniversalModal>
     </PolishedFormStylesProvider>
   );
 }

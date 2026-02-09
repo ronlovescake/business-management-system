@@ -22,8 +22,8 @@ import {
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { IconReceipt } from '@tabler/icons-react';
-import { PolishedModal } from '@/components/modals/PolishedModal';
-import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
+import { UniversalModal } from '@/components/modals/UniversalModal';
+
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 import { toDate, toISODate } from '@/utils/date';
 import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
@@ -134,7 +134,7 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
   );
 
   return (
-    <PolishedModal
+    <UniversalModal
       opened={opened}
       onClose={onClose}
       title={modalTitle}
@@ -227,7 +227,6 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
                 fullWidth
                 leftSection={<IconReceipt size={16} />}
                 radius="md"
-                styles={polishedPrimaryButtonStyles}
               >
                 {formReceipt
                   ? `Selected: ${formReceipt.name}`
@@ -240,17 +239,12 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
             <Button radius="md" variant="default" onClick={onClose}>
               Cancel
             </Button>
-            <Button
-              radius="md"
-              onClick={onSave}
-              disabled={!isValid}
-              styles={polishedPrimaryButtonStyles}
-            >
+            <Button radius="md" onClick={onSave} disabled={!isValid}>
               {editingExpense ? 'Update Expense' : 'Add Expense'}
             </Button>
           </Group>
         </Stack>
       </div>
-    </PolishedModal>
+    </UniversalModal>
   );
 });

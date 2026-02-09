@@ -1,9 +1,10 @@
 import React from 'react';
-import { Group, Button, Modal, Stack } from '@mantine/core';
+import { Group, Button, Stack } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import { DataTable } from '@/components/ui/DataTable';
 import type { StatCard } from '@/components/ui';
 import type { GridColumn, Item, GridCell } from '@glideapps/glide-data-grid';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 /**
  * SortingDistributionLayout Component
@@ -125,7 +126,7 @@ export function SortingDistributionLayout<T = Record<string, unknown>>({
 
       {/* Add Entry Modal */}
       {addEntryForm && onAddModalOpenChange && (
-        <Modal
+        <UniversalModal
           opened={addModalOpen}
           onClose={() => onAddModalOpenChange(false)}
           title="Add Sorting Distribution Entry"
@@ -133,7 +134,7 @@ export function SortingDistributionLayout<T = Record<string, unknown>>({
           centered
         >
           <Stack gap="md">{addEntryForm}</Stack>
-        </Modal>
+        </UniversalModal>
       )}
     </>
   );

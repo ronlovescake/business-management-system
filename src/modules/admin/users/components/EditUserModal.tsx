@@ -1,6 +1,5 @@
 import type { FormEventHandler } from 'react';
 import {
-  Modal,
   Stack,
   TextInput,
   Select,
@@ -13,6 +12,7 @@ import {
 } from '@mantine/core';
 import { IconUser, IconShield, IconLock } from '@tabler/icons-react';
 import type { EditUserForm, User } from '../types';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 interface EditUserModalProps {
   opened: boolean;
@@ -30,7 +30,12 @@ export function EditUserModal({
   user,
 }: EditUserModalProps) {
   return (
-    <Modal opened={opened} onClose={onClose} title="Edit User" size="md">
+    <UniversalModal
+      opened={opened}
+      onClose={onClose}
+      title="Edit User"
+      size="md"
+    >
       <form onSubmit={onSubmit}>
         <Stack gap="md">
           {user && (
@@ -83,6 +88,6 @@ export function EditUserModal({
           </Group>
         </Stack>
       </form>
-    </Modal>
+    </UniversalModal>
   );
 }

@@ -2,7 +2,6 @@
 
 import { useMemo } from 'react';
 import {
-  Modal,
   Stack,
   Group,
   Button,
@@ -16,6 +15,7 @@ import { IconCurrencyPeso, IconBuildingBank } from '@tabler/icons-react';
 import { useForm } from '@mantine/form';
 import type { ShipmentData } from '../types/shipment.types';
 import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 type PaidAccountOption = 'Cash' | 'E-Wallet';
 
@@ -162,7 +162,7 @@ export function TransitBuildModal({
   };
 
   return (
-    <Modal
+    <UniversalModal
       opened={opened}
       onClose={onClose}
       title={
@@ -256,6 +256,6 @@ export function TransitBuildModal({
           </Group>
         </Stack>
       </form>
-    </Modal>
+    </UniversalModal>
   );
 }

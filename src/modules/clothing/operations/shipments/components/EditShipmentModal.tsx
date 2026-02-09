@@ -6,7 +6,6 @@
 
 import React from 'react';
 import {
-  Modal,
   Stack,
   Group,
   TextInput,
@@ -22,6 +21,7 @@ import type { UseFormReturnType } from '@mantine/form';
 import type { ShipmentFormData } from '../types/shipment.types';
 import { SHIPMENT_STATUS_OPTIONS } from '../types/shipment.types';
 import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 interface EditShipmentModalProps {
   opened: boolean;
@@ -54,7 +54,7 @@ export const EditShipmentModal = React.memo(function EditShipmentModal({
   };
 
   return (
-    <Modal
+    <UniversalModal
       opened={opened}
       onClose={onClose}
       title="Edit Shipment"
@@ -207,6 +207,6 @@ export const EditShipmentModal = React.memo(function EditShipmentModal({
           </Group>
         </Stack>
       </form>
-    </Modal>
+    </UniversalModal>
   );
 });

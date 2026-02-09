@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Modal, Group, Text, Tooltip, ActionIcon, Box } from '@mantine/core';
+import { Group, Text, Tooltip, ActionIcon, Box } from '@mantine/core';
 import {
   IconZoomOut,
   IconZoomIn,
@@ -7,6 +7,7 @@ import {
   IconDownload,
 } from '@tabler/icons-react';
 import { getIconButtonLabel } from '@/lib/accessibility';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 interface ReceiptViewerModalProps {
   opened: boolean;
@@ -35,7 +36,7 @@ export const ReceiptViewerModal = memo(function ReceiptViewerModal({
   onDownload,
 }: ReceiptViewerModalProps) {
   return (
-    <Modal
+    <UniversalModal
       opened={opened}
       onClose={onClose}
       title={
@@ -122,6 +123,6 @@ export const ReceiptViewerModal = memo(function ReceiptViewerModal({
           />
         </Box>
       )}
-    </Modal>
+    </UniversalModal>
   );
 });

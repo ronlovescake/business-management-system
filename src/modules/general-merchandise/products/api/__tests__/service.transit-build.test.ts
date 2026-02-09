@@ -2,6 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 process.env.ACCOUNTING_CUTOVER_DATE = '2026-01-17';
 
+type TransitBuildEntry = {
+  idempotencyKey: string;
+  debitAccount: string;
+  creditAccount: string;
+  amount: number;
+};
+
 const mockPrisma = vi.hoisted(() => ({
   product: {},
   generalMerchandiseProduct: {
@@ -62,7 +69,7 @@ describe('generalMerchandiseProductService manual transit build-up (by shipment 
 
     const createManyCalls = mockPrisma
       .generalMerchandiseInventoryTransitBuildEntry.createMany.mock
-      .calls as Array<[{ data: any[] }]>;
+      .calls as Array<[{ data: TransitBuildEntry[] }]>;
 
     const data = createManyCalls[0]?.[0]?.data ?? [];
 
@@ -127,7 +134,7 @@ describe('generalMerchandiseProductService manual transit build-up (by shipment 
 
     const createManyCalls = mockPrisma
       .generalMerchandiseInventoryTransitBuildEntry.createMany.mock
-      .calls as Array<[{ data: any[] }]>;
+      .calls as Array<[{ data: TransitBuildEntry[] }]>;
 
     const data = createManyCalls[0]?.[0]?.data ?? [];
 

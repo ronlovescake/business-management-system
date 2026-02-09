@@ -20,7 +20,7 @@ import {
   Loader,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
-import { PolishedModal } from '@/components/modals/PolishedModal';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 import type {
   ProductFormData,
   ProductCalculationResults,
@@ -129,45 +129,18 @@ export const AddProductModal = memo(function AddProductModal({
   );
 
   return (
-    <PolishedModal
+    <UniversalModal
       opened={opened}
       onClose={onClose}
       size="50%"
-      title={
-        <Group gap="sm">
-          <div>
-            <Text size="xl" fw={600} c="gray.9">
-              {isEditMode ? 'Edit Product' : 'Add New Product'}
-            </Text>
-            <Text size="sm" c="gray.6">
-              {isEditMode
-                ? 'Update the product information below'
-                : 'Fill in the product information below'}
-            </Text>
-          </div>
-        </Group>
-      }
-      styles={{
-        content: {
-          backgroundColor: '#ffffff',
-        },
-        header: {
-          backgroundColor: '#ffffff',
-          borderRadius: '28px 28px 0 0',
-          borderBottom: '1px solid var(--mantine-color-gray-2)',
-        },
-        title: {
-          color: '#1f2937',
-        },
-        body: {
-          backgroundColor: '#ffffff',
-          '& input, & select, & textarea': {
-            backgroundColor: '#ffffff',
-          },
-        },
-      }}
+      title={isEditMode ? 'Edit Product' : 'Add New Product'}
     >
       <Stack gap={32}>
+        <Text ta="center" c="dimmed">
+          {isEditMode
+            ? 'Update the product information below'
+            : 'Fill in the product information below'}
+        </Text>
         {/* Basic Product Information Section */}
         <div>
           <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="lg">
@@ -796,6 +769,6 @@ export const AddProductModal = memo(function AddProductModal({
           </Button>
         </Group>
       </Stack>
-    </PolishedModal>
+    </UniversalModal>
   );
 });

@@ -19,6 +19,23 @@
     "prefer-const": "error",
     "@typescript-eslint/no-var-requires": "off",
 
+    "no-restricted-imports": [
+      "warn",
+      {
+        "paths": [
+          {
+            "name": "@mantine/core",
+            "importNames": ["Modal"],
+            "message": "Use UniversalModal from '@/components/modals/UniversalModal' instead of Mantine Modal."
+          },
+          {
+            "name": "@/components/modals/PolishedModal",
+            "message": "Use UniversalModal from '@/components/modals/UniversalModal' instead of PolishedModal."
+          }
+        ]
+      }
+    ],
+
     // React Best Practices
     "react-hooks/rules-of-hooks": "error",
     "react-hooks/exhaustive-deps": "warn",
@@ -64,6 +81,12 @@
       "rules": {
         "no-console": "off",
         "no-restricted-syntax": "off"
+      }
+    },
+    {
+      "files": ["src/components/modals/UniversalModal.tsx"],
+      "rules": {
+        "no-restricted-imports": "off"
       }
     }
   ],

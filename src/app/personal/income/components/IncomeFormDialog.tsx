@@ -11,8 +11,8 @@ import {
   Textarea,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
-import { PolishedModal } from '@/components/modals/PolishedModal';
-import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
+import { UniversalModal } from '@/components/modals/UniversalModal';
+
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 import {
   COMMON_DATE_INPUT_PROPS,
@@ -85,7 +85,7 @@ export const IncomeFormDialog = React.memo(function IncomeFormDialog({
   const notesField = getAutosizeTextareaProps('incomeNotes');
 
   return (
-    <PolishedModal opened={opened} onClose={onClose} title={title} size="lg">
+    <UniversalModal opened={opened} onClose={onClose} title={title} size="lg">
       <Stack gap="md">
         <Text size="sm" c="dimmed">
           {description}
@@ -177,16 +177,11 @@ export const IncomeFormDialog = React.memo(function IncomeFormDialog({
           <Button radius="md" variant="default" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            radius="md"
-            onClick={onSave}
-            disabled={!isValid}
-            styles={polishedPrimaryButtonStyles}
-          >
+          <Button radius="md" onClick={onSave} disabled={!isValid}>
             Save Income
           </Button>
         </Group>
       </Stack>
-    </PolishedModal>
+    </UniversalModal>
   );
 });

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Modal, Group, Text, ActionIcon, Tooltip, Box } from '@mantine/core';
+import { Group, Text, ActionIcon, Tooltip, Box } from '@mantine/core';
 import {
   IconZoomIn,
   IconZoomOut,
@@ -9,6 +9,7 @@ import {
   IconDownload,
 } from '@tabler/icons-react';
 import { getIconButtonLabel } from '@/lib/accessibility';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 interface ReceiptViewerProps {
   opened: boolean;
@@ -32,7 +33,7 @@ export function ReceiptViewer({
   onDownload,
 }: ReceiptViewerProps) {
   return (
-    <Modal
+    <UniversalModal
       opened={opened}
       onClose={onClose}
       title={
@@ -67,12 +68,21 @@ export function ReceiptViewer({
               </ActionIcon>
             </Tooltip>
             <Tooltip label="Reset Zoom">
-              <ActionIcon variant="light" onClick={onZoomReset} {...getIconButtonLabel('Reset zoom')}>
+              <ActionIcon
+                variant="light"
+                onClick={onZoomReset}
+                {...getIconButtonLabel('Reset zoom')}
+              >
                 <IconZoomReset size={18} />
               </ActionIcon>
             </Tooltip>
             <Tooltip label="Download Receipt">
-              <ActionIcon variant="filled" color="blue" onClick={onDownload} {...getIconButtonLabel('Download receipt')}>
+              <ActionIcon
+                variant="filled"
+                color="blue"
+                onClick={onDownload}
+                {...getIconButtonLabel('Download receipt')}
+              >
                 <IconDownload size={18} />
               </ActionIcon>
             </Tooltip>
@@ -110,6 +120,6 @@ export function ReceiptViewer({
           />
         </Box>
       )}
-    </Modal>
+    </UniversalModal>
   );
 }

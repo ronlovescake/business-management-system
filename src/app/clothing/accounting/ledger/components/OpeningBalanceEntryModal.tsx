@@ -15,8 +15,8 @@ import {
   isTaggableAccountParent,
   type TaggableAccountParent,
 } from '@/lib/accounting/account-tagging';
-import { PolishedModal } from '@/components/modals/PolishedModal';
-import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
+import { UniversalModal } from '@/components/modals/UniversalModal';
+
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 import { toDate, toISODate } from '@/utils/date';
 import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
@@ -111,7 +111,7 @@ export function OpeningBalanceEntryModal({
   };
 
   return (
-    <PolishedModal
+    <UniversalModal
       opened={opened}
       onClose={onClose}
       title={isEditing ? 'EDIT OPENING ENTRY' : 'ADD OPENING ENTRY'}
@@ -284,17 +284,12 @@ export function OpeningBalanceEntryModal({
             >
               Cancel
             </Button>
-            <Button
-              radius="md"
-              onClick={onSubmit}
-              loading={isSaving}
-              styles={polishedPrimaryButtonStyles}
-            >
+            <Button radius="md" onClick={onSubmit} loading={isSaving}>
               {isEditing ? 'Update Opening Entry' : 'Save Opening Entry'}
             </Button>
           </Group>
         </Stack>
       </div>
-    </PolishedModal>
+    </UniversalModal>
   );
 }

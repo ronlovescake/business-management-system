@@ -1,6 +1,5 @@
 import { memo } from 'react';
 import {
-  Modal,
   Stack,
   Group,
   Text,
@@ -13,6 +12,7 @@ import { IconPlus, IconCheck } from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
 import type { PriceFormData } from '../types/price.types';
 import { logger } from '@/lib/logger';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 interface AddPriceModalProps {
   opened: boolean;
@@ -93,47 +93,13 @@ export const AddPriceModal = memo(function AddPriceModal({
     );
 
   return (
-    <Modal
+    <UniversalModal
       opened={opened}
       onClose={handleClose}
       closeOnClickOutside={false}
       closeOnEscape={false}
-      withCloseButton={true}
       size="lg"
-      radius="lg"
-      shadow="xl"
-      centered
-      padding="xl"
-      styles={{
-        header: {
-          backgroundColor: '#ffffff',
-          borderRadius: '12px 12px 0 0',
-          padding: '24px 32px 16px 32px',
-          borderBottom: '1px solid var(--mantine-color-gray-2)',
-        },
-        title: {
-          fontSize: '24px',
-          fontWeight: 600,
-          color: '#1f2937',
-        },
-        body: {
-          padding: '32px',
-          backgroundColor: '#ffffff',
-        },
-        close: {
-          color: '#4b5563',
-          '&:hover': {
-            backgroundColor: 'var(--mantine-color-gray-1)',
-          },
-        },
-      }}
-      title={
-        <Group gap="sm">
-          <Text size="xl" fw={600} c="gray.9">
-            Add New Price
-          </Text>
-        </Group>
-      }
+      title="Add New Price"
     >
       <Stack gap="lg">
         <div>
@@ -358,6 +324,6 @@ export const AddPriceModal = memo(function AddPriceModal({
           </Button>
         </Group>
       </Stack>
-    </Modal>
+    </UniversalModal>
   );
 });

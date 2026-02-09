@@ -8,7 +8,6 @@ import {
   Badge,
   Group,
   Button,
-  Modal,
   Select,
   NumberInput,
   TextInput,
@@ -34,6 +33,7 @@ import type {
   TransactionRefund,
 } from '../types';
 import { formatCurrency, formatDate } from '../utils';
+import { UniversalModal } from '@/components/modals/UniversalModal';
 
 // ============================================================================
 // ORDERS AND TRANSACTIONS TABS
@@ -515,7 +515,7 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
             </div>
           )}
 
-          <Modal
+          <UniversalModal
             opened={refundModalOpen}
             onClose={() => setRefundModalOpen(false)}
             title="Record Refund"
@@ -623,7 +623,7 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
                 </Button>
               </Group>
             </Stack>
-          </Modal>
+          </UniversalModal>
         </Tabs.Panel>
 
         {/* Shipped Tab */}

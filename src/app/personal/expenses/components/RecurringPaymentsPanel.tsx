@@ -23,8 +23,8 @@ import {
   HouseholdRecurringPaymentService,
   type HouseholdRecurringPaymentDTO,
 } from '@/services/HouseholdRecurringPaymentService';
-import { PolishedModal } from '@/components/modals/PolishedModal';
-import { polishedPrimaryButtonStyles } from '@/components/modals/polishedModalTheme';
+import { UniversalModal } from '@/components/modals/UniversalModal';
+
 import { usePolishedFieldStyles } from '@/components/modals/usePolishedFieldStyles';
 import { COMMON_DATE_INPUT_PROPS } from '@/lib/dateInputConfig';
 
@@ -480,7 +480,7 @@ export function RecurringPaymentsPanel(props: {
         </Box>
       </Card>
 
-      <PolishedModal
+      <UniversalModal
         opened={opened}
         onClose={() => setOpened(false)}
         title={modalTitle}
@@ -622,14 +622,13 @@ export function RecurringPaymentsPanel(props: {
                     : createMutation.isPending
                 }
                 disabled={!isValid}
-                styles={polishedPrimaryButtonStyles}
               >
                 {isEditing ? 'Update' : 'Save'}
               </Button>
             </Group>
           </Stack>
         </div>
-      </PolishedModal>
+      </UniversalModal>
     </Stack>
   );
 }
