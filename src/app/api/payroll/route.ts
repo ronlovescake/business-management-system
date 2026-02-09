@@ -190,7 +190,7 @@ async function createPayrollRecords(records: PayrollInput[]) {
 }
 
 function shouldSync(status: string): boolean {
-  return status === 'pending' || status === 'approved';
+  return status === 'pending';
 }
 
 function mergeSyncedPayrolls(

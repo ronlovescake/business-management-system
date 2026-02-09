@@ -220,7 +220,7 @@ describe('Payroll API', () => {
       expect(mockSyncPayrollDeductions).not.toHaveBeenCalled();
     });
 
-    it('should sync approved payrolls', async () => {
+    it('should not sync approved payrolls', async () => {
       const approvedPayroll = { ...mockPayrolls[0], status: 'approved' };
       const request = createMockRequest();
 
@@ -232,7 +232,7 @@ describe('Payroll API', () => {
       const response = await GET(request);
       await response.json();
 
-      expect(mockSyncPayrollDeductions).toHaveBeenCalledWith([approvedPayroll]);
+      expect(mockSyncPayrollDeductions).not.toHaveBeenCalled();
     });
 
     it('should handle database errors gracefully', async () => {

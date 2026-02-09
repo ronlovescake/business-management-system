@@ -15,7 +15,7 @@ import type {
 import { getCurrentDateISO, formatDisplayDate, toDate } from '@/utils/date';
 
 const formatTime = formatTimeString;
-const AUTO_RECORD_LOOKBACK_DAYS: number = 6;
+const AUTO_RECORD_LOOKBACK_DAYS: number = 15;
 const getAutoRecordDateRange = () =>
   Array.from({ length: AUTO_RECORD_LOOKBACK_DAYS }, (_, index) => {
     const date = new Date();

@@ -111,16 +111,13 @@ export async function GET(request: NextRequest) {
       orderBy: [{ periodStart: 'desc' }, { employeeName: 'asc' }],
     });
 
-    // Only sync deductions for pending and approved payrolls
-    // Paid payrolls should retain their original deduction values
-    const pendingAndApproved = payrolls.filter(
-      (p) => p.status === 'pending' || p.status === 'approved'
-    );
+    // Only sync deductions for pending payrolls
+    // Approved/paid payrolls should retain their original deduction values
+    const pending = payrolls.filter((p) => p.status === 'pending');
     const paid = payrolls.filter((p) => p.status === 'paid');
 
-    const syncedPendingAndApproved =
-      await syncTruckingPayrollDeductions(pendingAndApproved);
-    const allPayrolls = [...syncedPendingAndApproved, ...paid];
+    const syncedPending = await syncTruckingPayrollDeductions(pending);
+    const allPayrolls = [...syncedPending, ...paid];
 
     // Sort back to original order
     allPayrolls.sort((a, b) => {
