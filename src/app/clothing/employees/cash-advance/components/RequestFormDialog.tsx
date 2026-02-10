@@ -259,7 +259,7 @@ export const RequestFormDialog = React.memo(function RequestFormDialog({
 
           <DateInput
             label="Request Date"
-            valueFormat="MM/DD/YYYY"
+            valueFormat="YYYY-MM-DD"
             value={toDate(form.values.requestDate)}
             onChange={(value) =>
               form.setFieldValue('requestDate', toISODate(value))

@@ -5,6 +5,7 @@ import { useHouseholdExpenseData } from '@/hooks/useSheetData';
 import { showNotification } from '@mantine/notifications';
 import Swal from 'sweetalert2';
 import { showError } from '@/lib/alerts';
+import { getCurrentDateISO } from '@/utils/date';
 import {
   computeExpenseTotals,
   computeMonthlyBreakdownByCategory,
@@ -441,7 +442,7 @@ export function useHouseholdExpenses() {
 
   const handleAddExpense = () => {
     setEditingExpense(null);
-    setFormDate('');
+    setFormDate(getCurrentDateISO());
     setFormAmount('');
     setFormDescription('');
     setFormCategory('');
@@ -465,7 +466,7 @@ export function useHouseholdExpenses() {
 
   const resetForm = () => {
     setEditingExpense(null);
-    setFormDate('');
+    setFormDate(getCurrentDateISO());
     setFormAmount('');
     setFormDescription('');
     setFormCategory('');

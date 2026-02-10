@@ -212,7 +212,7 @@ export const ScheduleModal = memo(function ScheduleModal({
                 onChange={(value) => setFormDate(formatDateForInput(value))}
                 placeholder="Select date"
                 withAsterisk
-                valueFormat="MM/DD/YYYY"
+                valueFormat="YYYY-MM-DD"
                 clearable
                 {...COMMON_DATE_INPUT_PROPS}
               />

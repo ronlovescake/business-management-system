@@ -491,7 +491,7 @@ export function RecurringPaymentsPanel(props: {
             <Group grow align="flex-start">
               <DateInput
                 label="Payment Start"
-                valueFormat="MM/DD/YYYY"
+                valueFormat="YYYY-MM-DD"
                 required
                 value={startDate}
                 onChange={setStartDate}

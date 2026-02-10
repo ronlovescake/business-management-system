@@ -58,6 +58,9 @@ export const polishedInputBaseStyles = {
   minHeight: 48,
 };
 
+const { minHeight: _textareaMinHeight, ...polishedTextareaBaseStyles } =
+  polishedInputBaseStyles;
+
 const POLISHED_INPUT_PADDING_Y = '0.65rem';
 const POLISHED_INPUT_PADDING_X = '0.95rem';
 
@@ -90,7 +93,22 @@ const buildInputStyles = (inputOverrides?: Record<string, unknown>) => ({
   },
 });
 
+const buildTextareaStyles = (inputOverrides?: Record<string, unknown>) => ({
+  wrapper: polishedInputWrapperStyles,
+  label: polishedLabelStyles,
+  input: {
+    ...polishedTextareaBaseStyles,
+    ...inputOverrides,
+    '&:focus': {
+      ...polishedFocusRingStyles,
+    },
+  },
+});
+
 const sharedInputStyles = buildInputStyles();
+const sharedTextareaStyles = buildTextareaStyles({
+  resize: 'vertical' as const,
+});
 
 export const polishedSelectDropdownStyles = {
   borderRadius: 12,
@@ -173,10 +191,7 @@ const universalModalTheme = {
     },
     Textarea: {
       styles: {
-        ...buildInputStyles({
-          minHeight: 108,
-          resize: 'vertical' as const,
-        }),
+        ...sharedTextareaStyles,
       },
     },
     Select: {

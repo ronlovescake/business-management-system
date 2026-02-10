@@ -147,7 +147,7 @@ export function ExpenseDialog({
           value={parseDateValue(formDate)}
           onChange={(value) => setFormDate(formatDateForInput(value))}
           description="When was this expense made?"
-          valueFormat="MM/DD/YYYY"
+          valueFormat="YYYY-MM-DD"
           clearable
           {...COMMON_DATE_INPUT_PROPS}
         />

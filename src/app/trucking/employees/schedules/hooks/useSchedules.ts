@@ -741,7 +741,7 @@ export function useSchedules() {
     setEditingSchedule(null);
     setFormEmployeeName('');
     setFormEmployeeId('');
-    setFormDate('');
+    setFormDate(getCurrentDateISO());
     setFormShiftType('');
     setFormStartTime('');
     setFormEndTime('');

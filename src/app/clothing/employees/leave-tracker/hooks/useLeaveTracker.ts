@@ -695,8 +695,11 @@ export default function useLeaveTracker(apiBasePath?: string) {
 
   const handleAddRequest = useCallback(() => {
     resetFormFields();
+    const today = getCurrentDateISO();
+    setFormStartDate(today);
+    setFormEndDate(today);
     setIsModalOpen(true);
-  }, []);
+  }, [getCurrentDateISO]);
 
   const handleEditRequest = useCallback((request: LeaveRequest) => {
     setEditingRequest(request);

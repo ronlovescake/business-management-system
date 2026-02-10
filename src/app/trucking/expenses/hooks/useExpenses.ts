@@ -342,7 +342,7 @@ export function useExpenses() {
 
   const handleAddExpense = () => {
     setEditingExpense(null);
-    setFormDate('');
+    setFormDate(getCurrentDateISO());
     setFormAmount('');
     setFormDescription('');
     setFormCategory('');

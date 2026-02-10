@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   Stack,
   Group,
@@ -161,6 +161,14 @@ export function TransitBuildModal({
     }
   };
 
+  useEffect(() => {
+    if (!opened) {
+      return;
+    }
+
+    form.setFieldValue('postingDate', new Date());
+  }, [form, opened]);
+
   return (
     <UniversalModal
       opened={opened}
@@ -234,6 +242,7 @@ export function TransitBuildModal({
           <DateInput
             label="Posting Date"
             placeholder="Select posting date"
+            valueFormat="YYYY-MM-DD"
             required
             {...COMMON_DATE_INPUT_PROPS}
             {...form.getInputProps('postingDate')}

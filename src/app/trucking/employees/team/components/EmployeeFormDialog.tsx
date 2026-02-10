@@ -382,7 +382,7 @@ function EmployeeFormFields({
         <Grid.Col span={4}>
           <DateInput
             label="Date of Birth"
-            valueFormat="MM-DD-YYYY"
+            valueFormat="YYYY-MM-DD"
             value={toDate(form.values.dateOfBirth)}
             onChange={(value) =>
               form.setFieldValue('dateOfBirth', toISODate(value))
@@ -457,7 +457,7 @@ function EmployeeFormFields({
         <Grid.Col span={4}>
           <DateInput
             label="Hire Date"
-            valueFormat="MM-DD-YYYY"
+            valueFormat="YYYY-MM-DD"
             required
             value={toDate(form.values.hireDate)}
             onChange={(value) =>
@@ -471,7 +471,7 @@ function EmployeeFormFields({
         <Grid.Col span={4}>
           <DateInput
             label="Employment End Date"
-            valueFormat="MM-DD-YYYY"
+            valueFormat="YYYY-MM-DD"
             value={toDate(form.values.employmentEndDate)}
             onChange={(value) =>
               form.setFieldValue('employmentEndDate', toISODate(value))
@@ -563,7 +563,7 @@ function EmployeeFormFields({
         <Grid.Col span={4}>
           <DateInput
             label="Final Pay Effective Date"
-            valueFormat="MM-DD-YYYY"
+            valueFormat="YYYY-MM-DD"
             value={toDate(form.values.finalPayEffectiveDate)}
             onChange={(value) =>
               form.setFieldValue('finalPayEffectiveDate', toISODate(value))

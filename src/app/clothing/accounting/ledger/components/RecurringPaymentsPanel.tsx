@@ -149,12 +149,12 @@ type TemplateFormState = {
   isActive: boolean;
 };
 
-const DEFAULT_FORM: TemplateFormState = {
+const buildDefaultForm = (): TemplateFormState => ({
   name: '',
   kind: 'LOAN',
   amount: 0,
   dayOfMonth: 1,
-  nextDueDate: '2026-01-01',
+  nextDueDate: formatDateForInput(new Date()),
   endDate: '',
   debitAccount: 'Loan Payable',
   debitTag: '',
@@ -162,7 +162,7 @@ const DEFAULT_FORM: TemplateFormState = {
   creditTag: '',
   notes: '',
   isActive: true,
-};
+});
 
 const monthDiff = (from: Date, to: Date): number => {
   return (
@@ -227,7 +227,7 @@ export function RecurringPaymentsPanel(props: {
   );
 
   const [isCreateModalOpen, setIsCreateModalOpen] = React.useState(false);
-  const [form, setForm] = React.useState<TemplateFormState>(DEFAULT_FORM);
+  const [form, setForm] = React.useState<TemplateFormState>(buildDefaultForm);
   const [isSavingTemplate, setIsSavingTemplate] = React.useState(false);
 
   const { getFieldProps, getSelectProps } =
@@ -353,7 +353,7 @@ export function RecurringPaymentsPanel(props: {
     }
   };
 
-  const resetForm = () => setForm(DEFAULT_FORM);
+  const resetForm = () => setForm(buildDefaultForm());
 
   const handleCreateTemplate = async () => {
     setIsSavingTemplate(true);
@@ -491,6 +491,7 @@ export function RecurringPaymentsPanel(props: {
         <DateInput
           label="Show drafts due on or before"
           leftSection={<IconCalendar size={16} />}
+          valueFormat="YYYY-MM-DD"
           value={parseDateValue(dueOnOrBefore)}
           onChange={(value) => {
             const next = value ? formatDateForInput(value) : '';
@@ -654,13 +655,14 @@ export function RecurringPaymentsPanel(props: {
 
               <DateInput
                 label="Next due date"
+                valueFormat="YYYY-MM-DD"
                 value={parseDateValue(form.nextDueDate)}
                 onChange={(value) =>
                   setForm((p) => ({
                     ...p,
                     nextDueDate: value
                       ? formatDateForInput(value)
-                      : DEFAULT_FORM.nextDueDate,
+                      : buildDefaultForm().nextDueDate,
                   }))
                 }
                 {...nextDueDateField.handlers}
@@ -670,6 +672,7 @@ export function RecurringPaymentsPanel(props: {
 
               <DateInput
                 label="End date (optional)"
+                valueFormat="YYYY-MM-DD"
                 value={parseDateValue(form.endDate)}
                 onChange={(value) =>
                   setForm((p) => ({

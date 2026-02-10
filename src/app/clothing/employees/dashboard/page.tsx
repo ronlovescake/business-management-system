@@ -317,7 +317,7 @@ function DashboardContent({ apiBasePath }: { apiBasePath?: string }) {
                       value={selections.date}
                       onChange={actions.setDate}
                       maxDate={new Date()}
-                      valueFormat="MMMM D, YYYY"
+                      valueFormat="YYYY-MM-DD"
                     />
                   )}
                   {viewMode === 'month' && (

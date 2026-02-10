@@ -23,6 +23,7 @@
     "test": "vitest",
     "test:unit": "vitest run",
     "test:integration": "vitest run --config vitest.config.integration.ts",
+    "pretest:coverage": "node -e \"require('fs').mkdirSync('coverage/.tmp', { recursive: true })\"",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:chromium": "playwright test --project=chromium",

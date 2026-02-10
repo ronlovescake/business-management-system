@@ -153,7 +153,7 @@ export const AttendanceFormDialog = memo(function AttendanceFormDialog({
         <Group grow>
           <DateInput
             label="Date"
-            valueFormat="MM/DD/YYYY"
+            valueFormat="YYYY-MM-DD"
             {...COMMON_DATE_INPUT_PROPS}
             required
             value={toDate(formValues.date)}

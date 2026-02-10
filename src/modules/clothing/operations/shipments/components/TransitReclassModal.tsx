@@ -226,6 +226,7 @@ export function TransitReclassModal({
       return;
     }
 
+    setPostingDate(new Date());
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opened, shipment?.id, apiBasePath]);
@@ -373,6 +374,7 @@ export function TransitReclassModal({
           <DateInput
             label="Posting Date"
             placeholder="Select posting date"
+            valueFormat="YYYY-MM-DD"
             required
             {...COMMON_DATE_INPUT_PROPS}
             value={postingDate}
@@ -417,6 +419,7 @@ export function TransitReclassModal({
           <DateInput
             label="Posting Date"
             required
+            valueFormat="YYYY-MM-DD"
             {...COMMON_DATE_INPUT_PROPS}
             value={editPostingDate}
             onChange={setEditPostingDate}

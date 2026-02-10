@@ -94,7 +94,7 @@ export function useShipmentForm() {
       weight: 0,
       fee: 0,
       shipmentStatus: '',
-      dateCreated: null,
+      dateCreated: new Date(),
       dateDelivered: null,
       notes: '',
     },
@@ -213,6 +213,7 @@ export function useShipmentForm() {
    */
   const handleAddShipment = () => {
     addShipmentForm.reset();
+    addShipmentForm.setFieldValue('dateCreated', new Date());
     setAddModalOpened(true);
   };
 

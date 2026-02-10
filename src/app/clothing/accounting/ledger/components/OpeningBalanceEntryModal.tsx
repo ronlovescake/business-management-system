@@ -121,7 +121,7 @@ export function OpeningBalanceEntryModal({
         <Stack gap="md">
           <DateInput
             label="Date"
-            valueFormat="MM/DD/YYYY"
+            valueFormat="YYYY-MM-DD"
             value={entryDateValue}
             onChange={(value) => onChange('date', toISODate(value))}
             minDate={entryDateValue || undefined}

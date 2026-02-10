@@ -145,7 +145,7 @@ export const ExpenseFormDialog = React.memo(function ExpenseFormDialog({
           <Group grow align="flex-start">
             <DateInput
               label="Date"
-              valueFormat="MM/DD/YYYY"
+              valueFormat="YYYY-MM-DD"
               required
               value={toDate(formDate)}
               onChange={(value) => setFormDate(toISODate(value))}

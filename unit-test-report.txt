@@ -1,0 +1,482 @@
+
+> business-management@1.0.0 test:unit
+> vitest run
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v1.6.1 /home/ron/Websites/business-management-development
+
+ ✓ src/app/clothing/employees/schedules/hooks/__tests__/useSchedules.test.ts  (66 tests) 21ms
+ ✓ src/app/clothing/employees/leave-tracker/hooks/__tests__/useLeaveTracker.test.ts  (54 tests) 14ms
+ ✓ src/app/trucking/employees/leave-tracker/hooks/__tests__/useLeaveTracker.test.ts  (54 tests) 16ms
+ ✓ src/app/clothing/employees/employee-loans/hooks/__tests__/useEmployeeLoans.test.ts  (49 tests) 15ms
+ ✓ src/app/trucking/employees/employee-loans/hooks/__tests__/useEmployeeLoans.test.ts  (49 tests) 12ms
+ ✓ src/app/trucking/employees/schedules/hooks/__tests__/useSchedules.test.ts  (66 tests) 15ms
+ ✓ src/modules/clothing/operations/shipments/services/__tests__/ShipmentService.test.ts  (59 tests) 52ms
+ ✓ src/lib/security/__tests__/client-sanitize.test.ts  (99 tests) 170ms
+ ✓ tests/unit/api/leave-requests.api.test.ts  (28 tests) 116ms
+ ✓ tests/unit/api/expenses.api.test.ts  (23 tests) 82ms
+ ✓ tests/unit/api/schedules.api.test.ts  (23 tests) 151ms
+ ✓ tests/unit/api/shipments.api.test.ts  (19 tests) 83ms
+ ✓ tests/unit/api/employees.api.test.ts  (23 tests) 101ms
+ ✓ tests/unit/api/payroll.api.test.ts  (20 tests) 71ms
+stderr | tests/unit/api/payroll.api.test.ts > Payroll API > GET /api/payroll > should handle database errors gracefully
+API Route Error {
+  path: '/api/payroll',
+  method: 'GET',
+  error: Error: Database connection failed
+      at /home/ron/Websites/business-management-development/tests/unit/api/payroll.api.test.ts:244:9
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:135:14
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:60:26
+      at runTest (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:781:17)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runFiles (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:958:5)
+      at startTests (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:967:3)
+      at file:///home/ron/Websites/business-management-development/node_modules/vitest/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+}
+
+stderr | tests/unit/api/payroll.api.test.ts > Payroll API > POST /api/payroll > should handle database errors gracefully
+Unexpected payroll Prisma error {
+  error: Error: Database constraint violation
+      at /home/ron/Websites/business-management-development/tests/unit/api/payroll.api.test.ts:526:9
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:135:14
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:60:26
+      at runTest (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:781:17)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runFiles (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:958:5)
+      at startTests (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:967:3)
+      at file:///home/ron/Websites/business-management-development/node_modules/vitest/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+}
+
+stderr | tests/unit/api/payroll.api.test.ts > Payroll API > PUT /api/payroll > should handle database errors gracefully
+Unexpected payroll Prisma error {
+  error: Error: Database update failed
+      at /home/ron/Websites/business-management-development/tests/unit/api/payroll.api.test.ts:704:9
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:135:14
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:60:26
+      at runTest (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:781:17)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runFiles (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:958:5)
+      at startTests (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:967:3)
+      at file:///home/ron/Websites/business-management-development/node_modules/vitest/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+}
+
+stderr | tests/unit/api/payroll.api.test.ts > Payroll API > DELETE /api/payroll > should handle database errors gracefully
+Unexpected payroll Prisma error {
+  error: Error: Database delete failed
+      at /home/ron/Websites/business-management-development/tests/unit/api/payroll.api.test.ts:763:9
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:135:14
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:60:26
+      at runTest (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:781:17)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runFiles (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:958:5)
+      at startTests (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:967:3)
+      at file:///home/ron/Websites/business-management-development/node_modules/vitest/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+}
+
+ ✓ tests/unit/api/cash-advances.api.test.ts  (23 tests) 130ms
+stderr | tests/unit/api/cash-advances.api.test.ts > Cash Advances API - GET > should handle errors
+[Clothing cash advance] Failed to fetch cash advances {
+  error: Error: Database error
+      at /home/ron/Websites/business-management-development/tests/unit/api/cash-advances.api.test.ts:180:7
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:135:14
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:60:26
+      at runTest (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:781:17)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runFiles (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:958:5)
+      at startTests (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:967:3)
+      at file:///home/ron/Websites/business-management-development/node_modules/vitest/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+      at withEnv (file:///home/ron/Websites/business-management-development/node_modules/vitest/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
+}
+
+stderr | tests/unit/api/cash-advances.api.test.ts > Cash Advances API - POST > should handle errors
+[Clothing cash advance] Failed to create cash advance {
+  error: Error: Database error
+      at /home/ron/Websites/business-management-development/tests/unit/api/cash-advances.api.test.ts:417:7
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:135:14
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:60:26
+      at runTest (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:781:17)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runFiles (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:958:5)
+      at startTests (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:967:3)
+      at file:///home/ron/Websites/business-management-development/node_modules/vitest/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+      at withEnv (file:///home/ron/Websites/business-management-development/node_modules/vitest/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
+}
+
+stderr | tests/unit/api/cash-advances.api.test.ts > Cash Advances API - PUT > should return 404 if record not found
+[Clothing cash advance] Failed to update cash advance {
+  error: Error: Cash advance not found
+      at /home/ron/Websites/business-management-development/tests/unit/api/cash-advances.api.test.ts:461:7
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:135:14
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:60:26
+      at runTest (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:781:17)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runFiles (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:958:5)
+      at startTests (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:967:3)
+      at file:///home/ron/Websites/business-management-development/node_modules/vitest/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+      at withEnv (file:///home/ron/Websites/business-management-development/node_modules/vitest/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
+}
+
+stderr | tests/unit/api/cash-advances.api.test.ts > Cash Advances API - PUT > should handle errors
+[Clothing cash advance] Failed to update cash advance {
+  error: Error: Database error
+      at /home/ron/Websites/business-management-development/tests/unit/api/cash-advances.api.test.ts:826:7
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:135:14
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:60:26
+      at runTest (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:781:17)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runFiles (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:958:5)
+      at startTests (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:967:3)
+      at file:///home/ron/Websites/business-management-development/node_modules/vitest/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+      at withEnv (file:///home/ron/Websites/business-management-development/node_modules/vitest/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
+}
+
+stderr | tests/unit/api/cash-advances.api.test.ts > Cash Advances API - DELETE > should handle errors
+[Clothing cash advance] Failed to delete cash advance {
+  error: Error: Database error
+      at /home/ron/Websites/business-management-development/tests/unit/api/cash-advances.api.test.ts:881:7
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:135:14
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:60:26
+      at runTest (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:781:17)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runFiles (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:958:5)
+      at startTests (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:967:3)
+      at file:///home/ron/Websites/business-management-development/node_modules/vitest/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+      at withEnv (file:///home/ron/Websites/business-management-development/node_modules/vitest/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5)
+}
+
+ ✓ src/modules/clothing/operations/sorting-distribution/services/__tests__/SortingDistributionService.test.ts  (35 tests) 20ms
+ ✓ src/app/clothing/employees/team/hooks/__tests__/useTeam.test.ts  (58 tests) 27ms
+ ✓ src/app/clothing/operations/business-intelligence/hooks/__tests__/useBusinessIntelligence.test.ts  (35 tests) 17ms
+ ✓ tests/unit/transactions/TransactionService.comprehensive.test.ts  (49 tests) 16ms
+ ✓ src/app/trucking/employees/team/hooks/__tests__/useTeam.test.ts  (54 tests) 18ms
+ ✓ tests/unit/thirteenth-month-pay/ThirteenthMonthPayService.comprehensive.test.ts  (29 tests) 58ms
+stderr | tests/unit/thirteenth-month-pay/ThirteenthMonthPayService.comprehensive.test.ts > ThirteenthMonthPayService > CRUD Operations > should throw error when updating non-existent record
+Failed to update 13th month pay record {
+  error: Error: Record with ID 999 not found
+      at ThirteenthMonthPayService.update (/home/ron/Websites/business-management-development/src/modules/clothing/employees/thirteenth-month-pay/api/service.ts:133:15)
+      at /home/ron/Websites/business-management-development/tests/unit/thirteenth-month-pay/ThirteenthMonthPayService.comprehensive.test.ts:187:7
+      at runTest (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:781:11)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runFiles (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:958:5)
+      at startTests (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:967:3)
+      at file:///home/ron/Websites/business-management-development/node_modules/vitest/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+      at withEnv (file:///home/ron/Websites/business-management-development/node_modules/vitest/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5),
+  id: '999',
+  data: { thirteenthMonthPay: 16000 }
+}
+
+stderr | tests/unit/thirteenth-month-pay/ThirteenthMonthPayService.comprehensive.test.ts > ThirteenthMonthPayService > Status Updates > should throw error when updating status for non-existent record
+Failed to update status {
+  error: Error: Record with recordId TMP-2025-999 not found
+      at ThirteenthMonthPayService.updateStatusByRecordId (/home/ron/Websites/business-management-development/src/modules/clothing/employees/thirteenth-month-pay/api/service.ts:161:15)
+      at /home/ron/Websites/business-management-development/tests/unit/thirteenth-month-pay/ThirteenthMonthPayService.comprehensive.test.ts:337:7
+      at runTest (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:781:11)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runFiles (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:958:5)
+      at startTests (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:967:3)
+      at file:///home/ron/Websites/business-management-development/node_modules/vitest/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+      at withEnv (file:///home/ron/Websites/business-management-development/node_modules/vitest/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:83:5),
+  recordId: 'TMP-2025-999',
+  status: 'approved'
+}
+
+stderr | tests/unit/thirteenth-month-pay/ThirteenthMonthPayService.comprehensive.test.ts > ThirteenthMonthPayService > Error Handling > should handle error when finding all records
+Failed to fetch 13th month pay records {
+  error: Error: Database error
+      at /home/ron/Websites/business-management-development/tests/unit/thirteenth-month-pay/ThirteenthMonthPayService.comprehensive.test.ts:390:74
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:135:14
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:60:26
+      at runTest (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:781:17)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runFiles (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:958:5)
+      at startTests (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:967:3)
+      at file:///home/ron/Websites/business-management-development/node_modules/vitest/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+}
+
+stderr | tests/unit/thirteenth-month-pay/ThirteenthMonthPayService.comprehensive.test.ts > ThirteenthMonthPayService > Error Handling > should handle error when creating record
+Failed to create 13th month pay record {
+  error: Error: Database error
+      at /home/ron/Websites/business-management-development/tests/unit/thirteenth-month-pay/ThirteenthMonthPayService.comprehensive.test.ts:396:72
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:135:14
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:60:26
+      at runTest (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:781:17)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runFiles (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:958:5)
+      at startTests (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:967:3)
+      at file:///home/ron/Websites/business-management-development/node_modules/vitest/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7,
+  data: {
+    recordId: 'TMP-2025-001',
+    employeeId: 'EMP001',
+    employeeName: 'John Doe',
+    year: 2025,
+    totalBasicSalary: 180000,
+    totalLwop: 0,
+    totalAbsencesLates: 0,
+    netBasicSalary: 180000,
+    monthsWorked: 12,
+    thirteenthMonthPay: 15000,
+    status: 'pending'
+  }
+}
+
+stderr | tests/unit/thirteenth-month-pay/ThirteenthMonthPayService.comprehensive.test.ts > ThirteenthMonthPayService > Error Handling > should handle error when deleting record
+Failed to delete 13th month pay record {
+  error: Error: Database error
+      at /home/ron/Websites/business-management-development/tests/unit/thirteenth-month-pay/ThirteenthMonthPayService.comprehensive.test.ts:416:72
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:135:14
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:60:26
+      at runTest (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:781:17)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runFiles (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:958:5)
+      at startTests (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:967:3)
+      at file:///home/ron/Websites/business-management-development/node_modules/vitest/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7,
+  id: '1'
+}
+
+stderr | tests/unit/thirteenth-month-pay/ThirteenthMonthPayService.comprehensive.test.ts > ThirteenthMonthPayService > Error Handling > should handle error when getting statistics
+Failed to fetch statistics by status {
+  error: Error: Database error
+      at /home/ron/Websites/business-management-development/tests/unit/thirteenth-month-pay/ThirteenthMonthPayService.comprehensive.test.ts:423:9
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:135:14
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:60:26
+      at runTest (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:781:17)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runFiles (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:958:5)
+      at startTests (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:967:3)
+      at file:///home/ron/Websites/business-management-development/node_modules/vitest/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+}
+
+ ✓ tests/unit/validations/customer.validation.test.ts  (31 tests) 39ms
+ ✓ src/modules/clothing/operations/due-dates/services/__tests__/DueDateService.test.ts  (31 tests) 17ms
+ ✓ src/lib/security/__tests__/sanitize.test.ts  (69 tests) 24ms
+ ✓ tests/unit/api/attendance.api.test.ts  (20 tests) 86ms
+ ✓ tests/unit/cash-advance/CashAdvanceService.comprehensive.test.ts  (40 tests) 15ms
+ ✓ tests/unit/api/thirteenth-month-pay.api.test.ts  (16 tests) 58ms
+ ✓ tests/unit/api/customers.api.test.ts  (16 tests) 94ms
+ ✓ tests/unit/validations/product-price.validation.test.ts  (35 tests) 1013ms
+ ✓ tests/unit/api/sorting-distribution.api.test.ts  (14 tests) 76ms
+ ✓ tests/unit/expenses/ExpenseService.comprehensive.test.ts  (47 tests) 19ms
+ ✓ tests/unit/prices/PriceService.comprehensive.test.ts  (32 tests) 19ms
+ ✓ tests/unit/attendance/AttendanceService.comprehensive.test.ts  (36 tests) 27ms
+ ✓ tests/unit/api/attendance-apply-leave.api.test.ts  (14 tests) 59ms
+ ✓ src/lib/settings/__tests__/employeeAutomation.test.ts  (30 tests) 18ms
+stderr | tests/unit/api/payroll-generate.api.test.ts > Payroll Generation API > POST /api/payroll/generate > should handle database errors gracefully
+Error generating payroll { error: 'Database connection failed' }
+
+ ✓ tests/unit/payroll/PayrollService.comprehensive.test.ts  (42 tests) 21ms
+ ✓ src/lib/payroll/__tests__/deductions.test.ts  (6 tests) 26ms
+ ✓ src/app/api/general-merchandise/accounting/balance-sheet/__tests__/route.test.ts  (6 tests) 296ms
+stderr | tests/unit/services/BaseService.test.ts > BaseService > GET method > should throw APIError on 404
+API Error [GET /nonexistent]: {
+  name: 'APIError',
+  message: 'HTTP Error: 404 - Not Found',
+  status: 404,
+  statusText: 'Not Found',
+  endpoint: '/nonexistent',
+  method: 'GET',
+  timestamp: '2026-02-10T05:37:50.744Z'
+}
+
+ ✓ tests/unit/api/payroll-generate.api.test.ts  (11 tests) 65ms
+ ✓ src/modules/clothing/operations/settings/hooks/__tests__/useInstalledModules.test.ts  (27 tests) 15ms
+ ✓ src/modules/clothing/operations/dashboard/services/__tests__/DashboardService.test.ts  (33 tests) 30ms
+ ✓ tests/unit/validations/transaction.validation.test.ts  (25 tests) 1079ms
+ ✓ tests/unit/api/prices.api.test.ts  (12 tests) 65ms
+ ✓ tests/unit/api/accounting-journal.api.test.ts  (3 tests) 34ms
+ ✓ src/modules/clothing/operations/inventory/lib/__tests__/inventoryTransforms.test.ts  (8 tests) 7ms
+ ✓ tests/unit/api/trucking.employees.salary-history.api.test.ts  (9 tests) 49ms
+ ✓ tests/unit/api/employees.salary-history.api.test.ts  (9 tests) 48ms
+ ✓ tests/unit/api/accounting-profit-loss.api.test.ts  (4 tests) 37ms
+ ✓ tests/unit/api/accounting-ledger.api.test.ts  (3 tests) 31ms
+ ✓ src/app/api/general-merchandise/accounting/profit-loss/__tests__/route.test.ts  (3 tests) 23ms
+stderr | tests/unit/api/transactions.api.test.ts > Transactions API Routes > GET /api/transactions > handles service errors
+[Transactions] Failed to fetch transactions {
+  error: Error: boom
+      at /home/ron/Websites/business-management-development/tests/unit/api/transactions.api.test.ts:91:59
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:135:14
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:60:26
+      at runTest (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:781:17)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runFiles (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:958:5)
+      at startTests (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:967:3)
+      at file:///home/ron/Websites/business-management-development/node_modules/vitest/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+}
+
+ ✓ src/app/api/general-merchandise/accounting/ledger/__tests__/route.test.ts  (3 tests) 157ms
+ ✓ tests/unit/api/accounting-balance-sheet.api.test.ts  (3 tests) 33ms
+ ✓ src/app/api/shipments/[id]/transit-build/__tests__/transit-build.route.test.ts  (5 tests) 22ms
+ ✓ tests/unit/api/transactions.api.test.ts  (12 tests) 47ms
+ ✓ tests/unit/customers/CustomerService.comprehensive.test.ts  (25 tests) 16ms
+ ✓ tests/unit/api/customer-additional-info.api.test.ts  (8 tests) 42ms
+ ✓ tests/unit/api/item-weights.api.test.ts  (8 tests) 64ms
+ ✓ tests/unit/api/customers-by-id.api.test.ts  (7 tests) 30ms
+ ✓ src/modules/clothing/operations/checkout-links/utils/__tests__/messageGenerator.test.ts  (18 tests) 27ms
+stderr | tests/unit/api/products.api.test.ts > Products API Routes > GET /api/products > handles service errors
+[Products] Failed to fetch products {
+  error: Error: boom
+      at /home/ron/Websites/business-management-development/tests/unit/api/products.api.test.ts:84:55
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:135:14
+      at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:60:26
+      at runTest (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:781:17)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+      at runFiles (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:958:5)
+      at startTests (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:967:3)
+      at file:///home/ron/Websites/business-management-development/node_modules/vitest/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+}
+
+ ✓ tests/unit/api/products.api.test.ts  (9 tests) 76ms
+ ✓ tests/unit/api/payroll-generate-payslips.api.test.ts  (3 tests) 98ms
+ ✓ tests/unit/api/transaction-by-id.api.test.ts  (9 tests) 35ms
+ ✓ src/app/api/general-merchandise/accounting/journal/__tests__/route.test.ts  (2 tests) 111ms
+ ✓ tests/unit/api/employees-restore.api.test.ts  (8 tests) 37ms
+ ✓ src/modules/clothing/operations/checkout-links/__tests__/finalWeightCalculator.test.ts  (20 tests) 12ms
+ ✓ src/app/api/general-merchandise/accounting/profit-loss/details/__tests__/route.test.ts  (2 tests) 142ms
+ ✓ src/app/api/shipments/[id]/transit-reclass/__tests__/transit-reclass.route.test.ts  (4 tests) 17ms
+ ✓ src/app/api/transactions/payments/bulk/__tests__/bulk-payments.route.test.ts  (3 tests) 36ms
+ ✓ src/app/api/customers/[id]/payments/__tests__/route.test.ts  (2 tests) 16ms
+ ✓ tests/unit/api/trucking.cash-advances.api.test.ts  (6 tests) 27ms
+stderr | tests/unit/services/BaseService.test.ts > BaseService > GET method > should not retry on 4xx errors (except 408, 429)
+API Error [GET /bad-request]: {
+  name: 'APIError',
+  message: 'HTTP Error: 400 - Bad Request',
+  status: 400,
+  statusText: 'Bad Request',
+  endpoint: '/bad-request',
+  method: 'GET',
+  timestamp: '2026-02-10T05:37:54.272Z'
+}
+
+ ✓ tests/unit/api/payroll-sync-lwop.api.test.ts  (6 tests) 35ms
+ ✓ src/modules/products/api/__tests__/service.accounting.test.ts  (3 tests) 94ms
+ ✓ src/modules/general-merchandise/products/api/__tests__/service.accounting.test.ts  (3 tests) 79ms
+ ✓ src/lib/accounting/__tests__/inventory-cogs.test.ts  (3 tests) 7ms
+ ✓ src/lib/accounting/general-merchandise/__tests__/inventory-cogs.test.ts  (3 tests) 9ms
+ ✓ tests/unit/api/customer-refunds.api.test.ts  (3 tests) 19ms
+ ✓ tests/unit/api/customer-additional-info-add.api.test.ts  (6 tests) 32ms
+ ✓ tests/unit/api/customer-import.api.test.ts  (3 tests) 16ms
+ ✓ src/modules/clothing/operations/products/services/__tests__/ProductService.loadProducts.test.ts  (2 tests) 14ms
+ ✓ src/modules/general-merchandise/products/api/__tests__/service.transit-build.test.ts  (2 tests) 42ms
+ ✓ src/modules/clothing/operations/checkout-links/__tests__/api.integration.test.ts  (3 tests) 39ms
+ ✓ src/modules/clothing/operations/checkout-links/__tests__/checkoutLinkMatcher.test.ts  (14 tests) 9ms
+ ✓ src/modules/products/api/__tests__/service.transit-build.test.ts  (2 tests) 69ms
+ ✓ src/modules/clothing/operations/products/hooks/__tests__/useShippingFeeCalculator.hook.test.tsx  (2 tests) 53ms
+ ✓ src/lib/utils/__tests__/fuzzyMatch.address-fix.test.ts  (10 tests) 30ms
+ ✓ src/modules/clothing/operations/checkout-links/__tests__/invoiceWeight.test.ts  (8 tests) 17ms
+ ✓ tests/unit/api/health.api.test.ts  (6 tests) 12ms
+ ✓ tests/unit/api/customer-export.api.test.ts  (2 tests) 21ms
+ ✓ src/app/api/general-merchandise/shipments/[id]/transit-reclass/__tests__/transit-reclass.route.test.ts  (2 tests) 12ms
+ ✓ tests/unit/api/customer-transactions.api.test.ts  (4 tests) 25ms
+ ✓ src/modules/clothing/operations/products/hooks/__tests__/useShippingFeeCalculator.test.ts  (4 tests) 8ms
+ ✓ tests/unit/products/ProductService.comprehensive.test.ts  (13 tests) 16ms
+stderr | tests/unit/transactions/useTransactionOperations.test.tsx > useTransactionOperations > auto-populates shipment code, status, and unit price when product code changes
+Network Error: {
+  url: '/api/operations/notifications',
+  error: "Cannot read properties of undefined (reading 'get')"
+}
+
+ ✓ src/modules/clothing/ledger/services/__tests__/ExpensesCSV.test.ts  (4 tests) 7ms
+ ✓ tests/unit/transactions/useTransactionOperations.test.tsx  (1 test) 31ms
+ ✓ src/modules/trucking/employees/expenses/services/__tests__/ExpensesCSV.test.ts  (4 tests) 19ms
+ ✓ tests/unit/api/customer-orders.api.test.ts  (4 tests) 21ms
+ ✓ src/app/api/general-merchandise/transactions/payments/bulk/__tests__/bulk-payments.route.test.ts  (1 test) 29ms
+ ✓ src/app/api/accounting/profit-loss/__tests__/route.test.ts  (1 test) 74ms
+ ✓ tests/unit/api/customer-with-shopee.api.test.ts  (2 tests) 36ms
+ ✓ src/app/api/shipments/__tests__/shipments.route.test.ts  (5 tests) 22ms
+ ✓ tests/unit/api/customer-with-all-addresses.api.test.ts  (2 tests) 17ms
+ ✓ src/lib/react-query/__tests__/optimistic.test.ts  (3 tests) 18ms
+ ✓ tests/unit/inventory/receiptAdjustments.test.ts  (4 tests) 6ms
+ ✓ src/app/api/prices/__tests__/prices.route.test.ts  (3 tests) 7ms
+ ✓ src/app/api/general-merchandise/customers/[id]/payments/__tests__/route.test.ts  (1 test) 24ms
+ ✓ src/lib/accounting/__tests__/transaction-normalization.test.ts  (5 tests) 18ms
+ ✓ tests/unit/api/payroll-cleanup.api.test.ts  (3 tests) 38ms
+ ✓ src/app/api/customers/[id]/payments/[paymentId]/__tests__/route.test.ts  (1 test) 22ms
+ ✓ src/app/api/restore/__tests__/restore-order.test.ts  (5 tests) 20ms
+ ✓ src/modules/clothing/operations/products/services/__tests__/ProductService.transactionFee.test.ts  (2 tests) 12ms
+ ✓ tests/unit/lib/accounting-data-fetchers.test.ts  (4 tests) 7ms
+ ✓ tests/unit/transactions/transactionService.test.ts  (3 tests) 5ms
+stderr | tests/unit/services/BaseService.test.ts > BaseService > Retry logic > should throw after max retries exceeded
+API Error [GET /always-fails]: Max retries reached {
+  name: 'APIError',
+  message: 'HTTP Error: 500 - Internal Server Error',
+  status: 500,
+  statusText: 'Internal Server Error',
+  endpoint: '/always-fails',
+  method: 'GET',
+  timestamp: '2026-02-10T05:37:58.796Z'
+}
+
+ ✓ src/lib/accounting/__tests__/expense-filters.test.ts  (2 tests) 6ms
+ ✓ src/lib/accounting/__tests__/csv-import.test.ts  (4 tests) 7ms
+ ✓ src/lib/accounting/__tests__/account-classification.test.ts  (6 tests) 6ms
+ ✓ src/modules/clothing/operations/products/components/__tests__/ProductsPage.test.tsx  (2 tests) 179ms
+ ✓ src/lib/__tests__/formatters.test.ts  (4 tests) 4ms
+ ✓ tests/unit/services/expense-services.endpoint.test.ts  (2 tests) 5ms
+ ✓ src/modules/settings/global/utils/__tests__/paymentCardValidation.test.ts  (2 tests) 7ms
+ ✓ src/components/expenses/__tests__/csvUtils.test.ts  (4 tests) 14ms
+ ✓ src/lib/accounting/__tests__/expense-import.test.ts  (2 tests) 5ms
+ ✓ src/lib/accounting/__tests__/manual-entry-import.test.ts  (2 tests) 7ms
+ ✓ src/modules/clothing/operations/checkout-links/__tests__/service.test.ts  (2 tests) 12ms
+ ✓ tests/unit/example.test.ts  (2 tests) 17ms
+stderr | tests/unit/services/BaseService.test.ts > BaseService > Error handling > should handle network errors after max retries
+Network Error [GET /test]: Max retries reached Error: Network error
+    at /home/ron/Websites/business-management-development/tests/unit/services/BaseService.test.ts:320:34
+    at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:135:14
+    at file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:60:26
+    at runTest (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:781:17)
+    at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+    at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+    at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+    at runFiles (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:958:5)
+    at startTests (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:967:3)
+    at file:///home/ron/Websites/business-management-development/node_modules/vitest/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+
+stderr | tests/unit/services/BaseService.test.ts > BaseService > Error handling > should handle JSON parse errors
+Network Error [GET /test]: Max retries reached Error: Invalid JSON
+    at Object.json (/home/ron/Websites/business-management-development/tests/unit/services/BaseService.test.ts:344:17)
+    at Function.request (/home/ron/Websites/business-management-development/src/services/BaseService.ts:234:40)
+    at /home/ron/Websites/business-management-development/tests/unit/services/BaseService.test.ts:348:7
+    at runTest (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:781:11)
+    at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+    at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+    at runSuite (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:909:15)
+    at runFiles (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:958:5)
+    at startTests (file:///home/ron/Websites/business-management-development/node_modules/@vitest/runner/dist/index.js:967:3)
+    at file:///home/ron/Websites/business-management-development/node_modules/vitest/dist/chunks/runtime-runBaseTests.oAvMKtQC.js:116:7
+
+ ✓ tests/unit/services/BaseService.test.ts  (19 tests) 10393ms
+
+ Test Files  125 passed (125)
+      Tests  1919 passed (1919)
+   Start at  13:37:45
+   Duration  15.66s (transform 7.81s, setup 45.40s, collect 18.26s, tests 17.39s, environment 69.53s, prepare 18.71s)
+

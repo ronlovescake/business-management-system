@@ -335,7 +335,7 @@ export const CalendarBulkActions = memo(function CalendarBulkActions({
                     }))
                   }
                   withAsterisk
-                  valueFormat="MM/DD/YYYY"
+                  valueFormat="YYYY-MM-DD"
                   clearable
                   {...COMMON_DATE_INPUT_PROPS}
                 />
@@ -352,7 +352,7 @@ export const CalendarBulkActions = memo(function CalendarBulkActions({
                     }))
                   }
                   description="Leave empty to build the next 3 months."
-                  valueFormat="MM/DD/YYYY"
+                  valueFormat="YYYY-MM-DD"
                   clearable
                   {...COMMON_DATE_INPUT_PROPS}
                 />

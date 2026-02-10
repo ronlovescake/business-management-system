@@ -683,7 +683,7 @@ export function useSchedules(apiBasePath?: string) {
     setEditingSchedule(null);
     setFormEmployeeName('');
     setFormEmployeeId('');
-    setFormDate('');
+    setFormDate(getCurrentDateISO());
     setFormShiftType('');
     setFormStartTime('');
     setFormEndTime('');

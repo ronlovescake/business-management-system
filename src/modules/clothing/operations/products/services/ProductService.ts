@@ -28,6 +28,7 @@ import type {
   ProductCalculationResults,
   ColumnAlignment,
 } from '../types/product.types';
+import { getCurrentDateISO } from '@/utils/date';
 import {
   TRANSACTION_FEE_RATE,
   SUGGESTED_PRICE_MARKUP,
@@ -139,8 +140,8 @@ export class ProductService {
       // For words with special characters like "H&M", "Rabbit+Bear", extract all uppercase letters
       if (/[&/.+]/.test(word)) {
         // Extract all uppercase letters from the word
-        const uppercaseLetters = word.match(/[A-Z]/g);
-        if (uppercaseLetters) {
+        const uppercaseLetters = word.match(/[A-Z]/g) ?? [];
+        if (uppercaseLetters.length > 0) {
           initials += uppercaseLetters.join('');
         } else {
           // If no uppercase, take first letter of each alphanumeric part
@@ -290,8 +291,8 @@ export class ProductService {
   static createEmptyForm(): ProductFormData {
     return {
       shipmentCode: '',
-      postingDate: '',
-      orderDate: '',
+      postingDate: getCurrentDateISO(),
+      orderDate: getCurrentDateISO(),
       payment: '',
       paymentMethod: '',
       paymentCardId: '',
@@ -458,7 +459,6 @@ export class ProductService {
         return `${year}-${month}-${day}`;
       }
     }
-
     // Parse MMDDYY format (6 digits) - legacy support
     if (/^\d{6}$/.test(dateStr)) {
       const month = dateStr.substring(0, 2);
@@ -497,7 +497,6 @@ export class ProductService {
           errors: ['CSV file is empty or contains no data rows'],
         };
       }
-
       // Skip header row
       const dataLines = lines.slice(1);
       const importedProducts: ProductData[] = [];
@@ -848,7 +847,6 @@ export class ProductService {
         }
         return (b.id ?? 0) - (a.id ?? 0);
       }
-
       const codeComparison = codeB.localeCompare(codeA, undefined, {
         numeric: true,
         sensitivity: 'base',

@@ -10,6 +10,9 @@ const { mockPrisma, mockSyncPayrollDeductions } = vi.hoisted(() => {
         create: vi.fn(),
         update: vi.fn(),
       },
+      expense: {
+        upsert: vi.fn(),
+      },
       employee: {
         findFirst: vi.fn(),
         findMany: vi.fn(),
