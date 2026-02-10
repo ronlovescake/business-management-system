@@ -356,7 +356,6 @@ export function ProfitLossBreakdownsPanel({
               placeholder="Select range"
               value={dateRange}
               onChange={setDateRange}
-              valueFormat="YYYY-MM-DD"
               w={240}
               clearable
               {...COMMON_DATE_INPUT_PROPS}

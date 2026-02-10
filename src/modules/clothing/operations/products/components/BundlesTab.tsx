@@ -416,7 +416,6 @@ export function BundlesTab({ apiBasePath }: BundlesTabProps) {
             <DateInput
               label="Posting Date"
               value={parseDateValue(form.postingDate)}
-              valueFormat="YYYY-MM-DD"
               onChange={(value) =>
                 setForm((prev) => ({
                   ...prev,

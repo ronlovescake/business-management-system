@@ -98,7 +98,6 @@ export const IncomeFormDialog = React.memo(function IncomeFormDialog({
             onChange={(value) =>
               onChange({ ...initial, date: formatDateForInput(value) })
             }
-            valueFormat="YYYY-MM-DD"
             required
             {...COMMON_DATE_INPUT_PROPS}
             {...dateField.handlers}

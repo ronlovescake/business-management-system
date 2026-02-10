@@ -242,7 +242,6 @@ export const LeaveFormDialog = React.memo(function LeaveFormDialog({
         <Group grow>
           <DateInput
             label="Start Date"
-            valueFormat="YYYY-MM-DD"
             required
             value={toDate(formStartDate)}
             onChange={(value) => setFormStartDate(toISODate(value))}
@@ -253,7 +252,6 @@ export const LeaveFormDialog = React.memo(function LeaveFormDialog({
 
           <DateInput
             label="End Date"
-            valueFormat="YYYY-MM-DD"
             required
             value={toDate(formEndDate)}
             onChange={(value) => setFormEndDate(toISODate(value))}

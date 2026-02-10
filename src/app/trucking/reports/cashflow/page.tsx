@@ -102,14 +102,12 @@ export default function CashflowReportPage() {
             label="Start Date"
             value={startDate}
             onChange={setStartDate}
-            valueFormat="YYYY-MM-DD"
             {...COMMON_DATE_INPUT_PROPS}
           />
           <DateInput
             label="End Date"
             value={endDate}
             onChange={setEndDate}
-            valueFormat="YYYY-MM-DD"
             {...COMMON_DATE_INPUT_PROPS}
           />
         </Group>

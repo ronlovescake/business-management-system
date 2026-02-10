@@ -242,7 +242,6 @@ export function TransitBuildModal({
           <DateInput
             label="Posting Date"
             placeholder="Select posting date"
-            valueFormat="YYYY-MM-DD"
             required
             {...COMMON_DATE_INPUT_PROPS}
             {...form.getInputProps('postingDate')}

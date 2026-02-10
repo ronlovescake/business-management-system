@@ -17,11 +17,14 @@ const isSameDay = (date: Date, comparison: Date): boolean => {
   );
 };
 
+export const DATE_INPUT_VALUE_FORMAT = 'YYYY-MM-DD';
+
 export const COMMON_DATE_INPUT_PROPS: Pick<
   DateInputProps,
-  'firstDayOfWeek' | 'getDayProps'
+  'firstDayOfWeek' | 'getDayProps' | 'valueFormat'
 > = {
   firstDayOfWeek: 0,
+  valueFormat: DATE_INPUT_VALUE_FORMAT,
   getDayProps: (date) => {
     const today = new Date();
 

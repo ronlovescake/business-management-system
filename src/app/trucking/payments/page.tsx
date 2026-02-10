@@ -156,7 +156,6 @@ export default function TruckingPaymentsPage() {
               label="Payment Date"
               value={paymentDate}
               onChange={setPaymentDate}
-              valueFormat="YYYY-MM-DD"
               {...COMMON_DATE_INPUT_PROPS}
             />
             <NumberInput

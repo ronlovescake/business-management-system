@@ -231,7 +231,6 @@ export const LoanFormDialog = React.memo(function LoanFormDialog({
         <Group gap="lg" align="flex-start" grow>
           <DateInput
             label="Application Date"
-            valueFormat="YYYY-MM-DD"
             {...COMMON_DATE_INPUT_PROPS}
             value={toDate(form.values.applicationDate)}
             onChange={(value) =>

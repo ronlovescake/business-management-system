@@ -491,7 +491,6 @@ export function RecurringPaymentsPanel(props: {
         <DateInput
           label="Show drafts due on or before"
           leftSection={<IconCalendar size={16} />}
-          valueFormat="YYYY-MM-DD"
           value={parseDateValue(dueOnOrBefore)}
           onChange={(value) => {
             const next = value ? formatDateForInput(value) : '';
@@ -655,7 +654,6 @@ export function RecurringPaymentsPanel(props: {
 
               <DateInput
                 label="Next due date"
-                valueFormat="YYYY-MM-DD"
                 value={parseDateValue(form.nextDueDate)}
                 onChange={(value) =>
                   setForm((p) => ({
@@ -672,7 +670,6 @@ export function RecurringPaymentsPanel(props: {
 
               <DateInput
                 label="End date (optional)"
-                valueFormat="YYYY-MM-DD"
                 value={parseDateValue(form.endDate)}
                 onChange={(value) =>
                   setForm((p) => ({

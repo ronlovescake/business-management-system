@@ -120,7 +120,6 @@ export function ManualJournalEntryModal({
         <Stack gap="md">
           <DateInput
             label="Date"
-            valueFormat="YYYY-MM-DD"
             value={toDate(form.date)}
             onChange={(value) => onChange('date', toISODate(value))}
             minDate={new Date('2026-01-01')}

@@ -126,7 +126,6 @@ export const EditShipmentModal = React.memo(function EditShipmentModal({
             <DateInput
               label="Date Created"
               placeholder="Select date created"
-              valueFormat="YYYY-MM-DD"
               leftSection={<IconCalendar size={16} />}
               required
               {...COMMON_DATE_INPUT_PROPS}
@@ -135,7 +134,6 @@ export const EditShipmentModal = React.memo(function EditShipmentModal({
             <DateInput
               label="Date Delivered"
               placeholder="Select date delivered"
-              valueFormat="YYYY-MM-DD"
               leftSection={<IconCalendar size={16} />}
               {...COMMON_DATE_INPUT_PROPS}
               {...form.getInputProps('dateDelivered')}

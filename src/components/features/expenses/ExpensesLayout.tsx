@@ -717,7 +717,6 @@ export function ExpensesLayout({
             required
             value={parseDateValue(formDate)}
             onChange={(value) => setFormDate(formatDateForInput(value))}
-            valueFormat="YYYY-MM-DD"
             clearable
             {...COMMON_DATE_INPUT_PROPS}
           />

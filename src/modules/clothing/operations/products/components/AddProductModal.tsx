@@ -266,7 +266,6 @@ export const AddProductModal = memo(function AddProductModal({
               radius="md"
               value={parseDateValue(form.postingDate)}
               onChange={handleDateChange('postingDate')}
-              valueFormat="YYYY-MM-DD"
               clearable
               {...COMMON_DATE_INPUT_PROPS}
             />
@@ -278,7 +277,6 @@ export const AddProductModal = memo(function AddProductModal({
               radius="md"
               value={parseDateValue(form.orderDate)}
               onChange={handleDateChange('orderDate')}
-              valueFormat="YYYY-MM-DD"
               clearable
               {...COMMON_DATE_INPUT_PROPS}
             />

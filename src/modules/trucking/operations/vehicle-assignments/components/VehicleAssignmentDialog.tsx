@@ -283,7 +283,6 @@ function VehicleAssignmentFields({
         <Grid.Col span={{ base: 12, md: 6 }}>
           <DateInput
             label="Start Date"
-            valueFormat="YYYY-MM-DD"
             value={toDate(form.values.startDate)}
             onChange={(value) =>
               form.setFieldValue(
@@ -299,7 +298,6 @@ function VehicleAssignmentFields({
         <Grid.Col span={{ base: 12, md: 6 }}>
           <DateInput
             label="End Date"
-            valueFormat="YYYY-MM-DD"
             value={toDate(form.values.endDate)}
             onChange={(value) =>
               form.setFieldValue(

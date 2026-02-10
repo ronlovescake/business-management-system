@@ -197,28 +197,24 @@ export default function TruckingInvoicesPage() {
               label="Cutoff Start"
               value={cutoffStart}
               onChange={setCutoffStart}
-              valueFormat="YYYY-MM-DD"
               {...COMMON_DATE_INPUT_PROPS}
             />
             <DateInput
               label="Cutoff End"
               value={cutoffEnd}
               onChange={setCutoffEnd}
-              valueFormat="YYYY-MM-DD"
               {...COMMON_DATE_INPUT_PROPS}
             />
             <DateInput
               label="Invoice Date"
               value={invoiceDate}
               onChange={setInvoiceDate}
-              valueFormat="YYYY-MM-DD"
               {...COMMON_DATE_INPUT_PROPS}
             />
             <DateInput
               label="Due Date"
               value={dueDate}
               onChange={setDueDate}
-              valueFormat="YYYY-MM-DD"
               clearable
               {...COMMON_DATE_INPUT_PROPS}
             />
@@ -268,28 +264,24 @@ export default function TruckingInvoicesPage() {
               label="Cutoff Start"
               value={genCutoffStart}
               onChange={setGenCutoffStart}
-              valueFormat="YYYY-MM-DD"
               {...COMMON_DATE_INPUT_PROPS}
             />
             <DateInput
               label="Cutoff End"
               value={genCutoffEnd}
               onChange={setGenCutoffEnd}
-              valueFormat="YYYY-MM-DD"
               {...COMMON_DATE_INPUT_PROPS}
             />
             <DateInput
               label="Invoice Date"
               value={genInvoiceDate}
               onChange={setGenInvoiceDate}
-              valueFormat="YYYY-MM-DD"
               {...COMMON_DATE_INPUT_PROPS}
             />
             <DateInput
               label="Due Date"
               value={genDueDate}
               onChange={setGenDueDate}
-              valueFormat="YYYY-MM-DD"
               clearable
               {...COMMON_DATE_INPUT_PROPS}
             />
