@@ -112,7 +112,7 @@ export default function WorkspaceModal({
         },
       });
       return () => {
-        closeAlert();
+        void closeAlert();
       };
     }
 
@@ -140,7 +140,7 @@ export default function WorkspaceModal({
             userName={userName}
             workspaces={workspaces}
             onSelect={(href) => {
-              closeAlert();
+              void closeAlert();
               router.push(href);
             }}
           />
@@ -154,7 +154,7 @@ export default function WorkspaceModal({
 
     return () => {
       root?.unmount();
-      closeAlert();
+      void closeAlert();
     };
   }, [router, userName, workspaces]);
 

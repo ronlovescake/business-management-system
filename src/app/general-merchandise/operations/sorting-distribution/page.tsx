@@ -2,6 +2,8 @@
  * GM Sorting Distribution Page Route Handler
  */
 
+'use client';
+
 import dynamic from 'next/dynamic';
 import { SortingDistributionErrorBoundary } from '@/app/clothing/operations/sorting-distribution/components/SortingDistributionErrorBoundary';
 import { renderGmOperationsPage } from '@/app/general-merchandise/operations/_shared/renderGmOperationsPage';
@@ -14,7 +16,7 @@ const SortingDistributionPage = dynamic(
   { ssr: false }
 );
 
-export default async function Page() {
+export default function Page() {
   return renderGmOperationsPage(
     '/general-merchandise/operations/sorting-distribution',
     <SortingDistributionErrorBoundary>

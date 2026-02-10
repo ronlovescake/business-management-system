@@ -5,6 +5,7 @@ import {
   IconCheck,
   IconX,
 } from '@tabler/icons-react';
+import { formatDisplayDate } from '@/utils/date';
 import type { OrderStatus } from './types';
 
 // ============================================================================
@@ -56,7 +57,7 @@ export function formatCurrency(value: number): string {
 }
 
 export function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString();
+  return formatDisplayDate(dateString);
 }
 
 export function getRateColor(rate: number, isFailure = false): string {
