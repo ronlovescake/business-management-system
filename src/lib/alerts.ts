@@ -7,8 +7,32 @@
  * @module lib/alerts
  */
 
-import Swal from 'sweetalert2';
 import type { SweetAlertOptions, SweetAlertResult } from 'sweetalert2';
+
+/**
+ * Lazily load SweetAlert2 so the ~47 KB library is not included in the
+ * initial page bundle.  Every helper in this file awaits this before
+ * calling Swal.fire().
+ *
+ * Files that need the raw Swal object (complex HTML dialogs, input prompts,
+ * etc.) should import `getSwal` instead of importing sweetalert2 directly.
+ */
+async function loadSwal() {
+  const mod = await import('sweetalert2');
+  return mod.default;
+}
+
+/**
+ * Public helper for files that need the raw SweetAlert2 default export
+ * (e.g. for Swal.showLoading, Swal.close, Swal.DismissReason, etc.).
+ *
+ * Usage:
+ *   import { getSwal } from '@/lib/alerts';
+ *   const Swal = await getSwal();
+ */
+export async function getSwal() {
+  return loadSwal();
+}
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -78,6 +102,7 @@ const defaultSwalConfig: SweetAlertOptions = {
  * await showAlert({ message: 'Error occurred', type: 'error' });
  */
 export async function showAlert(options: AlertOptions): Promise<void> {
+  const Swal = await loadSwal();
   const config: SweetAlertOptions = {
     ...defaultSwalConfig,
     title: options.title,
@@ -100,6 +125,7 @@ export async function showAlert(options: AlertOptions): Promise<void> {
  * if (confirmed) { ... }
  */
 export async function showConfirm(options: ConfirmOptions): Promise<boolean> {
+  const Swal = await loadSwal();
   const config: SweetAlertOptions = {
     ...defaultSwalConfig,
     title: options.title || 'Confirm',
@@ -121,7 +147,8 @@ export async function showConfirm(options: ConfirmOptions): Promise<boolean> {
  * @example
  * showToast({ message: 'Saved successfully!', type: 'success' });
  */
-export function showToast(options: ToastOptions): void {
+export async function showToast(options: ToastOptions): Promise<void> {
+  const Swal = await loadSwal();
   const Toast = Swal.mixin({
     toast: true,
     position: options.position || 'top-end',
@@ -287,7 +314,10 @@ export async function showDiscardConfirm(): Promise<boolean> {
  * // ... do async work
  * Swal.close();
  */
-export function showLoading(message: string = 'Processing...'): void {
+export async function showLoading(
+  message: string = 'Processing...'
+): Promise<void> {
+  const Swal = await loadSwal();
   Swal.fire({
     title: message,
     allowOutsideClick: false,
@@ -302,7 +332,8 @@ export function showLoading(message: string = 'Processing...'): void {
 /**
  * Close any currently open SweetAlert dialog
  */
-export function closeAlert(): void {
+export async function closeAlert(): Promise<void> {
+  const Swal = await loadSwal();
   Swal.close();
 }
 
@@ -320,6 +351,7 @@ export function closeAlert(): void {
 export async function showCustomAlert(
   options: SweetAlertOptions
 ): Promise<SweetAlertResult> {
+  const Swal = await loadSwal();
   return await Swal.fire({
     ...defaultSwalConfig,
     ...options,

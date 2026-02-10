@@ -1,4 +1,4 @@
-import Swal from 'sweetalert2';
+import { getSwal } from '@/lib/alerts';
 
 export interface ConfirmTripleDeleteOptions {
   title?: string;
@@ -22,6 +22,7 @@ const DEFAULTS: Required<ConfirmTripleDeleteOptions> = {
 export async function confirmTripleDelete(
   options: ConfirmTripleDeleteOptions = {}
 ): Promise<boolean> {
+  const Swal = await getSwal();
   const { title, warning, secondaryWarning, finalPrompt, confirmWord } = {
     ...DEFAULTS,
     ...options,

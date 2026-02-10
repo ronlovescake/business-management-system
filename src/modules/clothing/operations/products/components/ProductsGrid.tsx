@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import dynamic from 'next/dynamic';
 import { Stack } from '@mantine/core';
 import { HotTable } from '@handsontable/react';
@@ -27,7 +28,9 @@ interface ProductsGridProps {
   apiBasePath?: string;
 }
 
-export function ProductsGrid({ apiBasePath }: ProductsGridProps) {
+export const ProductsGrid = memo(function ProductsGrid({
+  apiBasePath,
+}: ProductsGridProps) {
   const {
     searchQuery,
     handleSearch,
@@ -198,4 +201,4 @@ export function ProductsGrid({ apiBasePath }: ProductsGridProps) {
       </Stack>
     </>
   );
-}
+});

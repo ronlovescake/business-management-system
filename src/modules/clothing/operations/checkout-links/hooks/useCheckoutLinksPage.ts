@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from '@mantine/form';
 import { showNotification } from '@mantine/notifications';
-import Swal from 'sweetalert2';
+import { getSwal } from '@/lib/alerts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
@@ -644,6 +644,7 @@ export const useCheckoutLinksPage = ({
 
   const handleDelete = useCallback(
     async (item: CheckoutLinkData): Promise<boolean> => {
+      const Swal = await getSwal();
       const productName =
         item.productNames || item.weight || 'this checkout link';
 

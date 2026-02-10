@@ -19,7 +19,7 @@ import {
   IconBrandFacebook,
 } from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
-import Swal from 'sweetalert2';
+import { showConfirm } from '@/lib/alerts';
 import { logger } from '@/lib/logger';
 import { buildApiPath } from '@/lib/api/paths';
 
@@ -190,19 +190,15 @@ export const AdditionalCustomerInfoCard = memo(
     };
 
     const removeAddress = async (id: string) => {
-      const result = await Swal.fire({
+      const confirmed = await showConfirm({
         title: 'Delete Address?',
-        text: 'Are you sure you want to delete this address?',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
+        message: 'Are you sure you want to delete this address?',
+        type: 'warning',
         confirmButtonText: 'Yes, delete it',
         cancelButtonText: 'Cancel',
-        allowOutsideClick: false,
       });
 
-      if (result.isConfirmed) {
+      if (confirmed) {
         setAddresses(addresses.filter((addr) => addr.id !== id));
         setHasChanges(true);
       }
@@ -229,19 +225,15 @@ export const AdditionalCustomerInfoCard = memo(
     };
 
     const removePhone = async (id: string) => {
-      const result = await Swal.fire({
+      const confirmed = await showConfirm({
         title: 'Delete Phone Number?',
-        text: 'Are you sure you want to delete this phone number?',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
+        message: 'Are you sure you want to delete this phone number?',
+        type: 'warning',
         confirmButtonText: 'Yes, delete it',
         cancelButtonText: 'Cancel',
-        allowOutsideClick: false,
       });
 
-      if (result.isConfirmed) {
+      if (confirmed) {
         setPhones(phones.filter((phone) => phone.id !== id));
         setHasChanges(true);
       }
@@ -271,19 +263,15 @@ export const AdditionalCustomerInfoCard = memo(
     };
 
     const removeShopeeUsername = async (id: string) => {
-      const result = await Swal.fire({
+      const confirmed = await showConfirm({
         title: 'Delete Shopee Username?',
-        text: 'Are you sure you want to delete this Shopee username?',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
+        message: 'Are you sure you want to delete this Shopee username?',
+        type: 'warning',
         confirmButtonText: 'Yes, delete it',
         cancelButtonText: 'Cancel',
-        allowOutsideClick: false,
       });
 
-      if (result.isConfirmed) {
+      if (confirmed) {
         setShopeeUsernames(
           shopeeUsernames.filter((username) => username.id !== id)
         );
@@ -317,19 +305,15 @@ export const AdditionalCustomerInfoCard = memo(
     };
 
     const removeAlternateName = async (id: string) => {
-      const result = await Swal.fire({
+      const confirmed = await showConfirm({
         title: 'Delete Alternate Name?',
-        text: 'Are you sure you want to delete this alternate name?',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
+        message: 'Are you sure you want to delete this alternate name?',
+        type: 'warning',
         confirmButtonText: 'Yes, delete it',
         cancelButtonText: 'Cancel',
-        allowOutsideClick: false,
       });
 
-      if (result.isConfirmed) {
+      if (confirmed) {
         setAlternateNames(alternateNames.filter((name) => name.id !== id));
         setHasChanges(true);
       }
@@ -361,19 +345,15 @@ export const AdditionalCustomerInfoCard = memo(
     };
 
     const removeFacebookAccount = async (id: string) => {
-      const result = await Swal.fire({
+      const confirmed = await showConfirm({
         title: 'Delete Facebook Account?',
-        text: 'Are you sure you want to delete this Facebook account?',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
+        message: 'Are you sure you want to delete this Facebook account?',
+        type: 'warning',
         confirmButtonText: 'Yes, delete it',
         cancelButtonText: 'Cancel',
-        allowOutsideClick: false,
       });
 
-      if (result.isConfirmed) {
+      if (confirmed) {
         setFacebookAccounts(
           facebookAccounts.filter((account) => account.id !== id)
         );

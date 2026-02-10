@@ -21,8 +21,7 @@ import { TransactionService } from '../services/TransactionService';
 import { api, ApiError } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import { logger } from '@/lib/logger';
-import { showConfirm } from '@/lib/alerts';
-import Swal from 'sweetalert2';
+import { showConfirm, getSwal } from '@/lib/alerts';
 import type { TransactionData, PriceTier } from '../types/transaction.types';
 import { queryKeys } from '@/lib/queryKeys';
 import { OperationsNotificationsService } from '../../notifications/services/OperationsNotificationsService';
@@ -520,6 +519,7 @@ export function useTransactionOperations(
 
   const handleCellEdited = useCallback(
     async (edit: CellEditEvent<TransactionData>) => {
+      const Swal = await getSwal();
       const { columnId, row: rowIndex, value: rawValue, isBatch } = edit;
 
       if (!columnId) {

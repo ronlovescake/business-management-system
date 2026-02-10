@@ -15,7 +15,7 @@ import {
   ActionIcon,
 } from '@mantine/core';
 import { IconPlus, IconTrash } from '@tabler/icons-react';
-import Swal from 'sweetalert2';
+import { showConfirm } from '@/lib/alerts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { showNotification } from '@mantine/notifications';
 import { api, ApiError } from '@/lib/api/client';
@@ -236,17 +236,15 @@ export const OrdersAndTransactions = memo(function OrdersAndTransactions({
   }, [transactions]);
 
   const handleDeleteRefund = async (refund: TransactionRefund) => {
-    const result = await Swal.fire({
+    const confirmed = await showConfirm({
       title: 'Delete refund?',
-      text: 'This will hide the refund record (soft delete).',
-      icon: 'warning',
-      showCancelButton: true,
+      message: 'This will hide the refund record (soft delete).',
+      type: 'warning',
       confirmButtonText: 'Delete',
       cancelButtonText: 'Cancel',
-      confirmButtonColor: '#d33',
     });
 
-    if (!result.isConfirmed) {
+    if (!confirmed) {
       return;
     }
 

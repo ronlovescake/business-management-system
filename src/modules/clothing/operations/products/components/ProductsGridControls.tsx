@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Button, Group, TextInput } from '@mantine/core';
 import { IconEdit, IconLock, IconPlus, IconSearch } from '@tabler/icons-react';
 
@@ -12,7 +13,7 @@ interface ProductsGridControlsProps {
   onTransitBuildUp: () => void;
 }
 
-export function ProductsGridControls({
+export const ProductsGridControls = memo(function ProductsGridControls({
   searchQuery,
   onSearchChange,
   isEditMode,
@@ -76,4 +77,4 @@ export function ProductsGridControls({
       </Group>
     </Group>
   );
-}
+});

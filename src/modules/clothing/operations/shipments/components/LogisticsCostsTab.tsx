@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import {
   Accordion,
   Alert,
@@ -130,7 +130,7 @@ function buildDefaultDescription(input: {
     .join(' • ');
 }
 
-export function LogisticsCostsTab({
+export const LogisticsCostsTab = memo(function LogisticsCostsTab({
   shipments,
   apiBasePath,
 }: {
@@ -526,4 +526,4 @@ export function LogisticsCostsTab({
       </Stack>
     </Paper>
   );
-}
+});

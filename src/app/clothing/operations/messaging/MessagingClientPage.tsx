@@ -41,7 +41,7 @@ import {
   type ConversationParticipant,
   type Message,
 } from '@/services/messaging.service';
-import { formatDistanceToNow } from 'date-fns';
+import { timeAgo } from '@/utils/date';
 import {
   playMessageSound,
   initializeAudioContext,
@@ -484,10 +484,7 @@ export function MessagingClientPage() {
                             </Text>
                             {conversation.lastMessage && (
                               <Text size="xs" c="gray.6">
-                                {formatDistanceToNow(
-                                  new Date(conversation.lastMessage.createdAt),
-                                  { addSuffix: true }
-                                )}
+                                {timeAgo(conversation.lastMessage.createdAt)}
                               </Text>
                             )}
                           </Group>
@@ -626,12 +623,7 @@ export function MessagingClientPage() {
                               }
                               ta={isMyMessage ? 'right' : 'left'}
                             >
-                              {formatDistanceToNow(
-                                new Date(message.createdAt),
-                                {
-                                  addSuffix: true,
-                                }
-                              )}
+                              {timeAgo(message.createdAt)}
                             </Text>
                           </Stack>
                           {isMyMessage && (
@@ -769,10 +761,7 @@ export function MessagingClientPage() {
                       {activeConversation.lastMessage.body}
                     </Text>
                     <Text size="xs" c="gray.6">
-                      {formatDistanceToNow(
-                        new Date(activeConversation.lastMessage.createdAt),
-                        { addSuffix: true }
-                      )}
+                      {timeAgo(activeConversation.lastMessage.createdAt)}
                     </Text>
                   </Stack>
                 ) : (

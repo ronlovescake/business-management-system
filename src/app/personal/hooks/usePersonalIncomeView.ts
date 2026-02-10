@@ -1,5 +1,11 @@
 import { useCallback, useMemo, useState } from 'react';
-import Swal from 'sweetalert2';
+import {
+  showLoading,
+  closeAlert,
+  showSuccess,
+  showError,
+  showInfo,
+} from '@/lib/alerts';
 import { confirmTripleDelete } from '@/utils/confirmTripleDelete';
 import { normalizeText } from '@/utils/text';
 import { parseCSVLine, validateCSVHeaders } from '@/components/expenses';
@@ -160,32 +166,20 @@ export function usePersonalIncomeView() {
         }
 
         try {
-          void Swal.fire({
-            title: 'Deleting...',
-            allowOutsideClick: false,
-            didOpen: () => {
-              Swal.showLoading();
-            },
-          });
+          await showLoading('Deleting...');
 
           await deleteIncome(id);
 
-          await Swal.fire({
-            icon: 'success',
-            title: 'Deleted',
-            text: 'Income record deleted successfully.',
-            timer: 1200,
-            showConfirmButton: false,
-          });
+          await closeAlert();
+          await showSuccess('Income record deleted successfully.', 'Deleted');
         } catch (error) {
-          await Swal.fire({
-            icon: 'error',
-            title: 'Delete failed',
-            text:
-              error instanceof Error
-                ? error.message
-                : 'Unable to delete income record.',
-          });
+          await closeAlert();
+          await showError(
+            error instanceof Error
+              ? error.message
+              : 'Unable to delete income record.',
+            'Delete failed'
+          );
         }
       })();
     },
@@ -222,14 +216,12 @@ export function usePersonalIncomeView() {
 
         setIsModalOpen(false);
       } catch (error) {
-        await Swal.fire({
-          icon: 'error',
-          title: 'Save failed',
-          text:
-            error instanceof Error
-              ? error.message
-              : 'Unable to save income record.',
-        });
+        await showError(
+          error instanceof Error
+            ? error.message
+            : 'Unable to save income record.',
+          'Save failed'
+        );
       }
     })();
   }, [createIncome, draft, editingIncome, updateIncome]);
@@ -248,11 +240,7 @@ export function usePersonalIncomeView() {
           .filter((l) => l.length > 0);
 
         if (lines.length === 0) {
-          await Swal.fire({
-            icon: 'info',
-            title: 'No data',
-            text: 'The CSV file is empty.',
-          });
+          await showInfo('The CSV file is empty.', 'No data');
           return;
         }
 
@@ -262,11 +250,10 @@ export function usePersonalIncomeView() {
         const required = ['date', 'type', 'amount', 'account', 'notes'];
         const missing = validateCSVHeaders(headers, required);
         if (missing.length > 0) {
-          await Swal.fire({
-            icon: 'error',
-            title: 'Invalid CSV',
-            text: `Missing columns: ${missing.join(', ')}`,
-          });
+          await showError(
+            `Missing columns: ${missing.join(', ')}`,
+            'Invalid CSV'
+          );
           return;
         }
 
@@ -317,11 +304,10 @@ export function usePersonalIncomeView() {
           }
         }
 
-        await Swal.fire({
-          icon: 'success',
-          title: 'Import complete',
-          text: `Imported ${imported} rows. Skipped ${skipped}.`,
-        });
+        await showSuccess(
+          `Imported ${imported} rows. Skipped ${skipped}.`,
+          'Import complete'
+        );
       } finally {
         setIsImporting(false);
       }

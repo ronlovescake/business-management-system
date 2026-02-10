@@ -24,7 +24,7 @@ import {
   IconKey,
   IconEdit,
 } from '@tabler/icons-react';
-import { formatDistanceToNow } from 'date-fns';
+import { timeAgo } from '@/utils/date';
 import type { Module, User, UserPermissionsMap, LoadingMap } from '../types';
 
 interface UsersTableProps {
@@ -157,11 +157,7 @@ export function UsersTable({
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm">
-                      {user.lastLoginAt
-                        ? formatDistanceToNow(new Date(user.lastLoginAt), {
-                            addSuffix: true,
-                          })
-                        : 'Never'}
+                      {user.lastLoginAt ? timeAgo(user.lastLoginAt) : 'Never'}
                     </Text>
                   </Table.Td>
                   <Table.Td>

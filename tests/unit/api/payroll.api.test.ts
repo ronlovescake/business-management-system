@@ -39,11 +39,19 @@ describe('Payroll API', () => {
     vi.clearAllMocks();
     mockPrisma.$transaction.mockImplementation(
       async (
-        callback: (tx: { payroll: typeof mockPrisma.payroll }) => unknown
-      ) =>
-        callback({
+        input:
+          | ((tx: { payroll: typeof mockPrisma.payroll }) => unknown)
+          | Promise<unknown>[]
+      ) => {
+        // Array form: resolve all promises and return results
+        if (Array.isArray(input)) {
+          return Promise.all(input);
+        }
+        // Interactive form: pass mock prisma as transaction client
+        return input({
           payroll: mockPrisma.payroll,
-        })
+        });
+      }
     );
   });
 

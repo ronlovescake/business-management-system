@@ -24,7 +24,7 @@ import {
 import { useForm } from '@mantine/form';
 import { showNotification } from '@mantine/notifications';
 import { IconInfoCircle, IconCheck, IconX } from '@tabler/icons-react';
-import Swal from 'sweetalert2';
+import { getSwal } from '@/lib/alerts';
 import { MESSAGE_PLACEHOLDERS } from '../../checkout-links/utils/messageGenerator';
 import { logger } from '@/lib/logger';
 import { MessageTemplatesBoard } from '@/app/clothing/operations/message-templates/MessageTemplatesBoard';
@@ -294,6 +294,7 @@ export default function InvoiceMessageTab({
   };
 
   const handleReset = async () => {
+    const Swal = await getSwal();
     // First confirmation - Warning
     const firstConfirm = await Swal.fire({
       title: 'Reset to Default?',
@@ -396,6 +397,7 @@ export default function InvoiceMessageTab({
     form.values.paymentChannelsUrl !== originalValues.paymentChannelsUrl;
 
   const handleEnableEditing = async () => {
+    const Swal = await getSwal();
     const confirmation = await Swal.fire({
       title: 'Edit invoice template?',
       text: 'You are about to enable editing. Any changes you save will update the shared template.',

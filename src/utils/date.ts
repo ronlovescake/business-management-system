@@ -1,12 +1,14 @@
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
+import relativeTime from 'dayjs/plugin/relativeTime';
 
 // Configure dayjs to always use the Philippines timezone across the app
 const PH_TIMEZONE = 'Asia/Manila';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
+dayjs.extend(relativeTime);
 dayjs.tz.setDefault(PH_TIMEZONE);
 
 export const DATE_STORAGE_FORMAT = 'YYYY-MM-DD';
@@ -36,5 +38,21 @@ export const formatDisplayDate = (
   value?: string | Date | null,
   format: string = DATE_DISPLAY_FORMAT
 ) => (value ? dayjs(value).tz().format(format) : '');
+
+/**
+ * Returns a human-readable relative time string, e.g. "3 hours ago".
+ * Replaces date-fns `formatDistanceToNow(date, { addSuffix: true })`.
+ */
+export const timeAgo = (value: string | Date | null | undefined): string =>
+  value ? dayjs(value).fromNow() : '';
+
+/**
+ * Formats a date using a dayjs format string, e.g. 'MMM d, yyyy' → 'MMM D, YYYY'.
+ * Replaces date-fns `format(date, pattern)`.
+ */
+export const formatDate = (
+  value: string | Date | null | undefined,
+  pattern: string
+): string => (value ? dayjs(value).tz().format(pattern) : '');
 
 export { dayjs };

@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { Box, Divider, Group, Stack, Text } from '@mantine/core';
 import { IconCalendar, IconShield } from '@tabler/icons-react';
-import { formatDistanceToNow } from 'date-fns';
+import { timeAgo } from '@/utils/date';
 import type { UserProfile } from '../types';
 
 interface ProfileMetaProps {
@@ -26,10 +26,7 @@ function ProfileMetaComponent({ profile }: ProfileMetaProps) {
             <Group gap="xs">
               <IconShield size={16} />
               <Text size="sm" c="dimmed">
-                Last login{' '}
-                {formatDistanceToNow(new Date(profile.lastLoginAt), {
-                  addSuffix: true,
-                })}
+                Last login {timeAgo(profile.lastLoginAt)}
               </Text>
             </Group>
           )}

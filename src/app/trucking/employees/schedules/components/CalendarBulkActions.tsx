@@ -16,7 +16,7 @@ import {
   formatDateForInput,
   parseDateValue,
 } from '@/lib/dateInputConfig';
-import Swal from 'sweetalert2';
+import { showWarning, showConfirm, showSuccess } from '@/lib/alerts';
 import type { EmployeeSummary, RecurringRule, ShiftType } from '../types';
 import { UniversalModal } from '@/components/modals/UniversalModal';
 
@@ -111,30 +111,23 @@ export const CalendarBulkActions = memo(function CalendarBulkActions({
       !ruleDraft.startDate ||
       ruleDraft.daysOfWeek.length === 0
     ) {
-      await Swal.fire({
-        icon: 'warning',
-        title: 'Missing Information',
-        text: 'Employee, start date, and at least one work day are required',
-        confirmButtonColor: '#228be6',
-        allowOutsideClick: false,
-      });
+      await showWarning(
+        'Employee, start date, and at least one work day are required',
+        'Missing Information'
+      );
       return;
     }
 
     // Show confirmation dialog before saving
-    const result = await Swal.fire({
-      icon: 'question',
+    const confirmed = await showConfirm({
       title: 'Save Schedules?',
-      text: `This will create schedules for ${ruleDraft.employeeName} starting from ${ruleDraft.startDate}`,
-      showCancelButton: true,
-      confirmButtonColor: '#228be6',
-      cancelButtonColor: '#868e96',
+      message: `This will create schedules for ${ruleDraft.employeeName} starting from ${ruleDraft.startDate}`,
+      type: 'question',
       confirmButtonText: 'Yes, save schedules',
       cancelButtonText: 'Cancel',
-      allowOutsideClick: false,
     });
 
-    if (!result.isConfirmed) {
+    if (!confirmed) {
       return;
     }
 
@@ -168,14 +161,7 @@ export const CalendarBulkActions = memo(function CalendarBulkActions({
       setRuleModalOpen(false);
 
       // Show success message
-      await Swal.fire({
-        icon: 'success',
-        title: 'Success!',
-        text: 'Schedules saved successfully',
-        confirmButtonColor: '#228be6',
-        confirmButtonText: 'OK',
-        allowOutsideClick: false,
-      });
+      await showSuccess('Schedules saved successfully', 'Success!');
     } catch (error) {
       // Error is already handled by the hook with SweetAlert
       return;

@@ -1,4 +1,4 @@
-import Swal from 'sweetalert2';
+import { getSwal } from '@/lib/alerts';
 
 type ConfirmCustomerReplaceParams = {
   previousCustomerInput: string;
@@ -11,6 +11,7 @@ export async function confirmCustomerReplacement({
   nextCustomer,
   source,
 }: ConfirmCustomerReplaceParams): Promise<boolean> {
+  const Swal = await getSwal();
   const trimmedPrevious = previousCustomerInput.trim();
   const trimmedNext = nextCustomer.trim();
   const normalizedSource = String(source ?? '').toLowerCase();

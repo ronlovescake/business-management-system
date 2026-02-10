@@ -12,7 +12,7 @@
 
 'use client';
 
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { Button, Tabs, FileButton } from '@mantine/core';
 import {
   IconPackage,
@@ -52,7 +52,9 @@ interface ShipmentsPageProps {
   apiBasePath?: string;
 }
 
-export function ShipmentsPage({ apiBasePath }: ShipmentsPageProps) {
+export const ShipmentsPage = memo(function ShipmentsPage({
+  apiBasePath,
+}: ShipmentsPageProps) {
   // ==========================================================================
   // STATE
   // ==========================================================================
@@ -502,4 +504,4 @@ export function ShipmentsPage({ apiBasePath }: ShipmentsPageProps) {
       </Tabs>
     </PageLayout>
   );
-}
+});

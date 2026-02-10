@@ -16,7 +16,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
 import { logger } from '@/lib/logger';
-import Swal from 'sweetalert2';
+import { confirmTripleDelete } from '@/utils/confirmTripleDelete';
 import {
   StandardDataTable,
   StandardTableContainer,
@@ -66,57 +66,13 @@ function createEmptyBundle(): BundleFormState {
 async function confirmTripleDeleteBundle(
   bundleLabel: string
 ): Promise<boolean> {
-  const step1 = await Swal.fire({
+  return confirmTripleDelete({
     title: 'Delete bundle batch?',
-    text: `This will permanently delete ${bundleLabel}.`,
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonText: 'Continue',
-    cancelButtonText: 'Cancel',
-    reverseButtons: true,
-    allowOutsideClick: false,
+    warning: `This will permanently delete ${bundleLabel}.`,
+    secondaryWarning:
+      'This will remove the bundle batch and its inventory movements.',
+    finalPrompt: 'Type DELETE to confirm.',
   });
-
-  if (!step1.isConfirmed) {
-    return false;
-  }
-
-  const step2 = await Swal.fire({
-    title: 'Are you absolutely sure?',
-    text: 'This will remove the bundle batch and its inventory movements.',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonText: 'Yes, continue',
-    cancelButtonText: 'Cancel',
-    reverseButtons: true,
-    allowOutsideClick: false,
-  });
-
-  if (!step2.isConfirmed) {
-    return false;
-  }
-
-  const step3 = await Swal.fire({
-    title: 'Final confirmation',
-    text: 'Type DELETE to confirm.',
-    icon: 'warning',
-    input: 'text',
-    inputPlaceholder: 'DELETE',
-    inputAttributes: { autocapitalize: 'off' },
-    showCancelButton: true,
-    confirmButtonText: 'Delete',
-    cancelButtonText: 'Cancel',
-    reverseButtons: true,
-    allowOutsideClick: false,
-    inputValidator: (value) => {
-      if ((value || '').trim().toUpperCase() !== 'DELETE') {
-        return 'Please type DELETE to confirm.';
-      }
-      return undefined;
-    },
-  });
-
-  return step3.isConfirmed;
 }
 
 interface BundlesTabProps {

@@ -157,22 +157,22 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Update each expense using service
-    const updatePromises = updatePayload.map(async (expense) => {
+    // Validate all IDs are finite numbers before updating
+    const validated = updatePayload.map((expense) => {
       const id = Number(expense.id);
       if (!Number.isFinite(id)) {
         throw new Error(`Invalid expense ID: ${expense.id}`);
       }
-
-      const { id: _, ...updateData } = expense;
-      return expenseService.update(id, updateData);
+      return { ...expense, id };
     });
 
-    const results = await Promise.all(updatePromises);
+    // Use service bulkUpdate — sequential updates with audit logging,
+    // avoids Promise.all connection pool exhaustion under load
+    const { count } = await expenseService.updateMany(validated);
 
     return NextResponse.json({
-      message: `Successfully updated ${results.length} expenses`,
-      count: results.length,
+      message: `Successfully updated ${count} expenses`,
+      count,
     });
   } catch (error) {
     logger.error('Failed to bulk update expenses', { error });

@@ -2,9 +2,17 @@
  * GM Sorting Distribution Page Route Handler
  */
 
-import { SortingDistributionPage } from '@/modules/clothing/operations/sorting-distribution/components/SortingDistributionPage';
+import dynamic from 'next/dynamic';
 import { SortingDistributionErrorBoundary } from '@/app/clothing/operations/sorting-distribution/components/SortingDistributionErrorBoundary';
 import { renderGmOperationsPage } from '@/app/general-merchandise/operations/_shared/renderGmOperationsPage';
+
+const SortingDistributionPage = dynamic(
+  () =>
+    import(
+      '@/modules/clothing/operations/sorting-distribution/components/SortingDistributionPage'
+    ).then((mod) => ({ default: mod.SortingDistributionPage })),
+  { ssr: false }
+);
 
 export default async function Page() {
   return renderGmOperationsPage(

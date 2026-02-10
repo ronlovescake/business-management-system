@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react';
 import { showNotification } from '@mantine/notifications';
-import Swal from 'sweetalert2';
+import { getSwal } from '@/lib/alerts';
 import { apiClient } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import { logger } from '@/lib/logger';
@@ -65,6 +65,7 @@ export function useDispatchActions({
 
   // Update shipped orders handler
   const handleUpdateShippedOrders = useCallback(async () => {
+    const Swal = await getSwal();
     try {
       // Calculate 24 hours ago
       const now = new Date();
@@ -299,6 +300,7 @@ export function useDispatchActions({
         }) => void;
       }
     ) => {
+      const Swal = await getSwal();
       const result = await Swal.fire({
         title: 'Link Customer?',
         html: `

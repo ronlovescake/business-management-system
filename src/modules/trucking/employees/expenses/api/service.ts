@@ -178,8 +178,9 @@ export class ExpenseService {
       let updated = 0;
 
       for (const expense of data) {
-        if (expense.id) {
-          await this.update(expense.id, expense);
+        const id = Number(expense.id);
+        if (Number.isFinite(id)) {
+          await this.update(id, expense);
           updated++;
         }
       }

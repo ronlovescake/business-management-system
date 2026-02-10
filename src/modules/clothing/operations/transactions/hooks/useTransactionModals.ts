@@ -12,7 +12,7 @@
 
 import { useState, useCallback } from 'react';
 import { showNotification } from '@mantine/notifications';
-import Swal from 'sweetalert2';
+import { getSwal } from '@/lib/alerts';
 import { TransactionService } from '../services/TransactionService';
 import { api } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
@@ -246,6 +246,7 @@ export function useTransactionModals(
 
   const handleInTransitInvoiceGeneration = useCallback(
     async (visibleTransactions: TransactionData[]) => {
+      const Swal = await getSwal();
       logger.debug('🚚 Preparing In Transit invoice generation...');
 
       const inTransitTransactions = visibleTransactions.filter(
@@ -439,6 +440,7 @@ export function useTransactionModals(
       visibleTransactions: TransactionData[],
       config: ReservationInvoiceWorkflowConfig
     ) => {
+      const Swal = await getSwal();
       const percentLabel = `${Math.round(config.feePercentage * 100)}%`;
       logger.debug(
         `💳 Preparing reservation-fee invoice generation (${percentLabel})...`
@@ -670,6 +672,7 @@ export function useTransactionModals(
 
   const prepareInvoiceGeneration = useCallback(
     async (visibleTransactions: TransactionData[]) => {
+      const Swal = await getSwal();
       logger.debug(
         '📄 Preparing invoice generation for customers with Warehouse orders...'
       );
@@ -1102,6 +1105,7 @@ export function useTransactionModals(
 
   const preparePackingListGeneration = useCallback(
     async (visibleTransactions: TransactionData[]) => {
+      const Swal = await getSwal();
       // Count all "Prepared" orders (regardless of line total)
       const allPrepared = visibleTransactions.filter((t) => {
         const status = getNormalizedStatus(t['Order Status']);

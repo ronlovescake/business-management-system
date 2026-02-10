@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from 'react';
 import { showNotification } from '@mantine/notifications';
-import * as XLSX from 'xlsx';
 import { logger } from '@/lib/logger';
 import { showInfo } from '@/lib/alerts';
 import type { RawOrderData } from '../types';
@@ -52,6 +51,7 @@ export function useDispatchImport({
         }
 
         const data = await file.arrayBuffer();
+        const XLSX = await import('xlsx');
         const workbook = XLSX.read(data, { type: 'array' });
 
         // Validate workbook has sheets

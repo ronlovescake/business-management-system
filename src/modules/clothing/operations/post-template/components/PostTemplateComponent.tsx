@@ -18,7 +18,7 @@ import {
 } from '@mantine/core';
 import { IconCopy, IconPencil } from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
-import Swal from 'sweetalert2';
+import { showCustomAlert } from '@/lib/alerts';
 import { DEFAULT_POST_TEMPLATE_NOTICE } from '@/modules/clothing/operations/post-template/notice.data';
 import type { PostTemplateNotice } from '@/modules/clothing/operations/post-template/notice.types';
 import { buildApiPath } from '@/lib/api/paths';
@@ -308,7 +308,7 @@ Arrives In: ${arrivesInText}
       .filter(Boolean);
 
   const openNoticeEditor = async () => {
-    const confirmation = await Swal.fire({
+    const confirmation = await showCustomAlert({
       title: 'Edit notice copy?',
       text: 'Changes update the shared block on the Post Template canvas.',
       icon: 'warning',

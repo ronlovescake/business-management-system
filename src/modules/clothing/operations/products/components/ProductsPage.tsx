@@ -6,14 +6,36 @@
  */
 
 import React, { useState } from 'react';
-import { Stack, Tabs } from '@mantine/core';
+import dynamic from 'next/dynamic';
+import { Loader, Center, Stack, Tabs } from '@mantine/core';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { TableSkeleton } from '@/components/ui/TableSkeleton';
 import { useProductsData } from '../hooks/useProductsData';
-import { ProductsGrid } from './ProductsGrid';
-import { ShippingFeeCalculator } from './ShippingFeeCalculator';
 import { ProductStatsCards } from './ProductStatsCards';
-import { BundlesTab } from './BundlesTab';
+
+const TabLoader = () => (
+  <Center py="xl">
+    <Loader size="md" />
+  </Center>
+);
+
+const ProductsGrid = dynamic(
+  () => import('./ProductsGrid').then((mod) => ({ default: mod.ProductsGrid })),
+  { ssr: false, loading: TabLoader }
+);
+
+const ShippingFeeCalculator = dynamic(
+  () =>
+    import('./ShippingFeeCalculator').then((mod) => ({
+      default: mod.ShippingFeeCalculator,
+    })),
+  { ssr: false, loading: TabLoader }
+);
+
+const BundlesTab = dynamic(
+  () => import('./BundlesTab').then((mod) => ({ default: mod.BundlesTab })),
+  { ssr: false, loading: TabLoader }
+);
 
 interface ProductsPageProps {
   apiBasePath?: string;

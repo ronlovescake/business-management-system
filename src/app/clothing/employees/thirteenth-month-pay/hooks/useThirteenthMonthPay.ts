@@ -6,7 +6,7 @@ import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import { queryKeys } from '@/lib/queryKeys';
-import Swal from 'sweetalert2';
+import { getSwal } from '@/lib/alerts';
 
 const normalizeValue = (value: string | null | undefined) =>
   (value ?? '').toString().trim().replace(/\s+/g, ' ').toLowerCase();
@@ -726,7 +726,7 @@ export function useThirteenthMonthPay(apiBasePath?: string) {
 
       return { previous };
     },
-    onError: (error, variables, context) => {
+    onError: async (error, variables, context) => {
       if (context?.previous) {
         queryClient.setQueryData(
           thirteenthQueryKey.list(filters),
@@ -734,7 +734,7 @@ export function useThirteenthMonthPay(apiBasePath?: string) {
         );
       }
       logger.error('Error approving record:', error);
-
+      const Swal = await getSwal();
       Swal.fire({
         title: 'Error',
         text: 'Failed to approve the record. Please try again.',
@@ -743,7 +743,8 @@ export function useThirteenthMonthPay(apiBasePath?: string) {
         allowOutsideClick: false,
       });
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      const Swal = await getSwal();
       Swal.fire({
         title: 'Approved!',
         text: 'The 13th month pay has been approved and locked.',
@@ -804,7 +805,7 @@ export function useThirteenthMonthPay(apiBasePath?: string) {
 
       return { previous };
     },
-    onError: (error, variables, context) => {
+    onError: async (error, variables, context) => {
       if (context?.previous) {
         queryClient.setQueryData(
           thirteenthQueryKey.list(filters),
@@ -812,7 +813,7 @@ export function useThirteenthMonthPay(apiBasePath?: string) {
         );
       }
       logger.error('Error marking as paid:', error);
-
+      const Swal = await getSwal();
       Swal.fire({
         title: 'Error',
         text: 'Failed to mark as paid. Please try again.',
@@ -821,7 +822,8 @@ export function useThirteenthMonthPay(apiBasePath?: string) {
         allowOutsideClick: false,
       });
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      const Swal = await getSwal();
       Swal.fire({
         title: 'Marked as Paid!',
         text: 'The payment has been recorded successfully.',
@@ -847,6 +849,7 @@ export function useThirteenthMonthPay(apiBasePath?: string) {
   };
 
   const approveRecord = async (id: string) => {
+    const Swal = await getSwal();
     const record = records.find((r) => r.id === id);
     if (!record) {
       return;
@@ -893,6 +896,7 @@ export function useThirteenthMonthPay(apiBasePath?: string) {
   };
 
   const markAsPaid = async (id: string) => {
+    const Swal = await getSwal();
     const record = records.find((r) => r.id === id);
     if (!record) {
       return;

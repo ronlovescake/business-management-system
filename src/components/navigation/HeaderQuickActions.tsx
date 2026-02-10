@@ -61,7 +61,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import type { Session } from 'next-auth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { formatDistanceToNow } from 'date-fns';
+import { timeAgo } from '@/utils/date';
 import { useBusinessStore } from '@/lib/store';
 import { getMessagingPath } from '@/lib/routes';
 import {
@@ -776,10 +776,7 @@ const MessagesMenu = memo(function MessagesMenu({
                     currentUserEmail
                   );
                   const lastMessageTime = conversation.lastMessage?.createdAt
-                    ? formatDistanceToNow(
-                        new Date(conversation.lastMessage.createdAt),
-                        { addSuffix: true }
-                      )
+                    ? timeAgo(conversation.lastMessage.createdAt)
                     : '';
                   const preview =
                     conversation.lastMessage?.body || 'No messages yet';
@@ -1246,10 +1243,7 @@ const ChatWindow = memo(function ChatWindow({
                       senderEmail === normalizedUserEmail);
                   const senderLabel =
                     message.sender.name || message.sender.email || 'User';
-                  const timestamp = formatDistanceToNow(
-                    new Date(message.createdAt),
-                    { addSuffix: true }
-                  );
+                  const timestamp = timeAgo(message.createdAt);
 
                   return (
                     <Flex

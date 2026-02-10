@@ -11,7 +11,7 @@ import {
 } from '@/lib/payroll/formatters';
 import type { Payroll, PayrollFormData } from '../types';
 import { getCurrentDateISO } from '@/utils/date';
-import Swal from 'sweetalert2';
+import { getSwal } from '@/lib/alerts';
 
 export function usePayroll() {
   const queryClient = useQueryClient();
@@ -266,11 +266,12 @@ export function usePayroll() {
 
       return { previous };
     },
-    onError: (error, deletedId, context) => {
+    onError: async (error, deletedId, context) => {
       if (context?.previous) {
         queryClient.setQueryData(payrollQueryKey, context.previous);
       }
       logger.error('Error deleting payroll:', error);
+      const Swal = await getSwal();
       void Swal.fire({
         title: 'Error',
         text: 'Failed to delete payroll record. Please try again.',
@@ -335,11 +336,12 @@ export function usePayroll() {
 
       return { previous };
     },
-    onError: (error, variables, context) => {
+    onError: async (error, variables, context) => {
       if (context?.previous) {
         queryClient.setQueryData(payrollQueryKey, context.previous);
       }
       logger.error('Error saving payroll:', error);
+      const Swal = await getSwal();
       void Swal.fire({
         title: 'Error',
         text: 'Failed to save payroll record. Please try again.',
@@ -459,11 +461,12 @@ export function usePayroll() {
 
       return { previous };
     },
-    onError: (error, variables, context) => {
+    onError: async (error, variables, context) => {
       if (context?.previous) {
         queryClient.setQueryData(payrollQueryKey, context.previous);
       }
       logger.error('Error updating payroll:', error);
+      const Swal = await getSwal();
       void Swal.fire({
         title: 'Error',
         text: 'Failed to update payroll record. Please try again.',
@@ -484,6 +487,7 @@ export function usePayroll() {
 
   // Event Handlers
   const handleAddPayroll = async () => {
+    const Swal = await getSwal();
     if (isGeneratingPayroll) {
       return;
     }
@@ -927,6 +931,7 @@ export function usePayroll() {
   };
 
   const handleGeneratePayslips = async () => {
+    const Swal = await getSwal();
     if (isGeneratingPayslips) {
       return;
     }
@@ -986,6 +991,7 @@ export function usePayroll() {
   };
 
   const handleDeletePayroll = async (id: string) => {
+    const Swal = await getSwal();
     const result = await Swal.fire({
       title: 'Delete Payroll Record?',
       text: 'This will permanently remove the payroll entry. Continue?',
@@ -1058,6 +1064,7 @@ export function usePayroll() {
   };
 
   const handleApproveAll = async () => {
+    const Swal = await getSwal();
     const pending = filteredPayrolls.filter((p) => p.status === 'pending');
     if (pending.length === 0) {
       await Swal.fire({
@@ -1193,6 +1200,7 @@ export function usePayroll() {
   };
 
   const handleMarkAsPaid = async (id: string) => {
+    const Swal = await getSwal();
     const payroll = payrolls.find((p) => p.id === id);
     if (!payroll) {
       return;
@@ -1287,6 +1295,7 @@ export function usePayroll() {
   };
 
   const handleMarkAllAsPaid = async () => {
+    const Swal = await getSwal();
     const approved = filteredPayrolls.filter((p) => p.status === 'approved');
     if (approved.length === 0) {
       await Swal.fire({
@@ -1400,6 +1409,7 @@ export function usePayroll() {
 
     const reader = new FileReader();
     reader.onload = async (e) => {
+      const Swal = await getSwal();
       try {
         const text = (e.target?.result as string) ?? '';
         const lines = text
@@ -1593,6 +1603,7 @@ export function usePayroll() {
   );
 
   const handleSyncLwop = async () => {
+    const Swal = await getSwal();
     if (isSyncingLwop) {
       return;
     }

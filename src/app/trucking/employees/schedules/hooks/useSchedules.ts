@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import Swal from 'sweetalert2';
+import { showError } from '@/lib/alerts';
 import { logger } from '@/lib/logger';
 import { api, ApiError } from '@/lib/api/client';
 import { queryKeys } from '@/lib/queryKeys';
@@ -948,13 +948,7 @@ export function useSchedules() {
         });
       } catch (error) {
         logger.error('Error saving generated schedules:', error);
-        await Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: getScheduleErrorMessage(error),
-          confirmButtonColor: '#228be6',
-          allowOutsideClick: false,
-        });
+        await showError(getScheduleErrorMessage(error));
         throw error;
       }
     }

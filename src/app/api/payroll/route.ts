@@ -177,16 +177,11 @@ async function findMissingEmployeeIds(
 }
 
 async function createPayrollRecords(records: PayrollInput[]) {
-  return prisma.$transaction(async (tx) => {
-    const created: Payroll[] = [];
-
-    for (const record of records) {
-      const payroll = await tx.payroll.create({ data: record });
-      created.push(payroll);
-    }
-
-    return created;
-  });
+  // Array-form $transaction: sends all creates as a single batch
+  // instead of N sequential round-trips inside an interactive transaction.
+  return prisma.$transaction(
+    records.map((record) => prisma.payroll.create({ data: record }))
+  );
 }
 
 function shouldSync(status: string): boolean {

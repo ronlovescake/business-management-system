@@ -1,5 +1,4 @@
 import React from 'react';
-import * as XLSX from 'xlsx';
 import { showNotification } from '@mantine/notifications';
 import { Group, Button, Pill, Loader } from '@mantine/core';
 import { IconFileSpreadsheet } from '@tabler/icons-react';
@@ -32,8 +31,9 @@ export function useTransactionsLayout<T extends object>({
   isGeneratingDistribution = false,
 }: UseTransactionsLayoutProps<T>) {
   // Export to XLSX function
-  const handleExportToXLSX = React.useCallback(() => {
+  const handleExportToXLSX = React.useCallback(async () => {
     try {
+      const XLSX = await import('xlsx');
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(filteredData);
       XLSX.utils.book_append_sheet(wb, ws, 'Transactions');

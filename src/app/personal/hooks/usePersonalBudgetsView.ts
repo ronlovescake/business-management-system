@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import Swal from 'sweetalert2';
+import { showInfo } from '@/lib/alerts';
 import { normalizeText } from '@/utils/text';
 import { householdExpenseCategoryOptions } from '@/modules/household/expenses/utils';
 import { useHouseholdBudgetsData } from './useHouseholdBudgetsData';
@@ -230,27 +230,24 @@ export function usePersonalBudgetsView() {
   }, []);
 
   const handleImportCSV = useCallback(async () => {
-    await Swal.fire({
-      icon: 'info',
-      title: 'CSV import coming soon',
-      text: 'Budget import/export will be wired to the API.',
-    });
+    await showInfo(
+      'Budget import/export will be wired to the API.',
+      'CSV import coming soon'
+    );
   }, []);
 
   const handleExportCSV = useCallback(async () => {
-    await Swal.fire({
-      icon: 'info',
-      title: 'CSV export coming soon',
-      text: 'We will export budgets once the dataset is connected.',
-    });
+    await showInfo(
+      'We will export budgets once the dataset is connected.',
+      'CSV export coming soon'
+    );
   }, []);
 
   const handleAddBudget = useCallback(async () => {
-    await Swal.fire({
-      icon: 'info',
-      title: 'Add budget',
-      text: 'Budget creation modal will be added once the API is ready.',
-    });
+    await showInfo(
+      'Budget creation modal will be added once the API is ready.',
+      'Add budget'
+    );
   }, []);
 
   return {

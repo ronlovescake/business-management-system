@@ -42,7 +42,7 @@ import {
   IconChevronRight,
   IconKey,
 } from '@tabler/icons-react';
-import { formatDistanceToNow } from 'date-fns';
+import { timeAgo } from '@/utils/date';
 import { UniversalModal } from '@/components/modals/UniversalModal';
 
 interface User {
@@ -599,9 +599,7 @@ export function UserManagementSection() {
                       <Table.Td>
                         <Text size="sm">
                           {user.lastLoginAt
-                            ? formatDistanceToNow(new Date(user.lastLoginAt), {
-                                addSuffix: true,
-                              })
+                            ? timeAgo(user.lastLoginAt)
                             : 'Never'}
                         </Text>
                       </Table.Td>

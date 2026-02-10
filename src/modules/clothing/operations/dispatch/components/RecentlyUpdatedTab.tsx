@@ -2,7 +2,7 @@
 
 import { memo, useCallback } from 'react';
 import { Stack, Text, Group, Table, Badge } from '@mantine/core';
-import { format } from 'date-fns';
+import { formatDate } from '@/utils/date';
 import {
   StandardDataTable,
   StandardTableContainer,
@@ -45,7 +45,7 @@ function RecentlyUpdatedTabComponent({
     try {
       const date = new Date(String(rawShipTime));
       if (!isNaN(date.getTime())) {
-        return format(date, 'MMMM d, yyyy h:mm a');
+        return formatDate(date, 'MMMM D, YYYY h:mm A');
       }
     } catch (error) {
       // If parsing fails, use the raw value

@@ -14,7 +14,7 @@ import {
   calculatePhoneSimilarity,
   calculateNameSimilarity,
 } from '@/lib/utils/fuzzyMatch';
-import Swal from 'sweetalert2';
+import { getSwal } from '@/lib/alerts';
 
 interface CustomerData {
   id: number;
@@ -185,6 +185,7 @@ function findPossibleDuplicates(
 export async function showDuplicateCheckDialog(
   duplicates: PossibleDuplicate[]
 ): Promise<'proceed' | 'cancel'> {
+  const Swal = await getSwal();
   if (duplicates.length === 0) {
     return 'proceed';
   }
@@ -297,7 +298,8 @@ export async function showDuplicateCheckDialog(
 /**
  * Show loading dialog during duplicate check
  */
-export function showCheckingDialog(): void {
+export async function showCheckingDialog(): Promise<void> {
+  const Swal = await getSwal();
   Swal.fire({
     title: 'Checking for Duplicates',
     html: `
@@ -336,7 +338,8 @@ export function showCheckingDialog(): void {
 /**
  * Close the loading dialog
  */
-export function closeCheckingDialog(): void {
+export async function closeCheckingDialog(): Promise<void> {
+  const Swal = await getSwal();
   Swal.close();
 }
 
@@ -360,7 +363,7 @@ export function useCustomerDuplicateCheck(apiBasePath?: string) {
   ): Promise<boolean> => {
     try {
       // Show loading dialog
-      showCheckingDialog();
+      await showCheckingDialog();
 
       // Add a small delay to ensure loading dialog is shown
       await new Promise((resolve) => setTimeout(resolve, 500));
@@ -369,13 +372,14 @@ export function useCustomerDuplicateCheck(apiBasePath?: string) {
       const duplicates = findPossibleDuplicates(newCustomer, customers);
 
       // Close loading dialog completely
-      Swal.close();
+      await closeCheckingDialog();
 
       // Small delay to ensure previous dialog is fully closed
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // If no duplicates found, proceed immediately
       if (duplicates.length === 0) {
+        const Swal = await getSwal();
         await Swal.fire({
           title: 'No Duplicates Found',
           text: 'This appears to be a new customer. Proceeding with save...',
@@ -392,12 +396,13 @@ export function useCustomerDuplicateCheck(apiBasePath?: string) {
       return decision === 'proceed';
     } catch (error) {
       logger.error('Error during duplicate check:', error);
-      Swal.close();
+      await closeCheckingDialog();
 
       // Small delay before showing error dialog
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // On error, ask user if they want to proceed
+      const Swal = await getSwal();
       const result = await Swal.fire({
         title: 'Duplicate Check Failed',
         text: 'Could not check for duplicates. Do you want to proceed anyway?',

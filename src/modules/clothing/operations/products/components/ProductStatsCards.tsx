@@ -5,7 +5,7 @@
  * Displays 4 key metrics: Total Products, Total Value, Average Value, Total Profit
  */
 
-import React from 'react';
+import React, { memo } from 'react';
 import { StatsCardGrid, type StatCard } from '@/components/ui';
 import {
   IconCurrencyPeso,
@@ -19,7 +19,9 @@ interface ProductStatsCardsProps {
   statistics: ProductStatistics;
 }
 
-export function ProductStatsCards({ statistics }: ProductStatsCardsProps) {
+export const ProductStatsCards = memo(function ProductStatsCards({
+  statistics,
+}: ProductStatsCardsProps) {
   const cards = React.useMemo<StatCard[]>(
     () => [
       {
@@ -62,4 +64,4 @@ export function ProductStatsCards({ statistics }: ProductStatsCardsProps) {
       spacing="md"
     />
   );
-}
+});

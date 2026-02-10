@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { showNotification } from '@mantine/notifications';
-import Swal from 'sweetalert2';
+import { showCustomAlert } from '@/lib/alerts';
 import type { TripRecord } from '../components/TripsTable';
 
 const pesoFormatter = new Intl.NumberFormat('en-PH', {
@@ -732,7 +732,7 @@ export function useTripsDashboard() {
       return true;
     }
 
-    const firstStep = await Swal.fire({
+    const firstStep = await showCustomAlert({
       title: 'Delete this trip?',
       text: `${trip.truckId} • ${trip.driver || '—'} • ${trip.date}`,
       icon: 'warning',
@@ -747,7 +747,7 @@ export function useTripsDashboard() {
       return false;
     }
 
-    const secondStep = await Swal.fire({
+    const secondStep = await showCustomAlert({
       title: 'Confirm permanent delete',
       text: 'This cannot be undone.',
       icon: 'error',

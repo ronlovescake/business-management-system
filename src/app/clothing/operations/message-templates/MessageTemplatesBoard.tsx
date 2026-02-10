@@ -26,7 +26,7 @@ import { useClipboard } from '@mantine/hooks';
 import type { MessageTemplate } from '@/modules/clothing/operations/message-templates/types';
 import { MESSAGE_TEMPLATE_TITLE_ORDER } from '@/modules/clothing/operations/message-templates/templates.data';
 import { logger } from '@/lib/logger';
-import Swal from 'sweetalert2';
+import { getSwal } from '@/lib/alerts';
 import { UniversalModal } from '@/components/modals/UniversalModal';
 
 interface MessageTemplatesBoardProps {
@@ -179,6 +179,7 @@ export function MessageTemplatesBoard({
       return;
     }
 
+    const Swal = await getSwal();
     await Swal.fire({
       title: 'Copy failed',
       text: 'Unable to copy to clipboard. Please try again or copy manually.',
@@ -192,6 +193,7 @@ export function MessageTemplatesBoard({
       return;
     }
 
+    const Swal = await getSwal();
     const confirmation = await Swal.fire({
       title: `Edit ${template.title} template?`,
       html: `
@@ -247,6 +249,7 @@ export function MessageTemplatesBoard({
       return;
     }
 
+    const Swal = await getSwal();
     const title = createValues.title.trim();
     const badge = createValues.badge.trim();
     const paragraphs = parseBodyToParagraphs(createValues.body);
@@ -324,6 +327,7 @@ export function MessageTemplatesBoard({
       return;
     }
 
+    const Swal = await getSwal();
     const hasChanges =
       editValues.title.trim() !== editingSnapshot.title.trim() ||
       editValues.badge.trim() !== editingSnapshot.badge.trim() ||

@@ -4,9 +4,13 @@ import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import { showNotification } from '@mantine/notifications';
-import Swal from 'sweetalert2';
 import { queryKeys } from '@/lib/queryKeys';
-import { showError, showSuccess, showDeleteConfirm } from '@/lib/alerts';
+import {
+  showError,
+  showSuccess,
+  showDeleteConfirm,
+  getSwal,
+} from '@/lib/alerts';
 import { formatTimeString } from '@/utils/dateFormatters';
 import type {
   AttendanceRecord,
@@ -414,11 +418,12 @@ export function useAttendance(apiBasePath?: string) {
 
       return { previous };
     },
-    onError: (error, variables, context) => {
+    onError: async (error, variables, context) => {
       if (context?.previous) {
         queryClient.setQueryData(attendanceQueryKey, context.previous);
       }
       logger.error('Error auto-recording attendance:', error);
+      const Swal = await getSwal();
       Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -429,7 +434,8 @@ export function useAttendance(apiBasePath?: string) {
         allowOutsideClick: false,
       });
     },
-    onSuccess: (savedRecords, variables) => {
+    onSuccess: async (savedRecords, variables) => {
+      const Swal = await getSwal();
       const dateRange = getAutoRecordDateRange();
       const todayISO = dateRange[0];
       const oldestDateISO = dateRange[dateRange.length - 1];
@@ -520,6 +526,7 @@ export function useAttendance(apiBasePath?: string) {
   };
 
   const handleAddRecord = async () => {
+    const Swal = await getSwal();
     // Show confirmation dialog
     const lookbackDescription =
       AUTO_RECORD_LOOKBACK_DAYS === 1
@@ -560,6 +567,7 @@ export function useAttendance(apiBasePath?: string) {
   };
 
   const handleAutoRecordAttendance = async () => {
+    const Swal = await getSwal();
     try {
       // Show loading
       Swal.fire({

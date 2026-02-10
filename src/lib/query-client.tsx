@@ -17,11 +17,15 @@ export function ReactQueryProvider({ children }: ReactQueryProviderProps) {
           queries: {
             // Data is considered fresh for 1 minute
             staleTime: 60 * 1000,
+            // Keep unused query data in cache for 10 minutes (default is 5 min).
+            // Reduces redundant refetches when users navigate back to pages.
+            gcTime: 10 * 60 * 1000,
             // Don't refetch on window focus (can be enabled per-query if needed)
             refetchOnWindowFocus: false,
             // Retry failed requests 3 times with exponential backoff
             retry: 3,
-            retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+            retryDelay: (attemptIndex) =>
+              Math.min(1000 * 2 ** attemptIndex, 30000),
           },
           mutations: {
             // Retry mutations once on network errors

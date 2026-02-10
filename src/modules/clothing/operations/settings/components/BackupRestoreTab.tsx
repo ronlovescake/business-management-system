@@ -17,7 +17,7 @@ import {
   NumberInput,
 } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
-import Swal from 'sweetalert2';
+import { getSwal } from '@/lib/alerts';
 import { api } from '@/lib/api/client';
 import { usePathname } from 'next/navigation';
 import {
@@ -32,7 +32,6 @@ import {
   IconDownload,
 } from '@tabler/icons-react';
 import Papa from 'papaparse';
-import * as XLSX from 'xlsx';
 import type {
   Backup,
   BackupData,
@@ -331,6 +330,7 @@ export function BackupRestoreTab() {
   }, [autoBackupEnabled, autoBackupInterval, handleCreateBackup]);
 
   const handleDeleteBackup = async (timestamp: string) => {
+    const Swal = await getSwal();
     const firstStep = await Swal.fire({
       title: 'Delete this backup?',
       text: 'This will permanently remove the backup files.',
@@ -659,6 +659,7 @@ export function BackupRestoreTab() {
     }
 
     try {
+      const XLSX = await import('xlsx');
       const tableData = previewData.tables[tableName];
       if (!tableData) {
         return;
@@ -737,6 +738,7 @@ export function BackupRestoreTab() {
     }
 
     try {
+      const XLSX = await import('xlsx');
       const wb = XLSX.utils.book_new();
       let sheetCount = 0;
       let skipped = 0;
@@ -1102,6 +1104,7 @@ export function BackupRestoreTab() {
   ]);
 
   const handleConfirmRestore = useCallback(async () => {
+    const Swal = await getSwal();
     if (
       !selectedBackup ||
       !previewJsonFile ||

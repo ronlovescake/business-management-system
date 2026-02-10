@@ -1,5 +1,12 @@
 import { useCallback, useMemo, useState } from 'react';
-import Swal from 'sweetalert2';
+import {
+  showLoading,
+  closeAlert,
+  showSuccess,
+  showError,
+  showWarning,
+  showInfo,
+} from '@/lib/alerts';
 import { confirmTripleDelete } from '@/utils/confirmTripleDelete';
 import { normalizeText } from '@/utils/text';
 import { downloadCsvTemplate, parseCSVLine } from '@/components/expenses';
@@ -199,32 +206,20 @@ export function usePersonalAccountsView() {
         }
 
         try {
-          void Swal.fire({
-            title: 'Deleting...',
-            allowOutsideClick: false,
-            didOpen: () => {
-              Swal.showLoading();
-            },
-          });
+          await showLoading('Deleting...');
 
           await deleteAccount(id);
 
-          await Swal.fire({
-            icon: 'success',
-            title: 'Deleted',
-            text: 'Account deleted successfully.',
-            timer: 1200,
-            showConfirmButton: false,
-          });
+          await closeAlert();
+          await showSuccess('Account deleted successfully.', 'Deleted');
         } catch (error) {
-          await Swal.fire({
-            icon: 'error',
-            title: 'Delete failed',
-            text:
-              error instanceof Error
-                ? error.message
-                : 'Unable to delete account.',
-          });
+          await closeAlert();
+          await showError(
+            error instanceof Error
+              ? error.message
+              : 'Unable to delete account.',
+            'Delete failed'
+          );
         }
       })();
     },
@@ -234,11 +229,10 @@ export function usePersonalAccountsView() {
   const handleSaveAccount = useCallback(() => {
     const name = draft.name.trim();
     if (!name) {
-      void Swal.fire({
-        icon: 'warning',
-        title: 'Missing account name',
-        text: 'Please enter an account name before saving.',
-      });
+      void showWarning(
+        'Please enter an account name before saving.',
+        'Missing account name'
+      );
       return;
     }
 
@@ -259,12 +253,10 @@ export function usePersonalAccountsView() {
 
         setIsModalOpen(false);
       } catch (error) {
-        await Swal.fire({
-          icon: 'error',
-          title: 'Save failed',
-          text:
-            error instanceof Error ? error.message : 'Unable to save account.',
-        });
+        await showError(
+          error instanceof Error ? error.message : 'Unable to save account.',
+          'Save failed'
+        );
       }
     })();
   }, [createAccount, draft, editingAccount, updateAccount]);
@@ -276,11 +268,10 @@ export function usePersonalAccountsView() {
       }
 
       if (_file.size > MAX_CSV_SIZE_BYTES) {
-        await Swal.fire({
-          icon: 'error',
-          title: 'File too large',
-          text: 'Please upload a CSV file smaller than 5MB.',
-        });
+        await showError(
+          'Please upload a CSV file smaller than 5MB.',
+          'File too large'
+        );
         return;
       }
 
@@ -293,21 +284,16 @@ export function usePersonalAccountsView() {
           .filter((l) => l.length > 0);
 
         if (lines.length === 0) {
-          await Swal.fire({
-            icon: 'info',
-            title: 'No data',
-            text: 'The CSV file is empty.',
-          });
+          await showInfo('The CSV file is empty.', 'No data');
           return;
         }
 
         const dataRows = lines.length - 1;
         if (dataRows > MAX_CSV_ROWS) {
-          await Swal.fire({
-            icon: 'error',
-            title: 'Too many rows',
-            text: `Please limit the CSV to ${MAX_CSV_ROWS} rows or fewer.`,
-          });
+          await showError(
+            `Please limit the CSV to ${MAX_CSV_ROWS} rows or fewer.`,
+            'Too many rows'
+          );
           return;
         }
 
@@ -337,11 +323,10 @@ export function usePersonalAccountsView() {
         ].filter(Boolean);
 
         if (missing.length > 0) {
-          await Swal.fire({
-            icon: 'error',
-            title: 'Invalid CSV',
-            text: `Missing columns: ${missing.join(', ')}`,
-          });
+          await showError(
+            `Missing columns: ${missing.join(', ')}`,
+            'Invalid CSV'
+          );
           return;
         }
 
@@ -408,15 +393,14 @@ export function usePersonalAccountsView() {
           }
         }
 
-        await Swal.fire({
-          icon: 'success',
-          title: 'Import complete',
-          text: `Imported ${imported} rows. Skipped ${skipped}${
+        await showSuccess(
+          `Imported ${imported} rows. Skipped ${skipped}${
             skippedInvalidType || skippedInvalidLast4 || skippedServerError
               ? ` (invalid type: ${skippedInvalidType}, invalid last4: ${skippedInvalidLast4}, server errors: ${skippedServerError})`
               : ''
           }.`,
-        });
+          'Import complete'
+        );
       } finally {
         setIsImporting(false);
       }

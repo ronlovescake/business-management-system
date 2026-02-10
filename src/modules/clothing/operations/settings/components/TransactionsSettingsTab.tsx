@@ -24,7 +24,7 @@ import { IconDeviceFloppy } from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
 import { logger } from '@/lib/logger';
 import { formatDateTime } from '@/lib/formatters';
-import Swal from 'sweetalert2';
+import { showCustomAlert } from '@/lib/alerts';
 
 interface TransactionsSettings {
   id: string;
@@ -227,7 +227,7 @@ export function TransactionsSettingsTab() {
       );
       const columnLabel = toggleInfo?.label ?? 'this column';
 
-      const firstConfirm = await Swal.fire({
+      const firstConfirm = await showCustomAlert({
         title: `Disable ${columnLabel} protection?`,
         text: 'Unlocking allows manual edits that may disrupt calculations and data integrity.',
         icon: 'warning',
@@ -244,7 +244,7 @@ export function TransactionsSettingsTab() {
         return;
       }
 
-      const secondConfirm = await Swal.fire({
+      const secondConfirm = await showCustomAlert({
         title: 'Final confirmation',
         text: `Are you absolutely sure you want to keep ${columnLabel.toLowerCase()} editable? Manual overrides should be rare.`,
         icon: 'warning',

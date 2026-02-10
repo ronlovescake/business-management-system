@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Swal from 'sweetalert2';
+import { showCustomAlert } from '@/lib/alerts';
 
 interface PermissionGuardProps {
   hasAccess: boolean;
@@ -21,7 +21,7 @@ export function PermissionGuard({
   useEffect(() => {
     if (!hasAccess) {
       // Show alert and wait for user to click OK
-      Swal.fire({
+      void showCustomAlert({
         title: 'Access Restricted',
         text: 'You do not have permission to access this page. Click OK to return to your dashboard.',
         icon: 'warning',

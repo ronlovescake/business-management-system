@@ -2,7 +2,7 @@ import React, { type ReactNode } from 'react';
 import { render } from '@testing-library/react';
 import { MantineProvider } from '@mantine/core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, screen } from '@testing-library/dom';
+import { fireEvent, screen, waitFor } from '@testing-library/dom';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { ProductsPage } from '../ProductsPage';
 
@@ -27,14 +27,20 @@ vi.mock('../ProductStatsCards', () => ({
 }));
 
 vi.mock('../ProductsGrid', () => ({
+  __esModule: true,
+  default: () => <div>products-grid</div>,
   ProductsGrid: () => <div>products-grid</div>,
 }));
 
 vi.mock('../ShippingFeeCalculator', () => ({
+  __esModule: true,
+  default: () => <div>shipping-calculator</div>,
   ShippingFeeCalculator: () => <div>shipping-calculator</div>,
 }));
 
 vi.mock('../BundlesTab', () => ({
+  __esModule: true,
+  default: () => <div>bundles-tab</div>,
   BundlesTab: () => <div>bundles-tab</div>,
 }));
 
@@ -72,7 +78,7 @@ describe('ProductsPage', () => {
     expect(screen.queryByText('stats-cards')).not.toBeInTheDocument();
   });
 
-  it('renders stats and switches tabs between products and shipping calculator', () => {
+  it('renders stats and switches tabs between products and shipping calculator', async () => {
     mockUseProductsData.mockReturnValue({
       isLoading: false,
       statistics: { total: 10 },
@@ -80,8 +86,12 @@ describe('ProductsPage', () => {
 
     renderProductsPage();
 
+    // Wait for dynamic imports to resolve
+    await waitFor(() => {
+      expect(screen.getByText('products-grid')).toBeVisible();
+    });
+
     expect(screen.getByText('stats-cards')).toBeInTheDocument();
-    expect(screen.getByText('products-grid')).toBeVisible();
     expect(screen.getByText('shipping-calculator')).not.toBeVisible();
 
     const shippingTab = screen.getByRole('tab', {

@@ -17,7 +17,7 @@ import {
 import { DateInput } from '@mantine/dates';
 import { showNotification } from '@mantine/notifications';
 import { useQueryClient } from '@tanstack/react-query';
-import Swal from 'sweetalert2';
+import { getSwal } from '@/lib/alerts';
 import { api } from '@/lib/api/client';
 import { buildApiPath } from '@/lib/api/paths';
 import { UniversalModal } from '@/components/modals/UniversalModal';
@@ -567,6 +567,7 @@ export function TransactionPaymentsModal({
 
   const handleConfirmAndSubmit = useCallback(
     async (mode: AfterSaveMode) => {
+      const Swal = await getSwal();
       if (isSaving) {
         return;
       }

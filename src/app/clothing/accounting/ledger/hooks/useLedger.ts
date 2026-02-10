@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { showNotification } from '@mantine/notifications';
-import Swal from 'sweetalert2';
+import { getSwal } from '@/lib/alerts';
 import { logger } from '@/lib/logger';
 import { PERIOD_OPTIONS, type PeriodOption } from '@/lib/accounting/constants';
 import { buildPeriodSearchParams } from '@/lib/accounting/query';
@@ -217,6 +217,7 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
 
   const deleteTransitBuildEntry = useCallback(
     async (entry: LedgerEntry) => {
+      const Swal = await getSwal();
       const shipmentId = entry.transitBuildShipmentId ?? null;
       const entryIds = entry.transitBuildEntryIds ?? [];
       if (entryIds.length === 0) {
@@ -280,6 +281,7 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
 
   const editTransitBuildEntry = useCallback(
     async (entry: LedgerEntry) => {
+      const Swal = await getSwal();
       const shipmentId = entry.transitBuildShipmentId ?? null;
       const entryIds = entry.transitBuildEntryIds ?? [];
       if (entryIds.length !== 1) {
@@ -1306,6 +1308,7 @@ export function useLedger(options: { apiBasePath?: string } = {}) {
 
   const deleteManualEntry = useCallback(
     async (entry: LedgerEntry) => {
+      const Swal = await getSwal();
       const sourceId = entry.sourceId ?? null;
       if (!sourceId) {
         return;

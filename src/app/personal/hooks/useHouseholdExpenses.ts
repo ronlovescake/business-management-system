@@ -3,8 +3,8 @@ import { useSession } from 'next-auth/react';
 import { logger } from '@/lib/logger';
 import { useHouseholdExpenseData } from '@/hooks/useSheetData';
 import { showNotification } from '@mantine/notifications';
-import Swal from 'sweetalert2';
-import { showError } from '@/lib/alerts';
+import { showError, showLoading, closeAlert, showSuccess } from '@/lib/alerts';
+import { confirmTripleDelete } from '@/utils/confirmTripleDelete';
 import { getCurrentDateISO } from '@/utils/date';
 import {
   computeExpenseTotals,
@@ -125,57 +125,13 @@ function buildDateRange(
 }
 
 async function confirmTripleDeleteExpense(): Promise<boolean> {
-  const step1 = await Swal.fire({
+  return confirmTripleDelete({
     title: 'Delete expense?',
-    text: 'This will permanently delete this expense entry.',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonText: 'Continue',
-    cancelButtonText: 'Cancel',
-    reverseButtons: true,
-    allowOutsideClick: false,
+    warning: 'This will permanently delete this expense entry.',
+    secondaryWarning:
+      'If this expense is approved/paid, deleting it will affect your linked account balance.',
+    finalPrompt: 'Type DELETE to confirm.',
   });
-
-  if (!step1.isConfirmed) {
-    return false;
-  }
-
-  const step2 = await Swal.fire({
-    title: 'Are you absolutely sure?',
-    text: 'If this expense is approved/paid, deleting it will affect your linked account balance.',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonText: 'Yes, continue',
-    cancelButtonText: 'Cancel',
-    reverseButtons: true,
-    allowOutsideClick: false,
-  });
-
-  if (!step2.isConfirmed) {
-    return false;
-  }
-
-  const step3 = await Swal.fire({
-    title: 'Final confirmation',
-    text: 'Type DELETE to confirm.',
-    icon: 'warning',
-    input: 'text',
-    inputPlaceholder: 'DELETE',
-    inputAttributes: { autocapitalize: 'off' },
-    showCancelButton: true,
-    confirmButtonText: 'Delete',
-    cancelButtonText: 'Cancel',
-    reverseButtons: true,
-    allowOutsideClick: false,
-    inputValidator: (value) => {
-      if ((value || '').trim().toUpperCase() !== 'DELETE') {
-        return 'Please type DELETE to confirm.';
-      }
-      return undefined;
-    },
-  });
-
-  return step3.isConfirmed;
 }
 
 export interface MonthlyBreakdown {
@@ -482,32 +438,19 @@ export function useHouseholdExpenses() {
     }
 
     try {
-      void Swal.fire({
-        title: 'Deleting...',
-        allowOutsideClick: false,
-        didOpen: () => {
-          Swal.showLoading();
-        },
-      });
+      await showLoading('Deleting...');
 
       deleteExpense(id);
 
-      await Swal.fire({
-        icon: 'success',
-        title: 'Deleted',
-        text: 'Expense deleted successfully.',
-        timer: 1200,
-        showConfirmButton: false,
-      });
+      await closeAlert();
+      await showSuccess('Expense deleted successfully.', 'Deleted');
     } catch (error) {
       logger.error('Failed to delete expense', { error, id });
-      await Swal.fire({
-        icon: 'error',
-        title: 'Delete failed',
-        text:
-          error instanceof Error ? error.message : 'Unable to delete expense.',
-      });
-      showError('Failed to delete expense');
+      await closeAlert();
+      await showError(
+        error instanceof Error ? error.message : 'Unable to delete expense.',
+        'Delete failed'
+      );
     }
   };
 

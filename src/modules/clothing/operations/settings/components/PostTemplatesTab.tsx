@@ -13,7 +13,7 @@ import {
 } from '@mantine/core';
 import { IconInfoCircle, IconCheck, IconX } from '@tabler/icons-react';
 import { showNotification } from '@mantine/notifications';
-import Swal from 'sweetalert2';
+import { showCustomAlert } from '@/lib/alerts';
 import { DEFAULT_POST_TEMPLATE_NOTICE } from '@/modules/clothing/operations/post-template/notice.data';
 import type { PostTemplateNotice } from '@/modules/clothing/operations/post-template/notice.types';
 import { logger } from '@/lib/logger';
@@ -91,7 +91,7 @@ export function PostTemplatesTab({ apiBasePath }: { apiBasePath?: string }) {
     noticeValues.bullets.trim() !== snapshot.bullets.trim();
 
   const handleEnableEditing = async () => {
-    const confirmation = await Swal.fire({
+    const confirmation = await showCustomAlert({
       title: 'Edit post template notice?',
       text: 'This updates the shared copy on the Post Template module.',
       icon: 'warning',

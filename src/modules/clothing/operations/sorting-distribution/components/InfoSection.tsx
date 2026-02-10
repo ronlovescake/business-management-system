@@ -17,7 +17,7 @@ import {
   Box,
   Switch,
 } from '@mantine/core';
-import Swal from 'sweetalert2';
+import { getSwal } from '@/lib/alerts';
 import type { SortingDistributionStatistics } from '../types/sortingDistribution.types';
 import { QuantityPillButtons } from './QuantityPillButtons';
 import classes from './InfoSection.module.css';
@@ -179,15 +179,21 @@ export function InfoSection({
 
   // Test SweetAlert for quantity mismatch
   React.useEffect(() => {
-    if (showQuantityAdjustment) {
-      const alertText = quantityAdjustmentLabel;
+    let loadedSwal: Awaited<ReturnType<typeof getSwal>> | undefined;
 
-      // Inject rotating animation CSS for icon
-      const styleId = 'rotating-icon-animation';
-      if (!document.getElementById(styleId)) {
-        const style = document.createElement('style');
-        style.id = styleId;
-        style.textContent = `
+    void (async () => {
+      const Swal = await getSwal();
+      loadedSwal = Swal;
+
+      if (showQuantityAdjustment) {
+        const alertText = quantityAdjustmentLabel;
+
+        // Inject rotating animation CSS for icon
+        const styleId = 'rotating-icon-animation';
+        if (!document.getElementById(styleId)) {
+          const style = document.createElement('style');
+          style.id = styleId;
+          style.textContent = `
           .swal2-icon.swal2-info.rotate-icon,
           .swal2-icon.swal2-warning.rotate-icon {
             animation: rotateY 2s infinite linear !important;
@@ -226,62 +232,65 @@ export function InfoSection({
             animation: fadeOut 0.3s !important;
           }
         `;
-        document.head.appendChild(style);
+          document.head.appendChild(style);
+        }
+
+        Swal.fire({
+          html: `<div style="font-size: 24px; font-weight: bold;">${alertText}</div>`,
+          icon: quantityDifference > 0 ? 'info' : 'warning',
+          iconColor: quantityDifference > 0 ? '#228be6' : '#fa5252',
+          showConfirmButton: false,
+          allowOutsideClick: false,
+          allowEscapeKey: true,
+          backdrop: false,
+          position: 'top',
+          showClass: {
+            popup: 'swal2-show',
+          },
+          hideClass: {
+            popup: 'swal2-hide',
+          },
+          customClass: {
+            container: 'swal-no-block',
+            icon: 'rotate-icon',
+            popup: 'swal-shadow',
+          },
+          didOpen: () => {
+            // Apply drop shadow and reduce height
+            const popup = document.querySelector('.swal2-popup');
+            if (popup instanceof HTMLElement) {
+              popup.style.boxShadow = '0 10px 40px rgba(0, 0, 0, 0.3)';
+              popup.style.padding = '1rem 1.25rem';
+            }
+
+            // Reduce icon size
+            const icon = document.querySelector('.swal2-icon');
+            if (icon instanceof HTMLElement) {
+              icon.style.width = '3.5rem';
+              icon.style.height = '3.5rem';
+              icon.style.margin = '0.75rem auto';
+            }
+
+            // Reduce text spacing
+            const htmlContainer = document.querySelector(
+              '.swal2-html-container'
+            );
+            if (htmlContainer instanceof HTMLElement) {
+              htmlContainer.style.margin = '0.75rem 0 0 0';
+            }
+          },
+        });
+      } else {
+        // Close the alert when mismatch is resolved
+        if (Swal.isVisible()) {
+          Swal.close();
+        }
       }
-
-      Swal.fire({
-        html: `<div style="font-size: 24px; font-weight: bold;">${alertText}</div>`,
-        icon: quantityDifference > 0 ? 'info' : 'warning',
-        iconColor: quantityDifference > 0 ? '#228be6' : '#fa5252',
-        showConfirmButton: false,
-        allowOutsideClick: false,
-        allowEscapeKey: true,
-        backdrop: false,
-        position: 'top',
-        showClass: {
-          popup: 'swal2-show',
-        },
-        hideClass: {
-          popup: 'swal2-hide',
-        },
-        customClass: {
-          container: 'swal-no-block',
-          icon: 'rotate-icon',
-          popup: 'swal-shadow',
-        },
-        didOpen: () => {
-          // Apply drop shadow and reduce height
-          const popup = document.querySelector('.swal2-popup');
-          if (popup instanceof HTMLElement) {
-            popup.style.boxShadow = '0 10px 40px rgba(0, 0, 0, 0.3)';
-            popup.style.padding = '1rem 1.25rem';
-          }
-
-          // Reduce icon size
-          const icon = document.querySelector('.swal2-icon');
-          if (icon instanceof HTMLElement) {
-            icon.style.width = '3.5rem';
-            icon.style.height = '3.5rem';
-            icon.style.margin = '0.75rem auto';
-          }
-
-          // Reduce text spacing
-          const htmlContainer = document.querySelector('.swal2-html-container');
-          if (htmlContainer instanceof HTMLElement) {
-            htmlContainer.style.margin = '0.75rem 0 0 0';
-          }
-        },
-      });
-    } else {
-      // Close the alert when mismatch is resolved
-      if (Swal.isVisible()) {
-        Swal.close();
-      }
-    }
+    })();
 
     return () => {
-      if (Swal.isVisible()) {
-        Swal.close();
+      if (loadedSwal?.isVisible()) {
+        loadedSwal.close();
       }
     };
   }, [showQuantityAdjustment, quantityAdjustmentLabel, quantityDifference]);

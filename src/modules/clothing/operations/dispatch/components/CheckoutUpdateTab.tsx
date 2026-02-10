@@ -21,7 +21,7 @@ import {
   IconDownload,
   IconPlus,
 } from '@tabler/icons-react';
-import { format } from 'date-fns';
+import { formatDate } from '@/utils/date';
 import {
   StandardDataTable,
   StandardTableContainer,
@@ -87,7 +87,7 @@ function CheckoutUpdateTabComponent({
     try {
       const date = new Date(String(rawShipTime));
       if (!isNaN(date.getTime())) {
-        return format(date, 'MMMM d, yyyy h:mm a');
+        return formatDate(date, 'MMMM D, YYYY h:mm A');
       }
     } catch (error) {
       // If parsing fails, use the raw value

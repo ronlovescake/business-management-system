@@ -3,9 +3,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { logger } from '@/lib/logger';
 import { api } from '@/lib/api/client';
 import { showNotification } from '@mantine/notifications';
-import Swal from 'sweetalert2';
 import { queryKeys } from '@/lib/queryKeys';
-import { showError, showSuccess, showDeleteConfirm } from '@/lib/alerts';
+import {
+  showError,
+  showSuccess,
+  showDeleteConfirm,
+  getSwal,
+} from '@/lib/alerts';
 import { formatTimeString } from '@/utils/dateFormatters';
 import type {
   AttendanceRecord,
@@ -419,7 +423,7 @@ export function useAttendance() {
 
       return { previous };
     },
-    onError: (error, variables, context) => {
+    onError: async (error, variables, context) => {
       if (context?.previous) {
         queryClient.setQueryData(
           queryKeys.attendance.list(filters),
@@ -427,6 +431,7 @@ export function useAttendance() {
         );
       }
       logger.error('Error auto-recording attendance:', error);
+      const Swal = await getSwal();
       Swal.fire({
         icon: 'error',
         title: 'Error',
@@ -437,7 +442,8 @@ export function useAttendance() {
         allowOutsideClick: false,
       });
     },
-    onSuccess: (savedRecords, variables) => {
+    onSuccess: async (savedRecords, variables) => {
+      const Swal = await getSwal();
       const dateRange = getAutoRecordDateRange();
       const todayISO = dateRange[0];
       const oldestDateISO = dateRange[dateRange.length - 1];
@@ -528,6 +534,7 @@ export function useAttendance() {
   };
 
   const handleAddRecord = async () => {
+    const Swal = await getSwal();
     // Show confirmation dialog
     const lookbackDescription =
       AUTO_RECORD_LOOKBACK_DAYS === 1
@@ -568,6 +575,7 @@ export function useAttendance() {
   };
 
   const handleAutoRecordAttendance = async () => {
+    const Swal = await getSwal();
     try {
       // Show loading
       Swal.fire({
