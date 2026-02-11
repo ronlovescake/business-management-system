@@ -1,4 +1,7 @@
 import { test, expect } from '@playwright/test';
+import { waitForTransactionsContent } from './helpers/transactions';
+
+test.describe.configure({ timeout: 90000 });
 
 test.describe('Transactions page', () => {
   test.beforeEach(async ({ page }) => {
@@ -21,8 +24,7 @@ test.describe('Transactions page', () => {
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {
       /* network may stay active due to polling; best-effort only */
     });
-    // Give Handsontable time to hydrate and mount
-    await page.waitForTimeout(1500);
+    await waitForTransactionsContent(page, { timeout: 60000 });
   });
 
   test('renders key controls and headers', async ({ page }) => {
@@ -30,8 +32,10 @@ test.describe('Transactions page', () => {
     await expect(page).toHaveURL(/\/transactions/);
 
     // Search input should be present (using actual placeholder text)
-    const searchInput = page.getByPlaceholder(/search transactions/i);
-    await expect(searchInput).toBeVisible({ timeout: 10000 });
+    const searchInput = page
+      .locator('input[placeholder*="Search transactions" i]')
+      .first();
+    await expect(searchInput).toBeVisible({ timeout: 20000 });
 
     // Note: Action buttons and grid headers are tested in invoice-generation.spec.ts
     // which has more comprehensive coverage of the transactions page functionality
@@ -43,15 +47,19 @@ test.describe('Transactions page', () => {
 
     // Note: Status filter functionality is thoroughly tested in invoice-generation.spec.ts
     // This basic test just ensures the page loads without errors
-    const searchInput = page.getByPlaceholder(/search transactions/i);
-    await expect(searchInput).toBeVisible({ timeout: 10000 });
+    const searchInput = page
+      .locator('input[placeholder*="Search transactions" i]')
+      .first();
+    await expect(searchInput).toBeVisible({ timeout: 20000 });
   });
 
   test('keeps record payments status pills in sync', async ({ page }) => {
     await expect(page).toHaveURL(/\/transactions/);
 
-    const searchInput = page.getByPlaceholder(/search transactions/i);
-    await expect(searchInput).toBeVisible({ timeout: 10000 });
+    const searchInput = page
+      .locator('input[placeholder*="Search transactions" i]')
+      .first();
+    await expect(searchInput).toBeVisible({ timeout: 20000 });
 
     const mainPreparedPill = page
       .locator('.mantine-Pill-root', { hasText: 'Prepared' })

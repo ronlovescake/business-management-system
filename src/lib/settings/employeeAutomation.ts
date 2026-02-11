@@ -103,11 +103,17 @@ const sanitizeUpdate = (
   return next;
 };
 
-const ensureDefaultRecord = async () =>
-  prisma.employeeAutomationSetting.upsert({
-    where: { key: SETTINGS_KEY },
-    update: {},
-    create: {
+const isMissingRelationError = (error: unknown): boolean =>
+  error instanceof Prisma.PrismaClientKnownRequestError &&
+  (error.code === 'P2021' || error.code === 'P2003');
+
+const isUniqueConstraintError = (error: unknown): boolean =>
+  error instanceof Prisma.PrismaClientKnownRequestError &&
+  error.code === 'P2002';
+
+const createDefaultRecord = async () =>
+  prisma.employeeAutomationSetting.create({
+    data: {
       key: SETTINGS_KEY,
       stayInAutoPresenceEnabled: DEFAULT_SETTINGS.stayInAutoPresenceEnabled,
       stayInAutoPresenceTime: DEFAULT_SETTINGS.stayInAutoPresenceTime,
@@ -117,9 +123,31 @@ const ensureDefaultRecord = async () =>
     },
   });
 
-const isMissingRelationError = (error: unknown): boolean =>
-  error instanceof Prisma.PrismaClientKnownRequestError &&
-  (error.code === 'P2021' || error.code === 'P2003');
+const ensureDefaultRecord = async () => {
+  const existing = await prisma.employeeAutomationSetting.findUnique({
+    where: { key: SETTINGS_KEY },
+  });
+
+  if (existing) {
+    return existing;
+  }
+
+  try {
+    return await createDefaultRecord();
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      const record = await prisma.employeeAutomationSetting.findUnique({
+        where: { key: SETTINGS_KEY },
+      });
+
+      if (record) {
+        return record;
+      }
+    }
+
+    throw error;
+  }
+};
 
 export async function getEmployeeAutomationSettings(): Promise<EmployeeAutomationSettings> {
   try {
@@ -178,16 +206,39 @@ export async function updateEmployeeAutomationSettings(
   };
 
   try {
-    const record = await prisma.employeeAutomationSetting.upsert({
-      where: { key: SETTINGS_KEY },
-      update: updateData,
-      create: createData,
+    const record = await prisma.$transaction(async (tx) => {
+      const existing = await tx.employeeAutomationSetting.findUnique({
+        where: { key: SETTINGS_KEY },
+      });
+
+      if (!existing) {
+        return tx.employeeAutomationSetting.create({ data: createData });
+      }
+
+      return tx.employeeAutomationSetting.update({
+        where: { key: SETTINGS_KEY },
+        data: updateData,
+      });
     });
 
     return mapRecordToSettings(record);
   } catch (error) {
     if (isMissingRelationError(error)) {
       return { ...DEFAULT_SETTINGS };
+    }
+
+    if (isUniqueConstraintError(error)) {
+      const record = await prisma.employeeAutomationSetting.findUnique({
+        where: { key: SETTINGS_KEY },
+      });
+
+      if (record) {
+        const updated = await prisma.employeeAutomationSetting.update({
+          where: { key: SETTINGS_KEY },
+          data: updateData,
+        });
+        return mapRecordToSettings(updated);
+      }
     }
 
     throw error;

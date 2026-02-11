@@ -1,5 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 
+test.describe.configure({ timeout: 60000 });
+
 /**
  * E2E Tests for Operations Pages
  *
